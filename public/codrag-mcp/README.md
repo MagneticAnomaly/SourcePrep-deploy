@@ -523,6 +523,7 @@ The actual CoDRAG engine, dashboard, CLI, and all indexing logic live in the mai
 
 - **[Ollama](https://ollama.com/)** — Local LLM serving (CoDRAG uses for embeddings)
 - **[CLaRa](https://github.com/apple/ml-clara)** — Context compression (optional integration)
+- **[CLaRa-Remembers-It-All](https://github.com/EricBintner/CLaRa-Remembers-It-All)** — For hosting CLaRa models on a network(optional integration)
 
 ---
 
