@@ -47,15 +47,18 @@
       "codrag": [
         {
           "id": "codrag.projects",
-          "name": "Projects"
+          "name": "Projects",
+          "icon": "media/codrag-sidebar.svg"
         },
         {
           "id": "codrag.fileTree",
-          "name": "File Tree"
+          "name": "File Tree",
+          "icon": "media/codrag-sidebar.svg"
         },
         {
           "id": "codrag.indexStatus",
-          "name": "Index Status"
+          "name": "Index Status",
+          "icon": "media/codrag-sidebar.svg"
         }
       ]
     },
