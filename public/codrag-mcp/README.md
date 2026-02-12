@@ -33,7 +33,7 @@ AI tools are evolving fast. The context they need shouldn't be locked inside one
 
 | Developer Problem | CoDRAG Solution |
 |:---|:---|
-| **"AI hallucinations"** | AI guesses when it lacks context. CoDRAG provides **grounded, source-cited context** from the whole repo. |
+| **"AI hallucinations"** | AI guesses when it lacks context or gets condused with too much context. CoDRAG provides **grounded, guided, source-cited context** from targeted parts of your codebase. |
 | **"Fragmented Context"** | Each tool (Cursor, VS Code, CLI) has its own partial index. CoDRAG is a **unified context server** for *all* your tools. |
 | **"Dumb Search"** | grep/regex misses concepts. CoDRAG uses **Trace Indexing** (Who calls this? What implements this interface?) + Semantic Search. |
 | **"Privacy Risks"** | Most tools upload code to index it. CoDRAG is **100% Local-First**. Your code never leaves your machine. |
