@@ -54,6 +54,9 @@ else
     # Fallback detection
     ARCH=$(uname -m)
     if [[ "$OS" == "Darwin"* ]]; then
+        if [[ "$ARCH" == "arm64" ]]; then
+            ARCH="aarch64"
+        fi
         TARGET_TRIPLE="${ARCH}-apple-darwin"
     elif [[ "$OS" == "Linux"* ]]; then
         TARGET_TRIPLE="${ARCH}-unknown-linux-gnu"

@@ -10,7 +10,7 @@ AI assistants are only as good as the context they receive. Most tools send frag
 - **Semantic search** — find code by intent, not just keywords. Results are ranked by relevance across every file in the project.
 - **Trace Index** — a structural code graph (symbols, imports, call chains) so agents can reason about *how* code connects, not just *where* it lives.
 - **Context assembly** — returns bounded, LLM-ready chunks with source attribution. No more "which file was that from?"
-- **MCP for IDEs** — plug into Cursor, Windsurf, Claude Desktop, VS Code, or JetBrains via Model Context Protocol. The agent gets the same index you do.
+- **MCP for AI tools** — plug into Cursor, Windsurf, Claude Code, VS Code, Gemini CLI, Qwen Code, GitHub Copilot, or JetBrains via Model Context Protocol. The agent gets the same index you do.
 - **Local-first** — your code never leaves your machine. Indexes are built and queried locally; nothing is uploaded.
 
 ---
@@ -20,7 +20,7 @@ AI assistants are only as good as the context they receive. Most tools send frag
 CoDRAG is primarily used in two ways:
 
 - **CLI**: manage projects, build indexes, search, and assemble context.
-- **MCP tool/server**: expose CoDRAG capabilities to IDEs (Windsurf, Cursor, Claude Desktop) via the Model Context Protocol.
+- **MCP tool/server**: expose CoDRAG capabilities to AI tools (Cursor, Windsurf, Claude Code, Gemini CLI, Qwen Code, Copilot) via the Model Context Protocol.
 
 ### CLI (daemon mode)
 
@@ -77,7 +77,7 @@ CoDRAG is a **local-first, team-ready** application that provides:
 - **Trace indexing** for structural understanding (symbols, imports, call graphs)
 - **LLM augmentation** for intelligent summaries and context assembly
 - **Unified dashboard** with project tabs, search, and visualization
-- **MCP integration** for IDE tools (Windsurf, Cursor, VS Code)
+- **MCP integration** for AI tools (Cursor, Windsurf, Claude Code, Gemini CLI, Qwen Code, VS Code, Copilot)
 
 ### Why CoDRAG?
 

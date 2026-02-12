@@ -3,39 +3,68 @@
   windows_subsystem = "windows"
 )]
 
-use std::process::Command;
-use tauri::{Manager, WindowEvent};
-use std::sync::{Arc, Mutex};
+use tauri::Manager;
+use tauri::api::process::CommandEvent;
 use std::thread;
 use std::time::Duration;
 
-#[derive(Default)]
-struct DaemonState {
-    port: u16,
-    pid: Option<u32>,
+fn is_port_open(port: u16) -> bool {
+    std::net::TcpStream::connect(("127.0.0.1", port)).is_ok()
+}
+
+fn is_daemon_healthy(port: u16) -> bool {
+    let url = format!("http://127.0.0.1:{}/health", port);
+    // Use blocking client for simplicity in setup hook
+    match reqwest::blocking::get(&url) {
+        Ok(resp) => resp.status().is_success(),
+        Err(_) => false,
+    }
 }
 
 fn main() {
   tauri::Builder::default()
     .setup(|app| {
-        let app_handle = app.handle();
-        
-        // MVP: Sidecar management
-        // 1. Check if port 8400 is open
-        // 2. If open, check /health
-        // 3. If not, start sidecar
-        
-        // For MVP, we assume port 8400 default for now.
-        // P08-R2 implementation will go here.
-        
-        // Inject daemon URL into window when it loads
-        let window = app.get_window("main").unwrap();
-        
-        /* 
-           This is where we'll implement P08-R2 (Port Strategy)
-           let sidecar_command = app.shell().sidecar("codrag-daemon").unwrap();
-           let (mut rx, mut child) = sidecar_command.spawn().expect("Failed to spawn sidecar");
-        */
+        let port = 8400;
+        let mut launch_sidecar = true;
+
+        if is_port_open(port) {
+            println!("[Tauri] Port {} is open, checking health...", port);
+            if is_daemon_healthy(port) {
+                println!("[Tauri] Daemon is healthy. Attaching.");
+                launch_sidecar = false;
+            } else {
+                println!("[Tauri] Port is open but daemon unhealthy/unknown. Attempting to launch sidecar anyway (might fail if port blocked).");
+            }
+        }
+
+        if launch_sidecar {
+            println!("[Tauri] Launching sidecar...");
+            // "codrag-daemon" corresponds to binaries/codrag-daemon-<target>
+            let sidecar = tauri::api::process::Command::new_sidecar("codrag-daemon")
+                .expect("Failed to create sidecar command");
+            
+            // The daemon defaults to 8400, but we can be explicit
+            // sidecar.args(&["--port", "8400"]);
+
+            let (mut rx, _child) = sidecar.spawn().expect("Failed to spawn sidecar");
+
+            tauri::async_runtime::spawn(async move {
+                while let Some(event) = rx.recv().await {
+                    match event {
+                        tauri::api::process::CommandEvent::Stdout(line) => {
+                            println!("[Daemon] {}", line);
+                        }
+                        tauri::api::process::CommandEvent::Stderr(line) => {
+                            eprintln!("[Daemon] {}", line);
+                        }
+                        _ => {}
+                    }
+                }
+            });
+            
+            // Simple wait to allow daemon to startup
+            thread::sleep(Duration::from_secs(1));
+        }
 
         Ok(())
     })

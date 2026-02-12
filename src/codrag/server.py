@@ -2538,8 +2538,8 @@ def trace_search_project(project_id: str, req: TraceSearchRequest) -> Dict[str, 
     return ok({"nodes": nodes})
 
 
-@app.get("/projects/{project_id}/trace/node/{node_id}")
-@app.get("/projects/{project_id}/trace/nodes/{node_id}")
+@app.get("/projects/{project_id}/trace/node/{node_id:path}")
+@app.get("/projects/{project_id}/trace/nodes/{node_id:path}")
 def get_trace_node(project_id: str, node_id: str) -> Dict[str, Any]:
     proj = _require_project(project_id)
 
@@ -2568,8 +2568,7 @@ def get_trace_node(project_id: str, node_id: str) -> Dict[str, Any]:
     return ok({"node": node, "in_degree": in_degree, "out_degree": out_degree})
 
 
-@app.get("/projects/{project_id}/trace/neighbors/{node_id}")
-@app.get("/projects/{project_id}/trace/nodes/{node_id}/neighbors")
+@app.get("/projects/{project_id}/trace/neighbors/{node_id:path}")
 def get_trace_node_neighbors(
     project_id: str,
     node_id: str,

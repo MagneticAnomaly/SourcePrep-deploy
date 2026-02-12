@@ -42,13 +42,13 @@ This file orchestrates work across phases by:
 - Phase11: `Phase11_Deployment/TODO.md`
 - Phase12: `Phase12_Marketing-Documentation-Website/TODO.md`
 - Phase13: `Phase13_Storybook/TODO.md`
-- Phase14: `Phase14_UI_UX_Improvements/TODO.md`
+- Phase14: `Phase14_UI_UX_Improvements/README.md`
 - Phase15: `Phase15_modular-design/TODO.md`
 - Phase16: `Phase16_ContextIntelligence/README.md`
 - Phase17: `Phase17_VSC-plugin/TODO.md`
 - Phase18: `Phase18_DataVisualization/README.md`
 - Phase19: `Phase19_Alt-Dev-Workflows/TODO.md`
-- Phase20: `Phase20_support_strategy/TODO.md`
+- Phase20: `Phase20_support_strategy/README.md`
 
 ## Dependency anchors (planning)
 - **Canonical dependency doc:** `PHASE_DEPENDENCIES.md`
@@ -226,16 +226,16 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 ### Sprint S-18: Data Visualization (Phase 18)
 **Goal:** Make invisible index activity visible and beautiful via CLI and Dashboard.
 
-- [ ] S-18.1 CLI Visualizations (Activity Heatmap, Index Health, Build Sparkline)
+- [x] S-18.1 CLI Visualizations (Activity Heatmap, Index Health, Build Sparkline)
 - [ ] S-18.2 Dashboard Viz Panels (Activity, Health, Token Budget)
-- [ ] S-18.3 Index Drift & RAG Flow visualization tools
+- [x] S-18.3 Index Drift & RAG Flow visualization tools
 
 ### Sprint S-19: Lean Support Strategy (Phase 20)
 **Goal:** Consolidate support channels to GitHub Discussions + single email.
 
-- [ ] S-19.1 Update Marketing `/contact` page (Community vs Private split)
-- [ ] S-19.2 Retire standalone Support App (websites/apps/support)
-- [ ] S-19.3 Update global navigation support links
+- [x] S-19.1 Update Marketing `/contact` page (Community vs Private split)
+- [x] S-19.2 Implement standalone Support App (Headless GitHub portal)
+- [x] S-19.3 Update global navigation support links
 
 ### Sprint S-20: Modular Dashboard (Phase 15)
 **Goal:** Grid-based, draggable, persistent dashboard layout system.

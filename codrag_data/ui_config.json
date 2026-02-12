@@ -248,9 +248,9 @@
         "w": 4
       },
       {
-        "id": "search",
+        "id": "llm-status",
         "visible": true,
-        "height": 6,
+        "height": 9,
         "collapsed": false,
         "x": 0,
         "y": 24,
@@ -260,17 +260,8 @@
         "id": "context-output",
         "visible": true,
         "height": 10,
-        "collapsed": false,
+        "collapsed": true,
         "x": 4,
-        "y": 30,
-        "w": 4
-      },
-      {
-        "id": "llm-status",
-        "visible": true,
-        "height": 6,
-        "collapsed": false,
-        "x": 0,
         "y": 30,
         "w": 4
       },
@@ -284,26 +275,35 @@
         "w": 4
       },
       {
-        "id": "log-console",
+        "id": "search",
         "visible": true,
         "height": 6,
+        "collapsed": true,
+        "x": 4,
+        "y": 32,
+        "w": 4
+      },
+      {
+        "id": "log-console",
+        "visible": true,
+        "height": 10,
         "collapsed": false,
         "x": 0,
-        "y": 36,
-        "w": 4
+        "y": 34,
+        "w": 8
       },
       {
         "id": "trace-pipeline",
         "visible": true,
-        "height": 5,
+        "height": 8,
         "collapsed": false,
         "x": 0,
-        "y": 42,
+        "y": 44,
         "w": 8
       },
       {
         "id": "settings",
-        "visible": true,
+        "visible": false,
         "height": 6,
         "collapsed": true,
         "x": 8,
