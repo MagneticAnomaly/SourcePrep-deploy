@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { DaemonManager } from './daemon';
 import { ProjectsTreeDataProvider, ProjectTreeItem } from './views/projectsTree';
-import { FileTreeDataProvider } from './views/fileTree';
+import { FileTreeDataProvider, FileTreeItem } from './views/fileTree';
 import { IndexStatusTreeDataProvider } from './views/indexStatus';
 import { SearchResultsPanel } from './webview/searchResults';
 import { ContextPreviewPanel } from './webview/contextPreview';
@@ -311,13 +311,16 @@ export function registerCommands(
 
   // ── Pin / Unpin ─────────────────────────────────────────────
 
-  reg('codrag.pinFile', () => {
-    // TODO: Implement pin/unpin via daemon API when endpoint exists
-    vscode.window.showInformationMessage('File pinning will be available in a future update.');
+  reg('codrag.pinFile', async (item: unknown) => {
+    if (item instanceof FileTreeItem) {
+      await fileTree.pinFile(item);
+    }
   });
 
-  reg('codrag.unpinFile', () => {
-    vscode.window.showInformationMessage('File pinning will be available in a future update.');
+  reg('codrag.unpinFile', async (item: unknown) => {
+    if (item instanceof FileTreeItem) {
+      await fileTree.unpinFile(item);
+    }
   });
 }
 

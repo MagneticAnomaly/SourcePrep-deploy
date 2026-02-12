@@ -181,6 +181,11 @@
     "budget_max_items": 100,
     "priority": "lowest_confidence"
   },
+  "ui_preferences": {
+    "mode": "light",
+    "theme": "m",
+    "bg_image": null
+  },
   "module_layout": {
     "version": 14,
     "panels": [

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { RefreshCw, FileText, Settings, X, ImageIcon } from 'lucide-react'
+import { RefreshCw, FileText, Settings, X, ImageIcon, AlertCircle } from 'lucide-react'
 import {
   // API
   useApiClient,
@@ -65,6 +65,7 @@ import {
   useEventStream,
   PANEL_REGISTRY,
 } from '@codrag/ui'
+import { StartupScreen } from './components/StartupScreen'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
@@ -129,42 +130,6 @@ function toProjectSummary(p: ProjectListItem, ps: ProjectStatus | null, building
     chunk_count: ps?.index.total_chunks,
     last_build_at: ps?.index.last_build_at ?? undefined,
   }
-}
-
-// ── Connectivity Check ──────────────────────────────────────
-function ConnectivityStatus() {
-  const api = useApiClient()
-  const [status, setStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking')
-
-  useEffect(() => {
-    const check = async () => {
-      try {
-        await api.getHealth()
-        setStatus('connected')
-      } catch {
-        setStatus('disconnected')
-      }
-    }
-    check()
-    const interval = setInterval(check, 5000)
-    return () => clearInterval(interval)
-  }, [api])
-
-  if (status === 'connected') return (
-    <div className="fixed top-4 left-72 z-50 flex items-center gap-2 px-3 py-1.5 bg-surface/80 backdrop-blur border border-border rounded-full shadow-sm text-xs font-medium text-text-muted">
-      <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
-      Daemon Connected
-    </div>
-  )
-  
-  if (status === 'disconnected') return (
-    <div className="fixed top-4 left-72 z-50 flex items-center gap-2 px-3 py-1.5 bg-error/10 border border-error/20 rounded-full shadow-sm text-xs font-medium text-error">
-      <div className="w-2 h-2 rounded-full bg-error" />
-      Daemon Disconnected
-    </div>
-  )
-
-  return null
 }
 
 // ── Settings Panel (drawer) ──────────────────────────────────
@@ -354,6 +319,33 @@ function SettingsDrawer({
 
 function App() {
   const api = useApiClient()
+
+  // ── Connection state ───────────────────────────────────────
+  const [isConnected, setIsConnected] = useState(false)
+  const [isDaemonUnhealthy, setIsDaemonUnhealthy] = useState(false)
+
+  // Initial connection & health polling
+  useEffect(() => {
+    let interval: NodeJS.Timeout
+
+    const checkHealth = async () => {
+      try {
+        await api.getHealth()
+        if (!isConnected) setIsConnected(true)
+        setIsDaemonUnhealthy(false)
+      } catch {
+        if (isConnected) setIsDaemonUnhealthy(true)
+      }
+    }
+
+    // Start polling once connected (StartupScreen handles the initial wait)
+    if (isConnected) {
+      interval = setInterval(checkHealth, 2000)
+      checkHealth()
+    }
+
+    return () => clearInterval(interval)
+  }, [api, isConnected])
 
   // ── Global state ───────────────────────────────────────────
   const [loading, setLoading] = useState(true)

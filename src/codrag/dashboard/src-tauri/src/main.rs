@@ -3,8 +3,15 @@
   windows_subsystem = "windows"
 )]
 
+use tauri::{Manager, RunEvent};
+use tauri::api::process::{Command, CommandEvent, CommandChild};
+use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
+
+struct SidecarState {
+    child: Mutex<Option<CommandChild>>,
+}
 
 fn is_port_open(port: u16) -> bool {
     std::net::TcpStream::connect(("127.0.0.1", port)).is_ok()
@@ -36,9 +43,10 @@ fn get_daemon_config() -> DaemonConfig {
 }
 
 fn main() {
-  tauri::Builder::default()
+  let app = tauri::Builder::default()
+    .manage(SidecarState { child: Mutex::new(None) })
     .invoke_handler(tauri::generate_handler![get_daemon_config])
-    .setup(|_app| {
+    .setup(|app| {
         let port = 8400;
         let mut launch_sidecar = true;
 
@@ -55,21 +63,25 @@ fn main() {
         if launch_sidecar {
             println!("[Tauri] Launching sidecar...");
             // "codrag-daemon" corresponds to binaries/codrag-daemon-<target>
-            let sidecar = tauri::api::process::Command::new_sidecar("codrag-daemon")
+            let sidecar = Command::new_sidecar("codrag-daemon")
                 .expect("Failed to create sidecar command");
             
             // The daemon defaults to 8400, but we can be explicit
             // sidecar.args(&["--port", "8400"]);
 
-            let (mut rx, _child) = sidecar.spawn().expect("Failed to spawn sidecar");
+            let (mut rx, child) = sidecar.spawn().expect("Failed to spawn sidecar");
+            
+            // Store child process handle for cleanup
+            let state = app.state::<SidecarState>();
+            *state.child.lock().unwrap() = Some(child);
 
             tauri::async_runtime::spawn(async move {
                 while let Some(event) = rx.recv().await {
                     match event {
-                        tauri::api::process::CommandEvent::Stdout(line) => {
+                        CommandEvent::Stdout(line) => {
                             println!("[Daemon] {}", line);
                         }
-                        tauri::api::process::CommandEvent::Stderr(line) => {
+                        CommandEvent::Stderr(line) => {
                             eprintln!("[Daemon] {}", line);
                         }
                         _ => {}
@@ -83,6 +95,21 @@ fn main() {
 
         Ok(())
     })
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    .build(tauri::generate_context!())
+    .expect("error while building tauri application");
+
+  app.run(|app_handle, event| {
+      if let RunEvent::Exit = event {
+          let state = app_handle.state::<SidecarState>();
+          let mut child = state.child.lock().unwrap();
+          if let Some(c) = child.take() {
+              println!("[Tauri] Killing sidecar process...");
+              if let Err(e) = c.kill() {
+                  eprintln!("[Tauri] Failed to kill sidecar: {}", e);
+              } else {
+                  println!("[Tauri] Sidecar killed.");
+              }
+          }
+      }
+  });
 }

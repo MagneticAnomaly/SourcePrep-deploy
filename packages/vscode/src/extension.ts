@@ -6,6 +6,7 @@ import { FileTreeDataProvider } from './views/fileTree';
 import { IndexStatusTreeDataProvider } from './views/indexStatus';
 import { StatusBarManager } from './statusBar';
 import { registerCommands } from './commands';
+import { registerChatParticipant } from './chat';
 
 let daemonManager: DaemonManager | undefined;
 let statusBarManager: StatusBarManager | undefined;
@@ -24,7 +25,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Tree data providers
   const projectsTree = new ProjectsTreeDataProvider(client, daemonManager);
-  const fileTree = new FileTreeDataProvider(client, daemonManager);
+  const fileTree = new FileTreeDataProvider(client, daemonManager, context);
   const indexStatus = new IndexStatusTreeDataProvider(client, daemonManager);
 
   context.subscriptions.push(
@@ -39,6 +40,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Register all commands
   registerCommands(context, daemonManager, projectsTree, fileTree, indexStatus, outputChannel);
+
+  // Register chat participant
+  registerChatParticipant(context, client);
 
   // Synchronize views when project selection changes
   context.subscriptions.push(

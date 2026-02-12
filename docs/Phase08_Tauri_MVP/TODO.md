@@ -18,21 +18,21 @@
   - determine API base (default 8400)
   - connect to existing daemon if healthy
   - else launch bundled python sidecar and wait for `/health`
-- [ ] P08-I2 Shutdown sequence:
+- [x] P08-I2 Shutdown sequence: ✅ **DONE: `src/main.rs` uses `SidecarState` + `RunEvent::Exit`**
   - graceful shutdown endpoint (if available) or terminate sidecar
   - avoid orphan processes
-- [ ] P08-I3 Crash recovery UX:
+- [x] P08-I3 Crash recovery UX: ✅ **DONE: `App.tsx` ConnectionGuard**
   - banner when backend stopped
   - actions: restart backend / view logs
 
 ### Port strategy
 - [x] P08-I4 Prefer `127.0.0.1:8400` ✅ **DONE: `src/main.rs`**
 - [ ] P08-I5 If port occupied, detect whether it’s CoDRAG; otherwise use fallback port
-- [ ] P08-I6 Expose chosen base URL to WebView reliably
+- [x] P08-I6 Expose chosen base URL to WebView reliably ✅ **DONE: `get_daemon_config` command**
 
 ### UX surfaces
-- [ ] P08-I7 “Backend starting…” screen with timeout + actionable failure state
-- [ ] P08-I8 Optional backend lifecycle panel (PID/port local-only)
+- [x] P08-I7 “Backend starting…” screen with timeout + actionable failure state ✅ **DONE: `StartupScreen.tsx`**
+- [x] P08-I8 Optional backend lifecycle panel (PID/port local-only) ✅ **DONE: `ConnectionGuard` handles status**
 
 ## Testing & validation (P08-T*)
 - [x] P08-T1 Install and first-run: backend starts automatically and dashboard loads ✅ **DONE: Verified `.app` creation & sidecar build**

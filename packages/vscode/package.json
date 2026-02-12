@@ -310,7 +310,16 @@
           "maximum": 60000
         }
       }
-    }
+    },
+    "chatParticipants": [
+      {
+        "id": "codrag.chat",
+        "name": "codrag",
+        "fullName": "CoDRAG",
+        "description": "Ask questions about your codebase using CoDRAG's semantic index.",
+        "isSticky": true
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run build",

@@ -213,13 +213,13 @@ export class CodragApiClient implements ApiClient {
 
   async getTraceNode(projectId: string, nodeId: string): Promise<{ node: any; in_degree: number; out_degree: number }> {
     return this.requestEnvelope<{ node: any; in_degree: number; out_degree: number }>(
-      `/projects/${encodeURIComponent(projectId)}/trace/nodes/${encodeURIComponent(nodeId)}`
+      `/projects/${encodeURIComponent(projectId)}/trace/nodes/${encodeURI(nodeId)}`
     );
   }
 
   async getTraceNeighbors(projectId: string, nodeId: string, direction: string = 'both'): Promise<{ nodes: any[]; edges: any[] }> {
     return this.requestEnvelope<{ nodes: any[]; edges: any[] }>(
-      `/projects/${encodeURIComponent(projectId)}/trace/neighbors/${encodeURIComponent(nodeId)}`,
+      `/projects/${encodeURIComponent(projectId)}/trace/neighbors/${encodeURI(nodeId)}`,
       { query: { direction } }
     );
   }
@@ -462,7 +462,7 @@ export class CodragApiClient implements ApiClient {
 
     const envelope = json as ApiEnvelope<T>;
     if (typeof envelope !== 'object' || envelope === null || typeof envelope.success !== 'boolean') {
-      throw new ApiClientError('Unexpected response shape from CoDRAG daemon', {
+      throw new ApiClientError(`Unexpected response shape from CoDRAG daemon: ${url.pathname} (HTTP ${res.status})`, {
         status: res.status,
         url: url.toString(),
       });
