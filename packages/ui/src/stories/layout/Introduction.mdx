@@ -1,0 +1,127 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Dashboard/Layouts/Introduction" />
+
+# Modular Dashboard Layout System
+
+The CoDRAG Modular Dashboard is a flexible, grid-based layout system that allows users to customize their workspace. It is built on top of `react-grid-layout` and provides a set of opinionated wrappers and state management hooks to ensure a consistent, persistent user experience.
+
+## Core Concepts
+
+The system is composed of four main layers:
+
+1.  **Grid Container** (`DashboardGrid`) — Handles the drag-and-drop grid logic.
+2.  **Panel Wrapper** (`PanelChrome`) — Provides the standard UI frame (header, controls) for each panel.
+3.  **State Management** (`useLayoutPersistence`) — Handles saving/loading layouts and panel visibility.
+4.  **Orchestrator** (`ModularDashboard`) — A high-level component that wires everything together.
+
+## Architecture
+
+### 1. Data Model
+
+The layout state is defined by the `DashboardLayout` interface:
+
+```typescript
+interface DashboardLayout {
+  version: number;
+  panels: PanelConfig[];
+}
+
+interface PanelConfig {
+  id: string;        // Unique ID matching a PanelDefinition
+  visible: boolean;  // Is the panel currently shown?
+  collapsed: boolean;// Is the panel rolled up to just its header?
+  x: number;         // Grid column start
+  y: number;         // Grid row start
+  w: number;         // Grid width (usually 12 for full width)
+  h: number;         // Grid height in row units
+}
+```
+
+Panel metadata (static config) is defined by `PanelDefinition`:
+
+```typescript
+interface PanelDefinition {
+  id: string;
+  title: string;
+  icon: LucideIcon;
+  defaultHeight: number;
+  minHeight?: number;
+  category: 'status' | 'search' | 'project' | 'settings';
+  resizable?: boolean; // Defaults to true
+}
+```
+
+### 2. DashboardGrid
+
+The `DashboardGrid` component wraps `react-grid-layout`. It enforces:
+- **12-column grid** (configurable).
+- **Vertical compaction** (panels float up).
+- **Responsive width** via `ResizeObserver`.
+- **Drag handles** (via `.drag-handle` class in `PanelChrome`).
+
+```tsx
+<DashboardGrid
+  layout={currentLayout}
+  onLayoutChange={handleLayoutChange}
+>
+  {/* Panel children */}
+</DashboardGrid>
+```
+
+### 3. PanelChrome
+
+Every panel content component is wrapped in `PanelChrome`. This provides:
+- The drag handle (grip icon).
+- Title and Icon.
+- Collapse/Expand toggle.
+- Close button (sets `visible: false`).
+
+```tsx
+<PanelChrome 
+  title="Search" 
+  icon={Search}
+  collapsed={isCollapsed}
+  onCollapse={toggleCollapse}
+>
+  <SearchPanel />
+</PanelChrome>
+```
+
+### 4. Persistence
+
+The `useLayoutPersistence` hook automatically syncs layout changes to `localStorage` (key: `codrag_dashboard_layout`). It includes:
+- **Debounced saving** to prevent thrashing storage.
+- **Schema versioning** to allow future format changes.
+- **Reconciliation** to merge saved user layouts with new default panels shipped in updates.
+
+## Usage
+
+The primary entry point is `<ModularDashboard />`. It takes a set of panel definitions and a map of content components.
+
+```tsx
+import { ModularDashboard } from '@codrag/ui';
+import { PANELS, PANEL_CONTENT } from './config';
+
+export function App() {
+  return (
+    <ModularDashboard
+      panelDefinitions={PANELS}
+      panelContent={PANEL_CONTENT}
+      headerRight={<ThemeToggle />}
+    />
+  );
+}
+```
+
+## Customization
+
+### Adding a New Panel
+
+1.  Add a `PanelDefinition` to your registry (ID, title, defaults).
+2.  Add the component to the `panelContent` map in `App.tsx` (or your orchestrator).
+3.  The layout system will automatically detect the new panel. If it's not in the user's saved layout, it will be added to the bottom (or hidden, depending on `defaultVisible`).
+
+### Layout Reset
+
+The system supports a "hard reset" to defaults via the `PanelPicker` component. This clears the local storage entry and reloads the default configuration defined in code.

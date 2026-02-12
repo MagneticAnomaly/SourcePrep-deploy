@@ -3,8 +3,6 @@
   windows_subsystem = "windows"
 )]
 
-use tauri::Manager;
-use tauri::api::process::CommandEvent;
 use std::thread;
 use std::time::Duration;
 
@@ -21,9 +19,26 @@ fn is_daemon_healthy(port: u16) -> bool {
     }
 }
 
+#[derive(serde::Serialize)]
+struct DaemonConfig {
+    url: String,
+    port: u16,
+}
+
+#[tauri::command]
+fn get_daemon_config() -> DaemonConfig {
+    // MVP: Currently hardcoded to 8400. 
+    // Future: Retrieve from managed state if dynamic port selection is implemented.
+    DaemonConfig {
+        url: "http://127.0.0.1:8400".to_string(),
+        port: 8400,
+    }
+}
+
 fn main() {
   tauri::Builder::default()
-    .setup(|app| {
+    .invoke_handler(tauri::generate_handler![get_daemon_config])
+    .setup(|_app| {
         let port = 8400;
         let mut launch_sidecar = true;
 

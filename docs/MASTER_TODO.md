@@ -152,7 +152,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 ### Sprint S-07: Desktop packaging + deployment readiness
 **Goal:** Tauri app + sidecar lifecycle + signed distribution path.
 
-- [ ] S-07.1 Tauri wrapper + sidecar startup/shutdown + port strategy (Phase08)
+- [x] S-07.1 Tauri wrapper + sidecar startup/shutdown + port strategy (Phase08) ✅ **DONE: `CoDRAG.app` builds with PyInstaller sidecar**
 - [ ] S-07.2 OS distribution + signing/notarization plan (Phase11)
 - [ ] S-07.3 Offline-friendly licensing + feature gating plan (Phase11/07)
 
@@ -243,7 +243,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 - [x] S-20.1 Core Layout Engine (`DashboardGrid`, `PanelChrome`, `useLayoutPersistence`)
 - [x] S-20.2 Panel Registry & Component Extraction
 - [x] S-20.3 Panel Picker & Layout Controls
-- [ ] S-20.4 Storybook Documentation (Sprint 7) & DoD Checklist
+- [x] S-20.4 Storybook Documentation (Sprint 7) & DoD Checklist
 
 ### Sprint S-21: UI/UX Improvements (Phase 14)
 **Goal:** Polish visual consistency, form layouts, and spacing across the dashboard.

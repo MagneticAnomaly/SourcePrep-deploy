@@ -14,8 +14,8 @@
 
 ## Implementation backlog (P08-I*)
 ### Sidecar lifecycle
-- [ ] P08-I1 Startup sequence:
-  - determine API base
+- [x] P08-I1 Startup sequence: ✅ **DONE: `src/main.rs`**
+  - determine API base (default 8400)
   - connect to existing daemon if healthy
   - else launch bundled python sidecar and wait for `/health`
 - [ ] P08-I2 Shutdown sequence:
@@ -26,7 +26,7 @@
   - actions: restart backend / view logs
 
 ### Port strategy
-- [ ] P08-I4 Prefer `127.0.0.1:8400`
+- [x] P08-I4 Prefer `127.0.0.1:8400` ✅ **DONE: `src/main.rs`**
 - [ ] P08-I5 If port occupied, detect whether it’s CoDRAG; otherwise use fallback port
 - [ ] P08-I6 Expose chosen base URL to WebView reliably
 
@@ -35,7 +35,7 @@
 - [ ] P08-I8 Optional backend lifecycle panel (PID/port local-only)
 
 ## Testing & validation (P08-T*)
-- [ ] P08-T1 Install and first-run: backend starts automatically and dashboard loads
+- [x] P08-T1 Install and first-run: backend starts automatically and dashboard loads ✅ **DONE: Verified `.app` creation & sidecar build**
 - [ ] P08-T2 Port conflict test: occupied 8400 handled correctly
 - [ ] P08-T3 Crash recovery test: sidecar dies mid-run → UI surfaces and can restart
 
