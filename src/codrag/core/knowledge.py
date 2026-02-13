@@ -23,7 +23,7 @@ import numpy as np
 
 from codrag.core.embedder import Embedder
 from codrag.core.index import ManifestBuildStats, build_manifest, write_manifest
-from codrag.core.trace import project_index_dir
+from codrag.core.project_registry import project_index_dir
 
 logger = logging.getLogger(__name__)
 

@@ -15,7 +15,7 @@ import {
   Network,
   Trash2,
   Zap,
-  ScanSearch,
+  Scan,
   Power
 } from 'lucide-react';
 import type { GraphEngineStatus, GraphEngineConfig } from '../../types';
@@ -53,7 +53,7 @@ const STAGES: StageDefinition[] = [
   {
     id: 'vector',
     label: 'Vector Indexing',
-    icon: ScanSearch,
+    icon: Scan,
     description: 'Embeds raw source code for search',
     defaultAuto: true,
   },

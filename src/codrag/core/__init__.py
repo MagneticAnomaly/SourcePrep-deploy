@@ -61,7 +61,7 @@ from .epistemic_score import EpistemicScore, EpistemicEntry, compute_epistemic_s
 from .epistemic_enrichment import EpistemicEnricher, topological_sort_files
 from .cluster import ClusterSynthesizer, ModuleEntry, build_clusters
 from .deepening import DeepeningLoop, EnrichmentQueue, DriftDetector, ConvergenceTracker
-from .knowledge_index import KnowledgeIndex
+from .knowledge import KnowledgeIndex
 
 __all__ = [
     "ENGINE",

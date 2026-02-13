@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { RefreshCw, FileText, Settings, X, ImageIcon, AlertCircle, Key, Shield, Trash2 } from 'lucide-react'
+import { RefreshCw, FileText, Settings, AlertCircle } from 'lucide-react'
 import {
   // API
   useApiClient,
@@ -16,7 +16,6 @@ import {
   SearchResultsList,
   ChunkPreview,
   ContextOutput,
-  ProjectSettingsPanel,
   ModularDashboard,
   LLMStatusWidget,
   AIModelsSettings,
@@ -40,7 +39,6 @@ import {
   type EpistemicStatus,
   type ModuleStatus,
   type DeepeningStatus,
-  type LLMSlotsStatus,
   type GraphEngineStatus,
   type GraphEngineConfig,
   // Watch
@@ -50,7 +48,6 @@ import {
   EmptyState,
   // Primitives
   Button,
-  Select,
   // Types
   type SearchResult,
   type ContextMeta,
@@ -58,11 +55,6 @@ import {
   type ProjectSummary,
   type ProjectStatus,
   type StatusState,
-  type LLMConfig,
-  type LicenseStatus,
-  type LicenseTier,
-  type SavedEndpoint,
-  type EndpointTestResult,
   type WatchStatus,
   type ProjectMode,
   type DashboardLayoutApi,
@@ -74,35 +66,15 @@ import {
   PANEL_REGISTRY,
 } from '@codrag/ui'
 import { StartupScreen } from './components/StartupScreen'
+import { SettingsDrawer } from './components/settings/SettingsDrawer'
+import { useLicenseSystem } from './hooks/useLicenseSystem'
+import { useLLMConfig } from './hooks/useLLMConfig'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
 // ── Constants ────────────────────────────────────────────────
 
 const PINNED_PREFIX = 'pinned:'
-
-const MODE_OPTIONS = [
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-]
-
-const THEME_OPTIONS = [
-  { value: 'none', label: 'Default' },
-  { value: 'a', label: 'A: Slate Developer' },
-  { value: 'b', label: 'B: Deep Focus' },
-  { value: 'c', label: 'C: Signal Green' },
-  { value: 'd', label: 'D: Warm Craft' },
-  { value: 'e', label: 'E: Neo-Brutalist' },
-  { value: 'f', label: 'F: Swiss Minimal' },
-  { value: 'g', label: 'G: Glass-Morphic' },
-  { value: 'h', label: 'H: Retro-Futurism' },
-  { value: 'm', label: 'M: Retro Aurora' },
-  { value: 'n', label: 'N: Retro Mirage' },
-  { value: 'i', label: 'I: Studio Collage' },
-  { value: 'j', label: 'J: Yale Grid' },
-  { value: 'k', label: 'K: Inclusive Focus' },
-  { value: 'l', label: 'L: Enterprise Console' },
-]
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -138,404 +110,6 @@ function toProjectSummary(p: ProjectListItem, ps: ProjectStatus | null, building
     chunk_count: ps?.index.total_chunks,
     last_build_at: ps?.index.last_build_at ?? undefined,
   }
-}
-
-// ── Settings Panel (drawer) ──────────────────────────────────
-type SettingsDrawerTab = 'project' | 'global' | 'developer'
-
-interface SettingsDrawerProps {
-  open: boolean
-  onClose: () => void
-  // Project tab
-  projectConfig: ProjectConfig
-  onProjectConfigChange: (config: ProjectConfig) => void
-  onSaveConfig: () => void
-  configDirty: boolean
-  hasProject: boolean
-  onDetectStack?: () => Promise<{
-    recommended_globs: string[];
-    detected_presets: string[];
-    all_presets: Record<string, string[]>;
-  }>
-  // Deep Analysis (Project tab)
-  deepAnalysisSchedule: DeepAnalysisSchedule
-  onDeepAnalysisScheduleChange: (schedule: DeepAnalysisSchedule) => void
-  deepAnalysisStatus: DeepAnalysisRunStatus
-  deepAnalysisRunning: boolean
-  onRunDeepAnalysis: () => void
-  onCancelDeepAnalysis: () => void
-  largeModelConfigured: boolean
-  fastModelConfigured: boolean
-  // Global tab
-  uiMode: 'light' | 'dark'
-  onModeChange: (mode: 'light' | 'dark') => void
-  uiTheme: string
-  onThemeChange: (theme: string) => void
-  bgImage: string | null
-  onBgImageChange: (url: string | null) => void
-  // License (Global tab)
-  licenseStatus: LicenseStatus | null
-  licenseKeyInput: string
-  onLicenseKeyInputChange: (key: string) => void
-  onActivateLicense: () => void
-  onDeactivateLicense: () => void
-  licenseLoading: boolean
-  licenseError: string | null
-  // Project tab – danger zone
-  onDestroyGraph: () => void
-  onDestroyIndex: () => void
-  // Developer tab
-  devTierOverride: LicenseTier | null
-  onDevTierOverrideChange: (tier: LicenseTier | null) => void
-}
-
-const DEV_TIER_OPTIONS = [
-  { value: '', label: 'Off (use real license)' },
-  { value: 'free', label: 'Free' },
-  { value: 'starter', label: 'Starter' },
-  { value: 'pro', label: 'Pro' },
-  { value: 'team', label: 'Team' },
-  { value: 'enterprise', label: 'Enterprise' },
-]
-
-function SettingsDrawer({
-  open,
-  onClose,
-  projectConfig,
-  onProjectConfigChange,
-  onSaveConfig,
-  configDirty,
-  hasProject,
-  onDetectStack,
-  deepAnalysisSchedule,
-  onDeepAnalysisScheduleChange,
-  deepAnalysisStatus,
-  deepAnalysisRunning,
-  onRunDeepAnalysis,
-  onCancelDeepAnalysis,
-  largeModelConfigured,
-  fastModelConfigured,
-  uiMode,
-  onModeChange,
-  uiTheme,
-  onThemeChange,
-  bgImage,
-  onBgImageChange,
-  licenseStatus,
-  licenseKeyInput,
-  onLicenseKeyInputChange,
-  onActivateLicense,
-  onDeactivateLicense,
-  licenseLoading,
-  licenseError,
-  onDestroyGraph,
-  onDestroyIndex,
-  devTierOverride,
-  onDevTierOverrideChange,
-}: SettingsDrawerProps) {
-  const api = useApiClient()
-  const [activeTab, setActiveTab] = useState<SettingsDrawerTab>('project')
-  const [healthResult, setHealthResult] = useState<string>('No test run yet')
-
-  const runHealthTest = async () => {
-    setHealthResult('Testing...')
-    try {
-      const health = await api.getHealth()
-      setHealthResult(`OK: ${JSON.stringify(health)}`)
-    } catch (err) {
-      setHealthResult(`Error: ${err instanceof Error ? err.message : String(err)}`)
-    }
-  }
-
-  const handleBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => onBgImageChange(reader.result as string)
-    reader.readAsDataURL(file)
-  }
-
-  if (!open) return null
-
-  const tabs: { key: SettingsDrawerTab; label: string }[] = [
-    { key: 'project', label: 'Project' },
-    { key: 'global', label: 'Global' },
-    { key: 'developer', label: 'Developer' },
-  ]
-
-  return (
-    <div className="fixed inset-y-0 right-0 z-50 w-96 bg-surface border-l border-border shadow-lg flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h2 className="text-sm font-semibold text-text flex items-center gap-2">
-          <Settings className="w-4 h-4" />
-          Settings
-        </h2>
-        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close">
-          <X className="w-4 h-4" />
-        </Button>
-      </div>
-
-      {/* Tab bar */}
-      <div className="flex border-b border-border shrink-0 px-4">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            className={`px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${
-              activeTab === t.key
-                ? 'border-primary text-text'
-                : 'border-transparent text-text-muted hover:text-text'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        {/* ── Project tab ── */}
-        {activeTab === 'project' && hasProject && (
-          <>
-            <ProjectSettingsPanel
-              config={projectConfig}
-              onChange={onProjectConfigChange}
-              onSave={onSaveConfig}
-              onDetectStack={onDetectStack}
-              isDirty={configDirty}
-              bare
-            />
-            <div className="border-t border-border pt-4">
-              <DeepAnalysisSettings
-                schedule={deepAnalysisSchedule}
-                onScheduleChange={onDeepAnalysisScheduleChange}
-                largeModelConfigured={largeModelConfigured}
-                fastModelConfigured={fastModelConfigured}
-                status={deepAnalysisStatus}
-                running={deepAnalysisRunning}
-                onRunNow={onRunDeepAnalysis}
-                onCancel={onCancelDeepAnalysis}
-              />
-            </div>
-            <div className="border-t border-border pt-4">
-              <section>
-                <h3 className="text-xs font-medium text-error uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                  <Trash2 className="w-3.5 h-3.5" />
-                  Danger Zone
-                </h3>
-                <p className="text-xs text-text-muted mb-3">
-                  These actions permanently delete project data and cannot be undone.
-                </p>
-                <div className="space-y-2">
-                  <div className="p-2 rounded border border-border bg-surface-raised">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-medium text-text">Reset Graph</p>
-                        <p className="text-xs text-text-muted">Deletes trace graph and all enrichment data. Embeddings and search remain intact.</p>
-                      </div>
-                      <Button variant="destructive" size="sm" onClick={onDestroyGraph}>
-                        Reset
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="p-2 rounded border border-error/30 bg-error/5">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-medium text-text">Full Reset</p>
-                        <p className="text-xs text-text-muted">Deletes everything: embeddings, search index, graph, and all enrichment. You will need to rebuild from scratch.</p>
-                      </div>
-                      <Button variant="destructive" size="sm" onClick={onDestroyIndex}>
-                        Reset All
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </section>
-            </div>
-          </>
-        )}
-        {activeTab === 'project' && !hasProject && (
-          <p className="text-sm text-text-muted">Select a project to configure settings.</p>
-        )}
-
-        {/* ── Global tab ── */}
-        {activeTab === 'global' && (
-          <>
-            {/* Appearance */}
-            <section>
-              <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                Appearance
-              </h3>
-              <div className="space-y-2">
-                <Select
-                  value={uiMode}
-                  onChange={(e) => onModeChange(e.target.value as 'light' | 'dark')}
-                  aria-label="Color Mode"
-                  size="sm"
-                  options={MODE_OPTIONS}
-                />
-                <Select
-                  value={uiTheme}
-                  onChange={(e) => onThemeChange(e.target.value)}
-                  aria-label="Visual Theme"
-                  size="sm"
-                  options={THEME_OPTIONS}
-                />
-              </div>
-            </section>
-
-            {/* Background Image */}
-            <section>
-              <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Background Image</h3>
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-border rounded cursor-pointer hover:bg-surface-raised transition-colors text-sm text-text-muted">
-                  <ImageIcon className="w-4 h-4" />
-                  {bgImage ? 'Change image...' : 'Upload image...'}
-                  <input type="file" accept="image/*" onChange={handleBgUpload} className="hidden" />
-                </label>
-                {bgImage && (
-                  <Button variant="ghost" size="sm" onClick={() => onBgImageChange(null)} className="w-full text-text-muted">
-                    Remove background
-                  </Button>
-                )}
-              </div>
-            </section>
-
-            {/* License Key */}
-            <section>
-              <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">License</h3>
-              <div className="space-y-2">
-                {licenseStatus && (
-                  <div className="flex items-center gap-2 text-xs">
-                    <Shield className="w-3.5 h-3.5 text-primary" />
-                    <span className="font-medium text-text capitalize">{licenseStatus.license.tier}</span>
-                    {licenseStatus.license.valid && (
-                      <span className="text-success text-[10px] bg-success/10 px-1.5 py-0.5 rounded">Active</span>
-                    )}
-                    {licenseStatus.license.email && (
-                      <span className="text-text-muted ml-auto truncate">{licenseStatus.license.email}</span>
-                    )}
-                  </div>
-                )}
-                {devTierOverride && (
-                  <div className="text-xs text-warning bg-warning/10 px-2 py-1 rounded">
-                    Dev override active: <strong className="capitalize">{devTierOverride}</strong> tier
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={licenseKeyInput}
-                    onChange={(e) => onLicenseKeyInputChange(e.target.value)}
-                    placeholder="Enter license key..."
-                    className="flex-1 text-xs px-2 py-1.5 rounded border border-border bg-background text-text placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={onActivateLicense}
-                    disabled={!licenseKeyInput.trim() || licenseLoading}
-                  >
-                    {licenseLoading ? 'Activating...' : 'Activate'}
-                  </Button>
-                </div>
-                {licenseStatus?.license.tier !== 'free' && !devTierOverride && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onDeactivateLicense}
-                    disabled={licenseLoading}
-                    className="w-full text-text-muted"
-                  >
-                    Deactivate License
-                  </Button>
-                )}
-                {licenseError && (
-                  <p className="text-xs text-error">{licenseError}</p>
-                )}
-                <p className="text-xs text-text-muted">
-                  Purchase a license at <a href="https://codrag.io/pricing" target="_blank" rel="noreferrer" className="text-primary underline">codrag.io/pricing</a>.
-                  Keys are validated via Lemon Squeezy.
-                </p>
-              </div>
-            </section>
-
-          </>
-        )}
-
-        {/* ── Developer tab ── */}
-        {activeTab === 'developer' && (
-          <>
-            <section>
-              <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                <Key className="w-3.5 h-3.5" />
-                Tier Override
-              </h3>
-              <p className="text-xs text-text-muted mb-3">
-                Override the license tier for local development and testing.
-                This bypasses real license validation.
-              </p>
-              <Select
-                value={devTierOverride ?? ''}
-                onChange={(e) => {
-                  const val = e.target.value
-                  onDevTierOverrideChange(val ? val as LicenseTier : null)
-                }}
-                aria-label="Dev Tier Override"
-                size="sm"
-                options={DEV_TIER_OPTIONS}
-              />
-              {devTierOverride && (
-                <div className="mt-3 p-2 rounded border border-warning/30 bg-warning/5">
-                  <p className="text-xs text-warning font-medium">⚠ Development Mode</p>
-                  <p className="text-xs text-text-muted mt-1">
-                    The app is simulating <strong className="capitalize text-text">{devTierOverride}</strong> tier.
-                    Feature gates, project limits, and UI will behave as if this tier is active.
-                    This does not affect the backend license file.
-                  </p>
-                </div>
-              )}
-            </section>
-
-            <section>
-              <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Current License State</h3>
-              <div className="text-xs font-mono bg-background p-2 rounded border border-border space-y-1">
-                <p><strong className="text-text">Tier:</strong> <span className="text-text-muted capitalize">{licenseStatus?.license.tier ?? 'unknown'}</span></p>
-                <p><strong className="text-text">Valid:</strong> <span className="text-text-muted">{licenseStatus?.license.valid ? 'Yes' : 'No'}</span></p>
-                <p><strong className="text-text">Override:</strong> <span className="text-text-muted">{devTierOverride ?? 'None'}</span></p>
-                <p><strong className="text-text">Effective:</strong> <span className="text-primary capitalize">{devTierOverride ?? licenseStatus?.license.tier ?? 'free'}</span></p>
-                {licenseStatus?.license.email && (
-                  <p><strong className="text-text">Email:</strong> <span className="text-text-muted">{licenseStatus.license.email}</span></p>
-                )}
-                {licenseStatus?.license.expires_at && (
-                  <p><strong className="text-text">Expires:</strong> <span className="text-text-muted">{licenseStatus.license.expires_at}</span></p>
-                )}
-              </div>
-            </section>
-
-            {/* Connection Debugger */}
-            <section>
-              <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Connection Debugger</h3>
-              <div className="space-y-2 text-xs font-mono">
-                <Button variant="outline" size="sm" onClick={runHealthTest} className="w-full">
-                  Test /health
-                </Button>
-                <div className="bg-background p-2 rounded border border-border">
-                  <pre className="whitespace-pre-wrap break-all text-text">{healthResult}</pre>
-                </div>
-                <div className="space-y-1 text-text-muted">
-                  <p><strong className="text-text">Origin:</strong> {window.location.origin}</p>
-                  {/* @ts-ignore */}
-                  <p><strong className="text-text">API URL:</strong> {api.baseUrl || '(hidden)'}</p>
-                  <p><strong className="text-text">UA:</strong> {navigator.userAgent.slice(0, 60)}...</p>
-                </div>
-              </div>
-            </section>
-          </>
-        )}
-      </div>
-    </div>
-  )
 }
 
 // ── App ──────────────────────────────────────────────────────
@@ -595,15 +169,13 @@ function App() {
   )
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout | null>(null)
 
-  // ── License state ─────────────────────────────────────────
-  const [licenseStatus, setLicenseStatus] = useState<LicenseStatus | null>(null)
-  const [licenseKeyInput, setLicenseKeyInput] = useState('')
-  const [licenseLoading, setLicenseLoading] = useState(false)
-  const [licenseError, setLicenseError] = useState<string | null>(null)
-  const [devTierOverride, setDevTierOverride] = useState<LicenseTier | null>(() => {
-    const stored = localStorage.getItem('codrag_dev_tier_override')
-    return stored ? stored as LicenseTier : null
-  })
+  // ── License (hook) ─────────────────────────────────────────
+  const {
+    licenseStatus, licenseKeyInput, setLicenseKeyInput,
+    licenseLoading, licenseError, devTierOverride,
+    fetchLicense, handleActivateLicense, handleDeactivateLicense,
+    handleDevTierOverrideChange,
+  } = useLicenseSystem()
 
   // ── Search state ───────────────────────────────────────────
   const [query, setQuery] = useState<string>('')
@@ -709,8 +281,6 @@ function App() {
       knowledge: { auto: false },
     }
   })
-  const [llmSlotsStatus, setLlmSlotsStatus] = useState<LLMSlotsStatus | null>(null)
-
   // ── Trace state ───────────────────────────────────────────
   const [traceStatus, setTraceStatus] = useState<{ enabled: boolean; exists: boolean; building: boolean; counts: { nodes: number; edges: number }; engine?: string }>({
     enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 },
@@ -726,20 +296,15 @@ function App() {
     loading: boolean;
   }>({ summary: null, untraced: [], stale: [], excluded: [], building: false, loading: false })
 
-  // ── LLM config state ───────────────────────────────────────
-  const [llmConfig, setLLMConfig] = useState<LLMConfig>({
-    saved_endpoints: [
-      { id: 'default_ollama', name: 'Default Ollama', provider: 'ollama', url: 'http://localhost:11434' },
-    ],
-    embedding: { source: 'endpoint', endpoint_id: 'default_ollama', model: 'nomic-embed-text' },
-    small_model: { enabled: false },
-    large_model: { enabled: false },
-    clara: { enabled: false, source: 'huggingface', remote_url: undefined },
-  })
-  const [availableModels, setAvailableModels] = useState<Record<string, string[]>>({})
-  const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({})
-  const [testingSlot, setTestingSlot] = useState<'embedding' | 'small' | 'large' | 'clara' | null>(null)
-  const [testResults, setTestResults] = useState<Record<string, EndpointTestResult>>({})
+  // ── LLM config (hook) ───────────────────────────────────────
+  const {
+    llmConfig, setLLMConfig,
+    availableModels, loadingModels, testingSlot, testResults,
+    llmSlotsStatus,
+    handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
+    handleTestEndpoint, handleFetchModels, handleTestModel,
+    fetchLLMSlotsStatus,
+  } = useLLMConfig({ onDirty: () => setConfigDirty(true) })
 
   // ── Event Stream ───────────────────────────────────────────
   // In dev mode, bypass Vite proxy (which buffers SSE) and connect directly to daemon
@@ -911,133 +476,6 @@ function App() {
     }
   }, [context])
 
-  // ── LLM config handlers ─────────────────────────────────────
-
-  const handleLLMConfigChange = useCallback((cfg: LLMConfig) => {
-    setLLMConfig(cfg)
-    setConfigDirty(true)
-  }, [])
-
-  const handleAddEndpoint = useCallback((endpoint: Omit<SavedEndpoint, 'id'>) => {
-    const id = `ep_${Date.now()}_${Math.random().toString(16).slice(2)}`
-    setLLMConfig((prev) => ({
-      ...prev,
-      saved_endpoints: [...prev.saved_endpoints, { ...endpoint, id }],
-    }))
-    setConfigDirty(true)
-  }, [])
-
-  const handleEditEndpoint = useCallback((endpoint: SavedEndpoint) => {
-    setLLMConfig((prev) => ({
-      ...prev,
-      saved_endpoints: prev.saved_endpoints.map((e) => (e.id === endpoint.id ? endpoint : e)),
-    }))
-    setConfigDirty(true)
-  }, [])
-
-  const handleDeleteEndpoint = useCallback((id: string) => {
-    setLLMConfig((prev) => ({
-      ...prev,
-      saved_endpoints: prev.saved_endpoints.filter((e) => e.id !== id),
-    }))
-    setConfigDirty(true)
-  }, [])
-
-  const handleTestEndpoint = useCallback(async (endpoint: SavedEndpoint) => {
-    const r = await fetch('/api/llm/proxy/test', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider: endpoint.provider, url: endpoint.url, api_key: endpoint.api_key }),
-    })
-    if (!r.ok) throw new Error(`HTTP ${r.status}`)
-    const json = await r.json()
-    const data = json?.data ?? json
-    if (Array.isArray(data.models)) {
-      setAvailableModels((prev) => ({ ...prev, [endpoint.id]: data.models }))
-    }
-    return data as EndpointTestResult
-  }, [])
-
-  const handleFetchModels = useCallback(async (endpointId: string) => {
-    const ep = llmConfig.saved_endpoints.find((e) => e.id === endpointId)
-    if (!ep) return []
-    setLoadingModels((prev) => ({ ...prev, [endpointId]: true }))
-    try {
-      const r = await fetch('/api/llm/proxy/models', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: ep.provider, url: ep.url, api_key: ep.api_key }),
-      })
-      if (!r.ok) throw new Error(`HTTP ${r.status}`)
-      const json = await r.json()
-      const data = json?.data ?? json
-      const models = Array.isArray(data.models) ? data.models : []
-      setAvailableModels((prev) => ({ ...prev, [endpointId]: models }))
-      return models
-    } finally {
-      setLoadingModels((prev) => ({ ...prev, [endpointId]: false }))
-    }
-  }, [llmConfig.saved_endpoints])
-
-  const handleTestModel = useCallback(async (slotType: 'embedding' | 'small' | 'large' | 'clara') => {
-    if (slotType === 'clara') {
-      // Resolve CLaRa URL: saved endpoint, remote_url, or default
-      let claraUrl = 'http://localhost:8765'
-      if (llmConfig.clara.endpoint_id) {
-        const ep = llmConfig.saved_endpoints.find((e) => e.id === llmConfig.clara.endpoint_id)
-        if (ep) claraUrl = ep.url
-      } else if (llmConfig.clara.remote_url) {
-        claraUrl = llmConfig.clara.remote_url
-      }
-      setTestingSlot('clara')
-      try {
-        const r = await fetch('/api/llm/proxy/test-model', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ provider: 'clara', url: claraUrl, model: 'clara', kind: 'completion' }),
-        })
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        const json = await r.json()
-        const data = (json?.data ?? json) as EndpointTestResult
-        setTestResults((prev) => ({ ...prev, clara: data }))
-        return data
-      } finally {
-        setTestingSlot(null)
-      }
-    }
-    let endpointId: string | undefined
-    let model: string | undefined
-    let kind = 'completion'
-    if (slotType === 'embedding') {
-      endpointId = llmConfig.embedding.endpoint_id; model = llmConfig.embedding.model; kind = 'embedding'
-    } else if (slotType === 'small') {
-      endpointId = llmConfig.small_model.endpoint_id; model = llmConfig.small_model.model
-    } else {
-      endpointId = llmConfig.large_model.endpoint_id; model = llmConfig.large_model.model
-    }
-    const ep = llmConfig.saved_endpoints.find((e) => e.id === endpointId)
-    if (!ep || !model) {
-      const res: EndpointTestResult = { success: false, message: 'Model not configured.' }
-      setTestResults((prev) => ({ ...prev, [slotType]: res }))
-      return res
-    }
-    setTestingSlot(slotType)
-    try {
-      const r = await fetch('/api/llm/proxy/test-model', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: ep.provider, url: ep.url, api_key: ep.api_key, model, kind }),
-      })
-      if (!r.ok) throw new Error(`HTTP ${r.status}`)
-      const json = await r.json()
-      const data = (json?.data ?? json) as EndpointTestResult
-      setTestResults((prev) => ({ ...prev, [slotType]: data }))
-      return data
-    } finally {
-      setTestingSlot(null)
-    }
-  }, [llmConfig])
-
   const handleSaveConfig = useCallback(async () => {
     if (!selectedProjectId) return
     try {
@@ -1065,54 +503,6 @@ function App() {
     if (!selectedProjectId) throw new Error("No project selected")
     return await api.detectStack(selectedProjectId)
   }, [api, selectedProjectId])
-
-  // ── License handlers ──────────────────────────────────────────
-
-  const fetchLicense = useCallback(async () => {
-    try {
-      const status = await api.getLicense()
-      setLicenseStatus(status)
-    } catch {
-      // Silent — license endpoint may not be available
-    }
-  }, [api])
-
-  const handleActivateLicense = useCallback(async () => {
-    if (!licenseKeyInput.trim()) return
-    setLicenseLoading(true)
-    setLicenseError(null)
-    try {
-      const status = await api.activateLicense(licenseKeyInput.trim())
-      setLicenseStatus(status)
-      setLicenseKeyInput('')
-    } catch (e) {
-      setLicenseError(e instanceof Error ? e.message : 'Activation failed')
-    } finally {
-      setLicenseLoading(false)
-    }
-  }, [api, licenseKeyInput])
-
-  const handleDeactivateLicense = useCallback(async () => {
-    setLicenseLoading(true)
-    setLicenseError(null)
-    try {
-      const status = await api.deactivateLicense()
-      setLicenseStatus(status)
-    } catch (e) {
-      setLicenseError(e instanceof Error ? e.message : 'Deactivation failed')
-    } finally {
-      setLicenseLoading(false)
-    }
-  }, [api])
-
-  const handleDevTierOverrideChange = useCallback((tier: LicenseTier | null) => {
-    setDevTierOverride(tier)
-    if (tier) {
-      localStorage.setItem('codrag_dev_tier_override', tier)
-    } else {
-      localStorage.removeItem('codrag_dev_tier_override')
-    }
-  }, [])
 
   // ── Destroy graph handler ──────────────────────────────────
 
@@ -1155,17 +545,6 @@ function App() {
       setError(e instanceof Error ? e.message : 'Failed to reset project data')
     }
   }, [api, selectedProjectId])
-
-  // ── LLM slots connectivity check ────────────────────────────
-
-  const fetchLLMSlotsStatus = useCallback(async () => {
-    try {
-      const status = await api.getLLMSlotsStatus()
-      setLlmSlotsStatus(status)
-    } catch {
-      // Silent — not critical
-    }
-  }, [api])
 
   // ── Augmentation handlers ──────────────────────────────────
 
@@ -1725,21 +1104,6 @@ function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshProjects])
 
-  // ── Auto-save LLM config to backend ─────────────────────────
-  const llmConfigSkipRef = useRef(0) // skip initial + loaded-from-backend
-  useEffect(() => {
-    if (llmConfigSkipRef.current < 2) {
-      llmConfigSkipRef.current++
-      return
-    }
-    const timeout = setTimeout(() => {
-      api.updateGlobalConfig({ llm_config: llmConfig }).catch(() => {
-        // Silent fail — config will be retried on next change
-      })
-    }, 500)
-    return () => clearTimeout(timeout)
-  }, [api, llmConfig])
-
   // ── Sync pinned paths to dashboard layout ────────────────────
   useEffect(() => {
     if (!layoutApiRef.current) return
@@ -1807,24 +1171,6 @@ function App() {
     }, 1000)
     return () => clearTimeout(timeout)
   }, [api, dashboardLayout])
-
-  // ── Auto-fetch models for pre-configured endpoints ──────────
-  useEffect(() => {
-    const endpointIds = new Set<string>()
-    if (llmConfig.embedding.source === 'endpoint' && llmConfig.embedding.endpoint_id) {
-      endpointIds.add(llmConfig.embedding.endpoint_id)
-    }
-    if (llmConfig.small_model.endpoint_id) endpointIds.add(llmConfig.small_model.endpoint_id)
-    if (llmConfig.large_model.endpoint_id) endpointIds.add(llmConfig.large_model.endpoint_id)
-
-    for (const epId of endpointIds) {
-      if (!availableModels[epId]?.length) {
-        void handleFetchModels(epId)
-      }
-    }
-  // Run once on mount — intentionally omitting deps to avoid re-fetching on every config change
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   // ── Refresh status + watch when project changes ─────────────
   useEffect(() => {
