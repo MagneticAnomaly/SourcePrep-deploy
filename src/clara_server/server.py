@@ -43,6 +43,10 @@ class CompressRequest(BaseModel):
         ge=1,
         le=512
     )
+    keep_alive: Optional[int] = Field(
+        default=None,
+        description="Seconds to keep model loaded after request (overrides default). 0=immediate unload, -1=never unload."
+    )
 
 
 class CompressResponse(BaseModel):
@@ -69,6 +73,11 @@ class StatusResponse(BaseModel):
     errors: int = 0
     avg_latency_ms: float = 0
     uptime_seconds: int = 0
+    # Auto-unload info (Ollama-style)
+    keep_alive_seconds: Optional[int] = None
+    last_activity: Optional[str] = None
+    will_unload_at: Optional[str] = None
+    seconds_until_unload: Optional[int] = None
 
 
 class HealthResponse(BaseModel):
@@ -206,6 +215,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             memories=request.memories,
             query=request.query,
             max_new_tokens=request.max_new_tokens,
+            keep_alive=request.keep_alive,
         )
         
         return CompressResponse(**result)

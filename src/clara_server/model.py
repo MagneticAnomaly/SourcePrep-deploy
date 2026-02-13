@@ -11,6 +11,7 @@ Supports multiple backends:
 import logging
 import threading
 import time
+import gc
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from pathlib import Path
@@ -195,11 +196,14 @@ class PyTorchBackend(BaseModelBackend):
             del self._model
             self._model = None
             
-            # Clear CUDA cache
+            # Clear CUDA/MPS cache and run GC
             try:
+                gc.collect()
                 import torch
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
+                if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                    torch.mps.empty_cache()
             except Exception:
                 pass
             
@@ -282,7 +286,8 @@ class ClaraModel:
         # Auto-unload state (Ollama-style)
         self._last_activity: Optional[float] = None
         self._unload_timer: Optional[threading.Timer] = None
-        self._lock = threading.Lock()
+        self._current_keep_alive: int = self.settings.keep_alive
+        self._lock = threading.RLock()
     
     def load(self) -> None:
         """Load the model using the configured backend."""
@@ -307,6 +312,7 @@ class ClaraModel:
         memories: List[str],
         query: str,
         max_new_tokens: Optional[int] = None,
+        keep_alive: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Compress memories and generate answer.
@@ -318,6 +324,7 @@ class ClaraModel:
             memories: List of memory strings to compress
             query: Question to answer from compressed context
             max_new_tokens: Maximum tokens in response
+            keep_alive: Optional override for keep-alive duration
         
         Returns:
             Dict with success, answer, token counts, compression ratio, latency
@@ -357,7 +364,7 @@ class ClaraModel:
             self._stats["total_latency"] += latency
             
             # Update activity and schedule unload timer
-            self._update_activity()
+            self._update_activity(keep_alive)
             
             return {
                 "success": True,
@@ -372,26 +379,31 @@ class ClaraModel:
             logger.exception("Compression failed")
             self._stats["errors"] += 1
             # Still update activity on error to prevent immediate unload
-            self._update_activity()
+            self._update_activity(keep_alive)
             return {
                 "success": False,
                 "error": str(e),
                 "answer": None,
             }
     
-    def _update_activity(self) -> None:
+    def _update_activity(self, keep_alive: Optional[int] = None) -> None:
         """Update last activity time and schedule auto-unload."""
         self._last_activity = time.time()
-        self._schedule_unload()
+        self._schedule_unload(keep_alive)
     
-    def _schedule_unload(self) -> None:
+    def _schedule_unload(self, keep_alive: Optional[int] = None) -> None:
         """Schedule model unload based on keep_alive setting."""
         # Cancel any existing timer
         if self._unload_timer is not None:
             self._unload_timer.cancel()
             self._unload_timer = None
         
-        keep_alive = self.settings.keep_alive
+        if keep_alive is not None:
+            self._current_keep_alive = keep_alive
+        else:
+            self._current_keep_alive = self.settings.keep_alive
+            
+        keep_alive = self._current_keep_alive
         
         # -1 means never unload
         if keep_alive < 0:
@@ -416,7 +428,7 @@ class ClaraModel:
                 return
             
             elapsed = time.time() - self._last_activity
-            keep_alive = self.settings.keep_alive
+            keep_alive = self._current_keep_alive
             
             if elapsed >= keep_alive:
                 logger.info(f"Auto-unloading model after {elapsed:.0f}s idle (keep_alive={keep_alive}s)")
@@ -446,7 +458,7 @@ class ClaraModel:
         backend_info = self._backend.get_info() if self._backend and self._backend.is_loaded() else {}
         
         # Calculate unload timing
-        keep_alive = self.settings.keep_alive
+        keep_alive = self._current_keep_alive
         last_activity_iso = None
         will_unload_at_iso = None
         seconds_until_unload = None
