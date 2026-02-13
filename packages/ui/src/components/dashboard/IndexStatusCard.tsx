@@ -1,8 +1,7 @@
-import { Folder, Database, Activity, AlertCircle, FileText, Code2, AlignLeft, RefreshCw, Play, GitBranch, BookOpen } from 'lucide-react';
-import { Card, Flex, Badge, Title, Text, Divider } from '@tremor/react';
+import { Folder, Database, AlertCircle, FileText, Code2, RefreshCw, Play, GitBranch, BookOpen } from 'lucide-react';
+import { SlidingSwitch2 } from '../primitives/SlidingSwitch';
+import { Card, Badge, Text, Divider } from '@tremor/react';
 import { cn } from '../../lib/utils';
-import { Button } from '../primitives/Button';
-import { InfoTooltip } from '../primitives/InfoTooltip';
 import { ProgressIndicator } from '../status/ProgressIndicator';
 import type { TaskProgress } from '../../types';
 
@@ -41,6 +40,12 @@ export interface IndexStatusCardProps {
   lastError?: string | null;
   onBuild?: () => void;
   traceChunks?: number;
+  /** Whether auto-rebuild is enabled */
+  autoRebuild?: boolean;
+  /** Called when auto-rebuild toggle changes */
+  onAutoRebuildChange?: (auto: boolean) => void;
+  /** Whether user has pro plan (free users get manual-only) */
+  isPro?: boolean;
   className?: string;
   bare?: boolean;
 }
@@ -62,17 +67,20 @@ export function IndexStatusCard({
   lastError,
   onBuild,
   traceChunks = 0,
+  autoRebuild,
+  onAutoRebuildChange,
+  isPro = false,
   className,
   bare = false,
 }: IndexStatusCardProps) {
+  const showAutoToggle = onAutoRebuildChange !== undefined;
+  // Free users are forced to Manual regardless of stored value
+  const isAuto = isPro ? (autoRebuild ?? false) : false;
   const Container = bare ? 'div' : Card;
   
   // Calculate stats
   const totalFiles = (stats.build?.files_code || 0) + (stats.build?.files_docs || 0);
   
-  const linesIndexed = stats.build?.lines_indexed || 0;
-  const linesTotal = stats.build?.lines_scanned || 0;
-  const coveragePercent = linesTotal > 0 ? Math.round((linesIndexed / linesTotal) * 100) : 0;
 
   // Line-level type breakdown (fall back to file counts if line data absent)
   const hasLineBreakdown = (stats.build?.lines_docs ?? 0) + (stats.build?.lines_code ?? 0) > 0;
@@ -98,58 +106,64 @@ export function IndexStatusCard({
 
   return (
     <Container className={cn(!bare && 'border border-border bg-surface shadow-sm', className)}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3 min-w-0 flex-1">
-          {!bare && <Folder className="w-8 h-8 text-primary shrink-0 mt-0.5" />}
-          <div className="min-w-0 flex-1">
-            {!bare && (
-              <div className="flex items-center gap-2">
-                <Title className="text-text">Knowledge Base</Title>
-                <InfoTooltip 
-                  content="Learn about the local indexing engine." 
-                  href="https://docs.codrag.io/concepts/indexing" 
-                />
-              </div>
-            )}
-            <Text 
-              className={cn("font-mono text-sm text-text-subtle break-words", bare && "text-xs")}
-              title={stats.index_dir}
-            >
-              {stats.index_dir || 'No project loaded'}
-            </Text>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0 mt-1">
-          {onBuild && (
-            <Button
-              variant={stale ? "default" : "outline"}
-              size="sm"
-              onClick={onBuild}
-              disabled={building || !stats.index_dir}
-              className={cn(
-                "h-6 px-2 text-xs gap-1.5",
-                stale && "bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/30"
-              )}
-            >
-              {building ? (
-                <RefreshCw className="w-3 h-3 animate-spin" />
-              ) : (
-                <Play className="w-3 h-3" />
-              )}
-              {building ? 'Building' : stale ? 'Rebuild' : 'Rebuild'}
-            </Button>
-          )}
+      {/* Row 1: File path (full width, single line) */}
+      <div className="flex items-center gap-2 min-w-0">
+        {!bare && <Folder className="w-5 h-5 text-primary shrink-0" />}
+        <Text 
+          className={cn("font-mono text-text-subtle truncate min-w-0 flex-1", bare ? "text-[11px]" : "text-xs")}
+          title={stats.index_dir}
+        >
+          {stats.index_dir || 'No project loaded'}
+        </Text>
+      </div>
 
-          {building ? (
-            <Badge color="blue">Building</Badge>
-          ) : stats.loaded && !stale ? (
-            <Badge color="green">Fresh</Badge>
-          ) : stats.loaded && stale ? (
-            <Badge color="yellow">Stale</Badge>
-          ) : (
-            <Badge color="gray">Not Built</Badge>
-          )}
-        </div>
+      {/* Row 2: Controls — rebuild + toggle + badge */}
+      <div className="flex items-center gap-2 mt-2">
+        {/* Manual-mode Rebuild button */}
+        {onBuild && (!showAutoToggle || !isAuto) && (
+          <button
+            onClick={onBuild}
+            disabled={building || !stats.index_dir}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
+              building
+                ? "border-border bg-surface text-text-subtle cursor-wait"
+                : stale
+                  ? "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+                  : "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+            )}
+          >
+            {building ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Play className="w-3.5 h-3.5" />
+            )}
+            {building ? 'Building…' : 'Rebuild'}
+          </button>
+        )}
+
+        {/* Auto/Manual toggle */}
+        {showAutoToggle && (
+          <SlidingSwitch2
+            value={isAuto}
+            onChange={onAutoRebuildChange}
+            disabled={!isPro}
+            disabledReason="Upgrade to Pro to enable auto-rebuild"
+          />
+        )}
+
+        <div className="flex-1" />
+
+        {/* Status badge */}
+        {building ? (
+          <Badge color="blue">Building</Badge>
+        ) : stats.loaded && !stale ? (
+          <Badge color="green">Fresh</Badge>
+        ) : stats.loaded && stale ? (
+          <Badge color="yellow">Stale</Badge>
+        ) : (
+          <Badge color="gray">Not Built</Badge>
+        )}
       </div>
       
       {effectiveProgress && (
@@ -158,46 +172,32 @@ export function IndexStatusCard({
         </div>
       )}
       
-      <Divider className="my-4" />
+      <Divider className="my-2.5" />
       
-      <div className="space-y-4">
-        {/* Chunk Breakdown Row */}
-        <Flex className="gap-5 flex-wrap">
-          <div className="flex items-center gap-1.5 text-sm text-text-muted" title="Code chunks (source files)">
-            <Code2 className="w-3.5 h-3.5 text-blue-400" />
-            <span className="font-medium text-text">{formatNumber(stats.build?.chunks_code ?? stats.total_documents ?? 0)}</span>
-            <span className="text-xs">Code</span>
+      <div className="space-y-3">
+        {/* Chunk stats grid: 2×2 */}
+        <div className="grid grid-cols-2 gap-y-3 gap-x-6 text-sm">
+          <div className="flex items-center gap-2 py-1" title="Code chunks (source files)">
+            <Code2 className="w-4 h-4 text-blue-400 shrink-0" />
+            <span className="font-semibold text-text tabular-nums w-10 text-right">{formatNumber(stats.build?.chunks_code ?? stats.total_documents ?? 0)}</span>
+            <span className="text-text-muted">Code</span>
           </div>
-          <div className="flex items-center gap-1.5 text-sm text-text-muted" title="Instructions chunks (.md, docs, plans, research)">
-            <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="font-medium text-text">{formatNumber(stats.build?.chunks_docs ?? 0)}</span>
-            <span className="text-xs">Instructions</span>
+          <div className="flex items-center gap-2 py-1" title="Instructions chunks (.md, docs, plans, research)">
+            <BookOpen className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="font-semibold text-text tabular-nums w-10 text-right">{formatNumber(stats.build?.chunks_docs ?? 0)}</span>
+            <span className="text-text-muted">Docs</span>
           </div>
-          <div className="flex items-center gap-1.5 text-sm text-text-muted" title="Trace chunks (code graph embeddings)">
-            <GitBranch className="w-3.5 h-3.5 text-purple-400" />
-            <span className="font-medium text-text">{formatNumber(traceChunks)}</span>
-            <span className="text-xs">Graph</span>
+          <div className="flex items-center gap-2 py-1" title="Trace chunks (code graph embeddings)">
+            <GitBranch className="w-4 h-4 text-purple-400 shrink-0" />
+            <span className="font-semibold text-text tabular-nums w-10 text-right">{formatNumber(traceChunks)}</span>
+            <span className="text-text-muted">Graph</span>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-text-subtle" title="Total chunks">
-            <Database className="w-3 h-3" />
-            {formatNumber(stats.total_documents ?? 0)} total
+          <div className="flex items-center gap-2 py-1" title="Total chunks in knowledge base">
+            <Database className="w-4 h-4 text-text-subtle shrink-0" />
+            <span className="font-semibold text-text tabular-nums w-10 text-right">{formatNumber(stats.total_documents ?? 0)}</span>
+            <span className="text-text-muted">Total</span>
           </div>
-          
-          {(stats.build?.lines_indexed !== undefined) && (
-            <div className="flex items-center gap-2 text-sm text-text-muted" title={`Indexed ${formatNumber(linesIndexed)} of ${formatNumber(linesTotal)} indexable lines (${coveragePercent}% coverage)`}>
-              <AlignLeft className="w-4 h-4 text-primary" />
-              <span className="font-medium text-text">{formatNumber(linesIndexed)}</span>
-              <span className="text-text-subtle">/</span>
-              <span>{formatNumber(linesTotal)}</span> lines
-              <span className="text-xs text-text-subtle">({coveragePercent}%)</span>
-            </div>
-          )}
-
-          <div className="flex items-center gap-2 text-sm text-text-muted" title={`Embedding Model: ${stats.model}`}>
-            <Activity className="w-4 h-4 text-primary" />
-            <span className="truncate max-w-[150px]">{stats.model ?? 'No model'}</span>
-          </div>
-        </Flex>
+        </div>
 
         {/* Code vs Docs Distribution */}
         {breakdownTotal > 0 && (

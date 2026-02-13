@@ -18,3 +18,9 @@ export type { PathInputProps, PathPickerMode } from './PathInput';
 
 export { InfoTooltip } from './InfoTooltip';
 export type { InfoTooltipProps } from './InfoTooltip';
+
+export { SlidingSwitch2, SlidingSwitch3 } from './SlidingSwitch';
+export type { SlidingSwitch2Props, SlidingSwitch3Props } from './SlidingSwitch';
+
+export { ConfirmDialog } from './ConfirmDialog';
+export type { ConfirmDialogProps } from './ConfirmDialog';

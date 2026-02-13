@@ -44,6 +44,8 @@ export interface TraceCoveragePanelProps {
   onRemoveExcludePattern: (pattern: string) => void;
   /** Refresh coverage data */
   onRefresh: () => void;
+  /** Whether the trace graph has been initialized */
+  traceExists?: boolean;
   className?: string;
   /** When true, omits the panel header (title/refresh) — PanelChrome provides chrome */
   bare?: boolean;
@@ -230,6 +232,7 @@ export function TraceCoveragePanel({
   onAddExcludePattern,
   onRemoveExcludePattern,
   onRefresh,
+  traceExists = false,
   className,
   bare = false,
 }: TraceCoveragePanelProps) {
@@ -382,7 +385,7 @@ export function TraceCoveragePanel({
                   iconColor="text-text-subtle"
                   defaultOpen={true}
                   action={
-                    untracedFiles.length > 0 && !building ? (
+                    untracedFiles.length > 0 && !building && traceExists ? (
                       <Button
                         variant="outline"
                         size="sm"

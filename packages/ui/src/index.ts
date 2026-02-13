@@ -79,6 +79,8 @@ export type { DeepAnalysisSchedule, DeepAnalysisStatus } from './components/llm'
 
 // Components - Primitives
 export { Button } from './components/primitives/Button';
+export { ConfirmDialog } from './components/primitives/ConfirmDialog';
+export type { ConfirmDialogProps } from './components/primitives/ConfirmDialog';
 export { Select } from './components/primitives/Select';
 export type { SelectProps, SelectOption } from './components/primitives/Select';
 export { PathInput } from './components/primitives/PathInput';
@@ -94,7 +96,7 @@ export type { WatchStatusIndicatorProps, WatchControlPanelProps } from './compon
 
 // Components - Trace (Phase 04)
 export { TraceStatusCard, TraceExplorer, TraceCoveragePanel, GraphEnrichmentPipeline, GraphStructurePanel, GraphEnginePanel } from './components/trace';
-export type { TraceStatusCardProps, TraceExplorerProps, TraceCoveragePanelProps, GraphEnrichmentPipelineProps, TraceStageInfo, GraphStructurePanelProps, GraphEnginePanelProps } from './components/trace';
+export type { TraceStatusCardProps, TraceExplorerProps, TraceCoveragePanelProps, GraphEnrichmentPipelineProps, TraceStageInfo, EnrichmentStageId, EnrichmentAutoConfig, DeepEnrichmentMode, GraphStructurePanelProps, GraphEnginePanelProps } from './components/trace';
 
 // Components - Layout (Modular Dashboard - Phase 15)
 export { PanelChrome, DashboardGrid, PanelPicker, ModularDashboard, useLayoutPersistence } from './components/layout';

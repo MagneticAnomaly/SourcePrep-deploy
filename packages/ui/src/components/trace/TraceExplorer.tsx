@@ -79,7 +79,7 @@ export function TraceExplorer({
   onSearchTrace,
   onGetNode,
   onGetNeighbors,
-  onBuildTrace,
+  onBuildTrace: _onBuildTrace,
   onEnableTrace,
   engine,
   className,
@@ -169,10 +169,9 @@ export function TraceExplorer({
       <div className={cn('flex flex-col items-center justify-center h-full text-center p-8', className)}>
         <GitBranch className="w-10 h-10 text-text-muted opacity-40 mb-4" />
         <h3 className="text-sm font-semibold text-text mb-2">Code Graph Not Built</h3>
-        <p className="text-xs text-text-muted mb-4 max-w-xs">
-          Build the code graph to explore symbols and their relationships.
+        <p className="text-xs text-text-muted max-w-xs">
+          Use the Graph Enrichment panel to build the trace graph.
         </p>
-        <Button size="sm" onClick={onBuildTrace}>Build Map</Button>
       </div>
     );
   }

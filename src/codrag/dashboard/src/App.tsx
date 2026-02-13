@@ -31,16 +31,14 @@ import {
   type PinnedTextFile,
   // Trace
   TraceExplorer,
-  TraceCoveragePanel,
   GraphEnrichmentPipeline,
   GraphStructurePanel,
-  GraphEnginePanel,
   type AugmentationStatus,
   type EpistemicStatus,
   type ModuleStatus,
   type DeepeningStatus,
-  type GraphEngineStatus,
-  type GraphEngineConfig,
+  type KnowledgeEmbeddingStatus,
+  type EnrichmentAutoConfig,
   // Watch
   WatchControlPanel,
   // Patterns
@@ -177,6 +175,10 @@ function App() {
     handleDevTierOverrideChange,
   } = useLicenseSystem()
 
+  // Derive isPro from dev tier override or actual license
+  const effectiveTier = devTierOverride ?? licenseStatus?.license?.tier ?? 'free'
+  const isPro = effectiveTier !== 'free'
+
   // ── Search state ───────────────────────────────────────────
   const [query, setQuery] = useState<string>('')
   const [searchK, setSearchK] = useState<number>(8)
@@ -269,16 +271,30 @@ function App() {
     running: false, total_scored: 0, settled_count: 0, settled_ratio: 0, avg_score: 0,
   })
   const [deepeningRunning, setDeepeningRunning] = useState(false)
-  const [graphEngineStatus, setGraphEngineStatus] = useState<GraphEngineStatus | null>(null)
-  const [graphEngineConfig, setGraphEngineConfig] = useState<GraphEngineConfig>({
-    stages: {
-      trace: { auto: true },
-      vector: { auto: true },
-      catalogue: { auto: true },
-      validation: { auto: true },
-      epistemic: { auto: false },
-      clustering: { auto: false },
-      knowledge: { auto: false },
+  const [knowledgeStatus, setKnowledgeStatus] = useState<KnowledgeEmbeddingStatus>({
+    enabled: false, running: false, chunks_embedded: 0, last_run_at: null,
+  })
+  const [knowledgeBuilding, setKnowledgeBuilding] = useState(false)
+  const [indexAutoRebuild, setIndexAutoRebuild] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('codrag_index_auto_rebuild')
+      return stored === 'true'
+    } catch { return false }
+  })
+  const [enrichmentAutoConfig, setEnrichmentAutoConfig] = useState<EnrichmentAutoConfig>(() => {
+    try {
+      const stored = localStorage.getItem('codrag_enrichment_auto_config')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        const deep = parsed.deepEnrichment
+        return {
+          fastSync: parsed.fastSync ?? true,
+          deepEnrichment: (deep === 'manual' || deep === 'auto' || deep === 'scheduled') ? deep : 'manual',
+        }
+      }
+      return { fastSync: true, deepEnrichment: 'manual' }
+    } catch {
+      return { fastSync: true, deepEnrichment: 'manual' }
     }
   })
   // ── Trace state ───────────────────────────────────────────
@@ -721,68 +737,84 @@ function App() {
     } catch { /* silent */ }
   }, [api, selectedProjectId])
 
-  // ── Graph Engine handlers ──────────────────────────────────
+  // ── Knowledge Embedding handlers ────────────────────────────
 
-  const fetchGraphEngineStatus = useCallback(async () => {
+  const fetchKnowledgeStatus = useCallback(async () => {
     if (!selectedProjectId) return
     try {
-      const status = await api.getGraphEngineStatus(selectedProjectId)
-      setGraphEngineStatus(status)
+      const status = await api.getKnowledgeStatus(selectedProjectId)
+      setKnowledgeStatus(status)
     } catch { /* silent */ }
   }, [api, selectedProjectId])
 
-  const handleRunStage = useCallback(async (stage: string) => {
+  const handleRunKnowledgeBuild = useCallback(async () => {
     if (!selectedProjectId) return
+    setKnowledgeBuilding(true)
     try {
-      switch (stage) {
-        case 'trace':
-          await api.buildTrace(selectedProjectId)
-          break
-        case 'vector':
-          await api.buildProject(selectedProjectId)
-          break
-        case 'catalogue':
-          await api.runAugmentation(selectedProjectId)
-          break
-        case 'validation':
-          await api.runDeepAnalysis(selectedProjectId)
-          break
-        case 'epistemic':
-          await api.runEpistemic(selectedProjectId)
-          break
-        case 'clustering':
-          await api.runModuleSynthesis(selectedProjectId)
-          break
-        case 'knowledge':
-          await api.runKnowledgeBuild(selectedProjectId)
-          break
-      }
-      // Refresh status immediately
-      void fetchGraphEngineStatus()
+      await api.runKnowledgeBuild(selectedProjectId)
+      const poll = setInterval(async () => {
+        try {
+          const status = await api.getKnowledgeStatus(selectedProjectId)
+          setKnowledgeStatus(status)
+          if (!status.running) {
+            clearInterval(poll)
+            setKnowledgeBuilding(false)
+          }
+        } catch {
+          clearInterval(poll)
+          setKnowledgeBuilding(false)
+        }
+      }, 3000)
     } catch (e) {
-      setError(e instanceof Error ? e.message : `Failed to run stage: ${stage}`)
+      setKnowledgeBuilding(false)
+      setError(e instanceof Error ? e.message : 'Knowledge build failed')
     }
-  }, [api, selectedProjectId, fetchGraphEngineStatus])
+  }, [api, selectedProjectId])
+
+  // ── Enrichment auto config persistence ─────────────────────
+
+  const handleEnrichmentAutoConfigChange = useCallback((config: EnrichmentAutoConfig) => {
+    setEnrichmentAutoConfig(config)
+    localStorage.setItem('codrag_enrichment_auto_config', JSON.stringify(config))
+  }, [])
+
+  const handleIndexAutoRebuildChange = useCallback((auto: boolean) => {
+    setIndexAutoRebuild(auto)
+    localStorage.setItem('codrag_index_auto_rebuild', String(auto))
+  }, [])
 
   const handleRunAutoPilot = useCallback(async () => {
     if (!selectedProjectId) return
-    // TODO: Implement smart auto-pilot logic on backend or sequence here
-    // For now, trigger knowledge build as it's the final stage? 
-    // Or maybe we need a specific auto-pilot endpoint.
-    // Let's stick to manual triggering for V1 or just trigger Trace for now.
-    // Actually the prompt implied "Smart Sync" button.
-    // Let's just trigger trace build which cascades in auto mode ideally.
-    await handleRunStage('trace')
-  }, [handleRunStage])
+    // Trigger trace build as the first stage — downstream stages run if auto-enabled
+    try {
+      await api.buildTrace(selectedProjectId)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Auto-pilot failed')
+    }
+  }, [api, selectedProjectId])
 
-  const handleStopEngine = useCallback(async () => {
+  const handleRunFastSync = useCallback(async () => {
     if (!selectedProjectId) return
     try {
-      // Cancel everything we can
-      await api.cancelDeepAnalysis(selectedProjectId)
-      // TODO: Add cancel endpoints for other stages
+      // Immediately show building state so hero transitions to spinner
+      setTraceStatus(prev => ({ ...prev, building: true }))
+      // Kick off the structural graph build — backend cascades through
+      // catalogue → validation → knowledge embedding automatically
+      await api.buildTrace(selectedProjectId)
     } catch (e) {
-      console.error('Failed to stop engine', e)
+      setTraceStatus(prev => ({ ...prev, building: false }))
+      setError(e instanceof Error ? e.message : 'Fast sync failed')
+    }
+  }, [api, selectedProjectId])
+
+  const handleRunDeepEnrichment = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      // Kick off epistemic enrichment — backend cascades through
+      // clustering → deepening → deep knowledge embedding
+      await api.runEpistemic(selectedProjectId)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Deep enrichment failed')
     }
   }, [api, selectedProjectId])
 
@@ -1044,12 +1076,22 @@ function App() {
       // Reset building flags and refresh coverage data
       setTraceStatus(prev => ({ ...prev, building: false }))
       setTraceCoverage(prev => ({ ...prev, building: false }))
-      if (traceTask.status === 'completed') {
+      if (traceTask.status === 'completed' && selectedProjectId) {
+        // Re-fetch full trace status so exists/counts update
+        api.getTraceStatus(selectedProjectId).then((data) => {
+          setTraceStatus({
+            enabled: data.enabled ?? false,
+            exists: data.exists ?? false,
+            building: false,
+            counts: data.counts ?? { nodes: 0, edges: 0 },
+            engine: data.engine,
+          })
+        }).catch(() => {})
         // Short delay to let the backend finish flushing the manifest
         setTimeout(() => fetchTraceCoverage(), 500)
       }
     }
-  }, [findActiveTask, fetchTraceCoverage])
+  }, [findActiveTask, fetchTraceCoverage, api, selectedProjectId])
 
   // ── Theme effect ───────────────────────────────────────────
   useEffect(() => {
@@ -1196,6 +1238,7 @@ function App() {
     void fetchEpistemicStatus()
     void fetchModuleStatus()
     void fetchDeepeningStatus()
+    void fetchKnowledgeStatus()
     void fetchFileTree(selectedProjectId)
     // Fetch path weights
     api.getPathWeights(selectedProjectId).then((data) => {
@@ -1292,6 +1335,9 @@ function App() {
         lastError={projectStatus?.index.last_error?.message}
         onBuild={selectedProjectId ? handleBuild : undefined}
         traceChunks={traceStatus.counts?.nodes ?? 0}
+        autoRebuild={indexAutoRebuild}
+        onAutoRebuildChange={handleIndexAutoRebuildChange}
+        isPro={isPro}
         className="h-full border-none shadow-none bg-transparent"
         bare
       />
@@ -1478,23 +1524,7 @@ function App() {
         progress={findActiveTask('trace_build')}
       />
     ),
-    'trace-coverage': (
-      <TraceCoveragePanel
-        summary={traceCoverage.summary}
-        untracedFiles={traceCoverage.untraced}
-        staleFiles={traceCoverage.stale}
-        excludedFiles={traceCoverage.excluded}
-        building={traceCoverage.building}
-        loading={traceCoverage.loading}
-        onTraceAll={handleTraceAll}
-        onRetraceStale={handleRetraceStale}
-        onAddExcludePattern={handleAddExcludePattern}
-        onRemoveExcludePattern={handleRemoveExcludePattern}
-        onRefresh={fetchTraceCoverage}
-        progress={findActiveTask('trace_build')}
-        bare
-      />
-    ),
+    // trace-coverage removed — consolidated into graph-structure (Graph Scope)
     'deep-analysis': (
       <div className="h-full overflow-y-auto p-4">
         <DeepAnalysisSettings
@@ -1510,7 +1540,7 @@ function App() {
       </div>
     ),
     'trace-pipeline': (
-      <div className="h-full overflow-y-auto p-4">
+      <div className="h-full overflow-y-auto">
         <GraphEnrichmentPipeline
           trace={{
             enabled: traceStatus.enabled,
@@ -1524,6 +1554,7 @@ function App() {
           epistemic={epistemicStatus}
           modules={moduleStatus}
           deepening={deepeningStatus}
+          knowledge={knowledgeStatus}
           smallModelConfigured={!!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model)}
           largeModelConfigured={!!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model)}
           onBuildTrace={handleBuildTrace}
@@ -1532,48 +1563,42 @@ function App() {
           onRunEpistemic={handleRunEpistemic}
           onRunModuleSynthesis={handleRunModuleSynthesis}
           onRunDeepening={handleRunDeepening}
+          onRunKnowledgeBuild={handleRunKnowledgeBuild}
+          onRunFastSync={handleRunFastSync}
+          onRunDeepEnrichment={handleRunDeepEnrichment}
           onDestroyGraph={handleDestroyGraph}
           augmenting={augmenting}
           deepAnalyzing={deepAnalysisRunning}
           epistemicRunning={epistemicRunning}
           clusterRunning={clusterRunning}
           deepeningRunning={deepeningRunning}
+          knowledgeBuilding={knowledgeBuilding}
           paused={projectConfig.trace.paused}
           onTogglePause={handleTogglePause}
+          autoConfig={enrichmentAutoConfig}
+          onAutoConfigChange={handleEnrichmentAutoConfigChange}
+          isPro={isPro}
         />
       </div>
     ),
     'graph-structure': (
-      <div className="h-full p-4">
-        <GraphStructurePanel
-          summary={traceCoverage.summary}
-          untracedFiles={traceCoverage.untraced}
-          staleFiles={traceCoverage.stale}
-          excludedFiles={traceCoverage.excluded}
-          building={traceCoverage.building}
-          progress={findActiveTask('trace_build')}
-          loading={traceCoverage.loading}
-          onTraceAll={handleTraceAll}
-          onRetraceStale={handleRetraceStale}
-          onAddExcludePattern={handleAddExcludePattern}
-          onRemoveExcludePattern={handleRemoveExcludePattern}
-          onRefresh={fetchTraceCoverage}
-        />
-      </div>
+      <GraphStructurePanel
+        summary={traceCoverage.summary}
+        untracedFiles={traceCoverage.untraced}
+        staleFiles={traceCoverage.stale}
+        excludedFiles={traceCoverage.excluded}
+        building={traceCoverage.building}
+        progress={findActiveTask('trace_build')}
+        loading={traceCoverage.loading}
+        onTraceAll={handleTraceAll}
+        onRetraceStale={handleRetraceStale}
+        onAddExcludePattern={handleAddExcludePattern}
+        onRemoveExcludePattern={handleRemoveExcludePattern}
+        onRefresh={fetchTraceCoverage}
+        traceExists={traceStatus.exists}
+      />
     ),
-    'graph-engine': (
-      <div className="h-full p-4">
-        <GraphEnginePanel
-          status={graphEngineStatus}
-          config={graphEngineConfig}
-          onUpdateConfig={setGraphEngineConfig}
-          onRunStage={handleRunStage}
-          onRunAutoPilot={handleRunAutoPilot}
-          onStop={handleStopEngine}
-          onDestroyGraph={handleDestroyGraph}
-        />
-      </div>
-    ),
+    // graph-engine removed — consolidated into trace-pipeline (Graph Enrichment)
   }), [
     projectStatus, isBuilding, selectedProject, selectedProjectId,
     watchStatus, watchLoading, handleStartWatch, handleStopWatch,
@@ -1595,7 +1620,8 @@ function App() {
     deepeningStatus, deepeningRunning, handleRunDeepening,
     handleDestroyGraph,
     pinnedPaths, pinnedFiles,
-    graphEngineStatus, graphEngineConfig, handleRunStage, handleRunAutoPilot, handleStopEngine
+    knowledgeStatus, knowledgeBuilding, handleRunKnowledgeBuild,
+    enrichmentAutoConfig, handleEnrichmentAutoConfigChange, handleRunAutoPilot
   ])
 
   // ── Dynamic panel definitions for pinned files ─────────────

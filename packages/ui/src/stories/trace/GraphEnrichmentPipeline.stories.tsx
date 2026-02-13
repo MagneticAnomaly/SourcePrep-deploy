@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { GraphEnrichmentPipeline } from '../../components/trace/GraphEnrichmentPipeline';
 import type { AugmentationStatus, DeepAnalysisRunStatus } from '../../types';
+import type { EnrichmentAutoConfig } from '../../components/trace/GraphEnrichmentPipeline';
 
 const meta: Meta<typeof GraphEnrichmentPipeline> = {
   title: 'Dashboard/Widgets/Trace/GraphEnrichmentPipeline',
@@ -98,14 +99,16 @@ export const Disabled: Story = {
   },
 };
 
-export const TraceNotBuilt: Story = {
+export const HeroInitialize: Story = {
+  name: 'Hero — Initialize Trace Graph',
   args: {
     trace: traceNotBuilt,
-    onBuildTrace: () => alert('Building trace...'),
+    onRunFastSync: () => alert('Building trace graph...'),
   },
 };
 
-export const TraceBuilding: Story = {
+export const HeroBuilding: Story = {
+  name: 'Hero — Building In Progress',
   args: {
     trace: traceBuilding,
   },
@@ -162,5 +165,86 @@ export const FullPipelineRunning: Story = {
     deepAnalysis: deepRan,
     paused: false,
     onTogglePause: () => alert('Toggling pause...'),
+  },
+};
+
+// ── Group-level controls stories ────────────────────────────
+
+const manualConfig: EnrichmentAutoConfig = { fastSync: false, deepEnrichment: 'manual' };
+const autoConfig: EnrichmentAutoConfig = { fastSync: true, deepEnrichment: 'auto' };
+const scheduledConfig: EnrichmentAutoConfig = { fastSync: true, deepEnrichment: 'scheduled' };
+
+export const ManualWithRunButtons: Story = {
+  name: 'Manual — Run Buttons Visible',
+  args: {
+    trace: traceReady,
+    augmentation: augFull,
+    deepAnalysis: deepRan,
+    autoConfig: manualConfig,
+    onAutoConfigChange: (cfg) => console.log('Config changed:', cfg),
+    onRunFastSync: () => alert('Running Fast Sync set...'),
+    onRunDeepEnrichment: () => alert('Running Deep Enrichment set...'),
+    onTogglePause: () => alert('Toggling pause...'),
+    isPro: true,
+  },
+};
+
+export const AutoMode: Story = {
+  name: 'Auto — No Run Buttons',
+  args: {
+    trace: traceReady,
+    augmentation: augFull,
+    deepAnalysis: deepRan,
+    autoConfig: autoConfig,
+    onAutoConfigChange: (cfg) => console.log('Config changed:', cfg),
+    onRunFastSync: () => alert('Running Fast Sync set...'),
+    onRunDeepEnrichment: () => alert('Running Deep Enrichment set...'),
+    onTogglePause: () => alert('Toggling pause...'),
+    isPro: true,
+  },
+};
+
+export const ScheduledDeep: Story = {
+  name: 'Scheduled Deep Enrichment',
+  args: {
+    trace: traceReady,
+    augmentation: augFull,
+    deepAnalysis: deepRan,
+    autoConfig: scheduledConfig,
+    onAutoConfigChange: (cfg) => console.log('Config changed:', cfg),
+    onRunFastSync: () => alert('Running Fast Sync set...'),
+    onRunDeepEnrichment: () => alert('Running Deep Enrichment set...'),
+    onTogglePause: () => alert('Toggling pause...'),
+    isPro: true,
+  },
+};
+
+export const FreeUser: Story = {
+  name: 'Free User — Toggles Disabled',
+  args: {
+    trace: traceReady,
+    augmentation: augFull,
+    deepAnalysis: deepRan,
+    autoConfig: manualConfig,
+    onAutoConfigChange: (cfg) => console.log('Config changed:', cfg),
+    onRunFastSync: () => alert('Running Fast Sync set...'),
+    onRunDeepEnrichment: () => alert('Running Deep Enrichment set...'),
+    onTogglePause: () => alert('Toggling pause...'),
+    isPro: false,
+  },
+};
+
+export const FastSyncRunning: Story = {
+  name: 'Fast Sync Running (Manual)',
+  args: {
+    trace: { ...traceReady, building: true },
+    augmentation: augFull,
+    deepAnalysis: deepRan,
+    autoConfig: manualConfig,
+    onAutoConfigChange: (cfg) => console.log('Config changed:', cfg),
+    onRunFastSync: () => alert('Running Fast Sync set...'),
+    onRunDeepEnrichment: () => alert('Running Deep Enrichment set...'),
+    onTogglePause: () => alert('Toggling pause...'),
+    isPro: true,
   },
 };

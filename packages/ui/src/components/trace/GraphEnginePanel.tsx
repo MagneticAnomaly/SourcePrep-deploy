@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { cn } from '../../lib/utils';
 import { Button } from '../primitives/Button';
+import { ConfirmDialog } from '../primitives/ConfirmDialog';
 import {
   GitBranch,
   Brain,
@@ -403,20 +404,8 @@ export function GraphEnginePanel({
 function DestroyGraphAction({ onConfirm, disabled }: { onConfirm: () => void; disabled: boolean }) {
   const [confirming, setConfirming] = useState(false);
 
-  if (confirming) {
-      return (
-          <Button 
-            variant="destructive" 
-            size="sm" 
-            className="w-full animate-in fade-in zoom-in duration-200"
-            onClick={onConfirm}
-          >
-              Confirm Destroy?
-          </Button>
-      );
-  }
-
   return (
+    <>
       <Button 
         variant="ghost" 
         size="icon-sm" 
@@ -425,7 +414,16 @@ function DestroyGraphAction({ onConfirm, disabled }: { onConfirm: () => void; di
         disabled={disabled}
         title="Destroy Graph"
       >
-          <Trash2 className="w-4 h-4" />
+        <Trash2 className="w-4 h-4" />
       </Button>
+      <ConfirmDialog
+        open={confirming}
+        onConfirm={() => { setConfirming(false); onConfirm(); }}
+        onCancel={() => setConfirming(false)}
+        title="Destroy entire graph?"
+        description="This permanently deletes the structural graph, all augmentations, epistemic enrichment, cluster modules, and deepening data. You will need to rebuild from scratch."
+        confirmLabel="Yes, destroy"
+      />
+    </>
   );
 }

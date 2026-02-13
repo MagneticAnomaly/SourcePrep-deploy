@@ -20,7 +20,7 @@ export { TraceCoveragePanel } from './TraceCoveragePanel';
 export type { TraceCoveragePanelProps } from './TraceCoveragePanel';
 
 export { GraphEnrichmentPipeline } from './GraphEnrichmentPipeline';
-export type { GraphEnrichmentPipelineProps, TraceStageInfo } from './GraphEnrichmentPipeline';
+export type { GraphEnrichmentPipelineProps, TraceStageInfo, EnrichmentStageId, EnrichmentAutoConfig, DeepEnrichmentMode } from './GraphEnrichmentPipeline';
 
 export { GraphStructurePanel } from './GraphStructurePanel';
 export type { GraphStructurePanelProps } from './GraphStructurePanel';

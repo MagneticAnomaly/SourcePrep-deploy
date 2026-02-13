@@ -11,8 +11,6 @@ import {
   SlidersHorizontal,
   List,
   Terminal,
-  ShieldCheck,
-  Network,
 } from 'lucide-react';
 import type { PanelDefinition } from '../types/layout';
 
@@ -146,18 +144,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     resizable: true,
     docsUrl: 'https://docs.codrag.io/dashboard#trace',
   },
-  {
-    id: 'trace-coverage',
-    title: 'Graph Status',
-    description: 'Completeness of the code graph analysis (traced vs untraced files).',
-    icon: ShieldCheck,
-    minHeight: 6,
-    defaultHeight: 10,
-    category: 'status',
-    closeable: true,
-    resizable: true,
-    docsUrl: 'https://docs.codrag.io/dashboard#trace-coverage',
-  },
+  // trace-coverage (Graph Status) removed — consolidated into graph-structure (Graph Scope)
   {
     id: 'deep-analysis',
     title: 'Deep Analysis',
@@ -194,18 +181,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     resizable: true,
     docsUrl: 'https://docs.codrag.io/concepts/graph-scope',
   },
-  {
-    id: 'graph-engine',
-    title: 'Graph Engine',
-    description: 'Orchestration and progress for the 7-stage knowledge pipeline.',
-    icon: Network,
-    minHeight: 6,
-    defaultHeight: 12,
-    category: 'status',
-    closeable: true,
-    resizable: true,
-    docsUrl: 'https://docs.codrag.io/concepts/pipeline',
-  },
+  // graph-engine (Graph Engine) removed — consolidated into trace-pipeline (Graph Enrichment)
 ];
 
 /**

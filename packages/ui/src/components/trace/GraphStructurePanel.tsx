@@ -12,11 +12,9 @@ import {
   Loader2,
   ChevronDown,
   ChevronRight,
-  Database
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../primitives/Button';
-import { InfoTooltip } from '../primitives/InfoTooltip';
 import { ProgressIndicator } from '../status/ProgressIndicator';
 import type { TraceCoverageFile, TraceCoverageSummary, TaskProgress } from '../../types';
 
@@ -45,6 +43,8 @@ export interface GraphStructurePanelProps {
   onRemoveExcludePattern: (pattern: string) => void;
   /** Refresh coverage data */
   onRefresh: () => void;
+  /** Whether the trace graph has been initialized */
+  traceExists?: boolean;
   className?: string;
 }
 
@@ -228,6 +228,7 @@ export function GraphStructurePanel({
   onAddExcludePattern,
   onRemoveExcludePattern,
   onRefresh,
+  traceExists = false,
   className,
 }: GraphStructurePanelProps) {
   const [activeTab, setActiveTab] = useState<'queue' | 'excluded'>('queue');
@@ -266,31 +267,7 @@ export function GraphStructurePanel({
   const queueCount = untracedFiles.length + staleFiles.length;
 
   return (
-    <div ref={containerRef} className={cn('flex flex-col h-full bg-surface border border-border rounded-lg shadow-sm', className)}>
-      {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-border space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-text flex items-center gap-2">
-            <Database className="w-4 h-4" />
-            Graph Scope
-            <InfoTooltip 
-              content="Manage which files are included in the Knowledge Graph." 
-              href="https://docs.codrag.io/concepts/graph-scope" 
-            />
-          </h3>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onRefresh}
-            disabled={loading}
-            className="h-6 w-6"
-            title="Refresh scope"
-          >
-            <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
-          </Button>
-        </div>
-      </div>
-
+    <div ref={containerRef} className={cn('flex flex-col h-full', className)}>
       {/* Coverage summary bar */}
       <div className="px-4 py-3 border-b border-border space-y-2">
         {loading && !summary ? (
@@ -377,7 +354,7 @@ export function GraphStructurePanel({
                   iconColor="text-text-subtle"
                   defaultOpen={true}
                   action={
-                    untracedFiles.length > 0 && !building ? (
+                    untracedFiles.length > 0 && !building && traceExists ? (
                       <Button
                         variant="outline"
                         size="sm"
@@ -496,10 +473,11 @@ export function GraphStructurePanel({
           <Button
             variant="ghost"
             size="sm"
-            className="h-5 px-2 text-[10px]"
+            className="h-5 px-2 text-[10px] gap-1"
             onClick={onRefresh}
           >
-            Rescan Disk
+            <RefreshCw className="w-3 h-3" />
+            Rescan
           </Button>
         </div>
       )}

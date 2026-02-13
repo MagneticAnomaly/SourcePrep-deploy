@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react'
-import { Settings, X, ImageIcon, Key, Shield, Trash2, AlertTriangle } from 'lucide-react'
+import { Settings, X, ImageIcon, Key, Shield, Trash2 } from 'lucide-react'
 import {
   useApiClient,
   Button,
+  ConfirmDialog,
   Select,
   ProjectSettingsPanel,
   DeepAnalysisSettings,
@@ -440,37 +441,19 @@ export function SettingsDrawer({
         )}
       </div>
 
-      {/* ── Confirmation Dialog ── */}
-      {confirmAction && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="mx-4 w-full max-w-sm rounded-lg border border-error/30 bg-surface p-5 shadow-xl">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 shrink-0 rounded-full bg-error/10 p-2">
-                <AlertTriangle className="h-5 w-5 text-error" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-text">
-                  {confirmAction === 'graph' ? 'Reset Graph?' : 'Full Reset?'}
-                </h3>
-                <p className="text-xs text-text-muted leading-relaxed">
-                  {confirmAction === 'graph'
-                    ? 'This will permanently delete the trace graph, all augmentation, epistemic enrichment, and cluster data. Embeddings and search will remain intact.'
-                    : 'This will permanently delete ALL project data: embeddings, search index, trace graph, and all enrichment. You will need to rebuild everything from scratch.'}
-                </p>
-                <p className="text-xs font-medium text-error">This action cannot be undone.</p>
-              </div>
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setConfirmAction(null)}>
-                Cancel
-              </Button>
-              <Button variant="destructive" size="sm" onClick={handleConfirmedAction}>
-                {confirmAction === 'graph' ? 'Reset Graph' : 'Reset Everything'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ── Confirmation Dialog (portals to body) ── */}
+      <ConfirmDialog
+        open={confirmAction !== null}
+        onConfirm={handleConfirmedAction}
+        onCancel={() => setConfirmAction(null)}
+        title={confirmAction === 'graph' ? 'Reset Graph?' : 'Full Reset?'}
+        description={
+          confirmAction === 'graph'
+            ? 'This will permanently delete the trace graph, all augmentation, epistemic enrichment, and cluster data. Embeddings and search will remain intact.'
+            : 'This will permanently delete ALL project data: embeddings, search index, trace graph, and all enrichment. You will need to rebuild everything from scratch.'
+        }
+        confirmLabel={confirmAction === 'graph' ? 'Reset Graph' : 'Reset Everything'}
+      />
     </div>
   )
 }

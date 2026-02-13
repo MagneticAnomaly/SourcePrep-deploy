@@ -171,7 +171,7 @@
     "test_persist": true
   },
   "deep_analysis": {
-    "mode": "manual",
+    "mode": "scheduled",
     "threshold_percent": 20,
     "frequency": "daily",
     "day_of_week": 0,
@@ -193,18 +193,9 @@
       {
         "id": "status",
         "visible": true,
-        "height": 7,
+        "height": 6,
         "collapsed": false,
         "x": 0,
-        "y": 0,
-        "w": 4
-      },
-      {
-        "id": "trace-coverage",
-        "visible": true,
-        "height": 15,
-        "collapsed": false,
-        "x": 8,
         "y": 0,
         "w": 4
       },
@@ -218,9 +209,18 @@
         "w": 4
       },
       {
+        "id": "graph-structure",
+        "visible": true,
+        "height": 16,
+        "collapsed": false,
+        "x": 8,
+        "y": 0,
+        "w": 4
+      },
+      {
         "id": "trace-pipeline",
         "visible": true,
-        "height": 13,
+        "height": 17,
         "collapsed": false,
         "x": 4,
         "y": 2,
@@ -232,16 +232,16 @@
         "height": 17,
         "collapsed": false,
         "x": 0,
-        "y": 7,
+        "y": 6,
         "w": 4
       },
       {
         "id": "deep-analysis",
         "visible": true,
         "height": 28,
-        "collapsed": false,
+        "collapsed": true,
         "x": 8,
-        "y": 15,
+        "y": 16,
         "w": 4
       },
       {
@@ -250,7 +250,7 @@
         "height": 7,
         "collapsed": true,
         "x": 4,
-        "y": 15,
+        "y": 19,
         "w": 4
       },
       {
@@ -259,7 +259,16 @@
         "height": 9,
         "collapsed": true,
         "x": 4,
-        "y": 17,
+        "y": 21,
+        "w": 4
+      },
+      {
+        "id": "llm-status",
+        "visible": true,
+        "height": 9,
+        "collapsed": false,
+        "x": 0,
+        "y": 23,
         "w": 4
       },
       {
@@ -268,7 +277,7 @@
         "height": 6,
         "collapsed": true,
         "x": 4,
-        "y": 19,
+        "y": 23,
         "w": 4
       },
       {
@@ -277,25 +286,16 @@
         "height": 10,
         "collapsed": true,
         "x": 4,
-        "y": 21,
+        "y": 25,
         "w": 4
       },
       {
         "id": "trace",
         "visible": true,
         "height": 13,
-        "collapsed": true,
-        "x": 4,
-        "y": 23,
-        "w": 4
-      },
-      {
-        "id": "llm-status",
-        "visible": true,
-        "height": 10,
         "collapsed": false,
-        "x": 0,
-        "y": 24,
+        "x": 4,
+        "y": 27,
         "w": 4
       },
       {
@@ -304,8 +304,17 @@
         "height": 17,
         "collapsed": false,
         "x": 0,
-        "y": 34,
+        "y": 40,
         "w": 8
+      },
+      {
+        "id": "trace-coverage",
+        "visible": false,
+        "height": 15,
+        "collapsed": false,
+        "x": 8,
+        "y": 0,
+        "w": 4
       },
       {
         "id": "watch",
