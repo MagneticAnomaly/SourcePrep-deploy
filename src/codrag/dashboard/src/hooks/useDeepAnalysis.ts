@@ -9,6 +9,7 @@ interface UseDeepAnalysisOptions {
   onError?: (msg: string) => void
 }
 
+/** Manages deep analysis schedule, run/cancel actions, status polling, and auto-save to backend. */
 export function useDeepAnalysis(selectedProjectId: string | null, { onError }: UseDeepAnalysisOptions = {}) {
   const api = useApiClient()
   const onErrorRef = useRef(onError)

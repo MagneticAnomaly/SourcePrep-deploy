@@ -1,6 +1,6 @@
 # CoDRAG Refactoring Strategy (Phase 23)
 
-**Status:** Planning
+**Status:** Frontend extraction complete · Backend pending
 **Target:** `src/codrag/dashboard/src/App.tsx` and related architecture.
 
 ## 1. Problem Statement
@@ -82,11 +82,26 @@ src/codrag/dashboard/src/
 
 ## 4. Execution Plan (Incremental)
 
-1.  **Phase A (Low Risk):** Extract `SettingsDrawer` to a separate file. (Pass props as-is for now).
-2.  **Phase B (Logic Grouping):** Create `useLLMConfig` and `useLicenseSystem` hooks. Use them in App.tsx.
-3.  **Phase C (Panel Decoupling):** Extract `panelContent` logic.
-4.  **Phase D (Complex Logic):** Extract `useTraceSystem` (the largest chunk of logic).
-5.  **Phase E (State Management):** Introduce Contexts or React Query to remove prop drilling and manual polling.
+1.  **Phase A (Low Risk):** Extract `SettingsDrawer` to a separate file. ✅
+2.  **Phase B (Logic Grouping):** Create `useLLMConfig` and `useLicenseSystem` hooks. ✅
+3.  **Phase C (Panel Decoupling):** Extract `panelContent` logic. ✅
+4.  **Phase D (Complex Logic):** Extract `useTraceSystem` (the largest chunk of logic). ✅
+5.  **Phase E (State Management):** Introduce Contexts or React Query — deferred to Phase 24.
+
+### 4.1 Frontend Extraction Results
+
+| Sprint | Extraction | File | Lines |
+|--------|-----------|------|-------|
+| S1 | SettingsDrawer component | `components/settings/SettingsDrawer.tsx` | ~450 |
+| S2 | useLicenseSystem hook | `hooks/useLicenseSystem.ts` | ~75 |
+| S3 | useLLMConfig hook | `hooks/useLLMConfig.ts` | ~220 |
+| S4 | useDeepAnalysis hook | `hooks/useDeepAnalysis.ts` | ~105 |
+| S5 | useWatchSystem hook | `hooks/useWatchSystem.ts` | ~70 |
+| S6 | useTraceSystem hook | `hooks/useTraceSystem.ts` | ~485 |
+| S7 | useDashboardPanels hook | `hooks/useDashboardPanels.tsx` | ~530 |
+| S8 | Final cleanup + JSDoc | — | — |
+
+**App.tsx:** 2,461 → 946 lines (−62%)
 
 ## 5. Backend Refactoring Strategy
 **Target:** `src/codrag/server.py` (4,351 lines).

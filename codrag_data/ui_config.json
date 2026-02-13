@@ -239,7 +239,7 @@
         "id": "deep-analysis",
         "visible": true,
         "height": 28,
-        "collapsed": true,
+        "collapsed": false,
         "x": 8,
         "y": 16,
         "w": 4

@@ -9,36 +9,11 @@ import {
   Sidebar,
   ProjectList,
   // Dashboard
-  IndexStatusCard,
-  SearchPanel,
-  UsageGuidePanel,
-  ContextOptionsPanel,
-  SearchResultsList,
-  ChunkPreview,
-  ContextOutput,
   ModularDashboard,
-  LLMStatusWidget,
-  AIModelsSettings,
-  DeepAnalysisSettings,
   // Project
   AddProjectModal,
-  FolderTreePanel,
-  FileExplorerDetail,
-  CopyButton,
   type TreeNode,
   type PinnedTextFile,
-  // Trace
-  TraceExplorer,
-  GraphEnrichmentPipeline,
-  GraphStructurePanel,
-  type AugmentationStatus,
-  type EpistemicStatus,
-  type ModuleStatus,
-  type DeepeningStatus,
-  type KnowledgeEmbeddingStatus,
-  type EnrichmentAutoConfig,
-  // Watch
-  WatchControlPanel,
   // Patterns
   LoadingState,
   EmptyState,
@@ -56,9 +31,7 @@ import {
   type DashboardLayout,
   // Layout
   PanelPicker,
-  LogConsole,
   useEventStream,
-  PANEL_REGISTRY,
 } from '@codrag/ui'
 import { StartupScreen } from './components/StartupScreen'
 import { SettingsDrawer } from './components/settings/SettingsDrawer'
@@ -66,6 +39,8 @@ import { useLicenseSystem } from './hooks/useLicenseSystem'
 import { useLLMConfig } from './hooks/useLLMConfig'
 import { useDeepAnalysis } from './hooks/useDeepAnalysis'
 import { useWatchSystem } from './hooks/useWatchSystem'
+import { useTraceSystem } from './hooks/useTraceSystem'
+import { useDashboardPanels } from './hooks/useDashboardPanels'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
@@ -243,73 +218,6 @@ function App() {
     deepAnalysisRunning,
     fetchDeepAnalysisStatus, handleRunDeepAnalysis, handleCancelDeepAnalysis,
   } = useDeepAnalysis(selectedProjectId, { onError: (msg) => setError(msg) })
-  const [augmentationStatus, setAugmentationStatus] = useState<AugmentationStatus>({
-    enabled: false, total_nodes: 0, augmented_nodes: 0, validated_nodes: 0,
-    avg_confidence: 0, low_confidence_count: 0,
-  })
-  const [augmenting, setAugmenting] = useState(false)
-  const [epistemicStatus, setEpistemicStatus] = useState<EpistemicStatus>({
-    enabled: false, enriched_nodes: 0, avg_confidence: 0, running: false,
-  })
-  const [epistemicRunning, setEpistemicRunning] = useState(false)
-  const [moduleStatus, setModuleStatus] = useState<ModuleStatus>({
-    enabled: false, module_count: 0, total_files_clustered: 0, running: false,
-  })
-  const [clusterRunning, setClusterRunning] = useState(false)
-  const [deepeningStatus, setDeepeningStatus] = useState<DeepeningStatus>({
-    running: false, total_scored: 0, settled_count: 0, settled_ratio: 0, avg_score: 0,
-  })
-  const [deepeningRunning, setDeepeningRunning] = useState(false)
-  const [knowledgeStatus, setKnowledgeStatus] = useState<KnowledgeEmbeddingStatus>({
-    enabled: false, running: false, chunks_embedded: 0, last_run_at: null,
-  })
-  const [knowledgeBuilding, setKnowledgeBuilding] = useState(false)
-  const [indexAutoRebuild, setIndexAutoRebuild] = useState<boolean>(() => {
-    try {
-      const stored = localStorage.getItem('codrag_index_auto_rebuild')
-      return stored === 'true'
-    } catch { return false }
-  })
-  const [enrichmentAutoConfig, setEnrichmentAutoConfig] = useState<EnrichmentAutoConfig>(() => {
-    try {
-      const stored = localStorage.getItem('codrag_enrichment_auto_config')
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        const deep = parsed.deepEnrichment
-        return {
-          fastSync: parsed.fastSync ?? true,
-          deepEnrichment: (deep === 'manual' || deep === 'auto' || deep === 'scheduled') ? deep : 'manual',
-        }
-      }
-      return { fastSync: true, deepEnrichment: 'manual' }
-    } catch {
-      return { fastSync: true, deepEnrichment: 'manual' }
-    }
-  })
-  // ── Trace state ───────────────────────────────────────────
-  const [traceStatus, setTraceStatus] = useState<{ enabled: boolean; exists: boolean; building: boolean; counts: { nodes: number; edges: number }; engine?: string }>({
-    enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 },
-  })
-
-  // ── Trace coverage state ────────────────────────────────────
-  const [traceCoverage, setTraceCoverage] = useState<{
-    summary: { total: number; traced: number; untraced: number; stale: number; excluded: number; coverage_pct: number; last_build_at: string | null } | null;
-    untraced: Array<{ path: string; language: string | null; size: number; modified: string; created: string }>;
-    stale: Array<{ path: string; language: string | null; size: number; modified: string; created: string }>;
-    excluded: Array<{ path: string; language: string | null; size: number; modified: string; created: string }>;
-    building: boolean;
-    loading: boolean;
-  }>({ summary: null, untraced: [], stale: [], excluded: [], building: false, loading: false })
-
-  // ── LLM config (hook) ───────────────────────────────────────
-  const {
-    llmConfig, setLLMConfig,
-    availableModels, loadingModels, testingSlot, testResults,
-    llmSlotsStatus,
-    handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
-    handleTestEndpoint, handleFetchModels, handleTestModel,
-    fetchLLMSlotsStatus,
-  } = useLLMConfig({ onDirty: () => setConfigDirty(true) })
 
   // ── Event Stream ───────────────────────────────────────────
   // In dev mode, bypass Vite proxy (which buffers SSE) and connect directly to daemon
@@ -327,19 +235,6 @@ function App() {
     );
     return entry;
   }, [tasks, selectedProjectId]);
-
-  // ── Derived ────────────────────────────────────────────────
-  const selectedProject = useMemo(
-    () => projects.find((p) => p.id === selectedProjectId) ?? null,
-    [projects, selectedProjectId],
-  )
-  const projectStatus = selectedProjectId ? projectStatuses[selectedProjectId] ?? null : null
-  const isBuilding = selectedProjectId ? buildingProjects.has(selectedProjectId) : false
-
-  const projectSummaries = useMemo(
-    () => projects.map((p) => toProjectSummary(p, projectStatuses[p.id] ?? null, buildingProjects.has(p.id))),
-    [projects, projectStatuses, buildingProjects],
-  )
 
   // ── Data fetching ──────────────────────────────────────────
 
@@ -367,6 +262,60 @@ function App() {
       // Silently ignore status errors for background polling
     }
   }, [api])
+
+  // ── Trace system (hook) ───────────────────────────────────────
+  const {
+    traceStatus, setTraceStatus,
+    traceCoverage, setTraceCoverage,
+    augmentationStatus, augmenting,
+    epistemicStatus, epistemicRunning,
+    moduleStatus, clusterRunning,
+    deepeningStatus, deepeningRunning,
+    knowledgeStatus, knowledgeBuilding,
+    indexAutoRebuild, enrichmentAutoConfig,
+    fetchAugmentationStatus, fetchEpistemicStatus, fetchModuleStatus,
+    fetchDeepeningStatus, fetchKnowledgeStatus, fetchTraceCoverage,
+    handleBuildTrace, handleEnableTrace, handleTogglePause,
+    handleSearchTrace, handleGetTraceNode, handleGetTraceNeighbors,
+    handleTraceAll, handleRetraceStale,
+    handleAddExcludePattern, handleRemoveExcludePattern,
+    handleRunAugmentation, handleRunEpistemic, handleRunModuleSynthesis,
+    handleRunDeepening, handleRunKnowledgeBuild,
+    handleRunFastSync, handleRunDeepEnrichment,
+    handleEnrichmentAutoConfigChange, handleIndexAutoRebuildChange,
+    handleDestroyGraph, handleDestroyIndex,
+  } = useTraceSystem(selectedProjectId, {
+    projectConfig,
+    setProjectConfig,
+    setConfigDirty,
+    resetDeepAnalysisStatus: () => setDeepAnalysisStatus({} as any),
+    refreshStatus,
+    onResetSearch: () => { setSearchResults([]); setSelectedChunk(null); setContext(''); setContextMeta(null) },
+    onError: (msg) => setError(msg),
+    findActiveTask,
+  })
+
+  // ── LLM config (hook) ───────────────────────────────────────
+  const {
+    llmConfig, setLLMConfig,
+    availableModels, loadingModels, testingSlot, testResults,
+    llmSlotsStatus,
+    handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
+    handleTestEndpoint, handleFetchModels, handleTestModel,
+    fetchLLMSlotsStatus,
+  } = useLLMConfig({ onDirty: () => setConfigDirty(true) })
+
+  // ── Derived ────────────────────────────────────────────────
+  const selectedProject = useMemo(
+    () => projects.find((p) => p.id === selectedProjectId) ?? null,
+    [projects, selectedProjectId],
+  )
+  const projectStatus = selectedProjectId ? projectStatuses[selectedProjectId] ?? null : null
+
+  const projectSummaries = useMemo(
+    () => projects.map((p) => toProjectSummary(p, projectStatuses[p.id] ?? null, buildingProjects.has(p.id))),
+    [projects, projectStatuses, buildingProjects],
+  )
 
   // ── Actions ────────────────────────────────────────────────
 
@@ -509,282 +458,6 @@ function App() {
     return await api.detectStack(selectedProjectId)
   }, [api, selectedProjectId])
 
-  // ── Destroy graph handler ──────────────────────────────────
-
-  const handleDestroyGraph = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      await api.destroyGraph(selectedProjectId)
-      // Reset all trace-related state
-      setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
-      setAugmentationStatus({ enabled: false, total_nodes: 0, augmented_nodes: 0, validated_nodes: 0, avg_confidence: 0, low_confidence_count: 0 })
-      setDeepAnalysisStatus({})
-      setEpistemicStatus({ enabled: false, enriched_nodes: 0, avg_confidence: 0, running: false })
-      setModuleStatus({ enabled: false, module_count: 0, total_files_clustered: 0, running: false })
-      setDeepeningStatus({ running: false, total_scored: 0, settled_count: 0, settled_ratio: 0, avg_score: 0 })
-      setTraceCoverage({ summary: null, untraced: [], stale: [], excluded: [], building: false, loading: false })
-      // Re-fetch all status from server to get the canonical state
-      void refreshStatus(selectedProjectId)
-      // Re-fetch trace coverage after a short delay
-      setTimeout(() => {
-        api.getTraceCoverage(selectedProjectId).then((data) => {
-          setTraceCoverage({ summary: data.summary, untraced: data.untraced, stale: data.stale, excluded: data.excluded ?? [], building: false, loading: false })
-        }).catch(() => {})
-      }, 300)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to destroy graph')
-    }
-  }, [api, selectedProjectId])
-
-  const handleDestroyIndex = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      await api.destroyIndex(selectedProjectId)
-      // Reset ALL project state — embeddings + graph + everything
-      setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
-      setAugmentationStatus({ enabled: false, total_nodes: 0, augmented_nodes: 0, validated_nodes: 0, avg_confidence: 0, low_confidence_count: 0 })
-      setDeepAnalysisStatus({})
-      setEpistemicStatus({ enabled: false, enriched_nodes: 0, avg_confidence: 0, running: false })
-      setModuleStatus({ enabled: false, module_count: 0, total_files_clustered: 0, running: false })
-      setDeepeningStatus({ running: false, total_scored: 0, settled_count: 0, settled_ratio: 0, avg_score: 0 })
-      setSearchResults([])
-      setSelectedChunk(null)
-      setContext('')
-      setContextMeta(null)
-      setTraceCoverage({ summary: null, untraced: [], stale: [], excluded: [], building: false, loading: false })
-      // Re-fetch all status from server to get the canonical state
-      void refreshStatus(selectedProjectId)
-      // Re-fetch trace coverage after a short delay
-      setTimeout(() => {
-        api.getTraceCoverage(selectedProjectId).then((data) => {
-          setTraceCoverage({ summary: data.summary, untraced: data.untraced, stale: data.stale, excluded: data.excluded ?? [], building: false, loading: false })
-        }).catch(() => {})
-      }, 300)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to reset project data')
-    }
-  }, [api, selectedProjectId])
-
-  // ── Augmentation handlers ──────────────────────────────────
-
-  const fetchAugmentationStatus = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      const status = await api.getAugmentStatus(selectedProjectId)
-      setAugmentationStatus(status)
-    } catch {
-      // Silent — status not critical
-    }
-  }, [api, selectedProjectId])
-
-  const handleRunAugmentation = useCallback(async () => {
-    if (!selectedProjectId) return
-    setAugmenting(true)
-    try {
-      await api.runAugmentation(selectedProjectId)
-      const poll = setInterval(async () => {
-        try {
-          const status = await api.getAugmentStatus(selectedProjectId)
-          setAugmentationStatus(status)
-          // Stop polling once augmented_nodes stabilizes (no running indicator from status)
-          // We'll just poll a few times then stop
-        } catch { /* ignore */ }
-      }, 3000)
-      // Stop after 5 minutes max
-      setTimeout(() => {
-        clearInterval(poll)
-        setAugmenting(false)
-        void fetchAugmentationStatus()
-      }, 300000)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Augmentation failed')
-      setAugmenting(false)
-    }
-  }, [api, selectedProjectId])
-
-  // ── Epistemic enrichment handlers ─────────────────────────
-
-  const fetchEpistemicStatus = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      const status = await api.getEpistemicStatus(selectedProjectId)
-      setEpistemicStatus(status)
-    } catch { /* silent */ }
-  }, [api, selectedProjectId])
-
-  const handleRunEpistemic = useCallback(async () => {
-    if (!selectedProjectId) return
-    setEpistemicRunning(true)
-    try {
-      await api.runEpistemic(selectedProjectId)
-      const poll = setInterval(async () => {
-        try {
-          const status = await api.getEpistemicStatus(selectedProjectId)
-          setEpistemicStatus(status)
-          if (!status.running) {
-            clearInterval(poll)
-            setEpistemicRunning(false)
-          }
-        } catch {
-          clearInterval(poll)
-          setEpistemicRunning(false)
-        }
-      }, 3000)
-    } catch (e) {
-      setEpistemicRunning(false)
-      setError(e instanceof Error ? e.message : 'Epistemic enrichment failed')
-    }
-  }, [api, selectedProjectId])
-
-  // ── Module synthesis handlers ─────────────────────────────
-
-  const fetchModuleStatus = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      const status = await api.getModuleStatus(selectedProjectId)
-      setModuleStatus(status)
-    } catch { /* silent */ }
-  }, [api, selectedProjectId])
-
-  const handleRunModuleSynthesis = useCallback(async () => {
-    if (!selectedProjectId) return
-    setClusterRunning(true)
-    try {
-      await api.runModuleSynthesis(selectedProjectId)
-      const poll = setInterval(async () => {
-        try {
-          const status = await api.getModuleStatus(selectedProjectId)
-          setModuleStatus(status)
-          if (!status.running) {
-            clearInterval(poll)
-            setClusterRunning(false)
-          }
-        } catch {
-          clearInterval(poll)
-          setClusterRunning(false)
-        }
-      }, 3000)
-    } catch (e) {
-      setClusterRunning(false)
-      setError(e instanceof Error ? e.message : 'Module synthesis failed')
-    }
-  }, [api, selectedProjectId])
-
-  // ── Deepening loop handlers ───────────────────────────────
-
-  const fetchDeepeningStatus = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      const status = await api.getDeepeningStatus(selectedProjectId)
-      setDeepeningStatus(status)
-    } catch { /* silent */ }
-  }, [api, selectedProjectId])
-
-  // ── Knowledge Embedding handlers ────────────────────────────
-
-  const fetchKnowledgeStatus = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      const status = await api.getKnowledgeStatus(selectedProjectId)
-      setKnowledgeStatus(status)
-    } catch { /* silent */ }
-  }, [api, selectedProjectId])
-
-  const handleRunKnowledgeBuild = useCallback(async () => {
-    if (!selectedProjectId) return
-    setKnowledgeBuilding(true)
-    try {
-      await api.runKnowledgeBuild(selectedProjectId)
-      const poll = setInterval(async () => {
-        try {
-          const status = await api.getKnowledgeStatus(selectedProjectId)
-          setKnowledgeStatus(status)
-          if (!status.running) {
-            clearInterval(poll)
-            setKnowledgeBuilding(false)
-          }
-        } catch {
-          clearInterval(poll)
-          setKnowledgeBuilding(false)
-        }
-      }, 3000)
-    } catch (e) {
-      setKnowledgeBuilding(false)
-      setError(e instanceof Error ? e.message : 'Knowledge build failed')
-    }
-  }, [api, selectedProjectId])
-
-  // ── Enrichment auto config persistence ─────────────────────
-
-  const handleEnrichmentAutoConfigChange = useCallback((config: EnrichmentAutoConfig) => {
-    setEnrichmentAutoConfig(config)
-    localStorage.setItem('codrag_enrichment_auto_config', JSON.stringify(config))
-  }, [])
-
-  const handleIndexAutoRebuildChange = useCallback((auto: boolean) => {
-    setIndexAutoRebuild(auto)
-    localStorage.setItem('codrag_index_auto_rebuild', String(auto))
-  }, [])
-
-  const handleRunAutoPilot = useCallback(async () => {
-    if (!selectedProjectId) return
-    // Trigger trace build as the first stage — downstream stages run if auto-enabled
-    try {
-      await api.buildTrace(selectedProjectId)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Auto-pilot failed')
-    }
-  }, [api, selectedProjectId])
-
-  const handleRunFastSync = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      // Immediately show building state so hero transitions to spinner
-      setTraceStatus(prev => ({ ...prev, building: true }))
-      // Kick off the structural graph build — backend cascades through
-      // catalogue → validation → knowledge embedding automatically
-      await api.buildTrace(selectedProjectId)
-    } catch (e) {
-      setTraceStatus(prev => ({ ...prev, building: false }))
-      setError(e instanceof Error ? e.message : 'Fast sync failed')
-    }
-  }, [api, selectedProjectId])
-
-  const handleRunDeepEnrichment = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      // Kick off epistemic enrichment — backend cascades through
-      // clustering → deepening → deep knowledge embedding
-      await api.runEpistemic(selectedProjectId)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Deep enrichment failed')
-    }
-  }, [api, selectedProjectId])
-
-  const handleRunDeepening = useCallback(async () => {
-    if (!selectedProjectId) return
-    setDeepeningRunning(true)
-    try {
-      await api.runDeepening(selectedProjectId)
-      const poll = setInterval(async () => {
-        try {
-          const status = await api.getDeepeningStatus(selectedProjectId)
-          setDeepeningStatus(status)
-          if (!status.running) {
-            clearInterval(poll)
-            setDeepeningRunning(false)
-          }
-        } catch {
-          clearInterval(poll)
-          setDeepeningRunning(false)
-        }
-      }, 3000)
-    } catch (e) {
-      setDeepeningRunning(false)
-      setError(e instanceof Error ? e.message : 'Deepening loop failed')
-    }
-  }, [api, selectedProjectId])
-
   const handlePathWeightChange = useCallback((path: string, weight: number | null) => {
     if (!selectedProjectId) return
     setPathWeights((prev) => {
@@ -885,119 +558,6 @@ function App() {
     const data = await api.getProjectFileContent(selectedProjectId, path)
     return data.content
   }, [api, selectedProjectId])
-
-  const handleSearchTrace = useCallback(async (query: string, kinds?: string[], limit?: number) => {
-    if (!selectedProjectId) return { nodes: [] }
-    return api.searchTrace(selectedProjectId, query, kinds, limit)
-  }, [api, selectedProjectId])
-
-  const handleGetTraceNode = useCallback(async (nodeId: string) => {
-    if (!selectedProjectId) throw new Error('No project selected')
-    return api.getTraceNode(selectedProjectId, nodeId)
-  }, [api, selectedProjectId])
-
-  const handleGetTraceNeighbors = useCallback(async (nodeId: string, direction?: string) => {
-    if (!selectedProjectId) throw new Error('No project selected')
-    return api.getTraceNeighbors(selectedProjectId, nodeId, direction)
-  }, [api, selectedProjectId])
-
-  const handleBuildTrace = useCallback(() => {
-    if (!selectedProjectId) return
-    api.buildTrace(selectedProjectId).then(() => {
-      setTraceStatus(prev => ({ ...prev, building: true }))
-    }).catch(() => {})
-  }, [api, selectedProjectId])
-
-  const handleEnableTrace = useCallback(() => {
-    if (!selectedProjectId) return
-    const newConfig = { ...projectConfig, trace: { ...projectConfig.trace, enabled: true } }
-    setProjectConfig(newConfig)
-    setConfigDirty(true)
-    api.updateProject(selectedProjectId, { config: newConfig }).catch(() => {})
-    setTraceStatus(prev => ({ ...prev, enabled: true }))
-  }, [api, selectedProjectId, projectConfig])
-
-  const handleTogglePause = useCallback(() => {
-    if (!selectedProjectId) return
-    const newPaused = !projectConfig.trace.paused
-    const newConfig = { ...projectConfig, trace: { ...projectConfig.trace, paused: newPaused } }
-    setProjectConfig(newConfig)
-    setConfigDirty(true)
-    api.updateProject(selectedProjectId, { config: newConfig }).catch(() => {})
-  }, [api, selectedProjectId, projectConfig])
-
-  const fetchTraceCoverage = useCallback(() => {
-    if (!selectedProjectId || !traceStatus.enabled) return
-    setTraceCoverage(prev => ({ ...prev, loading: true }))
-    api.getTraceCoverage(selectedProjectId).then((data) => {
-      setTraceCoverage({
-        summary: data.summary,
-        untraced: data.untraced,
-        stale: data.stale,
-        excluded: data.excluded ?? (data as any).ignored ?? [],
-        building: data.building,
-        loading: false,
-      })
-    }).catch(() => {
-      setTraceCoverage(prev => ({ ...prev, loading: false }))
-    })
-  }, [api, selectedProjectId, traceStatus.enabled])
-
-  const handleTraceAll = useCallback(() => {
-    if (!selectedProjectId) return
-    api.buildTrace(selectedProjectId).then(() => {
-      setTraceStatus(prev => ({ ...prev, building: true }))
-      setTraceCoverage(prev => ({ ...prev, building: true }))
-    }).catch(() => {})
-  }, [api, selectedProjectId])
-
-  const handleRetraceStale = useCallback(() => {
-    // Re-trace triggers a full trace rebuild (same as trace all)
-    handleTraceAll()
-  }, [handleTraceAll])
-
-  const handleAddExcludePattern = useCallback((pattern: string) => {
-    if (!selectedProjectId) return
-    api.updateTraceIgnore(selectedProjectId, 'add', [pattern]).then(() => {
-      fetchTraceCoverage()
-    }).catch(() => {})
-  }, [api, selectedProjectId, fetchTraceCoverage])
-
-  const handleRemoveExcludePattern = useCallback((pattern: string) => {
-    if (!selectedProjectId) return
-    api.updateTraceIgnore(selectedProjectId, 'remove', [pattern]).then(() => {
-      fetchTraceCoverage()
-    }).catch(() => {})
-  }, [api, selectedProjectId, fetchTraceCoverage])
-
-  // ── Auto-refresh coverage when trace build completes via SSE ──
-  const prevTraceBuildStatusRef = useRef<string | undefined>(undefined)
-  useEffect(() => {
-    const traceTask = findActiveTask('trace_build')
-    const prevStatus = prevTraceBuildStatusRef.current
-    prevTraceBuildStatusRef.current = traceTask?.status
-
-    // Detect transition to completed/failed
-    if (traceTask && prevStatus === 'running' && (traceTask.status === 'completed' || traceTask.status === 'failed')) {
-      // Reset building flags and refresh coverage data
-      setTraceStatus(prev => ({ ...prev, building: false }))
-      setTraceCoverage(prev => ({ ...prev, building: false }))
-      if (traceTask.status === 'completed' && selectedProjectId) {
-        // Re-fetch full trace status so exists/counts update
-        api.getTraceStatus(selectedProjectId).then((data) => {
-          setTraceStatus({
-            enabled: data.enabled ?? false,
-            exists: data.exists ?? false,
-            building: false,
-            counts: data.counts ?? { nodes: 0, edges: 0 },
-            engine: data.engine,
-          })
-        }).catch(() => {})
-        // Short delay to let the backend finish flushing the manifest
-        setTimeout(() => fetchTraceCoverage(), 500)
-      }
-    }
-  }, [findActiveTask, fetchTraceCoverage, api, selectedProjectId])
 
   // ── Theme effect ───────────────────────────────────────────
   useEffect(() => {
@@ -1190,394 +750,40 @@ function App() {
     }
   }, [projects, selectedProjectId])
 
-  // ── Panel content (Storybook components only) ──────────────
-
-  const panelContent = useMemo(() => ({
-    'log-console': (
-      <LogConsole
-        logs={logs}
-        onClear={clearLogs}
-        className="h-full border-none shadow-none bg-transparent"
-        defaultExpanded={true}
-      />
-    ),
-    'usage-guide': (
-      <UsageGuidePanel bare />
-    ),
-    status: (
-      <IndexStatusCard
-        stats={projectStatus ? {
-          loaded: projectStatus.index.exists,
-          index_dir: selectedProject?.path,
-          total_documents: projectStatus.index.total_chunks,
-          model: projectStatus.index.embedding_model,
-          built_at: projectStatus.index.last_build_at ?? undefined,
-          embedding_dim: projectStatus.index.embedding_dim,
-          build: projectStatus.index.build,
-        } : {
-          loaded: false,
-          total_documents: 0,
-          embedding_dim: 0,
-          model: 'Unknown',
-          built_at: undefined,
-          build: undefined,
-        }}
-        building={projectStatus?.building ?? false}
-        stale={projectStatus?.stale ?? false}
-        progress={findActiveTask('index_build')}
-        lastError={projectStatus?.index.last_error?.message}
-        onBuild={selectedProjectId ? handleBuild : undefined}
-        traceChunks={traceStatus.counts?.nodes ?? 0}
-        autoRebuild={indexAutoRebuild}
-        onAutoRebuildChange={handleIndexAutoRebuildChange}
-        isPro={isPro}
-        className="h-full border-none shadow-none bg-transparent"
-        bare
-      />
-    ),
-    'llm-status': (
-      <div className="h-full overflow-y-auto p-4">
-        <LLMStatusWidget
-          services={(() => {
-            const hasEmbedding = !!(llmConfig.embedding.model && (llmConfig.embedding.source === 'endpoint' || llmConfig.embedding.source === 'huggingface'));
-            const hasFast = !!(llmConfig.small_model.enabled && llmConfig.small_model.model);
-            const hasThinking = !!(llmConfig.large_model.enabled && llmConfig.large_model.model);
-            const hasCLaRa = !!(llmConfig.clara.enabled && (llmConfig.clara.remote_url || llmConfig.clara.endpoint_id || llmConfig.clara.source === 'huggingface'));
-            const fastName = hasThinking ? 'Fast Model' : 'Single LLM';
-            type Svc = { name: string; status: 'connected' | 'disconnected' | 'disabled' | 'not-configured'; type: 'ollama' | 'clara' | 'openai' | 'other'; model?: string };
-            const items: Svc[] = [];
-            if (hasEmbedding) {
-              items.push({
-                name: 'Embedding',
-                status: llmSlotsStatus?.embedding
-                  ? (llmSlotsStatus.embedding.status === 'connected' || llmSlotsStatus.embedding.status === 'local' ? 'connected'
-                    : llmSlotsStatus.embedding.status === 'unreachable' ? 'disconnected'
-                    : llmSlotsStatus.embedding.configured ? 'disconnected' : 'not-configured')
-                  : 'connected',
-                type: 'other',
-                model: llmConfig.embedding.model,
-              });
-            }
-            if (hasFast) {
-              items.push({
-                name: fastName,
-                status: llmSlotsStatus?.small_model
-                  ? (llmSlotsStatus.small_model.status === 'connected' ? 'connected'
-                    : llmSlotsStatus.small_model.status === 'unreachable' ? 'disconnected'
-                    : llmSlotsStatus.small_model.configured ? 'disconnected' : 'not-configured')
-                  : 'connected',
-                type: 'ollama',
-                model: llmConfig.small_model.model,
-              });
-            }
-            if (hasThinking) {
-              items.push({
-                name: 'Thinking Model',
-                status: llmSlotsStatus?.large_model
-                  ? (llmSlotsStatus.large_model.status === 'connected' ? 'connected'
-                    : llmSlotsStatus.large_model.status === 'unreachable' ? 'disconnected'
-                    : llmSlotsStatus.large_model.configured ? 'disconnected' : 'not-configured')
-                  : 'connected',
-                type: 'openai',
-                model: llmConfig.large_model.model,
-              });
-            }
-            if (hasCLaRa) {
-              items.push({
-                name: 'CLaRa',
-                status: llmConfig.clara.remote_url || llmConfig.clara.endpoint_id ? 'connected' : 'not-configured',
-                type: 'clara',
-                model: 'Context Compression',
-              });
-            }
-            if (items.length === 0) {
-              items.push({ name: 'No models configured', status: 'not-configured', type: 'other' });
-            }
-            return items;
-          })()}
-          bare
-        />
-      </div>
-    ),
-    search: (
-      <SearchPanel
-        query={query}
-        onQueryChange={setQuery}
-        k={searchK}
-        onKChange={setSearchK}
-        minScore={minScore}
-        onMinScoreChange={setMinScore}
-        onSearch={handleSearch}
-        loading={searchLoading}
-        bare
-      />
-    ),
-    'context-options': (
-      <ContextOptionsPanel
-        k={contextK}
-        onKChange={setContextK}
-        maxChars={contextMaxChars}
-        onMaxCharsChange={setContextMaxChars}
-        includeSources={contextIncludeSources}
-        onIncludeSourcesChange={setContextIncludeSources}
-        includeScores={contextIncludeScores}
-        onIncludeScoresChange={setContextIncludeScores}
-        structured={contextStructured}
-        onStructuredChange={setContextStructured}
-        onGetContext={handleGetContext}
-        onCopyContext={handleCopyContext}
-        hasContext={!!context}
-        disabled={!query.trim()}
-        bare
-      />
-    ),
-    results: (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full overflow-hidden">
-        <div className="h-full overflow-y-auto min-h-0">
-          <SearchResultsList
-            results={searchResults}
-            selectedId={selectedChunk?.chunk_id}
-            onSelect={setSelectedChunk}
-          />
-        </div>
-        <div className="h-full overflow-y-auto min-h-0 border-l border-border pl-4">
-          <ChunkPreview
-            content={selectedChunk?.content}
-            sourcePath={selectedChunk?.source_path}
-            section={selectedChunk?.section}
-            bare
-          />
-        </div>
-      </div>
-    ),
-    'context-output': (
-      <ContextOutput
-        context={context}
-        meta={contextMeta}
-        bare
-      />
-    ),
-    watch: (
-      <WatchControlPanel
-        status={watchStatus}
-        onStartWatch={handleStartWatch}
-        onStopWatch={handleStopWatch}
-        onRebuildNow={() => selectedProjectId && void handleBuild()}
-        loading={watchLoading}
-        bare
-      />
-    ),
-    'file-tree': (
-      <FolderTreePanel
-        data={fileTree}
-        includedPaths={includedPaths}
-        onToggleInclude={handleToggleInclude}
-        pathWeights={pathWeights}
-        onWeightChange={handlePathWeightChange}
-        onLoadChildren={handleLoadChildren}
-        title="Knowledge Sources"
-        bare
-      />
-    ),
-    ...Object.fromEntries(
-      [...pinnedPaths].map((p) => {
-        const file = pinnedFiles.find((f) => f.path === p)
-        return [
-          `${PINNED_PREFIX}${p}`,
-          file ? (
-            <div key={p} className="h-full flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between gap-2 px-1 py-1 border-b border-border shrink-0">
-                <span className="text-xs font-mono text-text-muted truncate flex-1">{file.path}</span>
-                <CopyButton text={file.content} label="Copy" />
-              </div>
-              <pre className="flex-1 min-h-0 p-3 text-xs whitespace-pre-wrap font-mono text-text overflow-y-auto custom-scrollbar">
-                {file.content}
-              </pre>
-            </div>
-          ) : (
-            <div key={p} className="h-full flex items-center justify-center text-sm text-text-muted">
-              Loading {p.split('/').pop()}…
-            </div>
-          ),
-        ]
-      })
-    ),
-    trace: (
-      <TraceExplorer
-        traceEnabled={traceStatus.enabled}
-        traceExists={traceStatus.exists}
-        traceBuilding={traceStatus.building}
-        traceCounts={traceStatus.counts}
-        engine={traceStatus.engine}
-        onSearchTrace={handleSearchTrace}
-        onGetNode={handleGetTraceNode}
-        onGetNeighbors={handleGetTraceNeighbors}
-        onBuildTrace={handleBuildTrace}
-        onEnableTrace={handleEnableTrace}
-        progress={findActiveTask('trace_build')}
-      />
-    ),
-    // trace-coverage removed — consolidated into graph-structure (Graph Scope)
-    'deep-analysis': (
-      <div className="h-full overflow-y-auto p-4">
-        <DeepAnalysisSettings
-          schedule={deepAnalysisSchedule}
-          onScheduleChange={setDeepAnalysisSchedule}
-          largeModelConfigured={!!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model)}
-          fastModelConfigured={!!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model)}
-          status={deepAnalysisStatus}
-          running={deepAnalysisRunning}
-          onRunNow={handleRunDeepAnalysis}
-          onCancel={handleCancelDeepAnalysis}
-        />
-      </div>
-    ),
-    'trace-pipeline': (
-      <div className="h-full overflow-y-auto">
-        <GraphEnrichmentPipeline
-          trace={{
-            enabled: traceStatus.enabled,
-            exists: traceStatus.exists,
-            building: traceStatus.building,
-            counts: traceStatus.counts,
-            last_build_at: null,
-          }}
-          augmentation={augmentationStatus}
-          deepAnalysis={deepAnalysisStatus}
-          epistemic={epistemicStatus}
-          modules={moduleStatus}
-          deepening={deepeningStatus}
-          knowledge={knowledgeStatus}
-          smallModelConfigured={!!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model)}
-          largeModelConfigured={!!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model)}
-          onBuildTrace={handleBuildTrace}
-          onRunAugmentation={handleRunAugmentation}
-          onRunDeepAnalysis={handleRunDeepAnalysis}
-          onRunEpistemic={handleRunEpistemic}
-          onRunModuleSynthesis={handleRunModuleSynthesis}
-          onRunDeepening={handleRunDeepening}
-          onRunKnowledgeBuild={handleRunKnowledgeBuild}
-          onRunFastSync={handleRunFastSync}
-          onRunDeepEnrichment={handleRunDeepEnrichment}
-          onDestroyGraph={handleDestroyGraph}
-          augmenting={augmenting}
-          deepAnalyzing={deepAnalysisRunning}
-          epistemicRunning={epistemicRunning}
-          clusterRunning={clusterRunning}
-          deepeningRunning={deepeningRunning}
-          knowledgeBuilding={knowledgeBuilding}
-          paused={projectConfig.trace.paused}
-          onTogglePause={handleTogglePause}
-          autoConfig={enrichmentAutoConfig}
-          onAutoConfigChange={handleEnrichmentAutoConfigChange}
-          isPro={isPro}
-        />
-      </div>
-    ),
-    'graph-structure': (
-      <GraphStructurePanel
-        summary={traceCoverage.summary}
-        untracedFiles={traceCoverage.untraced}
-        staleFiles={traceCoverage.stale}
-        excludedFiles={traceCoverage.excluded}
-        building={traceCoverage.building}
-        progress={findActiveTask('trace_build')}
-        loading={traceCoverage.loading}
-        onTraceAll={handleTraceAll}
-        onRetraceStale={handleRetraceStale}
-        onAddExcludePattern={handleAddExcludePattern}
-        onRemoveExcludePattern={handleRemoveExcludePattern}
-        onRefresh={fetchTraceCoverage}
-        traceExists={traceStatus.exists}
-      />
-    ),
-    // graph-engine removed — consolidated into trace-pipeline (Graph Enrichment)
-  }), [
-    projectStatus, isBuilding, selectedProject, selectedProjectId,
+  // ── Dashboard panels (hook) ─────────────────────────────────
+  const { panelContent, panelDetails, allPanelDefs, PINNED_PREFIX: pinnedPrefix } = useDashboardPanels({
+    projectStatus, selectedProject, selectedProjectId, projectConfig, isPro,
+    logs, clearLogs, findActiveTask,
+    handleBuild,
+    query, setQuery, searchK, setSearchK, minScore, setMinScore,
+    searchLoading, searchResults, selectedChunk, setSelectedChunk, handleSearch,
+    contextK, setContextK, contextMaxChars, setContextMaxChars,
+    contextIncludeSources, setContextIncludeSources,
+    contextIncludeScores, setContextIncludeScores,
+    contextStructured, setContextStructured,
+    context, contextMeta, handleGetContext, handleCopyContext,
     watchStatus, watchLoading, handleStartWatch, handleStopWatch,
-    query, searchK, minScore, searchLoading, searchResults, selectedChunk,
-    contextK, contextMaxChars, contextIncludeSources, contextIncludeScores, contextStructured, context, contextMeta,
-    projectConfig, configDirty, traceStatus, traceCoverage,
-    handleBuild, handleSearch, handleGetContext, handleCopyContext, handleSaveConfig, handleProjectConfigChange,
-    pathWeights, handlePathWeightChange, fileTree, includedPaths, handleToggleInclude, handleLoadChildren,
-    handleSearchTrace, handleGetTraceNode, handleGetTraceNeighbors, handleBuildTrace, handleEnableTrace,
-    handleTogglePause,
+    fileTree, includedPaths, handleToggleInclude,
+    pathWeights, handlePathWeightChange, handleLoadChildren,
+    pinnedPaths, pinnedFiles, handlePinFile, handleUnpinFile, handleLoadFileContent,
+    traceStatus, traceCoverage, indexAutoRebuild, handleIndexAutoRebuildChange,
+    enrichmentAutoConfig, handleEnrichmentAutoConfigChange,
+    handleSearchTrace, handleGetTraceNode, handleGetTraceNeighbors,
+    handleBuildTrace, handleEnableTrace, handleTogglePause,
     handleTraceAll, handleRetraceStale, handleAddExcludePattern, handleRemoveExcludePattern, fetchTraceCoverage,
-    findActiveTask, logs, clearLogs, tasks, llmConfig,
-    handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
-    handleTestEndpoint, handleFetchModels, handleTestModel, availableModels, loadingModels, testingSlot, testResults,
-    handleDetectStack, augmentationStatus, deepAnalysisSchedule, deepAnalysisStatus, augmenting, deepAnalysisRunning,
-    handleRunAugmentation, handleRunDeepAnalysis, handleCancelDeepAnalysis, handleBuildTrace, llmSlotsStatus,
+    augmentationStatus, augmenting, handleRunAugmentation,
     epistemicStatus, epistemicRunning, handleRunEpistemic,
     moduleStatus, clusterRunning, handleRunModuleSynthesis,
     deepeningStatus, deepeningRunning, handleRunDeepening,
-    handleDestroyGraph,
-    pinnedPaths, pinnedFiles,
     knowledgeStatus, knowledgeBuilding, handleRunKnowledgeBuild,
-    enrichmentAutoConfig, handleEnrichmentAutoConfigChange, handleRunAutoPilot
-  ])
-
-  // ── Dynamic panel definitions for pinned files ─────────────
-  const dynamicPanelDefs = useMemo(() =>
-    [...pinnedPaths].map((p) => ({
-      id: `${PINNED_PREFIX}${p}`,
-      title: p.split('/').pop() ?? p,
-      description: p,
-      icon: FileText,
-      minHeight: 4,
-      defaultHeight: 8,
-      category: 'projects' as const,
-      closeable: true,
-      resizable: true,
-    })),
-    [pinnedPaths]
-  )
-
-  const allPanelDefs = useMemo(
-    () => [...PANEL_REGISTRY, ...dynamicPanelDefs],
-    [dynamicPanelDefs]
-  )
-
-  const panelDetails = useMemo(() => ({
-    'llm-status': (
-      <div className="max-w-6xl mx-auto w-full p-6 space-y-8">
-        <AIModelsSettings
-          config={llmConfig}
-          onConfigChange={handleLLMConfigChange}
-          onAddEndpoint={handleAddEndpoint}
-          onEditEndpoint={handleEditEndpoint}
-          onDeleteEndpoint={handleDeleteEndpoint}
-          onTestEndpoint={handleTestEndpoint}
-          onFetchModels={handleFetchModels}
-          onTestModel={handleTestModel}
-          onHFDownload={() => {}}
-          availableModels={availableModels}
-          loadingModels={loadingModels}
-          testingSlot={testingSlot}
-          testResults={testResults}
-        />
-      </div>
-    ),
-    'file-tree': (
-      <FileExplorerDetail
-        treeData={fileTree}
-        pinnedPaths={pinnedPaths}
-        onPinFile={handlePinFile}
-        onUnpinFile={handleUnpinFile}
-        onLoadFileContent={handleLoadFileContent}
-        includedPaths={includedPaths}
-        onToggleInclude={handleToggleInclude}
-        pathWeights={pathWeights}
-        onWeightChange={handlePathWeightChange}
-        onLoadChildren={handleLoadChildren}
-      />
-    ),
-  }), [
-    llmConfig, handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
-    handleTestEndpoint, handleFetchModels, handleTestModel, availableModels, loadingModels, testingSlot, testResults,
-    fileTree, includedPaths, handleToggleInclude, pinnedPaths, handlePinFile, handleUnpinFile, handleLoadFileContent,
-    pathWeights, handlePathWeightChange, handleLoadChildren,
-  ])
+    handleRunFastSync, handleRunDeepEnrichment, handleDestroyGraph,
+    deepAnalysisSchedule, setDeepAnalysisSchedule,
+    deepAnalysisStatus, deepAnalysisRunning, handleRunDeepAnalysis, handleCancelDeepAnalysis,
+    llmConfig, llmSlotsStatus,
+    handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
+    handleTestEndpoint, handleFetchModels, handleTestModel,
+    availableModels, loadingModels, testingSlot, testResults,
+  })
 
   // ── Loading state ──────────────────────────────────────────
   if (!isConnected) {
@@ -1693,7 +899,7 @@ function App() {
               panelContent={panelContent}
               panelDetails={panelDetails}
               onPanelClose={(panelId) => {
-                if (panelId.startsWith(PINNED_PREFIX)) {
+                if (panelId.startsWith(pinnedPrefix)) {
                   handleUnpinFile(panelId)
                 }
               }}

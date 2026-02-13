@@ -5,6 +5,7 @@ interface UseWatchSystemOptions {
   onError?: (msg: string) => void
 }
 
+/** Manages file watch system: start/stop controls, status refresh, and loading state. */
 export function useWatchSystem(selectedProjectId: string | null, { onError }: UseWatchSystemOptions = {}) {
   const api = useApiClient()
   const onErrorRef = useRef(onError)

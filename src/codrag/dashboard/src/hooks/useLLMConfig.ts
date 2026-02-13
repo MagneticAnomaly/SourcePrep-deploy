@@ -11,6 +11,7 @@ interface UseLLMConfigOptions {
   onDirty?: () => void
 }
 
+/** Manages LLM endpoint configuration, model fetching/testing, slot status, and auto-persistence. */
 export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
   const api = useApiClient()
   const onDirtyRef = useRef(onDirty)

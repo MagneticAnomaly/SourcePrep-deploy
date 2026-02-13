@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useApiClient, type LicenseStatus, type LicenseTier } from '@codrag/ui'
 
+/** Manages license activation, deactivation, dev-tier override, and status polling. */
 export function useLicenseSystem() {
   const api = useApiClient()
 
