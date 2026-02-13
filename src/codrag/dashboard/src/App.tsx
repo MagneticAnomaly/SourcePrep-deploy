@@ -20,8 +20,6 @@ import {
   LLMStatusWidget,
   AIModelsSettings,
   DeepAnalysisSettings,
-  type DeepAnalysisSchedule,
-  type DeepAnalysisRunStatus,
   // Project
   AddProjectModal,
   FolderTreePanel,
@@ -53,7 +51,6 @@ import {
   type ProjectSummary,
   type ProjectStatus,
   type StatusState,
-  type WatchStatus,
   type ProjectMode,
   type DashboardLayoutApi,
   type DashboardLayout,
@@ -67,6 +64,8 @@ import { StartupScreen } from './components/StartupScreen'
 import { SettingsDrawer } from './components/settings/SettingsDrawer'
 import { useLicenseSystem } from './hooks/useLicenseSystem'
 import { useLLMConfig } from './hooks/useLLMConfig'
+import { useDeepAnalysis } from './hooks/useDeepAnalysis'
+import { useWatchSystem } from './hooks/useWatchSystem'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
@@ -221,14 +220,11 @@ function App() {
 
   const layoutApiRef = useRef<DashboardLayoutApi | null>(null)
 
-  // ── Watch state ─────────────────────────────────────────────
-  const [watchStatus, setWatchStatus] = useState<WatchStatus>({
-    enabled: false,
-    state: 'disabled',
-    stale: false,
-    pending: false,
-  })
-  const [watchLoading, setWatchLoading] = useState(false)
+  // ── Watch (hook) ─────────────────────────────────────────────
+  const {
+    watchStatus, watchLoading,
+    refreshWatchStatus, handleStartWatch, handleStopWatch,
+  } = useWatchSystem(selectedProjectId, { onError: (msg) => setError(msg) })
 
   // ── Settings state ─────────────────────────────────────────
   const [projectConfig, setProjectConfig] = useState<ProjectConfig>({
@@ -240,20 +236,13 @@ function App() {
     auto_rebuild: { enabled: false, debounce_ms: 5000 },
   })
   const [configDirty, setConfigDirty] = useState(false)
-  const [deepAnalysisSchedule, setDeepAnalysisSchedule] = useState<DeepAnalysisSchedule>({
-    mode: 'manual',
-    threshold_percent: 20,
-    frequency: 'weekly',
-    day_of_week: 0,
-    hour: 2,
-    budget_enabled: true,
-    budget_max_tokens: 50_000,
-    budget_max_minutes: 30,
-    budget_max_items: 100,
-    priority: 'lowest_confidence',
-  })
-  const [deepAnalysisStatus, setDeepAnalysisStatus] = useState<DeepAnalysisRunStatus>({})
-  const [deepAnalysisRunning, setDeepAnalysisRunning] = useState(false)
+  // ── Deep analysis (hook) ─────────────────────────────────────
+  const {
+    deepAnalysisSchedule, setDeepAnalysisSchedule,
+    deepAnalysisStatus, setDeepAnalysisStatus,
+    deepAnalysisRunning,
+    fetchDeepAnalysisStatus, handleRunDeepAnalysis, handleCancelDeepAnalysis,
+  } = useDeepAnalysis(selectedProjectId, { onError: (msg) => setError(msg) })
   const [augmentationStatus, setAugmentationStatus] = useState<AugmentationStatus>({
     enabled: false, total_nodes: 0, augmented_nodes: 0, validated_nodes: 0,
     avg_confidence: 0, low_confidence_count: 0,
@@ -613,52 +602,6 @@ function App() {
     }
   }, [api, selectedProjectId])
 
-  // ── Deep analysis handlers ─────────────────────────────────
-
-  const fetchDeepAnalysisStatus = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      const status = await api.getDeepAnalysisStatus(selectedProjectId)
-      setDeepAnalysisStatus(status)
-    } catch {
-      // Silent — status not critical
-    }
-  }, [api, selectedProjectId])
-
-  const handleRunDeepAnalysis = useCallback(async () => {
-    if (!selectedProjectId) return
-    setDeepAnalysisRunning(true)
-    try {
-      await api.runDeepAnalysis(selectedProjectId)
-      // Poll for progress updates (every 2s for responsive UI)
-      const poll = setInterval(async () => {
-        try {
-          const status = await api.getDeepAnalysisStatus(selectedProjectId)
-          setDeepAnalysisStatus(status)
-          if (!status.running) {
-            clearInterval(poll)
-            setDeepAnalysisRunning(false)
-          }
-        } catch {
-          clearInterval(poll)
-          setDeepAnalysisRunning(false)
-        }
-      }, 2000)
-    } catch (e) {
-      setDeepAnalysisRunning(false)
-      setError(e instanceof Error ? e.message : 'Deep analysis failed')
-    }
-  }, [api, selectedProjectId])
-
-  const handleCancelDeepAnalysis = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      await api.cancelDeepAnalysis(selectedProjectId)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to cancel deep analysis')
-    }
-  }, [api, selectedProjectId])
-
   // ── Epistemic enrichment handlers ─────────────────────────
 
   const fetchEpistemicStatus = useCallback(async () => {
@@ -841,43 +784,6 @@ function App() {
       setError(e instanceof Error ? e.message : 'Deepening loop failed')
     }
   }, [api, selectedProjectId])
-
-  // ── Watch handlers ──────────────────────────────────────────
-
-  const refreshWatchStatus = useCallback(async (projId: string) => {
-    try {
-      const ws = await api.getWatchStatus(projId)
-      setWatchStatus(ws)
-    } catch {
-      setWatchStatus({ enabled: false, state: 'disabled', stale: false, pending: false })
-    }
-  }, [api])
-
-  const handleStartWatch = useCallback(async () => {
-    if (!selectedProjectId) return
-    setWatchLoading(true)
-    try {
-      await api.startWatch(selectedProjectId)
-      await refreshWatchStatus(selectedProjectId)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to start watch')
-    } finally {
-      setWatchLoading(false)
-    }
-  }, [api, selectedProjectId, refreshWatchStatus])
-
-  const handleStopWatch = useCallback(async () => {
-    if (!selectedProjectId) return
-    setWatchLoading(true)
-    try {
-      await api.stopWatch(selectedProjectId)
-      await refreshWatchStatus(selectedProjectId)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to stop watch')
-    } finally {
-      setWatchLoading(false)
-    }
-  }, [api, selectedProjectId, refreshWatchStatus])
 
   const handlePathWeightChange = useCallback((path: string, weight: number | null) => {
     if (!selectedProjectId) return
@@ -1203,19 +1109,6 @@ function App() {
     void fetchAll()
     return () => { cancelled = true }
   }, [api, selectedProjectId, pinnedPaths])
-
-  // ── Auto-save deep analysis schedule to backend ─────────────
-  const deepAnalysisSkipRef = useRef(0)
-  useEffect(() => {
-    if (deepAnalysisSkipRef.current < 2) {
-      deepAnalysisSkipRef.current++
-      return
-    }
-    const timeout = setTimeout(() => {
-      api.updateGlobalConfig({ deep_analysis: deepAnalysisSchedule }).catch(() => {})
-    }, 500)
-    return () => clearTimeout(timeout)
-  }, [api, deepAnalysisSchedule])
 
   // ── Auto-save dashboard layout to backend ───────────────────
   const layoutSkipRef = useRef(0)
