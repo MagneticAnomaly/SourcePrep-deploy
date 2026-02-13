@@ -270,6 +270,46 @@ Response `data`:
 }
 ```
 
+#### `DELETE /projects/{project_id}/trace/destroy`
+
+Purpose:
+- Permanently delete all trace graph data for a project.
+- Removes: structural graph, augmentation, inferred edges, epistemic enrichment, cluster modules.
+- Embeddings and search index remain intact.
+
+Fails with `409 PIPELINE_RUNNING` if any pipeline stage is active.
+
+CLI equivalent: `codrag reset-graph`
+
+Response `data`:
+
+```json
+{
+  "deleted": ["trace_nodes.jsonl", "trace_edges.jsonl", "..."],
+  "errors": []
+}
+```
+
+#### `DELETE /projects/{project_id}/index/destroy`
+
+Purpose:
+- **Full reset**: permanently delete ALL project data.
+- Removes: embeddings, search index (FTS), trace graph, all enrichment, and knowledge index.
+- Project registration remains — you will need to rebuild from scratch.
+
+Fails with `409 PIPELINE_RUNNING` if any pipeline stage or index build is active.
+
+CLI equivalent: `codrag reset`
+
+Response `data`:
+
+```json
+{
+  "deleted": ["documents.json", "embeddings.npy", "trace_nodes.jsonl", "..."],
+  "errors": []
+}
+```
+
 ### Project status and build
 
 #### `GET /projects/{project_id}/status`

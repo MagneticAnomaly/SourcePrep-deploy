@@ -7,6 +7,8 @@ Usage:
     codrag list               List projects
     codrag build <id>         Build project index
     codrag search <id> <q>    Search project
+    codrag reset-graph        Reset trace graph (keeps embeddings)
+    codrag reset              Full reset (delete all project data)
     codrag ui                 Open dashboard
 """
 
@@ -66,6 +68,31 @@ def _post_json(url: str, payload: dict) -> Any:
 def _get_json(url: str) -> Any:
     try:
         r = requests.get(url, timeout=30)
+        r.raise_for_status()
+        return _unwrap_envelope(r.json())
+    except requests.exceptions.HTTPError as e:
+        try:
+            err = e.response.json()
+            if isinstance(err, dict) and "error" in err:
+                code = err["error"].get("code", "ERROR")
+                msg = err["error"].get("message", str(e))
+                console.print(f"[red]Error ({code}): {msg}[/red]")
+                if "hint" in err["error"]:
+                    console.print(f"[dim]Hint: {err['error']['hint']}[/dim]")
+                raise typer.Exit(1)
+        except ValueError:
+            pass
+        console.print(f"[red]HTTP Error: {e}[/red]")
+        raise typer.Exit(1)
+    except requests.exceptions.ConnectionError:
+        console.print(f"[red]Error: Cannot connect to CoDRAG daemon at {url}[/red]")
+        console.print("[dim]Is the server running? Try: codrag serve[/dim]")
+        raise typer.Exit(1)
+
+
+def _delete_json(url: str) -> Any:
+    try:
+        r = requests.delete(url, timeout=60)
         r.raise_for_status()
         return _unwrap_envelope(r.json())
     except requests.exceptions.HTTPError as e:
@@ -322,6 +349,92 @@ def remove(
             console.print("[dim]Index data purged.[/dim]")
     else:
         console.print(f"[red]Failed to remove project: {data}[/red]")
+
+
+@app.command("reset-graph")
+def reset_graph(
+    project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID (optional if inside project dir)"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
+    port: int = typer.Option(8400, "--port", help="Server port"),
+) -> None:
+    """
+    Reset the trace graph for a project.
+
+    Permanently deletes: structural graph, augmentation, inferred edges,
+    epistemic enrichment, and cluster modules. Embeddings and search index
+    remain intact.
+    """
+    base = _base_url(host, port)
+    pid = _resolve_project(base, project_id)
+
+    if not yes:
+        console.print("[yellow]⚠ This will permanently delete the trace graph and all enrichment data.[/yellow]")
+        console.print("[dim]Embeddings and search will remain intact.[/dim]")
+        confirm = typer.confirm("Are you sure?")
+        if not confirm:
+            console.print("[dim]Cancelled.[/dim]")
+            raise typer.Exit(0)
+
+    data = _delete_json(f"{base}/projects/{pid}/trace/destroy")
+    deleted = data.get("deleted", [])
+    errors = data.get("errors", [])
+
+    if deleted:
+        console.print(f"[green]Graph reset: deleted {len(deleted)} files.[/green]")
+        for f in deleted:
+            console.print(f"  [dim]- {f}[/dim]")
+    else:
+        console.print("[yellow]No graph files found to delete.[/yellow]")
+
+    if errors:
+        console.print(f"[red]Errors ({len(errors)}):[/red]")
+        for e in errors:
+            console.print(f"  [red]- {e}[/red]")
+
+
+@app.command()
+def reset(
+    project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID (optional if inside project dir)"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
+    port: int = typer.Option(8400, "--port", help="Server port"),
+) -> None:
+    """
+    Full reset: delete ALL project data.
+
+    Permanently deletes: embeddings, search index, trace graph, and all
+    enrichment data. You will need to rebuild everything from scratch.
+    """
+    base = _base_url(host, port)
+    pid = _resolve_project(base, project_id)
+
+    if not yes:
+        console.print("[bold red]⚠ FULL RESET — this will permanently delete ALL project data:[/bold red]")
+        console.print("  • Embeddings and search index")
+        console.print("  • Trace graph and all enrichment")
+        console.print("  • Knowledge index")
+        console.print("[dim]You will need to rebuild everything from scratch.[/dim]")
+        confirm = typer.confirm("Are you absolutely sure?")
+        if not confirm:
+            console.print("[dim]Cancelled.[/dim]")
+            raise typer.Exit(0)
+
+    data = _delete_json(f"{base}/projects/{pid}/index/destroy")
+    deleted = data.get("deleted", [])
+    errors = data.get("errors", [])
+
+    if deleted:
+        console.print(f"[green]Full reset complete: deleted {len(deleted)} files.[/green]")
+        for f in deleted:
+            console.print(f"  [dim]- {f}[/dim]")
+    else:
+        console.print("[yellow]No data files found to delete.[/yellow]")
+
+    if errors:
+        console.print(f"[red]Errors ({len(errors)}):[/red]")
+        for e in errors:
+            console.print(f"  [red]- {e}[/red]")
 
 
 @app.command()

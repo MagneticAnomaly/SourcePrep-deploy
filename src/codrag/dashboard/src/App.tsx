@@ -517,8 +517,15 @@ function App() {
       setEpistemicStatus({ enabled: false, enriched_nodes: 0, avg_confidence: 0, running: false })
       setModuleStatus({ enabled: false, module_count: 0, total_files_clustered: 0, running: false })
       setDeepeningStatus({ running: false, total_scored: 0, settled_count: 0, settled_ratio: 0, avg_score: 0 })
-      // Re-fetch trace status from server to get the canonical state
+      setTraceCoverage({ summary: null, untraced: [], stale: [], excluded: [], building: false, loading: false })
+      // Re-fetch all status from server to get the canonical state
       void refreshStatus(selectedProjectId)
+      // Re-fetch trace coverage after a short delay
+      setTimeout(() => {
+        api.getTraceCoverage(selectedProjectId).then((data) => {
+          setTraceCoverage({ summary: data.summary, untraced: data.untraced, stale: data.stale, excluded: data.excluded ?? [], building: false, loading: false })
+        }).catch(() => {})
+      }, 300)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to destroy graph')
     }
@@ -539,8 +546,15 @@ function App() {
       setSelectedChunk(null)
       setContext('')
       setContextMeta(null)
-      // Re-fetch status from server to get the canonical state
+      setTraceCoverage({ summary: null, untraced: [], stale: [], excluded: [], building: false, loading: false })
+      // Re-fetch all status from server to get the canonical state
       void refreshStatus(selectedProjectId)
+      // Re-fetch trace coverage after a short delay
+      setTimeout(() => {
+        api.getTraceCoverage(selectedProjectId).then((data) => {
+          setTraceCoverage({ summary: data.summary, untraced: data.untraced, stale: data.stale, excluded: data.excluded ?? [], building: false, loading: false })
+        }).catch(() => {})
+      }, 300)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to reset project data')
     }
