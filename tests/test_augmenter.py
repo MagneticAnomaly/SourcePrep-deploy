@@ -100,7 +100,7 @@ class FakeLLMClient:
             "confidence": 0.85,
         })
 
-    def generate(self, prompt: str, system: Optional[str] = None) -> Tuple[str, int]:
+    def generate(self, prompt: str, system: Optional[str] = None, **kwargs: Any) -> Tuple[str, int]:
         self.calls.append(prompt)
         # Check if any key in responses matches a substring of the prompt
         for key, resp in self.responses.items():
@@ -247,7 +247,7 @@ class TestTraceAugmenter:
         _write_trace(tmp_index, SAMPLE_NODES[:3], SAMPLE_EDGES[:2])
 
         class FailingClient(FakeLLMClient):
-            def generate(self, prompt, system=None):
+            def generate(self, prompt, system=None, **kwargs):
                 raise ConnectionError("LLM down")
 
         client = FailingClient()
@@ -260,7 +260,7 @@ class TestTraceAugmenter:
         _write_trace(tmp_index, SAMPLE_NODES[:3], SAMPLE_EDGES[:2])
 
         class BadJsonClient(FakeLLMClient):
-            def generate(self, prompt, system=None):
+            def generate(self, prompt, system=None, **kwargs):
                 return "I don't know how to respond in JSON", 50
 
         client = BadJsonClient()

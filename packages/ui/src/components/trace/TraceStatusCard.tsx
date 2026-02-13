@@ -35,7 +35,7 @@ export function TraceStatusCard({
   // If building but no progress object yet, show indeterminate
   const effectiveProgress = progress || (status.building ? {
     task_id: 'pending_trace',
-    message: 'Building trace...',
+    message: 'Building graph...',
     current: 0,
     total: 100,
     percent: 0,
@@ -126,12 +126,12 @@ export function TraceStatusCard({
         <div className="flex gap-2">
           {!status.enabled && onEnableTrace && (
             <Button size="sm" onClick={onEnableTrace}>
-              Enable Trace
+              Enable Code Graph
             </Button>
           )}
           {status.enabled && !status.building && onBuildTrace && (
             <Button size="sm" variant="secondary" onClick={onBuildTrace}>
-              {status.exists ? 'Rebuild Trace' : 'Build Trace'}
+              {status.exists ? 'Rebuild Graph' : 'Build Graph'}
             </Button>
           )}
         </div>

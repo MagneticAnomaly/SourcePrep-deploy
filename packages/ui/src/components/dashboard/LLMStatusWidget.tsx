@@ -1,5 +1,6 @@
 import { cn } from '../../lib/utils';
 import { CheckCircle2, AlertCircle, CircleOff, HelpCircle } from 'lucide-react';
+import { InfoTooltip } from '../primitives/InfoTooltip';
 
 export interface LLMServiceStatus {
   name: string;
@@ -23,7 +24,13 @@ export function LLMStatusWidget({ services, className, bare = false }: LLMStatus
     )}>
       {!bare && (
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-text">AI Gateway</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-text">AI Gateway</h3>
+            <InfoTooltip 
+              content="Configure your LLM providers." 
+              href="https://docs.codrag.io/guides/models" 
+            />
+          </div>
         </div>
       )}
       

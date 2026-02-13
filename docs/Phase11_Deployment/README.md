@@ -46,10 +46,12 @@ This phase primarily supports:
 - [WINDOWS_DISTRIBUTION.md](WINDOWS_DISTRIBUTION.md)
 - [ENTERPRISE_DISTRIBUTION_AND_LICENSING.md](ENTERPRISE_DISTRIBUTION_AND_LICENSING.md)
 - [LICENSING_IMPLEMENTATION.md](LICENSING_IMPLEMENTATION.md) (Offline validation specs)
+- [NATIVE_ENGINE_BUILD_STRATEGY.md](NATIVE_ENGINE_BUILD_STRATEGY.md) (Cross-platform Rust engine wheel builds)
 
 ## Deployment targets (summary)
 
-### macOS
+### macOS (Apple Silicon only — no Intel release)
+- **Architecture**: `aarch64-apple-darwin` (M1+). No `x86_64-apple-darwin` builds will be shipped.
 - Direct distribution:
   - Requires code signing and notarization for a smooth user experience.
   - Tauri signing/notarization references:

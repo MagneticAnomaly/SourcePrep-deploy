@@ -24,10 +24,10 @@ export default function Page() {
           </a>
 
           <a
-            href="/concepts/trace-index"
+            href="/concepts/code-graph"
             className="block rounded-lg border border-border bg-surface p-6 hover:border-primary transition-colors"
           >
-            <h2 className="text-xl font-semibold">Trace Index</h2>
+            <h2 className="text-xl font-semibold">Code Graph</h2>
             <p className="mt-2 text-sm text-text-muted">
               The Rust-powered graph engine. How we map imports, function calls, and symbol
               definitions across your entire monorepo.
@@ -42,6 +42,21 @@ export default function Page() {
             <p className="mt-2 text-sm text-text-muted">
               How CoDRAG combines search results, trace neighbors, and path weights into a
               single optimized prompt payload for LLMs.
+            </p>
+          </a>
+
+          <a
+            href="/concepts/graph-enrichment"
+            className="block rounded-lg border border-primary/50 bg-gradient-to-br from-primary/5 to-transparent p-6 hover:border-primary transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-semibold">Graph Enrichment</h2>
+              <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full">Pro</span>
+            </div>
+            <p className="mt-2 text-sm text-text-muted">
+              A multi-pass pipeline that deepens the Code Graph over time — from fast structural
+              parsing to LLM-powered epistemic enrichment, cluster synthesis, and self-refining
+              convergence.
             </p>
           </a>
         </div>

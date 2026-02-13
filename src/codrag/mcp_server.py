@@ -36,6 +36,7 @@ try:
 except ImportError:
     FastAPI = None
     uvicorn = None
+    BaseHTTPMiddleware = object  # type: ignore
 
 # Configure logging to stderr (stdout reserved for MCP JSON-RPC)
 logging.basicConfig(

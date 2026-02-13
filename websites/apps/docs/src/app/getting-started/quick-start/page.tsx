@@ -1,3 +1,5 @@
+import { AnchorHeading } from '../../../components/AnchorHeading';
+
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
@@ -11,22 +13,22 @@ export default function Page() {
           The fastest way to get structural context into your AI editor.
         </p>
 
-        <div className="mt-12 prose prose-invert max-w-none">
+        <div className="mt-12 prose  max-w-none">
           
-          <h2 id="five-minute-guide">The 5-Minute Guide</h2>
+          <AnchorHeading id="five-minute-guide" level="h2">The 5-Minute Guide</AnchorHeading>
           
           <div className="space-y-8 mt-6">
             <div>
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs">1</span>
-                Start the Daemon
+                Launch CoDRAG
               </h3>
               <p className="text-sm text-text-muted mb-2 ml-8">
-                Keep this running in a background terminal. It manages the index and serves requests.
+                Open the CoDRAG desktop app. It automatically starts the background daemon that manages the index and serves requests.
               </p>
-              <pre className="ml-8 bg-surface-raised p-3 rounded-lg text-sm">
-                <code>codrag serve</code>
-              </pre>
+              <p className="text-xs text-text-muted ml-8">
+                Power users: you can also run <code>codrag serve</code> in a terminal.
+              </p>
             </div>
 
             <div>
@@ -35,12 +37,11 @@ export default function Page() {
                 Index Your Repo
               </h3>
               <p className="text-sm text-text-muted mb-2 ml-8">
-                In a new terminal, add your project. CoDRAG will scan and build the Trace Index immediately.
+                Click the <strong>+</strong> button in the sidebar, select your project folder, and CoDRAG will scan and build the Code Graph immediately.
               </p>
-              <pre className="ml-8 bg-surface-raised p-3 rounded-lg text-sm">
-                <code>cd ~/my-project
-codrag add .</code>
-              </pre>
+              <p className="text-xs text-text-muted ml-8">
+                Or via CLI: <code>codrag add ~/my-project</code>
+              </p>
             </div>
 
             <div>
@@ -77,7 +78,7 @@ codrag add .</code>
 
           <hr className="my-12 border-border" />
 
-          <h2 id="cli-tips">Pro Tips</h2>
+          <AnchorHeading id="cli-tips" level="h2">Pro Tips</AnchorHeading>
           <ul className="list-disc pl-5 text-sm text-text-muted">
             <li>
               <strong>Search via CLI:</strong> You can test retrieval without an editor using <code>codrag search &quot;query&quot;</code>.

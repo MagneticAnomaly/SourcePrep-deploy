@@ -8,6 +8,7 @@ This document is the **authoritative** HTTP API contract for the CoDRAG daemon.
 - **Content-Type:** `application/json`
 - **Local-first:** in default local mode the daemon binds to loopback and requires no auth.
 - **Project-scoped API:** most endpoints are under `/projects/{project_id}/...`.
+- **Code Graph** — a structural code graph (symbols, imports, call chains) so agents can reason about *how* code connects, not just *where* it lives.
 
 ## Authentication (Phase 06)
 
@@ -293,6 +294,8 @@ Response `data`:
   "trace": {
     "enabled": false,
     "exists": false,
+    "building": false,
+    "counts": {"nodes": 0, "edges": 0},
     "last_build_at": null,
     "last_error": null
   },
@@ -410,7 +413,7 @@ Response `data` when `structured=true`:
 }
 ```
 
-### Trace (Phase 04)
+### Code Graph (Phase 04)
 
 #### `GET /projects/{project_id}/trace/status`
 
@@ -508,9 +511,7 @@ Response `data`:
   },
   "features": {
     "auto_rebuild": false,
-    "auto_trace": false,
-    "trace_index": true,
-    "trace_search": true,
+    { category: 'Indexing & Search', name: 'Structural Code Graph (imports, calls, symbol graphs)', free: false, pro: true },
     "mcp_tools": true,
     "mcp_trace_expand": false,
     "path_weights": true,
@@ -689,7 +690,7 @@ Request:
 }
 ```
 
-### Trace (Phase 04) — additional endpoints
+### Code Graph (Phase 04) — additional endpoints
 
 #### `POST /projects/{project_id}/trace/build`
 

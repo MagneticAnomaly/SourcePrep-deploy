@@ -17,7 +17,7 @@
 ### 3. Progressive Enhancement
 - Works without LLMs (keyword search only)
 - Embeddings improve search quality
-- Trace index adds structural understanding
+- Code Graph index adds structural understanding
 - LLM augmentation adds intelligent summaries
 
 ### 4. IDE Agnostic
@@ -50,7 +50,7 @@
 │  Routes:                                                                    │
 │  ├── /projects/*        → ProjectRouter                                    │
 │  ├── /projects/{id}/*   → IndexRouter (search, context, build)             │
-│  ├── /trace/*           → TraceRouter                                      │
+│  ├── /trace/*           → CodeGraphRouter                                  │
 │  └── /llm/*             → LLMRouter                                        │
 └─────────────────────────────────────────────────────────────────────────────┘
                            │
@@ -58,10 +58,10 @@
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                          Core Engine                                        │
 ├──────────────────┬──────────────────┬──────────────────┬────────────────────┤
-│  ProjectRegistry │  CodeIndex       │  TraceIndex      │  Embedders         │
+│  ProjectRegistry │  CodeIndex       │  CodeGraph       │  Embedders         │
 │  (SQLite)        │  (per-project)   │  (per-project)   │  (shared)          │
 ├──────────────────┼──────────────────┼──────────────────┼────────────────────┤
-│  - projects      │  - DocumentStore │  - TraceBuilder  │  - NativeEmbedder  │
+│  - projects      │  - DocumentStore │  - GraphBuilder  │  - NativeEmbedder  │
 │  - configs       │  - Chunker       │  - codrag_engine │  - OllamaEmbedder  │
 │  - build_history │  - Embeddings    │  - GraphQuery    │  - ClaraCompressor │
 │  - settings      │  - PathWeights   │  - Neighbors     │  - FeatureGate     │
@@ -216,7 +216,7 @@ class EmbeddingIndex:
 
 ---
 
-### TraceManager
+### Code Graph Manager### Code Graph Manager (TraceManager)
 
 **Purpose:** Manage structural/graph indexes for code understanding.
 

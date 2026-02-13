@@ -1,4 +1,5 @@
 import { Image as ImageIcon } from 'lucide-react';
+import { AnchorHeading } from '../../components/AnchorHeading';
 
 export default function Page() {
   return (
@@ -13,9 +14,9 @@ export default function Page() {
           From zero to structural code intelligence in under 10 minutes.
         </p>
 
-        <div className="mt-12 prose prose-invert max-w-none">
+        <div className="mt-12 prose  max-w-none">
           <div className="not-prose mb-12">
-             <div className="flex items-start gap-4 p-4 bg-surface-raised border border-border rounded-xl">
+             <div className="flex items-start gap-4 p-4 bg-surface border border-border rounded-xl">
                <div className="p-2 bg-primary/10 rounded-lg text-primary">
                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><path d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                </div>
@@ -28,45 +29,41 @@ export default function Page() {
              </div>
           </div>
 
-          <h2>1. Install</h2>
+          <AnchorHeading id="install" level="h2">1. Install</AnchorHeading>
           <p>
-            CoDRAG is a Python application that runs on your machine.
+            Download CoDRAG from <a href="https://codrag.io/download" className="text-primary hover:underline">codrag.io/download</a> and install the desktop app. It&apos;s also available on the Mac App Store and Microsoft Store.
           </p>
-          <pre className="bg-surface-raised p-4 rounded-lg overflow-x-auto text-sm">
-            <code>pip install codrag</code>
-          </pre>
+          <p className="text-sm text-text-muted">
+            See the full <a href="/getting-started/installation" className="text-primary hover:underline">Installation Guide</a> for step-by-step instructions.
+          </p>
 
-          <h2>2. Start the Daemon</h2>
+          <AnchorHeading id="start-daemon" level="h2">2. Launch the App</AnchorHeading>
           <p>
-            This background process manages the Rust indexer and MCP server.
+            Open CoDRAG from your Applications folder (macOS) or Start Menu (Windows). The app automatically starts the background daemon that manages the Rust indexer and MCP server.
           </p>
-          <pre className="bg-surface-raised p-4 rounded-lg overflow-x-auto text-sm">
-            <code>codrag serve</code>
-          </pre>
-          <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface-raised flex flex-col items-center justify-center text-text-muted gap-2">
+          <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface flex flex-col items-center justify-center text-text-muted gap-2">
             <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
               <ImageIcon className="w-6 h-6" />
             </div>
-            <p className="font-medium">Screenshot: Daemon Terminal</p>
-            <p className="text-sm text-center">Show the terminal output of &apos;codrag serve&apos; indicating the server is listening on port 8400.</p>
+            <p className="font-medium">Screenshot: CoDRAG Dashboard</p>
+            <p className="text-sm text-center">Show the CoDRAG dashboard with a green &apos;Connected&apos; status indicator.</p>
           </div>
           <p className="text-sm text-text-muted">
-            <em>Keep this terminal window open.</em>
+            <em>Alternatively, power users can run <code>codrag serve</code> from a terminal.</em>
           </p>
 
-          <h2>3. Add Your Repo</h2>
+          <AnchorHeading id="add-repo" level="h2">3. Add Your Repo</AnchorHeading>
           <p>
-            In a new terminal window, navigate to your project and add it. CoDRAG will immediately start indexing (semantics + structure).
+            In the CoDRAG dashboard, click the <strong>+</strong> button in the sidebar and select your project folder. CoDRAG will immediately start indexing (semantics + structure).
           </p>
-          <pre className="bg-surface-raised p-4 rounded-lg overflow-x-auto text-sm">
-            <code>cd ~/my-project
-codrag add . --name &quot;My Project&quot;</code>
-          </pre>
+          <p className="text-sm text-text-muted mt-2">
+            Or via CLI: <code>codrag add ~/my-project --name &quot;My Project&quot;</code>
+          </p>
           <p>
-            You&apos;ll see indexing progress in the daemon window. For a 50k file repo, the Rust trace index takes less than a second once semantic indexing wraps up.
+            You&apos;ll see indexing progress in the dashboard. For a 50k file repo, the Rust trace index takes less than a second once semantic indexing wraps up.
           </p>
 
-          <h2>4. Connect Your Editor</h2>
+          <AnchorHeading id="connect-editor" level="h2">4. Connect Your Editor</AnchorHeading>
           <p>
             CoDRAG works best when connected to an AI code editor via MCP.
           </p>
@@ -86,17 +83,17 @@ codrag add . --name &quot;My Project&quot;</code>
              Use the default local URL: <code>http://localhost:8400/mcp/sse</code>
           </p>
 
-          <h2>5. Verify</h2>
+          <AnchorHeading id="verify" level="h2">5. Verify</AnchorHeading>
           <p>
             Open your editor&apos;s AI chat (e.g. Cursor Agent or Windsurf Cascade) and ask:
           </p>
           <blockquote className="border-l-4 border-primary pl-4 italic text-text-muted my-4">
-            &quot;Trace the callers of [Function X] and find where it&apos;s used.&quot;
+            &quot;Graph the callers of [Function X] and find where it&apos;s used.&quot;
           </blockquote>
           <p>
             You should see the agent call <code>codrag</code> with <code>trace_expand=true</code> and return a structural graph analysis.
           </p>
-          <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface-raised flex flex-col items-center justify-center text-text-muted gap-2">
+          <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface flex flex-col items-center justify-center text-text-muted gap-2">
             <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
               <ImageIcon className="w-6 h-6" />
             </div>
@@ -106,7 +103,7 @@ codrag add . --name &quot;My Project&quot;</code>
 
           <hr className="my-12 border-border" />
 
-          <h3>Next Steps</h3>
+          <AnchorHeading id="next-steps" level="h3">Next Steps</AnchorHeading>
           <ul className="list-disc pl-6 space-y-2">
             <li><a href="/guides/path-weights" className="text-primary hover:underline">Tune Path Weights</a> to focus the AI on what matters.</li>
             <li><a href="/guides/clara" className="text-primary hover:underline">Set up CLaRa</a> for 10x context compression.</li>

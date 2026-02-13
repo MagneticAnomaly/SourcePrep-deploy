@@ -61,7 +61,7 @@ export default function Page() {
           <div className="group relative rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-8 hover:bg-white/10 transition-all duration-300 shadow-2xl shadow-black/5">
              <div className="relative z-10">
               <div className="flex items-center justify-between mb-8">
-                <span className="px-3 py-1 rounded-full bg-surface-raised text-text-muted text-xs font-bold uppercase tracking-widest">Issue Tracker</span>
+                <span className="px-3 py-1 rounded-full bg-surface text-text-muted text-xs font-bold uppercase tracking-widest">Issue Tracker</span>
                 <span className="text-text-muted opacity-50">↗</span>
               </div>
               <h3 className="text-3xl font-bold mb-4">Report & Request</h3>

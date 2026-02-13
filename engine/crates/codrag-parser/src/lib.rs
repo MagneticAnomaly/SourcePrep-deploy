@@ -9,6 +9,7 @@ pub mod go;
 pub mod rust_lang;
 pub mod java;
 pub mod cpp;
+pub mod markdown;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -66,6 +67,19 @@ pub struct NodeMetadata {
     pub docstring: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub external: Option<bool>,
+    // ── Markdown / doc-specific fields ──
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub section_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ref_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub link_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub line_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_markers: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub header_depth: Option<usize>,
 }
 
 /// A parsed edge (relationship) extracted from source code.
@@ -173,13 +187,14 @@ pub fn parse_file(
         "rust" => rust_lang::analyze(file_path, content),
         "java" => java::analyze(file_path, content),
         "c" | "cpp" => cpp::analyze(file_path, content, language),
+        "markdown" => Ok(markdown::analyze(file_path, content)),
         _ => Err(ParserError::UnsupportedLanguage(language.to_string())),
     }
 }
 
 /// Get the list of supported languages.
 pub fn supported_languages() -> &'static [&'static str] {
-    &["python", "typescript", "javascript", "go", "rust", "java", "c", "cpp"]
+    &["python", "typescript", "javascript", "go", "rust", "java", "c", "cpp", "markdown"]
 }
 
 #[cfg(test)]

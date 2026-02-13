@@ -1,3 +1,5 @@
+import { AnchorHeading } from '../../components/AnchorHeading';
+
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
@@ -33,14 +35,14 @@ export default function Page() {
           </a>
         </div>
 
-        <div className="mt-12 prose prose-invert max-w-none">
-          <h2>Overview</h2>
+        <div className="mt-12 prose  max-w-none">
+          <AnchorHeading id="overview" level="h2">Overview</AnchorHeading>
           <p>
-            The CoDRAG CLI is the primary way to manage the daemon and interact with your local index.
-            It's installed automatically when you run <code>pip install codrag</code>.
+            The CoDRAG CLI is included with the desktop app and provides a command-line interface
+            for managing the daemon and interacting with your local index.
           </p>
           
-          <h3>Common Workflows</h3>
+          <AnchorHeading id="common-workflows" level="h3">Common Workflows</AnchorHeading>
           <ul className="list-disc pl-5">
             <li>
               <strong>Running the Server:</strong> <code>codrag serve</code> (Required for Dashboard & MCP)

@@ -11,9 +11,9 @@ const POSTS = [
     author: 'CoDRAG Team',
   },
   {
-    slug: 'introducing-trace-index',
-    title: 'Introducing the Trace Index',
-    excerpt: 'Vector search finds similar text. The Trace Index maps how code connects — imports, calls, symbol hierarchies.',
+    slug: 'introducing-code-graph',
+    title: 'Introducing the Code Graph',
+    excerpt: 'Vector search finds similar text. The Code Graph maps how code connects — imports, calls, symbol hierarchies.',
     date: '2026-02-15',
     author: 'Engineering',
   },

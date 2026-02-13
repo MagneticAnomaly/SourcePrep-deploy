@@ -67,7 +67,7 @@ export default function Page() {
                   <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-3">
                     <span className="font-mono text-blue-600 text-sm">01.</span> Summary
                   </h2>
-                  <div className="prose prose-slate max-w-none text-slate-600">
+                  <div className="prose prose max-w-none text-slate-600">
                     <p className="text-lg leading-relaxed border-l-4 border-blue-600 pl-6 bg-blue-50 py-4 pr-4">
                       <strong>Executive Summary:</strong> CoDRAG is a local-first desktop application. Your source code never leaves
                       your machine. We collect the absolute minimum data needed to operate the

@@ -1,7 +1,7 @@
 import { Badge, Card, Flex, Text, Title } from '@tremor/react';
 import { 
   Search, GitBranch, Zap, Lock, RefreshCw, Plug, 
-  AlertTriangle, Lightbulb, TrendingUp, SlidersHorizontal, Shrink
+  AlertTriangle, Lightbulb, TrendingUp, SlidersHorizontal, Shrink, Brain
 } from 'lucide-react';
 
 export interface Feature {
@@ -154,10 +154,18 @@ export const codragFeatures: Feature[] = [
   },
   {
     icon: <GitBranch className="w-8 h-8" />,
-    title: 'Structural Trace Index',
+    title: 'Structural Code Graph',
     description: 'Goes beyond vector search. A Rust-powered engine maps imports, call graphs, and symbol hierarchies across your entire monorepo — so your AI sees how 100k files connect.',
     badge: 'Pro',
     highlight: true,
+  },
+  {
+    icon: <Brain className="w-8 h-8" />,
+    title: 'Graph Enrichment',
+    description: 'A multi-pass pipeline that deepens understanding over time. Rust builds the structural skeleton, a 3b model catalogues every file, then a 14b model adds domain tags, architecture layers, and doc↔code cross-references — with epistemic scoring that measures how well each file is understood.',
+    badge: 'Pro',
+    href: 'https://docs.codrag.io/concepts/graph-enrichment',
+    external: true,
   },
   {
     icon: <Zap className="w-8 h-8" />,
@@ -210,6 +218,6 @@ export const marketingFeatures: Feature[] = [
   {
     icon: <TrendingUp className="w-8 h-8" />,
     title: 'The Result: AI That Understands Your Architecture',
-    description: 'More relevant suggestions, fewer corrections, faster iteration — even on the largest codebases and doc trees. Built-in embeddings, structural tracing, path weights, and 10–16× compression work together so your AI finally sees the whole picture.',
+    description: 'More relevant suggestions, fewer corrections, faster iteration — even on the largest codebases and doc trees. Built-in embeddings, structural code graph, multi-pass enrichment with epistemic scoring, path weights, and 10–16× compression work together so your AI finally sees the whole picture.',
   },
 ];

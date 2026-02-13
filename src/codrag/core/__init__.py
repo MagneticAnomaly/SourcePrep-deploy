@@ -57,15 +57,21 @@ from .index import CodeIndex, SearchResult
 from .trace import TraceBuilder, TraceIndex, TraceNode, TraceEdge, build_trace
 from .augmenter import TraceAugmenter, LLMClient, AugmentationEntry, AugmentResult
 from .deep_analysis import DeepAnalysisOrchestrator, DeepAnalysisSchedule, DeepAnalysisResult
+from .epistemic_score import EpistemicScore, EpistemicEntry, compute_epistemic_score, apply_decay
+from .epistemic_enrichment import EpistemicEnricher, topological_sort_files
+from .cluster import ClusterSynthesizer, ModuleEntry, build_clusters
+from .deepening import DeepeningLoop, EnrichmentQueue, DriftDetector, ConvergenceTracker
+from .knowledge_index import KnowledgeIndex
 
 __all__ = [
     "ENGINE",
     "CodeIndex",
     "SearchResult",
     "Embedder",
-    "OllamaEmbedder",
-    "NativeEmbedder",
-    "FakeEmbedder",
+    "EpistemicEnricher",
+    "ClusterSynthesizer",
+    "DeepeningLoop",
+    "KnowledgeIndex",
     "EmbeddingResult",
     "ContextCompressor",
     "ClaraCompressor",

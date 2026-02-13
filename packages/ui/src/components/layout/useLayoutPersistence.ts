@@ -91,12 +91,29 @@ export function useLayoutPersistence(
   }, []);
 
   const togglePanelVisibility = useCallback((panelId: string) => {
-    setLayoutState((current) => ({
-      ...current,
-      panels: current.panels.map((p) =>
-        p.id === panelId ? { ...p, visible: !p.visible } : p
-      ),
-    }));
+    setLayoutState((current) => {
+      const exists = current.panels.some((p) => p.id === panelId);
+      if (exists) {
+        return {
+          ...current,
+          panels: current.panels.map((p) =>
+            p.id === panelId ? { ...p, visible: !p.visible } : p
+          ),
+        };
+      }
+      // Panel not yet in layout — add it as visible
+      const maxY = current.panels.reduce((m, p) => {
+        const py = (p.y ?? 0) + (p.visible ? p.height : 0);
+        return py > m ? py : m;
+      }, 0);
+      return {
+        ...current,
+        panels: [
+          ...current.panels,
+          { id: panelId, visible: true, height: 8, collapsed: false, x: 0, y: maxY, w: 12 },
+        ],
+      };
+    });
   }, []);
 
   const togglePanelCollapsed = useCallback((panelId: string) => {

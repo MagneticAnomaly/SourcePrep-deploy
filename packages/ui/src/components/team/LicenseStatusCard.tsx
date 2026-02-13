@@ -2,6 +2,7 @@ import { cn } from '../../lib/utils';
 import type { LicenseInfo, LicenseTier } from '../../types';
 import { CreditCard, AlertCircle, Users, Calendar, ArrowUpCircle, Settings } from 'lucide-react';
 import { Button } from '../primitives/Button';
+import { InfoTooltip } from '../primitives/InfoTooltip';
 
 export interface LicenseStatusCardProps {
   license: LicenseInfo;
@@ -35,6 +36,10 @@ export function LicenseStatusCard({
           <h3 className="text-lg font-semibold text-text flex items-center gap-2">
             <CreditCard className="w-5 h-5 text-primary" />
             License
+            <InfoTooltip 
+              content="View pricing and features." 
+              href="https://codrag.io/pricing" 
+            />
           </h3>
           <p className="text-sm text-text-muted mt-1">
             CoDRAG {label} License

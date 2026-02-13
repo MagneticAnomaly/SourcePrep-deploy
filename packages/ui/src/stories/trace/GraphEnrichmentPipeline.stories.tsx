@@ -1,10 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { TracePipelineStatus } from '../../components/trace/TracePipelineStatus';
+import { GraphEnrichmentPipeline } from '../../components/trace/GraphEnrichmentPipeline';
 import type { AugmentationStatus, DeepAnalysisRunStatus } from '../../types';
 
-const meta: Meta<typeof TracePipelineStatus> = {
-  title: 'Dashboard/Widgets/Trace/PipelineStatus',
-  component: TracePipelineStatus,
+const meta: Meta<typeof GraphEnrichmentPipeline> = {
+  title: 'Dashboard/Widgets/Trace/GraphEnrichmentPipeline',
+  component: GraphEnrichmentPipeline,
   tags: ['autodocs'],
   parameters: {
     layout: 'padded',
@@ -12,7 +12,7 @@ const meta: Meta<typeof TracePipelineStatus> = {
 };
 
 export default meta;
-type Story = StoryObj<typeof TracePipelineStatus>;
+type Story = StoryObj<typeof GraphEnrichmentPipeline>;
 
 const traceDisabled = {
   enabled: false,
@@ -92,15 +92,6 @@ const deepRan: DeepAnalysisRunStatus = {
   running: false,
 };
 
-const deepStale: DeepAnalysisRunStatus = {
-  last_run_at: new Date(Date.now() - 2_592_000_000).toISOString(), // 30 days ago
-  last_run_items: 47,
-  last_run_tokens: 23_450,
-  queue_size: 400,
-  avg_confidence: 0.55,
-  running: false,
-};
-
 export const Disabled: Story = {
   args: {
     trace: traceDisabled,
@@ -110,6 +101,7 @@ export const Disabled: Story = {
 export const TraceNotBuilt: Story = {
   args: {
     trace: traceNotBuilt,
+    onBuildTrace: () => alert('Building trace...'),
   },
 };
 
@@ -119,58 +111,11 @@ export const TraceBuilding: Story = {
   },
 };
 
-export const TraceReadyNoModels: Story = {
+export const ReadyToAugment: Story = {
   args: {
     trace: traceReady,
     augmentation: augNone,
-  },
-};
-
-export const TraceReadySmallModel: Story = {
-  args: {
-    trace: traceReady,
-    augmentation: augNone,
-    smallModelConfigured: true,
     onRunAugmentation: () => alert('Running augmentation...'),
-    onBuildTrace: () => alert('Building trace...'),
-  },
-};
-
-export const PartialAugmentation: Story = {
-  args: {
-    trace: traceReady,
-    augmentation: augPartial,
-    deepAnalysis: deepNone,
-    smallModelConfigured: true,
-    onRunAugmentation: () => alert('Running augmentation...'),
-    onRunDeepAnalysis: () => alert('Running deep analysis...'),
-    onBuildTrace: () => alert('Building trace...'),
-  },
-};
-
-export const FullPipelineHealthy: Story = {
-  args: {
-    trace: traceReady,
-    augmentation: augFull,
-    deepAnalysis: deepRan,
-    smallModelConfigured: true,
-    largeModelConfigured: true,
-    onRunAugmentation: () => alert('Running augmentation...'),
-    onRunDeepAnalysis: () => alert('Running deep analysis...'),
-    onBuildTrace: () => alert('Building trace...'),
-  },
-};
-
-export const DeepAnalysisStale: Story = {
-  args: {
-    trace: traceReady,
-    augmentation: augPartial,
-    deepAnalysis: deepStale,
-    smallModelConfigured: true,
-    largeModelConfigured: true,
-    onRunAugmentation: () => alert('Running augmentation...'),
-    onRunDeepAnalysis: () => alert('Running deep analysis...'),
-    onBuildTrace: () => alert('Building trace...'),
   },
 };
 
@@ -178,29 +123,44 @@ export const Augmenting: Story = {
   args: {
     trace: traceReady,
     augmentation: augPartial,
-    smallModelConfigured: true,
     augmenting: true,
-    onBuildTrace: () => alert('Building trace...'),
   },
 };
 
-export const DeepAnalyzing: Story = {
+export const ReadyToValidate: Story = {
+  args: {
+    trace: traceReady,
+    augmentation: augFull,
+    deepAnalysis: deepNone,
+    onRunDeepAnalysis: () => alert('Running validation...'),
+  },
+};
+
+export const Validating: Story = {
   args: {
     trace: traceReady,
     augmentation: augFull,
     deepAnalysis: deepRan,
-    smallModelConfigured: true,
-    largeModelConfigured: true,
     deepAnalyzing: true,
-    onBuildTrace: () => alert('Building trace...'),
   },
 };
 
-export const NeedsBothModels: Story = {
+export const Paused: Story = {
   args: {
     trace: traceReady,
-    augmentation: augNone,
-    smallModelConfigured: false,
-    largeModelConfigured: false,
+    augmentation: augFull,
+    deepAnalysis: deepRan,
+    paused: true,
+    onTogglePause: () => alert('Toggling pause...'),
+  },
+};
+
+export const FullPipelineRunning: Story = {
+  args: {
+    trace: traceReady,
+    augmentation: augFull,
+    deepAnalysis: deepRan,
+    paused: false,
+    onTogglePause: () => alert('Toggling pause...'),
   },
 };

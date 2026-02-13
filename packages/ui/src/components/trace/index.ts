@@ -19,5 +19,11 @@ export type { TraceExplorerProps } from './TraceExplorer';
 export { TraceCoveragePanel } from './TraceCoveragePanel';
 export type { TraceCoveragePanelProps } from './TraceCoveragePanel';
 
-export { TracePipelineStatus } from './TracePipelineStatus';
-export type { TracePipelineStatusProps, TraceStageInfo } from './TracePipelineStatus';
+export { GraphEnrichmentPipeline } from './GraphEnrichmentPipeline';
+export type { GraphEnrichmentPipelineProps, TraceStageInfo } from './GraphEnrichmentPipeline';
+
+export { GraphStructurePanel } from './GraphStructurePanel';
+export type { GraphStructurePanelProps } from './GraphStructurePanel';
+
+export { GraphEnginePanel } from './GraphEnginePanel';
+export type { GraphEnginePanelProps } from './GraphEnginePanel';

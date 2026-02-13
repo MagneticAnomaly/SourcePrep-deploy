@@ -541,6 +541,142 @@ pub fn build_trace(
     Ok((graph, manifest))
 }
 
+/// Input for an LLM-hypothesized relationship to be validated by Rust.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InferredEdgeInput {
+    pub source_node_id: String,
+    pub target_file_path: String,
+    pub relationship: String,
+    pub confidence: f64,
+}
+
+/// Result of incorporating inferred edges.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InferredEdgeResult {
+    pub accepted: usize,
+    pub rejected_missing_source: usize,
+    pub rejected_missing_target: usize,
+    pub rejected_low_confidence: usize,
+    pub rejected_duplicate: usize,
+    pub boosted: usize,
+}
+
+impl TraceGraph {
+    /// Validate LLM-hypothesized relationships and add them as inferred edges.
+    ///
+    /// For each hypothesis:
+    /// 1. Check source node exists in graph
+    /// 2. Resolve target_file_path to a file node ID, check it exists
+    /// 3. Reject if confidence < min_confidence
+    /// 4. Reject if an identical edge already exists
+    /// 5. If a structural "references" edge already exists between the same
+    ///    endpoints, boost the inferred confidence to 1.0 (mutual confirmation)
+    /// 6. Add as edge with kind "inferred"
+    ///
+    /// Returns statistics about accepted/rejected edges.
+    pub fn incorporate_inferred_edges(
+        &mut self,
+        hypotheses: &[InferredEdgeInput],
+        min_confidence: f64,
+    ) -> InferredEdgeResult {
+        let mut result = InferredEdgeResult {
+            accepted: 0,
+            rejected_missing_source: 0,
+            rejected_missing_target: 0,
+            rejected_low_confidence: 0,
+            rejected_duplicate: 0,
+            boosted: 0,
+        };
+
+        for hyp in hypotheses {
+            // 1. Source must exist
+            if !self.nodes.contains_key(&hyp.source_node_id) {
+                result.rejected_missing_source += 1;
+                continue;
+            }
+
+            // 2. Resolve target file path to node ID
+            let target_id = codrag_parser::stable_file_node_id(&hyp.target_file_path);
+            if !self.nodes.contains_key(&target_id) {
+                result.rejected_missing_target += 1;
+                continue;
+            }
+
+            // 3. Confidence gate
+            if hyp.confidence < min_confidence {
+                result.rejected_low_confidence += 1;
+                continue;
+            }
+
+            // 4. Check for duplicate inferred edge
+            let edge_id = codrag_parser::stable_edge_id(
+                "inferred",
+                &hyp.source_node_id,
+                &target_id,
+                &hyp.relationship,
+            );
+            let is_duplicate = self.edges.iter().any(|e| e.id == edge_id);
+            if is_duplicate {
+                result.rejected_duplicate += 1;
+                continue;
+            }
+
+            // 5. Check for mutual confirmation with structural edges
+            let mut final_confidence = hyp.confidence;
+            let has_structural = self.edges.iter().any(|e| {
+                (e.source == hyp.source_node_id && e.target == target_id
+                    && (e.kind == "references" || e.kind == "links_to" || e.kind == "imports"))
+                || (e.source == target_id && e.target == hyp.source_node_id
+                    && (e.kind == "references" || e.kind == "links_to" || e.kind == "imports"))
+            });
+            if has_structural {
+                final_confidence = 1.0;
+                result.boosted += 1;
+            }
+
+            // 6. Add inferred edge
+            self.add_edge(ParsedEdge {
+                id: edge_id,
+                kind: "inferred".to_string(),
+                source: hyp.source_node_id.clone(),
+                target: target_id,
+                metadata: codrag_parser::EdgeMetadata {
+                    confidence: final_confidence,
+                    import_str: Some(hyp.relationship.clone()),
+                    ..Default::default()
+                },
+            });
+            result.accepted += 1;
+        }
+
+        result
+    }
+
+    /// Write only inferred edges to a separate JSONL file.
+    pub fn write_inferred_edges_jsonl(&self, index_dir: &Path) -> Result<(), GraphError> {
+        use std::fs;
+        use std::io::Write;
+
+        let path = index_dir.join("trace_inferred_edges.jsonl");
+        let mut file = fs::File::create(&path)?;
+        for edge in &self.edges {
+            if edge.kind == "inferred" {
+                let json = serde_json::to_string(edge).map_err(|e| {
+                    GraphError::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
+                })?;
+                writeln!(file, "{}", json)?;
+            }
+        }
+        file.flush()?;
+        Ok(())
+    }
+
+    /// Count inferred edges in the graph.
+    pub fn inferred_edge_count(&self) -> usize {
+        self.edges.iter().filter(|e| e.kind == "inferred").count()
+    }
+}
+
 fn chrono_now_utc() -> String {
     // Simple UTC timestamp without chrono dependency
     use std::time::SystemTime;
@@ -702,5 +838,156 @@ mod tests {
         let loaded = TraceGraph::load_jsonl(dir.path()).unwrap();
         assert_eq!(loaded.node_count(), 1);
         assert!(loaded.get_node("file:test.py").is_some());
+    }
+
+    fn make_test_graph_for_inferred() -> TraceGraph {
+        let mut graph = TraceGraph::new();
+        // Add file nodes
+        for (path, lang) in &[
+            ("src/main.py", "python"),
+            ("src/utils.py", "python"),
+            ("docs/README.md", "markdown"),
+        ] {
+            graph.add_node(ParsedNode {
+                id: format!("file:{}", path),
+                kind: "file".to_string(),
+                name: std::path::Path::new(path).file_name().unwrap().to_string_lossy().to_string(),
+                file_path: path.to_string(),
+                span: None,
+                language: Some(lang.to_string()),
+                metadata: Default::default(),
+            });
+        }
+        // Add a structural "references" edge: README.md → main.py
+        graph.add_edge(ParsedEdge {
+            id: "edge:references:file:docs/README.md:file:src/main.py:ref:0".to_string(),
+            kind: "references".to_string(),
+            source: "file:docs/README.md".to_string(),
+            target: "file:src/main.py".to_string(),
+            metadata: codrag_parser::EdgeMetadata { confidence: 0.9, ..Default::default() },
+        });
+        graph
+    }
+
+    #[test]
+    fn test_inferred_accept_valid() {
+        let mut graph = make_test_graph_for_inferred();
+        let hyps = vec![InferredEdgeInput {
+            source_node_id: "file:src/main.py".to_string(),
+            target_file_path: "src/utils.py".to_string(),
+            relationship: "uses".to_string(),
+            confidence: 0.8,
+        }];
+        let r = graph.incorporate_inferred_edges(&hyps, 0.7);
+        assert_eq!(r.accepted, 1);
+        assert_eq!(graph.inferred_edge_count(), 1);
+    }
+
+    #[test]
+    fn test_inferred_reject_missing_source() {
+        let mut graph = make_test_graph_for_inferred();
+        let hyps = vec![InferredEdgeInput {
+            source_node_id: "file:nonexistent.py".to_string(),
+            target_file_path: "src/utils.py".to_string(),
+            relationship: "uses".to_string(),
+            confidence: 0.9,
+        }];
+        let r = graph.incorporate_inferred_edges(&hyps, 0.7);
+        assert_eq!(r.rejected_missing_source, 1);
+        assert_eq!(r.accepted, 0);
+    }
+
+    #[test]
+    fn test_inferred_reject_missing_target() {
+        let mut graph = make_test_graph_for_inferred();
+        let hyps = vec![InferredEdgeInput {
+            source_node_id: "file:src/main.py".to_string(),
+            target_file_path: "src/nonexistent.py".to_string(),
+            relationship: "uses".to_string(),
+            confidence: 0.9,
+        }];
+        let r = graph.incorporate_inferred_edges(&hyps, 0.7);
+        assert_eq!(r.rejected_missing_target, 1);
+        assert_eq!(r.accepted, 0);
+    }
+
+    #[test]
+    fn test_inferred_reject_low_confidence() {
+        let mut graph = make_test_graph_for_inferred();
+        let hyps = vec![InferredEdgeInput {
+            source_node_id: "file:src/main.py".to_string(),
+            target_file_path: "src/utils.py".to_string(),
+            relationship: "uses".to_string(),
+            confidence: 0.5, // below 0.7 threshold
+        }];
+        let r = graph.incorporate_inferred_edges(&hyps, 0.7);
+        assert_eq!(r.rejected_low_confidence, 1);
+        assert_eq!(r.accepted, 0);
+    }
+
+    #[test]
+    fn test_inferred_reject_duplicate() {
+        let mut graph = make_test_graph_for_inferred();
+        let hyps = vec![InferredEdgeInput {
+            source_node_id: "file:src/main.py".to_string(),
+            target_file_path: "src/utils.py".to_string(),
+            relationship: "uses".to_string(),
+            confidence: 0.8,
+        }];
+        // First call: accepted
+        let r1 = graph.incorporate_inferred_edges(&hyps, 0.7);
+        assert_eq!(r1.accepted, 1);
+        // Second call: duplicate
+        let r2 = graph.incorporate_inferred_edges(&hyps, 0.7);
+        assert_eq!(r2.rejected_duplicate, 1);
+        assert_eq!(r2.accepted, 0);
+        assert_eq!(graph.inferred_edge_count(), 1); // still just one
+    }
+
+    #[test]
+    fn test_inferred_boost_on_structural_match() {
+        let mut graph = make_test_graph_for_inferred();
+        // README.md already has a structural "references" edge to main.py
+        let hyps = vec![InferredEdgeInput {
+            source_node_id: "file:docs/README.md".to_string(),
+            target_file_path: "src/main.py".to_string(),
+            relationship: "documents".to_string(),
+            confidence: 0.75,
+        }];
+        let r = graph.incorporate_inferred_edges(&hyps, 0.7);
+        assert_eq!(r.accepted, 1);
+        assert_eq!(r.boosted, 1);
+        // The inferred edge should have confidence 1.0 (boosted)
+        let inferred = graph.edges.iter().find(|e| e.kind == "inferred").unwrap();
+        assert_eq!(inferred.metadata.confidence, 1.0);
+    }
+
+    #[test]
+    fn test_inferred_write_jsonl() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut graph = make_test_graph_for_inferred();
+        let hyps = vec![
+            InferredEdgeInput {
+                source_node_id: "file:src/main.py".to_string(),
+                target_file_path: "src/utils.py".to_string(),
+                relationship: "uses".to_string(),
+                confidence: 0.85,
+            },
+            InferredEdgeInput {
+                source_node_id: "file:docs/README.md".to_string(),
+                target_file_path: "src/main.py".to_string(),
+                relationship: "documents".to_string(),
+                confidence: 0.9,
+            },
+        ];
+        graph.incorporate_inferred_edges(&hyps, 0.7);
+        graph.write_inferred_edges_jsonl(dir.path()).unwrap();
+
+        // Read back and verify
+        let path = dir.path().join("trace_inferred_edges.jsonl");
+        assert!(path.exists());
+        let content = std::fs::read_to_string(&path).unwrap();
+        let lines: Vec<&str> = content.lines().filter(|l| !l.is_empty()).collect();
+        assert_eq!(lines.len(), 2);
     }
 }

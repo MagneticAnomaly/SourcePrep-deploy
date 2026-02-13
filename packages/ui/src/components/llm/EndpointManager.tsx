@@ -3,6 +3,7 @@ import { cn } from '../../lib/utils';
 import type { SavedEndpoint, LLMProvider, EndpointTestResult } from '../../types';
 import { Plus, Trash2, Edit2, Play, CheckCircle, AlertCircle, Server } from 'lucide-react';
 import { Button } from '../primitives/Button';
+import { InfoTooltip } from '../primitives/InfoTooltip';
 
 export interface EndpointManagerProps {
   endpoints: SavedEndpoint[];
@@ -104,6 +105,10 @@ export function EndpointManager({
         <div>
           <h3 className="text-lg font-semibold text-text flex items-center gap-2">
             <Server className="w-5 h-5 text-primary" />
+            <InfoTooltip 
+              content="Learn about supported LLM providers." 
+              href="https://docs.codrag.io/guides/models" 
+            />
             Saved Endpoints
           </h3>
           <p className="text-sm text-text-muted mt-1">Manage local and remote LLM server connections</p>

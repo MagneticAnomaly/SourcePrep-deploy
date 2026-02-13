@@ -41,6 +41,8 @@
 
 ### Config generation
 - [x] P05-I12 `codrag mcp-config` prints ready-to-paste client config (pinned + auto) ✅ **DONE: Multi-IDE support**
+- [x] S-16.3 PyPI Package Verification for MCP Registry (P05-I19)
+- [x] S-16.4 Tool Icons & Metadata Polish (P05-R9) ✅ **DONE**
 
 ## Testing & validation (P05-T*)
 - [x] P05-T1 Integration test: MCP tool calls against known project (status/build/search/context) ✅ **DONE: `tests/test_mcp_server.py`**
@@ -121,11 +123,11 @@ Relevant entries in `../MASTER_TODO.md`:
 - [x] P05-R5 Support **both** stdio AND Streamable HTTP transports (stdio done, HTTP implemented via `/sse` + `/message`)
 - [x] P05-R6 Implement proper `Origin` validation for HTTP transport ✅ **DONE: `TrustedOriginMiddleware` in `mcp_server.py`**
 - [ ] P05-R7 Consider async **Tasks** for `codrag_build` (long-running)
-- [ ] P05-R9 Provide tool icons via `_meta.icons` field
+- [x] P05-R9 Provide tool icons via `_meta.icons` field ✅ **DONE**
 
 ### Config Generation for Major IDEs
 `codrag mcp-config` should output ready-to-paste JSON for:
-- [ ] P05-I19 Add verification info for PyPI package ownership
+- [x] P05-I19 Add verification info for PyPI package ownership ✅ **DONE**
 - [x] P05-I13 Claude Desktop (`claude_desktop_config.json`) ✅ **DONE**
 - [x] P05-I14 Cursor (`.cursor/mcp.json`) ✅ **DONE**
 - [x] P05-I15 VS Code (`settings.json` or `.vscode/mcp.json`) ✅ **DONE**

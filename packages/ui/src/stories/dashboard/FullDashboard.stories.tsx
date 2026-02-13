@@ -19,7 +19,6 @@ import { TraceCoveragePanel } from '../../components/trace/TraceCoveragePanel';
 import type { TraceCoverageFile, TraceCoverageSummary } from '../../types';
 import { ModularDashboard, type DashboardLayoutApi } from '../../components/layout/ModularDashboard';
 import type { PanelDefinition } from '../../types/layout';
-import { ProjectSettingsPanel } from '../../components/project/ProjectSettingsPanel';
 import { WatchControlPanel } from '../../components/watch/WatchControlPanel';
 import { CodeViewer } from '../../components/project/CodeViewer';
 import { UsageGuidePanel } from '../../components/dashboard/UsageGuidePanel';
@@ -343,18 +342,6 @@ export const FullDashboard: StoryObj = {
           bare
         />
       ),
-      'file-tree': (
-        <FolderTreePanel
-          data={sampleFileTree}
-          includedPaths={includedPaths}
-          onToggleInclude={handleToggleInclude}
-          pathWeights={pathWeights}
-          onWeightChange={handleWeightChange}
-          className="h-full border-0 shadow-none"
-          title="Project Files"
-          bare
-        />
-      ),
       // Dynamic per-file pinned panels
       ...Object.fromEntries(
         pinnedFiles.map((f) => [
@@ -367,21 +354,6 @@ export const FullDashboard: StoryObj = {
             />
           </div>,
         ])
-      ),
-      settings: (
-        <ProjectSettingsPanel
-          config={{
-            include_globs: ['**/*.ts', '**/*.tsx'],
-            exclude_globs: ['node_modules/**', 'dist/**'],
-            max_file_bytes: 500000,
-            use_gitignore: true,
-            trace: { enabled: true },
-            auto_rebuild: { enabled: false }
-          }}
-          onChange={() => {}}
-          onSave={() => {}}
-          bare
-        />
       ),
       watch: (
         <WatchControlPanel
@@ -466,18 +438,6 @@ export const FullDashboard: StoryObj = {
         </div>
       ),
       roots: (
-        <FileExplorerDetail
-          treeData={sampleFileTree}
-          pinnedPaths={pinnedPathsSet}
-          onPinFile={handlePinFile}
-          onUnpinFile={handleUnpinFile}
-          includedPaths={includedPaths}
-          onToggleInclude={handleToggleInclude}
-          pathWeights={pathWeights}
-          onWeightChange={handleWeightChange}
-        />
-      ),
-      'file-tree': (
         <FileExplorerDetail
           treeData={sampleFileTree}
           pinnedPaths={pinnedPathsSet}

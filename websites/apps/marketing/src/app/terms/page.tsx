@@ -67,7 +67,7 @@ export default function Page() {
                   <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-3">
                     <span className="font-mono text-blue-600 text-sm">01.</span> Overview
                   </h2>
-                  <div className="prose prose-slate max-w-none text-slate-600">
+                  <div className="prose prose max-w-none text-slate-600">
                     <p className="text-lg leading-relaxed border-l-4 border-slate-300 pl-6 py-2">
                       These Terms of Service (&ldquo;Terms&rdquo;) govern your use of CoDRAG software
                       and related services provided by CoDRAG Inc. By downloading, installing, or using CoDRAG, you agree to these Terms.

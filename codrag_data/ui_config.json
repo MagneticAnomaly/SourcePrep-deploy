@@ -173,13 +173,14 @@
   "deep_analysis": {
     "mode": "manual",
     "threshold_percent": 20,
-    "frequency": "weekly",
+    "frequency": "daily",
     "day_of_week": 0,
-    "hour": 2,
+    "hour": 5,
     "budget_max_tokens": 50000,
     "budget_max_minutes": 30,
     "budget_max_items": 100,
-    "priority": "lowest_confidence"
+    "priority": "lowest_confidence",
+    "budget_enabled": false
   },
   "ui_preferences": {
     "mode": "light",
@@ -187,12 +188,12 @@
     "bg_image": null
   },
   "module_layout": {
-    "version": 14,
+    "version": 16,
     "panels": [
       {
         "id": "status",
         "visible": true,
-        "height": 8,
+        "height": 7,
         "collapsed": false,
         "x": 0,
         "y": 0,
@@ -201,7 +202,7 @@
       {
         "id": "trace-coverage",
         "visible": true,
-        "height": 17,
+        "height": 15,
         "collapsed": false,
         "x": 8,
         "y": 0,
@@ -211,72 +212,54 @@
         "id": "usage-guide",
         "visible": true,
         "height": 14,
-        "collapsed": false,
+        "collapsed": true,
         "x": 4,
         "y": 0,
         "w": 4
       },
       {
-        "id": "roots",
+        "id": "trace-pipeline",
         "visible": true,
-        "height": 16,
+        "height": 13,
+        "collapsed": false,
+        "x": 4,
+        "y": 2,
+        "w": 4
+      },
+      {
+        "id": "file-tree",
+        "visible": true,
+        "height": 17,
         "collapsed": false,
         "x": 0,
-        "y": 8,
+        "y": 7,
+        "w": 4
+      },
+      {
+        "id": "deep-analysis",
+        "visible": true,
+        "height": 28,
+        "collapsed": true,
+        "x": 8,
+        "y": 15,
         "w": 4
       },
       {
         "id": "context-options",
         "visible": true,
         "height": 7,
-        "collapsed": false,
+        "collapsed": true,
         "x": 4,
-        "y": 14,
-        "w": 4
-      },
-      {
-        "id": "trace",
-        "visible": true,
-        "height": 13,
-        "collapsed": false,
-        "x": 8,
-        "y": 17,
+        "y": 15,
         "w": 4
       },
       {
         "id": "results",
         "visible": true,
         "height": 9,
-        "collapsed": false,
-        "x": 4,
-        "y": 21,
-        "w": 4
-      },
-      {
-        "id": "llm-status",
-        "visible": true,
-        "height": 9,
-        "collapsed": false,
-        "x": 0,
-        "y": 24,
-        "w": 4
-      },
-      {
-        "id": "context-output",
-        "visible": true,
-        "height": 10,
         "collapsed": true,
         "x": 4,
-        "y": 30,
-        "w": 4
-      },
-      {
-        "id": "deep-analysis",
-        "visible": true,
-        "height": 23,
-        "collapsed": false,
-        "x": 8,
-        "y": 30,
+        "y": 17,
         "w": 4
       },
       {
@@ -285,34 +268,52 @@
         "height": 6,
         "collapsed": true,
         "x": 4,
-        "y": 32,
+        "y": 19,
+        "w": 4
+      },
+      {
+        "id": "context-output",
+        "visible": true,
+        "height": 10,
+        "collapsed": true,
+        "x": 4,
+        "y": 21,
+        "w": 4
+      },
+      {
+        "id": "trace",
+        "visible": true,
+        "height": 13,
+        "collapsed": true,
+        "x": 4,
+        "y": 23,
+        "w": 4
+      },
+      {
+        "id": "llm-status",
+        "visible": true,
+        "height": 10,
+        "collapsed": false,
+        "x": 0,
+        "y": 24,
         "w": 4
       },
       {
         "id": "log-console",
         "visible": true,
-        "height": 10,
+        "height": 17,
         "collapsed": false,
         "x": 0,
         "y": 34,
         "w": 8
       },
       {
-        "id": "trace-pipeline",
-        "visible": true,
-        "height": 8,
+        "id": "watch",
+        "visible": false,
+        "height": 4,
         "collapsed": false,
         "x": 0,
-        "y": 44,
-        "w": 8
-      },
-      {
-        "id": "settings",
-        "visible": false,
-        "height": 6,
-        "collapsed": true,
-        "x": 8,
-        "y": 53,
+        "y": 7,
         "w": 4
       },
       {
@@ -325,31 +326,22 @@
         "w": 4
       },
       {
-        "id": "watch",
+        "id": "pinned:HomeColabApp/Docs/ADS_FRAMEWORK_SUMMARY.md",
         "visible": false,
-        "height": 4,
+        "height": 8,
         "collapsed": false,
         "x": 0,
-        "y": 0,
-        "w": 4
+        "y": 58,
+        "w": 12
       },
       {
-        "id": "file-tree",
+        "id": "pinned:HomeColabApp/Docs/ADS_FRAMEWORK_STATUS.md",
         "visible": false,
-        "height": 10,
+        "height": 8,
         "collapsed": false,
         "x": 0,
-        "y": 0,
-        "w": 4
-      },
-      {
-        "id": "pinned-files",
-        "visible": false,
-        "height": 10,
-        "collapsed": false,
-        "x": 0,
-        "y": 0,
-        "w": 4
+        "y": 58,
+        "w": 12
       }
     ]
   }

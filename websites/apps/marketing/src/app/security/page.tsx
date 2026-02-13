@@ -67,7 +67,7 @@ export default function Page() {
                   <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-3">
                     <span className="font-ibm-mono text-blue-600 text-sm">01.</span> Local-First Architecture
                   </h2>
-                  <div className="prose prose-slate max-w-none text-slate-600">
+                  <div className="prose prose max-w-none text-slate-600">
                     <p className="text-lg leading-relaxed border-l-4 border-green-500 pl-6 bg-green-50 py-4 pr-4 text-green-900">
                       <strong>Assertion:</strong> Your source code never leaves your machine.
                     </p>
@@ -129,7 +129,7 @@ export default function Page() {
                     <span className="font-ibm-mono text-blue-600 text-sm">04.</span> Flexible Embedding
                   </h2>
                   <p className="text-sm text-slate-600 leading-relaxed">
-                    CoDRAG&apos;s structural trace index (imports, calls, symbol graphs) works entirely
+                    CoDRAG&apos;s structural code graph (imports, calls, symbol graphs) works entirely
                     without any LLM. For optional semantic embeddings, you may connect Ollama locally or bring
                     your own cloud API keys. We never proxy calls, never store keys, and never mark up
                     token costs.

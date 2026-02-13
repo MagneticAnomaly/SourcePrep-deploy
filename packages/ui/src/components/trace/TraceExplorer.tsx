@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Search, GitBranch, FileCode, Box, ArrowRight, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
+import { Search, GitBranch, FileCode, Box, ArrowRight, ArrowLeft, Loader2, AlertCircle, Info } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../primitives/Button';
 import { ProgressIndicator } from '../status/ProgressIndicator';
@@ -26,6 +26,8 @@ export interface TraceExplorerProps {
   onBuildTrace: () => void;
   /** Enable trace */
   onEnableTrace?: () => void;
+  /** Which engine is active: 'rust' or 'python' */
+  engine?: string;
   className?: string;
 }
 
@@ -79,6 +81,7 @@ export function TraceExplorer({
   onGetNeighbors,
   onBuildTrace,
   onEnableTrace,
+  engine,
   className,
 }: TraceExplorerProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -149,9 +152,9 @@ export function TraceExplorer({
     return (
       <div className={cn('flex flex-col items-center justify-center h-full text-center p-8', className)}>
         <GitBranch className="w-10 h-10 text-text-muted opacity-40 mb-4" />
-        <h3 className="text-sm font-semibold text-text mb-2">Cross-Reference Disabled</h3>
+        <h3 className="text-sm font-semibold text-text mb-2">Code Graph Disabled</h3>
         <p className="text-xs text-text-muted mb-4 max-w-xs">
-          Enable the cross-reference graph to browse symbols, imports, and call relationships in your codebase.
+          Enable the code graph to browse symbols, imports, and call relationships in your codebase.
         </p>
         {onEnableTrace && (
           <Button size="sm" onClick={onEnableTrace}>Enable Map</Button>
@@ -165,9 +168,9 @@ export function TraceExplorer({
     return (
       <div className={cn('flex flex-col items-center justify-center h-full text-center p-8', className)}>
         <GitBranch className="w-10 h-10 text-text-muted opacity-40 mb-4" />
-        <h3 className="text-sm font-semibold text-text mb-2">Cross-Ref Not Built</h3>
+        <h3 className="text-sm font-semibold text-text mb-2">Code Graph Not Built</h3>
         <p className="text-xs text-text-muted mb-4 max-w-xs">
-          Build the cross-reference graph to explore symbols and their relationships.
+          Build the code graph to explore symbols and their relationships.
         </p>
         <Button size="sm" onClick={onBuildTrace}>Build Map</Button>
       </div>
@@ -186,7 +189,7 @@ export function TraceExplorer({
         ) : (
           <>
             <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
-            <h3 className="text-sm font-semibold text-text mb-1">Building Cross-Reference...</h3>
+            <h3 className="text-sm font-semibold text-text mb-1">Building Code Graph...</h3>
             <p className="text-xs text-text-muted">Parsing symbols and resolving relationships</p>
           </>
         )}
@@ -200,8 +203,31 @@ export function TraceExplorer({
       <div className="flex items-center gap-3 px-4 py-2 border-b border-border shrink-0 text-xs text-text-muted">
         <span>{traceCounts.nodes.toLocaleString()} symbols</span>
         <span className="text-border">•</span>
-        <span>{traceCounts.edges.toLocaleString()} edges</span>
+        <span>{traceCounts.edges.toLocaleString()} relationships</span>
+        {engine && (
+          <span className={cn(
+            'ml-auto px-1.5 py-0.5 rounded text-[10px] font-medium',
+            engine === 'rust'
+              ? 'bg-green-500/10 text-green-600 border border-green-500/20'
+              : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+          )}>
+            {engine === 'rust' ? 'Rust Engine' : 'Python (limited)'}
+          </span>
+        )}
       </div>
+
+      {/* Degraded graph warning */}
+      {traceCounts.nodes > 0 && traceCounts.edges === 0 && (
+        <div className="px-4 py-2 text-xs flex items-start gap-2 border-b border-border bg-amber-500/5 text-amber-700">
+          <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-medium">No relationships found.</span>{' '}
+            {engine === 'python'
+              ? 'The Python fallback engine only extracts relationships for .py files. Install the Rust engine for full cross-language support.'
+              : 'Try rebuilding the code graph — relationships are extracted from imports, calls, and containment.'}
+          </div>
+        </div>
+      )}
 
       {/* Search bar */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
@@ -235,7 +261,7 @@ export function TraceExplorer({
           {searchResults.length === 0 && !searching && (
             <div className="flex flex-col items-center justify-center h-full text-text-muted text-xs p-6 text-center">
               <Search className="w-6 h-6 opacity-30 mb-2" />
-              <p>Search for symbols to explore the cross-reference graph</p>
+              <p>Search for symbols to explore the code graph</p>
             </div>
           )}
           {searchResults.map((node) => {
@@ -284,11 +310,11 @@ export function TraceExplorer({
                   {nodeDetail.node.span ? `:${nodeDetail.node.span.start_line}-${nodeDetail.node.span.end_line}` : ''}
                 </div>
                 <div className="flex items-center gap-3 mt-2 text-xs text-text-muted">
-                  <span className="flex items-center gap-1">
-                    <ArrowLeft className="w-3 h-3" /> {nodeDetail.in_degree} in
+                  <span className="flex items-center gap-1" title="Number of other symbols that reference this one (callers, importers)">
+                    <ArrowLeft className="w-3 h-3" /> {nodeDetail.in_degree} {nodeDetail.in_degree === 1 ? 'reference' : 'references'} in
                   </span>
-                  <span className="flex items-center gap-1">
-                    <ArrowRight className="w-3 h-3" /> {nodeDetail.out_degree} out
+                  <span className="flex items-center gap-1" title="Number of symbols this one depends on (calls, imports)">
+                    <ArrowRight className="w-3 h-3" /> {nodeDetail.out_degree} {nodeDetail.out_degree === 1 ? 'dependency' : 'dependencies'} out
                   </span>
                   {nodeDetail.node.language && (
                     <span className="text-text-subtle">{nodeDetail.node.language}</span>

@@ -24,7 +24,7 @@ const stackComponents: StackComponent[] = [
     description: 'The Rust-powered daemon that runs entirely on your machine. Indexes codebases of any size — 500 files or 500,000 — with built-in semantic embeddings. No Ollama, no cloud, no GPU required.',
     provides: [
       'Built-in embeddings (nomic-embed-text via ONNX — no Ollama needed)',
-      'Structural Trace Index (imports, calls, symbol graphs)',
+      'Structural Code Graph (imports, calls, symbol graphs)',
       'Semantic + keyword + structural search in one engine',
       'Context assembly with source citations and budget control',
       'Path weights — boost core modules, suppress vendor and generated code',
@@ -74,7 +74,7 @@ function RequiredBadge({ required, tag, accent }: { required: boolean; tag?: str
 
 const capabilityIcons: Record<string, React.ReactNode> = {
   'Built-in embeddings': <Cpu className="w-3.5 h-3.5 text-primary flex-shrink-0" />,
-  'Structural Trace Index': <GitBranch className="w-3.5 h-3.5 text-primary flex-shrink-0" />,
+  'Structural Code Graph': <GitBranch className="w-3.5 h-3.5 text-primary flex-shrink-0" />,
   'Context assembly': <Layers className="w-3.5 h-3.5 text-primary flex-shrink-0" />,
   'Path weights': <SlidersHorizontal className="w-3.5 h-3.5 text-primary flex-shrink-0" />,
   'MCP server': <Plug className="w-3.5 h-3.5 text-primary flex-shrink-0" />,
@@ -103,7 +103,7 @@ export function TechStackMatrix({ className = '' }: TechStackMatrixProps) {
         <p className="text-sm text-text-muted leading-relaxed">
           <span className="font-semibold text-text">CoDRAG ships with everything you need.</span>{' '}
           The built-in embedding model (nomic-embed-text via ONNX) runs on CPU out of the box.
-          Semantic search, structural tracing, and context assembly all work from a single install.
+          Semantic search, structural code graph, and context assembly all work from a single install.
         </p>
       </div>
 

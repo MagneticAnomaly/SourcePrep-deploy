@@ -2,6 +2,7 @@ import { Folder, Database, Activity, AlertCircle, FileText, Code2, AlignLeft, Re
 import { Card, Flex, Badge, Title, Text, Divider } from '@tremor/react';
 import { cn } from '../../lib/utils';
 import { Button } from '../primitives/Button';
+import { InfoTooltip } from '../primitives/InfoTooltip';
 import { ProgressIndicator } from '../status/ProgressIndicator';
 import type { TaskProgress } from '../../types';
 
@@ -101,7 +102,15 @@ export function IndexStatusCard({
         <div className="flex items-start gap-3 min-w-0 flex-1">
           {!bare && <Folder className="w-8 h-8 text-primary shrink-0 mt-0.5" />}
           <div className="min-w-0 flex-1">
-            {!bare && <Title className="text-text">Knowledge Base</Title>}
+            {!bare && (
+              <div className="flex items-center gap-2">
+                <Title className="text-text">Knowledge Base</Title>
+                <InfoTooltip 
+                  content="Learn about the local indexing engine." 
+                  href="https://docs.codrag.io/concepts/indexing" 
+                />
+              </div>
+            )}
             <Text 
               className={cn("font-mono text-sm text-text-subtle break-words", bare && "text-xs")}
               title={stats.index_dir}
@@ -164,10 +173,10 @@ export function IndexStatusCard({
             <span className="font-medium text-text">{formatNumber(stats.build?.chunks_docs ?? 0)}</span>
             <span className="text-xs">Instructions</span>
           </div>
-          <div className="flex items-center gap-1.5 text-sm text-text-muted" title="Trace chunks (cross-reference graph embeddings)">
+          <div className="flex items-center gap-1.5 text-sm text-text-muted" title="Trace chunks (code graph embeddings)">
             <GitBranch className="w-3.5 h-3.5 text-purple-400" />
             <span className="font-medium text-text">{formatNumber(traceChunks)}</span>
-            <span className="text-xs">Trace</span>
+            <span className="text-xs">Graph</span>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-text-subtle" title="Total chunks">
             <Database className="w-3 h-3" />

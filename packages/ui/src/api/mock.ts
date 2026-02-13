@@ -201,6 +201,20 @@ export class MockApiClient implements ApiClient {
     };
   }
 
+  async activateLicense(_key: string): Promise<any> {
+    return {
+      license: { tier: 'pro', valid: true, email: 'user@example.com', expires_at: null, seats: 1, features: [] },
+      features: { auto_rebuild: true, trace_index: true, mcp_tools: true },
+    };
+  }
+
+  async deactivateLicense(): Promise<any> {
+    return {
+      license: { tier: 'free', valid: true, email: null, expires_at: null, seats: 1, features: [] },
+      features: { auto_rebuild: false, trace_index: true, mcp_tools: true },
+    };
+  }
+
   async getGlobalConfig(): Promise<any> {
     return { llm_config: { embedding: { source: 'huggingface' } } };
   }
@@ -282,6 +296,108 @@ export class MockApiClient implements ApiClient {
 
   async runDeepAnalysis(): Promise<any> {
     return { started: true, task_id: 'mock_deep_1' };
+  }
+
+  async cancelDeepAnalysis(): Promise<any> {
+    return { cancelled: true };
+  }
+
+  async destroyGraph(): Promise<any> {
+    return { deleted: [], errors: [] };
+  }
+
+  async destroyIndex(): Promise<any> {
+    return { deleted: [], errors: [] };
+  }
+
+  async getEpistemicStatus(): Promise<any> {
+    return { enabled: false, enriched_nodes: 0, avg_confidence: 0, running: false };
+  }
+
+  async runEpistemic(): Promise<any> {
+    return { started: true, task_id: 'mock_epistemic_1' };
+  }
+
+  async getModuleStatus(): Promise<any> {
+    return { enabled: false, module_count: 0, total_files_clustered: 0, running: false };
+  }
+
+  async runModuleSynthesis(): Promise<any> {
+    return { started: true, task_id: 'mock_cluster_1' };
+  }
+
+  async getDeepeningStatus(): Promise<any> {
+    return { running: false, total_scored: 0, settled_count: 0, settled_ratio: 0, avg_score: 0 };
+  }
+
+  async runDeepening(): Promise<any> {
+    return { started: true, task_id: 'mock_deepening_1' };
+  }
+
+  // ── Knowledge Embedding ─────────────────────────────────────
+
+  async getKnowledgeStatus(): Promise<any> {
+    return {
+      enabled: false,
+      running: false,
+      chunks_embedded: 0,
+      last_run_at: null,
+    };
+  }
+
+  async runKnowledgeBuild(): Promise<any> {
+    return { started: true, building: true };
+  }
+
+  // ── Unified Graph Engine ────────────────────────────────────
+
+  async getGraphEngineStatus(): Promise<any> {
+    return {
+      stages: {
+        trace: { ...MOCK_STATUS.trace, stats: 456 },
+        vector: { ...MOCK_STATUS.index, building: false },
+        catalogue: {
+          enabled: false,
+          total_nodes: 0,
+          augmented_nodes: 0,
+          validated_nodes: 0,
+          avg_confidence: 0,
+          low_confidence_count: 0,
+        },
+        validation: {
+          enabled: true,
+          inferred_edges: 120,
+          validated_edges: 100,
+        },
+        epistemic: {
+          enabled: false,
+          enriched_nodes: 0,
+          avg_confidence: 0,
+          running: false,
+        },
+        clustering: {
+          enabled: false,
+          module_count: 0,
+          total_files_clustered: 0,
+          running: false,
+        },
+        knowledge: {
+          enabled: false,
+          running: false,
+          chunks_embedded: 0,
+          last_run_at: null,
+          building: false,
+        },
+      },
+      deepening: {
+        running: false,
+        total_scored: 0,
+        settled_count: 0,
+        settled_ratio: 0,
+        avg_score: 0,
+      },
+      global_running: false,
+    };
   }
 }
 

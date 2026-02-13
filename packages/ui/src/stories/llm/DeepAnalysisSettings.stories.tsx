@@ -21,6 +21,7 @@ const defaultSchedule: DeepAnalysisSchedule = {
   frequency: 'weekly',
   day_of_week: 0,
   hour: 2,
+  budget_enabled: true,
   budget_max_tokens: 50_000,
   budget_max_minutes: 30,
   budget_max_items: 100,

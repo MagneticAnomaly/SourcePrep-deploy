@@ -360,19 +360,19 @@ def status(
         
     console.print()
     
-    # Trace Index
+    # Code Graph
     if trace.get("exists"):
-        console.print("[green]● Trace Index: Ready[/green]")
+        console.print("[green]● Code Graph: Ready[/green]")
         counts = trace.get("counts", {})
         console.print(f"  Nodes: {counts.get('nodes', 0):,}")
         console.print(f"  Edges: {counts.get('edges', 0):,}")
     elif trace.get("enabled"):
-        console.print("[yellow]○ Trace Index: Enabled but Not Built[/yellow]")
+        console.print("[yellow]○ Code Graph: Enabled but Not Built[/yellow]")
     else:
-        console.print("[dim]○ Trace Index: Disabled[/dim]")
+        console.print("[dim]○ Code Graph: Disabled[/dim]")
         
     if trace.get("building"):
-        console.print("[cyan]  (Trace build in progress...)[/cyan]")
+        console.print("[cyan]  (Graph build in progress...)[/cyan]")
 
 
 @app.command()

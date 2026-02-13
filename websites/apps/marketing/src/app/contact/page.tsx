@@ -46,7 +46,7 @@ export default function Page() {
 
           {/* Private Path */}
           <div className="rounded-2xl border border-border bg-surface p-10 flex flex-col items-center text-center">
-            <div className="w-16 h-16 rounded-full bg-surface-raised flex items-center justify-center mb-6 text-text">
+            <div className="w-16 h-16 rounded-full bg-surface flex items-center justify-center mb-6 text-text">
               <Mail className="w-8 h-8" />
             </div>
             <h2 className="text-2xl font-bold text-text mb-4">Private Inquiries</h2>

@@ -68,7 +68,7 @@ export interface GridLayoutItem {
  * Default layout configuration
  */
 export const DEFAULT_LAYOUT: DashboardLayout = {
-  version: 14,
+  version: 16,
   panels: [
     {
       id: "status",
@@ -107,7 +107,7 @@ export const DEFAULT_LAYOUT: DashboardLayout = {
       w: 4
     },
     {
-      id: "roots",
+      id: "file-tree",
       visible: true,
       height: 16,
       collapsed: false,
@@ -197,15 +197,6 @@ export const DEFAULT_LAYOUT: DashboardLayout = {
       w: 4
     },
     {
-      id: "settings",
-      visible: true,
-      height: 6,
-      collapsed: true,
-      x: 8,
-      y: 47,
-      w: 4
-    },
-    {
       id: "watch",
       visible: false,
       height: 4,
@@ -214,24 +205,6 @@ export const DEFAULT_LAYOUT: DashboardLayout = {
       y: 0,
       w: 4
     },
-    {
-      id: "file-tree",
-      visible: false,
-      height: 10,
-      collapsed: false,
-      x: 0,
-      y: 0,
-      w: 4
-    },
-    {
-      id: "pinned-files",
-      visible: false,
-      height: 10,
-      collapsed: false,
-      x: 0,
-      y: 0,
-      w: 4
-    }
   ]
 };
 

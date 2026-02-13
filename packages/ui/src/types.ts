@@ -118,12 +118,12 @@ export interface BuildHistoryEntry {
 // ============================================================
 
 /**
- * Node kind in trace graph
+ * Node kind in code graph
  */
 export type NodeKind = 'file' | 'symbol' | 'external_module';
 
 /**
- * Edge kind in trace graph
+ * Edge kind in code graph
  */
 export type EdgeKind = 'contains' | 'imports' | 'calls' | 'implements' | 'documented_by';
 
@@ -164,7 +164,7 @@ export interface TraceEdge {
 }
 
 /**
- * Trace status from API
+ * Code Graph status from API
  */
 export interface TraceStatus {
   enabled: boolean;
@@ -191,7 +191,7 @@ export interface TraceCoverageFile {
 }
 
 /**
- * Trace coverage summary
+ * Code Graph coverage summary
  */
 export interface TraceCoverageSummary {
   total: number;
@@ -264,6 +264,7 @@ export interface DeepAnalysisScheduleConfig {
   frequency?: ScheduleFrequency;
   day_of_week?: number;
   hour?: number;
+  budget_enabled: boolean;
   budget_max_tokens: number;
   budget_max_minutes: number;
   budget_max_items: number;
@@ -283,6 +284,11 @@ export interface DeepAnalysisRunStatus {
   running?: boolean;
   current_item?: string;
   progress_pct?: number;
+  progress_current?: number;
+  progress_total?: number;
+  stop_reason?: string;
+  budget_exhausted?: boolean;
+  queue_remaining?: number;
 }
 
 /**
@@ -314,6 +320,43 @@ export interface AugmentationStatus {
   last_augment_at?: string;
   last_validate_at?: string;
   model?: string;
+}
+
+/**
+ * Epistemic enrichment status (Pass 2)
+ */
+export interface EpistemicStatus {
+  enabled: boolean;
+  enriched_nodes: number;
+  avg_confidence: number;
+  running: boolean;
+  progress_current?: number;
+  progress_total?: number;
+}
+
+/**
+ * Module/cluster synthesis status (Pass 3)
+ */
+export interface ModuleStatus {
+  enabled: boolean;
+  module_count: number;
+  total_files_clustered: number;
+  running: boolean;
+}
+
+/**
+ * Deepening loop status (Pass 4+)
+ */
+export interface DeepeningStatus {
+  running: boolean;
+  total_scored: number;
+  settled_count: number;
+  settled_ratio: number;
+  avg_score: number;
+  min_score?: number;
+  max_score?: number;
+  iteration?: number;
+  max_iterations?: number;
 }
 
 // ============================================================
@@ -538,8 +581,34 @@ export interface ProjectConfig {
   max_file_bytes: number;
   hard_limit_bytes?: number;
   use_gitignore: boolean;
-  trace: { enabled: boolean };
+  trace: { enabled: boolean; paused?: boolean };
   auto_rebuild: { enabled: boolean; debounce_ms?: number };
+  graph_engine?: GraphEngineConfig;
+}
+
+/**
+ * Graph Engine Configuration (Auto-run toggles)
+ */
+export interface GraphEngineConfig {
+  stages: {
+    trace: { auto: boolean };
+    vector: { auto: boolean };
+    catalogue: { auto: boolean };
+    validation: { auto: boolean };
+    epistemic: { auto: boolean };
+    clustering: { auto: boolean };
+    knowledge: { auto: boolean };
+  };
+}
+
+/**
+ * Knowledge Embedding Status (Stage 7)
+ */
+export interface KnowledgeEmbeddingStatus {
+  enabled: boolean;
+  running: boolean;
+  chunks_embedded: number;
+  last_run_at: string | null;
 }
 
 /**
@@ -597,6 +666,29 @@ export interface ProjectStatus {
   index: IndexStatus;
   trace: TraceStatus;
   watch: WatchStatus;
+  // Deep Analysis / Graph Engine extensions
+  augmentation?: AugmentationStatus; // Stage 3
+  epistemic?: EpistemicStatus;       // Stage 5
+  modules?: ModuleStatus;            // Stage 6
+  deepening?: DeepeningStatus;       // Stage 4+ loop
+  knowledge?: KnowledgeEmbeddingStatus; // Stage 7
+}
+
+/**
+ * Unified Graph Engine Status (for the Engine Panel)
+ */
+export interface GraphEngineStatus {
+  stages: {
+    trace: TraceStatus & { stats: number };
+    vector: IndexStatus & { building: boolean };
+    catalogue: AugmentationStatus;
+    validation: { enabled: boolean; inferred_edges: number; validated_edges: number };
+    epistemic: EpistemicStatus;
+    clustering: ModuleStatus;
+    knowledge: KnowledgeEmbeddingStatus & { building: boolean; count?: number; last_build_at?: string; model?: string; exists?: boolean };
+  };
+  deepening: DeepeningStatus;
+  global_running: boolean;
 }
 
 /**

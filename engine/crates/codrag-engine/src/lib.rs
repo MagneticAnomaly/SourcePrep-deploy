@@ -177,6 +177,19 @@ struct PyParsedNode {
     docstring: Option<String>,
     #[pyo3(get)]
     external: Option<bool>,
+    // ── Markdown / doc-specific fields ──
+    #[pyo3(get)]
+    section_count: Option<usize>,
+    #[pyo3(get)]
+    ref_count: Option<usize>,
+    #[pyo3(get)]
+    link_count: Option<usize>,
+    #[pyo3(get)]
+    line_count: Option<usize>,
+    #[pyo3(get)]
+    status_markers: Option<Vec<String>>,
+    #[pyo3(get)]
+    header_depth: Option<usize>,
 }
 
 impl From<codrag_parser::ParsedNode> for PyParsedNode {
@@ -195,6 +208,12 @@ impl From<codrag_parser::ParsedNode> for PyParsedNode {
             is_public: n.metadata.is_public,
             docstring: n.metadata.docstring,
             external: n.metadata.external,
+            section_count: n.metadata.section_count,
+            ref_count: n.metadata.ref_count,
+            link_count: n.metadata.link_count,
+            line_count: n.metadata.line_count,
+            status_markers: n.metadata.status_markers,
+            header_depth: n.metadata.header_depth,
         }
     }
 }
@@ -241,6 +260,24 @@ impl PyParsedNode {
         }
         if let Some(ext) = self.external {
             meta.set_item("external", ext)?;
+        }
+        if let Some(sc) = self.section_count {
+            meta.set_item("section_count", sc)?;
+        }
+        if let Some(rc) = self.ref_count {
+            meta.set_item("ref_count", rc)?;
+        }
+        if let Some(lc) = self.link_count {
+            meta.set_item("link_count", lc)?;
+        }
+        if let Some(lnc) = self.line_count {
+            meta.set_item("line_count", lnc)?;
+        }
+        if let Some(ref sm) = self.status_markers {
+            meta.set_item("status_markers", sm)?;
+        }
+        if let Some(hd) = self.header_depth {
+            meta.set_item("header_depth", hd)?;
         }
         dict.set_item("metadata", meta)?;
         Ok(dict.into())
@@ -445,6 +482,74 @@ impl TraceHandle {
         }
 
         Ok(dict.into())
+    }
+
+    /// Validate LLM-hypothesized relationships and add them as inferred edges.
+    ///
+    /// edges_json: list of dicts with keys: source_node_id, target_file_path, relationship, confidence
+    /// min_confidence: minimum confidence threshold (default 0.7)
+    ///
+    /// Returns dict with counts: accepted, rejected_missing_source, rejected_missing_target,
+    /// rejected_low_confidence, rejected_duplicate, boosted
+    #[pyo3(signature = (edges_json, min_confidence=0.7))]
+    fn incorporate_inferred_edges(
+        &self,
+        py: Python<'_>,
+        edges_json: Vec<PyObject>,
+        min_confidence: f64,
+    ) -> PyResult<PyObject> {
+        let mut hypotheses = Vec::new();
+        for obj in &edges_json {
+            let dict = obj.downcast_bound::<PyDict>(py)
+                .map_err(|_| PyRuntimeError::new_err("Each edge must be a dict"))?;
+            let source = dict.get_item("source_node_id")?
+                .ok_or_else(|| PyRuntimeError::new_err("Missing source_node_id"))?
+                .extract::<String>()?;
+            let target = dict.get_item("target_file_path")?
+                .ok_or_else(|| PyRuntimeError::new_err("Missing target_file_path"))?
+                .extract::<String>()?;
+            let rel = dict.get_item("relationship")?
+                .ok_or_else(|| PyRuntimeError::new_err("Missing relationship"))?
+                .extract::<String>()?;
+            let conf = dict.get_item("confidence")?
+                .ok_or_else(|| PyRuntimeError::new_err("Missing confidence"))?
+                .extract::<f64>()?;
+            hypotheses.push(codrag_graph::InferredEdgeInput {
+                source_node_id: source,
+                target_file_path: target,
+                relationship: rel,
+                confidence: conf,
+            });
+        }
+
+        let mut graph = self.graph.lock()
+            .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        let result = graph.incorporate_inferred_edges(&hypotheses, min_confidence);
+
+        let dict = PyDict::new(py);
+        dict.set_item("accepted", result.accepted)?;
+        dict.set_item("rejected_missing_source", result.rejected_missing_source)?;
+        dict.set_item("rejected_missing_target", result.rejected_missing_target)?;
+        dict.set_item("rejected_low_confidence", result.rejected_low_confidence)?;
+        dict.set_item("rejected_duplicate", result.rejected_duplicate)?;
+        dict.set_item("boosted", result.boosted)?;
+        Ok(dict.into())
+    }
+
+    /// Write inferred edges to trace_inferred_edges.jsonl in the given directory.
+    fn write_inferred_edges(&self, index_dir: &str) -> PyResult<usize> {
+        let graph = self.graph.lock()
+            .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        graph.write_inferred_edges_jsonl(&PathBuf::from(index_dir))
+            .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        Ok(graph.inferred_edge_count())
+    }
+
+    /// Get the count of inferred edges in the graph.
+    fn inferred_edge_count(&self) -> PyResult<usize> {
+        let graph = self.graph.lock()
+            .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        Ok(graph.inferred_edge_count())
     }
 
     fn __repr__(&self) -> String {

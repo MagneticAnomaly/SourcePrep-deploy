@@ -1,5 +1,10 @@
 # Finance and Legal Structure: Magnetic Anomaly LLC
 
+> **⚠️ PARTIALLY SUPERSEDED** — This document references **Stripe** as the payment
+> processor. The authoritative plan now uses **Lemon Squeezy** as Merchant of Record.
+> See [`docs/DISTRIBUTION_AND_REVENUE_PLAN.md`](../DISTRIBUTION_AND_REVENUE_PLAN.md)
+> for the current source of truth.
+
 ## Purpose
 This document outlines the operational financial structure for **Magnetic Anomaly LLC**, the umbrella entity for CoDRAG and future applications.
 

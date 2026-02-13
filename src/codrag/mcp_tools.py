@@ -11,6 +11,13 @@ TOOLS = [
             "properties": {},
             "required": [],
         },
+        "_meta": {
+            "icons": {
+                "default": "activity",
+                "light": "activity",
+                "dark": "activity"
+            }
+        }
     },
     {
         "name": "codrag_build",
@@ -26,6 +33,13 @@ TOOLS = [
             },
             "required": [],
         },
+        "_meta": {
+            "icons": {
+                "default": "database",
+                "light": "database",
+                "dark": "database"
+            }
+        }
     },
     {
         "name": "codrag_search",
@@ -50,6 +64,13 @@ TOOLS = [
             },
             "required": ["query"],
         },
+        "_meta": {
+            "icons": {
+                "default": "search",
+                "light": "search",
+                "dark": "search"
+            }
+        }
     },
     {
         "name": "codrag",
@@ -96,6 +117,13 @@ TOOLS = [
             },
             "required": ["query"],
         },
+        "_meta": {
+            "icons": {
+                "default": "box",
+                "light": "box",
+                "dark": "box"
+            }
+        }
     },
     {
         "name": "codrag_trace_search",
@@ -120,6 +148,13 @@ TOOLS = [
             },
             "required": ["query"],
         },
+        "_meta": {
+            "icons": {
+                "default": "git-branch",
+                "light": "git-branch",
+                "dark": "git-branch"
+            }
+        }
     },
     {
         "name": "codrag_trace_neighbors",
@@ -150,6 +185,13 @@ TOOLS = [
             },
             "required": ["node_id"],
         },
+        "_meta": {
+            "icons": {
+                "default": "share-2",
+                "light": "share-2",
+                "dark": "share-2"
+            }
+        }
     },
     {
         "name": "codrag_trace_coverage",
@@ -159,5 +201,12 @@ TOOLS = [
             "properties": {},
             "required": [],
         },
+        "_meta": {
+            "icons": {
+                "default": "pie-chart",
+                "light": "pie-chart",
+                "dark": "pie-chart"
+            }
+        }
     },
 ]

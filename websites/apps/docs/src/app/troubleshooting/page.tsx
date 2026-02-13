@@ -1,3 +1,5 @@
+import { AnchorHeading } from '../../components/AnchorHeading';
+
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
@@ -11,9 +13,9 @@ export default function Page() {
           Common issues and how to resolve them.
         </p>
 
-        <div className="mt-12 prose prose-invert max-w-none">
+        <div className="mt-12 prose  max-w-none">
           
-          <h2 id="daemon">Daemon & Connection</h2>
+          <AnchorHeading id="daemon" level="h2">Daemon & Connection</AnchorHeading>
           
           <div className="space-y-6">
             <div className="border border-border rounded-lg p-6 bg-surface">
@@ -22,9 +24,9 @@ export default function Page() {
                 If your editor or the CLI says it cannot connect to the server:
               </p>
               <ul className="list-disc pl-5 space-y-2 text-sm">
-                <li>Ensure the daemon is running: <code>codrag serve</code></li>
+                <li>Ensure CoDRAG is running (open the desktop app or run <code>codrag serve</code>).</li>
                 <li>Check if port 8400 is blocked by a firewall or another process.</li>
-                <li>On Windows, you may need to allow Python through the firewall.</li>
+                <li>On Windows, you may need to allow CoDRAG through the firewall when prompted.</li>
               </ul>
             </div>
 
@@ -34,14 +36,14 @@ export default function Page() {
                 If Cursor or Windsurf loses connection:
               </p>
               <ul className="list-disc pl-5 space-y-2 text-sm">
-                <li>Restart the <code>codrag serve</code> process.</li>
+                <li>Restart the CoDRAG desktop app (or the <code>codrag serve</code> process if running manually).</li>
                 <li>In Cursor: Go to Settings &gt; MCP and click the &quot;Refresh&quot; icon next to codrag.</li>
                 <li>In Windsurf: Restart the window (Cmd+R).</li>
               </ul>
             </div>
           </div>
 
-          <h2 id="embeddings" className="mt-12">Embeddings & Models</h2>
+          <AnchorHeading id="embeddings" level="h2" className="mt-12">Embeddings & Models</AnchorHeading>
 
           <div className="space-y-6">
             <div className="border border-border rounded-lg p-6 bg-surface">
@@ -75,7 +77,7 @@ export default function Page() {
             </div>
           </div>
 
-          <h2 id="search" className="mt-12">Search Results</h2>
+          <AnchorHeading id="search" level="h2" className="mt-12">Search Results</AnchorHeading>
 
           <div className="space-y-6">
             <div className="border border-border rounded-lg p-6 bg-surface">
@@ -91,7 +93,7 @@ export default function Page() {
             </div>
           </div>
 
-          <h2 id="indexing" className="mt-12">Indexing & Build</h2>
+          <AnchorHeading id="indexing" level="h2" className="mt-12">Indexing & Build</AnchorHeading>
 
           <div className="space-y-6">
             <div className="border border-border rounded-lg p-6 bg-surface">
@@ -107,7 +109,7 @@ export default function Page() {
             </div>
           </div>
 
-          <h2 id="mcp" className="mt-12">MCP & Projects</h2>
+          <AnchorHeading id="mcp" level="h2" className="mt-12">MCP & Projects</AnchorHeading>
 
           <div className="space-y-6">
             <div className="border border-border rounded-lg p-6 bg-surface">
@@ -135,7 +137,7 @@ export default function Page() {
             </div>
           </div>
 
-          <h2 id="performance" className="mt-12">Performance</h2>
+          <AnchorHeading id="performance" level="h2" className="mt-12">Performance</AnchorHeading>
 
           <div className="space-y-6">
             <div className="border border-border rounded-lg p-6 bg-surface">
@@ -151,7 +153,7 @@ export default function Page() {
             </div>
           </div>
 
-          <h2 id="files" className="mt-12">File Issues</h2>
+          <AnchorHeading id="files" level="h2" className="mt-12">File Issues</AnchorHeading>
 
           <div className="space-y-6">
             <div className="border border-border rounded-lg p-6 bg-surface">

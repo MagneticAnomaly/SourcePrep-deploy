@@ -1,3 +1,5 @@
+import { AnchorHeading } from '../../../components/AnchorHeading';
+
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
@@ -11,9 +13,9 @@ export default function Page() {
           Global and project-level configuration options.
         </p>
 
-        <div className="mt-12 prose prose-invert max-w-none">
+        <div className="mt-12 prose  max-w-none">
           
-          <h2 id="global-config">Global Config</h2>
+          <AnchorHeading id="global-config" level="h2">Global Config</AnchorHeading>
           <p>
             Stored in <code>~/.codrag/config.json</code> (Mac/Linux) or <code>%APPDATA%\codrag\config.json</code> (Windows).
           </p>
@@ -21,7 +23,7 @@ export default function Page() {
             Contains daemon settings, global model preferences, and license information. You typically edit this via the Dashboard settings, but it can be modified manually.
           </p>
 
-          <h2 id="project-config">Project Config</h2>
+          <AnchorHeading id="project-config" level="h2">Project Config</AnchorHeading>
           <p>
             Stored in the internal SQLite database (managed via CLI/Dashboard). You can also place a <code>.codrag/config.json</code> in your project root to override settings for that specific repo.
           </p>
@@ -30,14 +32,14 @@ export default function Page() {
           <p>
             Works exactly like <code>.gitignore</code>. Use this to exclude files from indexing that you might want to keep in git (or local-only files not in gitignore).
           </p>
-          <pre className="bg-surface-raised p-4 rounded-lg overflow-x-auto text-sm">
+          <pre className="overflow-x-auto text-sm">
             <code># Example .codrag/ignore
 *.lock
 docs/generated/
 legacy/</code>
           </pre>
 
-          <h2 id="env-vars" className="mt-8">Environment Variables</h2>
+          <AnchorHeading id="env-vars" level="h2" className="mt-8">Environment Variables</AnchorHeading>
           <p>
             You can override certain behaviors using environment variables.
           </p>

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Pin, PinOff, FileText } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../primitives/Button';
@@ -25,6 +26,15 @@ export function FilePreviewPane({
   onUnpin,
   className,
 }: FilePreviewPaneProps) {
+  // Local optimistic state so the button updates immediately on click,
+  // then syncs back to the parent `isPinned` prop on subsequent renders.
+  const [localPinOverride, setLocalPinOverride] = useState<boolean | null>(null);
+
+  // Reset local override when parent prop catches up or path changes
+  useEffect(() => { setLocalPinOverride(null); }, [isPinned, path]);
+
+  const effectivePinned = localPinOverride ?? isPinned;
+
   if (!path) {
     return (
       <div className={cn('flex items-center justify-center h-full text-text-muted text-sm', className)}>
@@ -44,17 +54,25 @@ export function FilePreviewPane({
         <div className="flex items-center gap-1 shrink-0">
           {content && <CopyButton text={content} label="Copy" />}
           <Button
-            variant={isPinned ? 'default' : 'outline'}
+            variant={effectivePinned ? 'default' : 'outline'}
             size="sm"
-            onClick={() => (isPinned ? onUnpin?.(path) : onPin?.(path))}
-            title={isPinned ? 'Unpin from dashboard' : 'Pin file to dashboard'}
+            onClick={() => {
+              if (effectivePinned) {
+                setLocalPinOverride(false);
+                onUnpin?.(path);
+              } else {
+                setLocalPinOverride(true);
+                onPin?.(path);
+              }
+            }}
+            title={effectivePinned ? 'Remove from dashboard' : 'Pin file to dashboard'}
           >
-            {isPinned ? (
+            {effectivePinned ? (
               <PinOff className="w-3.5 h-3.5 mr-1.5" />
             ) : (
               <Pin className="w-3.5 h-3.5 mr-1.5" />
             )}
-            {isPinned ? 'Unpin from Dashboard' : 'Pin to Dashboard'}
+            {effectivePinned ? 'Remove from Dashboard' : 'Pin to Dashboard'}
           </Button>
         </div>
       </div>

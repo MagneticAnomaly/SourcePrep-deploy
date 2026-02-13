@@ -110,6 +110,15 @@ export default function Page() {
         <section className="mt-10">
           <h2 className="text-2xl font-semibold">Usage</h2>
 
+          <h3 className="mt-6 text-lg font-medium">Via Dashboard</h3>
+          <p className="mt-2 text-sm text-text-muted">
+            In the <strong>Context Assembler</strong> panel, toggle the <strong>Compression</strong> switch.
+            When you click "Assemble", CoDRAG will pass the retrieved chunks through CLaRa before displaying the final prompt.
+          </p>
+          <div className="mt-2 p-3 bg-surface-raised border border-border rounded text-xs text-text-subtle">
+            <strong>Note:</strong> Compression adds latency (usually 2-5 seconds depending on hardware). The "Timing" stats in the response will show the breakdown.
+          </div>
+
           <h3 className="mt-6 text-lg font-medium">Via API</h3>
           <p className="mt-2 text-sm text-text-muted">
             Add <code>compression</code> to your context request:

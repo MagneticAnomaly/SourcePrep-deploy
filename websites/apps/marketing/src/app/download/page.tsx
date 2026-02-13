@@ -55,6 +55,13 @@ export default function Page() {
           </a>
         </div>
 
+        {/* Also available */}
+        <div className="flex flex-wrap gap-4 mb-24 text-sm text-slate-500">
+          <span className="px-4 py-2 rounded-full border border-slate-200 bg-white">Also on the Mac App Store</span>
+          <span className="px-4 py-2 rounded-full border border-slate-200 bg-white">Also on the Microsoft Store</span>
+          <span className="px-4 py-2 rounded-full border border-slate-200 bg-white">Free tier included &mdash; no account required</span>
+        </div>
+
         {/* Quick Start - Clean & Clear */}
         <div className="bg-slate-50 rounded-[2rem] p-10 md:p-16 mb-24 border border-slate-200">
           <h2 className="text-3xl font-bold mb-8 text-slate-900">Get Started in 3 Steps</h2>
@@ -63,10 +70,10 @@ export default function Page() {
             <div className="flex flex-col md:flex-row gap-6 md:items-center">
               <div className="flex-shrink-0 w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center text-xl font-bold">1</div>
               <div className="flex-1">
-                <div className="text-xl font-semibold mb-2">Install and start the daemon</div>
-                <code className="block bg-white border border-slate-300 rounded-xl px-6 py-4 text-lg font-mono text-slate-700 overflow-x-auto">
-                  $ codrag serve
-                </code>
+                <div className="text-xl font-semibold mb-2">Install & launch the app</div>
+                <p className="text-slate-600">
+                  Open the <code className="bg-white border border-slate-300 rounded px-2 py-0.5 text-sm font-mono">.dmg</code> or <code className="bg-white border border-slate-300 rounded px-2 py-0.5 text-sm font-mono">.msi</code> and follow the installer. CoDRAG starts the background daemon automatically.
+                </p>
               </div>
             </div>
 
@@ -74,18 +81,21 @@ export default function Page() {
               <div className="flex-shrink-0 w-12 h-12 bg-slate-200 text-slate-700 rounded-full flex items-center justify-center text-xl font-bold">2</div>
               <div className="flex-1">
                 <div className="text-xl font-semibold mb-2">Add your project</div>
-                <code className="block bg-white border border-slate-300 rounded-xl px-6 py-4 text-lg font-mono text-slate-700 overflow-x-auto">
-                  $ codrag add ./my-project
-                </code>
+                <p className="text-slate-600">
+                  Click <strong>+</strong> in the sidebar, select your project folder, and CoDRAG begins indexing immediately.
+                </p>
               </div>
             </div>
 
             <div className="flex flex-col md:flex-row gap-6 md:items-center">
               <div className="flex-shrink-0 w-12 h-12 bg-slate-200 text-slate-700 rounded-full flex items-center justify-center text-xl font-bold">3</div>
               <div className="flex-1">
-                <div className="text-xl font-semibold mb-2">Connect via MCP</div>
-                <code className="block bg-white border border-slate-300 rounded-xl px-6 py-4 text-lg font-mono text-slate-700 overflow-x-auto">
-                  $ codrag mcp --auto
+                <div className="text-xl font-semibold mb-2">Connect your AI editor via MCP</div>
+                <p className="text-slate-600">
+                  Add CoDRAG to your Cursor or Windsurf MCP config. Your AI assistant now has structural code intelligence.
+                </p>
+                <code className="block mt-3 bg-white border border-slate-300 rounded-xl px-6 py-4 text-sm font-mono text-slate-700 overflow-x-auto">
+                  {`{ "codrag": { "command": "codrag", "args": ["mcp"] } }`}
                 </code>
               </div>
             </div>

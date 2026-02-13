@@ -17,7 +17,7 @@ const CHANGELOG: ChangelogEntry[] = [
     title: 'Initial Release',
     type: 'major',
     highlights: [
-      'Structural Trace Index — maps imports, calls, and symbol hierarchies',
+      'Structural Code Graph — maps imports, calls, and symbol hierarchies',
       'Semantic code search with sub-100ms results',
       'MCP server for Cursor, Windsurf, VS Code, and Claude Desktop',
       'Real-time file watcher with incremental rebuild',

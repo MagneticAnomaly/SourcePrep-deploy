@@ -18,7 +18,8 @@ export const docsSidebar: DocNode[] = [
     href: '/concepts',
     children: [
       { title: 'Local Indexing', href: '/concepts/indexing' },
-      { title: 'Trace Index', href: '/concepts/trace-index' },
+      { title: 'Code Graph', href: '/concepts/code-graph' },
+      { title: 'Graph Enrichment', href: '/concepts/graph-enrichment' },
       { title: 'Context Assembly', href: '/concepts/context' },
     ],
   },
@@ -28,7 +29,6 @@ export const docsSidebar: DocNode[] = [
     children: [
       { title: 'Overview', href: '/dashboard' },
       { title: 'Projects', href: '/dashboard/projects' },
-      { title: 'Settings', href: '/dashboard/settings' },
     ],
   },
   {

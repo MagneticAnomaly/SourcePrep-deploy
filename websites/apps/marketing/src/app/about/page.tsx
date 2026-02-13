@@ -25,7 +25,7 @@ export default function Page() {
             {/* Mission */}
             <section className="space-y-6 mb-16">
               <h2 className="text-2xl font-semibold">Our Mission</h2>
-              <div className="prose prose-invert max-w-none">
+              <div className="prose  max-w-none">
                 <p className="text-lg text-text-muted leading-relaxed">
                   AI coding tools are transforming how software gets built. But they work best
                   when they understand the structure of your codebase — not just the files.

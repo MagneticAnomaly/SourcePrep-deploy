@@ -1,19 +1,19 @@
-# Phase 04 — Trace Index
+# Phase 04 — Code Graph
  
  ## Problem statement
- Embedding-only retrieval is content-first and struggles with structural questions like “what calls what?”, “where is the entry point?”, or “what symbols implement this behavior?”. A trace index (codebase graph) provides structural grounding and enables GraphRAG-style traversal.
+Embedding-only retrieval is content-first and struggles with structural questions like “what calls what?”, “where is the entry point?”, or “what symbols implement this behavior?”. A code graph (structural index) provides structural grounding and enables GraphRAG-style traversal.
 
- ## Goal
- Add a structural index (codebase graph) to complement embedding search.
+## Goal
+Add a structural index (code graph) to complement embedding search.
 
  ## Scope
  ### In scope
- - Minimal trace storage per project (`trace_nodes.jsonl`, `trace_edges.jsonl`, `trace_manifest.json`)
- - Python symbol extraction MVP (functions/classes + import edges)
- - Query-time trace expansion option for `/context` assembly (bounded traversal)
- - **Feature Gating:**
-   - **Free Tier:** Trace build and expansion are **disabled** (Standard RAG only).
-   - **Starter/Pro/Team:** Trace features are **enabled**.
+- Minimal graph storage per project (`code_graph_manifest.json`, `code_graph_nodes.jsonl`, `code_graph_edges.jsonl`)
+- Python symbol extraction MVP (functions/classes + import edges)
+- Query-time graph expansion option for `/context` assembly (bounded traversal)
+- **Feature Gating:**
+  - **Free Tier:** Code Graph build and expansion are **disabled** (Standard RAG only).
+  - **Starter/Pro/Team:** Code Graph features are **enabled**.
 
  ### Out of scope
  - Full cross-language call graph correctness
@@ -21,7 +21,7 @@
  - Full interactive graph visualization (basic node browsing can come later)
  
  ## Derived from (Phase69 sources)
- - `../Phase00_Initial-Concept/TRACE_INDEX_RESEARCH.md`
+ - `../Phase00_Initial-Concept/CODE_GRAPH_RESEARCH.md`
  - `../Phase00_Initial-Concept/COMPETITORS_AND_CUTTING_EDGE.md` (GraphRAG implications)
  
  ## Related (optional)
@@ -31,31 +31,31 @@
  - `./DETERMINISTIC_TRACE_BUILD_PLAN.md` (detailed, edge-case driven plan for deterministic trace builds)
  
  ## Deliverables
- - Trace data model (nodes/edges/manifest) persisted per project
- - Python symbol extraction MVP
- - Trace-aware expansion option for context assembly
+- Code Graph data model (nodes/edges/manifest) persisted per project
+- Python symbol extraction MVP
+- Graph-aware expansion option for context assembly
 
  ## Functional specification
 
  ### Storage layout
 
- Trace index files live alongside the embedding index under the project’s `index_dir`:
+Code Graph files live alongside the embedding index under the project’s `index_dir`:
 
- - `trace_manifest.json`
- - `trace_nodes.jsonl`
- - `trace_edges.jsonl`
+ - `code_graph_manifest.json`
+ - `code_graph_nodes.jsonl`
+ - `code_graph_edges.jsonl`
 
  Progressive enhancement:
  - Additional acceleration files (e.g., name lookup tables) are allowed later, but the authoritative format must remain transparent and rebuildable from the repo.
 
  ### Data model
 
- The trace index is a lightweight graph:
+The code graph is a lightweight graph:
 
- - **Nodes** represent concrete entities (files, symbols, etc.).
- - **Edges** represent relationships (contains/defines, imports, calls later).
+- **Nodes** represent concrete entities (files, symbols, etc.).
+- **Edges** represent relationships (contains/defines, imports, calls later).
 
- #### `trace_manifest.json`
+ #### `code_graph_manifest.json`
 
  Minimum fields:
  - `format_version`
@@ -66,7 +66,7 @@
  - `counts`: `{nodes, edges, files_parsed, files_failed}`
  - `last_error` (nullable)
 
- #### Nodes (`trace_nodes.jsonl`)
+ #### Nodes (`code_graph_nodes.jsonl`)
 
  Required fields:
  - `id` (stable within a build, stable across builds when possible)
@@ -102,7 +102,7 @@
  }
  ```
 
- #### Edges (`trace_edges.jsonl`)
+ #### Edges (`code_graph_edges.jsonl`)
 
  Required fields:
  - `id`
@@ -169,44 +169,44 @@
  - Syntax errors or parse failures must not fail the whole build.
  - For failed files:
    - increment `files_failed`
-   - record a per-file error list in `trace_manifest.json` (bounded in size)
- - The dashboard must show “trace incomplete” when failures occurred.
+   - record a per-file error list in `code_graph_manifest.json` (bounded in size)
+ - The dashboard must show “graph incomplete” when failures occurred.
 
  ### Build integration
 
- Trace build should be integrated into the project build flow:
- - If `trace.enabled=false`, do not build trace.
- - If `trace.enabled=true`, build trace during `POST /projects/{project_id}/build`.
+Graph build should be integrated into the project build flow:
+- If `code_graph.enabled=false`, do not build graph.
+- If `code_graph.enabled=true`, build graph during `POST /projects/{project_id}/build`.
 
- Build phases (for progress reporting):
- - `trace_scan` (enumerate files)
- - `trace_parse` (AST parse and extraction)
- - `trace_write` (write JSONL + manifest)
+Build phases (for progress reporting):
+- `code_graph_scan` (enumerate files)
+- `code_graph_parse` (AST parse and extraction)
+- `code_graph_write` (write JSONL + manifest)
 
- Incremental trace rebuild:
- - Prefer to reuse Phase 03’s changed-path set to avoid re-parsing unchanged files.
- - If change detection is uncertain (e.g., recovery mode), fall back to full trace rebuild.
+Incremental graph rebuild:
+- Prefer to reuse Phase 03’s changed-path set to avoid re-parsing unchanged files.
+- If change detection is uncertain (e.g., recovery mode), fall back to full graph rebuild.
 
- Atomicity:
- - Write trace outputs to a temp directory then swap into place.
- - Never leave partially-written JSONL as the “active” trace index.
+Atomicity:
+- Write graph outputs to a temp directory then swap into place.
+- Never leave partially-written JSONL as the “active” code graph.
 
  ### Query operations (daemon API)
 
- The trace API is project-scoped:
+The graph API is project-scoped:
 
- - `GET /projects/{project_id}/trace/status`
+ - `GET /projects/{project_id}/graph/status`
    - Returns: `{enabled, exists, building, counts, last_build_at, last_error}`
 
- - `POST /projects/{project_id}/trace/search`
+ - `POST /projects/{project_id}/graph/search`
    - Request: `{query, kinds?, limit?}`
    - Response: `{nodes:[{id, kind, name, file_path, span, language, preview?}]}`
    - Ranking (MVP): exact match > prefix match > substring match.
 
- - `GET /projects/{project_id}/trace/node/{node_id}`
+ - `GET /projects/{project_id}/graph/node/{node_id}`
    - Response: `{node, in_degree, out_degree}`
 
- - `GET /projects/{project_id}/trace/neighbors/{node_id}`
+ - `GET /projects/{project_id}/graph/neighbors/{node_id}`
    - Query params (or request body later):
      - `direction` (`in|out|both`)
      - `edge_kinds` (repeatable)
@@ -215,13 +215,13 @@
      - `max_edges` (default 50)
    - Response: `{nodes:[...], edges:[...]}`
 
- ### Trace-aware context expansion
+ ### Graph-aware context expansion
 
- Context assembly can optionally include trace traversal.
+Context assembly can optionally include graph traversal.
 
- UI control:
- - Context page toggle: “Include trace expansion”
- - Optional advanced controls:
+UI control:
+- Context page toggle: “Include graph expansion”
+- Optional advanced controls:
    - hops (1–2)
    - edge kinds (imports now; calls later)
 
@@ -231,7 +231,7 @@
 
  ```json
  {
-   "trace_expand": {
+   "graph_expand": {
      "enabled": true,
      "hops": 1,
      "direction": "both",
@@ -243,18 +243,18 @@
  }
  ```
 
- Expansion strategy (MVP):
+Expansion strategy (MVP):
  - Seed selection: use embedding search top-k chunks.
- - Seed mapping: map chunks to trace nodes by `file_path` + span overlap when available.
+ - Seed mapping: map chunks to graph nodes by `file_path` + span overlap when available.
  - Traverse: bounded BFS by hops and caps.
  - Convert nodes → additional chunks:
    - for `symbol` nodes, prefer the chunk that overlaps the symbol span
    - for `file` nodes, prefer representative chunks near the top of the file
- - Packing: respect the overall `max_chars` budget and a separate trace budget.
+ - Packing: respect the overall `max_chars` budget and a separate graph budget.
 
- ### Dashboard UX (Trace page)
+ ### Dashboard UX (Code Graph page)
 
- The trace page is a “symbol browser”, not a full graph visualization.
+The code graph page is a “symbol browser”, not a full graph visualization.
 
  Minimum UI:
  - Symbol search input
@@ -271,16 +271,16 @@
    - `hops=1`
    - `max_nodes=25`
    - `max_edges=50`
- - Default context trace expansion:
+ - Default context graph expansion:
    - `hops=1`
    - `max_nodes=20`
    - `max_additional_chars=2000`
  - Hard caps (server-enforced) should exist to prevent runaway responses.
 
  ## Success criteria
- - Trace build produces a consistent node/edge set for a project.
- - Trace search can locate symbols by name and link back to file/span.
- - Context assembly can optionally include trace-related neighbors without exploding context size.
+- Graph build produces a consistent node/edge set for a project.
+- Graph search can locate symbols by name and link back to file/span.
+- Context assembly can optionally include graph-related neighbors without exploding context size.
 
  ## Research deliverables
  - Node/edge schema definition + stable ID strategy

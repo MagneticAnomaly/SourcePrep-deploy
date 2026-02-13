@@ -100,7 +100,7 @@ export function TeamConfigStatus({
             <code className="bg-surface px-1 rounded border border-border text-text font-mono">{config.embedding_model}</code>
           </div>
           <div className="flex justify-between">
-            <span className="text-text-subtle">Trace enabled:</span>
+            <span className="text-text-subtle">Code Graph enabled:</span>
             <span className="font-medium text-text">{config.trace_enabled ? 'Yes' : 'No'}</span>
           </div>
           <div className="flex justify-between">

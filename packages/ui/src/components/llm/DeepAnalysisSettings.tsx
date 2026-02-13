@@ -2,7 +2,7 @@ import { cn } from '../../lib/utils';
 import { Button } from '../primitives/Button';
 import { Select } from '../primitives/Select';
 import { StepperNumberInput } from '../primitives/StepperNumberInput';
-import { Brain, Calendar, Clock, Gauge, Play, Info } from 'lucide-react';
+import { Brain, Calendar, Clock, Gauge, Play, Info, AlertTriangle, CheckCircle, Square, Loader2 } from 'lucide-react';
 
 export interface DeepAnalysisSchedule {
   mode: 'manual' | 'threshold' | 'scheduled';
@@ -10,6 +10,7 @@ export interface DeepAnalysisSchedule {
   frequency?: 'daily' | 'weekly' | 'biweekly' | 'monthly';
   day_of_week?: number;
   hour?: number;
+  budget_enabled: boolean;
   budget_max_tokens: number;
   budget_max_minutes: number;
   budget_max_items: number;
@@ -23,6 +24,12 @@ export interface DeepAnalysisStatus {
   next_run_at?: string;
   queue_size?: number;
   avg_confidence?: number;
+  stop_reason?: string;
+  budget_exhausted?: boolean;
+  queue_remaining?: number;
+  progress_pct?: number;
+  progress_current?: number;
+  progress_total?: number;
 }
 
 export interface DeepAnalysisSettingsProps {
@@ -32,6 +39,7 @@ export interface DeepAnalysisSettingsProps {
   largeModelConfigured?: boolean;
   fastModelConfigured?: boolean;
   onRunNow?: () => void;
+  onCancel?: () => void;
   running?: boolean;
   className?: string;
 }
@@ -86,6 +94,27 @@ function formatNumber(n?: number): string {
   return String(n);
 }
 
+const STOP_REASON_MAP: Record<string, { label: string; color: string; Icon: typeof CheckCircle }> = {
+  complete: { label: 'Session complete', color: 'text-emerald-400', Icon: CheckCircle },
+  empty_queue: { label: 'Queue empty', color: 'text-emerald-400', Icon: CheckCircle },
+  budget_tokens: { label: 'Token budget reached', color: 'text-amber-400', Icon: AlertTriangle },
+  budget_time: { label: 'Time budget reached', color: 'text-amber-400', Icon: AlertTriangle },
+  budget_items: { label: 'Item limit reached', color: 'text-amber-400', Icon: AlertTriangle },
+  cancelled: { label: 'Cancelled by user', color: 'text-text-muted', Icon: Square },
+};
+
+function StopReasonBadge({ reason }: { reason: string }) {
+  const info = STOP_REASON_MAP[reason];
+  if (!info) return <span className="text-text-muted text-xs">{reason}</span>;
+  const { label, color, Icon } = info;
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-medium ${color}`}>
+      <Icon className="w-3 h-3" />
+      {label}
+    </span>
+  );
+}
+
 export function DeepAnalysisSettings({
   schedule,
   onScheduleChange,
@@ -93,6 +122,7 @@ export function DeepAnalysisSettings({
   largeModelConfigured = false,
   fastModelConfigured = false,
   onRunNow,
+  onCancel,
   running = false,
   className,
 }: DeepAnalysisSettingsProps) {
@@ -205,41 +235,81 @@ export function DeepAnalysisSettings({
         <h4 className="text-xs font-medium text-text-muted uppercase tracking-wide flex items-center gap-1.5">
           <Gauge className="w-3.5 h-3.5" /> Budget Per Session
         </h4>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <label className="text-xs text-text-muted">Max tokens</label>
-            <StepperNumberInput
-              value={schedule.budget_max_tokens}
-              onValueChange={(v) => update({ budget_max_tokens: v })}
-              min={1000}
-              max={500000}
-              step={5000}
-              disabled={!largeModelConfigured && !fastModelConfigured}
+
+        {/* Budget toggle */}
+        <label className="flex items-center gap-2 cursor-pointer group">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={schedule.budget_enabled}
+            onClick={() => update({ budget_enabled: !schedule.budget_enabled })}
+            disabled={!largeModelConfigured && !fastModelConfigured}
+            className={cn(
+              'relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50',
+              'disabled:cursor-not-allowed disabled:opacity-50',
+              schedule.budget_enabled ? 'bg-purple-500' : 'bg-surface-raised border-border',
+            )}
+          >
+            <span
+              className={cn(
+                'pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm transition-transform',
+                schedule.budget_enabled ? 'translate-x-4' : 'translate-x-0',
+              )}
             />
+          </button>
+          <span className="text-xs text-text-muted group-hover:text-text transition-colors">
+            {schedule.budget_enabled ? 'Budget limits enabled (recommended for BYOK / cloud)' : 'No limits (recommended for Ollama / local)'}
+          </span>
+        </label>
+
+        {!schedule.budget_enabled && (
+          <div className="flex gap-2 p-2.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400">
+            <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span className="text-xs">
+              Budget limits are <strong>disabled</strong>. Analysis will run until the queue is empty or manually stopped.
+              Recommended when running local models via Ollama — no cost per token.
+            </span>
           </div>
-          <div className="space-y-1">
-            <label className="text-xs text-text-muted">Max time (minutes)</label>
-            <StepperNumberInput
-              value={schedule.budget_max_minutes}
-              onValueChange={(v) => update({ budget_max_minutes: v })}
-              min={5}
-              max={480}
-              step={5}
-              disabled={!largeModelConfigured && !fastModelConfigured}
-            />
+        )}
+
+        {schedule.budget_enabled && (
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-xs text-text-muted">Max tokens</label>
+              <StepperNumberInput
+                value={schedule.budget_max_tokens}
+                onValueChange={(v) => update({ budget_max_tokens: v })}
+                min={1000}
+                max={500000}
+                step={5000}
+                disabled={!largeModelConfigured && !fastModelConfigured}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-text-muted">Max time (minutes)</label>
+              <StepperNumberInput
+                value={schedule.budget_max_minutes}
+                onValueChange={(v) => update({ budget_max_minutes: v })}
+                min={5}
+                max={480}
+                step={5}
+                disabled={!largeModelConfigured && !fastModelConfigured}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-text-muted">Max items per session</label>
+              <StepperNumberInput
+                value={schedule.budget_max_items}
+                onValueChange={(v) => update({ budget_max_items: v })}
+                min={10}
+                max={1000}
+                step={10}
+                disabled={!largeModelConfigured && !fastModelConfigured}
+              />
+            </div>
           </div>
-          <div className="space-y-1">
-            <label className="text-xs text-text-muted">Max items per session</label>
-            <StepperNumberInput
-              value={schedule.budget_max_items}
-              onValueChange={(v) => update({ budget_max_items: v })}
-              min={10}
-              max={1000}
-              step={10}
-              disabled={!largeModelConfigured && !fastModelConfigured}
-            />
-          </div>
-        </div>
+        )}
       </section>
 
       {/* Priority */}
@@ -272,6 +342,12 @@ export function DeepAnalysisSettings({
               <span className="text-text-muted">Tokens used</span>
               <span className="text-text font-medium">{formatNumber(status.last_run_tokens)}</span>
             </div>
+            {status.stop_reason && (
+              <div className="flex justify-between items-center">
+                <span className="text-text-muted">Stopped because</span>
+                <StopReasonBadge reason={status.stop_reason} />
+              </div>
+            )}
             {schedule.mode !== 'manual' && (
               <div className="flex justify-between">
                 <span className="text-text-muted">Next run</span>
@@ -282,27 +358,78 @@ export function DeepAnalysisSettings({
               <span className="text-text-muted">Validation queue</span>
               <span className="text-text font-medium">
                 {formatNumber(status.queue_size)} items
-                {status.avg_confidence != null && (
+                {status.avg_confidence != null && status.avg_confidence > 0 && (
                   <span className="text-text-subtle ml-1">(avg conf: {(status.avg_confidence * 100).toFixed(0)}%)</span>
                 )}
               </span>
             </div>
           </div>
+
+          {/* Actionable hint when budget was exhausted */}
+          {status.budget_exhausted && (status.queue_remaining ?? 0) > 0 && (
+            <div className="flex gap-2 p-2.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span className="text-xs">
+                {formatNumber(status.queue_remaining)} items remain. Run again or increase the budget to continue.
+              </span>
+            </div>
+          )}
         </section>
       )}
 
-      {/* Run now button */}
+      {/* Running progress */}
+      {running && status && (
+        <section className="space-y-2">
+          <h4 className="text-xs font-medium text-text-muted uppercase tracking-wide flex items-center gap-1.5">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-400" /> Running
+          </h4>
+          <div className="rounded-md border border-purple-500/30 bg-purple-500/5 p-3 space-y-2">
+            <div className="flex justify-between text-xs">
+              <span className="text-text-muted">Progress</span>
+              <span className="text-text font-medium">
+                {status.progress_current ?? 0} / {status.progress_total ?? '?'} items
+              </span>
+            </div>
+            <div className="h-1.5 rounded-full bg-surface overflow-hidden">
+              <div
+                className="h-full rounded-full bg-purple-500 transition-all duration-500 ease-out"
+                style={{ width: `${Math.min(status.progress_pct ?? 0, 100)}%` }}
+              />
+            </div>
+            <div className="text-right text-[10px] text-text-subtle">
+              {(status.progress_pct ?? 0).toFixed(0)}%
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Run / Stop buttons */}
       {onRunNow && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onRunNow}
-          disabled={(!largeModelConfigured && !fastModelConfigured) || running}
-          className="w-full"
-        >
-          <Play className="w-3.5 h-3.5 mr-1.5" />
-          {running ? 'Running...' : 'Run Deep Analysis Now'}
-        </Button>
+        <div className="flex gap-2">
+          {running ? (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={onCancel}
+              disabled={!onCancel}
+              className="w-full"
+            >
+              <Square className="w-3.5 h-3.5 mr-1.5" />
+              Stop Deep Analysis
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRunNow}
+              disabled={!largeModelConfigured && !fastModelConfigured}
+              className="w-full"
+            >
+              <Play className="w-3.5 h-3.5 mr-1.5" />
+              Run Deep Analysis Now
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );

@@ -35,7 +35,7 @@ export default function Page() {
               Built for large codebases and sprawling doc trees
             </h2>
             <p className="mt-4 text-lg text-text-muted max-w-2xl mx-auto">
-              Built-in embeddings, Rust-powered structural tracing, path weights for fine-grained control, and optional 10&ndash;16&times; compression &mdash; running locally, integrated with every major AI coding tool.
+              Built-in embeddings, Rust-powered structural tracing, multi-pass graph enrichment, path weights for fine-grained control, and optional 10&ndash;16&times; compression &mdash; running locally, integrated with every major AI coding tool.
             </p>
           </div>
           <FeatureBlocks features={codragFeatures} variant="cards" />
@@ -63,13 +63,13 @@ export default function Page() {
               <div className="font-mono text-sm space-y-4">
                 <div>
                   <div className="text-text-muted text-xs mb-1"># Start the local daemon</div>
-                  <div className="bg-surface-raised p-2 rounded border border-border-subtle text-success">
+                  <div className="bg-surface p-2 rounded border border-border-subtle text-success">
                     $ codrag serve
                   </div>
                 </div>
                 <div>
                   <div className="text-text-muted text-xs mb-1"># Add to Cursor / Windsurf config</div>
-                  <div className="bg-surface-raised p-2 rounded border border-border-subtle text-text-subtle">
+                  <div className="bg-surface p-2 rounded border border-border-subtle text-text-subtle">
                     {`"codrag": {`} <br/>
                     &nbsp;&nbsp;{`"command": "codrag",`} <br/>
                     &nbsp;&nbsp;{`"args": ["mcp"]`} <br/>
@@ -95,7 +95,7 @@ export default function Page() {
                 </div>
                 <div className="flex gap-3">
                   <div className="mt-1 w-6 h-6 rounded bg-info/20 flex-shrink-0" />
-                  <div className="text-sm bg-surface-raised border border-border-subtle p-3 rounded-lg text-text-muted font-mono text-xs">
+                  <div className="text-sm bg-surface border border-border-subtle p-3 rounded-lg text-text-muted font-mono text-xs">
                     <div className="flex items-center gap-2 mb-2 text-info">
                       <Terminal className="w-3 h-3" />
                       <span>Running codrag(trace_expand=true)...</span>
@@ -122,7 +122,7 @@ export default function Page() {
               One install. Batteries included.
             </h2>
             <p className="mt-4 text-lg text-text-muted max-w-2xl mx-auto">
-              CoDRAG ships with built-in embeddings &mdash; semantic search, structural tracing, and context assembly work from a single install. Add CLaRa when you need to compress massive context payloads.
+              CoDRAG ships with built-in embeddings &mdash; semantic search, structural tracing, graph enrichment, and context assembly work from a single install. Add CLaRa when you need to compress massive context payloads.
             </p>
           </div>
           <TechStackMatrix />
@@ -136,7 +136,7 @@ export default function Page() {
               Free to start. Pro when you&apos;re ready.
             </h2>
             <p className="mt-4 text-lg text-text-muted max-w-2xl mx-auto">
-              Start with one project for free. Upgrade to Pro for unlimited projects, the structural Trace Index, and a perpetual license.
+              Start with one project for free. Upgrade to Pro for unlimited projects, the structural Code Graph with multi-pass enrichment, and a perpetual license.
             </p>
           </div>
           <TierComparison />

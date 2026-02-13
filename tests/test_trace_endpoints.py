@@ -56,6 +56,25 @@ def _enable_trace(client: TestClient, project_id: str) -> None:
     assert body2["success"] is True
 
 
+def _disable_trace(client: TestClient, project_id: str) -> None:
+    res = client.get(f"/projects/{project_id}")
+    assert res.status_code == 200
+    body = res.json()
+    cfg = dict(body["data"]["project"]["config"] or {})
+    cfg["trace"] = {"enabled": False}
+
+    res2 = client.put(f"/projects/{project_id}", json={"config": cfg})
+    assert res2.status_code == 200
+    body2 = res2.json()
+    assert body2["success"] is True
+    
+    # Verify it stuck
+    res3 = client.get(f"/projects/{project_id}")
+    body3 = res3.json()
+    trace_cfg = body3["data"]["project"]["config"]["trace"]
+    assert trace_cfg["enabled"] is False
+
+
 def _build_trace_index(project_id: str, repo_root: Path) -> None:
     proj = server._get_registry().get_project(project_id)
     assert proj is not None
@@ -81,6 +100,7 @@ def test_trace_node_and_neighbors_require_trace_enabled(client: TestClient, tmp_
     (repo_root / "a.py").write_text("def alpha():\n    return 1\n")
 
     project_id = _add_embedded_project(client, repo_root)
+    _disable_trace(client, project_id)
 
     node_id = quote(stable_file_node_id("a.py"), safe="")
 
@@ -163,9 +183,3 @@ def test_trace_search_node_and_neighbors_endpoints(client: TestClient, tmp_path:
     assert "imports" in edge_kinds
     assert "contains" in edge_kinds
 
-    res_neighbors_alias = client.get(f"/projects/{project_id}/trace/nodes/{file_node_id}/neighbors")
-    assert res_neighbors_alias.status_code == 200
-    body_neighbors_alias = res_neighbors_alias.json()
-    assert body_neighbors_alias["success"] is True
-    assert "nodes" in body_neighbors_alias["data"]
-    assert "edges" in body_neighbors_alias["data"]

@@ -33,7 +33,7 @@ const features: TierFeature[] = [
   // Indexing
   { category: 'Indexing & Search', name: 'Semantic code search', free: true, pro: true },
   { category: 'Indexing & Search', name: 'Context assembly with citations', free: true, pro: true },
-  { category: 'Indexing & Search', name: 'Structural Trace Index (imports, calls, symbol graphs)', free: false, pro: true },
+  { category: 'Indexing & Search', name: 'Structural Code Graph (imports, calls, symbol graphs)', free: false, pro: true },
   { category: 'Indexing & Search', name: 'Incremental rebuild on file change', free: false, pro: true },
 
   // Projects

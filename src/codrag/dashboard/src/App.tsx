@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { RefreshCw, FileText, Settings, X, ImageIcon, AlertCircle } from 'lucide-react'
+import { RefreshCw, FileText, Settings, X, ImageIcon, AlertCircle, Key, Shield, Trash2 } from 'lucide-react'
 import {
   // API
   useApiClient,
@@ -23,18 +23,26 @@ import {
   DeepAnalysisSettings,
   type DeepAnalysisSchedule,
   type DeepAnalysisRunStatus,
-  CopyButton,
   // Project
   AddProjectModal,
   FolderTreePanel,
   FileExplorerDetail,
+  CopyButton,
+  type TreeNode,
+  type PinnedTextFile,
   // Trace
   TraceExplorer,
   TraceCoveragePanel,
-  TracePipelineStatus,
+  GraphEnrichmentPipeline,
+  GraphStructurePanel,
+  GraphEnginePanel,
   type AugmentationStatus,
+  type EpistemicStatus,
+  type ModuleStatus,
+  type DeepeningStatus,
   type LLMSlotsStatus,
-  type PinnedTextFile,
+  type GraphEngineStatus,
+  type GraphEngineConfig,
   // Watch
   WatchControlPanel,
   // Patterns
@@ -50,15 +58,15 @@ import {
   type ProjectSummary,
   type ProjectStatus,
   type StatusState,
-  type TreeNode,
   type LLMConfig,
+  type LicenseStatus,
+  type LicenseTier,
   type SavedEndpoint,
   type EndpointTestResult,
   type WatchStatus,
   type ProjectMode,
   type DashboardLayoutApi,
   type DashboardLayout,
-  type PanelDefinition,
   // Layout
   PanelPicker,
   LogConsole,
@@ -133,7 +141,7 @@ function toProjectSummary(p: ProjectListItem, ps: ProjectStatus | null, building
 }
 
 // ── Settings Panel (drawer) ──────────────────────────────────
-type SettingsDrawerTab = 'project' | 'global'
+type SettingsDrawerTab = 'project' | 'global' | 'developer'
 
 interface SettingsDrawerProps {
   open: boolean
@@ -149,6 +157,15 @@ interface SettingsDrawerProps {
     detected_presets: string[];
     all_presets: Record<string, string[]>;
   }>
+  // Deep Analysis (Project tab)
+  deepAnalysisSchedule: DeepAnalysisSchedule
+  onDeepAnalysisScheduleChange: (schedule: DeepAnalysisSchedule) => void
+  deepAnalysisStatus: DeepAnalysisRunStatus
+  deepAnalysisRunning: boolean
+  onRunDeepAnalysis: () => void
+  onCancelDeepAnalysis: () => void
+  largeModelConfigured: boolean
+  fastModelConfigured: boolean
   // Global tab
   uiMode: 'light' | 'dark'
   onModeChange: (mode: 'light' | 'dark') => void
@@ -156,7 +173,30 @@ interface SettingsDrawerProps {
   onThemeChange: (theme: string) => void
   bgImage: string | null
   onBgImageChange: (url: string | null) => void
+  // License (Global tab)
+  licenseStatus: LicenseStatus | null
+  licenseKeyInput: string
+  onLicenseKeyInputChange: (key: string) => void
+  onActivateLicense: () => void
+  onDeactivateLicense: () => void
+  licenseLoading: boolean
+  licenseError: string | null
+  // Project tab – danger zone
+  onDestroyGraph: () => void
+  onDestroyIndex: () => void
+  // Developer tab
+  devTierOverride: LicenseTier | null
+  onDevTierOverrideChange: (tier: LicenseTier | null) => void
 }
+
+const DEV_TIER_OPTIONS = [
+  { value: '', label: 'Off (use real license)' },
+  { value: 'free', label: 'Free' },
+  { value: 'starter', label: 'Starter' },
+  { value: 'pro', label: 'Pro' },
+  { value: 'team', label: 'Team' },
+  { value: 'enterprise', label: 'Enterprise' },
+]
 
 function SettingsDrawer({
   open,
@@ -167,12 +207,31 @@ function SettingsDrawer({
   configDirty,
   hasProject,
   onDetectStack,
+  deepAnalysisSchedule,
+  onDeepAnalysisScheduleChange,
+  deepAnalysisStatus,
+  deepAnalysisRunning,
+  onRunDeepAnalysis,
+  onCancelDeepAnalysis,
+  largeModelConfigured,
+  fastModelConfigured,
   uiMode,
   onModeChange,
   uiTheme,
   onThemeChange,
   bgImage,
   onBgImageChange,
+  licenseStatus,
+  licenseKeyInput,
+  onLicenseKeyInputChange,
+  onActivateLicense,
+  onDeactivateLicense,
+  licenseLoading,
+  licenseError,
+  onDestroyGraph,
+  onDestroyIndex,
+  devTierOverride,
+  onDevTierOverrideChange,
 }: SettingsDrawerProps) {
   const api = useApiClient()
   const [activeTab, setActiveTab] = useState<SettingsDrawerTab>('project')
@@ -201,6 +260,7 @@ function SettingsDrawer({
   const tabs: { key: SettingsDrawerTab; label: string }[] = [
     { key: 'project', label: 'Project' },
     { key: 'global', label: 'Global' },
+    { key: 'developer', label: 'Developer' },
   ]
 
   return (
@@ -236,14 +296,63 @@ function SettingsDrawer({
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
         {/* ── Project tab ── */}
         {activeTab === 'project' && hasProject && (
-          <ProjectSettingsPanel
-            config={projectConfig}
-            onChange={onProjectConfigChange}
-            onSave={onSaveConfig}
-            onDetectStack={onDetectStack}
-            isDirty={configDirty}
-            bare
-          />
+          <>
+            <ProjectSettingsPanel
+              config={projectConfig}
+              onChange={onProjectConfigChange}
+              onSave={onSaveConfig}
+              onDetectStack={onDetectStack}
+              isDirty={configDirty}
+              bare
+            />
+            <div className="border-t border-border pt-4">
+              <DeepAnalysisSettings
+                schedule={deepAnalysisSchedule}
+                onScheduleChange={onDeepAnalysisScheduleChange}
+                largeModelConfigured={largeModelConfigured}
+                fastModelConfigured={fastModelConfigured}
+                status={deepAnalysisStatus}
+                running={deepAnalysisRunning}
+                onRunNow={onRunDeepAnalysis}
+                onCancel={onCancelDeepAnalysis}
+              />
+            </div>
+            <div className="border-t border-border pt-4">
+              <section>
+                <h3 className="text-xs font-medium text-error uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Danger Zone
+                </h3>
+                <p className="text-xs text-text-muted mb-3">
+                  These actions permanently delete project data and cannot be undone.
+                </p>
+                <div className="space-y-2">
+                  <div className="p-2 rounded border border-border bg-surface-raised">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-text">Reset Graph</p>
+                        <p className="text-xs text-text-muted">Deletes trace graph and all enrichment data. Embeddings and search remain intact.</p>
+                      </div>
+                      <Button variant="destructive" size="sm" onClick={onDestroyGraph}>
+                        Reset
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="p-2 rounded border border-error/30 bg-error/5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-text">Full Reset</p>
+                        <p className="text-xs text-text-muted">Deletes everything: embeddings, search index, graph, and all enrichment. You will need to rebuild from scratch.</p>
+                      </div>
+                      <Button variant="destructive" size="sm" onClick={onDestroyIndex}>
+                        Reset All
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </>
         )}
         {activeTab === 'project' && !hasProject && (
           <p className="text-sm text-text-muted">Select a project to configure settings.</p>
@@ -254,7 +363,9 @@ function SettingsDrawer({
           <>
             {/* Appearance */}
             <section>
-              <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Appearance</h3>
+              <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                Appearance
+              </h3>
               <div className="space-y-2">
                 <Select
                   value={uiMode}
@@ -286,6 +397,118 @@ function SettingsDrawer({
                   <Button variant="ghost" size="sm" onClick={() => onBgImageChange(null)} className="w-full text-text-muted">
                     Remove background
                   </Button>
+                )}
+              </div>
+            </section>
+
+            {/* License Key */}
+            <section>
+              <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">License</h3>
+              <div className="space-y-2">
+                {licenseStatus && (
+                  <div className="flex items-center gap-2 text-xs">
+                    <Shield className="w-3.5 h-3.5 text-primary" />
+                    <span className="font-medium text-text capitalize">{licenseStatus.license.tier}</span>
+                    {licenseStatus.license.valid && (
+                      <span className="text-success text-[10px] bg-success/10 px-1.5 py-0.5 rounded">Active</span>
+                    )}
+                    {licenseStatus.license.email && (
+                      <span className="text-text-muted ml-auto truncate">{licenseStatus.license.email}</span>
+                    )}
+                  </div>
+                )}
+                {devTierOverride && (
+                  <div className="text-xs text-warning bg-warning/10 px-2 py-1 rounded">
+                    Dev override active: <strong className="capitalize">{devTierOverride}</strong> tier
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={licenseKeyInput}
+                    onChange={(e) => onLicenseKeyInputChange(e.target.value)}
+                    placeholder="Enter license key..."
+                    className="flex-1 text-xs px-2 py-1.5 rounded border border-border bg-background text-text placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={onActivateLicense}
+                    disabled={!licenseKeyInput.trim() || licenseLoading}
+                  >
+                    {licenseLoading ? 'Activating...' : 'Activate'}
+                  </Button>
+                </div>
+                {licenseStatus?.license.tier !== 'free' && !devTierOverride && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onDeactivateLicense}
+                    disabled={licenseLoading}
+                    className="w-full text-text-muted"
+                  >
+                    Deactivate License
+                  </Button>
+                )}
+                {licenseError && (
+                  <p className="text-xs text-error">{licenseError}</p>
+                )}
+                <p className="text-xs text-text-muted">
+                  Purchase a license at <a href="https://codrag.io/pricing" target="_blank" rel="noreferrer" className="text-primary underline">codrag.io/pricing</a>.
+                  Keys are validated via Lemon Squeezy.
+                </p>
+              </div>
+            </section>
+
+          </>
+        )}
+
+        {/* ── Developer tab ── */}
+        {activeTab === 'developer' && (
+          <>
+            <section>
+              <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <Key className="w-3.5 h-3.5" />
+                Tier Override
+              </h3>
+              <p className="text-xs text-text-muted mb-3">
+                Override the license tier for local development and testing.
+                This bypasses real license validation.
+              </p>
+              <Select
+                value={devTierOverride ?? ''}
+                onChange={(e) => {
+                  const val = e.target.value
+                  onDevTierOverrideChange(val ? val as LicenseTier : null)
+                }}
+                aria-label="Dev Tier Override"
+                size="sm"
+                options={DEV_TIER_OPTIONS}
+              />
+              {devTierOverride && (
+                <div className="mt-3 p-2 rounded border border-warning/30 bg-warning/5">
+                  <p className="text-xs text-warning font-medium">⚠ Development Mode</p>
+                  <p className="text-xs text-text-muted mt-1">
+                    The app is simulating <strong className="capitalize text-text">{devTierOverride}</strong> tier.
+                    Feature gates, project limits, and UI will behave as if this tier is active.
+                    This does not affect the backend license file.
+                  </p>
+                </div>
+              )}
+            </section>
+
+            <section>
+              <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Current License State</h3>
+              <div className="text-xs font-mono bg-background p-2 rounded border border-border space-y-1">
+                <p><strong className="text-text">Tier:</strong> <span className="text-text-muted capitalize">{licenseStatus?.license.tier ?? 'unknown'}</span></p>
+                <p><strong className="text-text">Valid:</strong> <span className="text-text-muted">{licenseStatus?.license.valid ? 'Yes' : 'No'}</span></p>
+                <p><strong className="text-text">Override:</strong> <span className="text-text-muted">{devTierOverride ?? 'None'}</span></p>
+                <p><strong className="text-text">Effective:</strong> <span className="text-primary capitalize">{devTierOverride ?? licenseStatus?.license.tier ?? 'free'}</span></p>
+                {licenseStatus?.license.email && (
+                  <p><strong className="text-text">Email:</strong> <span className="text-text-muted">{licenseStatus.license.email}</span></p>
+                )}
+                {licenseStatus?.license.expires_at && (
+                  <p><strong className="text-text">Expires:</strong> <span className="text-text-muted">{licenseStatus.license.expires_at}</span></p>
                 )}
               </div>
             </section>
@@ -366,11 +589,21 @@ function App() {
   const [uiTheme, setUiTheme] = useState<string>(() =>
     localStorage.getItem('codrag_ui_theme') ?? 'none'
   )
-  const [devSettingsOpen, setDevSettingsOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [bgImage, setBgImage] = useState<string | null>(() =>
     localStorage.getItem('codrag_bg_image') ?? null
   )
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout | null>(null)
+
+  // ── License state ─────────────────────────────────────────
+  const [licenseStatus, setLicenseStatus] = useState<LicenseStatus | null>(null)
+  const [licenseKeyInput, setLicenseKeyInput] = useState('')
+  const [licenseLoading, setLicenseLoading] = useState(false)
+  const [licenseError, setLicenseError] = useState<string | null>(null)
+  const [devTierOverride, setDevTierOverride] = useState<LicenseTier | null>(() => {
+    const stored = localStorage.getItem('codrag_dev_tier_override')
+    return stored ? stored as LicenseTier : null
+  })
 
   // ── Search state ───────────────────────────────────────────
   const [query, setQuery] = useState<string>('')
@@ -389,7 +622,10 @@ function App() {
   const [context, setContext] = useState<string>('')
   const [contextMeta, setContextMeta] = useState<ContextMeta | null>(null)
 
-  // ── File tree state ──────────────────────────────────────
+  // ── Path weights state ────────────────────────────────────
+  const [pathWeights, setPathWeights] = useState<Record<string, number>>({})
+
+  // ── File tree state ─────────────────────────────────────
   const [fileTree, setFileTree] = useState<TreeNode[]>([])
 
   // ── Index inclusion state (which files are included in the knowledge scope) ──
@@ -400,9 +636,6 @@ function App() {
     } catch { return new Set() }
   })
 
-  // ── Path weights state ────────────────────────────────────
-  const [pathWeights, setPathWeights] = useState<Record<string, number>>({})
-
   // ── Pinned files state ──────────────────────────────────────
   const [pinnedPaths, setPinnedPaths] = useState<Set<string>>(() => {
     try {
@@ -411,6 +644,7 @@ function App() {
     } catch { return new Set() }
   })
   const [pinnedFiles, setPinnedFiles] = useState<PinnedTextFile[]>([])
+
   const layoutApiRef = useRef<DashboardLayoutApi | null>(null)
 
   // ── Watch state ─────────────────────────────────────────────
@@ -438,6 +672,7 @@ function App() {
     frequency: 'weekly',
     day_of_week: 0,
     hour: 2,
+    budget_enabled: true,
     budget_max_tokens: 50_000,
     budget_max_minutes: 30,
     budget_max_items: 100,
@@ -450,10 +685,34 @@ function App() {
     avg_confidence: 0, low_confidence_count: 0,
   })
   const [augmenting, setAugmenting] = useState(false)
+  const [epistemicStatus, setEpistemicStatus] = useState<EpistemicStatus>({
+    enabled: false, enriched_nodes: 0, avg_confidence: 0, running: false,
+  })
+  const [epistemicRunning, setEpistemicRunning] = useState(false)
+  const [moduleStatus, setModuleStatus] = useState<ModuleStatus>({
+    enabled: false, module_count: 0, total_files_clustered: 0, running: false,
+  })
+  const [clusterRunning, setClusterRunning] = useState(false)
+  const [deepeningStatus, setDeepeningStatus] = useState<DeepeningStatus>({
+    running: false, total_scored: 0, settled_count: 0, settled_ratio: 0, avg_score: 0,
+  })
+  const [deepeningRunning, setDeepeningRunning] = useState(false)
+  const [graphEngineStatus, setGraphEngineStatus] = useState<GraphEngineStatus | null>(null)
+  const [graphEngineConfig, setGraphEngineConfig] = useState<GraphEngineConfig>({
+    stages: {
+      trace: { auto: true },
+      vector: { auto: true },
+      catalogue: { auto: true },
+      validation: { auto: true },
+      epistemic: { auto: false },
+      clustering: { auto: false },
+      knowledge: { auto: false },
+    }
+  })
   const [llmSlotsStatus, setLlmSlotsStatus] = useState<LLMSlotsStatus | null>(null)
 
   // ── Trace state ───────────────────────────────────────────
-  const [traceStatus, setTraceStatus] = useState<{ enabled: boolean; exists: boolean; building: boolean; counts: { nodes: number; edges: number } }>({
+  const [traceStatus, setTraceStatus] = useState<{ enabled: boolean; exists: boolean; building: boolean; counts: { nodes: number; edges: number }; engine?: string }>({
     enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 },
   })
 
@@ -570,10 +829,8 @@ function App() {
             next.delete(selectedProjectId)
             return next
           })
-          // Refresh file tree so Pending → Indexed
-          api.getProjectFiles(selectedProjectId, '', 4).then((data) => {
-            setFileTree(data.tree ?? [])
-          }).catch(() => {})
+          // Refresh status after build
+          void refreshStatus(selectedProjectId)
         }
       }, 2000)
     } catch (e) {
@@ -809,6 +1066,96 @@ function App() {
     return await api.detectStack(selectedProjectId)
   }, [api, selectedProjectId])
 
+  // ── License handlers ──────────────────────────────────────────
+
+  const fetchLicense = useCallback(async () => {
+    try {
+      const status = await api.getLicense()
+      setLicenseStatus(status)
+    } catch {
+      // Silent — license endpoint may not be available
+    }
+  }, [api])
+
+  const handleActivateLicense = useCallback(async () => {
+    if (!licenseKeyInput.trim()) return
+    setLicenseLoading(true)
+    setLicenseError(null)
+    try {
+      const status = await api.activateLicense(licenseKeyInput.trim())
+      setLicenseStatus(status)
+      setLicenseKeyInput('')
+    } catch (e) {
+      setLicenseError(e instanceof Error ? e.message : 'Activation failed')
+    } finally {
+      setLicenseLoading(false)
+    }
+  }, [api, licenseKeyInput])
+
+  const handleDeactivateLicense = useCallback(async () => {
+    setLicenseLoading(true)
+    setLicenseError(null)
+    try {
+      const status = await api.deactivateLicense()
+      setLicenseStatus(status)
+    } catch (e) {
+      setLicenseError(e instanceof Error ? e.message : 'Deactivation failed')
+    } finally {
+      setLicenseLoading(false)
+    }
+  }, [api])
+
+  const handleDevTierOverrideChange = useCallback((tier: LicenseTier | null) => {
+    setDevTierOverride(tier)
+    if (tier) {
+      localStorage.setItem('codrag_dev_tier_override', tier)
+    } else {
+      localStorage.removeItem('codrag_dev_tier_override')
+    }
+  }, [])
+
+  // ── Destroy graph handler ──────────────────────────────────
+
+  const handleDestroyGraph = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      await api.destroyGraph(selectedProjectId)
+      // Reset all trace-related state
+      setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
+      setAugmentationStatus({ enabled: false, total_nodes: 0, augmented_nodes: 0, validated_nodes: 0, avg_confidence: 0, low_confidence_count: 0 })
+      setDeepAnalysisStatus({})
+      setEpistemicStatus({ enabled: false, enriched_nodes: 0, avg_confidence: 0, running: false })
+      setModuleStatus({ enabled: false, module_count: 0, total_files_clustered: 0, running: false })
+      setDeepeningStatus({ running: false, total_scored: 0, settled_count: 0, settled_ratio: 0, avg_score: 0 })
+      // Re-fetch trace status from server to get the canonical state
+      void refreshStatus(selectedProjectId)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to destroy graph')
+    }
+  }, [api, selectedProjectId])
+
+  const handleDestroyIndex = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      await api.destroyIndex(selectedProjectId)
+      // Reset ALL project state — embeddings + graph + everything
+      setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
+      setAugmentationStatus({ enabled: false, total_nodes: 0, augmented_nodes: 0, validated_nodes: 0, avg_confidence: 0, low_confidence_count: 0 })
+      setDeepAnalysisStatus({})
+      setEpistemicStatus({ enabled: false, enriched_nodes: 0, avg_confidence: 0, running: false })
+      setModuleStatus({ enabled: false, module_count: 0, total_files_clustered: 0, running: false })
+      setDeepeningStatus({ running: false, total_scored: 0, settled_count: 0, settled_ratio: 0, avg_score: 0 })
+      setSearchResults([])
+      setSelectedChunk(null)
+      setContext('')
+      setContextMeta(null)
+      // Re-fetch status from server to get the canonical state
+      void refreshStatus(selectedProjectId)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to reset project data')
+    }
+  }, [api, selectedProjectId])
+
   // ── LLM slots connectivity check ────────────────────────────
 
   const fetchLLMSlotsStatus = useCallback(async () => {
@@ -850,12 +1197,12 @@ function App() {
         clearInterval(poll)
         setAugmenting(false)
         void fetchAugmentationStatus()
-      }, 300_000)
+      }, 300000)
     } catch (e) {
-      setAugmenting(false)
       setError(e instanceof Error ? e.message : 'Augmentation failed')
+      setAugmenting(false)
     }
-  }, [api, selectedProjectId, fetchAugmentationStatus])
+  }, [api, selectedProjectId])
 
   // ── Deep analysis handlers ─────────────────────────────────
 
@@ -874,7 +1221,7 @@ function App() {
     setDeepAnalysisRunning(true)
     try {
       await api.runDeepAnalysis(selectedProjectId)
-      // Poll for completion
+      // Poll for progress updates (every 2s for responsive UI)
       const poll = setInterval(async () => {
         try {
           const status = await api.getDeepAnalysisStatus(selectedProjectId)
@@ -887,10 +1234,186 @@ function App() {
           clearInterval(poll)
           setDeepAnalysisRunning(false)
         }
-      }, 3000)
+      }, 2000)
     } catch (e) {
       setDeepAnalysisRunning(false)
       setError(e instanceof Error ? e.message : 'Deep analysis failed')
+    }
+  }, [api, selectedProjectId])
+
+  const handleCancelDeepAnalysis = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      await api.cancelDeepAnalysis(selectedProjectId)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to cancel deep analysis')
+    }
+  }, [api, selectedProjectId])
+
+  // ── Epistemic enrichment handlers ─────────────────────────
+
+  const fetchEpistemicStatus = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      const status = await api.getEpistemicStatus(selectedProjectId)
+      setEpistemicStatus(status)
+    } catch { /* silent */ }
+  }, [api, selectedProjectId])
+
+  const handleRunEpistemic = useCallback(async () => {
+    if (!selectedProjectId) return
+    setEpistemicRunning(true)
+    try {
+      await api.runEpistemic(selectedProjectId)
+      const poll = setInterval(async () => {
+        try {
+          const status = await api.getEpistemicStatus(selectedProjectId)
+          setEpistemicStatus(status)
+          if (!status.running) {
+            clearInterval(poll)
+            setEpistemicRunning(false)
+          }
+        } catch {
+          clearInterval(poll)
+          setEpistemicRunning(false)
+        }
+      }, 3000)
+    } catch (e) {
+      setEpistemicRunning(false)
+      setError(e instanceof Error ? e.message : 'Epistemic enrichment failed')
+    }
+  }, [api, selectedProjectId])
+
+  // ── Module synthesis handlers ─────────────────────────────
+
+  const fetchModuleStatus = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      const status = await api.getModuleStatus(selectedProjectId)
+      setModuleStatus(status)
+    } catch { /* silent */ }
+  }, [api, selectedProjectId])
+
+  const handleRunModuleSynthesis = useCallback(async () => {
+    if (!selectedProjectId) return
+    setClusterRunning(true)
+    try {
+      await api.runModuleSynthesis(selectedProjectId)
+      const poll = setInterval(async () => {
+        try {
+          const status = await api.getModuleStatus(selectedProjectId)
+          setModuleStatus(status)
+          if (!status.running) {
+            clearInterval(poll)
+            setClusterRunning(false)
+          }
+        } catch {
+          clearInterval(poll)
+          setClusterRunning(false)
+        }
+      }, 3000)
+    } catch (e) {
+      setClusterRunning(false)
+      setError(e instanceof Error ? e.message : 'Module synthesis failed')
+    }
+  }, [api, selectedProjectId])
+
+  // ── Deepening loop handlers ───────────────────────────────
+
+  const fetchDeepeningStatus = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      const status = await api.getDeepeningStatus(selectedProjectId)
+      setDeepeningStatus(status)
+    } catch { /* silent */ }
+  }, [api, selectedProjectId])
+
+  // ── Graph Engine handlers ──────────────────────────────────
+
+  const fetchGraphEngineStatus = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      const status = await api.getGraphEngineStatus(selectedProjectId)
+      setGraphEngineStatus(status)
+    } catch { /* silent */ }
+  }, [api, selectedProjectId])
+
+  const handleRunStage = useCallback(async (stage: string) => {
+    if (!selectedProjectId) return
+    try {
+      switch (stage) {
+        case 'trace':
+          await api.buildTrace(selectedProjectId)
+          break
+        case 'vector':
+          await api.buildProject(selectedProjectId)
+          break
+        case 'catalogue':
+          await api.runAugmentation(selectedProjectId)
+          break
+        case 'validation':
+          await api.runDeepAnalysis(selectedProjectId)
+          break
+        case 'epistemic':
+          await api.runEpistemic(selectedProjectId)
+          break
+        case 'clustering':
+          await api.runModuleSynthesis(selectedProjectId)
+          break
+        case 'knowledge':
+          await api.runKnowledgeBuild(selectedProjectId)
+          break
+      }
+      // Refresh status immediately
+      void fetchGraphEngineStatus()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : `Failed to run stage: ${stage}`)
+    }
+  }, [api, selectedProjectId, fetchGraphEngineStatus])
+
+  const handleRunAutoPilot = useCallback(async () => {
+    if (!selectedProjectId) return
+    // TODO: Implement smart auto-pilot logic on backend or sequence here
+    // For now, trigger knowledge build as it's the final stage? 
+    // Or maybe we need a specific auto-pilot endpoint.
+    // Let's stick to manual triggering for V1 or just trigger Trace for now.
+    // Actually the prompt implied "Smart Sync" button.
+    // Let's just trigger trace build which cascades in auto mode ideally.
+    await handleRunStage('trace')
+  }, [handleRunStage])
+
+  const handleStopEngine = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      // Cancel everything we can
+      await api.cancelDeepAnalysis(selectedProjectId)
+      // TODO: Add cancel endpoints for other stages
+    } catch (e) {
+      console.error('Failed to stop engine', e)
+    }
+  }, [api, selectedProjectId])
+
+  const handleRunDeepening = useCallback(async () => {
+    if (!selectedProjectId) return
+    setDeepeningRunning(true)
+    try {
+      await api.runDeepening(selectedProjectId)
+      const poll = setInterval(async () => {
+        try {
+          const status = await api.getDeepeningStatus(selectedProjectId)
+          setDeepeningStatus(status)
+          if (!status.running) {
+            clearInterval(poll)
+            setDeepeningRunning(false)
+          }
+        } catch {
+          clearInterval(poll)
+          setDeepeningRunning(false)
+        }
+      }, 3000)
+    } catch (e) {
+      setDeepeningRunning(false)
+      setError(e instanceof Error ? e.message : 'Deepening loop failed')
     }
   }, [api, selectedProjectId])
 
@@ -931,7 +1454,60 @@ function App() {
     }
   }, [api, selectedProjectId, refreshWatchStatus])
 
-  // ── Index inclusion handlers (knowledge scope — unrelated to dashboard pins) ──
+  const handlePathWeightChange = useCallback((path: string, weight: number | null) => {
+    if (!selectedProjectId) return
+    setPathWeights((prev) => {
+      const next = { ...prev }
+      if (weight === null) {
+        delete next[path]
+      } else {
+        next[path] = weight
+      }
+      // Persist to backend (fire-and-forget)
+      api.updatePathWeights(selectedProjectId, next).catch(() => {})
+      return next
+    })
+  }, [api, selectedProjectId])
+
+  // ── File tree handlers ──────────────────────────────────────
+
+  const fetchFileTree = useCallback(async (projId: string) => {
+    try {
+      const data = await api.getProjectFiles(projId)
+      const tree = data.tree as TreeNode[]
+      setFileTree(tree)
+      // Merge server-reported indexed/pending paths into includedPaths
+      // so already-indexed files aren't shown as "Removing" after restart
+      const serverPaths = collectIndexedPaths(tree)
+      if (serverPaths.length > 0) {
+        setIncludedPaths((prev) => {
+          const next = new Set(prev)
+          let changed = false
+          for (const p of serverPaths) {
+            if (!next.has(p)) { next.add(p); changed = true }
+          }
+          if (changed) {
+            localStorage.setItem('codrag_included_paths', JSON.stringify([...next]))
+          }
+          return changed ? next : prev
+        })
+      }
+    } catch {
+      setFileTree([])
+    }
+  }, [api])
+
+  const handleLoadChildren = useCallback(async (path: string): Promise<TreeNode[]> => {
+    if (!selectedProjectId) return []
+    try {
+      const data = await api.getProjectFiles(selectedProjectId, path, 2)
+      return data.tree as TreeNode[]
+    } catch {
+      return []
+    }
+  }, [api, selectedProjectId])
+
+  // ── Index inclusion handlers (knowledge scope) ──
 
   const handleToggleInclude = useCallback((paths: string[], action: 'add' | 'remove') => {
     setIncludedPaths((prev) => {
@@ -946,74 +1522,37 @@ function App() {
     })
   }, [])
 
-  // ── Pinned files handlers ──────────────────────────────────
-
   const handlePinFile = useCallback((path: string) => {
-    console.log('[App] handlePinFile called for:', path)
     setPinnedPaths((prev) => {
       const next = new Set(prev)
       next.add(path)
       localStorage.setItem('codrag_pinned_files', JSON.stringify([...next]))
       return next
     })
+    // Add as a dashboard panel
+    const panelId = `${PINNED_PREFIX}${path}`
+    layoutApiRef.current?.addPanel(panelId, { height: 8, w: 6 })
   }, [])
 
-  // Sync pinned paths to dashboard layout (ensure panels exist and are visible)
-  useEffect(() => {
-    console.log('[App] Syncing pinned paths to layout. Paths:', Array.from(pinnedPaths))
-    if (!layoutApiRef.current) {
-      console.warn('[App] layoutApiRef.current is missing, cannot sync layout')
-      return
-    }
-    
-    // We only need to ensure pinned paths are in the layout.
-    // Unpinning is handled explicitly by handleUnpinFile.
-    for (const path of pinnedPaths) {
-      const panelId = `${PINNED_PREFIX}${path}`
-      console.log('[App] Ensuring panel in layout:', panelId)
-      // addPanel will make it visible if it already exists
-      layoutApiRef.current.addPanel(panelId, { height: 8, w: 6 })
-    }
-  }, [pinnedPaths])
-
   const handleUnpinFile = useCallback((pathOrPanelId: string) => {
-    console.log('[App] handleUnpinFile:', pathOrPanelId)
     const path = pathOrPanelId.startsWith(PINNED_PREFIX)
       ? pathOrPanelId.slice(PINNED_PREFIX.length)
       : pathOrPanelId
     const panelId = `${PINNED_PREFIX}${path}`
-
     setPinnedPaths((prev) => {
       const next = new Set(prev)
-      const deleted = next.delete(path)
-      console.log('[App] Unpinning path:', path, 'Deleted:', deleted, 'New size:', next.size)
+      next.delete(path)
       localStorage.setItem('codrag_pinned_files', JSON.stringify([...next]))
       return next
     })
     setPinnedFiles((prev) => prev.filter((f) => f.id !== path))
-    console.log('[App] Removing panel from layout:', panelId)
     layoutApiRef.current?.removePanel(panelId)
   }, [])
 
-  const handlePanelClose = useCallback((panelId: string) => {
-    if (panelId.startsWith(PINNED_PREFIX)) {
-      handleUnpinFile(panelId)
-    }
-  }, [handleUnpinFile])
-
-  const handlePathWeightChange = useCallback((path: string, weight: number | null) => {
-    if (!selectedProjectId) return
-    setPathWeights((prev) => {
-      const next = { ...prev }
-      if (weight === null) {
-        delete next[path]
-      } else {
-        next[path] = weight
-      }
-      // Persist to backend (fire-and-forget)
-      api.updatePathWeights(selectedProjectId, next).catch(() => {})
-      return next
-    })
+  const handleLoadFileContent = useCallback(async (path: string): Promise<string> => {
+    if (!selectedProjectId) throw new Error('No project selected')
+    const data = await api.getProjectFileContent(selectedProjectId, path)
+    return data.content
   }, [api, selectedProjectId])
 
   const handleSearchTrace = useCallback(async (query: string, kinds?: string[], limit?: number) => {
@@ -1045,6 +1584,15 @@ function App() {
     setConfigDirty(true)
     api.updateProject(selectedProjectId, { config: newConfig }).catch(() => {})
     setTraceStatus(prev => ({ ...prev, enabled: true }))
+  }, [api, selectedProjectId, projectConfig])
+
+  const handleTogglePause = useCallback(() => {
+    if (!selectedProjectId) return
+    const newPaused = !projectConfig.trace.paused
+    const newConfig = { ...projectConfig, trace: { ...projectConfig.trace, paused: newPaused } }
+    setProjectConfig(newConfig)
+    setConfigDirty(true)
+    api.updateProject(selectedProjectId, { config: newConfig }).catch(() => {})
   }, [api, selectedProjectId, projectConfig])
 
   const fetchTraceCoverage = useCallback(() => {
@@ -1090,43 +1638,6 @@ function App() {
       fetchTraceCoverage()
     }).catch(() => {})
   }, [api, selectedProjectId, fetchTraceCoverage])
-
-  const handleLoadChildren = useCallback(async (path: string): Promise<TreeNode[]> => {
-    if (!selectedProjectId) return []
-    const data = await api.getProjectFiles(selectedProjectId, path, 4)
-    return (data.tree ?? []) as TreeNode[]
-  }, [api, selectedProjectId])
-
-  const handleLoadFileContent = useCallback(async (path: string): Promise<string> => {
-    if (!selectedProjectId) throw new Error('No project selected')
-    const data = await api.getProjectFileContent(selectedProjectId, path)
-    return data.content
-  }, [api, selectedProjectId])
-
-  // Fetch content for pinned files when paths or project change
-  useEffect(() => {
-    if (!selectedProjectId || pinnedPaths.size === 0) {
-      setPinnedFiles([])
-      return
-    }
-    let cancelled = false
-    const fetchAll = async () => {
-      const results: PinnedTextFile[] = []
-      for (const path of pinnedPaths) {
-        try {
-          const data = await api.getProjectFileContent(selectedProjectId, path)
-          if (cancelled) return
-          const name = path.split('/').pop() ?? path
-          results.push({ id: path, path, name, content: data.content })
-        } catch {
-          // skip files that fail to load
-        }
-      }
-      if (!cancelled) setPinnedFiles(results)
-    }
-    void fetchAll()
-    return () => { cancelled = true }
-  }, [api, selectedProjectId, pinnedPaths])
 
   // ── Auto-refresh coverage when trace build completes via SSE ──
   const prevTraceBuildStatusRef = useRef<string | undefined>(undefined)
@@ -1202,6 +1713,8 @@ function App() {
         }
         // Check LLM connectivity
         void fetchLLMSlotsStatus()
+        // Fetch license status
+        void fetchLicense()
       } catch {
         // Error already set
       } finally {
@@ -1226,6 +1739,50 @@ function App() {
     }, 500)
     return () => clearTimeout(timeout)
   }, [api, llmConfig])
+
+  // ── Sync pinned paths to dashboard layout ────────────────────
+  useEffect(() => {
+    if (!layoutApiRef.current) return
+    for (const path of pinnedPaths) {
+      const panelId = `${PINNED_PREFIX}${path}`
+      layoutApiRef.current.addPanel(panelId, { height: 8, w: 6 })
+    }
+  }, [pinnedPaths])
+
+  // ── Fetch content for pinned files when paths or project change ──
+  useEffect(() => {
+    if (!selectedProjectId || pinnedPaths.size === 0) {
+      setPinnedFiles([])
+      return
+    }
+    let cancelled = false
+    const fetchAll = async () => {
+      const results: PinnedTextFile[] = []
+      for (const path of pinnedPaths) {
+        try {
+          const data = await api.getProjectFileContent(selectedProjectId, path)
+          if (cancelled) return
+          results.push({
+            id: path,
+            path,
+            name: path.split('/').pop() ?? path,
+            content: data.content,
+          })
+        } catch {
+          if (cancelled) return
+          results.push({
+            id: path,
+            path,
+            name: path.split('/').pop() ?? path,
+            content: `// Failed to load ${path}`,
+          })
+        }
+      }
+      if (!cancelled) setPinnedFiles(results)
+    }
+    void fetchAll()
+    return () => { cancelled = true }
+  }, [api, selectedProjectId, pinnedPaths])
 
   // ── Auto-save deep analysis schedule to backend ─────────────
   const deepAnalysisSkipRef = useRef(0)
@@ -1276,27 +1833,10 @@ function App() {
     void refreshWatchStatus(selectedProjectId)
     void fetchAugmentationStatus()
     void fetchDeepAnalysisStatus()
-    // Fetch file tree
-    api.getProjectFiles(selectedProjectId, '', 15).then((data) => {
-      const tree = data.tree ?? []
-      setFileTree(tree)
-      // Merge server-reported indexed/pending paths into includedPaths
-      // so already-indexed files aren't shown as "Removing" after restart
-      const serverPaths = collectIndexedPaths(tree)
-      if (serverPaths.length > 0) {
-        setIncludedPaths((prev) => {
-          const next = new Set(prev)
-          let changed = false
-          for (const p of serverPaths) {
-            if (!next.has(p)) { next.add(p); changed = true }
-          }
-          if (changed) {
-            localStorage.setItem('codrag_included_paths', JSON.stringify([...next]))
-          }
-          return changed ? next : prev
-        })
-      }
-    }).catch(() => { setFileTree([]) })
+    void fetchEpistemicStatus()
+    void fetchModuleStatus()
+    void fetchDeepeningStatus()
+    void fetchFileTree(selectedProjectId)
     // Fetch path weights
     api.getPathWeights(selectedProjectId).then((data) => {
       setPathWeights(data.path_weights ?? {})
@@ -1309,6 +1849,7 @@ function App() {
         exists: data.exists ?? false,
         building: data.building ?? false,
         counts: data.counts ?? { nodes: 0, edges: 0 },
+        engine: data.engine,
       })
       // Fetch coverage directly — can't rely on fetchTraceCoverage() here
       // because setTraceStatus hasn't applied yet (stale closure)
@@ -1517,7 +2058,17 @@ function App() {
         bare
       />
     ),
-    roots: (
+    watch: (
+      <WatchControlPanel
+        status={watchStatus}
+        onStartWatch={handleStartWatch}
+        onStopWatch={handleStopWatch}
+        onRebuildNow={() => selectedProjectId && void handleBuild()}
+        loading={watchLoading}
+        bare
+      />
+    ),
+    'file-tree': (
       <FolderTreePanel
         data={fileTree}
         includedPaths={includedPaths}
@@ -1525,6 +2076,7 @@ function App() {
         pathWeights={pathWeights}
         onWeightChange={handlePathWeightChange}
         onLoadChildren={handleLoadChildren}
+        title="Knowledge Sources"
         bare
       />
     ),
@@ -1551,22 +2103,13 @@ function App() {
         ]
       })
     ),
-    watch: (
-      <WatchControlPanel
-        status={watchStatus}
-        onStartWatch={handleStartWatch}
-        onStopWatch={handleStopWatch}
-        onRebuildNow={() => selectedProjectId && void handleBuild()}
-        loading={watchLoading}
-        bare
-      />
-    ),
     trace: (
       <TraceExplorer
         traceEnabled={traceStatus.enabled}
         traceExists={traceStatus.exists}
         traceBuilding={traceStatus.building}
         traceCounts={traceStatus.counts}
+        engine={traceStatus.engine}
         onSearchTrace={handleSearchTrace}
         onGetNode={handleGetTraceNode}
         onGetNeighbors={handleGetTraceNeighbors}
@@ -1592,28 +2135,6 @@ function App() {
         bare
       />
     ),
-    'trace-pipeline': (
-      <div className="h-full overflow-y-auto p-4">
-        <TracePipelineStatus
-          trace={{
-            enabled: traceStatus.enabled,
-            exists: traceStatus.exists,
-            building: traceStatus.building,
-            counts: traceStatus.counts,
-            last_build_at: null,
-          }}
-          augmentation={augmentationStatus}
-          deepAnalysis={deepAnalysisStatus}
-          smallModelConfigured={!!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model)}
-          largeModelConfigured={!!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model)}
-          onBuildTrace={handleBuildTrace}
-          onRunAugmentation={handleRunAugmentation}
-          onRunDeepAnalysis={handleRunDeepAnalysis}
-          augmenting={augmenting}
-          deepAnalyzing={deepAnalysisRunning}
-        />
-      </div>
-    ),
     'deep-analysis': (
       <div className="h-full overflow-y-auto p-4">
         <DeepAnalysisSettings
@@ -1624,41 +2145,105 @@ function App() {
           status={deepAnalysisStatus}
           running={deepAnalysisRunning}
           onRunNow={handleRunDeepAnalysis}
+          onCancel={handleCancelDeepAnalysis}
         />
       </div>
     ),
-    settings: (
-      <ProjectSettingsPanel
-        config={projectConfig}
-        onChange={handleProjectConfigChange}
-        onSave={() => void handleSaveConfig()}
-        onDetectStack={handleDetectStack}
-        isDirty={configDirty}
-        bare
-      />
+    'trace-pipeline': (
+      <div className="h-full overflow-y-auto p-4">
+        <GraphEnrichmentPipeline
+          trace={{
+            enabled: traceStatus.enabled,
+            exists: traceStatus.exists,
+            building: traceStatus.building,
+            counts: traceStatus.counts,
+            last_build_at: null,
+          }}
+          augmentation={augmentationStatus}
+          deepAnalysis={deepAnalysisStatus}
+          epistemic={epistemicStatus}
+          modules={moduleStatus}
+          deepening={deepeningStatus}
+          smallModelConfigured={!!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model)}
+          largeModelConfigured={!!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model)}
+          onBuildTrace={handleBuildTrace}
+          onRunAugmentation={handleRunAugmentation}
+          onRunDeepAnalysis={handleRunDeepAnalysis}
+          onRunEpistemic={handleRunEpistemic}
+          onRunModuleSynthesis={handleRunModuleSynthesis}
+          onRunDeepening={handleRunDeepening}
+          onDestroyGraph={handleDestroyGraph}
+          augmenting={augmenting}
+          deepAnalyzing={deepAnalysisRunning}
+          epistemicRunning={epistemicRunning}
+          clusterRunning={clusterRunning}
+          deepeningRunning={deepeningRunning}
+          paused={projectConfig.trace.paused}
+          onTogglePause={handleTogglePause}
+        />
+      </div>
+    ),
+    'graph-structure': (
+      <div className="h-full p-4">
+        <GraphStructurePanel
+          summary={traceCoverage.summary}
+          untracedFiles={traceCoverage.untraced}
+          staleFiles={traceCoverage.stale}
+          excludedFiles={traceCoverage.excluded}
+          building={traceCoverage.building}
+          progress={findActiveTask('trace_build')}
+          loading={traceCoverage.loading}
+          onTraceAll={handleTraceAll}
+          onRetraceStale={handleRetraceStale}
+          onAddExcludePattern={handleAddExcludePattern}
+          onRemoveExcludePattern={handleRemoveExcludePattern}
+          onRefresh={fetchTraceCoverage}
+        />
+      </div>
+    ),
+    'graph-engine': (
+      <div className="h-full p-4">
+        <GraphEnginePanel
+          status={graphEngineStatus}
+          config={graphEngineConfig}
+          onUpdateConfig={setGraphEngineConfig}
+          onRunStage={handleRunStage}
+          onRunAutoPilot={handleRunAutoPilot}
+          onStop={handleStopEngine}
+          onDestroyGraph={handleDestroyGraph}
+        />
+      </div>
     ),
   }), [
-    projectStatus, isBuilding, selectedProject, selectedProjectId, fileTree, includedPaths, pinnedPaths, pinnedFiles,
+    projectStatus, isBuilding, selectedProject, selectedProjectId,
     watchStatus, watchLoading, handleStartWatch, handleStopWatch,
     query, searchK, minScore, searchLoading, searchResults, selectedChunk,
     contextK, contextMaxChars, contextIncludeSources, contextIncludeScores, contextStructured, context, contextMeta,
     projectConfig, configDirty, traceStatus, traceCoverage,
     handleBuild, handleSearch, handleGetContext, handleCopyContext, handleSaveConfig, handleProjectConfigChange,
-    handleToggleInclude, handlePinFile, handleUnpinFile, pathWeights, handlePathWeightChange, handleLoadChildren,
+    pathWeights, handlePathWeightChange, fileTree, includedPaths, handleToggleInclude, handleLoadChildren,
     handleSearchTrace, handleGetTraceNode, handleGetTraceNeighbors, handleBuildTrace, handleEnableTrace,
+    handleTogglePause,
     handleTraceAll, handleRetraceStale, handleAddExcludePattern, handleRemoveExcludePattern, fetchTraceCoverage,
     findActiveTask, logs, clearLogs, tasks, llmConfig,
     handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
     handleTestEndpoint, handleFetchModels, handleTestModel, availableModels, loadingModels, testingSlot, testResults,
-    handleDetectStack, augmentationStatus, deepAnalysisStatus, augmenting, deepAnalysisRunning,
-    handleRunAugmentation, handleRunDeepAnalysis, handleBuildTrace, llmSlotsStatus,
+    handleDetectStack, augmentationStatus, deepAnalysisSchedule, deepAnalysisStatus, augmenting, deepAnalysisRunning,
+    handleRunAugmentation, handleRunDeepAnalysis, handleCancelDeepAnalysis, handleBuildTrace, llmSlotsStatus,
+    epistemicStatus, epistemicRunning, handleRunEpistemic,
+    moduleStatus, clusterRunning, handleRunModuleSynthesis,
+    deepeningStatus, deepeningRunning, handleRunDeepening,
+    handleDestroyGraph,
+    pinnedPaths, pinnedFiles,
+    graphEngineStatus, graphEngineConfig, handleRunStage, handleRunAutoPilot, handleStopEngine
   ])
 
-  // ── Dynamic panel definitions for pinned files ──────────────
-  const dynamicPanelDefs = useMemo<PanelDefinition[]>(() =>
+  // ── Dynamic panel definitions for pinned files ─────────────
+  const dynamicPanelDefs = useMemo(() =>
     [...pinnedPaths].map((p) => ({
       id: `${PINNED_PREFIX}${p}`,
       title: p.split('/').pop() ?? p,
+      description: p,
       icon: FileText,
       minHeight: 4,
       defaultHeight: 8,
@@ -1694,21 +2279,7 @@ function App() {
         />
       </div>
     ),
-    'deep-analysis': (
-      <div className="h-full overflow-y-auto p-4">
-        <DeepAnalysisSettings
-          schedule={deepAnalysisSchedule}
-          onScheduleChange={setDeepAnalysisSchedule}
-          largeModelConfigured={!!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model)}
-          fastModelConfigured={!!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model)}
-          status={deepAnalysisStatus}
-          running={deepAnalysisRunning}
-          onRunNow={handleRunDeepAnalysis}
-          className="max-w-xl mx-auto"
-        />
-      </div>
-    ),
-    roots: (
+    'file-tree': (
       <FileExplorerDetail
         treeData={fileTree}
         pinnedPaths={pinnedPaths}
@@ -1722,26 +2293,23 @@ function App() {
         onLoadChildren={handleLoadChildren}
       />
     ),
-    settings: (
-      <div className="max-w-4xl mx-auto w-full p-6">
-        <ProjectSettingsPanel
-          config={projectConfig}
-          onChange={handleProjectConfigChange}
-          onSave={() => void handleSaveConfig()}
-          onDetectStack={handleDetectStack}
-          isDirty={configDirty}
-        />
-      </div>
-    ),
   }), [
     llmConfig, handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
     handleTestEndpoint, handleFetchModels, handleTestModel, availableModels, loadingModels, testingSlot, testResults,
-    fileTree, includedPaths, handleToggleInclude, pinnedPaths, handlePinFile, handleUnpinFile, handleLoadFileContent, handleLoadChildren, pathWeights, handlePathWeightChange,
-    projectConfig, handleProjectConfigChange, handleSaveConfig, configDirty, handleDetectStack,
-    deepAnalysisSchedule, deepAnalysisStatus, deepAnalysisRunning, handleRunDeepAnalysis,
+    fileTree, includedPaths, handleToggleInclude, pinnedPaths, handlePinFile, handleUnpinFile, handleLoadFileContent,
+    pathWeights, handlePathWeightChange, handleLoadChildren,
   ])
 
   // ── Loading state ──────────────────────────────────────────
+  if (!isConnected) {
+    return (
+      <StartupScreen
+        apiBaseUrl={api.baseUrl}
+        onReady={() => setIsConnected(true)}
+      />
+    )
+  }
+
   if (loading) {
     return <LoadingState message="Connecting to CoDRAG daemon..." />
   }
@@ -1749,30 +2317,54 @@ function App() {
   // ── Render ─────────────────────────────────────────────────
   return (
     <>
-      <ConnectivityStatus />
+      {isDaemonUnhealthy && (
+        <div className="fixed inset-x-0 top-0 z-[100] bg-error text-white px-4 py-2 text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
+        <AlertCircle className="w-4 h-4" />
+        Connection to CoDRAG daemon lost. Attempting to reconnect...
+      </div>
+      )}
       <SettingsDrawer
-        open={devSettingsOpen}
-        onClose={() => setDevSettingsOpen(false)}
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
         projectConfig={projectConfig}
         onProjectConfigChange={handleProjectConfigChange}
         onSaveConfig={() => void handleSaveConfig()}
         configDirty={configDirty}
-        hasProject={!!selectedProject}
-        onDetectStack={handleDetectStack}
+        hasProject={!!selectedProjectId}
+        onDetectStack={selectedProjectId ? handleDetectStack : undefined}
+        deepAnalysisSchedule={deepAnalysisSchedule}
+        onDeepAnalysisScheduleChange={setDeepAnalysisSchedule}
+        deepAnalysisStatus={deepAnalysisStatus}
+        deepAnalysisRunning={deepAnalysisRunning}
+        onRunDeepAnalysis={handleRunDeepAnalysis}
+        onCancelDeepAnalysis={handleCancelDeepAnalysis}
+        largeModelConfigured={!!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model)}
+        fastModelConfigured={!!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model)}
         uiMode={uiMode}
         onModeChange={setUiMode}
         uiTheme={uiTheme}
         onThemeChange={setUiTheme}
         bgImage={bgImage}
         onBgImageChange={setBgImage}
+        licenseStatus={licenseStatus}
+        licenseKeyInput={licenseKeyInput}
+        onLicenseKeyInputChange={setLicenseKeyInput}
+        onActivateLicense={handleActivateLicense}
+        onDeactivateLicense={handleDeactivateLicense}
+        licenseLoading={licenseLoading}
+        licenseError={licenseError}
+        onDestroyGraph={handleDestroyGraph}
+        onDestroyIndex={handleDestroyIndex}
+        devTierOverride={devTierOverride}
+        onDevTierOverrideChange={handleDevTierOverrideChange}
       />
-      {/* Floating Dev Settings trigger — always visible */}
-      {!devSettingsOpen && (
+      {/* Floating Settings trigger — always visible */}
+      {!settingsOpen && (
         <Button
           variant="outline"
           size="icon"
-          onClick={() => setDevSettingsOpen(true)}
-          title="Dev Settings"
+          onClick={() => setSettingsOpen(true)}
+          title="Settings"
           className="fixed bottom-4 right-4 z-40 shadow-lg bg-surface hover:bg-surface-raised"
         >
           <Settings className="w-5 h-5" />
@@ -1821,7 +2413,11 @@ function App() {
               panelDefinitions={allPanelDefs}
               panelContent={panelContent}
               panelDetails={panelDetails}
-              onPanelClose={handlePanelClose}
+              onPanelClose={(panelId) => {
+                if (panelId.startsWith(PINNED_PREFIX)) {
+                  handleUnpinFile(panelId)
+                }
+              }}
               onLayoutReady={(api) => { layoutApiRef.current = api }}
               onLayoutChange={setDashboardLayout}
               hidePanelPicker

@@ -57,6 +57,10 @@ export function SearchPanel({
           <div className="flex items-center gap-2">
             <Search className="w-5 h-5 text-primary" />
             <Title className="text-text">Knowledge Query</Title>
+            <InfoTooltip 
+              content="Learn how semantic search works." 
+              href="https://docs.codrag.io/concepts/indexing" 
+            />
           </div>
         </Flex>
       )}

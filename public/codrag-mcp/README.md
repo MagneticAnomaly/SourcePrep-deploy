@@ -239,6 +239,17 @@ Beyond keyword/semantic search, CoDRAG builds a **structural graph**:
 - **Edges:** Imports, calls, inheritance relationships
 - Queries: Find all callers of a function, trace import chains, explore class hierarchies
 
+### Graph Enrichment (Multi-Pass Pipeline)
+The structural graph is just the skeleton. A multi-pass enrichment pipeline layers deeper understanding on top:
+- **Structural Graph** (Rust, ~100ms) — tree-sitter for code, Markdown scanner for docs
+- **Fast Catalogue** (3b LLM) — per-file summaries, role classification, relationship hypotheses
+- **Relationship Validation** (Rust) — LLM hypothesizes, Rust validates against the graph. Hallucinations discarded.
+- **Epistemic Enrichment** (14b LLM) — domain tags, architecture layers, design patterns, doc↔code cross-references
+- **Cluster Synthesis** (14b LLM) — subsystem-level module summaries with entry points and data flow
+- **Continuous Deepening** — self-refining loop that converges when all epistemic scores ≥ 0.95
+
+Each node gets an **epistemic score** (0.0–1.0) measuring how well the graph understands it — and scores decay on change, so the graph stays current as your codebase evolves.
+
 ### LLM Integration
 - **Embeddings:** Ollama (`nomic-embed-text` recommended) or native ONNX for zero-latency semantic search
 - **Compression:** CLaRa (optional) for context window optimization

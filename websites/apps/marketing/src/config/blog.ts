@@ -20,10 +20,10 @@ export const BLOG_POSTS: BlogPost[] = [
     featured: true,
   },
   {
-    slug: 'introducing-trace-index',
-    title: 'Introducing the Trace Index',
+    slug: 'introducing-code-graph',
+    title: 'Introducing the Code Graph',
     excerpt:
-      'Vector search finds similar text. The Trace Index maps how code connects — imports, calls, symbol hierarchies.',
+      'Vector search finds similar text. The Code Graph maps how code connects — imports, calls, symbol hierarchies.',
     date: 'Feb 15, 2026',
     author: 'Engineering',
     tags: ['Deep Dive'],

@@ -29,7 +29,7 @@ from pydantic import BaseModel
 
 from codrag import __version__
 from codrag.api.envelope import ApiException, install_api_exception_handlers, ok
-from codrag.core import CodeIndex, OllamaEmbedder, NativeEmbedder, ClaraCompressor, NoopCompressor
+from codrag.core import CodeIndex, OllamaEmbedder, NativeEmbedder, ClaraCompressor, NoopCompressor, KnowledgeIndex
 from codrag.core.events import get_event_bus, BroadcastLogHandler, get_progress_manager
 from codrag.core.project_registry import (
     Project,
@@ -50,6 +50,7 @@ from codrag.core.trace import TraceBuilder, TraceIndex, compute_trace_coverage
 from codrag.core.feature_gate import (
     get_license, check_feature, get_feature_limit, require_feature, clear_license_cache, FeatureGateError,
 )
+from codrag.core.licensing import verify_license_key
 from codrag.core.watcher import AutoRebuildWatcher
 from codrag.core.model_readiness import (
     ModelStatus,
@@ -202,12 +203,15 @@ _SERVER_STARTED_AT = datetime.now(timezone.utc).isoformat()
 _registry: Optional[ProjectRegistry] = None
 _project_indexes: Dict[str, CodeIndex] = {}
 _project_trace_indexes: Dict[str, TraceIndex] = {}
+_project_knowledge_indexes: Dict[str, KnowledgeIndex] = {}
 _project_build_lock = threading.Lock()
 _project_build_threads: Dict[str, threading.Thread] = {}
 _project_last_build_result: Dict[str, Dict[str, Any]] = {}
 _project_last_build_error: Dict[str, str] = {}
 _project_trace_build_lock = threading.Lock()
 _project_trace_build_threads: Dict[str, threading.Thread] = {}
+_project_knowledge_build_lock = threading.Lock()
+_project_knowledge_build_threads: Dict[str, threading.Thread] = {}
 _project_watchers: Dict[str, AutoRebuildWatcher] = {}
 
 
@@ -1175,6 +1179,61 @@ def _get_project_trace_index(project: Project) -> TraceIndex:
     return idx
 
 
+def _get_project_knowledge_index(project: Project) -> KnowledgeIndex:
+    idx = _project_knowledge_indexes.get(project.id)
+    idx_dir = project_index_dir(project)
+    if idx is None or Path(idx.index_dir).resolve() != Path(idx_dir).resolve():
+        embedder = _create_embedder()
+        idx = KnowledgeIndex(idx_dir, embedder)
+        _project_knowledge_indexes[project.id] = idx
+    return idx
+
+
+def _is_project_knowledge_building(project_id: str) -> bool:
+    t = _project_knowledge_build_threads.get(project_id)
+    return t is not None and t.is_alive()
+
+
+def _start_project_knowledge_build(project: Project) -> bool:
+    with _project_knowledge_build_lock:
+        if _is_project_knowledge_building(project.id):
+            return False
+
+        t = threading.Thread(
+            target=_project_knowledge_build_worker,
+            args=(project,),
+            daemon=True,
+        )
+        _project_knowledge_build_threads[project.id] = t
+        t.start()
+        return True
+
+
+def _project_knowledge_build_worker(project: Project):
+    pm = get_progress_manager()
+    task_id = pm.start_task("knowledge_build", project.id)
+
+    def progress_callback(msg: str, current: int, total: int):
+        pm.update(task_id, msg, current, total)
+
+    try:
+        idx = _get_project_knowledge_index(project)
+        logger.info(f"Building knowledge index for {project.id}")
+        
+        idx.build(progress_callback=progress_callback)
+        
+        logger.info("Knowledge build completed successfully")
+        pm.finish_task(task_id, success=True, message="Knowledge build completed")
+    except Exception as e:
+        logger.error(f"Knowledge build failed: {e}")
+        pm.finish_task(task_id, success=False, message=str(e))
+    finally:
+        with _project_knowledge_build_lock:
+            cur = threading.current_thread()
+            if _project_knowledge_build_threads.get(project.id) is cur:
+                _project_knowledge_build_threads.pop(project.id, None)
+
+
 def _is_project_trace_building(project_id: str) -> bool:
     t = _project_trace_build_threads.get(project_id)
     return t is not None and t.is_alive()
@@ -1281,28 +1340,43 @@ def activate_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
         raise ApiException(status_code=400, code="VALIDATION_ERROR", message="key is required")
 
     allowed_tiers = {"free", "starter", "pro", "team", "enterprise"}
-
     lic_data: Optional[Dict[str, Any]] = None
 
-    tier_guess = key.lower()
-    if tier_guess in allowed_tiers:
-        lic_data = {"tier": tier_guess, "valid": True, "seats": 1, "features": []}
+    # 1. Try to verify as a signed offline key (Production/Enterprise)
+    # This is the most secure method and should be prioritized.
+    verified_payload = verify_license_key(key)
+    if verified_payload:
+        lic_data = verified_payload
+        logger.info(f"Verified signed license key for {lic_data.get('issued_to', 'unknown')}")
 
+    # 2. Dev/Testing: Allow direct tier names
+    if lic_data is None:
+        tier_guess = key.lower()
+        if tier_guess in allowed_tiers:
+            lic_data = {"tier": tier_guess, "valid": True, "seats": 1, "features": []}
+            logger.info(f"Activated dev license via tier name: {tier_guess}")
+
+    # 3. Dev/Testing: Allow plain JSON
     if lic_data is None:
         try:
-            parsed = json.loads(key)
-            if isinstance(parsed, dict):
-                lic_data = dict(parsed)
+            if key.startswith("{") and key.endswith("}"):
+                parsed = json.loads(key)
+                if isinstance(parsed, dict):
+                    lic_data = dict(parsed)
+                    logger.info("Activated dev license via plain JSON")
         except Exception:
-            lic_data = None
+            pass
 
+    # 4. Legacy: Try Base64 encoded JSON (plain or JWT-like parts)
+    # This is mostly for backward compatibility or simple encoding
     if lic_data is None and "." in key:
         parts = [p for p in key.split(".") if p]
         payload_part: Optional[str] = None
-        if len(parts) >= 3:
-            payload_part = parts[1]
-        elif len(parts) == 2:
-            payload_part = parts[0]
+        if len(parts) >= 2:
+            # Assume middle part is payload in header.payload.signature
+            # Or first part in payload.signature
+            payload_part = parts[1] if len(parts) >= 3 else parts[0]
+        
         if payload_part:
             try:
                 padded = payload_part + "=" * (-len(payload_part) % 4)
@@ -1310,25 +1384,28 @@ def activate_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
                 parsed = json.loads(decoded)
                 if isinstance(parsed, dict):
                     lic_data = dict(parsed)
+                    logger.info("Activated license via legacy token parsing")
             except Exception:
-                lic_data = None
+                pass
 
     if lic_data is None:
+        # Final attempt: try decoding the whole key as base64
         try:
             padded = key + "=" * (-len(key) % 4)
             decoded = base64.urlsafe_b64decode(padded.encode("utf-8")).decode("utf-8")
             parsed = json.loads(decoded)
             if isinstance(parsed, dict):
                 lic_data = dict(parsed)
+                logger.info("Activated license via base64 decoding")
         except Exception:
-            lic_data = None
+            pass
 
     if lic_data is None:
         raise ApiException(
             status_code=400,
-            code="NOT_IMPLEMENTED",
-            message="License activation exchange is not implemented",
-            hint="Provide a JSON license payload, a tier name (free/starter/pro/team/enterprise), or a token with a base64url JSON payload.",
+            code="INVALID_LICENSE",
+            message="Invalid license key",
+            hint="Provide a valid signed license key, or a tier name (free/starter/pro) for development.",
         )
 
     tier_raw = str(lic_data.get("tier") or "").strip().lower()
@@ -1336,7 +1413,7 @@ def activate_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
         raise ApiException(
             status_code=400,
             code="VALIDATION_ERROR",
-            message="license tier is required",
+            message=f"Invalid license tier: {tier_raw}. Must be one of: {', '.join(allowed_tiers)}",
         )
 
     lic_data["tier"] = tier_raw
@@ -1344,12 +1421,20 @@ def activate_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
     lic_data.setdefault("seats", 1)
     lic_data.setdefault("features", [])
 
+    # Ensure critical timestamps are present if available in meta
+    if "expires_at" not in lic_data and "meta" in lic_data:
+         # Some issuers might put expiry in meta, flatten it if needed or standard schema logic
+         pass
+
     license_path = Path.home() / ".codrag" / "license.json"
     license_path.parent.mkdir(parents=True, exist_ok=True)
     license_path.write_text(json.dumps(lic_data, indent=2), encoding="utf-8")
 
     clear_license_cache()
-    return get_license_status()
+    
+    # Reload license to ensure we return what the system sees
+    new_status = get_license_status()
+    return new_status
 
 
 @app.post("/license/deactivate")
@@ -2569,6 +2654,7 @@ def get_trace_node(project_id: str, node_id: str) -> Dict[str, Any]:
 
 
 @app.get("/projects/{project_id}/trace/neighbors/{node_id:path}")
+@app.get("/projects/{project_id}/trace/nodes/{node_id:path}/neighbors")
 def get_trace_node_neighbors(
     project_id: str,
     node_id: str,
@@ -2682,19 +2768,25 @@ def _get_llm_client_for_slot(slot: str) -> Optional["LLMClient"]:
     )
 
 
-@app.get("/projects/{project_id}/augment/status")
-def augment_status_project(project_id: str) -> Dict[str, Any]:
-    """Get augmentation status for a project."""
-    proj = _require_project(project_id)
+def _project_augment_status(proj: Project) -> Dict[str, Any]:
+    """Get augmentation status for a project (helper)."""
     idx_dir = project_index_dir(proj)
     from codrag.core import TraceAugmenter, LLMClient
     # Create a dummy client just to read status
+    # We don't need a real LLM connection just to check disk status
     augmenter = TraceAugmenter(
         index_dir=idx_dir,
         repo_root=proj.path,
         llm_client=LLMClient("http://localhost:11434", "none"),
     )
-    return ok(augmenter.status())
+    return augmenter.status()
+
+
+@app.get("/projects/{project_id}/augment/status")
+def augment_status_project(project_id: str) -> Dict[str, Any]:
+    """Get augmentation status for a project."""
+    proj = _require_project(project_id)
+    return ok(_project_augment_status(proj))
 
 
 @app.post("/projects/{project_id}/augment/run")
@@ -2742,11 +2834,11 @@ def augment_run_project(project_id: str, req: AugmentRequest) -> Dict[str, Any]:
                 progress_callback=progress_cb,
                 max_items=req.max_items,
             )
-            pm.update(task_id, f"Augmentation complete: {result.augmented} nodes", 1, 1, status="completed")
+            pm.update(task_id, f"Augmentation complete: {result.augmented} nodes", 1, 1)
             bus.emit("task", {"task_id": task_id, "status": "completed"})
         except Exception as e:
             logger.error("Augmentation failed: %s", e)
-            pm.update(task_id, f"Augmentation failed: {e}", 0, 1, status="failed")
+            pm.update(task_id, f"Augmentation failed: {e}", 0, 1)
             bus.emit("task", {"task_id": task_id, "status": "failed"})
 
     t = threading.Thread(target=_run, daemon=True)
@@ -2754,9 +2846,17 @@ def augment_run_project(project_id: str, req: AugmentRequest) -> Dict[str, Any]:
     return ok({"started": True, "task_id": task_id})
 
 
+# ── Deep analysis running-state tracking ──────────────────────────────
+_deep_analysis_state: Dict[str, Dict[str, Any]] = {}  # project_id -> {thread, cancel, current, total, ...}
+
+
 @app.get("/projects/{project_id}/deep-analysis/status")
-def deep_analysis_status_project(project_id: str) -> Dict[str, Any]:
-    """Get deep analysis status for a project."""
+def deep_analysis_status_project(project_id: str, full: bool = False) -> Dict[str, Any]:
+    """Get deep analysis status for a project.
+
+    By default returns fast manifest-only status.
+    Pass ?full=true to recompute live queue stats (slower — reads all trace files).
+    """
     proj = _require_project(project_id)
     idx_dir = project_index_dir(proj)
 
@@ -2770,13 +2870,35 @@ def deep_analysis_status_project(project_id: str) -> Dict[str, Any]:
         repo_root=proj.path,
         schedule=schedule,
     )
-    return ok(orchestrator.status())
+    result = orchestrator.status(include_queue=full)
+
+    # Inject live running state
+    state = _deep_analysis_state.get(project_id)
+    if state and state.get("thread") and state["thread"].is_alive():
+        result["running"] = True
+        result["progress_current"] = state.get("current", 0)
+        result["progress_total"] = state.get("total", 0)
+        pct = (state.get("current", 0) / state["total"] * 100) if state.get("total", 0) > 0 else 0
+        result["progress_pct"] = round(pct, 1)
+    else:
+        result["running"] = False
+
+    return ok(result)
 
 
 @app.post("/projects/{project_id}/deep-analysis/run")
 def deep_analysis_run_project(project_id: str, req: DeepAnalysisRequest) -> Dict[str, Any]:
     """Run deep analysis validation (Phase 2, Step 4). Uses Tier 0 evidence only."""
     proj = _require_project(project_id)
+
+    # Prevent double-run
+    state = _deep_analysis_state.get(project_id)
+    if state and state.get("thread") and state["thread"].is_alive():
+        raise ApiException(
+            status_code=409,
+            code="ALREADY_RUNNING",
+            message="Deep analysis is already running for this project",
+        )
 
     llm_client = _get_llm_client_for_slot("large")
     if not llm_client:
@@ -2822,7 +2944,14 @@ def deep_analysis_run_project(project_id: str, req: DeepAnalysisRequest) -> Dict
     pm = get_progress_manager()
     task_id = f"deep_analysis_{project_id}"
 
+    # Set up cancel flag and running state
+    cancel_event = threading.Event()
+    run_state: Dict[str, Any] = {"thread": None, "cancel": cancel_event, "current": 0, "total": 0}
+    _deep_analysis_state[project_id] = run_state
+
     def progress_cb(phase: str, current: int, total: int):
+        run_state["current"] = current
+        run_state["total"] = total
         pm.update(task_id, f"Deep analysis: {phase}", current, total)
 
     pm.update(task_id, "Starting deep analysis (Tier 0 evidence)...", 0, 1)
@@ -2832,20 +2961,605 @@ def deep_analysis_run_project(project_id: str, req: DeepAnalysisRequest) -> Dict
             result = orchestrator.run(
                 llm_client=llm_client,
                 progress_callback=progress_cb,
+                cancel_event=cancel_event,
             )
             msg = (
                 f"Deep analysis complete: {result.items_validated} validated "
                 f"({result.items_confirmed} confirmed, {result.items_corrected} corrected, "
                 f"{result.items_rejected} rejected)"
             )
-            pm.update(task_id, msg, 1, 1, status="completed")
+            pm.update(task_id, msg, 1, 1)
             bus.emit("task", {"task_id": task_id, "status": "completed"})
         except Exception as e:
             logger.error("Deep analysis failed: %s", e)
-            pm.update(task_id, f"Deep analysis failed: {e}", 0, 1, status="failed")
+            pm.update(task_id, f"Deep analysis failed: {e}", 0, 1)
             bus.emit("task", {"task_id": task_id, "status": "failed"})
+        finally:
+            # Clean up state so status() reports running=False
+            if _deep_analysis_state.get(project_id) is run_state:
+                _deep_analysis_state.pop(project_id, None)
 
     t = threading.Thread(target=_run, daemon=True)
+    run_state["thread"] = t
+    t.start()
+    return ok({"started": True, "task_id": task_id})
+
+
+@app.post("/projects/{project_id}/deep-analysis/cancel")
+def deep_analysis_cancel_project(project_id: str) -> Dict[str, Any]:
+    """Cancel a running deep analysis."""
+    _require_project(project_id)
+    state = _deep_analysis_state.get(project_id)
+    if not state or not state.get("thread") or not state["thread"].is_alive():
+        raise ApiException(
+            status_code=409,
+            code="NOT_RUNNING",
+            message="No deep analysis is currently running for this project",
+        )
+    state["cancel"].set()
+    logger.info("Deep analysis cancel requested for project %s", project_id)
+    return ok({"cancelled": True})
+
+
+# =============================================================================
+# Destroy Graph
+# =============================================================================
+
+TRACE_FILES = [
+    "trace_manifest.json",
+    "trace_nodes.jsonl",
+    "trace_edges.jsonl",
+    "trace_augmented.jsonl",
+    "trace_augment_manifest.json",
+    "trace_inferred_edges.jsonl",
+    "trace_epistemic.jsonl",
+    "trace_epistemic_manifest.json",
+    "trace_modules.jsonl",
+]
+
+
+@app.delete("/projects/{project_id}/trace/destroy")
+def trace_destroy_project(project_id: str) -> Dict[str, Any]:
+    """Permanently delete all trace graph data for a project.
+
+    Removes: structural graph, augmentation, inferred edges,
+    epistemic enrichment, cluster modules — everything produced
+    by the multi-pass pipeline.
+    """
+    proj = _require_project(project_id)
+
+    # Refuse if any pipeline stage is currently running
+    if _is_project_trace_building(project_id):
+        raise ApiException(status_code=409, code="PIPELINE_RUNNING", message="Cannot destroy graph while trace build is running")
+
+    for state_map, label in [
+        (_deep_analysis_state, "deep analysis"),
+        (_epistemic_state, "epistemic enrichment"),
+        (_cluster_state, "cluster synthesis"),
+        (_deepening_state, "deepening loop"),
+    ]:
+        state = state_map.get(project_id)
+        if state and state.get("thread") and state["thread"].is_alive():
+            raise ApiException(
+                status_code=409,
+                code="PIPELINE_RUNNING",
+                message=f"Cannot destroy graph while {label} is running",
+            )
+
+    idx_dir = project_index_dir(proj)
+    deleted: list[str] = []
+    errors: list[str] = []
+
+    for fname in TRACE_FILES:
+        fp = idx_dir / fname
+        if fp.exists():
+            try:
+                fp.unlink()
+                deleted.append(fname)
+            except Exception as e:
+                errors.append(f"{fname}: {e}")
+
+    # Clear in-memory caches
+    _project_trace_indexes.pop(project_id, None)
+
+    logger.info(
+        "Destroyed trace graph for %s: deleted %d files, %d errors",
+        project_id, len(deleted), len(errors),
+    )
+    return ok({"deleted": deleted, "errors": errors})
+
+
+INDEX_FILES = [
+    "documents.json",
+    "embeddings.npy",
+    "manifest.json",
+    "fts.sqlite3",
+    "knowledge_documents.json",
+    "knowledge_embeddings.npy",
+    "knowledge_manifest.json",
+]
+
+ALL_DATA_FILES = TRACE_FILES + INDEX_FILES
+
+
+@app.delete("/projects/{project_id}/index/destroy")
+def index_destroy_project(project_id: str) -> Dict[str, Any]:
+    """Permanently delete ALL project data: embeddings, trace graph,
+    knowledge index — full reset to a blank project.
+
+    Removes everything produced by building, tracing, augmenting,
+    enriching, clustering, and knowledge embedding.
+    """
+    proj = _require_project(project_id)
+
+    # Refuse if anything is running
+    if _is_project_trace_building(project_id):
+        raise ApiException(status_code=409, code="PIPELINE_RUNNING", message="Cannot reset while trace build is running")
+
+    # Check if a code-index build is running
+    with _project_build_lock:
+        thread = _project_build_threads.get(project_id)
+        if thread and thread.is_alive():
+            raise ApiException(status_code=409, code="PIPELINE_RUNNING", message="Cannot reset while index build is running")
+
+    for state_map, label in [
+        (_deep_analysis_state, "deep analysis"),
+        (_epistemic_state, "epistemic enrichment"),
+        (_cluster_state, "cluster synthesis"),
+        (_deepening_state, "deepening loop"),
+    ]:
+        state = state_map.get(project_id)
+        if state and state.get("thread") and state["thread"].is_alive():
+            raise ApiException(
+                status_code=409,
+                code="PIPELINE_RUNNING",
+                message=f"Cannot reset while {label} is running",
+            )
+
+    idx_dir = project_index_dir(proj)
+    deleted: list[str] = []
+    errors: list[str] = []
+
+    for fname in ALL_DATA_FILES:
+        fp = idx_dir / fname
+        if fp.exists():
+            try:
+                fp.unlink()
+                deleted.append(fname)
+            except Exception as e:
+                errors.append(f"{fname}: {e}")
+
+    # Clear all in-memory caches
+    _project_indexes.pop(project_id, None)
+    _project_trace_indexes.pop(project_id, None)
+    _project_knowledge_indexes.pop(project_id, None)
+
+    logger.info(
+        "Full reset for %s: deleted %d files, %d errors",
+        project_id, len(deleted), len(errors),
+    )
+    return ok({"deleted": deleted, "errors": errors})
+
+
+# =============================================================================
+# Knowledge Indexing (Stage 7) Endpoints
+# =============================================================================
+
+@app.get("/projects/{project_id}/knowledge/status")
+def knowledge_status_project(project_id: str) -> Dict[str, Any]:
+    """Get knowledge index status."""
+    proj = _require_project(project_id)
+    idx = _get_project_knowledge_index(proj)
+    
+    status = idx.status()
+    status["building"] = _is_project_knowledge_building(project_id)
+    return ok(status)
+
+
+@app.post("/projects/{project_id}/knowledge/build")
+def build_knowledge_project(project_id: str) -> Dict[str, Any]:
+    """Trigger knowledge index build."""
+    proj = _require_project(project_id)
+    
+    if _is_project_knowledge_building(project_id):
+        raise ApiException(status_code=409, code="BUILD_ALREADY_RUNNING", message="Knowledge build already running")
+        
+    started = _start_project_knowledge_build(proj)
+    if not started:
+        raise ApiException(status_code=409, code="BUILD_ALREADY_RUNNING", message="Knowledge build already running")
+        
+    return ok({"started": True, "building": True})
+
+
+# =============================================================================
+# Unified Graph Engine Status (The "One Truth")
+# =============================================================================
+
+@app.get("/projects/{project_id}/engine/status")
+def engine_status_project(project_id: str) -> Dict[str, Any]:
+    """
+    Aggregated status for the entire 7-stage Graph Engine pipeline.
+    Used by the Unified Graph Engine Panel.
+    """
+    proj = _require_project(project_id)
+    idx_dir = project_index_dir(proj)
+    
+    # 1. Structural Trace
+    trace_idx = _get_project_trace_index(proj)
+    trace_status = {
+        "enabled": bool((proj.config.get("trace") or {}).get("enabled", False)),
+        "exists": trace_idx.exists(),
+        "building": _is_project_trace_building(project_id),
+        "stats": trace_idx.node_count() if trace_idx.exists() and trace_idx.load() else 0
+    }
+
+    # 2. Vector Index (Source)
+    # We use the main CodeIndex for this
+    source_idx = _get_project_index(proj)
+    source_status = source_idx.stats()
+    source_status["building"] = _is_project_building(project_id)
+
+    # 3. Fast Catalogue (Augmentation)
+    augment_status = _project_augment_status(proj)
+
+    # 4. Relationship Validation (Inferred Edges)
+    # This is part of the trace index but tracked separately? 
+    # Currently we don't have a separate runner for this, it happens during trace build or augmentation?
+    # Actually pass 0.5 is "Rust Validates LLM Hypotheses". 
+    # For now, let's infer it from the existence of inferred edges in the graph.
+    validation_status = {
+        "enabled": True, # Always on if trace is on
+        "inferred_edges": 0, # TODO: query trace_index for edge kind='inferred'
+        "validated_edges": 0
+    }
+    if trace_idx.exists() and trace_idx.is_loaded():
+        # This is expensive to count every poll, maybe cache it?
+        # For V1 let's just return what we have cheaply
+        pass
+
+    # 5. Epistemic Enrichment
+    epistemic_status = epistemic_status_project(project_id)["data"]
+
+    # 6. Cluster Synthesis
+    cluster_status = cluster_status_project(project_id)["data"]
+
+    # 7. Knowledge Embedding
+    know_idx = _get_project_knowledge_index(proj)
+    knowledge_status = know_idx.status()
+    knowledge_status["building"] = _is_project_knowledge_building(project_id)
+
+    # Deepening Loop (Cross-cutting)
+    deepening_status = deepening_status_project(project_id)["data"]
+
+    return ok({
+        "stages": {
+            "trace": trace_status,
+            "vector": source_status,
+            "catalogue": augment_status,
+            "validation": validation_status,
+            "epistemic": epistemic_status,
+            "clustering": cluster_status,
+            "knowledge": knowledge_status
+        },
+        "deepening": deepening_status,
+        "global_running": (
+            trace_status["building"] or 
+            source_status["building"] or 
+            epistemic_status["running"] or 
+            cluster_status["running"] or 
+            knowledge_status["building"] or
+            deepening_status["running"]
+        )
+    })
+
+
+_epistemic_state: Dict[str, Dict[str, Any]] = {}
+_cluster_state: Dict[str, Dict[str, Any]] = {}
+_deepening_state: Dict[str, Dict[str, Any]] = {}
+
+
+@app.get("/projects/{project_id}/epistemic/status")
+def epistemic_status_project(project_id: str) -> Dict[str, Any]:
+    """Get epistemic enrichment status for a project."""
+    proj = _require_project(project_id)
+    idx_dir = project_index_dir(proj)
+    epistemic_path = idx_dir / "trace_epistemic.jsonl"
+
+    if not epistemic_path.exists():
+        result: Dict[str, Any] = {
+            "enabled": False,
+            "enriched_nodes": 0,
+            "total_file_nodes": 0,
+            "avg_confidence": 0.0,
+        }
+    else:
+        import json
+        count = 0
+        total_conf = 0.0
+        with open(epistemic_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        d = json.loads(line)
+                        count += 1
+                        total_conf += float(d.get("epistemic_confidence", 0.0))
+                    except Exception:
+                        pass
+        result = {
+            "enabled": True,
+            "enriched_nodes": count,
+            "avg_confidence": round(total_conf / count, 3) if count else 0.0,
+        }
+
+    # Inject live running state
+    state = _epistemic_state.get(project_id)
+    if state and state.get("thread") and state["thread"].is_alive():
+        result["running"] = True
+        result["progress_current"] = state.get("current", 0)
+        result["progress_total"] = state.get("total", 0)
+    else:
+        result["running"] = False
+
+    return ok(result)
+
+
+class EpistemicRunRequest(BaseModel):
+    max_items: Optional[int] = None
+
+
+@app.post("/projects/{project_id}/epistemic/run")
+def epistemic_run_project(project_id: str, req: EpistemicRunRequest) -> Dict[str, Any]:
+    """Run epistemic enrichment (Pass 2) using the large model."""
+    proj = _require_project(project_id)
+
+    state = _epistemic_state.get(project_id)
+    if state and state.get("thread") and state["thread"].is_alive():
+        raise ApiException(status_code=409, code="ALREADY_RUNNING", message="Epistemic enrichment already running")
+
+    llm_client = _get_llm_client_for_slot("large")
+    if not llm_client:
+        llm_client = _get_llm_client_for_slot("small")
+    if not llm_client:
+        raise ApiException(status_code=409, code="NO_MODEL", message="No model configured", hint="Configure a model in AI Models settings.")
+    if not llm_client.is_available():
+        raise ApiException(status_code=503, code="MODEL_UNAVAILABLE", message=f"Model endpoint not reachable: {llm_client.endpoint_url}")
+
+    idx_dir = project_index_dir(proj)
+    from codrag.core import EpistemicEnricher
+
+    enricher = EpistemicEnricher(
+        llm=llm_client,
+        repo_root=Path(proj.path),
+        index_dir=idx_dir,
+    )
+
+    bus = get_event_bus()
+    pm = get_progress_manager()
+    task_id = f"epistemic_{project_id}"
+    run_state: Dict[str, Any] = {"thread": None, "current": 0, "total": 0}
+    _epistemic_state[project_id] = run_state
+
+    def progress_cb(phase: str, current: int, total: int):
+        run_state["current"] = current
+        run_state["total"] = total
+        pm.update(task_id, f"Epistemic enrichment: {phase}", current, total)
+
+    pm.update(task_id, "Starting epistemic enrichment (14b)...", 0, 1)
+
+    def _run():
+        try:
+            result = enricher.run(progress_callback=progress_cb, max_items=req.max_items)
+            pm.update(task_id, f"Epistemic enrichment complete: {result.get('enriched_this_run', 0)} nodes", 1, 1)
+            bus.emit("task", {"task_id": task_id, "status": "completed"})
+        except Exception as e:
+            logger.error("Epistemic enrichment failed: %s", e)
+            pm.update(task_id, f"Epistemic enrichment failed: {e}", 0, 1)
+            bus.emit("task", {"task_id": task_id, "status": "failed"})
+        finally:
+            if _epistemic_state.get(project_id) is run_state:
+                _epistemic_state.pop(project_id, None)
+
+    t = threading.Thread(target=_run, daemon=True)
+    run_state["thread"] = t
+    t.start()
+    return ok({"started": True, "task_id": task_id})
+
+
+@app.get("/projects/{project_id}/modules/status")
+def modules_status_project(project_id: str) -> Dict[str, Any]:
+    """Get cluster/module synthesis status for a project."""
+    proj = _require_project(project_id)
+    idx_dir = project_index_dir(proj)
+    modules_path = idx_dir / "trace_modules.jsonl"
+
+    if not modules_path.exists():
+        result: Dict[str, Any] = {"enabled": False, "module_count": 0, "total_files_clustered": 0}
+    else:
+        import json
+        count = 0
+        total_files = 0
+        with open(modules_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        d = json.loads(line)
+                        count += 1
+                        total_files += int(d.get("file_count", 0))
+                    except Exception:
+                        pass
+        result = {"enabled": True, "module_count": count, "total_files_clustered": total_files}
+
+    state = _cluster_state.get(project_id)
+    if state and state.get("thread") and state["thread"].is_alive():
+        result["running"] = True
+    else:
+        result["running"] = False
+
+    return ok(result)
+
+
+@app.post("/projects/{project_id}/modules/run")
+def modules_run_project(project_id: str) -> Dict[str, Any]:
+    """Run cluster synthesis (Pass 3) using the large model."""
+    proj = _require_project(project_id)
+
+    state = _cluster_state.get(project_id)
+    if state and state.get("thread") and state["thread"].is_alive():
+        raise ApiException(status_code=409, code="ALREADY_RUNNING", message="Cluster synthesis already running")
+
+    llm_client = _get_llm_client_for_slot("large")
+    if not llm_client:
+        llm_client = _get_llm_client_for_slot("small")
+    if not llm_client:
+        raise ApiException(status_code=409, code="NO_MODEL", message="No model configured")
+    if not llm_client.is_available():
+        raise ApiException(status_code=503, code="MODEL_UNAVAILABLE", message=f"Model endpoint not reachable: {llm_client.endpoint_url}")
+
+    idx_dir = project_index_dir(proj)
+    from codrag.core import ClusterSynthesizer
+
+    synthesizer = ClusterSynthesizer(llm=llm_client, index_dir=idx_dir)
+
+    bus = get_event_bus()
+    pm = get_progress_manager()
+    task_id = f"cluster_{project_id}"
+    run_state: Dict[str, Any] = {"thread": None}
+    _cluster_state[project_id] = run_state
+
+    pm.update(task_id, "Starting cluster synthesis...", 0, 1)
+
+    def _run():
+        try:
+            result = synthesizer.run()
+            pm.update(task_id, f"Cluster synthesis complete: {result.get('synthesized', 0)} modules", 1, 1)
+            bus.emit("task", {"task_id": task_id, "status": "completed"})
+        except Exception as e:
+            logger.error("Cluster synthesis failed: %s", e)
+            pm.update(task_id, f"Cluster synthesis failed: {e}", 0, 1)
+            bus.emit("task", {"task_id": task_id, "status": "failed"})
+        finally:
+            if _cluster_state.get(project_id) is run_state:
+                _cluster_state.pop(project_id, None)
+
+    t = threading.Thread(target=_run, daemon=True)
+    run_state["thread"] = t
+    t.start()
+    return ok({"started": True, "task_id": task_id})
+
+
+@app.get("/projects/{project_id}/deepening/status")
+def deepening_status_project(project_id: str) -> Dict[str, Any]:
+    """Get deepening loop status for a project."""
+    proj = _require_project(project_id)
+    idx_dir = project_index_dir(proj)
+
+    # Compute epistemic scores to get convergence info
+    result: Dict[str, Any] = {"running": False}
+    try:
+        from codrag.core import EpistemicEnricher, LLMClient
+        enricher = EpistemicEnricher(
+            llm=LLMClient("http://localhost:11434", "none"),
+            repo_root=Path(proj.path),
+            index_dir=idx_dir,
+        )
+        scores = enricher.compute_all_scores()
+        if scores:
+            composites = [s.composite for s in scores.values()]
+            settled = sum(1 for c in composites if c >= 0.95)
+            result["total_scored"] = len(composites)
+            result["settled_count"] = settled
+            result["settled_ratio"] = round(settled / len(composites), 3) if composites else 0.0
+            result["avg_score"] = round(sum(composites) / len(composites), 3)
+            result["min_score"] = round(min(composites), 3)
+            result["max_score"] = round(max(composites), 3)
+        else:
+            result["total_scored"] = 0
+            result["settled_count"] = 0
+            result["settled_ratio"] = 0.0
+            result["avg_score"] = 0.0
+    except Exception:
+        result["total_scored"] = 0
+
+    state = _deepening_state.get(project_id)
+    if state and state.get("thread") and state["thread"].is_alive():
+        result["running"] = True
+        result["iteration"] = state.get("iteration", 0)
+        result["max_iterations"] = state.get("max_iterations", 10)
+    else:
+        result["running"] = False
+
+    return ok(result)
+
+
+class DeepeningRunRequest(BaseModel):
+    max_iterations: Optional[int] = 10
+    batch_size: Optional[int] = 20
+
+
+@app.post("/projects/{project_id}/deepening/run")
+def deepening_run_project(project_id: str, req: DeepeningRunRequest) -> Dict[str, Any]:
+    """Run continuous deepening loop (Pass 4+)."""
+    proj = _require_project(project_id)
+
+    state = _deepening_state.get(project_id)
+    if state and state.get("thread") and state["thread"].is_alive():
+        raise ApiException(status_code=409, code="ALREADY_RUNNING", message="Deepening loop already running")
+
+    llm_client = _get_llm_client_for_slot("large")
+    if not llm_client:
+        llm_client = _get_llm_client_for_slot("small")
+    if not llm_client:
+        raise ApiException(status_code=409, code="NO_MODEL", message="No model configured")
+    if not llm_client.is_available():
+        raise ApiException(status_code=503, code="MODEL_UNAVAILABLE", message=f"Model endpoint not reachable: {llm_client.endpoint_url}")
+
+    idx_dir = project_index_dir(proj)
+    from codrag.core import EpistemicEnricher, DeepeningLoop
+
+    enricher = EpistemicEnricher(
+        llm=llm_client,
+        repo_root=Path(proj.path),
+        index_dir=idx_dir,
+    )
+
+    loop = DeepeningLoop(
+        enricher=enricher,
+        index_dir=idx_dir,
+        max_iterations=req.max_iterations or 10,
+        batch_size=req.batch_size or 20,
+    )
+
+    bus = get_event_bus()
+    pm = get_progress_manager()
+    task_id = f"deepening_{project_id}"
+    run_state: Dict[str, Any] = {"thread": None, "iteration": 0, "max_iterations": req.max_iterations or 10}
+    _deepening_state[project_id] = run_state
+
+    pm.update(task_id, "Starting deepening loop...", 0, 1)
+
+    def progress_cb(phase: str, current: int, total: int):
+        run_state["iteration"] = current
+        pm.update(task_id, f"Deepening: {phase}", current, total)
+
+    def _run():
+        try:
+            result = loop.run(progress_callback=progress_cb)
+            conv = result.convergence or {}
+            reason = conv.get("reason", "unknown")
+            pm.update(task_id, f"Deepening complete: {result.iterations} iterations, {reason}", 1, 1)
+            bus.emit("task", {"task_id": task_id, "status": "completed"})
+        except Exception as e:
+            logger.error("Deepening loop failed: %s", e)
+            pm.update(task_id, f"Deepening failed: {e}", 0, 1)
+            bus.emit("task", {"task_id": task_id, "status": "failed"})
+        finally:
+            if _deepening_state.get(project_id) is run_state:
+                _deepening_state.pop(project_id, None)
+
+    t = threading.Thread(target=_run, daemon=True)
+    run_state["thread"] = t
     t.start()
     return ok({"started": True, "task_id": task_id})
 

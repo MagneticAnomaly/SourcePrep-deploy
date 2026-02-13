@@ -153,7 +153,7 @@ export function ActivityHeatmap({
         <Title className="text-text">Index Activity</Title>
         <Flex className="gap-2">
           <Badge color="cyan" size="xs">{data.totals.embeddings.toLocaleString()} embeddings</Badge>
-          <Badge color="amber" size="xs">{data.totals.trace.toLocaleString()} trace</Badge>
+          <Badge color="amber" size="xs">{data.totals.trace.toLocaleString()} graph nodes</Badge>
         </Flex>
       </Flex>
 
@@ -208,7 +208,7 @@ export function ActivityHeatmap({
                         'hover:ring-2 hover:ring-primary hover:ring-offset-1',
                         colorClass
                       )}
-                      title={`${dayData.date.toLocaleDateString()}\nEmbeddings: ${embeddings}\nTrace: ${trace}`}
+                      title={`${dayData.date.toLocaleDateString()}\nEmbeddings: ${embeddings}\nGraph: ${trace}`}
                     />
                   );
                 })}
@@ -227,8 +227,8 @@ export function ActivityHeatmap({
             <div className="w-3 h-3 rounded-sm bg-cyan-200" title="Embeddings (low)" />
             <div className="w-3 h-3 rounded-sm bg-cyan-400" title="Embeddings (high)" />
             <div className="w-3 h-3 rounded-sm bg-green-300" title="Mixed" />
-            <div className="w-3 h-3 rounded-sm bg-amber-300" title="Trace (low)" />
-            <div className="w-3 h-3 rounded-sm bg-amber-500" title="Trace (high)" />
+            <div className="w-3 h-3 rounded-sm bg-amber-300" title="Graph (low)" />
+            <div className="w-3 h-3 rounded-sm bg-amber-500" title="Graph (high)" />
           </div>
           <Text className="text-xs text-text-muted">More</Text>
         </Flex>

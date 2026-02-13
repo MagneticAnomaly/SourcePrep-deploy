@@ -5,6 +5,7 @@ import { Suspense, useMemo, useState } from 'react';
 import { Button } from '@codrag/ui';
 import { docsSidebar } from '../../config/docs';
 import { FileText, ArrowRight } from 'lucide-react';
+import { AnchorHeading } from '../../components/AnchorHeading';
 
 // Flatten the sidebar into searchable items
 interface SearchItem {
@@ -96,10 +97,10 @@ function SearchResults() {
       </div>
 
       <div className="border-t border-border pt-8 mt-8">
-        <h2 className="text-lg font-semibold mb-4">Browse by Category</h2>
+        <AnchorHeading id="browse-by-category" level="h2" className="text-lg font-semibold mb-4">Browse by Category</AnchorHeading>
         <div className="grid sm:grid-cols-2 gap-4">
           {docsSidebar.map((section) => (
-            <div key={section.title} className="p-4 rounded-lg bg-surface-raised border border-border">
+            <div key={section.title} className="p-4 rounded-lg bg-surface border border-border">
               <h3 className="font-medium mb-2">{section.title}</h3>
               <ul className="space-y-1 text-sm">
                 {section.children?.map(child => (

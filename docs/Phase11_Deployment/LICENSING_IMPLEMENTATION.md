@@ -1,5 +1,11 @@
 # Licensing Implementation Specification
 
+> **⚠️ PARTIALLY SUPERSEDED** — The activation flow (§ "Activation Flow") references
+> **Stripe** webhooks. The authoritative plan now uses **Lemon Squeezy** as Merchant of
+> Record. See [`docs/DISTRIBUTION_AND_REVENUE_PLAN.md`](../DISTRIBUTION_AND_REVENUE_PLAN.md)
+> for the current payment and activation flow. The **license format, validation logic,
+> and feature gating** sections below remain accurate.
+
 ## Purpose
 This document defines the technical implementation for CoDRAG's licensing system, ensuring it supports:
 -   **Offline-first validation** (no mandatory phone home).

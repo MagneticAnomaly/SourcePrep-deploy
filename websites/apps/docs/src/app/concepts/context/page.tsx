@@ -1,3 +1,5 @@
+import { AnchorHeading } from '../../../components/AnchorHeading';
+
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
@@ -11,25 +13,25 @@ export default function Page() {
           Turning raw signals into an optimized LLM prompt.
         </p>
 
-        <div className="mt-12 prose prose-invert max-w-none">
+        <div className="mt-12 prose  max-w-none">
           <p>
             Retrieving code is easy. assembling it into a coherent prompt that fits within a context window 
             while maximizing information density is hard.
           </p>
 
-          <h2>The Assembly Process</h2>
+          <AnchorHeading id="assembly-process" level="h2">The Assembly Process</AnchorHeading>
           
-          <h3 className="text-lg font-semibold mt-6">1. Retrieval</h3>
+          <AnchorHeading id="retrieval" level="h3" className="text-lg font-semibold mt-6">1. Retrieval</AnchorHeading>
           <p>
             CoDRAG gathers candidates from multiple sources:
           </p>
           <ul className="list-disc pl-5">
             <li><strong>Semantic Search:</strong> Top-K chunks via vector similarity.</li>
             <li><strong>Keyword Search:</strong> BM25 matches for exact terms.</li>
-            <li><strong>Trace Graph:</strong> Related definitions and call sites (if trace expansion is on).</li>
+            <li><strong>Code Graph:</strong> Related definitions and call sites (if trace expansion is on).</li>
           </ul>
 
-          <h3 className="text-lg font-semibold mt-6">2. Scoring & Weighting</h3>
+          <AnchorHeading id="scoring" level="h3" className="text-lg font-semibold mt-6">2. Scoring & Weighting</AnchorHeading>
           <p>
             Candidates are re-scored based on:
           </p>
@@ -41,7 +43,7 @@ export default function Page() {
             <li><strong>Recency:</strong> Slight boost for recently modified files (configurable).</li>
           </ul>
 
-          <h3 className="text-lg font-semibold mt-6">3. Budgeting & Truncation</h3>
+          <AnchorHeading id="budgeting" level="h3" className="text-lg font-semibold mt-6">3. Budgeting & Truncation</AnchorHeading>
           <p>
             You specify a <code>max_chars</code> or <code>max_tokens</code> budget. CoDRAG:
           </p>
@@ -51,18 +53,59 @@ export default function Page() {
             <li>Ensures "glue" code (class headers, function signatures) is preserved for context.</li>
           </ul>
 
-          <h3 className="text-lg font-semibold mt-6">4. Compression (CLaRa)</h3>
+          <AnchorHeading id="compression" level="h3" className="text-lg font-semibold mt-6">4. Compression (CLaRa)</AnchorHeading>
           <p>
             If <strong>CLaRa</strong> is enabled (Pro tier), the assembled text is passed through 
             a specialized compression model. This rewrites verbose documentation and boilerplate 
             into dense, high-entropy summaries, often reducing token count by 10-16x with minimal information loss.
           </p>
 
-          <h3 className="text-lg font-semibold mt-6">5. Formatting</h3>
+          <AnchorHeading id="formatting" level="h3" className="text-lg font-semibold mt-6">5. Formatting</AnchorHeading>
           <p>
             The final output is formatted as XML, Markdown, or JSON, complete with file path citations 
             (<code>@src/file.ts:10-20</code>) that AI editors can parse to provide "Click to Open" links.
           </p>
+
+          <hr className="my-12 border-border" />
+
+          <AnchorHeading id="ui-controls" level="h2">Context Panel Controls</AnchorHeading>
+          <p>
+            The <strong>Context Assembler</strong> panel in the dashboard lets you tune this pipeline for your specific needs.
+          </p>
+
+          <div className="grid gap-6 md:grid-cols-2 mt-8">
+            <div className="rounded-lg border border-border bg-surface p-6">
+              <h4 className="font-semibold text-text mb-2">Retrieval Settings</h4>
+              <ul className="space-y-3 text-sm text-text-muted">
+                <li>
+                  <strong className="text-text">Chunks (k):</strong> Controls how many distinct code blocks are retrieved from the vector database. 
+                  <br/><span className="text-xs">Default: 20. Increase for broad queries, decrease for precision.</span>
+                </li>
+                <li>
+                  <strong className="text-text">Max Chars:</strong> The hard limit for the final output. CoDRAG will stop adding chunks once this budget is hit.
+                  <br/><span className="text-xs">Default: 24,000 chars (fits comfortably in most 32k context windows).</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="rounded-lg border border-border bg-surface p-6">
+              <h4 className="font-semibold text-text mb-2">Output Toggles</h4>
+              <ul className="space-y-3 text-sm text-text-muted">
+                <li>
+                  <strong className="text-text">Sources:</strong> Adds the <code>@path/to/file:line-line</code> citation header to each chunk.
+                  <br/><span className="text-xs">Essential for AI editors to provide clickable links.</span>
+                </li>
+                <li>
+                  <strong className="text-text">Scores:</strong> Appends the relevance score (0.0-1.0) to each chunk.
+                  <br/><span className="text-xs">Useful for debugging why a specific piece of code was included.</span>
+                </li>
+                <li>
+                  <strong className="text-text">Structured:</strong> Returns a JSON object instead of a text blob.
+                  <br/><span className="text-xs">Use this when building programmatic integrations.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </main>

@@ -195,6 +195,11 @@ export function ProjectSettingsPanel({
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-text">Include Patterns</h3>
             <InfoTooltip content="Glob patterns for files to include. This acts as an allowlist (e.g. **/*.ts)." />
+            <InfoTooltip 
+              content="Want to prioritize specific folders? Learn about Path Weights." 
+              href="https://docs.codrag.io/guides/path-weights" 
+              className="ml-2 text-primary"
+            />
           </div>
           <div className="relative group">
             <Button
@@ -404,10 +409,10 @@ export function ProjectSettingsPanel({
         </div>
       </section>
 
-      {/* Cross-Reference Toggle */}
+      {/* Code Graph Toggle */}
       <section className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-text">Cross-Reference</h3>
+          <h3 className="text-sm font-semibold text-text">Code Graph</h3>
           <InfoTooltip content="Enable structural indexing to map symbols, imports, and call relationships." />
         </div>
         <Toggle
@@ -422,7 +427,7 @@ export function ProjectSettingsPanel({
       <section className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold text-text">Auto-Rebuild</h3>
-          <InfoTooltip content="Automatically rebuilds both the Search Index and Cross-Reference Graph when files change." />
+          <InfoTooltip content="Automatically rebuilds both the Search Index and Code Graph when files change." />
         </div>
         <Toggle
           checked={config.auto_rebuild.enabled}
@@ -467,7 +472,7 @@ export function ProjectSettingsPanel({
       <section>
         <div className="flex items-center gap-2 mb-3">
           <h3 className="text-sm font-semibold text-text">Data Storage</h3>
-          <InfoTooltip content="Location of the generated Search Index and Cross-Reference Graph." />
+          <InfoTooltip content="Location of the generated Search Index and Code Graph." />
         </div>
         <div className="rounded-md bg-surface-raised border border-border p-3 text-sm flex items-start gap-3">
           <Database className="w-4 h-4 text-text-muted mt-0.5 shrink-0" />

@@ -1,3 +1,5 @@
+import { AnchorHeading } from '../../components/AnchorHeading';
+
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
@@ -35,8 +37,8 @@ export default function Page() {
           </a>
         </div>
 
-        <div className="mt-16 prose prose-invert max-w-none">
-          <h2>What is MCP?</h2>
+        <div className="mt-16 prose  max-w-none">
+          <AnchorHeading id="what-is-mcp" level="h2">What is MCP?</AnchorHeading>
           <p>
             The <a href="https://modelcontextprotocol.io" target="_blank" className="text-primary hover:underline">Model Context Protocol (MCP)</a> is an open standard that enables AI models to interact with external data and tools.
           </p>
@@ -47,7 +49,7 @@ export default function Page() {
           </p>
           <ul className="list-disc pl-6 space-y-2">
             <li><strong>Search Semantically:</strong> Find code by meaning (&quot;auth logic&quot;) rather than just keywords.</li>
-            <li><strong>Trace Structure:</strong> Follow import paths and function calls (Rust-powered graph).</li>
+            <li><strong>Code Graph:</strong> Follow import paths and function calls (Rust-powered graph).</li>
             <li><strong>Compress Context:</strong> Use CLaRa to fit massive documentation into the prompt.</li>
           </ul>
         </div>

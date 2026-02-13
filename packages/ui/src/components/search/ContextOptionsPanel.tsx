@@ -62,6 +62,10 @@ export function ContextOptionsPanel({
           <div className="flex items-center gap-2">
             <Settings2 className="w-5 h-5 text-primary shrink-0" />
             <Title className="text-text truncate">Context Assembler</Title>
+            <InfoTooltip 
+              content="Learn about context assembly." 
+              href="https://docs.codrag.io/concepts/context" 
+            />
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <Button

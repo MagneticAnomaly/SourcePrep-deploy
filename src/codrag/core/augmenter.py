@@ -30,6 +30,17 @@ AUGMENT_FORMAT_VERSION = "1.0"
 VALID_ROLES = frozenset({
     "entry_point", "handler", "utility", "model", "config",
     "test", "internal", "script", "api", "core", "ui",
+    "documentation",
+})
+
+# Document types for markdown files
+VALID_DOC_TYPES = frozenset({
+    "research", "design_spec", "plan", "guide", "reference",
+    "changelog", "readme", "todo", "status", "analysis", "overview",
+})
+
+VALID_DOC_STATUSES = frozenset({
+    "active", "completed", "shelved", "superseded", "draft", "stale",
 })
 
 
@@ -47,6 +58,9 @@ class AugmentationEntry:
     validated_at: Optional[str] = None
     validated_by: Optional[str] = None
     file_hash: Optional[str] = None  # hash of source when augmented, for staleness
+    related_files: Optional[List[str]] = None  # LLM-hypothesized related files (feeds Pass 0.5)
+    doc_type: Optional[str] = None  # for .md files: research, design_spec, plan, etc.
+    doc_status: Optional[str] = None  # for .md files: active, completed, shelved, etc.
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -65,6 +79,12 @@ class AugmentationEntry:
             d["validated_by"] = self.validated_by
         if self.file_hash:
             d["file_hash"] = self.file_hash
+        if self.related_files:
+            d["related_files"] = self.related_files
+        if self.doc_type:
+            d["doc_type"] = self.doc_type
+        if self.doc_status:
+            d["doc_status"] = self.doc_status
         return d
 
     @classmethod
@@ -81,6 +101,9 @@ class AugmentationEntry:
             validated_at=d.get("validated_at"),
             validated_by=d.get("validated_by"),
             file_hash=d.get("file_hash"),
+            related_files=d.get("related_files"),
+            doc_type=d.get("doc_type"),
+            doc_status=d.get("doc_status"),
         )
 
 
@@ -116,7 +139,7 @@ class LLMClient:
         self.api_key = api_key
         self.timeout = timeout
 
-    def generate(self, prompt: str, system: Optional[str] = None) -> Tuple[str, int]:
+    def generate(self, prompt: str, system: Optional[str] = None, num_predict: int = 1024) -> Tuple[str, int]:
         """
         Call the LLM and return (response_text, tokens_used).
         Raises on network/parse errors.
@@ -129,7 +152,7 @@ class LLMClient:
                 "prompt": prompt,
                 "stream": False,
                 "format": "json",
-                "options": {"temperature": 0.1, "num_predict": 512},
+                "options": {"temperature": 0.1, "num_predict": num_predict},
             }
             if system:
                 payload["system"] = system
@@ -232,15 +255,40 @@ File: {file_path}
 Symbols defined: {symbol_names}
 Imports: {imports}
 
-First 30 lines:
+{content_label}:
 ```
 {head}
 ```
 
 Respond with this exact JSON format:
-{{"summary": "1 sentence file purpose", "role": "utility", "confidence": 0.85, "key_exports": ["symbol1", "symbol2"]}}
+{{"summary": "1 sentence file purpose", "role": "utility", "confidence": 0.85, "key_exports": ["symbol1", "symbol2"], "related_files": ["path/to/related.py"]}}
 
-Where role is one of: api, core, model, utility, config, test, script, ui
+Where role is one of: api, core, model, utility, config, test, script, ui, documentation
+related_files: list up to 5 files this file most likely relates to (by path)
+
+JSON response:"""
+
+DOC_ROLE_SYSTEM = """You are a documentation analyst. You classify documentation files by their type, status, and relationship to the codebase.
+You MUST respond with valid JSON only."""
+
+DOC_ROLE_PROMPT = """Analyze this documentation file.
+
+File: {file_path}
+Sections: {section_names}
+File references found: {file_refs}
+Link targets: {link_targets}
+
+{content_label}:
+```
+{content}
+```
+
+Respond with this exact JSON format:
+{{"summary": "1-2 sentence doc purpose", "role": "documentation", "confidence": 0.85, "doc_type": "design_spec", "doc_status": "active", "related_files": ["src/core/trace.py", "src/core/augmenter.py"]}}
+
+Where doc_type is one of: research, design_spec, plan, guide, reference, changelog, readme, todo, status, analysis, overview
+Where doc_status is one of: active, completed, shelved, superseded, draft, stale
+related_files: list up to 5 code files this doc most closely describes or references
 
 JSON response:"""
 
@@ -271,6 +319,40 @@ def _parse_json_response(text: str) -> Optional[Dict[str, Any]]:
             return json.loads(text[start : end + 1])
         except json.JSONDecodeError:
             pass
+    # Truncated JSON repair: we have '{' but no '}' (LLM output was cut off)
+    if start >= 0 and (end < 0 or end <= start):
+        fragment = text[start:]
+        repaired = _repair_truncated_json(fragment)
+        if repaired is not None:
+            return repaired
+    return None
+
+
+def _repair_truncated_json(fragment: str) -> Optional[Dict[str, Any]]:
+    """Try to recover a dict from a truncated JSON fragment.
+
+    Strategy: progressively strip trailing incomplete content and try
+    closing the string / object.
+    """
+    # Try closing with various suffixes (handles mid-string truncation)
+    for suffix in ('"}', '" }', '}', '"}}', '0}', 'null}'):
+        try:
+            return json.loads(fragment + suffix)
+        except json.JSONDecodeError:
+            continue
+
+    # More aggressive: strip back to the last complete key-value comma boundary
+    # e.g. {"verdict":"corrected","summary":"long text that got tru
+    #  → try to cut at the last comma before the truncation
+    last_comma = fragment.rfind(",")
+    if last_comma > 0:
+        truncated = fragment[:last_comma]
+        for suffix in ("}", '"}'):
+            try:
+                return json.loads(truncated + suffix)
+            except json.JSONDecodeError:
+                continue
+
     return None
 
 
@@ -399,6 +481,67 @@ class TraceAugmenter:
         except Exception:
             return ""
 
+    def _get_strategic_excerpt(
+        self,
+        file_path: str,
+        section_nodes: List[Dict[str, Any]],
+        head_lines: int = 100,
+        section_lines: int = 30,
+        max_total: int = 300,
+    ) -> str:
+        """Read head + top-ranked sections for strategic LLM input.
+
+        Uses Rust-extracted section metadata (ref_count) to select the
+        most important sections from the file, rather than blindly reading
+        the first N lines.
+        """
+        try:
+            full_path = self.repo_root / file_path
+            if not full_path.exists():
+                return ""
+            text = full_path.read_text(encoding="utf-8", errors="ignore")
+            lines = text.splitlines()
+        except Exception:
+            return ""
+
+        # Always include the head
+        head = lines[:head_lines]
+        parts: List[tuple] = [("head", head)]
+        budget = max_total - len(head)
+
+        # Rank sections by importance (ref_count descending, then by depth)
+        ranked = sorted(
+            section_nodes,
+            key=lambda s: (
+                s.get("metadata", {}).get("ref_count", 0),
+                s.get("metadata", {}).get("header_depth", 6),
+            ),
+            reverse=True,
+        )
+
+        for sec in ranked:
+            if budget <= 0:
+                break
+            span = sec.get("span")
+            if not span:
+                continue
+            start = span.get("start_line", 1) - 1  # 0-indexed
+            if start < head_lines:
+                continue  # already covered by head
+            end = min(start + section_lines, span.get("end_line", start + section_lines))
+            end = min(end, len(lines))
+            chunk = lines[start:end]
+            parts.append((sec.get("name", "section"), chunk))
+            budget -= len(chunk)
+
+        # Format with section markers so LLM knows these are excerpts
+        output: List[str] = []
+        for name, chunk in parts:
+            if name != "head":
+                output.append(f"--- [Section: {name}] ---")
+            output.extend(chunk)
+        return "\n".join(output)
+
     def _get_file_imports(self, file_path: str, edges: List[Dict[str, Any]], nodes: Dict[str, Dict[str, Any]]) -> str:
         """Get import statements for a file from trace edges."""
         file_node_id = None
@@ -496,6 +639,51 @@ class TraceAugmenter:
             return True
         return False
 
+    def _get_section_nodes_for_file(
+        self,
+        node_id: str,
+        edges: List[Dict[str, Any]],
+        nodes_by_id: Dict[str, Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """Get section nodes contained by a file node."""
+        sections = []
+        for e in edges:
+            if e.get("source") == node_id and e.get("kind") == "contains":
+                target = nodes_by_id.get(e["target"])
+                if target and target.get("kind") == "section":
+                    sections.append(target)
+        return sections
+
+    def _get_reference_targets(
+        self,
+        node_id: str,
+        edges: List[Dict[str, Any]],
+        nodes_by_id: Dict[str, Dict[str, Any]],
+    ) -> List[str]:
+        """Get file paths referenced by this node via 'references' edges."""
+        targets = []
+        for e in edges:
+            if e.get("source") == node_id and e.get("kind") == "references":
+                target = nodes_by_id.get(e["target"])
+                if target:
+                    targets.append(target.get("file_path", e["target"]))
+        return targets
+
+    def _get_link_targets(
+        self,
+        node_id: str,
+        edges: List[Dict[str, Any]],
+        nodes_by_id: Dict[str, Dict[str, Any]],
+    ) -> List[str]:
+        """Get file paths linked by this node via 'links_to' edges."""
+        targets = []
+        for e in edges:
+            if e.get("source") == node_id and e.get("kind") == "links_to":
+                target = nodes_by_id.get(e["target"])
+                if target:
+                    targets.append(target.get("file_path", e["target"]))
+        return targets
+
     def augment_file(
         self,
         node: Dict[str, Any],
@@ -503,11 +691,33 @@ class TraceAugmenter:
         nodes_by_id: Dict[str, Dict[str, Any]],
         file_hashes: Dict[str, str],
     ) -> Optional[AugmentationEntry]:
-        """Augment a file node with LLM role classification."""
+        """Augment a file node with LLM role classification.
+
+        For markdown files: uses doc-specific prompt with strategic excerpts
+        (head + top-ranked sections by ref_count).
+        For code files: uses standard prompt with file head.
+        """
         file_path = node.get("file_path", "")
         if self._should_skip_file(file_path):
             logger.debug("Skipping build output file: %s", file_path)
             return None
+
+        is_markdown = node.get("language") == "markdown" or file_path.endswith((".md", ".markdown"))
+
+        if is_markdown:
+            return self._augment_markdown_file(node, edges, nodes_by_id, file_hashes)
+        else:
+            return self._augment_code_file(node, edges, nodes_by_id, file_hashes)
+
+    def _augment_code_file(
+        self,
+        node: Dict[str, Any],
+        edges: List[Dict[str, Any]],
+        nodes_by_id: Dict[str, Dict[str, Any]],
+        file_hashes: Dict[str, str],
+    ) -> Optional[AugmentationEntry]:
+        """Augment a code file node with LLM role classification."""
+        file_path = node.get("file_path", "")
         head = self._get_file_head(file_path)
         if not head:
             return None
@@ -517,7 +727,7 @@ class TraceAugmenter:
         for e in edges:
             if e.get("source") == node["id"] and e.get("kind") == "contains":
                 target = nodes_by_id.get(e["target"])
-                if target:
+                if target and target.get("kind") == "symbol":
                     symbol_names.append(target.get("name", ""))
 
         imports = self._get_file_imports(file_path, edges, nodes_by_id)
@@ -526,6 +736,7 @@ class TraceAugmenter:
             file_path=file_path,
             symbol_names=", ".join(symbol_names[:30]) or "(none)",
             imports=imports or "(none)",
+            content_label="First 30 lines",
             head=head,
         )
 
@@ -547,6 +758,12 @@ class TraceAugmenter:
         confidence = float(parsed.get("confidence", 0.5))
         confidence = max(0.0, min(1.0, confidence))
 
+        related = parsed.get("related_files")
+        if isinstance(related, list):
+            related = [str(r) for r in related[:5]]
+        else:
+            related = None
+
         return AugmentationEntry(
             node_id=node["id"],
             summary=str(parsed.get("summary", ""))[:500],
@@ -555,6 +772,91 @@ class TraceAugmenter:
             augmented_at=datetime.now(timezone.utc).isoformat(),
             model=self.llm.model,
             file_hash=file_hashes.get(file_path),
+            related_files=related,
+        )
+
+    def _augment_markdown_file(
+        self,
+        node: Dict[str, Any],
+        edges: List[Dict[str, Any]],
+        nodes_by_id: Dict[str, Dict[str, Any]],
+        file_hashes: Dict[str, str],
+    ) -> Optional[AugmentationEntry]:
+        """Augment a markdown file with doc-specific prompt and strategic excerpts."""
+        file_path = node.get("file_path", "")
+        node_id = node["id"]
+
+        # Get section nodes for strategic excerpt ranking
+        section_nodes = self._get_section_nodes_for_file(node_id, edges, nodes_by_id)
+        section_names = [s.get("name", "") for s in section_nodes]
+
+        # Get Rust-extracted cross-references
+        file_refs = self._get_reference_targets(node_id, edges, nodes_by_id)
+        link_targets = self._get_link_targets(node_id, edges, nodes_by_id)
+
+        # Strategic excerpt: head + top-ranked sections
+        if section_nodes:
+            content = self._get_strategic_excerpt(file_path, section_nodes)
+            content_label = f"Strategic excerpt ({node.get('metadata', {}).get('line_count', '?')} total lines)"
+        else:
+            content = self._get_file_head(file_path, max_lines=100)
+            content_label = "First 100 lines"
+
+        if not content:
+            return None
+
+        prompt = DOC_ROLE_PROMPT.format(
+            file_path=file_path,
+            section_names=", ".join(section_names[:20]) or "(none)",
+            file_refs=", ".join(file_refs[:15]) or "(none)",
+            link_targets=", ".join(link_targets[:15]) or "(none)",
+            content_label=content_label,
+            content=content,
+        )
+
+        try:
+            text, tokens = self.llm.generate(prompt, system=DOC_ROLE_SYSTEM)
+        except Exception as e:
+            logger.warning("LLM call failed for doc %s: %s", file_path, e)
+            return None
+
+        parsed = _parse_json_response(text)
+        if not parsed:
+            logger.warning("Failed to parse LLM response for doc %s — raw: %.200s", file_path, text)
+            return None
+
+        role = parsed.get("role", "documentation")
+        if role not in VALID_ROLES:
+            role = "documentation"
+
+        confidence = float(parsed.get("confidence", 0.5))
+        confidence = max(0.0, min(1.0, confidence))
+
+        doc_type = parsed.get("doc_type")
+        if doc_type not in VALID_DOC_TYPES:
+            doc_type = None
+
+        doc_status = parsed.get("doc_status")
+        if doc_status not in VALID_DOC_STATUSES:
+            doc_status = None
+
+        related = parsed.get("related_files")
+        if isinstance(related, list):
+            related = [str(r) for r in related[:5]]
+        else:
+            related = None
+
+        return AugmentationEntry(
+            node_id=node["id"],
+            summary=str(parsed.get("summary", ""))[:500],
+            role=role,
+            confidence=confidence,
+            augmented_at=datetime.now(timezone.utc).isoformat(),
+            model=self.llm.model,
+            file_hash=file_hashes.get(file_path),
+            related_files=related,
+            doc_type=doc_type,
+            doc_status=doc_status,
         )
 
     def run(
@@ -652,6 +954,83 @@ class TraceAugmenter:
             result.augmented, result.skipped, result.failed, result.duration_ms / 1000,
         )
         return result
+
+    def run_pass_05(
+        self,
+        trace_handle: Any = None,
+    ) -> Dict[str, Any]:
+        """Pass 0.5: Extract related_files from augmentations, validate via Rust.
+
+        Reads trace_augmented.jsonl, collects all related_files hypotheses,
+        and feeds them to the Rust engine's incorporate_inferred_edges()
+        for validation. Writes trace_inferred_edges.jsonl.
+
+        Args:
+            trace_handle: A codrag_engine.TraceHandle (Rust trace graph).
+                          If None, attempts to import and load from index_dir.
+
+        Returns:
+            Dict with validation stats (accepted, rejected_*, boosted).
+        """
+        if trace_handle is None:
+            try:
+                import codrag_engine
+                trace_handle = codrag_engine.load_trace(str(self.index_dir))
+            except Exception as e:
+                logger.warning("Cannot load Rust trace for Pass 0.5: %s", e)
+                return {"error": str(e)}
+
+        # Load augmentations
+        existing = self.load_existing()
+        if not existing:
+            logger.info("No augmentations found, skipping Pass 0.5")
+            return {"skipped": True, "reason": "no_augmentations"}
+
+        # Collect hypotheses from related_files
+        hypotheses: List[Dict[str, Any]] = []
+        for entry in existing.values():
+            if not entry.related_files:
+                continue
+            for rel_path in entry.related_files:
+                rel_path = rel_path.strip()
+                if not rel_path:
+                    continue
+                hypotheses.append({
+                    "source_node_id": entry.node_id,
+                    "target_file_path": rel_path,
+                    "relationship": "related",
+                    "confidence": entry.confidence,  # use augmentation confidence as edge confidence
+                })
+
+        if not hypotheses:
+            logger.info("No related_files hypotheses found, skipping Pass 0.5")
+            return {"skipped": True, "reason": "no_hypotheses"}
+
+        logger.info("Pass 0.5: validating %d relationship hypotheses", len(hypotheses))
+
+        # Call Rust validation
+        result = trace_handle.incorporate_inferred_edges(hypotheses, min_confidence=0.7)
+
+        # Write inferred edges to file
+        inferred_count = trace_handle.write_inferred_edges(str(self.index_dir))
+
+        stats = dict(result)
+        stats["total_hypotheses"] = len(hypotheses)
+        stats["inferred_edges_written"] = inferred_count
+
+        logger.info(
+            "Pass 0.5 complete: %d accepted, %d rejected (missing_src=%d, missing_tgt=%d, low_conf=%d, dup=%d), %d boosted",
+            stats.get("accepted", 0),
+            stats.get("rejected_missing_source", 0) + stats.get("rejected_missing_target", 0)
+            + stats.get("rejected_low_confidence", 0) + stats.get("rejected_duplicate", 0),
+            stats.get("rejected_missing_source", 0),
+            stats.get("rejected_missing_target", 0),
+            stats.get("rejected_low_confidence", 0),
+            stats.get("rejected_duplicate", 0),
+            stats.get("boosted", 0),
+        )
+
+        return stats
 
     def _write_augmentations(self, entries: Dict[str, AugmentationEntry]) -> None:
         """Write augmentations atomically."""

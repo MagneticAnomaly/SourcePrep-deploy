@@ -1,9 +1,10 @@
 import { cn } from '../../lib/utils';
 import { ModelCard } from './ModelCard';
 import { EndpointManager } from './EndpointManager';
+import { InfoTooltip } from '../primitives/InfoTooltip';
 import type { 
-  LLMConfig, 
-  SavedEndpoint, 
+  LLMConfig,
+  SavedEndpoint,
   EndpointTestResult,
   ModelSource 
 } from '../../types';
@@ -245,6 +246,10 @@ export function AIModelsSettings({
         <h2 className="text-xl font-semibold flex items-center gap-2 text-text">
           <Cpu className="w-6 h-6 text-primary" />
           AI Models
+          <InfoTooltip 
+            content="Learn how to choose and configure models." 
+            href="https://docs.codrag.io/guides/models" 
+          />
         </h2>
         <p className="text-sm text-text-muted mt-1">Configure LLMs for embedding, analysis, and compression</p>
       </div>
@@ -292,7 +297,7 @@ export function AIModelsSettings({
               </svg>
             }
             info="Use a single powerful model here (like Claude/GPT) to handle both Fast and Thinking tasks, or combine a smaller local model with a larger one below."
-            infoLink="https://codrag.dev/docs/guides/models"
+            infoLink="https://docs.codrag.io/guides/models"
             endpoint={config.small_model.endpoint_id}
             model={config.small_model.model}
             endpoints={config.saved_endpoints}

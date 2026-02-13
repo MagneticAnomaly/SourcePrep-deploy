@@ -252,6 +252,7 @@ pub fn detect_language(path: &str) -> Option<&'static str> {
         "java" => Some("java"),
         "c" | "h" => Some("c"),
         "cpp" | "hpp" | "cc" | "cxx" | "hxx" => Some("cpp"),
+        "md" | "markdown" => Some("markdown"),
         _ => None,
     }
 }
@@ -363,7 +364,7 @@ mod tests {
         assert_eq!(detect_language("Main.java"), Some("java"));
         assert_eq!(detect_language("main.c"), Some("c"));
         assert_eq!(detect_language("main.cpp"), Some("cpp"));
-        assert_eq!(detect_language("README.md"), None);
+        assert_eq!(detect_language("README.md"), Some("markdown"));
         assert_eq!(detect_language("data.json"), None);
     }
 

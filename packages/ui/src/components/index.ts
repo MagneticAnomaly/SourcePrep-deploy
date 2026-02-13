@@ -39,7 +39,7 @@ export { ProjectSettingsPanel } from './project/ProjectSettingsPanel';
 // Watch/Auto-Rebuild Components (Phase 03)
 export { WatchStatusIndicator } from './watch/WatchStatusIndicator';
 
-// Trace Index Components (Phase 04)
+// Code Graph Components (Phase 04)
 export { TraceStatusCard } from './trace/TraceStatusCard';
 export { TraceExplorer } from './trace/TraceExplorer';
 export { TraceCoveragePanel } from './trace/TraceCoveragePanel';

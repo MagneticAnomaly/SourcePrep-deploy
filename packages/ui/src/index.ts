@@ -35,8 +35,14 @@ export type {
   DeepAnalysisRunStatus,
   TraceAugmentation,
   AugmentationStatus,
+  EpistemicStatus,
+  ModuleStatus,
+  DeepeningStatus,
   LLMSlotStatus,
   LLMSlotsStatus,
+  GraphEngineStatus,
+  GraphEngineConfig,
+  KnowledgeEmbeddingStatus,
 } from './types';
 
 // Components - Status
@@ -87,8 +93,8 @@ export { WatchStatusIndicator, WatchControlPanel } from './components/watch';
 export type { WatchStatusIndicatorProps, WatchControlPanelProps } from './components/watch';
 
 // Components - Trace (Phase 04)
-export { TraceStatusCard, TraceExplorer, TraceCoveragePanel, TracePipelineStatus } from './components/trace';
-export type { TraceStatusCardProps, TraceExplorerProps, TraceCoveragePanelProps, TracePipelineStatusProps, TraceStageInfo } from './components/trace';
+export { TraceStatusCard, TraceExplorer, TraceCoveragePanel, GraphEnrichmentPipeline, GraphStructurePanel, GraphEnginePanel } from './components/trace';
+export type { TraceStatusCardProps, TraceExplorerProps, TraceCoveragePanelProps, GraphEnrichmentPipelineProps, TraceStageInfo, GraphStructurePanelProps, GraphEnginePanelProps } from './components/trace';
 
 // Components - Layout (Modular Dashboard - Phase 15)
 export { PanelChrome, DashboardGrid, PanelPicker, ModularDashboard, useLayoutPersistence } from './components/layout';

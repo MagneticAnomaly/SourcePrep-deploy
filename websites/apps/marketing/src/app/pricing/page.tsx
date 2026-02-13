@@ -116,7 +116,7 @@ export default function Page() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span><strong>Structural Trace Index</strong> (imports, calls, symbol graphs)</span>
+                <span><strong>Structural Code Graph</strong> (imports, calls, symbol graphs)</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>

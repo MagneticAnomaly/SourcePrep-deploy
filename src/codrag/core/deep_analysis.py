@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -61,6 +62,7 @@ class DeepAnalysisResult:
     tokens_used: int = 0
     duration_ms: float = 0.0
     budget_exhausted: bool = False
+    stop_reason: str = ""  # "complete" | "budget_tokens" | "budget_time" | "budget_items" | "empty_queue"
     errors: List[str] = field(default_factory=list)
 
 
@@ -72,6 +74,7 @@ class DeepAnalysisSchedule:
     frequency: str = "weekly"  # daily | weekly | biweekly | monthly
     day_of_week: int = 0  # 0=Sunday
     hour: int = 2  # 2 AM
+    budget_enabled: bool = True  # False = no limits (recommended for Ollama/local models)
     budget_max_tokens: int = 50_000
     budget_max_minutes: int = 30
     budget_max_items: int = 100
@@ -84,6 +87,7 @@ class DeepAnalysisSchedule:
             "frequency": self.frequency,
             "day_of_week": self.day_of_week,
             "hour": self.hour,
+            "budget_enabled": self.budget_enabled,
             "budget_max_tokens": self.budget_max_tokens,
             "budget_max_minutes": self.budget_max_minutes,
             "budget_max_items": self.budget_max_items,
@@ -98,6 +102,7 @@ class DeepAnalysisSchedule:
             frequency=d.get("frequency", "weekly"),
             day_of_week=int(d.get("day_of_week", 0)),
             hour=int(d.get("hour", 2)),
+            budget_enabled=bool(d.get("budget_enabled", True)),
             budget_max_tokens=int(d.get("budget_max_tokens", 50_000)),
             budget_max_minutes=int(d.get("budget_max_minutes", 30)),
             budget_max_items=int(d.get("budget_max_items", 100)),
@@ -137,10 +142,11 @@ Based ONLY on the ground truth evidence above:
 2. If not, what does the source code actually do?
 3. How confident are you?
 
-Respond with this exact JSON:
+Respond with this exact JSON (keep summary under 1 sentence, max 120 chars):
 {{"verdict": "confirmed", "summary": "corrected summary if needed", "confidence": 0.9, "reasoning": "brief explanation"}}
 
 Where verdict is: confirmed (summary is accurate), corrected (partially wrong, here's the fix), rejected (completely wrong)
+IMPORTANT: Keep ALL string values short. Do not write paragraphs.
 
 JSON response:"""
 
@@ -255,6 +261,7 @@ class DeepAnalysisOrchestrator:
         self,
         llm_client: Any,  # augmenter.LLMClient
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
+        cancel_event: Optional[threading.Event] = None,
     ) -> DeepAnalysisResult:
         """
         Run deep analysis with budget controls.
@@ -268,6 +275,7 @@ class DeepAnalysisOrchestrator:
         queue = self.build_validation_queue()
         if not queue:
             logger.info("Validation queue empty — nothing to validate")
+            result.stop_reason = "empty_queue"
             return result
 
         # Apply item budget
@@ -306,21 +314,32 @@ class DeepAnalysisOrchestrator:
                         augmented[entry.node_id] = entry
 
         for i, item in enumerate(items_to_process):
+            # Check cancellation
+            if cancel_event and cancel_event.is_set():
+                logger.info("Deep analysis cancelled by user")
+                result.stop_reason = "cancelled"
+                break
+
             # Check time budget
             elapsed_min = (time.monotonic() - start) / 60
             if elapsed_min >= budget.budget_max_minutes:
                 logger.info("Time budget exhausted (%.1f min)", elapsed_min)
                 result.budget_exhausted = True
+                result.stop_reason = "budget_time"
                 break
 
             # Check token budget
             if result.tokens_used >= budget.budget_max_tokens:
                 logger.info("Token budget exhausted (%d tokens)", result.tokens_used)
                 result.budget_exhausted = True
+                result.stop_reason = "budget_tokens"
                 break
 
             if progress_callback:
                 progress_callback("deep_validate", i, total)
+
+            if i > 0 and i % 10 == 0:
+                logger.info("Deep analysis progress: %d/%d items validated", i, total)
 
             # Build Tier 0 evidence
             node = nodes_by_id.get(item.node_id)
@@ -358,6 +377,13 @@ class DeepAnalysisOrchestrator:
         # Write updated augmentations
         if result.items_validated > 0:
             self._write_augmentations(augmented)
+
+        # If we processed all items without hitting a budget, mark complete
+        if not result.stop_reason:
+            if result.items_validated >= total:
+                result.stop_reason = "complete"
+            else:
+                result.stop_reason = "budget_items"
 
         result.duration_ms = (time.monotonic() - start) * 1000
         self._write_manifest(result, len(queue))
@@ -410,7 +436,7 @@ class DeepAnalysisOrchestrator:
         )
 
         try:
-            text, tokens = llm_client.generate(prompt, system=VALIDATION_SYSTEM)
+            text, tokens = llm_client.generate(prompt, system=VALIDATION_SYSTEM, num_predict=2048)
         except Exception as e:
             logger.warning("Validation LLM call failed for %s: %s", item.node_name, e)
             return None
@@ -418,7 +444,7 @@ class DeepAnalysisOrchestrator:
         from .augmenter import _parse_json_response
         parsed = _parse_json_response(text)
         if not parsed:
-            logger.warning("Failed to parse validation response for %s", item.node_name)
+            logger.warning("Failed to parse validation response for %s — raw: %.200s", item.node_name, text)
             return None
 
         verdict = parsed.get("verdict", "confirmed")
@@ -519,7 +545,9 @@ class DeepAnalysisOrchestrator:
             "tokens_used": result.tokens_used,
             "duration_ms": round(result.duration_ms, 1),
             "budget_exhausted": result.budget_exhausted,
+            "stop_reason": result.stop_reason,
             "queue_remaining": queue_size - result.items_validated,
+            "queue_total": queue_size,
         }
 
         tmp = tempfile.NamedTemporaryFile(
@@ -538,15 +566,15 @@ class DeepAnalysisOrchestrator:
                 pass
             raise
 
-    def status(self) -> Dict[str, Any]:
-        """Return deep analysis status."""
-        queue = self.build_validation_queue()
-        confidences = [item.current_confidence for item in queue]
-        avg_conf = sum(confidences) / len(confidences) if confidences else 0.0
+    def status(self, include_queue: bool = False) -> Dict[str, Any]:
+        """Return deep analysis status.
 
+        By default reads only the small manifest file (fast).
+        Pass include_queue=True to recompute live queue stats from disk (slower).
+        """
         base: Dict[str, Any] = {
-            "queue_size": len(queue),
-            "avg_confidence": round(avg_conf, 3),
+            "queue_size": 0,
+            "avg_confidence": 0.0,
             "running": False,
         }
 
@@ -557,7 +585,22 @@ class DeepAnalysisOrchestrator:
                 base["last_run_at"] = manifest.get("completed_at")
                 base["last_run_items"] = manifest.get("items_validated", 0)
                 base["last_run_tokens"] = manifest.get("tokens_used", 0)
+                base["stop_reason"] = manifest.get("stop_reason", "")
+                base["budget_exhausted"] = manifest.get("budget_exhausted", False)
+                base["queue_remaining"] = manifest.get("queue_remaining", 0)
+                # Use cached queue stats from manifest if not recomputing
+                if not include_queue:
+                    base["queue_size"] = manifest.get("queue_remaining", 0)
+                    # We don't have cached avg_confidence in manifest, leave at 0
             except Exception:
                 pass
+
+        # Full queue rebuild — expensive on large repos / slow disks
+        if include_queue:
+            queue = self.build_validation_queue()
+            confidences = [item.current_confidence for item in queue]
+            avg_conf = sum(confidences) / len(confidences) if confidences else 0.0
+            base["queue_size"] = len(queue)
+            base["avg_confidence"] = round(avg_conf, 3)
 
         return base

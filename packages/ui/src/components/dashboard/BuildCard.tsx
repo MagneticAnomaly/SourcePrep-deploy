@@ -1,6 +1,7 @@
 import { Card, Title, Text, TextInput } from '@tremor/react';
 import { Play, RefreshCw, Folder } from 'lucide-react';
 import { Button } from '../primitives/Button';
+import { InfoTooltip } from '../primitives/InfoTooltip';
 import { cn } from '../../lib/utils';
 
 export interface BuildCardProps {
@@ -27,7 +28,15 @@ export function BuildCard({
       <div className="flex items-center gap-3 mb-4">
         {!bare && <RefreshCw className={cn("w-6 h-6 text-primary", building && "animate-spin")} />}
         <div className="flex-1">
-          {!bare && <Title className="text-text">Build Index</Title>}
+          {!bare && (
+            <div className="flex items-center gap-2">
+              <Title className="text-text">Build Index</Title>
+              <InfoTooltip 
+                content="Learn how the index is built." 
+                href="https://docs.codrag.io/concepts/indexing" 
+              />
+            </div>
+          )}
           <Text className="text-sm text-text-subtle">
             Manually trigger a rebuild of the index.
           </Text>

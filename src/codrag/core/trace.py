@@ -630,6 +630,13 @@ class TraceBuilder:
                 "last_error": None,
             }
 
+        # Rust engine doesn't write file_hashes — compute them in Python
+        # so that compute_trace_coverage can determine traced/untraced/stale.
+        if "file_hashes" not in manifest:
+            logger.info("Computing file_hashes for Rust-built trace manifest")
+            manifest["file_hashes"] = self._compute_file_hashes()
+            self._write_manifest(manifest)
+
         return manifest
 
     _PRUNE_DIRS = {
@@ -637,6 +644,24 @@ class TraceBuilder:
         "dist", "build", ".next", ".tox", ".mypy_cache",
         ".pytest_cache", ".eggs", "egg-info", ".cargo", "target",
     }
+
+    def _compute_file_hashes(self) -> Dict[str, str]:
+        """Compute content hashes for all eligible files (used to backfill Rust manifests)."""
+        files = self._enumerate_files()
+        file_hashes: Dict[str, str] = {}
+        for file_path in files:
+            rel_path = _to_posix(str(file_path.relative_to(self.repo_root)))
+            try:
+                file_size = file_path.stat().st_size
+                if file_size > self.max_file_bytes:
+                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                        source = f.read(50_000)
+                else:
+                    source = file_path.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                source = ""
+            file_hashes[rel_path] = stable_file_hash(source)
+        return file_hashes
 
     def _enumerate_files(self) -> List[Path]:
         all_files: List[Path] = []
@@ -878,6 +903,14 @@ class TraceIndex:
     def is_loaded(self) -> bool:
         return self._loaded
 
+    def node_count(self) -> int:
+        """Return total number of nodes in the graph."""
+        if not self._loaded:
+            self.load()
+        if self._rust_handle is not None:
+            return self._rust_handle.node_count()
+        return len(self._nodes)
+
     def node_degree(self, node_id: str) -> Tuple[int, int]:
         """Return (in_degree, out_degree) for a node. Works with both Rust and Python backends."""
         if not self._loaded:
@@ -1085,6 +1118,7 @@ def compute_trace_coverage(
 
     # Load trace manifest file_hashes (if exists)
     manifest_path = Path(index_dir) / "trace_manifest.json"
+    nodes_path = Path(index_dir) / "trace_nodes.jsonl"
     manifest_hashes: Dict[str, str] = {}
     manifest_built_at: Optional[str] = None
     if manifest_path.exists():
@@ -1093,6 +1127,57 @@ def compute_trace_coverage(
                 manifest = json.load(f)
             manifest_hashes = manifest.get("file_hashes") or {}
             manifest_built_at = manifest.get("built_at")
+
+            # One-time backfill: Rust engine manifests lack file_hashes.
+            # Recover them from trace_nodes.jsonl so coverage isn't lost.
+            if not manifest_hashes and manifest.get("counts", {}).get("nodes", 0) > 0 and nodes_path.exists():
+                logger.info("Backfilling file_hashes from traced nodes (Rust manifest migration)")
+                try:
+                    traced_paths: List[str] = []
+                    with open(nodes_path, "r", encoding="utf-8") as nf:
+                        for line in nf:
+                            line = line.strip()
+                            if not line:
+                                continue
+                            node = json.loads(line)
+                            if node.get("kind") == "file":
+                                traced_paths.append(node["file_path"])
+
+                    for rel_path in traced_paths:
+                        full = repo_root / rel_path
+                        if not full.exists():
+                            continue
+                        try:
+                            fsize = full.stat().st_size
+                            if fsize > max_file_bytes:
+                                with open(full, "r", encoding="utf-8", errors="ignore") as hf:
+                                    source = hf.read(50_000)
+                            else:
+                                source = full.read_text(encoding="utf-8", errors="ignore")
+                        except Exception:
+                            source = ""
+                        manifest_hashes[rel_path] = stable_file_hash(source)
+
+                    # Persist so this migration only runs once
+                    manifest["file_hashes"] = manifest_hashes
+                    tmp_manifest = tempfile.NamedTemporaryFile(
+                        mode="w", suffix=".json", dir=str(Path(index_dir)),
+                        delete=False, encoding="utf-8",
+                    )
+                    try:
+                        json.dump(manifest, tmp_manifest, indent=2, sort_keys=True)
+                        tmp_manifest.flush()
+                        os.fsync(tmp_manifest.fileno())
+                        tmp_manifest.close()
+                        os.rename(tmp_manifest.name, manifest_path)
+                        logger.info("Backfilled %d file_hashes into manifest", len(manifest_hashes))
+                    except Exception:
+                        try:
+                            os.unlink(tmp_manifest.name)
+                        except OSError:
+                            pass
+                except Exception as e:
+                    logger.warning("file_hashes backfill failed: %s", e)
         except Exception:
             pass
 

@@ -46,5 +46,13 @@ Relevant entries in `../MASTER_TODO.md`:
 - [ ] STR-03 Manifest + format versioning
 - [ ] STR-09 Licensing + feature gating
 
+### Native engine cross-platform builds
+- [ ] P11-I11 Set up GitHub Actions workflow for cross-platform `codrag_engine` wheel builds (see NATIVE_ENGINE_BUILD_STRATEGY.md)
+- [ ] P11-I12 Publish `codrag_engine` to PyPI as optional dependency
+- [ ] P11-I13 Integrate correct platform wheel into Tauri app bundle build
+- [ ] P11-I14 Integrate correct platform wheel into VS Code extension sidecar build
+- [x] P11-I15 Document target matrix and no-Intel-Mac decision
+
 ## Notes / blockers
 - [ ] Decide if App Store is a target for MVP or a later milestone
+- [x] Dev venv is x86_64 (Rosetta) — needs recreation with native ARM Python (see NATIVE_ENGINE_BUILD_STRATEGY.md)

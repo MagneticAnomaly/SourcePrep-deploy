@@ -14,7 +14,7 @@ import type {
   SearchResponse,
   WatchActionResponse,
 } from './types';
-import type { LLMStatus, LicenseStatus, Project, ProjectStatus, TraceCoverage, TraceStatus, WatchStatus, GlobalConfig, ModelStatusResult, ModelReadinessStatus, AugmentationStatus, DeepAnalysisRunStatus, LLMSlotsStatus } from '../types';
+import type { LLMStatus, LicenseStatus, Project, ProjectStatus, TraceCoverage, TraceStatus, WatchStatus, GlobalConfig, ModelStatusResult, ModelReadinessStatus, AugmentationStatus, DeepAnalysisRunStatus, LLMSlotsStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, GraphEngineStatus } from '../types';
 
 export interface FileTreeNode {
   name: string;
@@ -88,6 +88,8 @@ export interface ApiClient {
 
   // License
   getLicense(): Promise<LicenseStatus>;
+  activateLicense(key: string): Promise<LicenseStatus>;
+  deactivateLicense(): Promise<LicenseStatus>;
 
   // Global Config
   getGlobalConfig(): Promise<GlobalConfig>;
@@ -108,6 +110,26 @@ export interface ApiClient {
   runAugmentation(projectId: string, maxItems?: number): Promise<{ started: boolean; task_id: string }>;
   getDeepAnalysisStatus(projectId: string): Promise<DeepAnalysisRunStatus>;
   runDeepAnalysis(projectId: string, opts?: { max_items?: number; max_tokens?: number; max_minutes?: number }): Promise<{ started: boolean; task_id: string }>;
+  cancelDeepAnalysis(projectId: string): Promise<{ cancelled: boolean }>;
+
+  // Graph & index destruction
+  destroyGraph(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
+  destroyIndex(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
+
+  // Epistemic Enrichment, Modules & Deepening
+  getEpistemicStatus(projectId: string): Promise<EpistemicStatus>;
+  runEpistemic(projectId: string, maxItems?: number): Promise<{ started: boolean; task_id: string }>;
+  getModuleStatus(projectId: string): Promise<ModuleStatus>;
+  runModuleSynthesis(projectId: string): Promise<{ started: boolean; task_id: string }>;
+  getDeepeningStatus(projectId: string): Promise<DeepeningStatus>;
+  runDeepening(projectId: string, opts?: { max_iterations?: number; batch_size?: number }): Promise<{ started: boolean; task_id: string }>;
+
+  // Knowledge Embedding (Stage 7)
+  getKnowledgeStatus(projectId: string): Promise<KnowledgeEmbeddingStatus>;
+  runKnowledgeBuild(projectId: string): Promise<{ started: boolean; building: boolean }>;
+
+  // Unified Graph Engine
+  getGraphEngineStatus(projectId: string): Promise<GraphEngineStatus>;
 }
 
 export interface ApiClientConfig {
@@ -315,6 +337,20 @@ export class CodragApiClient implements ApiClient {
     return this.requestEnvelope<LicenseStatus>('/license');
   }
 
+  async activateLicense(key: string): Promise<LicenseStatus> {
+    return this.requestEnvelope<LicenseStatus>('/license/activate', {
+      method: 'POST',
+      body: { key },
+    });
+  }
+
+  async deactivateLicense(): Promise<LicenseStatus> {
+    return this.requestEnvelope<LicenseStatus>('/license/deactivate', {
+      method: 'POST',
+      body: {},
+    });
+  }
+
   // ── Embedding ────────────────────────────────────────────
 
   async getEmbeddingStatus(): Promise<{ available: boolean; model: string; dim: number; downloaded: boolean }> {
@@ -516,6 +552,84 @@ export class CodragApiClient implements ApiClient {
       method: 'POST',
       body: opts ?? {},
     });
+  }
+
+  async cancelDeepAnalysis(projectId: string): Promise<{ cancelled: boolean }> {
+    return this.requestEnvelope<{ cancelled: boolean }>(`/projects/${projectId}/deep-analysis/cancel`, {
+      method: 'POST',
+      body: {},
+    });
+  }
+
+  // ── Graph Destruction ─────────────────────────────────────
+
+  async destroyGraph(projectId: string): Promise<{ deleted: string[]; errors: string[] }> {
+    return this.requestEnvelope<{ deleted: string[]; errors: string[] }>(`/projects/${projectId}/trace/destroy`, {
+      method: 'DELETE',
+    });
+  }
+
+  async destroyIndex(projectId: string): Promise<{ deleted: string[]; errors: string[] }> {
+    return this.requestEnvelope<{ deleted: string[]; errors: string[] }>(`/projects/${projectId}/index/destroy`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ── Epistemic Enrichment ────────────────────────────────────
+
+  async getEpistemicStatus(projectId: string): Promise<EpistemicStatus> {
+    return this.requestEnvelope<EpistemicStatus>(`/projects/${projectId}/epistemic/status`);
+  }
+
+  async runEpistemic(projectId: string, maxItems?: number): Promise<{ started: boolean; task_id: string }> {
+    return this.requestEnvelope<{ started: boolean; task_id: string }>(`/projects/${projectId}/epistemic/run`, {
+      method: 'POST',
+      body: maxItems != null ? { max_items: maxItems } : {},
+    });
+  }
+
+  // ── Module Synthesis ────────────────────────────────────────
+
+  async getModuleStatus(projectId: string): Promise<ModuleStatus> {
+    return this.requestEnvelope<ModuleStatus>(`/projects/${projectId}/modules/status`);
+  }
+
+  async runModuleSynthesis(projectId: string): Promise<{ started: boolean; task_id: string }> {
+    return this.requestEnvelope<{ started: boolean; task_id: string }>(`/projects/${projectId}/modules/run`, {
+      method: 'POST',
+      body: {},
+    });
+  }
+
+  // ── Deepening Loop ─────────────────────────────────────────
+
+  async getDeepeningStatus(projectId: string): Promise<DeepeningStatus> {
+    return this.requestEnvelope<DeepeningStatus>(`/projects/${projectId}/deepening/status`);
+  }
+
+  async runDeepening(projectId: string, opts?: { max_iterations?: number; batch_size?: number }): Promise<{ started: boolean; task_id: string }> {
+    return this.requestEnvelope<{ started: boolean; task_id: string }>(`/projects/${projectId}/deepening/run`, {
+      method: 'POST',
+      body: opts ?? {},
+    });
+  }
+
+  // ── Knowledge Embedding ─────────────────────────────────────
+
+  async getKnowledgeStatus(projectId: string): Promise<KnowledgeEmbeddingStatus> {
+    return this.requestEnvelope<KnowledgeEmbeddingStatus>(`/projects/${projectId}/knowledge/status`);
+  }
+
+  async runKnowledgeBuild(projectId: string): Promise<{ started: boolean; building: boolean }> {
+    return this.requestEnvelope<{ started: boolean; building: boolean }>(`/projects/${projectId}/knowledge/build`, {
+      method: 'POST',
+    });
+  }
+
+  // ── Unified Graph Engine ────────────────────────────────────
+
+  async getGraphEngineStatus(projectId: string): Promise<GraphEngineStatus> {
+    return this.requestEnvelope<GraphEngineStatus>(`/projects/${projectId}/engine/status`);
   }
 }
 

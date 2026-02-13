@@ -1,6 +1,7 @@
 import { cn } from '../../lib/utils';
 import { ExternalLink, Copy, Check } from 'lucide-react';
 import { useState, useCallback } from 'react';
+import { InfoTooltip } from '../primitives/InfoTooltip';
 
 export interface UsageGuidePanelProps {
   className?: string;
@@ -81,7 +82,13 @@ export function UsageGuidePanel({ className, bare = false, docsUrl = 'https://do
     )}>
       {!bare && (
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-text">Quick Start</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-text">Quick Start</h3>
+            <InfoTooltip 
+              content="Learn how to invoke CoDRAG tools." 
+              href="https://docs.codrag.io/getting-started/quick-start" 
+            />
+          </div>
         </div>
       )}
 

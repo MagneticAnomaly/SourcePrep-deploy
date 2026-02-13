@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../primitives/Button';
+import { InfoTooltip } from '../primitives/InfoTooltip';
 import { ProgressIndicator } from '../status/ProgressIndicator';
 import type { TraceCoverageFile, TraceCoverageSummary, TaskProgress } from '../../types';
 
@@ -275,7 +276,11 @@ export function TraceCoveragePanel({
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-text flex items-center gap-2">
               <FileCode className="w-4 h-4" />
-              Cross-Reference Status
+              Graph Status
+              <InfoTooltip 
+                content="Learn about the Code Graph and coverage." 
+                href="https://docs.codrag.io/concepts/code-graph" 
+              />
             </h3>
             <Button
               variant="ghost"

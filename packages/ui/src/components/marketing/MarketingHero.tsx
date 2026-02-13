@@ -189,13 +189,13 @@ function NeoBrutalistHero() {
               <div className="text-text-muted">[mcp] tools loaded: codrag (primary), codrag_search, codrag_trace</div>
               
               <div className="mt-4">
-                <span className="text-primary font-bold">USER:</span> "Trace the auth flow and find where tokens expire"
+                <span className="text-primary font-bold">USER:</span> "Graph the auth flow and find where tokens expire"
               </div>
               
               <div className="bg-primary/10 p-2 border-l-2 border-primary mt-2">
                 <div className="text-xs text-text-subtle mb-1">TOOL CALL: codrag(trace_expand=true)</div>
                 <span className="text-primary">&gt; Found 3 entry points in src/auth/*</span><br/>
-                <span className="text-primary">&gt; Traced 12 downstream calls (Rust Graph)</span>
+                <span className="text-primary">&gt; Traced 12 downstream calls (Rust Code Graph)</span>
               </div>
             </div>
           </div>
@@ -371,7 +371,7 @@ function SplitHero() {
 
         <div className="mt-8 space-y-4">
           <FeaturePoint icon={<Search className="w-5 h-5 text-primary" />} text="Semantic search with built-in embeddings — no Ollama needed" />
-          <FeaturePoint icon={<Layers className="w-5 h-5 text-primary" />} text="Rust-powered Trace Index maps imports, calls, and symbol hierarchies" />
+          <FeaturePoint icon={<Layers className="w-5 h-5 text-primary" />} text="Rust-powered Code Graph maps imports, calls, and symbol hierarchies" />
           <FeaturePoint icon={<Zap className="w-5 h-5 text-primary" />} text="Path weights let you boost core modules and silence noise — instantly" />
           <FeaturePoint icon={<Shield className="w-5 h-5 text-primary" />} text="Optional 10–16× CLaRa compression fits more signal into every prompt" />
         </div>
@@ -496,7 +496,7 @@ function StudioHero() {
           </div>
 
           <div className="absolute top-32 left-0 w-72 bg-surface-raised border border-border p-6 shadow-lg z-10">
-            <h3 className="font-serif text-2xl italic mb-2 flex items-center gap-2"><Eye className="w-5 h-5" /> Structural Trace</h3>
+            <h3 className="font-serif text-2xl italic mb-2 flex items-center gap-2"><Eye className="w-5 h-5" /> Structural Code Graph</h3>
             <p className="font-sans text-sm text-text-muted">
               Rust-powered engine maps imports, call graphs, and symbol hierarchies so AI understands how your code connects.
             </p>
@@ -556,7 +556,7 @@ function YaleHero() {
               </li>
               <li className="flex justify-between">
                 <span>Index</span>
-                <span className="text-text-muted">Vector + Trace</span>
+                <span className="text-text-muted">Vector + Graph</span>
               </li>
               <li className="flex justify-between">
                 <span>Model</span>
@@ -605,7 +605,7 @@ function FocusHero() {
 
         <p className="text-xl md:text-2xl text-text-muted max-w-2xl mx-auto mb-12 leading-relaxed font-medium">
           CoDRAG adds the context intelligence layer your AI tools are missing — built-in embeddings,
-          structural tracing, path weights, and 10–16× compression so Cursor, Windsurf, and Claude Desktop
+          structural code graph, path weights, and 10–16× compression so Cursor, Windsurf, and Claude Desktop
           get the right code, not just more code.
         </p>
 
@@ -638,7 +638,7 @@ function FocusHero() {
           </div>
           <div className="bg-surface p-6 rounded-xl border border-border shadow-sm">
             <div className="w-12 h-12 bg-primary/20 rounded-lg flex items-center justify-center text-2xl mb-4 text-primary"><Eye className="w-6 h-6" /></div>
-            <h3 className="font-bold text-lg text-text mb-2">Structural Trace Index</h3>
+            <h3 className="font-bold text-lg text-text mb-2">Structural Code Graph</h3>
             <p className="text-text-muted">Goes beyond vector search. A Rust engine maps imports, calls, and symbol hierarchies so AI sees how code connects.</p>
           </div>
         </div>

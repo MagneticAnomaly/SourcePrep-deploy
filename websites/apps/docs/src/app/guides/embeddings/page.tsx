@@ -1,4 +1,5 @@
 import { Image as ImageIcon } from 'lucide-react';
+import { AnchorHeading } from '../../../components/AnchorHeading';
 
 export default function Page() {
   return (
@@ -16,7 +17,7 @@ export default function Page() {
 
         {/* How it works */}
         <section className="mt-10">
-          <h2 className="text-2xl font-semibold">How it works</h2>
+          <AnchorHeading id="how-it-works" level="h2">How it works</AnchorHeading>
           <p className="mt-3 text-text-muted leading-relaxed">
             CoDRAG uses <strong>nomic-embed-text-v1.5</strong> — a high-quality, open-source embedding
             model optimised for code and documentation. It runs locally via ONNX Runtime, so there are
@@ -32,7 +33,7 @@ export default function Page() {
 
         {/* Zero-config default */}
         <section className="mt-10">
-          <h2 className="text-2xl font-semibold">Zero-config default</h2>
+          <AnchorHeading id="zero-config-default" level="h2">Zero-config default</AnchorHeading>
           <p className="mt-3 text-text-muted leading-relaxed">
             When you create a project and run your first build, CoDRAG automatically downloads the
             model and starts embedding. No configuration needed.
@@ -46,7 +47,7 @@ export default function Page() {
 
         {/* Pre-download the model */}
         <section className="mt-10">
-          <h2 className="text-2xl font-semibold">Pre-download the model</h2>
+          <AnchorHeading id="pre-download-the-model" level="h2">Pre-download the model</AnchorHeading>
           <p className="mt-3 text-text-muted leading-relaxed">
             If you want to download the model before your first build (e.g. on a restricted network),
             use the download endpoint or the dashboard.
@@ -67,7 +68,7 @@ export default function Page() {
           <div className="mt-2 rounded-lg bg-surface border border-border p-4 font-mono text-sm overflow-x-auto">
             <div>codrag models</div>
           </div>
-          <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface-raised flex flex-col items-center justify-center text-text-muted gap-2">
+          <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface flex flex-col items-center justify-center text-text-muted gap-2">
             <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
               <ImageIcon className="w-6 h-6" />
             </div>
@@ -80,7 +81,7 @@ export default function Page() {
             Go to <strong>Settings → AI Models → Embedding</strong>. If the model is not yet
             downloaded, click the download button. The progress bar shows download status.
           </p>
-          <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface-raised flex flex-col items-center justify-center text-text-muted gap-2">
+          <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface flex flex-col items-center justify-center text-text-muted gap-2">
             <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
               <ImageIcon className="w-6 h-6" />
             </div>
@@ -91,7 +92,7 @@ export default function Page() {
 
         {/* Switching to Ollama */}
         <section className="mt-10">
-          <h2 className="text-2xl font-semibold">Switching to Ollama</h2>
+          <AnchorHeading id="switching-to-ollama" level="h2">Switching to Ollama</AnchorHeading>
           <p className="mt-3 text-text-muted leading-relaxed">
             If you prefer to use Ollama for embeddings (e.g. you already have it running with a
             different model), switch the embedding source in the dashboard:
@@ -110,7 +111,7 @@ export default function Page() {
 
         {/* API Reference */}
         <section className="mt-10">
-          <h2 className="text-2xl font-semibold">API reference</h2>
+          <AnchorHeading id="api-reference" level="h2">API reference</AnchorHeading>
           <div className="mt-4 space-y-4">
             <div className="rounded-lg border border-border bg-surface p-4">
               <div className="font-mono text-sm font-medium">GET /embedding/status</div>

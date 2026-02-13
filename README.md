@@ -8,7 +8,7 @@ AI assistants are only as good as the context they receive. Most tools send frag
 ### Core capabilities
 
 - **Semantic search** — find code by intent, not just keywords. Results are ranked by relevance across every file in the project.
-- **Trace Index** — a structural code graph (symbols, imports, call chains) so agents can reason about *how* code connects, not just *where* it lives.
+- **Code Graph** — a structural code graph (symbols, imports, call chains) so agents can reason about *how* code connects, not just *where* it lives.
 - **Context assembly** — returns bounded, LLM-ready chunks with source attribution. No more "which file was that from?"
 - **MCP for AI tools** — plug into Cursor, Windsurf, Claude Code, VS Code, Gemini CLI, Qwen Code, GitHub Copilot, or JetBrains via Model Context Protocol. The agent gets the same index you do.
 - **Local-first** — your code never leaves your machine. Indexes are built and queried locally; nothing is uploaded.
@@ -142,11 +142,22 @@ CoDRAG is a **local-first, team-ready** application that provides:
 - **Embedded mode** (team): Index stored in project `.codrag/` directory
 - Teams can commit embedded indexes to git to skip initial indexing time
 
-### Trace Index
+### Code Graph
 Beyond keyword/semantic search, CoDRAG builds a **structural graph**:
 - **Nodes:** Files, symbols, classes, functions, endpoints
 - **Edges:** Imports, calls, inheritance relationships
 - Queries: Find all callers of a function, trace import chains, explore class hierarchies
+
+### Graph Enrichment (Multi-Pass Pipeline)
+The structural graph is just the skeleton. A multi-pass enrichment pipeline layers understanding on top:
+- **Pass 0** — Rust parses code (tree-sitter) and docs (Markdown scanner) into a rich graph in ~100ms
+- **Pass 1** — A fast 3b model catalogues every file with summaries, roles, and relationship hypotheses
+- **Pass 0.5** — Rust validates the LLM's hypotheses against the graph (hallucinations discarded, confirmed edges boosted)
+- **Pass 2** — A 14b model enriches each node with domain tags, architecture layer, design patterns, and cross-references
+- **Pass 3** — Cluster synthesis groups files into subsystem modules with entry points and data-flow summaries
+- **Pass 4+** — Continuous deepening: re-enriches nodes whose neighbors changed, converges when all epistemic scores ≥ 0.95
+
+Each node gets an **epistemic score** (0.0–1.0) measuring how well the graph understands it. Scores decay on change, ensuring the graph stays current.
 
 ### LLM Integration
 - **Embeddings:** Ollama (`nomic-embed-text` recommended) for semantic search
@@ -459,13 +470,13 @@ CoDRAG/
 │       ├── core/
 │       │   ├── registry.py     # Project registry (SQLite)
 │       │   ├── embedding.py    # Embedding index
-│       │   ├── trace.py        # Trace index
+│       │   ├── code-graph.py   # Code graph index
 │       │   ├── watcher.py      # File watcher
 │       │   └── llm.py          # LLM coordinator
 │       └── api/
 │           ├── projects.py     # /projects routes
 │           ├── search.py       # /search routes
-│           ├── trace.py        # /trace routes
+│           ├── code-graph.py   # /code-graph routes
 │           └── llm.py          # /llm routes
 ├── dashboard/
 │   ├── src/
@@ -515,7 +526,7 @@ See [PHASES.md](docs/PHASES.md) for the authoritative phase index and [ROADMAP.m
 | **01: Foundation** | Core engine, CLI, basic API | |
 | **02: Dashboard** | UI, project management, search/context views | |
 | **03: Auto-Rebuild** | File watching, incremental builds | |
-| **04: Trace Index** | Symbol extraction, graph queries | |
+| **04: Code Graph** | Symbol extraction, graph queries | |
 | **05: MCP Integration** | IDE tool support | |
 | **06: Team & Enterprise** | Embedded mode + enterprise guardrails | |
 | **07: Polish & Testing** | Reliability, UX, regression coverage | |

@@ -45,6 +45,7 @@ dependencies = [
     "tokenizers>=0.15.0",
     "huggingface-hub>=0.20.0",
     "pathspec>=0.11.0",
+    "cryptography>=42.0.0",
 ]
 
 [project.optional-dependencies]

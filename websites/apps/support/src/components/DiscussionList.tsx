@@ -53,7 +53,7 @@ export function DiscussionList({ discussions }: DiscussionListProps) {
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 text-xs text-text-subtle mb-1">
-                  <span className="flex items-center gap-1 bg-surface-raised px-1.5 py-0.5 rounded border border-border">
+                  <span className="flex items-center gap-1 bg-surface px-1.5 py-0.5 rounded border border-border">
                     {discussion.category.emoji} {discussion.category.name}
                   </span>
                   <span>•</span>
@@ -71,7 +71,7 @@ export function DiscussionList({ discussions }: DiscussionListProps) {
                 </p>
               </div>
               
-              <div className="flex items-center gap-1 text-text-subtle bg-surface-raised px-2 py-1 rounded-full text-xs shrink-0">
+              <div className="flex items-center gap-1 text-text-subtle bg-surface px-2 py-1 rounded-full text-xs shrink-0">
                 <MessageSquare className="w-3.5 h-3.5" />
                 <span>{discussion.comments.totalCount}</span>
               </div>

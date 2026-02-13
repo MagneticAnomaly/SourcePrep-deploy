@@ -1,3 +1,5 @@
+import { AnchorHeading } from '../../../components/AnchorHeading';
+
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
@@ -6,15 +8,17 @@ export default function Page() {
           ← Back to Concepts
         </a>
 
-        <h1 className="mt-6 text-3xl font-bold tracking-tight">Local Indexing</h1>
+        <h1 className="mt-6 text-3xl font-bold tracking-tight">Vector Indexing</h1>
         <p className="mt-4 text-xl text-text-muted">
-          Semantic understanding that runs 100% on your machine.
+          Stage 2 of the Knowledge Pipeline: Creating the searchable semantic layer.
         </p>
 
-        <div className="mt-12 prose prose-invert max-w-none">
-          <h2>The Indexing Pipeline</h2>
+        <div className="mt-12 prose  max-w-none">
+          <AnchorHeading id="pipeline" level="h2">The Indexing Process</AnchorHeading>
           <p>
-            When you add a project to CoDRAG, the daemon triggers a multi-stage indexing process.
+            <strong>Vector Indexing</strong> is the second stage of the <a href="/dashboard#knowledge-pipeline">Knowledge Pipeline</a>. While the Structural Trace (Stage 1) maps the skeleton of your code, Vector Indexing creates the "muscle" that allows for fuzzy semantic search.
+          </p>
+          <p>
             Unlike cloud-based tools, this happens entirely on your localhost.
           </p>
 
@@ -49,7 +53,7 @@ export default function Page() {
             </div>
           </div>
 
-          <h2>Incremental Updates</h2>
+          <AnchorHeading id="incremental" level="h2">Incremental Updates</AnchorHeading>
           <p>
             CoDRAG includes a real-time file watcher (<code>watchdog</code>). When you save a file:
           </p>
@@ -63,12 +67,47 @@ export default function Page() {
             This typically takes &lt;200ms, ensuring your AI always sees the current state of your code.
           </p>
 
-          <h2>Exclusions</h2>
+          <AnchorHeading id="exclusions" level="h2">Exclusions</AnchorHeading>
           <p>
             You can control what gets indexed via the Dashboard or <code>.codrag/ignore</code>.
             Common patterns like <code>node_modules/</code>, <code>dist/</code>, and <code>.git/</code> 
             are ignored by default.
           </p>
+
+          <hr className="my-12 border-border" />
+
+          <AnchorHeading id="ui-controls" level="h2">Dashboard Controls</AnchorHeading>
+          <p>
+            The <strong>Knowledge Base</strong> column in the dashboard gives you visibility and control over this process.
+          </p>
+
+          <AnchorHeading id="status-card" level="h3" className="text-xl font-semibold mt-8 mb-4">Index Status Card</AnchorHeading>
+          <p>
+            The top card provides a real-time health check. Watch for the status badge in the top right:
+          </p>
+          <ul className="list-disc pl-5 mt-2 space-y-2">
+            <li><span className="text-emerald-500 font-medium">Fresh</span>: The index is perfectly synced with your disk.</li>
+            <li><span className="text-amber-500 font-medium">Stale</span>: Files have changed, but the index hasn't updated yet (usually brief during debounce).</li>
+            <li><span className="text-blue-500 font-medium">Building</span>: The background worker is actively processing files.</li>
+          </ul>
+          <p className="mt-4">
+            It also breaks down the index composition:
+          </p>
+          <ul className="list-disc pl-5 mt-2 space-y-2">
+            <li><strong>Code:</strong> Source files (parsed into AST chunks).</li>
+            <li><strong>Instructions:</strong> Markdown, text, and documentation files (parsed by headers).</li>
+            <li><strong>Graph:</strong> Structural nodes (symbols, imports) used for graph traversal.</li>
+          </ul>
+
+          <AnchorHeading id="manual-rebuild" level="h3" className="text-xl font-semibold mt-8 mb-4">Manual Rebuild</AnchorHeading>
+          <p>
+            While the watcher handles 99% of changes, you might need the <strong>Build Index</strong> card for:
+          </p>
+          <ul className="list-disc pl-5 mt-2 space-y-2">
+            <li><strong>Branch Switching:</strong> If you switch git branches and thousands of files change instantly, a manual rebuild ensures everything is caught.</li>
+            <li><strong>Config Changes:</strong> If you change <code>path_weights</code> or exclusion patterns, a rebuild applies them to the entire codebase.</li>
+            <li><strong>Troubleshooting:</strong> If search feels "off", a full rebuild (using the <code>--full</code> flag via CLI or the dashboard button) clears the vector store and starts fresh.</li>
+          </ul>
         </div>
       </div>
     </main>

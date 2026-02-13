@@ -33,6 +33,12 @@
       "args": ["mcp", "--mode", "direct"]
     }
   },
+  "verification": {
+    "pypi": {
+      "package": "codrag",
+      "owner": "EricBintner"
+    }
+  },
   "tools": [
     {
       "name": "codrag_status",

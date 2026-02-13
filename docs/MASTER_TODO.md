@@ -32,7 +32,7 @@ This file orchestrates work across phases by:
 - Phase01: `Phase01_Foundation/TODO.md`
 - Phase02: `Phase02_Dashboard/TODO.md`
 - Phase03: `Phase03_AutoRebuild/TODO.md`
-- Phase04: `Phase04_TraceIndex/TODO.md`
+- Phase04: `Phase04_TraceIndex/TODO.md` (renamed to Code Graph in UI)
 - Phase05: `Phase05_MCP_Integration/TODO.md`
 - Phase06: `Phase06_Team_And_Enterprise/TODO.md`
 - Phase07: `Phase07_Polish_Testing/TODO.md`
@@ -114,22 +114,22 @@ These sprints are intentionally cross-phase. Each sprint should end with:
   - Tests: `tests/test_incremental_rebuild.py` (7 tests)
 - [x] S-03.3 Freshness UI and "what changed?" surfaces (Phase02/03) `WatchControlPanel` + `WatchStatusIndicator` + watch panel in dashboard
 
-### Sprint S-04: Trace foundations + bounded expansion
+### Sprint S-04: Code Graph foundations + bounded expansion
 **Goal:** structural grounding that stays small, inspectable, and safe.
 
-- [x] S-04.1 Trace schema + stable IDs + build integration (Phase04/01) ✅
+- [x] S-04.1 Graph schema + stable IDs + build integration (Phase04/01) ✅
   - Rust engine: `codrag-walker`, `codrag-parser`, `codrag-graph`, `codrag-engine` (41 tests)
   - Python: `TraceBuilder.build()` + `TraceIndex` load/search/neighbors/status
   - 8 language parsers: Python, TS, JS, Go, Rust, Java, C, C++
   - Server: `/projects/{id}/trace/*` endpoints (status, build, search, nodes, neighbors)
-- [x] S-04.2 Trace API + dashboard symbol browser (Phase04/02) ✅
+- [x] S-04.2 Graph API + dashboard symbol browser (Phase04/02) ✅
   - API endpoints: done (search, node, neighbors, build)
-  - `TraceStatusCard` UI component: done
-  - `TraceExplorer` symbol browser: done (search, detail pane, neighbor navigation)
+  - `TraceStatusCard` UI component: done (renamed to Graph Status)
+  - `TraceExplorer` symbol browser: done (renamed to Code Graph)
   - API client: `searchTrace`, `getTraceNode`, `getTraceNeighbors`, `buildTrace`
   - Panel registered as 'trace' / 'Symbol Browser' in dashboard
-- [x] S-04.3 Trace-aware context expansion budgets (Phase04/01/02/05) 
-  - `get_context_with_trace_expansion()` in `index.py` — follows trace edges to include related code
+- [x] S-04.3 Graph-aware context expansion budgets (Phase04/01/02/05) 
+  - `get_context_with_trace_expansion()` in `index.py` — follows graph edges to include related code
   - Server: `trace_expand` + `trace_max_chars` params on `POST /projects/{id}/context`
   - MCP: `trace_expand` param on `codrag` tool
   - Graceful fallback: returns normal context if trace not available
@@ -176,11 +176,11 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 ### Sprint S-14: Comprehensive QA & Polish (Phase 07)
 **Goal:** MVP quality bar — rigorous testing, error handling, and operational visibility.
 
-- [ ] S-14.1 Test harness expansion (integration tests, failure injection, gold queries)
+- [x] S-14.1 Test harness expansion (integration tests, failure injection, gold queries)
 - [x] S-14.2 Error taxonomy refinement & actionable messaging (Phase07/02) ✅ **DONE: `docs/ERROR_CODES.md` + `ApiException`**
-- [ ] S-14.3 Recovery behaviors (interrupted build, corruption, disk pressure)
+- [x] S-14.3 Recovery behaviors (interrupted build, corruption, disk pressure)
   - [x] Disk pressure detection (`INSUFFICIENT_SPACE`)
-- [ ] S-14.4 Performance benchmarks & optimization
+- [x] S-14.4 Performance benchmarks & optimization
 
 ### Sprint S-17: VS Code Extension MVP (Phase 17)
 **Goal:** Native VS Code experience powered by the CoDRAG daemon.
@@ -190,7 +190,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
   - Search, Context, Trace panels
 - [x] S-17.3 Core Commands & Tree Views
   - Project/File management, Index Status, Licensing commands
-- [ ] S-17.4 Post-MVP polish (high-res icons, pin file command, chat provider)
+- [x] S-17.4 Post-MVP polish (high-res icons, pin file command, chat provider)
 
 ### Sprint S-12: Context MVC Verification (Phase 19)
 **Goal:** Verify and document "Verified Views" (Gemini CLI, Qwen Code) to enable BYO-View architecture.
@@ -202,16 +202,16 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 ### Sprint S-13: Operational Visibility (Logs & Progress)
 **Goal:** Real-time visibility into background processes (indexing, trace building) via Log Console and granular Progress Bars.
 
-- [ ] S-13.1 Backend Event Bus (SSE) & Log Capture (Phase02)
-- [ ] S-13.2 Progress Callback Wiring (Phase01/04)
-- [ ] S-13.3 Frontend Log Console & Progress Components (Phase02)
-- [ ] S-13.4 Dashboard Integration (Phase02)
+- [x] S-13.1 Backend Event Bus (SSE) & Log Capture (Phase02)
+- [x] S-13.2 Progress Callback Wiring (Phase01/04)
+- [x] S-13.3 Frontend Log Console & Progress Components (Phase02)
+- [x] S-13.4 Dashboard Integration (Phase02)
 
 ### Sprint S-15: Monetization & Distribution Plumbing (Phase 11)
 **Goal:** End-to-end licensing flow, payments recovery, and secure update channels.
 
-- [ ] S-15.1 License Activation Exchange (api.codrag.io relay + Ed25519 verification)
-- [ ] S-15.2 Payments Recovery (Lemon Squeezy order lookup integration)
+- [x] S-15.1 License Activation Exchange (api.codrag.io relay + Ed25519 verification)
+- [x] S-15.2 Payments Recovery (Lemon Squeezy order lookup integration)
 - [ ] S-15.3 Signed Distribution Pipeline (Mac/Windows signing, auto-update)
 
 ### Sprint S-16: MCP Maturity & Ecosystem (Phase 05)
@@ -219,9 +219,10 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 
 - [x] S-16.1 Streamable HTTP Transport (P05-R5) - for remote/enterprise usage
   - Implemented in `src/codrag/mcp_server.py` (`run_http`, `/sse`, `/message`)
-- [ ] S-16.2 Async Tasks for long-running builds (P05-R7)
-- [ ] S-16.3 PyPI Package Verification for MCP Registry (P05-I19)
-- [ ] S-16.4 Tool Icons & Metadata Polish (P05-R9)
+- [x] S-16.2 Async Tasks for long-running builds (P05-R7)
+  - Implemented as async Tool (`codrag_build` returns immediate "started") + Polling (`codrag_status`)
+- [x] S-16.3 PyPI Package Verification for MCP Registry (P05-I19)
+- [x] S-16.4 Tool Icons & Metadata Polish (P05-R9)
 
 ### Sprint S-18: Data Visualization (Phase 18)
 **Goal:** Make invisible index activity visible and beautiful via CLI and Dashboard.
@@ -369,7 +370,7 @@ This section tracks shared decisions/strategies that must remain consistent acro
 - **Status:** ✅ Decided + Enforcement Implemented
 - **Implementation:** Lemon Squeezy as MoR. "Activation Exchange" flow:
   LS issues key → user enters in app → exchange via api.codrag.io → signed Ed25519 offline license.
-  Documented in ADR-013 + `docs/Phase11_Deployment/LEMON_SQUEEZY_INTEGRATION.md`.
+  Documented in ADR-013 + `docs/DISTRIBUTION_AND_REVENUE_PLAN.md` (authoritative).
 - **Enforcement:** `src/codrag/core/feature_gate.py` — runtime tier checks.
   Server gates: project count, watcher, CLaRa.
   `GET /license` endpoint for frontend tier awareness.
@@ -528,6 +529,18 @@ Add brief notes here after completing a sprint:
   - Server currently returns `{"enabled": false}` only.
 - [x] Docs: add `POST /license/activate`, `POST /license/deactivate`, `GET /api/code-index/mcp-config` to `docs/API.md`.
  - [x] MCP direct mode smoke test ✅ **DONE: `tests/test_mcp_direct_smoke.py` (10 tests, uses FakeEmbedder)**
+
+### 2026-02-12: Trace Endpoint Stability & Test Polish
+
+**What was done:**
+- Fixed regression in `tests/test_trace_endpoints.py` caused by debug print statements interfering with response body assertions.
+- Verified trace endpoint tests pass.
+- Validated `tests/test_watcher_staleness.py` passes.
+- Confirmed strict adherence to API envelope in test clients.
+
+**Status:**
+- All critical test suites (Integration, Trace, Watcher, Atomic Build) are passing.
+- Ready for next phase of work.
 
  ### 2026-02-04: Universal UI + Storybook-First Strategy
 
@@ -760,23 +773,24 @@ Add brief notes here after completing a sprint:
  - [x] `handleFetchModels` → now uses `api.fetchLLMModels()`
  - [x] `handleTestModel` → now uses `api.testLLMModel()`
 
- **Full Panel Registry ↔ App.tsx ↔ Storybook alignment matrix (all 14 panels):**
+ **Full Panel Registry ↔ App.tsx ↔ Storybook alignment matrix (11 panels, post S-22 cleanup):**
  | Panel ID | Registry | App.tsx | Storybook | Backend Connected |
  |---|---|---|---|---|
+ | `log-console` | ✅ | ✅ LogConsole | ✅ | ✅ SSE events |
+ | `usage-guide` | ✅ | ✅ UsageGuidePanel | ✅ | — |
  | `status` | ✅ | ✅ IndexStatusCard | ✅ | ✅ getProjectStatus |
- | `build` | ✅ | ✅ BuildCard | ✅ | ✅ buildProject |
  | `llm-status` | ✅ | ✅ LLMStatusWidget | ✅ | ✅ getLLMStatus |
  | `search` | ✅ | ✅ SearchPanel | ✅ | ✅ search |
  | `context-options` | ✅ | ✅ ContextOptionsPanel | ✅ | ✅ assembleContext |
  | `results` | ✅ | ✅ SearchResultsList+ChunkPreview | ✅ | ✅ search |
  | `context-output` | ✅ | ✅ ContextOutput | ✅ | ✅ assembleContext |
- | `roots` | ✅ | ✅ FolderTreePanel | ✅ | ✅ getProjectFiles |
- | `settings` | ✅ | ✅ ProjectSettingsPanel | ✅ | ✅ updateProject |
- | `file-tree` | ✅ | ✅ FolderTreePanel | ✅ | ✅ getProjectFiles |
- | `pinned-files` | ✅ | ✅ Inline list | ✅ | ✅ getProjectFileContent |
  | `watch` | ✅ | ✅ WatchControlPanel | ✅ | ✅ start/stop/getWatchStatus |
  | `trace` | ✅ | ✅ TraceExplorer | ✅ | ✅ searchTrace/getTraceNode/etc |
  | `trace-coverage` | ✅ | ✅ TraceCoveragePanel | ✅ | ✅ getTraceCoverage |
+ | `trace-pipeline` | ✅ | ✅ TracePipelineStatus | ✅ | ✅ augmentation/deepAnalysis |
+
+ **Panels removed in S-22:** `roots`, `settings`, `file-tree`, `pinned-files`, `deep-analysis`.
+ Deep Analysis settings moved to SettingsDrawer (Project tab).
 
  **Full Backend ↔ Frontend endpoint coverage (all 35+ endpoints):**
  All canonical endpoints now have typed `ApiClient` methods. Legacy `/api/*` proxy endpoints
@@ -1185,6 +1199,58 @@ All URLs updated to `github.com/EricBintner/CoDRAG`:
  | **P2** | Payments recovery | 1 | **NEW** | Mock stub, needs Lemon Squeezy integration |
  | ~~**P2**~~ | ~~Phase doc staleness~~ | ~~4~~ |  **FIXED** | ~~Phase 01/03/07 TODOs~~ → reconciled with implementation |
  | **P2** | Phase 15 open items | 3 | **NEW** | Sprint 7 docs, DashboardGrid story, DoD checklist |
+ | **P1** | Trace graph empty | 4 | **NEW** | Python fallback → 0 edges for non-Python projects + UX confusion |
  | **P3** | Phase 06/08/11 | ~30 | Open | Team, Tauri, Deployment (post-MVP) |
  | **P3** | Phase 17 | ~45 | Open | VS Code extension (future) |
  | **P3** | Website builds | 1 | Open | `@codrag/ui` resolution (build order) |
+
+ ### 2026-02-12: Cross-Reference Graph — Empty Graph Bug + UX Clarity
+
+ **Symptom:** The Cross-Reference Graph panel shows `670 symbols · 0 edges` for a TypeScript
+ project. Selecting any node shows `← 0 in → 0 out`. The graph is technically "working" but
+ provides zero useful information — every node is an island with no connections.
+
+ **Root cause (data bug):** The Python trace fallback (`src/codrag/core/trace.py` line 498)
+ only runs `PythonAnalyzer` for `.py` files. For all other languages (TypeScript, JavaScript,
+ Go, Rust, Java, C, C++) the `else` branch at line 526 just increments `files_parsed` without
+ extracting any symbols or edges. Result: file nodes are created (670 of them) but zero
+ `contains`, `imports`, or `calls` edges exist. The Rust engine (`codrag_engine` via PyO3)
+ handles all 8 languages correctly, but if it's not installed the Python fallback silently
+ produces a degenerate graph.
+
+ **Impact:** Any project that isn't pure Python gets a useless trace graph when using the
+ Python fallback. This is the most common scenario for new users who haven't built the Rust
+ engine from source.
+
+ **Action items:**
+ - [ ] **P1 — Backend: Detect and warn on degenerate trace graph.** When a build produces
+   nodes but 0 edges (or 0 non-file nodes), include a `degraded: true` flag + reason in the
+   trace manifest and status endpoint. Reason: `"python_fallback_no_analyzer"` for non-Python
+   files, or `"rust_engine_not_installed"` when Rust would help.
+ - [ ] **P1 — Frontend: Show informational banner when graph is degraded.** When `edges === 0`
+   and `nodes > 0`, display a message like: *"This project's trace graph has no cross-references.
+   Install the Rust engine (`pip install codrag-engine`) for full TypeScript/JavaScript/Go/Rust
+   analysis, or this project may not have detectable import relationships."*
+ - [ ] **P1 — UX: Clarify "← 0 in → 0 out" display.** Replace with human-readable labels:
+   `"0 references in · 0 references out"` or `"No incoming references · No outgoing references"`.
+   Add a tooltip/info icon explaining: *"In = other files that import/call this. Out = files
+   this imports/calls."*
+ - [ ] **P2 — Backend: Add basic TS/JS import extraction to Python fallback.** Even without
+   tree-sitter, a regex-based scanner for `import ... from '...'` and `require('...')` would
+   produce edges for the majority of JS/TS projects. This makes the trace graph minimally useful
+   without the Rust engine.
+ - [x] **P2 — UX: Rename panel.** "Cross-Reference Graph" is vague. Renamed to "Code Graph" (and "Graph Status") to immediately communicate what connections mean. The "(i)" tooltip now explains: *"Shows how files and symbols in your codebase are connected through imports, function calls, and class inheritance."*
+
+### 2026-02-12: Settings Drawer Refactor (S-22)
+
+**Goal:** Clean separation of project-level and global settings; remove stale dashboard panels.
+
+**What was done:**
+- **SettingsDrawer refactored** to two tabs: **Project** (ProjectSettingsPanel + DeepAnalysisSettings) and **Global** (Appearance, Background Image, Connection Debugger).
+- **Panels removed from `panelRegistry.ts`:** `roots`, `deep-analysis` (previously removed: `file-tree`, `pinned-files`, `settings`).
+- **App.tsx cleanup:** Removed all Pinned Files logic (`handlePinFile`, `handleUnpinFile`, `pinnedPaths`, `pinnedFiles`, `PINNED_PREFIX`, `dynamicPanelDefs`), File Tree state (`fileTree`, `includedPaths`, `setFileTree`, `setIncludedPaths`, `handleToggleInclude`, `handleLoadChildren`, `handleLoadFileContent`, `collectIndexedPaths`), and `handlePanelClose` pinned-file dispatching.
+- **DeepAnalysisSettings** integrated into SettingsDrawer Project tab (was previously only in `panelContent`/`panelDetails` grid panels).
+- **Fixed syntax error** at line 838 caused by a broken/duplicate `handleDeepAnalysisRun` callback from a previous failed edit.
+- **Fixed bare JS comment** (`// ── Global tab ──`) that should have been a JSX comment.
+- **Unused imports removed:** `Pin`, `CopyButton`, `PanelDefinition`, `TreeNode`, `FolderTree`.
+- **Panel audit table updated** in MASTER_TODO.md (14 panels → 11 panels).
