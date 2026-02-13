@@ -104,7 +104,7 @@ src/codrag/dashboard/src/
 **App.tsx:** 2,461 → 946 lines (−62%)
 
 ## 5. Backend Refactoring Strategy
-**Target:** `src/codrag/server.py` (4,351 lines).
+**Target:** `src/codrag/server.py` (4,352 lines → 2,874 lines, −34%).
 
 ### 5.1 Problem Statement
 `server.py` has become a monolith containing:
@@ -117,11 +117,12 @@ src/codrag/dashboard/src/
 ### 5.2 Proposed Split (Router Pattern)
 Use `APIRouter` to split endpoints into modules under `src/codrag/api/routers/`.
 
-*   `routers/projects.py`: CRUD, status, config.
-*   `routers/trace.py`: All `/projects/{id}/trace/*` endpoints.
-*   `routers/knowledge.py`: Knowledge index endpoints.
-*   `routers/llm.py`: Proxy endpoints, model status.
-*   `routers/system.py`: Health, events, license, global config.
+*   `routers/projects.py`: CRUD, status, config. *(pending — Sprint 15)*
+*   `routers/trace.py`: All `/projects/{id}/trace/*` + enrichment endpoints. ✅
+*   `routers/knowledge.py`: Knowledge index + engine status endpoints. ✅
+*   `routers/llm.py`: Proxy endpoints, model status. *(pending — Sprint 13)*
+*   `routers/system.py`: Health, events, global config. ✅
+*   `routers/license.py`: License CRUD. ✅
 
 ### 5.3 Service Layer Extraction
 Move the heavy thread management and locking logic out of the HTTP layer.
@@ -133,10 +134,24 @@ Move the heavy thread management and locking logic out of the HTTP layer.
     *   Manage `ProjectRegistry` interaction and cache invalidation.
 
 ### 5.4 Execution Plan
-1.  Create `src/codrag/api/routers/__init__.py`.
-2.  Move Trace endpoints (lines ~2000-2800) to `routers/trace.py`.
-3.  Move Knowledge endpoints to `routers/knowledge.py`.
-4.  Extract `BuildManager` class to encapsulate the 10+ global variables managing threads.
+1.  ~~Create `src/codrag/api/routers/__init__.py`.~~ ✅
+2.  ~~Move Trace endpoints to `routers/trace.py`.~~ ✅
+3.  ~~Move Knowledge endpoints to `routers/knowledge.py`.~~ ✅
+4.  Extract `BuildManager` class to encapsulate the 10+ global variables managing threads. *(Sprint 14)*
+
+### 5.5 Backend Extraction Results (Sprints 9–12)
+
+| Sprint | Extraction | File | Lines |
+|--------|-----------|------|-------|
+| S9 | System (health, events, config, MCP) | `routers/system.py` | 282 |
+| S10 | License (activate, deactivate) | `routers/license.py` | 191 |
+| S11 | Trace + enrichment pipeline (trace, augment, deep-analysis, epistemic, modules, deepening, destroy) | `routers/trace.py` | 1,145 |
+| S12 | Knowledge (status, build, engine status) | `routers/knowledge.py` | 160 |
+
+**server.py:** 4,352 → 2,874 lines (−34%)
+
+Each router file includes a header docstring documenting: origin lines, endpoints moved,
+shared state accessed from server.py, and Phase 24 state machine integration notes.
 
 ## 6. Secondary Targets & Observations
 
