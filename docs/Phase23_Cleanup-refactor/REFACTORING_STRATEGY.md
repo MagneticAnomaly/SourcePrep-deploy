@@ -145,10 +145,13 @@ Move the heavy thread management and locking logic out of the HTTP layer.
 |--------|-----------|------|-------|
 | S9 | System (health, events, config, MCP) | `routers/system.py` | 282 |
 | S10 | License (activate, deactivate) | `routers/license.py` | 191 |
-| S11 | Trace + enrichment pipeline (trace, augment, deep-analysis, epistemic, modules, deepening, destroy) | `routers/trace.py` | 1,145 |
-| S12 | Knowledge (status, build, engine status) | `routers/knowledge.py` | 160 |
+| S11 | Trace + enrichment pipeline | `routers/trace.py` | 1,145 |
+| S12 | Knowledge (status, build, engine) | `routers/knowledge.py` | 160 |
+| S13 | LLM (proxy, embedding, clara, slots) | `routers/llm.py` | 662 |
+| S14 | BuildManager service (threads, locks, caches) | `services/build_manager.py` | 446 |
+| S15 | Projects (CRUD, build, search, context, watch, files) | `routers/projects.py` | 1,231 |
 
-**server.py:** 4,352 → 2,874 lines (−34%)
+**server.py:** 4,352 → 1,742 lines (−60%)
 
 Each router file includes a header docstring documenting: origin lines, endpoints moved,
 shared state accessed from server.py, and Phase 24 state machine integration notes.
