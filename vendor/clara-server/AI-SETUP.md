@@ -167,7 +167,8 @@ print(result["answer"])
 {
   "memories": ["string array of documents"],
   "query": "question to answer from memories",
-  "max_new_tokens": 128
+  "max_new_tokens": 128,
+  "keep_alive": 300
 }
 ```
 
