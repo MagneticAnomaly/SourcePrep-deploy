@@ -248,8 +248,8 @@ def _is_project_trace_building(project_id: str) -> bool:
 def _is_project_knowledge_building(project_id: str) -> bool:
     return _bm.is_project_knowledge_building(project_id)
 
-def _start_project_build(project: Project, roots, include_globs, exclude_globs, max_file_bytes: int, hard_limit_bytes: int, use_gitignore: bool = False) -> bool:
-    return _bm.start_project_build(project, roots, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes, use_gitignore)
+def _start_project_build(project: Project, roots, include_globs, exclude_globs, max_file_bytes: int, hard_limit_bytes: int, use_gitignore: bool = False, included_paths=None) -> bool:
+    return _bm.start_project_build(project, roots, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes, use_gitignore, included_paths=included_paths)
 
 def _start_project_trace_build(project: Project, include_globs=None, exclude_globs=None, max_file_bytes: int = 500_000, hard_limit_bytes: int = 100_000_000, use_gitignore: bool = False) -> bool:
     return _bm.start_project_trace_build(project, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes, use_gitignore)

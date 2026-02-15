@@ -60,19 +60,6 @@ function deriveStatus(ps: ProjectStatus | null, building: boolean): StatusState 
   return 'pending'
 }
 
-/** Recursively collect paths of files that are indexed or pending in the tree. */
-function collectIndexedPaths(nodes: TreeNode[], prefix = ''): string[] {
-  const result: string[] = []
-  for (const node of nodes) {
-    const p = prefix ? `${prefix}/${node.name}` : node.name
-    if (node.type === 'file' && (node.status === 'indexed' || node.status === 'pending')) {
-      result.push(p)
-    }
-    if (node.children) result.push(...collectIndexedPaths(node.children, p))
-  }
-  return result
-}
-
 function toProjectSummary(p: ProjectListItem, ps: ProjectStatus | null, building: boolean): ProjectSummary {
   return {
     id: p.id,
@@ -180,6 +167,15 @@ function App() {
   // ── Index inclusion state (which files are included in the knowledge scope) ──
   const [includedPaths, setIncludedPaths] = useState<Set<string>>(() => {
     try {
+      // Migration v2: clear stale data from before folder-aware toggle fix.
+      // Old data had orphaned deep file paths that were never removed when a
+      // parent folder was unchecked (because the tree was lazy-loaded).
+      const version = localStorage.getItem('codrag_included_paths_version')
+      if (version !== '2') {
+        localStorage.removeItem('codrag_included_paths')
+        localStorage.setItem('codrag_included_paths_version', '2')
+        return new Set()
+      }
       const stored = localStorage.getItem('codrag_included_paths')
       return stored ? new Set(JSON.parse(stored)) : new Set()
     } catch { return new Set() }
@@ -195,6 +191,15 @@ function App() {
   const [pinnedFiles, setPinnedFiles] = useState<PinnedTextFile[]>([])
 
   const layoutApiRef = useRef<DashboardLayoutApi | null>(null)
+
+  // Ref for fetchFileTree (defined later) so useTraceSystem can call it after destroy
+  const fetchFileTreeRef = useRef<((projId: string) => Promise<void>) | null>(null)
+
+  // Callback to clear included paths (used by handleDestroyIndex)
+  const clearIncludedPaths = useCallback(() => {
+    setIncludedPaths(new Set())
+    localStorage.removeItem('codrag_included_paths')
+  }, [])
 
   // ── Watch (hook) ─────────────────────────────────────────────
   const {
@@ -299,6 +304,8 @@ function App() {
     startWatch: handleStartWatch,
     stopWatch: handleStopWatch,
     refreshWatchStatus,
+    refreshFileTree: (projId: string) => fetchFileTreeRef.current?.(projId) ?? Promise.resolve(),
+    clearIncludedPaths,
   })
 
   // ── LLM config (hook) ───────────────────────────────────────
@@ -343,28 +350,42 @@ function App() {
   const indexAutoRebuildRef = useRef(indexAutoRebuild)
   indexAutoRebuildRef.current = indexAutoRebuild
 
+  // Ref to track includedPaths for use in handleBuild callback
+  const includedPathsRef = useRef(includedPaths)
+  includedPathsRef.current = includedPaths
+
   const handleBuild = useCallback(async () => {
     if (!selectedProjectId) return
     try {
       setBuildingProjects((prev) => new Set(prev).add(selectedProjectId))
-      await api.buildProject(selectedProjectId)
+      // Pass file tree selections to backend so only selected files are indexed
+      const paths = [...includedPathsRef.current]
+      await api.buildProject(selectedProjectId, false, paths.length > 0 ? paths : undefined)
       // Poll status until build completes
       const poll = setInterval(async () => {
-        const status = await api.getProjectStatus(selectedProjectId)
-        setProjectStatuses((prev) => ({ ...prev, [selectedProjectId]: status }))
-        if (!status.building) {
-          clearInterval(poll)
-          setBuildingProjects((prev) => {
-            const next = new Set(prev)
-            next.delete(selectedProjectId)
-            return next
-          })
-          // Refresh status after build
-          void refreshStatus(selectedProjectId)
-          // If Auto mode is on, start the watcher after initial build
-          if (indexAutoRebuildRef.current) {
-            handleStartWatch().then(() => refreshWatchStatus(selectedProjectId)).catch(() => {})
+        try {
+          const status = await api.getProjectStatus(selectedProjectId)
+          setProjectStatuses((prev) => ({ ...prev, [selectedProjectId]: status }))
+          if (!status.building) {
+            clearInterval(poll)
+            setBuildingProjects((prev) => {
+              const next = new Set(prev)
+              next.delete(selectedProjectId)
+              return next
+            })
+            // Refresh status after build
+            void refreshStatus(selectedProjectId)
+            // Refresh file tree to update indexed/pending statuses in UI
+            void fetchFileTree(selectedProjectId)
+            
+            // If Auto mode is on, start the watcher after initial build
+            if (indexAutoRebuildRef.current) {
+              handleStartWatch().then(() => refreshWatchStatus(selectedProjectId)).catch(() => {})
+            }
           }
+        } catch (e) {
+          // Ignore transient errors, keep polling
+          console.warn('Poll failed', e)
         }
       }, 2000)
     } catch (e) {
@@ -495,8 +516,10 @@ function App() {
       const data = await api.getProjectFiles(projId)
       const tree = data.tree as TreeNode[]
       setFileTree(tree)
-      // Merge server-reported indexed/pending paths into includedPaths
-      // so already-indexed files aren't shown as "Removing" after restart
+      // Removed: Do not merge server-reported indexed/pending paths into includedPaths.
+      // This prevents "zombie" checks where a file the user unchecked (but is still in index)
+      // gets re-checked automatically. includedPaths should strictly reflect user intent/localStorage.
+      /*
       const serverPaths = collectIndexedPaths(tree)
       if (serverPaths.length > 0) {
         setIncludedPaths((prev) => {
@@ -511,10 +534,12 @@ function App() {
           return changed ? next : prev
         })
       }
+      */
     } catch {
       setFileTree([])
     }
   }, [api])
+  fetchFileTreeRef.current = fetchFileTree
 
   const handleLoadChildren = useCallback(async (path: string): Promise<TreeNode[]> => {
     if (!selectedProjectId) return []
@@ -534,7 +559,14 @@ function App() {
       if (action === 'add') {
         paths.forEach((p) => next.add(p))
       } else {
+        // Remove the explicit paths AND any descendants (handles unloaded lazy-tree children)
+        const prefixes = paths.map((p) => p + '/')
         paths.forEach((p) => next.delete(p))
+        for (const existing of [...next]) {
+          if (prefixes.some((prefix) => existing.startsWith(prefix))) {
+            next.delete(existing)
+          }
+        }
       }
       localStorage.setItem('codrag_included_paths', JSON.stringify([...next]))
       return next

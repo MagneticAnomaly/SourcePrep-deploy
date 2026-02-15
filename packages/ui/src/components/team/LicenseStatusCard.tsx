@@ -13,7 +13,7 @@ export interface LicenseStatusCardProps {
 
 const tierConfig: Record<LicenseTier, { label: string; color: string }> = {
   free: { label: 'Free', color: 'bg-surface-raised text-text-muted border-border' },
-  starter: { label: 'Starter', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400' },
+  starter: { label: 'Pro', color: 'bg-primary-muted/10 text-primary border-primary-muted/20' },
   pro: { label: 'Pro', color: 'bg-primary-muted/10 text-primary border-primary-muted/20' },
   team: { label: 'Team', color: 'bg-success-muted/10 text-success border-success-muted/20' },
   enterprise: { label: 'Enterprise', color: 'bg-purple-500/10 text-purple-600 border-purple-500/20 dark:text-purple-400' },

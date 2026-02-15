@@ -42,7 +42,6 @@ const THEME_OPTIONS = [
 const DEV_TIER_OPTIONS = [
   { value: '', label: 'Off (use real license)' },
   { value: 'free', label: 'Free' },
-  { value: 'starter', label: 'Starter' },
   { value: 'pro', label: 'Pro' },
   { value: 'team', label: 'Team' },
   { value: 'enterprise', label: 'Enterprise' },

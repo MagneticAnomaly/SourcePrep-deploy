@@ -41,7 +41,7 @@ export interface ApiClient {
 
   // Project status & build
   getProjectStatus(projectId: string): Promise<ProjectStatus>;
-  buildProject(projectId: string, full?: boolean): Promise<BuildProjectResponse>;
+  buildProject(projectId: string, full?: boolean, includedPaths?: string[]): Promise<BuildProjectResponse>;
 
   // Search & context
   search(projectId: string, request: SearchRequest): Promise<SearchResponse>;
@@ -228,10 +228,11 @@ export class CodragApiClient implements ApiClient {
     return this.requestEnvelope<ProjectStatus>(`/projects/${encodeURIComponent(projectId)}/status`);
   }
 
-  async buildProject(projectId: string, full = false): Promise<BuildProjectResponse> {
+  async buildProject(projectId: string, full = false, includedPaths?: string[]): Promise<BuildProjectResponse> {
     return this.requestEnvelope<BuildProjectResponse>(`/projects/${encodeURIComponent(projectId)}/build`, {
       method: 'POST',
       query: { full },
+      body: includedPaths?.length ? { included_paths: includedPaths } : undefined,
     });
   }
 
@@ -481,6 +482,8 @@ export class CodragApiClient implements ApiClient {
 
     const headers: Record<string, string> = {
       Accept: 'application/json',
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Pragma': 'no-cache',
     };
 
     if (opts?.body !== undefined) {

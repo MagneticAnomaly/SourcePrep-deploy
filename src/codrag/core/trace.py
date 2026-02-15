@@ -498,6 +498,181 @@ class SwiftAnalyzer:
         )
 
 
+class JSAnalyzer:
+    """
+    Regex-based JavaScript/TypeScript analyzer for extracting imports and symbols.
+    Provides basic relationship extraction for the Python fallback engine.
+    """
+
+    def __init__(self, file_path: str, source: str, repo_root: Path):
+        self.file_path = file_path
+        self.source = source
+        self.repo_root = repo_root
+        self.nodes: List[TraceNode] = []
+        self.edges: List[TraceEdge] = []
+        self._file_node_id = stable_file_node_id(file_path)
+
+    def analyze(self) -> Tuple[List[TraceNode], List[TraceEdge]]:
+        import re
+
+        # --- Import extraction ---
+        # ES module: import ... from 'module'  /  import 'module'
+        es_import = re.compile(
+            r"""^\s*import\s+(?:.*?\s+from\s+)?['"]([^'"]+)['"]""",
+            re.MULTILINE,
+        )
+        # CommonJS: require('module')
+        cjs_require = re.compile(r"""require\(\s*['"]([^'"]+)['"]\s*\)""")
+        # Dynamic import: import('module')
+        dynamic_import = re.compile(r"""import\(\s*['"]([^'"]+)['"]\s*\)""")
+        # Re-export: export ... from 'module'
+        re_export = re.compile(
+            r"""^\s*export\s+(?:.*?\s+from\s+)['"]([^'"]+)['"]""",
+            re.MULTILINE,
+        )
+
+        seen_imports: set = set()
+        for pattern in (es_import, cjs_require, dynamic_import, re_export):
+            for match in pattern.finditer(self.source):
+                module = match.group(1).strip()
+                if not module or module in seen_imports:
+                    continue
+                seen_imports.add(module)
+                lineno = self.source.count("\n", 0, match.start()) + 1
+
+                # Try to resolve relative imports to a file node
+                if module.startswith("."):
+                    resolved = self._resolve_relative(module)
+                    if resolved:
+                        target_id = stable_file_node_id(resolved)
+                        disambiguator = f"{module}:{lineno}"
+                        edge_id = stable_edge_id("imports", self._file_node_id, target_id, disambiguator)
+                        self.edges.append(
+                            TraceEdge(
+                                id=edge_id,
+                                kind="imports",
+                                source=self._file_node_id,
+                                target=target_id,
+                                metadata={"confidence": 0.7, "import": module, "line": lineno, "relative": True},
+                            )
+                        )
+                        continue
+
+                # External / unresolved → external_module node
+                self._add_import(module, lineno)
+
+        # --- Symbol extraction ---
+        # function declarations: function name(  /  async function name(
+        func_pattern = re.compile(
+            r"^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)",
+            re.MULTILINE,
+        )
+        # class declarations: class Name
+        class_pattern = re.compile(
+            r"^\s*(?:export\s+)?(?:default\s+)?(?:abstract\s+)?class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)",
+            re.MULTILINE,
+        )
+        # interface/type/enum (TypeScript): interface Name / type Name / enum Name
+        ts_pattern = re.compile(
+            r"^\s*(?:export\s+)?(?:declare\s+)?(interface|type|enum)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)",
+            re.MULTILINE,
+        )
+        # const/let/var exports: export const name =
+        const_export = re.compile(
+            r"^\s*export\s+(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)",
+            re.MULTILINE,
+        )
+
+        for match in func_pattern.finditer(self.source):
+            name = match.group(1)
+            is_async = "async" in match.group(0)
+            start_line = self.source.count("\n", 0, match.start()) + 1
+            self._add_symbol(name, "async_function" if is_async else "function", start_line)
+
+        for match in class_pattern.finditer(self.source):
+            name = match.group(1)
+            start_line = self.source.count("\n", 0, match.start()) + 1
+            self._add_symbol(name, "class", start_line)
+
+        for match in ts_pattern.finditer(self.source):
+            kind = match.group(1)  # interface, type, or enum
+            name = match.group(2)
+            start_line = self.source.count("\n", 0, match.start()) + 1
+            self._add_symbol(name, kind, start_line)
+
+        for match in const_export.finditer(self.source):
+            name = match.group(1)
+            start_line = self.source.count("\n", 0, match.start()) + 1
+            self._add_symbol(name, "variable", start_line)
+
+        return self.nodes, self.edges
+
+    def _add_symbol(self, name: str, symbol_type: str, start_line: int) -> None:
+        node_id = stable_symbol_node_id(name, self.file_path, start_line)
+        lang = "typescript" if self.file_path.endswith((".ts", ".tsx")) else "javascript"
+        self.nodes.append(
+            TraceNode(
+                id=node_id,
+                kind="symbol",
+                name=name,
+                file_path=self.file_path,
+                span={"start_line": start_line, "end_line": start_line},
+                language=lang,
+                metadata={"symbol_type": symbol_type, "qualname": name},
+            )
+        )
+        edge_id = stable_edge_id("contains", self._file_node_id, node_id)
+        self.edges.append(
+            TraceEdge(
+                id=edge_id,
+                kind="contains",
+                source=self._file_node_id,
+                target=node_id,
+                metadata={"confidence": 0.7},
+            )
+        )
+
+    def _add_import(self, module: str, lineno: int) -> None:
+        ext_id = stable_external_module_id(module)
+        disambiguator = f"{module}:{lineno}"
+        edge_id = stable_edge_id("imports", self._file_node_id, ext_id, disambiguator)
+        self.edges.append(
+            TraceEdge(
+                id=edge_id,
+                kind="imports",
+                source=self._file_node_id,
+                target=ext_id,
+                metadata={"confidence": 0.7, "import": module, "line": lineno, "external": True},
+            )
+        )
+
+    def _resolve_relative(self, module: str) -> Optional[str]:
+        """Try to resolve a relative import like './utils' to a file path."""
+        dir_path = Path(self.file_path).parent
+        # Strip leading ./ or ../
+        rel = module
+        extensions = [".ts", ".tsx", ".js", ".jsx", ""]
+        index_files = ["index.ts", "index.tsx", "index.js", "index.jsx"]
+
+        for ext in extensions:
+            candidate = str(dir_path / (rel + ext))
+            candidate = candidate.replace("\\", "/")
+            full = self.repo_root / candidate
+            if full.exists():
+                return candidate
+
+        # Try as directory with index file
+        dir_candidate = dir_path / rel
+        for idx in index_files:
+            candidate = str(dir_candidate / idx)
+            candidate = candidate.replace("\\", "/")
+            full = self.repo_root / candidate
+            if full.exists():
+                return candidate
+
+        return None
+
+
 class TraceBuilder:
     """
     Builds trace index files: trace_manifest.json, trace_nodes.jsonl, trace_edges.jsonl.
@@ -678,6 +853,33 @@ class TraceBuilder:
                     files_failed += 1
                     if len(file_errors) < self.max_failures:
                         file_errors.append(FileError(rel_path, type(e).__name__, str(e)))
+            elif language in ("javascript", "typescript"):
+                try:
+                    analyzer = JSAnalyzer(rel_path, source, self.repo_root)
+                    sym_nodes, sym_edges = analyzer.analyze()
+                    nodes.extend(sym_nodes)
+
+                    for edge in sym_edges:
+                        if edge.metadata.get("external"):
+                            ext_name = str(edge.metadata.get("import", ""))
+                            if ext_name and ext_name not in external_modules:
+                                ext_node = TraceNode(
+                                    id=stable_external_module_id(ext_name),
+                                    kind="external_module",
+                                    name=ext_name,
+                                    file_path="",
+                                    span=None,
+                                    language=None,
+                                    metadata={"external": True},
+                                )
+                                external_modules[ext_name] = ext_node
+
+                    edges.extend(sym_edges)
+                    files_parsed += 1
+                except Exception as e:
+                    files_failed += 1
+                    if len(file_errors) < self.max_failures:
+                        file_errors.append(FileError(rel_path, type(e).__name__, str(e)))
             else:
                 files_parsed += 1
 
@@ -690,10 +892,52 @@ class TraceBuilder:
 
         nodes.extend(external_modules.values())
 
+        # Sanitization: Filter out invalid nodes AND edges
+        valid_nodes = []
+        node_ids = set()
+        
+        for n in nodes:
+            if n.id in node_ids:
+                logger.warning(f"Dropping duplicate node ID: {n.id}")
+                continue
+            if n.file_path and (n.file_path.startswith("/") or "\\" in n.file_path):
+                logger.warning(f"Dropping node with non-portable path: {n.id} ({n.file_path})")
+                continue
+            
+            node_ids.add(n.id)
+            valid_nodes.append(n)
+            
+        nodes = valid_nodes
+
+        valid_edges = []
+        edge_ids = set()
+        
+        for e in edges:
+            if e.id in edge_ids:
+                continue # Skip duplicate edge IDs silently
+            
+            if e.source not in node_ids:
+                logger.warning(f"Dropping edge {e.id}: source {e.source} not found")
+                continue
+            if e.target not in node_ids:
+                logger.warning(f"Dropping edge {e.id}: target {e.target} not found")
+                continue
+                
+            edge_ids.add(e.id)
+            valid_edges.append(e)
+            
+        edges = valid_edges
+
+        # Final validation check (should pass now)
         valid, validation_error = self._validate(nodes, edges)
         if not valid:
-            logger.error(f"Trace validation failed: {validation_error}")
-            manifest = self._build_manifest(
+             # This should ideally not happen after sanitization, but if it does, 
+             # we still try to write what we have or just log error.
+             # Given we just sanitized, let's trust our sanitization and only log if it still fails.
+             logger.error(f"Trace validation failed after sanitization: {validation_error}")
+             # Proceed anyway? No, if it still fails, something is structurally wrong.
+             # But let's try to write at least the manifest with last_error.
+             manifest = self._build_manifest(
                 nodes_count=0,
                 edges_count=0,
                 files_parsed=files_parsed,
@@ -702,8 +946,8 @@ class TraceBuilder:
                 last_error=validation_error,
                 file_hashes=file_hashes,
             )
-            self._write_manifest(manifest)
-            return manifest
+             self._write_manifest(manifest)
+             return manifest
 
         self._write_atomic(nodes, edges)
 
@@ -1103,6 +1347,8 @@ class TraceIndex:
                 "counts": {"nodes": 0, "edges": 0},
                 "last_build_at": None,
                 "last_error": None,
+                "degraded": False,
+                "degraded_reason": None,
             }
 
         # Always check if we need to reload (checks mtime internally)
@@ -1111,18 +1357,41 @@ class TraceIndex:
         if self._rust_handle is not None:
             rust_status = self._rust_handle.status()
             rust_status.update(base)
+            rust_status.setdefault("degraded", False)
+            rust_status.setdefault("degraded_reason", None)
             return rust_status
 
         manifest = self._manifest or {}
         counts = manifest.get("counts", {})
+        node_count = counts.get("nodes", 0)
+        edge_count = counts.get("edges", 0)
+
+        degraded = False
+        degraded_reason = None
+        if node_count > 0 and edge_count == 0:
+            degraded = True
+            if engine == "python":
+                degraded_reason = (
+                    "The Python fallback analyzer only extracts relationships for .py files. "
+                    "Install the Rust engine (pip install codrag-engine) for full "
+                    "TypeScript/JavaScript/Go/Rust/Java/C/C++ analysis."
+                )
+            else:
+                degraded_reason = (
+                    "The graph has nodes but no cross-references. "
+                    "This project may not have detectable import relationships."
+                )
+
         return {
             **base,
             "enabled": True,
             "exists": True,
             "building": False,
-            "counts": {"nodes": counts.get("nodes", 0), "edges": counts.get("edges", 0)},
+            "counts": {"nodes": node_count, "edges": edge_count},
             "last_build_at": manifest.get("built_at"),
             "last_error": manifest.get("last_error"),
+            "degraded": degraded,
+            "degraded_reason": degraded_reason,
         }
 
     def get_node(self, node_id: str) -> Optional[Dict[str, Any]]:

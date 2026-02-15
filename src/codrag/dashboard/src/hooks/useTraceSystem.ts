@@ -51,6 +51,10 @@ export interface UseTraceSystemDeps {
   startWatch?: () => Promise<void>
   stopWatch?: () => Promise<void>
   refreshWatchStatus?: (projectId: string) => Promise<void>
+  /** Re-fetch the file tree after index destroy so status annotations refresh */
+  refreshFileTree?: (projectId: string) => Promise<void>
+  /** Clear included paths state + localStorage after full reset */
+  clearIncludedPaths?: () => void
 }
 
 // ── Hook ─────────────────────────────────────────────────────
@@ -78,6 +82,10 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   stopWatchRef.current = deps.stopWatch
   const refreshWatchStatusRef = useRef(deps.refreshWatchStatus)
   refreshWatchStatusRef.current = deps.refreshWatchStatus
+  const refreshFileTreeRef = useRef(deps.refreshFileTree)
+  refreshFileTreeRef.current = deps.refreshFileTree
+  const clearIncludedPathsRef = useRef(deps.clearIncludedPaths)
+  clearIncludedPathsRef.current = deps.clearIncludedPaths
 
   // ── State ───────────────────────────────────────────────────
 
@@ -394,13 +402,21 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   const handleRunFastSync = useCallback(async () => {
     if (!selectedProjectId) return
     try {
-      setTraceStatus(prev => ({ ...prev, building: true }))
+      // Ensure trace is enabled in project config before launching pipeline
+      // (project_trace_status returns exists:false when trace.enabled is false)
+      if (!deps.projectConfig?.trace?.enabled) {
+        const newConfig = { ...deps.projectConfig, trace: { ...deps.projectConfig?.trace, enabled: true } }
+        deps.setProjectConfig(newConfig)
+        deps.setConfigDirty(true)
+        api.updateProject(selectedProjectId, { config: newConfig }).catch(() => {})
+      }
+      setTraceStatus(prev => ({ ...prev, enabled: true, building: true }))
       await api.runPipelineFast(selectedProjectId)
     } catch (e) {
       setTraceStatus(prev => ({ ...prev, building: false }))
       onErrorRef.current(e instanceof Error ? e.message : 'Fast sync failed')
     }
-  }, [api, selectedProjectId])
+  }, [api, selectedProjectId, deps.projectConfig, deps.setProjectConfig, deps.setConfigDirty])
 
   const handleRunDeepEnrichment = useCallback(async () => {
     if (!selectedProjectId) return
@@ -498,8 +514,12 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       setDeepeningStatus({ running: false, total_scored: 0, settled_count: 0, settled_ratio: 0, avg_score: 0 })
       onResetSearchRef.current()
       setTraceCoverage({ summary: null, untraced: [], stale: [], excluded: [], building: false, loading: false })
+      // Clear included paths and re-fetch the file tree so "Indexed" badges disappear
+      clearIncludedPathsRef.current?.()
       void refreshStatusRef.current(selectedProjectId)
+      // Re-fetch file tree after a short delay so backend caches are cleared
       setTimeout(() => {
+        refreshFileTreeRef.current?.(selectedProjectId)
         api.getTraceCoverage(selectedProjectId).then((data) => {
           setTraceCoverage({ summary: data.summary, untraced: data.untraced, stale: data.stale, excluded: data.excluded ?? [], building: false, loading: false })
         }).catch(() => {})
@@ -554,7 +574,14 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     const fastRunning = fast?.phase === 'running'
     const deepRunning = deep?.phase === 'running'
 
-    setTraceStatus(p => ({ ...p, building: fastRunning }))
+    // When fast sync transitions running→completed, don't clear building yet;
+    // the completion handler below will clear it after fetching the real status.
+    // This prevents a flash where building=false but exists hasn't been updated.
+    const prevFastPhase = prev?.fast_sync?.phase
+    const fastJustCompleted = fast?.phase === 'completed' && prevFastPhase === 'running'
+    if (!fastJustCompleted) {
+      setTraceStatus(p => ({ ...p, building: fastRunning }))
+    }
     setAugmenting(fastRunning && (fast?.current_stage === 'augment' || fast?.current_stage === 'catalogue' || false))
     setValidating(fastRunning && (fast?.current_stage === 'validation' || false))
     setEpistemicRunning(deepRunning && (deep?.current_stage === 'epistemic' || false))
@@ -566,7 +593,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     )
 
     // Detect group completion → refresh statuses
-    const prevFastPhase = prev?.fast_sync?.phase
+    // prevFastPhase already declared above
     const prevDeepPhase = prev?.deep_enrichment?.phase
     
     // Detect completion of structural stage specifically to update coverage immediately
@@ -613,7 +640,10 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
           counts: data.counts ?? { nodes: 0, edges: 0 },
           engine: data.engine,
         })
-      }).catch(() => {})
+      }).catch(() => {
+        // Still clear building on failure to avoid stuck state
+        setTraceStatus(p => ({ ...p, building: false }))
+      })
     }
 
     if (fast?.phase === 'failed' && prevFastPhase === 'running') {

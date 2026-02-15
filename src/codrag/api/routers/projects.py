@@ -90,7 +90,7 @@ from pydantic import BaseModel
 
 from codrag.api.envelope import ApiException, ok
 from codrag.core.feature_gate import (
-    get_license, get_feature_limit, require_feature, FeatureGateError,
+    License, get_license, get_feature_limit, require_feature, FeatureGateError,
 )
 from codrag.core.project_registry import (
     ProjectAlreadyExists, ProjectNotFound, project_index_dir,
@@ -126,6 +126,7 @@ class BuildRequest(BaseModel):
     max_file_bytes: Optional[int] = None
     hard_limit_bytes: Optional[int] = None
     use_gitignore: bool = False
+    included_paths: Optional[List[str]] = None
 
 
 class PolicyRequest(BaseModel):
@@ -227,8 +228,8 @@ def add_project(req: AddProjectRequest) -> Dict[str, Any]:
         lic = get_license()
         raise FeatureGateError(
             feature="projects_max",
-            current_tier=lic.tier.name.lower(),
-            required_tier="starter" if max_projects <= 1 else "pro",
+            current_tier=License._display_tier(lic.tier),
+            required_tier="pro",
         )
 
     p = Path(str(req.path)).expanduser().resolve()
@@ -491,7 +492,7 @@ def start_project_watch(
     watcher.start()
     _srv()._project_watchers[proj.id] = watcher
     
-    return ok({"enabled": True, "status": watcher.status()})
+    return ok({"enabled": True, "state": watcher.status()["state"]})
 
 
 @router.post("/projects/{project_id}/watch/stop")
@@ -503,7 +504,7 @@ def stop_project_watch(project_id: str) -> Dict[str, Any]:
     if watcher is not None:
         watcher.stop()
     
-    return ok({"enabled": False})
+    return ok({"enabled": False, "state": "disabled"})
 
 
 @router.get("/projects/{project_id}/watch/status")
@@ -817,7 +818,7 @@ def list_project_files(
 
 
 @router.post("/projects/{project_id}/build")
-def build_project(project_id: str, full: bool = False) -> Dict[str, Any]:
+def build_project(project_id: str, full: bool = False, req: Optional[BuildRequest] = None) -> Dict[str, Any]:
     proj = _srv()._require_project(project_id)
 
     cfg = proj.config or {}
@@ -834,13 +835,17 @@ def build_project(project_id: str, full: bool = False) -> Dict[str, Any]:
         if "**/.codrag/**" not in exclude_globs:
             exclude_globs.append("**/.codrag/**")
 
-    started = _srv()._start_project_build(proj, None, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes)
+    # Extract included_paths from request body (file tree selections)
+    included_paths = req.included_paths if req else None
+    logger.info("build_project: req=%s, included_paths count=%s", req, len(included_paths) if included_paths else None)
+
+    started = _srv()._start_project_build(
+        proj, None, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes,
+        included_paths=included_paths,
+    )
     if not started:
         raise ApiException(status_code=409, code="BUILD_ALREADY_RUNNING", message="Build already running")
 
-    trace_cfg = cfg.get("trace") if isinstance(cfg, dict) else None
-    if bool((trace_cfg or {}).get("enabled", False)):
-        _srv()._start_project_trace_build(proj, include_globs, exclude_globs, max_file_bytes=max_file_bytes, hard_limit_bytes=hard_limit_bytes)
     return ok({"started": True, "building": True, "build_id": None})
 
 

@@ -177,6 +177,10 @@ export interface TraceStatus {
   engine?: string;
   /** Languages the engine can parse (e.g. python, typescript, go, rust, java, c, cpp) */
   supported_languages?: string[];
+  /** True when graph has nodes but 0 edges (degenerate graph) */
+  degraded?: boolean;
+  /** Human-readable reason for degradation */
+  degraded_reason?: string | null;
 }
 
 /**

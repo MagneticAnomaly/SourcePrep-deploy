@@ -31,6 +31,16 @@ const statusLabels: Record<FileStatus, string> = {
   error: 'Error',
 };
 
+/** Check if a path or any of its ancestor folders is in the included set */
+function isPathOrAncestorIncluded(path: string, includedPaths: Set<string>): boolean {
+  if (includedPaths.has(path)) return true;
+  const parts = path.split('/');
+  for (let i = 1; i < parts.length; i++) {
+    if (includedPaths.has(parts.slice(0, i).join('/'))) return true;
+  }
+  return false;
+}
+
 /** Collect all descendant paths from a node (including the node itself) */
 function collectAllPaths(node: TreeNode, basePath: string): string[] {
   const currentPath = basePath ? `${basePath}/${node.name}` : node.name;
@@ -64,7 +74,7 @@ function getFolderSelectionState(
   
   for (const child of selectableChildren) {
     const childPath = `${currentPath}/${child.name}`;
-    if (includedPaths.has(childPath)) {
+    if (isPathOrAncestorIncluded(childPath, includedPaths)) {
       selectedCount++;
     } else if (child.type === 'folder') {
       // Check if folder has any selected descendants
@@ -288,7 +298,7 @@ function TreeItem({ node, depth = 0, path = '', includedPaths, onToggleInclude, 
   const isFolder = node.type === 'folder';
   const isLazyLoadable = isFolder && !hasChildren && node.has_children;
   const isLoading = loadingPaths.has(currentPath);
-  const isIncluded = includedPaths?.has(currentPath) ?? node.selected;
+  const isIncluded = includedPaths ? isPathOrAncestorIncluded(currentPath, includedPaths) : (node.selected ?? false);
   const isIgnored = node.status === 'ignored';
   const isSelectable = !isIgnored;
   
@@ -339,14 +349,17 @@ function TreeItem({ node, depth = 0, path = '', includedPaths, onToggleInclude, 
   // Effective inclusion for display (folder is "included" if it or all its children are)
   const effectivelyIncluded = isFolder ? (isIncluded || isFolderFullySelected) : isIncluded;
 
+  // For ancestor-included items, treat as included for status display
+  const isIncludedForStatus = isIncluded;
+
   // Derive effective status:
   // - indexed but unselected → pending_removal (will be removed on next rebuild)
   // - included file with no explicit status → pending
   // - otherwise use node.status
   const effectiveStatus: FileStatus | undefined = 
-    (node.status === 'indexed' && !isIncluded) ? 'pending_removal'
+    (node.status === 'indexed' && !isIncludedForStatus) ? 'pending_removal'
     : node.status ? node.status
-    : (isIncluded && !isFolder) ? 'pending'
+    : (isIncludedForStatus && !isFolder) ? 'pending'
     : undefined;
 
   // Collect child paths with explicit weight overrides (for folder weight bulk operations)

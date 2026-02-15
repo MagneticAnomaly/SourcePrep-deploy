@@ -249,6 +249,21 @@ class WorkerFactory:
             trace_idx.load()
             build_manager.project_trace_indexes[project_id] = trace_idx
 
+            # Ensure trace.enabled=true in project config so status endpoint
+            # reports exists correctly (belt-and-suspenders with frontend fix)
+            cfg = project.config if isinstance(project.config, dict) else {}
+            trace_cfg = cfg.get("trace") if isinstance(cfg.get("trace"), dict) else {}
+            if not trace_cfg.get("enabled"):
+                import copy
+                new_cfg = copy.deepcopy(cfg)
+                new_cfg.setdefault("trace", {})["enabled"] = True
+                project.config = new_cfg
+                try:
+                    from codrag.core.project_registry import get_registry
+                    get_registry().update_project(project.id, config=new_cfg)
+                except Exception:
+                    pass  # Non-fatal: frontend also sets this
+
             return {"stage": "structural", "nodes": trace_idx.node_count()}
         return worker
 

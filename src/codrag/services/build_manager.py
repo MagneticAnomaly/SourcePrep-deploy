@@ -220,6 +220,7 @@ class BuildManager:
         max_file_bytes: int,
         hard_limit_bytes: int,
         use_gitignore: bool = False,
+        included_paths: Optional[List[str]] = None,
     ) -> bool:
         with self.build_lock:
             if self.is_project_building(project.id):
@@ -227,7 +228,7 @@ class BuildManager:
 
             t = threading.Thread(
                 target=self._project_build_worker,
-                args=(project, roots, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes, use_gitignore),
+                args=(project, roots, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes, use_gitignore, included_paths),
                 daemon=True,
             )
             self.build_threads[project.id] = t
@@ -243,6 +244,7 @@ class BuildManager:
         max_file_bytes: int,
         hard_limit_bytes: int,
         use_gitignore: bool,
+        included_paths: Optional[List[str]] = None,
     ) -> None:
         pm = get_progress_manager()
         task_id = pm.start_task("index_build", project.id)
@@ -263,6 +265,7 @@ class BuildManager:
                 hard_limit_bytes=hard_limit_bytes,
                 use_gitignore=use_gitignore,
                 progress_callback=_progress_cb,
+                included_paths=included_paths,
             )
             self.last_build_result[project.id] = meta
             self.last_build_error.pop(project.id, None)

@@ -405,6 +405,39 @@ Add brief notes here after completing a sprint:
 - what changed (decisions, scope)
 - new blockers
 
+### 2026-02-15: MASTER_TODO Reconciliation + Trace Graph + Bug Fixes
+
+**What was done:**
+
+*MASTER_TODO Reconciliation (13 stale items marked as fixed):*
+- DEFAULT_LAYOUT panel ID drift → already fixed (v17 uses canonical IDs)
+- Storybook FullDashboard drift → already uses PANEL_REGISTRY
+- ErrorToast unwired → already wired in App.tsx
+- HuggingFace download no-op → already wired via `handleDownloadModel`
+- GraphEnginePanel exports → already removed
+- `getGlobalConfig`/`updateGlobalConfig` legacy → already migrated to `/global/config`
+- Phase 05 remaining items → already done in S-16
+- Flaky test entries → fixed (see below)
+
+*Bug Fixes:*
+- **`POST /watch/stop` response shape mismatch:** Now returns `{enabled: false, state: "disabled"}` matching `WatchActionResponse` type. Start also returns flat `{enabled, state}` instead of nested `{enabled, status: {...}}`.
+- **Flaky `test_deleted_file_not_carried_over`:** `FakeEmbedder.embed()` now uses `hashlib.sha256` instead of Python's `hash()` (which is randomized by `PYTHONHASHSEED`). Test itself rewritten to check `_documents` directly instead of relying on search similarity.
+
+*New Features:*
+- **Degenerate trace graph detection (P1):** `TraceIndex.status()` now returns `degraded: true` + `degraded_reason` when nodes > 0 but edges == 0. `TraceStatus` TypeScript type updated with new fields.
+- **JS/TS import extraction for Python fallback (P2):** New `JSAnalyzer` class in `trace.py` — regex-based extraction of ES imports, CommonJS require, dynamic imports, re-exports, and symbols (functions, classes, interfaces, types, enums, exported constants). Relative imports resolve to file nodes. Wired into `TraceBuilder.build()` for `javascript`/`typescript` languages. 17 tests in `tests/test_js_analyzer.py`.
+
+**Files changed:**
+- `src/codrag/api/routers/projects.py` — watch/start + watch/stop response shape
+- `src/codrag/core/trace.py` — JSAnalyzer class + degraded detection in status()
+- `src/codrag/core/embedder.py` — FakeEmbedder deterministic hash
+- `packages/ui/src/types.ts` — TraceStatus degraded fields
+- `tests/test_js_analyzer.py` — NEW (17 tests)
+- `tests/test_incremental_rebuild.py` — fixed flaky test
+- `docs/MASTER_TODO.md` — reconciled 13+ stale items
+
+**Test results:** 55 passed (test_js_analyzer + test_incremental_rebuild + test_deep_merge + test_primer + test_atomic_build), 0 failed.
+
 ### 2026-02-14: Reactive Loop Strategy & Verification
 
 **What was done:**
@@ -462,9 +495,9 @@ Add brief notes here after completing a sprint:
 **Remaining for Phase05:**
 - [x] P05-I7 Ambiguity handling for multi-project
 - [x] P05-I11 Debug mode file logging
-- [ ] P05-R5 Streamable HTTP transport (for remote/enterprise)
-- [ ] P05-R7 Async Tasks for long builds
-- [ ] P05-I19 PyPI verification for MCP Registry
+- [x] P05-R5 Streamable HTTP transport (for remote/enterprise) ✅ Done in S-16.1
+- [x] P05-R7 Async Tasks for long builds ✅ Done in S-16.2
+- [x] P05-I19 PyPI verification for MCP Registry ✅ Done in S-16.3
 
 ### 2026-02-02: Documentation alignment + CLI/MCP gaps identified
 
@@ -548,10 +581,10 @@ Add brief notes here after completing a sprint:
 - Updated `tests/test_mcp_config_endpoint.py` to unwrap the standard `{success,data,error}` envelope.
 
 **New TODOs discovered:**
-- [ ] Backend: `POST /projects/{project_id}/watch/stop` response shape mismatch
+- [x] Backend: `POST /projects/{project_id}/watch/stop` response shape mismatch ✅ **FIXED**
   - `packages/vscode/src/client.ts` expects `{ enabled: boolean; state: string }`.
   - `packages/ui/src/api/types.ts` expects `WatchActionResponse` (`{ enabled: boolean; state: string }`).
-  - Server currently returns `{"enabled": false}` only.
+  - Server now returns `{"enabled": false, "state": "disabled"}`. Start returns `{"enabled": true, "state": "..."}`.
 - [x] Docs: add `POST /license/activate`, `POST /license/deactivate`, `GET /api/code-index/mcp-config` to `docs/API.md`.
  - [x] MCP direct mode smoke test ✅ **DONE: `tests/test_mcp_direct_smoke.py` (10 tests, uses FakeEmbedder)**
 
@@ -711,7 +744,7 @@ Add brief notes here after completing a sprint:
  - [x] Gate `clara_compression` in context endpoint ✅ `_apply_compression()` now calls `require_feature("clara_compression")`
  - [x] Gate `mcp_trace_expand` in context endpoint ✅ `context_project()` now calls `require_feature("mcp_trace_expand")` when `trace_expand=true`
  - [ ] Frontend `WatchControlPanel` should show upgrade prompt for FREE tier
- - [ ] `test_incremental_rebuild.py::test_deleted_file_not_carried_over` is flaky (FakeEmbedder uses non-deterministic `hash()`; needs `PYTHONHASHSEED` or deterministic seed)
+ - [x] `test_incremental_rebuild.py::test_deleted_file_not_carried_over` flaky test ✅ **FIXED:** `FakeEmbedder` now uses `hashlib.sha256` instead of `hash()` for cross-run determinism. Test now checks `_documents` directly instead of relying on search similarity.
  - [ ] Pre-existing: `test_mcp_config_endpoint.py::test_mcp_config_default_daemon_url_uses_base_url` fails (404 on endpoint)
 
  ### 2026-02-08 (continued): Deep Architecture Audit
@@ -833,11 +866,11 @@ Add brief notes here after completing a sprint:
 
  **Remaining blockers / tech debt:**
  - [x] App.tsx LLM handlers: migrate from raw `fetch` to typed ApiClient methods (3 handlers) ✅ **DONE**
- - [ ] `getGlobalConfig`/`updateGlobalConfig` use legacy `/api/code-index/config` — migrate to canonical endpoint
- - [ ] Dashboard default layout drift: `DEFAULT_LAYOUT` includes orphan IDs (`build`, `trace-coverage`) that are no longer in `PANEL_REGISTRY`
- - [ ] Storybook `FullDashboard` drift: uses legacy IDs (`roots`, `trace-coverage`, `build`) and is missing content for several registry panels
- - [ ] Dashboard error UX: `App.tsx` has `_error` state with `TODO: wire to error toast`, but no `ErrorToast` render
- - [ ] AI Models settings: HuggingFace download button is a no-op in the app (`onHFDownload={() => {}}`)
+ - [x] `getGlobalConfig`/`updateGlobalConfig` migrated to `/global/config` ✅ (legacy `/api/code-index/config` deprecated with sunset headers)
+ - [x] Dashboard default layout drift: `DEFAULT_LAYOUT` v17 now uses only canonical `PANEL_REGISTRY` IDs ✅
+ - [x] Storybook `FullDashboard` drift: now uses `PANEL_REGISTRY` directly with content for all 14 canonical panels ✅
+ - [x] Dashboard error UX: `ErrorToast` component wired in `App.tsx` with auto-dismiss ✅
+ - [x] AI Models settings: `onHFDownload` wired to `handleDownloadModel` → `api.downloadEmbedding()` ✅
  - [ ] Activity heatmap panel: `ActivityHeatmap.stories.tsx` exists but no panel registered or wired in App.tsx
  - [ ] Storybook `NodeDetailPanel.stories.tsx` exists but NodeDetailPanel not wired as a dashboard panel
  - [ ] `WatchStatusIndicator.stories.tsx` exists but component not used in dashboard (WatchControlPanel used instead)
@@ -913,7 +946,7 @@ All three trace tools now proxy to the project-scoped HTTP endpoints in `mcp_ser
  - [ ] No tests for `viz/` module (activity_heatmap, coverage, overview, drift, flow, health, trace, context)
  - [ ] `test_mcp_config_endpoint.py` — pre-existing failure (404 on endpoint), excluded from CI
  - [ ] `test_trust_loop_integration.py` — excluded from runs
- - [ ] `test_incremental_rebuild.py::test_deleted_file_not_carried_over` — flaky (`hash()` non-determinism)
+ - [x] `test_incremental_rebuild.py::test_deleted_file_not_carried_over` — ✅ **FIXED** (hashlib + direct doc check)
 
  #### Config Loading Bugfixes (user-applied, 2026-02-08)
  - [x] **Critical fix:** `loadConfig` in App.tsx no longer sets `llmConfigLoaded=true` on error.
@@ -1261,22 +1294,19 @@ All URLs updated to `github.com/EricBintner/CoDRAG`:
  engine from source.
 
  **Action items:**
- - [ ] **P1 — Backend: Detect and warn on degenerate trace graph.** When a build produces
-   nodes but 0 edges (or 0 non-file nodes), include a `degraded: true` flag + reason in the
-   trace manifest and status endpoint. Reason: `"python_fallback_no_analyzer"` for non-Python
-   files, or `"rust_engine_not_installed"` when Rust would help.
- - [ ] **P1 — Frontend: Show informational banner when graph is degraded.** When `edges === 0`
-   and `nodes > 0`, display a message like: *"This project's trace graph has no cross-references.
-   Install the Rust engine (`pip install codrag-engine`) for full TypeScript/JavaScript/Go/Rust
-   analysis, or this project may not have detectable import relationships."*
- - [ ] **P1 — UX: Clarify "← 0 in → 0 out" display.** Replace with human-readable labels:
-   `"0 references in · 0 references out"` or `"No incoming references · No outgoing references"`.
-   Add a tooltip/info icon explaining: *"In = other files that import/call this. Out = files
-   this imports/calls."*
- - [ ] **P2 — Backend: Add basic TS/JS import extraction to Python fallback.** Even without
-   tree-sitter, a regex-based scanner for `import ... from '...'` and `require('...')` would
-   produce edges for the majority of JS/TS projects. This makes the trace graph minimally useful
-   without the Rust engine.
+ - [x] **P1 — Backend: Detect and warn on degenerate trace graph.** ✅
+   `TraceIndex.status()` now returns `degraded: true` + `degraded_reason` when nodes > 0 but edges == 0.
+   Reason varies by engine: Python fallback warns about limited language support; Rust suggests rebuild.
+ - [x] **P1 — Frontend: Show informational banner when graph is degraded.** ✅
+   `TraceExplorer` shows amber warning banner when `edges === 0 && nodes > 0`.
+   Message explains Python fallback limitation and suggests Rust engine install.
+ - [x] **P1 — UX: Clarify "← 0 in → 0 out" display.** ✅
+   Labels now read "X references in" / "X dependencies out" with title-attribute tooltips
+   explaining callers/importers (in) and calls/imports (out).
+ - [x] **P2 — Backend: Add basic TS/JS import extraction to Python fallback.** ✅
+   `JSAnalyzer` class added to `trace.py`: regex-based extraction of ES imports, CommonJS require,
+   dynamic imports, re-exports, and symbols (functions, classes, interfaces, types, enums, exports).
+   Relative imports resolve to file nodes. 17 tests in `tests/test_js_analyzer.py`.
  - [x] **P2 — UX: Rename panel.** "Cross-Reference Graph" is vague. Renamed to "Code Graph" (and "Graph Status") to immediately communicate what connections mean. The "(i)" tooltip now explains: *"Shows how files and symbols in your codebase are connected through imports, function calls, and class inheritance."*
 
 ### 2026-02-12: Settings Drawer Refactor (S-22)
@@ -1295,71 +1325,32 @@ All URLs updated to `github.com/EricBintner/CoDRAG`:
 
 ### 2026-02-14: Dashboard Panel ID Drift (DEFAULT_LAYOUT vs Registry vs App vs Storybook)
 
-#### NEW: `DEFAULT_LAYOUT` still references legacy/orphaned panel IDs (`build`, `trace-coverage`)
+#### ~~`DEFAULT_LAYOUT` still references legacy/orphaned panel IDs~~ ✅ ALREADY FIXED
 
-`packages/ui/src/types/layout.ts` (`DEFAULT_LAYOUT`, `version: 16`) includes panels that are **not present** in the canonical `PANEL_REGISTRY`:
-- `id: "build"` (DEFAULT_LAYOUT line ~101)
-- `id: "trace-coverage"` (DEFAULT_LAYOUT line ~83)
+`DEFAULT_LAYOUT` (version 17) now uses only canonical `PANEL_REGISTRY` IDs. All legacy IDs (`build`, `trace-coverage`, `roots`, `pinned-files`) have been removed. `graph-structure` is included.
 
-But `packages/ui/src/config/panelRegistry.ts` does **not** define `build` or `trace-coverage`.
-- It explicitly notes `trace-coverage` was removed and consolidated into `graph-structure`.
-- It defines `id: 'graph-structure'` (Graph Scope), but `DEFAULT_LAYOUT` does **not** include `graph-structure` at all.
+- [x] Align `DEFAULT_LAYOUT` panel IDs to the canonical `PANEL_REGISTRY`. ✅
+- [x] Layout migration removes orphaned panel IDs. ✅
+- [x] First-run dashboard experience verified. ✅
 
-`src/codrag/dashboard/src/hooks/useDashboardPanels.tsx` reinforces the mismatch:
-- Wires `graph-structure` → `GraphStructurePanel` (lines ~464-479)
-- Contains the comment: `// trace-coverage removed — consolidated into graph-structure (Graph Scope)` (line ~406)
-- Does **not** provide any `build` panel content.
+#### ~~Storybook `FullDashboard` uses non-canonical IDs~~ ✅ ALREADY FIXED
 
-**Impact:** On a fresh install / empty localStorage (and in Storybook, which also defaults to `DEFAULT_LAYOUT`), the layout contains visible panels with no definition. `ModularDashboard` skips these panels (`if (!def) return null`), so the “default dashboard” is no longer a reliable reflection of the registry or app wiring.
+`FullDashboard.stories.tsx` now uses `PANEL_REGISTRY` directly and supplies `panelContent` for all 14 canonical panel IDs: `usage-guide`, `status`, `llm-status`, `search`, `context-options`, `results`, `context-output`, `file-tree`, `watch`, `trace`, `graph-structure`, `trace-pipeline`, `deep-analysis`, `log-console`.
 
-**Action items:**
-- [ ] Align `DEFAULT_LAYOUT` panel IDs to the canonical `PANEL_REGISTRY`.
-- [ ] Add a layout migration that can **remove orphaned panel IDs** from stored layouts (current migration only adds missing defaults).
-- [ ] Re-check the “first-run” dashboard experience after alignment.
+- [x] Update `FullDashboard` story to use canonical panel IDs. ✅
+- [x] Story supplies content for every panel in `PANEL_REGISTRY`. ✅
 
-#### NEW: Storybook `FullDashboard` uses non-canonical IDs and is missing canonical content
+#### ~~Dashboard Error Toast appears to be unwired~~ ✅ ALREADY FIXED
 
-`packages/ui/src/stories/dashboard/FullDashboard.stories.tsx` still provides `panelContent`/`panelDetails` for IDs that are not in `PANEL_REGISTRY`:
-- `build` (line ~263)
-- `roots` (line ~333; also used for details view)
-- `trace-coverage` (line ~390)
-- `pinned-files` (line ~385)
+`ErrorToast` component exists at `src/codrag/dashboard/src/components/ErrorToast.tsx`. It is imported and rendered in `App.tsx` line ~847: `<ErrorToast message={error} onClose={() => setError(null)} />`. Auto-dismisses after 5s with fade animation.
 
-But `panelDefinitions={allPanelDefs}` is built from `PANEL_REGISTRY` only, so these panels have **no definition** and will not render.
+- [x] Error Toast is fully wired and functional. ✅
 
-Additionally, the story does **not** provide content for several canonical registry panels, e.g.:
-- `file-tree` (story uses `roots` instead)
-- `graph-structure`
-- `trace-pipeline`
-- `deep-analysis`
-- `log-console`
+#### ~~HuggingFace model download UI is a no-op~~ ✅ ALREADY FIXED
 
-**Action items:**
-- [ ] Update `FullDashboard` story to use canonical panel IDs (`file-tree`, `graph-structure`, etc.).
-- [ ] Ensure the story supplies content for every panel in `PANEL_REGISTRY` (or explicitly hides unsupported ones).
+`useLLMConfig.ts` defines `handleDownloadModel` which calls `api.downloadEmbedding()`. This is passed through `useDashboardPanels.tsx` as `onHFDownload={p.handleDownloadModel}` to `AIModelsSettings`.
 
-#### NEW: Dashboard Error Toast appears to be unwired (docs claim it’s fixed)
-
-`src/codrag/dashboard/src/App.tsx` currently has:
-- `_error` state with an inline note: `// TODO: wire to error toast` (line ~121)
-- Many `setError(...)` callsites
-- **No** `ErrorToast` component definition or render (repo grep shows no `ErrorToast` usage in dashboard code)
-
-This contradicts the existing MASTER_TODO entry claiming the Error Toast is already wired.
-
-**Action items:**
-- [ ] Reconcile the docs vs implementation: either re-wire the Error Toast in `App.tsx` or update the “✅ already wired” claim.
-
-#### NEW: HuggingFace model download UI is a no-op in the real app
-
-`src/codrag/dashboard/src/hooks/useDashboardPanels.tsx` passes `onHFDownload={() => {}}` into `AIModelsSettings` (line ~516). That makes the “Download” buttons for HuggingFace models inert in the actual dashboard.
-
-This is surprising because the backend/client plumbing exists (already tracked earlier):
-- `POST /embedding/download` endpoint
-- `ApiClient.downloadEmbedding()` method
-
-**Action items:**
-- [ ] Wire `AIModelsSettings.onHFDownload` to the appropriate `ApiClient` call(s) and refresh the `hf_download_progress`/`hf_downloaded` state.
+- [x] `onHFDownload` wired to `ApiClient.downloadEmbedding()`. ✅
 
 #### NEW: Analytics TODO placeholders in all website app layouts (not tracked)
 
@@ -1372,14 +1363,11 @@ All four Next.js sites contain a commented analytics stub:
 **Action items:**
 - [ ] Decide on provider (Plausible/Umami/etc.) and implement analytics injection across all four apps.
 
-#### NEW (low priority): Deprecated `GraphEnginePanel` still exported
+#### ~~Deprecated `GraphEnginePanel` still exported~~ ✅ ALREADY FIXED
 
-`packages/ui/src/components/trace/GraphEnginePanel.tsx` is explicitly `@deprecated`, and the panel ID (`graph-engine`) has been removed from `PANEL_REGISTRY`, but the component is still exported from:
-- `packages/ui/src/components/trace/index.ts`
-- `packages/ui/src/index.ts`
+`GraphEnginePanel` component and its exports have been fully removed from `packages/ui`.
 
-**Action items:**
-- [ ] Remove the export(s) or add an explicit deprecation/removal plan to avoid accidental downstream usage.
+- [x] Deprecated exports removed. ✅
 
 ### 2026-02-14: Pinned Files feature (Dashboard)
 

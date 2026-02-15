@@ -152,6 +152,7 @@ class CodeIndex:
         hard_limit_bytes: int = 100_000_000,
         use_gitignore: bool = True,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
+        included_paths: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Build the index from a repository.
@@ -163,6 +164,9 @@ class CodeIndex:
             max_file_bytes: Files larger than this are summarized/truncated
             hard_limit_bytes: Files larger than this are completely skipped
             progress_callback: Optional callback(file_path, current, total)
+            included_paths: Optional list of relative paths (files/folders) to restrict indexing to.
+                           When provided and non-empty, only files whose relative path is in this
+                           set (or under a folder in this set) will be indexed.
 
         Returns:
             Build metadata
@@ -320,6 +324,31 @@ class CodeIndex:
                 continue
                 
             filtered_files.append(f)
+
+        # Apply included_paths filter: only index files the user selected in the tree.
+        # Supports both exact file paths AND folder paths (includes all descendants).
+        if included_paths:
+            included_set = set(included_paths)
+
+            def _is_included(rel: str) -> bool:
+                if rel in included_set:
+                    return True
+                # Check if any ancestor folder is in the included set
+                parts = rel.split("/")
+                for i in range(1, len(parts)):
+                    if "/".join(parts[:i]) in included_set:
+                        return True
+                return False
+
+            before_count = len(filtered_files)
+            filtered_files = [
+                f for f in filtered_files
+                if _is_included(str(f.relative_to(repo_root)))
+            ]
+            logger.info(
+                "included_paths filter: %d -> %d files (from %d selected paths)",
+                before_count, len(filtered_files), len(included_set),
+            )
 
         docs: List[Dict[str, Any]] = []
         vectors: List[List[float]] = []

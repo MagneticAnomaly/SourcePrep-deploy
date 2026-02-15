@@ -74,9 +74,15 @@ class License:
     seats: int = 1
     features: list = field(default_factory=list)
 
+    @staticmethod
+    def _display_tier(tier: 'Tier') -> str:
+        """Map internal tier name to user-facing name (STARTER → pro)."""
+        raw = tier.name.lower()
+        return "pro" if raw == "starter" else raw
+
     def to_dict(self):
         return {
-            "tier": self.tier.name.lower(),
+            "tier": self._display_tier(self.tier),
             "valid": self.valid,
             "email": self.email,
             "expires_at": self.expires_at,
@@ -171,10 +177,12 @@ def require_feature(feature: str) -> None:
     if not check_feature(feature):
         lic = get_license()
         req = FEATURE_TIERS.get(feature)
-        min_tier = req.name.lower() if isinstance(req, Tier) else "pro"
+        # STARTER is just PRO with a 3-month expiry; never show "starter" to users
+        raw = req.name.lower() if isinstance(req, Tier) else "pro"
+        min_tier = "pro" if raw == "starter" else raw
         raise FeatureGateError(
             feature=feature,
-            current_tier=lic.tier.name.lower(),
+            current_tier=License._display_tier(lic.tier),
             required_tier=min_tier,
         )
 

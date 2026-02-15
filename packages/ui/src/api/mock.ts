@@ -349,7 +349,77 @@ export class MockApiClient implements ApiClient {
     return { started: true, building: true };
   }
 
-  // ── Unified Graph Engine ────────────────────────────────────
+  // ── Pipeline Orchestrator ──────────────────────────────────
+
+  async runPipelineFast(): Promise<any> {
+    return { started: true, group: 'fast' };
+  }
+
+  async runPipelineDeep(): Promise<any> {
+    return { started: true, group: 'deep' };
+  }
+
+  async runPipelineAll(): Promise<any> {
+    return { started: true, group: 'all' };
+  }
+
+  async getPipelineStatus(): Promise<any> {
+    return { running: false, group: null, stage: null, progress: null };
+  }
+
+  async cancelPipeline(): Promise<any> {
+    return { cancelled: true, group: 'all' };
+  }
+
+  // ── Settings Store ────────────────────────────────────────
+
+  async getSettings(): Promise<Record<string, any>> {
+    return {};
+  }
+
+  async getSetting(_key: string): Promise<{ key: string; value: any }> {
+    return { key: _key, value: null };
+  }
+
+  async setSetting(_key: string, _value: any): Promise<{ key: string; value: any }> {
+    return { key: _key, value: _value };
+  }
+
+  async deleteSetting(_key: string): Promise<{ key: string; deleted: boolean }> {
+    return { key: _key, deleted: true };
+  }
+
+  async updatePipelineConfig(): Promise<any> {
+    return { success: true };
+  }
+
+  async getProjectSettings(): Promise<Record<string, any>> {
+    return {};
+  }
+
+  async setProjectSetting(_projectId: string, _key: string, _value: any): Promise<{ key: string; value: any }> {
+    return { key: _key, value: _value };
+  }
+
+  // ── Scope Orchestrator ────────────────────────────────────
+
+  async getScopeStatus(): Promise<any> {
+    return { state: 'idle', files: [], pending: 0 };
+  }
+
+  async addScopeFiles(): Promise<any> {
+    return { added: 0 };
+  }
+
+  async removeScopeFiles(): Promise<any> {
+    return { removed: 0 };
+  }
+
+  async triggerScopeRebuild(): Promise<any> {
+    return { started: true };
+  }
+
+  // ── Unified Graph Engine ──────────────────────────────────
 
   async getGraphEngineStatus(): Promise<any> {
     return {

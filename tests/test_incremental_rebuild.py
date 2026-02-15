@@ -163,9 +163,9 @@ class TestDeletedFileDetection:
         idx = CodeIndex(index_dir=idx_dir, embedder=embedder)
         idx.build(repo_root=repo)
 
-        # Verify utils.py is indexed
-        results1 = idx.search("helper utility", k=10, min_score=0.0)
-        has_utils = any("utils.py" in str(r.doc.get("source_path", "")) for r in results1)
+        # Verify utils.py is indexed (check documents directly, not search similarity)
+        docs1 = idx._documents or []
+        has_utils = any("utils.py" in str(d.get("source_path", "")) for d in docs1)
         assert has_utils, "utils.py should be in the index"
 
         # Delete the file
@@ -176,9 +176,9 @@ class TestDeletedFileDetection:
         build = manifest2.get("build", {})
         assert build["files_deleted"] >= 1, "Should detect deleted file"
 
-        # Verify utils.py chunks are gone
-        results2 = idx.search("helper utility", k=10, min_score=0.0)
-        has_utils_after = any("utils.py" in str(r.doc.get("source_path", "")) for r in results2)
+        # Verify utils.py chunks are gone (check documents directly)
+        docs2 = idx._documents or []
+        has_utils_after = any("utils.py" in str(d.get("source_path", "")) for d in docs2)
         assert not has_utils_after, "Deleted file chunks should not be in rebuilt index"
 
         # File hashes should not include deleted file

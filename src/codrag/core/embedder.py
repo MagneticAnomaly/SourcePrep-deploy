@@ -406,8 +406,9 @@ class FakeEmbedder(Embedder):
 
     def embed(self, text: str) -> EmbeddingResult:
         """Generate a deterministic embedding based on text hash."""
-        # Use hash of text to seed random for reproducibility
-        seed = hash(text) % (2**31)
+        # Use hashlib (not built-in hash()) for cross-run determinism
+        import hashlib
+        seed = int(hashlib.sha256(text.encode("utf-8")).hexdigest(), 16) % (2**31)
         rng = random.Random(seed)
         vector = [rng.gauss(0, 1) for _ in range(self.dim)]
         # Normalize to unit length
