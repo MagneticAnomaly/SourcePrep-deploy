@@ -1,0 +1,361 @@
+"""
+CoDRAG Project Helpers Service — Phase 23 Sprint 16c
+=====================================================
+
+**Origin:** Extracted from ``server.py`` (lines ~192–480).
+
+**What this encapsulates:**
+  - ``get_registry()``            — ProjectRegistry singleton
+  - ``project_to_dict()``         — project serialization
+  - ``project_id_for_root()``     — deterministic ID from path
+  - ``current_project()``         — legacy singleton project dict
+  - ``require_project()``         — project lookup with 404
+  - ``project_index_status()``    — index status dict
+  - ``project_trace_status()``    — trace status dict
+  - ``get_project_watcher()``     — file watcher lookup
+  - ``get_project_watcher_status()`` — watcher status dict
+  - ``read_json_file()``          — safe JSON file reader
+  - ``parse_iso_datetime()``      — ISO datetime parser
+  - ``project_activity_payload()``— activity data for dashboard
+  - ``build_coverage_tree()``     — coverage tree builder
+
+**Consumers:** projects router, system router, trace router.
+
+**Phase 24 note:**
+  ``get_registry()`` will be owned by SM-3 (ProjectLifecycle).
+  ``project_index_status`` / ``project_trace_status`` will read from
+  SM-4 (Build) and SM-6 (Pipeline) state machines respectively.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import logging
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from codrag.api.envelope import ApiException
+from codrag.core import CodeIndex
+from codrag.core.project_registry import (
+    Project,
+    ProjectRegistry,
+    project_index_dir,
+)
+from codrag.core.watcher import AutoRebuildWatcher
+
+logger = logging.getLogger(__name__)
+
+# ── Registry singleton ──────────────────────────────────────────
+
+_registry: Optional[ProjectRegistry] = None
+
+
+def get_registry() -> ProjectRegistry:
+    global _registry
+    if _registry is None:
+        _registry = ProjectRegistry()
+    return _registry
+
+
+# ── Project serialization ───────────────────────────────────────
+
+def project_to_dict(proj: Project) -> Dict[str, Any]:
+    return {
+        "id": proj.id,
+        "name": proj.name,
+        "path": proj.path,
+        "mode": proj.mode,
+        "config": proj.config,
+        "created_at": proj.created_at,
+        "updated_at": proj.updated_at,
+    }
+
+
+def project_id_for_root(root: str) -> str:
+    h = hashlib.sha256(root.encode("utf-8")).hexdigest()[:8]
+    return f"proj_{h}"
+
+
+def current_project(config: Dict[str, Any], watcher: Optional[Any], server_started_at: str) -> Dict[str, Any] | None:
+    """Build a legacy project dict from CLI/global config.
+    
+    Args:
+        config: The server ``_config`` dict.
+        watcher: The legacy ``_watcher`` instance (or None).
+        server_started_at: ISO timestamp of server start.
+    """
+    from codrag.services.config_manager import load_ui_config
+    ui_cfg = load_ui_config(config)
+    root = str(ui_cfg.get("repo_root") or "") or str(config.get("repo_root") or "")
+    root = root.strip()
+    if not root:
+        return None
+
+    abs_root = str(Path(root).resolve())
+    pid = project_id_for_root(abs_root)
+    watch = watcher.status() if watcher is not None else None
+
+    proj_config: Dict[str, Any] = {
+        "include_globs": list(ui_cfg.get("include_globs") or []),
+        "exclude_globs": list(ui_cfg.get("exclude_globs") or []),
+        "max_file_bytes": int(ui_cfg.get("max_file_bytes") or 500_000),
+        "hard_limit_bytes": int(ui_cfg.get("hard_limit_bytes") or 100_000_000),
+        "trace": {"enabled": False},
+        "auto_rebuild": {"enabled": bool((watch or {}).get("enabled", False))},
+    }
+    if watch is not None and watch.get("debounce_ms") is not None:
+        proj_config["auto_rebuild"]["debounce_ms"] = watch.get("debounce_ms")
+
+    return {
+        "id": pid,
+        "name": Path(abs_root).name or pid,
+        "path": abs_root,
+        "mode": "standalone",
+        "config": proj_config,
+        "created_at": server_started_at,
+        "updated_at": server_started_at,
+    }
+
+
+def require_project(project_id: str) -> Project:
+    reg = get_registry()
+    proj = reg.get_project(project_id)
+    if proj is None:
+        raise ApiException(
+            status_code=404,
+            code="PROJECT_NOT_FOUND",
+            message=f"Project with ID '{project_id}' not found",
+            hint="Add the project first or select an existing project.",
+        )
+    return proj
+
+
+# ── Status helpers ──────────────────────────────────────────────
+
+def project_index_status(idx: CodeIndex, last_build_error: Optional[str] = None) -> Dict[str, Any]:
+    st = idx.stats()
+    last_error = None
+    if last_build_error:
+        last_error = {"code": "BUILD_FAILED", "message": str(last_build_error)}
+
+    return {
+        "exists": bool(st.get("loaded", False)),
+        "total_chunks": int(st.get("total_documents") or 0),
+        "embedding_dim": int(st.get("embedding_dim") or 0) if st.get("embedding_dim") is not None else None,
+        "embedding_model": st.get("model"),
+        "last_build_at": st.get("built_at"),
+        "build": st.get("build"),
+        "last_error": last_error,
+    }
+
+
+def project_trace_status(project: Project) -> Dict[str, Any]:
+    from codrag.services.build_manager import build_manager as bm
+    cfg = project.config or {}
+    trace_cfg = cfg.get("trace") if isinstance(cfg, dict) else None
+    enabled = bool((trace_cfg or {}).get("enabled", False))
+
+    if not enabled:
+        return {
+            "enabled": False,
+            "exists": False,
+            "building": False,
+            "counts": {"nodes": 0, "edges": 0},
+            "last_build_at": None,
+            "last_error": None,
+        }
+
+    trace_idx = bm.get_project_trace_index(project)
+    status = trace_idx.status()
+    status["enabled"] = True
+    status["building"] = bm.is_project_trace_building(project.id)
+    return status
+
+
+def get_project_watcher(project: Project, watchers: Dict[str, AutoRebuildWatcher]) -> Optional[AutoRebuildWatcher]:
+    """Get existing watcher for a project (does not create one)."""
+    return watchers.get(project.id)
+
+
+def get_project_watcher_status(project: Project, watchers: Dict[str, AutoRebuildWatcher]) -> Dict[str, Any]:
+    """Get watcher status for a project."""
+    watcher = get_project_watcher(project, watchers)
+    if watcher is None:
+        return {
+            "enabled": False,
+            "state": "disabled",
+            "stale": False,
+            "stale_since": None,
+            "pending": False,
+            "pending_paths_count": 0,
+        }
+    return watcher.status()
+
+
+# ── Utility helpers ─────────────────────────────────────────────
+
+def read_json_file(path: Path) -> Optional[Dict[str, Any]]:
+    try:
+        if not path.exists():
+            return None
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            return None
+        return data
+    except Exception:
+        return None
+
+
+def parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    try:
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        return datetime.fromisoformat(s)
+    except Exception:
+        return None
+
+
+# ── Activity & coverage helpers ─────────────────────────────────
+
+def project_activity_payload(project: Project, weeks: int) -> Dict[str, Any]:
+    from codrag.services.build_manager import build_manager as bm
+    idx = bm.get_project_index(project)
+    idx_status = project_index_status(idx, bm.last_build_error.get(project.id))
+    trace_status = project_trace_status(project)
+
+    idx_dir = project_index_dir(project)
+    idx_manifest = read_json_file(idx_dir / "manifest.json")
+    trace_manifest = read_json_file(idx_dir / "trace_manifest.json")
+
+    start_date = (datetime.now(timezone.utc) - timedelta(days=int(weeks) * 7)).date()
+    by_date: Dict[str, Dict[str, Any]] = {}
+
+    def _add(date_str: str, *, embeddings: int = 0, trace: int = 0, builds: int = 0) -> None:
+        cur = by_date.get(date_str)
+        if cur is None:
+            cur = {"date": date_str, "embeddings": 0, "trace": 0, "builds": 0}
+            by_date[date_str] = cur
+        cur["embeddings"] = int(cur.get("embeddings", 0)) + int(embeddings)
+        cur["trace"] = int(cur.get("trace", 0)) + int(trace)
+        cur["builds"] = int(cur.get("builds", 0)) + int(builds)
+
+    idx_built_at = (idx_manifest or {}).get("built_at") or idx_status.get("last_build_at")
+    idx_dt = parse_iso_datetime(str(idx_built_at) if idx_built_at else None)
+    if idx_dt is not None and idx_dt.date() >= start_date and bool(idx_status.get("exists", False)):
+        b = (idx_manifest or {}).get("build")
+        embedded_files = 0
+        if isinstance(b, dict):
+            embedded_files = int(b.get("files_embedded") or 0)
+        if embedded_files <= 0:
+            embedded_files = int(idx_status.get("total_chunks") or 0)
+        _add(idx_dt.date().isoformat(), embeddings=embedded_files, builds=1)
+
+    trace_built_at = None
+    if isinstance(trace_manifest, dict):
+        trace_built_at = trace_manifest.get("built_at")
+    if trace_built_at is None and isinstance(trace_status, dict):
+        trace_built_at = trace_status.get("last_build_at")
+    trace_dt = parse_iso_datetime(str(trace_built_at) if trace_built_at else None)
+    if trace_dt is not None and trace_dt.date() >= start_date and bool(trace_status.get("exists", False)):
+        counts = (trace_manifest or {}).get("counts") if isinstance(trace_manifest, dict) else None
+        nodes = 0
+        if isinstance(counts, dict):
+            nodes = int(counts.get("nodes") or 0)
+        if nodes <= 0:
+            nodes = int((trace_status.get("counts") or {}).get("nodes") or 0)
+        _add(trace_dt.date().isoformat(), trace=nodes, builds=1)
+
+    days = [by_date[k] for k in sorted(by_date.keys())]
+    totals = {
+        "embeddings": sum(int(d.get("embeddings", 0)) for d in days),
+        "trace": sum(int(d.get("trace", 0)) for d in days),
+        "builds": sum(int(d.get("builds", 0)) for d in days),
+    }
+    return {"days": days, "totals": totals}
+
+
+def build_coverage_tree(repo_root: Path, include_globs: List[str], exclude_globs: List[str]) -> Dict[str, Any]:
+    repo_root = Path(repo_root).expanduser().resolve()
+    include_globs = list(include_globs or [])
+    exclude_globs = list(exclude_globs or [])
+
+    files = set()
+    for pat in include_globs:
+        try:
+            for p in repo_root.glob(pat):
+                files.add(p)
+        except Exception:
+            continue
+
+    root: Dict[str, Any] = {"name": repo_root.name or "root", "type": "dir", "children": []}
+
+    def _ensure_dir(parent: Dict[str, Any], name: str) -> Dict[str, Any]:
+        children = parent.get("children")
+        if not isinstance(children, list):
+            children = []
+            parent["children"] = children
+        for c in children:
+            if isinstance(c, dict) and c.get("type") == "dir" and c.get("name") == name:
+                return c
+        node: Dict[str, Any] = {"name": name, "type": "dir", "children": []}
+        children.append(node)
+        return node
+
+    for p in sorted(files, key=lambda x: str(x)):
+        try:
+            if not p.is_file():
+                continue
+            rel_path = str(p.relative_to(repo_root))
+        except Exception:
+            continue
+
+        parts = list(Path(rel_path).parts)
+        if not parts:
+            continue
+
+        parent = root
+        for part in parts[:-1]:
+            parent = _ensure_dir(parent, part)
+
+        status = "excluded" if any(Path(rel_path).match(pat) for pat in exclude_globs) else "indexed"
+        children = parent.get("children")
+        if not isinstance(children, list):
+            children = []
+            parent["children"] = children
+        children.append({"name": parts[-1], "type": "file", "status": status})
+
+    def _compute(node: Dict[str, Any]) -> tuple[int, int]:
+        if node.get("type") != "dir":
+            return (1, 1) if node.get("status") == "indexed" else (0, 1)
+
+        indexed = 0
+        total = 0
+        for child in node.get("children", []) or []:
+            if not isinstance(child, dict):
+                continue
+            i, t = _compute(child)
+            indexed += i
+            total += t
+        node["coverage"] = (indexed / total) if total else 0.0
+        return indexed, total
+
+    def _sort(node: Dict[str, Any]) -> None:
+        children = node.get("children")
+        if not isinstance(children, list):
+            return
+        children.sort(key=lambda c: (0 if isinstance(c, dict) and c.get("type") == "dir" else 1, str(c.get("name") or "")))
+        for child in children:
+            if isinstance(child, dict) and child.get("type") == "dir":
+                _sort(child)
+
+    _compute(root)
+    _sort(root)
+    return root

@@ -44,10 +44,11 @@ GO_EXTENSIONS = {".go"}
 RUST_EXTENSIONS = {".rs"}
 JAVA_EXTENSIONS = {".java"}
 CPP_EXTENSIONS = {".c", ".cpp", ".cc", ".h", ".hpp"}
+SWIFT_EXTENSIONS = {".swift"}
 
 SUPPORTED_EXTENSIONS = (
     PYTHON_EXTENSIONS | TYPESCRIPT_EXTENSIONS | GO_EXTENSIONS
-    | RUST_EXTENSIONS | JAVA_EXTENSIONS | CPP_EXTENSIONS
+    | RUST_EXTENSIONS | JAVA_EXTENSIONS | CPP_EXTENSIONS | SWIFT_EXTENSIONS
 )
 
 
@@ -107,7 +108,7 @@ class TraceBuildResult:
     file_errors: List[FileError]
 
 
-SUPPORTED_LANGUAGES = ["python", "typescript", "javascript", "go", "rust", "java", "c", "cpp"]
+SUPPORTED_LANGUAGES = ["python", "typescript", "javascript", "go", "rust", "java", "c", "cpp", "swift"]
 
 
 def _detect_language(file_path: str) -> Optional[str]:
@@ -124,6 +125,8 @@ def _detect_language(file_path: str) -> Optional[str]:
         return "java"
     if ext in CPP_EXTENSIONS:
         return "cpp" if ext in {".cpp", ".cc", ".hpp"} else "c"
+    if ext in SWIFT_EXTENSIONS:
+        return "swift"
     return None
 
 
@@ -378,6 +381,123 @@ class PythonAnalyzer:
         return None
 
 
+class SwiftAnalyzer:
+    """
+    Regex-based Swift analyzer for extracting symbols and imports.
+    """
+
+    def __init__(self, file_path: str, source: str, repo_root: Path):
+        self.file_path = file_path
+        self.source = source
+        self.repo_root = repo_root
+        self.nodes: List[TraceNode] = []
+        self.edges: List[TraceEdge] = []
+        self._file_node_id = stable_file_node_id(file_path)
+
+    def analyze(self) -> Tuple[List[TraceNode], List[TraceEdge]]:
+        import re
+        
+        # Imports: import Module
+        # Regex for 'import Module' or 'import class Module.Class'
+        # Simplified: just grab the last part or second token
+        import_pattern = re.compile(r"^\s*import\s+([a-zA-Z0-9_.]+)", re.MULTILINE)
+        for match in import_pattern.finditer(self.source):
+            module = match.group(1).strip()
+            # If 'import class Module.Thing', module might be 'class' which is wrong.
+            # Swift syntax: import [kind] Module.Submodule
+            # Let's be slightly smarter.
+            line_start = match.start()
+            line = self.source[line_start:self.source.find('\n', line_start)].strip()
+            parts = line.split()
+            if len(parts) >= 2 and parts[0] == "import":
+                # Handle 'import kind module' vs 'import module'
+                target = parts[-1] # The last part is usually the module/symbol
+                if target and not target.startswith("@"): # Ignore attributes if any (unlikely on import line)
+                     self._add_import(target, self.source.count('\n', 0, match.start()) + 1)
+
+        # Symbols: class, struct, enum, protocol, extension, func
+        # We want top-level and nested (maybe just regex scan for keywords?)
+        # Regex is fragile for nesting, but good enough for basic flat list of symbols.
+        # Captures: (attributes)? (visibility)? (kind) (name)
+        # e.g. "public class MyClass", "struct MyStruct", "func myFunc"
+        
+        # Regex breakdown:
+        # ^\s* -> start of line, optional whitespace
+        # (?:[\w@]+\s+)* -> optional attributes/modifiers (public, @objc, etc) non-capturing
+        # (class|struct|enum|protocol|extension|func)\s+ -> kind
+        # ([a-zA-Z0-9_]+) -> name
+        
+        symbol_pattern = re.compile(
+            r"^\s*(?:[\w@]+\s+)*(class|struct|enum|protocol|extension|func)\s+([a-zA-Z0-9_]+)", 
+            re.MULTILINE
+        )
+        
+        for match in symbol_pattern.finditer(self.source):
+            kind = match.group(1)
+            name = match.group(2)
+            start_line = self.source.count('\n', 0, match.start()) + 1
+            
+            # Rough estimation of end line (next empty line or closing brace? Indentation?)
+            # For regex analyzer, we often default end_line = start_line to avoid complex parsing.
+            end_line = start_line 
+            
+            # Extensions don't have a name usually "extension String { ... }"
+            # If regex matched "extension String", name="String". Correct.
+            
+            symbol_type = "method" if kind == "func" else "class" # Simplification
+            if kind in ("struct", "enum", "protocol"):
+                symbol_type = "class" # Map to closest trace model equivalent
+            elif kind == "extension":
+                symbol_type = "class"
+
+            qualname = name # Flat namespace for regex
+            
+            node_id = stable_symbol_node_id(qualname, self.file_path, start_line)
+            
+            trace_node = TraceNode(
+                id=node_id,
+                kind="symbol",
+                name=name,
+                file_path=self.file_path,
+                span={"start_line": start_line, "end_line": end_line},
+                language="swift",
+                metadata={
+                    "symbol_type": symbol_type,
+                    "qualname": qualname,
+                    "swift_kind": kind,
+                    "is_public": "public" in match.group(0), # Rough heuristic
+                },
+            )
+            self.nodes.append(trace_node)
+            
+            edge_id = stable_edge_id("contains", self._file_node_id, node_id)
+            self.edges.append(
+                TraceEdge(
+                    id=edge_id, 
+                    kind="contains", 
+                    source=self._file_node_id, 
+                    target=node_id, 
+                    metadata={"confidence": 0.8} # Regex is less confident
+                )
+            )
+
+        return self.nodes, self.edges
+
+    def _add_import(self, module: str, lineno: int) -> None:
+        ext_id = stable_external_module_id(module)
+        disambiguator = f"{module}:{lineno}"
+        edge_id = stable_edge_id("imports", self._file_node_id, ext_id, disambiguator)
+        self.edges.append(
+            TraceEdge(
+                id=edge_id,
+                kind="imports",
+                source=self._file_node_id,
+                target=ext_id,
+                metadata={"confidence": 0.8, "import": module, "line": lineno, "external": True},
+            )
+        )
+
+
 class TraceBuilder:
     """
     Builds trace index files: trace_manifest.json, trace_nodes.jsonl, trace_edges.jsonl.
@@ -399,7 +519,15 @@ class TraceBuilder:
     ):
         self.repo_root = Path(repo_root).resolve()
         self.index_dir = Path(index_dir).resolve()
-        self.include_globs = include_globs or ["**/*.py", "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"]
+        self.include_globs = include_globs or [
+            "**/*.py",
+            "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx",
+            "**/*.go",
+            "**/*.rs",
+            "**/*.java",
+            "**/*.c", "**/*.cpp", "**/*.h", "**/*.hpp", "**/*.cc",
+            "**/*.swift",
+        ]
         self.exclude_globs = exclude_globs or [
             "**/node_modules/**",
             "**/.git/**",
@@ -499,6 +627,33 @@ class TraceBuilder:
             if language == "python":
                 try:
                     analyzer = PythonAnalyzer(rel_path, source, self.repo_root)
+                    sym_nodes, sym_edges = analyzer.analyze()
+                    nodes.extend(sym_nodes)
+
+                    for edge in sym_edges:
+                        if edge.metadata.get("external"):
+                            ext_name = str(edge.metadata.get("import", ""))
+                            if ext_name and ext_name not in external_modules:
+                                ext_node = TraceNode(
+                                    id=stable_external_module_id(ext_name),
+                                    kind="external_module",
+                                    name=ext_name,
+                                    file_path="",
+                                    span=None,
+                                    language=None,
+                                    metadata={"external": True},
+                                )
+                                external_modules[ext_name] = ext_node
+
+                    edges.extend(sym_edges)
+                    files_parsed += 1
+                except Exception as e:
+                    files_failed += 1
+                    if len(file_errors) < self.max_failures:
+                        file_errors.append(FileError(rel_path, type(e).__name__, str(e)))
+            elif language == "swift":
+                try:
+                    analyzer = SwiftAnalyzer(rel_path, source, self.repo_root)
                     sym_nodes, sym_edges = analyzer.analyze()
                     nodes.extend(sym_nodes)
 
@@ -838,14 +993,24 @@ class TraceIndex:
         self._edges_by_source: Dict[str, List[Dict[str, Any]]] = {}
         self._edges_by_target: Dict[str, List[Dict[str, Any]]] = {}
         self._loaded = False
+        self._last_mtime: float = 0.0
         self._rust_handle = None  # Rust TraceHandle when using Rust engine
 
     def exists(self) -> bool:
         return self.manifest_path.exists() and self.nodes_path.exists() and self.edges_path.exists()
 
-    def load(self) -> bool:
+    def load(self, force: bool = False) -> bool:
         if not self.exists():
             return False
+            
+        # Check for staleness
+        try:
+            current_mtime = self.manifest_path.stat().st_mtime
+            if not force and self._loaded and current_mtime <= self._last_mtime:
+                return True
+            self._last_mtime = current_mtime
+        except OSError:
+            pass
 
         if _ENGINE == "rust" and _rust_engine is not None:
             return self._load_rust()
@@ -940,8 +1105,8 @@ class TraceIndex:
                 "last_error": None,
             }
 
-        if not self._loaded:
-            self.load()
+        # Always check if we need to reload (checks mtime internally)
+        self.load()
 
         if self._rust_handle is not None:
             rust_status = self._rust_handle.status()

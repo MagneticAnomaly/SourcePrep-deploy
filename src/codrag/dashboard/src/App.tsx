@@ -35,11 +35,12 @@ import {
 } from '@codrag/ui'
 import { StartupScreen } from './components/StartupScreen'
 import { SettingsDrawer } from './components/settings/SettingsDrawer'
+import { ErrorToast } from './components/ErrorToast'
 import { useLicenseSystem } from './hooks/useLicenseSystem'
 import { useLLMConfig } from './hooks/useLLMConfig'
 import { useDeepAnalysis } from './hooks/useDeepAnalysis'
 import { useWatchSystem } from './hooks/useWatchSystem'
-import { useTraceSystem } from './hooks/useTraceSystem'
+import { useTraceSystem, type TraceCoverage } from './hooks/useTraceSystem'
 import { useDashboardPanels } from './hooks/useDashboardPanels'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
@@ -118,7 +119,7 @@ function App() {
 
   // ── Global state ───────────────────────────────────────────
   const [loading, setLoading] = useState(true)
-  const [_error, setError] = useState<string | null>(null) // TODO: wire to error toast
+  const [error, setError] = useState<string | null>(null)
 
   // ── Project list ───────────────────────────────────────────
   const [projects, setProjects] = useState<ProjectListItem[]>([])
@@ -224,7 +225,7 @@ function App() {
   const eventsUrl = import.meta.env.DEV
     ? `http://${window.location.hostname}:8400/events`
     : `${api.baseUrl}/events`;
-  const { logs, tasks, clearLogs } = useEventStream(eventsUrl, 1000);
+  const { logs, tasks, clearLogs, pipelineEvents, scopeEvents } = useEventStream(eventsUrl, 1000);
 
   // Helper to find relevant task for current project
   const findActiveTask = useCallback((type: 'index_build' | 'trace_build') => {
@@ -268,6 +269,7 @@ function App() {
     traceStatus, setTraceStatus,
     traceCoverage, setTraceCoverage,
     augmentationStatus, augmenting,
+    validating,
     epistemicStatus, epistemicRunning,
     moduleStatus, clusterRunning,
     deepeningStatus, deepeningRunning,
@@ -293,6 +295,10 @@ function App() {
     onResetSearch: () => { setSearchResults([]); setSelectedChunk(null); setContext(''); setContextMeta(null) },
     onError: (msg) => setError(msg),
     findActiveTask,
+    pipelineEvents,
+    startWatch: handleStartWatch,
+    stopWatch: handleStopWatch,
+    refreshWatchStatus,
   })
 
   // ── LLM config (hook) ───────────────────────────────────────
@@ -302,6 +308,7 @@ function App() {
     llmSlotsStatus,
     handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
     handleTestEndpoint, handleFetchModels, handleTestModel,
+    handleDownloadModel,
     fetchLLMSlotsStatus,
   } = useLLMConfig({ onDirty: () => setConfigDirty(true) })
 
@@ -332,6 +339,10 @@ function App() {
     }
   }, [api])
 
+  // Ref to track auto-rebuild state for use in handleBuild callback
+  const indexAutoRebuildRef = useRef(indexAutoRebuild)
+  indexAutoRebuildRef.current = indexAutoRebuild
+
   const handleBuild = useCallback(async () => {
     if (!selectedProjectId) return
     try {
@@ -350,6 +361,10 @@ function App() {
           })
           // Refresh status after build
           void refreshStatus(selectedProjectId)
+          // If Auto mode is on, start the watcher after initial build
+          if (indexAutoRebuildRef.current) {
+            handleStartWatch().then(() => refreshWatchStatus(selectedProjectId)).catch(() => {})
+          }
         }
       }, 2000)
     } catch (e) {
@@ -360,7 +375,7 @@ function App() {
       })
       setError(e instanceof Error ? e.message : 'Build failed')
     }
-  }, [api, selectedProjectId])
+  }, [api, selectedProjectId, handleStartWatch, refreshWatchStatus])
 
   const handleSearch = useCallback(async () => {
     if (!query.trim() || !selectedProjectId) return
@@ -524,7 +539,15 @@ function App() {
       localStorage.setItem('codrag_included_paths', JSON.stringify([...next]))
       return next
     })
-  }, [])
+    // Phase 24: Notify scope orchestrator about knowledge scope changes
+    if (selectedProjectId && paths.length > 0) {
+      if (action === 'add') {
+        api.addScopeFiles(selectedProjectId, paths).catch(() => {})
+      } else {
+        api.removeScopeFiles(selectedProjectId, paths).catch(() => {})
+      }
+    }
+  }, [api, selectedProjectId])
 
   const handlePinFile = useCallback((path: string) => {
     setPinnedPaths((prev) => {
@@ -710,7 +733,7 @@ function App() {
       // Fetch coverage directly — can't rely on fetchTraceCoverage() here
       // because setTraceStatus hasn't applied yet (stale closure)
       if (enabled && selectedProjectId) {
-        setTraceCoverage(prev => ({ ...prev, loading: true }))
+        setTraceCoverage((prev: TraceCoverage) => ({ ...prev, loading: true }))
         api.getTraceCoverage(selectedProjectId).then((cov) => {
           setTraceCoverage({
             summary: cov.summary,
@@ -721,7 +744,7 @@ function App() {
             loading: false,
           })
         }).catch(() => {
-          setTraceCoverage(prev => ({ ...prev, loading: false }))
+          setTraceCoverage((prev: TraceCoverage) => ({ ...prev, loading: false }))
         })
       }
     }).catch(() => { setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } }) })
@@ -753,6 +776,7 @@ function App() {
   // ── Dashboard panels (hook) ─────────────────────────────────
   const { panelContent, panelDetails, allPanelDefs, PINNED_PREFIX: pinnedPrefix } = useDashboardPanels({
     projectStatus, selectedProject, selectedProjectId, projectConfig, isPro,
+    scopeStatus: selectedProjectId ? scopeEvents[selectedProjectId] : undefined,
     logs, clearLogs, findActiveTask,
     handleBuild,
     query, setQuery, searchK, setSearchK, minScore, setMinScore,
@@ -771,7 +795,7 @@ function App() {
     handleSearchTrace, handleGetTraceNode, handleGetTraceNeighbors,
     handleBuildTrace, handleEnableTrace, handleTogglePause,
     handleTraceAll, handleRetraceStale, handleAddExcludePattern, handleRemoveExcludePattern, fetchTraceCoverage,
-    augmentationStatus, augmenting, handleRunAugmentation,
+    augmentationStatus, augmenting, validating, handleRunAugmentation,
     epistemicStatus, epistemicRunning, handleRunEpistemic,
     moduleStatus, clusterRunning, handleRunModuleSynthesis,
     deepeningStatus, deepeningRunning, handleRunDeepening,
@@ -781,8 +805,14 @@ function App() {
     deepAnalysisStatus, deepAnalysisRunning, handleRunDeepAnalysis, handleCancelDeepAnalysis,
     llmConfig, llmSlotsStatus,
     handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
-    handleTestEndpoint, handleFetchModels, handleTestModel,
-    availableModels, loadingModels, testingSlot, testResults,
+    handleTestEndpoint,
+    handleFetchModels,
+    handleTestModel,
+    handleDownloadModel,
+    availableModels,
+    loadingModels,
+    testingSlot,
+    testResults,
   })
 
   // ── Loading state ──────────────────────────────────────────
@@ -802,6 +832,7 @@ function App() {
   // ── Render ─────────────────────────────────────────────────
   return (
     <>
+      <ErrorToast message={error} onClose={() => setError(null)} />
       {isDaemonUnhealthy && (
         <div className="fixed inset-x-0 top-0 z-[100] bg-error text-white px-4 py-2 text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
         <AlertCircle className="w-4 h-4" />

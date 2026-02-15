@@ -99,6 +99,7 @@ from codrag.core.repo_policy import (
     load_repo_policy, policy_path_for_index, write_repo_policy,
     _normalize_path_weights,
 )
+from codrag.core.repo_profile import scan_for_presets, STACK_PRESETS
 
 from codrag.core.watcher import AutoRebuildWatcher
 from codrag.core import ClaraCompressor, NoopCompressor
@@ -186,75 +187,6 @@ class DetectStackResponse(BaseModel):
     recommended_globs: List[str]
     detected_presets: List[str]
     all_presets: Dict[str, List[str]]
-
-
-# ── Stack detection helpers ───────────────────────────────────────
-
-_STACK_PRESETS = {
-    "Web (JS/TS)": ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "**/*.html", "**/*.css", "**/*.json"],
-    "Python": ["**/*.py", "**/*.ipynb"],
-    "iOS (Swift/ObjC)": ["**/*.swift", "**/*.h", "**/*.m", "**/*.mm"],
-    "Rust": ["**/*.rs", "**/*.toml"],
-    "Go": ["**/*.go", "**/*.mod"],
-    "Java/Kotlin": ["**/*.java", "**/*.kt", "**/*.kts", "**/*.gradle"],
-    "C/C++": ["**/*.c", "**/*.cpp", "**/*.h", "**/*.hpp", "**/*.cc"],
-    "C#": ["**/*.cs"],
-    "Ruby": ["**/*.rb"],
-    "PHP": ["**/*.php"],
-    "Shell": ["**/*.sh", "**/*.bash", "**/*.zsh"],
-    "Configuration": ["**/*.yaml", "**/*.yml", "**/*.json", "**/*.toml", "**/*.xml", "**/*.ini", "**/*.env"],
-    "Documentation": ["**/*.md", "**/*.markdown", "**/*.txt"],
-}
-
-# Map extension to preset keys
-_EXT_TO_PRESET = {
-    ".js": "Web (JS/TS)", ".jsx": "Web (JS/TS)", ".ts": "Web (JS/TS)", ".tsx": "Web (JS/TS)", ".html": "Web (JS/TS)", ".css": "Web (JS/TS)",
-    ".py": "Python", ".ipynb": "Python",
-    ".swift": "iOS (Swift/ObjC)", ".m": "iOS (Swift/ObjC)", ".mm": "iOS (Swift/ObjC)",
-    ".rs": "Rust",
-    ".go": "Go",
-    ".java": "Java/Kotlin", ".kt": "Java/Kotlin",
-    ".c": "C/C++", ".cpp": "C/C++", ".h": "C/C++", ".hpp": "C/C++", ".cc": "C/C++",
-    ".cs": "C#",
-    ".rb": "Ruby",
-    ".php": "PHP",
-    ".sh": "Shell", ".bash": "Shell",
-    ".yaml": "Configuration", ".yml": "Configuration", ".json": "Configuration", ".xml": "Configuration", ".toml": "Configuration",
-    ".md": "Documentation",
-}
-
-def _scan_for_presets(root: Path) -> List[str]:
-    """
-    Quickly scan the project root for file extensions to determine active presets.
-    Skips common heavy directories to be fast.
-    """
-    detected_presets = set()
-    # Limit depth and directories to avoid slow scans in huge monorepos
-    ignore_dirs = {
-        ".git", "node_modules", ".venv", "venv", "env", "__pycache__", 
-        "dist", "build", "target", ".next", ".idea", ".vscode", "vendor"
-    }
-    
-    try:
-        # We'll just walk up to 3 levels deep for speed, or until we find enough evidence
-        # Actually, os.walk is fine if we prune
-        import os
-        for dirpath, dirnames, filenames in os.walk(str(root)):
-            # Prune ignored dirs
-            dirnames[:] = [d for d in dirnames if d not in ignore_dirs and not d.startswith(".")]
-            
-            for f in filenames:
-                ext = Path(f).suffix.lower()
-                if ext in _EXT_TO_PRESET:
-                    detected_presets.add(_EXT_TO_PRESET[ext])
-            
-            # Heuristic: stop early if we have found a lot? 
-            # No, keep going to find mixed stacks (e.g. Rust + React)
-            pass
-    except Exception:
-        pass
-        
-    return list(detected_presets)
 
 
 # ── Endpoints ────────────────────────────────────────────────────
@@ -360,6 +292,24 @@ def add_project(req: AddProjectRequest) -> Dict[str, Any]:
             (_srv()._DEFAULT_UI_CONFIG.get("auto_rebuild") or {}).get("debounce_ms")
         )
 
+    # Auto-detect stack presets to populate include_globs
+    try:
+        detected = _scan_for_presets(p)
+        if detected:
+            logger.info(f"Auto-detected stack presets for {p.name}: {detected}")
+            detected_globs = []
+            for preset in detected:
+                detected_globs.extend(_STACK_PRESETS.get(preset, []))
+            
+            # Merge unique into include_globs
+            current_globs = set(default_cfg["include_globs"])
+            for g in detected_globs:
+                if g not in current_globs:
+                    default_cfg["include_globs"].append(g)
+                    current_globs.add(g)
+    except Exception as e:
+        logger.warning(f"Failed to auto-detect stack presets: {e}")
+
     try:
         proj = reg.add_project(path=str(p), name=req.name, mode=req.mode, config=default_cfg)
     except ProjectAlreadyExists:
@@ -454,7 +404,7 @@ def delete_project(project_id: str, purge: bool = False) -> Dict[str, Any]:
         )
 
     _srv()._project_indexes.pop(project_id, None)
-    _srv()._project_srv()._trace_indexes.pop(project_id, None)
+    _srv()._project_trace_indexes.pop(project_id, None)
     with _srv()._project_build_lock:
         _srv()._project_build_threads.pop(project_id, None)
         _srv()._project_last_build_result.pop(project_id, None)
@@ -509,9 +459,20 @@ def start_project_watch(
 
         started = _srv()._start_project_build(proj, None, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes)
 
-        # Also trigger trace rebuild if trace is enabled
+        # Phase 24: If auto_fast_sync is gated and allowed, trigger
+        # the pipeline orchestrator for trace stages instead of raw build.
+        from codrag.core.feature_gate import check_feature
         trace_cfg = cfg.get("trace") if isinstance(cfg, dict) else None
-        if bool((trace_cfg or {}).get("enabled", False)):
+        trace_enabled = bool((trace_cfg or {}).get("enabled", False))
+
+        if trace_enabled and check_feature("auto_fast_sync"):
+            try:
+                from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+                pipeline_orchestrator.run_fast_sync(proj.id)
+            except Exception:
+                # Fallback to legacy trace build
+                _srv()._start_project_trace_build(proj, include_globs, exclude_globs, max_file_bytes=max_file_bytes, hard_limit_bytes=hard_limit_bytes)
+        elif trace_enabled:
             _srv()._start_project_trace_build(proj, include_globs, exclude_globs, max_file_bytes=max_file_bytes, hard_limit_bytes=hard_limit_bytes)
 
         return started

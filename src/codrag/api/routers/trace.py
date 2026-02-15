@@ -183,7 +183,7 @@ def trace_status_project(project_id: str) -> Dict[str, Any]:
 @router.post("/projects/{project_id}/trace/build")
 def build_trace_project(project_id: str) -> Dict[str, Any]:
     from codrag.server import (
-        _require_project, _is_project_trace_building, _start_project_trace_build,
+        _require_project, _is_project_trace_building, _start_project_trace_build, _get_registry
     )
     proj = _require_project(project_id)
 
@@ -205,6 +205,26 @@ def build_trace_project(project_id: str) -> Dict[str, Any]:
     include_globs = list(include_raw) if isinstance(include_raw, list) else None
     exclude_globs = list(exclude_raw) if isinstance(exclude_raw, list) else None
     max_file_bytes = int((cfg.get("max_file_bytes") or 500_000) if isinstance(cfg, dict) else 500_000)
+
+    # Auto-detect stack presets if include_globs is empty or None
+    if not include_globs:
+        try:
+            from codrag.core.repo_profile import scan_for_presets, STACK_PRESETS
+            detected = scan_for_presets(Path(proj.path))
+            if detected:
+                logger.info(f"Auto-detected stack presets for {proj.name} during build: {detected}")
+                detected_globs = []
+                for preset in detected:
+                    detected_globs.extend(STACK_PRESETS.get(preset, []))
+                
+                # Use detected globs and persist to config
+                if detected_globs:
+                    include_globs = sorted(list(set(detected_globs)))
+                    cfg["include_globs"] = include_globs
+                    proj.config = cfg
+                    _get_registry().update(proj)
+        except Exception as e:
+            logger.warning(f"Failed to auto-detect stack presets during trace build: {e}")
 
     if proj.mode == "embedded":
         if exclude_globs is None:

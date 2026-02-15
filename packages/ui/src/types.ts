@@ -675,6 +675,61 @@ export interface ProjectStatus {
 }
 
 /**
+ * Pipeline group run status (Phase 24 SM-6)
+ */
+export interface PipelineGroupRun {
+  project_id: string;
+  group: string;
+  phase: 'idle' | 'running' | 'completed' | 'failed';
+  current_stage: string | null;
+  current_stage_index: number;
+  total_stages: number;
+  started_at: number | null;
+  finished_at: number | null;
+  error: string | null;
+  stage_results: Record<string, string>;
+}
+
+/**
+ * Full pipeline status (8-stage, two-group model)
+ * Matches the backend `PipelineOrchestrator.status()` shape.
+ */
+export interface PipelineStatus {
+  fast_sync: PipelineGroupRun | null;
+  deep_enrichment: PipelineGroupRun | null;
+  stages: {
+    structural: any;
+    catalogue: any;
+    validation: any;
+    knowledge: any;
+    enrichment: any;
+    clustering: any;
+    deepening: any;
+    deep_knowledge: any;
+  };
+  any_running: boolean;
+}
+
+/**
+ * Scope Orchestrator status (Phase 24 SM-8: Knowledge Scope Pipeline)
+ * Matches the backend `ScopeOrchestrator.status()` shape.
+ */
+export interface ScopeStatus {
+  project_id?: string;
+  state: 'idle' | 'debouncing' | 'building' | 'failed' | 'stale';
+  pending_adds: number;
+  pending_removes: number;
+  pending_changes: number;
+  total_pending: number;
+  auto_rebuild: boolean;
+  debounce_ms: number;
+  error: string | null;
+  last_rebuild_at: number | null;
+  stale_since: number | null;
+  is_stale: boolean;
+}
+
+/**
  * Unified Graph Engine Status (for the Engine Panel)
  */
 export interface GraphEngineStatus {

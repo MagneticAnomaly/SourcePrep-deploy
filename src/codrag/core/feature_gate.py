@@ -2,14 +2,17 @@
 Feature gating for CoDRAG tiers.
 
 Tiers:
-  - free:       1 project, manual builds only, no watcher, no trace
-  - starter:    3 projects, watcher enabled, no trace
-  - pro:        unlimited projects, watcher, trace, MCP, multi-repo
+  - free:       1 project, manual builds only, no watcher
+  - starter:    functionally identical to PRO (3-month time-limited trial)
+  - pro:        unlimited projects, full automation, all features
   - team:       pro + shared config, centralized policy
   - enterprise: team + air-gapped, SSO, audit
 
 License is read from ~/.codrag/license.json (offline Ed25519 signed token)
 or overridden via CODRAG_TIER env var for development.
+
+Phase 24 note: STARTER = PRO for all pipeline behavior. The only
+difference is the expiry date on the license.
 """
 
 from __future__ import annotations
@@ -34,10 +37,12 @@ class Tier(IntEnum):
 
 
 # Feature → minimum tier required
+# Note: STARTER = PRO for all pipeline/automation features.
+# STARTER is just PRO with a 3-month expiry.
 FEATURE_TIERS = {
     "projects_max": {
         Tier.FREE: 1,
-        Tier.STARTER: 3,
+        Tier.STARTER: 999,   # Same as PRO
         Tier.PRO: 999,
         Tier.TEAM: 999,
         Tier.ENTERPRISE: 999,
@@ -47,12 +52,16 @@ FEATURE_TIERS = {
     "trace_index": Tier.FREE,           # Manual trace build (everyone gets to try it)
     "trace_search": Tier.FREE,          # Search the trace graph
     "mcp_tools": Tier.FREE,             # MCP tools (basic)
-    "mcp_trace_expand": Tier.PRO,       # Trace-aware context expansion via MCP
+    "mcp_trace_expand": Tier.STARTER,   # Trace-aware context expansion via MCP
     "path_weights": Tier.FREE,          # Path weight overrides
-    "clara_compression": Tier.PRO,      # CLaRa context compression
-    "multi_repo_agent": Tier.PRO,       # Multi-repo agent mode
+    "clara_compression": Tier.STARTER,  # CLaRa context compression
+    "multi_repo_agent": Tier.STARTER,   # Multi-repo agent mode
     "team_config": Tier.TEAM,           # Shared team configuration
     "audit_log": Tier.ENTERPRISE,       # Audit logging
+    # Phase 24: Pipeline automation gates
+    "auto_fast_sync": Tier.STARTER,     # Auto Fast Sync on file changes
+    "auto_deep_enrichment": Tier.STARTER,  # Auto/scheduled Deep Enrichment
+    "auto_scope_rebuild": Tier.STARTER, # Auto Knowledge Scope rebuild on selection change
 }
 
 

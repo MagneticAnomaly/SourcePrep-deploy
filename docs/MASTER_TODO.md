@@ -113,6 +113,10 @@ These sprints are intentionally cross-phase. Each sprint should end with:
   - Noop detection: `mode="noop"` when nothing changed (all files reused, 0 embedded, 0 deleted)
   - Tests: `tests/test_incremental_rebuild.py` (7 tests)
 - [x] S-03.3 Freshness UI and "what changed?" surfaces (Phase02/03) `WatchControlPanel` + `WatchStatusIndicator` + watch panel in dashboard
+- [x] S-03.4 Reactive Enrichment Loop (Deepening) (Phase03/22) ✅
+  - Auto-chaining of Deep Enrichment after Fast Sync (PipelineOrchestrator)
+  - Deepening Loop for targeted repair of stale nodes (TraceAugmenter hash diffs)
+  - Documented in `docs/REACTIVE_LOOP_STRATEGY.md`
 
 ### Sprint S-04: Code Graph foundations + bounded expansion
 **Goal:** structural grounding that stays small, inspectable, and safe.
@@ -384,6 +388,15 @@ This section tracks shared decisions/strategies that must remain consistent acro
   `is_building` checks both index and trace build threads.
 - **Gating:** Auto-rebuild requires STARTER+ tier. Manual builds remain FREE.
 
+### STR-11: Reactive Loop (Continuous Enrichment)
+- **Status:** ✅ Implemented (Reactive Mode)
+- **Source of truth:** `docs/REACTIVE_LOOP_STRATEGY.md`
+- **Implementation:**
+  - **Watcher (SM-5):** Triggers Fast Sync (Stages 1-4) on file save.
+  - **Orchestrator (SM-6):** Auto-chains Deep Enrichment (Stages 5-8) if `deep_enrichment.mode="auto"`.
+  - **Deepening Loop (Stage 7):** Identifies stale nodes via hash comparison (`trace_augmented.jsonl`) and re-processes only those nodes.
+- **Constraints:** No infinite background loop; relies on "heal-on-save" to conserve resources. `scheduled` mode is planned but not yet implemented.
+
 ---
 
 ## Sprint notes (append-only)
@@ -391,6 +404,18 @@ Add brief notes here after completing a sprint:
 - date
 - what changed (decisions, scope)
 - new blockers
+
+### 2026-02-14: Reactive Loop Strategy & Verification
+
+**What was done:**
+- Verified "Continuous Loop" implementation is actually a "Reactive Loop" (heal-on-save).
+- Confirmed `PipelineOrchestrator` auto-chains Deep Enrichment after Fast Sync when in `auto` mode.
+- Confirmed `DeepeningLoop` correctly uses file hash diffs to target only stale nodes.
+- Created `docs/REACTIVE_LOOP_STRATEGY.md` to formalize this architecture.
+
+**Status:**
+- "Continuous" mode is fully functional as "Reactive Auto-Chain".
+- `scheduled` mode is config-only (no active cron).
 
 ### 2026-02-01: API envelope + manifest/IDs scaffolding
 
@@ -529,6 +554,13 @@ Add brief notes here after completing a sprint:
   - Server currently returns `{"enabled": false}` only.
 - [x] Docs: add `POST /license/activate`, `POST /license/deactivate`, `GET /api/code-index/mcp-config` to `docs/API.md`.
  - [x] MCP direct mode smoke test ✅ **DONE: `tests/test_mcp_direct_smoke.py` (10 tests, uses FakeEmbedder)**
+
+### 2026-02-14: Pinned Files feature (Dashboard)
+- [x] Implemented "Pinned Files" feature in Dashboard (Phase02)
+  - **Backend**: Added `GET /projects/{id}/file?path=...` endpoint with safety checks (traversal, globs, max_bytes).
+  - **UI**: Added `FolderTreePanel` (browsable tree) and `PinnedTextFilesPanel` (content viewer).
+  - **State**: Persisted pinned paths in `localStorage`.
+  - **Integration**: Wired into `App.tsx` and Storybook.
 
 ### 2026-02-12: Trace Endpoint Stability & Test Polish
 
@@ -773,24 +805,26 @@ Add brief notes here after completing a sprint:
  - [x] `handleFetchModels` → now uses `api.fetchLLMModels()`
  - [x] `handleTestModel` → now uses `api.testLLMModel()`
 
- **Full Panel Registry ↔ App.tsx ↔ Storybook alignment matrix (11 panels, post S-22 cleanup):**
- | Panel ID | Registry | App.tsx | Storybook | Backend Connected |
+ **Full Panel Registry ↔ App.tsx ↔ Storybook alignment matrix (current `PANEL_REGISTRY`):**
+ | Panel ID | Registry | App.tsx | Storybook (FullDashboard) | Backend Connected |
  |---|---|---|---|---|
- | `log-console` | ✅ | ✅ LogConsole | ✅ | ✅ SSE events |
+ | `log-console` | ✅ | ✅ LogConsole | ❌ | ✅ SSE events |
  | `usage-guide` | ✅ | ✅ UsageGuidePanel | ✅ | — |
  | `status` | ✅ | ✅ IndexStatusCard | ✅ | ✅ getProjectStatus |
- | `llm-status` | ✅ | ✅ LLMStatusWidget | ✅ | ✅ getLLMStatus |
+ | `llm-status` | ✅ | ✅ LLMStatusWidget (+ details: AIModelsSettings) | ✅ | ✅ getLLMStatus + LLM proxy |
  | `search` | ✅ | ✅ SearchPanel | ✅ | ✅ search |
  | `context-options` | ✅ | ✅ ContextOptionsPanel | ✅ | ✅ assembleContext |
  | `results` | ✅ | ✅ SearchResultsList+ChunkPreview | ✅ | ✅ search |
  | `context-output` | ✅ | ✅ ContextOutput | ✅ | ✅ assembleContext |
  | `watch` | ✅ | ✅ WatchControlPanel | ✅ | ✅ start/stop/getWatchStatus |
+ | `file-tree` | ✅ | ✅ FolderTreePanel (+ details: FileExplorerDetail) | ❌ (uses legacy `roots`) | ✅ roots/files/file |
  | `trace` | ✅ | ✅ TraceExplorer | ✅ | ✅ searchTrace/getTraceNode/etc |
- | `trace-coverage` | ✅ | ✅ TraceCoveragePanel | ✅ | ✅ getTraceCoverage |
- | `trace-pipeline` | ✅ | ✅ TracePipelineStatus | ✅ | ✅ augmentation/deepAnalysis |
+ | `deep-analysis` | ✅ | ✅ DeepAnalysisSettings | ❌ | ✅ deep-analysis schedule/status |
+ | `trace-pipeline` | ✅ | ✅ GraphEnrichmentPipeline | ❌ | ✅ augmentation/epistemic/modules/deepening/knowledge |
+ | `graph-structure` | ✅ | ✅ GraphStructurePanel | ❌ (uses legacy `trace-coverage`) | ✅ getTraceCoverage + ignore patterns |
 
- **Panels removed in S-22:** `roots`, `settings`, `file-tree`, `pinned-files`, `deep-analysis`.
- Deep Analysis settings moved to SettingsDrawer (Project tab).
+ **Legacy / non-registry panel IDs (should not appear in `PANEL_REGISTRY`):**
+ `build`, `roots`, `trace-coverage`, `pinned-files`, `settings`, `graph-engine`.
 
  **Full Backend ↔ Frontend endpoint coverage (all 35+ endpoints):**
  All canonical endpoints now have typed `ApiClient` methods. Legacy `/api/*` proxy endpoints
@@ -798,8 +832,12 @@ Add brief notes here after completing a sprint:
  legacy `/api/code-index/config` path (migrate to canonical path when ready).
 
  **Remaining blockers / tech debt:**
- - [x] App.tsx LLM handlers: migrate from raw fetch to typed ApiClient methods (3 handlers) ✅ **DONE** (see lines 650-653)
+ - [x] App.tsx LLM handlers: migrate from raw `fetch` to typed ApiClient methods (3 handlers) ✅ **DONE**
  - [ ] `getGlobalConfig`/`updateGlobalConfig` use legacy `/api/code-index/config` — migrate to canonical endpoint
+ - [ ] Dashboard default layout drift: `DEFAULT_LAYOUT` includes orphan IDs (`build`, `trace-coverage`) that are no longer in `PANEL_REGISTRY`
+ - [ ] Storybook `FullDashboard` drift: uses legacy IDs (`roots`, `trace-coverage`, `build`) and is missing content for several registry panels
+ - [ ] Dashboard error UX: `App.tsx` has `_error` state with `TODO: wire to error toast`, but no `ErrorToast` render
+ - [ ] AI Models settings: HuggingFace download button is a no-op in the app (`onHFDownload={() => {}}`)
  - [ ] Activity heatmap panel: `ActivityHeatmap.stories.tsx` exists but no panel registered or wired in App.tsx
  - [ ] Storybook `NodeDetailPanel.stories.tsx` exists but NodeDetailPanel not wired as a dashboard panel
  - [ ] `WatchStatusIndicator.stories.tsx` exists but component not used in dashboard (WatchControlPanel used instead)
@@ -1245,7 +1283,7 @@ All URLs updated to `github.com/EricBintner/CoDRAG`:
 
 **Goal:** Clean separation of project-level and global settings; remove stale dashboard panels.
 
-**What was done:**
+ **What was done:**
 - **SettingsDrawer refactored** to two tabs: **Project** (ProjectSettingsPanel + DeepAnalysisSettings) and **Global** (Appearance, Background Image, Connection Debugger).
 - **Panels removed from `panelRegistry.ts`:** `roots`, `deep-analysis` (previously removed: `file-tree`, `pinned-files`, `settings`).
 - **App.tsx cleanup:** Removed all Pinned Files logic (`handlePinFile`, `handleUnpinFile`, `pinnedPaths`, `pinnedFiles`, `PINNED_PREFIX`, `dynamicPanelDefs`), File Tree state (`fileTree`, `includedPaths`, `setFileTree`, `setIncludedPaths`, `handleToggleInclude`, `handleLoadChildren`, `handleLoadFileContent`, `collectIndexedPaths`), and `handlePanelClose` pinned-file dispatching.
@@ -1254,3 +1292,114 @@ All URLs updated to `github.com/EricBintner/CoDRAG`:
 - **Fixed bare JS comment** (`// ── Global tab ──`) that should have been a JSX comment.
 - **Unused imports removed:** `Pin`, `CopyButton`, `PanelDefinition`, `TreeNode`, `FolderTree`.
 - **Panel audit table updated** in MASTER_TODO.md (14 panels → 11 panels).
+
+### 2026-02-14: Dashboard Panel ID Drift (DEFAULT_LAYOUT vs Registry vs App vs Storybook)
+
+#### NEW: `DEFAULT_LAYOUT` still references legacy/orphaned panel IDs (`build`, `trace-coverage`)
+
+`packages/ui/src/types/layout.ts` (`DEFAULT_LAYOUT`, `version: 16`) includes panels that are **not present** in the canonical `PANEL_REGISTRY`:
+- `id: "build"` (DEFAULT_LAYOUT line ~101)
+- `id: "trace-coverage"` (DEFAULT_LAYOUT line ~83)
+
+But `packages/ui/src/config/panelRegistry.ts` does **not** define `build` or `trace-coverage`.
+- It explicitly notes `trace-coverage` was removed and consolidated into `graph-structure`.
+- It defines `id: 'graph-structure'` (Graph Scope), but `DEFAULT_LAYOUT` does **not** include `graph-structure` at all.
+
+`src/codrag/dashboard/src/hooks/useDashboardPanels.tsx` reinforces the mismatch:
+- Wires `graph-structure` → `GraphStructurePanel` (lines ~464-479)
+- Contains the comment: `// trace-coverage removed — consolidated into graph-structure (Graph Scope)` (line ~406)
+- Does **not** provide any `build` panel content.
+
+**Impact:** On a fresh install / empty localStorage (and in Storybook, which also defaults to `DEFAULT_LAYOUT`), the layout contains visible panels with no definition. `ModularDashboard` skips these panels (`if (!def) return null`), so the “default dashboard” is no longer a reliable reflection of the registry or app wiring.
+
+**Action items:**
+- [ ] Align `DEFAULT_LAYOUT` panel IDs to the canonical `PANEL_REGISTRY`.
+- [ ] Add a layout migration that can **remove orphaned panel IDs** from stored layouts (current migration only adds missing defaults).
+- [ ] Re-check the “first-run” dashboard experience after alignment.
+
+#### NEW: Storybook `FullDashboard` uses non-canonical IDs and is missing canonical content
+
+`packages/ui/src/stories/dashboard/FullDashboard.stories.tsx` still provides `panelContent`/`panelDetails` for IDs that are not in `PANEL_REGISTRY`:
+- `build` (line ~263)
+- `roots` (line ~333; also used for details view)
+- `trace-coverage` (line ~390)
+- `pinned-files` (line ~385)
+
+But `panelDefinitions={allPanelDefs}` is built from `PANEL_REGISTRY` only, so these panels have **no definition** and will not render.
+
+Additionally, the story does **not** provide content for several canonical registry panels, e.g.:
+- `file-tree` (story uses `roots` instead)
+- `graph-structure`
+- `trace-pipeline`
+- `deep-analysis`
+- `log-console`
+
+**Action items:**
+- [ ] Update `FullDashboard` story to use canonical panel IDs (`file-tree`, `graph-structure`, etc.).
+- [ ] Ensure the story supplies content for every panel in `PANEL_REGISTRY` (or explicitly hides unsupported ones).
+
+#### NEW: Dashboard Error Toast appears to be unwired (docs claim it’s fixed)
+
+`src/codrag/dashboard/src/App.tsx` currently has:
+- `_error` state with an inline note: `// TODO: wire to error toast` (line ~121)
+- Many `setError(...)` callsites
+- **No** `ErrorToast` component definition or render (repo grep shows no `ErrorToast` usage in dashboard code)
+
+This contradicts the existing MASTER_TODO entry claiming the Error Toast is already wired.
+
+**Action items:**
+- [ ] Reconcile the docs vs implementation: either re-wire the Error Toast in `App.tsx` or update the “✅ already wired” claim.
+
+#### NEW: HuggingFace model download UI is a no-op in the real app
+
+`src/codrag/dashboard/src/hooks/useDashboardPanels.tsx` passes `onHFDownload={() => {}}` into `AIModelsSettings` (line ~516). That makes the “Download” buttons for HuggingFace models inert in the actual dashboard.
+
+This is surprising because the backend/client plumbing exists (already tracked earlier):
+- `POST /embedding/download` endpoint
+- `ApiClient.downloadEmbedding()` method
+
+**Action items:**
+- [ ] Wire `AIModelsSettings.onHFDownload` to the appropriate `ApiClient` call(s) and refresh the `hf_download_progress`/`hf_downloaded` state.
+
+#### NEW: Analytics TODO placeholders in all website app layouts (not tracked)
+
+All four Next.js sites contain a commented analytics stub:
+- `websites/apps/marketing/src/app/layout.tsx` (TODO: Analytics, plausible example)
+- `websites/apps/docs/src/app/layout.tsx`
+- `websites/apps/support/src/app/layout.tsx`
+- `websites/apps/payments/src/app/layout.tsx`
+
+**Action items:**
+- [ ] Decide on provider (Plausible/Umami/etc.) and implement analytics injection across all four apps.
+
+#### NEW (low priority): Deprecated `GraphEnginePanel` still exported
+
+`packages/ui/src/components/trace/GraphEnginePanel.tsx` is explicitly `@deprecated`, and the panel ID (`graph-engine`) has been removed from `PANEL_REGISTRY`, but the component is still exported from:
+- `packages/ui/src/components/trace/index.ts`
+- `packages/ui/src/index.ts`
+
+**Action items:**
+- [ ] Remove the export(s) or add an explicit deprecation/removal plan to avoid accidental downstream usage.
+
+### 2026-02-14: Pinned Files feature (Dashboard)
+
+**What was built:**
+- **Backend**: Added `GET /projects/{id}/file?path=...` endpoint with safety checks (traversal, globs, max_bytes).
+- **UI**: Added `FolderTreePanel` (browsable tree) and `PinnedTextFilesPanel` (content viewer).
+- **State**: Persisted pinned paths in `localStorage`.
+- **Integration**: Wired into `App.tsx` and Storybook.
+
+### 2026-02-14: Dashboard Testing (P02-T1, P02-T2)
+
+**What was built:**
+- `tests/test_dashboard_e2e_flow.py` — End-to-End smoke test for the Trust Loop:
+  - Add Project → Build → Search → File Inspection (Pinned) → Context
+- `tests/test_dashboard_error_states.py` — Validation of error contracts:
+  - Project Not Found (404)
+  - Search/Context before Build (409)
+  - Security (Path Traversal) (400/403)
+- `docs/Phase02_Dashboard/TEST_PLAN_E2E.md` — Manual and automated test plan.
+
+**Status:**
+- Phase 02 Testing (P02-T*) is materially complete.
+- Dashboard core flows are verified against the backend API.

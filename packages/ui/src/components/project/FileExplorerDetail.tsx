@@ -1,9 +1,11 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { FolderTree as FolderTreeIcon } from 'lucide-react';
+import { FolderTree as FolderTreeIcon, RefreshCw, AlertCircle, Clock } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { FolderTree } from './FolderTree';
 import type { TreeNode } from './FolderTree';
 import { FilePreviewPane } from './FilePreviewPane';
+import { Badge } from '@tremor/react';
+import type { ScopeStatus } from '../../types';
 
 export interface FileExplorerDetailProps {
   treeData: TreeNode[];
@@ -13,6 +15,8 @@ export interface FileExplorerDetailProps {
   /** Async loader for file content. If omitted, mock content is shown. */
   onLoadFileContent?: (path: string) => Promise<string>;
   includedPaths?: Set<string>;
+  /** Scope orchestrator status (Phase 24) */
+  scopeStatus?: ScopeStatus;
   onToggleInclude?: (paths: string[], action: 'add' | 'remove') => void;
   /** Per-path weight overrides (0.0–2.0, default 1.0). */
   pathWeights?: Record<string, number>;
@@ -32,6 +36,7 @@ export function FileExplorerDetail({
   onUnpinFile,
   onLoadFileContent,
   includedPaths,
+  scopeStatus,
   onToggleInclude,
   pathWeights,
   onWeightChange,
@@ -43,6 +48,36 @@ export function FileExplorerDetail({
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileLoading, setFileLoading] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+
+  // Determine status badge
+  let statusBadge = null;
+  if (scopeStatus) {
+    if (scopeStatus.state === 'building') {
+      statusBadge = (
+        <Badge icon={RefreshCw} className="animate-pulse" size="xs" color="blue">
+          Building...
+        </Badge>
+      );
+    } else if (scopeStatus.state === 'debouncing') {
+      statusBadge = (
+        <Badge icon={Clock} size="xs" color="yellow">
+          Pending...
+        </Badge>
+      );
+    } else if (scopeStatus.is_stale) {
+      statusBadge = (
+        <Badge icon={AlertCircle} size="xs" color="orange">
+          Stale
+        </Badge>
+      );
+    } else if (scopeStatus.error) {
+       statusBadge = (
+        <Badge icon={AlertCircle} size="xs" color="red">
+          Error
+        </Badge>
+      );
+    }
+  }
 
   // Resizable tree pane width
   const [treeWidth, setTreeWidth] = useState(initialTreeWidth);
@@ -119,6 +154,7 @@ export function FileExplorerDetail({
             <h3 className="text-sm font-semibold text-text mb-3 flex items-center gap-2">
               <FolderTreeIcon className="w-4 h-4" />
               Knowledge Scope
+              {statusBadge}
             </h3>
             <FolderTree
               data={treeData}
@@ -137,6 +173,7 @@ export function FileExplorerDetail({
           <h3 className="text-sm font-semibold text-text mb-3 flex items-center gap-2">
             <FolderTreeIcon className="w-4 h-4" />
             Knowledge Scope
+            {statusBadge}
           </h3>
           <FolderTree
             data={treeData}

@@ -14,7 +14,7 @@ import type {
   SearchResponse,
   WatchActionResponse,
 } from './types';
-import type { LLMStatus, LicenseStatus, Project, ProjectStatus, TraceCoverage, TraceStatus, WatchStatus, GlobalConfig, ModelStatusResult, ModelReadinessStatus, AugmentationStatus, DeepAnalysisRunStatus, LLMSlotsStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, GraphEngineStatus } from '../types';
+import type { LLMStatus, LicenseStatus, Project, ProjectStatus, TraceCoverage, TraceStatus, WatchStatus, GlobalConfig, ModelStatusResult, ModelReadinessStatus, AugmentationStatus, DeepAnalysisRunStatus, LLMSlotsStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, GraphEngineStatus, PipelineStatus } from '../types';
 
 export interface FileTreeNode {
   name: string;
@@ -130,6 +130,37 @@ export interface ApiClient {
 
   // Unified Graph Engine
   getGraphEngineStatus(projectId: string): Promise<GraphEngineStatus>;
+
+  // Pipeline Orchestrator (Phase 24 SM-6)
+  runPipelineFast(projectId: string): Promise<{ started: boolean; group: string }>;
+  runPipelineDeep(projectId: string): Promise<{ started: boolean; group: string }>;
+  runPipelineAll(projectId: string): Promise<{ started: boolean; group: string }>;
+  getPipelineStatus(projectId: string): Promise<PipelineStatus>;
+  cancelPipeline(projectId: string, group: string): Promise<{ cancelled: boolean; group: string }>;
+
+  // Settings Store (Phase 24)
+  getSettings(): Promise<Record<string, any>>;
+  getSetting(key: string): Promise<{ key: string; value: any }>;
+  setSetting(key: string, value: any): Promise<{ key: string; value: any }>;
+  deleteSetting(key: string): Promise<{ key: string; deleted: boolean }>;
+  updatePipelineConfig(config: {
+    fast_sync_auto?: boolean;
+    deep_enrichment_mode?: string;
+    schedule_frequency?: string;
+    schedule_day_of_week?: number;
+    schedule_hour?: number;
+    budget_max_tokens?: number;
+    budget_max_minutes?: number;
+    budget_max_items?: number;
+  }): Promise<any>;
+  getProjectSettings(projectId: string): Promise<Record<string, any>>;
+  setProjectSetting(projectId: string, key: string, value: any): Promise<{ key: string; value: any }>;
+
+  // Scope Orchestrator (Phase 24 SM-8)
+  getScopeStatus(projectId: string): Promise<any>;
+  addScopeFiles(projectId: string, paths: string[]): Promise<any>;
+  removeScopeFiles(projectId: string, paths: string[]): Promise<any>;
+  triggerScopeRebuild(projectId: string): Promise<any>;
 }
 
 export interface ApiClientConfig {
@@ -630,6 +661,113 @@ export class CodragApiClient implements ApiClient {
 
   async getGraphEngineStatus(projectId: string): Promise<GraphEngineStatus> {
     return this.requestEnvelope<GraphEngineStatus>(`/projects/${projectId}/engine/status`);
+  }
+
+  // ── Pipeline Orchestrator (Phase 24 SM-6) ───────────────────
+
+  async runPipelineFast(projectId: string): Promise<{ started: boolean; group: string }> {
+    return this.requestEnvelope<{ started: boolean; group: string }>(`/projects/${projectId}/pipeline/fast`, {
+      method: 'POST',
+    });
+  }
+
+  async runPipelineDeep(projectId: string): Promise<{ started: boolean; group: string }> {
+    return this.requestEnvelope<{ started: boolean; group: string }>(`/projects/${projectId}/pipeline/deep`, {
+      method: 'POST',
+    });
+  }
+
+  async runPipelineAll(projectId: string): Promise<{ started: boolean; group: string }> {
+    return this.requestEnvelope<{ started: boolean; group: string }>(`/projects/${projectId}/pipeline/all`, {
+      method: 'POST',
+    });
+  }
+
+  async getPipelineStatus(projectId: string): Promise<PipelineStatus> {
+    return this.requestEnvelope<PipelineStatus>(`/projects/${projectId}/pipeline/status`);
+  }
+
+  async cancelPipeline(projectId: string, group: string): Promise<{ cancelled: boolean; group: string }> {
+    return this.requestEnvelope<{ cancelled: boolean; group: string }>(`/projects/${projectId}/pipeline/cancel`, {
+      method: 'POST',
+      body: { group },
+    });
+  }
+
+  // ── Settings Store (Phase 24) ─────────────────────────────────
+
+  async getSettings(): Promise<Record<string, any>> {
+    return this.requestEnvelope<Record<string, any>>('/settings');
+  }
+
+  async getSetting(key: string): Promise<{ key: string; value: any }> {
+    return this.requestEnvelope<{ key: string; value: any }>(`/settings/${key}`);
+  }
+
+  async setSetting(key: string, value: any): Promise<{ key: string; value: any }> {
+    return this.requestEnvelope<{ key: string; value: any }>(`/settings/${key}`, {
+      method: 'PUT',
+      body: { value },
+    });
+  }
+
+  async deleteSetting(key: string): Promise<{ key: string; deleted: boolean }> {
+    return this.requestEnvelope<{ key: string; deleted: boolean }>(`/settings/${key}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async updatePipelineConfig(config: {
+    fast_sync_auto?: boolean;
+    deep_enrichment_mode?: string;
+    schedule_frequency?: string;
+    schedule_day_of_week?: number;
+    schedule_hour?: number;
+    budget_max_tokens?: number;
+    budget_max_minutes?: number;
+    budget_max_items?: number;
+  }): Promise<any> {
+    return this.requestEnvelope<any>('/settings/pipeline-config', {
+      method: 'POST',
+      body: config,
+    });
+  }
+
+  async getProjectSettings(projectId: string): Promise<Record<string, any>> {
+    return this.requestEnvelope<Record<string, any>>(`/projects/${projectId}/settings`);
+  }
+
+  async setProjectSetting(projectId: string, key: string, value: any): Promise<{ key: string; value: any }> {
+    return this.requestEnvelope<{ key: string; value: any }>(`/projects/${projectId}/settings/${key}`, {
+      method: 'PUT',
+      body: { value },
+    });
+  }
+
+  // ── Scope Orchestrator (Phase 24 SM-8) ────────────────────────
+
+  async getScopeStatus(projectId: string): Promise<any> {
+    return this.requestEnvelope<any>(`/projects/${projectId}/scope/status`);
+  }
+
+  async addScopeFiles(projectId: string, paths: string[]): Promise<any> {
+    return this.requestEnvelope<any>(`/projects/${projectId}/scope/add`, {
+      method: 'POST',
+      body: { paths },
+    });
+  }
+
+  async removeScopeFiles(projectId: string, paths: string[]): Promise<any> {
+    return this.requestEnvelope<any>(`/projects/${projectId}/scope/remove`, {
+      method: 'POST',
+      body: { paths },
+    });
+  }
+
+  async triggerScopeRebuild(projectId: string): Promise<any> {
+    return this.requestEnvelope<any>(`/projects/${projectId}/scope/rebuild`, {
+      method: 'POST',
+    });
   }
 }
 

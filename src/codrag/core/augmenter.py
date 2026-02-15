@@ -139,7 +139,7 @@ class LLMClient:
         self.api_key = api_key
         self.timeout = timeout
 
-    def generate(self, prompt: str, system: Optional[str] = None, num_predict: int = 1024) -> Tuple[str, int]:
+    def generate(self, prompt: str, system: Optional[str] = None, num_predict: int = 2048) -> Tuple[str, int]:
         """
         Call the LLM and return (response_text, tokens_used).
         Raises on network/parse errors.
@@ -320,7 +320,8 @@ def _parse_json_response(text: str) -> Optional[Dict[str, Any]]:
         except json.JSONDecodeError:
             pass
     # Truncated JSON repair: we have '{' but no '}' (LLM output was cut off)
-    if start >= 0 and (end < 0 or end <= start):
+    # Also try repair when } exists but parsing failed (} inside a string value)
+    if start >= 0:
         fragment = text[start:]
         repaired = _repair_truncated_json(fragment)
         if repaired is not None:
@@ -332,26 +333,32 @@ def _repair_truncated_json(fragment: str) -> Optional[Dict[str, Any]]:
     """Try to recover a dict from a truncated JSON fragment.
 
     Strategy: progressively strip trailing incomplete content and try
-    closing the string / object.
+    closing the string / object.  Handles truncation mid-key, mid-value,
+    and mid-array (e.g. related_files list cut off).
     """
-    # Try closing with various suffixes (handles mid-string truncation)
-    for suffix in ('"}', '" }', '}', '"}}', '0}', 'null}'):
+    # Strategy 1: try closing with various suffixes (handles mid-string/array truncation)
+    for suffix in ('"]}', '"] }', ']}', '}', '"}', '" }', '"}}', '0}', 'null}'):
         try:
             return json.loads(fragment + suffix)
         except json.JSONDecodeError:
             continue
 
-    # More aggressive: strip back to the last complete key-value comma boundary
-    # e.g. {"verdict":"corrected","summary":"long text that got tru
-    #  → try to cut at the last comma before the truncation
-    last_comma = fragment.rfind(",")
-    if last_comma > 0:
-        truncated = fragment[:last_comma]
-        for suffix in ("}", '"}'):
+    # Strategy 2: progressively strip back to comma boundaries and try closing.
+    # Try multiple commas from end→start because the last comma may be inside
+    # a string value or array element, not a top-level object separator.
+    pos = len(fragment)
+    attempts = 0
+    while attempts < 30:
+        pos = fragment.rfind(",", 0, pos)
+        if pos <= 0:
+            break
+        truncated = fragment[:pos]
+        for suffix in ("}", '"]}', ']}', '"}'):
             try:
                 return json.loads(truncated + suffix)
             except json.JSONDecodeError:
                 continue
+        attempts += 1
 
     return None
 

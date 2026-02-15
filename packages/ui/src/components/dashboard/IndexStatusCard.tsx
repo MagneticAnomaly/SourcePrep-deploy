@@ -119,29 +119,6 @@ export function IndexStatusCard({
 
       {/* Row 2: Controls — rebuild + toggle + badge */}
       <div className="flex items-center gap-2 mt-2">
-        {/* Manual-mode Rebuild button */}
-        {onBuild && (!showAutoToggle || !isAuto) && (
-          <button
-            onClick={onBuild}
-            disabled={building || !stats.index_dir}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
-              building
-                ? "border-border bg-surface text-text-subtle cursor-wait"
-                : stale
-                  ? "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
-                  : "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-            )}
-          >
-            {building ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Play className="w-3.5 h-3.5" />
-            )}
-            {building ? 'Building…' : 'Rebuild'}
-          </button>
-        )}
-
         {/* Auto/Manual toggle */}
         {showAutoToggle && (
           <SlidingSwitch2
@@ -150,6 +127,33 @@ export function IndexStatusCard({
             disabled={!isPro}
             disabledReason="Upgrade to Pro to enable auto-rebuild"
           />
+        )}
+
+        {/* Initialize (both modes when not built) / Rebuild (manual only when built) */}
+        {onBuild && (!stats.loaded || !isAuto) && (
+          <button
+            onClick={onBuild}
+            disabled={building}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
+              building
+                ? "border-border bg-surface text-text-subtle cursor-wait"
+                : !stats.loaded
+                  ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20" // Initialize style
+                  : stale
+                    ? "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+                    : "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+            )}
+          >
+            {building ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : !stats.loaded ? (
+              <Play className="w-3.5 h-3.5 fill-current" />
+            ) : (
+              <RefreshCw className="w-3.5 h-3.5" />
+            )}
+            {building ? 'Building…' : !stats.loaded ? 'Initialize' : 'Rebuild'}
+          </button>
         )}
 
         <div className="flex-1" />

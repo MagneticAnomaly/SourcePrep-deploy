@@ -139,6 +139,53 @@ class TestParseJsonResponse:
     def test_empty_string(self):
         assert _parse_json_response("") is None
 
+    def test_truncated_mid_key(self):
+        """Truncation mid-key name (e.g. "related_f" cut off) — exact pattern from dashboard logs."""
+        text = '{"summary": "Displays download options.", "role": "ui", "confidence": 0.95, "key_exports": [], "related_f'
+        result = _parse_json_response(text)
+        assert result is not None
+        assert result["summary"] == "Displays download options."
+        assert result["role"] == "ui"
+        assert result["confidence"] == 0.95
+        assert result["key_exports"] == []
+
+    def test_truncated_mid_array_string(self):
+        """Truncation inside a string within an array (e.g. related_files list)."""
+        text = '{"summary": "Test.", "role": "ui", "confidence": 0.95, "key_exports": [], "related_files": ["path/to/file.tsx", "path/to/ano'
+        result = _parse_json_response(text)
+        assert result is not None
+        assert result["summary"] == "Test."
+        # Should recover at least the first array element or drop the incomplete array
+        assert "role" in result
+
+    def test_truncated_after_complete_array_element(self):
+        """Truncation after a complete string in an array but before closing bracket."""
+        text = '{"summary": "Test.", "role": "ui", "confidence": 0.95, "related_files": ["path/to/file.tsx"'
+        result = _parse_json_response(text)
+        assert result is not None
+        assert result["summary"] == "Test."
+
+    def test_truncated_mid_value_string(self):
+        """Truncation mid-value in a string field."""
+        text = '{"summary": "This is a very long summary that gets tru'
+        result = _parse_json_response(text)
+        assert result is not None
+        assert "summary" in result
+
+    def test_truncated_with_brace_inside_string(self):
+        """A } exists inside a string value but isn't structural — should still repair."""
+        text = '{"summary": "Returns {value} from config", "role": "utility", "confidence": 0.9, "related_fi'
+        result = _parse_json_response(text)
+        assert result is not None
+        assert result["role"] == "utility"
+
+    def test_truncated_complete_except_closing_brace(self):
+        """All fields present but missing the final }."""
+        text = '{"summary": "Test.", "role": "ui", "confidence": 0.95'
+        result = _parse_json_response(text)
+        assert result is not None
+        assert result["confidence"] == 0.95
+
 
 # ── Tests: AugmentationEntry ──────────────────────────────────
 

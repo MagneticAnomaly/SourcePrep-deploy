@@ -1,5 +1,5 @@
 import { cn } from '../../lib/utils';
-import { CheckCircle2, AlertCircle, CircleOff, HelpCircle } from 'lucide-react';
+import { CheckCircle2, AlertCircle, CircleOff, HelpCircle, Loader2 } from 'lucide-react';
 import { InfoTooltip } from '../primitives/InfoTooltip';
 
 export interface LLMServiceStatus {
@@ -8,6 +8,7 @@ export interface LLMServiceStatus {
   model?: string; // The specific model name
   status: 'connected' | 'disconnected' | 'disabled' | 'not-configured';
   type: 'ollama' | 'clara' | 'openai' | 'other';
+  running?: boolean;
 }
 
 export interface LLMStatusWidgetProps {
@@ -38,6 +39,7 @@ export function LLMStatusWidget({ services, className, bare = false }: LLMStatus
         {services.map((service) => {
           const isConnected = service.status === 'connected';
           const isConfigured = service.status !== 'not-configured' && service.status !== 'disabled';
+          const isRunning = service.running && isConnected;
 
           return (
             <div 
@@ -53,11 +55,13 @@ export function LLMStatusWidget({ services, className, bare = false }: LLMStatus
                 {/* Status Icon */}
                 <div className={cn(
                   "shrink-0 w-8 h-8 rounded-full flex items-center justify-center border",
+                  isRunning ? "bg-blue-500/10 border-blue-500/20 text-blue-500" :
                   isConnected ? "bg-success-muted/10 border-success-muted/20 text-success" :
                   service.status === 'disconnected' ? "bg-error-muted/10 border-error-muted/20 text-error" :
                   "bg-surface-raised border-border text-text-muted"
                 )}>
-                  {isConnected ? <CheckCircle2 className="w-4 h-4" /> :
+                  {isRunning ? <Loader2 className="w-4 h-4 animate-spin" /> :
+                   isConnected ? <CheckCircle2 className="w-4 h-4" /> :
                    service.status === 'disconnected' ? <AlertCircle className="w-4 h-4" /> :
                    service.status === 'not-configured' ? <HelpCircle className="w-4 h-4" /> :
                    <CircleOff className="w-4 h-4" />}
@@ -71,7 +75,11 @@ export function LLMStatusWidget({ services, className, bare = false }: LLMStatus
                     )}>
                       {service.name}
                     </span>
-                    {isConnected && (
+                    {isRunning ? (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-500 animate-pulse">
+                        Running
+                      </span>
+                    ) : isConnected && (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-success-muted/10 text-success">
                         Active
                       </span>

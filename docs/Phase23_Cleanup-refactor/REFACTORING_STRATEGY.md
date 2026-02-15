@@ -150,11 +150,20 @@ Move the heavy thread management and locking logic out of the HTTP layer.
 | S13 | LLM (proxy, embedding, clara, slots) | `routers/llm.py` | 662 |
 | S14 | BuildManager service (threads, locks, caches) | `services/build_manager.py` | 446 |
 | S15 | Projects (CRUD, build, search, context, watch, files) | `routers/projects.py` | 1,231 |
+| S16a | Dead legacy trace code removal | — | −52 |
+| S16b | Config defaults + load/save/merge | `services/config_manager.py` | 232 |
+| S16c | Project helpers (registry, status, activity, coverage) | `services/project_helpers.py` | 361 |
+| S16d | Unused import cleanup | — | −33 |
+| S16e | Unused BuildManager alias cleanup | — | −2 |
 
-**server.py:** 4,352 → 1,742 lines (−60%)
+**server.py:** 4,352 → 313 lines (−93%)
 
-Each router file includes a header docstring documenting: origin lines, endpoints moved,
-shared state accessed from server.py, and Phase 24 state machine integration notes.
+``server.py`` now contains only: app setup, CORS, startup event, exception handler,
+BuildManager/ConfigManager/ProjectHelpers imports + thin backward-compat wrappers,
+router registration, ``configure()``, ``mount_dashboard()``, and ``main()``.
+
+Each router and service file includes a header docstring documenting: origin lines,
+endpoints/functions moved, shared state accessed, and Phase 24 state machine notes.
 
 ## 6. Secondary Targets & Observations
 

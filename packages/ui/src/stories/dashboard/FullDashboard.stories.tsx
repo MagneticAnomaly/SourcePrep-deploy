@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { useState, useMemo, useCallback, useRef } from 'react';
 import { Database, RefreshCw, Settings, FileText } from 'lucide-react';
 import { IndexStatusCard } from '../../components/dashboard/IndexStatusCard';
-import { BuildCard } from '../../components/dashboard/BuildCard';
 import { LLMStatusWidget, type LLMServiceStatus } from '../../components/dashboard/index';
 import { SearchPanel } from '../../components/search/SearchPanel';
 import { ContextOptionsPanel } from '../../components/search/ContextOptionsPanel';
@@ -15,13 +14,16 @@ import { FolderTreePanel } from '../../components/project/FolderTreePanel';
 import { FileExplorerDetail } from '../../components/project/FileExplorerDetail';
 import type { PinnedTextFile } from '../../components/project/PinnedTextFilesPanel';
 import { TraceGraph, SymbolSearchInput, type TraceNode } from '../../components/trace/index';
-import { TraceCoveragePanel } from '../../components/trace/TraceCoveragePanel';
+import { GraphStructurePanel } from '../../components/trace/GraphStructurePanel';
+import { GraphEnrichmentPipeline } from '../../components/trace/GraphEnrichmentPipeline';
 import type { TraceCoverageFile, TraceCoverageSummary } from '../../types';
 import { ModularDashboard, type DashboardLayoutApi } from '../../components/layout/ModularDashboard';
 import type { PanelDefinition } from '../../types/layout';
 import { WatchControlPanel } from '../../components/watch/WatchControlPanel';
 import { CodeViewer } from '../../components/project/CodeViewer';
 import { UsageGuidePanel } from '../../components/dashboard/UsageGuidePanel';
+import { DeepAnalysisSettings } from '../../components/llm/DeepAnalysisSettings';
+import { LogConsole } from '../../components/console/LogConsole';
 
 const meta: Meta = {
   title: 'Dashboard/Layouts/FullDashboard',
@@ -131,7 +133,6 @@ function mockFileContent(path: string): string {
 
 export const FullDashboard: StoryObj = {
   render: () => {
-    const [repoRoot, setRepoRoot] = useState('/path/to/my-project');
     const [building, setBuilding] = useState(false);
     
     const [query, setQuery] = useState('');
@@ -257,15 +258,7 @@ export const FullDashboard: StoryObj = {
             index_dir: 'LinuxBrain',
           }}
           building={building}
-          bare
-        />
-      ),
-      build: (
-        <BuildCard
-          repoRoot={repoRoot}
-          onRepoRootChange={setRepoRoot}
           onBuild={handleBuild}
-          building={building}
           bare
         />
       ),
@@ -330,7 +323,7 @@ export const FullDashboard: StoryObj = {
           bare
         />
       ),
-      roots: (
+      'file-tree': (
         <FolderTreePanel
           data={sampleFileTree}
           includedPaths={includedPaths}
@@ -382,13 +375,8 @@ export const FullDashboard: StoryObj = {
           </div>
         </div>
       ),
-      'pinned-files': (
-        <div className="h-full overflow-y-auto space-y-2 p-2">
-          <p className="text-xs text-text-muted text-center py-4">No pinned files. Pin files from the File Tree or Knowledge Scope panels.</p>
-        </div>
-      ),
-      'trace-coverage': (
-        <TraceCoveragePanel
+      'graph-structure': (
+        <GraphStructurePanel
           summary={mockCoverageSummary}
           untracedFiles={mockUntracedFiles}
           staleFiles={mockStaleFiles}
@@ -400,10 +388,54 @@ export const FullDashboard: StoryObj = {
           onAddExcludePattern={(p: string) => console.log('[Story] Add exclude:', p)}
           onRemoveExcludePattern={(p: string) => console.log('[Story] Remove exclude:', p)}
           onRefresh={() => console.log('[Story] Refresh')}
-          bare
+          traceExists={true}
         />
       ),
-    }), [repoRoot, building, query, searchK, minScore, searchLoading, results, selectedChunk, contextK, maxChars, includeSources, includeScores, structured, context, symbolQuery, selectedTraceNode, includedPaths, pinnedFiles, handleToggleInclude, pathWeights, handleWeightChange]);
+      'trace-pipeline': (
+        <div className="h-full overflow-y-auto">
+          <GraphEnrichmentPipeline
+            trace={{ enabled: true, exists: true, building: false, counts: { nodes: 100, edges: 200 }, last_build_at: new Date().toISOString() }}
+            augmentation={{ enabled: true, total_nodes: 100, augmented_nodes: 80, validated_nodes: 0, low_confidence_count: 5, avg_confidence: 0.85 }}
+            epistemic={{ enabled: true, enriched_nodes: 60, progress_current: 60, progress_total: 100, avg_confidence: 0.9, running: false }}
+            isPro={true}
+          />
+        </div>
+      ),
+      'deep-analysis': (
+        <div className="h-full overflow-y-auto p-4">
+          <DeepAnalysisSettings
+            schedule={{
+              mode: 'scheduled',
+              frequency: 'daily',
+              hour: 0,
+              budget_enabled: true,
+              budget_max_tokens: 100000,
+              budget_max_minutes: 60,
+              budget_max_items: 500,
+              priority: 'lowest_confidence'
+            }}
+            onScheduleChange={() => {}}
+            largeModelConfigured={true}
+            fastModelConfigured={true}
+            status={undefined}
+            running={false}
+            onRunNow={() => {}}
+            onCancel={() => {}}
+          />
+        </div>
+      ),
+      'log-console': (
+        <LogConsole
+          logs={[
+            { timestamp: Date.now() / 1000, level: 'INFO', logger: 'daemon', message: 'Daemon started', created: Date.now() / 1000 },
+            { timestamp: Date.now() / 1000, level: 'INFO', logger: 'project', message: 'Project loaded', created: Date.now() / 1000 },
+          ]}
+          onClear={() => {}}
+          defaultExpanded={true}
+          className="h-full border-none shadow-none bg-transparent"
+        />
+      ),
+    }), [building, query, searchK, minScore, searchLoading, results, selectedChunk, contextK, maxChars, includeSources, includeScores, structured, context, symbolQuery, selectedTraceNode, includedPaths, pinnedFiles, handleToggleInclude, pathWeights, handleWeightChange]);
 
     // Dynamic panel definitions for pinned files
     const dynamicPanelDefs = useMemo<PanelDefinition[]>(() =>
@@ -437,7 +469,7 @@ export const FullDashboard: StoryObj = {
           </div>
         </div>
       ),
-      roots: (
+      'file-tree': (
         <FileExplorerDetail
           treeData={sampleFileTree}
           pinnedPaths={pinnedPathsSet}
@@ -483,11 +515,6 @@ export const EmptyState: StoryObj = {
       status: (
         <div className="p-4">
           <IndexStatusCard stats={{ loaded: false }} bare />
-        </div>
-      ),
-      build: (
-        <div className="p-4">
-          <BuildCard repoRoot="" onRepoRootChange={() => {}} onBuild={() => {}} bare />
         </div>
       ),
       search: (

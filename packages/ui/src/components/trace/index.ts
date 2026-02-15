@@ -24,6 +24,3 @@ export type { GraphEnrichmentPipelineProps, TraceStageInfo, EnrichmentStageId, E
 
 export { GraphStructurePanel } from './GraphStructurePanel';
 export type { GraphStructurePanelProps } from './GraphStructurePanel';
-
-export { GraphEnginePanel } from './GraphEnginePanel';
-export type { GraphEnginePanelProps } from './GraphEnginePanel';

@@ -160,6 +160,20 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     }
   }, [llmConfig])
 
+  const handleDownloadModel = useCallback(async (slot: 'embedding' | 'clara') => {
+    if (slot === 'embedding') {
+      try {
+        await api.downloadEmbedding()
+        // Poll status? Or assume backend updates status which we poll elsewhere?
+        // For now just trigger the request.
+      } catch (err) {
+        console.error('Failed to trigger embedding download:', err)
+      }
+    } else {
+      console.warn('Download not implemented for slot:', slot)
+    }
+  }, [api])
+
   const fetchLLMSlotsStatus = useCallback(async () => {
     try {
       const status = await api.getLLMSlotsStatus()
@@ -217,6 +231,7 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     handleTestEndpoint,
     handleFetchModels,
     handleTestModel,
+    handleDownloadModel,
     fetchLLMSlotsStatus,
   }
 }

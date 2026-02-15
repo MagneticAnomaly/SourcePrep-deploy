@@ -74,13 +74,19 @@ function formatTimeAgo(isoDate: string): string {
   return date.toLocaleDateString();
 }
 
-function CoverageBar({ summary }: { summary: TraceCoverageSummary }) {
+function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; building: boolean }) {
   const { traced, untraced, stale, total } = summary;
   if (total === 0) return null;
 
+  // When building, treat pending items as "in-progress"
+  const inProgress = building ? untraced + stale : 0;
+  const displayStale = building ? 0 : stale;
+  const displayUntraced = building ? 0 : untraced;
+
   const tracedPct = (traced / total) * 100;
-  const stalePct = (stale / total) * 100;
-  const untracedPct = (untraced / total) * 100;
+  const inProgressPct = (inProgress / total) * 100;
+  const stalePct = (displayStale / total) * 100;
+  const untracedPct = (displayUntraced / total) * 100;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -96,30 +102,44 @@ function CoverageBar({ summary }: { summary: TraceCoverageSummary }) {
             title={`${traced} traced`}
           />
         )}
+        {inProgressPct > 0 && (
+          <div
+            className="bg-primary transition-all duration-500 relative"
+            style={{ width: `${inProgressPct}%` }}
+            title={`${inProgress} in-progress`}
+          >
+            <div className="absolute inset-0 bg-white/20 animate-pulse" />
+          </div>
+        )}
         {stalePct > 0 && (
           <div
             className="bg-warning transition-all duration-500"
             style={{ width: `${stalePct}%` }}
-            title={`${stale} stale`}
+            title={`${displayStale} stale`}
           />
         )}
         {untracedPct > 0 && (
           <div
             className="bg-text-subtle/20 transition-all duration-500"
             style={{ width: `${untracedPct}%` }}
-            title={`${untraced} untraced`}
+            title={`${displayUntraced} untraced`}
           />
         )}
       </div>
-      <div className="flex gap-3 text-[10px] text-text-muted">
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-text-muted">
         <span className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-success" /> {traced} traced
         </span>
+        {building ? (
+          <span className="flex items-center gap-1 font-medium text-primary">
+            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" /> {inProgress} in-progress
+          </span>
+        ) : null}
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-warning" /> {stale} stale
+          <span className="w-2 h-2 rounded-full bg-warning" /> {displayStale} stale
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-text-subtle/30" /> {untraced} untraced
+          <span className="w-2 h-2 rounded-full bg-text-subtle/30" /> {displayUntraced} untraced
         </span>
       </div>
     </div>
@@ -276,7 +296,7 @@ export function GraphStructurePanel({
             Loading scope data...
           </div>
         ) : summary ? (
-          <CoverageBar summary={summary} />
+          <CoverageBar summary={summary} building={building} />
         ) : null}
 
         {building && (
@@ -305,7 +325,11 @@ export function GraphStructurePanel({
           onClick={() => setActiveTab('queue')}
         >
           <span className="flex items-center justify-center gap-1.5">
-            <Clock className="w-3.5 h-3.5" />
+            {building ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+            ) : (
+              <Clock className="w-3.5 h-3.5" />
+            )}
             Queue
             {queueCount > 0 && (
               <span className="text-[10px] bg-warning/15 text-warning px-1.5 py-0.5 rounded-full font-mono">

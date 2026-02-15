@@ -182,13 +182,31 @@
     "priority": "lowest_confidence",
     "budget_enabled": false
   },
+  "pipeline_config": {
+    "fast_sync": {
+      "auto": true
+    },
+    "deep_enrichment": {
+      "mode": "manual",
+      "schedule": {
+        "frequency": "weekly",
+        "day_of_week": 0,
+        "hour": 2
+      }
+    },
+    "budgets": {
+      "max_tokens_per_run": 50000,
+      "max_minutes_per_run": 30,
+      "max_items_per_stage": 100
+    }
+  },
   "ui_preferences": {
     "mode": "light",
     "theme": "m",
     "bg_image": null
   },
   "module_layout": {
-    "version": 16,
+    "version": 17,
     "panels": [
       {
         "id": "status",
@@ -200,20 +218,20 @@
         "w": 4
       },
       {
-        "id": "usage-guide",
+        "id": "graph-structure",
         "visible": true,
-        "height": 14,
-        "collapsed": true,
-        "x": 4,
+        "height": 10,
+        "collapsed": false,
+        "x": 8,
         "y": 0,
         "w": 4
       },
       {
-        "id": "graph-structure",
+        "id": "usage-guide",
         "visible": true,
         "height": 16,
-        "collapsed": false,
-        "x": 8,
+        "collapsed": true,
+        "x": 4,
         "y": 0,
         "w": 4
       },
@@ -229,19 +247,19 @@
       {
         "id": "file-tree",
         "visible": true,
-        "height": 17,
+        "height": 16,
         "collapsed": false,
         "x": 0,
         "y": 6,
         "w": 4
       },
       {
-        "id": "deep-analysis",
+        "id": "trace",
         "visible": true,
-        "height": 28,
+        "height": 13,
         "collapsed": false,
         "x": 8,
-        "y": 16,
+        "y": 10,
         "w": 4
       },
       {
@@ -268,15 +286,15 @@
         "height": 9,
         "collapsed": false,
         "x": 0,
-        "y": 23,
+        "y": 22,
         "w": 4
       },
       {
-        "id": "search",
+        "id": "deep-analysis",
         "visible": true,
-        "height": 6,
-        "collapsed": true,
-        "x": 4,
+        "height": 12,
+        "collapsed": false,
+        "x": 8,
         "y": 23,
         "w": 4
       },
@@ -286,35 +304,26 @@
         "height": 10,
         "collapsed": true,
         "x": 4,
-        "y": 25,
+        "y": 23,
         "w": 4
       },
       {
-        "id": "trace",
+        "id": "search",
         "visible": true,
-        "height": 13,
-        "collapsed": false,
+        "height": 6,
+        "collapsed": true,
         "x": 4,
-        "y": 27,
+        "y": 25,
         "w": 4
       },
       {
         "id": "log-console",
         "visible": true,
-        "height": 17,
+        "height": 11,
         "collapsed": false,
         "x": 0,
-        "y": 40,
+        "y": 31,
         "w": 8
-      },
-      {
-        "id": "trace-coverage",
-        "visible": false,
-        "height": 15,
-        "collapsed": false,
-        "x": 8,
-        "y": 0,
-        "w": 4
       },
       {
         "id": "watch",
@@ -322,35 +331,8 @@
         "height": 4,
         "collapsed": false,
         "x": 0,
-        "y": 7,
+        "y": 0,
         "w": 4
-      },
-      {
-        "id": "build",
-        "visible": false,
-        "height": 6,
-        "collapsed": false,
-        "x": 4,
-        "y": 6,
-        "w": 4
-      },
-      {
-        "id": "pinned:HomeColabApp/Docs/ADS_FRAMEWORK_SUMMARY.md",
-        "visible": false,
-        "height": 8,
-        "collapsed": false,
-        "x": 0,
-        "y": 58,
-        "w": 12
-      },
-      {
-        "id": "pinned:HomeColabApp/Docs/ADS_FRAMEWORK_STATUS.md",
-        "visible": false,
-        "height": 8,
-        "collapsed": false,
-        "x": 0,
-        "y": 58,
-        "w": 12
       }
     ]
   }

@@ -81,6 +81,71 @@ MARKER_FILES: Sequence[str] = (
     "Makefile",
 )
 
+# ── Stack Presets (Fast Scan) ────────────────────────────────────
+
+STACK_PRESETS: Dict[str, List[str]] = {
+    "Web (JS/TS)": ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "**/*.html", "**/*.css", "**/*.json"],
+    "Python": ["**/*.py", "**/*.ipynb"],
+    "iOS (Swift/ObjC)": ["**/*.swift", "**/*.h", "**/*.m", "**/*.mm"],
+    "Rust": ["**/*.rs", "**/*.toml"],
+    "Go": ["**/*.go", "**/*.mod"],
+    "Java/Kotlin": ["**/*.java", "**/*.kt", "**/*.kts", "**/*.gradle"],
+    "C/C++": ["**/*.c", "**/*.cpp", "**/*.h", "**/*.hpp", "**/*.cc"],
+    "C#": ["**/*.cs"],
+    "Ruby": ["**/*.rb"],
+    "PHP": ["**/*.php"],
+    "Shell": ["**/*.sh", "**/*.bash", "**/*.zsh"],
+    "Configuration": ["**/*.yaml", "**/*.yml", "**/*.json", "**/*.toml", "**/*.xml", "**/*.ini", "**/*.env"],
+    "Documentation": ["**/*.md", "**/*.markdown", "**/*.txt"],
+}
+
+# Map extension to preset keys
+EXT_TO_PRESET: Dict[str, str] = {
+    ".js": "Web (JS/TS)", ".jsx": "Web (JS/TS)", ".ts": "Web (JS/TS)", ".tsx": "Web (JS/TS)", ".html": "Web (JS/TS)", ".css": "Web (JS/TS)",
+    ".py": "Python", ".ipynb": "Python",
+    ".swift": "iOS (Swift/ObjC)", ".m": "iOS (Swift/ObjC)", ".mm": "iOS (Swift/ObjC)",
+    ".rs": "Rust",
+    ".go": "Go",
+    ".java": "Java/Kotlin", ".kt": "Java/Kotlin",
+    ".c": "C/C++", ".cpp": "C/C++", ".h": "C/C++", ".hpp": "C/C++", ".cc": "C/C++",
+    ".cs": "C#",
+    ".rb": "Ruby",
+    ".php": "PHP",
+    ".sh": "Shell", ".bash": "Shell",
+    ".yaml": "Configuration", ".yml": "Configuration", ".json": "Configuration", ".xml": "Configuration", ".toml": "Configuration",
+    ".md": "Documentation",
+}
+
+def scan_for_presets(root: Path) -> List[str]:
+    """
+    Quickly scan the project root for file extensions to determine active presets.
+    Skips common heavy directories to be fast.
+    """
+    detected_presets = set()
+    # Limit depth and directories to avoid slow scans in huge monorepos
+    ignore_dirs = {
+        ".git", "node_modules", ".venv", "venv", "env", "__pycache__", 
+        "dist", "build", "target", ".next", ".idea", ".vscode", "vendor"
+    }
+    
+    try:
+        # We'll just walk up to 3 levels deep for speed, or until we find enough evidence
+        for dirpath, dirnames, filenames in os.walk(str(root)):
+            # Prune ignored dirs
+            dirnames[:] = [d for d in dirnames if d not in ignore_dirs and not d.startswith(".")]
+            
+            for f in filenames:
+                ext = Path(f).suffix.lower()
+                if ext in EXT_TO_PRESET:
+                    detected_presets.add(EXT_TO_PRESET[ext])
+            
+            pass
+    except Exception:
+        pass
+        
+    return list(detected_presets)
+
+
 CODE_EXTS: Set[str] = {
     ".py",
     ".js",

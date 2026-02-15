@@ -120,10 +120,47 @@ class KnowledgeIndex:
         """
         epistemic_path = self.index_dir / "trace_epistemic.jsonl"
         modules_path = self.index_dir / "trace_modules.jsonl"
+        augmented_path = self.index_dir / "trace_augmented.jsonl"
         
         docs: List[Dict[str, Any]] = []
         
-        # 1. Index Epistemic Enrichments
+        # 1. Index Fast Catalogue (Augmented Data)
+        if augmented_path.exists():
+            try:
+                with open(augmented_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        try:
+                            entry = json.loads(line)
+                            node_id = entry.get("node_id")
+                            summary = entry.get("summary")
+                            
+                            if not summary:
+                                continue
+                                
+                            # Construct rich text representation for embedding
+                            text_parts = [
+                                f"File: {node_id}",
+                                f"Role: {entry.get('role', 'unknown')}",
+                                f"Summary: {summary}"
+                            ]
+                            content = "\n".join(text_parts)
+                            
+                            docs.append({
+                                "id": f"know:aug:{node_id}",
+                                "type": "catalogue",
+                                "source_id": node_id,
+                                "content": content,
+                                "metadata": {
+                                    "role": entry.get("role"),
+                                    "confidence": entry.get("confidence")
+                                }
+                            })
+                        except json.JSONDecodeError:
+                            continue
+            except Exception as e:
+                logger.error(f"Error reading augmented file: {e}")
+
+        # 2. Index Epistemic Enrichments
         if epistemic_path.exists():
             try:
                 with open(epistemic_path, "r", encoding="utf-8") as f:
@@ -198,7 +235,15 @@ class KnowledgeIndex:
                 logger.error(f"Error reading modules file: {e}")
 
         if not docs:
-            logger.info("No knowledge documents found to index.")
+            has_ep = epistemic_path.exists()
+            has_mod = modules_path.exists()
+            if not has_ep and not has_mod:
+                logger.info(
+                    "Knowledge embedding skipped — no epistemic or module data yet "
+                    "(these are produced by Deep Enrichment stages)."
+                )
+            else:
+                logger.info("No knowledge documents found to index.")
             return {"count": 0, "status": "empty"}
 
         # 3. Generate Embeddings

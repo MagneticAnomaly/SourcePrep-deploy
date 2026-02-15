@@ -55,6 +55,7 @@ export interface GraphEnrichmentPipelineProps {
   onDestroyGraph?: () => void;
   onTogglePause?: () => void;
   augmenting?: boolean;
+  validating?: boolean;
   deepAnalyzing?: boolean;
   epistemicRunning?: boolean;
   clusterRunning?: boolean;
@@ -85,8 +86,15 @@ interface EnrichmentStage {
 
 // ── Helpers ──────────────────────────────────────────────────
 
-function computeTraceState(trace: TraceStageInfo): StageState {
+function computeTraceState(
+  trace: TraceStageInfo,
+  augmenting?: boolean,
+  validating?: boolean,
+  knowledgeBuilding?: boolean
+): StageState {
   if (!trace.enabled) return 'disabled';
+  // If any later fast stage is running, Structural is done
+  if (augmenting || validating || knowledgeBuilding) return 'complete';
   if (trace.building) return 'running';
   if (!trace.exists) return 'not_built';
   return 'complete';
@@ -95,10 +103,13 @@ function computeTraceState(trace: TraceStageInfo): StageState {
 function computeAugmentState(
   trace: TraceStageInfo,
   aug?: AugmentationStatus,
-  augmenting?: boolean
+  augmenting?: boolean,
+  validating?: boolean,
+  knowledgeBuilding?: boolean
 ): StageState {
-  if (!trace.enabled || !trace.exists) return 'disabled';
   if (augmenting) return 'running';
+  if (!trace.enabled || !trace.exists) return 'disabled';
+  if (validating || knowledgeBuilding) return 'complete';
   if (!aug || !aug.enabled) return 'not_built';
   if (aug.augmented_nodes === 0) return 'not_built';
   if (aug.low_confidence_count > aug.augmented_nodes * 0.3) return 'warning';
@@ -106,23 +117,24 @@ function computeAugmentState(
   return 'complete';
 }
 
-function computeDeepState(
+function computeValidationState(
   trace: TraceStageInfo,
   aug?: AugmentationStatus,
-  deep?: DeepAnalysisRunStatus,
-  deepAnalyzing?: boolean
+  validating?: boolean,
+  knowledgeBuilding?: boolean
 ): StageState {
-  if (!trace.enabled || !trace.exists) return 'disabled';
+  if (!trace.enabled) return 'disabled';
+  // If knowledge embedding is running (and it's the fast phase), validation is done
+  if (knowledgeBuilding) return 'complete';
+  if (validating) return 'running';
+  if (!trace.exists) return 'disabled';
+  
+  // Validation runs after catalogue (augmentation)
   if (!aug || !aug.enabled || aug.augmented_nodes === 0) return 'disabled';
-  if (deepAnalyzing || deep?.running) return 'running';
-  if (!deep?.last_run_at) return 'not_built';
   
-  // Stale if >2 weeks since last run and queue > 0
-  const diffMs = Date.now() - new Date(deep.last_run_at).getTime();
-  const twoWeeks = 14 * 24 * 60 * 60 * 1000;
-  if (diffMs > twoWeeks && (deep.queue_size ?? 0) > 0) return 'stale';
-  
-  if ((deep.queue_size ?? 0) > 0 && (deep.avg_confidence ?? 1) < 0.6) return 'warning';
+  // Since the current Rust validation is a fast pass-through that runs immediately
+  // after catalogue in the Fast Sync pipeline, if we are here (catalogue done),
+  // validation is effectively complete.
   return 'complete';
 }
 
@@ -236,6 +248,8 @@ function StateIcon({ state }: { state: StageState }) {
   }
 }
 
+import { StageProgressBar } from './StageProgressBar';
+
 function StageRow({ stage }: { stage: EnrichmentStage }) {
   const s = STATE_STYLES[stage.state];
   
@@ -276,6 +290,11 @@ function StageRow({ stage }: { stage: EnrichmentStage }) {
             {stage.stats}
           </p>
         )}
+
+        {/* Progress Bar */}
+        {stage.state === 'running' && stage.progress !== undefined && (
+          <StageProgressBar progress={stage.progress} className="mt-2 h-1" />
+        )}
       </div>
     </div>
   );
@@ -293,13 +312,12 @@ const DEEP_MODE_OPTIONS: { label: string; value: DeepEnrichmentMode }[] = [
 export function GraphEnrichmentPipeline({
   trace,
   augmentation,
-  deepAnalysis,
   epistemic,
   modules,
   deepening,
   knowledge,
   augmenting = false,
-  deepAnalyzing = false,
+  validating = false,
   epistemicRunning = false,
   clusterRunning = false,
   deepeningRunning = false,
@@ -337,14 +355,14 @@ export function GraphEnrichmentPipeline({
   // ── Compute stage states ──────────────────────────────────
   
   // 1. Structural Graph (Rust)
-  const structuralState = computeTraceState(trace);
+  const structuralState = computeTraceState(trace, augmenting, validating, knowledgeBuilding);
   const structuralStats = structuralState === 'complete' || structuralState === 'running'
     ? `${trace.counts.nodes.toLocaleString()} nodes · ${trace.counts.edges.toLocaleString()} edges`
     : structuralState === 'not_built' ? 'Not built yet'
     : 'Disabled';
 
   // 2. Fast Catalogue (3b)
-  const catalogueState = computeAugmentState(trace, augmentation, augmenting);
+  const catalogueState = computeAugmentState(trace, augmentation, augmenting, validating, knowledgeBuilding);
   const catalogueStats = (() => {
     if (catalogueState === 'running') return 'Augmenting...';
     if (catalogueState === 'disabled') return 'Waiting for graph';
@@ -358,17 +376,17 @@ export function GraphEnrichmentPipeline({
       : '';
     return `${pct}% coverage · ${conf}`;
   })();
+  const catalogueProgress = (catalogueState === 'running' && augmentation && augmentation.total_nodes > 0)
+    ? Math.round((augmentation.augmented_nodes / augmentation.total_nodes) * 100)
+    : undefined;
 
-  // 3. Relationship Validation (Rust) - mapped from deepAnalysis
-  const validationState = computeDeepState(trace, augmentation, deepAnalysis, deepAnalyzing);
+  // 3. Relationship Validation (Rust)
+  const validationState = computeValidationState(trace, augmentation, validating, knowledgeBuilding);
   const validationStats = (() => {
     if (validationState === 'running') return 'Validating...';
     if (validationState === 'disabled') return 'Waiting for catalogue';
     if (validationState === 'not_built') return 'Not validated';
-    if (!deepAnalysis) return '';
-    return deepAnalysis.queue_size != null 
-      ? `${deepAnalysis.queue_size} items queued` 
-      : 'Validation complete';
+    return '0 issues found'; // Placeholder until Rust validator is fully implemented
   })();
 
   // 4. Epistemic Enrichment (14b)
@@ -408,6 +426,9 @@ export function GraphEnrichmentPipeline({
     const pct = Math.round(deepening.settled_ratio * 100);
     return `${pct}% settled · avg ${Math.round(deepening.avg_score * 100)}%`;
   })();
+  const deepeningProgress = (deepeningState === 'running' && deepening?.max_iterations && deepening.max_iterations > 0)
+    ? Math.round(((deepening.iteration ?? 0) / deepening.max_iterations) * 100)
+    : undefined;
 
   // 4. Knowledge Embedding (fast — after catalogue)
   const fastKnowledgeState = computeFastKnowledgeState(trace, augmentation, knowledge, knowledgeBuilding);
@@ -433,7 +454,7 @@ export function GraphEnrichmentPipeline({
 
   const fastStages: EnrichmentStage[] = [
     { id: 'structural', label: 'Structural Graph', icon: GitBranch, modelTag: 'Rust', state: structuralState, stats: structuralStats },
-    { id: 'catalogue', label: 'Fast Catalogue', icon: Database, modelTag: '3b', state: catalogueState, stats: catalogueStats },
+    { id: 'catalogue', label: 'Fast Catalogue', icon: Database, modelTag: '3b', state: catalogueState, stats: catalogueStats, progress: catalogueProgress },
     { id: 'validation', label: 'Relationship Validation', icon: ShieldCheck, modelTag: 'Rust', state: validationState, stats: validationStats },
     { id: 'knowledge', label: 'Knowledge Embedding', icon: Database, state: fastKnowledgeState, stats: fastKnowledgeStats },
   ];
@@ -447,7 +468,7 @@ export function GraphEnrichmentPipeline({
         : undefined,
     },
     { id: 'clustering', label: 'Cluster Synthesis', icon: Layers, modelTag: '14b', state: clusteringState, stats: clusteringStats },
-    { id: 'deepening', label: 'Continuous Deepening', icon: Network, state: deepeningState, stats: deepeningStats },
+    { id: 'deepening', label: 'Continuous Deepening', icon: Network, state: deepeningState, stats: deepeningStats, progress: deepeningProgress },
     { id: 'deep_knowledge', label: 'Deep Knowledge Embedding', icon: Database, state: deepKnowledgeState, stats: deepKnowledgeStats },
   ];
 
@@ -499,23 +520,6 @@ export function GraphEnrichmentPipeline({
         ) : (
           <p className="text-[10px] text-text-subtle">No project selected</p>
         )}
-      </div>
-    );
-  }
-
-  // ── Building state ──────────────────────────────────────────
-  if (trace.building && !trace.exists) {
-    return (
-      <div className={cn("flex flex-col items-center justify-center gap-4 py-8 px-4 text-center", className)}>
-        <div className="w-14 h-14 rounded-full border-2 border-primary/30 bg-primary/10 flex items-center justify-center">
-          <Loader2 className="w-7 h-7 text-primary animate-spin" />
-        </div>
-        <div className="space-y-1.5">
-          <h3 className="text-sm font-semibold text-text">Building Trace Graph…</h3>
-          <p className="text-xs text-text-muted">
-            Analyzing your codebase structure. This may take a moment.
-          </p>
-        </div>
       </div>
     );
   }

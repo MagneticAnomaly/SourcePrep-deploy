@@ -1,0 +1,15 @@
+
+### 2026-02-14: Dashboard Testing (P02-T1, P02-T2)
+
+**What was built:**
+- `tests/test_dashboard_e2e_flow.py` — End-to-End smoke test for the Trust Loop:
+  - Add Project → Build → Search → File Inspection (Pinned) → Context
+- `tests/test_dashboard_error_states.py` — Validation of error contracts:
+  - Project Not Found (404)
+  - Search/Context before Build (409)
+  - Security (Path Traversal) (400/403)
+- `docs/Phase02_Dashboard/TEST_PLAN_E2E.md` — Manual and automated test plan.
+
+**Status:**
+- Phase 02 Testing (P02-T*) is materially complete.
+- Dashboard core flows are verified against the backend API.

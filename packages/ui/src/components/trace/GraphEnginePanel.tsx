@@ -1,3 +1,10 @@
+/**
+ * @deprecated LEGACY — Preparing for removal.
+ * This 7-stage per-stage-toggle panel is superseded by
+ * GraphEnrichmentPipeline.tsx (8-stage, two-group model).
+ * Registered as 'graph-engine' in panelRegistry but already
+ * removed from the registry. Component kept for reference only.
+ */
 import { useState } from 'react';
 import { cn } from '../../lib/utils';
 import { Button } from '../primitives/Button';
@@ -22,6 +29,7 @@ import {
 import type { GraphEngineStatus, GraphEngineConfig } from '../../types';
 import { InfoTooltip } from '../primitives/InfoTooltip';
 
+/** @deprecated Use GraphEnrichmentPipeline instead. */
 export interface GraphEnginePanelProps {
   status: GraphEngineStatus | null;
   config?: GraphEngineConfig;

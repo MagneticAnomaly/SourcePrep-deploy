@@ -16,13 +16,13 @@
   - build/status
   - search
   - context
-- [ ] P02-R3 Decide minimum build progress granularity required for MVP
+- [x] P02-R3 Decide minimum build progress granularity required for MVP ✅ `TaskProgress` (percent + message + current/total) via SSE
 
 ## Implementation backlog (P02-I*)
 ### App shell + navigation
 - [x] P02-I1 Project list (sidebar) + add/remove flows ✅ `AppShell` + `Sidebar` + `ProjectList` + `AddProjectModal`
 - [x] P02-I2 Project tabs (open/close, persist) ✅ Multi-project selection via `ProjectList`
-- [ ] P02-I3 Global settings modal (provider URLs, defaults)
+- [x] P02-I3 Global settings modal (provider URLs, defaults) ✅ `SettingsDrawer` (Global) + `AIModelsSettings` (LLM Status panel detail)
   - ollama URL
   - default embedding model
   - optional: CLaRa URL + enable toggle
@@ -69,8 +69,8 @@
 - [x] P02-I11 Standard error component that renders `error.code`, message, and hint consistently ✅ `ErrorState`
 
 ## Testing & validation (P02-T*)
-- [ ] P02-T1 E2E smoke: add project → build → search → open chunk → context
-- [ ] P02-T2 Error-state tests:
+- [x] P02-T1 E2E smoke: add project → build → search → open chunk → context ✅ `tests/test_dashboard_e2e_flow.py` + `TEST_PLAN_E2E.md`
+- [x] P02-T2 Error-state tests: ✅ `tests/test_dashboard_error_states.py`
   - project not found
   - Ollama unavailable
   - build failed
@@ -106,59 +106,3 @@ Relevant entries in `../MASTER_TODO.md`:
 - [ ] Decide where “project path” is shown vs hidden (future remote mode redaction requirements)
 - [ ] Decide whether the dashboard needs a “diagnostics” panel in MVP (Phase07 suggests it)
 
-## Pinned Files feature (dashboard panels) — status, research, plan
-
-### Completed
-- [x] UI: added new dashboard panel category `projects` and default layout entries for:
-  - `file-tree` (hidden by default)
-  - `pinned-files` (hidden by default)
-- [x] UI: registered panel definitions in `packages/ui/src/config/panelRegistry.ts`:
-  - `file-tree`
-  - `pinned-files`
-- [x] UI: `FolderTree` now propagates `onNodeClick` down the entire tree (nested items).
-- [x] Backend: added canonical endpoint for file content (project-scoped):
-  - `GET /projects/{project_id}/file?path=<repo-root-relative-path>`
-  - Guards:
-    - path traversal prevention (`..`, absolute paths)
-    - repo-root containment checks
-    - `max_file_bytes` limit
-    - include/exclude policy checks
-
-### Remaining TODOs
-- [x] Frontend: add pinned files state + handlers (inline in App.tsx) ✅
-  - localStorage persistence (paths + ordering)
-  - fetch content for pinned paths via `getProjectFileContent` API
-  - error handling per file (skip on failure)
-- [x] Frontend: wire panels into `src/codrag/dashboard/src/App.tsx` ✅
-  - `FolderTreePanel` with `includedPaths`, `onToggleInclude`, `onNodeClick` for pin/unpin
-  - `PinnedTextFilesPanel` in `panelContent` with `onUnpin`
-  - panel registry already includes `projects` category
-- [x] Storybook: `FullDashboard.stories.tsx` already includes `FolderTreePanel` and `PinnedTextFilesPanel` ✅
-- [x] UI package polish: ✅
-  - `.hide-scrollbar` and `.custom-scrollbar` utilities already in styles
-  - `FolderTreePanel` and `PinnedTextFilesPanel` already exported from UI barrels
-
-### Research notes (backend file content)
-- There was no existing endpoint to fetch arbitrary file content by repo-root-relative path; existing endpoints were chunk-oriented.
-- The file content endpoint must be **project-scoped** under `/projects/{project_id}` (canonical API surface).
-- Path and policy safety:
-  - We prevent traversal via `..` parts and absolute paths.
-  - We ensure the resolved absolute path is inside `repo_root`.
-  - We enforce `max_file_bytes`.
-  - We enforce include/exclude globs.
-
-### Important implementation note (glob matching)
-- Python `Path.match()` has surprising semantics with patterns like `**/*.md` and `**/.git/**` for root-level paths (e.g. `README.md` and `.git/...`).
-- The endpoint currently uses `fnmatch` + a small normalization rule: if a pattern starts with `**/`, also test the same pattern with that prefix stripped.
-  - This allows root-level `README.md` to match `**/*.md`.
-  - This also allows root-level `node_modules/...` or `.git/...` to match the equivalent without `**/`.
-
-### Next integration plan
-- Add `getProjectFileContent(projectId, path)` to `packages/ui/src/api/client.ts` + TS types.
-- Implement `usePinnedFiles({ projectId })` in the dashboard app:
-  - source of truth: `Set<string>` of pinned paths + ordered array
-  - derive `PinnedTextFile[]` by fetching content
-  - map `path -> id` (e.g. stable `id = path`)
-- Wire:
-  - `FolderTreePanel` gets `pinnedPaths` + `onTogglePin`.
-  - `PinnedTextFilesPanel` gets `files` + `onUnpin`.

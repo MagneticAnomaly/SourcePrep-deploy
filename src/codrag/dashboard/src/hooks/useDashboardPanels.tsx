@@ -40,6 +40,7 @@ import {
   type LLMSlotsStatus,
   type SavedEndpoint,
   type EndpointTestResult,
+  type ScopeStatus,
 } from '@codrag/ui'
 import type { TraceStatus, TraceCoverage } from './useTraceSystem'
 
@@ -52,6 +53,7 @@ export interface DashboardPanelsProps {
   selectedProjectId: string | null
   projectConfig: ProjectConfig
   isPro: boolean
+  scopeStatus?: ScopeStatus
   // Event stream
   logs: any[]
   clearLogs: () => void
@@ -124,6 +126,7 @@ export interface DashboardPanelsProps {
   // Enrichment
   augmentationStatus: AugmentationStatus
   augmenting: boolean
+  validating: boolean
   handleRunAugmentation: () => void
   epistemicStatus: EpistemicStatus
   epistemicRunning: boolean
@@ -157,6 +160,7 @@ export interface DashboardPanelsProps {
   handleTestEndpoint: (ep: SavedEndpoint) => Promise<any>
   handleFetchModels: (endpointId: string) => Promise<any>
   handleTestModel: (slot: 'embedding' | 'small' | 'large' | 'clara') => Promise<any>
+  handleDownloadModel: (slot: 'embedding' | 'clara') => Promise<void>
   availableModels: Record<string, string[]>
   loadingModels: Record<string, boolean>
   testingSlot: 'small' | 'clara' | 'embedding' | 'large' | null
@@ -217,7 +221,13 @@ export function useDashboardPanels(p: DashboardPanelsProps) {
             const hasThinking = !!(p.llmConfig.large_model.enabled && p.llmConfig.large_model.model);
             const hasCLaRa = !!(p.llmConfig.clara.enabled && (p.llmConfig.clara.remote_url || p.llmConfig.clara.endpoint_id || p.llmConfig.clara.source === 'huggingface'));
             const fastName = hasThinking ? 'Fast Model' : 'Single LLM';
-            type Svc = { name: string; status: 'connected' | 'disconnected' | 'disabled' | 'not-configured'; type: 'ollama' | 'clara' | 'openai' | 'other'; model?: string };
+            
+            // Map pipeline states to model activity
+            const embeddingRunning = p.searchLoading || (p.projectStatus?.building ?? false) || p.knowledgeBuilding;
+            const fastRunning = p.augmenting;
+            const largeRunning = p.validating || p.deepAnalysisRunning || p.epistemicRunning || p.deepeningRunning || p.clusterRunning;
+
+            type Svc = { name: string; status: 'connected' | 'disconnected' | 'disabled' | 'not-configured'; type: 'ollama' | 'clara' | 'openai' | 'other'; model?: string; running?: boolean };
             const items: Svc[] = [];
             if (hasEmbedding) {
               items.push({
@@ -229,6 +239,7 @@ export function useDashboardPanels(p: DashboardPanelsProps) {
                   : 'connected',
                 type: 'other',
                 model: p.llmConfig.embedding.model,
+                running: embeddingRunning,
               });
             }
             if (hasFast) {
@@ -241,6 +252,7 @@ export function useDashboardPanels(p: DashboardPanelsProps) {
                   : 'connected',
                 type: 'ollama',
                 model: p.llmConfig.small_model.model,
+                running: fastRunning,
               });
             }
             if (hasThinking) {
@@ -253,6 +265,7 @@ export function useDashboardPanels(p: DashboardPanelsProps) {
                   : 'connected',
                 type: 'openai',
                 model: p.llmConfig.large_model.model,
+                running: largeRunning,
               });
             }
             if (hasCLaRa) {
@@ -344,6 +357,7 @@ export function useDashboardPanels(p: DashboardPanelsProps) {
       <FolderTreePanel
         data={p.fileTree}
         includedPaths={p.includedPaths}
+        scopeStatus={p.scopeStatus}
         onToggleInclude={p.handleToggleInclude}
         pathWeights={p.pathWeights}
         onWeightChange={p.handlePathWeightChange}
@@ -434,6 +448,7 @@ export function useDashboardPanels(p: DashboardPanelsProps) {
           onRunDeepEnrichment={p.handleRunDeepEnrichment}
           onDestroyGraph={p.handleDestroyGraph}
           augmenting={p.augmenting}
+          validating={p.validating}
           deepAnalyzing={p.deepAnalysisRunning}
           epistemicRunning={p.epistemicRunning}
           clusterRunning={p.clusterRunning}
@@ -453,7 +468,7 @@ export function useDashboardPanels(p: DashboardPanelsProps) {
         untracedFiles={p.traceCoverage.untraced}
         staleFiles={p.traceCoverage.stale}
         excludedFiles={p.traceCoverage.excluded}
-        building={p.traceCoverage.building}
+        building={p.traceStatus.building || p.traceCoverage.building}
         progress={p.findActiveTask('trace_build')}
         loading={p.traceCoverage.loading}
         onTraceAll={p.handleTraceAll}
@@ -499,7 +514,7 @@ export function useDashboardPanels(p: DashboardPanelsProps) {
           onTestEndpoint={p.handleTestEndpoint}
           onFetchModels={p.handleFetchModels}
           onTestModel={p.handleTestModel}
-          onHFDownload={() => {}}
+          onHFDownload={p.handleDownloadModel}
           availableModels={p.availableModels}
           loadingModels={p.loadingModels}
           testingSlot={p.testingSlot}
@@ -515,6 +530,7 @@ export function useDashboardPanels(p: DashboardPanelsProps) {
         onUnpinFile={p.handleUnpinFile}
         onLoadFileContent={p.handleLoadFileContent}
         includedPaths={p.includedPaths}
+        scopeStatus={p.scopeStatus}
         onToggleInclude={p.handleToggleInclude}
         pathWeights={p.pathWeights}
         onWeightChange={p.handlePathWeightChange}
