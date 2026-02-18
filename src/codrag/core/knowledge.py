@@ -12,6 +12,7 @@ conceptual descriptions (intent, architecture, responsibility) rather than just
 literal code implementation.
 """
 
+import hashlib
 import json
 import logging
 import time
@@ -74,10 +75,26 @@ class KnowledgeIndex:
         return self._documents is not None and self._embeddings is not None
 
     def status(self) -> Dict[str, Any]:
+        exists = self.exists()
+        count = len(self._documents) if self._documents else 0
+        built_at = self._manifest.get("built_at")
+        
+        # Count deep artifacts (Stage 8) vs fast artifacts (Stage 4)
+        deep_count = 0
+        if self._documents:
+            deep_count = sum(1 for d in self._documents if d.get("type") in ("epistemic", "module"))
+            
         return {
-            "exists": self.exists(),
-            "count": len(self._documents) if self._documents else 0,
-            "last_build_at": self._manifest.get("built_at"),
+            # Frontend-expected fields (KnowledgeEmbeddingStatus)
+            "enabled": exists and count > 0,
+            "running": False,  # Overridden by callers when build is active
+            "chunks_embedded": count,
+            "deep_chunks_embedded": deep_count,
+            "last_run_at": built_at,
+            # Legacy / additional fields
+            "exists": exists,
+            "count": count,
+            "last_build_at": built_at,
             "model": self._manifest.get("model", "unknown"),
         }
 
@@ -114,37 +131,109 @@ class KnowledgeIndex:
             })
         return results
 
+    @staticmethod
+    def _sanitize_text(text: str) -> str:
+        """Strip surrogate codepoints that can leak from Rust trace output.
+
+        Surrogates (U+D800..U+DFFF) are invalid in UTF-8 and will crash
+        json.dump(), hashlib, and HTTP JSON payloads.  Replace them with
+        U+FFFD so the pipeline doesn't abort on a single bad byte.
+        """
+        return text.encode("utf-8", errors="surrogatepass").decode("utf-8", errors="replace")
+
+    @staticmethod
+    def _content_hash(content: str) -> str:
+        """Stable hash of document content for incremental reuse."""
+        return hashlib.sha256(content.encode("utf-8", errors="replace")).hexdigest()[:16]
+
+    def _load_previous_for_reuse(self) -> Dict[str, tuple]:
+        """Load previous index and build a reuse map: doc_id → (content_hash, embedding_vector).
+
+        Returns empty dict if no previous index exists or model changed.
+        """
+        prev_model = str(self._manifest.get("model") or "")
+        cur_model = str(getattr(self.embedder, "model", "unknown"))
+
+        # Can't reuse if model changed (different embedding space)
+        if prev_model and prev_model != cur_model:
+            logger.info(
+                "Knowledge model changed (%s → %s), full re-embed required",
+                prev_model, cur_model,
+            )
+            return {}
+
+        prev_docs = self._documents
+        prev_emb = self._embeddings
+
+        # Cold-start: try loading from disk if not in memory
+        if (prev_docs is None or prev_emb is None) and self.docs_path.exists() and self.emb_path.exists():
+            try:
+                with open(self.docs_path, "r", encoding="utf-8") as f:
+                    prev_docs = json.load(f)
+                prev_emb = np.load(self.emb_path)
+                logger.info("Cold-start incremental: loaded %d previous knowledge docs for reuse", len(prev_docs))
+            except Exception as e:
+                logger.warning("Failed to load previous knowledge index for reuse: %s", e)
+                return {}
+
+        if not prev_docs or prev_emb is None or len(prev_docs) != prev_emb.shape[0]:
+            return {}
+
+        reuse_map: Dict[str, tuple] = {}
+        for i, doc in enumerate(prev_docs):
+            doc_id = doc.get("id", "")
+            content = doc.get("content", "")
+            if doc_id and content:
+                reuse_map[doc_id] = (self._content_hash(content), prev_emb[i])
+        return reuse_map
+
     def build(self, progress_callback=None) -> Dict[str, Any]:
         """
-        Build the knowledge index from trace_epistemic.jsonl and trace_modules.jsonl.
+        Build the knowledge index from trace_augmented.jsonl, trace_epistemic.jsonl,
+        and trace_modules.jsonl.
+
+        Incremental: reuses embeddings for documents whose content hasn't changed
+        since the last build, only re-embedding new or modified documents.
         """
         epistemic_path = self.index_dir / "trace_epistemic.jsonl"
         modules_path = self.index_dir / "trace_modules.jsonl"
         augmented_path = self.index_dir / "trace_augmented.jsonl"
-        
+
         docs: List[Dict[str, Any]] = []
-        
+
+        logger.info(
+            "Knowledge build: index_dir=%s  augmented=%s  epistemic=%s  modules=%s",
+            self.index_dir,
+            augmented_path.exists(),
+            epistemic_path.exists(),
+            modules_path.exists(),
+        )
+
         # 1. Index Fast Catalogue (Augmented Data)
         if augmented_path.exists():
+            aug_total = 0
+            aug_skipped = 0
             try:
                 with open(augmented_path, "r", encoding="utf-8") as f:
                     for line in f:
                         try:
                             entry = json.loads(line)
+                            aug_total += 1
                             node_id = entry.get("node_id")
                             summary = entry.get("summary")
-                            
+
                             if not summary:
+                                aug_skipped += 1
                                 continue
-                                
+
                             # Construct rich text representation for embedding
                             text_parts = [
                                 f"File: {node_id}",
                                 f"Role: {entry.get('role', 'unknown')}",
                                 f"Summary: {summary}"
                             ]
-                            content = "\n".join(text_parts)
-                            
+                            content = self._sanitize_text("\n".join(text_parts))
+
                             docs.append({
                                 "id": f"know:aug:{node_id}",
                                 "type": "catalogue",
@@ -159,6 +248,10 @@ class KnowledgeIndex:
                             continue
             except Exception as e:
                 logger.error(f"Error reading augmented file: {e}")
+            logger.info(
+                "Augmented data: %d entries read, %d with summary, %d skipped (no summary)",
+                aug_total, aug_total - aug_skipped, aug_skipped,
+            )
 
         # 2. Index Epistemic Enrichments
         if epistemic_path.exists():
@@ -169,10 +262,10 @@ class KnowledgeIndex:
                             entry = json.loads(line)
                             node_id = entry.get("node_id")
                             summary = entry.get("extended_summary") or entry.get("one_liner")
-                            
+
                             if not summary:
                                 continue
-                                
+
                             # Construct rich text representation for embedding
                             text_parts = [
                                 f"File: {node_id}",
@@ -180,8 +273,8 @@ class KnowledgeIndex:
                                 f"Layer: {entry.get('architecture_layer', 'unknown')}",
                                 f"Summary: {summary}"
                             ]
-                            content = "\n".join(text_parts)
-                            
+                            content = self._sanitize_text("\n".join(text_parts))
+
                             docs.append({
                                 "id": f"know:epistemic:{node_id}",
                                 "type": "epistemic",
@@ -198,7 +291,7 @@ class KnowledgeIndex:
             except Exception as e:
                 logger.error(f"Error reading epistemic file: {e}")
 
-        # 2. Index Modules
+        # 3. Index Modules
         if modules_path.exists():
             try:
                 with open(modules_path, "r", encoding="utf-8") as f:
@@ -208,17 +301,17 @@ class KnowledgeIndex:
                             mod_id = mod.get("module_id")
                             name = mod.get("name")
                             purpose = mod.get("purpose")
-                            
+
                             if not purpose:
                                 continue
-                                
+
                             text_parts = [
                                 f"Module: {name}",
                                 f"Purpose: {purpose}",
                                 f"Data Flow: {mod.get('data_flow', '')}"
                             ]
                             content = "\n".join(text_parts)
-                            
+
                             docs.append({
                                 "id": f"know:module:{mod_id}",
                                 "type": "module",
@@ -235,69 +328,137 @@ class KnowledgeIndex:
                 logger.error(f"Error reading modules file: {e}")
 
         if not docs:
+            has_aug = augmented_path.exists()
             has_ep = epistemic_path.exists()
             has_mod = modules_path.exists()
-            if not has_ep and not has_mod:
-                logger.info(
-                    "Knowledge embedding skipped — no epistemic or module data yet "
-                    "(these are produced by Deep Enrichment stages)."
-                )
-            else:
-                logger.info("No knowledge documents found to index.")
+            logger.info(
+                "Knowledge embedding skipped — no documents extracted "
+                "(augmented=%s, epistemic=%s, modules=%s).",
+                has_aug, has_ep, has_mod,
+            )
             return {"count": 0, "status": "empty"}
 
-        # 3. Generate Embeddings
-        total = len(docs)
-        vectors = []
-        
-        batch_size = 32
-        for i in range(0, total, batch_size):
-            batch = docs[i : i + batch_size]
-            texts = [d["content"] for d in batch]
-            
-            if progress_callback:
-                progress_callback("embedding", i, total)
-                
+        # ── Incremental reuse: load previous embeddings ─────────────
+        reuse_map = self._load_previous_for_reuse()
+        can_reuse = bool(reuse_map)
+
+        # Classify docs into reusable vs needs-embedding
+        docs_to_embed: List[int] = []  # indices into docs[]
+        reused_vectors: Dict[int, np.ndarray] = {}  # index → vector
+
+        for i, doc in enumerate(docs):
+            doc_id = doc.get("id", "")
+            content = doc.get("content", "")
+            content_hash = self._content_hash(content)
+
+            if can_reuse and doc_id in reuse_map:
+                prev_hash, prev_vec = reuse_map[doc_id]
+                if prev_hash == content_hash:
+                    reused_vectors[i] = prev_vec
+                    continue
+
+            docs_to_embed.append(i)
+
+        docs_reused = len(reused_vectors)
+        docs_new = len(docs_to_embed)
+        prev_ids = set(reuse_map.keys()) if can_reuse else set()
+        current_ids = {d["id"] for d in docs}
+        docs_deleted = len(prev_ids - current_ids)
+
+        if docs_new == 0 and docs_deleted == 0:
+            build_mode = "noop"
+        elif docs_reused > 0:
+            build_mode = "incremental"
+        else:
+            build_mode = "full"
+
+        logger.info(
+            "Knowledge build: %d total docs, %d reused, %d to embed, %d deleted (mode=%s)",
+            len(docs), docs_reused, docs_new, docs_deleted, build_mode,
+        )
+
+        # ── Pre-flight: verify embedder (only if we need to embed) ──
+        if docs_new > 0:
+            logger.info("Knowledge build: testing embedder for %d new docs...", docs_new)
             try:
-                batch_vectors = self.embedder.embed_batch(texts)
-                vectors.extend([r.vector for r in batch_vectors])
+                test_result = self.embedder.embed("embedder pre-flight test")
+                if not test_result or not test_result.vector:
+                    raise RuntimeError("Embedder returned empty vector")
+                logger.info(
+                    "Embedder OK (model=%s, dim=%d)",
+                    getattr(self.embedder, 'model', '?'),
+                    len(test_result.vector),
+                )
             except Exception as e:
-                logger.error(f"Failed to embed batch {i}: {e}")
-                # Pad with zeros or skip? Skipping might align wrong. 
-                # Let's fail hard for now or fill zeros.
-                # Actually embed_batch should handle retries. If it fails, the build fails.
-                raise e
+                model_name = getattr(self.embedder, 'model', '?')
+                logger.error("Embedder pre-flight FAILED: %s", e)
+                raise RuntimeError(
+                    f"Knowledge embedding failed — embedding model '{model_name}' is not responding. "
+                    f"Check that the model is pulled and Ollama is running. Error: {e}"
+                ) from e
+
+        # ── Generate Embeddings (only for new/changed docs) ─────────
+        total = len(docs)
+        vectors: List[Any] = [None] * total  # pre-allocate
+
+        # Fill in reused vectors
+        for idx, vec in reused_vectors.items():
+            vectors[idx] = vec
+
+        # Embed new/changed docs in batches
+        if docs_to_embed:
+            batch_size = 32
+            for batch_start in range(0, len(docs_to_embed), batch_size):
+                batch_indices = docs_to_embed[batch_start : batch_start + batch_size]
+                texts = [docs[i]["content"] for i in batch_indices]
+
+                if progress_callback:
+                    progress_callback("embedding", batch_start, len(docs_to_embed))
+
+                try:
+                    batch_vectors = self.embedder.embed_batch(texts)
+                    for j, bi in enumerate(batch_indices):
+                        vectors[bi] = batch_vectors[j].vector
+                except Exception as e:
+                    logger.error(f"Failed to embed batch {batch_start}/{len(docs_to_embed)}: {e}")
+                    raise
+        elif progress_callback:
+            progress_callback("embedding", 0, 0)
 
         embeddings = np.array(vectors, dtype=np.float32)
 
-        # 4. Save Atomic
+        # ── Save Atomically ─────────────────────────────────────────
         build_id = uuid.uuid4().hex
         temp_dir = self.index_dir.parent / f".know_index_build_{build_id}"
         temp_dir.mkdir(parents=True, exist_ok=True)
-        
+
         try:
             with open(temp_dir / "knowledge_documents.json", "w", encoding="utf-8") as f:
                 json.dump(docs, f)
             np.save(temp_dir / "knowledge_embeddings.npy", embeddings)
-            
+
             manifest = {
                 "built_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 "count": total,
                 "model": self.embedder.model,
-                "version": 1
+                "version": 1,
+                "build": {
+                    "mode": build_mode,
+                    "docs_reused": docs_reused,
+                    "docs_embedded": docs_new,
+                    "docs_deleted": docs_deleted,
+                },
             }
             with open(temp_dir / "knowledge_manifest.json", "w", encoding="utf-8") as f:
                 json.dump(manifest, f)
-                
-            # Atomic swap files (manual since it's not a full dir swap, just files)
-            # Actually, let's just move the files into place
+
             for fname in ["knowledge_documents.json", "knowledge_embeddings.npy", "knowledge_manifest.json"]:
                 src = temp_dir / fname
                 dst = self.index_dir / fname
                 if dst.exists():
                     dst.unlink()
                 shutil.move(src, dst)
-                
+
         finally:
             if temp_dir.exists():
                 shutil.rmtree(temp_dir)
@@ -305,5 +466,5 @@ class KnowledgeIndex:
         self._documents = docs
         self._embeddings = embeddings
         self._manifest = manifest
-        
+
         return manifest
