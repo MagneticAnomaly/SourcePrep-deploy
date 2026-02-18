@@ -12,16 +12,12 @@ import {
   ModularDashboard,
   // Project
   AddProjectModal,
-  type TreeNode,
-  type PinnedTextFile,
   // Patterns
   LoadingState,
   EmptyState,
   // Primitives
   Button,
   // Types
-  type SearchResult,
-  type ContextMeta,
   type ProjectConfig,
   type ProjectSummary,
   type ProjectStatus,
@@ -41,62 +37,15 @@ import { useLLMConfig } from './hooks/useLLMConfig'
 import { useDeepAnalysis } from './hooks/useDeepAnalysis'
 import { useWatchSystem } from './hooks/useWatchSystem'
 import { useTraceSystem, type TraceCoverage } from './hooks/useTraceSystem'
+import { useEnrichment } from './hooks/useEnrichment'
+import { useSearchContext } from './hooks/useSearchContext'
+import { useFileSystem } from './hooks/useFileSystem'
 import { useDashboardPanels } from './hooks/useDashboardPanels'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
-// ── Constants ────────────────────────────────────────────────
-
-const PINNED_PREFIX = 'pinned:'
-
 // ── Helpers ──────────────────────────────────────────────────
 
-function findNode(nodes: TreeNode[], name: string): TreeNode | undefined {
-  return nodes.find(n => n.name === name)
-}
-
-/**
- * Collects paths of siblings along the path from ancestor to target
- * Used when breaking an ancestor selection to preserve other children
- */
-function getExplodedPaths(nodes: TreeNode[], ancestorPath: string, targetPath: string): string[] {
-  const ancestorParts = ancestorPath.split('/')
-  const targetParts = targetPath.split('/')
-  
-  // Navigate to ancestor node in the tree
-  let currentNodes = nodes
-  for (const part of ancestorParts) {
-    const node = findNode(currentNodes, part)
-    if (!node || !node.children) return [] // Should not happen if UI is consistent
-    currentNodes = node.children
-  }
-  
-  // Now currentNodes is the children of the ancestor
-  // We need to traverse from ancestor end to target
-  // ancestorPath = "src", targetPath = "src/a/b"
-  // parts relative to ancestor: "a", "b"
-  const relativeParts = targetParts.slice(ancestorParts.length)
-  const result: string[] = []
-  
-  let currentBasePath = ancestorPath
-  
-  for (const part of relativeParts) {
-    // Add all siblings that are NOT the current part
-    for (const child of currentNodes) {
-      if (child.name !== part && child.status !== 'ignored') {
-         result.push(`${currentBasePath}/${child.name}`)
-      }
-    }
-    
-    // Move down
-    const nextNode = findNode(currentNodes, part)
-    if (!nextNode || !nextNode.children) break // Target reached or tree incomplete
-    currentNodes = nextNode.children
-    currentBasePath = `${currentBasePath}/${part}`
-  }
-  
-  return result
-}
 
 function deriveStatus(ps: ProjectStatus | null, building: boolean): StatusState {
   if (building) return 'building'
@@ -189,65 +138,28 @@ function App() {
   const effectiveTier = devTierOverride ?? licenseStatus?.license?.tier ?? 'free'
   const isPro = effectiveTier !== 'free'
 
-  // ── Search state ───────────────────────────────────────────
-  const [query, setQuery] = useState<string>('')
-  const [searchK, setSearchK] = useState<number>(8)
-  const [minScore, setMinScore] = useState<number>(0.15)
-  const [searchLoading, setSearchLoading] = useState(false)
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
-  const [selectedChunk, setSelectedChunk] = useState<SearchResult | null>(null)
-
-  // ── Context state ──────────────────────────────────────────
-  const [contextK, setContextK] = useState<number>(5)
-  const [contextMaxChars, setContextMaxChars] = useState<number>(6000)
-  const [contextIncludeSources, setContextIncludeSources] = useState(true)
-  const [contextIncludeScores, setContextIncludeScores] = useState(false)
-  const [contextStructured, setContextStructured] = useState(false)
-  const [context, setContext] = useState<string>('')
-  const [contextMeta, setContextMeta] = useState<ContextMeta | null>(null)
-
-  // ── Path weights state ────────────────────────────────────
-  const [pathWeights, setPathWeights] = useState<Record<string, number>>({})
-
-  // ── File tree state ─────────────────────────────────────
-  const [fileTree, setFileTree] = useState<TreeNode[]>([])
-
-  // ── Index inclusion state (which files are included in the knowledge scope) ──
-  const [includedPaths, setIncludedPaths] = useState<Set<string>>(() => {
-    try {
-      // Migration v2: clear stale data from before folder-aware toggle fix.
-      // Old data had orphaned deep file paths that were never removed when a
-      // parent folder was unchecked (because the tree was lazy-loaded).
-      const version = localStorage.getItem('codrag_included_paths_version')
-      if (version !== '2') {
-        localStorage.removeItem('codrag_included_paths')
-        localStorage.setItem('codrag_included_paths_version', '2')
-        return new Set()
-      }
-      const stored = localStorage.getItem('codrag_included_paths')
-      return stored ? new Set(JSON.parse(stored)) : new Set()
-    } catch { return new Set() }
-  })
-
-  // ── Pinned files state ──────────────────────────────────────
-  const [pinnedPaths, setPinnedPaths] = useState<Set<string>>(() => {
-    try {
-      const stored = localStorage.getItem('codrag_pinned_files')
-      return stored ? new Set(JSON.parse(stored)) : new Set()
-    } catch { return new Set() }
-  })
-  const [pinnedFiles, setPinnedFiles] = useState<PinnedTextFile[]>([])
+  // ── Search + Context (hook) ─────────────────────────────────
+  const {
+    query, setQuery, searchK, setSearchK, minScore, setMinScore,
+    searchLoading, searchResults, selectedChunk, setSelectedChunk,
+    contextK, setContextK, contextMaxChars, setContextMaxChars,
+    contextIncludeSources, setContextIncludeSources,
+    contextIncludeScores, setContextIncludeScores,
+    contextStructured, setContextStructured,
+    context, contextMeta,
+    handleSearch, handleGetContext, handleCopyContext,
+    resetSearch,
+  } = useSearchContext(selectedProjectId, { onError: (msg) => setError(msg) })
 
   const layoutApiRef = useRef<DashboardLayoutApi | null>(null)
 
-  // Ref for fetchFileTree (defined later) so useTraceSystem can call it after destroy
-  const fetchFileTreeRef = useRef<((projId: string) => Promise<void>) | null>(null)
-
-  // Callback to clear included paths (used by handleDestroyIndex)
-  const clearIncludedPaths = useCallback(() => {
-    setIncludedPaths(new Set())
-    localStorage.removeItem('codrag_included_paths')
-  }, [])
+  // ── File system (hook) ───────────────────────────────────
+  const {
+    fileTree, pathWeights, includedPaths, pinnedPaths, pinnedFiles,
+    fetchFileTree, handleLoadChildren, handlePathWeightChange,
+    handleToggleInclude, clearIncludedPaths,
+    handlePinFile, handleUnpinFile, handleLoadFileContent,
+  } = useFileSystem(selectedProjectId, { layoutApiRef })
 
   // ── Watch (hook) ─────────────────────────────────────────────
   const {
@@ -317,26 +229,33 @@ function App() {
     }
   }, [api])
 
-  // ── Trace system (hook) ───────────────────────────────────────
+  // ── Enrichment (hook) ───────────────────────────────────────
   const {
-    traceStatus, setTraceStatus,
-    traceCoverage, setTraceCoverage,
-    augmentationStatus, augmenting,
-    validating,
+    augmentationStatus, augmenting, validating,
     epistemicStatus, epistemicRunning,
     moduleStatus, clusterRunning,
     deepeningStatus, deepeningRunning,
     knowledgeStatus, knowledgeBuilding,
+    handleRunAugmentation, handleRunEpistemic, handleRunModuleSynthesis,
+    handleRunDeepening, handleRunKnowledgeBuild,
+    handleRunDeepEnrichment,
+    resetAll: resetEnrichment,
+  } = useEnrichment(selectedProjectId, {
+    onError: (msg) => setError(msg),
+    pipelineEvents,
+  })
+
+  // ── Trace system (hook) ───────────────────────────────────────
+  const {
+    traceStatus, setTraceStatus,
+    traceCoverage, setTraceCoverage,
     indexAutoRebuild, enrichmentAutoConfig,
-    fetchAugmentationStatus, fetchEpistemicStatus, fetchModuleStatus,
-    fetchDeepeningStatus, fetchKnowledgeStatus, fetchTraceCoverage,
+    fetchTraceCoverage,
     handleBuildTrace, handleEnableTrace, handleTogglePause,
     handleSearchTrace, handleGetTraceNode, handleGetTraceNeighbors,
     handleTraceAll, handleRetraceStale,
     handleAddExcludePattern, handleRemoveExcludePattern,
-    handleRunAugmentation, handleRunEpistemic, handleRunModuleSynthesis,
-    handleRunDeepening, handleRunKnowledgeBuild,
-    handleRunFastSync, handleRunDeepEnrichment,
+    handleRunFastSync,
     handleEnrichmentAutoConfigChange, handleIndexAutoRebuildChange,
     handleDestroyGraph, handleDestroyIndex,
   } = useTraceSystem(selectedProjectId, {
@@ -345,15 +264,16 @@ function App() {
     setConfigDirty,
     resetDeepAnalysisStatus: () => setDeepAnalysisStatus({} as any),
     refreshStatus,
-    onResetSearch: () => { setSearchResults([]); setSelectedChunk(null); setContext(''); setContextMeta(null) },
+    onResetSearch: resetSearch,
     onError: (msg) => setError(msg),
     findActiveTask,
     pipelineEvents,
     startWatch: handleStartWatch,
     stopWatch: handleStopWatch,
     refreshWatchStatus,
-    refreshFileTree: (projId: string) => fetchFileTreeRef.current?.(projId) ?? Promise.resolve(),
+    refreshFileTree: fetchFileTree,
     clearIncludedPaths,
+    resetEnrichment,
   })
 
   // ── LLM config (hook) ───────────────────────────────────────
@@ -393,6 +313,16 @@ function App() {
       throw e // Re-throw so modal can handle state
     }
   }, [api])
+
+  const handleDeleteProject = useCallback(async (projectId: string) => {
+    try {
+      await api.deleteProject(projectId)
+      setProjects((prev) => prev.filter((p) => p.id !== projectId))
+      if (selectedProjectId === projectId) setSelectedProjectId(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to delete project')
+    }
+  }, [api, selectedProjectId])
 
   // Ref to track auto-rebuild state for use in handleBuild callback
   const indexAutoRebuildRef = useRef(indexAutoRebuild)
@@ -457,74 +387,6 @@ function App() {
     }
   }, [api, selectedProjectId, handleStartWatch, refreshWatchStatus])
 
-  const handleSearch = useCallback(async () => {
-    if (!query.trim() || !selectedProjectId) return
-    setSearchLoading(true)
-    try {
-      const data = await api.search(selectedProjectId, {
-        query: query.trim(),
-        k: searchK,
-        min_score: minScore,
-      })
-      const results: SearchResult[] = data.results.map((r) => ({
-        chunk_id: r.chunk_id,
-        source_path: r.source_path,
-        span: r.span,
-        preview: r.preview,
-        score: r.score,
-        section: r.section,
-        content: r.content,
-      }))
-      setSearchResults(results)
-      setSelectedChunk(results[0] ?? null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Search failed')
-    } finally {
-      setSearchLoading(false)
-    }
-  }, [api, minScore, query, searchK, selectedProjectId])
-
-  const handleGetContext = useCallback(async () => {
-    if (!query.trim() || !selectedProjectId) return
-    try {
-      const data = await api.assembleContext(selectedProjectId, {
-        query: query.trim(),
-        k: contextK,
-        max_chars: contextMaxChars,
-        include_sources: contextIncludeSources,
-        include_scores: contextIncludeScores,
-        min_score: minScore,
-        structured: contextStructured,
-      })
-      setContext(String(data.context || ''))
-      if ('chunks' in data && data.chunks) {
-        setContextMeta({
-          chunks: data.chunks.map((c) => ({
-            source_path: c.source_path,
-            section: '',
-            score: c.score ?? 0,
-            truncated: false,
-          })),
-          total_chars: data.total_chars ?? 0,
-          estimated_tokens: data.estimated_tokens ?? 0,
-        })
-      } else {
-        setContextMeta(null)
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to get context')
-    }
-  }, [api, contextIncludeScores, contextIncludeSources, contextK, contextMaxChars, contextStructured, minScore, query, selectedProjectId])
-
-  const handleCopyContext = useCallback(async () => {
-    if (!context) return
-    try {
-      await navigator.clipboard.writeText(context)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Copy failed')
-    }
-  }, [context])
-
   const handleSaveConfig = useCallback(async () => {
     if (!selectedProjectId) return
     try {
@@ -551,198 +413,6 @@ function App() {
   const handleDetectStack = useCallback(async () => {
     if (!selectedProjectId) throw new Error("No project selected")
     return await api.detectStack(selectedProjectId)
-  }, [api, selectedProjectId])
-
-  const handlePathWeightChange = useCallback((path: string, weight: number | null) => {
-    if (!selectedProjectId) return
-    setPathWeights((prev) => {
-      const next = { ...prev }
-      if (weight === null) {
-        delete next[path]
-      } else {
-        next[path] = weight
-      }
-      // Persist to backend (fire-and-forget)
-      api.updatePathWeights(selectedProjectId, next).catch(() => {})
-      return next
-    })
-  }, [api, selectedProjectId])
-
-  // ── File tree handlers ──────────────────────────────────────
-
-  const fetchFileTree = useCallback(async (projId: string) => {
-    try {
-      const data = await api.getProjectFiles(projId)
-      const newRoots = data.tree as TreeNode[]
-      
-      setFileTree((prev) => {
-        // Recursive Deep Merge: Preserve loaded children from previous state
-        // if new state (roots) doesn't have them. This prevents wiping out
-        // the loaded tree structure on background refreshes.
-        function mergeNodes(oldNodes: TreeNode[], newNodes: TreeNode[]): TreeNode[] {
-          return newNodes.map(newNode => {
-            const oldNode = oldNodes.find(n => n.name === newNode.name && n.type === newNode.type)
-            
-            if (oldNode) {
-              // If new node has explicit children, recursively merge them
-              if (newNode.children && newNode.children.length > 0) {
-                 return { 
-                   ...newNode, 
-                   children: mergeNodes(oldNode.children || [], newNode.children) 
-                 }
-              }
-              // If new node has NO children (or empty) but old node had children,
-              // preserve the old children (assuming new node is just a shallow update)
-              if (oldNode.children && oldNode.children.length > 0) {
-                return { ...newNode, children: oldNode.children }
-              }
-            }
-            return newNode
-          })
-        }
-        return mergeNodes(prev, newRoots)
-      })
-    } catch {
-      setFileTree([])
-    }
-  }, [api])
-  fetchFileTreeRef.current = fetchFileTree
-
-  const handleLoadChildren = useCallback(async (path: string): Promise<TreeNode[]> => {
-    if (!selectedProjectId) return []
-    try {
-      const data = await api.getProjectFiles(selectedProjectId, path, 2)
-      const children = data.tree as TreeNode[]
-      
-      // Update local fileTree state with new children so we have full knowledge for selection logic
-      setFileTree((prev) => {
-        // Deep-clone and merge children into the node at path
-        function mergeInto(nodes: TreeNode[], segments: string[], idx: number): TreeNode[] {
-          return nodes.map((n) => {
-            if (n.name === segments[idx]) {
-              if (idx === segments.length - 1) {
-                // Found target — set children, clear has_children flag
-                return { ...n, children, has_children: undefined }
-              }
-              if (n.children) {
-                return { ...n, children: mergeInto(n.children, segments, idx + 1) }
-              }
-            }
-            return n
-          })
-        }
-        const segments = path.split('/')
-        return mergeInto(prev, segments, 0)
-      })
-      
-      return children
-    } catch {
-      return []
-    }
-  }, [api, selectedProjectId])
-
-  // ── Index inclusion handlers (knowledge scope) ──
-
-  const handleToggleInclude = useCallback((paths: string[], action: 'add' | 'remove') => {
-    setIncludedPaths((prev) => {
-      const next = new Set(prev)
-      
-      for (const path of paths) {
-        if (action === 'add') {
-          // Add the path
-          next.add(path)
-          
-          // Remove any existing descendants (cleanup - parent covers them)
-          const prefix = path + '/'
-          for (const existing of next) {
-            if (existing.startsWith(prefix)) {
-              next.delete(existing)
-            }
-          }
-        } else {
-          // Action is remove
-          
-          // 1. Check for Ancestor (to explode if needed)
-          // We always check this because even if the path itself is explicit,
-          // it might be shadowed by an ancestor (though cleanup usually prevents this,
-          // it's safer to check).
-          // Primarily this handles the case where we are removing a child of a selected parent.
-          let ancestorFound: string | null = null
-          const parts = path.split('/')
-          for (let i = parts.length - 1; i >= 1; i--) {
-            const ancestor = parts.slice(0, i).join('/')
-            if (next.has(ancestor)) {
-              ancestorFound = ancestor
-              break
-            }
-          }
-          
-          if (ancestorFound) {
-            next.delete(ancestorFound)
-            const pathsToKeep = getExplodedPaths(fileTree, ancestorFound, path)
-            pathsToKeep.forEach(p => next.add(p))
-          }
-          
-          // 2. Remove the path itself (always try)
-          next.delete(path)
-          
-          // 3. Remove any descendants (always try)
-          // This ensures that if we uncheck a folder that had explicit children
-          // (partially selected), those children are removed.
-          const prefix = path + '/'
-          for (const existing of next) {
-            if (existing.startsWith(prefix)) {
-              next.delete(existing)
-            }
-          }
-        }
-      }
-      
-      localStorage.setItem('codrag_included_paths', JSON.stringify([...next]))
-      return next
-    })
-
-    // Phase 24: Notify scope orchestrator about knowledge scope changes
-    if (selectedProjectId && paths.length > 0) {
-      if (action === 'add') {
-        api.addScopeFiles(selectedProjectId, paths).catch(() => {})
-      } else {
-        api.removeScopeFiles(selectedProjectId, paths).catch(() => {})
-      }
-    }
-  }, [api, selectedProjectId, fileTree])
-
-  const handlePinFile = useCallback((path: string) => {
-    setPinnedPaths((prev) => {
-      const next = new Set(prev)
-      next.add(path)
-      localStorage.setItem('codrag_pinned_files', JSON.stringify([...next]))
-      return next
-    })
-    // Add as a dashboard panel
-    const panelId = `${PINNED_PREFIX}${path}`
-    layoutApiRef.current?.addPanel(panelId, { height: 8, w: 6 })
-  }, [])
-
-  const handleUnpinFile = useCallback((pathOrPanelId: string) => {
-    const path = pathOrPanelId.startsWith(PINNED_PREFIX)
-      ? pathOrPanelId.slice(PINNED_PREFIX.length)
-      : pathOrPanelId
-    const panelId = `${PINNED_PREFIX}${path}`
-    setPinnedPaths((prev) => {
-      const next = new Set(prev)
-      next.delete(path)
-      localStorage.setItem('codrag_pinned_files', JSON.stringify([...next]))
-      return next
-    })
-    setPinnedFiles((prev) => prev.filter((f) => f.id !== path))
-    layoutApiRef.current?.removePanel(panelId)
-  }, [])
-
-  const handleLoadFileContent = useCallback(async (path: string): Promise<string> => {
-    if (!selectedProjectId) throw new Error('No project selected')
-    const data = await api.getProjectFileContent(selectedProjectId, path)
-    return data.content
   }, [api, selectedProjectId])
 
   // ── Theme effect ───────────────────────────────────────────
@@ -812,50 +482,6 @@ function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshProjects])
 
-  // ── Sync pinned paths to dashboard layout ────────────────────
-  useEffect(() => {
-    if (!layoutApiRef.current) return
-    for (const path of pinnedPaths) {
-      const panelId = `${PINNED_PREFIX}${path}`
-      layoutApiRef.current.addPanel(panelId, { height: 8, w: 6 })
-    }
-  }, [pinnedPaths])
-
-  // ── Fetch content for pinned files when paths or project change ──
-  useEffect(() => {
-    if (!selectedProjectId || pinnedPaths.size === 0) {
-      setPinnedFiles([])
-      return
-    }
-    let cancelled = false
-    const fetchAll = async () => {
-      const results: PinnedTextFile[] = []
-      for (const path of pinnedPaths) {
-        try {
-          const data = await api.getProjectFileContent(selectedProjectId, path)
-          if (cancelled) return
-          results.push({
-            id: path,
-            path,
-            name: path.split('/').pop() ?? path,
-            content: data.content,
-          })
-        } catch {
-          if (cancelled) return
-          results.push({
-            id: path,
-            path,
-            name: path.split('/').pop() ?? path,
-            content: `// Failed to load ${path}`,
-          })
-        }
-      }
-      if (!cancelled) setPinnedFiles(results)
-    }
-    void fetchAll()
-    return () => { cancelled = true }
-  }, [api, selectedProjectId, pinnedPaths])
-
   // ── Auto-save dashboard layout to backend ───────────────────
   const layoutSkipRef = useRef(0)
   useEffect(() => {
@@ -872,17 +498,7 @@ function App() {
     if (!selectedProjectId) return
     void refreshStatus(selectedProjectId)
     void refreshWatchStatus(selectedProjectId)
-    void fetchAugmentationStatus()
     void fetchDeepAnalysisStatus()
-    void fetchEpistemicStatus()
-    void fetchModuleStatus()
-    void fetchDeepeningStatus()
-    void fetchKnowledgeStatus()
-    void fetchFileTree(selectedProjectId)
-    // Fetch path weights
-    api.getPathWeights(selectedProjectId).then((data) => {
-      setPathWeights(data.path_weights ?? {})
-    }).catch(() => { setPathWeights({}) })
     // Fetch trace status, then coverage if trace is enabled
     api.getTraceStatus(selectedProjectId).then((data) => {
       const enabled = data.enabled ?? false
@@ -1014,10 +630,6 @@ function App() {
         onDetectStack={selectedProjectId ? handleDetectStack : undefined}
         deepAnalysisSchedule={deepAnalysisSchedule}
         onDeepAnalysisScheduleChange={setDeepAnalysisSchedule}
-        deepAnalysisStatus={deepAnalysisStatus}
-        deepAnalysisRunning={deepAnalysisRunning}
-        onRunDeepAnalysis={handleRunDeepAnalysis}
-        onCancelDeepAnalysis={handleCancelDeepAnalysis}
         largeModelConfigured={!!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model)}
         fastModelConfigured={!!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model)}
         uiMode={uiMode}
@@ -1069,6 +681,7 @@ function App() {
                 selectedProjectId={selectedProjectId ?? undefined}
                 onProjectSelect={setSelectedProjectId}
                 onAddProject={() => setAddModalOpen(true)}
+                onDeleteProject={handleDeleteProject}
                 extraActions={
                   dashboardLayout && layoutApiRef.current ? (
                     <PanelPicker
