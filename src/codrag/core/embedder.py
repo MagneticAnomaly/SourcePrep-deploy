@@ -92,10 +92,13 @@ class OllamaEmbedder(Embedder):
         try:
             from codrag.core.model_readiness import ollama_ensure_ready, ModelStatus
 
+            # Use a generous timeout for model loading (not the per-request
+            # timeout) — after a long LLM run Ollama may need to swap models.
+            preload_timeout = max(self.timeout_s, 180)
             result = ollama_ensure_ready(
                 url=self.base_url,
                 model=self.model,
-                timeout_s=self.timeout_s,
+                timeout_s=preload_timeout,
                 keep_alive=self.keep_alive,
             )
             if result.status == ModelStatus.READY:

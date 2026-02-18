@@ -339,23 +339,30 @@ class ClusterSynthesizer:
         self,
         cluster: Cluster,
         epistemic: Dict[str, EpistemicEntry],
+        max_files: int = 30,
     ) -> str:
         """Build a formatted string of member file summaries for the prompt."""
         parts: List[str] = []
-        for nid in cluster.member_node_ids[:30]:  # cap at 30 files per prompt
+        # Sort by importance (e.g. file path length or connectivity) if possible
+        # For now, just take the first N
+        for nid in cluster.member_node_ids[:max_files]:
             entry = epistemic.get(nid)
             file_path = nid.replace("file:", "", 1) if nid.startswith("file:") else nid
             if entry:
                 summary = entry.extended_summary or "(no summary)"
                 layer = entry.architecture_layer or "unknown"
                 subsystem = entry.subsystem or ""
-                tech = ", ".join(entry.tech_debt or []) if entry.tech_debt else ""
+                tech = ", ".join(str(t) if not isinstance(t, str) else t for t in (entry.tech_debt or [])) if entry.tech_debt else ""
                 line = f"- {file_path} [{layer}]: {summary}"
                 if tech:
                     line += f" (tech debt: {tech})"
                 parts.append(line)
             else:
                 parts.append(f"- {file_path}: (not enriched)")
+        
+        if len(cluster.member_node_ids) > max_files:
+            parts.append(f"... and {len(cluster.member_node_ids) - max_files} more files.")
+            
         return "\n".join(parts)
 
     def _build_external_deps(
@@ -394,46 +401,61 @@ class ClusterSynthesizer:
         edges: List[Dict[str, Any]],
     ) -> Optional[ModuleEntry]:
         """Synthesize a module entry for a cluster using the 14b model."""
-        member_summaries = self._build_member_summaries(cluster, epistemic)
-        external_deps = self._build_external_deps(cluster, edges, epistemic)
+        
+        # Helper to generate prompt with specific file limit
+        def _generate_with_limit(limit: int) -> Optional[Dict[str, Any]]:
+            member_summaries = self._build_member_summaries(cluster, epistemic, max_files=limit)
+            external_deps = self._build_external_deps(cluster, edges, epistemic)
+            
+            prompt = MODULE_SYNTHESIS_PROMPT.format(
+                cluster_name=cluster.primary_tag.replace("_", " ").replace("-", " ").title(),
+                domain_tags=", ".join(sorted(cluster.all_tags)),
+                file_count=len(cluster.member_node_ids),
+                member_summaries=member_summaries,
+                external_deps=external_deps,
+            )
+            
+            text, tokens = self.llm.generate(prompt, system=MODULE_SYNTHESIS_SYSTEM, num_predict=2048)
+            return _parse_json_response(text)
 
-        # Compute avg epistemic confidence
-        confidences = [
+        cluster_name = cluster.primary_tag.replace("_", " ").replace("-", " ").title()
+        parsed = None
+        
+        # Attempt 1: Standard context (30 files)
+        try:
+            parsed = _generate_with_limit(30)
+        except Exception as e:
+            logger.warning("14b LLM call failed for cluster %s (full context): %s", cluster.cluster_id, e)
+            
+            # Attempt 2: Reduced context (10 files)
+            try:
+                logger.info("Retrying cluster %s with reduced context (10 files)...", cluster.cluster_id)
+                parsed = _generate_with_limit(10)
+            except Exception as e2:
+                logger.warning("14b LLM call failed for cluster %s (reduced context): %s", cluster.cluster_id, e2)
+
+        # Fallback 3: Basic entry
+        if not parsed:
+            logger.warning("Failed to synthesize cluster %s after retries — using fallback", cluster.cluster_id)
+            parsed = {
+                "name": f"{cluster_name} Subsystem",
+                "summary": f"Cluster of {len(cluster.member_node_ids)} files related to {cluster.primary_tag}. (Automatic synthesis failed)",
+                "component_status": "unknown",
+                "data_flow": None,
+                "dependencies": [],
+                "tech_debt_summary": None,
+            }
+
+        # Use cluster_id (e.g. "cluster:ui:0") for unique module_id
+        module_id = f"module:{cluster.cluster_id.replace('cluster:', '')}"
+
+        # Compute average epistemic confidence across cluster members
+        confs = [
             epistemic[nid].epistemic_confidence
             for nid in cluster.member_node_ids
             if nid in epistemic
         ]
-        avg_conf = sum(confidences) / len(confidences) if confidences else 0.0
-
-        # Collect architecture layers
-        layers: Set[str] = set()
-        for nid in cluster.member_node_ids:
-            entry = epistemic.get(nid)
-            if entry:
-                layers.add(entry.architecture_layer)
-
-        cluster_name = cluster.primary_tag.replace("_", " ").replace("-", " ").title()
-
-        prompt = MODULE_SYNTHESIS_PROMPT.format(
-            cluster_name=cluster_name,
-            domain_tags=", ".join(sorted(cluster.all_tags)),
-            file_count=len(cluster.member_node_ids),
-            member_summaries=member_summaries,
-            external_deps=external_deps,
-        )
-
-        try:
-            text, tokens = self.llm.generate(prompt, system=MODULE_SYNTHESIS_SYSTEM, num_predict=2048)
-        except Exception as e:
-            logger.warning("14b LLM call failed for cluster %s: %s", cluster.cluster_id, e)
-            return None
-
-        parsed = _parse_json_response(text)
-        if not parsed:
-            logger.warning("Failed to parse 14b response for cluster %s", cluster.cluster_id)
-            return None
-
-        module_id = f"module:{cluster.primary_tag}"
+        avg_conf = sum(confs) / len(confs) if confs else 0.0
 
         return ModuleEntry(
             module_id=module_id,
@@ -443,7 +465,7 @@ class ClusterSynthesizer:
                 nid.replace("file:", "", 1) for nid in cluster.member_node_ids
             ],
             domain_tags=sorted(cluster.all_tags),
-            architecture_layers=sorted(layers),
+            architecture_layers=sorted(parsed.get("architecture_layers", [])),
             component_status=parsed.get("component_status", "unknown"),
             data_flow=parsed.get("data_flow"),
             dependencies=parsed.get("dependencies"),
@@ -454,6 +476,13 @@ class ClusterSynthesizer:
             model=self.llm.model,
         )
 
+    @staticmethod
+    def _cluster_fingerprint(member_node_ids: List[str]) -> str:
+        """Stable fingerprint for a cluster's membership (sorted node IDs)."""
+        import hashlib
+        key = "\n".join(sorted(member_node_ids))
+        return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
+
     def run(
         self,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
@@ -461,11 +490,16 @@ class ClusterSynthesizer:
     ) -> Dict[str, Any]:
         """Run Pass 3 cluster synthesis.
 
+        Incremental: reuses existing module entries for clusters whose
+        membership hasn't changed, only calling the LLM for new or
+        modified clusters.
+
         Steps:
         1. Load epistemic entries and edges.
         2. Build clusters by domain_tags + connectivity.
-        3. Synthesize each cluster into a module entry via 14b.
-        4. Write trace_modules.jsonl.
+        3. Load existing modules and build fingerprint map for reuse.
+        4. Synthesize only new/changed clusters via 14b.
+        5. Write trace_modules.jsonl.
         """
         start = time.monotonic()
 
@@ -480,17 +514,44 @@ class ClusterSynthesizer:
         clusters = build_clusters(epistemic, edges, min_cluster_size=min_cluster_size)
         logger.info("Built %d clusters from %d enriched nodes", len(clusters), len(epistemic))
 
+        # Load existing modules for incremental reuse
+        existing_modules = self.load_existing_modules()
+        # Build fingerprint map: module_id → (member_fingerprint, ModuleEntry)
+        existing_fp: Dict[str, tuple] = {}
+        for mod_id, mod in existing_modules.items():
+            fp = self._cluster_fingerprint(
+                [f"file:{f}" if not f.startswith("file:") else f for f in mod.member_files]
+            )
+            existing_fp[mod_id] = (fp, mod)
+
         total_work = len(clusters)
         modules: Dict[str, ModuleEntry] = {}
         failed = 0
+        reused = 0
+        synthesized = 0
 
         for i, cluster in enumerate(clusters):
             if progress_callback:
                 progress_callback("cluster_synthesis", i, total_work)
 
+            # Derive a unique module_id from the cluster_id
+            # (cluster_id is e.g. "cluster:ui:0", "cluster:ui:1")
+            module_id = f"module:{cluster.cluster_id.replace('cluster:', '')}"
+            new_fp = self._cluster_fingerprint(cluster.member_node_ids)
+
+            # Check if we can reuse an existing module
+            if module_id in existing_fp:
+                old_fp, old_module = existing_fp[module_id]
+                if old_fp == new_fp:
+                    modules[module_id] = old_module
+                    reused += 1
+                    continue
+
+            # New or changed cluster — synthesize via LLM
             module = self.synthesize_cluster(cluster, epistemic, edges)
             if module:
                 modules[module.module_id] = module
+                synthesized += 1
             else:
                 failed += 1
 
@@ -504,15 +565,16 @@ class ClusterSynthesizer:
 
         stats = {
             "clusters": len(clusters),
-            "synthesized": len(modules),
+            "synthesized": synthesized,
+            "reused": reused,
             "failed": failed,
             "total_files_clustered": sum(len(c.member_node_ids) for c in clusters),
             "duration_ms": round(duration_ms, 1),
         }
 
         logger.info(
-            "Cluster synthesis complete: %d clusters, %d modules synthesized in %.1fs",
-            len(clusters), len(modules), duration_ms / 1000,
+            "Cluster synthesis complete: %d clusters, %d synthesized, %d reused, %d failed in %.1fs",
+            len(clusters), synthesized, reused, failed, duration_ms / 1000,
         )
 
         return stats

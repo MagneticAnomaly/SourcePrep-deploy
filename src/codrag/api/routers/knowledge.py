@@ -55,7 +55,21 @@ def knowledge_status_project(project_id: str) -> Dict[str, Any]:
     idx = _get_project_knowledge_index(proj)
     
     status = idx.status()
-    status["building"] = _is_project_knowledge_building(project_id)
+    is_building = _is_project_knowledge_building(project_id)
+    status["building"] = is_building
+    status["running"] = is_building  # Frontend expects 'running' field
+
+    # Overlay pipeline build-slot progress for live progress bars
+    if is_building:
+        try:
+            from codrag.services.build_orchestrator import build_orchestrator, BuildType, BuildPhase
+            slot = build_orchestrator.status(project_id, BuildType.KNOWLEDGE)
+            if slot.phase == BuildPhase.RUNNING and slot.progress_total > 0:
+                status["progress_current"] = slot.progress_current
+                status["progress_total"] = slot.progress_total
+        except Exception:
+            pass  # Non-fatal
+
     return ok(status)
 
 
@@ -133,7 +147,9 @@ def engine_status_project(project_id: str) -> Dict[str, Any]:
     # 7. Knowledge Embedding
     know_idx = _get_project_knowledge_index(proj)
     knowledge_status = know_idx.status()
-    knowledge_status["building"] = _is_project_knowledge_building(project_id)
+    is_know_building = _is_project_knowledge_building(project_id)
+    knowledge_status["building"] = is_know_building
+    knowledge_status["running"] = is_know_building
 
     # Deepening Loop (Cross-cutting)
     deepening_status = _deepening_status(project_id)["data"]

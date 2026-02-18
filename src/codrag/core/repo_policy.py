@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .repo_profile import DEFAULT_ROLE_WEIGHTS, profile_repo
+from .repo_profile import DEFAULT_EXCLUDE_DIR_NAMES, DEFAULT_ROLE_WEIGHTS, profile_repo
 
 DEFAULT_POLICY_FILENAME = "repo_policy.json"
 
@@ -147,7 +147,21 @@ def ensure_repo_policy(index_dir: Path, repo_root: Path, force: bool = False) ->
         existing = load_repo_policy(path)
         if existing and str(existing.get("repo_root") or "") == str(repo_root):
             existing["include_globs"] = _normalize_globs(existing.get("include_globs"))
-            existing["exclude_globs"] = _normalize_globs(existing.get("exclude_globs"))
+            
+            # Ensure robust excludes are present (Auto-migration)
+            current_excludes = set(_normalize_globs(existing.get("exclude_globs")))
+            # Construct default globs from the centralized list
+            default_excludes = {f"**/{d}/**" for d in DEFAULT_EXCLUDE_DIR_NAMES}
+            default_excludes.add("**/.*")
+            
+            # Merge defaults if missing
+            if not default_excludes.issubset(current_excludes):
+                existing["exclude_globs"] = sorted(list(current_excludes | default_excludes))
+                # Write back to disk so the change persists and is picked up by watchers
+                write_repo_policy(path, existing)
+            else:
+                existing["exclude_globs"] = sorted(list(current_excludes))
+
             existing["role_weights"] = _normalize_role_weights(existing.get("role_weights"))
             existing["path_weights"] = _normalize_path_weights(existing.get("path_weights"))
             existing["primer"] = _normalize_primer_config(existing.get("primer"))

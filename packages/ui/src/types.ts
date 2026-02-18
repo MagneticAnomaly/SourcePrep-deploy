@@ -200,6 +200,7 @@ export interface TraceCoverageFile {
 export interface TraceCoverageSummary {
   total: number;
   traced: number;
+  pending_embedding?: number;
   untraced: number;
   stale: number;
   excluded: number;
@@ -212,6 +213,7 @@ export interface TraceCoverageSummary {
  */
 export interface TraceCoverage {
   traced: TraceCoverageFile[];
+  pending_embedding?: TraceCoverageFile[];
   untraced: TraceCoverageFile[];
   stale: TraceCoverageFile[];
   excluded: TraceCoverageFile[];
@@ -332,8 +334,11 @@ export interface AugmentationStatus {
 export interface EpistemicStatus {
   enabled: boolean;
   enriched_nodes: number;
+  total_file_nodes?: number;
   avg_confidence: number;
   running: boolean;
+  /** True when ANY deep enrichment stage (5-8) is active (for DeepCoverageBar) */
+  pipeline_running?: boolean;
   progress_current?: number;
   progress_total?: number;
 }
@@ -346,6 +351,9 @@ export interface ModuleStatus {
   module_count: number;
   total_files_clustered: number;
   running: boolean;
+  last_run_at?: string | null;
+  progress_current?: number;
+  progress_total?: number;
 }
 
 /**
@@ -612,7 +620,10 @@ export interface KnowledgeEmbeddingStatus {
   enabled: boolean;
   running: boolean;
   chunks_embedded: number;
+  deep_chunks_embedded?: number;
   last_run_at: string | null;
+  progress_current?: number;
+  progress_total?: number;
 }
 
 /**
@@ -667,6 +678,8 @@ export interface IndexStatus {
 export interface ProjectStatus {
   building: boolean;
   stale: boolean;
+  stale_since?: string | null;
+  stale_count?: number;
   index: IndexStatus;
   trace: TraceStatus;
   watch: WatchStatus;
@@ -712,6 +725,28 @@ export interface PipelineStatus {
     deep_knowledge: any;
   };
   any_running: boolean;
+  /** Phase 25: crashed pipeline runs awaiting user action */
+  crashed_runs?: CrashedPipelineRun[];
+}
+
+/**
+ * A crashed pipeline run detected on daemon startup (Phase 25).
+ * The UI should display a banner offering Resume / Discard.
+ */
+export interface CrashedPipelineRun {
+  run_id: string;
+  project_id: string;
+  group: string;
+  status: string;
+  stages: string[];
+  current_stage: string | null;
+  current_stage_index: number;
+  started_at: number | null;
+  last_heartbeat: number | null;
+  error: string | null;
+  stage_results: Record<string, string>;
+  checkpoint_path: string | null;
+  chain_deep: boolean;
 }
 
 /**

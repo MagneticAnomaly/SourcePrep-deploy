@@ -5,10 +5,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 import pytest
 
-# We need to mock codrag.server imports before importing projects router
-sys_modules_mock = MagicMock()
-with patch.dict("sys.modules", {"codrag.server": sys_modules_mock}):
-    from codrag.api.routers.projects import _scan_for_presets, _STACK_PRESETS, add_project, AddProjectRequest
+from codrag.core.repo_profile import scan_for_presets as _scan_for_presets, STACK_PRESETS as _STACK_PRESETS
+from codrag.api.routers.projects import add_project, AddProjectRequest
 
 def test_scan_for_presets():
     """Verify that _scan_for_presets detects the correct stacks."""
@@ -79,8 +77,8 @@ def test_add_project_populates_globs():
             
             result = add_project(req)
             
-            # Check the config in the result
-            config = result["project"]["config"]
+            # add_project returns ok({"project": ...}) envelope
+            config = result["data"]["project"]["config"]
             include_globs = config["include_globs"]
             
             # Check that Swift globs were added

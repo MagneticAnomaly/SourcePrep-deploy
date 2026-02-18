@@ -120,7 +120,7 @@ pub struct ParseFileError {
 }
 
 /// Result of parsing a single file.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ParseResult {
     pub nodes: Vec<ParsedNode>,
     pub edges: Vec<ParsedEdge>,
@@ -188,13 +188,21 @@ pub fn parse_file(
         "java" => java::analyze(file_path, content),
         "c" | "cpp" => cpp::analyze(file_path, content, language),
         "markdown" => Ok(markdown::analyze(file_path, content)),
+        // Languages with file-level support but no dedicated tree-sitter parser yet.
+        // Return empty ParseResult so the graph layer still creates a file node.
+        "swift" | "kotlin" | "csharp" | "ruby" | "php" | "dart" | "scala"
+        | "shell" | "lua" | "zig" | "elixir" => Ok(ParseResult::default()),
         _ => Err(ParserError::UnsupportedLanguage(language.to_string())),
     }
 }
 
 /// Get the list of supported languages.
 pub fn supported_languages() -> &'static [&'static str] {
-    &["python", "typescript", "javascript", "go", "rust", "java", "c", "cpp", "markdown"]
+    &[
+        "python", "typescript", "javascript", "go", "rust", "java", "c", "cpp",
+        "markdown", "swift", "kotlin", "csharp", "ruby", "php", "dart", "scala",
+        "shell", "lua", "zig", "elixir",
+    ]
 }
 
 #[cfg(test)]

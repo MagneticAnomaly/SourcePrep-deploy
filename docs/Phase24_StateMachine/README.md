@@ -2,152 +2,350 @@
 
 **Scope:** System-wide identification of state machine opportunities across backend, frontend, and inter-process boundaries.
 
-**Status:** Research & Planning
-
 ---
 
-## 1. Thesis
+## 1. Current State of Affairs
 
-CoDRAG has grown organically across 23 phases. Many subsystems now manage complex lifecycle states through ad-hoc patterns: bare booleans, thread-alive checks, string-typed `_state` fields, and independent `useState` variables that must be manually synchronized. This produces:
-
-- **Impossible states** that nothing prevents (e.g., `building: true` + `exists: false` persisting forever)
-- **Scattered transitions** where one user action must update 3–5 variables in the right order across multiple callbacks
-- **Duplicated guard logic** — the same "is this stage allowed to run?" check repeated at API layer, UI layer, and CLI
-- **Silent failures** — thread dies but no state transition fires, leaving the system in a zombie state
-
-A state machine framework provides **explicit phases**, **guarded transitions**, and **impossible-state elimination** — making the system auditable, testable, and self-documenting.
-
-This document identifies **8 state machine opportunities** across the full stack, grouped into 3 tiers of priority.
-
----
-
-## 2. Identified State Machines
-
-### Overview Map
+### What exists today
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         FRONTEND                                │
-│  SM-1  Dashboard App.tsx (54 useState → domain reducers)        │
-│  SM-2  GraphEnrichmentPipeline (8-stage UI state)               │
-│  SM-3  VS Code Extension DaemonManager                          │
-├─────────────────────────────────────────────────────────────────┤
-│                         BACKEND                                 │
-│  SM-4  Build Orchestrator (3 parallel build types per project)  │
-│  SM-5  AutoRebuildWatcher (file watcher lifecycle)              │
-│  SM-6  Graph Enrichment Pipeline (8-stage backend orchestrator) │
-│  SM-7  License & Feature Gate (tier transitions + enforcement)  │
-├─────────────────────────────────────────────────────────────────┤
-│                      INTER-PROCESS                              │
-│  SM-8  Daemon Lifecycle (Tauri ↔ sidecar ↔ health polling)     │
-└─────────────────────────────────────────────────────────────────┘
+App.tsx                       1,126 lines  (down from 1,846)
+hooks/useTraceSystem.ts         800 lines  ← god-hook, needs decomposition
+hooks/useDashboardPanels.tsx    557 lines  ← 120+ prop pass-through interface
+hooks/useDeepAnalysis.ts        104 lines  ✓ clean, well-scoped
+hooks/useWatchSystem.ts          68 lines  ✓ clean, well-scoped
+hooks/useLicenseSystem.ts         —        ✓ clean
+hooks/useLLMConfig.ts             —        ✓ clean
 ```
+
+### App.tsx remaining `useState` inventory (~38 calls)
+
+| Domain | Count | Variables |
+|--------|-------|-----------|
+| **Connection** | 2 | `isConnected`, `isDaemonUnhealthy` |
+| **Global** | 2 | `loading`, `error` |
+| **Projects** | 5 | `projects`, `selectedProjectId`, `projectStatuses`, `buildingProjects`, `transientCompleteProjects` |
+| **UI Chrome** | 7 | `addModalOpen`, `sidebarCollapsed`, `uiMode`, `uiTheme`, `settingsOpen`, `bgImage`, `dashboardLayout` |
+| **Search** | 6 | `query`, `searchK`, `minScore`, `searchLoading`, `searchResults`, `selectedChunk` |
+| **Context** | 7 | `contextK`, `contextMaxChars`, `contextIncludeSources`, `contextIncludeScores`, `contextStructured`, `context`, `contextMeta` |
+| **File System** | 5 | `fileTree`, `pathWeights`, `includedPaths`, `pinnedPaths`, `pinnedFiles` |
+| **Config** | 2 | `projectConfig`, `configDirty` |
+
+### useTraceSystem internal `useState` inventory (20+ calls)
+
+| Stage | Variables |
+|-------|-----------|
+| **Trace core** | `traceStatus`, `traceCoverage` |
+| **Augmentation** | `augmentationStatus`, `augmenting`, `validating` |
+| **Epistemic** | `epistemicStatus`, `epistemicRunning` |
+| **Modules** | `moduleStatus`, `clusterRunning` |
+| **Deepening** | `deepeningStatus`, `deepeningRunning` |
+| **Knowledge** | `knowledgeStatus`, `knowledgeBuilding` |
+| **Config** | `indexAutoRebuild`, `enrichmentAutoConfig` |
+| **Crash** | `crashedRuns` |
 
 ---
 
-### SM-1: Dashboard App.tsx (Frontend — Highest Priority)
+## 2. Architectural Problems
 
-**Location:** `src/codrag/dashboard/src/App.tsx` (~2,430 lines)
-**Current pattern:** 54 `useState`, 53 `useCallback`, 12 `useEffect` — all independent, manually synchronized.
+### P1 — `useTraceSystem` is a god-hook (800 LOC)
 
-**Problem:** Stale-state bugs, impossible states, prop-drilling hell. A single "Build Trace Graph" action must update `traceStatus.building`, `traceCoverage`, and multiple enrichment stage booleans in the right order across multiple callbacks. SSE completion events can arrive while state is mid-transition.
+The extraction from App.tsx moved complexity sideways without decomposing it. The hook mixes:
+- Trace build lifecycle (start/complete/fail)
+- 6 independent enrichment stage lifecycles
+- SSE pipeline event watcher (120+ lines of transition detection)
+- Polling fallback for progress bars
+- Config persistence
+- Destroy/reset operations
+- Crash recovery
 
-**Proposed approach:** `useReducer` per domain (zero new dependencies).
+**Impact:** Every enrichment bug requires reading 800 lines to find the right `useState`/`useEffect` interaction.
 
-**Domains (4 reducers):**
+### P2 — State leaking through exposed setters
 
-| Reducer | State vars consumed | Callbacks consumed | Est. LOC freed |
-|---------|--------------------|--------------------|----------------|
-| `tracePipelineReducer` | 4 (traceStatus, traceCoverage, indexAutoRebuild, enrichmentAutoConfig) | ~10 (build, destroy, coverage, patterns, auto-config) | ~200 |
-| `enrichmentReducer` | 12 (augmentation/epistemic/cluster/deepening/knowledge × status+running) | ~8 (run/cancel per stage) | ~250 |
-| `searchContextReducer` | 11 (query, k, results, context, meta) | ~5 (search, get context) | ~100 |
-| `projectReducer` | 6 (projects, selected, statuses, building, config, dirty) | ~6 (CRUD, build, config save) | ~150 |
+`useTraceSystem` returns `setTraceStatus` and `setTraceCoverage`. App.tsx uses these directly in the project-change effect (line 887–913) to hydrate state. The hook doesn't own its own initialization lifecycle.
 
-**Key invariants to enforce:**
-- `TracePipelineState.phase === 'building'` → `BUILD_STARTED` is a no-op (prevents double-fire)
-- `BUILD_COMPLETED` always atomically sets `exists: true` + `phase: 'ready'` (fixes the stale-state bug)
-- `DESTROYED` resets entire trace + enrichment state in one action
-- Each enrichment stage: `idle → running → completed | failed` — no other transitions
+**Impact:** Two code paths write to the same state — the hook internally and App.tsx externally — creating race conditions.
 
-**File structure:**
+### P3 — Monolithic project-change effect
+
+Lines 870–930 of App.tsx fire 10+ fetch calls when `selectedProjectId` changes, writing to state owned by different hooks. Has `// eslint-disable-line react-hooks/exhaustive-deps`.
+
+**Impact:** Adding any new per-project state requires modifying this effect and remembering to add the fetch call.
+
+### P4 — Dual update channels (SSE + polling)
+
+`useTraceSystem` has:
+1. SSE pipeline event watcher (lines 598–720) — reacts to `pipelineEvents`
+2. Polling interval (lines 722–757) — 3s interval for running stages
+3. Individual `handleRun*` callbacks with their own `setInterval` polls
+
+These overlap: SSE already drives stage transitions, but polling is kept as fallback. The polling callbacks inside `handleRun*` can fight with SSE-driven updates.
+
+**Impact:** Redundant network requests, potential state flickering.
+
+### P5 — `useDashboardPanels` prop explosion (120+ props)
+
+Every piece of state and every handler must be threaded through `DashboardPanelsProps`. Adding a new feature requires: (1) add state to hook, (2) return it, (3) add to App.tsx destructure, (4) add to `useDashboardPanels` props interface, (5) pass to panel.
+
+**Impact:** High friction for any UI change; the interface is a maintenance bottleneck.
+
+---
+
+## 3. Target Architecture
+
+### Principle: Each hook owns its full lifecycle
+
+A domain hook should:
+1. Own all `useState`/`useReducer` for its domain
+2. Self-hydrate when `selectedProjectId` changes (internal `useEffect`)
+3. React to SSE events internally
+4. Expose only **read-only state** and **named actions** (never setters)
+5. Accept minimal dependencies (api client, project ID, SSE events)
+
+### File structure
+
 ```
 src/codrag/dashboard/src/
 ├── state/
-│   ├── tracePipelineReducer.ts
-│   ├── enrichmentReducer.ts
-│   ├── searchReducer.ts
-│   ├── projectReducer.ts
-│   └── index.ts
+│   ├── tracePipelineReducer.ts      ← trace build + coverage
+│   ├── enrichmentReducer.ts         ← 6 enrichment stages
+│   └── searchReducer.ts             ← search + context
 ├── hooks/
-│   ├── useTracePipeline.ts      ← reducer + API calls + SSE watcher
-│   ├── useEnrichment.ts
-│   ├── useSearchContext.ts
-│   └── useProjectManager.ts
-└── App.tsx                       ← ~500 lines: compose hooks, render shell
+│   ├── useTracePipeline.ts          ← reducer + SSE + hydration
+│   ├── useEnrichment.ts             ← reducer + SSE + polling
+│   ├── useSearchContext.ts           ← reducer
+│   ├── useProjectManager.ts          ← projects + config + build
+│   ├── useFileSystem.ts              ← fileTree + paths + pinned
+│   ├── useDeepAnalysis.ts            ✓ (keep as-is)
+│   ├── useWatchSystem.ts             ✓ (keep as-is)
+│   ├── useLicenseSystem.ts           ✓ (keep as-is)
+│   ├── useLLMConfig.ts               ✓ (keep as-is)
+│   └── useDashboardPanels.tsx         ← receives hook return objects
+└── App.tsx                            ← ~400 lines, pure composition
 ```
 
-**Post-refactor App.tsx shape:**
+### Reducer pattern
+
+```typescript
+// Each reducer enforces valid state transitions.
+// Example: enrichment stage
+
+type StagePhase = 'idle' | 'running' | 'completed' | 'failed';
+
+interface StageState<T> {
+  phase: StagePhase;
+  status: T;           // Latest status from API
+}
+
+// The reducer prevents impossible states:
+// - Can't go from 'idle' → 'completed' (must pass through 'running')
+// - 'STAGE_COMPLETED' always clears running flags
+// - 'DESTROYED' resets everything atomically
+```
+
+### SSE consolidation
+
+Currently SSE transition logic is 120+ lines in `useTraceSystem`. Each hook should own its own SSE slice:
+
+```typescript
+// useTracePipeline — watches fast_sync phase transitions
+// useEnrichment — watches deep_enrichment stage transitions + fast augment/knowledge
+```
+
+The parent passes `pipelineEvents[projectId]` to both hooks. Each hook filters for the events it cares about.
+
+---
+
+## 4. Implementation Plan
+
+### Phase A — Decompose `useTraceSystem` into Trace + Enrichment
+
+**Priority: Highest** — this is the root cause of most state bugs.
+
+#### Step A1: Extract `enrichmentReducer.ts`
+
+Create a reducer that owns all 6 enrichment stages:
+
+```typescript
+interface EnrichmentState {
+  augmentation: StageState<AugmentationStatus>;
+  epistemic:    StageState<EpistemicStatus>;
+  modules:      StageState<ModuleStatus>;
+  deepening:    StageState<DeepeningStatus>;
+  knowledge:    StageState<KnowledgeEmbeddingStatus>;
+  validating:   boolean;
+}
+
+type EnrichmentAction =
+  | { type: 'STAGE_STARTED'; stage: StageName }
+  | { type: 'STAGE_STATUS_UPDATED'; stage: StageName; status: any }
+  | { type: 'STAGE_COMPLETED'; stage: StageName }
+  | { type: 'STAGE_FAILED'; stage: StageName }
+  | { type: 'FAST_SYNC_COMPLETED' }    // clears augment + knowledge
+  | { type: 'DEEP_COMPLETED' }          // clears epistemic + modules + deepening + knowledge
+  | { type: 'DESTROYED' }               // resets all to idle
+  | { type: 'PIPELINE_SSE'; event: PipelineStatus }  // derive running flags from SSE
+```
+
+#### Step A2: Extract `useEnrichment.ts` hook
+
+- `useReducer(enrichmentReducer, initialState)`
+- Self-hydrates on `selectedProjectId` change (fetches all 6 statuses)
+- Reacts to `pipelineEvent` SSE internally
+- Polling interval for progress bars (only when `anyRunning`)
+- Returns `{ state, actions: { runAugmentation, runEpistemic, ... } }`
+
+#### Step A3: Slim `useTraceSystem` → `useTracePipeline`
+
+What remains:
+- `traceStatus`, `traceCoverage` state
+- `enrichmentAutoConfig`, `indexAutoRebuild`
+- `crashedRuns`
+- Build/trace handlers
+- Coverage handlers
+- Destroy handlers
+- Config persistence
+- SSE watcher for `fast_sync` phase transitions only
+
+The enrichment-specific state, SSE handling, and polling all move out.
+
+#### Step A4: Self-hydrate trace state
+
+Move the trace status + coverage fetch from App.tsx's monolithic project-change effect into `useTracePipeline`'s own `useEffect(... , [selectedProjectId])`. Stop exporting `setTraceStatus` / `setTraceCoverage`.
+
+**Estimated LOC:** useTraceSystem shrinks from 800 → ~400; new useEnrichment ~250.
+
+---
+
+### Phase B — Extract Search + Context
+
+**Priority: Medium** — isolated, easy win.
+
+#### Step B1: `searchReducer.ts`
+
+```typescript
+interface SearchContextState {
+  query: string;
+  searchK: number;
+  minScore: number;
+  searching: boolean;
+  results: SearchResult[];
+  selectedChunk: SearchResult | null;
+  // Context
+  contextK: number;
+  contextMaxChars: number;
+  contextIncludeSources: boolean;
+  contextIncludeScores: boolean;
+  contextStructured: boolean;
+  context: string;
+  contextMeta: ContextMeta | null;
+}
+```
+
+#### Step B2: `useSearchContext.ts` hook
+
+Absorbs 13 `useState` + 4 `useCallback` from App.tsx.
+
+**Estimated LOC removed from App.tsx:** ~80
+
+---
+
+### Phase C — Extract Project + File System
+
+**Priority: Medium** — reduces App.tsx to pure orchestration.
+
+#### Step C1: `useProjectManager.ts`
+
+Owns: `projects`, `selectedProjectId`, `projectStatuses`, `buildingProjects`, `transientCompleteProjects`, `projectConfig`, `configDirty`.
+
+Self-hydrates on init (loads project list, global config).
+Self-hydrates on project change (fetches status, config).
+
+#### Step C2: `useFileSystem.ts`
+
+Owns: `fileTree`, `pathWeights`, `includedPaths`, `pinnedPaths`, `pinnedFiles`.
+
+Self-hydrates on project change (fetches tree, path weights).
+
+**Estimated LOC removed from App.tsx:** ~200
+
+---
+
+### Phase D — Simplify `useDashboardPanels` interface
+
+**Priority: Lower** — quality-of-life improvement.
+
+Instead of 120+ individual props, pass domain hook return objects:
+
+```typescript
+interface DashboardPanelsProps {
+  project: ReturnType<typeof useProjectManager>;
+  trace: ReturnType<typeof useTracePipeline>;
+  enrichment: ReturnType<typeof useEnrichment>;
+  search: ReturnType<typeof useSearchContext>;
+  files: ReturnType<typeof useFileSystem>;
+  deepAnalysis: ReturnType<typeof useDeepAnalysis>;
+  watch: ReturnType<typeof useWatchSystem>;
+  llm: ReturnType<typeof useLLMConfig>;
+  // Remaining simple props
+  isPro: boolean;
+  scopeStatus?: ScopeStatus;
+  findActiveTask: (...) => ...;
+}
+```
+
+This eliminates the prop-by-prop threading problem entirely.
+
+---
+
+## 5. Target App.tsx (~400 lines)
+
 ```typescript
 function App() {
   const api = useApiClient()
-  const { connected, unhealthy } = useConnection(api)
-  const { projects, selected, actions: projectActions } = useProjectManager(api)
-  const { trace, actions: traceActions } = useTracePipeline(api, selected.id)
-  const { enrichment, actions: enrichActions } = useEnrichment(api, selected.id)
-  const { search, actions: searchActions } = useSearchContext(api, selected.id)
-  const license = useLicenseSystem()
-  const llm = useLLMConfig()
-  // UI chrome stays as plain useState (too simple for a reducer)
+
+  // Connection
+  const [isConnected, setIsConnected] = useState(false)
+  const [isDaemonUnhealthy, setIsDaemonUnhealthy] = useState(false)
+  // ... health polling effect ...
+
+  // Domain hooks (each self-hydrates, owns SSE reactions)
+  const project   = useProjectManager(api)
+  const files     = useFileSystem(api, project.selectedId)
+  const watch     = useWatchSystem(project.selectedId)
+  const license   = useLicenseSystem()
+  const llm       = useLLMConfig()
+  const deepA     = useDeepAnalysis(project.selectedId)
+
+  const { pipelineEvents, scopeEvents, logs, tasks, clearLogs } = useEventStream(eventsUrl)
+
+  const trace     = useTracePipeline(api, project.selectedId, {
+    pipelineEvents, projectConfig: project.config, watch,
+  })
+  const enrich    = useEnrichment(api, project.selectedId, {
+    pipelineEvents,
+  })
+  const search    = useSearchContext(api, project.selectedId)
+
+  // UI chrome (stays as simple useState)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  // ...panel content map, render
+  const [uiMode, setUiMode] = useState(...)
+  // ...
+
+  // Panel layer
+  const panels = useDashboardPanels({ project, trace, enrich, search, files, ... })
+
+  // Render
+  return ( ... )
 }
 ```
 
 ---
 
-### SM-2: Graph Enrichment Pipeline (Frontend — High Priority)
+## 6. Broader System State Machines
 
-**Location:** `packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx` (649 lines)
-**Current pattern:** 8 independent `compute*State()` functions, each re-derived on every render from raw props. The component receives ~20 props representing individual boolean/status fields and reconstructs a `StageState` enum (`'disabled' | 'waiting' | 'running' | 'complete' | 'stale' | 'error' | 'idle' | 'not_built' | 'warning'`) per stage.
-
-**Problem:**
-- Stage dependencies are implicit in the `compute*` functions — e.g., `computeEpistemicState` checks `trace.enabled && trace.exists && aug.enabled && aug.augmented_nodes > 0` but this prerequisite chain isn't declared anywhere.
-- The component can't answer "what should run next?" without re-computing all 8 stages.
-- Auto-pilot sequencing (run stages 1→8 automatically) doesn't exist — would need to be a manual chain of callbacks.
-
-**Proposed approach:** A `PipelineState` object with an explicit dependency DAG:
-
-```typescript
-type StagePhase = 'blocked' | 'ready' | 'running' | 'done' | 'stale' | 'error';
-
-interface PipelineStage {
-  id: EnrichmentStageId;
-  phase: StagePhase;
-  requires: EnrichmentStageId[];  // declared prerequisites
-  stats: Record<string, number>;
-}
-
-interface PipelineState {
-  stages: Record<EnrichmentStageId, PipelineStage>;
-  globalPhase: 'idle' | 'running' | 'complete';
-}
-```
-
-**Benefits:**
-- **"What can run?"** = all stages where `phase === 'ready'` (prerequisites are `'done'`)
-- **Auto-pilot** = simple loop: pick first `'ready'` stage → run → on completion, re-evaluate
-- **Visualization** = the pipeline component just maps `stages` → rows, no re-computation
-- **Tier gating** = a stage's `requires` can include a virtual `'pro_license'` prerequisite
-
-**Dependency DAG (8 stages, 2 groups):**
-
-```
-Fast Sync:
-  structural ──→ catalogue ──→ validation ──→ knowledge_embedding
-
-Deep Enrichment:
-  catalogue ──→ enrichment ──→ clustering ──→ deepening ──→ deep_knowledge_embedding
-```
+The dashboard refactor (Phases A–D above) addresses the frontend. Below are the **backend and inter-process** state machines identified across the full system. These are documented for planning purposes and can be implemented independently.
 
 ---
 
@@ -407,7 +605,7 @@ CONNECTING → CONNECTED → HEALTHY
 
 ---
 
-## 3. Tier Gating × State Machine Integration
+## 7. Tier Gating × State Machine Integration
 
 The licensing tier system interacts with multiple state machines. Here's how feature gates map to state machine transitions:
 
@@ -427,7 +625,7 @@ The licensing tier system interacts with multiple state machines. Here's how fea
 
 ---
 
-## 4. The Auto-Ingest Workflow (End-to-End State Flow)
+## 8. The Auto-Ingest Workflow (End-to-End State Flow)
 
 The "auto-ingest" workflow — where a file change in the knowledge tree triggers automatic re-indexing and re-embedding — crosses multiple state machines:
 
@@ -463,7 +661,7 @@ SM-5: BUILDING → IDLE (or STALE if more changes arrived)
 
 ---
 
-## 5. Priority & Sequencing
+## 9. Priority & Sequencing
 
 ### Tier 1 — High Value, Fixes Active Bugs
 
@@ -513,7 +711,7 @@ SM-8 (Tauri) and SM-3 (VS Code) are independent
 
 ---
 
-## 6. Design Principles
+## 10. Design Principles
 
 | Principle | Rationale |
 |---|---|
@@ -528,7 +726,7 @@ SM-8 (Tauri) and SM-3 (VS Code) are independent
 
 ---
 
-## 7. Relationship to Phase 23
+## 11. Relationship to Phase 23
 
 Phase 23 (Cleanup/Refactor) focuses on **file organization** — extracting routers, hooks, and components into separate files. Phase 24 focuses on **state correctness** — ensuring that the extracted pieces have well-defined lifecycle semantics.
 
@@ -540,11 +738,11 @@ The difference: Phase 23 moves code; Phase 24 changes how state is structured wi
 
 ---
 
-## 9. Research Findings & Advanced Patterns
+## 12. Research Findings & Advanced Patterns
 
 Recent research into "StateFlow" (LLM-driven FSMs) and Hierarchical Multi-Agent Systems suggests two critical architectural refinements for CoDRAG.
 
-### 9.1 Hierarchical State Machines (HSM)
+### 12.1 Hierarchical State Machines (HSM)
 
 Simple FSMs explode in complexity when handling nested lifecycles. We should adopt **Hierarchical State Machines** for complex domains:
 
@@ -558,7 +756,7 @@ Simple FSMs explode in complexity when handling nested lifecycles. We should ado
     -   **Parent:** `EnrichmentMode` (`Manual` | `Auto-Pilot`)
     -   **Child:** `StageStatus` (per stage)
 
-### 9.2 The "StateFlow" Pattern for LLMs
+### 12.2 The "StateFlow" Pattern for LLMs
 
 Papers like *StateFlow: Enhancing LLM Task-Solving through State-Driven Workflows* (2024) define a pattern where the FSM *is* the prompt engineering strategy.
 
@@ -570,7 +768,7 @@ Instead of just "running" a stage, the state machine defines the **context windo
 
 This moves "prompt logic" out of the Python worker and into the State Machine definition, making the AI behavior deterministic and testable.
 
-### 9.3 Orchestration: "Root vs. Leaf"
+### 12.3 Orchestration: "Root vs. Leaf"
 
 Multi-agent systems often fail due to flat peer-to-peer communication. Research recommends a strict **Tree Topology**:
 
@@ -587,7 +785,7 @@ Root Orchestrator (SM-4 BuildOrchestrator)
 
 ---
 
-## 10. Open Questions
+## 13. Open Questions
 
 | ID | Question | Impact |
 |---|---|---|

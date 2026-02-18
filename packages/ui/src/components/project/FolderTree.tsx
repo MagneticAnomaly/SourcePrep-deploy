@@ -41,23 +41,6 @@ function isPathOrAncestorIncluded(path: string, includedPaths: Set<string>): boo
   return false;
 }
 
-/** Collect all descendant paths from a node (including the node itself) */
-function collectAllPaths(node: TreeNode, basePath: string): string[] {
-  const currentPath = basePath ? `${basePath}/${node.name}` : node.name;
-  const paths = [currentPath];
-  
-  if (node.children) {
-    for (const child of node.children) {
-      // Skip ignored items
-      if (child.status !== 'ignored') {
-        paths.push(...collectAllPaths(child, currentPath));
-      }
-    }
-  }
-  
-  return paths;
-}
-
 /** Check selection state of a folder's children */
 function getFolderSelectionState(
   node: TreeNode, 
@@ -316,10 +299,11 @@ function TreeItem({ node, depth = 0, path = '', includedPaths, onToggleInclude, 
     if (!isSelectable || !onToggleInclude) return;
     
     if (isFolder) {
-      // For folders: select/deselect ALL children recursively
-      const allPaths = collectAllPaths(node, path);
-      const isCurrentlySelected = isIncluded || folderSelectionState !== 'none';
-      onToggleInclude(allPaths, isCurrentlySelected ? 'remove' : 'add');
+      // For folders: toggle the folder path itself
+      // If fully selected -> remove (deselect all)
+      // If partial or none -> add (select all)
+      const shouldSelect = folderSelectionState !== 'all';
+      onToggleInclude([currentPath], shouldSelect ? 'add' : 'remove');
     } else {
       // For files: just toggle this file
       onToggleInclude([currentPath], isIncluded ? 'remove' : 'add');

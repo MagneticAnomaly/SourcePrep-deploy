@@ -9,6 +9,7 @@ import {
   type KnowledgeEmbeddingStatus,
   type EnrichmentAutoConfig,
   type PipelineStatus,
+  type CrashedPipelineRun,
 } from '@codrag/ui'
 
 // ── Inline types (not exported from @codrag/ui as named types) ──
@@ -26,7 +27,7 @@ export interface TraceCoverageFile {
 }
 
 export interface TraceCoverage {
-  summary: { total: number; traced: number; untraced: number; stale: number; excluded: number; coverage_pct: number; last_build_at: string | null } | null
+  summary: { total: number; traced: number; pending_embedding?: number; untraced: number; stale: number; excluded: number; coverage_pct: number; last_build_at: string | null } | null
   untraced: TraceCoverageFile[]
   stale: TraceCoverageFile[]
   excluded: TraceCoverageFile[]
@@ -108,7 +109,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   })
   const [deepeningRunning, setDeepeningRunning] = useState(false)
   const [knowledgeStatus, setKnowledgeStatus] = useState<KnowledgeEmbeddingStatus>({
-    enabled: false, running: false, chunks_embedded: 0, last_run_at: null,
+    enabled: false, running: false, chunks_embedded: 0, deep_chunks_embedded: 0, last_run_at: null,
   })
   const [knowledgeBuilding, setKnowledgeBuilding] = useState(false)
   const [indexAutoRebuild, setIndexAutoRebuild] = useState<boolean>(() => {
@@ -120,6 +121,9 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   const [enrichmentAutoConfig, setEnrichmentAutoConfig] = useState<EnrichmentAutoConfig>(
     { fastSync: true, deepEnrichment: 'manual' }
   )
+
+  // Phase 25: Crash Protection
+  const [crashedRuns, setCrashedRuns] = useState<CrashedPipelineRun[]>([])
 
   // Load enrichment auto config from backend settings (Phase 24)
   useEffect(() => {
@@ -157,6 +161,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   })
 
   // Load pipeline status on project selection (Phase 24 — initial hydration)
+  // Phase 25: also detect crashed runs for the crash recovery banner
   useEffect(() => {
     if (!selectedProjectId) return
     let cancelled = false
@@ -165,13 +170,17 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       const fastRunning = ps.fast_sync?.phase === 'running'
       const deepRunning = ps.deep_enrichment?.phase === 'running'
       setTraceStatus(p => ({ ...p, building: fastRunning }))
-      setEpistemicRunning(deepRunning && ps.deep_enrichment?.current_stage === 'epistemic')
-      setClusterRunning(deepRunning && ps.deep_enrichment?.current_stage === 'cluster')
+      setAugmenting(fastRunning && (ps.fast_sync?.current_stage === 'catalogue' || ps.fast_sync?.current_stage === 'augment' || false))
+      setValidating(fastRunning && (ps.fast_sync?.current_stage === 'validation' || false))
+      setEpistemicRunning(deepRunning && ps.deep_enrichment?.current_stage === 'enrichment')
+      setClusterRunning(deepRunning && ps.deep_enrichment?.current_stage === 'clustering')
       setDeepeningRunning(deepRunning && ps.deep_enrichment?.current_stage === 'deepening')
       setKnowledgeBuilding(
         (fastRunning && ps.fast_sync?.current_stage === 'knowledge') ||
-        (deepRunning && ps.deep_enrichment?.current_stage === 'knowledge')
+        (deepRunning && ps.deep_enrichment?.current_stage === 'deep_knowledge')
       )
+      // Phase 25: update crashed runs from the status response
+      setCrashedRuns(ps.crashed_runs ?? [])
     }).catch(() => { /* silent — SSE will provide updates */ })
     return () => { cancelled = true }
   }, [api, selectedProjectId])
@@ -478,6 +487,30 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     }
   }, [selectedProjectId])
 
+  // ── Phase 25: Crash Recovery handlers ───────────────────────
+
+  const handleResumeCrashedRun = useCallback(async (runId: string) => {
+    try {
+      await api.resumeCrashedRun(runId)
+      setCrashedRuns(prev => prev.filter(r => r.run_id !== runId))
+      // The resumed pipeline will trigger SSE events, which will update running flags
+      if (selectedProjectId) {
+        setTraceStatus(p => ({ ...p, building: true }))
+      }
+    } catch (e) {
+      onErrorRef.current(e instanceof Error ? e.message : 'Failed to resume pipeline')
+    }
+  }, [api, selectedProjectId])
+
+  const handleDiscardCrashedRun = useCallback(async (runId: string) => {
+    try {
+      await api.discardCrashedRun(runId)
+      setCrashedRuns(prev => prev.filter(r => r.run_id !== runId))
+    } catch (e) {
+      onErrorRef.current(e instanceof Error ? e.message : 'Failed to discard crashed run')
+    }
+  }, [api])
+
   // ── Destroy handlers ────────────────────────────────────────
 
   const handleDestroyGraph = useCallback(async () => {
@@ -584,18 +617,28 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     }
     setAugmenting(fastRunning && (fast?.current_stage === 'augment' || fast?.current_stage === 'catalogue' || false))
     setValidating(fastRunning && (fast?.current_stage === 'validation' || false))
-    setEpistemicRunning(deepRunning && (deep?.current_stage === 'epistemic' || false))
-    setClusterRunning(deepRunning && (deep?.current_stage === 'cluster' || false))
+    setEpistemicRunning(deepRunning && (deep?.current_stage === 'enrichment' || false))
+    setClusterRunning(deepRunning && (deep?.current_stage === 'clustering' || false))
     setDeepeningRunning(deepRunning && (deep?.current_stage === 'deepening' || false))
     setKnowledgeBuilding(
       (fastRunning && fast?.current_stage === 'knowledge') ||
-      (deepRunning && deep?.current_stage === 'knowledge')
+      (deepRunning && deep?.current_stage === 'deep_knowledge')
     )
 
     // Detect group completion → refresh statuses
     // prevFastPhase already declared above
     const prevDeepPhase = prev?.deep_enrichment?.phase
-    
+    const prevDeepStage = prev?.deep_enrichment?.current_stage
+    const currentDeepStage = deep?.current_stage
+
+    // When the deep pipeline transitions away from 'enrichment', immediately fetch
+    // epistemic status to flush the stale running:true from React state. Without
+    // this, the polling interval stops calling fetchEpistemicStatus() (because
+    // epistemicRunning just became false) and the spinner stays forever.
+    if (prevDeepStage === 'enrichment' && currentDeepStage !== 'enrichment' && deepRunning) {
+      void fetchEpistemicStatus()
+    }
+
     // Detect completion of structural stage specifically to update coverage immediately
     const currentFastStage = fast?.current_stage
     const prevFastStage = prev?.fast_sync?.current_stage
@@ -653,6 +696,19 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       setKnowledgeBuilding(false)
     }
 
+    if (deep?.phase === 'completed' && prevDeepPhase === 'running') {
+      setEpistemicRunning(false)
+      setClusterRunning(false)
+      setDeepeningRunning(false)
+      setKnowledgeBuilding(false)
+      // Deep enrichment just completed — refresh all deep-stage statuses
+      void fetchEpistemicStatus()
+      void fetchModuleStatus()
+      void fetchDeepeningStatus()
+      void fetchKnowledgeStatus()
+      void fetchTraceCoverage()
+    }
+
     if (deep?.phase === 'failed' && prevDeepPhase === 'running') {
       setEpistemicRunning(false)
       setClusterRunning(false)
@@ -674,7 +730,10 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     const interval = setInterval(() => {
         if (traceStatus.building) fetchTraceCoverage()
         if (augmenting) fetchAugmentationStatus()
-        if (epistemicRunning) fetchEpistemicStatus()
+        // Fetch epistemic status for all deep stages, not just epistemicRunning:
+        // during clustering/deepening we need enriched_nodes for DeepCoverageBar,
+        // and we need running:false to clear the spinner when Stage 5 ends.
+        if (epistemicRunning || clusterRunning || deepeningRunning) fetchEpistemicStatus()
         if (clusterRunning) fetchModuleStatus()
         if (deepeningRunning) fetchDeepeningStatus()
         if (knowledgeBuilding) fetchKnowledgeStatus()
@@ -716,6 +775,10 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     indexAutoRebuild,
     enrichmentAutoConfig,
     augmenting,
+    // Phase 25: Crash Protection
+    crashedRuns,
+    handleResumeCrashedRun,
+    handleDiscardCrashedRun,
     // Fetch
     fetchAugmentationStatus, fetchEpistemicStatus, fetchModuleStatus,
     fetchDeepeningStatus, fetchKnowledgeStatus, fetchTraceCoverage,

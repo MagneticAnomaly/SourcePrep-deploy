@@ -209,24 +209,6 @@
     "version": 17,
     "panels": [
       {
-        "id": "status",
-        "visible": true,
-        "height": 7,
-        "collapsed": false,
-        "x": 0,
-        "y": 0,
-        "w": 4
-      },
-      {
-        "id": "graph-structure",
-        "visible": true,
-        "height": 10,
-        "collapsed": false,
-        "x": 8,
-        "y": 0,
-        "w": 4
-      },
-      {
         "id": "usage-guide",
         "visible": true,
         "height": 16,
@@ -236,12 +218,12 @@
         "w": 4
       },
       {
-        "id": "trace-pipeline",
+        "id": "trace",
         "visible": true,
-        "height": 17,
-        "collapsed": false,
-        "x": 4,
-        "y": 2,
+        "height": 13,
+        "collapsed": true,
+        "x": 8,
+        "y": 0,
         "w": 4
       },
       {
@@ -250,61 +232,52 @@
         "height": 16,
         "collapsed": false,
         "x": 0,
-        "y": 7,
+        "y": 0,
         "w": 4
       },
       {
-        "id": "trace",
+        "id": "graph-structure",
         "visible": true,
-        "height": 13,
+        "height": 14,
         "collapsed": false,
         "x": 8,
-        "y": 10,
+        "y": 2,
         "w": 4
       },
       {
-        "id": "context-options",
+        "id": "trace-pipeline",
         "visible": true,
-        "height": 7,
-        "collapsed": true,
+        "height": 14,
+        "collapsed": false,
         "x": 4,
-        "y": 19,
+        "y": 2,
         "w": 4
       },
       {
-        "id": "results",
+        "id": "status",
         "visible": true,
-        "height": 9,
-        "collapsed": true,
-        "x": 4,
-        "y": 21,
+        "height": 8,
+        "collapsed": false,
+        "x": 0,
+        "y": 16,
         "w": 4
+      },
+      {
+        "id": "log-console",
+        "visible": true,
+        "height": 8,
+        "collapsed": false,
+        "x": 4,
+        "y": 16,
+        "w": 8
       },
       {
         "id": "llm-status",
         "visible": true,
-        "height": 9,
+        "height": 10,
         "collapsed": false,
         "x": 0,
-        "y": 23,
-        "w": 4
-      },
-      {
-        "id": "deep-analysis",
-        "visible": true,
-        "height": 12,
-        "collapsed": false,
-        "x": 8,
-        "y": 23,
-        "w": 4
-      },
-      {
-        "id": "context-output",
-        "visible": true,
-        "height": 10,
-        "collapsed": true,
-        "x": 4,
-        "y": 23,
+        "y": 24,
         "w": 4
       },
       {
@@ -313,17 +286,44 @@
         "height": 6,
         "collapsed": true,
         "x": 4,
-        "y": 25,
+        "y": 24,
         "w": 4
       },
       {
-        "id": "log-console",
-        "visible": true,
-        "height": 11,
-        "collapsed": false,
+        "id": "results",
+        "visible": false,
+        "height": 9,
+        "collapsed": true,
+        "x": 4,
+        "y": 30,
+        "w": 4
+      },
+      {
+        "id": "context-options",
+        "visible": false,
+        "height": 7,
+        "collapsed": true,
         "x": 0,
-        "y": 32,
-        "w": 8
+        "y": 40,
+        "w": 4
+      },
+      {
+        "id": "context-output",
+        "visible": false,
+        "height": 10,
+        "collapsed": true,
+        "x": 4,
+        "y": 30,
+        "w": 4
+      },
+      {
+        "id": "deep-analysis",
+        "visible": false,
+        "height": 12,
+        "collapsed": false,
+        "x": 8,
+        "y": 28,
+        "w": 4
       },
       {
         "id": "watch",
@@ -333,6 +333,15 @@
         "x": 0,
         "y": 0,
         "w": 4
+      },
+      {
+        "id": "pinned:docs/README.md",
+        "visible": false,
+        "height": 8,
+        "collapsed": false,
+        "x": 0,
+        "y": 40,
+        "w": 12
       }
     ]
   }

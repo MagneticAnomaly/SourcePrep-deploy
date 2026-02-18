@@ -77,9 +77,9 @@
 
 ## Cross-phase strategy alignment
 Relevant entries in `../MASTER_TODO.md`:
-- [ ] STR-01 API envelope + error codes: UI component must assume stable shapes
-- [ ] STR-05 Budgets: UI defaults must match daemon/MCP conservative defaults
-- [ ] STR-04 Atomic build: UI must communicate “last known-good snapshot” behavior
+- [x] STR-01 API envelope + error codes: UI component must assume stable shapes 
+- [x] STR-05 Budgets: UI defaults must match daemon/MCP conservative defaults 
+- [x] STR-04 Atomic build: UI must communicate “last known-good snapshot” behavior 
 
 ## Current progress (dashboard wiring)
 - [x] Identified the immediate regression: `src/codrag/dashboard/src/App.tsx` was truncated and references missing state/handlers, especially around `AIModelsSettings`.

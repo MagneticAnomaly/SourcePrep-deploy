@@ -79,10 +79,17 @@ function formatTimeAgo(isoDate: string): string {
 
 function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; building: boolean }) {
   const { traced, untraced, stale, total } = summary;
+  // Use pending_embedding from summary if available (added in backend)
+  const pendingEmbedding = summary.pending_embedding || 0;
+  
   if (total === 0) return null;
 
   // When building, treat pending items as "in-progress"
-  const inProgress = building ? untraced + stale : 0;
+  // If we have specific pending_embedding count, include it.
+  const inProgress = building 
+    ? untraced + stale + pendingEmbedding 
+    : pendingEmbedding; // Even if not building, pending embedding is "in-progress" semantically
+    
   const displayStale = building ? 0 : stale;
   const displayUntraced = building ? 0 : untraced;
 
@@ -90,11 +97,15 @@ function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; bui
   const inProgressPct = (inProgress / total) * 100;
   const stalePct = (displayStale / total) * 100;
   const untracedPct = (displayUntraced / total) * 100;
+  
+  // "Files traced" refers to structural trace coverage (traced + pending_embedding), matching coverage_pct.
+  // "traced" in the summary object now implies "traced AND embedded".
+  const structuralTraced = traced + pendingEmbedding;
 
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between text-xs text-text-muted">
-        <span>{traced}/{total} files traced</span>
+        <span>{structuralTraced}/{total} files traced</span>
         <span className="font-mono font-semibold text-text">{summary.coverage_pct}%</span>
       </div>
       <div className="h-2 rounded-full bg-surface-raised overflow-hidden flex">
@@ -102,7 +113,7 @@ function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; bui
           <div
             className="bg-success transition-all duration-500"
             style={{ width: `${tracedPct}%` }}
-            title={`${traced} traced`}
+            title={`${traced} traced & embedded`}
           />
         )}
         {inProgressPct > 0 && (
@@ -131,9 +142,9 @@ function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; bui
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-text-muted">
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-success" /> {traced} traced
+          <span className="w-2 h-2 rounded-full bg-success" /> {traced} traced & embedded
         </span>
-        {building ? (
+        {inProgress > 0 ? (
           <span className="flex items-center gap-1 font-medium text-primary">
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" /> {inProgress} in-progress
           </span>
@@ -337,7 +348,7 @@ export function TraceCoveragePanel({
             ) : (
               <div className="flex items-center gap-2 text-xs text-primary">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Mapping full codebase...
+                {traceExists ? 'Updating to reflect codebase changes...' : 'Mapping full codebase...'}
               </div>
             )}
           </div>
@@ -356,7 +367,6 @@ export function TraceCoveragePanel({
           onClick={() => setActiveTab('queue')}
         >
           <span className="flex items-center justify-center gap-1.5">
-            <Clock className="w-3.5 h-3.5" />
             Queue
             {queueCount > 0 && (
               <span className="text-[10px] bg-warning/15 text-warning px-1.5 py-0.5 rounded-full font-mono">

@@ -12,13 +12,20 @@ DEFAULT_EXCLUDE_DIR_NAMES: Set[str] = {
     "__pycache__",
     ".venv",
     "venv",
+    "fresh_venv",
+    "env",
+    ".env",
+    ".tox",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    "htmlcov",
+    ".coverage",
     "dist",
     "build",
     "target",
     ".next",
     ".cache",
-    ".mypy_cache",
-    ".ruff_cache",
 }
 
 DOC_DIR_NAMES: Set[str] = {
@@ -95,6 +102,11 @@ STACK_PRESETS: Dict[str, List[str]] = {
     "Ruby": ["**/*.rb"],
     "PHP": ["**/*.php"],
     "Shell": ["**/*.sh", "**/*.bash", "**/*.zsh"],
+    "Dart/Flutter": ["**/*.dart"],
+    "Scala": ["**/*.scala", "**/*.sc"],
+    "Lua": ["**/*.lua"],
+    "Zig": ["**/*.zig"],
+    "Elixir": ["**/*.ex", "**/*.exs"],
     "Configuration": ["**/*.yaml", "**/*.yml", "**/*.json", "**/*.toml", "**/*.xml", "**/*.ini", "**/*.env"],
     "Documentation": ["**/*.md", "**/*.markdown", "**/*.txt"],
 }
@@ -111,7 +123,12 @@ EXT_TO_PRESET: Dict[str, str] = {
     ".cs": "C#",
     ".rb": "Ruby",
     ".php": "PHP",
-    ".sh": "Shell", ".bash": "Shell",
+    ".sh": "Shell", ".bash": "Shell", ".zsh": "Shell",
+    ".dart": "Dart/Flutter",
+    ".scala": "Scala", ".sc": "Scala",
+    ".lua": "Lua",
+    ".zig": "Zig",
+    ".ex": "Elixir", ".exs": "Elixir",
     ".yaml": "Configuration", ".yml": "Configuration", ".json": "Configuration", ".xml": "Configuration", ".toml": "Configuration",
     ".md": "Documentation",
 }
@@ -163,6 +180,19 @@ CODE_EXTS: Set[str] = {
     ".cpp",
     ".hpp",
     ".cs",
+    ".swift",
+    ".rb",
+    ".php",
+    ".dart",
+    ".scala",
+    ".sc",
+    ".sh",
+    ".bash",
+    ".zsh",
+    ".lua",
+    ".zig",
+    ".ex",
+    ".exs",
 }
 
 DOC_EXTS: Set[str] = {
@@ -290,19 +320,17 @@ def profile_repo(repo_root: Path, max_depth: int = 4, max_files: int = 5000) -> 
 
     include_globs = sorted(set(include_globs))
 
-    exclude_globs: List[str] = [
-        "**/.git/**",
-        "**/.codrag/**",
-        "**/node_modules/**",
-        "**/__pycache__/**",
-        "**/.venv/**",
-        "**/venv/**",
-        "**/dist/**",
-        "**/build/**",
-        "**/target/**",
-        "**/.next/**",
-        "**/.cache/**",
-    ]
+    # Base excludes from our comprehensive directory list
+    exclude_globs: List[str] = [f"**/{d}/**" for d in sorted(DEFAULT_EXCLUDE_DIR_NAMES)]
+    # Add broad exclusion for dotfiles/dotdirs
+    exclude_globs.append("**/.*")
+    # Add specific file patterns if needed
+    exclude_globs.extend([
+        "**/*.lock",
+        "**/*.log",
+        "**/.DS_Store",
+    ])
+    exclude_globs = sorted(set(exclude_globs))
 
     path_roles: List[Dict[str, Any]] = []
     for d in top_level_dirs:

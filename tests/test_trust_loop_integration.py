@@ -23,20 +23,27 @@ from codrag.server import app
 @pytest.fixture()
 def client(tmp_path: Path) -> TestClient:
     """Create a test client with fresh state."""
-    reg = ProjectRegistry(db_path=tmp_path / "registry.db")
-    server._registry = reg
+    import codrag.services.project_helpers as ph
+    from codrag.services.build_manager import build_manager as bm
 
-    server._project_indexes.clear()
-    server._project_trace_indexes.clear()
+    reg = ProjectRegistry(db_path=tmp_path / "registry.db")
+    # Reset both the server-level and service-level registry singletons
+    server._registry = reg
+    ph._registry = reg
+
+    # Reset build manager caches
+    bm.project_indexes.clear()
+    bm.project_trace_indexes.clear()
+    bm.project_knowledge_indexes.clear()
     server._project_watchers.clear()
 
-    with server._project_build_lock:
-        server._project_build_threads.clear()
-        server._project_last_build_result.clear()
-        server._project_last_build_error.clear()
+    with bm.build_lock:
+        bm.build_threads.clear()
+        bm.last_build_result.clear()
+        bm.last_build_error.clear()
 
-    with server._project_trace_build_lock:
-        server._project_trace_build_threads.clear()
+    with bm.trace_build_lock:
+        bm.trace_build_threads.clear()
 
     return TestClient(app)
 

@@ -139,9 +139,9 @@ class TestProjectLimits:
         os.environ["CODRAG_TIER"] = "free"
         assert get_feature_limit("projects_max") == 1
 
-    def test_starter_limit_is_3(self):
+    def test_starter_limit_is_999(self):
         os.environ["CODRAG_TIER"] = "starter"
-        assert get_feature_limit("projects_max") == 3
+        assert get_feature_limit("projects_max") == 999
 
     def test_pro_limit_is_999(self):
         os.environ["CODRAG_TIER"] = "pro"
@@ -163,7 +163,7 @@ class TestRequireFeature:
             require_feature("auto_rebuild")
         assert exc_info.value.feature == "auto_rebuild"
         assert exc_info.value.current_tier == "free"
-        assert exc_info.value.required_tier == "starter"
+        assert exc_info.value.required_tier == "pro"
         assert "codrag.io/pricing" in str(exc_info.value)
 
     def test_require_clara_as_free_raises(self):

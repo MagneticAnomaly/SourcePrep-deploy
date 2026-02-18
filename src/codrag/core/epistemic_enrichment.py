@@ -66,7 +66,7 @@ Respond with this exact JSON format:
 "subsystem": "name-of-subsystem",
 "design_patterns": ["singleton", "observer"],
 "cross_references": ["path/to/related/doc.md"],
-"tech_debt": ["description of any tech debt, TODOs, or concerns"],
+"tech_debt": ["explicit TODOs/FIXMEs or critical anti-patterns only; empty if none"],
 "staleness_risk": "low|medium|high — how likely is this file's understanding to become stale",
 "epistemic_confidence": 0.85}}
 
@@ -75,7 +75,7 @@ domain_tags: 1-4 descriptive tags for the domain this file operates in (e.g. "mo
 subsystem: the logical subsystem this file belongs to (e.g. "ad-framework", "user-auth", "trace-engine")
 design_patterns: any notable patterns used (empty list if none)
 cross_references: documentation files that describe or relate to this code
-tech_debt: any concerns, TODOs, stubs, or workarounds noticed (empty list if none)
+tech_debt: list ONLY explicit markers (TODO, FIXME) or severe architectural flaws. Do not list potential improvements or nitpicks.
 
 JSON response:"""
 
@@ -108,12 +108,13 @@ Respond with this exact JSON format:
 "doc_status": "active",
 "decision_chains": ["key decisions or conclusions documented here"],
 "cross_references": ["src/path/to/code.py"],
-"tech_debt": ["any stale content, broken references, or contradictions noticed"],
+"tech_debt": ["explicit stale content, broken references, or contradictions only; empty if none"],
 "staleness_risk": "low|medium|high",
 "epistemic_confidence": 0.85}}
 
 Where doc_type is one of: research, design_spec, plan, guide, reference, changelog, readme, todo, status, analysis, overview
 Where doc_status is one of: active, completed, shelved, superseded, draft, stale
+tech_debt: list ONLY explicit issues found in the text. Do not hallucinate or guess.
 
 JSON response:"""
 
@@ -416,7 +417,8 @@ class EpistemicEnricher:
     ) -> Optional[EpistemicEntry]:
         """Enrich a documentation file."""
         file_path = node.get("file_path", "")
-        content = self._get_file_excerpt(file_path, max_lines=200)
+        # Increased from 200 to 2000 lines to capture larger scope concepts
+        content = self._get_file_excerpt(file_path, max_lines=3000)
         if not content:
             return None
 
@@ -512,8 +514,15 @@ class EpistemicEnricher:
 
         nodes_by_id = {n["id"]: n for n in nodes}
 
-        # Only enrich file nodes (sections and symbols get their scores from parent)
-        file_nodes = [n for n in nodes if n.get("kind") == "file"]
+        # Only enrich non-empty file nodes (sections and symbols get their scores from parent)
+        # We explicitly check for content to exclude empty __init__.py files from the total count.
+        all_file_nodes = [n for n in nodes if n.get("kind") == "file"]
+        file_nodes = []
+        for n in all_file_nodes:
+            fp = n.get("file_path", "")
+            # Check if file has any content (reading just 1 line is enough)
+            if self._get_file_excerpt(fp, max_lines=1):
+                file_nodes.append(n)
 
         # Filter to nodes needing enrichment
         to_enrich = [n for n in file_nodes if self._needs_enrichment(n, existing, augmentations)]
@@ -525,9 +534,11 @@ class EpistemicEnricher:
         to_enrich = topological_sort_files(to_enrich, edges)
 
         total_work = len(to_enrich)
+        total_file_count = len(file_nodes)
+        existing_count = len(existing)
         logger.info(
             "Epistemic enrichment: %d files to enrich (%d existing, %d total file nodes)",
-            total_work, len(existing), len(file_nodes),
+            total_work, existing_count, total_file_count,
         )
 
         # Start with existing entries
@@ -535,10 +546,11 @@ class EpistemicEnricher:
         done = 0
         failed = 0
 
-        for node in to_enrich:
-            if progress_callback:
-                progress_callback("epistemic_enrichment", done, total_work)
+        if progress_callback:
+            # Report initial overall progress (existing work from prior runs).
+            progress_callback("epistemic_enrichment", existing_count, total_file_count)
 
+        for node in to_enrich:
             entry = self.enrich_node(node, edges, nodes_by_id, augmentations, enriched)
             if entry:
                 enriched[entry.node_id] = entry
@@ -546,13 +558,18 @@ class EpistemicEnricher:
             else:
                 failed += 1
 
+            if progress_callback:
+                # Report after each node so the UI doesn't stall at 99%
+                # while the last node is being processed.
+                progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count)
+
         # Write atomically
         self._write_epistemic(enriched)
 
         duration_ms = (time.monotonic() - start) * 1000
 
         if progress_callback:
-            progress_callback("epistemic_complete", total_work, total_work)
+            progress_callback("epistemic_complete", total_file_count, total_file_count)
 
         stats = {
             "total_file_nodes": len(file_nodes),

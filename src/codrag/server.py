@@ -167,6 +167,8 @@ from codrag.services.project_helpers import (
     project_trace_status as _ph_project_trace_status,
     get_project_watcher as _ph_get_project_watcher,
     get_project_watcher_status as _ph_get_project_watcher_status,
+    check_index_staleness as _ph_check_index_staleness,
+    invalidate_stale_cache as _ph_invalidate_stale_cache,
     read_json_file as _ph_read_json_file,
     parse_iso_datetime as _ph_parse_iso_datetime,
     project_activity_payload as _ph_project_activity_payload,
@@ -208,6 +210,14 @@ def _get_project_watcher(project: Project) -> Optional[AutoRebuildWatcher]:
 
 def _get_project_watcher_status(project: Project) -> Dict[str, Any]:
     return _ph_get_project_watcher_status(project, _project_watchers)
+
+
+def _check_index_staleness(project: Project, idx: CodeIndex) -> Dict[str, Any]:
+    return _ph_check_index_staleness(project, idx)
+
+
+def _invalidate_stale_cache(project_id: str) -> None:
+    _ph_invalidate_stale_cache(project_id)
 
 
 def _read_json_file(path: Path) -> Optional[Dict[str, Any]]:
@@ -363,6 +373,14 @@ def configure(
     json_path = idx_path / "ui_config.json"
     if _settings_store.migrate_from_json(json_path):
         logger.info("Migrated settings from ui_config.json to SQLite")
+
+    # Initialize pipeline journal + crash recovery (Phase 25)
+    from codrag.services.pipeline_journal import journal as _journal
+    _journal.init(db_path)
+    from codrag.services.pipeline_orchestrator import pipeline_orchestrator as _pipeline
+    crashed = _pipeline.startup_recovery()
+    if crashed:
+        logger.warning("Phase 25: %d crashed pipeline run(s) detected on startup", len(crashed))
 
 
 def mount_dashboard():

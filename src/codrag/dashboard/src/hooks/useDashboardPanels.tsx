@@ -60,6 +60,7 @@ export interface DashboardPanelsProps {
   findActiveTask: (type: 'index_build' | 'trace_build') => any
   // Build
   handleBuild: () => void
+  transientComplete: boolean
   // Search
   query: string
   setQuery: (q: string) => void
@@ -201,7 +202,14 @@ export function useDashboardPanels(p: DashboardPanelsProps) {
         }}
         building={p.projectStatus?.building ?? false}
         stale={p.projectStatus?.stale ?? false}
-        progress={p.findActiveTask('index_build')}
+        progress={p.transientComplete ? {
+          task_id: 'complete',
+          message: 'Build complete',
+          current: p.projectStatus?.index.total_chunks ?? 0,
+          total: p.projectStatus?.index.total_chunks ?? 0,
+          percent: 100,
+          status: 'completed'
+        } : p.findActiveTask('index_build')}
         lastError={p.projectStatus?.index.last_error?.message}
         onBuild={p.selectedProjectId ? p.handleBuild : undefined}
         traceChunks={p.traceStatus.counts?.nodes ?? 0}
@@ -210,6 +218,7 @@ export function useDashboardPanels(p: DashboardPanelsProps) {
         isPro={p.isPro}
         className="h-full border-none shadow-none bg-transparent"
         bare
+        hideChart={p.transientComplete}
       />
     ),
     'llm-status': (
@@ -465,6 +474,10 @@ export function useDashboardPanels(p: DashboardPanelsProps) {
     'graph-structure': (
       <GraphStructurePanel
         summary={p.traceCoverage.summary}
+        epistemic={p.epistemicStatus}
+        augmentation={p.augmentationStatus}
+        moduleStatus={p.moduleStatus}
+        knowledgeStatus={p.knowledgeStatus}
         untracedFiles={p.traceCoverage.untraced}
         staleFiles={p.traceCoverage.stale}
         excludedFiles={p.traceCoverage.excluded}

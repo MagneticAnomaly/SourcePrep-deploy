@@ -649,7 +649,7 @@ def ui(
 @app.command()
 def mcp(
     project_id: str = typer.Option(None, "--project", "-p", help="Project ID (pinned mode)"),
-    auto: bool = typer.Option(False, "--auto", "-a", help="Auto-detect project from cwd (Server Mode)"),
+    auto: bool = typer.Option(True, "--auto", "-a", help="Auto-detect project from cwd (Server Mode). Enabled by default."),
     mode: str = typer.Option("server", "--mode", "-m", help="Mode: server | direct"),
     daemon_url: str = typer.Option("http://127.0.0.1:8400", "--daemon", "-d", help="CoDRAG daemon URL (Server Mode)"),
     repo_root: str = typer.Option(None, "--repo-root", "-r", help="Repository root (Direct Mode). Defaults to cwd."),

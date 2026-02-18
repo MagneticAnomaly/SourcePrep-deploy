@@ -45,6 +45,7 @@ export type {
   KnowledgeEmbeddingStatus,
   PipelineStatus,
   PipelineGroupRun,
+  CrashedPipelineRun,
   ScopeStatus,
 } from './types';
 

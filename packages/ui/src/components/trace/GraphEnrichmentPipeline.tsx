@@ -120,6 +120,7 @@ function computeAugmentState(
 function computeValidationState(
   trace: TraceStageInfo,
   aug?: AugmentationStatus,
+  augmenting?: boolean,
   validating?: boolean,
   knowledgeBuilding?: boolean
 ): StageState {
@@ -128,6 +129,8 @@ function computeValidationState(
   if (knowledgeBuilding) return 'complete';
   if (validating) return 'running';
   if (!trace.exists) return 'disabled';
+  // Catalogue must finish before validation can be considered
+  if (augmenting) return 'disabled';
   
   // Validation runs after catalogue (augmentation)
   if (!aug || !aug.enabled || aug.augmented_nodes === 0) return 'disabled';
@@ -168,12 +171,15 @@ function computeModuleState(
 function computeDeepeningState(
   ep?: EpistemicStatus,
   deep?: DeepeningStatus,
-  running?: boolean
+  running?: boolean,
+  mod?: ModuleStatus
 ): StageState {
   if (!ep || !ep.enabled || ep.enriched_nodes === 0) return 'disabled';
+  // Deepening requires clustering to have produced modules first
+  if (!mod || !mod.enabled || mod.module_count === 0) return 'disabled';
   if (running || deep?.running) return 'running';
   if (!deep || deep.total_scored === 0) return 'not_built';
-  if (deep.settled_ratio >= 0.95) return 'complete';
+  if (deep.settled_ratio >= 0.90) return 'complete';
   if (deep.settled_ratio >= 0.5) return 'stale';
   return 'warning';
 }
@@ -182,9 +188,12 @@ function computeFastKnowledgeState(
   trace: TraceStageInfo,
   aug?: AugmentationStatus,
   know?: KnowledgeEmbeddingStatus,
-  building?: boolean
+  building?: boolean,
+  augmenting?: boolean
 ): StageState {
   if (!trace.enabled || !trace.exists) return 'disabled';
+  // Catalogue and validation must finish before knowledge embedding
+  if (augmenting) return 'disabled';
   if (!aug || !aug.enabled || aug.augmented_nodes === 0) return 'disabled';
   if (building || know?.running) return 'running';
   if (!know || !know.enabled) return 'not_built';
@@ -195,14 +204,18 @@ function computeFastKnowledgeState(
 function computeDeepKnowledgeState(
   ep?: EpistemicStatus,
   mod?: ModuleStatus,
+  deep?: DeepeningStatus,
   know?: KnowledgeEmbeddingStatus,
   building?: boolean
 ): StageState {
   if (!ep || !ep.enabled || ep.enriched_nodes === 0) return 'disabled';
   if (!mod || !mod.enabled || mod.module_count === 0) return 'disabled';
+  // Deepening (Stage 7) must have run before Deep Knowledge (Stage 8) can be complete
+  if (!deep || deep.total_scored === 0) return 'disabled';
   if (building || know?.running) return 'running';
-  if (!know || !know.enabled) return 'not_built';
-  if (know.chunks_embedded === 0) return 'not_built';
+  // Use deep_chunks_embedded to distinguish Stage 8 from Stage 4 (Fast Sync)
+  const deepChunks = know?.deep_chunks_embedded ?? 0;
+  if (!know || deepChunks === 0) return 'not_built';
   return 'complete';
 }
 
@@ -285,15 +298,21 @@ function StageRow({ stage }: { stage: EnrichmentStage }) {
           </div>
         </div>
         
-        {stage.stats && (
-          <p className="text-[10px] text-text-muted truncate leading-tight">
-            {stage.stats}
-          </p>
-        )}
-
-        {/* Progress Bar */}
-        {stage.state === 'running' && stage.progress !== undefined && (
-          <StageProgressBar progress={stage.progress} className="mt-2 h-1" />
+        {/* Stats Text OR Active Progress Bar */}
+        {stage.state === 'running' ? (
+          <div className="h-[13px] flex items-center w-full pr-8">
+            <StageProgressBar 
+              progress={stage.progress} 
+              className="h-1.5 mt-0 w-full"
+              color="bg-blue-500" 
+            />
+          </div>
+        ) : (
+          stage.stats && (
+            <p className="text-[10px] text-text-muted truncate leading-tight">
+              {stage.stats}
+            </p>
+          )
         )}
       </div>
     </div>
@@ -381,7 +400,7 @@ export function GraphEnrichmentPipeline({
     : undefined;
 
   // 3. Relationship Validation (Rust)
-  const validationState = computeValidationState(trace, augmentation, validating, knowledgeBuilding);
+  const validationState = computeValidationState(trace, augmentation, augmenting, validating, knowledgeBuilding);
   const validationStats = (() => {
     if (validationState === 'running') return 'Validating...';
     if (validationState === 'disabled') return 'Waiting for catalogue';
@@ -413,14 +432,17 @@ export function GraphEnrichmentPipeline({
   })();
 
   // 6. Continuous Deepening
-  const deepeningState = computeDeepeningState(epistemic, deepening, deepeningRunning);
+  const deepeningState = computeDeepeningState(epistemic, deepening, deepeningRunning, modules);
   const deepeningStats = (() => {
     if (deepeningState === 'running') {
       const iter = deepening?.iteration ?? 0;
       const max = deepening?.max_iterations ?? '?';
       return `Iteration ${iter}/${max}`;
     }
-    if (deepeningState === 'disabled') return 'Waiting for enrichment';
+    if (deepeningState === 'disabled') {
+      if (epistemic && epistemic.enabled && epistemic.enriched_nodes > 0) return 'Waiting for clusters';
+      return 'Waiting for enrichment';
+    }
     if (deepeningState === 'not_built') return 'Not started';
     if (!deepening) return '';
     const pct = Math.round(deepening.settled_ratio * 100);
@@ -431,7 +453,7 @@ export function GraphEnrichmentPipeline({
     : undefined;
 
   // 4. Knowledge Embedding (fast — after catalogue)
-  const fastKnowledgeState = computeFastKnowledgeState(trace, augmentation, knowledge, knowledgeBuilding);
+  const fastKnowledgeState = computeFastKnowledgeState(trace, augmentation, knowledge, knowledgeBuilding, augmenting);
   const fastKnowledgeStats = (() => {
     if (fastKnowledgeState === 'running') return 'Embedding...';
     if (fastKnowledgeState === 'disabled') return 'Waiting for catalogue';
@@ -440,14 +462,14 @@ export function GraphEnrichmentPipeline({
     return `${knowledge.chunks_embedded} chunks embedded`;
   })();
 
-  // 8. Deep Knowledge Embedding (after deep enrichment + clusters)
-  const deepKnowledgeState = computeDeepKnowledgeState(epistemic, modules, knowledge, knowledgeBuilding);
+  // 8. Deep Knowledge Embedding (after deep enrichment + clusters + deepening)
+  const deepKnowledgeState = computeDeepKnowledgeState(epistemic, modules, deepening, knowledge, knowledgeBuilding);
   const deepKnowledgeStats = (() => {
     if (deepKnowledgeState === 'running') return 'Re-embedding with deep data...';
     if (deepKnowledgeState === 'disabled') return 'Waiting for enrichment + clusters';
     if (deepKnowledgeState === 'not_built') return 'Ready to re-embed';
     if (!knowledge) return '';
-    return `${knowledge.chunks_embedded} chunks embedded`;
+    return `${knowledge.chunks_embedded} chunks embedded`;  // Total includes deep + fast
   })();
 
   // ── Build stage arrays by group ────────────────────────────
@@ -456,20 +478,38 @@ export function GraphEnrichmentPipeline({
     { id: 'structural', label: 'Structural Graph', icon: GitBranch, modelTag: 'Rust', state: structuralState, stats: structuralStats },
     { id: 'catalogue', label: 'Fast Catalogue', icon: Database, modelTag: '3b', state: catalogueState, stats: catalogueStats, progress: catalogueProgress },
     { id: 'validation', label: 'Relationship Validation', icon: ShieldCheck, modelTag: 'Rust', state: validationState, stats: validationStats },
-    { id: 'knowledge', label: 'Knowledge Embedding', icon: Database, state: fastKnowledgeState, stats: fastKnowledgeStats },
+    {
+      id: 'knowledge', label: 'Knowledge Embedding', icon: Database,
+      state: fastKnowledgeState, stats: fastKnowledgeStats,
+      progress: fastKnowledgeState === 'running'
+        ? (knowledge?.progress_total ? Math.round((knowledge.progress_current ?? 0) / knowledge.progress_total * 100) : 0)
+        : undefined,
+    },
   ];
 
   const deepStages: EnrichmentStage[] = [
     {
       id: 'enrichment', label: 'Epistemic Enrichment', icon: Brain, modelTag: '14b',
       state: enrichmentState, stats: enrichmentStats,
-      progress: epistemic?.running && epistemic?.progress_total
+      progress: (epistemicRunning || epistemic?.running) && epistemic?.progress_total
         ? Math.round((epistemic.progress_current ?? 0) / epistemic.progress_total * 100)
+        : (enrichmentState === 'running' ? 0 : undefined),
+    },
+    {
+      id: 'clustering', label: 'Cluster Synthesis', icon: Layers, modelTag: '14b',
+      state: clusteringState, stats: clusteringStats,
+      progress: (clusterRunning || modules?.running) && modules?.progress_total
+        ? Math.round((modules.progress_current ?? 0) / modules.progress_total * 100)
+        : (clusteringState === 'running' ? 0 : undefined),
+    },
+    { id: 'deepening', label: 'Continuous Deepening', icon: Network, state: deepeningState, stats: deepeningStats, progress: deepeningState === 'running' ? (deepeningProgress ?? 0) : undefined },
+    {
+      id: 'deep_knowledge', label: 'Deep Knowledge Embedding', icon: Database,
+      state: deepKnowledgeState, stats: deepKnowledgeStats,
+      progress: deepKnowledgeState === 'running'
+        ? (knowledge?.progress_total ? Math.round((knowledge.progress_current ?? 0) / knowledge.progress_total * 100) : 0)
         : undefined,
     },
-    { id: 'clustering', label: 'Cluster Synthesis', icon: Layers, modelTag: '14b', state: clusteringState, stats: clusteringStats },
-    { id: 'deepening', label: 'Continuous Deepening', icon: Network, state: deepeningState, stats: deepeningStats, progress: deepeningProgress },
-    { id: 'deep_knowledge', label: 'Deep Knowledge Embedding', icon: Database, state: deepKnowledgeState, stats: deepKnowledgeStats },
   ];
 
   // ── Group running state ──────────────────────────────────

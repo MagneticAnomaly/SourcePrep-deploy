@@ -73,6 +73,7 @@ _DEFAULT_UI_CONFIG: Dict[str, Any] = {
         "**/*.gradle", "**/*.tf", "**/*.tfvars", "**/*.hcl", "**/*.sol"
     ],
     "exclude_globs": [
+        "**/.*",  # Broadly exclude dotfiles and dot-directories
         "**/.git/**",
         "**/.venv/**",
         "**/__pycache__/**",

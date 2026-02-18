@@ -107,6 +107,59 @@ Phase01 should explicitly guarantee:
 - Persistence format churn (breaking downstream UI/MCP compatibility)
 - Index corruption or partial writes during interrupted builds
 
+## MCP (Multi-Project Routing)
+
+Phase 01 guarantees that downstream clients (dashboard, CLI, MCP) can reliably target the correct project when multiple CoDRAG projects are registered in the daemon.
+
+### Problem
+
+IDE MCP clients (Windsurf/Cursor/Claude Code/etc.) typically connect to CoDRAG via a single MCP server process. If the daemon has multiple projects configured, the MCP server must deterministically choose which project to query for:
+
+- `codrag_search`
+- `codrag` (context assembly)
+- trace tools (symbol search / neighbors / coverage)
+
+### Resolution order
+
+The MCP server resolves `project_id` with the following priority order:
+
+1. Tool-call override: `project_id` argument passed directly to the tool call
+2. Pinned mode: CLI `codrag mcp --project <id>`
+3. Workspace roots: paths provided by the IDE during MCP `initialize` (workspace root URIs)
+4. Process CWD: the MCP subprocess working directory (commonly the IDE workspace root)
+5. Single-project shortcut: if exactly one project exists, use it
+
+Matching is based on longest-prefix path containment (the most specific registered project path wins).
+
+### Tool schemas
+
+All MCP tools accept an optional `project_id` argument. This enables:
+
+- Deterministic targeting when auto-detection is ambiguous
+- AI self-correction: the model can retry the same request with an explicit `project_id`
+
+### Responses
+
+Every tool response includes the resolved `project_id` so that clients (and the model) can confirm which project was queried.
+
+`codrag_status` may additionally include an `available_projects` list (IDs, names, paths) when multiple projects exist, to make project selection discoverable.
+
+### Failure mode: ambiguous selection
+
+If the MCP server cannot confidently determine a project, it returns a stable error that includes the full list of configured projects and a hint to pass `project_id` explicitly.
+
+### Recommended setup patterns
+
+- Per-workspace MCP config (recommended for multi-window IDE usage): each workspace window spawns its own MCP server process and auto-detection routes correctly.
+- Global MCP config + auto-detect: relies on workspace roots and/or MCP process CWD.
+- Pinned MCP config: for dedicated tool windows or single-project environments.
+
+### Reference
+
+For end-user configuration examples, see the public MCP shim docs:
+
+- `public/codrag-mcp/README.md` → “Multi-Project Setup”
+
 ## Testing / evaluation plan
 - Integration test: build → search → context on a known repo
 - Corruption resilience: interrupted build leaves index in a recoverable state

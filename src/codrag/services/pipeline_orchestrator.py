@@ -1,6 +1,6 @@
 """
-CoDRAG Pipeline Orchestrator — Phase 24 (SM-6)
-================================================
+CoDRAG Pipeline Orchestrator — Phase 24 (SM-6) + Phase 25 (Crash Protection)
+=============================================================================
 
 Sequences the 8-stage Trace Graph enrichment pipeline using
 BuildOrchestrator (SM-4) slots.
@@ -27,6 +27,13 @@ BuildOrchestrator (SM-4) slots.
   When a file changes → Fast Sync re-runs (stages 1-4) → marks affected
   trace nodes as "stale" in epistemic data → the deepening loop (stage 7)
   naturally picks up stale nodes in the next Group B run.
+
+**Crash Protection (Phase 25):**
+  Every state transition is persisted to a SQLite journal *before* the
+  work begins.  On startup, any journal entry still marked "running" is
+  detected as a crash, and the user is offered Resume/Discard via the UI.
+  Heartbeat timestamps prevent zombie detection false-positives.
+  Checkpoints back up trace files before destructive stages (deepening).
 
 **Relationship to BuildOrchestrator (SM-4):**
   Each stage dispatches its work via ``build_orchestrator.start()``.
@@ -123,6 +130,8 @@ class PipelineRun:
     error: Optional[str] = None
     # Per-stage completion tracking
     stage_results: Dict[str, str] = field(default_factory=dict)  # stage_id → "completed"|"failed"|"skipped"
+    # Phase 25: Journal run ID for crash recovery
+    journal_run_id: Optional[str] = None
 
     @property
     def current_stage(self) -> Optional[StageId]:
@@ -146,6 +155,7 @@ class PipelineRun:
             "finished_at": self.finished_at,
             "error": self.error,
             "stage_results": self.stage_results,
+            "journal_run_id": self.journal_run_id,
         }
 
 
@@ -277,12 +287,31 @@ class WorkerFactory:
             llm_client = WorkerFactory._get_llm_client("small")
             idx_dir = project_index_dir(project)
 
+            # Verbose pipeline file logging
+            try:
+                from codrag.services.pipeline_logger import get_pipeline_logger
+                pfl = get_pipeline_logger(idx_dir)
+                pfl.log("catalogue", f"Augmenter starting: model={llm_client.model}, endpoint={llm_client.endpoint_url}")
+            except Exception:
+                pfl = None
+
             augmenter = TraceAugmenter(
                 index_dir=idx_dir,
                 repo_root=project.path,
                 llm_client=llm_client,
             )
             result = augmenter.run(progress_callback=progress_cb)
+
+            if pfl:
+                pfl.log("catalogue", "Augmentation complete", {
+                    "total_nodes": result.total_nodes,
+                    "augmented": result.augmented,
+                    "synthetic": result.synthetic,
+                    "failed": result.failed,
+                    "skipped": result.skipped,
+                    "coverage_pct": round((result.augmented + result.synthetic) / result.total_nodes * 100, 1) if result.total_nodes else 0,
+                    "duration_ms": result.duration_ms,
+                })
             return {"stage": "catalogue", "augmented": result.augmented}
         return worker
 
@@ -324,12 +353,30 @@ class WorkerFactory:
             llm_client = WorkerFactory._get_llm_client("large")
             idx_dir = project_index_dir(project)
 
+            # Verbose pipeline file logging
+            try:
+                from codrag.services.pipeline_logger import get_pipeline_logger
+                pfl = get_pipeline_logger(idx_dir)
+                pfl.log("enrichment", f"Epistemic starting: model={llm_client.model}, endpoint={llm_client.endpoint_url}")
+            except Exception:
+                pfl = None
+
             enricher = EpistemicEnricher(
                 llm=llm_client,
                 repo_root=Path(project.path),
                 index_dir=idx_dir,
             )
             result = enricher.run(progress_callback=progress_cb)
+
+            if pfl:
+                pfl.log("enrichment", "Epistemic enrichment complete", {
+                    "total_file_nodes": result.get("total_file_nodes"),
+                    "enriched_this_run": result.get("enriched_this_run"),
+                    "failed_this_run": result.get("failed_this_run"),
+                    "skipped": result.get("skipped"),
+                    "total_enriched": result.get("total_enriched"),
+                    "duration_ms": result.get("duration_ms"),
+                })
             return {"stage": "enrichment", **(result or {})}
         return worker
 
@@ -344,7 +391,7 @@ class WorkerFactory:
             idx_dir = project_index_dir(project)
 
             synthesizer = ClusterSynthesizer(llm=llm_client, index_dir=idx_dir)
-            result = synthesizer.run()
+            result = synthesizer.run(progress_callback=progress_cb)
             return {"stage": "clustering", **(result or {})}
         return worker
 
@@ -401,8 +448,27 @@ class PipelineOrchestrator:
         self._lock = threading.Lock()
         # Active pipeline runs: (project_id, group) → PipelineRun
         self._runs: Dict[tuple[str, str], PipelineRun] = {}
+        # Per-project pipeline file loggers
+        self._file_loggers: Dict[str, Any] = {}
         # Register for build completion events
         self._orchestrator.add_listener(self._on_build_transition)
+        # Phase 25: cached crashed runs discovered at startup
+        self._crashed_runs: List[Any] = []
+
+    def _get_file_logger(self, project_id: str):
+        """Get or create a PipelineFileLogger for a project."""
+        if project_id not in self._file_loggers:
+            try:
+                from codrag.services.project_helpers import require_project
+                from codrag.core.project_registry import project_index_dir
+                project = require_project(project_id)
+                idx_dir = project_index_dir(project)
+                from codrag.services.pipeline_logger import PipelineFileLogger
+                self._file_loggers[project_id] = PipelineFileLogger(idx_dir)
+            except Exception:
+                logger.debug("Could not create pipeline file logger for %s", project_id, exc_info=True)
+                self._file_loggers[project_id] = None
+        return self._file_loggers.get(project_id)
 
     # ── Public API ─────────────────────────────────────────────
 
@@ -470,24 +536,49 @@ class PipelineOrchestrator:
 
     @staticmethod
     def _is_deep_enrichment_auto(project_id: str) -> bool:
-        """Check if deep enrichment mode is 'auto' in persisted pipeline config."""
+        """Check if deep enrichment should auto-chain after fast sync.
+
+        Returns True if either:
+        - deep_enrichment.mode is 'auto', OR
+        - fast_sync.auto is True (user expectation: AUTO runs the full pipeline)
+        """
         try:
             from codrag.services.settings_store import settings
             config = settings.get("pipeline_config") or {}
-            mode = (config.get("deep_enrichment") or {}).get("mode", "manual")
-            return mode == "auto"
+            deep_mode = (config.get("deep_enrichment") or {}).get("mode", "manual")
+            fast_auto = (config.get("fast_sync") or {}).get("auto", False)
+            return deep_mode == "auto" or fast_auto
         except Exception:
             return False
 
     def _start_group(
-        self, project_id: str, group: str, stages: List[StageId]
+        self, project_id: str, group: str, stages: List[StageId],
+        chain_deep: bool = False, resume_from: int = 0,
     ) -> bool:
-        """Start a group of stages sequentially."""
+        """Start a group of stages sequentially.
+
+        Returns False if this group OR any other group for the same
+        project is already active — groups share files and must not
+        run concurrently.
+        """
         with self._lock:
+            # Block if this group is already running
             key = (project_id, group)
             existing = self._runs.get(key)
             if existing and existing.is_active:
                 return False
+
+            # Block if ANY other group for the same project is running.
+            # Fast Sync and Deep Enrichment share trace files (knowledge,
+            # modules, epistemic) and running them concurrently causes
+            # data corruption (e.g. knowledge embedding "doubling").
+            for run_key, run_obj in self._runs.items():
+                if run_key[0] == project_id and run_key[1] != group and run_obj.is_active:
+                    logger.warning(
+                        "Cannot start %s/%s — %s is already active for this project",
+                        project_id, group, run_key[1],
+                    )
+                    return False
 
             run = PipelineRun(
                 project_id=project_id,
@@ -495,15 +586,41 @@ class PipelineOrchestrator:
                 stages=list(stages),
                 phase=PipelineRunPhase.RUNNING,
                 started_at=time.time(),
+                current_stage_index=resume_from,
             )
             self._runs[key] = run
 
-        # Start the first stage
+        # Start pipeline file logger for this run
+        pfl = self._get_file_logger(project_id)
+        if pfl:
+            pfl.start_run(group, [s.value for s in stages], project_id=project_id)
+
+        # Phase 25: persist intent to journal before starting work
+        try:
+            from codrag.services.pipeline_journal import journal
+            run_id = journal.start_run(
+                project_id, group,
+                [s.value for s in stages],
+                chain_deep=chain_deep,
+            )
+            run.journal_run_id = run_id
+            # If resuming, mark already-completed stages
+            if resume_from > 0:
+                for i in range(resume_from):
+                    stage_val = stages[i].value
+                    run.stage_results[stage_val] = "completed"
+                    journal.stage_completed(run_id, stage_val)
+                journal.stage_started(run_id, stages[resume_from].value, resume_from)
+        except Exception:
+            logger.debug("Journal write failed (non-fatal)", exc_info=True)
+
+        # Start the first (or resumed) stage
         self._advance_pipeline(run)
         return True
 
     def _advance_pipeline(self, run: PipelineRun) -> None:
         """Advance to the next stage in the pipeline, or finish."""
+        pfl = self._get_file_logger(run.project_id)
         if run.current_stage_index >= len(run.stages):
             # All stages complete
             with self._lock:
@@ -514,19 +631,54 @@ class PipelineOrchestrator:
                 run.project_id, run.group,
                 (run.finished_at or 0) - (run.started_at or 0),
             )
+            if pfl:
+                pfl.end_run("completed")
+            # Phase 25: journal — mark run completed + cleanup checkpoint
+            self._journal_run_completed(run)
             # Chain deep enrichment after fast sync if configured or explicitly requested
             if run.group == "fast_sync":
                 should_chain = False
+                chain_reason = "none"
                 # 1. Explicit chain from run_all()
                 chain_deep = getattr(self, "_chain_deep", {})
                 if chain_deep.pop(run.project_id, False):
                     should_chain = True
+                    chain_reason = "explicit_run_all"
                 # 2. Auto-chain: check persisted pipeline config
                 if not should_chain:
-                    should_chain = self._is_deep_enrichment_auto(run.project_id)
+                    is_auto = self._is_deep_enrichment_auto(run.project_id)
+                    logger.info(
+                        "Auto-chain check for %s: _is_deep_enrichment_auto=%s",
+                        run.project_id, is_auto,
+                    )
+                    if is_auto:
+                        should_chain = True
+                        chain_reason = "auto_config"
                 if should_chain:
-                    logger.info("Chaining deep enrichment after fast sync for %s", run.project_id)
-                    self.run_deep_enrichment(run.project_id)
+                    logger.info(
+                        "Chaining deep enrichment after fast sync for %s (reason=%s)",
+                        run.project_id, chain_reason,
+                    )
+                    try:
+                        started = self.run_deep_enrichment(run.project_id)
+                        logger.info(
+                            "Deep enrichment chain result for %s: started=%s",
+                            run.project_id, started,
+                        )
+                        if pfl:
+                            pfl.log("fast_sync", f"Auto-chained deep enrichment: started={started}, reason={chain_reason}")
+                    except Exception as chain_exc:
+                        logger.exception(
+                            "Failed to chain deep enrichment for %s: %s",
+                            run.project_id, chain_exc,
+                        )
+                        if pfl:
+                            pfl.log("fast_sync", f"Auto-chain FAILED: {chain_exc}")
+                else:
+                    logger.info(
+                        "NOT chaining deep enrichment for %s (reason=%s)",
+                        run.project_id, chain_reason,
+                    )
             return
 
         stage = run.stages[run.current_stage_index]
@@ -538,17 +690,38 @@ class PipelineOrchestrator:
             run.current_stage_index + 1, len(run.stages),
             stage.value,
         )
+        if pfl:
+            pfl.stage_start(stage.value, {
+                "stage_index": run.current_stage_index,
+                "total_stages": len(run.stages),
+                "group": run.group,
+            })
+
+        # Phase 25: journal — record stage start
+        self._journal_stage_started(run, stage)
+
+        # Phase 25: checkpoint — backup trace files before destructive stages
+        self._create_checkpoint_if_needed(run, stage)
 
         worker = WorkerFactory.create_worker(run.project_id, stage)
         started = self._orchestrator.start(run.project_id, build_type, worker)
 
         if not started:
-            # Build type already active (e.g. someone triggered it manually)
-            # Wait for it to complete via the listener
-            logger.info(
-                "Stage %s already active for %s — waiting for completion",
+            # Build slot is stuck in RUNNING/QUEUED from a prior run.
+            # Force-reset it and retry once so the pipeline doesn't stall.
+            logger.warning(
+                "Stage %s slot already active for %s — force-resetting stuck slot",
                 stage.value, run.project_id,
             )
+            self._orchestrator.cancel(run.project_id, build_type)
+            # Small delay to let the slot settle after cancel
+            time.sleep(0.1)
+            started = self._orchestrator.start(run.project_id, build_type, worker)
+            if not started:
+                raise RuntimeError(
+                    f"Cannot start stage {stage.value}: build slot {build_type.value} "
+                    f"is stuck for project {run.project_id}"
+                )
 
     def _on_build_transition(
         self,
@@ -590,6 +763,18 @@ class PipelineOrchestrator:
                     "Pipeline %s/%s — stage %s completed",
                     project_id, matching_run.group, stage.value,
                 )
+                # Pipeline file logger
+                pfl = self._get_file_logger(project_id)
+                if pfl:
+                    slot = self._orchestrator.status(project_id, build_type)
+                    pfl.stage_end(stage.value, "completed", data={
+                        "result": slot.result,
+                        "duration": slot.duration_seconds,
+                    })
+                    pfl.transition(build_type.value, old_phase.value, new_phase.value,
+                                   f"Stage {stage.value} completed")
+                # Phase 25: journal — record stage completion
+                self._journal_stage_completed(matching_run, stage)
             elif new_phase == BuildPhase.FAILED:
                 matching_run.stage_results[stage.value] = "failed"
                 slot = self._orchestrator.status(project_id, build_type)
@@ -600,11 +785,37 @@ class PipelineOrchestrator:
                     "Pipeline %s/%s — stage %s failed: %s",
                     project_id, matching_run.group, stage.value, slot.error,
                 )
+                # Pipeline file logger
+                pfl = self._get_file_logger(project_id)
+                if pfl:
+                    pfl.stage_end(stage.value, "failed", error=slot.error, data={
+                        "duration": slot.duration_seconds,
+                    })
+                    pfl.end_run("failed", error=slot.error)
+                # Phase 25: journal — record stage failure
+                self._journal_stage_failed(matching_run, stage, slot.error or "Unknown error")
                 return
 
-        # Advance outside the lock
+        # Advance outside the lock — wrapped in try/except so a failure
+        # in stage creation marks the run FAILED instead of silently stalling.
         if matching_run and matching_run.is_active:
-            self._advance_pipeline(matching_run)
+            try:
+                self._advance_pipeline(matching_run)
+            except Exception as exc:
+                logger.exception(
+                    "Pipeline %s/%s — _advance_pipeline failed after stage %s: %s",
+                    matching_run.project_id, matching_run.group,
+                    stage.value if stage else "?", exc,
+                )
+                pfl = self._get_file_logger(project_id)
+                if pfl:
+                    pfl.log(stage.value if stage else "unknown",
+                            f"_advance_pipeline failed: {exc}")
+                    pfl.end_run("failed", error=str(exc))
+                with self._lock:
+                    matching_run.phase = PipelineRunPhase.FAILED
+                    matching_run.finished_at = time.time()
+                    matching_run.error = f"Failed to advance after {stage.value if stage else '?'}: {exc}"
 
     def _cancel_group(self, project_id: str, group: str) -> bool:
         """Cancel a running group."""
@@ -623,7 +834,176 @@ class PipelineOrchestrator:
         if current:
             bt = STAGE_BUILD_TYPE[current]
             self._orchestrator.cancel(project_id, bt)
+
+        # Phase 25: journal — record cancellation
+        if run.journal_run_id:
+            try:
+                from codrag.services.pipeline_journal import journal
+                journal.run_cancelled(run.journal_run_id)
+            except Exception:
+                logger.debug("Journal cancel write failed", exc_info=True)
         return True
+
+    # ── Phase 25: Journal Helpers ─────────────────────────────────
+
+    def _journal_stage_started(self, run: PipelineRun, stage: StageId) -> None:
+        if not run.journal_run_id:
+            return
+        try:
+            from codrag.services.pipeline_journal import journal
+            journal.stage_started(run.journal_run_id, stage.value, run.current_stage_index)
+        except Exception:
+            logger.debug("Journal stage_started write failed", exc_info=True)
+
+    def _journal_stage_completed(self, run: PipelineRun, stage: StageId) -> None:
+        if not run.journal_run_id:
+            return
+        try:
+            from codrag.services.pipeline_journal import journal
+            journal.stage_completed(run.journal_run_id, stage.value)
+        except Exception:
+            logger.debug("Journal stage_completed write failed", exc_info=True)
+
+    def _journal_stage_failed(self, run: PipelineRun, stage: StageId, error: str) -> None:
+        if not run.journal_run_id:
+            return
+        try:
+            from codrag.services.pipeline_journal import journal
+            journal.stage_failed(run.journal_run_id, stage.value, error)
+        except Exception:
+            logger.debug("Journal stage_failed write failed", exc_info=True)
+
+    def _journal_run_completed(self, run: PipelineRun) -> None:
+        if not run.journal_run_id:
+            return
+        try:
+            from codrag.services.pipeline_journal import journal
+            journal.run_completed(run.journal_run_id)
+        except Exception:
+            logger.debug("Journal run_completed write failed", exc_info=True)
+        # Cleanup checkpoint
+        try:
+            from codrag.services.pipeline_journal import journal as j
+            entry = j.get_run(run.journal_run_id)
+            if entry and entry.checkpoint_path:
+                from codrag.services.pipeline_checkpoint import cleanup_checkpoint
+                cleanup_checkpoint(entry.checkpoint_path)
+        except Exception:
+            logger.debug("Checkpoint cleanup failed", exc_info=True)
+
+    def _create_checkpoint_if_needed(self, run: PipelineRun, stage: StageId) -> None:
+        """Create a checkpoint before destructive stages."""
+        if not run.journal_run_id:
+            return
+        try:
+            from codrag.services.pipeline_checkpoint import create_checkpoint, CHECKPOINT_STAGES
+            if stage.value not in CHECKPOINT_STAGES:
+                return
+            from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
+            project = require_project(run.project_id)
+            idx_dir = project_index_dir(project)
+            cp_path = create_checkpoint(idx_dir, run.journal_run_id, stage.value)
+            if cp_path:
+                from codrag.services.pipeline_journal import journal
+                journal.set_checkpoint(run.journal_run_id, cp_path)
+        except Exception:
+            logger.debug("Checkpoint creation failed (non-fatal)", exc_info=True)
+
+    # ── Phase 25: Crash Recovery ──────────────────────────────────
+
+    def startup_recovery(self) -> List[Any]:
+        """Called once on daemon startup.  Detects crashed runs.
+
+        Returns list of JournalEntry dicts for the UI to display.
+        """
+        try:
+            from codrag.services.pipeline_journal import journal
+            crashed = journal.recover_crashed_runs()
+            self._crashed_runs = crashed
+            if crashed:
+                logger.warning(
+                    "Crash recovery: found %d crashed pipeline run(s)", len(crashed)
+                )
+                # Auto-heal: verify trace files for each crashed project
+                for entry in crashed:
+                    try:
+                        from codrag.services.pipeline_checkpoint import verify_trace_files, auto_heal
+                        from codrag.core.project_registry import project_index_dir
+                        from codrag.services.project_helpers import require_project
+                        project = require_project(entry.project_id)
+                        idx_dir = project_index_dir(project)
+                        valid, corrupt = verify_trace_files(idx_dir)
+                        if not valid:
+                            logger.warning(
+                                "Corrupt trace files for %s: %s — attempting auto-heal",
+                                entry.project_id, corrupt,
+                            )
+                            results = auto_heal(idx_dir, entry.checkpoint_path)
+                            logger.info("Auto-heal results for %s: %s", entry.project_id, results)
+                    except Exception:
+                        logger.debug("Auto-heal failed for %s", entry.project_id, exc_info=True)
+            return [e.to_dict() for e in crashed]
+        except Exception:
+            logger.debug("Startup recovery failed", exc_info=True)
+            return []
+
+    def get_crashed_runs(self, project_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get crashed runs (for UI display)."""
+        try:
+            from codrag.services.pipeline_journal import journal
+            entries = journal.get_crashed_runs(project_id)
+            return [e.to_dict() for e in entries]
+        except Exception:
+            return []
+
+    def resume_crashed_run(self, run_id: str) -> bool:
+        """Resume a crashed pipeline run from the stage it was on.
+
+        Creates a new run starting from the crashed stage.
+        Returns True if resumed successfully.
+        """
+        try:
+            from codrag.services.pipeline_journal import journal
+            entry = journal.get_run(run_id)
+            if not entry or entry.status != "crashed":
+                return False
+
+            # Resolve the crashed run
+            journal.resolve_crashed_run(run_id, "resumed")
+
+            # Determine stages and resume point
+            if entry.group == "fast_sync":
+                stages = FAST_SYNC_STAGES
+            elif entry.group == "deep_enrichment":
+                stages = DEEP_ENRICHMENT_STAGES
+            else:
+                return False
+
+            resume_from = entry.current_stage_index
+            chain_deep = entry.chain_deep
+
+            logger.info(
+                "Resuming crashed run %s: %s/%s from stage %d (%s)",
+                run_id, entry.project_id, entry.group,
+                resume_from, entry.current_stage,
+            )
+
+            return self._start_group(
+                entry.project_id, entry.group, stages,
+                chain_deep=chain_deep, resume_from=resume_from,
+            )
+        except Exception:
+            logger.exception("Resume failed for run %s", run_id)
+            return False
+
+    def discard_crashed_run(self, run_id: str) -> bool:
+        """Discard a crashed pipeline run without resuming."""
+        try:
+            from codrag.services.pipeline_journal import journal
+            return journal.resolve_crashed_run(run_id, "discarded")
+        except Exception:
+            return False
 
 
 # ── SSE Event Bridge ─────────────────────────────────────────────

@@ -131,6 +131,7 @@ class MCPServer:
         self._client: Optional[httpx.AsyncClient] = None
         self._resolved_project_id: Optional[str] = None
         self._resolved_project_cwd: Optional[str] = None
+        self._initialize_roots: List[str] = []
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -220,14 +221,62 @@ class MCPServer:
             raise DaemonError(f"Daemon returned invalid JSON: {resp.text}")
         return self._unwrap_envelope(payload_out)
 
-    async def _resolve_project_id(self) -> str:
+    def _best_project_match(
+        self, projects: List[Dict[str, Any]], paths: List[str]
+    ) -> Optional[str]:
+        """Return the project_id whose root is the longest prefix of any path, or None.
+
+        Returns None if zero matches or if multiple projects tie at the same
+        prefix length (ambiguous).
+        """
+        best_id: Optional[str] = None
+        best_len = -1
+        ambiguous = False
+
+        for p in projects:
+            pid = p.get("id")
+            p_path = str(p.get("path") or "").rstrip("/")
+            if not pid or not p_path:
+                continue
+            for check_path in paths:
+                check = check_path.rstrip("/")
+                if check == p_path or check.startswith(p_path + "/"):
+                    if len(p_path) > best_len:
+                        best_id = str(pid)
+                        best_len = len(p_path)
+                        ambiguous = False
+                    elif len(p_path) == best_len and str(pid) != best_id:
+                        ambiguous = True
+
+        if ambiguous:
+            return None
+        return best_id
+
+    async def _resolve_project_id(self, override: Optional[str] = None) -> str:
+        """Resolve which project to target.
+
+        Priority:
+          1. Explicit override (from tool call ``project_id`` param)
+          2. Pinned project (from CLI ``--project`` flag)
+          3. MCP initialize roots (workspace URIs sent by the IDE)
+          4. CWD auto-detect (process working directory)
+          5. Single-project shortcut
+        """
+        # 1. Tool-call override
+        if override and override.strip():
+            return override.strip()
+
+        # 2. CLI pinned
         if self.project_id:
             return self.project_id
 
+        # 3-4. Cache hit (roots + CWD haven't changed)
         cwd = str(Path.cwd().resolve())
-        if self.auto_detect and self._resolved_project_id and self._resolved_project_cwd == cwd:
+        cache_key = (tuple(self._initialize_roots), cwd)
+        if self._resolved_project_id and getattr(self, "_cache_key", None) == cache_key:
             return self._resolved_project_id
 
+        # Fetch all projects from daemon
         data = await self._api_get("/projects")
         projects: List[Dict[str, Any]] = []
         if isinstance(data, dict):
@@ -236,9 +285,12 @@ class MCPServer:
                 projects = [p for p in raw if isinstance(p, dict)]
 
         if not projects:
-            raise ProjectNotFoundError("No projects configured in daemon")
+            raise ProjectNotFoundError(
+                "No projects configured in CoDRAG daemon. "
+                "Add one with: codrag add /path/to/your/repo"
+            )
 
-        def _project_lines() -> List[str]:
+        def _project_lines() -> str:
             lines: List[str] = []
             for p in projects:
                 pid = str(p.get("id") or "").strip()
@@ -246,67 +298,44 @@ class MCPServer:
                     continue
                 name = str(p.get("name") or "").strip() or "(unnamed)"
                 path = str(p.get("path") or "").strip()
-                lines.append(f"- {pid}: {name} ({path})")
-            return lines
+                lines.append(f"  - {pid}: {name} ({path})")
+            return "\n".join(lines)
 
-        if self.auto_detect:
-            matches: List[Dict[str, Any]] = []
-            for p in projects:
-                pid = p.get("id")
-                p_path = str(p.get("path") or "").rstrip("/")
-                if not pid or not p_path:
-                    continue
-                if cwd == p_path or cwd.startswith(p_path + "/"):
-                    matches.append(p)
-
-            if matches:
-                max_len = max(len(str(p.get("path") or "").rstrip("/")) for p in matches)
-                best = [
-                    p
-                    for p in matches
-                    if len(str(p.get("path") or "").rstrip("/")) == max_len
-                ]
-                if len(best) == 1 and best[0].get("id"):
-                    best_id = str(best[0].get("id"))
-                    self._resolved_project_id = best_id
-                    self._resolved_project_cwd = cwd
-                    logger.debug(
-                        f"Auto-detected project_id={best_id} cwd={cwd} path={best[0].get('path')}"
-                    )
-                    return best_id
-
-                msg = (
-                    "PROJECT_SELECTION_AMBIGUOUS: Multiple projects match current working directory.\n"
-                    f"cwd: {cwd}\n\n"
-                    "Projects:\n"
-                    + "\n".join(_project_lines())
-                    + "\n\nHint: Run MCP with --project <id> to pin a project."
-                )
-                raise ProjectSelectionAmbiguousError(msg)
-
-        if len(projects) == 1 and projects[0].get("id"):
-            pid = str(projects[0].get("id"))
-            if self.auto_detect:
+        # 3. Try initialize roots (workspace URIs from the IDE)
+        if self._initialize_roots:
+            pid = self._best_project_match(projects, self._initialize_roots)
+            if pid:
                 self._resolved_project_id = pid
-                self._resolved_project_cwd = cwd
+                self._cache_key = cache_key
+                logger.debug(f"Resolved project from initialize roots: {pid}")
+                return pid
+
+        # 4. CWD auto-detect (always attempted, not gated on --auto)
+        pid = self._best_project_match(projects, [cwd])
+        if pid:
+            self._resolved_project_id = pid
+            self._cache_key = cache_key
+            logger.debug(f"Auto-detected project from CWD: {pid} cwd={cwd}")
             return pid
 
-        lines = _project_lines()
-        if self.auto_detect:
-            msg = (
-                "PROJECT_NOT_FOUND: No project matched current working directory.\n"
-                f"cwd: {cwd}\n\n"
-                "Projects:\n"
-                + "\n".join(lines)
-                + "\n\nHint: Run MCP with --project <id>, or run MCP with --auto from inside a project directory."
-            )
-            raise ProjectNotFoundError(msg)
+        # 5. Single-project shortcut
+        if len(projects) == 1 and projects[0].get("id"):
+            pid = str(projects[0]["id"])
+            self._resolved_project_id = pid
+            self._cache_key = cache_key
+            return pid
 
+        # No match — return actionable error with full project list
         msg = (
-            "PROJECT_SELECTION_AMBIGUOUS: Multiple projects are configured; selection is ambiguous.\n\n"
-            "Projects:\n"
-            + "\n".join(lines)
-            + "\n\nHint: Run MCP with --project <id> to pin a project, or use --auto to select based on cwd."
+            "PROJECT_SELECTION_AMBIGUOUS: Could not determine which project to use.\n"
+            f"cwd: {cwd}\n"
+        )
+        if self._initialize_roots:
+            msg += f"workspace roots: {self._initialize_roots}\n"
+        msg += (
+            "\nAvailable projects:\n"
+            + _project_lines()
+            + "\n\nHint: Pass project_id in the tool call to target a specific project."
         )
         raise ProjectSelectionAmbiguousError(msg)
 
@@ -314,14 +343,15 @@ class MCPServer:
     # Tool Implementations
     # -------------------------------------------------------------------------
 
-    async def tool_status(self) -> Dict[str, Any]:
+    async def tool_status(self, project_override: Optional[str] = None) -> Dict[str, Any]:
         """Get index status."""
-        project_id = await self._resolve_project_id()
+        project_id = await self._resolve_project_id(override=project_override)
         data = await self._api_get(f"/projects/{project_id}/status")
 
         # Lean output for token efficiency
         index = (data or {}).get("index", {}) if isinstance(data, dict) else {}
-        return {
+        result: Dict[str, Any] = {
+            "project_id": project_id,
             "daemon": "running",
             "index_loaded": bool(index.get("exists", False)),
             "total_documents": int(index.get("total_chunks") or 0),
@@ -333,9 +363,25 @@ class MCPServer:
             ),
         }
 
-    async def tool_build(self, full: bool = False) -> Dict[str, Any]:
+        # When no project_override was given, also list all projects so the AI
+        # can see what's available (useful for multi-project setups).
+        if not project_override and not self.project_id:
+            try:
+                pdata = await self._api_get("/projects")
+                plist = []
+                for p in (pdata or {}).get("projects", []) if isinstance(pdata, dict) else []:
+                    if isinstance(p, dict) and p.get("id"):
+                        plist.append({"id": p["id"], "name": p.get("name", ""), "path": p.get("path", "")})
+                if len(plist) > 1:
+                    result["available_projects"] = plist
+            except Exception:
+                pass  # Non-critical
+
+        return result
+
+    async def tool_build(self, full: bool = False, project_override: Optional[str] = None) -> Dict[str, Any]:
         """Trigger index build."""
-        project_id = await self._resolve_project_id()
+        project_id = await self._resolve_project_id(override=project_override)
         path = f"/projects/{project_id}/build"
         if full:
             path = f"{path}?full=true"
@@ -346,14 +392,15 @@ class MCPServer:
             return {"status": "already_building", "message": "A build is already in progress."}
 
         if isinstance(data, dict) and data.get("started"):
-            return {"status": "started", "message": "Index build started. Use codrag_status to check progress."}
-        return {"status": "unknown", "data": data}
+            return {"project_id": project_id, "status": "started", "message": "Index build started. Use codrag_status to check progress."}
+        return {"project_id": project_id, "status": "unknown", "data": data}
 
     async def tool_search(
         self,
         query: str,
         k: int = 8,
         min_score: float = 0.15,
+        project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Search the index."""
         if not query.strip():
@@ -375,7 +422,7 @@ class MCPServer:
         if min_score < 0.0 or min_score > 1.0:
             raise InvalidParamsError("min_score must be between 0 and 1")
 
-        project_id = await self._resolve_project_id()
+        project_id = await self._resolve_project_id(override=project_override)
         data = await self._api_post(f"/projects/{project_id}/search", {
             "query": query,
             "k": k,
@@ -394,6 +441,7 @@ class MCPServer:
             })
 
         return {
+            "project_id": project_id,
             "query": query,
             "count": len(formatted),
             "results": formatted,
@@ -408,6 +456,7 @@ class MCPServer:
         compression: str = "none",
         compression_level: str = "standard",
         compression_timeout_s: float = 30.0,
+        project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Get assembled context."""
         if not query.strip():
@@ -436,7 +485,7 @@ class MCPServer:
         if compression_level not in ("light", "standard", "aggressive"):
             raise InvalidParamsError("compression_level must be 'light', 'standard', or 'aggressive'")
 
-        project_id = await self._resolve_project_id()
+        project_id = await self._resolve_project_id(override=project_override)
         payload: Dict[str, Any] = {
             "query": query,
             "k": k,
@@ -457,6 +506,7 @@ class MCPServer:
         chunks = data.get("chunks") if isinstance(data, dict) else None
         chunks_used = len(chunks) if isinstance(chunks, list) else 0
         result: Dict[str, Any] = {
+            "project_id": project_id,
             "context": (data or {}).get("context", "") if isinstance(data, dict) else "",
             "chunks_used": chunks_used,
             "total_chars": (data or {}).get("total_chars", 0) if isinstance(data, dict) else 0,
@@ -474,6 +524,7 @@ class MCPServer:
         query: str,
         kind: Optional[str] = None,
         limit: int = 20,
+        project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Search the trace index for symbols."""
         if not query.strip():
@@ -488,7 +539,7 @@ class MCPServer:
         if limit > 100:
             raise InvalidParamsError("limit too large (max 100)")
 
-        project_id = await self._resolve_project_id()
+        project_id = await self._resolve_project_id(override=project_override)
         payload: Dict[str, Any] = {"query": query, "limit": limit}
         if kind:
             payload["kind"] = kind
@@ -507,6 +558,7 @@ class MCPServer:
             })
 
         return {
+            "project_id": project_id,
             "query": query,
             "count": len(formatted),
             "nodes": formatted,
@@ -518,6 +570,7 @@ class MCPServer:
         direction: str = "both",
         edge_kinds: Optional[List[str]] = None,
         max_nodes: int = 25,
+        project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Get neighbors for a trace node."""
         if not node_id.strip():
@@ -535,7 +588,7 @@ class MCPServer:
         if max_nodes > 100:
             raise InvalidParamsError("max_nodes too large (max 100)")
 
-        project_id = await self._resolve_project_id()
+        project_id = await self._resolve_project_id(override=project_override)
         
         # Build query params
         params = [f"direction={direction}", f"max_nodes={max_nodes}"]
@@ -551,6 +604,7 @@ class MCPServer:
         edges = (data or {}).get("edges", []) if isinstance(data, dict) else []
 
         return {
+            "project_id": project_id,
             "center": center,
             "node_count": len(nodes),
             "edge_count": len(edges),
@@ -558,13 +612,14 @@ class MCPServer:
             "edges": edges[:50],  # Cap edges for token efficiency
         }
 
-    async def tool_trace_coverage(self) -> Dict[str, Any]:
+    async def tool_trace_coverage(self, project_override: Optional[str] = None) -> Dict[str, Any]:
         """Get trace coverage statistics."""
-        project_id = await self._resolve_project_id()
+        project_id = await self._resolve_project_id(override=project_override)
         data = await self._api_get(f"/projects/{project_id}/trace/coverage")
 
         # Return lean summary for token efficiency
         return {
+            "project_id": project_id,
             "traced_count": (data or {}).get("traced_count", 0) if isinstance(data, dict) else 0,
             "untraced_count": (data or {}).get("untraced_count", 0) if isinstance(data, dict) else 0,
             "stale_count": (data or {}).get("stale_count", 0) if isinstance(data, dict) else 0,
@@ -579,7 +634,47 @@ class MCPServer:
     # -------------------------------------------------------------------------
 
     async def handle_initialize(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle initialize request."""
+        """Handle initialize request.
+
+        Extracts workspace roots from the client so we can match them
+        against registered CoDRAG projects for automatic routing.
+        """
+        self._initialize_roots = []
+
+        # MCP spec: roots array in params
+        roots = params.get("roots", [])
+        if isinstance(roots, list):
+            for root in roots:
+                if isinstance(root, dict):
+                    uri = root.get("uri", "")
+                    path = self._uri_to_path(uri)
+                    if path:
+                        self._initialize_roots.append(path)
+                elif isinstance(root, str):
+                    path = self._uri_to_path(root)
+                    if path:
+                        self._initialize_roots.append(path)
+
+        # LSP compat: rootUri (string)
+        root_uri = params.get("rootUri") or params.get("rootPath", "")
+        if root_uri:
+            path = self._uri_to_path(str(root_uri))
+            if path and path not in self._initialize_roots:
+                self._initialize_roots.append(path)
+
+        # LSP compat: workspaceFolders (array of {uri, name})
+        workspace_folders = params.get("workspaceFolders", [])
+        if isinstance(workspace_folders, list):
+            for folder in workspace_folders:
+                if isinstance(folder, dict):
+                    uri = folder.get("uri", "")
+                    path = self._uri_to_path(str(uri))
+                    if path and path not in self._initialize_roots:
+                        self._initialize_roots.append(path)
+
+        if self._initialize_roots:
+            logger.debug(f"Workspace roots from client: {self._initialize_roots}")
+
         return {
             "protocolVersion": MCP_PROTOCOL_VERSION,
             "capabilities": {
@@ -591,6 +686,19 @@ class MCPServer:
             },
         }
 
+    @staticmethod
+    def _uri_to_path(uri: str) -> Optional[str]:
+        """Convert a file:// URI or bare path to a filesystem path."""
+        if not uri:
+            return None
+        if uri.startswith("file:///"):
+            return uri[7:]  # file:///Users/... -> /Users/...
+        if uri.startswith("file://"):
+            return uri[7:]
+        if uri.startswith("/"):
+            return uri
+        return None
+
     async def handle_tools_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle tools/list request."""
         return {"tools": TOOLS}
@@ -600,16 +708,20 @@ class MCPServer:
         name = params.get("name", "")
         args = params.get("arguments", {})
 
+        # Extract project_id override (available on all project-scoped tools)
+        project_override = args.get("project_id")
+
         try:
             if name == "codrag_status":
-                result = await self.tool_status()
+                result = await self.tool_status(project_override=project_override)
             elif name == "codrag_build":
-                result = await self.tool_build(full=args.get("full", False))
+                result = await self.tool_build(full=args.get("full", False), project_override=project_override)
             elif name == "codrag_search":
                 result = await self.tool_search(
                     query=args.get("query", ""),
                     k=args.get("k", 8),
                     min_score=args.get("min_score", 0.15),
+                    project_override=project_override,
                 )
             elif name == "codrag":
                 result = await self.tool_context(
@@ -620,12 +732,14 @@ class MCPServer:
                     compression=args.get("compression", "none"),
                     compression_level=args.get("compression_level", "standard"),
                     compression_timeout_s=args.get("compression_timeout_s", 30.0),
+                    project_override=project_override,
                 )
             elif name == "codrag_trace_search":
                 result = await self.tool_trace_search(
                     query=args.get("query", ""),
                     kind=args.get("kind"),
                     limit=args.get("limit", 20),
+                    project_override=project_override,
                 )
             elif name == "codrag_trace_neighbors":
                 result = await self.tool_trace_neighbors(
@@ -633,9 +747,10 @@ class MCPServer:
                     direction=args.get("direction", "both"),
                     edge_kinds=args.get("edge_kinds"),
                     max_nodes=args.get("max_nodes", 25),
+                    project_override=project_override,
                 )
             elif name == "codrag_trace_coverage":
-                result = await self.tool_trace_coverage()
+                result = await self.tool_trace_coverage(project_override=project_override)
             else:
                 raise MethodNotFoundError(f"Unknown tool: {name}")
 

@@ -1,4 +1,4 @@
-import { Folder, Database, AlertCircle, FileText, Code2, RefreshCw, Play, GitBranch, BookOpen } from 'lucide-react';
+import { Folder, Database, AlertCircle, Code2, RefreshCw, Play, GitBranch, BookOpen } from 'lucide-react';
 import { SlidingSwitch2 } from '../primitives/SlidingSwitch';
 import { Card, Badge, Text, Divider } from '@tremor/react';
 import { cn } from '../../lib/utils';
@@ -48,6 +48,8 @@ export interface IndexStatusCardProps {
   isPro?: boolean;
   className?: string;
   bare?: boolean;
+  /** Whether to hide the distribution chart (e.g. during transient completion state) */
+  hideChart?: boolean;
 }
 
 function formatNumber(num: number): string {
@@ -72,6 +74,7 @@ export function IndexStatusCard({
   isPro = false,
   className,
   bare = false,
+  hideChart = false,
 }: IndexStatusCardProps) {
   const showAutoToggle = onAutoRebuildChange !== undefined;
   // Free users are forced to Manual regardless of stored value
@@ -81,17 +84,28 @@ export function IndexStatusCard({
   // Calculate stats
   const totalFiles = (stats.build?.files_code || 0) + (stats.build?.files_docs || 0);
   
-
-  // Line-level type breakdown (fall back to file counts if line data absent)
+  // Chart basis: Prefer Chunks for apples-to-apples comparison if Graph is present.
+  // Otherwise fall back to lines (if available) or files.
+  const codeChunks = stats.build?.chunks_code ?? 0;
+  const docsChunks = stats.build?.chunks_docs ?? 0;
+  const graphChunks = traceChunks;
+  
   const hasLineBreakdown = (stats.build?.lines_docs ?? 0) + (stats.build?.lines_code ?? 0) > 0;
-  const breakdownTotal = hasLineBreakdown
-    ? (stats.build!.lines_docs! + stats.build!.lines_code!)
-    : totalFiles;
-  const codeValue = hasLineBreakdown ? (stats.build!.lines_code ?? 0) : (stats.build?.files_code || 0);
-  const docsValue = hasLineBreakdown ? (stats.build!.lines_docs ?? 0) : (stats.build?.files_docs || 0);
+  
+  // If we have graph chunks, we use chunks as the common unit for the bar
+  const useChunks = graphChunks > 0 || (!hasLineBreakdown);
+  
+  const codeValue = useChunks ? codeChunks : (stats.build!.lines_code ?? 0);
+  const docsValue = useChunks ? docsChunks : (stats.build!.lines_docs ?? 0);
+  const graphValue = useChunks ? graphChunks : 0; // Graph doesn't have lines
+  
+  const breakdownTotal = codeValue + docsValue + graphValue;
+  
   const codePercent = breakdownTotal > 0 ? (codeValue / breakdownTotal) * 100 : 0;
   const docsPercent = breakdownTotal > 0 ? (docsValue / breakdownTotal) * 100 : 0;
-  const breakdownUnit = hasLineBreakdown ? 'lines' : 'files';
+  const graphPercent = breakdownTotal > 0 ? (graphValue / breakdownTotal) * 100 : 0;
+  
+  const breakdownUnit = useChunks ? 'chunks' : (hasLineBreakdown ? 'lines' : 'files');
 
   // Construct effective progress for display
   // If building but no progress object yet, show indeterminate
@@ -203,20 +217,26 @@ export function IndexStatusCard({
           </div>
         </div>
 
-        {/* Code vs Docs Distribution */}
-        {breakdownTotal > 0 && (
+        {/* Code vs Docs vs Graph Distribution */}
+        {breakdownTotal > 0 && !hideChart && (
           <div className="space-y-1.5">
             <div className="flex justify-between text-xs text-text-subtle">
               <span className="flex items-center gap-1.5">
-                <Code2 className="w-3 h-3" />
+                <Code2 className="w-3 h-3 text-blue-500" />
                 Code {Math.round(codePercent)}%
-                {hasLineBreakdown && <span className="opacity-60">({formatNumber(codeValue)} lines)</span>}
+                {hasLineBreakdown && !useChunks && <span className="opacity-60">({formatNumber(codeValue)} lines)</span>}
               </span>
               <span className="flex items-center gap-1.5">
-                <FileText className="w-3 h-3" />
+                <BookOpen className="w-3 h-3 text-emerald-500" />
                 Docs {Math.round(docsPercent)}%
-                {hasLineBreakdown && <span className="opacity-60">({formatNumber(docsValue)} lines)</span>}
+                {hasLineBreakdown && !useChunks && <span className="opacity-60">({formatNumber(docsValue)} lines)</span>}
               </span>
+              {graphValue > 0 && (
+                <span className="flex items-center gap-1.5">
+                  <GitBranch className="w-3 h-3 text-purple-500" />
+                  Graph {Math.round(graphPercent)}%
+                </span>
+              )}
             </div>
             <div className="h-1.5 w-full bg-surface-raised rounded-full overflow-hidden flex">
               <div 
@@ -227,6 +247,12 @@ export function IndexStatusCard({
                 className="h-full bg-emerald-500/70" 
                 style={{ width: `${docsPercent}%` }} 
               />
+              {graphValue > 0 && (
+                <div 
+                  className="h-full bg-purple-500/70" 
+                  style={{ width: `${graphPercent}%` }} 
+                />
+              )}
             </div>
             {!hasLineBreakdown && totalFiles > 0 && (
               <div className="text-[10px] text-text-subtle/60 italic">by {breakdownUnit}</div>

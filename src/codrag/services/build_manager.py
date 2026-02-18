@@ -211,6 +211,17 @@ class BuildManager:
         t = self.build_threads.get(project_id)
         return t is not None and t.is_alive()
 
+    def _is_pipeline_active(self, project_id: str) -> bool:
+        """Check if the pipeline orchestrator has an active run for this project."""
+        try:
+            from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+            status = pipeline_orchestrator.status(project_id)
+            fast = status.get("fast_sync") or {}
+            deep = status.get("deep_enrichment") or {}
+            return fast.get("phase") == "running" or deep.get("phase") == "running"
+        except Exception:
+            return False
+
     def start_project_build(
         self,
         project: Project,
@@ -224,6 +235,16 @@ class BuildManager:
     ) -> bool:
         with self.build_lock:
             if self.is_project_building(project.id):
+                return False
+
+            # Block code-index rebuild while the pipeline orchestrator is
+            # actively running stages — the atomic directory swap would race
+            # with pipeline file writes and could snapshot stale data.
+            if self._is_pipeline_active(project.id):
+                logger.warning(
+                    "Skipping code-index build for %s — pipeline is active",
+                    project.id,
+                )
                 return False
 
             t = threading.Thread(
@@ -273,6 +294,10 @@ class BuildManager:
             # Invalidate index cache so next read loads the new data
             self.project_indexes.pop(project.id, None)
             
+            # Invalidate mtime-based stale cache so status shows fresh
+            from codrag.services.project_helpers import invalidate_stale_cache
+            invalidate_stale_cache(project.id)
+            
             pm.finish_task(task_id, success=True, message="Build complete")
         except Exception as e:
             logger.exception("Build failed")
@@ -303,6 +328,15 @@ class BuildManager:
     ) -> bool:
         with self.trace_build_lock:
             if self.is_project_trace_building(project.id):
+                return False
+
+            # Block trace rebuild while the pipeline orchestrator is
+            # actively running stages — concurrent writes corrupt data.
+            if self._is_pipeline_active(project.id):
+                logger.warning(
+                    "Skipping trace build for %s — pipeline is active",
+                    project.id,
+                )
                 return False
 
             t = threading.Thread(
@@ -352,6 +386,10 @@ class BuildManager:
             trace_idx.load()
             self.project_trace_indexes[project.id] = trace_idx
             
+            # Invalidate mtime-based stale cache so status shows fresh
+            from codrag.services.project_helpers import invalidate_stale_cache
+            invalidate_stale_cache(project.id)
+            
             logger.info("Trace build completed successfully")
             pm.finish_task(task_id, success=True, message="Trace build completed")
         except Exception as e:
@@ -368,12 +406,30 @@ class BuildManager:
     # ═════════════════════════════════════════════════════════════
 
     def is_project_knowledge_building(self, project_id: str) -> bool:
+        # Legacy thread-based builds
         t = self.knowledge_build_threads.get(project_id)
-        return t is not None and t.is_alive()
+        if t is not None and t.is_alive():
+            return True
+        # Pipeline orchestrator builds (SM-4)
+        try:
+            from codrag.services.build_orchestrator import build_orchestrator, BuildType, BuildPhase
+            slot = build_orchestrator.status(project_id, BuildType.KNOWLEDGE)
+            if slot.phase == BuildPhase.RUNNING:
+                return True
+        except Exception:
+            pass
+        return False
 
     def start_project_knowledge_build(self, project: Project) -> bool:
         with self.knowledge_build_lock:
             if self.is_project_knowledge_building(project.id):
+                return False
+
+            if self._is_pipeline_active(project.id):
+                logger.warning(
+                    "Skipping knowledge build for %s — pipeline is active",
+                    project.id,
+                )
                 return False
 
             t = threading.Thread(
@@ -397,6 +453,10 @@ class BuildManager:
             logger.info(f"Building knowledge index for {project.id}")
             
             idx.build(progress_callback=progress_callback)
+            
+            # Invalidate mtime-based stale cache so status shows fresh
+            from codrag.services.project_helpers import invalidate_stale_cache
+            invalidate_stale_cache(project.id)
             
             logger.info("Knowledge build completed successfully")
             pm.finish_task(task_id, success=True, message="Knowledge build completed")

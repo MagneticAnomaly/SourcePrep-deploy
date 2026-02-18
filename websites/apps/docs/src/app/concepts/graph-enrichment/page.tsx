@@ -22,35 +22,25 @@ export default function Page() {
             across code and documentation.
           </p>
 
-          <AnchorHeading id="the-pipeline" level="h2">The 7-Stage Pipeline</AnchorHeading>
+          <AnchorHeading id="the-pipeline" level="h2">The 8-Stage Pipeline</AnchorHeading>
           <p>
-            Enrichment is not just a single pass; it is a full <strong>Knowledge Pipeline</strong> that transforms raw text into a navigable semantic graph.
+            Enrichment is split into two phases: a <strong>Fast Sync</strong> group that runs on every file save (~seconds), and a <strong>Deep Enrichment</strong> group that runs when the system is idle or manually triggered (~minutes).
           </p>
 
-          <div className="not-prose my-8 space-y-4">
+          <h3 className="text-lg font-semibold mt-6 mb-4">Group A: Fast Sync</h3>
+          <div className="not-prose space-y-4">
             <div className="flex items-start gap-4 p-4 bg-surface border border-border rounded-lg">
               <div className="flex-shrink-0 w-10 h-10 rounded-full bg-success/10 text-success flex items-center justify-center font-bold text-sm">1</div>
               <div>
-                <div className="font-semibold">Structural Trace <span className="text-xs font-normal bg-surface-raised border border-border-subtle px-1.5 py-0.5 rounded ml-1">Rust</span></div>
+                <div className="font-semibold">Structural Graph <span className="text-xs font-normal bg-surface-raised border border-border-subtle px-1.5 py-0.5 rounded ml-1">Rust</span></div>
                 <div className="text-sm text-text-muted mt-1">
-                  Tree-sitter parses code into symbols, imports, and call edges. A new Markdown
-                  scanner extracts section headers and links. ~100ms per file.
+                  Tree-sitter parses code into symbols, imports, and call edges. A new Markdown scanner extracts section headers and links.
                 </div>
               </div>
             </div>
 
             <div className="flex items-start gap-4 p-4 bg-surface border border-border rounded-lg">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-success/10 text-success flex items-center justify-center font-bold text-sm">2</div>
-              <div>
-                <div className="font-semibold">Vector Indexing <span className="text-xs font-normal bg-surface-raised border border-border-subtle px-1.5 py-0.5 rounded ml-1">Embeddings</span></div>
-                <div className="text-sm text-text-muted mt-1">
-                  Source code is chunked and embedded for semantic search retrieval. This runs in parallel with the graph build.
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4 p-4 bg-surface border border-border rounded-lg">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">3</div>
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">2</div>
               <div>
                 <div className="font-semibold">Fast Catalogue <span className="text-xs font-normal bg-surface-raised border border-border-subtle px-1.5 py-0.5 rounded ml-1">3b LLM</span></div>
                 <div className="text-sm text-text-muted mt-1">
@@ -60,7 +50,7 @@ export default function Page() {
             </div>
 
             <div className="flex items-start gap-4 p-4 bg-surface border border-border rounded-lg">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-warning/10 text-warning flex items-center justify-center font-bold text-sm">4</div>
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-warning/10 text-warning flex items-center justify-center font-bold text-sm">3</div>
               <div>
                 <div className="font-semibold">Relationship Validation <span className="text-xs font-normal bg-surface-raised border border-border-subtle px-1.5 py-0.5 rounded ml-1">Rust</span></div>
                 <div className="text-sm text-text-muted mt-1">
@@ -69,6 +59,19 @@ export default function Page() {
               </div>
             </div>
 
+            <div className="flex items-start gap-4 p-4 bg-surface border border-border rounded-lg">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-purple-500/10 text-purple-600 flex items-center justify-center font-bold text-sm">4</div>
+              <div>
+                <div className="font-semibold">Knowledge Embedding <span className="text-xs font-normal bg-surface-raised border border-border-subtle px-1.5 py-0.5 rounded ml-1">Embeddings</span></div>
+                <div className="text-sm text-text-muted mt-1">
+                  Validated nodes and their metadata are embedded for semantic search retrieval.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <h3 className="text-lg font-semibold mt-8 mb-4">Group B: Deep Enrichment</h3>
+          <div className="not-prose space-y-4">
             <div className="flex items-start gap-4 p-4 bg-surface border border-border rounded-lg">
               <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">5</div>
               <div>
@@ -90,11 +93,21 @@ export default function Page() {
             </div>
 
             <div className="flex items-start gap-4 p-4 bg-surface border border-border rounded-lg">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-purple-500/10 text-purple-600 flex items-center justify-center font-bold text-sm">7</div>
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">7</div>
               <div>
-                <div className="font-semibold">Knowledge Embedding <span className="text-xs font-normal bg-surface-raised border border-border-subtle px-1.5 py-0.5 rounded ml-1">Deep</span></div>
+                <div className="font-semibold">Continuous Deepening <span className="text-xs font-normal bg-surface-raised border border-border-subtle px-1.5 py-0.5 rounded ml-1">Loop</span></div>
                 <div className="text-sm text-text-muted mt-1">
-                  Synthesized knowledge and enriched connections are embedded for deep semantic retrieval, completing the cycle.
+                  Iteratively re-visits "stale" or low-confidence nodes. If a neighbor changed, this step updates the node's context to reflect the new reality.
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-4 p-4 bg-surface border border-border rounded-lg">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-purple-500/10 text-purple-600 flex items-center justify-center font-bold text-sm">8</div>
+              <div>
+                <div className="font-semibold">Deep Knowledge Embedding <span className="text-xs font-normal bg-surface-raised border border-border-subtle px-1.5 py-0.5 rounded ml-1">Deep</span></div>
+                <div className="text-sm text-text-muted mt-1">
+                  Synthesized knowledge, cluster summaries, and enriched connections are re-embedded for maximum retrieval accuracy.
                 </div>
               </div>
             </div>

@@ -16,11 +16,19 @@ import {
 import { cn } from '../../lib/utils';
 import { Button } from '../primitives/Button';
 import { ProgressIndicator } from '../status/ProgressIndicator';
-import type { TraceCoverageFile, TraceCoverageSummary, TaskProgress } from '../../types';
+import type { TraceCoverageFile, TraceCoverageSummary, TaskProgress, EpistemicStatus, AugmentationStatus, ModuleStatus, KnowledgeEmbeddingStatus } from '../../types';
 
 export interface GraphStructurePanelProps {
   /** Coverage summary stats */
   summary: TraceCoverageSummary | null;
+  /** Epistemic status for Deep Enrichment bar */
+  epistemic?: EpistemicStatus;
+  /** Augmentation status for node counts */
+  augmentation?: AugmentationStatus;
+  /** Module status — needed to determine if deep enrichment pipeline completed */
+  moduleStatus?: ModuleStatus;
+  /** Knowledge status — needed to determine if Stage 8 completed */
+  knowledgeStatus?: KnowledgeEmbeddingStatus;
   /** Untraced files (eligible but not yet traced) */
   untracedFiles: TraceCoverageFile[];
   /** Stale files (traced but content changed) */
@@ -75,23 +83,31 @@ function formatTimeAgo(isoDate: string): string {
 }
 
 function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; building: boolean }) {
-  const { traced, untraced, stale, total } = summary;
+  const { traced, stale, total } = summary;
+  const pendingEmbedding = summary.pending_embedding || 0;
+  
   if (total === 0) return null;
 
   // When building, treat pending items as "in-progress"
-  const inProgress = building ? untraced + stale : 0;
+  // If we have specific pending_embedding count, include it.
+  const inProgress = building 
+    ? summary.untraced + stale + pendingEmbedding 
+    : pendingEmbedding; // Even if not building, pending embedding is "in-progress" semantically
+    
   const displayStale = building ? 0 : stale;
-  const displayUntraced = building ? 0 : untraced;
+  
+  // "Files traced" refers to structural trace coverage (traced + pending_embedding)
+  // "traced" in the summary object now implies "traced AND embedded".
+  const structuralTraced = traced + pendingEmbedding;
 
   const tracedPct = (traced / total) * 100;
   const inProgressPct = (inProgress / total) * 100;
   const stalePct = (displayStale / total) * 100;
-  const untracedPct = (displayUntraced / total) * 100;
-
+  
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between text-xs text-text-muted">
-        <span>{traced}/{total} files traced</span>
+        <span>{structuralTraced}/{total} files traced</span>
         <span className="font-mono font-semibold text-text">{summary.coverage_pct}%</span>
       </div>
       <div className="h-2 rounded-full bg-surface-raised overflow-hidden flex">
@@ -99,7 +115,7 @@ function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; bui
           <div
             className="bg-success transition-all duration-500"
             style={{ width: `${tracedPct}%` }}
-            title={`${traced} traced`}
+            title={`${traced} traced & embedded`}
           />
         )}
         {inProgressPct > 0 && (
@@ -118,19 +134,12 @@ function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; bui
             title={`${displayStale} stale`}
           />
         )}
-        {untracedPct > 0 && (
-          <div
-            className="bg-text-subtle/20 transition-all duration-500"
-            style={{ width: `${untracedPct}%` }}
-            title={`${displayUntraced} untraced`}
-          />
-        )}
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-text-muted">
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-success" /> {traced} traced
+          <span className="w-2 h-2 rounded-full bg-success" /> {traced} traced & embedded
         </span>
-        {building ? (
+        {inProgress > 0 ? (
           <span className="flex items-center gap-1 font-medium text-primary">
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" /> {inProgress} in-progress
           </span>
@@ -138,9 +147,92 @@ function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; bui
         <span className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-warning" /> {displayStale} stale
         </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-text-subtle/30" /> {displayUntraced} untraced
+      </div>
+    </div>
+  );
+}
+
+function DeepCoverageBar({ 
+  epistemic, 
+  augmentation,
+  moduleStatus,
+  knowledgeStatus,
+}: { 
+  epistemic: EpistemicStatus; 
+  augmentation?: AugmentationStatus;
+  moduleStatus?: ModuleStatus;
+  knowledgeStatus?: KnowledgeEmbeddingStatus;
+}) {
+  // Show accurate enrichment progress based on actual enriched node count.
+  const total = epistemic.total_file_nodes || augmentation?.total_nodes || epistemic.enriched_nodes;
+  const enriched = epistemic.enriched_nodes;
+  
+  if (total === 0) return null;
+
+  // Use pipeline_running (any deep stage 5-8 active) rather than running (Stage 5 only)
+  const pipelineRunning = epistemic.pipeline_running || epistemic.running;
+
+  // Full deep enrichment = modules synthesized + knowledge re-embedded (Stage 8 done)
+  // We use this to gate the "Purple" completion state.
+  // - Must have modules (Stage 6)
+  // - Must have deep chunks (Stage 8 artifacts)
+  // - Must NOT be currently running (pipeline active) -> keeps it "In Progress" (Cyan) until finished
+  const deepComplete = (moduleStatus?.module_count ?? 0) > 0 && 
+    (knowledgeStatus?.deep_chunks_embedded ?? 0) > 0 &&
+    !pipelineRunning;
+
+  // Determine display values based on completion state
+  // If not deepComplete, the "enriched" nodes are technically still "in-progress" relative to the full pipeline.
+  const displayEnriched = deepComplete ? enriched : 0;
+  
+  // If running or incomplete, show everything as in-progress (Cyan)
+  // This includes nodes that are already enriched (Stage 5) but waiting for Stage 8,
+  // plus nodes that aren't even enriched yet (if running).
+  const rawPending = Math.max(0, total - enriched);
+  const displayInProgress = deepComplete 
+    ? (pipelineRunning ? rawPending : 0)
+    : (pipelineRunning ? total : enriched); // If running, everything is IP. If stalled/partial, enriched nodes are IP.
+
+  const enrichedPct = (displayEnriched / total) * 100;
+  const inProgressPct = (displayInProgress / total) * 100;
+
+  return (
+    <div className="flex flex-col gap-1.5 mt-4 pt-4 border-t border-border/50">
+      <div className="flex items-center justify-between text-xs text-text-muted">
+        <span className="flex items-center gap-1.5">
+          {enriched}/{total} nodes {deepComplete ? 'enriched & embedded' : 'enriched'}
         </span>
+        <span className="font-mono font-semibold text-text">{Math.round((enriched / total) * 100)}%</span>
+      </div>
+      <div className="h-2 rounded-full bg-surface-raised overflow-hidden flex">
+        {enrichedPct > 0 && (
+          <div
+            className="bg-violet-500 transition-all duration-500"
+            style={{ width: `${enrichedPct}%` }}
+            title={`${displayEnriched} enriched & embedded`}
+          />
+        )}
+        {inProgressPct > 0 && (
+          <div
+            className="bg-primary transition-all duration-500 relative"
+            style={{ width: `${inProgressPct}%` }}
+            title={`${displayInProgress} in-progress`}
+          >
+            <div className="absolute inset-0 bg-white/20 animate-pulse" />
+          </div>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-text-muted">
+        {displayEnriched > 0 && (
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-violet-500" /> {displayEnriched} enriched & embedded
+          </span>
+        )}
+        {displayInProgress > 0 && (
+          <span className="flex items-center gap-1 font-medium text-primary">
+            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" /> {displayInProgress} in-progress
+          </span>
+        )}
       </div>
     </div>
   );
@@ -237,6 +329,10 @@ function CollapsibleSection({
 
 export function GraphStructurePanel({
   summary,
+  epistemic,
+  augmentation,
+  moduleStatus,
+  knowledgeStatus,
   untracedFiles,
   staleFiles,
   excludedFiles = [],
@@ -296,7 +392,17 @@ export function GraphStructurePanel({
             Loading scope data...
           </div>
         ) : summary ? (
-          <CoverageBar summary={summary} building={building} />
+          <>
+            <CoverageBar summary={summary} building={building} />
+            {epistemic && (
+              <DeepCoverageBar 
+                epistemic={epistemic} 
+                augmentation={augmentation}
+                moduleStatus={moduleStatus}
+                knowledgeStatus={knowledgeStatus}
+              />
+            )}
+          </>
         ) : null}
 
         {building && (
@@ -306,7 +412,7 @@ export function GraphStructurePanel({
             ) : (
               <div className="flex items-center gap-2 text-xs text-primary">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Mapping full codebase...
+                {summary && summary.traced > 0 ? 'Updating to reflect codebase changes...' : 'Mapping full codebase...'}
               </div>
             )}
           </div>
@@ -325,11 +431,6 @@ export function GraphStructurePanel({
           onClick={() => setActiveTab('queue')}
         >
           <span className="flex items-center justify-center gap-1.5">
-            {building ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-            ) : (
-              <Clock className="w-3.5 h-3.5" />
-            )}
             Queue
             {queueCount > 0 && (
               <span className="text-[10px] bg-warning/15 text-warning px-1.5 py-0.5 rounded-full font-mono">

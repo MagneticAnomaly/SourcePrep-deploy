@@ -202,27 +202,22 @@ class TestAutoChainDeepEnrichment:
             "codrag.services.pipeline_orchestrator.settings",
             mock_settings,
             create=True,
+        ), patch.object(
+            PipelineOrchestrator, "_is_deep_enrichment_auto",
+            staticmethod(lambda pid: True),
         ):
-            # Patch the static method to use our mock
-            original = PipelineOrchestrator._is_deep_enrichment_auto
-            PipelineOrchestrator._is_deep_enrichment_auto = staticmethod(
-                lambda pid: True
-            )
-            try:
-                started = pipeline.run_fast_sync("proj-1")
-                assert started is True
-                time.sleep(3.0)
+            started = pipeline.run_fast_sync("proj-1")
+            assert started is True
+            time.sleep(3.0)
 
-                status = pipeline.status("proj-1")
-                fast = status["fast_sync"]
-                deep = status["deep_enrichment"]
-                assert fast is not None
-                assert fast["phase"] == "completed"
-                # Deep enrichment should have been auto-triggered
-                assert deep is not None
-                assert deep["phase"] == "completed"
-            finally:
-                PipelineOrchestrator._is_deep_enrichment_auto = original
+            status = pipeline.status("proj-1")
+            fast = status["fast_sync"]
+            deep = status["deep_enrichment"]
+            assert fast is not None
+            assert fast["phase"] == "completed"
+            # Deep enrichment should have been auto-triggered
+            assert deep is not None
+            assert deep["phase"] == "completed"
 
     def test_no_auto_chain_when_deep_mode_manual(self, pipeline):
         """When pipeline_config.deep_enrichment.mode == 'manual', deep enrichment

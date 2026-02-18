@@ -114,6 +114,7 @@ class AugmentResult:
     augmented: int = 0
     skipped: int = 0
     failed: int = 0
+    synthetic: int = 0  # entries created from path metadata (no LLM)
     tokens_used: int = 0
     duration_ms: float = 0.0
     errors: List[str] = field(default_factory=list)
@@ -492,9 +493,9 @@ class TraceAugmenter:
         self,
         file_path: str,
         section_nodes: List[Dict[str, Any]],
-        head_lines: int = 100,
-        section_lines: int = 30,
-        max_total: int = 300,
+        head_lines: int = 300,
+        section_lines: int = 50,
+        max_total: int = 1000,
     ) -> str:
         """Read head + top-ranked sections for strategic LLM input.
 
@@ -566,6 +567,116 @@ class TraceAugmenter:
                     imports.append(imp)
         return ", ".join(imports[:20])
 
+    # ── Synthetic fallback entries ─────────────────────────────────
+    #
+    # When LLM augmentation fails for any reason (network, parse, empty
+    # source), we still need an augmentation entry so that the knowledge
+    # index covers every traced file.  These helpers derive a useful
+    # summary from file metadata alone — no LLM call needed.
+
+    @staticmethod
+    def _infer_role_from_path(file_path: str) -> str:
+        """Heuristic role from file path segments."""
+        fp = file_path.lower()
+        if "test" in fp:
+            return "test"
+        if "config" in fp or fp.endswith((".json", ".toml", ".yaml", ".yml", ".ini", ".env")):
+            return "config"
+        if "doc" in fp or fp.endswith((".md", ".rst", ".txt")):
+            return "documentation"
+        if any(seg in fp for seg in ("api/", "routes/", "router", "endpoint")):
+            return "api"
+        if any(seg in fp for seg in ("ui/", "component", "view", "page")):
+            return "ui"
+        if any(seg in fp for seg in ("script", "bin/", "cli")):
+            return "script"
+        if "model" in fp:
+            return "model"
+        return "internal"
+
+    @staticmethod
+    def _lang_label(file_path: str, language: str = "") -> str:
+        """Human-readable language label from path or language field."""
+        if language and language != "unknown":
+            return language.capitalize()
+        ext_map = {
+            ".py": "Python", ".js": "JavaScript", ".ts": "TypeScript",
+            ".tsx": "TypeScript React", ".jsx": "JavaScript React",
+            ".rs": "Rust", ".go": "Go", ".rb": "Ruby", ".java": "Java",
+            ".swift": "Swift", ".md": "Markdown", ".json": "JSON",
+            ".toml": "TOML", ".yaml": "YAML", ".yml": "YAML",
+            ".css": "CSS", ".scss": "SCSS", ".html": "HTML",
+            ".sh": "Shell", ".sql": "SQL",
+        }
+        for ext, label in ext_map.items():
+            if file_path.endswith(ext):
+                return label
+        return "source"
+
+    def _synthetic_entry(
+        self,
+        node: Dict[str, Any],
+        file_hashes: Dict[str, str],
+        reason: str = "llm_failure",
+    ) -> AugmentationEntry:
+        """Create a synthetic augmentation entry from file metadata.
+
+        The summary is derived from the file path structure rather than
+        an LLM call.  This guarantees every traced node gets an entry
+        in trace_augmented.jsonl with a non-empty summary.
+        """
+        file_path = node.get("file_path", "")
+        language = node.get("language", "")
+        lang_label = self._lang_label(file_path, language)
+        role = self._infer_role_from_path(file_path)
+        kind = node.get("kind", "file")
+
+        if kind == "symbol":
+            name = node.get("name", os.path.basename(file_path))
+            sym_type = node.get("metadata", {}).get("symbol_type", "symbol")
+            summary = f"{lang_label} {sym_type} '{name}' in {file_path}"
+        else:
+            summary = f"{lang_label} {role} file at {file_path}"
+
+        return AugmentationEntry(
+            node_id=node["id"],
+            summary=summary,
+            role=role,
+            confidence=0.1,  # low confidence signals synthetic origin
+            augmented_at=datetime.now(timezone.utc).isoformat(),
+            model=f"synthetic:{reason}",
+            file_hash=file_hashes.get(file_path),
+        )
+
+    def _llm_generate_with_retry(
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        num_predict: int = 2048,
+        max_retries: int = 2,
+        label: str = "",
+    ) -> Tuple[str, int]:
+        """Call LLM with retry on transient failures.
+
+        Retries up to ``max_retries`` times with exponential back-off
+        (1s, 2s).  Returns (text, tokens) on success or raises the
+        last exception.
+        """
+        last_err: Optional[Exception] = None
+        for attempt in range(1 + max_retries):
+            try:
+                return self.llm.generate(prompt, system=system, num_predict=num_predict)
+            except Exception as e:
+                last_err = e
+                if attempt < max_retries:
+                    wait = (attempt + 1)  # 1s, 2s
+                    logger.info(
+                        "LLM retry %d/%d for %s after error: %s (waiting %ds)",
+                        attempt + 1, max_retries, label, e, wait,
+                    )
+                    time.sleep(wait)
+        raise last_err  # type: ignore[misc]
+
     def augment_symbol(
         self,
         node: Dict[str, Any],
@@ -578,7 +689,8 @@ class TraceAugmenter:
         span = node.get("span")
         source = self._read_source_snippet(file_path, span)
         if not source:
-            return None
+            logger.debug("Empty source for symbol %s — using synthetic entry", node.get("name"))
+            return self._synthetic_entry(node, file_hashes, reason="empty_source")
 
         imports = self._get_file_imports(file_path, edges, nodes_by_id)
         symbol_type = node.get("metadata", {}).get("symbol_type", "function")
@@ -598,15 +710,18 @@ class TraceAugmenter:
         )
 
         try:
-            text, tokens = self.llm.generate(prompt, system=SYMBOL_SUMMARY_SYSTEM)
+            text, tokens = self._llm_generate_with_retry(
+                prompt, system=SYMBOL_SUMMARY_SYSTEM,
+                label=node.get("name", "?"),
+            )
         except Exception as e:
-            logger.warning("LLM call failed for %s: %s", node.get("name"), e)
-            return None
+            logger.warning("LLM call failed for %s after retries: %s", node.get("name"), e)
+            return self._synthetic_entry(node, file_hashes, reason="llm_failure")
 
         parsed = _parse_json_response(text)
         if not parsed:
             logger.warning("Failed to parse LLM response for %s — raw: %.200s", node.get("name"), text)
-            return None
+            return self._synthetic_entry(node, file_hashes, reason="parse_failure")
 
         role = parsed.get("role", "internal")
         if role not in VALID_ROLES:
@@ -615,9 +730,16 @@ class TraceAugmenter:
         confidence = float(parsed.get("confidence", 0.5))
         confidence = max(0.0, min(1.0, confidence))
 
+        summary = str(parsed.get("summary", "")).strip()[:500]
+        if not summary:
+            # LLM returned valid JSON but empty summary — derive from metadata
+            name = node.get("name", os.path.basename(file_path))
+            sym_type = node.get("metadata", {}).get("symbol_type", "symbol")
+            summary = f"{sym_type.capitalize()} '{name}' in {file_path}"
+
         return AugmentationEntry(
             node_id=node["id"],
-            summary=str(parsed.get("summary", ""))[:500],
+            summary=summary,
             role=role,
             confidence=confidence,
             augmented_at=datetime.now(timezone.utc).isoformat(),
@@ -706,7 +828,8 @@ class TraceAugmenter:
         """
         file_path = node.get("file_path", "")
         if self._should_skip_file(file_path):
-            logger.debug("Skipping build output file: %s", file_path)
+            # Skip build output files entirely
+            logger.debug("Skipping build output file %s", file_path)
             return None
 
         is_markdown = node.get("language") == "markdown" or file_path.endswith((".md", ".markdown"))
@@ -727,6 +850,8 @@ class TraceAugmenter:
         file_path = node.get("file_path", "")
         head = self._get_file_head(file_path)
         if not head:
+            # Skip empty files (e.g. __init__.py) entirely to avoid noise
+            logger.debug("Empty file head for %s — skipping augmentation", file_path)
             return None
 
         # Find symbols in this file
@@ -748,15 +873,18 @@ class TraceAugmenter:
         )
 
         try:
-            text, tokens = self.llm.generate(prompt, system=FILE_ROLE_SYSTEM)
+            text, tokens = self._llm_generate_with_retry(
+                prompt, system=FILE_ROLE_SYSTEM,
+                label=file_path,
+            )
         except Exception as e:
-            logger.warning("LLM call failed for file %s: %s", file_path, e)
-            return None
+            logger.warning("LLM call failed for file %s after retries: %s", file_path, e)
+            return self._synthetic_entry(node, file_hashes, reason="llm_failure")
 
         parsed = _parse_json_response(text)
         if not parsed:
             logger.warning("Failed to parse LLM response for file %s — raw: %.200s", file_path, text)
-            return None
+            return self._synthetic_entry(node, file_hashes, reason="parse_failure")
 
         role = parsed.get("role", "utility")
         if role not in VALID_ROLES:
@@ -771,9 +899,13 @@ class TraceAugmenter:
         else:
             related = None
 
+        summary = str(parsed.get("summary", "")).strip()[:500]
+        if not summary:
+            summary = f"Source file at {file_path}"
+
         return AugmentationEntry(
             node_id=node["id"],
-            summary=str(parsed.get("summary", ""))[:500],
+            summary=summary,
             role=role,
             confidence=confidence,
             augmented_at=datetime.now(timezone.utc).isoformat(),
@@ -810,6 +942,8 @@ class TraceAugmenter:
             content_label = "First 100 lines"
 
         if not content:
+            # Skip empty docs entirely
+            logger.debug("Empty content for doc %s — skipping augmentation", file_path)
             return None
 
         prompt = DOC_ROLE_PROMPT.format(
@@ -822,15 +956,18 @@ class TraceAugmenter:
         )
 
         try:
-            text, tokens = self.llm.generate(prompt, system=DOC_ROLE_SYSTEM)
+            text, tokens = self._llm_generate_with_retry(
+                prompt, system=DOC_ROLE_SYSTEM,
+                label=file_path,
+            )
         except Exception as e:
-            logger.warning("LLM call failed for doc %s: %s", file_path, e)
-            return None
+            logger.warning("LLM call failed for doc %s after retries: %s", file_path, e)
+            return self._synthetic_entry(node, file_hashes, reason="llm_failure")
 
         parsed = _parse_json_response(text)
         if not parsed:
             logger.warning("Failed to parse LLM response for doc %s — raw: %.200s", file_path, text)
-            return None
+            return self._synthetic_entry(node, file_hashes, reason="parse_failure")
 
         role = parsed.get("role", "documentation")
         if role not in VALID_ROLES:
@@ -853,9 +990,13 @@ class TraceAugmenter:
         else:
             related = None
 
+        summary = str(parsed.get("summary", "")).strip()[:500]
+        if not summary:
+            summary = f"Documentation file at {file_path}"
+
         return AugmentationEntry(
             node_id=node["id"],
-            summary=str(parsed.get("summary", ""))[:500],
+            summary=summary,
             role=role,
             confidence=confidence,
             augmented_at=datetime.now(timezone.utc).isoformat(),
@@ -914,36 +1055,93 @@ class TraceAugmenter:
             "Augmentation: %d symbols + %d files to process (%d existing, %d total nodes)",
             len(to_augment_symbols), len(to_augment_files), len(existing), len(nodes),
         )
+        logger.info(
+            "LLM: model=%s endpoint=%s provider=%s timeout=%.0fs",
+            self.llm.model, self.llm.endpoint_url, self.llm.provider, self.llm.timeout,
+        )
+
+        # Pre-flight: test LLM with a tiny prompt to catch model-loading
+        # issues or missing models before committing to 2000+ sequential calls.
+        logger.info("Pre-flight LLM test...")
+        try:
+            preflight_start = time.monotonic()
+            test_text, _ = self.llm.generate('Respond with: {"ok":true}', num_predict=20)
+            preflight_elapsed = time.monotonic() - preflight_start
+            logger.info("Pre-flight OK (%.1fs): %.100s", preflight_elapsed, test_text.strip())
+        except Exception as e:
+            logger.error("Pre-flight LLM test FAILED: %s", e)
+            raise RuntimeError(
+                f"LLM pre-flight failed — model '{self.llm.model}' at {self.llm.endpoint_url} "
+                f"is not responding. Check that the model is pulled and Ollama is running. Error: {e}"
+            ) from e
 
         # Start with existing entries (will be updated/overwritten)
         augmented = dict(existing)
         done = 0
+        pass_start = time.monotonic()
 
         # Pass 1: Symbol augmentation
+        if to_augment_symbols:
+            logger.info("Pass 1: augmenting %d symbols...", len(to_augment_symbols))
         for node in to_augment_symbols:
             if progress_callback:
                 progress_callback("augment_symbols", done, total_work)
 
+            item_start = time.monotonic()
             entry = self.augment_symbol(node, edges, nodes_by_id, file_hashes)
+            item_elapsed = time.monotonic() - item_start
             if entry:
                 augmented[entry.node_id] = entry
-                result.augmented += 1
+                if entry.model.startswith("synthetic:"):
+                    result.synthetic += 1
+                else:
+                    result.augmented += 1
             else:
                 result.failed += 1
             done += 1
 
+            if done == 1:
+                logger.info(
+                    "First LLM call %s (%.1fs) — node: %s",
+                    "succeeded" if entry else "FAILED", item_elapsed, node.get("id", "?"),
+                )
+            elif done % 25 == 0:
+                elapsed = time.monotonic() - pass_start
+                avg = elapsed / done if done else 0
+                eta = avg * (total_work - done)
+                logger.info(
+                    "Augmentation progress: %d/%d (%.0f%%) — avg %.1fs/item, ETA %.0fs",
+                    done, total_work, done / total_work * 100, avg, eta,
+                )
+
         # Pass 2: File augmentation
+        if to_augment_files:
+            logger.info("Pass 2: augmenting %d files...", len(to_augment_files))
         for node in to_augment_files:
             if progress_callback:
                 progress_callback("augment_files", done, total_work)
 
+            item_start = time.monotonic()
             entry = self.augment_file(node, edges, nodes_by_id, file_hashes)
+            item_elapsed = time.monotonic() - item_start
             if entry:
                 augmented[entry.node_id] = entry
-                result.augmented += 1
+                if entry.model.startswith("synthetic:"):
+                    result.synthetic += 1
+                else:
+                    result.augmented += 1
             else:
                 result.failed += 1
             done += 1
+
+            if done % 25 == 0:
+                elapsed = time.monotonic() - pass_start
+                avg = elapsed / done if done else 0
+                eta = avg * (total_work - done)
+                logger.info(
+                    "Augmentation progress: %d/%d (%.0f%%) — avg %.1fs/item, ETA %.0fs",
+                    done, total_work, done / total_work * 100, avg, eta,
+                )
 
         result.skipped = result.total_nodes - total_work
 
@@ -957,8 +1155,9 @@ class TraceAugmenter:
             progress_callback("augment_complete", total_work, total_work)
 
         logger.info(
-            "Augmentation complete: %d augmented, %d skipped, %d failed in %.1fs",
-            result.augmented, result.skipped, result.failed, result.duration_ms / 1000,
+            "Augmentation complete: %d augmented, %d synthetic, %d skipped, %d failed in %.1fs",
+            result.augmented, result.synthetic, result.skipped, result.failed,
+            result.duration_ms / 1000,
         )
         return result
 
@@ -1063,26 +1262,34 @@ class TraceAugmenter:
 
     def _write_manifest(self, result: AugmentResult, entries: Dict[str, AugmentationEntry]) -> None:
         """Write augmentation manifest."""
-        confidences = [e.confidence for e in entries.values()]
-        avg_conf = sum(confidences) / len(confidences) if confidences else 0.0
-        low_conf = sum(1 for c in confidences if c < 0.5)
+        # Exclude synthetic entries from avg confidence — they have 0.1 confidence
+        # and artificially drag down the average (e.g. 61% instead of ~85%).
+        real_confidences = [e.confidence for e in entries.values() if not e.model.startswith("synthetic:")]
+        all_confidences = [e.confidence for e in entries.values()]
+        avg_conf = sum(real_confidences) / len(real_confidences) if real_confidences else 0.0
+        low_conf = sum(1 for e in entries.values() if e.confidence < 0.5 and not e.model.startswith("synthetic:"))
         validated = sum(1 for e in entries.values() if e.validated)
+
+        # Augmentable nodes = total minus skipped (external_module nodes can't be augmented)
+        augmentable_nodes = result.total_nodes - result.skipped
 
         manifest = {
             "version": AUGMENT_FORMAT_VERSION,
             "built_at": datetime.now(timezone.utc).isoformat(),
             "model": self.llm.model,
             "counts": {
-                "total_nodes": result.total_nodes,
+                "total_nodes": augmentable_nodes,
                 "augmented": len(entries),
                 "validated": validated,
                 "low_confidence": low_conf,
+                "skipped_external": result.skipped,
             },
             "stats": {
                 "avg_confidence": round(avg_conf, 3),
                 "tokens_used": result.tokens_used,
                 "duration_ms": round(result.duration_ms, 1),
                 "augmented_this_run": result.augmented,
+                "synthetic_this_run": result.synthetic,
                 "failed_this_run": result.failed,
                 "skipped_this_run": result.skipped,
             },

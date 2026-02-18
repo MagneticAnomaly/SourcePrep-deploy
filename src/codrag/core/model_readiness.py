@@ -174,7 +174,11 @@ def ollama_preload(
     Returns True if Ollama accepted the request (which means the model
     is now loaded or loading).  The call blocks until the model is
     fully loaded—Ollama queues it internally.
+
+    For embedding-only models (e.g. nomic-embed-text) that don't
+    support /api/generate, falls back to /api/embed with a tiny input.
     """
+    # Try /api/generate first (works for LLM models)
     try:
         r = requests.post(
             f"{url}/api/generate",
@@ -186,9 +190,27 @@ def ollama_preload(
             },
             timeout=timeout_s,
         )
-        return r.status_code == 200
+        if r.status_code == 200:
+            return True
     except requests.Timeout:
         # Timeout doesn't mean failure – model may still be loading
+        return False
+    except Exception:
+        pass
+
+    # Fallback: /api/embed for embedding-only models
+    try:
+        r = requests.post(
+            f"{url}/api/embed",
+            json={
+                "model": model,
+                "input": "warmup",
+                "keep_alive": keep_alive,
+            },
+            timeout=timeout_s,
+        )
+        return r.status_code == 200
+    except requests.Timeout:
         return False
     except Exception:
         return False

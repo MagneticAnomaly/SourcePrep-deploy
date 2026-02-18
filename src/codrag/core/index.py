@@ -206,7 +206,16 @@ class CodeIndex:
         if not include_globs:
             include_globs = ["**/*.md", "**/*.py"]
         if not exclude_globs:
-            exclude_globs = ["**/.git/**", "**/node_modules/**", "**/__pycache__/**", "**/.venv/**"]
+            # Base excludes
+            exclude_globs = [f"**/{d}/**" for d in sorted(DEFAULT_EXCLUDE_DIR_NAMES)]
+            # Broad dotfile exclusion
+            exclude_globs.append("**/.*")
+            # Add specific file patterns
+            exclude_globs.extend([
+                "**/*.lock",
+                "**/*.log",
+                "**/.DS_Store",
+            ])
 
         rw = policy.get("role_weights")
         role_weights: Dict[str, float] = dict(DEFAULT_ROLE_WEIGHTS)
@@ -568,9 +577,29 @@ class CodeIndex:
             )
             write_manifest(temp_dir / "manifest.json", manifest)
 
-            # Preserve trace index files if they exist in the old directory
+            # Preserve ALL pipeline-produced files in the old directory
             # because the atomic swap will wipe them out.
-            for trace_file in ["trace_manifest.json", "trace_nodes.jsonl", "trace_edges.jsonl"]:
+            _PRESERVE_FILES = [
+                # Trace graph (structural)
+                "trace_manifest.json",
+                "trace_nodes.jsonl",
+                "trace_edges.jsonl",
+                # Fast Catalogue (augmentation)
+                "trace_augmented.jsonl",
+                "trace_augment_manifest.json",
+                # Relationship Validation
+                "trace_inferred_edges.jsonl",
+                # Epistemic Enrichment
+                "trace_epistemic.jsonl",
+                "trace_epistemic_manifest.json",
+                # Cluster Synthesis
+                "trace_modules.jsonl",
+                # Knowledge Embedding
+                "knowledge_documents.json",
+                "knowledge_embeddings.npy",
+                "knowledge_manifest.json",
+            ]
+            for trace_file in _PRESERVE_FILES:
                 old_path = self.index_dir / trace_file
                 if old_path.exists():
                     try:
@@ -578,6 +607,15 @@ class CodeIndex:
                         logger.info(f"Preserved existing trace file: {trace_file}")
                     except Exception as e:
                         logger.warning(f"Failed to preserve trace file {trace_file}: {e}")
+
+            # Preserve pipeline checkpoint directory (rollback data)
+            old_cp = self.index_dir / ".checkpoints"
+            if old_cp.is_dir():
+                try:
+                    shutil.copytree(old_cp, temp_dir / ".checkpoints")
+                    logger.info("Preserved .checkpoints directory")
+                except Exception as e:
+                    logger.warning(f"Failed to preserve .checkpoints: {e}")
 
             # Atomic swap
             self._swap_index_dir(temp_dir)
@@ -765,6 +803,12 @@ class CodeIndex:
             "intent_multipliers": intent_multipliers,
             "effective_role_weights": effective,
         }
+
+    def get_indexed_file_paths(self) -> Set[str]:
+        """Return set of file paths that have at least one chunk in the index."""
+        if self._documents is None:
+            return set()
+        return {d.get("source_path", "") for d in self._documents if d.get("source_path")}
 
     def search(
         self,

@@ -295,12 +295,12 @@ def add_project(req: AddProjectRequest) -> Dict[str, Any]:
 
     # Auto-detect stack presets to populate include_globs
     try:
-        detected = _scan_for_presets(p)
+        detected = scan_for_presets(p)
         if detected:
             logger.info(f"Auto-detected stack presets for {p.name}: {detected}")
             detected_globs = []
             for preset in detected:
-                detected_globs.extend(_STACK_PRESETS.get(preset, []))
+                detected_globs.extend(STACK_PRESETS.get(preset, []))
             
             # Merge unique into include_globs
             current_globs = set(default_cfg["include_globs"])
@@ -422,10 +422,21 @@ def get_project_status(project_id: str) -> Dict[str, Any]:
     idx = _srv()._get_project_index(proj)
 
     watch = _srv()._get_project_watcher_status(proj)
+
+    # Mtime-based staleness check — works even without the watcher (Manual mode)
+    mtime_check = _srv()._check_index_staleness(proj, idx)
+    watcher_stale = bool(watch.get("stale", False))
+    mtime_stale = bool(mtime_check.get("is_stale", False))
+
+    # Stale if either the watcher or the mtime check detects changes
+    is_stale = watcher_stale or mtime_stale
+    stale_since = watch.get("stale_since") or mtime_check.get("stale_since")
+
     data = {
         "building": _srv()._is_project_building(proj.id),
-        "stale": bool(watch.get("stale", False)),
-        "stale_since": watch.get("stale_since"),
+        "stale": is_stale,
+        "stale_since": stale_since,
+        "stale_count": mtime_check.get("stale_count", 0),
         "index": _srv()._project_index_status(idx, _srv()._project_last_build_error.get(proj.id)),
         "trace": _srv()._project_trace_status(proj),
         "watch": watch,
@@ -450,6 +461,23 @@ def start_project_watch(
         existing.stop()
     
     def trigger_build(paths: List[str]) -> bool:
+        # Guard: skip auto-rebuild while the pipeline orchestrator is
+        # actively running stages — the code-index atomic swap would race
+        # with pipeline file writes and could snapshot stale data.
+        try:
+            from codrag.services.pipeline_orchestrator import pipeline_orchestrator as _po
+            po_status = _po.status(proj.id)
+            fast_phase = (po_status.get("fast_sync") or {}).get("phase")
+            deep_phase = (po_status.get("deep_enrichment") or {}).get("phase")
+            if fast_phase == "running" or deep_phase == "running":
+                logger.info(
+                    "Auto-rebuild skipped for %s — pipeline is active (fast=%s, deep=%s)",
+                    proj.id, fast_phase, deep_phase,
+                )
+                return False
+        except Exception:
+            pass  # Pipeline not available — proceed normally
+
         cfg = proj.config or {}
         include_raw = cfg.get("include_globs") if isinstance(cfg, dict) else None
         exclude_raw = cfg.get("exclude_globs") if isinstance(cfg, dict) else None
@@ -479,7 +507,20 @@ def start_project_watch(
         return started
     
     def is_building() -> bool:
-        return _srv()._is_project_building(proj.id) or _srv()._is_project_trace_building(proj.id)
+        if _srv()._is_project_building(proj.id) or _srv()._is_project_trace_building(proj.id):
+            return True
+        # Also treat active pipeline runs as "building" so the watcher
+        # waits instead of repeatedly trying to trigger builds.
+        try:
+            from codrag.services.pipeline_orchestrator import pipeline_orchestrator as _po
+            po_status = _po.status(proj.id)
+            fast_phase = (po_status.get("fast_sync") or {}).get("phase")
+            deep_phase = (po_status.get("deep_enrichment") or {}).get("phase")
+            if fast_phase == "running" or deep_phase == "running":
+                return True
+        except Exception:
+            pass
+        return False
     
     watcher = AutoRebuildWatcher(
         repo_root=Path(proj.path),
@@ -663,16 +704,16 @@ def get_project_file_content(project_id: str, path: str = Query(..., min_length=
 def detect_project_stack(project_id: str) -> Dict[str, Any]:
     """Analyze the project to recommend include patterns."""
     proj = _srv()._require_project(project_id)
-    detected_presets = _scan_for_presets(Path(proj.path))
+    detected_presets = scan_for_presets(Path(proj.path))
     
     recommended_globs = []
     for preset in detected_presets:
-        recommended_globs.extend(_STACK_PRESETS.get(preset, []))
+        recommended_globs.extend(STACK_PRESETS.get(preset, []))
         
     return ok({
         "recommended_globs": sorted(list(set(recommended_globs))),
         "detected_presets": sorted(detected_presets),
-        "all_presets": _STACK_PRESETS,
+        "all_presets": STACK_PRESETS,
     })
 
 
@@ -844,7 +885,14 @@ def build_project(project_id: str, full: bool = False, req: Optional[BuildReques
         included_paths=included_paths,
     )
     if not started:
-        raise ApiException(status_code=409, code="BUILD_ALREADY_RUNNING", message="Build already running")
+        # Distinguish between "already building" and "pipeline active" for a better UX message
+        if _srv()._is_project_building(proj.id):
+            raise ApiException(status_code=409, code="BUILD_ALREADY_RUNNING", message="Build already running")
+        raise ApiException(
+            status_code=409,
+            code="PIPELINE_ACTIVE",
+            message="Cannot rebuild while the enrichment pipeline is running. Wait for it to finish or cancel it first.",
+        )
 
     return ok({"started": True, "building": True, "build_id": None})
 

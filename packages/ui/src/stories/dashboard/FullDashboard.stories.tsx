@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { useState, useMemo, useCallback, useRef } from 'react';
-import { Database, RefreshCw, Settings, FileText } from 'lucide-react';
+import { Settings, FileText } from 'lucide-react';
 import { IndexStatusCard } from '../../components/dashboard/IndexStatusCard';
 import { LLMStatusWidget, type LLMServiceStatus } from '../../components/dashboard/index';
 import { SearchPanel } from '../../components/search/SearchPanel';
@@ -378,6 +378,8 @@ export const FullDashboard: StoryObj = {
       'graph-structure': (
         <GraphStructurePanel
           summary={mockCoverageSummary}
+          epistemic={{ enabled: true, enriched_nodes: 569, avg_confidence: 0.9, running: false }}
+          augmentation={{ enabled: true, total_nodes: 670, augmented_nodes: 670, validated_nodes: 600, avg_confidence: 0.95, low_confidence_count: 0 }}
           untracedFiles={mockUntracedFiles}
           staleFiles={mockStaleFiles}
           excludedFiles={mockExcludedFiles}
@@ -492,17 +494,7 @@ export const FullDashboard: StoryObj = {
           storageKey="storybook_fulldashboard_layout"
           onPanelClose={handlePanelClose}
           onLayoutReady={(api) => { layoutApiRef.current = api; }}
-          headerLeft={
-            <h1 className="text-2xl font-bold flex items-center gap-2 text-text">
-              <Database className="w-6 h-6" />
-              Code Index Dashboard
-            </h1>
-          }
-          headerRight={
-            <button className="p-2 rounded hover:bg-surface-raised transition text-text-muted">
-              <RefreshCw className="w-5 h-5" />
-            </button>
-          }
+          hidePanelPicker
         />
       </div>
     );
@@ -540,12 +532,6 @@ export const EmptyState: StoryObj = {
           panelDefinitions={STORY_PANELS}
           panelContent={panelContent}
           storageKey="storybook_emptystate_layout"
-          headerLeft={
-            <h1 className="text-2xl font-bold flex items-center gap-2 text-text">
-              <Database className="w-6 h-6" />
-              Code Index Dashboard
-            </h1>
-          }
         />
       </div>
     );

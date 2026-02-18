@@ -241,6 +241,122 @@ impl TraceGraph {
         }
     }
 
+    /// Resolve path aliases from tsconfig.json/jsconfig.json.
+    ///
+    /// Finds `external_module` nodes whose names match path alias patterns
+    /// (e.g. `@/components/Foo`) and rewrites edges to point to the actual
+    /// internal file node (e.g. `file:src/components/Foo.tsx`).
+    /// Removes orphaned external_module nodes after rewriting.
+    pub fn resolve_path_aliases(&mut self, repo_root: &Path) {
+        let aliases = load_path_aliases(repo_root);
+        if aliases.is_empty() {
+            return;
+        }
+
+        // Collect external_module nodes that match an alias pattern
+        let mut rewrites: HashMap<String, String> = HashMap::new(); // ext_id -> file_node_id
+
+        let ext_nodes: Vec<(String, String)> = self
+            .nodes
+            .values()
+            .filter(|n| n.kind == "external_module")
+            .map(|n| (n.id.clone(), n.name.clone()))
+            .collect();
+
+        let extensions = [".ts", ".tsx", ".js", ".jsx", ".css", ".scss", ""];
+        let index_files = ["index.ts", "index.tsx", "index.js", "index.jsx"];
+
+        for (ext_id, module_name) in &ext_nodes {
+            for (prefix, replacement) in &aliases {
+                if !module_name.starts_with(prefix) {
+                    continue;
+                }
+                let rest = &module_name[prefix.len()..];
+                let base = format!("{}{}", replacement, rest);
+
+                // Try with extensions
+                let mut resolved = None;
+                for ext in &extensions {
+                    let candidate = format!("{}{}", base, ext);
+                    let file_id = codrag_parser::stable_file_node_id(&candidate);
+                    if self.nodes.contains_key(&file_id) {
+                        resolved = Some(file_id);
+                        break;
+                    }
+                    // Also check filesystem for files not yet in graph
+                    if repo_root.join(&candidate).exists() {
+                        resolved = Some(file_id);
+                        break;
+                    }
+                }
+
+                // Try as directory with index file
+                if resolved.is_none() {
+                    for idx in &index_files {
+                        let candidate = format!("{}/{}", base.trim_end_matches('/'), idx);
+                        let file_id = codrag_parser::stable_file_node_id(&candidate);
+                        if self.nodes.contains_key(&file_id) {
+                            resolved = Some(file_id);
+                            break;
+                        }
+                        if repo_root.join(&candidate).exists() {
+                            resolved = Some(file_id);
+                            break;
+                        }
+                    }
+                }
+
+                if let Some(file_id) = resolved {
+                    rewrites.insert(ext_id.clone(), file_id);
+                    break;
+                }
+            }
+        }
+
+        if rewrites.is_empty() {
+            return;
+        }
+
+        log::info!(
+            "Resolved {} path alias imports to internal files",
+            rewrites.len()
+        );
+
+        // Rewrite edges: replace ext targets with file targets
+        let old_edges = std::mem::take(&mut self.edges);
+        self.edges_by_source.clear();
+        self.edges_by_target.clear();
+
+        for mut edge in old_edges {
+            if let Some(new_target) = rewrites.get(&edge.target) {
+                edge.target = new_target.clone();
+                // Update edge metadata: no longer external
+                edge.metadata.external = None;
+                // Regenerate edge ID with new target
+                let disambiguator = edge
+                    .metadata
+                    .import_str
+                    .as_ref()
+                    .map(|s| format!("{}:{}", s, edge.metadata.line.unwrap_or(0)))
+                    .unwrap_or_default();
+                edge.id = codrag_parser::stable_edge_id(
+                    &edge.kind,
+                    &edge.source,
+                    &edge.target,
+                    &disambiguator,
+                );
+                // Bump confidence for resolved aliases
+                edge.metadata.confidence = 0.9;
+            }
+            self.add_edge(edge);
+        }
+
+        // Remove orphaned external_module nodes (those that were rewritten)
+        for ext_id in rewrites.keys() {
+            self.nodes.remove(ext_id);
+        }
+    }
+
     /// Get all nodes, sorted deterministically.
     pub fn sorted_nodes(&self) -> Vec<&ParsedNode> {
         let mut nodes: Vec<&ParsedNode> = self.nodes.values().collect();
@@ -397,6 +513,65 @@ pub struct ManifestFileError {
     pub message: String,
 }
 
+/// Load path aliases from tsconfig.json or jsconfig.json.
+///
+/// Returns a map of alias prefix (e.g. "@/") to replacement directory (e.g. "src/").
+fn load_path_aliases(repo_root: &Path) -> HashMap<String, String> {
+    let mut aliases = HashMap::new();
+    for config_name in &["tsconfig.json", "jsconfig.json"] {
+        let config_path = repo_root.join(config_name);
+        let content = match std::fs::read_to_string(&config_path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        let data: serde_json::Value = match serde_json::from_str(&content) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let paths = match data
+            .get("compilerOptions")
+            .and_then(|co| co.get("paths"))
+            .and_then(|p| p.as_object())
+        {
+            Some(p) => p,
+            None => continue,
+        };
+        let base_url = data
+            .get("compilerOptions")
+            .and_then(|co| co.get("baseUrl"))
+            .and_then(|b| b.as_str())
+            .unwrap_or(".");
+
+        for (pattern, targets) in paths {
+            if !pattern.ends_with("/*") {
+                continue;
+            }
+            let prefix = &pattern[..pattern.len() - 1]; // "@/*" → "@/"
+            let target = match targets.as_array().and_then(|a| a.first()).and_then(|t| t.as_str()) {
+                Some(t) => t,
+                None => continue,
+            };
+            let mut resolved = target.to_string();
+            if resolved.ends_with("/*") {
+                resolved = resolved[..resolved.len() - 1].to_string(); // "./src/*" → "./src/"
+            }
+            // Strip leading "./"
+            if resolved.starts_with("./") {
+                resolved = resolved[2..].to_string();
+            }
+            if !resolved.ends_with('/') {
+                resolved.push('/');
+            }
+            if base_url != "." {
+                resolved = format!("{}/{}", base_url.trim_end_matches('/'), resolved);
+            }
+            aliases.insert(prefix.to_string(), resolved);
+        }
+        break; // Use first config found
+    }
+    aliases
+}
+
 /// Configuration for a full trace build.
 #[derive(Debug, Clone)]
 pub struct TraceBuildConfig {
@@ -507,6 +682,9 @@ pub fn build_trace(
             files_parsed += 1;
         }
     }
+
+    // Phase 2.5: Resolve path aliases (e.g. @/ → src/) from tsconfig/jsconfig
+    graph.resolve_path_aliases(repo_root);
 
     // Phase 3: Write
     graph.write_jsonl(index_dir)?;

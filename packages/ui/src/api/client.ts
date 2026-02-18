@@ -14,7 +14,7 @@ import type {
   SearchResponse,
   WatchActionResponse,
 } from './types';
-import type { LLMStatus, LicenseStatus, Project, ProjectStatus, TraceCoverage, TraceStatus, WatchStatus, GlobalConfig, ModelStatusResult, ModelReadinessStatus, AugmentationStatus, DeepAnalysisRunStatus, LLMSlotsStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, GraphEngineStatus, PipelineStatus } from '../types';
+import type { LLMStatus, LicenseStatus, Project, ProjectStatus, TraceCoverage, TraceStatus, WatchStatus, GlobalConfig, ModelStatusResult, ModelReadinessStatus, AugmentationStatus, DeepAnalysisRunStatus, LLMSlotsStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, GraphEngineStatus, PipelineStatus, CrashedPipelineRun } from '../types';
 
 export interface FileTreeNode {
   name: string;
@@ -90,6 +90,7 @@ export interface ApiClient {
   getLicense(): Promise<LicenseStatus>;
   activateLicense(key: string): Promise<LicenseStatus>;
   deactivateLicense(): Promise<LicenseStatus>;
+  setDevTierOverride(tier: string | null): Promise<LicenseStatus>;
 
   // Global Config
   getGlobalConfig(): Promise<GlobalConfig>;
@@ -137,6 +138,11 @@ export interface ApiClient {
   runPipelineAll(projectId: string): Promise<{ started: boolean; group: string }>;
   getPipelineStatus(projectId: string): Promise<PipelineStatus>;
   cancelPipeline(projectId: string, group: string): Promise<{ cancelled: boolean; group: string }>;
+
+  // Pipeline Crash Protection (Phase 25)
+  getCrashedRuns(projectId?: string): Promise<{ crashed_runs: CrashedPipelineRun[]; count: number }>;
+  resumeCrashedRun(runId: string): Promise<{ resumed: boolean; run_id: string }>;
+  discardCrashedRun(runId: string): Promise<{ discarded: boolean; run_id: string }>;
 
   // Settings Store (Phase 24)
   getSettings(): Promise<Record<string, any>>;
@@ -380,6 +386,13 @@ export class CodragApiClient implements ApiClient {
     return this.requestEnvelope<LicenseStatus>('/license/deactivate', {
       method: 'POST',
       body: {},
+    });
+  }
+
+  async setDevTierOverride(tier: string | null): Promise<LicenseStatus> {
+    return this.requestEnvelope<LicenseStatus>('/license/dev-override', {
+      method: 'POST',
+      body: { tier: tier || '' },
     });
   }
 
@@ -694,6 +707,27 @@ export class CodragApiClient implements ApiClient {
     return this.requestEnvelope<{ cancelled: boolean; group: string }>(`/projects/${projectId}/pipeline/cancel`, {
       method: 'POST',
       body: { group },
+    });
+  }
+
+  // ── Pipeline Crash Protection (Phase 25) ───────────────────────
+
+  async getCrashedRuns(projectId?: string): Promise<{ crashed_runs: CrashedPipelineRun[]; count: number }> {
+    const query = projectId ? `?project_id=${projectId}` : '';
+    return this.requestEnvelope<{ crashed_runs: CrashedPipelineRun[]; count: number }>(`/pipeline/crashed${query}`);
+  }
+
+  async resumeCrashedRun(runId: string): Promise<{ resumed: boolean; run_id: string }> {
+    return this.requestEnvelope<{ resumed: boolean; run_id: string }>('/pipeline/resume', {
+      method: 'POST',
+      body: { run_id: runId },
+    });
+  }
+
+  async discardCrashedRun(runId: string): Promise<{ discarded: boolean; run_id: string }> {
+    return this.requestEnvelope<{ discarded: boolean; run_id: string }>('/pipeline/discard', {
+      method: 'POST',
+      body: { run_id: runId },
     });
   }
 

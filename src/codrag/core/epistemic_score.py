@@ -116,15 +116,23 @@ class EpistemicEntry:
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "EpistemicEntry":
+        def _str_list(val: Any) -> Optional[List[str]]:
+            """Coerce a list field to List[str]; LLMs sometimes return dicts."""
+            if val is None:
+                return None
+            if not isinstance(val, list):
+                return [str(val)]
+            return [str(v) if not isinstance(v, str) else v for v in val]
+
         return cls(
             node_id=d["node_id"],
             extended_summary=d.get("extended_summary", ""),
-            domain_tags=d.get("domain_tags", []),
-            architecture_layer=d.get("architecture_layer", "unknown"),
+            domain_tags=_str_list(d.get("domain_tags")) or [],
+            architecture_layer=str(d.get("architecture_layer", "unknown")),
             subsystem=d.get("subsystem"),
-            design_patterns=d.get("design_patterns"),
-            cross_references=d.get("cross_references"),
-            tech_debt=d.get("tech_debt"),
+            design_patterns=_str_list(d.get("design_patterns")),
+            cross_references=_str_list(d.get("cross_references")),
+            tech_debt=_str_list(d.get("tech_debt")),
             staleness_risk=d.get("staleness_risk"),
             epistemic_confidence=float(d.get("epistemic_confidence", 0.5)),
             pass_number=int(d.get("pass_number", 2)),
@@ -132,7 +140,7 @@ class EpistemicEntry:
             model=d.get("model", ""),
             doc_type=d.get("doc_type"),
             doc_status=d.get("doc_status"),
-            decision_chains=d.get("decision_chains"),
+            decision_chains=_str_list(d.get("decision_chains")),
         )
 
 
@@ -168,7 +176,11 @@ def compute_epistemic_score(
         c1 = 0.0
 
     # 2. Validation status
-    if augmentation and augmentation.get("validated"):
+    # If we have an epistemic entry (Pass 2+), the node has been processed by the 14b model,
+    # which counts as high-quality validation.
+    if epistemic:
+        c2 = 1.0
+    elif augmentation and augmentation.get("validated"):
         validated_by = augmentation.get("validated_by", "")
         c2 = 1.0 if "14b" in str(validated_by) else 0.6
     else:

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { RefreshCw, FileText, Settings, AlertCircle } from 'lucide-react'
+import { FileText, Settings, AlertCircle } from 'lucide-react'
 import {
   // API
   useApiClient,
@@ -50,6 +50,53 @@ import 'react-resizable/css/styles.css'
 const PINNED_PREFIX = 'pinned:'
 
 // ── Helpers ──────────────────────────────────────────────────
+
+function findNode(nodes: TreeNode[], name: string): TreeNode | undefined {
+  return nodes.find(n => n.name === name)
+}
+
+/**
+ * Collects paths of siblings along the path from ancestor to target
+ * Used when breaking an ancestor selection to preserve other children
+ */
+function getExplodedPaths(nodes: TreeNode[], ancestorPath: string, targetPath: string): string[] {
+  const ancestorParts = ancestorPath.split('/')
+  const targetParts = targetPath.split('/')
+  
+  // Navigate to ancestor node in the tree
+  let currentNodes = nodes
+  for (const part of ancestorParts) {
+    const node = findNode(currentNodes, part)
+    if (!node || !node.children) return [] // Should not happen if UI is consistent
+    currentNodes = node.children
+  }
+  
+  // Now currentNodes is the children of the ancestor
+  // We need to traverse from ancestor end to target
+  // ancestorPath = "src", targetPath = "src/a/b"
+  // parts relative to ancestor: "a", "b"
+  const relativeParts = targetParts.slice(ancestorParts.length)
+  const result: string[] = []
+  
+  let currentBasePath = ancestorPath
+  
+  for (const part of relativeParts) {
+    // Add all siblings that are NOT the current part
+    for (const child of currentNodes) {
+      if (child.name !== part && child.status !== 'ignored') {
+         result.push(`${currentBasePath}/${child.name}`)
+      }
+    }
+    
+    // Move down
+    const nextNode = findNode(currentNodes, part)
+    if (!nextNode || !nextNode.children) break // Target reached or tree incomplete
+    currentNodes = nextNode.children
+    currentBasePath = `${currentBasePath}/${part}`
+  }
+  
+  return result
+}
 
 function deriveStatus(ps: ProjectStatus | null, building: boolean): StatusState {
   if (building) return 'building'
@@ -113,6 +160,7 @@ function App() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [projectStatuses, setProjectStatuses] = useState<Record<string, ProjectStatus>>({})
   const [buildingProjects, setBuildingProjects] = useState<Set<string>>(new Set())
+  const [transientCompleteProjects, setTransientCompleteProjects] = useState<Set<string>>(new Set())
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
@@ -373,6 +421,17 @@ function App() {
               next.delete(selectedProjectId)
               return next
             })
+            
+            // Set transient complete state for 5 seconds
+            setTransientCompleteProjects((prev) => new Set(prev).add(selectedProjectId))
+            setTimeout(() => {
+              setTransientCompleteProjects((prev) => {
+                const next = new Set(prev)
+                next.delete(selectedProjectId)
+                return next
+              })
+            }, 5000)
+
             // Refresh status after build
             void refreshStatus(selectedProjectId)
             // Refresh file tree to update indexed/pending statuses in UI
@@ -514,27 +573,35 @@ function App() {
   const fetchFileTree = useCallback(async (projId: string) => {
     try {
       const data = await api.getProjectFiles(projId)
-      const tree = data.tree as TreeNode[]
-      setFileTree(tree)
-      // Removed: Do not merge server-reported indexed/pending paths into includedPaths.
-      // This prevents "zombie" checks where a file the user unchecked (but is still in index)
-      // gets re-checked automatically. includedPaths should strictly reflect user intent/localStorage.
-      /*
-      const serverPaths = collectIndexedPaths(tree)
-      if (serverPaths.length > 0) {
-        setIncludedPaths((prev) => {
-          const next = new Set(prev)
-          let changed = false
-          for (const p of serverPaths) {
-            if (!next.has(p)) { next.add(p); changed = true }
-          }
-          if (changed) {
-            localStorage.setItem('codrag_included_paths', JSON.stringify([...next]))
-          }
-          return changed ? next : prev
-        })
-      }
-      */
+      const newRoots = data.tree as TreeNode[]
+      
+      setFileTree((prev) => {
+        // Recursive Deep Merge: Preserve loaded children from previous state
+        // if new state (roots) doesn't have them. This prevents wiping out
+        // the loaded tree structure on background refreshes.
+        function mergeNodes(oldNodes: TreeNode[], newNodes: TreeNode[]): TreeNode[] {
+          return newNodes.map(newNode => {
+            const oldNode = oldNodes.find(n => n.name === newNode.name && n.type === newNode.type)
+            
+            if (oldNode) {
+              // If new node has explicit children, recursively merge them
+              if (newNode.children && newNode.children.length > 0) {
+                 return { 
+                   ...newNode, 
+                   children: mergeNodes(oldNode.children || [], newNode.children) 
+                 }
+              }
+              // If new node has NO children (or empty) but old node had children,
+              // preserve the old children (assuming new node is just a shallow update)
+              if (oldNode.children && oldNode.children.length > 0) {
+                return { ...newNode, children: oldNode.children }
+              }
+            }
+            return newNode
+          })
+        }
+        return mergeNodes(prev, newRoots)
+      })
     } catch {
       setFileTree([])
     }
@@ -545,7 +612,30 @@ function App() {
     if (!selectedProjectId) return []
     try {
       const data = await api.getProjectFiles(selectedProjectId, path, 2)
-      return data.tree as TreeNode[]
+      const children = data.tree as TreeNode[]
+      
+      // Update local fileTree state with new children so we have full knowledge for selection logic
+      setFileTree((prev) => {
+        // Deep-clone and merge children into the node at path
+        function mergeInto(nodes: TreeNode[], segments: string[], idx: number): TreeNode[] {
+          return nodes.map((n) => {
+            if (n.name === segments[idx]) {
+              if (idx === segments.length - 1) {
+                // Found target — set children, clear has_children flag
+                return { ...n, children, has_children: undefined }
+              }
+              if (n.children) {
+                return { ...n, children: mergeInto(n.children, segments, idx + 1) }
+              }
+            }
+            return n
+          })
+        }
+        const segments = path.split('/')
+        return mergeInto(prev, segments, 0)
+      })
+      
+      return children
     } catch {
       return []
     }
@@ -556,21 +646,62 @@ function App() {
   const handleToggleInclude = useCallback((paths: string[], action: 'add' | 'remove') => {
     setIncludedPaths((prev) => {
       const next = new Set(prev)
-      if (action === 'add') {
-        paths.forEach((p) => next.add(p))
-      } else {
-        // Remove the explicit paths AND any descendants (handles unloaded lazy-tree children)
-        const prefixes = paths.map((p) => p + '/')
-        paths.forEach((p) => next.delete(p))
-        for (const existing of [...next]) {
-          if (prefixes.some((prefix) => existing.startsWith(prefix))) {
-            next.delete(existing)
+      
+      for (const path of paths) {
+        if (action === 'add') {
+          // Add the path
+          next.add(path)
+          
+          // Remove any existing descendants (cleanup - parent covers them)
+          const prefix = path + '/'
+          for (const existing of next) {
+            if (existing.startsWith(prefix)) {
+              next.delete(existing)
+            }
+          }
+        } else {
+          // Action is remove
+          
+          // 1. Check for Ancestor (to explode if needed)
+          // We always check this because even if the path itself is explicit,
+          // it might be shadowed by an ancestor (though cleanup usually prevents this,
+          // it's safer to check).
+          // Primarily this handles the case where we are removing a child of a selected parent.
+          let ancestorFound: string | null = null
+          const parts = path.split('/')
+          for (let i = parts.length - 1; i >= 1; i--) {
+            const ancestor = parts.slice(0, i).join('/')
+            if (next.has(ancestor)) {
+              ancestorFound = ancestor
+              break
+            }
+          }
+          
+          if (ancestorFound) {
+            next.delete(ancestorFound)
+            const pathsToKeep = getExplodedPaths(fileTree, ancestorFound, path)
+            pathsToKeep.forEach(p => next.add(p))
+          }
+          
+          // 2. Remove the path itself (always try)
+          next.delete(path)
+          
+          // 3. Remove any descendants (always try)
+          // This ensures that if we uncheck a folder that had explicit children
+          // (partially selected), those children are removed.
+          const prefix = path + '/'
+          for (const existing of next) {
+            if (existing.startsWith(prefix)) {
+              next.delete(existing)
+            }
           }
         }
       }
+      
       localStorage.setItem('codrag_included_paths', JSON.stringify([...next]))
       return next
     })
+
     // Phase 24: Notify scope orchestrator about knowledge scope changes
     if (selectedProjectId && paths.length > 0) {
       if (action === 'add') {
@@ -579,7 +710,7 @@ function App() {
         api.removeScopeFiles(selectedProjectId, paths).catch(() => {})
       }
     }
-  }, [api, selectedProjectId])
+  }, [api, selectedProjectId, fileTree])
 
   const handlePinFile = useCallback((path: string) => {
     setPinnedPaths((prev) => {
@@ -811,6 +942,7 @@ function App() {
     scopeStatus: selectedProjectId ? scopeEvents[selectedProjectId] : undefined,
     logs, clearLogs, findActiveTask,
     handleBuild,
+    transientComplete: selectedProjectId ? transientCompleteProjects.has(selectedProjectId) : false,
     query, setQuery, searchK, setSearchK, minScore, setMinScore,
     searchLoading, searchResults, selectedChunk, setSelectedChunk, handleSearch,
     contextK, setContextK, contextMaxChars, setContextMaxChars,
@@ -969,21 +1101,6 @@ function App() {
               onLayoutReady={(api) => { layoutApiRef.current = api }}
               onLayoutChange={setDashboardLayout}
               hidePanelPicker
-              headerLeft={
-                <h1 className="text-2xl font-bold flex items-center gap-2 text-text">
-                  {selectedProject.name}
-                </h1>
-              }
-              headerRight={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => selectedProjectId && void refreshStatus(selectedProjectId)}
-                  title="Refresh"
-                >
-                  <RefreshCw className="w-5 h-5" />
-                </Button>
-              }
             />
           </div>
         ) : (

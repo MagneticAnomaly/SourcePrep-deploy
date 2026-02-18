@@ -194,6 +194,7 @@ class TestToolStatus:
             
             result = await server.tool_status()
             
+            assert result["project_id"] == server.project_id
             assert result["daemon"] == "running"
             assert result["index_loaded"] is True
             assert result["total_documents"] == 150
@@ -213,7 +214,11 @@ class TestToolStatus:
     async def test_status_project_selection_ambiguous_raises(self):
         """Test status without project selection raises PROJECT_SELECTION_AMBIGUOUS."""
         srv = MCPServer(daemon_url="http://127.0.0.1:8400", project_id=None, auto_detect=False)
-        with patch.object(srv, "_api_get", new_callable=AsyncMock) as mock_get:
+        with patch.object(srv, "_api_get", new_callable=AsyncMock) as mock_get, \
+             patch("codrag.mcp_server.Path") as mock_path:
+            # CWD must not match any project path
+            mock_path.cwd.return_value.resolve.return_value = MagicMock(__str__=lambda s: "/nowhere")
+            mock_path.cwd.return_value.__str__ = lambda s: "/nowhere"
             mock_get.return_value = {
                 "projects": [
                     {"id": "p1", "name": "A", "path": "/tmp/a"},
@@ -224,6 +229,7 @@ class TestToolStatus:
             with pytest.raises(ProjectSelectionAmbiguousError) as e:
                 await srv.tool_status()
             assert "PROJECT_SELECTION_AMBIGUOUS" in str(e.value)
+            assert "project_id" in str(e.value)  # Hint mentions tool-level param
 
 
 class TestToolBuild:
@@ -470,7 +476,10 @@ class TestToolsCall:
     @pytest.mark.asyncio
     async def test_call_status_project_selection_ambiguous_returns_tool_error(self):
         srv = MCPServer(daemon_url="http://127.0.0.1:8400", project_id=None, auto_detect=False)
-        with patch.object(srv, "_api_get", new_callable=AsyncMock) as mock_get:
+        with patch.object(srv, "_api_get", new_callable=AsyncMock) as mock_get, \
+             patch("codrag.mcp_server.Path") as mock_path:
+            mock_path.cwd.return_value.resolve.return_value = MagicMock(__str__=lambda s: "/nowhere")
+            mock_path.cwd.return_value.__str__ = lambda s: "/nowhere"
             mock_get.return_value = {
                 "projects": [
                     {"id": "p1", "name": "A", "path": "/tmp/a"},
@@ -489,6 +498,33 @@ class TestToolsCall:
             assert response["result"]["isError"] is True
             assert "PROJECT_SELECTION_AMBIGUOUS" in response["result"]["content"][0]["text"]
 
+    @pytest.mark.asyncio
+    async def test_call_status_with_project_id_override(self):
+        """Test that passing project_id in tool args bypasses auto-detect."""
+        srv = MCPServer(daemon_url="http://127.0.0.1:8400", project_id=None)
+        with patch.object(srv, "_api_get", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = {
+                "index": {"exists": True, "total_chunks": 42},
+                "building": False,
+                "watch": {"enabled": False},
+            }
+
+            request = {
+                "jsonrpc": "2.0",
+                "id": 17,
+                "method": "tools/call",
+                "params": {
+                    "name": "codrag_status",
+                    "arguments": {"project_id": "proj_override"},
+                },
+            }
+
+            response = await srv.handle_request(request)
+            assert response["result"]["isError"] is False
+            data = json.loads(response["result"]["content"][0]["text"])
+            assert data["project_id"] == "proj_override"
+            mock_get.assert_any_call("/projects/proj_override/status")
+
 
 # =============================================================================
 # Tool Schema Tests
@@ -504,6 +540,15 @@ class TestToolSchemas:
             assert "description" in tool
             assert "inputSchema" in tool
             assert tool["inputSchema"]["type"] == "object"
+
+    def test_all_tools_have_project_id(self):
+        """Test all tools expose optional project_id parameter."""
+        for tool in TOOLS:
+            props = tool["inputSchema"].get("properties", {})
+            assert "project_id" in props, f"Tool '{tool['name']}' missing project_id"
+            assert props["project_id"]["type"] == "string"
+            # project_id must NOT be required
+            assert "project_id" not in tool["inputSchema"].get("required", [])
 
     def test_search_requires_query(self):
         """Test search tool requires query parameter."""
@@ -524,3 +569,175 @@ class TestToolSchemas:
         """Test build tool has no required parameters."""
         build_tool = next(t for t in TOOLS if t["name"] == "codrag_build")
         assert build_tool["inputSchema"]["required"] == []
+
+
+# =============================================================================
+# Multi-Project Routing Tests
+# =============================================================================
+
+class TestProjectRouting:
+    """Test multi-project routing mechanisms."""
+
+    def test_uri_to_path_file_uri(self):
+        """Test file:// URI conversion."""
+        assert MCPServer._uri_to_path("file:///Users/alice/projects/app") == "/Users/alice/projects/app"
+        assert MCPServer._uri_to_path("file:///tmp/test") == "/tmp/test"
+
+    def test_uri_to_path_bare_path(self):
+        """Test bare absolute path passthrough."""
+        assert MCPServer._uri_to_path("/Users/alice/projects/app") == "/Users/alice/projects/app"
+
+    def test_uri_to_path_invalid(self):
+        """Test invalid URIs return None."""
+        assert MCPServer._uri_to_path("") is None
+        assert MCPServer._uri_to_path("https://example.com") is None
+        assert MCPServer._uri_to_path("relative/path") is None
+
+    def test_best_project_match_exact(self):
+        """Test exact path match."""
+        srv = MCPServer(daemon_url="http://127.0.0.1:8400")
+        projects = [
+            {"id": "p1", "path": "/Users/alice/frontend"},
+            {"id": "p2", "path": "/Users/alice/backend"},
+        ]
+        assert srv._best_project_match(projects, ["/Users/alice/frontend"]) == "p1"
+        assert srv._best_project_match(projects, ["/Users/alice/backend"]) == "p2"
+
+    def test_best_project_match_subdirectory(self):
+        """Test CWD inside project directory."""
+        srv = MCPServer(daemon_url="http://127.0.0.1:8400")
+        projects = [
+            {"id": "p1", "path": "/Users/alice/frontend"},
+            {"id": "p2", "path": "/Users/alice/backend"},
+        ]
+        assert srv._best_project_match(projects, ["/Users/alice/frontend/src/components"]) == "p1"
+
+    def test_best_project_match_longest_prefix(self):
+        """Test most-specific (longest) path wins."""
+        srv = MCPServer(daemon_url="http://127.0.0.1:8400")
+        projects = [
+            {"id": "p_parent", "path": "/Users/alice/monorepo"},
+            {"id": "p_child", "path": "/Users/alice/monorepo/packages/app"},
+        ]
+        assert srv._best_project_match(
+            projects, ["/Users/alice/monorepo/packages/app/src"]
+        ) == "p_child"
+
+    def test_best_project_match_no_match(self):
+        """Test no match returns None."""
+        srv = MCPServer(daemon_url="http://127.0.0.1:8400")
+        projects = [{"id": "p1", "path": "/Users/alice/frontend"}]
+        assert srv._best_project_match(projects, ["/Users/bob/other"]) is None
+
+    def test_best_project_match_ambiguous(self):
+        """Test same-length prefix tie returns None (ambiguous)."""
+        srv = MCPServer(daemon_url="http://127.0.0.1:8400")
+        # Two projects with same-length paths, CWD is parent of both
+        projects = [
+            {"id": "p1", "path": "/a/b"},
+            {"id": "p2", "path": "/a/c"},
+        ]
+        # CWD "/a" doesn't match either (not a prefix of /a/b or /a/c)
+        assert srv._best_project_match(projects, ["/a"]) is None
+
+    @pytest.mark.asyncio
+    async def test_initialize_extracts_roots(self):
+        """Test initialize handler extracts workspace roots."""
+        srv = MCPServer(daemon_url="http://127.0.0.1:8400")
+        await srv.handle_initialize({
+            "protocolVersion": MCP_PROTOCOL_VERSION,
+            "capabilities": {},
+            "clientInfo": {"name": "test"},
+            "roots": [
+                {"uri": "file:///Users/alice/projects/app", "name": "app"},
+            ],
+        })
+        assert srv._initialize_roots == ["/Users/alice/projects/app"]
+
+    @pytest.mark.asyncio
+    async def test_initialize_extracts_workspace_folders(self):
+        """Test initialize handler extracts LSP-style workspaceFolders."""
+        srv = MCPServer(daemon_url="http://127.0.0.1:8400")
+        await srv.handle_initialize({
+            "protocolVersion": MCP_PROTOCOL_VERSION,
+            "capabilities": {},
+            "clientInfo": {"name": "test"},
+            "workspaceFolders": [
+                {"uri": "file:///Users/alice/projects/app", "name": "app"},
+                {"uri": "file:///Users/alice/projects/lib", "name": "lib"},
+            ],
+        })
+        assert len(srv._initialize_roots) == 2
+        assert "/Users/alice/projects/app" in srv._initialize_roots
+        assert "/Users/alice/projects/lib" in srv._initialize_roots
+
+    @pytest.mark.asyncio
+    async def test_resolve_uses_initialize_roots(self):
+        """Test project resolution uses initialize roots over CWD."""
+        srv = MCPServer(daemon_url="http://127.0.0.1:8400")
+        srv._initialize_roots = ["/Users/alice/frontend"]
+
+        with patch.object(srv, "_api_get", new_callable=AsyncMock) as mock_get, \
+             patch("codrag.mcp_server.Path") as mock_path:
+            # CWD is somewhere unrelated
+            mock_path.cwd.return_value.resolve.return_value = MagicMock(__str__=lambda s: "/nowhere")
+            mock_path.cwd.return_value.__str__ = lambda s: "/nowhere"
+            mock_get.return_value = {
+                "projects": [
+                    {"id": "p1", "name": "Frontend", "path": "/Users/alice/frontend"},
+                    {"id": "p2", "name": "Backend", "path": "/Users/alice/backend"},
+                ]
+            }
+
+            result = await srv._resolve_project_id()
+            assert result == "p1"
+
+    @pytest.mark.asyncio
+    async def test_resolve_override_takes_priority(self):
+        """Test tool-level override bypasses all other detection."""
+        srv = MCPServer(daemon_url="http://127.0.0.1:8400", project_id="pinned_proj")
+        # Override should win over pinned project
+        result = await srv._resolve_project_id(override="override_proj")
+        assert result == "override_proj"
+
+    @pytest.mark.asyncio
+    async def test_resolve_pinned_takes_priority_over_auto(self):
+        """Test CLI-pinned project bypasses auto-detection."""
+        srv = MCPServer(daemon_url="http://127.0.0.1:8400", project_id="pinned_proj")
+        result = await srv._resolve_project_id()
+        assert result == "pinned_proj"
+
+    @pytest.mark.asyncio
+    async def test_resolve_cwd_always_attempted(self):
+        """Test CWD matching works even without --auto flag."""
+        srv = MCPServer(daemon_url="http://127.0.0.1:8400", project_id=None, auto_detect=False)
+
+        with patch.object(srv, "_api_get", new_callable=AsyncMock) as mock_get, \
+             patch("codrag.mcp_server.Path") as mock_path:
+            mock_path.cwd.return_value.resolve.return_value = MagicMock(__str__=lambda s: "/Users/alice/frontend/src")
+            mock_path.cwd.return_value.__str__ = lambda s: "/Users/alice/frontend/src"
+            mock_get.return_value = {
+                "projects": [
+                    {"id": "p1", "name": "Frontend", "path": "/Users/alice/frontend"},
+                    {"id": "p2", "name": "Backend", "path": "/Users/alice/backend"},
+                ]
+            }
+
+            result = await srv._resolve_project_id()
+            assert result == "p1"
+
+    @pytest.mark.asyncio
+    async def test_resolve_single_project_shortcut(self):
+        """Test single project is used automatically when CWD doesn't match."""
+        srv = MCPServer(daemon_url="http://127.0.0.1:8400", project_id=None)
+
+        with patch.object(srv, "_api_get", new_callable=AsyncMock) as mock_get, \
+             patch("codrag.mcp_server.Path") as mock_path:
+            mock_path.cwd.return_value.resolve.return_value = MagicMock(__str__=lambda s: "/nowhere")
+            mock_path.cwd.return_value.__str__ = lambda s: "/nowhere"
+            mock_get.return_value = {
+                "projects": [{"id": "only_one", "name": "Solo", "path": "/some/path"}]
+            }
+
+            result = await srv._resolve_project_id()
+            assert result == "only_one"

@@ -191,6 +191,15 @@ export default {
         normal: 'var(--duration-normal)',
         slow: 'var(--duration-slow)',
       },
+      keyframes: {
+        indeterminate: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(400%)' },
+        },
+      },
+      animation: {
+        indeterminate: 'indeterminate 1.5s ease-in-out infinite',
+      },
     },
   },
   plugins: [],

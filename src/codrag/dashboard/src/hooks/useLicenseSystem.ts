@@ -16,6 +16,11 @@ export function useLicenseSystem() {
 
   const fetchLicense = useCallback(async () => {
     try {
+      // Sync any stored dev tier override to the backend on startup
+      const stored = localStorage.getItem('codrag_dev_tier_override')
+      if (stored) {
+        try { await api.setDevTierOverride(stored) } catch { /* ok */ }
+      }
       const status = await api.getLicense()
       setLicenseStatus(status)
     } catch {
@@ -51,14 +56,21 @@ export function useLicenseSystem() {
     }
   }, [api])
 
-  const handleDevTierOverrideChange = useCallback((tier: LicenseTier | null) => {
+  const handleDevTierOverrideChange = useCallback(async (tier: LicenseTier | null) => {
     setDevTierOverride(tier)
     if (tier) {
       localStorage.setItem('codrag_dev_tier_override', tier)
     } else {
       localStorage.removeItem('codrag_dev_tier_override')
     }
-  }, [])
+    // Propagate to backend so feature gates respect the override
+    try {
+      const status = await api.setDevTierOverride(tier)
+      setLicenseStatus(status)
+    } catch {
+      // Silent — backend may not support dev-override yet
+    }
+  }, [api])
 
   return {
     licenseStatus,

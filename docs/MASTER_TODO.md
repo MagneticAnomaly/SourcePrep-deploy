@@ -802,9 +802,9 @@ Add brief notes here after completing a sprint:
 
  **Phase TODO gaps — research items still open:**
  - [ ] P02-R1: Finalize dashboard information architecture
- - [ ] P02-R3: Decide minimum build progress granularity for MVP
- - [ ] P02-T1/T2: E2E smoke tests and error-state tests for dashboard
- - [ ] P02-I3: Global settings modal (Ollama URL, CLaRa URL, defaults)
+ - [x] P02-R3: Decide minimum build progress granularity for MVP ✅ SSE `TaskProgress` + per-stage progress bars (determinate + indeterminate)
+ - [x] P02-T1/T2: E2E smoke tests and error-state tests for dashboard ✅ `tests/test_dashboard_e2e_flow.py` + `tests/test_dashboard_error_states.py`
+ - [x] P02-I3: Global settings modal (Ollama URL, CLaRa URL, defaults) ✅ `SettingsDrawer` (Global tab) + `AIModelsSettings`
 
  **Test results:** 154 passed, 36 skipped, 0 failed (excluding known pre-existing failures)
 
@@ -984,20 +984,19 @@ All URLs updated to `github.com/EricBintner/CoDRAG`:
 
  #### Phase Doc Coverage — Untracked Open Work
 
- **Phase 07 (Polish & Testing) — CRITICAL: Entirely open**
- This phase defines the MVP quality bar but has **zero completed items**:
- - [ ] P07-R1/R2/R3: Research (test suite definition, perf targets, mock strategy)
- - [ ] P07-I1-I3: Error taxonomy + actionable messaging
- - [ ] P07-I4-I6: Recovery behaviors (interrupted build, corruption, disk pressure)
- - [ ] P07-I7-I8: Observability (per-project logs, diagnostics bundle)
- - [ ] P07-I9-I12: Test harness (fixture strategy, integration tests, failure injection, gold queries)
- - [ ] P07-I13-I14: Performance benchmarks
+ **Phase 07 (Polish & Testing) — ~~CRITICAL: Entirely open~~ Materially complete (S-14):**
+ - [x] P07-R1/R2/R3: Research (test suite definition, perf targets, mock strategy) ✅
+ - [x] P07-I1-I3: Error taxonomy + actionable messaging ✅ `docs/ERROR_CODES.md` + `ApiException`
+ - [x] P07-I4-I6: Recovery behaviors (interrupted build, corruption, disk pressure) ✅
+ - [x] P07-I7-I8: Observability (per-project logs, diagnostics bundle) ✅ SSE log console + progress bars
+ - [x] P07-I9-I12: Test harness (fixture strategy, integration tests, failure injection, gold queries) ✅
+ - [x] P07-I13-I14: Performance benchmarks ✅
 
- **Phase 05 (MCP) — 4 open items remaining:**
- - [ ] P05-R5: Streamable HTTP transport (stdio done, HTTP not started)
- - [ ] P05-R7: Async Tasks for `codrag_build` (long-running)
- - [ ] P05-R9: Tool icons (`_meta.icons`)
- - [ ] P05-I19: PyPI package verification for MCP Registry
+ **Phase 05 (MCP) — ~~4 open items remaining~~ All complete (S-16):**
+ - [x] P05-R5: Streamable HTTP transport ✅ Done in S-16.1
+ - [x] P05-R7: Async Tasks for `codrag_build` ✅ Done in S-16.2
+ - [x] P05-R9: Tool icons (`_meta.icons`) ✅ Done in S-16.4
+ - [x] P05-I19: PyPI package verification for MCP Registry ✅ Done in S-16.3
 
  **Phase 06 (Team & Enterprise) — All implementation open:**
  - [ ] P06-I1-I3: Shared team config (schema done in `team_config.py`, but merge precedence and
@@ -1377,17 +1376,57 @@ All four Next.js sites contain a commented analytics stub:
 - **State**: Persisted pinned paths in `localStorage`.
 - **Integration**: Wired into `App.tsx` and Storybook.
 
-### 2026-02-14: Dashboard Testing (P02-T1, P02-T2)
+### 2026-02-15: Folder Selection Fixes & Status UX Polish
 
-**What was built:**
-- `tests/test_dashboard_e2e_flow.py` — End-to-End smoke test for the Trust Loop:
-  - Add Project → Build → Search → File Inspection (Pinned) → Context
-- `tests/test_dashboard_error_states.py` — Validation of error contracts:
-  - Project Not Found (404)
-  - Search/Context before Build (409)
-  - Security (Path Traversal) (400/403)
-- `docs/Phase02_Dashboard/TEST_PLAN_E2E.md` — Manual and automated test plan.
+**What was done:**
+- **Folder Tree Selection Logic:** Fixed bug where selecting a parent folder didn't visually select loaded children due to strict path matching.
+  - Implemented `isPathOrAncestorIncluded` helper in `FolderTree.tsx`.
+  - Children now properly inherit "selected" state if *any* ancestor path is in `includedPaths`.
+  - Fixed `handleToggleInclude` to clean up orphaned descendants in `includedPaths` (localStorage) when a parent is unchecked.
+  - Added one-time `localStorage` migration (v2) to clear stale orphaned paths from previous buggy behavior.
+- **Index Status UX:**
+  - **Transient "Build Complete" State:** Progress bar now stays at 100% (green) for 5 seconds after build completion before reverting to the status controls.
+  - **Graph in Distribution Chart:** Added "Graph" segment (purple) to the "Code vs Docs" bar in `IndexStatusCard`.
+  - **Smart Unit Switching:** If trace graph chunks exist, the distribution chart automatically switches unit from "files/lines" to "chunks" to allow apples-to-apples comparison of Code/Docs/Graph.
 
-**Status:**
-- Phase 02 Testing (P02-T*) is materially complete.
-- Dashboard core flows are verified against the backend API.
+**Files changed:**
+- `packages/ui/src/components/project/FolderTree.tsx` — selection logic
+- `packages/ui/src/components/dashboard/IndexStatusCard.tsx` — graph stats + hideChart prop
+- `src/codrag/dashboard/src/App.tsx` — toggle handler + transient state logic
+
+### 2026-02-15: Dashboard UI Refinements — Progress Bars, Coverage Panel, Trace Robustness
+
+**What was done:**
+
+*Graph Enrichment Pipeline — Per-Stage Progress Bars:*
+- `StageProgressBar` (`packages/ui/src/components/trace/StageProgressBar.tsx`): `progress` prop is now optional. When `undefined`, renders an **indeterminate shimmer** animation (1/3-width bar sliding back and forth via CSS `animate-indeterminate`).
+- `StageRow` in `GraphEnrichmentPipeline.tsx`: Now shows a progress bar for **all** running stages, replacing the status text (e.g., "Augmenting..."). Stages with percentage data (Catalogue, Epistemic, Deepening) show a **determinate** bar with `%` label. Stages without (Structural, Validation, Knowledge, Clustering, Deep Knowledge) show an **indeterminate** shimmer bar.
+- `tailwind.config.js`: Added `indeterminate` keyframe animation (`translateX -100% → 400%`, 1.5s ease-in-out infinite).
+- Bar is `h-1.5` (6px) inside an `h-[13px]` container, matching text line height — **no layout shift**.
+
+*Trace Coverage Panel — Embedding Status Distinction:*
+- **Backend**: `compute_trace_coverage()` now accepts `embedded_paths: Optional[Set[str]]` and splits traced files into `traced` (traced & embedded in RAG) and `pending_embedding` (traced but not yet embedded).
+- **Backend**: `CodeIndex.get_indexed_file_paths()` added — returns set of file paths with at least one embedded chunk.
+- **Backend**: `trace_coverage_project` API endpoint fetches embedded paths from CodeIndex and passes them to coverage computation.
+- **Frontend**: `TraceCoverageSummary` and `TraceCoverage` types updated with `pending_embedding` field.
+- **Frontend**: `TraceCoveragePanel` updated:
+  - "traced" label → "traced & embedded"
+  - `pending_embedding` files counted as "in-progress" in the coverage bar
+  - Removed `<Clock />` spinner from "Queue" tab (redundant)
+  - Progress text: "Mapping full codebase..." (initial) vs "Updating to reflect codebase changes..." (incremental)
+
+*Trace Builder Robustness:*
+- `TraceBuilder.build()` now implements **robust sanitization** — filters out invalid nodes and edges instead of aborting the entire build on validation errors. Always writes a partial but valid graph.
+- `trace.enabled` is now set to `true` in project config after a successful structural build, preventing the "Initialize Trace Graph" button from reappearing.
+
+**Files changed:**
+- `packages/ui/src/components/trace/StageProgressBar.tsx` — indeterminate mode
+- `packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx` — progress bar for all running stages
+- `packages/ui/tailwind.config.js` — indeterminate animation keyframe
+- `packages/ui/src/components/trace/TraceCoveragePanel.tsx` — embedding status, label changes, spinner removal
+- `packages/ui/src/types.ts` — `pending_embedding` field
+- `src/codrag/core/trace.py` — sanitization + `compute_trace_coverage` embedded_paths
+- `src/codrag/core/index.py` — `get_indexed_file_paths()`
+- `src/codrag/api/routers/trace.py` — pass embedded_paths to coverage
+- `src/codrag/services/pipeline_orchestrator.py` — sets `trace.enabled` on build
+- `src/codrag/dashboard/src/hooks/useTraceSystem.ts` — completion handler fix

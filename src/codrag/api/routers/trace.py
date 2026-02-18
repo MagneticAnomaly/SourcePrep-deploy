@@ -93,6 +93,7 @@ from pydantic import BaseModel
 from codrag.api.envelope import ApiException, ok
 from codrag.core.events import get_event_bus, get_progress_manager
 from codrag.core.project_registry import project_index_dir
+from codrag.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
 from codrag.core.trace import compute_trace_coverage
 
 logger = logging.getLogger(__name__)
@@ -206,6 +207,11 @@ def build_trace_project(project_id: str) -> Dict[str, Any]:
     exclude_globs = list(exclude_raw) if isinstance(exclude_raw, list) else None
     max_file_bytes = int((cfg.get("max_file_bytes") or 500_000) if isinstance(cfg, dict) else 500_000)
 
+    # Enforce default safety excludes
+    current_excludes = set(exclude_globs or [])
+    default_excludes = {f"**/{d}/**" for d in DEFAULT_EXCLUDE_DIR_NAMES}
+    exclude_globs = sorted(list(current_excludes | default_excludes))
+
     # Auto-detect stack presets if include_globs is empty or None
     if not include_globs:
         try:
@@ -267,6 +273,42 @@ def trace_coverage_project(project_id: str) -> Dict[str, Any]:
     max_file_bytes = int((cfg.get("max_file_bytes") or 500_000) if isinstance(cfg, dict) else 500_000)
     idx_dir = project_index_dir(proj)
 
+    # Get embedded paths from the KNOWLEDGE index (not the code search index).
+    # Files are "traced & embedded" only after the Knowledge Embedding stage
+    # has processed them. The code search index may contain files from a prior
+    # code-only build that have nothing to do with trace embedding.
+    embedded_paths: set = set()
+    knowledge_docs_path = idx_dir / "knowledge_documents.json"
+    if knowledge_docs_path.exists():
+        try:
+            import json as _json
+            with open(knowledge_docs_path, "r", encoding="utf-8") as _f:
+                for doc in _json.load(_f):
+                    src = doc.get("source_id") or ""
+                    if not src:
+                        continue
+                    # Knowledge docs use node_id as source_id which has
+                    # prefixes like "file:" or "sym:".  Coverage tracks
+                    # plain relative paths, so strip the "file:" prefix.
+                    # Symbol nodes (sym:) don't map 1:1 to files — extract
+                    # the file portion from "sym:Name@FilePath:line".
+                    if src.startswith("file:"):
+                        embedded_paths.add(src[5:])
+                    elif src.startswith("sym:"):
+                        # sym:SymbolName@FilePath:line → extract FilePath
+                        at_idx = src.find("@")
+                        if at_idx >= 0:
+                            rest = src[at_idx + 1:]
+                            colon_idx = rest.rfind(":")
+                            if colon_idx > 0:
+                                embedded_paths.add(rest[:colon_idx])
+                            else:
+                                embedded_paths.add(rest)
+                    else:
+                        embedded_paths.add(src)
+        except Exception:
+            pass  # If unreadable, treat all as pending
+
     coverage = compute_trace_coverage(
         repo_root=Path(proj.path),
         index_dir=idx_dir,
@@ -274,6 +316,7 @@ def trace_coverage_project(project_id: str) -> Dict[str, Any]:
         exclude_globs=exclude_globs,
         user_exclude_globs=user_exclude_globs,
         max_file_bytes=max_file_bytes,
+        embedded_paths=embedded_paths,
     )
     coverage["building"] = _is_project_trace_building(proj.id)
     return ok(coverage)
@@ -508,10 +551,29 @@ def get_trace_node_neighbors(
 
 @router.get("/projects/{project_id}/augment/status")
 def augment_status_project(project_id: str) -> Dict[str, Any]:
-    """Get augmentation status for a project."""
+    """Get augmentation status for a project.
+    
+    When augmentation is actively running, includes live progress from
+    the build slot so the UI can show a real progress bar.
+    """
     from codrag.server import _require_project, _project_augment_status
     proj = _require_project(project_id)
-    return ok(_project_augment_status(proj))
+    status = _project_augment_status(proj)
+
+    # Overlay live build-slot progress when the catalogue stage is running.
+    # The manifest-based augmented_nodes only updates on completion, so
+    # the UI would otherwise see 0% for the entire run.
+    try:
+        from codrag.services.build_orchestrator import build_orchestrator, BuildType, BuildPhase
+        slot = build_orchestrator.status(project_id, BuildType.AUGMENT)
+        if slot.phase == BuildPhase.RUNNING and slot.progress_total > 0:
+            status["enabled"] = True
+            status["augmented_nodes"] = slot.progress_current
+            status["total_nodes"] = slot.progress_total
+    except Exception:
+        pass  # Non-fatal: fall back to manifest data
+
+    return ok(status)
 
 
 @router.post("/projects/{project_id}/augment/run")
@@ -742,11 +804,30 @@ def epistemic_status_project(project_id: str) -> Dict[str, Any]:
     idx_dir = project_index_dir(proj)
     epistemic_path = idx_dir / "trace_epistemic.jsonl"
 
+    # Count file nodes from trace_nodes.jsonl — epistemic only enriches
+    # file nodes, so total_file_nodes is the correct denominator (not total nodes).
+    total_file_nodes = 0
+    nodes_path = idx_dir / "trace_nodes.jsonl"
+    if nodes_path.exists():
+        try:
+            with open(nodes_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        try:
+                            nd = json.loads(line)
+                            if nd.get("kind") == "file":
+                                total_file_nodes += 1
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
     if not epistemic_path.exists():
         result: Dict[str, Any] = {
             "enabled": False,
             "enriched_nodes": 0,
-            "total_file_nodes": 0,
+            "total_file_nodes": total_file_nodes,
             "avg_confidence": 0.0,
         }
     else:
@@ -765,10 +846,11 @@ def epistemic_status_project(project_id: str) -> Dict[str, Any]:
         result = {
             "enabled": True,
             "enriched_nodes": count,
+            "total_file_nodes": total_file_nodes,
             "avg_confidence": round(total_conf / count, 3) if count else 0.0,
         }
 
-    # Inject live running state
+    # Inject live running state — check legacy threads first
     state = _epistemic_state.get(project_id)
     if state and state.get("thread") and state["thread"].is_alive():
         result["running"] = True
@@ -776,6 +858,47 @@ def epistemic_status_project(project_id: str) -> Dict[str, Any]:
         result["progress_total"] = state.get("total", 0)
     else:
         result["running"] = False
+
+    # Two running signals:
+    # - "running": True only when Stage 5 (Epistemic) specifically is active
+    #   (used by computeEpistemicState for the stage row icon)
+    # - "pipeline_running": True when ANY deep enrichment stage (5-8) is active
+    #   (used by DeepCoverageBar to keep the bar spinning)
+    result["pipeline_running"] = False
+
+    try:
+        from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+        pipe_status = pipeline_orchestrator.status(project_id)
+        deep_run = pipe_status.get("deep_enrichment")
+
+        if deep_run and deep_run.get("phase") == "running":
+            # The overall deep pipeline is running
+            result["pipeline_running"] = True
+            current_stage = deep_run.get("current_stage")
+
+            # Only mark Stage 5 as "running" if we are specifically on that stage
+            if current_stage == "enrichment":
+                result["running"] = True
+                stages = pipe_status.get("stages", {})
+                slot = stages.get("enrichment") or {}
+                prog = slot.get("progress")
+                if prog:
+                    result["progress_current"] = prog.get("current", 0)
+                    result["progress_total"] = prog.get("total", 0)
+
+    except Exception:
+        # Fallback to just checking the single slot if pipeline check fails
+        try:
+            from codrag.services.build_orchestrator import build_orchestrator, BuildType, BuildPhase
+            slot = build_orchestrator.status(project_id, BuildType.EPISTEMIC)
+            if slot.phase == BuildPhase.RUNNING:
+                result["running"] = True
+                result["pipeline_running"] = True
+                if slot.progress_total > 0:
+                    result["progress_current"] = slot.progress_current
+                    result["progress_total"] = slot.progress_total
+        except Exception:
+            pass
 
     return ok(result)
 
@@ -852,10 +975,11 @@ def modules_status_project(project_id: str) -> Dict[str, Any]:
     modules_path = idx_dir / "trace_modules.jsonl"
 
     if not modules_path.exists():
-        result: Dict[str, Any] = {"enabled": False, "module_count": 0, "total_files_clustered": 0}
+        result: Dict[str, Any] = {"enabled": False, "module_count": 0, "total_files_clustered": 0, "last_run_at": None}
     else:
         count = 0
         total_files = 0
+        last_run = None
         with open(modules_path, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
@@ -864,15 +988,30 @@ def modules_status_project(project_id: str) -> Dict[str, Any]:
                         d = json.loads(line)
                         count += 1
                         total_files += int(d.get("file_count", 0))
+                        syn_at = d.get("synthesized_at")
+                        if syn_at and (not last_run or syn_at > last_run):
+                            last_run = syn_at
                     except Exception:
                         pass
-        result = {"enabled": True, "module_count": count, "total_files_clustered": total_files}
+        result = {"enabled": True, "module_count": count, "total_files_clustered": total_files, "last_run_at": last_run}
 
     state = _cluster_state.get(project_id)
     if state and state.get("thread") and state["thread"].is_alive():
         result["running"] = True
     else:
         result["running"] = False
+
+    # Overlay pipeline build-slot progress (pipeline-managed runs)
+    try:
+        from codrag.services.build_orchestrator import build_orchestrator, BuildType, BuildPhase
+        slot = build_orchestrator.status(project_id, BuildType.CLUSTER)
+        if slot.phase == BuildPhase.RUNNING:
+            result["running"] = True
+            if slot.progress_total > 0:
+                result["progress_current"] = slot.progress_current
+                result["progress_total"] = slot.progress_total
+    except Exception:
+        pass  # Non-fatal
 
     return ok(result)
 
@@ -938,8 +1077,12 @@ def deepening_status_project(project_id: str) -> Dict[str, Any]:
     proj = _require_project(project_id)
     idx_dir = project_index_dir(proj)
 
-    # Compute epistemic scores to get convergence info
+    # Compute epistemic scores to get convergence info — but only if
+    # clustering has produced modules.  Without modules, deepening hasn't
+    # meaningfully run and showing epistemic scores here is misleading.
     result: Dict[str, Any] = {"running": False}
+    modules_path = idx_dir / "trace_modules.jsonl"
+    modules_exist = modules_path.exists() and modules_path.stat().st_size > 0
     try:
         from codrag.core import EpistemicEnricher, LLMClient
         enricher = EpistemicEnricher(
@@ -947,10 +1090,11 @@ def deepening_status_project(project_id: str) -> Dict[str, Any]:
             repo_root=Path(proj.path),
             index_dir=idx_dir,
         )
-        scores = enricher.compute_all_scores()
+        scores = enricher.compute_all_scores() if modules_exist else {}
         if scores:
             composites = [s.composite for s in scores.values()]
-            settled = sum(1 for c in composites if c >= 0.95)
+            # Must match DeepeningLoop.settled_threshold (0.60)
+            settled = sum(1 for c in composites if c >= 0.60)
             result["total_scored"] = len(composites)
             result["settled_count"] = settled
             result["settled_ratio"] = round(settled / len(composites), 3) if composites else 0.0
@@ -972,6 +1116,20 @@ def deepening_status_project(project_id: str) -> Dict[str, Any]:
         result["max_iterations"] = state.get("max_iterations", 10)
     else:
         result["running"] = False
+
+    # Overlay pipeline build-slot progress (pipeline-managed runs)
+    try:
+        from codrag.services.build_orchestrator import build_orchestrator, BuildType, BuildPhase
+        slot = build_orchestrator.status(project_id, BuildType.DEEPENING)
+        if slot.phase == BuildPhase.RUNNING:
+            result["running"] = True
+            if slot.progress_total > 0:
+                result["progress_current"] = slot.progress_current
+                result["progress_total"] = slot.progress_total
+                result["iteration"] = slot.progress_current
+                result["max_iterations"] = slot.progress_total
+    except Exception:
+        pass  # Non-fatal
 
     return ok(result)
 

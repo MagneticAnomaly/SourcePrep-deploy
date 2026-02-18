@@ -1,6 +1,6 @@
 """
-CoDRAG Pipeline Router — Phase 24 (SM-6)
-==========================================
+CoDRAG Pipeline Router — Phase 24 (SM-6) + Phase 25 (Crash Protection)
+=======================================================================
 
 Exposes the 8-stage pipeline orchestrator via HTTP endpoints.
 
@@ -10,6 +10,9 @@ Exposes the 8-stage pipeline orchestrator via HTTP endpoints.
   - POST /projects/{id}/pipeline/all      — run all stages (fast → deep)
   - GET  /projects/{id}/pipeline/status   — pipeline status (8-stage, two-group)
   - POST /projects/{id}/pipeline/cancel   — cancel a running group
+  - GET  /pipeline/crashed                — all crashed runs (Phase 25)
+  - POST /pipeline/resume                 — resume a crashed run (Phase 25)
+  - POST /pipeline/discard                — discard a crashed run (Phase 25)
 
 **Replaces:**
   The old ``/engine/status`` endpoint (7-stage model) with the new 8-stage,
@@ -35,6 +38,14 @@ router = APIRouter(tags=["pipeline"])
 
 class CancelRequest(BaseModel):
     group: str = "fast_sync"  # "fast_sync" or "deep_enrichment"
+
+
+class ResumeRequest(BaseModel):
+    run_id: str
+
+
+class DiscardRequest(BaseModel):
+    run_id: str
 
 
 # ── Endpoints ────────────────────────────────────────────────────
@@ -137,7 +148,9 @@ def pipeline_status(project_id: str) -> Dict[str, Any]:
     # 4 + 8. Knowledge embedding (shared by stage 4 and stage 8)
     know_idx = build_manager.get_project_knowledge_index(proj)
     knowledge_status = know_idx.status()
-    knowledge_status["building"] = build_manager.is_project_knowledge_building(project_id)
+    is_know_building = build_manager.is_project_knowledge_building(project_id)
+    knowledge_status["building"] = is_know_building
+    knowledge_status["running"] = is_know_building
 
     # 5. Epistemic enrichment
     epistemic_status = _epistemic_status(project_id)["data"]
@@ -152,20 +165,36 @@ def pipeline_status(project_id: str) -> Dict[str, Any]:
     from codrag.services.pipeline_orchestrator import pipeline_orchestrator
     pipeline_state = pipeline_orchestrator.status(project_id)
 
+    # Merge live build-slot progress into each stage's data so the UI
+    # can show progress bars that update during long-running stages.
+    slot_stages = pipeline_state.get("stages") or {}
+    stage_data = {
+        "structural": trace_status,
+        "catalogue": augment_status,
+        "validation": validation_status,
+        "knowledge": knowledge_status,
+        "enrichment": epistemic_status,
+        "clustering": cluster_status,
+        "deepening": deepening_status,
+        "deep_knowledge": knowledge_status,  # Same index, re-built with richer data
+    }
+    for stage_key, slot_info in slot_stages.items():
+        if stage_key in stage_data and isinstance(slot_info, dict):
+            slot_progress = slot_info.get("progress")
+            if slot_progress:
+                stage_data[stage_key]["slot_progress"] = slot_progress
+            if slot_info.get("phase"):
+                stage_data[stage_key]["slot_phase"] = slot_info["phase"]
+
+    # Phase 25: include crashed runs so the UI can show recovery banner
+    crashed_runs = pipeline_orchestrator.get_crashed_runs(project_id)
+
     return ok({
         "fast_sync": pipeline_state.get("fast_sync"),
         "deep_enrichment": pipeline_state.get("deep_enrichment"),
-        "stages": {
-            "structural": trace_status,
-            "catalogue": augment_status,
-            "validation": validation_status,
-            "knowledge": knowledge_status,
-            "enrichment": epistemic_status,
-            "clustering": cluster_status,
-            "deepening": deepening_status,
-            "deep_knowledge": knowledge_status,  # Same index, re-built with richer data
-        },
+        "stages": stage_data,
         "any_running": pipeline_state.get("any_running", False),
+        "crashed_runs": crashed_runs,
     })
 
 
@@ -196,3 +225,45 @@ def pipeline_cancel(project_id: str, req: CancelRequest) -> Dict[str, Any]:
         )
 
     return ok({"cancelled": True, "group": req.group})
+
+
+# ── Phase 25: Crash Protection Endpoints ──────────────────────────
+
+@router.get("/pipeline/crashed")
+def pipeline_crashed_runs(project_id: Optional[str] = None) -> Dict[str, Any]:
+    """Get all crashed pipeline runs, optionally filtered by project.
+
+    Returns a list of crashed runs with enough info for the UI to
+    offer Resume / Discard buttons.
+    """
+    from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+    runs = pipeline_orchestrator.get_crashed_runs(project_id)
+    return ok({"crashed_runs": runs, "count": len(runs)})
+
+
+@router.post("/pipeline/resume")
+def pipeline_resume(req: ResumeRequest) -> Dict[str, Any]:
+    """Resume a crashed pipeline run from where it left off."""
+    from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+    resumed = pipeline_orchestrator.resume_crashed_run(req.run_id)
+    if not resumed:
+        raise ApiException(
+            status_code=404,
+            code="RUN_NOT_FOUND",
+            message=f"No crashed run found with ID: {req.run_id}",
+        )
+    return ok({"resumed": True, "run_id": req.run_id})
+
+
+@router.post("/pipeline/discard")
+def pipeline_discard(req: DiscardRequest) -> Dict[str, Any]:
+    """Discard a crashed pipeline run without resuming."""
+    from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+    discarded = pipeline_orchestrator.discard_crashed_run(req.run_id)
+    if not discarded:
+        raise ApiException(
+            status_code=404,
+            code="RUN_NOT_FOUND",
+            message=f"No crashed run found with ID: {req.run_id}",
+        )
+    return ok({"discarded": True, "run_id": req.run_id})

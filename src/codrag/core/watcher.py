@@ -42,7 +42,11 @@ class AutoRebuildWatcher:
         self._next_rebuild_at: Optional[str] = None
         self._stale_since: Optional[str] = None  # ISO timestamp when index became stale
 
-        self._extra_exclude_globs: List[str] = ["**/.codrag/**"]
+        self._extra_exclude_globs: List[str] = [
+            "**/.codrag",
+            "**/.codrag/*",
+            "**/.codrag/**/*",
+        ]
 
         try:
             rel_index_dir = self.index_dir.relative_to(self.repo_root)
@@ -52,7 +56,9 @@ class AutoRebuildWatcher:
         if rel_index_dir is not None:
             rel_posix = rel_index_dir.as_posix().rstrip("/")
             if rel_posix:
-                self._extra_exclude_globs.append(rel_posix + "/**")
+                self._extra_exclude_globs.append(rel_posix)
+                self._extra_exclude_globs.append(rel_posix + "/*")
+                self._extra_exclude_globs.append(rel_posix + "/**/*")
 
     def start(self) -> None:
         with self._lock:

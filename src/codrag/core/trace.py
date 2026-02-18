@@ -26,6 +26,7 @@ from .ids import (
     stable_file_node_id,
     stable_symbol_node_id,
 )
+from .repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +46,24 @@ RUST_EXTENSIONS = {".rs"}
 JAVA_EXTENSIONS = {".java"}
 CPP_EXTENSIONS = {".c", ".cpp", ".cc", ".h", ".hpp"}
 SWIFT_EXTENSIONS = {".swift"}
+MARKDOWN_EXTENSIONS = {".md", ".markdown"}
+KOTLIN_EXTENSIONS = {".kt", ".kts"}
+CSHARP_EXTENSIONS = {".cs"}
+RUBY_EXTENSIONS = {".rb"}
+PHP_EXTENSIONS = {".php"}
+DART_EXTENSIONS = {".dart"}
+SCALA_EXTENSIONS = {".scala", ".sc"}
+SHELL_EXTENSIONS = {".sh", ".bash", ".zsh"}
+LUA_EXTENSIONS = {".lua"}
+ZIG_EXTENSIONS = {".zig"}
+ELIXIR_EXTENSIONS = {".ex", ".exs"}
 
 SUPPORTED_EXTENSIONS = (
     PYTHON_EXTENSIONS | TYPESCRIPT_EXTENSIONS | GO_EXTENSIONS
     | RUST_EXTENSIONS | JAVA_EXTENSIONS | CPP_EXTENSIONS | SWIFT_EXTENSIONS
+    | MARKDOWN_EXTENSIONS | KOTLIN_EXTENSIONS | CSHARP_EXTENSIONS
+    | RUBY_EXTENSIONS | PHP_EXTENSIONS | DART_EXTENSIONS | SCALA_EXTENSIONS
+    | SHELL_EXTENSIONS | LUA_EXTENSIONS | ZIG_EXTENSIONS | ELIXIR_EXTENSIONS
 )
 
 
@@ -108,7 +123,11 @@ class TraceBuildResult:
     file_errors: List[FileError]
 
 
-SUPPORTED_LANGUAGES = ["python", "typescript", "javascript", "go", "rust", "java", "c", "cpp", "swift"]
+SUPPORTED_LANGUAGES = [
+    "python", "typescript", "javascript", "go", "rust", "java", "c", "cpp",
+    "swift", "markdown", "kotlin", "csharp", "ruby", "php", "dart", "scala",
+    "shell", "lua", "zig", "elixir",
+]
 
 
 def _detect_language(file_path: str) -> Optional[str]:
@@ -127,6 +146,28 @@ def _detect_language(file_path: str) -> Optional[str]:
         return "cpp" if ext in {".cpp", ".cc", ".hpp"} else "c"
     if ext in SWIFT_EXTENSIONS:
         return "swift"
+    if ext in MARKDOWN_EXTENSIONS:
+        return "markdown"
+    if ext in KOTLIN_EXTENSIONS:
+        return "kotlin"
+    if ext in CSHARP_EXTENSIONS:
+        return "csharp"
+    if ext in RUBY_EXTENSIONS:
+        return "ruby"
+    if ext in PHP_EXTENSIONS:
+        return "php"
+    if ext in DART_EXTENSIONS:
+        return "dart"
+    if ext in SCALA_EXTENSIONS:
+        return "scala"
+    if ext in SHELL_EXTENSIONS:
+        return "shell"
+    if ext in LUA_EXTENSIONS:
+        return "lua"
+    if ext in ZIG_EXTENSIONS:
+        return "zig"
+    if ext in ELIXIR_EXTENSIONS:
+        return "elixir"
     return None
 
 
@@ -498,6 +539,234 @@ class SwiftAnalyzer:
         )
 
 
+class GenericRegexAnalyzer:
+    """
+    Configurable regex-based analyzer for languages without dedicated parsers.
+    Handles Kotlin, C#, Ruby, PHP, Dart, Scala, Lua, Zig, Elixir, and Shell.
+    Extracts symbols (classes/functions) and imports using language-specific patterns.
+    """
+
+    # Per-language regex configs: (symbol_patterns, import_patterns)
+    # symbol_patterns: list of (regex, kind_extractor) tuples
+    # import_patterns: list of (regex, module_group_index) tuples
+    LANGUAGE_CONFIGS: Dict[str, Dict[str, Any]] = {
+        "kotlin": {
+            "symbol_patterns": [
+                (r"^\s*(?:[\w@]+\s+)*(class|object|interface|enum\s+class|data\s+class|sealed\s+class|fun)\s+([a-zA-Z_][a-zA-Z0-9_]*)", 2),
+            ],
+            "import_pattern": r"^\s*import\s+([\w.]+)",
+        },
+        "csharp": {
+            "symbol_patterns": [
+                (r"^\s*(?:[\w\[\]]+\s+)*(class|struct|interface|enum|record)\s+([a-zA-Z_][a-zA-Z0-9_]*)", 2),
+                (r"^\s*(?:[\w\[\]]+\s+)*(?:static\s+)?(?:async\s+)?[\w<>\[\]]+\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(", 1),
+            ],
+            "import_pattern": r"^\s*using\s+(?:static\s+)?([a-zA-Z][\w.]*)",
+        },
+        "ruby": {
+            "symbol_patterns": [
+                (r"^\s*(class|module)\s+([A-Z][a-zA-Z0-9_:]*)", 2),
+                (r"^\s*def\s+(?:self\.)?([a-zA-Z_][a-zA-Z0-9_!?]*)", 1),
+            ],
+            "import_pattern": r"^\s*require(?:_relative)?\s+['\"]([^'\"]+)['\"]",
+        },
+        "php": {
+            "symbol_patterns": [
+                (r"^\s*(?:abstract\s+|final\s+)?(?:class|interface|trait|enum)\s+([a-zA-Z_][a-zA-Z0-9_]*)", 1),
+                (r"^\s*(?:public|protected|private|static|\s)*\s*function\s+([a-zA-Z_][a-zA-Z0-9_]*)", 1),
+            ],
+            "import_pattern": r"^\s*(?:use|require|require_once|include|include_once)\s+([^\s;]+)",
+        },
+        "dart": {
+            "symbol_patterns": [
+                (r"^\s*(?:abstract\s+)?class\s+([a-zA-Z_][a-zA-Z0-9_]*)", 1),
+                (r"^\s*(?:[\w<>]+\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\s*\([^)]*\)\s*(?:async\s*)?{", 1),
+            ],
+            "import_pattern": r"^\s*import\s+['\"]([^'\"]+)['\"]",
+        },
+        "scala": {
+            "symbol_patterns": [
+                (r"^\s*(?:case\s+)?(?:class|object|trait)\s+([a-zA-Z_][a-zA-Z0-9_]*)", 1),
+                (r"^\s*def\s+([a-zA-Z_][a-zA-Z0-9_]*)", 1),
+            ],
+            "import_pattern": r"^\s*import\s+([\w.{},\s]+)",
+        },
+        "lua": {
+            "symbol_patterns": [
+                (r"^\s*(?:local\s+)?function\s+([a-zA-Z_][a-zA-Z0-9_.]*)", 1),
+            ],
+            "import_pattern": r"""require\s*\(\s*['\"]([^'\"]+)['\"]\s*\)""",
+        },
+        "zig": {
+            "symbol_patterns": [
+                (r"^\s*(?:pub\s+)?(?:fn|const)\s+([a-zA-Z_][a-zA-Z0-9_]*)", 1),
+                (r"^\s*(?:pub\s+)?const\s+([A-Z][a-zA-Z0-9_]*)\s*=\s*(?:struct|enum|union)", 1),
+            ],
+            "import_pattern": r"""@import\s*\(\s*\"([^\"]+)\"\s*\)""",
+        },
+        "elixir": {
+            "symbol_patterns": [
+                (r"^\s*defmodule\s+([A-Z][a-zA-Z0-9_.]*)", 1),
+                (r"^\s*(?:def|defp|defmacro)\s+([a-zA-Z_][a-zA-Z0-9_!?]*)", 1),
+            ],
+            "import_pattern": r"^\s*(?:import|alias|use)\s+([A-Z][\w.]*)",
+        },
+        "shell": {
+            "symbol_patterns": [
+                (r"^\s*(?:function\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\s*\(\s*\)", 1),
+            ],
+            "import_pattern": r"^\s*(?:source|\.)\s+([^\s;#]+)",
+        },
+        "go": {
+            "symbol_patterns": [
+                # func Name(...)
+                (r"^\s*func\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", 1),
+                # func (receiver) Name(...)
+                (r"^\s*func\s+\([^)]*\)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", 1),
+                # type Name struct/interface/...
+                (r"^\s*type\s+([A-Z][A-Za-z0-9_]*)\s+(?:struct|interface)\b", 1),
+            ],
+            "import_pattern": r'^\s*(?:import\s+)?"([^"]+)"',
+        },
+        "rust": {
+            "symbol_patterns": [
+                # pub fn / fn name
+                (r"^\s*(?:pub(?:\([^)]*\))?\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)", 1),
+                # pub struct / struct Name
+                (r"^\s*(?:pub(?:\([^)]*\))?\s+)?struct\s+([A-Z][a-zA-Z0-9_]*)", 1),
+                # pub enum / enum Name
+                (r"^\s*(?:pub(?:\([^)]*\))?\s+)?enum\s+([A-Z][a-zA-Z0-9_]*)", 1),
+                # pub trait / trait Name
+                (r"^\s*(?:pub(?:\([^)]*\))?\s+)?trait\s+([A-Z][a-zA-Z0-9_]*)", 1),
+                # impl Name (but not impl Trait for ...)
+                (r"^\s*impl(?:<[^>]*>)?\s+([A-Z][a-zA-Z0-9_]*)\s*(?:\{|<)", 1, "class"),
+            ],
+            "import_pattern": r"^\s*use\s+((?:crate|super|self|std|[a-z][a-z0-9_]*)(?:::[a-zA-Z0-9_*{}]+)*)",
+        },
+        "java": {
+            "symbol_patterns": [
+                # class / interface / enum declarations
+                (r"^\s*(?:[\w@]+\s+)*(class|interface|enum)\s+([A-Z][a-zA-Z0-9_]*)", 2),
+                # method declarations (return_type name(...))
+                (r"^\s*(?:[\w@\[\]<>,\s]+\s+)([a-zA-Z_][a-zA-Z0-9_]*)\s*\([^)]*\)\s*(?:\{|throws)", 1, "method"),
+            ],
+            "import_pattern": r"^\s*import\s+(?:static\s+)?([\w.]+(?:\.\*)?)",
+        },
+        "c": {
+            "symbol_patterns": [
+                # function definitions: type name(...)  {  (heuristic)
+                (r"^(?:[\w*\s]+\s+)([a-zA-Z_][a-zA-Z0-9_]*)\s*\([^)]*\)\s*\{", 1, "function"),
+                # struct/enum/union Name {
+                (r"^\s*(?:typedef\s+)?(?:struct|enum|union)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\{", 1),
+            ],
+            "import_pattern": r'^\s*#include\s+[<"]([^>"]+)[>"]',
+        },
+        "cpp": {
+            "symbol_patterns": [
+                # class/struct Name
+                (r"^\s*(?:template\s*<[^>]*>\s*)?(?:class|struct)\s+([A-Z][a-zA-Z0-9_]*)", 1),
+                # function definitions
+                (r"^(?:[\w*&:<>\s]+\s+)([a-zA-Z_][a-zA-Z0-9_]*)\s*\([^)]*\)\s*(?:const\s*)?(?:override\s*)?(?:noexcept\s*)?\{", 1, "function"),
+                # namespace Name
+                (r"^\s*namespace\s+([a-zA-Z_][a-zA-Z0-9_]*)", 1),
+            ],
+            "import_pattern": r'^\s*#include\s+[<"]([^>"]+)[>"]',
+        },
+    }
+
+    def __init__(self, file_path: str, source: str, repo_root: Path, language: str):
+        self.file_path = file_path
+        self.source = source
+        self.repo_root = repo_root
+        self.language = language
+        self.nodes: List[TraceNode] = []
+        self.edges: List[TraceEdge] = []
+        self._file_node_id = stable_file_node_id(file_path)
+        self._config = self.LANGUAGE_CONFIGS.get(language, {})
+
+    def analyze(self) -> Tuple[List[TraceNode], List[TraceEdge]]:
+        import re
+
+        if not self._config:
+            return self.nodes, self.edges
+
+        # Symbol extraction
+        for pattern_info in self._config.get("symbol_patterns", []):
+            # Tuple: (regex, name_group) or (regex, name_group, forced_type)
+            if len(pattern_info) == 3:
+                pattern_str, name_group, forced_type = pattern_info
+            else:
+                pattern_str, name_group = pattern_info
+                forced_type = None
+            pattern = re.compile(pattern_str, re.MULTILINE)
+            for match in pattern.finditer(self.source):
+                name = match.group(name_group)
+                if not name or name in ("if", "for", "while", "return", "else", "switch", "case"):
+                    continue
+                start_line = self.source.count("\n", 0, match.start()) + 1
+
+                # Use forced type if specified, otherwise infer from the match
+                if forced_type:
+                    symbol_type = forced_type
+                else:
+                    full = match.group(0).lower()
+                    if any(k in full for k in ("class", "struct", "interface", "trait", "module", "object", "enum", "record")):
+                        symbol_type = "class"
+                    elif any(k in full for k in ("fun", "func", "def", "function", "fn")):
+                        symbol_type = "function"
+                    else:
+                        symbol_type = "variable"
+
+                node_id = stable_symbol_node_id(name, self.file_path, start_line)
+                self.nodes.append(
+                    TraceNode(
+                        id=node_id,
+                        kind="symbol",
+                        name=name,
+                        file_path=self.file_path,
+                        span={"start_line": start_line, "end_line": start_line},
+                        language=self.language,
+                        metadata={"symbol_type": symbol_type, "qualname": name},
+                    )
+                )
+                edge_id = stable_edge_id("contains", self._file_node_id, node_id)
+                self.edges.append(
+                    TraceEdge(
+                        id=edge_id,
+                        kind="contains",
+                        source=self._file_node_id,
+                        target=node_id,
+                        metadata={"confidence": 0.8},
+                    )
+                )
+
+        # Import extraction
+        import_pattern_str = self._config.get("import_pattern")
+        if import_pattern_str:
+            import_re = re.compile(import_pattern_str, re.MULTILINE)
+            seen: set = set()
+            for match in import_re.finditer(self.source):
+                module = match.group(1).strip().rstrip(";")
+                if not module or module in seen:
+                    continue
+                seen.add(module)
+                lineno = self.source.count("\n", 0, match.start()) + 1
+                ext_id = stable_external_module_id(module)
+                disambiguator = f"{module}:{lineno}"
+                edge_id = stable_edge_id("imports", self._file_node_id, ext_id, disambiguator)
+                self.edges.append(
+                    TraceEdge(
+                        id=edge_id,
+                        kind="imports",
+                        source=self._file_node_id,
+                        target=ext_id,
+                        metadata={"confidence": 0.7, "import": module, "line": lineno, "external": True},
+                    )
+                )
+
+        return self.nodes, self.edges
+
+
 class JSAnalyzer:
     """
     Regex-based JavaScript/TypeScript analyzer for extracting imports and symbols.
@@ -511,6 +780,7 @@ class JSAnalyzer:
         self.nodes: List[TraceNode] = []
         self.edges: List[TraceEdge] = []
         self._file_node_id = stable_file_node_id(file_path)
+        self._path_aliases = self._load_path_aliases()
 
     def analyze(self) -> Tuple[List[TraceNode], List[TraceEdge]]:
         import re
@@ -553,10 +823,27 @@ class JSAnalyzer:
                                 kind="imports",
                                 source=self._file_node_id,
                                 target=target_id,
-                                metadata={"confidence": 0.7, "import": module, "line": lineno, "relative": True},
+                                metadata={"confidence": 0.9, "import": module, "line": lineno, "relative": True},
                             )
                         )
                         continue
+
+                # Try to resolve path aliases (e.g. @/ → src/)
+                resolved = self._resolve_alias(module)
+                if resolved:
+                    target_id = stable_file_node_id(resolved)
+                    disambiguator = f"{module}:{lineno}"
+                    edge_id = stable_edge_id("imports", self._file_node_id, target_id, disambiguator)
+                    self.edges.append(
+                        TraceEdge(
+                            id=edge_id,
+                            kind="imports",
+                            source=self._file_node_id,
+                            target=target_id,
+                            metadata={"confidence": 0.9, "import": module, "line": lineno, "alias": True},
+                        )
+                    )
+                    continue
 
                 # External / unresolved → external_module node
                 self._add_import(module, lineno)
@@ -628,7 +915,7 @@ class JSAnalyzer:
                 kind="contains",
                 source=self._file_node_id,
                 target=node_id,
-                metadata={"confidence": 0.7},
+                metadata={"confidence": 1.0},
             )
         )
 
@@ -646,31 +933,72 @@ class JSAnalyzer:
             )
         )
 
-    def _resolve_relative(self, module: str) -> Optional[str]:
-        """Try to resolve a relative import like './utils' to a file path."""
-        dir_path = Path(self.file_path).parent
-        # Strip leading ./ or ../
-        rel = module
-        extensions = [".ts", ".tsx", ".js", ".jsx", ""]
+    def _load_path_aliases(self) -> Dict[str, str]:
+        """Load path aliases from tsconfig.json / jsconfig.json.
+
+        Returns a dict mapping alias prefix (e.g. '@/') to its
+        replacement directory (e.g. 'src/').
+        """
+        aliases: Dict[str, str] = {}
+        for config_name in ("tsconfig.json", "jsconfig.json"):
+            config_path = self.repo_root / config_name
+            if not config_path.exists():
+                continue
+            try:
+                with open(config_path, "r", encoding="utf-8") as f:
+                    data = json.loads(f.read())
+                paths = data.get("compilerOptions", {}).get("paths", {})
+                base_url = data.get("compilerOptions", {}).get("baseUrl", ".")
+                for pattern, targets in paths.items():
+                    if not targets or not pattern.endswith("/*"):
+                        continue
+                    prefix = pattern[:-1]  # "@/*" → "@/"
+                    target = targets[0]    # "./src/*" → take first
+                    if target.endswith("/*"):
+                        target = target[:-1]  # "./src/*" → "./src/"
+                    # Normalize: strip leading "./", ensure trailing "/"
+                    target = target.lstrip("./")
+                    if not target.endswith("/"):
+                        target += "/"
+                    if base_url != ".":
+                        target = base_url.rstrip("/") + "/" + target
+                    aliases[prefix] = target
+                break  # Use first config found
+            except Exception:
+                pass
+        return aliases
+
+    def _resolve_alias(self, module: str) -> Optional[str]:
+        """Resolve a path-aliased import like '@/hooks/useCopy' to a file path."""
+        for prefix, replacement in self._path_aliases.items():
+            if module.startswith(prefix):
+                rest = module[len(prefix):]  # "hooks/useCopy"
+                return self._resolve_path(replacement + rest)
+        return None
+
+    def _resolve_path(self, rel_path: str) -> Optional[str]:
+        """Resolve a repo-relative path to an actual file, trying extensions."""
+        extensions = [".ts", ".tsx", ".js", ".jsx", ".css", ".scss", ""]
         index_files = ["index.ts", "index.tsx", "index.js", "index.jsx"]
 
         for ext in extensions:
-            candidate = str(dir_path / (rel + ext))
-            candidate = candidate.replace("\\", "/")
-            full = self.repo_root / candidate
-            if full.exists():
+            candidate = (rel_path + ext).replace("\\", "/")
+            if (self.repo_root / candidate).exists():
                 return candidate
 
         # Try as directory with index file
-        dir_candidate = dir_path / rel
         for idx in index_files:
-            candidate = str(dir_candidate / idx)
-            candidate = candidate.replace("\\", "/")
-            full = self.repo_root / candidate
-            if full.exists():
+            candidate = (rel_path.rstrip("/") + "/" + idx).replace("\\", "/")
+            if (self.repo_root / candidate).exists():
                 return candidate
 
         return None
+
+    def _resolve_relative(self, module: str) -> Optional[str]:
+        """Try to resolve a relative import like './utils' to a file path."""
+        dir_path = Path(self.file_path).parent
+        rel = str(dir_path / module).replace("\\", "/")
+        return self._resolve_path(rel)
 
 
 class TraceBuilder:
@@ -702,15 +1030,33 @@ class TraceBuilder:
             "**/*.java",
             "**/*.c", "**/*.cpp", "**/*.h", "**/*.hpp", "**/*.cc",
             "**/*.swift",
+            "**/*.md", "**/*.markdown",
+            "**/*.kt", "**/*.kts",
+            "**/*.cs",
+            "**/*.rb",
+            "**/*.php",
+            "**/*.dart",
+            "**/*.scala", "**/*.sc",
+            "**/*.sh", "**/*.bash", "**/*.zsh",
+            "**/*.lua",
+            "**/*.zig",
+            "**/*.ex", "**/*.exs",
         ]
-        self.exclude_globs = exclude_globs or [
-            "**/node_modules/**",
-            "**/.git/**",
-            "**/venv/**",
-            "**/__pycache__/**",
-            "**/dist/**",
-            "**/build/**",
-        ]
+        
+        # Use centralized defaults if no excludes provided
+        if exclude_globs is None:
+            # Base excludes
+            exclude_globs = [f"**/{d}/**" for d in sorted(DEFAULT_EXCLUDE_DIR_NAMES)]
+            # Broad dotfile exclusion
+            exclude_globs.append("**/.*")
+            # Add specific file patterns
+            exclude_globs.extend([
+                "**/*.lock",
+                "**/*.log",
+                "**/.DS_Store",
+            ])
+            
+        self.exclude_globs = exclude_globs
         self.max_file_bytes = max_file_bytes
         self.hard_limit_bytes = hard_limit_bytes
         self.use_gitignore = use_gitignore
@@ -856,6 +1202,33 @@ class TraceBuilder:
             elif language in ("javascript", "typescript"):
                 try:
                     analyzer = JSAnalyzer(rel_path, source, self.repo_root)
+                    sym_nodes, sym_edges = analyzer.analyze()
+                    nodes.extend(sym_nodes)
+
+                    for edge in sym_edges:
+                        if edge.metadata.get("external"):
+                            ext_name = str(edge.metadata.get("import", ""))
+                            if ext_name and ext_name not in external_modules:
+                                ext_node = TraceNode(
+                                    id=stable_external_module_id(ext_name),
+                                    kind="external_module",
+                                    name=ext_name,
+                                    file_path="",
+                                    span=None,
+                                    language=None,
+                                    metadata={"external": True},
+                                )
+                                external_modules[ext_name] = ext_node
+
+                    edges.extend(sym_edges)
+                    files_parsed += 1
+                except Exception as e:
+                    files_failed += 1
+                    if len(file_errors) < self.max_failures:
+                        file_errors.append(FileError(rel_path, type(e).__name__, str(e)))
+            elif language in GenericRegexAnalyzer.LANGUAGE_CONFIGS:
+                try:
+                    analyzer = GenericRegexAnalyzer(rel_path, source, self.repo_root, language)
                     sym_nodes, sym_edges = analyzer.analyze()
                     nodes.extend(sym_nodes)
 
@@ -1038,11 +1411,7 @@ class TraceBuilder:
 
         return manifest
 
-    _PRUNE_DIRS = {
-        "node_modules", ".git", ".venv", "venv", "__pycache__",
-        "dist", "build", ".next", ".tox", ".mypy_cache",
-        ".pytest_cache", ".eggs", "egg-info", ".cargo", "target",
-    }
+    _PRUNE_DIRS = DEFAULT_EXCLUDE_DIR_NAMES
 
     def _compute_file_hashes(self) -> Dict[str, str]:
         """Compute content hashes for all eligible files (used to backfill Rust manifests)."""
@@ -1066,7 +1435,11 @@ class TraceBuilder:
         all_files: List[Path] = []
 
         for root, dirs, files in os.walk(self.repo_root):
-            dirs[:] = [d for d in dirs if d not in self._PRUNE_DIRS]
+            # Prune dot-directories and explicit exclude dirs
+            dirs[:] = [
+                d for d in dirs 
+                if d not in self._PRUNE_DIRS and not d.startswith(".")
+            ]
             root_path = Path(root)
             for fname in files:
                 file_path = root_path / fname
@@ -1514,6 +1887,7 @@ def compute_trace_coverage(
     exclude_globs: Optional[List[str]] = None,
     user_exclude_globs: Optional[List[str]] = None,
     max_file_bytes: int = 500_000,
+    embedded_paths: Optional[Set[str]] = None,
 ) -> Dict[str, Any]:
     """
     Compute trace coverage by comparing current filesystem against trace manifest.
@@ -1522,31 +1896,40 @@ def compute_trace_coverage(
       exclude_globs: default/system patterns — files matching these are silently skipped.
       user_exclude_globs: user-configured patterns — files matching these appear in the
                           'excluded' list so users can see what they manually excluded.
+      embedded_paths: set of file paths that are already embedded in the vector index.
+                      Used to distinguish 'traced & embedded' from 'pending embedding'.
 
     Returns dict with:
-      - traced: files that are traced and up-to-date
+      - traced: files that are traced, up-to-date, AND embedded
+      - pending_embedding: files that are traced and up-to-date but NOT yet embedded
       - untraced: files eligible for trace but not yet traced
       - stale: files that were traced but content has changed
       - excluded: files explicitly excluded by user-configured patterns
-      - summary: {total, traced, untraced, stale, excluded, coverage_pct}
+      - summary: {total, traced, pending_embedding, untraced, stale, excluded, coverage_pct}
     """
     repo_root = Path(repo_root).resolve()
+    
+    if embedded_paths is None:
+        embedded_paths = set()
+
 
     if include_globs is None:
         include_globs = [
             "**/*.py", "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx",
             "**/*.go", "**/*.rs", "**/*.java",
             "**/*.c", "**/*.cpp", "**/*.cc", "**/*.h", "**/*.hpp",
+            "**/*.swift",
+            "**/*.md", "**/*.markdown",
         ]
     if exclude_globs is None:
-        exclude_globs = [
-            "**/node_modules/**",
-            "**/.git/**",
-            "**/venv/**",
-            "**/__pycache__/**",
-            "**/dist/**",
-            "**/build/**",
-        ]
+        # Base excludes
+        exclude_globs = [f"**/{d}/**" for d in sorted(DEFAULT_EXCLUDE_DIR_NAMES)]
+        # Add specific file patterns
+        exclude_globs.extend([
+            "**/*.lock",
+            "**/*.log",
+            "**/.DS_Store",
+        ])
     if user_exclude_globs is None:
         user_exclude_globs = []
 
@@ -1617,11 +2000,7 @@ def compute_trace_coverage(
 
     # Directories to always prune from os.walk — these are never interesting
     # and can contain tens of thousands of files (e.g. node_modules).
-    _PRUNE_DIRS = {
-        "node_modules", ".git", ".venv", "venv", "__pycache__",
-        "dist", "build", ".next", ".tox", ".mypy_cache",
-        ".pytest_cache", ".eggs", "egg-info", ".cargo", "target",
-    }
+    _PRUNE_DIRS = DEFAULT_EXCLUDE_DIR_NAMES
 
     traced_files: List[Dict[str, Any]] = []
     untraced_files: List[Dict[str, Any]] = []
@@ -1630,7 +2009,7 @@ def compute_trace_coverage(
 
     for root_dir, dirs, filenames in os.walk(repo_root):
         # Prune noisy directories in-place so os.walk never descends into them
-        dirs[:] = [d for d in dirs if d not in _PRUNE_DIRS]
+        dirs[:] = [d for d in dirs if d not in _PRUNE_DIRS and not d.startswith(".")]
         root_path = Path(root_dir)
         for fname in filenames:
             file_path = root_path / fname
@@ -1738,17 +2117,36 @@ def compute_trace_coverage(
     stale_files.sort(key=lambda f: f["path"])
     excluded_files.sort(key=lambda f: f["path"])
 
-    total = len(traced_files) + len(untraced_files) + len(stale_files)
-    coverage_pct = round(len(traced_files) / total * 100, 1) if total > 0 else 0.0
+    # Split traced files into 'traced' (embedded) and 'pending_embedding' (not embedded)
+    final_traced: List[Dict[str, Any]] = []
+    pending_embedding: List[Dict[str, Any]] = []
+
+    for f in traced_files:
+        if f["path"] in embedded_paths:
+            final_traced.append(f)
+        else:
+            pending_embedding.append(f)
+
+    # Calculate coverage based on effective files (traced + pending + stale)
+    # Total eligible files = traced + pending + stale + untraced
+    total = len(final_traced) + len(pending_embedding) + len(untraced_files) + len(stale_files)
+    
+    # Coverage % is files that have been traced (even if not yet embedded)
+    # This keeps the progress bar consistent with "Tracing" status, while the UI
+    # distinguishes "Ready" (embedded) vs "In Progress" (pending embedding)
+    traced_count_all = len(final_traced) + len(pending_embedding)
+    coverage_pct = round(traced_count_all / total * 100, 1) if total > 0 else 0.0
 
     return {
-        "traced": traced_files,
+        "traced": final_traced,
+        "pending_embedding": pending_embedding,
         "untraced": untraced_files,
         "stale": stale_files,
         "excluded": excluded_files,
         "summary": {
             "total": total,
-            "traced": len(traced_files),
+            "traced": len(final_traced),
+            "pending_embedding": len(pending_embedding),
             "untraced": len(untraced_files),
             "stale": len(stale_files),
             "excluded": len(excluded_files),

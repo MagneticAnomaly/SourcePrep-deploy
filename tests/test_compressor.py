@@ -238,7 +238,7 @@ class TestContextRequestCompression:
     """Test that the server's ContextRequest model accepts compression fields."""
 
     def test_default_compression_none(self):
-        from codrag.server import ContextRequest
+        from codrag.api.routers.projects import ContextRequest
         req = ContextRequest(query="test")
         assert req.compression == "none"
         assert req.compression_level == "standard"
@@ -246,7 +246,7 @@ class TestContextRequestCompression:
         assert req.compression_timeout_s == 30.0
 
     def test_clara_compression_params(self):
-        from codrag.server import ContextRequest
+        from codrag.api.routers.projects import ContextRequest
         req = ContextRequest(
             query="test",
             compression="clara",

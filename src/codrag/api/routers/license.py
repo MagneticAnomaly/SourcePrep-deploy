@@ -28,6 +28,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -52,6 +53,10 @@ router = APIRouter(tags=["license"])
 
 class ActivateLicenseRequest(BaseModel):
     key: str
+
+
+class DevTierOverrideRequest(BaseModel):
+    tier: Optional[str] = None
 
 
 # ── Endpoints ────────────────────────────────────────────────────
@@ -186,6 +191,34 @@ def deactivate_license() -> Dict[str, Any]:
             license_path.unlink()
     except Exception:
         raise ApiException(status_code=500, code="IO_ERROR", message="Failed to remove license file")
+
+    clear_license_cache()
+    return get_license_status()
+
+
+@router.post("/license/dev-override")
+def set_dev_tier_override(req: DevTierOverrideRequest) -> Dict[str, Any]:
+    """Set or clear a dev tier override via CODRAG_TIER env var.
+
+    This is a development/testing tool — it overrides the effective tier
+    for the running process without modifying the license file on disk.
+    """
+    allowed = {"free", "pro", "team", "enterprise"}
+    tier = (req.tier or "").strip().lower()
+
+    if not tier:
+        # Clear override — revert to real license
+        os.environ.pop("CODRAG_TIER", None)
+        logger.info("Cleared dev tier override")
+    else:
+        if tier not in allowed:
+            raise ApiException(
+                status_code=400,
+                code="VALIDATION_ERROR",
+                message=f"Invalid tier: {tier}. Must be one of: {', '.join(sorted(allowed))}",
+            )
+        os.environ["CODRAG_TIER"] = tier
+        logger.info("Set dev tier override: %s", tier)
 
     clear_license_cache()
     return get_license_status()

@@ -215,6 +215,14 @@ export class MockApiClient implements ApiClient {
     };
   }
 
+  async setDevTierOverride(tier: string | null): Promise<any> {
+    const t = tier || 'free';
+    return {
+      license: { tier: t, valid: true, email: null, expires_at: null, seats: 1, features: [] },
+      features: { auto_rebuild: t !== 'free', trace_index: true, mcp_tools: true },
+    };
+  }
+
   async getGlobalConfig(): Promise<any> {
     return { llm_config: { embedding: { source: 'huggingface' } } };
   }
@@ -369,6 +377,20 @@ export class MockApiClient implements ApiClient {
 
   async cancelPipeline(): Promise<any> {
     return { cancelled: true, group: 'all' };
+  }
+
+  // ── Pipeline Crash Protection (Phase 25) ───────────────────────
+
+  async getCrashedRuns(_projectId?: string): Promise<{ crashed_runs: any[]; count: number }> {
+    return { crashed_runs: [], count: 0 };
+  }
+
+  async resumeCrashedRun(runId: string): Promise<{ resumed: boolean; run_id: string }> {
+    return { resumed: true, run_id: runId };
+  }
+
+  async discardCrashedRun(runId: string): Promise<{ discarded: boolean; run_id: string }> {
+    return { discarded: true, run_id: runId };
   }
 
   // ── Settings Store ────────────────────────────────────────

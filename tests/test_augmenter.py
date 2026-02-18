@@ -92,6 +92,8 @@ class FakeLLMClient:
     def __init__(self, responses: Optional[Dict[str, str]] = None):
         self.endpoint_url = "http://localhost:11434"
         self.model = "test-model"
+        self.provider = "ollama"
+        self.timeout = 30.0
         self.calls: List[str] = []
         self.responses = responses or {}
         self._default_response = json.dumps({
@@ -281,7 +283,8 @@ class TestTraceAugmenter:
         client.calls.clear()
         r2 = aug.run()
         assert r2.skipped > 0
-        assert len(client.calls) == 0  # No LLM calls needed
+        # Only the pre-flight LLM test call should be made, no augmentation calls
+        assert len(client.calls) <= 1
 
     def test_max_items_limit(self, tmp_index, tmp_repo):
         _write_trace(tmp_index, SAMPLE_NODES, SAMPLE_EDGES)
@@ -294,26 +297,44 @@ class TestTraceAugmenter:
         _write_trace(tmp_index, SAMPLE_NODES[:3], SAMPLE_EDGES[:2])
 
         class FailingClient(FakeLLMClient):
+            """Passes pre-flight but fails on actual augmentation calls."""
+            def __init__(self):
+                super().__init__()
+                self._call_count = 0
+
             def generate(self, prompt, system=None, **kwargs):
+                self._call_count += 1
+                if self._call_count == 1:  # pre-flight
+                    return '{"ok":true}', 10
                 raise ConnectionError("LLM down")
 
         client = FailingClient()
         aug = TraceAugmenter(tmp_index, tmp_repo, client)
         result = aug.run()
-        assert result.failed > 0
+        # LLM failures now produce synthetic entries instead of counting as "failed"
         assert result.augmented == 0
+        assert (result.failed + result.synthetic) > 0
 
     def test_handles_bad_json_response(self, tmp_index, tmp_repo):
         _write_trace(tmp_index, SAMPLE_NODES[:3], SAMPLE_EDGES[:2])
 
         class BadJsonClient(FakeLLMClient):
+            """Passes pre-flight but returns bad JSON for augmentation calls."""
+            def __init__(self):
+                super().__init__()
+                self._call_count = 0
+
             def generate(self, prompt, system=None, **kwargs):
+                self._call_count += 1
+                if self._call_count == 1:  # pre-flight
+                    return '{"ok":true}', 10
                 return "I don't know how to respond in JSON", 50
 
         client = BadJsonClient()
         aug = TraceAugmenter(tmp_index, tmp_repo, client)
         result = aug.run()
-        assert result.failed > 0
+        # Bad JSON responses now produce synthetic fallback entries
+        assert (result.failed + result.synthetic) > 0
 
     def test_status_no_augmentation(self, tmp_index, tmp_repo):
         client = FakeLLMClient()

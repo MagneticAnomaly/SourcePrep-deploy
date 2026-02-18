@@ -8,7 +8,12 @@ TOOLS = [
         "description": "Get CoDRAG index status and daemon health. Returns index stats, build state, and configuration.",
         "inputSchema": {
             "type": "object",
-            "properties": {},
+            "properties": {
+                "project_id": {
+                    "type": "string",
+                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted. Use codrag_status to list available projects.",
+                },
+            },
             "required": [],
         },
         "_meta": {
@@ -29,6 +34,10 @@ TOOLS = [
                     "type": "boolean",
                     "description": "Force full rebuild (ignore cache). Default: false (incremental).",
                     "default": False,
+                },
+                "project_id": {
+                    "type": "string",
+                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted.",
                 },
             },
             "required": [],
@@ -60,6 +69,10 @@ TOOLS = [
                     "type": "number",
                     "description": "Minimum similarity score (0-1). Default: 0.15.",
                     "default": 0.15,
+                },
+                "project_id": {
+                    "type": "string",
+                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted.",
                 },
             },
             "required": ["query"],
@@ -114,6 +127,10 @@ TOOLS = [
                     "description": "Hard timeout for CLaRa compression in seconds. Default: 30.",
                     "default": 30.0,
                 },
+                "project_id": {
+                    "type": "string",
+                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted.",
+                },
             },
             "required": ["query"],
         },
@@ -144,6 +161,10 @@ TOOLS = [
                     "type": "integer",
                     "description": "Maximum number of results. Default: 20.",
                     "default": 20,
+                },
+                "project_id": {
+                    "type": "string",
+                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted.",
                 },
             },
             "required": ["query"],
@@ -182,6 +203,10 @@ TOOLS = [
                     "description": "Maximum neighbor nodes to return. Default: 25.",
                     "default": 25,
                 },
+                "project_id": {
+                    "type": "string",
+                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted.",
+                },
             },
             "required": ["node_id"],
         },
@@ -198,7 +223,12 @@ TOOLS = [
         "description": "Get trace coverage statistics: which files are traced, untraced, stale, or ignored. Useful for understanding code graph completeness.",
         "inputSchema": {
             "type": "object",
-            "properties": {},
+            "properties": {
+                "project_id": {
+                    "type": "string",
+                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted. Use codrag_status to list available projects.",
+                },
+            },
             "required": [],
         },
         "_meta": {

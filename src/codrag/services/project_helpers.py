@@ -32,9 +32,12 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
+import threading
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from codrag.api.envelope import ApiException
 from codrag.core import CodeIndex
@@ -46,6 +49,13 @@ from codrag.core.project_registry import (
 from codrag.core.watcher import AutoRebuildWatcher
 
 logger = logging.getLogger(__name__)
+
+# ── Mtime-based staleness cache ────────────────────────────────
+# Lightweight filesystem check that works without the watcher.
+# Cached per project to avoid scanning on every status poll.
+_STALE_CACHE_TTL = 10.0  # seconds
+_stale_cache_lock = threading.Lock()
+_stale_cache: Dict[str, Tuple[float, bool, Optional[str], int]] = {}  # project_id -> (expires_at, is_stale, stale_since_iso, stale_count)
 
 # ── Registry singleton ──────────────────────────────────────────
 
@@ -192,6 +202,125 @@ def get_project_watcher_status(project: Project, watchers: Dict[str, AutoRebuild
             "pending_paths_count": 0,
         }
     return watcher.status()
+
+
+def check_index_staleness(project: Project, idx: CodeIndex) -> Dict[str, Any]:
+    """Lightweight mtime-based staleness check (works without watcher).
+
+    Compares file modification times against the index's ``built_at``
+    timestamp.  Results are cached per project for ``_STALE_CACHE_TTL``
+    seconds to avoid scanning the filesystem on every status poll.
+
+    Returns dict with ``is_stale``, ``stale_since``, ``stale_count``.
+    """
+    now = time.monotonic()
+
+    # Check cache first
+    with _stale_cache_lock:
+        cached = _stale_cache.get(project.id)
+        if cached is not None:
+            expires_at, is_stale, stale_since, stale_count = cached
+            if now < expires_at:
+                return {"is_stale": is_stale, "stale_since": stale_since, "stale_count": stale_count}
+
+    # Get built_at from index stats
+    st = idx.stats()
+    built_at_str = st.get("built_at")
+    if not built_at_str or not st.get("loaded"):
+        result = {"is_stale": False, "stale_since": None, "stale_count": 0}
+        with _stale_cache_lock:
+            _stale_cache[project.id] = (now + _STALE_CACHE_TTL, False, None, 0)
+        return result
+
+    # Parse built_at to epoch
+    try:
+        ba = str(built_at_str).strip()
+        if ba.endswith("Z"):
+            ba = ba[:-1] + "+00:00"
+        built_dt = datetime.fromisoformat(ba)
+        built_epoch = built_dt.timestamp()
+    except Exception:
+        result = {"is_stale": False, "stale_since": None, "stale_count": 0}
+        with _stale_cache_lock:
+            _stale_cache[project.id] = (now + _STALE_CACHE_TTL, False, None, 0)
+        return result
+
+    # Load include/exclude globs from project config
+    cfg = project.config or {}
+    include_raw = cfg.get("include_globs") if isinstance(cfg, dict) else None
+    exclude_raw = cfg.get("exclude_globs") if isinstance(cfg, dict) else None
+    include_globs = list(include_raw) if isinstance(include_raw, list) else []
+    exclude_globs = list(exclude_raw) if isinstance(exclude_raw, list) else []
+
+    repo_root = Path(project.path).resolve()
+    if not repo_root.is_dir():
+        result = {"is_stale": False, "stale_since": None, "stale_count": 0}
+        with _stale_cache_lock:
+            _stale_cache[project.id] = (now + _STALE_CACHE_TTL, False, None, 0)
+        return result
+
+    # Build pathspec matchers for include/exclude
+    try:
+        import pathspec
+        inc_spec = pathspec.PathSpec.from_lines("gitignore", include_globs) if include_globs else None
+        exc_spec = pathspec.PathSpec.from_lines("gitignore", exclude_globs) if exclude_globs else None
+    except Exception:
+        inc_spec = None
+        exc_spec = None
+
+    # Quick dir-prune set
+    from codrag.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
+    prune_dirs = DEFAULT_EXCLUDE_DIR_NAMES
+
+    stale_count = 0
+    earliest_stale_mtime: Optional[float] = None
+
+    for root_dir, dirs, filenames in os.walk(repo_root):
+        dirs[:] = [d for d in dirs if d not in prune_dirs and not d.startswith(".")]
+        root_path = Path(root_dir)
+
+        for fname in filenames:
+            fpath = root_path / fname
+            try:
+                rel = fpath.relative_to(repo_root).as_posix()
+            except Exception:
+                continue
+
+            # Apply include filter
+            if inc_spec is not None:
+                if not inc_spec.match_file(rel):
+                    continue
+            # Apply exclude filter
+            if exc_spec is not None:
+                if exc_spec.match_file(rel):
+                    continue
+
+            # Check mtime
+            try:
+                mtime = fpath.stat().st_mtime
+            except OSError:
+                continue
+
+            if mtime > built_epoch:
+                stale_count += 1
+                if earliest_stale_mtime is None or mtime < earliest_stale_mtime:
+                    earliest_stale_mtime = mtime
+
+    is_stale = stale_count > 0
+    stale_since: Optional[str] = None
+    if earliest_stale_mtime is not None:
+        stale_since = datetime.fromtimestamp(earliest_stale_mtime, tz=timezone.utc).isoformat()
+
+    with _stale_cache_lock:
+        _stale_cache[project.id] = (now + _STALE_CACHE_TTL, is_stale, stale_since, stale_count)
+
+    return {"is_stale": is_stale, "stale_since": stale_since, "stale_count": stale_count}
+
+
+def invalidate_stale_cache(project_id: str) -> None:
+    """Clear cached staleness result for a project (e.g. after a build)."""
+    with _stale_cache_lock:
+        _stale_cache.pop(project_id, None)
 
 
 # ── Utility helpers ─────────────────────────────────────────────

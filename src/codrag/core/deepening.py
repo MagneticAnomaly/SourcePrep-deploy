@@ -325,7 +325,7 @@ class DeepeningLoop:
         index_dir: Path,
         max_iterations: int = 10,
         batch_size: int = 20,
-        settled_threshold: float = 0.95,
+        settled_threshold: float = 0.60,
         residual_threshold: float = 0.01,
     ):
         self.enricher = enricher

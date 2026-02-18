@@ -90,17 +90,16 @@ def test_file_path_security(client: TestClient, empty_project: str):
     assert res_abs.status_code in [400, 403]
 
 def test_trace_before_enable(client: TestClient, empty_project: str):
-    """Verify error when accessing trace endpoints on a project with trace disabled."""
-    # Trace is disabled by default
+    """Verify error when accessing trace endpoints on a project before trace is built."""
+    # Trace is always available but must be built first
     res = client.get(f"/projects/{empty_project}/trace/status")
-    # Actually trace status might return "not enabled" rather than error, 
-    # but search/nodes endpoints should fail or return empty
+    # Trace search should fail with TRACE_NOT_BUILT before any build has run
     
     res_search = client.post(
         f"/projects/{empty_project}/trace/search",
         json={"query": "foo"}
     )
-    # This might return 409 TRACE_DISABLED or similar
+    # This might return 409 TRACE_NOT_BUILT or similar
     if res_search.status_code != 200:
         assert res_search.status_code == 409
-        assert res_search.json()["error"]["code"] == "TRACE_DISABLED"
+        assert res_search.json()["error"]["code"] == "TRACE_NOT_BUILT"

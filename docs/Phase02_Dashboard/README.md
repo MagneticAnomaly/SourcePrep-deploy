@@ -130,6 +130,10 @@ Output:
 #### Settings
 
 Per-project settings:
+- **Knowledge Sources (Folder Tree)**:
+  - Checkboxes for file/folder inclusion.
+  - **Ancestor Selection**: Selecting a folder implicitly selects all its descendants (loaded or not).
+  - **Orphan Cleanup**: Unchecking a folder removes all latent descendant paths from storage.
 - Include globs / exclude globs
 - `max_file_bytes`
 - Trace enabled toggle
@@ -147,6 +151,7 @@ The dashboard should consistently render one of:
 - Empty (no data)
 - Ready
 - Error (actionable)
+- **Transient Complete**: After a successful build, the progress bar forces a "100% Complete" green state for 5 seconds before reverting to the standard status view.
 
 Error state requirements:
 - Always show:
