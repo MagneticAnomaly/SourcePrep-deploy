@@ -84,6 +84,12 @@ engine/target/
 *.dylib
 *.rlib
 
+# E2E test artifacts
+tests/eval/
+TEST/
+TEST2/
+TEST3/
+
 # Secrets
 .env
 .env.local
