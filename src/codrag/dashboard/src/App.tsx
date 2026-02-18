@@ -180,9 +180,8 @@ function App() {
   // ── Deep analysis (hook) ─────────────────────────────────────
   const {
     deepAnalysisSchedule, setDeepAnalysisSchedule,
-    deepAnalysisStatus, setDeepAnalysisStatus,
-    deepAnalysisRunning,
-    fetchDeepAnalysisStatus, handleRunDeepAnalysis, handleCancelDeepAnalysis,
+    setDeepAnalysisStatus,
+    fetchDeepAnalysisStatus,
   } = useDeepAnalysis(selectedProjectId, { onError: (msg) => setError(msg) })
 
   // ── Event Stream ───────────────────────────────────────────
@@ -554,45 +553,50 @@ function App() {
 
   // ── Dashboard panels (hook) ─────────────────────────────────
   const { panelContent, panelDetails, allPanelDefs, PINNED_PREFIX: pinnedPrefix } = useDashboardPanels({
+    // Cross-cutting
     projectStatus, selectedProject, selectedProjectId, projectConfig, isPro,
     scopeStatus: selectedProjectId ? scopeEvents[selectedProjectId] : undefined,
-    logs, clearLogs, findActiveTask,
-    handleBuild,
+    logs, clearLogs, findActiveTask, handleBuild,
     transientComplete: selectedProjectId ? transientCompleteProjects.has(selectedProjectId) : false,
-    query, setQuery, searchK, setSearchK, minScore, setMinScore,
-    searchLoading, searchResults, selectedChunk, setSelectedChunk, handleSearch,
-    contextK, setContextK, contextMaxChars, setContextMaxChars,
-    contextIncludeSources, setContextIncludeSources,
-    contextIncludeScores, setContextIncludeScores,
-    contextStructured, setContextStructured,
-    context, contextMeta, handleGetContext, handleCopyContext,
-    watchStatus, watchLoading, handleStartWatch, handleStopWatch,
-    fileTree, includedPaths, handleToggleInclude,
-    pathWeights, handlePathWeightChange, handleLoadChildren,
-    pinnedPaths, pinnedFiles, handlePinFile, handleUnpinFile, handleLoadFileContent,
-    traceStatus, traceCoverage, indexAutoRebuild, handleIndexAutoRebuildChange,
-    enrichmentAutoConfig, handleEnrichmentAutoConfigChange,
-    handleSearchTrace, handleGetTraceNode, handleGetTraceNeighbors,
-    handleBuildTrace, handleEnableTrace, handleTogglePause,
-    handleTraceAll, handleRetraceStale, handleAddExcludePattern, handleRemoveExcludePattern, fetchTraceCoverage,
-    augmentationStatus, augmenting, validating, handleRunAugmentation,
-    epistemicStatus, epistemicRunning, handleRunEpistemic,
-    moduleStatus, clusterRunning, handleRunModuleSynthesis,
-    deepeningStatus, deepeningRunning, handleRunDeepening,
-    knowledgeStatus, knowledgeBuilding, handleRunKnowledgeBuild,
-    handleRunFastSync, handleRunDeepEnrichment, handleDestroyGraph,
-    deepAnalysisSchedule, setDeepAnalysisSchedule,
-    deepAnalysisStatus, deepAnalysisRunning, handleRunDeepAnalysis, handleCancelDeepAnalysis,
-    llmConfig, llmSlotsStatus,
-    handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
-    handleTestEndpoint,
-    handleFetchModels,
-    handleTestModel,
-    handleDownloadModel,
-    availableModels,
-    loadingModels,
-    testingSlot,
-    testResults,
+    // Domain groups
+    search: {
+      query, setQuery, searchK, setSearchK, minScore, setMinScore,
+      searchLoading, searchResults, selectedChunk, setSelectedChunk, handleSearch,
+      contextK, setContextK, contextMaxChars, setContextMaxChars,
+      contextIncludeSources, setContextIncludeSources,
+      contextIncludeScores, setContextIncludeScores,
+      contextStructured, setContextStructured,
+      context, contextMeta, handleGetContext, handleCopyContext,
+    },
+    files: {
+      fileTree, includedPaths, handleToggleInclude,
+      pathWeights, handlePathWeightChange, handleLoadChildren,
+      pinnedPaths, pinnedFiles, handlePinFile, handleUnpinFile, handleLoadFileContent,
+    },
+    trace: {
+      traceStatus, traceCoverage, indexAutoRebuild, handleIndexAutoRebuildChange,
+      enrichmentAutoConfig, handleEnrichmentAutoConfigChange,
+      handleSearchTrace, handleGetTraceNode, handleGetTraceNeighbors,
+      handleBuildTrace, handleEnableTrace, handleTogglePause,
+      handleTraceAll, handleRetraceStale, handleAddExcludePattern, handleRemoveExcludePattern,
+      fetchTraceCoverage, handleRunFastSync, handleDestroyGraph,
+    },
+    enrichment: {
+      augmentationStatus, augmenting, validating, handleRunAugmentation,
+      epistemicStatus, epistemicRunning, handleRunEpistemic,
+      moduleStatus, clusterRunning, handleRunModuleSynthesis,
+      deepeningStatus, deepeningRunning, handleRunDeepening,
+      knowledgeStatus, knowledgeBuilding, handleRunKnowledgeBuild,
+      handleRunDeepEnrichment,
+    },
+    watch: { watchStatus, watchLoading, handleStartWatch, handleStopWatch },
+    llm: {
+      llmConfig, llmSlotsStatus,
+      handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
+      handleTestEndpoint, handleFetchModels, handleTestModel, handleDownloadModel,
+      availableModels, loadingModels, testingSlot, testResults,
+    },
+    deepAnalysis: { deepAnalysisSchedule, setDeepAnalysisSchedule },
   })
 
   // ── Loading state ──────────────────────────────────────────
