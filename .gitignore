@@ -95,5 +95,8 @@ TEST3/
 .env.local
 .env.*
 
+# Tauri signing keys (NEVER commit private key)
+src/codrag/dashboard/src-tauri/.tauri/
+
 # Local reference files (not for repo)
 plausible-tags.txt

@@ -24,6 +24,7 @@ import {
   useEventStream,
 } from '@codrag/ui'
 import { StartupScreen } from './components/StartupScreen'
+import { UpdateBanner } from './components/UpdateBanner'
 import { SettingsDrawer } from './components/settings/SettingsDrawer'
 import { ErrorToast } from './components/ErrorToast'
 import { useLicenseSystem } from './hooks/useLicenseSystem'
@@ -167,6 +168,7 @@ function App() {
     deepAnalysisSchedule, setDeepAnalysisSchedule,
     setDeepAnalysisStatus,
     fetchDeepAnalysisStatus,
+    budgetUsage,
   } = useDeepAnalysis(selectedProjectId, { onError: (msg) => setError(msg) })
 
   // ── Event Stream ───────────────────────────────────────────
@@ -379,7 +381,7 @@ function App() {
       handleTestEndpoint, handleFetchModels, handleTestModel, handleDownloadModel,
       availableModels, loadingModels, testingSlot, testResults,
     },
-    deepAnalysis: { deepAnalysisSchedule, setDeepAnalysisSchedule },
+    deepAnalysis: { deepAnalysisSchedule, setDeepAnalysisSchedule, budgetUsage },
   })
 
   // ── Loading state ──────────────────────────────────────────
@@ -400,6 +402,7 @@ function App() {
   return (
     <>
       <ErrorToast message={error} onClose={() => setError(null)} />
+      <UpdateBanner />
       {isDaemonUnhealthy && (
         <div className="fixed inset-x-0 top-0 z-[100] bg-error text-white px-4 py-2 text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
         <AlertCircle className="w-4 h-4" />

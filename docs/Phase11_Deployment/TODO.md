@@ -22,7 +22,7 @@
 | Done | ID | Task | Notes |
 |--------|----|------|-------|
 | [x] | ACC-1 | Apple Developer Program enrollment (Magnetic Anomaly LLC) | Required for macOS signing + notarization |
-| [ ] | ACC-2 | Generate Ed25519 signing keypair for Tauri auto-updater | `npx tauri signer generate -w ~/.tauri/codrag.key` — **back up private key securely** |
+| [x] | ACC-2 | Generate Ed25519 signing keypair for Tauri auto-updater | Generated at `src-tauri/.tauri/codrag.key` — gitignored |
 | [ ] | ACC-3 | Store updater private key in GitHub Secrets (`TAURI_PRIVATE_KEY`, `TAURI_KEY_PASSWORD`) | |
 | [ ] | ACC-4 | Windows code signing certificate (EV recommended for instant SmartScreen trust) | OV cert works but needs reputation buildup |
 | [ ] | ACC-5 | Microsoft Partner Center developer account (Magnetic Anomaly LLC) | For Microsoft Store listing (Channel B) |
@@ -87,12 +87,12 @@ See `NATIVE_ENGINE_BUILD_STRATEGY.md` for full details.
 
 | Done | ID | Task | Notes |
 |--------|----|------|-------|
-| [ ] | UPD-1 | Embed updater public key in `tauri.conf.json` | Requires ACC-2 |
-| [ ] | UPD-2 | Configure updater endpoint → GitHub Releases `latest.json` | Static JSON, see `AUTO_UPDATE_STRATEGY.md` |
-| [ ] | UPD-3 | `tauri-action` generates `latest.json` + signed artifacts per release | Part of TAU-6 |
-| [ ] | UPD-4 | Rust-side update check: startup + periodic (30 min) | |
-| [ ] | UPD-5 | `UpdateBanner.tsx` frontend component (banner + progress bar + restart button) | |
-| [ ] | UPD-6 | Wire frontend to Tauri commands (`check_update`, `install_update`) | |
+| [x] | UPD-1 | Embed updater public key in `tauri.conf.json` | Done — pubkey + endpoint configured |
+| [x] | UPD-2 | Configure updater endpoint → GitHub Releases `latest.json` | `tauri.conf.json` → `updater.endpoints` |
+| [x] | UPD-3 | `tauri-action` generates `latest.json` + signed artifacts per release | `.github/workflows/release.yml` |
+| [x] | UPD-4 | Frontend update check: startup (5s delay) + periodic (30 min) | Via `@tauri-apps/api/updater` JS API |
+| [x] | UPD-5 | `UpdateBanner.tsx` frontend component (banner + progress bar + restart button) | Includes dismiss, error state, release notes link |
+| [x] | UPD-6 | Wire frontend to Tauri JS API (`checkUpdate`, `installUpdate`, `relaunch`) | No custom Rust commands needed — v1 JS API suffices |
 | [ ] | UPD-7 | E2E test: v0.1.0 → v0.2.0 in-app update | |
 | [ ] | UPD-8 | "What's New" modal after update (reads release notes from `latest.json`) | Nice-to-have for MVP |
 | [ ] | UPD-9 | Settings toggle: "Check for updates automatically" | Default: on |
