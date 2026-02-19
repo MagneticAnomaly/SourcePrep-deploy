@@ -247,14 +247,18 @@ export interface TraceExpandOptions {
 export type EvidenceTier = 0 | 1 | 2;
 
 /**
- * Deep analysis schedule mode
+ * Deep enrichment mode (Phase 26: standardized terminology)
  */
-export type DeepAnalysisMode = 'manual' | 'threshold' | 'scheduled' | 'auto';
+export type DeepEnrichmentMode = 'manual' | 'threshold' | 'scheduled' | 'auto';
+/** @deprecated Use DeepEnrichmentMode */
+export type DeepAnalysisMode = DeepEnrichmentMode;
 
 /**
- * Deep analysis priority ordering
+ * Deep enrichment priority ordering
  */
-export type DeepAnalysisPriority = 'lowest_confidence' | 'highest_connectivity';
+export type DeepEnrichmentPriority = 'lowest_confidence' | 'highest_connectivity';
+/** @deprecated Use DeepEnrichmentPriority */
+export type DeepAnalysisPriority = DeepEnrichmentPriority;
 
 /**
  * Schedule frequency
@@ -262,10 +266,10 @@ export type DeepAnalysisPriority = 'lowest_confidence' | 'highest_connectivity';
 export type ScheduleFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly';
 
 /**
- * Deep analysis schedule configuration (persisted in global config)
+ * Deep enrichment configuration (persisted in global config)
  */
-export interface DeepAnalysisScheduleConfig {
-  mode: DeepAnalysisMode;
+export interface DeepEnrichmentConfig {
+  mode: DeepEnrichmentMode;
   threshold_percent?: number;
   frequency?: ScheduleFrequency;
   day_of_week?: number;
@@ -274,13 +278,17 @@ export interface DeepAnalysisScheduleConfig {
   budget_max_tokens: number;
   budget_max_minutes: number;
   budget_max_items: number;
-  priority: DeepAnalysisPriority;
+  priority: DeepEnrichmentPriority;
 }
+/** @deprecated Use DeepEnrichmentConfig */
+export type DeepAnalysisScheduleConfig = DeepEnrichmentConfig;
+/** @deprecated Use DeepEnrichmentConfig */
+export type DeepAnalysisSchedule = DeepEnrichmentConfig;
 
 /**
- * Deep analysis run status from API
+ * Deep enrichment run status from API
  */
-export interface DeepAnalysisRunStatus {
+export interface DeepEnrichmentRunStatus {
   last_run_at?: string;
   last_run_items?: number;
   last_run_tokens?: number;
@@ -296,6 +304,8 @@ export interface DeepAnalysisRunStatus {
   budget_exhausted?: boolean;
   queue_remaining?: number;
 }
+/** @deprecated Use DeepEnrichmentRunStatus */
+export type DeepAnalysisRunStatus = DeepEnrichmentRunStatus;
 
 /**
  * Trace augmentation entry (per-node overlay)
@@ -800,7 +810,7 @@ export interface GlobalConfig {
   trace?: { enabled: boolean };
   auto_rebuild?: { enabled: boolean; debounce_ms?: number };
   llm_config?: LLMConfig;
-  deep_analysis?: DeepAnalysisScheduleConfig;
+  deep_analysis?: DeepEnrichmentConfig;
   ui_preferences?: {
     mode?: 'light' | 'dark';
     theme?: string;

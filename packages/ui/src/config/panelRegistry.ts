@@ -1,10 +1,12 @@
 import { 
   BookOpen,
   Brain,
+  Coins,
   Database, 
   Eye,
   FolderTree,
   GitBranch,
+  HeartPulse,
   Search, 
   Settings2, 
   FileText,
@@ -182,6 +184,30 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     docsUrl: 'https://docs.codrag.io/concepts/graph-scope',
   },
   // graph-engine (Graph Engine) removed — consolidated into trace-pipeline (Graph Enrichment)
+  {
+    id: 'index-health',
+    title: 'Index Health',
+    description: 'Health score, freshness, staleness, and coverage metrics for your knowledge base.',
+    icon: HeartPulse,
+    minHeight: 4,
+    defaultHeight: 6,
+    category: 'status',
+    closeable: true,
+    resizable: true,
+    docsUrl: 'https://docs.codrag.io/dashboard#index-health',
+  },
+  {
+    id: 'token-budget',
+    title: 'Token Budget',
+    description: 'Track deep enrichment token usage against your configured budget window.',
+    icon: Coins,
+    minHeight: 3,
+    defaultHeight: 5,
+    category: 'config',
+    closeable: true,
+    resizable: true,
+    docsUrl: 'https://docs.codrag.io/dashboard#token-budget',
+  },
 ];
 
 /**

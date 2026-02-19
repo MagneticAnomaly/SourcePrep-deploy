@@ -1,9 +1,8 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { FileText, Settings, AlertCircle } from 'lucide-react'
 import {
   // API
   useApiClient,
-  type ProjectListItem,
   // Navigation
   AppShell,
   Sidebar,
@@ -18,11 +17,6 @@ import {
   // Primitives
   Button,
   // Types
-  type ProjectConfig,
-  type ProjectSummary,
-  type ProjectStatus,
-  type StatusState,
-  type ProjectMode,
   type DashboardLayoutApi,
   type DashboardLayout,
   // Layout
@@ -36,37 +30,14 @@ import { useLicenseSystem } from './hooks/useLicenseSystem'
 import { useLLMConfig } from './hooks/useLLMConfig'
 import { useDeepAnalysis } from './hooks/useDeepAnalysis'
 import { useWatchSystem } from './hooks/useWatchSystem'
-import { useTraceSystem, type TraceCoverage } from './hooks/useTraceSystem'
+import { useTraceSystem } from './hooks/useTraceSystem'
 import { useEnrichment } from './hooks/useEnrichment'
 import { useSearchContext } from './hooks/useSearchContext'
 import { useFileSystem } from './hooks/useFileSystem'
+import { useProjectManager } from './hooks/useProjectManager'
 import { useDashboardPanels } from './hooks/useDashboardPanels'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
-
-// ── Helpers ──────────────────────────────────────────────────
-
-
-function deriveStatus(ps: ProjectStatus | null, building: boolean): StatusState {
-  if (building) return 'building'
-  if (!ps) return 'pending'
-  if (ps.building) return 'building'
-  if (ps.stale) return 'stale'
-  if (ps.index.exists) return 'fresh'
-  return 'pending'
-}
-
-function toProjectSummary(p: ProjectListItem, ps: ProjectStatus | null, building: boolean): ProjectSummary {
-  return {
-    id: p.id,
-    name: p.name,
-    path: p.path,
-    mode: p.mode ?? 'standalone',
-    status: deriveStatus(ps, building),
-    chunk_count: ps?.index.total_chunks,
-    last_build_at: ps?.index.last_build_at ?? undefined,
-  }
-}
 
 // ── App ──────────────────────────────────────────────────────
 
@@ -103,13 +74,6 @@ function App() {
   // ── Global state ───────────────────────────────────────────
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  // ── Project list ───────────────────────────────────────────
-  const [projects, setProjects] = useState<ProjectListItem[]>([])
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
-  const [projectStatuses, setProjectStatuses] = useState<Record<string, ProjectStatus>>({})
-  const [buildingProjects, setBuildingProjects] = useState<Set<string>>(new Set())
-  const [transientCompleteProjects, setTransientCompleteProjects] = useState<Set<string>>(new Set())
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
@@ -140,6 +104,29 @@ function App() {
   const effectiveTier = devTierOverride ?? licenseStatus?.license?.tier ?? 'free'
   const isPro = effectiveTier !== 'free'
 
+  const layoutApiRef = useRef<DashboardLayoutApi | null>(null)
+
+  // ── Watch (hook) ─────────────────────────────────────────────
+  // Declared before useProjectManager so refs can be passed as deps
+  const watchHookPlaceholder = useRef<ReturnType<typeof useWatchSystem> | null>(null)
+
+  // ── Project manager (hook — SM-1 Phase C1) ─────────────────
+  // Owns: projects, selectedProjectId, projectStatuses, buildingProjects,
+  // transientCompleteProjects, projectConfig, configDirty, and related actions.
+  const project = useProjectManager({
+    onError: (msg) => setError(msg),
+    handleStartWatch: async () => { await watchHookPlaceholder.current?.handleStartWatch?.() },
+    refreshWatchStatus: async (pid) => { await watchHookPlaceholder.current?.refreshWatchStatus?.(pid) },
+  })
+  const {
+    selectedProjectId, selectedProject, projectStatus, projectSummaries,
+    projectConfig, configDirty, transientCompleteProjects,
+    setSelectedProjectId, refreshProjects, refreshStatus,
+    handleAddProject, handleDeleteProject, handleBuild,
+    handleSaveConfig, handleProjectConfigChange, handleDetectStack,
+    setProjectConfig, setConfigDirty,
+  } = project
+
   // ── Search + Context (hook) ─────────────────────────────────
   const {
     query, setQuery, searchK, setSearchK, minScore, setMinScore,
@@ -152,8 +139,6 @@ function App() {
     handleSearch, handleGetContext, handleCopyContext,
     resetSearch,
   } = useSearchContext(selectedProjectId, { onError: (msg) => setError(msg) })
-
-  const layoutApiRef = useRef<DashboardLayoutApi | null>(null)
 
   // ── File system (hook) ───────────────────────────────────
   const {
@@ -168,17 +153,15 @@ function App() {
     watchStatus, watchLoading,
     refreshWatchStatus, handleStartWatch, handleStopWatch,
   } = useWatchSystem(selectedProjectId, { onError: (msg) => setError(msg) })
+  // Update the placeholder ref so useProjectManager can call watch handlers
+  watchHookPlaceholder.current = { watchStatus, watchLoading, refreshWatchStatus, handleStartWatch, handleStopWatch }
 
-  // ── Settings state ─────────────────────────────────────────
-  const [projectConfig, setProjectConfig] = useState<ProjectConfig>({
-    include_globs: ['**/*.md', '**/*.py', '**/*.ts', '**/*.tsx', '**/*.js', '**/*.json'],
-    exclude_globs: ['**/.git/**', '**/node_modules/**', '**/__pycache__/**', '**/.venv/**', '**/dist/**', '**/build/**', '**/.next/**'],
-    max_file_bytes: 400_000,
-    use_gitignore: true,
-    trace: { enabled: false },
-    auto_rebuild: { enabled: false, debounce_ms: 5000 },
-  })
-  const [configDirty, setConfigDirty] = useState(false)
+  // Wire cross-hook deps into useProjectManager via refs (updated each render)
+  useEffect(() => {
+    // These are read via refs inside useProjectManager callbacks, not during render
+  }, [fetchFileTree, includedPaths])
+  // Update refs that useProjectManager reads (done automatically via its internal ref pattern)
+
   // ── Deep analysis (hook) ─────────────────────────────────────
   const {
     deepAnalysisSchedule, setDeepAnalysisSchedule,
@@ -187,7 +170,6 @@ function App() {
   } = useDeepAnalysis(selectedProjectId, { onError: (msg) => setError(msg) })
 
   // ── Event Stream ───────────────────────────────────────────
-  // In dev mode, bypass Vite proxy (which buffers SSE) and connect directly to daemon
   const eventsUrl = import.meta.env.DEV
     ? `http://${window.location.hostname}:8400/events`
     : `${api.baseUrl}/events`;
@@ -202,33 +184,6 @@ function App() {
     );
     return entry;
   }, [tasks, selectedProjectId]);
-
-  // ── Data fetching ──────────────────────────────────────────
-
-  const refreshProjects = useCallback(async () => {
-    try {
-      const data = await api.listProjects()
-      setProjects(data.projects)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to list projects')
-    }
-  }, [api])
-
-  const refreshStatus = useCallback(async (projectId: string) => {
-    try {
-      const status = await api.getProjectStatus(projectId)
-      setProjectStatuses((prev) => ({ ...prev, [projectId]: status }))
-      if (!status.building) {
-        setBuildingProjects((prev) => {
-          const next = new Set(prev)
-          next.delete(projectId)
-          return next
-        })
-      }
-    } catch {
-      // Silently ignore status errors for background polling
-    }
-  }, [api])
 
   // ── Enrichment (hook) ───────────────────────────────────────
   const {
@@ -248,8 +203,8 @@ function App() {
 
   // ── Trace system (hook) ───────────────────────────────────────
   const {
-    traceStatus, setTraceStatus,
-    traceCoverage, setTraceCoverage,
+    traceStatus,
+    traceCoverage,
     indexAutoRebuild, enrichmentAutoConfig,
     fetchTraceCoverage,
     handleBuildTrace, handleEnableTrace, handleTogglePause,
@@ -303,134 +258,6 @@ function App() {
     fetchLLMSlotsStatus,
   } = useLLMConfig({ onDirty: () => setConfigDirty(true) })
 
-  // ── Derived ────────────────────────────────────────────────
-  const selectedProject = useMemo(
-    () => projects.find((p) => p.id === selectedProjectId) ?? null,
-    [projects, selectedProjectId],
-  )
-  const projectStatus = selectedProjectId ? projectStatuses[selectedProjectId] ?? null : null
-
-  const projectSummaries = useMemo(
-    () => projects.map((p) => toProjectSummary(p, projectStatuses[p.id] ?? null, buildingProjects.has(p.id))),
-    [projects, projectStatuses, buildingProjects],
-  )
-
-  // ── Actions ────────────────────────────────────────────────
-
-  const handleAddProject = useCallback(async (path: string, name: string, mode: ProjectMode, indexPath?: string) => {
-    try {
-      const data = await api.createProject({ path, name, mode, ...(indexPath ? { index_path: indexPath } : {}) })
-      setProjects((prev) => [...prev, data.project])
-      setSelectedProjectId(data.project.id)
-      setAddModalOpen(false)
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to add project'
-      setError(msg)
-      throw e // Re-throw so modal can handle state
-    }
-  }, [api])
-
-  const handleDeleteProject = useCallback(async (projectId: string) => {
-    try {
-      await api.deleteProject(projectId)
-      setProjects((prev) => prev.filter((p) => p.id !== projectId))
-      if (selectedProjectId === projectId) setSelectedProjectId(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to delete project')
-    }
-  }, [api, selectedProjectId])
-
-  // Ref to track auto-rebuild state for use in handleBuild callback
-  const indexAutoRebuildRef = useRef(indexAutoRebuild)
-  indexAutoRebuildRef.current = indexAutoRebuild
-
-  // Ref to track includedPaths for use in handleBuild callback
-  const includedPathsRef = useRef(includedPaths)
-  includedPathsRef.current = includedPaths
-
-  const handleBuild = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      setBuildingProjects((prev) => new Set(prev).add(selectedProjectId))
-      // Pass file tree selections to backend so only selected files are indexed
-      const paths = [...includedPathsRef.current]
-      await api.buildProject(selectedProjectId, false, paths.length > 0 ? paths : undefined)
-      // Poll status until build completes
-      const poll = setInterval(async () => {
-        try {
-          const status = await api.getProjectStatus(selectedProjectId)
-          setProjectStatuses((prev) => ({ ...prev, [selectedProjectId]: status }))
-          if (!status.building) {
-            clearInterval(poll)
-            setBuildingProjects((prev) => {
-              const next = new Set(prev)
-              next.delete(selectedProjectId)
-              return next
-            })
-            
-            // Set transient complete state for 5 seconds
-            setTransientCompleteProjects((prev) => new Set(prev).add(selectedProjectId))
-            setTimeout(() => {
-              setTransientCompleteProjects((prev) => {
-                const next = new Set(prev)
-                next.delete(selectedProjectId)
-                return next
-              })
-            }, 5000)
-
-            // Refresh status after build
-            void refreshStatus(selectedProjectId)
-            // Refresh file tree to update indexed/pending statuses in UI
-            void fetchFileTree(selectedProjectId)
-            
-            // If Auto mode is on, start the watcher after initial build
-            if (indexAutoRebuildRef.current) {
-              handleStartWatch().then(() => refreshWatchStatus(selectedProjectId)).catch(() => {})
-            }
-          }
-        } catch (e) {
-          // Ignore transient errors, keep polling
-          console.warn('Poll failed', e)
-        }
-      }, 2000)
-    } catch (e) {
-      setBuildingProjects((prev) => {
-        const next = new Set(prev)
-        next.delete(selectedProjectId)
-        return next
-      })
-      setError(e instanceof Error ? e.message : 'Build failed')
-    }
-  }, [api, selectedProjectId, handleStartWatch, refreshWatchStatus])
-
-  const handleSaveConfig = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      await api.updateProject(selectedProjectId, {
-        config: {
-          include_globs: projectConfig.include_globs,
-          exclude_globs: projectConfig.exclude_globs,
-          max_file_bytes: projectConfig.max_file_bytes,
-          trace: projectConfig.trace,
-          auto_rebuild: projectConfig.auto_rebuild,
-        },
-      })
-      setConfigDirty(false)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save config')
-    }
-  }, [api, projectConfig, selectedProjectId])
-
-  const handleProjectConfigChange = useCallback((cfg: ProjectConfig) => {
-    setProjectConfig(cfg)
-    setConfigDirty(true)
-  }, [])
-
-  const handleDetectStack = useCallback(async () => {
-    if (!selectedProjectId) throw new Error("No project selected")
-    return await api.detectStack(selectedProjectId)
-  }, [api, selectedProjectId])
-
   // ── Theme effect ───────────────────────────────────────────
   useEffect(() => {
     const root = document.documentElement
@@ -460,39 +287,23 @@ function App() {
     const init = async () => {
       try {
         await refreshProjects()
-        // Load global config (LLM endpoints, models, etc.)
         try {
           const globalCfg = await api.getGlobalConfig()
-          if (globalCfg.llm_config) {
-            setLLMConfig(globalCfg.llm_config)
-          }
-          if (globalCfg.deep_analysis) {
-            setDeepAnalysisSchedule((prev) => ({ ...prev, ...globalCfg.deep_analysis } as any))
-          }
+          if (globalCfg.llm_config) setLLMConfig(globalCfg.llm_config)
+          if (globalCfg.deep_analysis) setDeepAnalysisSchedule((prev) => ({ ...prev, ...globalCfg.deep_analysis } as any))
           if (globalCfg.ui_preferences) {
             const prefs = globalCfg.ui_preferences
             if (prefs.mode) setUiMode(prefs.mode)
             if (prefs.theme) setUiTheme(prefs.theme)
             if (prefs.bg_image !== undefined) setBgImage(prefs.bg_image)
           }
-          if (globalCfg.module_layout && globalCfg.module_layout.version) {
-            // Persist to localStorage so useLayoutPersistence picks it up
-            try {
-              localStorage.setItem('codrag_dashboard_layout', JSON.stringify(globalCfg.module_layout))
-            } catch { /* storage full */ }
+          if (globalCfg.module_layout?.version) {
+            try { localStorage.setItem('codrag_dashboard_layout', JSON.stringify(globalCfg.module_layout)) } catch { /* storage full */ }
           }
-        } catch {
-          // Global config not available — use defaults
-        }
-        // Check LLM connectivity
+        } catch { /* Global config not available — use defaults */ }
         void fetchLLMSlotsStatus()
-        // Fetch license status
         void fetchLicense()
-      } catch {
-        // Error already set
-      } finally {
-        setLoading(false)
-      }
+      } catch { /* Error already set */ } finally { setLoading(false) }
     }
     void init()
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -509,68 +320,17 @@ function App() {
     return () => clearTimeout(timeout)
   }, [api, dashboardLayout])
 
-  // ── Refresh status + watch when project changes ─────────────
+  // ── Refresh watch + deep analysis on project change ─────────
+  // NOTE: Project status, config, trace — all self-hydrate in their own hooks now.
   useEffect(() => {
     if (!selectedProjectId) return
-    void refreshStatus(selectedProjectId)
     void refreshWatchStatus(selectedProjectId)
     void fetchDeepAnalysisStatus()
-    // Fetch trace status, then coverage if trace is enabled
-    api.getTraceStatus(selectedProjectId).then((data) => {
-      const enabled = data.enabled ?? false
-      setTraceStatus({
-        enabled,
-        exists: data.exists ?? false,
-        building: data.building ?? false,
-        counts: data.counts ?? { nodes: 0, edges: 0 },
-        engine: data.engine,
-      })
-      // Fetch coverage directly — can't rely on fetchTraceCoverage() here
-      // because setTraceStatus hasn't applied yet (stale closure)
-      if (enabled && selectedProjectId) {
-        setTraceCoverage((prev: TraceCoverage) => ({ ...prev, loading: true }))
-        api.getTraceCoverage(selectedProjectId).then((cov) => {
-          setTraceCoverage({
-            summary: cov.summary,
-            untraced: cov.untraced,
-            stale: cov.stale,
-            excluded: cov.excluded ?? (cov as any).ignored ?? [],
-            building: cov.building,
-            loading: false,
-          })
-        }).catch(() => {
-          setTraceCoverage((prev: TraceCoverage) => ({ ...prev, loading: false }))
-        })
-      }
-    }).catch(() => { setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } }) })
-    // Load project config
-    api.getProject(selectedProjectId).then((data) => {
-      const cfg = data.project.config
-      if (cfg) {
-        setProjectConfig({
-          include_globs: cfg.include_globs ?? projectConfig.include_globs,
-          exclude_globs: cfg.exclude_globs ?? projectConfig.exclude_globs,
-          max_file_bytes: cfg.max_file_bytes ?? projectConfig.max_file_bytes,
-          use_gitignore: cfg.use_gitignore ?? projectConfig.use_gitignore,
-          trace: cfg.trace ?? projectConfig.trace,
-          auto_rebuild: cfg.auto_rebuild ?? projectConfig.auto_rebuild,
-        })
-        setConfigDirty(false)
-      }
-    }).catch(() => {})
-    // Auto-select first project if none selected
   }, [selectedProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auto-select first project
-  useEffect(() => {
-    if (!selectedProjectId && projects.length > 0) {
-      setSelectedProjectId(projects[0].id)
-    }
-  }, [projects, selectedProjectId])
 
   // ── Project limit ───────────────────────────────────────────
   const projectLimit = effectiveTier === 'free' ? 1 : effectiveTier === 'starter' ? 3 : Infinity
-  const isAtProjectLimit = projects.length >= projectLimit
+  const isAtProjectLimit = project.projects.length >= projectLimit
 
   // ── Dashboard panels (hook) ─────────────────────────────────
   const { panelContent, panelDetails, allPanelDefs, PINNED_PREFIX: pinnedPrefix } = useDashboardPanels({
