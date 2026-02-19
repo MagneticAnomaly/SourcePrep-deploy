@@ -226,6 +226,35 @@ const faqs: FAQItem[] = [
       </div>
     ),
   },
+  {
+    id: "cloud-upload",
+    q: "Is my code uploaded to the cloud?",
+    a: (
+      <div className="space-y-4">
+        <p><strong>No.</strong> CoDRAG is local-first software. All indexing, vector storage, and processing happens on your machine. The only time data leaves your machine is if you explicitly configure a cloud LLM (BYOK) or during the one-time license activation check.</p>
+      </div>
+    ),
+  },
+  {
+    id: "editor-support",
+    q: "Which editors does it work with?",
+    a: (
+      <div className="space-y-4">
+        <p>CoDRAG works best with editors that support the <strong>Model Context Protocol (MCP)</strong> — currently <strong>Cursor</strong>, <strong>Windsurf</strong>, and <strong>Claude Desktop</strong>. A VS Code extension is in development.</p>
+        <p>For other editors, you can copy-paste context from the Dashboard or use the CLI directly.</p>
+      </div>
+    ),
+  },
+  {
+    id: "gpu-requirement",
+    q: "Do I need a GPU?",
+    a: (
+      <div className="space-y-4">
+        <p><strong>No.</strong> Core features (indexing, trace graph, search) run efficiently on CPU. The built-in embedding model is quantized and optimized for CPU inference.</p>
+        <p>However, if you enable <strong>CLaRa compression</strong> locally, a GPU (NVIDIA or Apple Silicon) is highly recommended for reasonable latency.</p>
+      </div>
+    ),
+  },
 ];
 
 function FAQAccordionItem({ item, isOpen, onToggle }: { item: FAQItem; isOpen: boolean; onToggle: () => void }) {

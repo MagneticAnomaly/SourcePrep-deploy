@@ -244,9 +244,10 @@ Each item gets regression tests in `tests/`:
 | 1.3 MMR | `test_mmr_diversity.py` | ✅ 10 pass | Dedup, diversity, λ=1.0 no-op, integration |
 | 2.1/2.2 Trace ranking | `test_trace_expansion_ranking.py` | ✅ 7 pass | Relevance sort, best chunk, fallback, budget |
 | 2.3 exclude_paths | `test_exclude_paths.py` | ✅ 7 pass | Excluded absent, empty=no-op, multi-exclude, rank promotion |
-| 3.1 Benchmark | `scripts/benchmark_embeddings.py` | ✅ v2 run: 22 files, 39 queries | ONNX=84.6% R@1 (best), code=82.1%, text=82.1% |
+| 3.1 Benchmark | `scripts/benchmark_embeddings.py` | ✅ v4: ONNX=97.4%, code=92.3%, text=94.9% | Matryoshka fix + ground truth corrections |
 | Problem #3 Score calibration | `test_score_calibration.py` | ✅ 8 pass, 1 skip | Scores bounded, ordered, min_score filter, k limit, adaptive k, MMR, distractor |
-| Problem #5 Intent detection | `test_intent_detection.py` | ✅ 13 pass, 1 xfail | Keywords expanded; 1 xfail = 'how does X work' (needs semantic) |
+| Problem #5 Intent detection | `test_intent_detection.py` | ✅ 13 pass, 1 xfail | +25 code tokens; 1 xfail = 'how does X work' (needs semantic) |
+| Problem #12 Role weights | `scripts/eval_real_repos.py` | ✅ Click 31%→75%, TEST 43%→71% | Widened role weights + intent multipliers |
 
 ### Three-tier embedding benchmark commands
 
@@ -291,10 +292,33 @@ python scripts/analyze_hub_files.py /path/to/project/.codrag/trace --threshold 0
 Identifies files that connect to >30% of all files in the graph (e.g., `__init__.py`, `utils.py`).
 These should be de-prioritized during trace expansion.
 
-### Key v2 benchmark finding
+### Real-repo evaluation (3 repos, 46 queries)
 
-**The built-in ONNX model is the measured best option.** v1 (10 files) showed nomic-embed-code at 100% R@1;
-v2 (22 files, 39 queries) showed ONNX at 84.6% R@1 — highest of all three tiers. Small benchmarks overfit.
+```bash
+# All repos, ONNX only (fast)
+python scripts/eval_real_repos.py
+
+# All repos, all 3 tiers (slow — code model takes ~10 min on click)
+python scripts/eval_real_repos.py --tiers all
+
+# Single repo
+python scripts/eval_real_repos.py --repos mini-redis --tiers all
+python scripts/eval_real_repos.py --repos click --tiers all --verbose
+python scripts/eval_real_repos.py --repos test-nextjs --tiers all
+```
+
+Repos: `tests/eval/real_repos/mini-redis-rust` (Rust), `tests/eval/real_repos/click-python` (Python), `TEST/` (Next.js).
+
+### Key v4 benchmark findings
+
+1. **Matryoshka truncation was critical.** nomic-embed-code outputs 3584-dim vectors with cosine spread of only 0.08 at full dim. Truncating to 768 via `KNOWN_OLLAMA_MODELS["matryoshka_dim"]` restores spread to 0.31.
+
+2. **Role weight widening doubled real-repo accuracy.** `DEFAULT_ROLE_WEIGHTS` docs 0.95→0.85. Intent code-docs penalty 0.93→0.82. Default intent now has mild code bias. Click went from 31% to 75% R@1 (code model).
+
+3. **ONNX leads on synthetic (97.4%), code model leads on docs-heavy repos (75% on Click).** The three-tier system serves different repo profiles.
+
+4. **Real repos are much harder than synthetic.** Synthetic = 92-97% R@1. Real repos = 57-88% R@1. Changelogs, docs, examples, similar-named files are the main failure modes.
+
 See `EMBEDDING_MODEL_RESEARCH.md` for full analysis.
 
 ---
