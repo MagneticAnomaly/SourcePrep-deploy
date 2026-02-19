@@ -240,13 +240,13 @@ Each item gets regression tests in `tests/`:
 | Item | Test file | Status | What it verifies |
 |---|---|---|---|
 | 1.1 Adaptive K | `test_adaptive_k.py` | ✅ 10 pass | Gap detection, fallback, edge cases |
-| 1.2 min_score | `test_min_score_threshold.py` | 🔬 Run with NativeEmbedder | GT files score > 0.15/0.25, threshold raise doesn't lose top-1, score distribution |
+| 1.2 min_score | `test_min_score_threshold.py` | ✅ 6 pass (NativeEmbedder) | GT files score > 0.15/0.25, safe to raise to 0.25 |
 | 1.3 MMR | `test_mmr_diversity.py` | ✅ 10 pass | Dedup, diversity, λ=1.0 no-op, integration |
 | 2.1/2.2 Trace ranking | `test_trace_expansion_ranking.py` | ✅ 7 pass | Relevance sort, best chunk, fallback, budget |
 | 2.3 exclude_paths | `test_exclude_paths.py` | ✅ 7 pass | Excluded absent, empty=no-op, multi-exclude, rank promotion |
-| 3.1 Benchmark | `scripts/benchmark_embeddings.py` | ✅ Three-tier run complete (2026-02-19) | Full accuracy + latency comparison |
+| 3.1 Benchmark | `scripts/benchmark_embeddings.py` | ✅ v2 run: 22 files, 39 queries | ONNX=84.6% R@1 (best), code=82.1%, text=82.1% |
 | Problem #3 Score calibration | `test_score_calibration.py` | ✅ 8 pass, 1 skip | Scores bounded, ordered, min_score filter, k limit, adaptive k, MMR, distractor |
-| Problem #5 Intent detection | `test_intent_detection.py` | ✅ 18 pass, 3 xfail | Classification accuracy; xfail = known gaps ('implement', 'assert', 'how does X work') |
+| Problem #5 Intent detection | `test_intent_detection.py` | ✅ 13 pass, 1 xfail | Keywords expanded; 1 xfail = 'how does X work' (needs semantic) |
 
 ### Three-tier embedding benchmark commands
 
@@ -277,10 +277,25 @@ These skip with FakeEmbedder (used in CI). Run locally with the full deps instal
 pip install onnxruntime tokenizers huggingface-hub
 pytest tests/test_min_score_threshold.py -v          # Wave 1.2 decision data
 pytest tests/test_score_calibration.py -v             # Score sanity (1 skip becomes pass)
-pytest tests/test_intent_detection.py -v              # Intent gaps (3 xfail = known Problem #5 gaps)
+pytest tests/test_intent_detection.py -v              # Intent: 1 xfail remaining
 ```
 
-When xfail tests flip to xpass after fixing Problem #5, the `strict=True` ones will enforce the improvement is real.
+### Hub-file analysis (Problem #2.4)
+
+```bash
+# Analyze a project's trace graph for hub files
+python scripts/analyze_hub_files.py /path/to/project/.codrag/trace
+python scripts/analyze_hub_files.py /path/to/project/.codrag/trace --threshold 0.3 --json
+```
+
+Identifies files that connect to >30% of all files in the graph (e.g., `__init__.py`, `utils.py`).
+These should be de-prioritized during trace expansion.
+
+### Key v2 benchmark finding
+
+**The built-in ONNX model is the measured best option.** v1 (10 files) showed nomic-embed-code at 100% R@1;
+v2 (22 files, 39 queries) showed ONNX at 84.6% R@1 — highest of all three tiers. Small benchmarks overfit.
+See `EMBEDDING_MODEL_RESEARCH.md` for full analysis.
 
 ---
 

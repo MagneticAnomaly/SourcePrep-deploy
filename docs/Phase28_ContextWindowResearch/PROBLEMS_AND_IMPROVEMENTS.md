@@ -101,9 +101,9 @@
 
 ---
 
-## 5. Intent Detection Is Keyword-Based 🔬 GAPS DOCUMENTED
+## 5. Intent Detection Is Keyword-Based 🔬 1 GAP REMAINING
 
-**Status:** 18 tests pass, 3 xfail (`test_intent_detection.py`). Known gaps: 'implement', 'assert', 'how does X work' not recognized.
+**Status:** 13 pass, 1 xfail (`test_intent_detection.py`). Fixed: added 'implement', 'assert', 'explain', 'overview', 'purpose', 'mock', 'fixture', 'debug', etc. Remaining gap: 'how does X work' (needs semantic classification).
 
 **Problem:** `_classify_query_intent()` uses simple token set intersection. "How do I fix the error handler?" matches both `debug_tokens` ("fix", "error") and `code_tokens` ("handler"). The current logic checks `tests_tokens` first, then `docs_tokens`, then `debug_tokens`, then `code_tokens` — so priority order is implicit and sometimes wrong.
 
@@ -197,9 +197,9 @@
 
 ---
 
-## 10. Embedding Model Is Not Code-Specialized ✅ BENCHMARKED
+## 10. Embedding Model Is Not Code-Specialized ✅ BENCHMARKED (v1 + v2)
 
-**Status:** Three-tier benchmark complete (2026-02-19). nomic-embed-code: R@1=100%, MRR=1.000, 122ms. ONNX default: R@1=93.3%, 7ms. See `EMBEDDING_MODEL_RESEARCH.md`.
+**Status:** Three-tier benchmark complete. v1 (10 files, 15 queries): nomic-embed-code 100% R@1. **v2 (22 files, 39 queries): ONNX best at 84.6% R@1**, all tiers converge. Built-in ONNX confirmed as best default. See `EMBEDDING_MODEL_RESEARCH.md`.
 
 **Problem:** nomic-embed-text-v1.5 is a general-purpose text embedding model. It handles code reasonably well but wasn't trained specifically on code retrieval tasks. Code-specialized models (like CodeBERT, UniXcoder, or Voyage Code) may produce better similarity scores for code queries.
 
@@ -299,12 +299,12 @@
 | 2 | Fixed K regardless of match quality | Low | **High** | ✅ Done (Adaptive K) |
 | 3 | Low min_score default | Trivial | Moderate | 🔬 Testing (`test_min_score_threshold.py`) |
 | 4 | Trace expansion is unranked | Medium | **High** | ✅ Done (ranked trace) |
-| 5 | Intent detection is keyword-based | Low-Medium | Low (currently) | 🔬 Gaps documented (3 xfail tests) |
+| 5 | Intent detection is keyword-based | Low-Medium | Low (currently) | 🔬 1 gap remaining (1 xfail) |
 | 6 | Character budget ≠ token budget | Low | Low | Deferred |
 | 7 | No awareness of tool's existing context | Low | Moderate | ✅ Done (exclude_paths) |
 | 8 | Compression is all-or-nothing | Medium-High | Moderate | Later |
 | 9 | No feedback loop | High | High (long-term) | Later |
-| 10 | Embedding model not code-specialized | Low-Medium | Potentially high | ✅ Benchmarked (100% R@1 with nomic-embed-code) |
+| 10 | Embedding model not code-specialized | Low-Medium | Potentially high | ✅ Benchmarked v2 (ONNX=84.6% best, code=82.1%) |
 | 11 | Trace picks first chunk per file | Medium | **High** | ✅ Done (smart chunk) |
 | 12 | Role weight spread too narrow | Trivial | Low-Medium | After #5 |
 | 13 | No position optimization | Low | Negligible | Deferred |
@@ -319,7 +319,7 @@
 5. ~~**#1 Result diversity (MMR)**~~ ✅ Done
 6. **#3 Raise min_score** — 🔬 test file written, awaiting NativeEmbedder run for final decision
 7. ~~**#10 Embedding benchmark**~~ ✅ Done — nomic-embed-code = 100% R@1
-8. **#5 Intent detection** — 3 known gaps documented as xfail tests
+8. **#5 Intent detection** — fixed keywords, 1 xfail remaining ('how does X work')
 9. **#2.4 Hub-file filtering** — needs trace graph analysis from real projects
 10. **#8 Score-based compression** — medium-high effort, later
 11. **#12 Widen role weights** — blocked on #5
