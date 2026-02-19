@@ -121,6 +121,8 @@ function App() {
     localStorage.getItem('codrag_ui_theme') ?? 'none'
   )
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsOpenToTab, setSettingsOpenToTab] = useState<'project' | 'global' | 'developer' | undefined>(undefined)
+  const [scrollToDeepAnalysis, setScrollToDeepAnalysis] = useState(false)
   const [bgImage, setBgImage] = useState<string | null>(() =>
     localStorage.getItem('codrag_bg_image') ?? null
   )
@@ -274,6 +276,21 @@ function App() {
     clearIncludedPaths,
     resetEnrichment,
   })
+
+  // ── Mode sync: keep panel switch ↔ settings dropdown in sync ──
+  const handleSyncedEnrichmentAutoConfigChange = useCallback((newConfig: typeof enrichmentAutoConfig) => {
+    handleEnrichmentAutoConfigChange(newConfig)
+    if (newConfig.deepEnrichment !== deepAnalysisSchedule.mode) {
+      setDeepAnalysisSchedule((prev) => ({ ...prev, mode: newConfig.deepEnrichment as any }))
+    }
+  }, [handleEnrichmentAutoConfigChange, deepAnalysisSchedule.mode, setDeepAnalysisSchedule])
+
+  const handleSyncedDeepAnalysisScheduleChange = useCallback((newSchedule: typeof deepAnalysisSchedule) => {
+    setDeepAnalysisSchedule(newSchedule)
+    if (newSchedule.mode !== enrichmentAutoConfig.deepEnrichment) {
+      handleEnrichmentAutoConfigChange({ ...enrichmentAutoConfig, deepEnrichment: newSchedule.mode })
+    }
+  }, [setDeepAnalysisSchedule, enrichmentAutoConfig, handleEnrichmentAutoConfigChange])
 
   // ── LLM config (hook) ───────────────────────────────────────
   const {
@@ -450,7 +467,7 @@ function App() {
             setLLMConfig(globalCfg.llm_config)
           }
           if (globalCfg.deep_analysis) {
-            setDeepAnalysisSchedule((prev) => ({ ...prev, ...globalCfg.deep_analysis }))
+            setDeepAnalysisSchedule((prev) => ({ ...prev, ...globalCfg.deep_analysis } as any))
           }
           if (globalCfg.ui_preferences) {
             const prefs = globalCfg.ui_preferences
@@ -558,6 +575,7 @@ function App() {
     scopeStatus: selectedProjectId ? scopeEvents[selectedProjectId] : undefined,
     logs, clearLogs, findActiveTask, handleBuild,
     transientComplete: selectedProjectId ? transientCompleteProjects.has(selectedProjectId) : false,
+    onOpenDeepSettings: () => { setSettingsOpenToTab('project'); setScrollToDeepAnalysis(true); setSettingsOpen(true) },
     // Domain groups
     search: {
       query, setQuery, searchK, setSearchK, minScore, setMinScore,
@@ -575,7 +593,7 @@ function App() {
     },
     trace: {
       traceStatus, traceCoverage, indexAutoRebuild, handleIndexAutoRebuildChange,
-      enrichmentAutoConfig, handleEnrichmentAutoConfigChange,
+      enrichmentAutoConfig, handleEnrichmentAutoConfigChange: handleSyncedEnrichmentAutoConfigChange,
       handleSearchTrace, handleGetTraceNode, handleGetTraceNeighbors,
       handleBuildTrace, handleEnableTrace, handleTogglePause,
       handleTraceAll, handleRetraceStale, handleAddExcludePattern, handleRemoveExcludePattern,
@@ -625,7 +643,9 @@ function App() {
       )}
       <SettingsDrawer
         open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        onClose={() => { setSettingsOpen(false); setScrollToDeepAnalysis(false) }}
+        openToTab={settingsOpenToTab}
+        scrollToDeepAnalysis={scrollToDeepAnalysis}
         projectConfig={projectConfig}
         onProjectConfigChange={handleProjectConfigChange}
         onSaveConfig={() => void handleSaveConfig()}
@@ -633,7 +653,7 @@ function App() {
         hasProject={!!selectedProjectId}
         onDetectStack={selectedProjectId ? handleDetectStack : undefined}
         deepAnalysisSchedule={deepAnalysisSchedule}
-        onDeepAnalysisScheduleChange={setDeepAnalysisSchedule}
+        onDeepAnalysisScheduleChange={handleSyncedDeepAnalysisScheduleChange}
         largeModelConfigured={!!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model)}
         fastModelConfigured={!!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model)}
         uiMode={uiMode}
@@ -659,7 +679,7 @@ function App() {
         <Button
           variant="outline"
           size="icon"
-          onClick={() => setSettingsOpen(true)}
+          onClick={() => { setSettingsOpenToTab(undefined); setSettingsOpen(true) }}
           title="Settings"
           className="fixed bottom-4 right-4 z-40 shadow-lg bg-surface hover:bg-surface-raised"
         >

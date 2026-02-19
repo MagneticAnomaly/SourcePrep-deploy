@@ -73,7 +73,7 @@ export default function Page() {
               <div className="font-semibold text-text">Your code is yours</div>
               <div className="mt-1 text-sm text-text-muted">
                 CoDRAG runs 100% locally. No cloud upload, no telemetry, no phone-home.
-                Your source code never leaves your machine.
+                Your source code never leaves your machine. Unless you want to BYOK.
               </div>
             </div>
             <div className="rounded-xl border border-border bg-surface p-5">
