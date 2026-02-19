@@ -374,6 +374,16 @@ def configure(
     if _settings_store.migrate_from_json(json_path):
         logger.info("Migrated settings from ui_config.json to SQLite")
 
+    # Prune orphan projects (paths that no longer exist on disk)
+    try:
+        reg = _get_registry()
+        pruned = reg.prune_orphans()
+        if pruned:
+            logger.info("Pruned %d orphan project(s): %s", len(pruned),
+                        ", ".join(f"{p.name} ({p.path})" for p in pruned))
+    except Exception:
+        logger.debug("Orphan pruning failed (non-fatal)", exc_info=True)
+
     # Initialize pipeline journal + crash recovery (Phase 25)
     from codrag.services.pipeline_journal import journal as _journal
     _journal.init(db_path)
@@ -381,6 +391,16 @@ def configure(
     crashed = _pipeline.startup_recovery()
     if crashed:
         logger.warning("Phase 25: %d crashed pipeline run(s) detected on startup", len(crashed))
+
+    # Phase 26 (S-26.3): Start schedule evaluator for scheduled deep enrichment
+    try:
+        from codrag.services.pipeline_budget import schedule as _schedule
+        _schedule.start(
+            run_callback=lambda pid: _pipeline.run_deep_enrichment(pid),
+            check_interval=60.0,
+        )
+    except Exception:
+        logger.debug("Schedule evaluator startup failed (non-fatal)", exc_info=True)
 
 
 def mount_dashboard():
