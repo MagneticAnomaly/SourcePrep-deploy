@@ -16,7 +16,7 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError }: U
   onErrorRef.current = onError
 
   // ── State ───────────────────────────────────────────────────
-  const [deepAnalysisSchedule, setDeepAnalysisSchedule] = useState<DeepAnalysisSchedule>({
+  const DEFAULT_SCHEDULE: DeepAnalysisSchedule = {
     mode: 'manual',
     threshold_percent: 20,
     frequency: 'weekly',
@@ -27,9 +27,32 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError }: U
     budget_max_minutes: 30,
     budget_max_items: 100,
     priority: 'lowest_confidence',
-  })
+  }
+  const [deepAnalysisSchedule, setDeepAnalysisSchedule] = useState<DeepAnalysisSchedule>(DEFAULT_SCHEDULE)
   const [deepAnalysisStatus, setDeepAnalysisStatus] = useState<DeepAnalysisRunStatus>({})
   const [deepAnalysisRunning, setDeepAnalysisRunning] = useState(false)
+
+  // ── Load saved settings from backend on init ─────────────────
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      api.getGlobalConfig().catch(() => null),
+      api.getSetting('pipeline_config').catch(() => null),
+    ]).then(([cfg, pcResult]: [any, any]) => {
+      if (cancelled) return
+      // Load schedule details from deep_analysis (ui_config)
+      const saved = cfg?.deep_analysis
+      if (saved && typeof saved === 'object') {
+        setDeepAnalysisSchedule((prev) => ({ ...prev, ...saved }))
+      }
+      // Prefer pipeline_config mode as authoritative (backend reads this)
+      const pcMode = (pcResult?.value?.deep_enrichment || {}).mode
+      if (pcMode === 'manual' || pcMode === 'auto' || pcMode === 'scheduled') {
+        setDeepAnalysisSchedule((prev) => prev.mode !== pcMode ? { ...prev, mode: pcMode } : prev)
+      }
+    }).catch(() => { /* silent — use defaults */ })
+    return () => { cancelled = true }
+  }, [api])
 
   // ── Handlers ────────────────────────────────────────────────
 
@@ -85,7 +108,21 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError }: U
       return
     }
     const timeout = setTimeout(() => {
+      // Save full schedule to global config (ui_config)
       api.updateGlobalConfig({ deep_analysis: deepAnalysisSchedule }).catch(() => {})
+      // Sync to pipeline_config so backend has all schedule data
+      api.updatePipelineConfig({
+        deep_enrichment_mode: deepAnalysisSchedule.mode,
+        schedule_frequency: deepAnalysisSchedule.frequency,
+        schedule_day_of_week: deepAnalysisSchedule.day_of_week,
+        schedule_hour: deepAnalysisSchedule.hour,
+        schedule_threshold_enabled: deepAnalysisSchedule.schedule_threshold_enabled,
+        schedule_time_enabled: deepAnalysisSchedule.schedule_time_enabled,
+        threshold_percent: deepAnalysisSchedule.threshold_percent,
+        budget_max_tokens: deepAnalysisSchedule.budget_max_tokens,
+        budget_max_minutes: deepAnalysisSchedule.budget_max_minutes,
+        budget_max_items: deepAnalysisSchedule.budget_max_items,
+      }).catch(() => {})
     }, 500)
     return () => clearTimeout(timeout)
   }, [api, deepAnalysisSchedule])

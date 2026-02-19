@@ -14,7 +14,6 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 
 ## Canonical decisions (locked unless explicitly changed)
 - Canonical domain: `codrag.io`
-- Legacy redirect: `codrag.ai` -> `codrag.io`
 - Subdomains (v0):
   - `docs.codrag.io`
   - `support.codrag.io`
@@ -40,11 +39,11 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
   - [x] Payments hub + recovery flow (wired to `NEXT_PUBLIC_CODRAG_CHECKOUT_URL`).
 
 - **MKT-M5: Deploy + DNS + launch checklist** (In Progress)
-  - [x] Provider choice (Vercel configs created).
+  - [x] Provider choice (Netlify — free tier, commercial OK).
   - [x] SEO basics (sitemap/robots/metadata created).
   - [x] Link validation (CI workflow).
   - [ ] Cloudflare DNS + redirects.
-  - [ ] Analytics integration (Plausible/Umami).
+  - [x] Analytics integration (Plausible) ✅ — real per-site script bundles installed in all 4 layouts.
 
 ## Workstreams
 
@@ -94,10 +93,10 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 
 ### MKT-W6: Deploy + DNS
 - [x] Create GitHub Actions workflow (`.github/workflows/websites-ci.yml`) for lint, build, and link validation.
-- [x] Choose deploy provider (Vercel selected) + configure 4 projects.
-  - [x] Created `vercel.json` for marketing, docs, support, payments.
+- [x] Choose deploy provider (**Netlify** — free tier, commercial OK per ToS; Vercel Hobby was rejected due to commercial-use prohibition).
+  - [x] Create `netlify.toml` for marketing, docs, support, payments ✅ — `vercel.json` files removed.
 - [ ] Cloudflare DNS records + redirects (www + legacy domain).
-- [ ] Preview deployments enabled for PRs (Ready for Vercel connection).
+- [ ] Preview deployments enabled for PRs (Netlify branch deploys).
 
 ### MKT-W7: Quality gates
 - [x] Link checker script (`scripts/validate_links.js`) implemented and passing.
@@ -105,7 +104,7 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 - [ ] Manual QA: Chrome/Safari/Firefox.
 
 ### MKT-W9: Final Polish & Ops (Pre-Launch)
-- [x] **Analytics**: Add privacy-respecting script (Plausible/Umami) to `layout.tsx`. (Added placeholders)
+- [x] **Analytics**: Plausible per-site script bundles active in all 4 `layout.tsx` files ✅.
 - [x] **Socials**: Update SiteFooter with real Twitter/X and GitHub URLs.
 - [x] **Careers**: Add "Not actively hiring" disclaimer (optional).
 - [ ] **Legal**: External legal review of Privacy/Terms.

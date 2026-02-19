@@ -12,9 +12,9 @@ I've been working on **CoDRAG**, a desktop tool to index large codebases locally
 
 ### The Rust Rewrite
 I rewrote the core indexer in Rust. It uses:
-*   `tree-sitter` for incremental parsing.
-*   `petgraph` (or custom structure) for the dependency graph.
-*   `PyO3` to expose the high-performance core to the local Python daemon.
+*   `tree-sitter` for incremental parsing (multi-language: Python, TS, Rust, Go, Java, C++).
+*   A custom in-memory graph structure (`codrag-graph`) — no third-party graph lib, hand-rolled for performance.
+*   `PyO3` bindings so Python can call the Rust graph directly (`import codrag_engine`) — fast FFI, no subprocess overhead.
 
 ### Technical Challenges
 *   **Incremental Updates:** Handling file watcher events and updating only the affected subgraph without rebuilding the world.
@@ -22,7 +22,7 @@ I rewrote the core indexer in Rust. It uses:
 *   **Memory Safety:** Why Rust was critical for long-running daemon stability.
 
 ### The Result
-It now runs locally with minimal RAM footprint, serving context to tools like Cursor via MCP.
+It now indexes large repos in seconds and serves context to tools like Cursor via MCP, all from a single native binary.
 
 ### Links
 *   **Crate/Repo:** [Link]

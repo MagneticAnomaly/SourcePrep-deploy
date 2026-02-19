@@ -316,6 +316,26 @@ def list_projects(
     console.print(table)
 
 
+def _do_remove(project_id: str, purge: bool, host: str, port: int) -> None:
+    base = _base_url(host, port)
+    url = f"{base}/projects/{project_id}"
+    if purge:
+        url += "?purge=true"
+    try:
+        r = requests.delete(url, timeout=30)
+        r.raise_for_status()
+        data = r.json()
+    except Exception as e:
+        console.print(f"[red]Error removing project: {e}[/red]")
+        raise typer.Exit(1)
+    if data.get("success"):
+        console.print(f"[green]Project '{project_id}' removed.[/green]")
+        if data.get("purged"):
+            console.print("[dim]Index data purged.[/dim]")
+    else:
+        console.print(f"[red]Failed to remove project: {data}[/red]")
+
+
 @app.command()
 def remove(
     project_id: str = typer.Argument(..., help="Project ID to remove"),
@@ -328,27 +348,18 @@ def remove(
 
     Use --purge to also delete the persistent index files.
     """
-    base = _base_url(host, port)
-    
-    # We can't use requests.delete easily with _post_json helper, so custom call here
-    url = f"{base}/projects/{project_id}"
-    if purge:
-        url += "?purge=true"
-        
-    try:
-        r = requests.delete(url, timeout=30)
-        r.raise_for_status()
-        data = r.json()
-    except Exception as e:
-        console.print(f"[red]Error removing project: {e}[/red]")
-        raise typer.Exit(1)
+    _do_remove(project_id, purge, host, port)
 
-    if data.get("success"):
-        console.print(f"[green]Project '{project_id}' removed.[/green]")
-        if data.get("purged"):
-            console.print("[dim]Index data purged.[/dim]")
-    else:
-        console.print(f"[red]Failed to remove project: {data}[/red]")
+
+@app.command("delete")
+def delete(
+    project_id: str = typer.Argument(..., help="Project ID to delete"),
+    purge: bool = typer.Option(False, "--purge", help="Also delete the index data from disk"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
+    port: int = typer.Option(8400, "--port", help="Server port"),
+) -> None:
+    """Alias for 'remove'. Unregister a project (use --purge to also wipe index files)."""
+    _do_remove(project_id, purge, host, port)
 
 
 @app.command("reset-graph")

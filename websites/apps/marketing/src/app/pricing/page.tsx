@@ -15,8 +15,8 @@ export default function Page() {
             Simple, honest pricing
           </h1>
           <p className="mt-6 text-xl text-text-muted leading-relaxed">
-            Local-first means your code stays yours. CoDRAG’s trace index works without any LLM —
-            add Ollama or cloud embeddings when you want semantic search. Pay once for Pro and own it forever.
+            Local-first means your code stays yours. CoDRAG ships with built-in ONNX embeddings —
+            semantic search works out of the box, no LLM required. Add Ollama or a cloud API if you prefer an alternative model. Pay once for Pro and own it forever.
           </p>
         </div>
 
@@ -207,7 +207,7 @@ export default function Page() {
           <h2 className="text-xl font-semibold">Every plan includes</h2>
           <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-text-muted">
             <span>100% local — no cloud upload</span>
-            <span>No LLM required — Ollama optional</span>
+            <span>No LLM required — built-in embeddings + Ollama &amp; cloud optional</span>
             <span>macOS & Windows</span>
             <span>MCP integration</span>
           </div>

@@ -29,7 +29,6 @@ import {
   type PinnedTextFile,
   type WatchStatus,
   type DeepAnalysisSchedule,
-  type DeepAnalysisRunStatus,
   type AugmentationStatus,
   type EpistemicStatus,
   type ModuleStatus,
@@ -46,22 +45,9 @@ import type { TraceStatus, TraceCoverage } from './useTraceSystem'
 
 const PINNED_PREFIX = 'pinned:'
 
-export interface DashboardPanelsProps {
-  // Project
-  projectStatus: ProjectStatus | null
-  selectedProject: ProjectListItem | null
-  selectedProjectId: string | null
-  projectConfig: ProjectConfig
-  isPro: boolean
-  scopeStatus?: ScopeStatus
-  // Event stream
-  logs: any[]
-  clearLogs: () => void
-  findActiveTask: (type: 'index_build' | 'trace_build') => any
-  // Build
-  handleBuild: () => void
-  transientComplete: boolean
-  // Search
+// ── Sub-interfaces (grouped by domain hook) ──────────────────
+
+export interface PanelSearchProps {
   query: string
   setQuery: (q: string) => void
   searchK: number
@@ -73,7 +59,6 @@ export interface DashboardPanelsProps {
   selectedChunk: SearchResult | null
   setSelectedChunk: (c: SearchResult | null) => void
   handleSearch: () => void
-  // Context
   contextK: number
   setContextK: (k: number) => void
   contextMaxChars: number
@@ -88,25 +73,23 @@ export interface DashboardPanelsProps {
   contextMeta: ContextMeta | null
   handleGetContext: () => void
   handleCopyContext: () => void
-  // Watch
-  watchStatus: WatchStatus
-  watchLoading: boolean
-  handleStartWatch: () => void
-  handleStopWatch: () => void
-  // File tree
+}
+
+export interface PanelFileSystemProps {
   fileTree: TreeNode[]
   includedPaths: Set<string>
   handleToggleInclude: (paths: string[], action: 'add' | 'remove') => void
   pathWeights: Record<string, number>
   handlePathWeightChange: (path: string, weight: number | null) => void
   handleLoadChildren: (path: string) => Promise<TreeNode[]>
-  // Pinned files
   pinnedPaths: Set<string>
   pinnedFiles: PinnedTextFile[]
   handlePinFile: (path: string) => void
   handleUnpinFile: (path: string) => void
   handleLoadFileContent: (path: string) => Promise<string>
-  // Trace system
+}
+
+export interface PanelTraceProps {
   traceStatus: TraceStatus
   traceCoverage: TraceCoverage
   indexAutoRebuild: boolean
@@ -124,7 +107,11 @@ export interface DashboardPanelsProps {
   handleAddExcludePattern: (pattern: string) => void
   handleRemoveExcludePattern: (pattern: string) => void
   fetchTraceCoverage: () => void
-  // Enrichment
+  handleRunFastSync: () => void
+  handleDestroyGraph: () => void
+}
+
+export interface PanelEnrichmentProps {
   augmentationStatus: AugmentationStatus
   augmenting: boolean
   validating: boolean
@@ -141,17 +128,17 @@ export interface DashboardPanelsProps {
   knowledgeStatus: KnowledgeEmbeddingStatus
   knowledgeBuilding: boolean
   handleRunKnowledgeBuild: () => void
-  handleRunFastSync: () => void
   handleRunDeepEnrichment: () => void
-  handleDestroyGraph: () => void
-  // Deep analysis
-  deepAnalysisSchedule: DeepAnalysisSchedule
-  setDeepAnalysisSchedule: (s: DeepAnalysisSchedule | ((prev: DeepAnalysisSchedule) => DeepAnalysisSchedule)) => void
-  deepAnalysisStatus: DeepAnalysisRunStatus
-  deepAnalysisRunning: boolean
-  handleRunDeepAnalysis: () => void
-  handleCancelDeepAnalysis: () => void
-  // LLM
+}
+
+export interface PanelWatchProps {
+  watchStatus: WatchStatus
+  watchLoading: boolean
+  handleStartWatch: () => void
+  handleStopWatch: () => void
+}
+
+export interface PanelLLMProps {
   llmConfig: LLMConfig
   llmSlotsStatus: LLMSlotsStatus | null
   handleLLMConfigChange: (config: LLMConfig) => void
@@ -168,8 +155,45 @@ export interface DashboardPanelsProps {
   testResults: Record<string, EndpointTestResult>
 }
 
+export interface PanelDeepAnalysisProps {
+  deepAnalysisSchedule: DeepAnalysisSchedule
+  setDeepAnalysisSchedule: (s: DeepAnalysisSchedule | ((prev: DeepAnalysisSchedule) => DeepAnalysisSchedule)) => void
+}
+
+// ── Main interface ────────────────────────────────────────────
+
+export interface DashboardPanelsProps {
+  // Cross-cutting
+  projectStatus: ProjectStatus | null
+  selectedProject: ProjectListItem | null
+  selectedProjectId: string | null
+  projectConfig: ProjectConfig
+  isPro: boolean
+  scopeStatus?: ScopeStatus
+  logs: any[]
+  clearLogs: () => void
+  findActiveTask: (type: 'index_build' | 'trace_build') => any
+  handleBuild: () => void
+  transientComplete: boolean
+  /** Open settings drawer to the Deep Enrichment section */
+  onOpenDeepSettings?: () => void
+  /** Open settings drawer (generic — used for upgrade CTAs) */
+  onOpenSettings?: () => void
+  // Domain groups
+  search: PanelSearchProps
+  files: PanelFileSystemProps
+  trace: PanelTraceProps
+  enrichment: PanelEnrichmentProps
+  watch: PanelWatchProps
+  llm: PanelLLMProps
+  deepAnalysis: PanelDeepAnalysisProps
+}
+
 /** Builds all dashboard panel content, detail views, and dynamic panel definitions from domain state. */
-export function useDashboardPanels(p: DashboardPanelsProps) {
+export function useDashboardPanels(props: DashboardPanelsProps) {
+  // Flatten grouped sub-objects for backward-compatible p.xxx access internally
+  const { search, files, trace, enrichment, watch, llm, deepAnalysis, ...core } = props
+  const p = { ...core, ...search, ...files, ...trace, ...enrichment, ...watch, ...llm, ...deepAnalysis }
   const panelContent = useMemo(() => ({
     'log-console': (
       <LogConsole
@@ -177,6 +201,74 @@ export function useDashboardPanels(p: DashboardPanelsProps) {
         onClear={p.clearLogs}
         className="h-full border-none shadow-none bg-transparent"
         defaultExpanded={true}
+        diagnosticData={{
+          license_tier: p.isPro ? 'pro+' : 'free',
+          project: p.selectedProject ? {
+            id: p.selectedProject.id,
+            name: p.selectedProject.name,
+            path: p.selectedProject.path,
+            mode: p.selectedProject.mode,
+          } : null,
+          project_status: p.projectStatus ? {
+            building: p.projectStatus.building,
+            stale: p.projectStatus.stale,
+            stale_since: p.projectStatus.stale_since,
+            stale_count: p.projectStatus.stale_count,
+            index: p.projectStatus.index,
+            trace: p.projectStatus.trace,
+            watch: p.projectStatus.watch,
+          } : null,
+          project_config: {
+            include_globs: p.projectConfig.include_globs,
+            exclude_globs: p.projectConfig.exclude_globs,
+            max_file_bytes: p.projectConfig.max_file_bytes,
+            use_gitignore: p.projectConfig.use_gitignore,
+            trace: p.projectConfig.trace,
+            auto_rebuild: p.projectConfig.auto_rebuild,
+          },
+          trace_status: p.traceStatus ?? null,
+          trace_coverage: p.traceCoverage ?? null,
+          watch_status: p.watchStatus ?? null,
+          watch_loading: p.watchLoading,
+          scope_status: p.scopeStatus ?? null,
+          index_auto_rebuild: p.indexAutoRebuild,
+          enrichment_auto_config: p.enrichmentAutoConfig ?? null,
+          enrichment: {
+            augmentation: p.augmentationStatus,
+            augmenting: p.augmenting,
+            validating: p.validating,
+            epistemic: p.epistemicStatus,
+            epistemic_running: p.epistemicRunning,
+            modules: p.moduleStatus,
+            cluster_running: p.clusterRunning,
+            deepening: p.deepeningStatus,
+            deepening_running: p.deepeningRunning,
+            knowledge: p.knowledgeStatus,
+            knowledge_building: p.knowledgeBuilding,
+          },
+          llm_config: {
+            embedding: p.llmConfig.embedding,
+            small_model: p.llmConfig.small_model ? {
+              endpoint_id: p.llmConfig.small_model.endpoint_id,
+              model: p.llmConfig.small_model.model,
+            } : null,
+            large_model: p.llmConfig.large_model ? {
+              endpoint_id: p.llmConfig.large_model.endpoint_id,
+              model: p.llmConfig.large_model.model,
+            } : null,
+            clara: p.llmConfig.clara ?? null,
+            saved_endpoints: p.llmConfig.saved_endpoints?.map((ep: SavedEndpoint) => ({
+              id: ep.id, name: ep.name, provider: ep.provider, url: ep.url,
+            })),
+          },
+          llm_slots_status: p.llmSlotsStatus ?? null,
+          deep_analysis_schedule: p.deepAnalysisSchedule ?? null,
+          active_tasks: {
+            index_build: p.findActiveTask('index_build') ?? null,
+            trace_build: p.findActiveTask('trace_build') ?? null,
+          },
+          transient_complete: p.transientComplete,
+        }}
       />
     ),
     'usage-guide': (
@@ -234,7 +326,7 @@ export function useDashboardPanels(p: DashboardPanelsProps) {
             // Map pipeline states to model activity
             const embeddingRunning = p.searchLoading || (p.projectStatus?.building ?? false) || p.knowledgeBuilding;
             const fastRunning = p.augmenting;
-            const largeRunning = p.validating || p.deepAnalysisRunning || p.epistemicRunning || p.deepeningRunning || p.clusterRunning;
+            const largeRunning = p.validating || p.epistemicRunning || p.deepeningRunning || p.clusterRunning;
 
             type Svc = { name: string; status: 'connected' | 'disconnected' | 'disabled' | 'not-configured'; type: 'ollama' | 'clara' | 'openai' | 'other'; model?: string; running?: boolean };
             const items: Svc[] = [];
@@ -359,6 +451,8 @@ export function useDashboardPanels(p: DashboardPanelsProps) {
         onStopWatch={p.handleStopWatch}
         onRebuildNow={() => p.selectedProjectId && void p.handleBuild()}
         loading={p.watchLoading}
+        isFree={!p.isPro}
+        onUpgrade={p.onOpenSettings}
         bare
       />
     ),
@@ -421,10 +515,6 @@ export function useDashboardPanels(p: DashboardPanelsProps) {
           onScheduleChange={p.setDeepAnalysisSchedule}
           largeModelConfigured={!!(p.llmConfig.large_model?.endpoint_id && p.llmConfig.large_model?.model)}
           fastModelConfigured={!!(p.llmConfig.small_model?.endpoint_id && p.llmConfig.small_model?.model)}
-          status={p.deepAnalysisStatus}
-          running={p.deepAnalysisRunning}
-          onRunNow={p.handleRunDeepAnalysis}
-          onCancel={p.handleCancelDeepAnalysis}
         />
       </div>
     ),
@@ -439,7 +529,6 @@ export function useDashboardPanels(p: DashboardPanelsProps) {
             last_build_at: null,
           }}
           augmentation={p.augmentationStatus}
-          deepAnalysis={p.deepAnalysisStatus}
           epistemic={p.epistemicStatus}
           modules={p.moduleStatus}
           deepening={p.deepeningStatus}
@@ -448,7 +537,6 @@ export function useDashboardPanels(p: DashboardPanelsProps) {
           largeModelConfigured={!!(p.llmConfig.large_model?.endpoint_id && p.llmConfig.large_model?.model)}
           onBuildTrace={p.handleBuildTrace}
           onRunAugmentation={p.handleRunAugmentation}
-          onRunDeepAnalysis={p.handleRunDeepAnalysis}
           onRunEpistemic={p.handleRunEpistemic}
           onRunModuleSynthesis={p.handleRunModuleSynthesis}
           onRunDeepening={p.handleRunDeepening}
@@ -456,9 +544,9 @@ export function useDashboardPanels(p: DashboardPanelsProps) {
           onRunFastSync={p.handleRunFastSync}
           onRunDeepEnrichment={p.handleRunDeepEnrichment}
           onDestroyGraph={p.handleDestroyGraph}
+          onOpenDeepSettings={p.onOpenDeepSettings}
           augmenting={p.augmenting}
           validating={p.validating}
-          deepAnalyzing={p.deepAnalysisRunning}
           epistemicRunning={p.epistemicRunning}
           clusterRunning={p.clusterRunning}
           deepeningRunning={p.deepeningRunning}

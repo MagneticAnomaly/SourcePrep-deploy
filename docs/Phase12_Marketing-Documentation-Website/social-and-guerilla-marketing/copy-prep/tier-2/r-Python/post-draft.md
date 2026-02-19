@@ -12,11 +12,11 @@ I wanted to build a desktop app that does complex code analysis (graph-based RAG
 
 ### The Architecture
 *   **Python:** Handles the MCP server logic, API endpoints, and optional local LLM integration (because the ML ecosystem is here).
-*   **Rust:** Handles the file watching and Tree-sitter parsing (via PyO3 extension).
+*   **Rust:** Handles the file watching and Tree-sitter parsing, exposed to Python via `PyO3` bindings (compiled with `maturin`).
 *   **Tauri:** The UI.
 
 ### Why Python still matters for local tools
-Even with Rust being fast, Python is unbeatable for the "glue" logic and ML interoperability. I used `pydantic` heavily for the schema validation between the frontend and the Rust core.
+Even with Rust being fast, Python is unbeatable for the "glue" logic and ML interoperability. We use `pydantic` heavily for schema validation and `FastAPI` for the local API layer — the Python side stays clean while the Rust extension handles the raw parsing.
 
 ### The Tool
 CoDRAG is the result—a local context engine you can plug into Cursor/Windsurf.

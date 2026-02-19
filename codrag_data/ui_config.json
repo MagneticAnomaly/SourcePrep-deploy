@@ -171,16 +171,18 @@
     "test_persist": true
   },
   "deep_analysis": {
-    "mode": "scheduled",
+    "mode": "manual",
     "threshold_percent": 20,
-    "frequency": "daily",
+    "frequency": "weekly",
     "day_of_week": 0,
     "hour": 5,
     "budget_max_tokens": 50000,
     "budget_max_minutes": 30,
     "budget_max_items": 100,
     "priority": "lowest_confidence",
-    "budget_enabled": false
+    "budget_enabled": false,
+    "schedule_threshold_enabled": true,
+    "schedule_time_enabled": true
   },
   "pipeline_config": {
     "fast_sync": {
@@ -209,24 +211,6 @@
     "version": 17,
     "panels": [
       {
-        "id": "usage-guide",
-        "visible": true,
-        "height": 16,
-        "collapsed": true,
-        "x": 4,
-        "y": 0,
-        "w": 4
-      },
-      {
-        "id": "trace",
-        "visible": true,
-        "height": 13,
-        "collapsed": true,
-        "x": 8,
-        "y": 0,
-        "w": 4
-      },
-      {
         "id": "file-tree",
         "visible": true,
         "height": 16,
@@ -236,21 +220,39 @@
         "w": 4
       },
       {
-        "id": "graph-structure",
-        "visible": true,
-        "height": 14,
-        "collapsed": false,
-        "x": 8,
-        "y": 2,
-        "w": 4
-      },
-      {
         "id": "trace-pipeline",
         "visible": true,
         "height": 14,
         "collapsed": false,
         "x": 4,
-        "y": 2,
+        "y": 0,
+        "w": 4
+      },
+      {
+        "id": "graph-structure",
+        "visible": true,
+        "height": 14,
+        "collapsed": false,
+        "x": 8,
+        "y": 0,
+        "w": 4
+      },
+      {
+        "id": "trace",
+        "visible": true,
+        "height": 13,
+        "collapsed": true,
+        "x": 8,
+        "y": 14,
+        "w": 4
+      },
+      {
+        "id": "usage-guide",
+        "visible": true,
+        "height": 14,
+        "collapsed": true,
+        "x": 4,
+        "y": 14,
         "w": 4
       },
       {

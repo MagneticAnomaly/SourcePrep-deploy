@@ -249,7 +249,7 @@ export type EvidenceTier = 0 | 1 | 2;
 /**
  * Deep analysis schedule mode
  */
-export type DeepAnalysisMode = 'manual' | 'threshold' | 'scheduled';
+export type DeepAnalysisMode = 'manual' | 'threshold' | 'scheduled' | 'auto';
 
 /**
  * Deep analysis priority ordering

@@ -1,8 +1,0 @@
-{
-  "version": 2,
-  "framework": "nextjs",
-  "buildCommand": "cd ../../.. && npx turbo run build --filter=@codrag/support",
-  "devCommand": "cd ../../.. && npx turbo run dev --filter=@codrag/support",
-  "installCommand": "cd ../../.. && npm install",
-  "outputDirectory": ".next"
-}

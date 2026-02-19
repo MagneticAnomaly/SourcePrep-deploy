@@ -2,11 +2,6 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import {
   useApiClient,
   type ProjectConfig,
-  type AugmentationStatus,
-  type EpistemicStatus,
-  type ModuleStatus,
-  type DeepeningStatus,
-  type KnowledgeEmbeddingStatus,
   type EnrichmentAutoConfig,
   type PipelineStatus,
   type CrashedPipelineRun,
@@ -56,14 +51,16 @@ export interface UseTraceSystemDeps {
   refreshFileTree?: (projectId: string) => Promise<void>
   /** Clear included paths state + localStorage after full reset */
   clearIncludedPaths?: () => void
+  /** Reset all enrichment state (called during destroy) */
+  resetEnrichment?: () => void
 }
 
 // ── Hook ─────────────────────────────────────────────────────
 
 /**
- * Manages the trace/enrichment pipeline: trace build, coverage, augmentation,
- * epistemic enrichment, module synthesis, deepening, knowledge embedding,
- * auto-config persistence, and graph/index destroy operations.
+ * Manages trace pipeline: trace build, coverage, SSE reactions for trace status,
+ * auto-config persistence, crash recovery, and graph/index destroy operations.
+ * Enrichment stages are managed by useEnrichment.
  */
 export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceSystemDeps) {
   const api = useApiClient()
@@ -87,31 +84,10 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   refreshFileTreeRef.current = deps.refreshFileTree
   const clearIncludedPathsRef = useRef(deps.clearIncludedPaths)
   clearIncludedPathsRef.current = deps.clearIncludedPaths
+  const resetEnrichmentRef = useRef(deps.resetEnrichment)
+  resetEnrichmentRef.current = deps.resetEnrichment
 
   // ── State ───────────────────────────────────────────────────
-
-  const [augmentationStatus, setAugmentationStatus] = useState<AugmentationStatus>({
-    enabled: false, total_nodes: 0, augmented_nodes: 0, validated_nodes: 0,
-    avg_confidence: 0, low_confidence_count: 0,
-  })
-  const [augmenting, setAugmenting] = useState(false)
-  const [validating, setValidating] = useState(false)
-  const [epistemicStatus, setEpistemicStatus] = useState<EpistemicStatus>({
-    enabled: false, enriched_nodes: 0, avg_confidence: 0, running: false,
-  })
-  const [epistemicRunning, setEpistemicRunning] = useState(false)
-  const [moduleStatus, setModuleStatus] = useState<ModuleStatus>({
-    enabled: false, module_count: 0, total_files_clustered: 0, running: false,
-  })
-  const [clusterRunning, setClusterRunning] = useState(false)
-  const [deepeningStatus, setDeepeningStatus] = useState<DeepeningStatus>({
-    running: false, total_scored: 0, settled_count: 0, settled_ratio: 0, avg_score: 0,
-  })
-  const [deepeningRunning, setDeepeningRunning] = useState(false)
-  const [knowledgeStatus, setKnowledgeStatus] = useState<KnowledgeEmbeddingStatus>({
-    enabled: false, running: false, chunks_embedded: 0, deep_chunks_embedded: 0, last_run_at: null,
-  })
-  const [knowledgeBuilding, setKnowledgeBuilding] = useState(false)
   const [indexAutoRebuild, setIndexAutoRebuild] = useState<boolean>(() => {
     try {
       const stored = localStorage.getItem('codrag_index_auto_rebuild')
@@ -168,17 +144,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     api.getPipelineStatus(selectedProjectId).then((ps: PipelineStatus) => {
       if (cancelled) return
       const fastRunning = ps.fast_sync?.phase === 'running'
-      const deepRunning = ps.deep_enrichment?.phase === 'running'
       setTraceStatus(p => ({ ...p, building: fastRunning }))
-      setAugmenting(fastRunning && (ps.fast_sync?.current_stage === 'catalogue' || ps.fast_sync?.current_stage === 'augment' || false))
-      setValidating(fastRunning && (ps.fast_sync?.current_stage === 'validation' || false))
-      setEpistemicRunning(deepRunning && ps.deep_enrichment?.current_stage === 'enrichment')
-      setClusterRunning(deepRunning && ps.deep_enrichment?.current_stage === 'clustering')
-      setDeepeningRunning(deepRunning && ps.deep_enrichment?.current_stage === 'deepening')
-      setKnowledgeBuilding(
-        (fastRunning && ps.fast_sync?.current_stage === 'knowledge') ||
-        (deepRunning && ps.deep_enrichment?.current_stage === 'deep_knowledge')
-      )
       // Phase 25: update crashed runs from the status response
       setCrashedRuns(ps.crashed_runs ?? [])
     }).catch(() => { /* silent — SSE will provide updates */ })
@@ -186,46 +152,6 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   }, [api, selectedProjectId])
 
   // ── Fetch functions ─────────────────────────────────────────
-
-  const fetchAugmentationStatus = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      const status = await api.getAugmentStatus(selectedProjectId)
-      setAugmentationStatus(status)
-    } catch { /* silent */ }
-  }, [api, selectedProjectId])
-
-  const fetchEpistemicStatus = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      const status = await api.getEpistemicStatus(selectedProjectId)
-      setEpistemicStatus(status)
-    } catch { /* silent */ }
-  }, [api, selectedProjectId])
-
-  const fetchModuleStatus = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      const status = await api.getModuleStatus(selectedProjectId)
-      setModuleStatus(status)
-    } catch { /* silent */ }
-  }, [api, selectedProjectId])
-
-  const fetchDeepeningStatus = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      const status = await api.getDeepeningStatus(selectedProjectId)
-      setDeepeningStatus(status)
-    } catch { /* silent */ }
-  }, [api, selectedProjectId])
-
-  const fetchKnowledgeStatus = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      const status = await api.getKnowledgeStatus(selectedProjectId)
-      setKnowledgeStatus(status)
-    } catch { /* silent */ }
-  }, [api, selectedProjectId])
 
   const fetchTraceCoverage = useCallback(() => {
     if (!selectedProjectId || !traceStatus.enabled) return
@@ -312,101 +238,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     }).catch(() => {})
   }, [api, selectedProjectId, fetchTraceCoverage])
 
-  // ── Enrichment handlers ─────────────────────────────────────
-
-  const handleRunAugmentation = useCallback(async () => {
-    if (!selectedProjectId) return
-    setAugmenting(true)
-    try {
-      await api.runAugmentation(selectedProjectId)
-      const poll = setInterval(async () => {
-        try {
-          const status = await api.getAugmentStatus(selectedProjectId)
-          setAugmentationStatus(status)
-        } catch { /* ignore */ }
-      }, 3000)
-      setTimeout(() => {
-        clearInterval(poll)
-        setAugmenting(false)
-        void fetchAugmentationStatus()
-      }, 300000)
-    } catch (e) {
-      onErrorRef.current(e instanceof Error ? e.message : 'Augmentation failed')
-      setAugmenting(false)
-    }
-  }, [api, selectedProjectId])
-
-  const handleRunEpistemic = useCallback(async () => {
-    if (!selectedProjectId) return
-    setEpistemicRunning(true)
-    try {
-      await api.runEpistemic(selectedProjectId)
-      const poll = setInterval(async () => {
-        try {
-          const status = await api.getEpistemicStatus(selectedProjectId)
-          setEpistemicStatus(status)
-          if (!status.running) { clearInterval(poll); setEpistemicRunning(false) }
-        } catch { clearInterval(poll); setEpistemicRunning(false) }
-      }, 3000)
-    } catch (e) {
-      setEpistemicRunning(false)
-      onErrorRef.current(e instanceof Error ? e.message : 'Epistemic enrichment failed')
-    }
-  }, [api, selectedProjectId])
-
-  const handleRunModuleSynthesis = useCallback(async () => {
-    if (!selectedProjectId) return
-    setClusterRunning(true)
-    try {
-      await api.runModuleSynthesis(selectedProjectId)
-      const poll = setInterval(async () => {
-        try {
-          const status = await api.getModuleStatus(selectedProjectId)
-          setModuleStatus(status)
-          if (!status.running) { clearInterval(poll); setClusterRunning(false) }
-        } catch { clearInterval(poll); setClusterRunning(false) }
-      }, 3000)
-    } catch (e) {
-      setClusterRunning(false)
-      onErrorRef.current(e instanceof Error ? e.message : 'Module synthesis failed')
-    }
-  }, [api, selectedProjectId])
-
-  const handleRunDeepening = useCallback(async () => {
-    if (!selectedProjectId) return
-    setDeepeningRunning(true)
-    try {
-      await api.runDeepening(selectedProjectId)
-      const poll = setInterval(async () => {
-        try {
-          const status = await api.getDeepeningStatus(selectedProjectId)
-          setDeepeningStatus(status)
-          if (!status.running) { clearInterval(poll); setDeepeningRunning(false) }
-        } catch { clearInterval(poll); setDeepeningRunning(false) }
-      }, 3000)
-    } catch (e) {
-      setDeepeningRunning(false)
-      onErrorRef.current(e instanceof Error ? e.message : 'Deepening loop failed')
-    }
-  }, [api, selectedProjectId])
-
-  const handleRunKnowledgeBuild = useCallback(async () => {
-    if (!selectedProjectId) return
-    setKnowledgeBuilding(true)
-    try {
-      await api.runKnowledgeBuild(selectedProjectId)
-      const poll = setInterval(async () => {
-        try {
-          const status = await api.getKnowledgeStatus(selectedProjectId)
-          setKnowledgeStatus(status)
-          if (!status.running) { clearInterval(poll); setKnowledgeBuilding(false) }
-        } catch { clearInterval(poll); setKnowledgeBuilding(false) }
-      }, 3000)
-    } catch (e) {
-      setKnowledgeBuilding(false)
-      onErrorRef.current(e instanceof Error ? e.message : 'Knowledge build failed')
-    }
-  }, [api, selectedProjectId])
+  // ── Pipeline handlers ──────────────────────────────────────
 
   const handleRunFastSync = useCallback(async () => {
     if (!selectedProjectId) return
@@ -426,17 +258,6 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       onErrorRef.current(e instanceof Error ? e.message : 'Fast sync failed')
     }
   }, [api, selectedProjectId, deps.projectConfig, deps.setProjectConfig, deps.setConfigDirty])
-
-  const handleRunDeepEnrichment = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      setEpistemicRunning(true)
-      await api.runPipelineDeep(selectedProjectId)
-    } catch (e) {
-      setEpistemicRunning(false)
-      onErrorRef.current(e instanceof Error ? e.message : 'Deep enrichment failed')
-    }
-  }, [api, selectedProjectId])
 
   const handleRunAutoPilot = useCallback(async () => {
     if (!selectedProjectId) return
@@ -518,12 +339,9 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     try {
       await api.destroyGraph(selectedProjectId)
       setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
-      setAugmentationStatus({ enabled: false, total_nodes: 0, augmented_nodes: 0, validated_nodes: 0, avg_confidence: 0, low_confidence_count: 0 })
-      resetDeepAnalysisRef.current()
-      setEpistemicStatus({ enabled: false, enriched_nodes: 0, avg_confidence: 0, running: false })
-      setModuleStatus({ enabled: false, module_count: 0, total_files_clustered: 0, running: false })
-      setDeepeningStatus({ running: false, total_scored: 0, settled_count: 0, settled_ratio: 0, avg_score: 0 })
       setTraceCoverage({ summary: null, untraced: [], stale: [], excluded: [], building: false, loading: false })
+      resetEnrichmentRef.current?.()
+      resetDeepAnalysisRef.current()
       void refreshStatusRef.current(selectedProjectId)
       setTimeout(() => {
         api.getTraceCoverage(selectedProjectId).then((data) => {
@@ -540,13 +358,10 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     try {
       await api.destroyIndex(selectedProjectId)
       setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
-      setAugmentationStatus({ enabled: false, total_nodes: 0, augmented_nodes: 0, validated_nodes: 0, avg_confidence: 0, low_confidence_count: 0 })
-      resetDeepAnalysisRef.current()
-      setEpistemicStatus({ enabled: false, enriched_nodes: 0, avg_confidence: 0, running: false })
-      setModuleStatus({ enabled: false, module_count: 0, total_files_clustered: 0, running: false })
-      setDeepeningStatus({ running: false, total_scored: 0, settled_count: 0, settled_ratio: 0, avg_score: 0 })
-      onResetSearchRef.current()
       setTraceCoverage({ summary: null, untraced: [], stale: [], excluded: [], building: false, loading: false })
+      resetEnrichmentRef.current?.()
+      resetDeepAnalysisRef.current()
+      onResetSearchRef.current()
       // Clear included paths and re-fetch the file tree so "Indexed" badges disappear
       clearIncludedPathsRef.current?.()
       void refreshStatusRef.current(selectedProjectId)
@@ -589,8 +404,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   }, [deps.findActiveTask, fetchTraceCoverage, api, selectedProjectId])
 
   // ── SSE: reactive pipeline status updates (Phase 24) ────────
-  // When pipeline SSE events arrive, update running flags and
-  // auto-refresh statuses on group completion — no polling needed.
+  // Trace-related SSE reactions only. Enrichment SSE is handled by useEnrichment.
 
   const pipelineEvent = selectedProjectId ? deps.pipelineEvents?.[selectedProjectId] : undefined
   const prevPipelineRef = useRef<typeof pipelineEvent>(undefined)
@@ -601,50 +415,24 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     prevPipelineRef.current = pipelineEvent
 
     const fast = pipelineEvent.fast_sync
-    const deep = pipelineEvent.deep_enrichment
 
-    // Update running flags from pipeline state
+    // Update trace building flag from fast_sync phase
     const fastRunning = fast?.phase === 'running'
-    const deepRunning = deep?.phase === 'running'
+    const prevFastPhase = prev?.fast_sync?.phase
 
     // When fast sync transitions running→completed, don't clear building yet;
     // the completion handler below will clear it after fetching the real status.
-    // This prevents a flash where building=false but exists hasn't been updated.
-    const prevFastPhase = prev?.fast_sync?.phase
     const fastJustCompleted = fast?.phase === 'completed' && prevFastPhase === 'running'
     if (!fastJustCompleted) {
       setTraceStatus(p => ({ ...p, building: fastRunning }))
     }
-    setAugmenting(fastRunning && (fast?.current_stage === 'augment' || fast?.current_stage === 'catalogue' || false))
-    setValidating(fastRunning && (fast?.current_stage === 'validation' || false))
-    setEpistemicRunning(deepRunning && (deep?.current_stage === 'enrichment' || false))
-    setClusterRunning(deepRunning && (deep?.current_stage === 'clustering' || false))
-    setDeepeningRunning(deepRunning && (deep?.current_stage === 'deepening' || false))
-    setKnowledgeBuilding(
-      (fastRunning && fast?.current_stage === 'knowledge') ||
-      (deepRunning && deep?.current_stage === 'deep_knowledge')
-    )
 
-    // Detect group completion → refresh statuses
-    // prevFastPhase already declared above
-    const prevDeepPhase = prev?.deep_enrichment?.phase
-    const prevDeepStage = prev?.deep_enrichment?.current_stage
-    const currentDeepStage = deep?.current_stage
-
-    // When the deep pipeline transitions away from 'enrichment', immediately fetch
-    // epistemic status to flush the stale running:true from React state. Without
-    // this, the polling interval stops calling fetchEpistemicStatus() (because
-    // epistemicRunning just became false) and the spinner stays forever.
-    if (prevDeepStage === 'enrichment' && currentDeepStage !== 'enrichment' && deepRunning) {
-      void fetchEpistemicStatus()
-    }
-
-    // Detect completion of structural stage specifically to update coverage immediately
+    // Detect completion of structural stage to update coverage immediately
     const currentFastStage = fast?.current_stage
     const prevFastStage = prev?.fast_sync?.current_stage
-    
+
     if (prevFastStage === 'structural' && currentFastStage && currentFastStage !== 'structural') {
-        // Structural stage just finished, moving to next stage -> refresh coverage now
+        // Structural stage just finished → refresh coverage now
         // Retry a few times to handle filesystem latency (hashing backfill race)
         const refresh = () => {
             void fetchTraceCoverage()
@@ -654,26 +442,19 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
                         ...prev,
                         enabled: data.enabled ?? false,
                         exists: data.exists ?? false,
-                        // Keep building=false so we don't lock UI
                         counts: data.counts ?? { nodes: 0, edges: 0 },
                         engine: data.engine,
                     }))
                 }).catch(() => {})
             }
         }
-        
         refresh()
         setTimeout(refresh, 1000)
         setTimeout(refresh, 3000)
     }
 
+    // Fast sync completed → refresh trace status + coverage
     if (fast?.phase === 'completed' && prevFastPhase === 'running') {
-      setAugmenting(false)
-      setValidating(false)
-      setKnowledgeBuilding(false)
-      // Fast sync just completed — refresh all fast-stage statuses
-      void fetchAugmentationStatus()
-      void fetchKnowledgeStatus()
       void fetchTraceCoverage()
       api.getTraceStatus(selectedProjectId).then((data) => {
         setTraceStatus({
@@ -684,77 +465,28 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
           engine: data.engine,
         })
       }).catch(() => {
-        // Still clear building on failure to avoid stuck state
         setTraceStatus(p => ({ ...p, building: false }))
       })
     }
 
     if (fast?.phase === 'failed' && prevFastPhase === 'running') {
       setTraceStatus(p => ({ ...p, building: false }))
-      setAugmenting(false)
-      setValidating(false)
-      setKnowledgeBuilding(false)
     }
 
+    // Deep enrichment completed → refresh trace coverage
+    const prevDeepPhase = prev?.deep_enrichment?.phase
+    const deep = pipelineEvent.deep_enrichment
     if (deep?.phase === 'completed' && prevDeepPhase === 'running') {
-      setEpistemicRunning(false)
-      setClusterRunning(false)
-      setDeepeningRunning(false)
-      setKnowledgeBuilding(false)
-      // Deep enrichment just completed — refresh all deep-stage statuses
-      void fetchEpistemicStatus()
-      void fetchModuleStatus()
-      void fetchDeepeningStatus()
-      void fetchKnowledgeStatus()
       void fetchTraceCoverage()
     }
+  }, [pipelineEvent, selectedProjectId, api, fetchTraceCoverage])
 
-    if (deep?.phase === 'failed' && prevDeepPhase === 'running') {
-      setEpistemicRunning(false)
-      setClusterRunning(false)
-      setDeepeningRunning(false)
-      setKnowledgeBuilding(false)
-    }
-  }, [pipelineEvent, selectedProjectId, api,
-    fetchAugmentationStatus, fetchKnowledgeStatus, fetchTraceCoverage,
-    fetchEpistemicStatus, fetchModuleStatus, fetchDeepeningStatus])
-
-  // ── Polling Effect for Progress ─────────────────────────────
-  // Ensures progress bars update live during pipeline execution or manual runs
+  // ── Polling: trace coverage during build ─────────────────────
   useEffect(() => {
-    if (!selectedProjectId) return
-
-    const anyRunning = traceStatus.building || augmenting || epistemicRunning || clusterRunning || deepeningRunning || knowledgeBuilding
-    if (!anyRunning) return
-
-    const interval = setInterval(() => {
-        if (traceStatus.building) fetchTraceCoverage()
-        if (augmenting) fetchAugmentationStatus()
-        // Fetch epistemic status for all deep stages, not just epistemicRunning:
-        // during clustering/deepening we need enriched_nodes for DeepCoverageBar,
-        // and we need running:false to clear the spinner when Stage 5 ends.
-        if (epistemicRunning || clusterRunning || deepeningRunning) fetchEpistemicStatus()
-        if (clusterRunning) fetchModuleStatus()
-        if (deepeningRunning) fetchDeepeningStatus()
-        if (knowledgeBuilding) fetchKnowledgeStatus()
-    }, 3000)
-
+    if (!selectedProjectId || !traceStatus.building) return
+    const interval = setInterval(() => { fetchTraceCoverage() }, 3000)
     return () => clearInterval(interval)
-  }, [
-    selectedProjectId,
-    traceStatus.building,
-    augmenting,
-    epistemicRunning,
-    clusterRunning,
-    deepeningRunning,
-    knowledgeBuilding,
-    fetchTraceCoverage,
-    fetchAugmentationStatus,
-    fetchEpistemicStatus,
-    fetchModuleStatus,
-    fetchDeepeningStatus,
-    fetchKnowledgeStatus
-  ])
+  }, [selectedProjectId, traceStatus.building, fetchTraceCoverage])
 
   // ── Return ──────────────────────────────────────────────────
 
@@ -762,35 +494,21 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     // State
     traceStatus, setTraceStatus,
     traceCoverage, setTraceCoverage,
-    augmentationStatus,
-    validating,
-    epistemicStatus,
-    epistemicRunning,
-    moduleStatus,
-    clusterRunning,
-    deepeningStatus,
-    deepeningRunning,
-    knowledgeStatus,
-    knowledgeBuilding,
     indexAutoRebuild,
     enrichmentAutoConfig,
-    augmenting,
     // Phase 25: Crash Protection
     crashedRuns,
     handleResumeCrashedRun,
     handleDiscardCrashedRun,
     // Fetch
-    fetchAugmentationStatus, fetchEpistemicStatus, fetchModuleStatus,
-    fetchDeepeningStatus, fetchKnowledgeStatus, fetchTraceCoverage,
+    fetchTraceCoverage,
     // Trace
     handleBuildTrace, handleEnableTrace, handleTogglePause,
     handleSearchTrace, handleGetTraceNode, handleGetTraceNeighbors,
     handleTraceAll, handleRetraceStale,
     handleAddExcludePattern, handleRemoveExcludePattern,
-    // Enrichment
-    handleRunAugmentation, handleRunEpistemic, handleRunModuleSynthesis,
-    handleRunDeepening, handleRunKnowledgeBuild,
-    handleRunFastSync, handleRunDeepEnrichment, handleRunAutoPilot,
+    // Pipeline
+    handleRunFastSync, handleRunAutoPilot,
     // Config
     handleEnrichmentAutoConfigChange, handleIndexAutoRebuildChange,
     // Destroy

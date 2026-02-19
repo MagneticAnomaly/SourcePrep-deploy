@@ -2,7 +2,7 @@
 
 ## Title Options
 1. **Rewriting my Python graph engine in Rust (100x speedup on indexing)**
-2. **My journey building a local-first MCP server with Petgraph and Tree-sitter**
+2. **My journey building a local-first MCP server with a custom graph engine and Tree-sitter**
 
 ## Body Structure
 
@@ -12,13 +12,13 @@ But when I pointed it at a 50k LOC repo, the graph analysis (finding all downstr
 
 ### The Rewrite
 I ported the core indexer to Rust.
-*   **Tree-sitter** for parsing (incremental updates are tricky!).
-*   **Petgraph** for the dependency storage.
-*   **PyO3** to bind it back to my Python API (best of both worlds).
+*   `tree-sitter` for incremental parsing.
+*   A hand-rolled in-memory graph (`codrag-graph` crate) — we evaluated petgraph but rolled our own to keep query semantics simple.
+*   `PyO3` bindings (`codrag-engine` crate, compiled as a `cdylib`) so Python imports the Rust core directly.
 
 ### The Result
-Indexing is now near-instant. The memory footprint dropped by 80%.
-And I learned a ton about `RefCell` hell along the way.
+Indexing is now near-instant on repos that choked the Python prototype. The memory footprint dropped ~80%.
+And I learned a lot about `RefCell` hell along the way.
 
 **Repo:** [Link] (Critique my code please!)
 

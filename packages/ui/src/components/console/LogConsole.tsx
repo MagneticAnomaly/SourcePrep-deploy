@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Terminal, XCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Terminal, XCircle, ChevronDown, ChevronRight, Bug } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../primitives/Button';
+import { BugReportModal } from './BugReportModal';
 import type { LogEntry } from '../../types';
 
 export interface LogConsoleProps {
@@ -9,6 +10,8 @@ export interface LogConsoleProps {
   onClear: () => void;
   className?: string;
   defaultExpanded?: boolean;
+  /** Extra diagnostic data to bundle into bug reports (project status, config, tier, etc.) */
+  diagnosticData?: Record<string, unknown>;
 }
 
 type LogLevel = 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';
@@ -18,10 +21,12 @@ export function LogConsole({
   onClear,
   className,
   defaultExpanded = false,
+  diagnosticData,
 }: LogConsoleProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [autoScroll, setAutoScroll] = useState(true);
   const [filterLevel, setFilterLevel] = useState<LogLevel | 'ALL'>('ALL');
+  const [bugReportOpen, setBugReportOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll effect
@@ -106,6 +111,15 @@ export function LogConsole({
             <Button
               variant="ghost"
               size="icon-sm"
+              onClick={() => setBugReportOpen(true)}
+              title="Send Bug Report"
+              className="h-6 w-6 text-text-subtle hover:text-warning"
+            >
+              <Bug className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={onClear}
               title="Clear Console"
               className="h-6 w-6"
@@ -115,6 +129,14 @@ export function LogConsole({
           </div>
         )}
       </div>
+
+      {/* Bug Report Modal */}
+      <BugReportModal
+        open={bugReportOpen}
+        onClose={() => setBugReportOpen(false)}
+        logs={logs}
+        diagnosticData={diagnosticData}
+      />
 
       {/* Log Output */}
       {expanded && (
@@ -132,7 +154,7 @@ export function LogConsole({
             filteredLogs.map((log, i) => (
               <div key={i} className="flex gap-2 leading-relaxed hover:bg-white/5 px-1 rounded-sm group">
                 <span className="text-text-subtle/40 select-none shrink-0 w-[70px]">
-                  {new Date(log.created * 1000).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' })}
+                  {new Date(log.timestamp * 1000).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' })}
                 </span>
                 <span className={cn("shrink-0 w-[60px] font-bold", levelColor(log.level))}>
                   {log.level}

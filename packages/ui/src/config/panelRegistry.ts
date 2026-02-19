@@ -134,7 +134,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
   },
   {
     id: 'trace',
-    title: 'Code Graph',
+    title: 'Code Graph Explorer',
     description: 'Navigate the complete web of relationships (imports, calls, definitions) across the codebase.',
     icon: GitBranch,
     minHeight: 6,

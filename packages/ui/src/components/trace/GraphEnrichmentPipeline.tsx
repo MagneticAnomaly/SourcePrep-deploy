@@ -21,7 +21,7 @@ export interface TraceStageInfo {
 
 export type EnrichmentStageId = 'structural' | 'catalogue' | 'validation' | 'knowledge' | 'enrichment' | 'clustering' | 'deepening' | 'deep_knowledge';
 
-export type DeepEnrichmentMode = 'manual' | 'auto' | 'scheduled';
+export type DeepEnrichmentMode = 'manual' | 'auto' | 'scheduled' | 'threshold';
 
 /** Two-group auto/manual config */
 export interface EnrichmentAutoConfig {
@@ -53,6 +53,8 @@ export interface GraphEnrichmentPipelineProps {
   /** Run the entire Deep Enrichment set (manual trigger) */
   onRunDeepEnrichment?: () => void;
   onDestroyGraph?: () => void;
+  /** Open the settings drawer to the Deep Enrichment configuration */
+  onOpenDeepSettings?: () => void;
   onTogglePause?: () => void;
   augmenting?: boolean;
   validating?: boolean;
@@ -234,7 +236,7 @@ const STATE_STYLES: Record<StageState, { bg: string; border: string; text: strin
   waiting:   { bg: 'bg-amber-500/10',       border: 'border-amber-500/30',  text: 'text-amber-400',    icon: 'text-amber-400' },
   running:   { bg: 'bg-blue-500/10',        border: 'border-blue-500/30',   text: 'text-blue-400',     icon: 'text-blue-400' },
   stale:     { bg: 'bg-amber-500/10',       border: 'border-amber-500/30',  text: 'text-amber-400',    icon: 'text-amber-400' },
-  complete:  { bg: 'bg-emerald-500/10',     border: 'border-emerald-500/30',text: 'text-emerald-400',  icon: 'text-emerald-400' },
+  complete:  { bg: 'bg-success/10',         border: 'border-success/30',    text: 'text-success',      icon: 'text-success' },
   warning:   { bg: 'bg-orange-500/10',      border: 'border-orange-500/30', text: 'text-orange-400',   icon: 'text-orange-400' },
   error:     { bg: 'bg-red-500/10',         border: 'border-red-500/30',    text: 'text-red-400',      icon: 'text-red-400' },
   idle:      { bg: 'bg-surface-raised',     border: 'border-border',        text: 'text-text-muted',   icon: 'text-text-muted' },
@@ -349,6 +351,7 @@ export function GraphEnrichmentPipeline({
   onRunFastSync,
   onRunDeepEnrichment,
   onDestroyGraph,
+  onOpenDeepSettings,
   className,
 }: GraphEnrichmentPipelineProps) {
 
@@ -579,7 +582,7 @@ export function GraphEnrichmentPipeline({
                 "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
                 fastRunning
                   ? "border-border bg-surface text-text-subtle cursor-wait"
-                  : "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                  : "border-success/40 bg-success/10 text-success hover:bg-success/20"
               )}
             >
               <Play className="w-3.5 h-3.5" />
@@ -615,11 +618,20 @@ export function GraphEnrichmentPipeline({
                 "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
                 deepRunning
                   ? "border-border bg-surface text-text-subtle cursor-wait"
-                  : "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                  : "border-success/40 bg-success/10 text-success hover:bg-success/20"
               )}
             >
               <Play className="w-3.5 h-3.5" />
               {deepRunning ? 'Running…' : 'Run'}
+            </button>
+          )}
+          {onOpenDeepSettings && deepMode === 'scheduled' && (
+            <button
+              onClick={onOpenDeepSettings}
+              className="p-1 rounded hover:bg-surface-raised transition-colors text-text-subtle hover:text-text"
+              title="Deep Enrichment settings"
+            >
+              <Clock className="w-3.5 h-3.5" />
             </button>
           )}
           <SlidingSwitch3

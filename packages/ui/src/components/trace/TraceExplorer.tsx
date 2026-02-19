@@ -46,8 +46,8 @@ const KIND_COLORS: Record<string, string> = {
 function SymbolTypeTag({ type }: { type?: string }) {
   if (!type) return null;
   const colors: Record<string, string> = {
-    function: 'bg-green-500/10 text-green-600 border-green-500/20',
-    async_function: 'bg-green-500/10 text-green-600 border-green-500/20',
+    function: 'bg-success/10 text-success border-success/20',
+    async_function: 'bg-success/10 text-success border-success/20',
     class: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
     method: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20',
     async_method: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20',
@@ -207,7 +207,7 @@ export function TraceExplorer({
           <span className={cn(
             'ml-auto px-1.5 py-0.5 rounded text-[10px] font-medium',
             engine === 'rust'
-              ? 'bg-green-500/10 text-green-600 border border-green-500/20'
+              ? 'bg-success/10 text-success border border-success/20'
               : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
           )}>
             {engine === 'rust' ? 'Rust Engine' : 'Python (limited)'}

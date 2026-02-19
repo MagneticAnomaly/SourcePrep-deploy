@@ -8,6 +8,20 @@
 @tailwind components;
 @tailwind utilities;
 
+* {
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+/* Aggressive utility to remove all focus/tap artifacts */
+.no-flash,
+.no-flash:focus,
+.no-flash:active,
+.no-flash:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
 /* Hide browser's default number input spinners */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {

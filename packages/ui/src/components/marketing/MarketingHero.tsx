@@ -66,8 +66,8 @@ function CenteredHero() {
         {/* Subheadline */}
         <p className="mt-6 text-lg md:text-xl text-text-muted max-w-2xl mx-auto leading-relaxed">
           CoDRAG's Rust-powered engine indexes your entire codebase locally — semantics, symbols,
-          and call graphs — with built-in embeddings, path weights for precision control, and
-          optional 10–16× compression. No cloud upload. No Ollama. Just better AI output.
+          and call graphs — with built-in ONNX embeddings, path weights for precision control, and
+          optional 10–16× compression. No cloud upload. No LLM required. Ollama and cloud APIs optional.
         </p>
 
         {/* CTAs */}
@@ -86,7 +86,7 @@ function CenteredHero() {
             <Zap className="w-4 h-4 text-success" /> Works offline
           </span>
           <span className="flex items-center gap-2">
-            <Database className="w-4 h-4 text-success" /> Built-in embeddings — no Ollama needed
+            <Database className="w-4 h-4 text-success" /> Built-in embeddings — Ollama &amp; cloud optional
           </span>
           <span className="flex items-center gap-2">
             <Lock className="w-4 h-4 text-success" /> Perpetual license available
@@ -370,7 +370,7 @@ function SplitHero() {
         </p>
 
         <div className="mt-8 space-y-4">
-          <FeaturePoint icon={<Search className="w-5 h-5 text-primary" />} text="Semantic search with built-in embeddings — no Ollama needed" />
+          <FeaturePoint icon={<Search className="w-5 h-5 text-primary" />} text="Semantic search with built-in ONNX embeddings — Ollama or cloud API optional" />
           <FeaturePoint icon={<Layers className="w-5 h-5 text-primary" />} text="Rust-powered Code Graph maps imports, calls, and symbol hierarchies" />
           <FeaturePoint icon={<Zap className="w-5 h-5 text-primary" />} text="Path weights let you boost core modules and silence noise — instantly" />
           <FeaturePoint icon={<Shield className="w-5 h-5 text-primary" />} text="Optional 10–16× CLaRa compression fits more signal into every prompt" />
@@ -540,7 +540,7 @@ function YaleHero() {
           <div className="col-span-12 md:col-span-3 md:col-start-4">
             <p className="font-sans text-base text-text leading-relaxed mb-6">
               CoDRAG's Rust-powered engine indexes your codebase locally—semantics, symbols, and call graphs—with built-in
-              embeddings, path weights for precision control, and optional 10–16× CLaRa compression. No cloud upload. No Ollama.
+              ONNX embeddings, path weights for precision control, and optional 10–16× CLaRa compression. No cloud upload. No LLM required — Ollama and cloud APIs optional.
             </p>
             <a href="#" className="font-sans font-medium text-primary hover:underline underline-offset-4 decoration-2 flex items-center gap-1">
               Documentation <ArrowRight className="w-3 h-3" />

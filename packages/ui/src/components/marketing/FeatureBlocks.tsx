@@ -148,7 +148,7 @@ export const codragFeatures: Feature[] = [
   {
     icon: <Search className="w-8 h-8" />,
     title: 'Semantic + Structural Search',
-    description: 'Ask "where is the auth middleware?" and get ranked results in under 100 ms. Built-in embeddings mean semantic search works out of the box — no Ollama, no API keys.',
+    description: 'Ask "where is the auth middleware?" and get ranked results in under 100 ms. Built-in ONNX embeddings (nomic-embed-text) work out of the box — no LLM or API key required. Connect Ollama or a cloud API if you prefer an alternative model.',
     badge: 'Built-in',
     highlight: true,
   },

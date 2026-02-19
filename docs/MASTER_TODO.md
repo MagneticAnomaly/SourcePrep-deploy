@@ -49,6 +49,13 @@ This file orchestrates work across phases by:
 - Phase18: `Phase18_DataVisualization/README.md`
 - Phase19: `Phase19_Alt-Dev-Workflows/TODO.md`
 - Phase20: `Phase20_support_strategy/README.md`
+- Phase21: `Phase21_logs-and-progress/` (covered by Sprint S-13 — complete)
+- Phase22: `Phase22_trace-epistomology/` (covered by Sprint S-22 — complete)
+- Phase23: `Phase23_Cleanup-refactor/REFACTORING_STRATEGY.md`
+- Phase24: `Phase24_StateMachine/README.md`
+- Phase25: `Phase25_crashprotection/README.md` (complete)
+- Phase26: `Phase26_DeepEnrichment-settings/STRATEGY.md` (planned, not started)
+- Phase27: `Phase27_bug-reporting/README.md` (MVP complete)
 
 ## Dependency anchors (planning)
 - **Canonical dependency doc:** `PHASE_DEPENDENCIES.md`
@@ -283,6 +290,70 @@ These sprints are intentionally cross-phase. Each sprint should end with:
   - `LicenseStatus`, `FeatureAvailability` types in `types.ts`
   - `getLicense()` on `ApiClient` interface + `CodragApiClient` + `MockApiClient`
 - [x] S-11.7 Tests: 32 feature gate tests + 167 total passed, 0 failed 
+
+### Sprint S-22: Trace Epistemology (Phase 22)
+**Goal:** LLM-augmented trace graph with epistemic scoring, cluster synthesis, and continuous deepening.
+
+- [x] S-22.1 Rust Markdown Extraction (Pass 0) — `markdown.rs` 11 tests, section/ref/link/status analysis
+- [x] S-22.2 Strategic Snippet Selection (Pass 1) — `_get_strategic_excerpt()`, DOC_ROLE prompts
+- [x] S-22.3 Pass 0.5 LLM-Guided Re-Trace — `incorporate_inferred_edges()` in codrag-graph, 7 tests
+- [x] S-22.4 Pass 2 Epistemic Enrichment — `epistemic_score.py` + `epistemic_enrichment.py`, topological sort, 14b prompts
+- [x] S-22.5 Pass 3 Cluster Synthesis — `cluster.py`, tag grouping + connected components, `trace_modules.jsonl`
+- [x] S-22.6 Pass 4+ Continuous Deepening Loop — `deepening.py`, EnrichmentQueue + DriftDetector + ConvergenceTracker
+- **Test totals:** 59 Rust + 329 Python = 388 tests, ALL GREEN
+
+### Sprint S-23: Cleanup & Refactor (Phase 23)
+**Goal:** Extract god-object App.tsx into domain hooks; split server.py into routers.
+
+- [x] S-23.1 Backend: server.py 4,352 → 313 lines; routers in `src/codrag/api/routers/` (system, license, trace, knowledge, llm, projects)
+- [x] S-23.2 Frontend Phase A: `enrichmentReducer.ts` + `useEnrichment.ts` extracted from useTraceSystem
+- [x] S-23.3 Frontend Phase B: `useSearchContext.ts` extracted (13 useState + 3 useCallback)
+- [x] S-23.4 Frontend Phase C: `useFileSystem.ts` extracted (fileTree, pathWeights, includedPaths, pinnedPaths)
+- [x] S-23.5 Frontend Phase D: `useDashboardPanels` 120+ flat props → 7 domain sub-objects
+- [ ] S-23.6 Backend pending: further refactor of `build_manager.py`, `project_helpers.py` (services layer exists, more decomposition possible)
+
+### Sprint S-24: State Machine Architecture (Phase 24)
+**Goal:** Replace implicit state with explicit FSMs across frontend and backend.
+
+- [x] S-24.1 SM-4: BuildOrchestrator — `build_orchestrator.py`, BuildSlot FSM (IDLE→QUEUED→RUNNING→COMPLETED→FAILED), 8 BuildTypes
+- [x] S-24.2 SM-6: PipelineOrchestrator — `pipeline_orchestrator.py`, 8-stage 2-group pipeline, WorkerFactory, auto-chain
+- [x] S-24.3 Pipeline API router — `POST /pipeline/fast|deep|all`, `GET /pipeline/status`, `POST /pipeline/cancel`
+- [x] S-24.4 Frontend wiring — useTraceSystem hooks → runPipelineFast/Deep/All; PipelineStatus types
+- [ ] S-24.5 SM-8: Knowledge Scope pipeline (scoped indexing per folder/role)
+- [ ] S-24.6 Settings persistence via SQLite key-value store
+- [ ] S-24.7 Tier gating at state transition time (not just query time)
+- [ ] S-24.8 SM-1 frontend reducer: remaining useState → domain reducers (trace, search, project)
+
+### Sprint S-25: Crash Protection & Resumability (Phase 25)
+**Goal:** Persistent pipeline journal so crashes don't lose progress.
+
+- [x] S-25.1 `PipelineJournal` — SQLite-backed journal with CRUD, heartbeat thread, zombie detection
+- [x] S-25.2 `PipelineCheckpoint` — backup/restore/verify trace files, auto-heal on recovery
+- [x] S-25.3 Orchestrator integration — every state transition writes to journal before work
+- [x] S-25.4 Startup recovery — `journal.init()` → `startup_recovery()` in `server.py configure()`
+- [x] S-25.5 API endpoints — `GET /pipeline/crashed`, `POST /pipeline/resume|discard`
+- [x] S-25.6 Frontend — `crashedRuns` state, `handleResumeCrashedRun`, crash detection on hydration
+- [x] S-25.7 Tests — 31 tests covering journal, checkpoint, orchestrator integration
+
+### Sprint S-26: Deep Enrichment Settings (Phase 26)
+**Goal:** Unify Deep Enrichment UI — pipeline panel controls ↔ settings drawer ↔ backend modes.
+
+- [ ] S-26.1 Rename `DeepAnalysisSchedule` → `DeepEnrichmentConfig`; standardize on "Deep Enrichment" terminology
+- [ ] S-26.2 True Auto mode — Stage 4 `batch_complete` event triggers Stage 5 queue immediately
+- [ ] S-26.3 Scheduled mode — CRON / threshold-based batch processing of `pending_deep_enrichment` chunks
+- [ ] S-26.4 `GraphEnrichmentPipeline.tsx` — settings gear icon links to SettingsDrawer Deep Enrichment tab
+- [ ] S-26.5 Backend budget throttle for Auto mode (max tokens per 5-min window)
+
+### Sprint S-27: Bug Reporting System (Phase 27)
+**Goal:** One-click bug report from dashboard with 27-point auto-diagnostics.
+
+- [x] S-27.1 `BugReportModal` — form (email, severity, description, steps), auto-diagnostics preview, offline JSON fallback
+- [x] S-27.2 `LogConsole` updated — bug icon triggers modal
+- [x] S-27.3 `diagnosticData` wiring — `useDashboardPanels` assembles from all system hooks
+- [x] S-27.4 Cloud ingestion — `websites/apps/support/src/app/api/bug-report/route.ts`, Resend notification, rate limit
+- [ ] S-27.5 Phase 27.2: Persistent storage (Vercel Postgres/Blob for report metadata + JSON)
+- [ ] S-27.6 Phase 27.3: Admin dashboard at `support.codrag.io/admin/reports`
+- [ ] S-27.7 Wire `RESEND_API_KEY` env var in support app deployment (Netlify)
 
 ### Sprint S-10: Context Intelligence (Phase16)
 **Goal:** native embeddings (no Ollama required), user-defined path weighting, CLaRa context compression.
@@ -1006,11 +1077,13 @@ All URLs updated to `github.com/EricBintner/CoDRAG`:
  - [ ] P06-I7-I9: Network mode (auth requirement, header standardization, redaction rules)
  - [ ] P06-T1-T3: All tests open
 
- **Phase 08 (Tauri MVP) — All open:**
- - [ ] P08-I1-I3: Sidecar lifecycle (startup, shutdown, crash recovery)
- - [ ] P08-I4-I6: Port strategy (conflict detection, fallback)
- - [ ] P08-I7-I8: UX surfaces ("Backend starting" screen)
- - [ ] P08-R1-R3: Research (packaging, port strategy, signing)
+ **Phase 08 (Tauri MVP) — Mostly complete:**
+- [x] P08-I1/I2/I3: Sidecar lifecycle — `CoDRAG.app` builds with PyInstaller sidecar ✅
+- [x] P08-I4/I6: Port 8400 check + health check attach-or-launch ✅
+- [x] P08-I7/I8: StartupScreen with 30s health poll + error/retry/quit ✅
+- [x] P08-T1: Basic sidecar launch test ✅
+- [ ] P08-I5: Dynamic port fallback if 8400 occupied by non-CoDRAG process
+- [ ] P08-T2/T3: Port conflict and crash recovery integration tests
 
  **Phase 11 (Deployment) — All open:**
  - [ ] P11-I1-I3: Distribution artifacts (macOS, Windows, enterprise)
@@ -1093,7 +1166,7 @@ All URLs updated to `github.com/EricBintner/CoDRAG`:
  | ~~**P1**~~ | ~~Dashboard error UX~~ | ~~1~~ |  **FIXED** | ~~`_error` state~~ → ErrorToast component wired |
  | ~~**P2**~~ | ~~Dead code~~ | ~~2~~ |  **DELETED** | ~~`server_old.py` + `api/responses.py`~~ |
  | ~~**P2**~~ | ~~Endpoint cleanup~~ | ~~3~~ | ✅ **OK** | ~~Duplicate trace endpoints~~ → intentional aliases |
- | **P2** | UX renames | 9 | Open | Phase 14 component rename plan |
+ | ~~**P2**~~ | ~~UX renames~~ | ~~9~~ | ✅ **DONE** | Panel registry updated: Knowledge Base Status, AI Gateway, Knowledge Query, Context Assembler, Retrieved Context, Prompt Buffer, Live Sync, Knowledge Sources, Code Graph Explorer |
  | ~~**P2**~~ | ~~Frontend client gaps~~ | ~~2~~ | ✅ **FIXED** | ~~`/llm/test`~~ → `testLLMConnectivity()` added |
  | ~~**P2**~~ | ~~Env var docs~~ | ~~2~~ |  **FIXED** | ~~`CODRAG_ENGINE`, `CODRAG_TIER`~~ → documented in README |
  | **P2** | Settings primitives | 7 | Open | Missing form/budget/diagnostics components |
@@ -1258,7 +1331,7 @@ All URLs updated to `github.com/EricBintner/CoDRAG`:
  | ~~**P1**~~ | ~~Dashboard error UX~~ | ~~1~~ |  **FIXED** | ~~`_error` state~~ → ErrorToast component wired |
  | ~~**P2**~~ | ~~Dead code~~ | ~~2~~ |  **DELETED** | ~~`server_old.py` + `api/responses.py`~~ |
 | **P2** | Endpoint cleanup | 3 | **OK** | Duplicate trace endpoints → intentional aliases |
-| **P2** | UX renames | 9 | Open | Phase 14 component rename plan |
+| ~~**P2**~~ | ~~UX renames~~ | ~~9~~ | ✅ **DONE** | All panel titles updated in `panelRegistry.ts` |
 | ~~**P2**~~ | ~~Frontend client gaps~~ | ~~2~~ | ✅ **FIXED** | ~~`/llm/test`~~ → `testLLMConnectivity()` added |
 | ~~**P2**~~ | ~~Env var docs~~ | ~~2~~ | ✅ **FIXED** | ~~`CODRAG_ENGINE`, `CODRAG_TIER`~~ → documented in README |
  | **P2** | Settings primitives | 7 | Open | Missing form/budget/diagnostics components |
@@ -1268,9 +1341,13 @@ All URLs updated to `github.com/EricBintner/CoDRAG`:
 | ~~**P2**~~ | ~~Dead CLI file~~ | ~~1~~ | ✅ **DELETED** | ~~`cli_new.py` (542 lines)~~ → removed |
  | **P2** | Payments recovery | 1 | **NEW** | Mock stub, needs Lemon Squeezy integration |
  | ~~**P2**~~ | ~~Phase doc staleness~~ | ~~4~~ |  **FIXED** | ~~Phase 01/03/07 TODOs~~ → reconciled with implementation |
- | **P2** | Phase 15 open items | 3 | **NEW** | Sprint 7 docs, DashboardGrid story, DoD checklist |
- | **P1** | Trace graph empty | 4 | **NEW** | Python fallback → 0 edges for non-Python projects + UX confusion |
- | **P3** | Phase 06/08/11 | ~30 | Open | Team, Tauri, Deployment (post-MVP) |
+ | ~~**P2**~~ | ~~Phase 15 open items~~ | ~~3~~ | ✅ **DONE** | ~~Sprint 7 docs, DashboardGrid story, DoD checklist~~ → all verified complete |
+ | ~~**P1**~~ | ~~Trace graph empty~~ | ~~4~~ | ✅ **FIXED** | ~~Python fallback 0 edges~~ → JSAnalyzer + degraded detection + UX banner |
+ | **P1** | Phase 24 pending | 4 | Open | SM-8 (Knowledge Scope), SQLite settings, tier gating at transitions, SM-1 reducers |
+ | **P2** | Phase 26 (Deep Enrichment Settings) | 5 | **NEW** | Terminology + True Auto + Scheduled modes + backend throttle |
+ | **P2** | Phase 27.2/27.3 | 7 | **NEW** | Persistent bug report storage + admin dashboard |
+ | **P2** | Phase 23 backend | 1 | Open | Further router/service decomposition |
+ | **P3** | Phase 06/08/11 | ~32 | Open | Team, Tauri, Deployment (post-MVP); Phase 08 mostly done (P08-I5/T2/T3 remain) |
  | **P3** | Phase 17 | ~45 | Open | VS Code extension (future) |
  | **P3** | Website builds | 1 | Open | `@codrag/ui` resolution (build order) |
 
@@ -1351,16 +1428,15 @@ All URLs updated to `github.com/EricBintner/CoDRAG`:
 
 - [x] `onHFDownload` wired to `ApiClient.downloadEmbedding()`. ✅
 
-#### NEW: Analytics TODO placeholders in all website app layouts (not tracked)
+#### ~~NEW: Analytics TODO placeholders in all website app layouts~~ ✅ DONE
 
-All four Next.js sites contain a commented analytics stub:
-- `websites/apps/marketing/src/app/layout.tsx` (TODO: Analytics, plausible example)
-- `websites/apps/docs/src/app/layout.tsx`
-- `websites/apps/support/src/app/layout.tsx`
-- `websites/apps/payments/src/app/layout.tsx`
+All four Next.js sites now use Plausible via `<Script strategy="afterInteractive" />`:
+- [x] `websites/apps/marketing/src/app/layout.tsx` — `data-domain="codrag.io"` ✅
+- [x] `websites/apps/docs/src/app/layout.tsx` — `data-domain="docs.codrag.io"` ✅
+- [x] `websites/apps/support/src/app/layout.tsx` — `data-domain="support.codrag.io"` ✅
+- [x] `websites/apps/payments/src/app/layout.tsx` — `data-domain="payments.codrag.io"` ✅
 
-**Action items:**
-- [ ] Decide on provider (Plausible/Umami/etc.) and implement analytics injection across all four apps.
+**Note:** Plausible account + site setup still required. Script loads but won't report until sites are registered at plausible.io.
 
 #### ~~Deprecated `GraphEnginePanel` still exported~~ ✅ ALREADY FIXED
 

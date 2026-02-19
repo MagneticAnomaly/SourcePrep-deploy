@@ -57,7 +57,6 @@ export default function Page() {
 
         {/* Also available */}
         <div className="flex flex-wrap gap-4 mb-24 text-sm text-slate-500">
-          <span className="px-4 py-2 rounded-full border border-slate-200 bg-white">Also on the Mac App Store</span>
           <span className="px-4 py-2 rounded-full border border-slate-200 bg-white">Also on the Microsoft Store</span>
           <span className="px-4 py-2 rounded-full border border-slate-200 bg-white">Free tier included &mdash; no account required</span>
         </div>

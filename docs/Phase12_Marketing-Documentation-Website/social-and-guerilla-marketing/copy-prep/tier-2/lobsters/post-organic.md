@@ -1,16 +1,16 @@
 # Organic/Personal Post Draft for Lobsters
 
 ## Title Options
-1. **CoDRAG: Local-first code indexing using Tree-sitter and Petgraph**
+1. **CoDRAG: Local-first code indexing using Tree-sitter and a custom dependency graph**
 2. **Experience Report: Replacing Vector Search with Graph Traversal for Code RAG**
 
 ## Body (Comment)
 Author here.
-We built this to solve the "context window" precision problem in large monorepos.
-We found that vector search (embeddings) is great for "fuzzy" concepts but terrible for strict engineering questions ("Who calls this?").
+We built this because standard embedding-based retrieval falls apart on large monorepos where precise dependency tracking matters (e.g., finding the implementation of an interface defined in a different crate).
 
-We chose Rust for the engine to handle the graph scale (100k+ nodes) on consumer hardware.
-Happy to answer Qs about the architecture or the move away from pure Python.
+It uses Tree-sitter for AST parsing and a custom in-memory Rust graph engine for dependency storage and traversal. Results are served to editors via MCP.
+
+Happy to discuss the graph design choices — we evaluated petgraph and rolled our own instead, which has tradeoffs worth talking about.
 
 ## Tone
 High-signal engineering discussion.

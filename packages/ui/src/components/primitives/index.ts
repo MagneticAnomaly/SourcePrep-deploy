@@ -24,3 +24,18 @@ export type { SlidingSwitch2Props, SlidingSwitch3Props } from './SlidingSwitch';
 
 export { ConfirmDialog } from './ConfirmDialog';
 export type { ConfirmDialogProps } from './ConfirmDialog';
+
+export { SettingsSection } from './SettingsSection';
+export type { SettingsSectionProps } from './SettingsSection';
+
+export { SettingsRow } from './SettingsRow';
+export type { SettingsRowProps } from './SettingsRow';
+
+export { TagListEditor } from './TagListEditor';
+export type { TagListEditorProps } from './TagListEditor';
+
+export { BudgetPill } from './BudgetPill';
+export type { BudgetPillProps } from './BudgetPill';
+
+export { BudgetPreview } from './BudgetPreview';
+export type { BudgetPreviewProps } from './BudgetPreview';

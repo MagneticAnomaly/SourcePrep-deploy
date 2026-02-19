@@ -69,7 +69,7 @@ class DeepAnalysisResult:
 @dataclass
 class DeepAnalysisSchedule:
     """Schedule configuration for deep analysis runs."""
-    mode: str = "manual"  # manual | threshold | scheduled
+    mode: str = "manual"  # manual | auto | scheduled
     threshold_percent: int = 20
     frequency: str = "weekly"  # daily | weekly | biweekly | monthly
     day_of_week: int = 0  # 0=Sunday
@@ -79,6 +79,8 @@ class DeepAnalysisSchedule:
     budget_max_minutes: int = 30
     budget_max_items: int = 100
     priority: str = "lowest_confidence"  # lowest_confidence | highest_connectivity
+    schedule_threshold_enabled: bool = True  # Whether threshold trigger is active (scheduled mode)
+    schedule_time_enabled: bool = True  # Whether time-based trigger is active (scheduled mode)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -92,6 +94,8 @@ class DeepAnalysisSchedule:
             "budget_max_minutes": self.budget_max_minutes,
             "budget_max_items": self.budget_max_items,
             "priority": self.priority,
+            "schedule_threshold_enabled": self.schedule_threshold_enabled,
+            "schedule_time_enabled": self.schedule_time_enabled,
         }
 
     @classmethod
@@ -107,6 +111,8 @@ class DeepAnalysisSchedule:
             budget_max_minutes=int(d.get("budget_max_minutes", 30)),
             budget_max_items=int(d.get("budget_max_items", 100)),
             priority=d.get("priority", "lowest_confidence"),
+            schedule_threshold_enabled=bool(d.get("schedule_threshold_enabled", True)),
+            schedule_time_enabled=bool(d.get("schedule_time_enabled", True)),
         )
 
 

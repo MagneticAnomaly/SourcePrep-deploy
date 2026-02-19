@@ -4,7 +4,8 @@
  * Each theme sets CSS custom properties via [data-codrag-theme='X'] selectors.
  * Toggle themes by setting the data-codrag-theme attribute on <html> or a container.
  * 
- * Available themes: a, b, c, d, e, f, g, h, i, j, k, l
+ * Available themes: a, b, d, f, g, h, j, k, l, m, n
+ * Removed (styles only, Heroes kept): c (Signal Green), e (Neo-Brutalist), i (Studio Collage)
  * 
  * Usage:
  *   <html data-codrag-theme="a">  // Direction A: Slate Developer
@@ -13,13 +14,10 @@
 
 @import './direction-a.css';
 @import './direction-b.css';
-@import './direction-c.css';
 @import './direction-d.css';
-@import './direction-e.css';
 @import './direction-f.css';
 @import './direction-g.css';
 @import './direction-h.css';
-@import './direction-i.css';
 @import './direction-j.css';
 @import './direction-k.css';
 @import './direction-l.css';

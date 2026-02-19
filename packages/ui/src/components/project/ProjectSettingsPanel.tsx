@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { cn } from '../../lib/utils';
 import type { ProjectConfig, ProjectMode } from '../../types';
-import { Plus, X, Save, Database, FolderOpen, Wand2, Layers, Check } from 'lucide-react';
+import { Plus, X, Save, Database, FolderOpen, Wand2, Layers, Check, ChevronDown, ChevronUp, Cpu, Zap, Network, FileCode, FileX } from 'lucide-react';
 import { Button } from '../primitives/Button';
 import { InfoTooltip } from '../primitives/InfoTooltip';
 
@@ -54,6 +54,8 @@ export function ProjectSettingsPanel({
   const [detectedMessage, setDetectedMessage] = useState<string | null>(null);
   const [availablePresets, setAvailablePresets] = useState<Record<string, string[]>>(DEFAULT_PRESETS);
   const [detectedPresetNames, setDetectedPresetNames] = useState<string[]>([]);
+  const [showAllIncludes, setShowAllIncludes] = useState(false);
+  const [showAllExcludes, setShowAllExcludes] = useState(false);
 
   const addGlob = (list: string[], val: string) => {
     if (!val.trim()) return list;
@@ -191,15 +193,11 @@ export function ProjectSettingsPanel({
     )}>
       {/* Include Globs */}
       <section>
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
+            <FileCode className="w-4 h-4 text-primary" />
             <h3 className="text-sm font-semibold text-text">Include Patterns</h3>
             <InfoTooltip content="Glob patterns for files to include. This acts as an allowlist (e.g. **/*.ts)." />
-            <InfoTooltip 
-              content="Want to prioritize specific folders? Learn about Path Weights." 
-              href="https://docs.codrag.io/guides/path-weights" 
-              className="ml-2 text-primary"
-            />
           </div>
           <div className="relative group">
             <Button
@@ -274,7 +272,8 @@ export function ProjectSettingsPanel({
         </div>
         
         <div className="flex flex-col mt-2">
-          {config.include_globs.map((glob) => (
+          {/* Always show the top 6, or all if toggled */}
+          {(showAllIncludes ? config.include_globs : config.include_globs.slice(0, 6)).map((glob) => (
             <div
               key={glob}
               className="flex items-center justify-between gap-2 py-0.5 group"
@@ -289,6 +288,30 @@ export function ProjectSettingsPanel({
               </button>
             </div>
           ))}
+          
+          {/* Toggle Drawer */}
+          {config.include_globs.length > 6 && (
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={() => setShowAllIncludes(!showAllIncludes)}
+                className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary-hover transition-colors"
+              >
+                {showAllIncludes ? (
+                  <>
+                    <ChevronUp className="w-3.5 h-3.5" />
+                    Show Less
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-3.5 h-3.5" />
+                    View {config.include_globs.length - 6} more patterns
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
           {config.include_globs.length === 0 && (
             <div className="text-xs text-text-subtle italic py-1">
               No patterns defined
@@ -299,8 +322,9 @@ export function ProjectSettingsPanel({
 
       {/* Exclude Globs */}
       <section>
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
+            <FileX className="w-4 h-4 text-primary" />
             <h3 className="text-sm font-semibold text-text">Exclude Patterns</h3>
             <InfoTooltip content="Glob patterns for files to completely ignore." />
           </div>
@@ -336,7 +360,7 @@ export function ProjectSettingsPanel({
         </div>
         
         <div className="flex flex-col mt-2">
-          {config.exclude_globs.map((glob) => (
+          {(showAllExcludes ? config.exclude_globs : config.exclude_globs.slice(0, 6)).map((glob) => (
             <div
               key={glob}
               className="flex items-center justify-between gap-2 py-0.5 group"
@@ -351,6 +375,29 @@ export function ProjectSettingsPanel({
               </button>
             </div>
           ))}
+
+          {config.exclude_globs.length > 6 && (
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={() => setShowAllExcludes(!showAllExcludes)}
+                className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary-hover transition-colors"
+              >
+                {showAllExcludes ? (
+                  <>
+                    <ChevronUp className="w-3.5 h-3.5" />
+                    Show Less
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-3.5 h-3.5" />
+                    View {config.exclude_globs.length - 6} more patterns
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
           {config.exclude_globs.length === 0 && (
             <div className="text-xs text-text-subtle italic py-1">
               No exclude patterns defined
@@ -361,116 +408,132 @@ export function ProjectSettingsPanel({
 
       <div className="h-px bg-border my-6" />
 
-      {/* File Size Limits */}
+      {/* Indexing Engine Strategy */}
       <section>
-        <div className="flex items-center gap-2 mb-3">
-          <h3 className="text-sm font-semibold text-text">File Size Limits</h3>
-          <InfoTooltip content="Controls how large files are handled to balance performance and memory." />
+        <div className="flex items-center gap-2 mb-4">
+          <Cpu className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-semibold text-text">Indexing Engine</h3>
         </div>
-        
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <label className="text-xs font-medium text-text-subtle">Full Index Threshold</label>
-              <InfoTooltip content="Files larger than this (in bytes) will be summarized (truncated) rather than fully indexed." />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Live Updates (Auto-Rebuild) */}
+          <div className="p-3 rounded-md border border-border bg-surface-raised space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-text-subtle" />
+                <span className="text-sm font-medium text-text">Live Updates</span>
+              </div>
+              <Toggle
+                checked={config.auto_rebuild.enabled}
+                onChange={(checked) =>
+                  onChange({
+                    ...config,
+                    auto_rebuild: { ...config.auto_rebuild, enabled: checked },
+                  })
+                }
+              />
             </div>
-            <input
-              type="number"
-              value={config.max_file_bytes}
-              onChange={(e) => onChange({ ...config, max_file_bytes: parseInt(e.target.value) || 0 })}
-              min={1000}
-              max={10000000}
-              step={10000}
-              className="w-full bg-surface-raised border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-            />
-            <p className="text-[10px] text-text-muted mt-1">
-              {(config.max_file_bytes / 1000).toFixed(0)} KB
+            <p className="text-xs text-text-muted leading-relaxed">
+              Automatically rebuilds the index when files change. 
+              <span className="opacity-70"> Recommended for most users.</span>
+            </p>
+            
+            {config.auto_rebuild.enabled && (
+              <div className="pt-2 border-t border-border/50">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-xs text-text-subtle">Debounce (ms)</label>
+                  <input
+                    type="number"
+                    value={config.auto_rebuild.debounce_ms || 5000}
+                    onChange={(e) =>
+                      onChange({
+                        ...config,
+                        auto_rebuild: { ...config.auto_rebuild, debounce_ms: parseInt(e.target.value) || 5000 },
+                      })
+                    }
+                    min={1000}
+                    max={60000}
+                    step={1000}
+                    className="w-20 bg-surface border border-border rounded px-2 py-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Structural Graph (Trace) */}
+          <div className="p-3 rounded-md border border-border bg-surface-raised space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Network className="w-4 h-4 text-text-subtle" />
+                <span className="text-sm font-medium text-text">Structural Graph</span>
+              </div>
+              <Toggle
+                checked={config.trace.enabled}
+                onChange={(checked) =>
+                  onChange({ ...config, trace: { ...config.trace, enabled: checked } })
+                }
+              />
+            </div>
+            <p className="text-xs text-text-muted leading-relaxed">
+              Enables advanced code navigation (references, definitions).
+              <span className="opacity-70"> Disabling this reduces memory usage but limits context quality.</span>
             </p>
           </div>
+        </div>
+
+        {/* Limits */}
+        <div className="mt-4 pt-4 border-t border-border grid grid-cols-2 gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <label className="text-xs font-medium text-text-subtle">Max File Size (Index)</label>
+              <InfoTooltip content="Files larger than this (in bytes) will be summarized rather than fully indexed." />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={config.max_file_bytes}
+                onChange={(e) => onChange({ ...config, max_file_bytes: parseInt(e.target.value) || 0 })}
+                min={1000}
+                max={10000000}
+                step={10000}
+                className="flex-1 bg-surface-raised border border-border rounded px-2 py-1.5 text-xs text-text focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <span className="text-[10px] text-text-muted w-12">
+                {(config.max_file_bytes / 1000).toFixed(0)} KB
+              </span>
+            </div>
+          </div>
 
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <label className="text-xs font-medium text-text-subtle">Hard Limit (Guardrail)</label>
-              <InfoTooltip content="Files larger than this (in bytes) will be completely ignored to prevent crashes." />
+            <div className="flex items-center gap-2 mb-1.5">
+              <label className="text-xs font-medium text-text-subtle">Hard Limit (Ignore)</label>
+              <InfoTooltip content="Files larger than this are completely ignored to prevent crashes." />
             </div>
-            <input
-              type="number"
-              value={config.hard_limit_bytes || 100000000}
-              onChange={(e) => onChange({ ...config, hard_limit_bytes: parseInt(e.target.value) || 0 })}
-              min={100000}
-              max={1000000000}
-              step={1000000}
-              className="w-full bg-surface-raised border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-            />
-            <p className="text-[10px] text-text-muted mt-1">
-              {((config.hard_limit_bytes || 100000000) / 1000000).toFixed(0)} MB
-            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={config.hard_limit_bytes || 100000000}
+                onChange={(e) => onChange({ ...config, hard_limit_bytes: parseInt(e.target.value) || 0 })}
+                min={100000}
+                max={1000000000}
+                step={1000000}
+                className="flex-1 bg-surface-raised border border-border rounded px-2 py-1.5 text-xs text-text focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <span className="text-[10px] text-text-muted w-12">
+                {((config.hard_limit_bytes || 100000000) / 1000000).toFixed(0)} MB
+              </span>
+            </div>
           </div>
         </div>
       </section>
-
-      {/* Code Graph Toggle */}
-      <section className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-text">Code Graph</h3>
-          <InfoTooltip content="Enable structural indexing to map symbols, imports, and call relationships." />
-        </div>
-        <Toggle
-          checked={config.trace.enabled}
-          onChange={(checked) =>
-            onChange({ ...config, trace: { ...config.trace, enabled: checked } })
-          }
-        />
-      </section>
-
-      {/* Auto-Rebuild Toggle */}
-      <section className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-text">Auto-Rebuild</h3>
-          <InfoTooltip content="Automatically rebuilds both the Search Index and Code Graph when files change." />
-        </div>
-        <Toggle
-          checked={config.auto_rebuild.enabled}
-          onChange={(checked) =>
-            onChange({
-              ...config,
-              auto_rebuild: { ...config.auto_rebuild, enabled: checked },
-            })
-          }
-        />
-      </section>
-
-      {/* Debounce (if auto-rebuild enabled) */}
-      {config.auto_rebuild.enabled && (
-        <section className="animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-sm font-semibold text-text">Debounce Interval</h3>
-            <InfoTooltip content="Wait time in milliseconds before triggering a rebuild after a file change." />
-          </div>
-          <div className="mb-3">
-            <input
-              type="number"
-              value={config.auto_rebuild.debounce_ms || 5000}
-              onChange={(e) =>
-                onChange({
-                  ...config,
-                  auto_rebuild: { ...config.auto_rebuild, debounce_ms: parseInt(e.target.value) || 5000 },
-                })
-              }
-              min={1000}
-              max={60000}
-              step={1000}
-              className="w-full bg-surface-raised border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-            />
-          </div>
-        </section>
-      )}
 
       <div className="h-px bg-border my-6" />
 
       {/* Data Storage Info */}
       <section>
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-4">
+          <Database className="w-4 h-4 text-primary" />
           <h3 className="text-sm font-semibold text-text">Data Storage</h3>
           <InfoTooltip content="Location of the generated Search Index and Code Graph." />
         </div>

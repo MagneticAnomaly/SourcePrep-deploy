@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react'
-import { Settings, X, ImageIcon, Key, Shield, Trash2 } from 'lucide-react'
+import { useState, useCallback, useEffect } from 'react'
+import { Settings, X, ImageIcon, Key, Shield, Trash2, Palette, Activity, ClipboardCheck } from 'lucide-react'
 import {
   useApiClient,
   Button,
@@ -11,7 +11,6 @@ import {
   type LicenseStatus,
   type LicenseTier,
   type DeepAnalysisSchedule,
-  type DeepAnalysisRunStatus,
 } from '@codrag/ui'
 
 // ── Constants ────────────────────────────────────────────────
@@ -53,6 +52,10 @@ type SettingsDrawerTab = 'project' | 'global' | 'developer'
 export interface SettingsDrawerProps {
   open: boolean
   onClose: () => void
+  /** When provided, forces this tab to be active whenever the drawer opens */
+  openToTab?: SettingsDrawerTab
+  /** When true, scrolls to the Deep Enrichment section after opening */
+  scrollToDeepAnalysis?: boolean
   // Project tab
   projectConfig: ProjectConfig
   onProjectConfigChange: (config: ProjectConfig) => void
@@ -67,10 +70,6 @@ export interface SettingsDrawerProps {
   // Deep Analysis (Project tab)
   deepAnalysisSchedule: DeepAnalysisSchedule
   onDeepAnalysisScheduleChange: (schedule: DeepAnalysisSchedule) => void
-  deepAnalysisStatus: DeepAnalysisRunStatus
-  deepAnalysisRunning: boolean
-  onRunDeepAnalysis: () => void
-  onCancelDeepAnalysis: () => void
   largeModelConfigured: boolean
   fastModelConfigured: boolean
   // Global tab
@@ -99,6 +98,7 @@ export interface SettingsDrawerProps {
 export function SettingsDrawer({
   open,
   onClose,
+  openToTab,
   projectConfig,
   onProjectConfigChange,
   onSaveConfig,
@@ -107,10 +107,6 @@ export function SettingsDrawer({
   onDetectStack,
   deepAnalysisSchedule,
   onDeepAnalysisScheduleChange,
-  deepAnalysisStatus,
-  deepAnalysisRunning,
-  onRunDeepAnalysis,
-  onCancelDeepAnalysis,
   largeModelConfigured,
   fastModelConfigured,
   uiMode,
@@ -130,10 +126,23 @@ export function SettingsDrawer({
   onDestroyIndex,
   devTierOverride,
   onDevTierOverrideChange,
+  scrollToDeepAnalysis,
 }: SettingsDrawerProps) {
   const api = useApiClient()
   const [activeTab, setActiveTab] = useState<SettingsDrawerTab>('project')
   const [healthResult, setHealthResult] = useState<string>('No test run yet')
+
+  useEffect(() => {
+    if (open && openToTab) setActiveTab(openToTab)
+  }, [open, openToTab])
+
+  useEffect(() => {
+    if (open && scrollToDeepAnalysis) {
+      setTimeout(() => {
+        document.getElementById('settings-deep-analysis')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
+    }
+  }, [open, scrollToDeepAnalysis])
   const [confirmAction, setConfirmAction] = useState<'graph' | 'index' | null>(null)
 
   const handleConfirmedAction = useCallback(() => {
@@ -169,10 +178,10 @@ export function SettingsDrawer({
   ]
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-96 bg-surface border-l border-border shadow-lg flex flex-col">
+    <div className="fixed inset-y-0 right-0 z-50 w-[500px] bg-surface border-l border-border shadow-lg flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h2 className="text-sm font-semibold text-text flex items-center gap-2">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+        <h2 className="text-base font-semibold text-text flex items-center gap-2">
           <Settings className="w-4 h-4" />
           Settings
         </h2>
@@ -182,12 +191,12 @@ export function SettingsDrawer({
       </div>
 
       {/* Tab bar */}
-      <div className="flex border-b border-border shrink-0 px-4">
+      <div className="flex border-b border-border shrink-0 px-6">
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
-            className={`px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${
+            className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
               activeTab === t.key
                 ? 'border-primary text-text'
                 : 'border-transparent text-text-muted hover:text-text'
@@ -198,7 +207,7 @@ export function SettingsDrawer({
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto p-6 space-y-8">
         {/* ── Project tab ── */}
         {activeTab === 'project' && hasProject && (
           <>
@@ -210,49 +219,41 @@ export function SettingsDrawer({
               isDirty={configDirty}
               bare
             />
-            <div className="border-t border-border pt-4">
+            <div id="settings-deep-analysis" className="border-t border-border pt-6">
               <DeepAnalysisSettings
                 schedule={deepAnalysisSchedule}
                 onScheduleChange={onDeepAnalysisScheduleChange}
                 largeModelConfigured={largeModelConfigured}
                 fastModelConfigured={fastModelConfigured}
-                status={deepAnalysisStatus}
-                running={deepAnalysisRunning}
-                onRunNow={onRunDeepAnalysis}
-                onCancel={onCancelDeepAnalysis}
               />
             </div>
-            <div className="border-t border-border pt-4">
+            <div className="border-t border-border pt-6">
               <section>
-                <h3 className="text-xs font-medium text-error uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                  <Trash2 className="w-3.5 h-3.5" />
-                  Danger Zone
-                </h3>
-                <p className="text-xs text-text-muted mb-3">
+                <div className="flex items-center gap-2 mb-4">
+                  <Trash2 className="w-4 h-4 text-error" />
+                  <h3 className="text-sm font-semibold text-text">Danger Zone</h3>
+                </div>
+                <p className="text-xs text-text-muted mb-4">
                   These actions permanently delete project data and cannot be undone.
                 </p>
-                <div className="space-y-2">
-                  <div className="p-2 rounded border border-border bg-surface-raised">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-medium text-text">Reset Graph</p>
-                        <p className="text-xs text-text-muted">Deletes trace graph and all enrichment data. Embeddings and search remain intact.</p>
-                      </div>
-                      <Button variant="destructive" size="sm" onClick={() => setConfirmAction('graph')} className="shrink-0">
-                        Reset
-                      </Button>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 rounded border border-border bg-surface-raised flex flex-col justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-text">Reset Graph</p>
+                      <p className="text-xs text-text-muted mt-1">Deletes trace graph and all enrichment data.</p>
                     </div>
+                    <Button variant="destructive" size="sm" onClick={() => setConfirmAction('graph')} className="w-full">
+                      Reset
+                    </Button>
                   </div>
-                  <div className="p-2 rounded border border-error/30 bg-error/5">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-medium text-text">Full Reset</p>
-                        <p className="text-xs text-text-muted">Deletes everything: embeddings, search index, graph, and all enrichment. You will need to rebuild from scratch.</p>
-                      </div>
-                      <Button variant="destructive" size="sm" onClick={() => setConfirmAction('index')} className="shrink-0">
-                        Reset All
-                      </Button>
+                  <div className="p-3 rounded border border-error/30 bg-error/5 flex flex-col justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-text">Full Reset</p>
+                      <p className="text-xs text-text-muted mt-1">Deletes everything including search index.</p>
                     </div>
+                    <Button variant="destructive" size="sm" onClick={() => setConfirmAction('index')} className="w-full">
+                      Reset All
+                    </Button>
                   </div>
                 </div>
               </section>
@@ -268,39 +269,49 @@ export function SettingsDrawer({
           <>
             {/* Appearance */}
             <section>
-              <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                Appearance
-              </h3>
-              <div className="space-y-2">
-                <Select
-                  value={uiMode}
-                  onChange={(e) => onModeChange(e.target.value as 'light' | 'dark')}
-                  aria-label="Color Mode"
-                  size="sm"
-                  options={MODE_OPTIONS}
-                />
-                <Select
-                  value={uiTheme}
-                  onChange={(e) => onThemeChange(e.target.value)}
-                  aria-label="Visual Theme"
-                  size="sm"
-                  options={THEME_OPTIONS}
-                />
+              <div className="flex items-center gap-2 mb-4">
+                <Palette className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-semibold text-text">Appearance</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-text-subtle">Color Mode</label>
+                  <Select
+                    value={uiMode}
+                    onChange={(e) => onModeChange(e.target.value as 'light' | 'dark')}
+                    aria-label="Color Mode"
+                    size="sm"
+                    options={MODE_OPTIONS}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-text-subtle">Theme</label>
+                  <Select
+                    value={uiTheme}
+                    onChange={(e) => onThemeChange(e.target.value)}
+                    aria-label="Visual Theme"
+                    size="sm"
+                    options={THEME_OPTIONS}
+                  />
+                </div>
               </div>
             </section>
 
             {/* Background Image */}
             <section>
-              <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Background Image</h3>
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-border rounded cursor-pointer hover:bg-surface-raised transition-colors text-sm text-text-muted">
+              <div className="flex items-center gap-2 mb-4">
+                <ImageIcon className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-semibold text-text">Background Image</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 border border-dashed border-border rounded cursor-pointer hover:bg-surface-raised transition-colors text-sm text-text-muted">
                   <ImageIcon className="w-4 h-4" />
                   {bgImage ? 'Change image...' : 'Upload image...'}
                   <input type="file" accept="image/*" onChange={handleBgUpload} className="hidden" />
                 </label>
                 {bgImage && (
-                  <Button variant="ghost" size="sm" onClick={() => onBgImageChange(null)} className="w-full text-text-muted">
-                    Remove background
+                  <Button variant="ghost" size="sm" onClick={() => onBgImageChange(null)} className="text-text-muted">
+                    Remove
                   </Button>
                 )}
               </div>
@@ -308,32 +319,34 @@ export function SettingsDrawer({
 
             {/* License Key */}
             <section>
-              <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">License</h3>
-              <div className="space-y-2">
+              <div className="flex items-center gap-2 mb-4">
+                <Shield className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-semibold text-text">License</h3>
+              </div>
+              <div className="space-y-3">
                 {licenseStatus && (
-                  <div className="flex items-center gap-2 text-xs">
+                  <div className="flex items-center gap-2 text-xs p-2 rounded bg-surface-raised border border-border">
                     <Shield className="w-3.5 h-3.5 text-primary" />
-                    <span className="font-medium text-text capitalize">{licenseStatus.license.tier}</span>
+                    <span className="font-medium text-text capitalize">{licenseStatus.license.tier} Plan</span>
                     {licenseStatus.license.valid && (
-                      <span className="text-success text-[10px] bg-success/10 px-1.5 py-0.5 rounded">Active</span>
-                    )}
-                    {licenseStatus.license.email && (
-                      <span className="text-text-muted ml-auto truncate">{licenseStatus.license.email}</span>
+                      <span className="text-success text-[10px] bg-success/10 px-1.5 py-0.5 rounded ml-auto">Active</span>
                     )}
                   </div>
                 )}
+                
                 {devTierOverride && (
-                  <div className="text-xs text-warning bg-warning/10 px-2 py-1 rounded">
+                  <div className="text-xs text-warning bg-warning/10 px-2 py-1 rounded border border-warning/20">
                     Dev override active: <strong className="capitalize">{devTierOverride}</strong> tier
                   </div>
                 )}
+
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={licenseKeyInput}
                     onChange={(e) => onLicenseKeyInputChange(e.target.value)}
                     placeholder="Enter license key..."
-                    className="flex-1 text-xs px-2 py-1.5 rounded border border-border bg-background text-text placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="flex-1 text-xs px-3 py-1.5 rounded border border-border bg-background text-text placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                   <Button
                     variant="default"
@@ -344,27 +357,28 @@ export function SettingsDrawer({
                     {licenseLoading ? 'Activating...' : 'Activate'}
                   </Button>
                 </div>
+
                 {licenseStatus?.license.tier !== 'free' && !devTierOverride && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={onDeactivateLicense}
                     disabled={licenseLoading}
-                    className="w-full text-text-muted"
+                    className="w-full text-text-muted hover:text-error hover:bg-error/10"
                   >
                     Deactivate License
                   </Button>
                 )}
+
                 {licenseError && (
                   <p className="text-xs text-error">{licenseError}</p>
                 )}
+                
                 <p className="text-xs text-text-muted">
                   Purchase a license at <a href="https://codrag.io/pricing" target="_blank" rel="noreferrer" className="text-primary underline">codrag.io/pricing</a>.
-                  Keys are validated via Lemon Squeezy.
                 </p>
               </div>
             </section>
-
           </>
         )}
 
@@ -372,67 +386,84 @@ export function SettingsDrawer({
         {activeTab === 'developer' && (
           <>
             <section>
-              <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                <Key className="w-3.5 h-3.5" />
-                Tier Override
-              </h3>
-              <p className="text-xs text-text-muted mb-3">
-                Override the license tier for local development and testing.
-                This bypasses real license validation.
-              </p>
-              <Select
-                value={devTierOverride ?? ''}
-                onChange={(e) => {
-                  const val = e.target.value
-                  onDevTierOverrideChange(val ? val as LicenseTier : null)
-                }}
-                aria-label="Dev Tier Override"
-                size="sm"
-                options={DEV_TIER_OPTIONS}
-              />
-              {devTierOverride && (
-                <div className="mt-3 p-2 rounded border border-warning/30 bg-warning/5">
-                  <p className="text-xs text-warning font-medium">⚠ Development Mode</p>
-                  <p className="text-xs text-text-muted mt-1">
-                    The app is simulating <strong className="capitalize text-text">{devTierOverride}</strong> tier.
-                    Feature gates, project limits, and UI will behave as if this tier is active.
-                    This does not affect the backend license file.
-                  </p>
+              <div className="flex items-center gap-2 mb-4">
+                <Key className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-semibold text-text">Tier Override</h3>
+              </div>
+              <div className="grid grid-cols-1 gap-3">
+                <p className="text-xs text-text-muted">
+                  Override the license tier for local development and testing.
+                </p>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={devTierOverride ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      onDevTierOverrideChange(val ? val as LicenseTier : null)
+                    }}
+                    aria-label="Dev Tier Override"
+                    size="sm"
+                    options={DEV_TIER_OPTIONS}
+                    className="flex-1"
+                  />
                 </div>
-              )}
+                {devTierOverride && (
+                  <div className="p-3 rounded border border-warning/30 bg-warning/5">
+                    <p className="text-xs text-warning font-medium">⚠ Development Mode Active</p>
+                    <p className="text-xs text-text-muted mt-1">
+                      Simulating <strong className="capitalize text-text">{devTierOverride}</strong> tier.
+                    </p>
+                  </div>
+                )}
+              </div>
             </section>
 
             <section>
-              <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Current License State</h3>
-              <div className="text-xs font-mono bg-background p-2 rounded border border-border space-y-1">
-                <p><strong className="text-text">Tier:</strong> <span className="text-text-muted capitalize">{licenseStatus?.license.tier ?? 'unknown'}</span></p>
-                <p><strong className="text-text">Valid:</strong> <span className="text-text-muted">{licenseStatus?.license.valid ? 'Yes' : 'No'}</span></p>
-                <p><strong className="text-text">Override:</strong> <span className="text-text-muted">{devTierOverride ?? 'None'}</span></p>
-                <p><strong className="text-text">Effective:</strong> <span className="text-primary capitalize">{devTierOverride ?? licenseStatus?.license.tier ?? 'free'}</span></p>
-                {licenseStatus?.license.email && (
-                  <p><strong className="text-text">Email:</strong> <span className="text-text-muted">{licenseStatus.license.email}</span></p>
-                )}
-                {licenseStatus?.license.expires_at && (
-                  <p><strong className="text-text">Expires:</strong> <span className="text-text-muted">{licenseStatus.license.expires_at}</span></p>
-                )}
+              <div className="flex items-center gap-2 mb-4">
+                <ClipboardCheck className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-semibold text-text">License Details</h3>
+              </div>
+              <div className="text-xs font-mono bg-background p-3 rounded border border-border space-y-1.5">
+                <div className="grid grid-cols-[80px_1fr] gap-x-2">
+                  <strong className="text-text">Tier:</strong> 
+                  <span className="text-text-muted capitalize">{licenseStatus?.license.tier ?? 'unknown'}</span>
+                  
+                  <strong className="text-text">Valid:</strong> 
+                  <span className="text-text-muted">{licenseStatus?.license.valid ? 'Yes' : 'No'}</span>
+                  
+                  <strong className="text-text">Override:</strong> 
+                  <span className="text-text-muted">{devTierOverride ?? 'None'}</span>
+                  
+                  <strong className="text-text">Effective:</strong> 
+                  <span className="text-primary capitalize">{devTierOverride ?? licenseStatus?.license.tier ?? 'free'}</span>
+                  
+                  {licenseStatus?.license.email && (
+                    <>
+                      <strong className="text-text">Email:</strong> 
+                      <span className="text-text-muted truncate">{licenseStatus.license.email}</span>
+                    </>
+                  )}
+                </div>
               </div>
             </section>
 
             {/* Connection Debugger */}
             <section>
-              <h3 className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">Connection Debugger</h3>
-              <div className="space-y-2 text-xs font-mono">
+              <div className="flex items-center gap-2 mb-4">
+                <Activity className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-semibold text-text">Connection Debugger</h3>
+              </div>
+              <div className="space-y-3">
                 <Button variant="outline" size="sm" onClick={runHealthTest} className="w-full">
-                  Test /health
+                  Test /health Endpoint
                 </Button>
-                <div className="bg-background p-2 rounded border border-border">
+                <div className="bg-background p-3 rounded border border-border font-mono text-xs">
                   <pre className="whitespace-pre-wrap break-all text-text">{healthResult}</pre>
                 </div>
-                <div className="space-y-1 text-text-muted">
-                  <p><strong className="text-text">Origin:</strong> {window.location.origin}</p>
+                <div className="grid grid-cols-[60px_1fr] gap-x-2 text-xs text-text-muted">
+                  <strong className="text-text">Origin:</strong> {window.location.origin}
                   {/* @ts-ignore */}
-                  <p><strong className="text-text">API URL:</strong> {api.baseUrl || '(hidden)'}</p>
-                  <p><strong className="text-text">UA:</strong> {navigator.userAgent.slice(0, 60)}...</p>
+                  <strong className="text-text">API:</strong> {api.baseUrl || '(hidden)'}
                 </div>
               </div>
             </section>

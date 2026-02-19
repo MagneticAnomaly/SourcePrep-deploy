@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import Script from 'next/script';
 import { Inter, JetBrains_Mono, Playfair_Display, Space_Mono, IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
 
 import '@codrag/ui/styles';
@@ -24,10 +25,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" data-codrag-theme="k" className={`${inter.variable} ${jetbrainsMono.variable} ${playfair.variable} ${spaceMono.variable} ${ibmPlexSans.variable} ${ibmPlexMono.variable}`}>
       <body className="flex flex-col min-h-screen bg-background text-text selection:bg-primary/20 font-sans">
-        {/* 
-          TODO: Analytics (Plausible/Umami)
-          <script defer data-domain="codrag.io" src="https://plausible.io/js/script.js"></script>
-        */}
+        <Script src="https://plausible.io/js/pa-EyiWunLuXsVDCxYAfsQ6-.js" strategy="afterInteractive" />
+        <Script id="plausible-init" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init()` }} />
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>

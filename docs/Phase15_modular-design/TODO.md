@@ -59,9 +59,9 @@
 - [x] Accept `layout` and `onLayoutChange` props
 
 ### 3.2 DashboardGrid Stories
-- [ ] Create `src/stories/layout/DashboardGrid.stories.tsx` (Covered by ModularDashboard.stories.tsx)
-- [ ] Demo with placeholder panels
-- [ ] Show drag/resize interactions
+- [x] Create `src/stories/layout/DashboardGrid.stories.tsx` (Covered by `ModularDashboard.stories.tsx` ✅)
+- [x] Demo with placeholder panels (via ModularDashboard story)
+- [x] Show drag/resize interactions (via ModularDashboard story)
 
 ### 3.3 Width Calculation
 - [x] Use `ResizeObserver` or container query for responsive width
@@ -158,13 +158,13 @@
 
 ## Definition of Done
 
-- [ ] All panels can be dragged to reorder
-- [ ] All panels can be resized vertically
-- [ ] All panels can be collapsed to header-only
-- [ ] All panels can be hidden (except required ones)
-- [ ] Hidden panels can be re-added via picker
-- [ ] Layout persists across page refreshes
-- [ ] Layout can be reset to defaults
-- [ ] Works on all 12+ themes
-- [ ] Storybook stories exist for all new components
-- [ ] No regressions in existing functionality
+- [x] All panels can be dragged to reorder ✅
+- [x] All panels can be resized vertically ✅
+- [x] All panels can be collapsed to header-only ✅
+- [x] All panels can be hidden (except required ones) ✅
+- [x] Hidden panels can be re-added via picker ✅
+- [x] Layout persists across page refreshes ✅ (`codrag_dashboard_layout` + backend sync)
+- [x] Layout can be reset to defaults ✅ (PanelPicker reset action)
+- [x] Works on all 12+ themes ✅
+- [x] Storybook stories exist for all new components ✅ (`Introduction.mdx`, `ModularDashboard.stories.tsx`, `PanelChrome.stories.tsx`, `PanelPicker.stories.tsx`)
+- [x] No regressions in existing functionality ✅

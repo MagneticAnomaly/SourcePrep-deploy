@@ -16,7 +16,7 @@
 
 ## Target: awesome-rust (Applications/DevTools)
 **Entry Format:**
-`* [CoDRAG](LINK) - A structural code context engine using Tree-sitter and petgraph.`
+`* [CoDRAG](LINK) - A structural code context engine using Tree-sitter and a custom Rust dependency graph.`
 
 ## Tone
 Objective, concise. No marketing fluff.

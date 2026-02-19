@@ -90,13 +90,23 @@ users buy a Lemon Squeezy license to unlock Pro features. Apple will reject it.
 
 | Option | Pros | Cons |
 |:---|:---|:---|
-| **C1: IAP on App Store** | Full compliance, discovery | 15–30% commission, must maintain two payment systems (IAP + Lemon Squeezy), duplicate entitlement logic |
-| **C2: Free-only on App Store** | Discovery, trust signal | Free tier only — no revenue from this channel, can't even hint at upgrades (Guideline 3.1.3(f) requires zero purchase CTAs) |
-| **C3: Skip App Store entirely** | Simple, one payment system | Lose discoverability (but most dev tools skip the Mac App Store anyway) |
+| **C1: IAP on App Store** | Full compliance, discovery | 15–30% commission, two payment systems, duplicate entitlement logic |
+| **C2: Free-only on App Store** | Discovery, trust signal | No revenue; zero purchase CTAs allowed (Guideline 3.1.3(f)) |
+| **C3: Skip App Store entirely** | Simple, one payment system | Lose discoverability (most dev tools skip MAS anyway) |
+| **C4: Two separate apps — "CoDRAG" (free) + "CoDRAG Pro" ($84.99 paid-upfront)** | No IAP complexity, no license key, Apple handles billing, no Lemon Squeezy cut | Two App Store listings to maintain; App Sandbox still applies to both |
 
-**Recommendation: Option C3 (Skip) for launch.** Direct download with notarization
-provides a smooth macOS UX. Revisit if App Store presence becomes a measurable
-acquisition channel. If pursued later, use Option C1 (IAP) — never C2.
+**Recommendation: Option C4 if/when Mac App Store is pursued.** Shipping a separate
+paid-upfront "CoDRAG Pro" app is fully compliant — the license key prohibition only
+applies to unlocking features inside a free app via external payment. A paid-upfront
+app has no license mechanism at all: `CODRAG_TIER=pro` is baked in at build time,
+Apple's purchase receipt tied to the user's Apple ID is the "license", and the app
+optionally verifies the StoreKit receipt to prevent side-loading. No Lemon Squeezy,
+no api.codrag.io, no machine activation limits — Apple handles all of it.
+
+**Tiers on Apple:** Free app (free tier only) + Pro app ($84.99). **No Starter tier** —
+the 4-month pass model doesn't map cleanly to a paid-upfront App Store app.
+
+**For launch: Option C3 (Skip).** Revisit as C4 after direct download is stable.
 
 **Precedent:** JetBrains, Sublime Text, Docker Desktop, Tower (partially), TablePlus
 (partially) — all use direct download + license key as primary. Only some also offer
@@ -226,26 +236,30 @@ Business Checking Account (Mercury / Chase)
 Same flow as Channel A. Microsoft does not take a commission on externally
 processed transactions for non-game desktop apps.
 
-### Mac App Store (Channel C) — IF EVER PURSUED via IAP
+### Mac App Store (Channel C) — IF EVER PURSUED via Paid-Upfront Two-App Model (C4)
 
 ```
-Customer pays $79 (Pro via IAP)
+Customer pays $84.99 ("CoDRAG Pro" paid-upfront app)
         │
         ▼
-Apple collects $79
+Apple collects $84.99
         │
-        ├── Apple commission: 15% ($11.85) — Small Business Program
-        │   (or 30% / $23.70 if revenue > $1M/year)
+        ├── Apple commission: 15% ($12.75) — Small Business Program
+        │   (or 30% / $25.50 if revenue > $1M/year from App Store)
         │
         ▼
-Net payout to Magnetic Anomaly LLC: ~$67.15
+Net payout to Magnetic Anomaly LLC: ~$72.24 (15%) or ~$59.49 (30%)
         │
         ▼
 Business Checking Account
 ```
 
-Note: This channel requires a completely separate payment/entitlement flow
-(StoreKit), cannot use Lemon Squeezy, and adds significant implementation cost.
+**Price rationale:** $84.99 at 15% Small Business rate nets ~$72.24 — nearly identical
+to the $72.85 net from a $79 direct sale via Lemon Squeezy.
+
+Note: No Lemon Squeezy, no api.codrag.io, no machine activation logic — Apple handles
+all payment and receipt validation. Implementation cost is a build flag + optional
+StoreKit receipt check. The real cost is App Sandbox compliance testing.
 
 ---
 
@@ -356,7 +370,7 @@ All tiers are Lemon Squeezy products. Enterprise may involve manual invoicing.
 | **Banking** | Mercury or Chase | Single business checking account |
 | **Payments (MoR)** | Lemon Squeezy | Handles tax, compliance, refunds |
 | **License Generation** | api.codrag.io (serverless) | Ed25519 signing on webhook receipt |
-| **Hosting (website)** | Vercel | codrag.io, docs.codrag.io, payments.codrag.io |
+| **Hosting (website)** | Netlify | codrag.io, docs.codrag.io, support.codrag.io, payments.codrag.io (free tier, commercial OK) |
 | **Hosting (releases)** | GitHub Releases | DMG, MSI, checksums |
 | **DNS** | Cloudflare | Edge caching, redirects |
 | **Accounting** | Xero or QuickBooks | Syncs with bank; tag revenue by channel |

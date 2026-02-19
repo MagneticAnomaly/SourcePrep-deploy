@@ -1,12 +1,15 @@
 import { cn } from '../../lib/utils';
-import { Button } from '../primitives/Button';
 import { Select } from '../primitives/Select';
 import { StepperNumberInput } from '../primitives/StepperNumberInput';
-import { Brain, Calendar, Clock, Gauge, Play, Info, AlertTriangle, CheckCircle, Square, Loader2 } from 'lucide-react';
+import { Brain, Calendar, Gauge, Info, Zap } from 'lucide-react';
 
 export interface DeepAnalysisSchedule {
-  mode: 'manual' | 'threshold' | 'scheduled';
+  mode: 'manual' | 'auto' | 'scheduled';
+  /** Whether the threshold trigger is active (scheduled mode) */
+  schedule_threshold_enabled?: boolean;
   threshold_percent?: number;
+  /** Whether the time-based trigger is active (scheduled mode) */
+  schedule_time_enabled?: boolean;
   frequency?: 'daily' | 'weekly' | 'biweekly' | 'monthly';
   day_of_week?: number;
   hour?: number;
@@ -35,19 +38,15 @@ export interface DeepAnalysisStatus {
 export interface DeepAnalysisSettingsProps {
   schedule: DeepAnalysisSchedule;
   onScheduleChange: (schedule: DeepAnalysisSchedule) => void;
-  status?: DeepAnalysisStatus;
   largeModelConfigured?: boolean;
   fastModelConfigured?: boolean;
-  onRunNow?: () => void;
-  onCancel?: () => void;
-  running?: boolean;
   className?: string;
 }
 
 const MODE_OPTIONS = [
-  { value: 'manual', label: 'Manual only (run from dashboard)' },
-  { value: 'threshold', label: 'After major changes' },
-  { value: 'scheduled', label: 'Scheduled' },
+  { value: 'manual', label: 'Manual — run from dashboard' },
+  { value: 'auto', label: 'Auto — continuous after Fast Sync' },
+  { value: 'scheduled', label: 'Scheduled — time or threshold' },
 ];
 
 const FREQUENCY_OPTIONS = [
@@ -77,53 +76,11 @@ const PRIORITY_OPTIONS = [
   { value: 'highest_connectivity', label: 'Most-connected first' },
 ];
 
-function formatDate(iso?: string): string {
-  if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-    });
-  } catch {
-    return iso;
-  }
-}
-
-function formatNumber(n?: number): string {
-  if (n == null) return '—';
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-  return String(n);
-}
-
-const STOP_REASON_MAP: Record<string, { label: string; color: string; Icon: typeof CheckCircle }> = {
-  complete: { label: 'Session complete', color: 'text-emerald-400', Icon: CheckCircle },
-  empty_queue: { label: 'Queue empty', color: 'text-emerald-400', Icon: CheckCircle },
-  budget_tokens: { label: 'Token budget reached', color: 'text-amber-400', Icon: AlertTriangle },
-  budget_time: { label: 'Time budget reached', color: 'text-amber-400', Icon: AlertTriangle },
-  budget_items: { label: 'Item limit reached', color: 'text-amber-400', Icon: AlertTriangle },
-  cancelled: { label: 'Cancelled by user', color: 'text-text-muted', Icon: Square },
-};
-
-function StopReasonBadge({ reason }: { reason: string }) {
-  const info = STOP_REASON_MAP[reason];
-  if (!info) return <span className="text-text-muted text-xs">{reason}</span>;
-  const { label, color, Icon } = info;
-  return (
-    <span className={`inline-flex items-center gap-1 text-xs font-medium ${color}`}>
-      <Icon className="w-3 h-3" />
-      {label}
-    </span>
-  );
-}
-
 export function DeepAnalysisSettings({
   schedule,
   onScheduleChange,
-  status,
   largeModelConfigured = false,
   fastModelConfigured = false,
-  onRunNow,
-  onCancel,
-  running = false,
   className,
 }: DeepAnalysisSettingsProps) {
   const update = (patch: Partial<DeepAnalysisSchedule>) =>
@@ -132,15 +89,14 @@ export function DeepAnalysisSettings({
   return (
     <div className={cn('space-y-6', className)}>
       {/* Header */}
-      <div className="flex items-start gap-3">
-        <Brain className="w-5 h-5 text-purple-400 mt-0.5 shrink-0" />
-        <div>
-          <h3 className="text-sm font-semibold text-text">Deep Analysis</h3>
-          <p className="text-xs text-text-muted mt-0.5">
-            Reasoning model validates augmentations and builds codebase ontology.
-            Uses <strong>Tier 0 (ground truth)</strong> evidence only — no hallucination risk.
-          </p>
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <Brain className="w-4 h-4 text-purple-400" />
+          <h3 className="text-sm font-semibold text-text">Deep Enrichment Strategy</h3>
         </div>
+        <p className="text-xs text-text-muted mb-4">
+          Configures when Stages 5–8 run — epistemic enrichment, deepening, and knowledge synthesis.
+        </p>
       </div>
 
       {/* Model requirement warning */}
@@ -161,10 +117,10 @@ export function DeepAnalysisSettings({
         </div>
       )}
 
-      {/* Schedule mode */}
+      {/* Mode selector */}
       <section className="space-y-3">
         <h4 className="text-xs font-medium text-text-muted uppercase tracking-wide flex items-center gap-1.5">
-          <Calendar className="w-3.5 h-3.5" /> Schedule
+          <Calendar className="w-3.5 h-3.5" /> Trigger Mode
         </h4>
         <Select
           value={schedule.mode}
@@ -174,60 +130,108 @@ export function DeepAnalysisSettings({
           disabled={!largeModelConfigured && !fastModelConfigured}
         />
 
-        {schedule.mode === 'threshold' && (
-          <div className="space-y-1.5 pl-1">
-            <label className="text-xs text-text-muted">
-              Trigger when &gt; <strong>{schedule.threshold_percent ?? 20}%</strong> of files changed
-            </label>
-            <StepperNumberInput
-              value={schedule.threshold_percent ?? 20}
-              onValueChange={(v) => update({ threshold_percent: v })}
-              min={5}
-              max={80}
-              step={5}
-              disabled={!largeModelConfigured && !fastModelConfigured}
-            />
+        {/* Auto: brief hint */}
+        {schedule.mode === 'auto' && (
+          <div className="flex gap-2 p-2 rounded-md bg-purple-500/10 border border-purple-500/20 text-purple-400">
+            <Zap className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span className="text-xs">Runs automatically after every Fast Sync. Ideal for Ollama / local models.</span>
           </div>
         )}
 
-        {schedule.mode === 'scheduled' && (
-          <div className="space-y-3 pl-1">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <label className="text-xs text-text-muted">Frequency</label>
-                <Select
-                  value={schedule.frequency ?? 'weekly'}
-                  onChange={(e) => update({ frequency: e.target.value as DeepAnalysisSchedule['frequency'] })}
-                  options={FREQUENCY_OPTIONS}
-                  size="sm"
-                  disabled={!largeModelConfigured && !fastModelConfigured}
-                />
-              </div>
-              {(schedule.frequency ?? 'weekly') !== 'daily' && (
-                <div className="space-y-1">
-                  <label className="text-xs text-text-muted">Day</label>
-                  <Select
-                    value={String(schedule.day_of_week ?? 0)}
-                    onChange={(e) => update({ day_of_week: Number(e.target.value) })}
-                    options={DAY_OPTIONS}
-                    size="sm"
-                    disabled={!largeModelConfigured && !fastModelConfigured}
+        {/* Scheduled: threshold first, then time-based — checkboxes prevent both off */}
+        {schedule.mode === 'scheduled' && (() => {
+          const threshEnabled = schedule.schedule_threshold_enabled !== false;
+          const timeEnabled = schedule.schedule_time_enabled !== false;
+          const disabled = !largeModelConfigured && !fastModelConfigured;
+          const toggleThresh = () => {
+            if (threshEnabled && !timeEnabled) return;
+            update({ schedule_threshold_enabled: !threshEnabled });
+          };
+          const toggleTime = () => {
+            if (timeEnabled && !threshEnabled) return;
+            update({ schedule_time_enabled: !timeEnabled });
+          };
+          return (
+            <div className="space-y-3 pt-1">
+              {/* Threshold trigger */}
+              <div className="rounded border border-border p-3 space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={threshEnabled}
+                    onChange={toggleThresh}
+                    disabled={disabled}
+                    className="accent-purple-500 w-3.5 h-3.5"
+                  />
+                  <span className="text-xs font-medium text-text">Threshold — when files change</span>
+                </label>
+                <div className={cn('space-y-1 pl-5', !threshEnabled && 'opacity-50 pointer-events-none')}>
+                  <label className="text-xs text-text-muted">
+                    Trigger when &gt; <strong>{schedule.threshold_percent ?? 20}%</strong> of files changed
+                  </label>
+                  <StepperNumberInput
+                    value={schedule.threshold_percent ?? 20}
+                    onValueChange={(v) => update({ threshold_percent: v })}
+                    min={5}
+                    max={80}
+                    step={5}
+                    disabled={!threshEnabled || disabled}
                   />
                 </div>
-              )}
+              </div>
+
+              {/* Time-based trigger */}
+              <div className="rounded border border-border p-3 space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={timeEnabled}
+                    onChange={toggleTime}
+                    disabled={disabled}
+                    className="accent-purple-500 w-3.5 h-3.5"
+                  />
+                  <span className="text-xs font-medium text-text">Schedule — time-based</span>
+                </label>
+                <div className={cn('space-y-2 pl-5', !timeEnabled && 'opacity-50 pointer-events-none')}>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-xs text-text-muted">Frequency</label>
+                        <Select
+                          value={schedule.frequency ?? 'weekly'}
+                          onChange={(e) => update({ frequency: e.target.value as DeepAnalysisSchedule['frequency'] })}
+                          options={FREQUENCY_OPTIONS}
+                          size="sm"
+                          disabled={!timeEnabled || disabled}
+                        />
+                      </div>
+                      {(schedule.frequency ?? 'weekly') !== 'daily' && (
+                        <div className="space-y-1">
+                          <label className="text-xs text-text-muted">Day</label>
+                          <Select
+                            value={String(schedule.day_of_week ?? 0)}
+                            onChange={(e) => update({ day_of_week: Number(e.target.value) })}
+                            options={DAY_OPTIONS}
+                            size="sm"
+                            disabled={!timeEnabled || disabled}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-text-muted">Time</label>
+                      <Select
+                        value={String(schedule.hour ?? 2)}
+                        onChange={(e) => update({ hour: Number(e.target.value) })}
+                        options={HOUR_OPTIONS}
+                        size="sm"
+                        disabled={!timeEnabled || disabled}
+                      />
+                    </div>
+                  </div>
+              </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs text-text-muted">Time</label>
-              <Select
-                value={String(schedule.hour ?? 2)}
-                onChange={(e) => update({ hour: Number(e.target.value) })}
-                options={HOUR_OPTIONS}
-                size="sm"
-                disabled={!largeModelConfigured && !fastModelConfigured}
-              />
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </section>
 
       {/* Budget controls */}
@@ -262,16 +266,6 @@ export function DeepAnalysisSettings({
             {schedule.budget_enabled ? 'Budget limits enabled (recommended for BYOK / cloud)' : 'No limits (recommended for Ollama / local)'}
           </span>
         </label>
-
-        {!schedule.budget_enabled && (
-          <div className="flex gap-2 p-2.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400">
-            <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-            <span className="text-xs">
-              Budget limits are <strong>disabled</strong>. Analysis will run until the queue is empty or manually stopped.
-              Recommended when running local models via Ollama — no cost per token.
-            </span>
-          </div>
-        )}
 
         {schedule.budget_enabled && (
           <div className="space-y-3">
@@ -323,114 +317,6 @@ export function DeepAnalysisSettings({
           disabled={!largeModelConfigured && !fastModelConfigured}
         />
       </section>
-
-      {/* Status */}
-      {status && (
-        <section className="space-y-2">
-          <h4 className="text-xs font-medium text-text-muted uppercase tracking-wide flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5" /> Status
-          </h4>
-          <div className="rounded-md border border-border bg-surface-raised p-3 space-y-1.5 text-xs">
-            <div className="flex justify-between">
-              <span className="text-text-muted">Last run</span>
-              <span className="text-text font-medium">
-                {formatDate(status.last_run_at)}
-                {status.last_run_items != null && ` — ${status.last_run_items} items`}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-text-muted">Tokens used</span>
-              <span className="text-text font-medium">{formatNumber(status.last_run_tokens)}</span>
-            </div>
-            {status.stop_reason && (
-              <div className="flex justify-between items-center">
-                <span className="text-text-muted">Stopped because</span>
-                <StopReasonBadge reason={status.stop_reason} />
-              </div>
-            )}
-            {schedule.mode !== 'manual' && (
-              <div className="flex justify-between">
-                <span className="text-text-muted">Next run</span>
-                <span className="text-text font-medium">{formatDate(status.next_run_at)}</span>
-              </div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-text-muted">Validation queue</span>
-              <span className="text-text font-medium">
-                {formatNumber(status.queue_size)} items
-                {status.avg_confidence != null && status.avg_confidence > 0 && (
-                  <span className="text-text-subtle ml-1">(avg conf: {(status.avg_confidence * 100).toFixed(0)}%)</span>
-                )}
-              </span>
-            </div>
-          </div>
-
-          {/* Actionable hint when budget was exhausted */}
-          {status.budget_exhausted && (status.queue_remaining ?? 0) > 0 && (
-            <div className="flex gap-2 p-2.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-              <span className="text-xs">
-                {formatNumber(status.queue_remaining)} items remain. Run again or increase the budget to continue.
-              </span>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* Running progress */}
-      {running && status && (
-        <section className="space-y-2">
-          <h4 className="text-xs font-medium text-text-muted uppercase tracking-wide flex items-center gap-1.5">
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-400" /> Running
-          </h4>
-          <div className="rounded-md border border-purple-500/30 bg-purple-500/5 p-3 space-y-2">
-            <div className="flex justify-between text-xs">
-              <span className="text-text-muted">Progress</span>
-              <span className="text-text font-medium">
-                {status.progress_current ?? 0} / {status.progress_total ?? '?'} items
-              </span>
-            </div>
-            <div className="h-1.5 rounded-full bg-surface overflow-hidden">
-              <div
-                className="h-full rounded-full bg-purple-500 transition-all duration-500 ease-out"
-                style={{ width: `${Math.min(status.progress_pct ?? 0, 100)}%` }}
-              />
-            </div>
-            <div className="text-right text-[10px] text-text-subtle">
-              {(status.progress_pct ?? 0).toFixed(0)}%
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Run / Stop buttons */}
-      {onRunNow && (
-        <div className="flex gap-2">
-          {running ? (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={onCancel}
-              disabled={!onCancel}
-              className="w-full"
-            >
-              <Square className="w-3.5 h-3.5 mr-1.5" />
-              Stop Deep Analysis
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onRunNow}
-              disabled={!largeModelConfigured && !fastModelConfigured}
-              className="w-full"
-            >
-              <Play className="w-3.5 h-3.5 mr-1.5" />
-              Run Deep Analysis Now
-            </Button>
-          )}
-        </div>
-      )}
     </div>
   );
 }

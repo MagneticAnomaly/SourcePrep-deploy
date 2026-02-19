@@ -1,0 +1,10 @@
+[build]
+  base    = "websites/apps/docs"
+  command = "cd ../../.. && npx turbo run build --filter=@codrag/docs"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

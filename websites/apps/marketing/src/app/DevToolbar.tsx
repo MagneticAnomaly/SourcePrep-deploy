@@ -6,7 +6,7 @@ type ThemeId = 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j' | 'k' |
 
 type HeroVariant = 'centered' | 'split' | 'neo' | 'swiss' | 'glass' | 'retro' | 'studio' | 'yale' | 'focus' | 'enterprise';
 
-// Active themes (web = Focus, app-only = Retro)
+// Active themes (web = Focus, app-only = Retro x3)
 // All others are LEGACY — kept for reference, not exposed in UI
 const THEME_LABELS: Record<ThemeId, string> = {
   a: 'A — Default (legacy)',
@@ -16,14 +16,20 @@ const THEME_LABELS: Record<ThemeId, string> = {
   e: 'E — Neo-Brutalist (legacy)',
   f: 'F — Swiss Minimal (legacy)',
   g: 'G — Glass (legacy)',
-  h: 'H — Retro (app-only)',
+  h: 'H — Retro: Synthwave',
   i: 'I — Studio (legacy)',
   j: 'J — Yale (legacy)',
   k: 'K — Focus ✓',
   l: 'L — Enterprise (legacy)',
-  m: 'M — Neon (legacy)',
-  n: 'N — Mono (legacy)',
+  m: 'M — Retro: Aurora',
+  n: 'N — Retro: Mirage',
 };
+
+const RETRO_THEMES: { id: ThemeId; label: string; sub: string }[] = [
+  { id: 'h', label: 'Synth', sub: 'Pink/Purple' },
+  { id: 'm', label: 'Aurora', sub: 'Cyan/Blue' },
+  { id: 'n', label: 'Mirage', sub: 'Purple/Teal' },
+];
 
 const HERO_VARIANTS: HeroVariant[] = [
   'centered', 'split', 'neo', 'swiss', 'glass',
@@ -157,20 +163,39 @@ export function DevToolbar() {
           </div>
 
           <div className="p-3 space-y-3 max-h-[60vh] overflow-y-auto">
-            {/* Theme selector — hidden; Focus (K) is the web default.
-               Retro (H) is app-only via settings. Legacy themes kept in code. */}
-            {/* <div>
-              <label className="block text-gray-400 mb-1">Theme Direction</label>
-              <select
-                value={currentTheme}
-                onChange={(e) => applyTheme(e.target.value as ThemeId)}
-                className="w-full bg-gray-800 text-white border border-gray-600 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500"
-              >
-                {(Object.entries(THEME_LABELS) as [ThemeId, string][]).map(([id, label]) => (
-                  <option key={id} value={id}>{label}</option>
+            {/* Retro theme picker — h/m/n all render the RetroHero, just with different palettes */}
+            <div>
+              <label className="block text-gray-400 mb-1">Retro Theme</label>
+              <div className="flex gap-1">
+                {RETRO_THEMES.map(({ id, label, sub }) => (
+                  <button
+                    key={id}
+                    onClick={() => applyTheme(id)}
+                    className={`flex-1 px-1.5 py-1.5 rounded border transition-colors text-center ${
+                      currentTheme === id
+                        ? 'bg-purple-700 border-purple-500 text-white'
+                        : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'
+                    }`}
+                    title={THEME_LABELS[id]}
+                  >
+                    <div className="text-[10px] font-bold">{label}</div>
+                    <div className="text-[9px] text-gray-400">{sub}</div>
+                  </button>
                 ))}
-              </select>
-            </div> */}
+                <button
+                  onClick={() => applyTheme('k')}
+                  className={`flex-1 px-1.5 py-1.5 rounded border transition-colors text-center ${
+                    currentTheme === 'k'
+                      ? 'bg-blue-700 border-blue-500 text-white'
+                      : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'
+                  }`}
+                  title="K — Focus (web default)"
+                >
+                  <div className="text-[10px] font-bold">Focus</div>
+                  <div className="text-[9px] text-gray-400">Default</div>
+                </button>
+              </div>
+            </div>
 
             {/* Hero variant selector */}
             <div>

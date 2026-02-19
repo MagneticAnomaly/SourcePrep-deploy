@@ -12,8 +12,7 @@ I switched to Windsurf recently and love the flow, but I noticed Cascade sometim
 I realized it needed a **structural map**, not just text search.
 
 ### What I built
-I built **CoDRAG** (Code Retrieval Augmented Generation... naming is hard, lol).
-It's a local desktop app that indexes your code using Tree-sitter. It knows that `class B` inherits from `class A`, even if they are in different folders.
+I built **CoDRAG**, a local desktop app that indexes your code using Tree-sitter. It knows that `class B` inherits from `class A`, even if they're in different folders.
 
 ### The MCP Connection
 Since Windsurf supports MCP, I hooked CoDRAG up to it. Now I can just say "Refactor the Auth logic," and CoDRAG feeds Cascade the exact dependency tree.

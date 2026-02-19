@@ -1,15 +1,19 @@
 # Copy Preparation & Execution Hub
 
-This directory contains the specific marketing copy, angles, and research notes for every prioritized channel.
+This directory contains the marketing copy and channel strategy for every prioritized channel.
 
-## How to use this folder
+## Each channel folder contains
 
-1.  **Pick a Phase** from the `PRIORITY_CHANNELS.md` plan.
-2.  **Open the corresponding Tier folder** below.
-3.  **Read `angle.md`** to understand the strategy for that specific channel.
-4.  **Open `post-draft.md`** to get the copy.
-    *   *Note: These are drafts. You must customize the `[Links]` and review against current community rules before posting.*
-5.  **Update `status.md`** to track your progress.
+- **`angle.md`** — Channel-specific strategy: audience, pillars, format, business objective.
+- **`post-draft.md`** — Polished, benefit-led copy variant (structured, strategic).
+- **`post-organic.md`** — Personal, story-driven copy variant ("we built this because we needed it").
+
+## How to use
+
+1.  Pick a Tier and open the channel folder.
+2.  Read `angle.md` for context on *why* this channel and *what* to lead with.
+3.  Choose `post-draft.md` (strategic) or `post-organic.md` (personal) based on your posting style.
+4.  **Before posting:** fill in all `[Link]` placeholders, verify community rules are still current, and check that referenced features are live.
 
 ## Directory Structure
 
@@ -45,6 +49,5 @@ This directory contains the specific marketing copy, angles, and research notes 
 - `medium-publications` - Syndication pitches.
 
 ## Reference Docs
-- `../PRIORITY_CHANNELS.md` - The strategic reasoning behind these choices.
-- `../RESEARCH_FRAMEWORK.md` - The generic process for finding *new* channels.
-- `../COPY_DECK.md` - The core messaging pillars used in these drafts.
+- `../PRIORITY_CHANNELS.md` — Strategic reasoning, messaging pillars (M1–M5), and phased rollout plan.
+- `../RESEARCH_FRAMEWORK.md` — Repeatable process for evaluating new channels.

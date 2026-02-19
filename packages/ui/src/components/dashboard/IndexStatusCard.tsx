@@ -156,7 +156,7 @@ export function IndexStatusCard({
                   ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20" // Initialize style
                   : stale
                     ? "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
-                    : "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                    : "border-success/40 bg-success/10 text-success hover:bg-success/20"
             )}
           >
             {building ? (
@@ -201,7 +201,7 @@ export function IndexStatusCard({
             <span className="text-text-muted">Code</span>
           </div>
           <div className="flex items-center gap-2 py-1" title="Instructions chunks (.md, docs, plans, research)">
-            <BookOpen className="w-4 h-4 text-emerald-400 shrink-0" />
+            <BookOpen className="w-4 h-4 text-success shrink-0" />
             <span className="font-semibold text-text tabular-nums w-10 text-right">{formatNumber(stats.build?.chunks_docs ?? 0)}</span>
             <span className="text-text-muted">Docs</span>
           </div>
@@ -227,7 +227,7 @@ export function IndexStatusCard({
                 {hasLineBreakdown && !useChunks && <span className="opacity-60">({formatNumber(codeValue)} lines)</span>}
               </span>
               <span className="flex items-center gap-1.5">
-                <BookOpen className="w-3 h-3 text-emerald-500" />
+                <BookOpen className="w-3 h-3 text-success" />
                 Docs {Math.round(docsPercent)}%
                 {hasLineBreakdown && !useChunks && <span className="opacity-60">({formatNumber(docsValue)} lines)</span>}
               </span>
@@ -244,7 +244,7 @@ export function IndexStatusCard({
                 style={{ width: `${codePercent}%` }} 
               />
               <div 
-                className="h-full bg-emerald-500/70" 
+                className="h-full bg-success/70" 
                 style={{ width: `${docsPercent}%` }} 
               />
               {graphValue > 0 && (

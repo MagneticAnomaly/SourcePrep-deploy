@@ -94,3 +94,6 @@ TEST3/
 .env
 .env.local
 .env.*
+
+# Local reference files (not for repo)
+plausible-tags.txt

@@ -568,6 +568,10 @@ function App() {
     }
   }, [projects, selectedProjectId])
 
+  // ── Project limit ───────────────────────────────────────────
+  const projectLimit = effectiveTier === 'free' ? 1 : effectiveTier === 'starter' ? 3 : Infinity
+  const isAtProjectLimit = projects.length >= projectLimit
+
   // ── Dashboard panels (hook) ─────────────────────────────────
   const { panelContent, panelDetails, allPanelDefs, PINNED_PREFIX: pinnedPrefix } = useDashboardPanels({
     // Cross-cutting
@@ -576,6 +580,7 @@ function App() {
     logs, clearLogs, findActiveTask, handleBuild,
     transientComplete: selectedProjectId ? transientCompleteProjects.has(selectedProjectId) : false,
     onOpenDeepSettings: () => { setSettingsOpenToTab('project'); setScrollToDeepAnalysis(true); setSettingsOpen(true) },
+    onOpenSettings: () => { setSettingsOpenToTab('global'); setSettingsOpen(true) },
     // Domain groups
     search: {
       query, setQuery, searchK, setSearchK, minScore, setMinScore,
@@ -754,6 +759,10 @@ function App() {
         isOpen={addModalOpen}
         onClose={() => setAddModalOpen(false)}
         onAdd={handleAddProject}
+        limitReached={isAtProjectLimit}
+        currentTierLabel={effectiveTier === 'free' ? 'Free' : effectiveTier === 'starter' ? 'Starter' : undefined}
+        currentLimit={projectLimit === Infinity ? undefined : projectLimit}
+        onUpgrade={() => { setAddModalOpen(false); setSettingsOpenToTab('global'); setSettingsOpen(true) }}
       />
     </>
   )

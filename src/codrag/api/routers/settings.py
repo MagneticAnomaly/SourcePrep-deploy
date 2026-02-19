@@ -43,6 +43,9 @@ class PipelineConfigUpdate(BaseModel):
     schedule_frequency: Optional[str] = None
     schedule_day_of_week: Optional[int] = None
     schedule_hour: Optional[int] = None
+    schedule_threshold_enabled: Optional[bool] = None
+    schedule_time_enabled: Optional[bool] = None
+    threshold_percent: Optional[int] = None
     budget_max_tokens: Optional[int] = None
     budget_max_minutes: Optional[int] = None
     budget_max_items: Optional[int] = None
@@ -180,6 +183,13 @@ def update_pipeline_config(body: PipelineConfigUpdate) -> Dict[str, Any]:
         sched["day_of_week"] = body.schedule_day_of_week
     if body.schedule_hour is not None:
         sched["hour"] = body.schedule_hour
+
+    if body.schedule_threshold_enabled is not None:
+        sched["threshold_enabled"] = body.schedule_threshold_enabled
+    if body.schedule_time_enabled is not None:
+        sched["time_enabled"] = body.schedule_time_enabled
+    if body.threshold_percent is not None:
+        sched["threshold_percent"] = body.threshold_percent
 
     budgets = config.setdefault("budgets", {})
     if body.budget_max_tokens is not None:

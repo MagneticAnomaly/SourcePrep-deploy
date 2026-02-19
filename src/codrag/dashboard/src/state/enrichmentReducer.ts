@@ -1,0 +1,135 @@
+import type {
+  AugmentationStatus,
+  EpistemicStatus,
+  ModuleStatus,
+  DeepeningStatus,
+  KnowledgeEmbeddingStatus,
+} from '@codrag/ui'
+
+// ── State ─────────────────────────────────────────────────────
+
+export interface EnrichmentState {
+  augmentationStatus: AugmentationStatus
+  augmenting: boolean
+  validating: boolean
+  epistemicStatus: EpistemicStatus
+  epistemicRunning: boolean
+  moduleStatus: ModuleStatus
+  clusterRunning: boolean
+  deepeningStatus: DeepeningStatus
+  deepeningRunning: boolean
+  knowledgeStatus: KnowledgeEmbeddingStatus
+  knowledgeBuilding: boolean
+}
+
+export const initialEnrichmentState: EnrichmentState = {
+  augmentationStatus: {
+    enabled: false, total_nodes: 0, augmented_nodes: 0,
+    validated_nodes: 0, avg_confidence: 0, low_confidence_count: 0,
+  },
+  augmenting: false,
+  validating: false,
+  epistemicStatus: { enabled: false, enriched_nodes: 0, avg_confidence: 0, running: false },
+  epistemicRunning: false,
+  moduleStatus: { enabled: false, module_count: 0, total_files_clustered: 0, running: false },
+  clusterRunning: false,
+  deepeningStatus: { running: false, total_scored: 0, settled_count: 0, settled_ratio: 0, avg_score: 0 },
+  deepeningRunning: false,
+  knowledgeStatus: { enabled: false, running: false, chunks_embedded: 0, deep_chunks_embedded: 0, last_run_at: null },
+  knowledgeBuilding: false,
+}
+
+// ── Actions ───────────────────────────────────────────────────
+
+type StageName = 'augmentation' | 'epistemic' | 'modules' | 'deepening' | 'knowledge' | 'deep_enrichment'
+
+export type EnrichmentAction =
+  // Individual status updates (from API fetches / polling)
+  | { type: 'AUGMENTATION_STATUS'; payload: AugmentationStatus }
+  | { type: 'EPISTEMIC_STATUS'; payload: EpistemicStatus }
+  | { type: 'MODULE_STATUS'; payload: ModuleStatus }
+  | { type: 'DEEPENING_STATUS'; payload: DeepeningStatus }
+  | { type: 'KNOWLEDGE_STATUS'; payload: KnowledgeEmbeddingStatus }
+  // Sync all running flags at once (from SSE or initial hydration)
+  | { type: 'SYNC_RUNNING'; augmenting: boolean; validating: boolean; epistemicRunning: boolean; clusterRunning: boolean; deepeningRunning: boolean; knowledgeBuilding: boolean }
+  // Manual stage start (optimistic UI feedback)
+  | { type: 'STAGE_STARTED'; stage: StageName }
+  // Manual stage failure (revert optimistic flag)
+  | { type: 'STAGE_FAILED'; stage: StageName }
+  // Group completions — atomically clear all running flags in group
+  | { type: 'FAST_COMPLETED' }
+  | { type: 'FAST_FAILED' }
+  | { type: 'DEEP_COMPLETED' }
+  | { type: 'DEEP_FAILED' }
+  // Full reset (destroy graph/index)
+  | { type: 'DESTROYED' }
+
+// ── Reducer ───────────────────────────────────────────────────
+
+export function enrichmentReducer(state: EnrichmentState, action: EnrichmentAction): EnrichmentState {
+  switch (action.type) {
+    // ── Status updates ──
+    case 'AUGMENTATION_STATUS':
+      return { ...state, augmentationStatus: action.payload }
+    case 'EPISTEMIC_STATUS':
+      return { ...state, epistemicStatus: action.payload }
+    case 'MODULE_STATUS':
+      return { ...state, moduleStatus: action.payload }
+    case 'DEEPENING_STATUS':
+      return { ...state, deepeningStatus: action.payload }
+    case 'KNOWLEDGE_STATUS':
+      return { ...state, knowledgeStatus: action.payload }
+
+    // ── Running flag sync (SSE / hydration) ──
+    case 'SYNC_RUNNING':
+      return {
+        ...state,
+        augmenting: action.augmenting,
+        validating: action.validating,
+        epistemicRunning: action.epistemicRunning,
+        clusterRunning: action.clusterRunning,
+        deepeningRunning: action.deepeningRunning,
+        knowledgeBuilding: action.knowledgeBuilding,
+      }
+
+    // ── Optimistic stage start ──
+    case 'STAGE_STARTED':
+      switch (action.stage) {
+        case 'augmentation': return { ...state, augmenting: true }
+        case 'epistemic': return { ...state, epistemicRunning: true }
+        case 'modules': return { ...state, clusterRunning: true }
+        case 'deepening': return { ...state, deepeningRunning: true }
+        case 'knowledge': return { ...state, knowledgeBuilding: true }
+        case 'deep_enrichment': return { ...state, epistemicRunning: true }
+        default: return state
+      }
+
+    // ── Revert on failure ──
+    case 'STAGE_FAILED':
+      switch (action.stage) {
+        case 'augmentation': return { ...state, augmenting: false }
+        case 'epistemic': return { ...state, epistemicRunning: false }
+        case 'modules': return { ...state, clusterRunning: false }
+        case 'deepening': return { ...state, deepeningRunning: false }
+        case 'knowledge': return { ...state, knowledgeBuilding: false }
+        case 'deep_enrichment': return { ...state, epistemicRunning: false }
+        default: return state
+      }
+
+    // ── Group completions (atomic multi-flag clear) ──
+    case 'FAST_COMPLETED':
+    case 'FAST_FAILED':
+      return { ...state, augmenting: false, validating: false, knowledgeBuilding: false }
+
+    case 'DEEP_COMPLETED':
+    case 'DEEP_FAILED':
+      return { ...state, epistemicRunning: false, clusterRunning: false, deepeningRunning: false, knowledgeBuilding: false }
+
+    // ── Full reset ──
+    case 'DESTROYED':
+      return { ...initialEnrichmentState }
+
+    default:
+      return state
+  }
+}

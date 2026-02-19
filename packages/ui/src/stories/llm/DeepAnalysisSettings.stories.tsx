@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { useState } from 'react';
 import { DeepAnalysisSettings } from '../../components/llm/DeepAnalysisSettings';
-import type { DeepAnalysisSchedule, DeepAnalysisStatus } from '../../components/llm/DeepAnalysisSettings';
+import type { DeepAnalysisSchedule } from '../../components/llm/DeepAnalysisSettings';
 
 const meta: Meta<typeof DeepAnalysisSettings> = {
   title: 'Dashboard/Widgets/Settings/DeepAnalysisSettings',
@@ -26,15 +26,6 @@ const defaultSchedule: DeepAnalysisSchedule = {
   budget_max_minutes: 30,
   budget_max_items: 100,
   priority: 'lowest_confidence',
-};
-
-const sampleStatus: DeepAnalysisStatus = {
-  last_run_at: '2025-02-10T14:30:00Z',
-  last_run_items: 47,
-  last_run_tokens: 23_450,
-  next_run_at: '2025-02-17T02:00:00Z',
-  queue_size: 128,
-  avg_confidence: 0.72,
 };
 
 function Wrapper({
@@ -70,7 +61,6 @@ export const Scheduled: Story = {
         day_of_week: 1,
         hour: 3,
       }}
-      status={sampleStatus}
     />
   ),
 };
@@ -80,7 +70,7 @@ export const Threshold: Story = {
     <Wrapper
       initialSchedule={{
         ...defaultSchedule,
-        mode: 'threshold',
+        mode: 'scheduled',
         threshold_percent: 30,
       }}
     />
@@ -89,10 +79,7 @@ export const Threshold: Story = {
 
 export const WithStatus: Story = {
   render: () => (
-    <Wrapper
-      status={sampleStatus}
-      onRunNow={() => alert('Running deep analysis...')}
-    />
+    <Wrapper />
   ),
 };
 
@@ -105,7 +92,6 @@ export const NoModel: Story = {
           schedule={schedule}
           onScheduleChange={setSchedule}
           largeModelConfigured={false}
-          onRunNow={() => {}}
         />
       </div>
     );
@@ -114,11 +100,7 @@ export const NoModel: Story = {
 
 export const Running: Story = {
   render: () => (
-    <Wrapper
-      status={sampleStatus}
-      running
-      onRunNow={() => {}}
-    />
+    <Wrapper />
   ),
 };
 
@@ -130,12 +112,6 @@ export const LargeQueue: Story = {
         mode: 'scheduled',
         frequency: 'daily',
       }}
-      status={{
-        ...sampleStatus,
-        queue_size: 1247,
-        avg_confidence: 0.45,
-      }}
-      onRunNow={() => alert('Running...')}
     />
   ),
 };

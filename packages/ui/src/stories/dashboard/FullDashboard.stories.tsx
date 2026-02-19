@@ -419,10 +419,6 @@ export const FullDashboard: StoryObj = {
             onScheduleChange={() => {}}
             largeModelConfigured={true}
             fastModelConfigured={true}
-            status={undefined}
-            running={false}
-            onRunNow={() => {}}
-            onCancel={() => {}}
           />
         </div>
       ),

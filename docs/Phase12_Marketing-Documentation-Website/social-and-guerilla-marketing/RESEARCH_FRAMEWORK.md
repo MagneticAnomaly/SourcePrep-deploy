@@ -228,5 +228,5 @@ For each publication, track:
   - trust ramp
   - success metric
 
-## Next step (optional)
-If you want, I can create a `CHANNEL_DATABASE.md` (or CSV) skeleton next to this doc, but I didn’t do it yet to avoid imposing a format you don’t want.
+## Next step
+Create a `CHANNEL_DATABASE.md` (or CSV) alongside this doc to track channel research scores and status across campaigns. Use the "Tracking template" column list above as the schema.

@@ -155,6 +155,9 @@ export interface ApiClient {
     schedule_frequency?: string;
     schedule_day_of_week?: number;
     schedule_hour?: number;
+    schedule_threshold_enabled?: boolean;
+    schedule_time_enabled?: boolean;
+    threshold_percent?: number;
     budget_max_tokens?: number;
     budget_max_minutes?: number;
     budget_max_items?: number;
@@ -760,6 +763,9 @@ export class CodragApiClient implements ApiClient {
     schedule_frequency?: string;
     schedule_day_of_week?: number;
     schedule_hour?: number;
+    schedule_threshold_enabled?: boolean;
+    schedule_time_enabled?: boolean;
+    threshold_percent?: number;
     budget_max_tokens?: number;
     budget_max_minutes?: number;
     budget_max_items?: number;

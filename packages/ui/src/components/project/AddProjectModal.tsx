@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { cn } from '../../lib/utils';
 import type { ProjectMode } from '../../types';
-import { FolderPlus, X, Folder, Layout, HardDrive, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { FolderPlus, X, Folder, Layout, HardDrive, Info, ChevronDown, ChevronUp, Lock, ArrowUpRight } from 'lucide-react';
 import { Button } from '../primitives/Button';
 import { PathInput } from '../primitives/PathInput';
 
@@ -10,6 +10,14 @@ export interface AddProjectModalProps {
   onClose: () => void;
   onAdd: (path: string, name: string, mode: ProjectMode, indexPath?: string) => void;
   className?: string;
+  /** When true, replace the form with an upgrade prompt */
+  limitReached?: boolean;
+  /** Current tier label shown in the upgrade prompt */
+  currentTierLabel?: string;
+  /** Max projects for current tier */
+  currentLimit?: number;
+  /** Called when user clicks the upgrade CTA */
+  onUpgrade?: () => void;
 }
 
 const INDEX_LOCATION_INFO: Record<ProjectMode, { best: string; detail: string }> = {
@@ -32,6 +40,10 @@ export function AddProjectModal({
   onClose,
   onAdd,
   className,
+  limitReached = false,
+  currentTierLabel = 'Free',
+  currentLimit = 1,
+  onUpgrade,
 }: AddProjectModalProps) {
   const [path, setPath] = useState('');
   const [name, setName] = useState('');
@@ -107,6 +119,40 @@ export function AddProjectModal({
           </Button>
         </div>
         
+        {limitReached ? (
+          <div className="p-6 space-y-4">
+            <div className="flex flex-col items-center gap-3 py-4 text-center">
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-amber-100/80 dark:bg-amber-900/30">
+                <Lock className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <p className="font-semibold text-text">{currentTierLabel} plan limit reached</p>
+                <p className="text-sm text-text-muted mt-1">
+                  Your {currentTierLabel} plan supports up to {currentLimit} {currentLimit === 1 ? 'project' : 'projects'}.
+                  Upgrade to add more.
+                </p>
+              </div>
+              <div className="w-full rounded-md border border-border bg-surface-raised/50 p-3 text-left text-xs space-y-1.5">
+                <div className="flex items-center gap-1.5 text-text-muted">
+                  <span className="font-medium text-text">Starter</span> — up to 3 projects + Live Sync
+                </div>
+                <div className="flex items-center gap-1.5 text-text-muted">
+                  <span className="font-medium text-text">Pro</span> — unlimited projects + all features
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
+              {onUpgrade && (
+                <Button onClick={() => { onUpgrade(); onClose(); }} className="flex-1 gap-1.5">
+                  <ArrowUpRight className="w-4 h-4" />
+                  Upgrade Plan
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : (
+        <>
         <div className="p-6 space-y-5">
           {/* Path input */}
           <PathInput
@@ -223,6 +269,8 @@ export function AddProjectModal({
             {isSubmitting ? 'Adding...' : 'Add Project'}
           </Button>
         </div>
+        </>
+        )}
       </div>
     </div>
   );

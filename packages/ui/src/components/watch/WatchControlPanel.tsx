@@ -1,6 +1,6 @@
 import { cn } from '../../lib/utils';
 import type { WatchStatus } from '../../types';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Lock, ArrowUpRight } from 'lucide-react';
 import { Button } from '../primitives/Button';
 import { WatchStatusIndicator } from './WatchStatusIndicator';
 
@@ -12,6 +12,10 @@ export interface WatchControlPanelProps {
   loading?: boolean;
   className?: string;
   bare?: boolean;
+  /** When true, show a locked upgrade prompt instead of the enable button */
+  isFree?: boolean;
+  /** Called when the user clicks the upgrade CTA */
+  onUpgrade?: () => void;
 }
 
 export function WatchControlPanel({
@@ -22,6 +26,8 @@ export function WatchControlPanel({
   loading = false,
   className,
   bare = false,
+  isFree = false,
+  onUpgrade,
 }: WatchControlPanelProps) {
   const isActive = status.state !== 'disabled';
   const Container = bare ? 'div' : 'div';
@@ -42,16 +48,48 @@ export function WatchControlPanel({
           showDetails
         />
 
-        <Button
-          onClick={isActive ? onStopWatch : onStartWatch}
-          variant={isActive ? 'outline' : 'default'}
-          size="sm"
-          loading={loading}
-          icon={isActive ? EyeOff : Eye}
-        >
-          {isActive ? 'Disable Sync' : 'Enable Sync'}
-        </Button>
+        {isFree ? (
+          <button
+            type="button"
+            onClick={onUpgrade}
+            className="flex items-center gap-1.5 rounded-md border border-amber-400/40 bg-amber-50/60 dark:bg-amber-900/20 px-2.5 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-100/80 dark:hover:bg-amber-900/40 transition-colors"
+            title="Live Sync requires Starter plan or above"
+          >
+            <Lock className="w-3 h-3 shrink-0" />
+            <span>Starter feature</span>
+            <ArrowUpRight className="w-3 h-3 shrink-0" />
+          </button>
+        ) : (
+          <Button
+            onClick={isActive ? onStopWatch : onStartWatch}
+            variant={isActive ? 'outline' : 'default'}
+            size="sm"
+            loading={loading}
+            icon={isActive ? EyeOff : Eye}
+          >
+            {isActive ? 'Disable Sync' : 'Enable Sync'}
+          </Button>
+        )}
       </div>
+
+      {isFree && (
+        <p className="text-xs text-text-subtle leading-relaxed">
+          Live Sync automatically rebuilds your knowledge base when files change.
+          {onUpgrade && (
+            <>
+              {' '}
+              <button
+                type="button"
+                onClick={onUpgrade}
+                className="text-primary underline underline-offset-2 hover:no-underline"
+              >
+                Upgrade to Starter
+              </button>
+              {' '}to enable.
+            </>
+          )}
+        </p>
+      )}
     </Container>
   );
 }

@@ -11,11 +11,11 @@ I wanted to share the stack for my new desktop app, **CoDRAG**.
 It's a local code search engine.
 
 *   **Frontend:** Tauri (JS/React) - Keeps the bundle small.
-*   **Backend Core:** Rust - Handles the file watcher and Tree-sitter parsing.
+*   **Backend Core:** Rust — file watching and Tree-sitter parsing, exposed to Python via `PyO3` + `maturin`.
 *   **Backend Logic:** Python - Handles the MCP server, API endpoints, and Pydantic models.
 
 ### Why Python?
-Everyone says "Rewrite it all in Rust," but Python's ecosystem for AI/LLM integration (and the MCP SDK) is just too good to ignore. Using PyO3 gave me the performance critical path in Rust while keeping the business logic flexible in Python.
+Everyone says "Rewrite it all in Rust," but Python's ecosystem for AI/LLM integration (and the MCP SDK) is just too good to ignore. Using PyO3 gave me the performance-critical path in Rust while keeping the business logic flexible in Python. `maturin` makes building the wheel genuinely pleasant.
 
 **Repo:** [Link]
 

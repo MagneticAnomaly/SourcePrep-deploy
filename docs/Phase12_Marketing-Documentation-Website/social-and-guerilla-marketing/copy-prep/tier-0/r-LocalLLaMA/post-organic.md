@@ -25,7 +25,7 @@ So we paused our main work and built **CoDRAG**.
 It's a desktop app (Mac/Windows) that acts as a "structural" context engine.
 *   It watches your folder.
 *   It uses **Tree-sitter** to parse every file into an AST.
-*   It builds a massive dependency graph (Rust/petgraph).
+*   It builds a dependency graph using a custom Rust graph engine (`codrag-graph`).
 *   When you query it, it "walks" the graph to find connected code, not just similar text.
 
 ### The Result

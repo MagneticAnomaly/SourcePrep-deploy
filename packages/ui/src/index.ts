@@ -89,6 +89,16 @@ export { Select } from './components/primitives/Select';
 export type { SelectProps, SelectOption } from './components/primitives/Select';
 export { PathInput } from './components/primitives/PathInput';
 export type { PathInputProps, PathPickerMode } from './components/primitives/PathInput';
+export { SettingsSection } from './components/primitives/SettingsSection';
+export type { SettingsSectionProps } from './components/primitives/SettingsSection';
+export { SettingsRow } from './components/primitives/SettingsRow';
+export type { SettingsRowProps } from './components/primitives/SettingsRow';
+export { TagListEditor } from './components/primitives/TagListEditor';
+export type { TagListEditorProps } from './components/primitives/TagListEditor';
+export { BudgetPill } from './components/primitives/BudgetPill';
+export type { BudgetPillProps } from './components/primitives/BudgetPill';
+export { BudgetPreview } from './components/primitives/BudgetPreview';
+export type { BudgetPreviewProps } from './components/primitives/BudgetPreview';
 
 // Components - Project
 export { FolderTree, sampleFileTree, ProjectSettingsPanel, FolderTreePanel, PinnedTextFilesPanel, AddProjectModal, FilePreviewPane, FileExplorerDetail, CodeViewer } from './components/project';

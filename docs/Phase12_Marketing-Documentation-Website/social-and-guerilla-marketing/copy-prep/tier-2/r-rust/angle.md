@@ -1,7 +1,7 @@
 # Channel Copy Preparation Template
 
 ## Angle (from PRIORITY_CHANNELS.md)
-"We built the indexer in Rust with PyO3" - Technical story about the engine
+"We rewrote the core indexer in Rust (Tree-sitter + custom graph, exposed to Python via PyO3)" — Technical story about the engine, the custom graph design, and the maturin build setup
 
 ## Key Messaging Pillars
 - Pillar 1: M2 (Local-first trust - emphasizing the Rust performance/safety)

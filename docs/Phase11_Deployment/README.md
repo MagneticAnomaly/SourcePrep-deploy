@@ -23,6 +23,7 @@ This phase primarily supports:
   - enterprise distribution patterns (MDM/IT rollout assumptions)
 - Signing / notarization requirements
 - Installer formats and update channels (documented)
+- **Auto-update system:** in-app update checks, download, signature verification, and restart
 - Constraints from bundling a Python sidecar in a Tauri app
 - Minimum operational guidance for MVP (install/start/stop/logs/data dirs)
 - **Licensing Enforcement:**
@@ -31,7 +32,7 @@ This phase primarily supports:
   - "Founder's Edition" activation flow.
 
 ### Out of scope
-- Implementing a full auto-update system with rollback
+- Differential/delta updates (full bundle replacement is sufficient for MVP)
 - Implementing full enterprise governance features (SSO/SCIM/audit) (these are roadmap anchors)
 
 
@@ -47,6 +48,7 @@ This phase primarily supports:
 - [ENTERPRISE_DISTRIBUTION_AND_LICENSING.md](ENTERPRISE_DISTRIBUTION_AND_LICENSING.md)
 - [LICENSING_IMPLEMENTATION.md](LICENSING_IMPLEMENTATION.md) (Offline validation specs)
 - [NATIVE_ENGINE_BUILD_STRATEGY.md](NATIVE_ENGINE_BUILD_STRATEGY.md) (Cross-platform Rust engine wheel builds)
+- [AUTO_UPDATE_STRATEGY.md](AUTO_UPDATE_STRATEGY.md) (In-app auto-update system)
 
 ## Deployment targets (summary)
 

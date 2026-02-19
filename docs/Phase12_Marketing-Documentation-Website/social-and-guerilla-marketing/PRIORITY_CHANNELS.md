@@ -4,7 +4,7 @@
 - **RESEARCH_FRAMEWORK.md** — the generic repeatable system (taxonomy, rubric, workflow)
 - **This doc** — the prioritized, business-aligned application of that framework to CoDRAG specifically
 - **Phase10 docs** — business goals, ICP, pricing, competitive positioning (source of truth)
-- **COPY_DECK.md** — approved messaging pillars and copy variants
+- **copy-prep/** — per-channel copy drafts (post-draft.md + post-organic.md in each channel folder)
 
 This doc answers: **Where should we focus first, what should we say there, and why?**
 
@@ -28,7 +28,7 @@ From Phase 10 + Pricing Strategy:
 
 ---
 
-## CoDRAG's 5 messaging pillars (from COPY_DECK + Phase 10)
+## CoDRAG's 5 messaging pillars
 
 These are the core claims. Every channel placement should use 1–2 of these as the "hook."
 
@@ -159,10 +159,10 @@ These channels have the strongest overlap with our primary ICP and the highest l
 - **Risk**: These communities shift fast; check current rules before posting
 
 ### 2D. r/rust + r/Python
-- **Hook**: "We built the indexer in Rust with PyO3" (r/rust) / "Python devtools" (r/Python)
+- **Hook**: "We rewrote the core indexer in Rust (Tree-sitter + custom graph, exposed via PyO3)" (r/rust) / "Python + Rust via PyO3/maturin for a local devtool" (r/Python)
 - **Pillar**: Technical interest, not product marketing
 - **Business objective**: B3 + B1
-- **Caveat**: Only post when you have a genuinely interesting technical story about the Rust engine or Python integration
+- **Caveat**: Only post when you have a genuinely interesting technical story about the Rust engine, the custom graph design, or the PyO3/maturin integration
 
 ### 2E. Lobsters
 - **Why**: High-signal, small community of senior engineers. One post can set narrative.
