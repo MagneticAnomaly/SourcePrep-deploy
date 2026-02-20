@@ -13,6 +13,7 @@ export interface FooterSection {
 
 export interface SiteFooterProps {
   productName?: string;
+  logo?: React.ReactNode;
   sections?: FooterSection[];
   socials?: {
     twitter?: string;
@@ -26,6 +27,7 @@ export interface SiteFooterProps {
 
 export function SiteFooter({
   productName = 'CoDRAG',
+  logo = <Box className="w-5 h-5 text-primary" />,
   sections = defaultSections,
   socials,
   copyright,
@@ -41,11 +43,13 @@ export function SiteFooter({
           {/* Brand Column */}
           <div className="md:col-span-1 space-y-4">
             <a href="/" className="flex items-center gap-2 font-mono font-bold text-lg tracking-tight text-text hover:text-primary transition-colors">
-              <Box className="w-5 h-5 text-primary" />
+              {logo}
               {productName}
             </a>
             <Text className="text-sm text-text-muted leading-relaxed">
-              The structural context layer for AI-assisted development. Your code stays yours.
+              This is the bridge between <br/>
+              how you think about code <br/>
+              and how your AI reads it.
             </Text>
             <div className="flex gap-4 pt-2">
               {socials?.twitter && (
