@@ -381,6 +381,21 @@ export interface DeepeningStatus {
   max_iterations?: number;
 }
 
+/**
+ * Codebase Atlas status (Phase 29)
+ */
+export interface AtlasStatus {
+  exists: boolean;
+  content: string | null;
+  mode?: 'llm' | 'structural';
+  model?: string;
+  generated_at?: string;
+  file_count?: number;
+  module_count?: number;
+  char_count?: number;
+  stale?: boolean;
+}
+
 // ============================================================
 // Phase 05 - MCP Types
 // ============================================================
@@ -731,6 +746,7 @@ export interface PipelineStatus {
     knowledge: any;
     enrichment: any;
     clustering: any;
+    atlas: any;
     deepening: any;
     deep_knowledge: any;
   };

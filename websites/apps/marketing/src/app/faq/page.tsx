@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from 'react';
-import { ChevronDown, ArrowRight } from 'lucide-react';
+import { ChevronDown, ArrowRight, HelpCircle, Lightbulb } from 'lucide-react';
 
 interface FAQItem {
   id: string;
@@ -27,14 +27,16 @@ const faqs: FAQItem[] = [
             <tbody className="text-text-muted">
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6">CoDRAG default context</td><td>~1,500</td></tr>
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6">CoDRAG + trace expansion</td><td>~2,000</td></tr>
-              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Cursor&apos;s default chat cap</td><td>~20,000</td></tr>
-              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Claude Code usable window</td><td>~140,000</td></tr>
-              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">GPT-4o full window</td><td>128,000</td></tr>
-              <tr><td className="py-2 pr-6">Claude 3.5 Sonnet full window</td><td>200,000</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Cursor default chat cap</td><td>~20,000</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">GPT-5.3 (OpenAI)</td><td>400,000</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Claude Sonnet 4 / Opus 4.6 (standard)</td><td>200,000</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Claude Sonnet 4.5 / Opus 4.6 (extended beta)</td><td>1,000,000</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Gemini 3 Pro (Google)</td><td>1,000,000–2,000,000</td></tr>
+              <tr><td className="py-2 pr-6">Qwen3-Coder-480B (local / open)</td><td>256,000 native · 1M extrapolated</td></tr>
             </tbody>
           </table>
         </div>
-        <p>CoDRAG typically consumes <strong>1–3% of your available context window.</strong> CoDRAG is designed to be a <em>precision instrument</em>, not a firehose — it sends the 5 most relevant code chunks under a hard character ceiling, not your entire codebase.</p>
+        <p>CoDRAG typically consumes <strong>under 1% of your available context window</strong> on any 2026 frontier model. It is designed to be a <em>precision instrument</em>, not a firehose — it sends the 5 most relevant code chunks under a hard character ceiling, not your entire codebase.</p>
       </div>
     ),
   },
@@ -43,7 +45,7 @@ const faqs: FAQItem[] = [
     q: "How much context is too much? Is there a number?",
     a: (
       <div className="space-y-4">
-        <p>Yes, and it&apos;s lower than you&apos;d think. Research consistently shows that <strong>RAG context saturates between 4K and 16K tokens</strong> depending on the model. After that, adding more context produces diminishing returns — and eventually <em>hurts</em> performance.</p>
+        <p>Yes, and it&apos;s lower than you&apos;d think — even for 2026 frontier models. Research (ICLR 2025, &quot;Long-Context LLMs Meet RAG&quot;) consistently shows that <strong>RAG context saturates between 16K and 64K tokens</strong> depending on the model. After that, adding more retrieved passages produces diminishing returns — and eventually <em>hurts</em> performance. A bigger context window does not move the saturation point.</p>
         <div className="overflow-x-auto">
           <table className="text-sm w-full border-collapse">
             <thead>
@@ -53,14 +55,13 @@ const faqs: FAQItem[] = [
               </tr>
             </thead>
             <tbody className="text-text-muted">
-              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Mixtral-8x7B</td><td>~4K tokens</td></tr>
-              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">GPT-4-turbo</td><td>~16K tokens</td></tr>
-              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Claude 3.5 Sonnet</td><td>~32K tokens</td></tr>
-              <tr><td className="py-2 pr-6">Llama-3.1-8B</td><td>30K tokens causes <strong>24% accuracy drop</strong></td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">GPT-5.3 (OpenAI)</td><td>~16–32K tokens — larger windows don&apos;t eliminate degradation</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Claude Opus 4.6 / Sonnet 4</td><td>~32K tokens — 1M window available, but RAG accuracy still peaks early</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Gemini 3 Pro</td><td>~32–64K tokens — best long-context retrieval of any frontier model</td></tr>
+              <tr><td className="py-2 pr-6">Qwen3-Coder-480B (local)</td><td>~16–32K tokens — strong coder, MoE architecture, 256K native window</td></tr>
             </tbody>
           </table>
         </div>
-        <p className="bg-warning/10 border border-warning/30 rounded-lg p-4 text-sm">The most surprising finding: <strong>even when the model can perfectly retrieve the answer from the context, its reasoning accuracy still degrades as input length increases.</strong> This was demonstrated with whitespace padding — literally adding blank lines degrades reasoning. The problem isn&apos;t distraction, it&apos;s distance.</p>
         <p>CoDRAG&apos;s defaults (1,500–2,000 tokens) sit well below every known saturation point.</p>
       </div>
     ),
@@ -171,14 +172,14 @@ const faqs: FAQItem[] = [
   },
   {
     id: "paste-codebase",
-    q: "Can't I just paste my whole codebase into Claude with its 200K window?",
+    q: "Can't I just paste my whole codebase into Claude with its 1M window?",
     a: (
       <div className="space-y-4">
-        <p>You can. It will work worse than you expect.</p>
-        <p>Chen et al. (2025) demonstrated that even with <strong>perfect retrieval</strong> — the model can literally recite the evidence verbatim — reasoning accuracy drops 13.9% to 85% as input length increases. This was tested on math, QA, and <em>coding tasks</em> specifically.</p>
-        <p>Chroma Research (2025) tested 18 current LLMs and found that <strong>even on trivial retrieval tasks</strong>, performance degrades non-uniformly with input length. This includes Claude Sonnet 4, GPT-4o, and Gemini 2.5 — the latest models with the biggest windows.</p>
-        <p className="bg-surface border border-border rounded-lg p-4 text-sm text-text-muted italic">A 200K window can hold ~300 pages. But a human doesn&apos;t read better by having 300 irrelevant pages open on their desk. Neither does an LLM.</p>
-        <p>CoDRAG&apos;s approach — find the 5 best chunks, optionally follow structural relationships, deliver ~2K tokens of high-signal context — aligns with the research recommendation of &quot;Retrieve then Solve.&quot;</p>
+        <p>You can, but "more context" doesn't always mean "better results."</p>
+        <p>Recent research (like Chen et al. 2025) demonstrates that even with <strong>perfect retrieval</strong> — where the model can literally recite the evidence verbatim — reasoning accuracy drops as input length increases. This was tested on math, QA, and <em>coding tasks</em> specifically.</p>
+        <p>Other studies have found that <strong>even on simple retrieval tasks</strong>, performance degrades non-uniformly with input length. This holds for many frontier models despite their massive context windows. A bigger window raises the ceiling; it does not eliminate the degradation curve.</p>
+        <p className="bg-surface border border-border rounded-lg p-4 text-sm text-text-muted italic">A massive context window can hold hundreds of pages, but a human doesn&apos;t read better by having 3,000 irrelevant pages open on their desk. Neither does an LLM.</p>
+        <p>CoDRAG&apos;s approach — find the 5 best chunks, optionally follow structural relationships, and deliver ~2K tokens of high-signal context — aligns with the research recommendation of &quot;Retrieve then Solve.&quot;</p>
       </div>
     ),
   },
@@ -251,7 +252,9 @@ const faqs: FAQItem[] = [
     a: (
       <div className="space-y-4">
         <p><strong>No.</strong> Core features (indexing, trace graph, search) run efficiently on CPU. The built-in embedding model is quantized and optimized for CPU inference.</p>
-        <p>However, if you enable <strong>CLaRa compression</strong> locally, a GPU (NVIDIA or Apple Silicon) is highly recommended for reasonable latency.</p>
+        <p><strong>Also No.</strong> You can run Anthropic or OpenAI or any other BYOK models from the cloud if you want to enhance trace content.</p>
+        <p><strong>Or Yes</strong> if you want to run a local model for enhancement.</p>
+        <p>And yes for <strong>CLaRa compression.</strong> This will require at least 14GB VRAM (currently no quantized version of this model).</p>
       </div>
     ),
   },
@@ -261,18 +264,25 @@ function FAQAccordionItem({ item, isOpen, onToggle }: { item: FAQItem; isOpen: b
   return (
     <div className="border border-border rounded-lg overflow-hidden">
       <button
+        type="button"
         onClick={onToggle}
         className="w-full flex items-center justify-between px-6 py-5 text-left bg-surface hover:bg-surface-raised transition-colors gap-4"
         aria-expanded={isOpen}
       >
-        <span className="font-semibold text-text text-base leading-snug">{item.q}</span>
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          <HelpCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+          <span className="font-normal text-text text-base leading-snug">{item.q}</span>
+        </div>
         <ChevronDown
           className={`w-5 h-5 text-text-muted flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
       {isOpen && (
-        <div className="px-6 py-5 border-t border-border bg-background text-text-muted leading-relaxed">
-          {item.a}
+        <div className="pl-6 pr-[3.25rem] py-[2.25rem] border-t border-border bg-background">
+          <div className="flex items-start gap-3">
+            <Lightbulb className="w-6 h-6 text-text-muted mt-0.5 flex-shrink-0 -ml-0.5" />
+            <div className="text-text-muted leading-relaxed flex-1 min-w-0 [&_strong]:text-text [&_strong]:font-semibold">{item.a}</div>
+          </div>
         </div>
       )}
     </div>
@@ -282,15 +292,15 @@ function FAQAccordionItem({ item, isOpen, onToggle }: { item: FAQItem; isOpen: b
 export default function FAQPage() {
   const [openId, setOpenId] = useState<string | null>("context-window");
 
-  const toggle = (id: string) => setOpenId(openId === id ? null : id);
+  const toggle = (id: string) => setOpenId(prev => prev === id ? null : id);
 
   return (
     <div className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-16">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-16">
         {/* Header */}
         <div className="text-center mb-16">
           <p className="text-sm font-semibold uppercase tracking-widest text-primary mb-3">Frequently Asked Questions</p>
-          <h1 className="text-4xl font-bold tracking-tight text-text sm:text-5xl mb-4">
+          <h1 className="text-4xl font-medium tracking-tight text-text sm:text-5xl mb-4 max-w-xl mx-auto">
             Context, tokens, and how CoDRAG actually works
           </h1>
           <p className="text-lg text-text-muted max-w-xl mx-auto">
@@ -325,7 +335,7 @@ export default function FAQPage() {
             </a>
             <a
               href="https://docs.codrag.io"
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover transition-colors"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-background hover:bg-primary-hover transition-colors"
             >
               Read the Docs <ArrowRight className="w-4 h-4" />
             </a>

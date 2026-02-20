@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { FileText, Settings, AlertCircle } from 'lucide-react'
+import type { AtlasStatus } from '@codrag/ui'
 import {
   // API
   useApiClient,
@@ -136,6 +137,7 @@ function App() {
     contextIncludeSources, setContextIncludeSources,
     contextIncludeScores, setContextIncludeScores,
     contextStructured, setContextStructured,
+    contextIncludeAtlas, setContextIncludeAtlas,
     context, contextMeta,
     handleSearch, handleGetContext, handleCopyContext,
     resetSearch,
@@ -234,6 +236,31 @@ function App() {
     resetEnrichment,
   })
 
+  // ── Atlas (Phase 29) ─────────────────────────────────────────
+  const [atlasStatus, setAtlasStatus] = useState<AtlasStatus | null>(null)
+  const [atlasRegenerating, setAtlasRegenerating] = useState(false)
+
+  const fetchAtlas = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      const data = await api.getAtlas(selectedProjectId)
+      setAtlasStatus(data)
+    } catch { /* Atlas not available yet */ }
+  }, [api, selectedProjectId])
+
+  const handleRegenerateAtlas = useCallback(async () => {
+    if (!selectedProjectId) return
+    setAtlasRegenerating(true)
+    try {
+      const data = await api.regenerateAtlas(selectedProjectId)
+      setAtlasStatus(data)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Atlas regeneration failed')
+    } finally {
+      setAtlasRegenerating(false)
+    }
+  }, [api, selectedProjectId])
+
   // ── Mode sync: keep panel switch ↔ settings dropdown in sync ──
   const handleSyncedEnrichmentAutoConfigChange = useCallback((newConfig: typeof enrichmentAutoConfig) => {
     handleEnrichmentAutoConfigChange(newConfig)
@@ -328,6 +355,7 @@ function App() {
     if (!selectedProjectId) return
     void refreshWatchStatus(selectedProjectId)
     void fetchDeepAnalysisStatus()
+    void fetchAtlas()
   }, [selectedProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Project limit ───────────────────────────────────────────
@@ -351,6 +379,7 @@ function App() {
       contextIncludeSources, setContextIncludeSources,
       contextIncludeScores, setContextIncludeScores,
       contextStructured, setContextStructured,
+      contextIncludeAtlas, setContextIncludeAtlas,
       context, contextMeta, handleGetContext, handleCopyContext,
     },
     files: {
@@ -382,6 +411,7 @@ function App() {
       availableModels, loadingModels, testingSlot, testResults,
     },
     deepAnalysis: { deepAnalysisSchedule, setDeepAnalysisSchedule, budgetUsage },
+    atlas: { atlasStatus, onRegenerateAtlas: handleRegenerateAtlas, atlasRegenerating },
   })
 
   // ── Loading state ──────────────────────────────────────────

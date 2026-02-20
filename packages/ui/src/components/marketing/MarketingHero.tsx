@@ -53,7 +53,7 @@ function CenteredHero() {
         <div className="flex justify-center mb-6">
           <Badge size="lg" className="bg-primary/10 text-primary border border-primary/20 px-4 py-1.5 gap-2">
             <Cpu className="w-4 h-4" />
-            Local-first • No cloud required
+            Local-first • Cloud-ready (BYOK)
           </Badge>
         </div>
 
@@ -65,9 +65,9 @@ function CenteredHero() {
 
         {/* Subheadline */}
         <p className="mt-6 text-lg md:text-xl text-text-muted max-w-2xl mx-auto leading-relaxed">
-          CoDRAG's Rust-powered engine indexes your entire codebase locally — semantics, symbols,
+          CoDRAG's Rust-powered engine indexes your entire codebase — semantics, symbols,
           and call graphs — with built-in ONNX embeddings, path weights for precision control, and
-          optional 10–16× compression. No cloud upload. No LLM required. Ollama and cloud APIs optional.
+          optional 10–16× compression. Runs locally, or connect your preferred cloud APIs.
         </p>
 
         {/* CTAs */}
@@ -83,10 +83,10 @@ function CenteredHero() {
         {/* Trust indicators */}
         <div className="mt-12 flex flex-wrap justify-center gap-6 text-text-subtle text-sm">
           <span className="flex items-center gap-2">
-            <Zap className="w-4 h-4 text-success" /> Works offline
+            <Zap className="w-4 h-4 text-success" /> Runs offline or cloud-connected
           </span>
           <span className="flex items-center gap-2">
-            <Database className="w-4 h-4 text-success" /> Built-in embeddings — Ollama &amp; cloud optional
+            <Database className="w-4 h-4 text-success" /> Built-in embeddings or BYOK
           </span>
           <span className="flex items-center gap-2">
             <Lock className="w-4 h-4 text-success" /> Perpetual license available
@@ -142,7 +142,7 @@ function NeoBrutalistHero() {
           <h1 className="text-5xl md:text-7xl font-bold text-text leading-none uppercase tracking-tighter">
             Your AI<br/>
             Sees Code.<br/>
-            <span className="bg-primary text-white px-2">Not Structure.</span><br/>
+            <span className="bg-primary text-background px-2">Not Structure.</span><br/>
             Fix That.
           </h1>
           
@@ -154,7 +154,7 @@ function NeoBrutalistHero() {
           <div className="mt-8 flex flex-col sm:flex-row gap-4">
             <Button 
               size="lg"
-              className="border-2 border-border bg-primary text-white font-bold text-lg hover:translate-x-1 hover:translate-y-1 hover:shadow-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all rounded-none"
+              className="border-2 border-border bg-primary text-background font-bold text-lg hover:translate-x-1 hover:translate-y-1 hover:shadow-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all rounded-none"
               icon={Download}
             >
               GET_CODRAG
@@ -226,7 +226,7 @@ function SwissHero() {
             </div>
           </div>
         </div>
-        <div className="col-span-12 md:col-span-4 bg-primary p-8 flex flex-col justify-between text-white">
+        <div className="col-span-12 md:col-span-4 bg-primary p-8 flex flex-col justify-between text-background">
           <div className="text-6xl font-bold"><LayoutGrid className="w-16 h-16" /></div>
           <div className="space-y-4">
             <p className="text-2xl font-medium">CoDRAG v1.0</p>
@@ -252,7 +252,7 @@ function GlassHero() {
       <div className="relative z-10 flex flex-col items-center text-center">
         <div className="backdrop-blur-xl bg-white/30 border border-white/50 shadow-xl rounded-2xl p-8 md:p-12 max-w-4xl w-full">
           <Badge className="bg-white/50 text-text border-white/60 backdrop-blur-md mb-6 shadow-sm gap-2">
-            <Zap className="w-4 h-4 text-warning" /> Must-have for AI-assisted development
+            <Zap className="w-4 h-4 text-warning" /> Essential for AI-assisted development
           </Badge>
           
           <h1 className="text-5xl md:text-7xl font-bold text-text bg-clip-text text-transparent bg-gradient-to-r from-text to-primary mb-6">
@@ -261,11 +261,11 @@ function GlassHero() {
           
           <p className="text-xl text-text-muted mb-8 max-w-2xl mx-auto">
             CoDRAG sits between your codebase and your AI tools — built-in embeddings, structural tracing,
-            path weights for precision control, and optional 10–16× CLaRa compression. Better context in, better code out. Runs entirely on your machine.
+            path weights for precision control, and optional 10–16× CLaRa compression. Better context in, better code out. Runs locally, or connects to your cloud APIs.
           </p>
 
           <Flex className="gap-4" justifyContent="center">
-            <Button size="lg" className="backdrop-blur-md bg-primary/80 hover:bg-primary text-white rounded-xl shadow-lg hover:shadow-primary/30 border border-white/20">
+            <Button size="lg" className="backdrop-blur-md bg-primary/80 hover:bg-primary text-background rounded-xl shadow-lg hover:shadow-primary/30 border border-white/20">
               Download Free
             </Button>
             <Button size="lg" variant="ghost" className="backdrop-blur-md bg-white/40 hover:bg-white/60 text-text rounded-xl border border-white/40">
@@ -339,7 +339,7 @@ function RetroHero() {
         </div>
 
         <Button 
-          className="mt-12 bg-transparent border-2 border-primary text-primary hover:bg-primary hover:text-white px-10 py-4 text-xl font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(255,0,255,0.4)] hover:shadow-[0_0_40px_rgba(255,0,255,0.8)] rounded-none h-auto"
+          className="mt-12 bg-transparent border-2 border-primary text-primary hover:bg-primary hover:text-background px-10 py-4 text-xl font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(255,0,255,0.4)] hover:shadow-[0_0_40px_rgba(255,0,255,0.8)] rounded-none h-auto"
         >
           Get CoDRAG
         </Button>
@@ -439,7 +439,7 @@ function StudioHero() {
         <div className="col-span-12 md:col-span-7 space-y-6">
           <div className="inline-block bg-surface border border-border px-4 py-2 shadow-sm">
             <span className="font-mono text-xs uppercase tracking-widest text-text-muted flex items-center gap-2">
-              <Code className="w-3 h-3" /> Local-First Developer Tool
+              <Code className="w-3 h-3" /> Essential Developer Tool
             </span>
           </div>
           
@@ -451,7 +451,7 @@ function StudioHero() {
           <div className="max-w-md bg-surface/80 backdrop-blur-sm p-6 border-l-4 border-primary mt-8">
             <p className="text-lg font-sans text-text leading-relaxed">
               CoDRAG's Rust engine maps the semantics, symbols, and structure of your codebase
-              so every AI prompt gets the context it needs. Local-first. Always.
+              so every AI prompt gets the context it needs. Runs locally, or connects to your cloud.
             </p>
           </div>
 
@@ -496,7 +496,7 @@ function StudioHero() {
           </div>
 
           <div className="absolute top-32 left-0 w-72 bg-surface-raised border border-border p-6 shadow-lg z-10">
-            <h3 className="font-serif text-2xl italic mb-2 flex items-center gap-2"><Eye className="w-5 h-5" /> Structural Code Graph</h3>
+            <h3 className="font-mono text-2xl italic mb-2 flex items-center gap-2"><Eye className="w-5 h-5" /> Structural Code Graph</h3>
             <p className="font-sans text-sm text-text-muted">
               Rust-powered engine maps imports, call graphs, and symbol hierarchies so AI understands how your code connects.
             </p>
@@ -504,7 +504,7 @@ function StudioHero() {
 
           <div className="absolute bottom-10 right-20 w-40 h-40 border-4 border-primary rounded-full flex items-center justify-center bg-background/50 backdrop-blur-sm z-30">
             <span className="font-mono text-xs text-center font-bold">
-              100%<br/>LOCAL<br/>STORAGE
+              PRIVACY<br/>FIRST<br/>BY DESIGN
             </span>
           </div>
         </div>
@@ -521,12 +521,15 @@ function YaleHero() {
         <div className="grid grid-cols-12 gap-x-6 border-b border-border pb-12">
           <div className="col-span-12 md:col-span-3">
             <span className="font-sans font-bold text-sm tracking-wide uppercase text-text-muted flex items-center gap-2">
-              <Command className="w-4 h-4" /> CoDRAG Systems
+              <Command className="w-4 h-4" /> Magnetic Anomaly llc
             </span>
           </div>
           <div className="col-span-12 md:col-span-6">
-            <h1 className="font-sans text-5xl md:text-6xl font-normal text-text leading-tight tracking-tight mb-8">
-              The bridge between how you think about code and how AI reads it.
+            <h1
+              className="font-heading text-5xl md:text-6xl font-medium text-text leading-tight tracking-tight mb-8"
+              style={{ fontFamily: "var(--font-heading, 'IBM Plex Serif', system-ui, sans-serif)" }}
+            >
+              This is the bridge between how you think about code and how your AI reads it.
             </h1>
           </div>
           <div className="col-span-12 md:col-span-3 flex flex-col justify-end items-start md:items-end">
@@ -628,8 +631,8 @@ function FocusHero() {
         <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
           <div className="bg-surface p-6 rounded-xl border border-border shadow-sm">
             <div className="w-12 h-12 bg-success/20 rounded-lg flex items-center justify-center text-2xl mb-4 text-success"><Lock className="w-6 h-6" /></div>
-            <h3 className="font-bold text-lg text-text mb-2">100% Local</h3>
-            <p className="text-text-muted">Your code never leaves your machine. No cloud upload, no telemetry. Built-in embeddings and structural search work from a single install.</p>
+            <h3 className="font-bold text-lg text-text mb-2">Private & Extensible</h3>
+            <p className="text-text-muted">Your code never leaves your machine. Use built-in local models for zero network traffic, or seamlessly connect your preferred cloud APIs.</p>
           </div>
           <div className="bg-surface p-6 rounded-xl border border-border shadow-sm">
             <div className="w-12 h-12 bg-warning/20 rounded-lg flex items-center justify-center text-2xl mb-4 text-warning"><Zap className="w-6 h-6" /></div>
