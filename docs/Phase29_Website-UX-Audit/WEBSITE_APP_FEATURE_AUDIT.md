@@ -97,32 +97,6 @@
 
 ## 6. Embedding Model Decision
 
-**Decision date**: 2026-02-20. **Decision: Keep `nomic-embed-text-v1.5` ONNX as the default.**
+✅ **Moved to [Phase 33 — Embedding Model Evaluation](../Phase33_embed-tests/README.md).**
 
-### Test
-Benchmark run with `scripts/benchmark_embeddings.py` on `tests/fixtures/embedding_benchmark` (39 ground-truth queries, 48 chunks).
-
-| Model | R@1 | R@3 | R@5 | MRR | Embed p50 | Embed p95 |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **nomic-embed-text-v1.5 (ONNX, CPU)** | **97.4%** | **100%** | **100%** | **0.987** | **6.9ms** | **8.3ms** |
-| nomic-embed-text-v2-moe (Ollama) | 92.3% | 100% | 100% | 0.957 | 97.2ms | 103.4ms |
-
-### Findings
-
-1. **No ONNX export for v2-moe exists** anywhere on HuggingFace. Checked `nomic-ai/nomic-embed-text-v2-moe-ONNX`, `optimum-community/`, `Xenova/`, `onnx-community/` — all missing. The model is SafeTensors-only + Ollama.
-2. **v1.5 ONNX beats v2-moe Ollama on accuracy**: R@1 97.4% vs 92.3%, MRR 0.987 vs 0.957.
-3. **v1.5 ONNX is 14× faster**: 6.9ms vs 97.2ms embed latency (CPU ONNX vs local Ollama).
-4. **v2-moe raw scores are much lower** (avg 0.690 vs 0.962) — the model's MoE routing appears less calibrated for short code-search queries than the v1.5 distilled model.
-
-### Action
-**Final strategy (confirmed):**
-- `nomic-embed-text-v2-moe` via **Ollama is the recommended path** for all users who have Ollama installed. Superior real-world performance on code corpora.
-- `nomic-embed-text-v1.5` ONNX remains the **built-in CPU fallback** for offline / air-gapped use or when Ollama is unavailable. No changes to HF auto-download config — v1.5 stays as the `NativeEmbedder` default.
-- v2-moe ONNX export is **technically infeasible** (MoE data-dependent routing is incompatible with static ONNX graphs; 3 approaches failed). No alternative native path for v2-moe exists.
-
-**Docs updated to reflect this:**
-- `README.md` — `nomic-embed-text-v2-moe` now in Ollama pull example + LLM Integration section
-- `public/codrag-mcp/README.md` — same
-- `docs/API.md` — Ollama example model updated
-- `src/codrag/cli.py` — `models` command clarified as backup download, recommends v2-moe Ollama
-- `scripts/benchmark_embeddings.py` — v2-moe added to `MODELS` dict with results in comment
+Initial benchmark (2026-02-20) kept `nomic-embed-text-v1.5` ONNX as the default. Extended real-world testing across 10 repos and 4 indexing modes is ongoing in Phase 33, including docs-only, strip-code, trace-only, and full code compression evaluation.
