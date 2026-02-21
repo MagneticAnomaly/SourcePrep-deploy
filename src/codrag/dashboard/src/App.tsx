@@ -138,6 +138,7 @@ function App() {
     contextIncludeScores, setContextIncludeScores,
     contextStructured, setContextStructured,
     contextIncludeAtlas, setContextIncludeAtlas,
+    contextCompression, setContextCompression,
     context, contextMeta,
     handleSearch, handleGetContext, handleCopyContext,
     resetSearch,
@@ -238,7 +239,6 @@ function App() {
 
   // ── Atlas (Phase 29) ─────────────────────────────────────────
   const [atlasStatus, setAtlasStatus] = useState<AtlasStatus | null>(null)
-  const [atlasRegenerating, setAtlasRegenerating] = useState(false)
 
   const fetchAtlas = useCallback(async () => {
     if (!selectedProjectId) return
@@ -246,19 +246,6 @@ function App() {
       const data = await api.getAtlas(selectedProjectId)
       setAtlasStatus(data)
     } catch { /* Atlas not available yet */ }
-  }, [api, selectedProjectId])
-
-  const handleRegenerateAtlas = useCallback(async () => {
-    if (!selectedProjectId) return
-    setAtlasRegenerating(true)
-    try {
-      const data = await api.regenerateAtlas(selectedProjectId)
-      setAtlasStatus(data)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Atlas regeneration failed')
-    } finally {
-      setAtlasRegenerating(false)
-    }
   }, [api, selectedProjectId])
 
   // ── Mode sync: keep panel switch ↔ settings dropdown in sync ──
@@ -359,7 +346,7 @@ function App() {
   }, [selectedProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Project limit ───────────────────────────────────────────
-  const projectLimit = effectiveTier === 'free' ? 1 : effectiveTier === 'starter' ? 3 : Infinity
+  const projectLimit = effectiveTier === 'free' ? 1 : Infinity
   const isAtProjectLimit = project.projects.length >= projectLimit
 
   // ── Dashboard panels (hook) ─────────────────────────────────
@@ -380,6 +367,7 @@ function App() {
       contextIncludeScores, setContextIncludeScores,
       contextStructured, setContextStructured,
       contextIncludeAtlas, setContextIncludeAtlas,
+      contextCompression, setContextCompression,
       context, contextMeta, handleGetContext, handleCopyContext,
     },
     files: {
@@ -411,7 +399,7 @@ function App() {
       availableModels, loadingModels, testingSlot, testResults,
     },
     deepAnalysis: { deepAnalysisSchedule, setDeepAnalysisSchedule, budgetUsage },
-    atlas: { atlasStatus, onRegenerateAtlas: handleRegenerateAtlas, atlasRegenerating },
+    atlas: { atlasStatus },
   })
 
   // ── Loading state ──────────────────────────────────────────

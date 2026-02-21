@@ -160,7 +160,7 @@ The structural graph is just the skeleton. A multi-pass enrichment pipeline laye
 Each node gets an **epistemic score** (0.0–1.0) measuring how well the graph understands it. Scores decay on change, ensuring the graph stays current.
 
 ### LLM Integration
-- **Embeddings:** Ollama (`nomic-embed-text` recommended) for semantic search
+- **Embeddings:** Ollama (`nomic-embed-text-v2-moe` recommended) or native ONNX v1.5 as a zero-dependency fallback
 - **Compression:** CLaRa (optional) for context window optimization
 - **Augmentation:** Mistral/Llama (optional) for code summaries
 - Reuses single Ollama connection across all indexed projects
@@ -209,10 +209,12 @@ codrag ui
 # Install Ollama (if not installed)
 curl -fsSL https://ollama.com/install.sh | sh
 
-# Pull embedding model
-ollama pull nomic-embed-text
+# Pull the recommended embedding model
+ollama pull nomic-embed-text-v2-moe   # recommended (~957 MB)
+# ollama pull nomic-embed-text        # lighter alternative (~274 MB)
 
 # CoDRAG will auto-detect Ollama at localhost:11434
+# No Ollama? Run: codrag models  (downloads v1.5 ONNX backup, ~132 MB)
 ```
 
 ---
@@ -301,7 +303,7 @@ codrag version                                                          # Versio
 # LLM Services
 ollama:
   url: http://localhost:11434
-  embedding_model: nomic-embed-text
+  embedding_model: nomic-embed-text-v2-moe  # recommended; fallback: nomic-embed-text-v1.5 (ONNX)
   augmentation_model: mistral  # optional
   
 clara:

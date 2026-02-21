@@ -164,7 +164,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
   {
     id: 'trace-pipeline',
     title: 'Graph Enrichment',
-    description: 'Status of the enrichment pipeline: Structural Graph → Catalogue → Validation → Epistemic Enrichment.',
+    description: 'The 9-stage enrichment pipeline: Structural Graph → Catalogue → Validation → Knowledge Embedding → Deep Reasoning → Module Synthesis → Atlas → Continuous Deepening → Deep Knowledge. Hover each stage for its epistemological role.',
     icon: Brain,
     minHeight: 6,
     defaultHeight: 12,
@@ -201,7 +201,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
   {
     id: 'atlas',
     title: 'Codebase Atlas',
-    description: 'Architectural overview of your codebase, auto-generated and injected into every AI query.',
+    description: 'Architectural overview of your codebase. Used for pre-retrieval routing — scoping queries to the right subsystem before search begins.',
     icon: Map,
     minHeight: 4,
     defaultHeight: 6,
@@ -213,7 +213,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
   {
     id: 'token-budget',
     title: 'Token Budget',
-    description: 'Track deep enrichment token usage against your configured budget window.',
+    description: 'Track deep reasoning and module synthesis token usage against your configured budget window.',
     icon: Coins,
     minHeight: 3,
     defaultHeight: 5,

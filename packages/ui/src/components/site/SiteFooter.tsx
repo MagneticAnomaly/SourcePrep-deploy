@@ -47,9 +47,9 @@ export function SiteFooter({
               {productName}
             </a>
             <Text className="text-sm text-text-muted leading-relaxed">
-              This is the bridge between <br/>
-              how you think about code <br/>
-              and how your AI reads it.
+              The bridge between how <br/>
+              you think about code and<br/>
+              how your AI reads it.
             </Text>
             <div className="flex gap-4 pt-2">
               {socials?.twitter && (

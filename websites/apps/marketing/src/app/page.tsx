@@ -141,7 +141,7 @@ export default function Page() {
           </div>
           
           <div className="text-center mt-12">
-             <a href="https://docs.codrag.io/mcp" className="text-sm text-primary hover:underline">View full integration guides for Cursor & Windsurf →</a>
+             <a href="https://docs.codrag.io/mcp/cursor" className="text-sm text-primary hover:underline">View full integration guides for Cursor & Windsurf →</a>
           </div>
         </section>
 
@@ -198,18 +198,18 @@ export default function Page() {
           <h2 className="text-2xl font-medium tracking-tight text-text sm:text-3xl">
             Built for professionals who take their code seriously
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-3xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-5xl mx-auto">
             <div>
               <div className="text-3xl font-bold text-primary">&lt;100ms</div>
               <div className="text-sm text-text-muted mt-1">Search latency</div>
             </div>
             <div>
-              <div className="text-3xl font-bold text-primary">0 bytes</div>
-              <div className="text-sm text-text-muted mt-1">Sent to the cloud</div>
+              <div className="text-3xl font-bold text-primary">Local-first</div>
+              <div className="text-sm text-text-muted mt-1">Your code stays on your machine</div>
             </div>
             <div>
-              <div className="text-3xl font-bold text-primary">10&ndash;16&times;</div>
-              <div className="text-sm text-text-muted mt-1">Context compression with CLaRa</div>
+              <div className="text-3xl font-bold text-primary">3&ndash;20&times;</div>
+              <div className="text-sm text-text-muted mt-1">Structural code compression built in</div>
             </div>
             <div>
               <div className="text-3xl font-bold text-primary">Perpetual</div>

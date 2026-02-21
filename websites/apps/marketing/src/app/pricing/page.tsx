@@ -16,7 +16,7 @@ export default function Page() {
           </h1>
           <p className="mt-6 text-xl text-text-muted leading-relaxed">
             Local-first means your code stays yours. CoDRAG ships with built-in ONNX embeddings —
-            semantic search works out of the box, no LLM required. Add Ollama or a cloud API if you prefer an alternative model. Pay once for Pro and own it forever.
+            semantic search works out of the box, no LLM required. Subscribe monthly or pay once and own it forever.
           </p>
         </div>
 
@@ -39,19 +39,27 @@ export default function Page() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Semantic code search</span>
+                <span>Semantic search + structural code graph</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Context assembly for LLMs</span>
+                <span>Context assembly + path weights</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
                 <span>MCP integration (Cursor, Windsurf, etc.)</span>
               </li>
               <li className="flex items-start gap-2">
+                <span className="text-success mt-0.5">&#10003;</span>
+                <span>Dashboard GUI</span>
+              </li>
+              <li className="flex items-start gap-2">
                 <span className="text-text-subtle mt-0.5">&#10005;</span>
-                <span className="text-text-muted">Manual indexing only (no file watcher)</span>
+                <span className="text-text-muted">Manual builds only (no auto-rebuild or scheduling)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-success mt-0.5">&#10003;</span>
+                <span>Structural code compression (LOD)</span>
               </li>
             </ul>
             <Button asChild variant="outline" className="mt-6 w-full">
@@ -59,68 +67,28 @@ export default function Page() {
             </Button>
           </div>
 
-          {/* Starter */}
+          {/* Monthly */}
           <div className="rounded-xl border border-border bg-surface p-6 flex flex-col">
-            <div className="text-sm font-semibold text-text-muted uppercase tracking-wide">Starter</div>
+            <div className="text-sm font-semibold text-text-muted uppercase tracking-wide">Monthly</div>
             <div className="mt-3">
-              <span className="text-4xl font-bold">$29</span>
-              <span className="text-text-muted ml-1">/ 4 months</span>
+              <span className="text-4xl font-bold">$7</span>
+              <span className="text-text-muted ml-1">/ month</span>
             </div>
             <p className="mt-3 text-sm text-text-muted">
-              For freelancers and students who work across a few repos.
+              Full feature access, billed monthly. Cancel anytime.
             </p>
             <ul className="mt-6 space-y-3 text-sm flex-1">
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Up to 3 active projects</span>
+                <span>Unlimited projects</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Real-time file watcher (auto-rebuild)</span>
+                <span>Full automation (watcher, scheduling, pipelines)</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Semantic search + context assembly</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-success mt-0.5">&#10003;</span>
-                <span>MCP integration</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-success mt-0.5">&#10003;</span>
-                <span>Dashboard GUI</span>
-              </li>
-            </ul>
-            <Button asChild variant="outline" className="mt-6 w-full">
-              <a href="https://payments.codrag.io">Get Starter</a>
-            </Button>
-          </div>
-
-          {/* Pro — highlighted */}
-          <div className="rounded-xl border-2 border-primary bg-gradient-to-br from-primary/5 to-transparent p-6 flex flex-col relative">
-            <div className="absolute -top-3 right-4 bg-primary text-white text-xs font-bold px-3 py-1 rounded-full">
-              Most Popular
-            </div>
-            <div className="text-sm font-semibold text-primary uppercase tracking-wide">Pro</div>
-            <div className="mt-3">
-              <span className="text-4xl font-bold">$79</span>
-              <span className="text-text-muted ml-1">one-time</span>
-            </div>
-            <p className="mt-3 text-sm text-text-muted">
-              Perpetual license. Own it forever. The full CoDRAG experience.
-            </p>
-            <ul className="mt-6 space-y-3 text-sm flex-1">
-              <li className="flex items-start gap-2">
-                <span className="text-success mt-0.5">&#10003;</span>
-                <span><strong>Unlimited</strong> projects</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-success mt-0.5">&#10003;</span>
-                <span><strong>Structural Code Graph</strong> (imports, calls, symbol graphs)</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-success mt-0.5">&#10003;</span>
-                <span>Full MCP suite</span>
+                <span>Full MCP suite + trace-aware context expansion</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
@@ -128,15 +96,51 @@ export default function Page() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Real-time auto-rebuild</span>
+                <span>9-stage graph enrichment pipeline</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-text-subtle mt-0.5">&#8594;</span>
+                <span className="text-text-muted">Switch to Perpetual anytime to own it outright</span>
+              </li>
+            </ul>
+            <Button asChild variant="outline" className="mt-6 w-full">
+              <a href="https://payments.codrag.io">Start Monthly</a>
+            </Button>
+          </div>
+
+          {/* Perpetual — highlighted */}
+          <div className="rounded-xl border-2 border-primary bg-gradient-to-br from-primary/5 to-transparent p-6 flex flex-col relative">
+            <div className="absolute -top-3 right-4 bg-primary text-background text-xs font-bold px-3 py-1 rounded-full">
+              Best Value
+            </div>
+            <div className="text-sm font-semibold text-primary uppercase tracking-wide">Perpetual</div>
+            <div className="mt-3">
+              <span className="text-4xl font-bold">$79</span>
+              <span className="text-text-muted ml-1">one-time</span>
+            </div>
+            <p className="mt-3 text-sm text-text-muted">
+              Buy it once. Own it forever. Every feature, no expiry.
+            </p>
+            <ul className="mt-6 space-y-3 text-sm flex-1">
+              <li className="flex items-start gap-2">
+                <span className="text-success mt-0.5">&#10003;</span>
+                <span><strong>Everything in Monthly</strong></span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Context compression (CLaRa)</span>
+                <span>No recurring fee — one payment, yours forever</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-success mt-0.5">&#10003;</span>
+                <span>Offline activation (no internet required after activation)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-success mt-0.5">&#10003;</span>
+                <span>Free updates for the life of the major version</span>
               </li>
             </ul>
             <Button asChild className="mt-6 w-full">
-              <a href="https://payments.codrag.io">Buy Pro License</a>
+              <a href="https://payments.codrag.io">Buy Perpetual License</a>
             </Button>
           </div>
         </div>
@@ -157,7 +161,7 @@ export default function Page() {
             <ul className="mt-4 space-y-2 text-sm">
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Everything in Pro, plus team management</span>
+                <span>Everything in Perpetual, plus team management</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
@@ -206,8 +210,8 @@ export default function Page() {
         <div className="mt-16 text-center space-y-4">
           <h2 className="text-xl font-semibold">Every plan includes</h2>
           <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-text-muted">
-            <span>100% local — no cloud upload</span>
-            <span>No LLM required — built-in embeddings + Ollama &amp; cloud optional</span>
+            <span>Local-first — your code stays on your machine</span>
+            <span>Built-in embeddings — add Ollama or BYOK cloud for enrichment</span>
             <span>macOS & Windows</span>
             <span>MCP integration</span>
           </div>

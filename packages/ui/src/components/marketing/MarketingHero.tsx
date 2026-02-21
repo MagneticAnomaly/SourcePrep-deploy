@@ -261,7 +261,7 @@ function GlassHero() {
           
           <p className="text-xl text-text-muted mb-8 max-w-2xl mx-auto">
             CoDRAG sits between your codebase and your AI tools — built-in embeddings, structural tracing,
-            path weights for precision control, and optional 10–16× CLaRa compression. Better context in, better code out. Runs locally, or connects to your cloud APIs.
+            path weights for precision control, and 3–20× structural compression. Better context in, better code out. Runs locally, or connects to your cloud APIs.
           </p>
 
           <Flex className="gap-4" justifyContent="center">
@@ -373,7 +373,7 @@ function SplitHero() {
           <FeaturePoint icon={<Search className="w-5 h-5 text-primary" />} text="Semantic search with built-in ONNX embeddings — Ollama or cloud API optional" />
           <FeaturePoint icon={<Layers className="w-5 h-5 text-primary" />} text="Rust-powered Code Graph maps imports, calls, and symbol hierarchies" />
           <FeaturePoint icon={<Zap className="w-5 h-5 text-primary" />} text="Path weights let you boost core modules and silence noise — instantly" />
-          <FeaturePoint icon={<Shield className="w-5 h-5 text-primary" />} text="Optional 10–16× CLaRa compression fits more signal into every prompt" />
+          <FeaturePoint icon={<Shield className="w-5 h-5 text-primary" />} text="Built-in 3–20× structural compression fits more signal into every prompt" />
         </div>
 
         <Flex className="mt-10 gap-4">
@@ -543,7 +543,7 @@ function YaleHero() {
           <div className="col-span-12 md:col-span-3 md:col-start-4">
             <p className="font-sans text-base text-text leading-relaxed mb-6">
               CoDRAG's Rust-powered engine indexes your codebase locally—semantics, symbols, and call graphs—with built-in
-              ONNX embeddings, path weights for precision control, and optional 10–16× CLaRa compression. No cloud upload. No LLM required — Ollama and cloud APIs optional.
+              ONNX embeddings, path weights for precision control, and built-in 3–20× structural compression. No cloud upload. No LLM required — Ollama and cloud APIs optional.
             </p>
             <a href="#" className="font-sans font-medium text-primary hover:underline underline-offset-4 decoration-2 flex items-center gap-1">
               Documentation <ArrowRight className="w-3 h-3" />
@@ -551,29 +551,39 @@ function YaleHero() {
           </div>
 
           {/* Column 2: Specs */}
-          <div className="col-span-12 md:col-span-3">
-            <ul className="space-y-4 font-mono text-sm text-text border-l border-border pl-6">
-              <li className="flex justify-between">
-                <span>Latency</span>
-                <span className="text-text-muted">&lt;100ms</span>
-              </li>
-              <li className="flex justify-between">
-                <span>Index</span>
-                <span className="text-text-muted">Vector + Graph</span>
-              </li>
-              <li className="flex justify-between">
-                <span>Model</span>
-                <span className="text-text-muted">Nomic Embed</span>
-              </li>
-              <li className="flex justify-between">
-                <span>Network</span>
-                <span className="text-text-muted">Offline</span>
-              </li>
-            </ul>
+          <div className="col-span-12 md:col-span-3 mt-8 md:mt-0">
+            <div className="flex flex-col gap-4 pl-6 border-l border-border">
+              
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="font-mono text-xs text-text-muted shrink-0">Index</span>
+                <span className="font-mono text-sm text-text font-bold text-right">Vector + Graph</span>
+              </div>
+
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="font-mono text-xs text-text-muted shrink-0">Embedding</span>
+                <span className="font-mono text-sm text-text font-bold text-right">Local Nomic</span>
+              </div>
+
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="font-mono text-xs text-text-muted shrink-0">Compression</span>
+                <span className="font-mono text-sm text-text font-bold text-right">3–20× (LOD)</span>
+              </div>
+              
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="font-mono text-xs text-text-muted shrink-0">Integrations</span>
+                <span className="font-mono text-sm text-text font-bold text-right">MCP Native</span>
+              </div>
+
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="font-mono text-xs text-text-muted shrink-0">Latency</span>
+                <span className="font-mono text-sm text-text font-bold text-right">&lt;100ms</span>
+              </div>
+              
+            </div>
           </div>
 
-          {/* Column 3: Action - Removed "Card", just text and minimal buttons */}
-          <div className="col-span-12 md:col-span-3 flex flex-col justify-between">
+          {/* Column 3: Action */}
+          <div className="col-span-12 md:col-span-3 mt-8 md:mt-0 flex flex-col justify-between">
             <div className="pl-6 md:border-l md:border-border">
               <span className="font-sans font-bold text-sm mb-4 block">Get Started</span>
               <div className="flex flex-col gap-2">

@@ -40,6 +40,8 @@ export interface PanelDefinition {
   closeable?: boolean;  // Can be hidden (default true)
   resizable?: boolean;
   docsUrl?: string;
+  /** Remove default p-4 body padding (e.g. for flush panels like LogConsole) */
+  noPadding?: boolean;
 }
 
 /**
