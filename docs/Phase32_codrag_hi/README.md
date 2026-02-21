@@ -149,7 +149,8 @@ A single MCP tool with **no required parameters** and one optional `project_id`.
 **Response structure:**
 ```json
 {
-  "summary": "# CoDRAG — my-app\n\n**Status:** Index loaded (847 chunks)...",
+  "_ai_note": "STANDALONE (user only said 'codrag_hi'): Present the summary conversationally... WITH A QUESTION: Briefly acknowledge, then answer...",
+  "summary": "I'm looking at **my-app** — 120 files selected across **src/** (45 files), **docs/** (22 files)...",
   "diagnostics": {
     "project_id": "proj_abc",
     "project_name": "my-app",
@@ -170,26 +171,46 @@ A single MCP tool with **no required parameters** and one optional `project_id`.
 }
 ```
 
-**Example `summary` markdown (rendered by IDE AI):**
+### Two scenarios: standalone vs. with-prompt
+
+The `_ai_note` field in every response tells the AI model how to present the data:
+
+| Scenario | User says | AI behavior |
+|----------|-----------|-------------|
+| **Standalone** | "codrag_hi" (nothing else) | Present the summary conversationally — "I'm looking at your src/, docs/, and tests/ directories…" Mention health issues naturally. Offer suggested prompts as numbered next-step options. |
+| **With a question** | "codrag_hi, then explain the auth module" | Briefly acknowledge what you see (1–2 sentences), then answer the question. Call `codrag_search` if specific code context is needed. |
+
+The tool description also shapes this behavior: *"Present the response CONVERSATIONALLY — tell the user what files and areas you're looking at, mention any health issues, and offer the suggested prompts as numbered next-step options. If the user also asked a question, briefly summarize what you see then answer their question (use codrag_search for specifics)."*
+
+**Example `summary` (what the tool returns):**
 ```markdown
-# CoDRAG — my-app
+I'm looking at **my-app** — 120 files selected across **src/** (45 files), **docs/** (22 files), **tests/** (18 files).
+The index has 847 searchable chunks.
+I can also follow the code graph (523 nodes, 641 edges, 80% coverage) to trace imports, calls, and structural relationships.
+Priority areas: `src/core/` = 1.5×, `docs/` = 0.5×.
 
-**Status:** Index loaded (847 chunks) · built 2026-02-20T12:00:00Z · Trace active (523 nodes, 641 edges)
+Everything looks good — index is fresh and trace graph is active.
 
-**Knowledge scope:** 120 files selected. Top areas: src/ (45), docs/ (22), tests/ (18)
+**Here are some things I can help with:**
+1. How is my-app structured? What are the main modules?
+2. What API endpoints does this project expose?
+3. What areas have good test coverage and what's missing?
+4. What are the most connected modules in the code graph?
 
-**Path weights:** `src/core/` = 1.5×, `docs/` = 0.5×
-
-**Health:** All systems nominal.
-
-**Suggested prompts:**
-1. "How is my-app structured? What are the main modules?"
-2. "What API endpoints does this project expose?"
-3. "What areas have good test coverage and what's missing?"
-4. "What are the most connected modules in the code graph?"
-
-*Other projects available: backend-api, shared-lib*
+_(You also have backend-api, shared-lib indexed.)_
 ```
+
+**Example AI response (standalone, what the user sees in chat):**
+> Hi! I'm looking at your **my-app** project — I can see 120 files across `src/`, `docs/`, and `tests/`. The index has 847 chunks and the trace graph is active with 523 nodes and 641 edges (80% coverage). `src/core/` is boosted to 1.5×.
+>
+> Everything looks good — index is fresh and I'm ready to help. Here are some things I can do:
+>
+> 1. How is my-app structured? What are the main modules?
+> 2. What API endpoints does this project expose?
+> 3. What areas have good test coverage?
+> 4. What are the most connected modules in the code graph?
+>
+> Just pick a number or ask me anything!
 
 ### Implementation details
 
@@ -207,18 +228,20 @@ codrag_hi called
   ├─ Extract & compute:
   │   ├─ dir_counts from included_paths       → top 5 directories
   │   └─ trace_pct from coverage              → coverage percentage
-  ├─ Build markdown summary
+  ├─ Build conversational summary (first-person, data-rich)
   ├─ Generate rule-based prompts (3-6)
-  └─ Return {summary, diagnostics}
+  ├─ Build _ai_note (standalone vs. with-prompt guidance)
+  └─ Return {_ai_note, summary, diagnostics}
 ```
 
-**Health note heuristics:**
-- No index → "Run `codrag_build` to get started"
-- Stale index (without watcher) → "Run `codrag_build` to refresh"
-- Stale index (with watcher) → "Auto-rebuild is on; it will catch up shortly"
-- Trace coverage <60% → "Low trace coverage — only X% traced"
-- Auto-rebuild off → "Changes won't be picked up automatically"
-- All clear → "All systems nominal"
+**Health observation heuristics:**
+- No index → "No index exists yet — run `codrag_build` to get started."
+- Building → "Index is currently building — results will improve once it finishes."
+- Stale (without watcher) → "{N} file(s) changed since last build. Run `codrag_build` to refresh..."
+- Stale (with watcher) → "{N} file(s) changed since last build. Auto-rebuild is on, so it will catch up shortly."
+- Trace coverage <60% → "Trace coverage is only {X}% ({traced}/{total} files)."
+- Auto-rebuild off (index fresh) → "Auto-rebuild is off — if you change files, I won't pick up the changes until you rebuild."
+- All clear → "Everything looks good — index is fresh and trace graph is active."
 
 **Prompt generation heuristics:**
 - `src/`, `lib/`, `core/`, `app/` → "How is {name} structured?"

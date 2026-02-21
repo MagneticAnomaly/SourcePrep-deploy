@@ -110,6 +110,82 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 - [ ] **Legal**: External legal review of Privacy/Terms.
 - [ ] **Email**: Configure `support@codrag.io` and `hello@codrag.io` catch-alls.
 
+### MKT-W10: Phase 29 UX Audit — Copy & Messaging Corrections (Feb 2026)
+
+**Completed:**
+- [x] Fix Atlas panel description: remove "injected into every AI query" → "pre-retrieval routing". (`packages/ui/src/config/panelRegistry.ts`)
+- [x] Fix pricing page: Free = 1 project + manual only + no CLaRa. Starter = full Pro with 4-month time limit (not "3 projects"). (`websites/apps/marketing/src/app/pricing/page.tsx`)
+- [x] Fix pricing "every plan includes" strip: "100% local" → "Local-first" to acknowledge BYOK. (`websites/apps/marketing/src/app/pricing/page.tsx`)
+- [x] Fix homepage trust strip: "0 bytes sent to cloud" → "Local-first — your code stays on your machine". (`websites/apps/marketing/src/app/page.tsx`)
+- [x] Fix About page: rewrite outdated copy to match current positioning (multiple retrieval methods, MCP backend, BYOK). (`websites/apps/marketing/src/app/about/page.tsx`)
+- [x] Fix FeatureBlocks: Structural Code Graph badge from "Pro" → "Built-in" (trace_index is FREE per feature_gate.py). (`packages/ui/src/components/marketing/FeatureBlocks.tsx`)
+- [x] Fix FeatureBlocks: Graph Enrichment "multi-pass" → "9-stage pipeline" (verified from pipeline_orchestrator.py). (`packages/ui/src/components/marketing/FeatureBlocks.tsx`)
+- [x] Fix FeatureBlocks: "epistemic scoring" → "confidence scoring" in feature description. (`packages/ui/src/components/marketing/FeatureBlocks.tsx`)
+- [x] Fix Dashboard App.tsx: remove incorrect Starter 3-project hardcode (Starter = Pro). (`src/codrag/dashboard/src/App.tsx`)
+
+**Remaining:**
+- [ ] **Support portal scope**: Define private/priority support for Pro/Team/Enterprise (email flow? SLA?). May not be MVP.
+- [ ] **Debug log export**: Add "How to send a bug report" section to Security/Privacy page AND FAQ. Document safe log export without leaking code.
+- [ ] **Perpetual license messaging**: Research how comparable products (Sublime Text, JetBrains perpetual fallback, Sketch) phrase perpetual licenses. Align homepage copy.
+- [ ] **Lemon Squeezy post-purchase flow**: Investigate what Lemon Squeezy shows on the success page. Determine if we need custom copy about offline license.json delivery.
+- [ ] **Homepage screenshots**: Create/capture the top 3 dashboard screenshots for the homepage placeholders (suggested: Knowledge Query results, Code Graph Explorer, Graph Enrichment Pipeline).
+- [ ] **Docs: Codebase Atlas concept page**: Create `/concepts/atlas-routing` once Phase 29B implementation is complete.
+- [ ] **Docs: Pipeline stage count**: Ensure docs site `/concepts/graph-enrichment` reflects the accurate 9-stage pipeline (Fast Sync 4 + Deep Enrichment 5).
+- [ ] **Docs: Getting Started verification step**: Audit the "Verify" step — currently uses `trace_expand=true` which works for all tiers, but should clarify what happens on Free (manual trace build required first).
+
+### MKT-W11: Pricing & Payments Setup (Pre-Launch)
+
+**Strategy doc:** `Phase10_Business_And_Competitive_Research/Pricing/GLOBAL_PRICING.md`
+
+**Code complete (website):**
+- [x] `lib/pricing.ts` — PPP utility (4 bands, 100+ countries, price lookup, checkout URL builder).
+- [x] `pricing/page.tsx` — Dynamic prices per region (silent enterprise UX, no banners/strikethroughs).
+- [x] `middleware.ts` — Next.js middleware reads `request.geo.country` → sets `visitor_country` cookie.
+- [x] `payments/page.tsx` — Per-product checkout cards (Monthly/Perpetual/Team) with env var URLs.
+- [x] `.env.example` files for marketing + payments apps with all env var names documented.
+
+**YOU need to do before launch:**
+
+*Lemon Squeezy setup:*
+- [ ] **LS-01**: Create Lemon Squeezy store at `lemonsqueezy.com` (if not already done).
+- [ ] **LS-02**: Create LS **Monthly** product — $7/mo recurring subscription.
+- [ ] **LS-03**: Create LS **Perpetual** product — $79 one-time payment.
+- [ ] **LS-04**: Create LS **Team** product — $15/seat/mo recurring subscription.
+- [ ] **LS-05**: Create PPP discount codes in LS dashboard:
+  - `PPP20` — 20% off, applicable to Monthly + Perpetual + Team.
+  - `PPP40` — 40% off, same products.
+  - `PPP60` — 60% off, same products.
+  - Set `max_redemptions` per code (e.g., 10,000). Rotate quarterly.
+- [ ] **LS-06**: Configure LS webhook → `api.codrag.io` for license generation on purchase.
+- [ ] **LS-07**: Set LS success redirect URL → `https://payments.codrag.io/success`.
+- [ ] **LS-08**: Test full purchase flow end-to-end (LS test mode).
+
+*Netlify environment variables:*
+- [ ] **ENV-01**: Set `NEXT_PUBLIC_LS_CHECKOUT_MONTHLY` on **marketing** Netlify site (LS checkout URL).
+- [ ] **ENV-02**: Set `NEXT_PUBLIC_LS_CHECKOUT_PERPETUAL` on **marketing** Netlify site.
+- [ ] **ENV-03**: Set `NEXT_PUBLIC_LS_CHECKOUT_TEAM` on **marketing** Netlify site.
+- [ ] **ENV-04**: Set same 3 `NEXT_PUBLIC_LS_CHECKOUT_*` vars on **payments** Netlify site.
+- [ ] **ENV-05**: Set `LEMONSQUEEZY_API_KEY` on **payments** Netlify site (secret, for license recovery).
+- [ ] **ENV-06**: Set `LEMONSQUEEZY_STORE_ID` on **payments** Netlify site.
+
+*DNS / Hosting (also in MKT-W6):*
+- [ ] **DNS-01**: Create Netlify site for `codrag.io` (marketing).
+- [ ] **DNS-02**: Create Netlify site for `payments.codrag.io`.
+- [ ] **DNS-03**: Point DNS CNAME records to Netlify (GoDaddy or Cloudflare).
+- [ ] **DNS-04**: Verify SSL auto-provisioned by Netlify for all domains.
+
+*License infrastructure:*
+- [ ] **LIC-01**: Deploy `api.codrag.io` serverless function for Ed25519 license signing.
+- [ ] **LIC-02**: Generate Ed25519 keypair and store private key securely.
+- [ ] **LIC-03**: Wire LS webhook → license signing → email delivery.
+- [ ] **LIC-04**: Implement license recovery API (replace mock in `payments/api/recover/route.ts`).
+
+*Verification:*
+- [ ] **VER-01**: Test PPP pricing by visiting `/pricing?country=IN` (should show $3/mo, $29 perpetual).
+- [ ] **VER-02**: Test PPP pricing for Band 1 (`?country=PL`) and Band 2 (`?country=BR`).
+- [ ] **VER-03**: Test checkout flow: pricing page → LS checkout → success page → license email.
+- [ ] **VER-04**: Test license recovery flow: payments.codrag.io/recover → email sent.
+
 ### MKT-W8: Later (post-v0 / 2.0)
 - [ ] **Support 2.0**: Full Helpdesk.
   - [ ] Auth / Ticketing system.
