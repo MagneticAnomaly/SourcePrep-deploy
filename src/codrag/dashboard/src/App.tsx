@@ -180,23 +180,27 @@ function App() {
     : `${api.baseUrl}/events`;
   const { logs, tasks, clearLogs, pipelineEvents, scopeEvents } = useEventStream(eventsUrl, 1000);
 
-  // Helper to find relevant task for current project
+  // Helper to find relevant task for current project.
+  // Prefer running tasks over completed ones so transition detectors
+  // pick up new builds instead of sticking on old completed entries.
   const findActiveTask = useCallback((type: 'index_build' | 'trace_build') => {
     if (!selectedProjectId) return undefined;
-    const entry = Object.values(tasks).find(t => 
+    const matching = Object.values(tasks).filter(t => 
       t.task_id.startsWith(`${type}:${selectedProjectId}`) && 
       (t.status === 'running' || t.status === 'completed')
     );
-    return entry;
+    return matching.find(t => t.status === 'running') ?? matching[matching.length - 1];
   }, [tasks, selectedProjectId]);
 
   // ── Enrichment (hook) ───────────────────────────────────────
   const {
+    inferredEdgesStatus, inferredEdgesRunning,
     augmentationStatus, augmenting, validating,
     epistemicStatus, epistemicRunning,
     moduleStatus, clusterRunning,
+    atlasRunning,
     deepeningStatus, deepeningRunning,
-    knowledgeStatus, knowledgeBuilding,
+    knowledgeStatus, fastKnowledgeBuilding, deepKnowledgeBuilding,
     handleRunAugmentation, handleRunEpistemic, handleRunModuleSynthesis,
     handleRunDeepening, handleRunKnowledgeBuild,
     handleRunDeepEnrichment,
@@ -205,6 +209,9 @@ function App() {
     onError: (msg) => setError(msg),
     pipelineEvents,
   })
+
+  // ── Atlas (Phase 29) ─────────────────────────────────────────
+  const [atlasStatus, setAtlasStatus] = useState<AtlasStatus | null>(null)
 
   // ── Trace system (hook) ───────────────────────────────────────
   const {
@@ -235,10 +242,8 @@ function App() {
     refreshFileTree: fetchFileTree,
     clearIncludedPaths,
     resetEnrichment,
+    resetAtlas: () => setAtlasStatus(null),
   })
-
-  // ── Atlas (Phase 29) ─────────────────────────────────────────
-  const [atlasStatus, setAtlasStatus] = useState<AtlasStatus | null>(null)
 
   const fetchAtlas = useCallback(async () => {
     if (!selectedProjectId) return
@@ -305,7 +310,22 @@ function App() {
         await refreshProjects()
         try {
           const globalCfg = await api.getGlobalConfig()
-          if (globalCfg.llm_config) setLLMConfig(globalCfg.llm_config)
+          if (globalCfg.llm_config) {
+            setLLMConfig(globalCfg.llm_config)
+            // Fetch compression status to populate lingua_downloaded
+            try {
+              const compressionStatus = await api.getCompressionStatus()
+              if (compressionStatus.lingua) {
+                setLLMConfig((prev) => ({
+                  ...prev,
+                  compression: {
+                    ...prev.compression,
+                    lingua_downloaded: compressionStatus.lingua.downloaded ?? false,
+                  },
+                }))
+              }
+            } catch { /* Compression status not critical */ }
+          }
           if (globalCfg.deep_analysis) setDeepAnalysisSchedule((prev) => ({ ...prev, ...globalCfg.deep_analysis } as any))
           if (globalCfg.ui_preferences) {
             const prefs = globalCfg.ui_preferences
@@ -384,11 +404,13 @@ function App() {
       fetchTraceCoverage, handleRunFastSync, handleDestroyGraph,
     },
     enrichment: {
+      inferredEdgesStatus, inferredEdgesRunning,
       augmentationStatus, augmenting, validating, handleRunAugmentation,
       epistemicStatus, epistemicRunning, handleRunEpistemic,
       moduleStatus, clusterRunning, handleRunModuleSynthesis,
+      atlasRunning,
       deepeningStatus, deepeningRunning, handleRunDeepening,
-      knowledgeStatus, knowledgeBuilding, handleRunKnowledgeBuild,
+      knowledgeStatus, fastKnowledgeBuilding, deepKnowledgeBuilding, handleRunKnowledgeBuild,
       handleRunDeepEnrichment,
     },
     watch: { watchStatus, watchLoading, handleStartWatch, handleStopWatch },
