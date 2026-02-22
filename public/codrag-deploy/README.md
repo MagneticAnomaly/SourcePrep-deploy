@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="../../docs/assets/codrag-github-header.png" alt="CoDRAG" width="100%">
+  <img src="codrag-github-header.png" alt="CoDRAG" width="100%">
 </p>
 
 # CoDRAG Deploy — Headless Team Sync Templates
