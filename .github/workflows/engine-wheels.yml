@@ -40,10 +40,10 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             arch: x86_64
-          # Linux ARM64 (via emulation)
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            arch: aarch64
+          # Linux ARM64 deferred — needs docker cross-compile setup
+          # - os: ubuntu-latest
+          #   target: aarch64-unknown-linux-gnu
+          #   arch: aarch64
 
     steps:
       - name: Checkout repository
@@ -61,10 +61,7 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: --release --out dist
           working-directory: engine
-          # Enable sccache for faster builds
           sccache: true
-          # Use zig for cross-compilation where needed
-          zig: ${{ contains(matrix.platform.target, 'linux') }}
 
       - name: Upload wheels
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
