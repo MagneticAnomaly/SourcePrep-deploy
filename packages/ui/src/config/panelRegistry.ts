@@ -4,6 +4,7 @@ import {
   Coins,
   Database, 
   Eye,
+  Flame,
   FolderTree,
   GitBranch,
   HeartPulse,
@@ -221,6 +222,18 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     closeable: true,
     resizable: true,
     docsUrl: 'https://docs.codrag.io/dashboard#token-budget',
+  },
+  {
+    id: 'activity-heatmap',
+    title: 'Index Activity',
+    description: 'GitHub-style heatmap showing embedding and graph build activity over time.',
+    icon: Flame,
+    minHeight: 4,
+    defaultHeight: 6,
+    category: 'status',
+    closeable: true,
+    resizable: true,
+    docsUrl: 'https://docs.codrag.io/dashboard#activity',
   },
 ];
 

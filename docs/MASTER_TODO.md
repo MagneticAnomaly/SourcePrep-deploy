@@ -166,21 +166,21 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 - [x] S-07.1 Tauri wrapper + sidecar startup/shutdown + port strategy (Phase08) ✅ **DONE: `CoDRAG.app` builds with PyInstaller sidecar**
 - [ ] S-07.2 Python Sidecar Build (SID-1..6)
   - [x] SID-1 Recreate dev venv with native ARM Python
-  - [ ] SID-2 PyInstaller spec file (`codrag-daemon.spec`)
+  - [x] SID-2 PyInstaller spec file (`codrag-daemon.spec`)
   - [ ] SID-3 Test sidecar binary on macOS
   - [ ] SID-4 Test sidecar binary on Windows
   - [ ] SID-5 Sidecar binary includes native embedder deps
   - [ ] SID-6 Sidecar binary naming convention (`codrag-daemon-{target-triple}`)
 - [ ] S-07.3 Rust Engine Wheels (ENG-1..7)
-  - [ ] ENG-1 GitHub Actions workflow (`engine-wheels.yml`)
-  - [ ] ENG-2 macOS ARM64 wheel builds
-  - [ ] ENG-3 Windows x64 wheel builds
-  - [ ] ENG-4 Linux x64 + ARM64 wheel builds
-  - [ ] ENG-5 Publish wheels to PyPI
+  - [x] ENG-1 GitHub Actions workflow (`engine-wheels.yml`)
+  - [x] ENG-2 macOS ARM64 wheel builds
+  - [x] ENG-3 Windows x64 wheel builds
+  - [x] ENG-4 Linux x64 + ARM64 wheel builds
+  - [x] ENG-5 Publish wheels to PyPI
   - [ ] ENG-6 Integrate correct platform wheel into sidecar build
   - [x] ENG-7 Document target matrix
 - [ ] S-07.4 Tauri Desktop App Build & Signing (TAU-1..8)
-  - [ ] TAU-1 Verify Tauri v1 builds locally
+  - [x] TAU-1 Verify Tauri v1 builds locally
   - [ ] TAU-2 Configure `externalBin` in `tauri.conf.json` for sidecar
   - [ ] TAU-3 macOS code signing in CI
   - [ ] TAU-4 macOS notarization in CI
@@ -891,12 +891,12 @@ Add brief notes here after completing a sprint:
  **Remaining work / roadblockers:**
  - [ ] Ed25519 license signature verification (currently trusts JSON file contents)
  - [ ] Tauri license entry UI + activation exchange flow
- - [ ] Frontend upgrade prompts: show "Upgrade to Starter" when free user hits limit
+ - [x] Frontend upgrade prompts: **WON'T DO** — no upgrade prompts by design
  - [x] Gate `clara_compression` in context endpoint ✅ `_apply_compression()` now calls `require_feature("clara_compression")`
  - [x] Gate `mcp_trace_expand` in context endpoint ✅ `context_project()` now calls `require_feature("mcp_trace_expand")` when `trace_expand=true`
- - [ ] Frontend `WatchControlPanel` should show upgrade prompt for FREE tier
+ - [x] `WatchControlPanel` upgrade prompt: **WON'T DO** — no upgrade prompts by design
  - [x] `test_incremental_rebuild.py::test_deleted_file_not_carried_over` flaky test ✅ **FIXED:** `FakeEmbedder` now uses `hashlib.sha256` instead of `hash()` for cross-run determinism. Test now checks `_documents` directly instead of relying on search similarity.
- - [ ] Pre-existing: `test_mcp_config_endpoint.py::test_mcp_config_default_daemon_url_uses_base_url` fails (404 on endpoint)
+ - [x] `test_mcp_config_endpoint.py` endpoint moved from `/api/code-index/mcp-config` to `/mcp/config` — tests updated ✅
 
  ### 2026-02-08 (continued): Deep Architecture Audit
 
@@ -945,11 +945,11 @@ Add brief notes here after completing a sprint:
  | `GET /license` | All features | ✅ Wired |
 
  **UX revamp docs (Phase 14) — planned but not yet implemented:**
- - [ ] COMPONENT_AUDIT_V2.md: rename "Index Status"→"Knowledge Base Status", "Symbol Browser"→"Code Graph Explorer", etc.
- - [ ] DASHBOARD_UX_REVAMP.md: unified search bar, context budget meter, smart presets
- - [ ] Merge FolderTree + TraceCoverage into unified "Codebase Explorer"
- - [ ] Move LLM settings to a settings modal (out of main dashboard)
- - [ ] "Bicameral" layout: Knowledge (left) | Assembly (center) | Structure (right)
+ - [x] COMPONENT_AUDIT_V2.md: **WON'T DO** — current panel names are final
+ - [x] DASHBOARD_UX_REVAMP.md: **WON'T DO** — current dashboard layout is final
+ - [x] Merge FolderTree + TraceCoverage: **WON'T DO** — separate panels preferred
+ - [x] Move LLM settings to settings modal: **WON'T DO** — stays in dashboard
+ - [x] "Bicameral" layout: **WON'T DO** — modular grid layout preferred
 
  **Phase TODO gaps — research items still open:**
  - [ ] P02-R1: Finalize dashboard information architecture
@@ -1022,7 +1022,7 @@ Add brief notes here after completing a sprint:
  - [x] Storybook `FullDashboard` drift: now uses `PANEL_REGISTRY` directly with content for all 14 canonical panels ✅
  - [x] Dashboard error UX: `ErrorToast` component wired in `App.tsx` with auto-dismiss ✅
  - [x] AI Models settings: `onHFDownload` wired to `handleDownloadModel` → `api.downloadEmbedding()` ✅
- - [ ] Activity heatmap panel: `ActivityHeatmap.stories.tsx` exists but no panel registered or wired in App.tsx
+ - [x] Activity heatmap panel: ✅ Registered in `PANEL_REGISTRY`, wired in `useDashboardPanels`, fetches from `/projects/{id}/activity`
  - [ ] Storybook `NodeDetailPanel.stories.tsx` exists but NodeDetailPanel not wired as a dashboard panel
  - [ ] `WatchStatusIndicator.stories.tsx` exists but component not used in dashboard (WatchControlPanel used instead)
 
@@ -1123,12 +1123,12 @@ All URLs updated to `github.com/EricBintner/CoDRAG`:
 
  #### Environment Variables — Undocumented
  Two env vars are used in code but not documented in README or any user-facing docs:
- - [ ] `CODRAG_ENGINE` — selects engine: `auto` (default), `rust`, `python` (`core/__init__.py`)
+ - [ ] `CODRAG_ENGINE` — selects engine: `auto` (default), `rust`, `python` (`core/__init__.py`) WE ALWAYS USE RUST,  I don't know why we still have the python engine
  - [ ] `CODRAG_TIER` — overrides license tier for development/testing (`core/feature_gate.py`)
  Document these in README.md or a configuration reference.
 
  #### Security Posture (local-first, acceptable for now)
- - `allow_origins=["*"]` CORS — fine for localhost, **must restrict for network/team mode** (Phase 06)
+ - `allow_origins=["*"]` CORS — fine for localhost, **must restrict for network/team mode** (Phase 06) TODO BUILD RESERACH DOC 
  - No authentication on any endpoint — planned for Phase 06 network mode
  - API keys passed in LLM proxy request bodies — acceptable for local, never stored server-side
  - File content endpoint (`/projects/{id}/file`) properly rejects path traversal (`..`) ✅
@@ -1212,16 +1212,15 @@ All URLs updated to `github.com/EricBintner/CoDRAG`:
  - [x] `/clara/*` — ✅ proxy added (vite.config.ts lines 100-104)
  - [x] `/license` — ✅ proxy added (vite.config.ts lines 90-94)
 
- #### Legacy Endpoints Incompatible with Multi-Project
- Three legacy endpoints use the global `_get_index()` singleton instead of project-scoped
- `_get_project_index()`. They **silently break** in multi-project configurations:
- - [ ] `POST /api/code-index/context` — uses `_get_index()` and global `_trace_index` singleton
- - [ ] `POST /api/code-index/chunk` — uses `_get_index()`
- - [ ] `GET/PUT /api/code-index/config` — global config, not project-aware
- These should be deprecated (add deprecation warning header) and callers migrated to the
- project-scoped equivalents (`/projects/{id}/context`, `/projects/{id}/search`).
- Note: the frontend `getGlobalConfig/updateGlobalConfig` already uses the legacy `/api/code-index/config`
- path — this needs a migration plan (track as tech debt item in MASTER_TODO).
+ #### ~~Legacy Endpoints Incompatible with Multi-Project~~ ✅ DELETED
+ All legacy `/api/code-index/*` endpoints have been deleted:
+ - [x] `POST /api/code-index/context` — **DELETED** (use `/projects/{id}/context`)
+ - [x] `POST /api/code-index/chunk` — **DELETED** (use `/projects/{id}/search`)
+ - [x] `GET/PUT /api/code-index/config` — **DELETED** (use `/global/config`)
+ - [x] `GET /api/code-index/mcp-config` — **MOVED** to `/mcp/config`
+ - [x] CLI `config` command migrated to `/global/config`
+ - [x] VS Code client migrated to `/mcp/config`
+ - [x] Tests migrated to `/mcp/config`
 
  #### Dead Code: `api/responses.py` (227 lines)
  `src/codrag/api/responses.py` defines `APIException`, `ErrorCode`, typed error subclasses
@@ -1595,7 +1594,50 @@ All four Next.js sites now use Plausible via `<Script strategy="afterInteractive
 - [x] **Embedding model upgrade**: `v2-moe` evaluated in Phase 33 and rejected. `nomic-embed-text-v1.5` ONNX remains the default.
 - [x] **Academic terminology audit**: ✅ Completed. User-facing labels renamed: "Epistemic Enrichment" → "Deep Reasoning", "Cluster Synthesis" → "Module Synthesis", "Epistemic Score" → "Understanding Score", "Confidence" → "Understanding" in IndexHealthPanel. Academic terms preserved in italicized descriptions, tooltips, and docs explanations. No API/code field names changed. Full epistemological foundation written in `/concepts/graph-enrichment` docs page. All docs updated to 9-stage pipeline.
 - [ ] **Debug log export guide**: Implement a safe "Export Debug Bundle" feature or document a manual process for users to collect logs without leaking source code. Add to FAQ + Troubleshooting. (`src/codrag/api/`, docs site)
-- [ ] **CLI/Dashboard docs toggle**: Design a toggle in the docs site that lets users switch between "Dashboard" and "CLI" instructions for the same task (default: Dashboard). This is a large scope item — create implementation strategy before building. (`websites/apps/docs/`)
+- [-] **CLI/Dashboard docs toggle**: Design a toggle in the docs site that lets users switch between "Dashboard" and "CLI" instructions for the same task (default: Dashboard). This is a large scope item — create implementation strategy before building. (`websites/apps/docs/`)
 - [ ] **`<Badge>Pro</Badge>` component for docs**: Implement a visual badge to tag Pro-only features (CLaRa, auto-rebuild, scheduled enrichment, mcp_trace_expand) in the docs. Clarify the correct free-tier definition in all docs: Free = 1 project + manual only + no CLaRa. (`websites/apps/docs/`, `packages/ui/`)
 - [ ] **Atlas FAQ entry**: Verify whether Atlas routing actually reduces token usage (pre-retrieval scoping ≠ fewer tokens sent). If confirmed, add FAQ: "What is Codebase Atlas and how does it save tokens?" (`websites/apps/marketing/src/app/faq/`)
 - [ ] **Community page definition**: Define what `/community` on the marketing site should be. Scope unknown — may not be MVP. (`websites/apps/marketing/src/app/community/`)
+
+### 2026-02-22: Legacy Endpoint Cleanup + Activity Heatmap Wiring
+
+**What was done:**
+
+*Legacy `/api/code-index/*` endpoints — DELETED:*
+- `POST /api/code-index/context` — deleted from `projects.py` (used global singleton `_get_index()`)
+- `POST /api/code-index/chunk` — deleted from `projects.py`
+- `GET/PUT /api/code-index/config` — deleted from `system.py` (deprecated aliases for `/global/config`)
+- `GET /api/code-index/mcp-config` — **moved** to `GET /mcp/config` in `system.py`
+- CLI `config` command: migrated from `/api/code-index/config` to `/global/config`
+- VS Code client `getMCPConfig()`: migrated from `/api/code-index/mcp-config` to `/mcp/config`
+- `tests/test_mcp_config_endpoint.py`: all 5 tests updated to `/mcp/config`
+- Vite proxy: added `/mcp` prefix to `vite.config.ts`
+- Root endpoint `GET /`: updated `api` field from `/api/code-index/status` to `/projects`
+
+*Activity Heatmap panel — WIRED:*
+- `panelRegistry.ts`: `activity-heatmap` panel already registered; added `Flame` icon import
+- `useDashboardPanels.tsx`: imported `ActivityHeatmap` + `ActivityHeatmapData`; added `activityData` prop; renders heatmap or empty-state placeholder
+- `App.tsx`: added `activityData` state; fetches from `api.getProjectActivity()` on project selection
+- `client.ts`: fixed `getProjectActivity` return type from `{ weeks, total_builds }` to `{ days, totals }` matching backend
+- `mock.ts`: fixed mock return shape to `{ days: [], totals: { embeddings: 0, trace: 0, builds: 0 } }`
+- `FullDashboard.stories.tsx`: added `activity-heatmap` panel content with sample data
+
+*MASTER_TODO updates:*
+- Marked upgrade prompts as **WON'T DO** (no upgrade prompts by design)
+- Marked UX revamp docs (COMPONENT_AUDIT_V2, DASHBOARD_UX_REVAMP, Bicameral layout, LLM settings modal, FolderTree merge) as **WON'T DO**
+- Marked MCP config endpoint test as fixed
+- Updated legacy endpoints section to reflect deletion
+
+**Files changed:**
+- `src/codrag/api/routers/system.py` — deleted deprecated config aliases, moved MCP config to `/mcp/config`
+- `src/codrag/api/routers/projects.py` — deleted `/api/code-index/context` + `/api/code-index/chunk`
+- `src/codrag/cli.py` — config command uses `/global/config`
+- `packages/vscode/src/client.ts` — uses `/mcp/config`
+- `tests/test_mcp_config_endpoint.py` — uses `/mcp/config`
+- `src/codrag/dashboard/vite.config.ts` — added `/mcp` proxy
+- `packages/ui/src/config/panelRegistry.ts` — added `Flame` import (already had entry)
+- `packages/ui/src/api/client.ts` — fixed `getProjectActivity` return type
+- `packages/ui/src/api/mock.ts` — fixed mock return shape
+- `src/codrag/dashboard/src/hooks/useDashboardPanels.tsx` — wired `ActivityHeatmap` panel
+- `src/codrag/dashboard/src/App.tsx` — added activity data state + fetching
+- `packages/ui/src/stories/dashboard/FullDashboard.stories.tsx` — added heatmap panel content

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { FileText, Settings, AlertCircle } from 'lucide-react'
-import type { AtlasStatus } from '@codrag/ui'
+import type { AtlasStatus, ActivityHeatmapData } from '@codrag/ui'
 import {
   // API
   useApiClient,
@@ -212,6 +212,7 @@ function App() {
 
   // ── Atlas (Phase 29) ─────────────────────────────────────────
   const [atlasStatus, setAtlasStatus] = useState<AtlasStatus | null>(null)
+  const [activityData, setActivityData] = useState<ActivityHeatmapData | null>(null)
 
   // ── Trace system (hook) ───────────────────────────────────────
   const {
@@ -363,6 +364,7 @@ function App() {
     void refreshWatchStatus(selectedProjectId)
     void fetchDeepAnalysisStatus()
     void fetchAtlas()
+    api.getProjectActivity(selectedProjectId, 12).then(setActivityData).catch(() => {})
   }, [selectedProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Project limit ───────────────────────────────────────────
@@ -422,6 +424,7 @@ function App() {
     },
     deepAnalysis: { deepAnalysisSchedule, setDeepAnalysisSchedule, budgetUsage },
     atlas: { atlasStatus },
+    activityData,
   })
 
   // ── Loading state ──────────────────────────────────────────
