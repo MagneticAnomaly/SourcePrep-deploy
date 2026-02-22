@@ -39,8 +39,8 @@ This file orchestrates work across phases by:
 - Phase08: `Phase08_Tauri_MVP/TODO.md`
 - Phase09: `Phase09_Post_MVP/TODO.md`
 - Phase10: `Phase10_Business_And_Competitive_Research/TODO.md`
-- Phase11: `Phase11_Deployment/TODO.md`
-- Phase12: `Phase12_Marketing-Documentation-Website/TODO.md`
+- Phase11: *(consolidated)* App tasks → S-07/S-15/S-28/S-29 below; Manual tasks → `FOR_ERIC_TODO.md`; Website tasks → `MARKETING_MASTER_TODO.md`
+- Phase12: *(consolidated)* → `MARKETING_MASTER_TODO.md`
 - Phase13: `Phase13_Storybook/TODO.md`
 - Phase14: `Phase14_UI_UX_Improvements/README.md`
 - Phase15: `Phase15_modular-design/TODO.md`
@@ -164,8 +164,30 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 **Goal:** Tauri app + sidecar lifecycle + signed distribution path.
 
 - [x] S-07.1 Tauri wrapper + sidecar startup/shutdown + port strategy (Phase08) ✅ **DONE: `CoDRAG.app` builds with PyInstaller sidecar**
-- [ ] S-07.2 OS distribution + signing/notarization plan (Phase11)
-- [ ] S-07.3 Offline-friendly licensing + feature gating plan (Phase11/07)
+- [ ] S-07.2 Python Sidecar Build (SID-1..6)
+  - [x] SID-1 Recreate dev venv with native ARM Python
+  - [ ] SID-2 PyInstaller spec file (`codrag-daemon.spec`)
+  - [ ] SID-3 Test sidecar binary on macOS
+  - [ ] SID-4 Test sidecar binary on Windows
+  - [ ] SID-5 Sidecar binary includes native embedder deps
+  - [ ] SID-6 Sidecar binary naming convention (`codrag-daemon-{target-triple}`)
+- [ ] S-07.3 Rust Engine Wheels (ENG-1..7)
+  - [ ] ENG-1 GitHub Actions workflow (`engine-wheels.yml`)
+  - [ ] ENG-2 macOS ARM64 wheel builds
+  - [ ] ENG-3 Windows x64 wheel builds
+  - [ ] ENG-4 Linux x64 + ARM64 wheel builds
+  - [ ] ENG-5 Publish wheels to PyPI
+  - [ ] ENG-6 Integrate correct platform wheel into sidecar build
+  - [x] ENG-7 Document target matrix
+- [ ] S-07.4 Tauri Desktop App Build & Signing (TAU-1..8)
+  - [ ] TAU-1 Verify Tauri v1 builds locally
+  - [ ] TAU-2 Configure `externalBin` in `tauri.conf.json` for sidecar
+  - [ ] TAU-3 macOS code signing in CI
+  - [ ] TAU-4 macOS notarization in CI
+  - [ ] TAU-5 Windows code signing in CI
+  - [ ] TAU-6 GitHub Actions release workflow
+  - [ ] TAU-7 Release artifacts (`.dmg`, `.msi`)
+  - [ ] TAU-8 Smoke test installation
 
 ### Sprint S-08: Public docs + design system alignment
 **Goal:** credible public-facing docs, consistent UI primitives across app + site.
@@ -202,6 +224,33 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 - [x] S-17.3 Core Commands & Tree Views
   - Project/File management, Index Status, Licensing commands
 - [x] S-17.4 Post-MVP polish (high-res icons, pin file command, chat provider)
+- [ ] S-17.5 Extension Packaging & Publishing (VSC-1..5)
+  - [ ] VSC-1 Extension sidecar: bundle Python daemon binary
+  - [ ] VSC-2 Integrate correct engine wheel into extension sidecar
+  - [ ] VSC-3 `vsce package` produces working `.vsix`
+  - [ ] VSC-4 Publish to VS Code Marketplace (See FOR_ERIC_TODO.md)
+  - [ ] VSC-5 Extension auto-update (handled natively)
+
+### Sprint S-28: Upgrade Safety & Data Migration (Phase 11)
+**Goal:** Safe upgrades across versions without data corruption.
+
+- [ ] UPG-1 `format_version` in index/trace manifests — detect incompatibility
+- [ ] UPG-2 Define what persists across upgrades
+- [ ] UPG-3 Define what may break (format changes)
+- [ ] UPG-4 Install/uninstall tests per OS
+- [ ] UPG-5 Air-gapped sanity test (app works without internet)
+
+### Sprint S-29: Enterprise & Alternative Distribution (Phase 11)
+**Goal:** Air-gapped deployment, enterprise controls, and other app stores.
+
+- [ ] ENT-1 Air-gapped build variant (`CODRAG_DISABLE_UPDATES` + `CODRAG_OFFLINE`)
+- [ ] ENT-2 MDM-friendly license deployment
+- [ ] ENT-3 Audit logging (local file or syslog)
+- [ ] ENT-4 Shared team configuration export/import
+- [ ] ENT-5 Document enterprise deployment guide
+- [ ] MAS-1 Decide: pursue Mac App Store or defer indefinitely
+- [ ] MAS-2 If yes: implement Apple IAP integration
+- [ ] MAS-3 If yes: App Sandbox testing
 
 ### Sprint S-12: Context MVC Verification (Phase 19)
 **Goal:** Verify and document "Verified Views" (Gemini CLI, Qwen Code) to enable BYO-View architecture.
@@ -223,7 +272,26 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 
 - [x] S-15.1 License Activation Exchange (api.codrag.io relay + Ed25519 verification)
 - [x] S-15.2 Payments Recovery (Lemon Squeezy order lookup integration)
-- [ ] S-15.3 Signed Distribution Pipeline (Mac/Windows signing, auto-update)
+- [ ] S-15.3 Auto-Update System (UPD-1..10)
+  - [x] UPD-1 Embed updater public key in `tauri.conf.json`
+  - [x] UPD-2 Configure updater endpoint → GitHub Releases
+  - [x] UPD-3 `tauri-action` generates `latest.json`
+  - [x] UPD-4 Frontend update check
+  - [x] UPD-5 `UpdateBanner.tsx` component
+  - [x] UPD-6 Wire frontend to Tauri JS API
+  - [ ] UPD-7 E2E test in-app update
+  - [ ] UPD-8 "What's New" modal after update
+  - [ ] UPD-9 Settings toggle: "Check for updates automatically"
+  - [ ] UPD-10 Enterprise config: `CODRAG_DISABLE_UPDATES`
+- [ ] S-15.4 Licensing & Feature Gating (LIC-1..8)
+  - [ ] LIC-1 Ed25519 license signature verification
+  - [x] LIC-2 License file loading
+  - [ ] LIC-3 Lemon Squeezy webhook → license key generation
+  - [ ] LIC-4 License activation UI in Tauri
+  - [ ] LIC-5 Frontend "Upgrade to Pro" prompts
+  - [ ] LIC-6 License status view in Settings
+  - [ ] LIC-7 `updates_until` enforcement
+  - [ ] LIC-8 Define "what CoDRAG contacts" statement
 
 ### Sprint S-16: MCP Maturity & Ecosystem (Phase 05)
 **Goal:** Complete the MCP story for remote/team usage and registry publication.
@@ -239,7 +307,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 **Goal:** Make invisible index activity visible and beautiful via CLI and Dashboard.
 
 - [x] S-18.1 CLI Visualizations (Activity Heatmap, Index Health, Build Sparkline)
-- [ ] S-18.2 Dashboard Viz Panels (Activity, Health, Token Budget)
+- [x] S-18.2 Dashboard Viz Panels — `IndexHealthPanel` (health score, metrics grid) + `TokenBudgetPanel` (usage bar, window timer) registered in panel registry + wired into `useDashboardPanels`
 - [x] S-18.3 Index Drift & RAG Flow visualization tools
 
 ### Sprint S-19: Lean Support Strategy (Phase 20)
@@ -310,7 +378,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 - [x] S-23.3 Frontend Phase B: `useSearchContext.ts` extracted (13 useState + 3 useCallback)
 - [x] S-23.4 Frontend Phase C: `useFileSystem.ts` extracted (fileTree, pathWeights, includedPaths, pinnedPaths)
 - [x] S-23.5 Frontend Phase D: `useDashboardPanels` 120+ flat props → 7 domain sub-objects
-- [ ] S-23.6 Backend pending: further refactor of `build_manager.py`, `project_helpers.py` (services layer exists, more decomposition possible)
+- [x] S-23.6 Backend: extracted `embedder_factory.py` from `build_manager.py` (510→445 lines); 515 tests pass
 
 ### Sprint S-24: State Machine Architecture (Phase 24)
 **Goal:** Replace implicit state with explicit FSMs across frontend and backend.
@@ -319,10 +387,10 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 - [x] S-24.2 SM-6: PipelineOrchestrator — `pipeline_orchestrator.py`, 8-stage 2-group pipeline, WorkerFactory, auto-chain
 - [x] S-24.3 Pipeline API router — `POST /pipeline/fast|deep|all`, `GET /pipeline/status`, `POST /pipeline/cancel`
 - [x] S-24.4 Frontend wiring — useTraceSystem hooks → runPipelineFast/Deep/All; PipelineStatus types
-- [ ] S-24.5 SM-8: Knowledge Scope pipeline (scoped indexing per folder/role)
-- [ ] S-24.6 Settings persistence via SQLite key-value store
-- [ ] S-24.7 Tier gating at state transition time (not just query time)
-- [ ] S-24.8 SM-1 frontend reducer: remaining useState → domain reducers (trace, search, project)
+- [x] S-24.5 SM-8: Knowledge Scope — `api/routers/scope.py` (status, add, remove, rebuild)
+- [x] S-24.6 Settings persistence — `services/settings_store.py` SQLite key-value store with namespaces, listeners, JSON migration
+- [x] S-24.7 Tier gating — `require_feature()` in `feature_gate.py`, enforced at API/action level in `projects.py`
+- [x] S-24.8 SM-1 frontend reducers — useProjectManager, useEnrichment, useSearchContext, useFileSystem, self-hydrating useTraceSystem
 
 ### Sprint S-25: Crash Protection & Resumability (Phase 25)
 **Goal:** Persistent pipeline journal so crashes don't lose progress.
@@ -338,11 +406,11 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 ### Sprint S-26: Deep Enrichment Settings (Phase 26)
 **Goal:** Unify Deep Enrichment UI — pipeline panel controls ↔ settings drawer ↔ backend modes.
 
-- [ ] S-26.1 Rename `DeepAnalysisSchedule` → `DeepEnrichmentConfig`; standardize on "Deep Enrichment" terminology
-- [ ] S-26.2 True Auto mode — Stage 4 `batch_complete` event triggers Stage 5 queue immediately
-- [ ] S-26.3 Scheduled mode — CRON / threshold-based batch processing of `pending_deep_enrichment` chunks
-- [ ] S-26.4 `GraphEnrichmentPipeline.tsx` — settings gear icon links to SettingsDrawer Deep Enrichment tab
-- [ ] S-26.5 Backend budget throttle for Auto mode (max tokens per 5-min window)
+- [x] S-26.1 Rename `DeepAnalysisSchedule` → `DeepEnrichmentConfig` + backward-compat aliases in `types.ts`; unified `DeepEnrichmentMode` from types.ts
+- [x] S-26.2 True Auto mode — `_is_deep_enrichment_auto()` chains deep enrichment after fast sync in `pipeline_orchestrator.py`
+- [x] S-26.3 Scheduled mode — `ScheduleEvaluator` in `pipeline_budget.py`: interval + threshold triggers, wired into `server.py` startup
+- [x] S-26.4 `GraphEnrichmentPipeline.tsx` — `onOpenDeepSettings` wired, gear icon shown in scheduled mode
+- [x] S-26.5 `BudgetThrottle` in `pipeline_budget.py`: per-project sliding window token cap, checked before auto-chain in `pipeline_orchestrator.py`
 
 ### Sprint S-27: Bug Reporting System (Phase 27)
 **Goal:** One-click bug report from dashboard with 27-point auto-diagnostics.
@@ -351,9 +419,9 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 - [x] S-27.2 `LogConsole` updated — bug icon triggers modal
 - [x] S-27.3 `diagnosticData` wiring — `useDashboardPanels` assembles from all system hooks
 - [x] S-27.4 Cloud ingestion — `websites/apps/support/src/app/api/bug-report/route.ts`, Resend notification, rate limit
-- [ ] S-27.5 Phase 27.2: Persistent storage (Vercel Postgres/Blob for report metadata + JSON)
-- [ ] S-27.6 Phase 27.3: Admin dashboard at `support.codrag.io/admin/reports`
-- [ ] S-27.7 Wire `RESEND_API_KEY` env var in support app deployment (Netlify)
+- [x] S-27.5 Phase 27.2: Persistent storage — `lib/reports.ts` ReportStore abstraction + CRUD API routes (in-memory MVP, pluggable for Turso/Supabase)
+- [x] S-27.6 Phase 27.3: Admin dashboard — `/admin/reports` list + `/:id` detail, ADMIN_TOKEN auth, status workflow, filters, metrics
+- [ ] S-27.7 Wire `RESEND_API_KEY` env var in support app deployment — *manual, see `FOR_ERIC_TODO.md` §3 (WEB-S5)*
 
 ### Sprint S-10: Context Intelligence (Phase16)
 **Goal:** native embeddings (no Ollama required), user-defined path weighting, CLaRa context compression.
@@ -1169,10 +1237,10 @@ All URLs updated to `github.com/EricBintner/CoDRAG`:
  | ~~**P2**~~ | ~~UX renames~~ | ~~9~~ | ✅ **DONE** | Panel registry updated: Knowledge Base Status, AI Gateway, Knowledge Query, Context Assembler, Retrieved Context, Prompt Buffer, Live Sync, Knowledge Sources, Code Graph Explorer |
  | ~~**P2**~~ | ~~Frontend client gaps~~ | ~~2~~ | ✅ **FIXED** | ~~`/llm/test`~~ → `testLLMConnectivity()` added |
  | ~~**P2**~~ | ~~Env var docs~~ | ~~2~~ |  **FIXED** | ~~`CODRAG_ENGINE`, `CODRAG_TIER`~~ → documented in README |
- | **P2** | Settings primitives | 7 | Open | Missing form/budget/diagnostics components |
+ | ~~**P2**~~ | ~~Settings primitives~~ | ~~7~~ | ✅ **DONE** | SettingsSection, SettingsRow, TagListEditor, BudgetPill, BudgetPreview — all exported from @codrag/ui |
  | **P3** | Phase 06/08/11 | ~30 | Open | Team, Tauri, Deployment (post-MVP) |
  | **P3** | Phase 17 | ~45 | Open | VS Code extension (future) |
- | **P3** | Website builds | 1 | Open | `@codrag/ui` resolution (build order) |
+ | ~~**P3**~~ | ~~Website builds~~ | ~~1~~ | ✅ **OK** | `turbo.json` `^build` dependency ensures @codrag/ui builds first |
 
  ### 2026-02-12: Master TODO Audit & Expansion
 
@@ -1324,7 +1392,7 @@ All URLs updated to `github.com/EricBintner/CoDRAG`:
 | ~~**P1**~~ | ~~Backend stubs~~ | ~~2~~ | ✅ **FIXED** | ~~Trace expansion no-op, progress callback~~ |
 | ~~**P1**~~ | ~~MCP gaps~~ | ~~3~~ | ✅ **DONE** | ~~No trace tools in MCP~~ → 3 trace tools added |
 | **P1** | Phase 07 (Testing) | 14 | Open | Entire phase unstarted — MVP quality bar |
-| **P1** | Test coverage | 2 | Open | CLI (900 lines), viz (8 files) untested |
+| **P1** | Test coverage | 2 | **Partial** | CLI (900 lines), viz (8 files) untested; +24 new tests: `test_pipeline_budget.py` (15), `test_embedder_factory.py` (9) |
 | ~~**P1**~~ | ~~pyproject.toml~~ | ~~3~~ |  **FIXED** | ~~Python version, pytest-cov crash, wrong org URL~~ |
 | ~~**P1**~~ | ~~Wrong org URL~~ | ~~3~~ |  **FIXED** | ~~`anthropics/CoDRAG`~~ → `EricBintner/CoDRAG` |
 | ~~**P1**~~ | ~~Legacy endpoints~~ | ~~3~~ |  **DEPRECATED** | ~~`/api/code-index/*`~~ → deprecation warnings added |
@@ -1343,13 +1411,13 @@ All URLs updated to `github.com/EricBintner/CoDRAG`:
  | ~~**P2**~~ | ~~Phase doc staleness~~ | ~~4~~ |  **FIXED** | ~~Phase 01/03/07 TODOs~~ → reconciled with implementation |
  | ~~**P2**~~ | ~~Phase 15 open items~~ | ~~3~~ | ✅ **DONE** | ~~Sprint 7 docs, DashboardGrid story, DoD checklist~~ → all verified complete |
  | ~~**P1**~~ | ~~Trace graph empty~~ | ~~4~~ | ✅ **FIXED** | ~~Python fallback 0 edges~~ → JSAnalyzer + degraded detection + UX banner |
- | **P1** | Phase 24 pending | 4 | Open | SM-8 (Knowledge Scope), SQLite settings, tier gating at transitions, SM-1 reducers |
- | **P2** | Phase 26 (Deep Enrichment Settings) | 5 | **NEW** | Terminology + True Auto + Scheduled modes + backend throttle |
- | **P2** | Phase 27.2/27.3 | 7 | **NEW** | Persistent bug report storage + admin dashboard |
- | **P2** | Phase 23 backend | 1 | Open | Further router/service decomposition |
+ | ~~**P1**~~ | ~~Phase 24 SM-1~~ | ~~1~~ | ✅ **DONE** | ~~Phase D (useDashboardPanels)~~ — already had domain grouping. useProjectManager extracted, self-hydration done |
+ | ~~**P2**~~ | ~~Phase 26 (Deep Enrichment Settings)~~ | ~~5~~ | ✅ **DONE** | SlidingSwitch3 + mode sync + auto-chain + tier gating all implemented |
+ | ~~**P2**~~ | ~~Phase 27.2/27.3~~ | ~~7~~ | ✅ **DONE** | ReportStore abstraction, CRUD APIs, admin dashboard with auth, filters, metrics |
+ | ~~**P2**~~ | ~~Phase 23 backend~~ | ~~1~~ | ✅ **DONE** | server.py 4,352→313 lines (−93%), all routers + services extracted |
  | **P3** | Phase 06/08/11 | ~32 | Open | Team, Tauri, Deployment (post-MVP); Phase 08 mostly done (P08-I5/T2/T3 remain) |
  | **P3** | Phase 17 | ~45 | Open | VS Code extension (future) |
- | **P3** | Website builds | 1 | Open | `@codrag/ui` resolution (build order) |
+ | ~~**P3**~~ | ~~Website builds~~ | ~~1~~ | ✅ **OK** | `turbo.json` `^build` dependency ensures @codrag/ui builds first |
 
  ### 2026-02-12: Cross-Reference Graph — Empty Graph Bug + UX Clarity
 
@@ -1506,3 +1574,16 @@ All four Next.js sites now use Plausible via `<Script strategy="afterInteractive
 - `src/codrag/api/routers/trace.py` — pass embedded_paths to coverage
 - `src/codrag/services/pipeline_orchestrator.py` — sets `trace.enabled` on build
 - `src/codrag/dashboard/src/hooks/useTraceSystem.ts` — completion handler fix
+
+---
+
+## Phase 29 UX Audit — TODO Items (from `Phase29_Website-UX-Audit/`)
+
+### Product / Codebase
+- [x] **Embedding model upgrade**: `v2-moe` evaluated in Phase 33 and rejected. `nomic-embed-text-v1.5` ONNX remains the default.
+- [x] **Academic terminology audit**: ✅ Completed. User-facing labels renamed: "Epistemic Enrichment" → "Deep Reasoning", "Cluster Synthesis" → "Module Synthesis", "Epistemic Score" → "Understanding Score", "Confidence" → "Understanding" in IndexHealthPanel. Academic terms preserved in italicized descriptions, tooltips, and docs explanations. No API/code field names changed. Full epistemological foundation written in `/concepts/graph-enrichment` docs page. All docs updated to 9-stage pipeline.
+- [ ] **Debug log export guide**: Implement a safe "Export Debug Bundle" feature or document a manual process for users to collect logs without leaking source code. Add to FAQ + Troubleshooting. (`src/codrag/api/`, docs site)
+- [ ] **CLI/Dashboard docs toggle**: Design a toggle in the docs site that lets users switch between "Dashboard" and "CLI" instructions for the same task (default: Dashboard). This is a large scope item — create implementation strategy before building. (`websites/apps/docs/`)
+- [ ] **`<Badge>Pro</Badge>` component for docs**: Implement a visual badge to tag Pro-only features (CLaRa, auto-rebuild, scheduled enrichment, mcp_trace_expand) in the docs. Clarify the correct free-tier definition in all docs: Free = 1 project + manual only + no CLaRa. (`websites/apps/docs/`, `packages/ui/`)
+- [ ] **Atlas FAQ entry**: Verify whether Atlas routing actually reduces token usage (pre-retrieval scoping ≠ fewer tokens sent). If confirmed, add FAQ: "What is Codebase Atlas and how does it save tokens?" (`websites/apps/marketing/src/app/faq/`)
+- [ ] **Community page definition**: Define what `/community` on the marketing site should be. Scope unknown — may not be MVP. (`websites/apps/marketing/src/app/community/`)
