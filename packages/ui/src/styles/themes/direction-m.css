@@ -32,8 +32,6 @@
   --shadow-lg: 0 0 20px rgba(0, 255, 220, 0.38);
   --shadow-xl: 0 0 40px rgba(120, 80, 255, 0.42);
 
-  --font-sans: 'Share Tech Mono', 'Exo 2', sans-serif;
-  --font-mono: 'Share Tech Mono', monospace;
 }
 
 [data-codrag-theme='m'] .tremor-Card-root {

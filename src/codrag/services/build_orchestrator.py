@@ -58,11 +58,13 @@ class BuildType(str, enum.Enum):
     """All build types managed by the orchestrator."""
     INDEX = "index"
     TRACE = "trace"
+    INFERRED_EDGES = "inferred_edges"
     AUGMENT = "augment"
     VALIDATE = "validate"
     KNOWLEDGE = "knowledge"
     EPISTEMIC = "epistemic"
     CLUSTER = "cluster"
+    ATLAS = "atlas"
     DEEPENING = "deepening"
 
 

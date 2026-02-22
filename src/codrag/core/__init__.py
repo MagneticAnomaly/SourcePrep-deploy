@@ -52,16 +52,25 @@ else:
 
 from .embedder import Embedder, OllamaEmbedder, NativeEmbedder, FakeEmbedder, EmbeddingResult
 from .chunking import Chunk, chunk_markdown, chunk_code
-from .compressor import ContextCompressor, ClaraCompressor, NoopCompressor, CompressResult
+from .compressor import ContextCompressor, LinguaCompressor, NoopCompressor, CompressResult
 from .index import CodeIndex, SearchResult
 from .trace import TraceBuilder, TraceIndex, TraceNode, TraceEdge, build_trace
 from .augmenter import TraceAugmenter, LLMClient, AugmentationEntry, AugmentResult
 from .deep_analysis import DeepAnalysisOrchestrator, DeepAnalysisSchedule, DeepAnalysisResult
 from .epistemic_score import EpistemicScore, EpistemicEntry, compute_epistemic_score, apply_decay
-from .epistemic_enrichment import EpistemicEnricher, topological_sort_files
+from .epistemic_enrichment import EpistemicEnricher, topological_sort_files, topological_sort_into_tiers
 from .cluster import ClusterSynthesizer, ModuleEntry, build_clusters
 from .deepening import DeepeningLoop, EnrichmentQueue, DriftDetector, ConvergenceTracker
+from .inferred_edges import InferredEdgesAnalyzer, InferredEdgesResult
+from .batch_profiles import BatchProfile, BatchProfileName, BatchStage, detect_profile, resolve_profile
+from .batch_strategy import BatchStrategy, BatchedResponseParser, create_batch_strategy
 from .knowledge import KnowledgeIndex
+from .lod_extractor import LODExtractor, LODResult, assign_lod
+from .atlas import (
+    CodebaseAtlas, AtlasDocument, SegmentDescriptor,
+    compute_atlas_budget, build_routing_descriptors, route_query,
+    ROUTING_SEGMENT_BOOST,
+)
 
 __all__ = [
     "ENGINE",
@@ -74,7 +83,7 @@ __all__ = [
     "KnowledgeIndex",
     "EmbeddingResult",
     "ContextCompressor",
-    "ClaraCompressor",
+    "LinguaCompressor",
     "NoopCompressor",
     "CompressResult",
     "Chunk",
@@ -92,4 +101,24 @@ __all__ = [
     "DeepAnalysisOrchestrator",
     "DeepAnalysisSchedule",
     "DeepAnalysisResult",
+    "CodebaseAtlas",
+    "AtlasDocument",
+    "SegmentDescriptor",
+    "compute_atlas_budget",
+    "build_routing_descriptors",
+    "route_query",
+    "ROUTING_SEGMENT_BOOST",
+    "LODExtractor",
+    "LODResult",
+    "assign_lod",
+    "InferredEdgesAnalyzer",
+    "InferredEdgesResult",
+    "BatchProfile",
+    "BatchProfileName",
+    "BatchStage",
+    "BatchStrategy",
+    "BatchedResponseParser",
+    "create_batch_strategy",
+    "detect_profile",
+    "resolve_profile",
 ]

@@ -19,7 +19,6 @@ const PROVIDER_OPTIONS: { value: LLMProvider; label: string }[] = [
   { value: 'openai', label: 'OpenAI' },
   { value: 'openai-compatible', label: 'OpenAI Compatible' },
   { value: 'anthropic', label: 'Anthropic (Claude)' },
-  { value: 'clara', label: 'CLaRa Server' },
 ];
 
 export function EndpointManager({
@@ -263,7 +262,7 @@ export function EndpointManager({
       {/* Add New Endpoint */}
       {showAddForm ? (
         <div className="p-4 border border-border rounded-lg bg-surface-raised/50 space-y-4 animate-in fade-in slide-in-from-top-2">
-          <h4 className="text-sm font-semibold text-text">Add New Endpoint</h4>
+          <h4 className="text-sm font-semibold font-mono text-text">Add New Endpoint</h4>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-text-muted mb-1">Display Name</label>

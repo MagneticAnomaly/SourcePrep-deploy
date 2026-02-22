@@ -7,14 +7,16 @@ import './index.css'
 
 const init = async () => {
   let baseUrl = window.location.origin;
+  let apiKey: string | undefined = undefined;
 
   // Detect Tauri environment
   // @ts-ignore
   if (window.__TAURI__) {
     try {
-      const config = await invoke<{ url: string }>('get_daemon_config');
+      const config = await invoke<{ url: string; token: string }>('get_daemon_config');
       console.log('[Tauri] Daemon config:', config);
       baseUrl = config.url;
+      apiKey = config.token;
     } catch (e) {
       console.error('[Tauri] Failed to get daemon config:', e);
     }
@@ -22,6 +24,7 @@ const init = async () => {
 
   const apiClient = new CodragApiClient({
     baseUrl,
+    apiKey,
   })
 
   ReactDOM.createRoot(document.getElementById('root')!).render(

@@ -3,6 +3,7 @@ import {
   useApiClient,
   type DeepAnalysisSchedule,
   type DeepAnalysisRunStatus,
+  type TokenBudgetData,
 } from '@codrag/ui'
 
 interface UseDeepAnalysisOptions {
@@ -31,6 +32,7 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError }: U
   const [deepAnalysisSchedule, setDeepAnalysisSchedule] = useState<DeepAnalysisSchedule>(DEFAULT_SCHEDULE)
   const [deepAnalysisStatus, setDeepAnalysisStatus] = useState<DeepAnalysisRunStatus>({})
   const [deepAnalysisRunning, setDeepAnalysisRunning] = useState(false)
+  const [budgetUsage, setBudgetUsage] = useState<TokenBudgetData | null>(null)
 
   // ── Load saved settings from backend on init ─────────────────
   useEffect(() => {
@@ -63,6 +65,13 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError }: U
       setDeepAnalysisStatus(status)
     } catch {
       // Silent — status not critical
+    }
+    // Also fetch budget usage
+    try {
+      const usage = await api.getPipelineBudget(selectedProjectId)
+      setBudgetUsage(usage)
+    } catch {
+      // Silent — budget endpoint may not exist yet
     }
   }, [api, selectedProjectId])
 
@@ -133,6 +142,7 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError }: U
     deepAnalysisStatus,
     setDeepAnalysisStatus,
     deepAnalysisRunning,
+    budgetUsage,
     fetchDeepAnalysisStatus,
     handleRunDeepAnalysis,
     handleCancelDeepAnalysis,

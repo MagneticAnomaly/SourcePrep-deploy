@@ -139,12 +139,11 @@ export class MockApiClient implements ApiClient {
   async getLLMStatus(): Promise<any> {
     return {
       ollama: { url: 'http://localhost:11434', connected: true, models: ['nomic-embed-text'] },
-      clara: { url: 'http://localhost:8765', enabled: false, connected: false },
     };
   }
 
-  async testLLMConnectivity(): Promise<{ ollama: { connected: boolean }; clara: { connected: boolean } }> {
-    return { ollama: { connected: true }, clara: { connected: false } };
+  async testLLMConnectivity(): Promise<{ ollama: { connected: boolean } }> {
+    return { ollama: { connected: true } };
   }
 
   async getProjectFiles(): Promise<any> {
@@ -239,16 +238,16 @@ export class MockApiClient implements ApiClient {
     return { success: true };
   }
 
-  async getClaraStatus(): Promise<any> {
-    return { available: false, enabled: false };
+  async getCompressionStatus(): Promise<any> {
+    return { lingua: { available: false, type: 'lingua' }, lod: { available: true, type: 'lod' } };
   }
 
-  async getClaraHealth(): Promise<any> {
-    return { healthy: false, error: 'Not configured' };
+  async downloadLinguaModel(): Promise<{ status: string }> {
+    return { status: 'downloading' };
   }
 
   async getProjectActivity(): Promise<any> {
-    return { activity: [] };
+    return { days: [], totals: { embeddings: 0, trace: 0, builds: 0 } };
   }
 
   async getProjectCoverage(): Promise<any> {
@@ -276,6 +275,7 @@ export class MockApiClient implements ApiClient {
       embedding: { configured: false, status: 'not_configured' },
       small_model: { configured: false, status: 'not_configured' },
       large_model: { configured: false, status: 'not_configured' },
+      code_model: { configured: false, status: 'not_configured' },
     };
   }
 
@@ -379,6 +379,10 @@ export class MockApiClient implements ApiClient {
     return { cancelled: true, group: 'all' };
   }
 
+  async getPipelineBudget(): Promise<any> {
+    return { tokens_used: 0, max_tokens: 0, window_minutes: 5, remaining: -1, window_resets_in: 0 };
+  }
+
   // ── Pipeline Crash Protection (Phase 25) ───────────────────────
 
   async getCrashedRuns(_projectId?: string): Promise<{ crashed_runs: any[]; count: number }> {
@@ -391,6 +395,26 @@ export class MockApiClient implements ApiClient {
 
   async discardCrashedRun(runId: string): Promise<{ discarded: boolean; run_id: string }> {
     return { discarded: true, run_id: runId };
+  }
+
+  // ── Codebase Atlas (Phase 29) ──────────────────────────────────
+
+  async getAtlas(_projectId: string): Promise<import('../types').AtlasStatus> {
+    return {
+      exists: true,
+      content: 'Python/TypeScript monorepo. Core engine (src/codrag/core/) handles indexing, embedding, and search. API layer (src/codrag/api/) exposes FastAPI endpoints. Dashboard (packages/ui/) is a React + Tremor app. MCP server (src/codrag/mcp_server.py) bridges AI tools. Enrichment pipeline: trace → augment → validate → enrich → cluster → atlas → deepen → knowledge.',
+      mode: 'structural',
+      model: 'structural',
+      generated_at: new Date().toISOString(),
+      file_count: 547,
+      module_count: 8,
+      char_count: 312,
+      stale: false,
+    };
+  }
+
+  async regenerateAtlas(_projectId: string): Promise<import('../types').AtlasStatus> {
+    return this.getAtlas(_projectId);
   }
 
   // ── Settings Store ────────────────────────────────────────
@@ -490,6 +514,13 @@ export class MockApiClient implements ApiClient {
       },
       global_running: false,
     };
+  }
+  async getIncludedPaths(_projectId: string): Promise<{ included_paths: string[] }> {
+    return { included_paths: [] };
+  }
+
+  async updateIncludedPaths(_projectId: string, includedPaths: string[]): Promise<{ included_paths: string[] }> {
+    return { included_paths: includedPaths };
   }
 }
 

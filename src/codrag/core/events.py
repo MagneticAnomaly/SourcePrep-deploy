@@ -93,6 +93,7 @@ class EventBus:
     def emit_log(self, record: logging.LogRecord) -> None:
         """Emit a log record."""
         self.emit("log", {
+            "timestamp": record.created,
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),

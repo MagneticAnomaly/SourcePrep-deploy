@@ -92,7 +92,7 @@ const faqs: FAQItem[] = [
                   ["Role weights (code vs docs vs tests)", "No", "No", "No", "Yes"],
                   ["Path weights (per-directory relevance)", "No", "No", "No", "Yes"],
                   ["Intent detection (query → weight adjustment)", "No", "No", "No", "Yes"],
-                  ["Context compression (CLaRa)", "No", "No", "No", "Yes"],
+                  ["Smart compression (code + docs)", "No", "No", "No", "Yes"],
                   ["Transparency (scores, chunks, what was sent)", "No", "No", "Partial", "Yes"],
                   ["Works across all tools (MCP standard)", "—", "—", "—", "Yes"],
                 ].map(([cap, cursor, windsurf, claude, codrag]) => (
@@ -147,7 +147,7 @@ const faqs: FAQItem[] = [
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Fewer chunks</td><td>Lower <code className="bg-surface px-1 rounded border border-border-subtle text-xs">k</code> (default: 5)</td></tr>
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Smaller total output</td><td>Lower <code className="bg-surface px-1 rounded border border-border-subtle text-xs">max_chars</code> (default: 6,000)</td></tr>
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Stricter relevance filter</td><td>Raise <code className="bg-surface px-1 rounded border border-border-subtle text-xs">min_score</code> (default: 0.15)</td></tr>
-              <tr><td className="py-2 pr-6">Compress what&apos;s sent</td><td>Enable <code className="bg-surface px-1 rounded border border-border-subtle text-xs">compression: "clara"</code></td></tr>
+              <tr><td className="py-2 pr-6">Compress what&apos;s sent</td><td>Enable <code className="bg-surface px-1 rounded border border-border-subtle text-xs">compression: &quot;auto&quot;</code> (structural for code, language-aware for docs)</td></tr>
             </tbody>
           </table>
         </div>
@@ -201,7 +201,7 @@ const faqs: FAQItem[] = [
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6"><code className="bg-surface px-1 rounded border border-border-subtle text-xs">k: 8</code></td><td>Want broader coverage across files</td></tr>
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6"><code className="bg-surface px-1 rounded border border-border-subtle text-xs">trace_expand: true</code></td><td>Need structural relationships (what calls this?)</td></tr>
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6"><code className="bg-surface px-1 rounded border border-border-subtle text-xs">max_chars: 10000</code></td><td>Complex multi-file question</td></tr>
-              <tr className="border-b border-border-subtle"><td className="py-2 pr-6"><code className="bg-surface px-1 rounded border border-border-subtle text-xs">compression: "clara"</code></td><td>Same info, fewer tokens</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6"><code className="bg-surface px-1 rounded border border-border-subtle text-xs">compression: &quot;auto&quot;</code></td><td>Smart compression &mdash; structural for code, language-aware for docs</td></tr>
               <tr><td className="py-2 pr-6"><code className="bg-surface px-1 rounded border border-border-subtle text-xs">max_chars: 15000+</code></td><td>Rarely — verify it actually helps</td></tr>
             </tbody>
           </table>
@@ -222,7 +222,7 @@ const faqs: FAQItem[] = [
           <li><strong className="text-text">Intent-aware weighting.</strong> CoDRAG detects whether your query is about implementation, debugging, or architecture and adjusts which types of content are prioritized. Automated — not something you configure per query.</li>
           <li><strong className="text-text">User transparency and control.</strong> Every other tool is a black box. CoDRAG shows you the scores, lets you set weights, and tells you exactly what was sent and why.</li>
           <li><strong className="text-text">Tool-agnostic via MCP.</strong> Your index, configuration, and codebase understanding work whether you&apos;re in Cursor today or Claude Code tomorrow.</li>
-          <li><strong className="text-text">Context compression.</strong> The CLaRa sidecar can distill context by 30–70%, sending the same semantic information in fewer tokens.</li>
+          <li><strong className="text-text">Smart context compression.</strong> Two built-in engines: structural compression for code (3&ndash;20&times; &mdash; keeps full source for top results, signatures for mid-relevance, names only for peripheral files) and language-aware compression for docs and markdown (preserves meaning while removing filler). No GPU required.</li>
         </ul>
       </div>
     ),
@@ -254,7 +254,7 @@ const faqs: FAQItem[] = [
         <p><strong>No.</strong> Core features (indexing, trace graph, search) run efficiently on CPU. The built-in embedding model is quantized and optimized for CPU inference.</p>
         <p><strong>Also No.</strong> You can run Anthropic or OpenAI or any other BYOK models from the cloud if you want to enhance trace content.</p>
         <p><strong>Or Yes</strong> if you want to run a local model for enhancement.</p>
-        <p>And yes for <strong>CLaRa compression.</strong> This will require at least 14GB VRAM (currently no quantized version of this model).</p>
+        <p><strong>Context compression</strong> is built in &mdash; structural compression for code files runs instantly with no model at all, and language-aware compression for docs uses a lightweight CPU model (~178 MB). No GPU, no sidecar.</p>
       </div>
     ),
   },

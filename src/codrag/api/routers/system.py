@@ -8,11 +8,9 @@ CoDRAG System Router — Phase 23 Sprint 9
   - GET  /health          — daemon health check
   - GET  /                — root API info
   - GET  /events          — SSE stream (logs + progress)
-  - GET  /api/code-index/mcp-config — MCP IDE integration config
+  - GET  /mcp/config      — MCP IDE integration config
   - GET  /global/config   — read global UI/LLM config
   - PUT  /global/config   — merge-update global config
-  - GET  /api/code-index/config  (deprecated alias)
-  - PUT  /api/code-index/config  (deprecated alias)
 
 **Shared state accessed (from server.py):**
   - ``_config``           — CLI launch config (repo_root, index_dir, etc.)
@@ -75,7 +73,7 @@ def root() -> dict:
         "description": "Code Documentation and RAG",
         "docs": "/docs",
         "health": "/health",
-        "api": "/api/code-index/status",
+        "api": "/projects",
     }
 
 
@@ -140,7 +138,7 @@ async def events_endpoint(request: Request):
 
 # ── MCP config ───────────────────────────────────────────────────
 
-@router.get("/api/code-index/mcp-config")
+@router.get("/mcp/config")
 def get_mcp_config(
     request: Request,
     ide: str = Query("all"),
@@ -209,67 +207,6 @@ async def update_global_config_v2(req: Request) -> Dict[str, Any]:
         or new_emb.get("model") != old_emb.get("model")
     )
 
-    _deep_merge(current, data)
-    _save_ui_config(current)
-
-    if embedding_changed:
-        import codrag.server as _srv
-        _srv._index = None
-        _srv._project_indexes.clear()
-        logger.info("Embedding config changed — cleared cached indexes")
-
-    return ok(current)
-
-
-# ── Deprecated config aliases ────────────────────────────────────
-
-@router.get("/api/code-index/config", deprecated=True)
-def get_global_config(response: Response) -> Dict[str, Any]:
-    """Get global UI configuration.
-
-    DEPRECATED: Use GET /global/config instead.
-    """
-    from codrag.server import _load_ui_config
-    response.headers["Deprecation"] = "true"
-    response.headers["Sunset"] = "2026-06-01"
-    logger.warning("DEPRECATED: GET /api/code-index/config called — migrate to /global/config")
-    return ok(_load_ui_config())
-
-
-@router.put("/api/code-index/config", deprecated=True)
-async def update_global_config(req: Request, response: Response) -> Dict[str, Any]:
-    """Update global UI configuration (merge update).
-
-    DEPRECATED: Use PUT /global/config instead.
-    """
-    from codrag.server import (
-        _load_ui_config, _save_ui_config, _deep_merge,
-    )
-    response.headers["Deprecation"] = "true"
-    response.headers["Sunset"] = "2026-06-01"
-    logger.warning("DEPRECATED: PUT /api/code-index/config called — migrate to /global/config")
-
-    try:
-        data = await req.json()
-    except Exception:
-        raise ApiException(status_code=400, code="INVALID_JSON", message="Invalid JSON body")
-
-    if not isinstance(data, dict):
-        raise ApiException(status_code=400, code="VALIDATION_ERROR", message="Config must be a JSON object")
-
-    current = _load_ui_config()
-
-    # Detect if embedding config changed — if so, invalidate cached indexes
-    # so the next build/search creates a fresh embedder from new settings.
-    old_emb = (current.get("llm_config") or {}).get("embedding") or {}
-    new_emb = (data.get("llm_config") or {}).get("embedding") or {}
-    embedding_changed = new_emb and (
-        new_emb.get("source") != old_emb.get("source")
-        or new_emb.get("endpoint_id") != old_emb.get("endpoint_id")
-        or new_emb.get("model") != old_emb.get("model")
-    )
-
-    # Use deep merge to prevent overwriting nested keys with partial updates
     _deep_merge(current, data)
     _save_ui_config(current)
 

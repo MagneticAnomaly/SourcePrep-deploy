@@ -565,9 +565,9 @@ Response `data`:
 ```
 
 Notes:
-- `tier` is one of: `free`, `starter`, `pro`, `team`, `enterprise`.
+- `tier` is one of: `free`, `monthly`, `perpetual`, `team`, `enterprise`.
 - `features` map shows boolean availability for each gated feature at current tier.
-- `projects_max` is a numeric limit (1 for free, 3 for starter, 999 for pro+).
+- `projects_max` is a numeric limit (1 for free, 999 for monthly/perpetual+).
 
 #### `POST /license/activate`
 
@@ -592,6 +592,59 @@ Purpose:
 
 Response `data`:
 - Same shape as `GET /license`.
+
+### MCP Tools
+
+The CoDRAG MCP server exposes the following tools via the Model Context Protocol:
+
+| Tool | Required Params | Description |
+|------|----------------|-------------|
+| `codrag_status` | — | Index status and daemon health |
+| `codrag_build` | — | Trigger async index build |
+| `codrag_search` | `query` | Semantic search, returns ranked chunks |
+| `codrag` | `query` | Assembled context for LLM prompt injection |
+| `codrag_trace_search` | `query` | Search code graph for symbols |
+| `codrag_trace_neighbors` | `node_id` | Get neighbors in code graph |
+| `codrag_trace_coverage` | — | Trace coverage statistics |
+| `codrag_hi` | — | Project overview, health check, and suggested prompts |
+
+All tools accept an optional `project_id` parameter. If omitted, the project is auto-detected from workspace roots or CWD.
+
+#### `codrag_hi` — Project Overview Tool
+
+Purpose:
+- First-contact tool for new users: "What can CoDRAG help me with?"
+- Developer diagnostic: quick sanity check of project state after changes.
+- Returns a markdown summary + structured diagnostics JSON.
+
+Parameters:
+- `project_id` (optional): CoDRAG project ID to target.
+
+Response:
+```json
+{
+  "summary": "# CoDRAG — my-app\n\n**Status:** Index loaded (847 chunks)...\n**Suggested prompts:**\n1. \"How is my-app structured?\"...",
+  "diagnostics": {
+    "project_id": "proj_abc",
+    "project_name": "my-app",
+    "index_loaded": true,
+    "total_chunks": 847,
+    "building": false,
+    "stale": false,
+    "stale_count": 0,
+    "trace_enabled": true,
+    "trace_nodes": 523,
+    "trace_edges": 641,
+    "trace_coverage_pct": 80,
+    "watch_enabled": true,
+    "included_paths_count": 120,
+    "path_weights": {},
+    "other_projects": ["backend-api"]
+  }
+}
+```
+
+The `summary` field contains markdown suitable for direct display in IDE chat. The `diagnostics` field provides structured data for programmatic use.
 
 ### MCP / IDE Integration
 
@@ -635,7 +688,7 @@ Response `data` (`ide=all`):
 
 Purpose:
 - Enable auto-rebuild file watcher for a project.
-- **Requires STARTER+ tier** (gated by `auto_rebuild` feature).
+- **Requires MONTHLY+ tier** (gated by `auto_rebuild` feature).
 
 Query params:
 - `debounce_ms`: debounce delay in ms (default 5000, range 500-60000)
@@ -729,6 +782,158 @@ Request:
   }
 }
 ```
+
+### Included paths (Knowledge Scope)
+
+#### `GET /projects/{project_id}/included_paths`
+
+Purpose:
+- Get the list of files/folders the user has selected in the Knowledge Scope (file tree).
+
+Response `data`:
+
+```json
+{
+  "included_paths": ["src", "docs/README.md", "tests/test_main.py"]
+}
+```
+
+Notes:
+- Empty list means no scope restriction (all files matching globs are indexed).
+- Paths are relative to project root.
+- Persisted in SQLite project config — survives browser clear, works across clients.
+
+#### `PUT /projects/{project_id}/included_paths`
+
+Purpose:
+- Set the full list of included paths (replaces previous selection).
+
+Request:
+
+```json
+{
+  "included_paths": ["src", "docs/README.md"]
+}
+```
+
+Response `data`:
+
+```json
+{
+  "project": {"id": "proj_123", "...": "..."},
+  "included_paths": ["docs/README.md", "src"]
+}
+```
+
+Notes:
+- Paths are deduplicated and sorted.
+- Empty strings are filtered out.
+- Used by the dashboard to sync the canonical scope to the server.
+
+### Knowledge Scope pipeline
+
+#### `GET /projects/{project_id}/scope/status`
+
+Purpose:
+- Get the Knowledge Scope pipeline status (debounce state, pending changes, included paths).
+
+Response `data`:
+
+```json
+{
+  "state": "idle",
+  "pending_adds": 0,
+  "pending_removes": 0,
+  "pending_changes": 0,
+  "total_pending": 0,
+  "auto_rebuild": true,
+  "debounce_ms": 3000,
+  "error": null,
+  "last_rebuild_at": null,
+  "stale_since": null,
+  "is_stale": false,
+  "included_paths": ["src", "docs/README.md"]
+}
+```
+
+Notes:
+- `state` is one of: `idle`, `debouncing`, `building`, `failed`, `stale`.
+- `included_paths` is the canonical persisted set from project config.
+- `auto_rebuild` is `true` for Pro tier, `false` for Free (manual rebuild via `/scope/rebuild`).
+
+#### `POST /projects/{project_id}/scope/add`
+
+Purpose:
+- Add files/folders to the Knowledge Scope.
+- Persists the updated `included_paths` set to project config.
+- Triggers a debounced CodeIndex rebuild (Pro) or marks as stale (Free).
+
+Request:
+
+```json
+{
+  "paths": ["src/core", "docs/API.md"]
+}
+```
+
+Response `data`:
+
+```json
+{
+  "added": 2,
+  "included_paths": ["docs/API.md", "src", "src/core"],
+  "status": {"state": "debouncing", "...": "..."}
+}
+```
+
+Notes:
+- Adding a parent folder automatically removes explicit children from the set.
+
+#### `POST /projects/{project_id}/scope/remove`
+
+Purpose:
+- Remove files/folders from the Knowledge Scope.
+- Persists the updated `included_paths` set to project config.
+- Triggers a debounced CodeIndex rebuild (Pro) or marks as stale (Free).
+
+Request:
+
+```json
+{
+  "paths": ["docs/API.md"]
+}
+```
+
+Response `data`:
+
+```json
+{
+  "removed": 1,
+  "included_paths": ["src"],
+  "status": {"state": "debouncing", "...": "..."}
+}
+```
+
+Notes:
+- Removing a path also removes all descendants.
+
+#### `POST /projects/{project_id}/scope/rebuild`
+
+Purpose:
+- Manually trigger a Knowledge Scope rebuild (for Free-tier or force rebuild).
+
+Response `data`:
+
+```json
+{
+  "started": true,
+  "status": {"state": "building", "...": "..."}
+}
+```
+
+Errors:
+- `409 SCOPE_ALREADY_BUILDING` — rebuild already in progress.
+- `409 NO_PENDING_CHANGES` — nothing to rebuild.
 
 ### Code Graph (Phase 04) — additional endpoints
 
@@ -894,6 +1099,7 @@ Response `data`:
   "model": "nomic-embed-text-v1.5",
   "dim": 768,
   "downloaded": true
+  // native built-in ONNX fallback
 }
 ```
 

@@ -4,7 +4,7 @@ import { cn } from '../../lib/utils';
 import { FileText } from 'lucide-react';
 
 export interface ContextChunk {
-  chunk_id: string;
+  chunk_id?: string;
   source_path: string;
   span?: {
     start_line: number;
@@ -12,6 +12,8 @@ export interface ContextChunk {
   };
   score?: number;
   truncated?: boolean;
+  lod?: number;
+  compression_ratio?: number;
 }
 
 export interface ContextViewerProps {
@@ -67,13 +69,15 @@ export function ContextViewer({
           <div className="border-t border-border my-4" />
           <h4 className="text-sm font-medium text-text mb-3">Sources ({chunks.length})</h4>
           <div className="space-y-2">
-            {chunks.map((chunk) => (
+            {chunks.map((chunk, i) => (
               <CitationBlock
-                key={chunk.chunk_id}
+                key={chunk.chunk_id ?? `${chunk.source_path}-${i}`}
                 sourcePath={chunk.source_path}
                 span={chunk.span}
                 score={chunk.score}
                 showScore={showScores}
+                lod={chunk.lod}
+                compressionRatio={chunk.compression_ratio}
               />
             ))}
           </div>

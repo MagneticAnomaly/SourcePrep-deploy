@@ -4,7 +4,7 @@ import { AnchorHeading } from '../../../components/AnchorHeading';
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-6 pb-16 pt-0">
         <a href="/mcp" className="text-sm text-text-muted">
           ← Back to Integrations
         </a>
@@ -98,7 +98,7 @@ export default function Page() {
             <ul className="list-disc pl-6 mt-2">
               <li>&quot;Use codrag to search for...&quot;</li>
               <li>&quot;Get the code graph for symbol X...&quot; (uses <code>codrag</code> with <code>trace_expand=true</code>)</li>
-              <li>&quot;Use CLaRa compression to summarize the entire docs folder...&quot;</li>
+              <li>&quot;Compress the context for the auth module...&quot; (uses <code>compression: &quot;auto&quot;</code>)</li>
             </ul>
           </p>
 

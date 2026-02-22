@@ -49,6 +49,7 @@ class PipelineConfigUpdate(BaseModel):
     budget_max_tokens: Optional[int] = None
     budget_max_minutes: Optional[int] = None
     budget_max_items: Optional[int] = None
+    llm_concurrency: Optional[int] = None  # Concurrent LLM requests (1=sequential, 2-4 for GPU with ≥12GB VRAM)
 
 
 # ── Global settings ──────────────────────────────────────────────
@@ -153,7 +154,65 @@ def delete_project_setting(project_id: str, key: str) -> Dict[str, Any]:
     return ok({"key": key, "deleted": True})
 
 
-# ── Pipeline config convenience endpoint ─────────────────────────
+# ── Pipeline config convenience endpoints ────────────────────────
+
+@router.get("/settings/pipeline-config")
+def get_pipeline_config() -> Dict[str, Any]:
+    """Get the current pipeline configuration including llm_concurrency."""
+    from codrag.services.settings_store import settings
+    config = settings.get("pipeline_config") or {}
+    return ok(config)
+
+
+@router.get("/settings/llm-concurrency-guidelines")
+def get_llm_concurrency_guidelines() -> Dict[str, Any]:
+    """Return structured LLM concurrency guidelines for the dashboard info icon.
+
+    Concurrency only applies to Pass 1 (file augmentation). Epistemic enrichment
+    and cluster synthesis are always sequential — they depend on prior results.
+    """
+    from codrag.services.settings_store import settings
+    config = settings.get("pipeline_config") or {}
+    current = max(1, min(8, int(config.get("llm_concurrency", 1))))
+
+    guidelines = {
+        "current": current,
+        "applies_to": "Pass 1 file augmentation only",
+        "sequential_stages": [
+            "Epistemic Enrichment — each node reads prior results",
+            "Cluster Synthesis — incremental fingerprint reuse",
+        ],
+        "platforms": [
+            {
+                "name": "Discrete GPU (CUDA / ROCm)",
+                "tiers": [
+                    {"value": 1, "label": "Safe default — any hardware"},
+                    {"value": 2, "label": "≥8GB VRAM (3b/7b models)"},
+                    {"value": 4, "label": "≥12GB VRAM (RTX 3060 12GB, RTX 4070)"},
+                    {"value": 6, "label": "≥24GB VRAM (RTX 3090, RTX 4090)"},
+                    {"value": 8, "label": "Multi-GPU or ≥48GB total VRAM"},
+                ],
+            },
+            {
+                "name": "Apple Silicon (Metal, unified memory)",
+                "tiers": [
+                    {"value": 1, "label": "M1/M2 8GB — tight with 7b model loaded"},
+                    {"value": 2, "label": "M1/M2 16GB, M3/M4 8GB+"},
+                    {"value": 3, "label": "M1/M2 Pro/Max (16–32GB)"},
+                    {"value": 4, "label": "M2 Ultra / M3 Max / M4 Max (48–96GB)"},
+                    {"value": 6, "label": "M2/M3 Ultra (96–192GB)"},
+                ],
+            },
+            {
+                "name": "Intel Mac",
+                "tiers": [
+                    {"value": 1, "label": "Always — no Metal acceleration"},
+                ],
+            },
+        ],
+    }
+    return ok(guidelines)
+
 
 @router.post("/settings/pipeline-config")
 def update_pipeline_config(body: PipelineConfigUpdate) -> Dict[str, Any]:
@@ -198,6 +257,9 @@ def update_pipeline_config(body: PipelineConfigUpdate) -> Dict[str, Any]:
         budgets["max_minutes_per_run"] = body.budget_max_minutes
     if body.budget_max_items is not None:
         budgets["max_items_per_stage"] = body.budget_max_items
+
+    if body.llm_concurrency is not None:
+        config["llm_concurrency"] = max(1, min(8, body.llm_concurrency))
 
     settings.set("pipeline_config", config)
     return ok(config)

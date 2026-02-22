@@ -255,7 +255,7 @@ codrag_hi called
 
 **Graceful degradation:** If any endpoint fails (e.g., trace not configured), `asyncio.gather(return_exceptions=True)` catches the exception and the tool still returns a useful response from the endpoints that succeeded.
 
-### Tests: 29 passing
+### Tests: 42 passing
 
 | Category | Count | What's tested |
 |----------|-------|--------------|
@@ -266,6 +266,8 @@ codrag_hi called
 | **Diagnostics** | 1 | All expected keys present |
 | **Edge cases** | 3 | Endpoint failures, summary length <2000 chars, other projects |
 | **MCP integration** | 5 | tools/call dispatch, project_id override, tools/list, schema validation |
+| **File inventory** | 7 | Categorization (docs/code/tests/config), actual filenames in summary, cap at max, empty state |
+| **Content-aware prompts** | 6 | Design docs, TODO/roadmap, cross-cutting (docs+code), API endpoints, walkthrough, _ai_note guidance |
 
 ---
 

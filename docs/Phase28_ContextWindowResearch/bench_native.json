@@ -1,0 +1,19 @@
+[
+  {
+    "model": "nomic-embed-text-v1.5 (ONNX, CPU)",
+    "recall_at_1": 0.9333333333333333,
+    "recall_at_3": 1.0,
+    "recall_at_5": 1.0,
+    "mrr": 0.9666666666666667,
+    "embed_p50_ms": 6.234417000086978,
+    "embed_p95_ms": 7.735458300157916,
+    "embed_p99_ms": 7.810358862334397,
+    "search_p50_ms": 6.785582998418249,
+    "search_p95_ms": 7.85616689681774,
+    "search_p99_ms": 7.85943337919889,
+    "avg_top_score": 0.9658833702405294,
+    "min_top_score": 0.5822030305862427,
+    "build_time_s": 2.8510282039642334,
+    "total_chunks": 20
+  }
+]

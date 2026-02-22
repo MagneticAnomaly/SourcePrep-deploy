@@ -171,6 +171,62 @@ def topological_sort_files(
     return result
 
 
+def topological_sort_into_tiers(
+    file_nodes: List[Dict[str, Any]],
+    edges: List[Dict[str, Any]],
+) -> List[List[Dict[str, Any]]]:
+    """Sort file nodes into dependency tiers for batched enrichment.
+
+    Returns a list of tiers, where each tier is a list of nodes that can
+    be processed in parallel (they only depend on nodes in earlier tiers).
+
+    Tier 0: leaf files (no outbound dependencies)
+    Tier 1: files that only depend on tier-0 files
+    Tier N: files that depend on tiers 0..N-1
+
+    Nodes in cycles are appended as a final tier.
+    """
+    file_ids = {n["id"] for n in file_nodes}
+    file_by_id = {n["id"]: n for n in file_nodes}
+
+    # Build adjacency: source depends on target
+    dependents: Dict[str, Set[str]] = defaultdict(set)
+    dependencies: Dict[str, int] = {fid: 0 for fid in file_ids}
+
+    for e in edges:
+        src, tgt = e.get("source", ""), e.get("target", "")
+        kind = e.get("kind", "")
+        if kind in ("imports", "references", "links_to", "inferred"):
+            if src in file_ids and tgt in file_ids and src != tgt:
+                dependents[tgt].add(src)
+                dependencies[src] = dependencies.get(src, 0) + 1
+
+    # Modified Kahn's: collect nodes level by level
+    tiers: List[List[Dict[str, Any]]] = []
+    current_queue = [fid for fid, dep in dependencies.items() if dep == 0]
+
+    while current_queue:
+        tier = [file_by_id[fid] for fid in current_queue if fid in file_by_id]
+        if tier:
+            tiers.append(tier)
+
+        next_queue: List[str] = []
+        for node_id in current_queue:
+            for dependent in dependents.get(node_id, set()):
+                dependencies[dependent] -= 1
+                if dependencies[dependent] == 0:
+                    next_queue.append(dependent)
+        current_queue = next_queue
+
+    # Remaining nodes (cycles) as a final tier
+    processed = {n["id"] for tier in tiers for n in tier}
+    cycle_nodes = [n for n in file_nodes if n["id"] not in processed]
+    if cycle_nodes:
+        tiers.append(cycle_nodes)
+
+    return tiers
+
+
 # ── Enrichment engine ────────────────────────────────────────────────
 
 class EpistemicEnricher:
@@ -185,10 +241,12 @@ class EpistemicEnricher:
         llm: LLMClient,
         repo_root: Path,
         index_dir: Path,
+        batch_profile: Optional["BatchProfile"] = None,
     ):
         self.llm = llm
         self.repo_root = repo_root
         self.index_dir = index_dir
+        self._batch_profile = batch_profile
         self.epistemic_path = index_dir / "trace_epistemic.jsonl"
         self.epistemic_manifest_path = index_dir / "trace_epistemic_manifest.json"
 
@@ -488,6 +546,178 @@ class EpistemicEnricher:
 
         return entry
 
+    def _enrich_tier_batched(
+        self,
+        tier_nodes: List[Dict[str, Any]],
+        edges: List[Dict[str, Any]],
+        nodes_by_id: Dict[str, Dict[str, Any]],
+        augmentations: Dict[str, Dict[str, Any]],
+        enriched: Dict[str, EpistemicEntry],
+        batch_size: int,
+    ) -> Tuple[int, int]:
+        """Enrich a single tier of nodes using batched LLM calls.
+
+        All nodes in a tier are independent (they only depend on earlier
+        tiers), so they can be batched together.
+
+        Returns (done_count, failed_count).
+        """
+        from .batch_prompts import (
+            BATCHED_EPISTEMIC_CODE_SYSTEM,
+            BATCHED_EPISTEMIC_DOC_SYSTEM,
+            build_batched_epistemic_code_prompt,
+            build_batched_epistemic_doc_prompt,
+        )
+        from .batch_strategy import BatchedResponseParser
+
+        done = 0
+        failed = 0
+
+        # Split into code and doc nodes
+        code_nodes = []
+        doc_nodes = []
+        for node in tier_nodes:
+            fp = node.get("file_path", "")
+            lang = node.get("language", "")
+            is_md = lang == "markdown" or fp.endswith((".md", ".markdown"))
+            if is_md:
+                doc_nodes.append(node)
+            else:
+                code_nodes.append(node)
+
+        # Batch code nodes
+        for batch_start in range(0, len(code_nodes), batch_size):
+            batch = code_nodes[batch_start:batch_start + batch_size]
+            items = []
+            for node in batch:
+                fp = node.get("file_path", "")
+                nid = node["id"]
+                aug = augmentations.get(nid, {})
+                neighbor_ctx = self._get_neighbor_context(
+                    nid, edges, nodes_by_id, augmentations, enriched
+                )
+                excerpt = self._get_file_excerpt(fp, max_lines=150)
+                items.append({
+                    "file_path": fp,
+                    "language": node.get("language", "unknown"),
+                    "pass1_summary": aug.get("summary", "(none)"),
+                    "pass1_role": aug.get("role", "unknown"),
+                    "neighbor_context": neighbor_ctx,
+                    "source_excerpt": excerpt,
+                    "_node": node,
+                    "_node_id": nid,
+                })
+
+            prompt = build_batched_epistemic_code_prompt(items)
+            try:
+                text, tokens = self.llm.generate(
+                    prompt, system=BATCHED_EPISTEMIC_CODE_SYSTEM,
+                    num_predict=len(items) * 400,
+                )
+                results_list = BatchedResponseParser.parse(text, expected_count=len(items))
+            except Exception as e:
+                logger.warning("Batched epistemic code failed for %d items: %s", len(items), e)
+                results_list = []
+
+            for idx, item in enumerate(items):
+                nid = item["_node_id"]
+                parsed = results_list[idx] if idx < len(results_list) else None
+                if parsed:
+                    arch = parsed.get("architecture_layer", "unknown")
+                    if arch not in VALID_ARCHITECTURE_LAYERS:
+                        arch = "unknown"
+                    entry = EpistemicEntry(
+                        node_id=nid,
+                        extended_summary=str(parsed.get("extended_summary", ""))[:1000],
+                        domain_tags=[str(t) for t in parsed.get("domain_tags", [])][:6],
+                        architecture_layer=arch,
+                        subsystem=parsed.get("subsystem"),
+                        design_patterns=parsed.get("design_patterns"),
+                        cross_references=parsed.get("cross_references"),
+                        tech_debt=parsed.get("tech_debt"),
+                        staleness_risk=parsed.get("staleness_risk"),
+                        epistemic_confidence=max(0.0, min(1.0, float(parsed.get("epistemic_confidence", 0.5)))),
+                        pass_number=2,
+                        enriched_at=datetime.now(timezone.utc).isoformat(),
+                        model=self.llm.model,
+                    )
+                    enriched[nid] = entry
+                    done += 1
+                else:
+                    failed += 1
+
+        # Batch doc nodes (smaller batches — docs are bigger)
+        doc_batch_size = max(1, batch_size // 3)
+        for batch_start in range(0, len(doc_nodes), doc_batch_size):
+            batch = doc_nodes[batch_start:batch_start + doc_batch_size]
+            items = []
+            for node in batch:
+                fp = node.get("file_path", "")
+                nid = node["id"]
+                aug = augmentations.get(nid, {})
+                section_names = self._get_section_names(nid, edges, nodes_by_id)
+                file_refs, link_targets = self._get_reference_paths(nid, edges, nodes_by_id)
+                neighbor_ctx = self._get_neighbor_context(
+                    nid, edges, nodes_by_id, augmentations, enriched
+                )
+                excerpt = self._get_file_excerpt(fp, max_lines=3000)
+                items.append({
+                    "file_path": fp,
+                    "section_names": ", ".join(section_names[:20]) or "(none)",
+                    "pass1_summary": aug.get("summary", "(none)"),
+                    "pass1_doc_type": aug.get("doc_type", "unknown"),
+                    "pass1_doc_status": aug.get("doc_status", "unknown"),
+                    "file_refs": ", ".join(file_refs[:10]) or "(none)",
+                    "link_targets": ", ".join(link_targets[:10]) or "(none)",
+                    "neighbor_context": neighbor_ctx,
+                    "content_excerpt": excerpt,
+                    "_node": node,
+                    "_node_id": nid,
+                })
+
+            prompt = build_batched_epistemic_doc_prompt(items)
+            try:
+                text, tokens = self.llm.generate(
+                    prompt, system=BATCHED_EPISTEMIC_DOC_SYSTEM,
+                    num_predict=len(items) * 400,
+                )
+                results_list = BatchedResponseParser.parse(text, expected_count=len(items))
+            except Exception as e:
+                logger.warning("Batched epistemic doc failed for %d items: %s", len(items), e)
+                results_list = []
+
+            for idx, item in enumerate(items):
+                nid = item["_node_id"]
+                parsed = results_list[idx] if idx < len(results_list) else None
+                if parsed:
+                    arch = parsed.get("architecture_layer", "documentation")
+                    if arch not in VALID_ARCHITECTURE_LAYERS:
+                        arch = "documentation"
+                    entry = EpistemicEntry(
+                        node_id=nid,
+                        extended_summary=str(parsed.get("extended_summary", ""))[:1000],
+                        domain_tags=[str(t) for t in parsed.get("domain_tags", [])][:6],
+                        architecture_layer=arch,
+                        subsystem=parsed.get("subsystem"),
+                        design_patterns=parsed.get("design_patterns"),
+                        cross_references=parsed.get("cross_references"),
+                        tech_debt=parsed.get("tech_debt"),
+                        staleness_risk=parsed.get("staleness_risk"),
+                        epistemic_confidence=max(0.0, min(1.0, float(parsed.get("epistemic_confidence", 0.5)))),
+                        pass_number=2,
+                        enriched_at=datetime.now(timezone.utc).isoformat(),
+                        model=self.llm.model,
+                        doc_type=parsed.get("doc_type"),
+                        doc_status=parsed.get("doc_status"),
+                        decision_chains=parsed.get("decision_chains"),
+                    )
+                    enriched[nid] = entry
+                    done += 1
+                else:
+                    failed += 1
+
+        return done, failed
+
     def run(
         self,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
@@ -497,8 +727,8 @@ class EpistemicEnricher:
 
         Steps:
         1. Load trace graph, augmentations, existing epistemic entries.
-        2. Sort file nodes in reverse-topological order.
-        3. Enrich each node with the 14b model + neighbor context.
+        2. Sort file nodes in reverse-topological order (or into tiers for batching).
+        3. Enrich each node with the LLM + neighbor context.
         4. Write trace_epistemic.jsonl overlay atomically.
         """
         start = time.monotonic()
@@ -530,9 +760,6 @@ class EpistemicEnricher:
         if max_items:
             to_enrich = to_enrich[:max_items]
 
-        # Sort in reverse-topological order (leaves first)
-        to_enrich = topological_sort_files(to_enrich, edges)
-
         total_work = len(to_enrich)
         total_file_count = len(file_nodes)
         existing_count = len(existing)
@@ -547,21 +774,53 @@ class EpistemicEnricher:
         failed = 0
 
         if progress_callback:
-            # Report initial overall progress (existing work from prior runs).
             progress_callback("epistemic_enrichment", existing_count, total_file_count)
 
-        for node in to_enrich:
-            entry = self.enrich_node(node, edges, nodes_by_id, augmentations, enriched)
-            if entry:
-                enriched[entry.node_id] = entry
-                done += 1
-            else:
-                failed += 1
+        # Decide: batched (BYOK) or sequential (local)
+        use_batching = (
+            self._batch_profile is not None
+            and self._batch_profile.name.value != "off"
+        )
 
-            if progress_callback:
-                # Report after each node so the UI doesn't stall at 99%
-                # while the last node is being processed.
-                progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count)
+        if use_batching and to_enrich:
+            from .batch_profiles import BatchStage
+            batch_size = self._batch_profile.batch_size(BatchStage.EPISTEMIC_CODE)
+
+            # Sort into tiers for tier-based batching
+            tiers = topological_sort_into_tiers(to_enrich, edges)
+            logger.info(
+                "BATCHED epistemic enrichment: %d files in %d tiers, batch_size=%d (%s profile)",
+                total_work, len(tiers), batch_size, self._batch_profile.name.value,
+            )
+            for tier_idx, tier in enumerate(tiers):
+                tier_done, tier_failed = self._enrich_tier_batched(
+                    tier, edges, nodes_by_id, augmentations, enriched, batch_size,
+                )
+                done += tier_done
+                failed += tier_failed
+                logger.info(
+                    "Tier %d/%d complete: %d enriched, %d failed (%d items in tier)",
+                    tier_idx + 1, len(tiers), tier_done, tier_failed, len(tier),
+                )
+                if progress_callback:
+                    progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count)
+        else:
+            # Sort in reverse-topological order (leaves first)
+            to_enrich = topological_sort_files(to_enrich, edges)
+
+            # Sequential by design: each node's neighbor context reads from 'enriched',
+            # which accumulates results from earlier nodes in topological order.
+            # Parallelizing would break the cascading context benefit.
+            for node in to_enrich:
+                entry = self.enrich_node(node, edges, nodes_by_id, augmentations, enriched)
+                if entry:
+                    enriched[entry.node_id] = entry
+                    done += 1
+                else:
+                    failed += 1
+
+                if progress_callback:
+                    progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count)
 
         # Write atomically
         self._write_epistemic(enriched)

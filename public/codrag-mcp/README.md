@@ -106,8 +106,7 @@ codrag mcp-config --ide all
 curl -fsSL https://ollama.com/install.sh | sh
 
 # Pull the recommended embedding model
-ollama pull nomic-embed-text-v2-moe   # recommended (~957 MB)
-# ollama pull nomic-embed-text        # lighter alternative (~274 MB)
+ollama pull nomic-embed-text        # standard quality (~274 MB)
 
 # CoDRAG will auto-detect Ollama at localhost:11434
 # No Ollama? Run: codrag models  (downloads v1.5 ONNX backup, ~132 MB)

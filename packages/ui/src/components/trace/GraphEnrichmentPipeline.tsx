@@ -5,9 +5,9 @@ import { ConfirmDialog } from '../primitives/ConfirmDialog';
 import { SlidingSwitch2, SlidingSwitch3 } from '../primitives/SlidingSwitch';
 import {
   GitBranch, Brain, ShieldCheck, Play, AlertTriangle, CheckCircle2,
-  Circle, Clock, Loader2, Layers, Network, Database, Trash2
+  Circle, Clock, Loader2, Layers, Network, Database, Trash2, Code2, Map
 } from 'lucide-react';
-import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus } from '../../types';
+import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, InferredEdgesStatus, AtlasStatus } from '../../types';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -19,7 +19,7 @@ export interface TraceStageInfo {
   last_build_at: string | null;
 }
 
-export type EnrichmentStageId = 'structural' | 'catalogue' | 'validation' | 'knowledge' | 'enrichment' | 'clustering' | 'deepening' | 'deep_knowledge';
+export type EnrichmentStageId = 'structural' | 'inferred_edges' | 'catalogue' | 'validation' | 'knowledge' | 'enrichment' | 'clustering' | 'atlas' | 'deepening' | 'deep_knowledge';
 
 export type DeepEnrichmentMode = 'manual' | 'auto' | 'scheduled' | 'threshold';
 
@@ -33,14 +33,17 @@ export interface EnrichmentAutoConfig {
 
 export interface GraphEnrichmentPipelineProps {
   trace: TraceStageInfo;
+  inferredEdges?: InferredEdgesStatus;
   augmentation?: AugmentationStatus;
   deepAnalysis?: DeepAnalysisRunStatus;
   epistemic?: EpistemicStatus;
   modules?: ModuleStatus;
   deepening?: DeepeningStatus;
   knowledge?: KnowledgeEmbeddingStatus;
+  atlas?: AtlasStatus;
   smallModelConfigured?: boolean;
   largeModelConfigured?: boolean;
+  codeModelConfigured?: boolean;
   onBuildTrace?: () => void;
   onRunAugmentation?: () => void;
   onRunDeepAnalysis?: () => void;
@@ -59,10 +62,13 @@ export interface GraphEnrichmentPipelineProps {
   augmenting?: boolean;
   validating?: boolean;
   deepAnalyzing?: boolean;
+  inferredEdgesRunning?: boolean;
   epistemicRunning?: boolean;
   clusterRunning?: boolean;
+  atlasRunning?: boolean;
   deepeningRunning?: boolean;
-  knowledgeBuilding?: boolean;
+  fastKnowledgeBuilding?: boolean;
+  deepKnowledgeBuilding?: boolean;
   paused?: boolean;
   /** Two-group auto config */
   autoConfig?: EnrichmentAutoConfig;
@@ -90,15 +96,37 @@ interface EnrichmentStage {
 
 function computeTraceState(
   trace: TraceStageInfo,
+  inferredEdgesRunning?: boolean,
   augmenting?: boolean,
   validating?: boolean,
-  knowledgeBuilding?: boolean
+  fastKnowledgeBuilding?: boolean
 ): StageState {
   if (!trace.enabled) return 'disabled';
   // If any later fast stage is running, Structural is done
-  if (augmenting || validating || knowledgeBuilding) return 'complete';
+  if (inferredEdgesRunning || augmenting || validating || fastKnowledgeBuilding) return 'complete';
   if (trace.building) return 'running';
   if (!trace.exists) return 'not_built';
+  return 'complete';
+}
+
+function computeInferredEdgesState(
+  trace: TraceStageInfo,
+  ie?: InferredEdgesStatus,
+  running?: boolean,
+  augmenting?: boolean,
+  validating?: boolean,
+  fastKnowledgeBuilding?: boolean
+): StageState {
+  if (!trace.enabled) return 'disabled';
+  // Running flags from SSE are always fresh — check them before stale trace.exists
+  if (augmenting || validating || fastKnowledgeBuilding) return 'complete';
+  if (running || ie?.running) return 'running';
+  // Cold state: trace.exists may be stale during pipeline but is correct when idle
+  if (!trace.exists) return 'disabled';
+  if (!ie) return 'not_built';
+  // ie.exists is false when 0 edges were discovered — but the stage still ran
+  // successfully.  Treat enabled + edge_count===0 as complete (not grey).
+  if (!ie.exists && !ie.enabled) return 'not_built';
   return 'complete';
 }
 
@@ -107,11 +135,11 @@ function computeAugmentState(
   aug?: AugmentationStatus,
   augmenting?: boolean,
   validating?: boolean,
-  knowledgeBuilding?: boolean
+  fastKnowledgeBuilding?: boolean
 ): StageState {
   if (augmenting) return 'running';
   if (!trace.enabled || !trace.exists) return 'disabled';
-  if (validating || knowledgeBuilding) return 'complete';
+  if (validating || fastKnowledgeBuilding) return 'complete';
   if (!aug || !aug.enabled) return 'not_built';
   if (aug.augmented_nodes === 0) return 'not_built';
   if (aug.low_confidence_count > aug.augmented_nodes * 0.3) return 'warning';
@@ -124,11 +152,11 @@ function computeValidationState(
   aug?: AugmentationStatus,
   augmenting?: boolean,
   validating?: boolean,
-  knowledgeBuilding?: boolean
+  fastKnowledgeBuilding?: boolean
 ): StageState {
   if (!trace.enabled) return 'disabled';
   // If knowledge embedding is running (and it's the fast phase), validation is done
-  if (knowledgeBuilding) return 'complete';
+  if (fastKnowledgeBuilding) return 'complete';
   if (validating) return 'running';
   if (!trace.exists) return 'disabled';
   // Catalogue must finish before validation can be considered
@@ -147,11 +175,19 @@ function computeEpistemicState(
   trace: TraceStageInfo,
   aug?: AugmentationStatus,
   ep?: EpistemicStatus,
-  running?: boolean
+  running?: boolean,
+  clusterRunning?: boolean,
+  atlasRunning?: boolean,
+  deepeningRunning?: boolean,
+  deepKnowledgeBuilding?: boolean
 ): StageState {
-  if (!trace.enabled || !trace.exists) return 'disabled';
-  if (!aug || !aug.enabled || aug.augmented_nodes === 0) return 'disabled';
+  if (!trace.enabled) return 'disabled';
+  // SSE flags are always fresh — check them before stale status data
+  if (clusterRunning || atlasRunning || deepeningRunning || deepKnowledgeBuilding) return 'complete';
   if (running || ep?.running) return 'running';
+  // Cold state checks
+  if (!trace.exists) return 'disabled';
+  if (!aug || !aug.enabled || aug.augmented_nodes === 0) return 'disabled';
   if (!ep || !ep.enabled) return 'not_built';
   if (ep.enriched_nodes === 0) return 'not_built';
   if (ep.avg_confidence < 0.5) return 'warning';
@@ -161,12 +197,37 @@ function computeEpistemicState(
 function computeModuleState(
   ep?: EpistemicStatus,
   mod?: ModuleStatus,
-  running?: boolean
+  running?: boolean,
+  atlasRunning?: boolean,
+  deepeningRunning?: boolean,
+  deepKnowledgeBuilding?: boolean
 ): StageState {
-  if (!ep || !ep.enabled || ep.enriched_nodes === 0) return 'disabled';
+  // SSE flags are always fresh — check them before stale status data
+  if (atlasRunning || deepeningRunning || deepKnowledgeBuilding) return 'complete';
   if (running || mod?.running) return 'running';
+  // Cold state checks
+  if (!ep || !ep.enabled || ep.enriched_nodes === 0) return 'disabled';
   if (!mod || !mod.enabled) return 'not_built';
   if (mod.module_count === 0) return 'not_built';
+  return 'complete';
+}
+
+function computeAtlasState(
+  ep?: EpistemicStatus,
+  mod?: ModuleStatus,
+  atlas?: AtlasStatus,
+  running?: boolean,
+  deepeningRunning?: boolean,
+  deepKnowledgeBuilding?: boolean
+): StageState {
+  // SSE flags are always fresh — check them before stale status data
+  if (deepeningRunning || deepKnowledgeBuilding) return 'complete';
+  if (running || atlas?.running) return 'running';
+  // Cold state checks
+  if (!ep || !ep.enabled || ep.enriched_nodes === 0) return 'disabled';
+  if (!mod || !mod.enabled || mod.module_count === 0) return 'disabled';
+  if (!atlas || !atlas.exists) return 'not_built';
+  if (atlas.stale) return 'stale';
   return 'complete';
 }
 
@@ -174,12 +235,15 @@ function computeDeepeningState(
   ep?: EpistemicStatus,
   deep?: DeepeningStatus,
   running?: boolean,
-  mod?: ModuleStatus
+  mod?: ModuleStatus,
+  deepKnowledgeBuilding?: boolean
 ): StageState {
-  if (!ep || !ep.enabled || ep.enriched_nodes === 0) return 'disabled';
-  // Deepening requires clustering to have produced modules first
-  if (!mod || !mod.enabled || mod.module_count === 0) return 'disabled';
+  // SSE flags are always fresh — check them before stale status data
+  if (deepKnowledgeBuilding) return 'complete';
   if (running || deep?.running) return 'running';
+  // Cold state checks
+  if (!ep || !ep.enabled || ep.enriched_nodes === 0) return 'disabled';
+  if (!mod || !mod.enabled || mod.module_count === 0) return 'disabled';
   if (!deep || deep.total_scored === 0) return 'not_built';
   if (deep.settled_ratio >= 0.90) return 'complete';
   if (deep.settled_ratio >= 0.5) return 'stale';
@@ -332,17 +396,22 @@ const DEEP_MODE_OPTIONS: { label: string; value: DeepEnrichmentMode }[] = [
 
 export function GraphEnrichmentPipeline({
   trace,
+  inferredEdges,
   augmentation,
   epistemic,
   modules,
   deepening,
   knowledge,
+  atlas,
   augmenting = false,
   validating = false,
+  inferredEdgesRunning = false,
   epistemicRunning = false,
   clusterRunning = false,
+  atlasRunning = false,
   deepeningRunning = false,
-  knowledgeBuilding = false,
+  fastKnowledgeBuilding = false,
+  deepKnowledgeBuilding = false,
   autoConfig,
   onAutoConfigChange,
   isPro = false,
@@ -377,14 +446,36 @@ export function GraphEnrichmentPipeline({
   // ── Compute stage states ──────────────────────────────────
   
   // 1. Structural Graph (Rust)
-  const structuralState = computeTraceState(trace, augmenting, validating, knowledgeBuilding);
-  const structuralStats = structuralState === 'complete' || structuralState === 'running'
-    ? `${trace.counts.nodes.toLocaleString()} nodes · ${trace.counts.edges.toLocaleString()} edges`
-    : structuralState === 'not_built' ? 'Not built yet'
-    : 'Disabled';
+  const structuralState = computeTraceState(trace, inferredEdgesRunning, augmenting, validating, fastKnowledgeBuilding);
+  const structuralStats = (() => {
+    if (structuralState === 'not_built') return 'Not built yet';
+    if (structuralState === 'disabled') return 'Disabled';
+    if (structuralState === 'running') return trace.counts.nodes > 0
+      ? `${trace.counts.nodes.toLocaleString()} nodes · ${trace.counts.edges.toLocaleString()} edges`
+      : 'Building...';
+    // State is 'complete' — if counts are still 0 but a later stage is running,
+    // the counts are stale (API refresh hasn't returned yet).
+    if (trace.counts.nodes === 0 && (inferredEdgesRunning || augmenting || validating || fastKnowledgeBuilding))
+      return 'Completing...';
+    return `${trace.counts.nodes.toLocaleString()} nodes · ${trace.counts.edges.toLocaleString()} edges`;
+  })();
 
-  // 2. Fast Catalogue (3b)
-  const catalogueState = computeAugmentState(trace, augmentation, augmenting, validating, knowledgeBuilding);
+  // 2. Inferred Edges (Code Model)
+  const inferredEdgesState = computeInferredEdgesState(trace, inferredEdges, inferredEdgesRunning, augmenting, validating, fastKnowledgeBuilding);
+  const inferredEdgesStats = (() => {
+    if (inferredEdgesState === 'running') {
+      const sp = inferredEdges?.slot_progress;
+      if (sp && sp.total > 0) return `${sp.current}/${sp.total} files · ${sp.message || 'Discovering...'}`;
+      return 'Discovering edges...';
+    }
+    if (inferredEdgesState === 'disabled') return 'Waiting for graph';
+    if (inferredEdgesState === 'not_built') return 'Ready to discover';
+    if (!inferredEdges) return '';
+    return `${inferredEdges.edge_count} edges discovered`;
+  })();
+
+  // 3. Fast Catalogue (Fast)
+  const catalogueState = computeAugmentState(trace, augmentation, augmenting, validating, fastKnowledgeBuilding);
   const catalogueStats = (() => {
     if (catalogueState === 'running') return 'Augmenting...';
     if (catalogueState === 'disabled') return 'Waiting for graph';
@@ -403,7 +494,7 @@ export function GraphEnrichmentPipeline({
     : undefined;
 
   // 3. Relationship Validation (Rust)
-  const validationState = computeValidationState(trace, augmentation, augmenting, validating, knowledgeBuilding);
+  const validationState = computeValidationState(trace, augmentation, augmenting, validating, fastKnowledgeBuilding);
   const validationStats = (() => {
     if (validationState === 'running') return 'Validating...';
     if (validationState === 'disabled') return 'Waiting for catalogue';
@@ -411,8 +502,8 @@ export function GraphEnrichmentPipeline({
     return '0 issues found'; // Placeholder until Rust validator is fully implemented
   })();
 
-  // 4. Epistemic Enrichment (14b)
-  const enrichmentState = computeEpistemicState(trace, augmentation, epistemic, epistemicRunning);
+  // 4. Epistemic Enrichment (Thinking)
+  const enrichmentState = computeEpistemicState(trace, augmentation, epistemic, epistemicRunning, clusterRunning, atlasRunning, deepeningRunning, deepKnowledgeBuilding);
   const enrichmentStats = (() => {
     if (enrichmentState === 'running') return 'Enriching...';
     if (enrichmentState === 'disabled') return 'Waiting for catalogue';
@@ -424,8 +515,8 @@ export function GraphEnrichmentPipeline({
     return `${epistemic.enriched_nodes} enriched · ${conf}`;
   })();
 
-  // 5. Cluster Synthesis (14b)
-  const clusteringState = computeModuleState(epistemic, modules, clusterRunning);
+  // 5. Cluster Synthesis (Thinking)
+  const clusteringState = computeModuleState(epistemic, modules, clusterRunning, atlasRunning, deepeningRunning, deepKnowledgeBuilding);
   const clusteringStats = (() => {
     if (clusteringState === 'running') return 'Synthesizing...';
     if (clusteringState === 'disabled') return 'Waiting for enrichment';
@@ -434,8 +525,22 @@ export function GraphEnrichmentPipeline({
     return `${modules.module_count} modules · ${modules.total_files_clustered} files`;
   })();
 
-  // 6. Continuous Deepening
-  const deepeningState = computeDeepeningState(epistemic, deepening, deepeningRunning, modules);
+  // 6. Atlas Building (Thinking)
+  const atlasState = computeAtlasState(epistemic, modules, atlas, atlasRunning, deepeningRunning, deepKnowledgeBuilding);
+  const atlasStats = (() => {
+    if (atlasState === 'running') return 'Building atlas...';
+    if (atlasState === 'disabled') return 'Waiting for modules';
+    if (atlasState === 'not_built') return 'Ready to build';
+    if (!atlas) return '';
+    const parts: string[] = [];
+    if (atlas.module_count) parts.push(`${atlas.module_count} segments`);
+    if (atlas.file_count) parts.push(`${atlas.file_count} files`);
+    if (atlas.routing) parts.push('routing');
+    return parts.join(' · ') || 'Built';
+  })();
+
+  // 7. Continuous Deepening
+  const deepeningState = computeDeepeningState(epistemic, deepening, deepeningRunning, modules, deepKnowledgeBuilding);
   const deepeningStats = (() => {
     if (deepeningState === 'running') {
       const iter = deepening?.iteration ?? 0;
@@ -456,7 +561,7 @@ export function GraphEnrichmentPipeline({
     : undefined;
 
   // 4. Knowledge Embedding (fast — after catalogue)
-  const fastKnowledgeState = computeFastKnowledgeState(trace, augmentation, knowledge, knowledgeBuilding, augmenting);
+  const fastKnowledgeState = computeFastKnowledgeState(trace, augmentation, knowledge, fastKnowledgeBuilding, augmenting);
   const fastKnowledgeStats = (() => {
     if (fastKnowledgeState === 'running') return 'Embedding...';
     if (fastKnowledgeState === 'disabled') return 'Waiting for catalogue';
@@ -466,7 +571,7 @@ export function GraphEnrichmentPipeline({
   })();
 
   // 8. Deep Knowledge Embedding (after deep enrichment + clusters + deepening)
-  const deepKnowledgeState = computeDeepKnowledgeState(epistemic, modules, deepening, knowledge, knowledgeBuilding);
+  const deepKnowledgeState = computeDeepKnowledgeState(epistemic, modules, deepening, knowledge, deepKnowledgeBuilding);
   const deepKnowledgeStats = (() => {
     if (deepKnowledgeState === 'running') return 'Re-embedding with deep data...';
     if (deepKnowledgeState === 'disabled') return 'Waiting for enrichment + clusters';
@@ -479,7 +584,14 @@ export function GraphEnrichmentPipeline({
 
   const fastStages: EnrichmentStage[] = [
     { id: 'structural', label: 'Structural Graph', icon: GitBranch, modelTag: 'Rust', state: structuralState, stats: structuralStats },
-    { id: 'catalogue', label: 'Fast Catalogue', icon: Database, modelTag: '3b', state: catalogueState, stats: catalogueStats, progress: catalogueProgress },
+    {
+      id: 'inferred_edges', label: 'Edge Discovery', icon: Code2, modelTag: 'Code',
+      state: inferredEdgesState, stats: inferredEdgesStats,
+      progress: inferredEdgesState === 'running' && inferredEdges?.slot_progress?.total
+        ? Math.round((inferredEdges.slot_progress.current / inferredEdges.slot_progress.total) * 100)
+        : undefined,
+    },
+    { id: 'catalogue', label: 'Fast Catalogue', icon: Database, modelTag: 'Fast', state: catalogueState, stats: catalogueStats, progress: catalogueProgress },
     { id: 'validation', label: 'Relationship Validation', icon: ShieldCheck, modelTag: 'Rust', state: validationState, stats: validationStats },
     {
       id: 'knowledge', label: 'Knowledge Embedding', icon: Database,
@@ -492,19 +604,20 @@ export function GraphEnrichmentPipeline({
 
   const deepStages: EnrichmentStage[] = [
     {
-      id: 'enrichment', label: 'Epistemic Enrichment', icon: Brain, modelTag: '14b',
+      id: 'enrichment', label: 'Deep Reasoning', icon: Brain, modelTag: 'Thinking',
       state: enrichmentState, stats: enrichmentStats,
       progress: (epistemicRunning || epistemic?.running) && epistemic?.progress_total
         ? Math.round((epistemic.progress_current ?? 0) / epistemic.progress_total * 100)
         : (enrichmentState === 'running' ? 0 : undefined),
     },
     {
-      id: 'clustering', label: 'Cluster Synthesis', icon: Layers, modelTag: '14b',
+      id: 'clustering', label: 'Module Synthesis', icon: Layers, modelTag: 'Thinking',
       state: clusteringState, stats: clusteringStats,
       progress: (clusterRunning || modules?.running) && modules?.progress_total
         ? Math.round((modules.progress_current ?? 0) / modules.progress_total * 100)
         : (clusteringState === 'running' ? 0 : undefined),
     },
+    { id: 'atlas', label: 'Atlas Building', icon: Map, modelTag: 'Thinking', state: atlasState, stats: atlasStats },
     { id: 'deepening', label: 'Continuous Deepening', icon: Network, state: deepeningState, stats: deepeningStats, progress: deepeningState === 'running' ? (deepeningProgress ?? 0) : undefined },
     {
       id: 'deep_knowledge', label: 'Deep Knowledge Embedding', icon: Database,

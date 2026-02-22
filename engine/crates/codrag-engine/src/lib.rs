@@ -553,12 +553,14 @@ impl TraceHandle {
     }
 
     fn __repr__(&self) -> String {
-        let graph = self.graph.lock().unwrap();
-        format!(
-            "TraceHandle(nodes={}, edges={})",
-            graph.node_count(),
-            graph.edge_count()
-        )
+        match self.graph.lock() {
+            Ok(graph) => format!(
+                "TraceHandle(nodes={}, edges={})",
+                graph.node_count(),
+                graph.edge_count()
+            ),
+            Err(_) => "TraceHandle(<poisoned lock>)".to_string()
+        }
     }
 }
 

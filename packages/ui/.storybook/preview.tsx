@@ -111,7 +111,7 @@ const preview: Preview = {
       
       return (
         <div
-          className="min-h-screen w-full bg-background text-foreground transition-colors duration-200"
+          className="min-h-screen w-full bg-background text-foreground font-sans transition-colors duration-200"
           style={
             bgImage
               ? {

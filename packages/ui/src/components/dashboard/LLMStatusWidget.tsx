@@ -7,7 +7,7 @@ export interface LLMServiceStatus {
   url?: string; // This effectively holds the Provider Name (e.g., "Ollama", "OpenAI")
   model?: string; // The specific model name
   status: 'connected' | 'disconnected' | 'disabled' | 'not-configured';
-  type: 'ollama' | 'clara' | 'openai' | 'other';
+  type: 'ollama' | 'openai' | 'other';
   running?: boolean;
 }
 

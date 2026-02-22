@@ -53,6 +53,8 @@ export interface UseTraceSystemDeps {
   clearIncludedPaths?: () => void
   /** Reset all enrichment state (called during destroy) */
   resetEnrichment?: () => void
+  /** Reset atlas state (called during destroy) */
+  resetAtlas?: () => void
 }
 
 // ── Hook ─────────────────────────────────────────────────────
@@ -86,6 +88,8 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   clearIncludedPathsRef.current = deps.clearIncludedPaths
   const resetEnrichmentRef = useRef(deps.resetEnrichment)
   resetEnrichmentRef.current = deps.resetEnrichment
+  const resetAtlasRef = useRef(deps.resetAtlas)
+  resetAtlasRef.current = deps.resetAtlas
 
   // ── State ───────────────────────────────────────────────────
   const [indexAutoRebuild, setIndexAutoRebuild] = useState<boolean>(() => {
@@ -136,18 +140,59 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     summary: null, untraced: [], stale: [], excluded: [], building: false, loading: false,
   })
 
-  // Load pipeline status on project selection (Phase 24 — initial hydration)
-  // Phase 25: also detect crashed runs for the crash recovery banner
+  // ── Self-hydrate on project change (SM-1 Phase A4) ──────────
+  // Fetches trace status, coverage, and pipeline status when project changes.
+  // This replaces the external hydration that was in App.tsx's project-change effect.
   useEffect(() => {
     if (!selectedProjectId) return
     let cancelled = false
-    api.getPipelineStatus(selectedProjectId).then((ps: PipelineStatus) => {
+
+    // Fetch trace status → then pipeline status (sequential so pipeline
+    // always has the last word on the `building` flag).
+    // The trace status API only knows about legacy trace builds, not pipeline
+    // runs, so getPipelineStatus must resolve AFTER getTraceStatus to avoid
+    // overwriting `building: true` with `false`.
+    api.getTraceStatus(selectedProjectId).then((data) => {
       if (cancelled) return
+      const enabled = data.enabled ?? false
+      setTraceStatus({
+        enabled,
+        exists: data.exists ?? false,
+        building: data.building ?? false,
+        counts: data.counts ?? { nodes: 0, edges: 0 },
+        engine: data.engine,
+      })
+      // Fetch coverage directly (can't use fetchTraceCoverage — stale closure)
+      if (enabled && selectedProjectId) {
+        setTraceCoverage(prev => ({ ...prev, loading: true }))
+        api.getTraceCoverage(selectedProjectId).then((cov) => {
+          if (cancelled) return
+          setTraceCoverage({
+            summary: cov.summary,
+            untraced: cov.untraced,
+            stale: cov.stale,
+            excluded: cov.excluded ?? (cov as any).ignored ?? [],
+            building: cov.building,
+            loading: false,
+          })
+        }).catch(() => {
+          if (!cancelled) setTraceCoverage(prev => ({ ...prev, loading: false }))
+        })
+      }
+      // Now load pipeline status — runs AFTER trace status so its `building`
+      // flag takes precedence (Phase 24 + Phase 25 crash recovery).
+      return api.getPipelineStatus(selectedProjectId)
+    }).then((ps: PipelineStatus | void) => {
+      if (cancelled || !ps) return
       const fastRunning = ps.fast_sync?.phase === 'running'
-      setTraceStatus(p => ({ ...p, building: fastRunning }))
-      // Phase 25: update crashed runs from the status response
+      if (fastRunning) {
+        setTraceStatus(p => ({ ...p, building: true }))
+      }
       setCrashedRuns(ps.crashed_runs ?? [])
-    }).catch(() => { /* silent — SSE will provide updates */ })
+    }).catch(() => {
+      if (!cancelled) setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
+    })
+
     return () => { cancelled = true }
   }, [api, selectedProjectId])
 
@@ -341,6 +386,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
       setTraceCoverage({ summary: null, untraced: [], stale: [], excluded: [], building: false, loading: false })
       resetEnrichmentRef.current?.()
+      resetAtlasRef.current?.()
       resetDeepAnalysisRef.current()
       void refreshStatusRef.current(selectedProjectId)
       setTimeout(() => {
@@ -360,6 +406,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
       setTraceCoverage({ summary: null, untraced: [], stale: [], excluded: [], building: false, loading: false })
       resetEnrichmentRef.current?.()
+      resetAtlasRef.current?.()
       resetDeepAnalysisRef.current()
       onResetSearchRef.current()
       // Clear included paths and re-fetch the file tree so "Indexed" badges disappear
@@ -402,6 +449,23 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       }
     }
   }, [deps.findActiveTask, fetchTraceCoverage, api, selectedProjectId])
+
+  // ── SSE: auto-refresh file tree when code index build completes ──
+
+  const prevIndexBuildStatusRef = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    const indexTask = deps.findActiveTask('index_build')
+    const prevStatus = prevIndexBuildStatusRef.current
+    prevIndexBuildStatusRef.current = indexTask?.status
+
+    if (indexTask && prevStatus === 'running' && indexTask.status === 'completed' && selectedProjectId) {
+      // Code index build just finished — refresh the file tree so
+      // status badges transition from Pending → Indexed.
+      refreshFileTreeRef.current?.(selectedProjectId)
+      // Retry after a short delay in case the index hasn't fully flushed
+      setTimeout(() => refreshFileTreeRef.current?.(selectedProjectId), 2000)
+    }
+  }, [deps.findActiveTask, selectedProjectId])
 
   // ── SSE: reactive pipeline status updates (Phase 24) ────────
   // Trace-related SSE reactions only. Enrichment SSE is handled by useEnrichment.
@@ -453,31 +517,44 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
         setTimeout(refresh, 3000)
     }
 
-    // Fast sync completed → refresh trace status + coverage
+    // Fast sync completed → refresh trace status + coverage + file tree
+    // Retry a few times to handle filesystem latency (files may not be
+    // flushed to disk by the time the SSE event arrives).
     if (fast?.phase === 'completed' && prevFastPhase === 'running') {
-      void fetchTraceCoverage()
-      api.getTraceStatus(selectedProjectId).then((data) => {
-        setTraceStatus({
-          enabled: data.enabled ?? false,
-          exists: data.exists ?? false,
-          building: false,
-          counts: data.counts ?? { nodes: 0, edges: 0 },
-          engine: data.engine,
+      const refreshTraceOnComplete = () => {
+        void fetchTraceCoverage()
+        api.getTraceStatus(selectedProjectId).then((data) => {
+          setTraceStatus({
+            enabled: data.enabled ?? false,
+            exists: data.exists ?? false,
+            building: false,
+            counts: data.counts ?? { nodes: 0, edges: 0 },
+            engine: data.engine,
+          })
+        }).catch(() => {
+          setTraceStatus(p => ({ ...p, building: false }))
         })
-      }).catch(() => {
-        setTraceStatus(p => ({ ...p, building: false }))
-      })
+      }
+      refreshTraceOnComplete()
+      setTimeout(refreshTraceOnComplete, 1000)
+      setTimeout(refreshTraceOnComplete, 3000)
+      // Refresh file tree so status badges (Pending→Indexed) update
+      setTimeout(() => refreshFileTreeRef.current?.(selectedProjectId), 2000)
     }
 
     if (fast?.phase === 'failed' && prevFastPhase === 'running') {
       setTraceStatus(p => ({ ...p, building: false }))
     }
 
-    // Deep enrichment completed → refresh trace coverage
+    // Deep enrichment completed → refresh trace coverage + file tree
+    // (deep enrichment triggers a CodeIndex build, so file statuses change)
     const prevDeepPhase = prev?.deep_enrichment?.phase
     const deep = pipelineEvent.deep_enrichment
     if (deep?.phase === 'completed' && prevDeepPhase === 'running') {
       void fetchTraceCoverage()
+      // CodeIndex build fires after deep enrichment; give it time to finish
+      setTimeout(() => refreshFileTreeRef.current?.(selectedProjectId), 5000)
+      setTimeout(() => refreshFileTreeRef.current?.(selectedProjectId), 15000)
     }
   }, [pipelineEvent, selectedProjectId, api, fetchTraceCoverage])
 
@@ -491,9 +568,9 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   // ── Return ──────────────────────────────────────────────────
 
   return {
-    // State
-    traceStatus, setTraceStatus,
-    traceCoverage, setTraceCoverage,
+    // State (read-only — hook owns hydration, no external setters)
+    traceStatus,
+    traceCoverage,
     indexAutoRebuild,
     enrichmentAutoConfig,
     // Phase 25: Crash Protection

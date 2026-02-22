@@ -69,7 +69,7 @@ def get_license_status() -> Dict[str, Any]:
     for feat in [
         "auto_rebuild", "auto_trace", "trace_index", "trace_search",
         "mcp_tools", "mcp_trace_expand", "path_weights",
-        "clara_compression", "multi_repo_agent", "team_config", "audit_log",
+        "context_compression", "multi_repo_agent", "team_config", "audit_log",
     ]:
         features[feat] = check_feature(feat)
     features["projects_max"] = get_feature_limit("projects_max")
@@ -85,7 +85,8 @@ def activate_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
     if not key:
         raise ApiException(status_code=400, code="VALIDATION_ERROR", message="key is required")
 
-    allowed_tiers = {"free", "starter", "pro", "team", "enterprise"}
+    allowed_tiers = {"free", "monthly", "perpetual", "team", "enterprise"}
+    _legacy_tier_map = {"starter": "monthly", "pro": "perpetual"}
     lic_data: Optional[Dict[str, Any]] = None
 
     # 1. Try to verify as a signed offline key (Production/Enterprise)
@@ -95,9 +96,10 @@ def activate_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
         lic_data = verified_payload
         logger.info(f"Verified signed license key for {lic_data.get('issued_to', 'unknown')}")
 
-    # 2. Dev/Testing: Allow direct tier names
+    # 2. Dev/Testing: Allow direct tier names (including legacy names)
     if lic_data is None:
         tier_guess = key.lower()
+        tier_guess = _legacy_tier_map.get(tier_guess, tier_guess)
         if tier_guess in allowed_tiers:
             lic_data = {"tier": tier_guess, "valid": True, "seats": 1, "features": []}
             logger.info(f"Activated dev license via tier name: {tier_guess}")
@@ -151,15 +153,16 @@ def activate_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
             status_code=400,
             code="INVALID_LICENSE",
             message="Invalid license key",
-            hint="Provide a valid signed license key, or a tier name (free/starter/pro) for development.",
+            hint="Provide a valid signed license key, or a tier name (free/monthly/perpetual) for development.",
         )
 
     tier_raw = str(lic_data.get("tier") or "").strip().lower()
+    tier_raw = _legacy_tier_map.get(tier_raw, tier_raw)
     if tier_raw not in allowed_tiers:
         raise ApiException(
             status_code=400,
             code="VALIDATION_ERROR",
-            message=f"Invalid license tier: {tier_raw}. Must be one of: {', '.join(allowed_tiers)}",
+            message=f"Invalid license tier: {tier_raw}. Must be one of: {', '.join(sorted(allowed_tiers))}",
         )
 
     lic_data["tier"] = tier_raw

@@ -168,6 +168,7 @@ def ollama_preload(
     model: str,
     keep_alive: str = "10m",
     timeout_s: int = _PRELOAD_TIMEOUT,
+    options: Optional[Dict[str, Any]] = None,
 ) -> bool:
     """Trigger model loading by sending an empty generate request.
 
@@ -177,6 +178,11 @@ def ollama_preload(
 
     For embedding-only models (e.g. nomic-embed-text) that don't
     support /api/generate, falls back to /api/embed with a tiny input.
+
+    Args:
+        options: Ollama options dict (e.g. ``{"num_ctx": 8192}``).
+                 Passed through so the model is loaded with the correct
+                 context window from the start.
     """
     # Try /api/generate first (works for LLM models)
     try:
@@ -187,6 +193,7 @@ def ollama_preload(
                 "prompt": "",
                 "keep_alive": keep_alive,
                 "stream": False,
+                **(({"options": options} if options else {})),
             },
             timeout=timeout_s,
         )
@@ -206,6 +213,7 @@ def ollama_preload(
                 "model": model,
                 "input": "warmup",
                 "keep_alive": keep_alive,
+                **(({"options": options} if options else {})),
             },
             timeout=timeout_s,
         )
@@ -257,6 +265,7 @@ def ollama_ensure_ready(
     timeout_s: int = _PRELOAD_TIMEOUT,
     poll_interval_s: float = 1.0,
     keep_alive: str = "10m",
+    options: Optional[Dict[str, Any]] = None,
 ) -> ModelReadinessResult:
     """Ensure *model* is loaded and ready, preloading if necessary.
 
@@ -266,6 +275,11 @@ def ollama_ensure_ready(
 
     This is the function to call before any LLM operation that requires
     the model to be hot.
+
+    Args:
+        options: Ollama options dict (e.g. ``{"num_ctx": 8192}``).
+                 Forwarded to the preload request so the model is
+                 loaded with the correct context window.
     """
     status = ollama_get_status(url, model)
 
@@ -292,7 +306,7 @@ def ollama_ensure_ready(
     preload_ok = [False]
 
     def _do_preload():
-        preload_ok[0] = ollama_preload(url, model, keep_alive=keep_alive, timeout_s=timeout_s)
+        preload_ok[0] = ollama_preload(url, model, keep_alive=keep_alive, timeout_s=timeout_s, options=options)
         preload_done.set()
 
     t = threading.Thread(target=_do_preload, daemon=True)
@@ -346,25 +360,6 @@ def get_model_status(
 
     if provider == "ollama":
         return ollama_get_status(url, model)
-
-    if provider == "clara":
-        try:
-            r = requests.get(f"{url}/health", timeout=_QUICK_TIMEOUT)
-            if r.status_code == 200:
-                return ModelReadinessResult(
-                    status=ModelStatus.READY,
-                    message="CLaRa is available",
-                    model=model,
-                    provider=provider,
-                )
-        except Exception:
-            pass
-        return ModelReadinessResult(
-            status=ModelStatus.ERROR,
-            message=f"Cannot reach CLaRa at {url}",
-            model=model,
-            provider=provider,
-        )
 
     # OpenAI / Anthropic / compatible — always "ready" if endpoint works
     try:

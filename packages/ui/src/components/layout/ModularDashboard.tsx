@@ -262,7 +262,8 @@ export function ModularDashboard({
           const contentNode = (
             <div
               className={cn(
-                'codrag-panel-body p-4 flex flex-col',
+                'codrag-panel-body flex flex-col',
+                !def.noPadding && 'p-4',
                 isPanelResizable && 'h-full min-h-0 overflow-hidden'
               )}
             >

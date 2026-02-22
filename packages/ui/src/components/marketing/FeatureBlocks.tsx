@@ -1,7 +1,7 @@
-import { Badge, Card, Flex, Text, Title } from '@tremor/react';
+import { Badge, Card, Flex, Text } from '@tremor/react';
 import { 
   Search, GitBranch, Zap, Lock, RefreshCw, Plug, 
-  AlertTriangle, Lightbulb, TrendingUp, SlidersHorizontal, Shrink, Brain
+  AlertTriangle, Lightbulb, TrendingUp, SlidersHorizontal, Shrink, Brain, Shield, Waypoints
 } from 'lucide-react';
 
 export interface Feature {
@@ -37,13 +37,8 @@ function FeatureCards({ features }: { features: Feature[] }) {
           <>
             <div className="flex items-start justify-between">
               <span className="text-primary">{feature.icon}</span>
-              {feature.badge && (
-                <Badge color="blue" size="xs">
-                  {feature.badge}
-                </Badge>
-              )}
             </div>
-            <Title className="mt-4 text-text">{feature.title}</Title>
+            <h3 className="mt-4 text-lg font-mono font-medium text-text">{feature.title}</h3>
             <Text className="mt-2 text-text-muted">{feature.description}</Text>
           </>
         );
@@ -83,22 +78,21 @@ function FeatureCards({ features }: { features: Feature[] }) {
 
 function FeatureList({ features }: { features: Feature[] }) {
   return (
-    <div className="space-y-6">
+    <div
+      className="rounded-2xl border border-primary/30 bg-surface p-6"
+      style={{ boxShadow: '0 0 70px -10px color-mix(in srgb, var(--primary) 20%, transparent)' }}
+    >
       {features.map((feature) => (
         <div
           key={feature.title}
-          className={`flex gap-6 items-start p-6 rounded-xl border transition-all hover:shadow-md ${
-            feature.highlight
-              ? 'border-primary/50 bg-primary/5'
-              : 'border-border bg-surface'
-          }`}
+          className="flex gap-6 items-start px-10 py-8"
         >
           <div className="flex-shrink-0 w-16 h-16 rounded-xl bg-surface-raised border border-border-subtle flex items-center justify-center text-primary">
             {feature.icon}
           </div>
           <div className="flex-1">
             <Flex justifyContent="between" alignItems="start">
-              <Title className="text-text">{feature.title}</Title>
+              <h3 className="text-lg font-mono font-medium text-text">{feature.title}</h3>
               {feature.badge && <Badge color="blue">{feature.badge}</Badge>}
             </Flex>
             <Text className="mt-2 text-text-muted leading-relaxed">{feature.description}</Text>
@@ -126,9 +120,9 @@ function BentoGrid({ features }: { features: Feature[] }) {
             <div className={isLarge ? 'text-primary [&>svg]:w-12 [&>svg]:h-12' : 'text-primary [&>svg]:w-8 [&>svg]:h-8'}>
               {feature.icon}
             </div>
-            <Title className={`mt-4 text-text ${isLarge ? 'text-2xl' : 'text-base'}`}>
+            <h3 className={`mt-4 font-heading font-medium text-text ${isLarge ? 'text-2xl' : 'text-lg'}`}>
               {feature.title}
-            </Title>
+            </h3>
             <Text className={`mt-2 text-text-muted ${isLarge ? '' : 'text-sm line-clamp-2'}`}>
               {feature.description}
             </Text>
@@ -148,7 +142,7 @@ export const codragFeatures: Feature[] = [
   {
     icon: <Search className="w-8 h-8" />,
     title: 'Semantic + Structural Search',
-    description: 'Ask "where is the auth middleware?" and get ranked results in under 100 ms. Built-in ONNX embeddings (nomic-embed-text) work out of the box — no LLM or API key required. Connect Ollama or a cloud API if you prefer an alternative model.',
+    description: 'Ask "where is the auth middleware?" and get ranked results in under 100 ms. Built-in ONNX embeddings (nomic-embed-text) work out of the box — or connect Ollama or a cloud API like OpenAI if you prefer an alternative model.',
     badge: 'Built-in',
     highlight: true,
   },
@@ -156,16 +150,23 @@ export const codragFeatures: Feature[] = [
     icon: <GitBranch className="w-8 h-8" />,
     title: 'Structural Code Graph',
     description: 'Goes beyond vector search. A Rust-powered engine maps imports, call graphs, and symbol hierarchies across your entire monorepo — so your AI sees how 100k files connect.',
-    badge: 'Pro',
+    badge: 'Built-in',
     highlight: true,
   },
   {
     icon: <Brain className="w-8 h-8" />,
     title: 'Graph Enrichment',
-    description: 'A multi-pass pipeline that deepens understanding over time. Rust builds the structural skeleton, a 3b model catalogues every file, then a 14b model adds domain tags, architecture layers, and doc↔code cross-references — with epistemic scoring that measures how well each file is understood.',
-    badge: 'Pro',
+    description: 'A 9-stage pipeline that deepens understanding over time. Rust builds the structural skeleton, a Fast model catalogues every file, then a Thinking model reasons about each node in graph context — adding domain tags, architecture layers, and doc↔code cross-references. An understanding score (0.0–1.0) tracks how well the system comprehends each file, decaying when code changes and rising as knowledge crystallizes.',
+    badge: 'Monthly+',
     href: 'https://docs.codrag.io/concepts/graph-enrichment',
     external: true,
+  },
+  {
+    icon: <Waypoints className="w-8 h-8" />,
+    title: 'Smarter Retrieval — The Atlas Routes Every Query',
+    description: 'CoDRAG maps your codebase into subsystem segments at build time. When your AI asks for context, the Atlas routes the query to the right subsystem first — so the trace graph search is scoped before it starts. Better results. No extra tokens.',
+    badge: 'New',
+    highlight: true,
   },
   {
     icon: <Zap className="w-8 h-8" />,
@@ -181,14 +182,14 @@ export const codragFeatures: Feature[] = [
   },
   {
     icon: <Shrink className="w-8 h-8" />,
-    title: '10–16× Context Compression',
-    description: 'CLaRa compresses retrieved context before it reaches your LLM — fitting more relevant signal into your prompt window. Query-aware, best-effort, runs locally.',
-    badge: 'CLaRa',
+    title: 'Smart Context Compression',
+    description: 'Two built-in engines work together: code files are structurally compressed (3–20×) — keeping full source for top results, signatures for mid-relevance, and names for the rest. Documentation is compressed with a lightweight language model that preserves meaning while removing filler. No GPU required.',
+    badge: 'Built-in',
   },
   {
     icon: <Lock className="w-8 h-8" />,
-    title: 'Runs 100% on Your Machine',
-    description: 'Your code never leaves localhost. No cloud upload, no telemetry. Embeddings, search, and compression all run locally — zero network traffic by default.',
+    title: 'Runs on Your Machine',
+    description: 'Your code index stays on localhost. Use the built-in local models for zero network traffic, or connect to a cloud provider (BYOK) for enhanced trace understanding — you\'re in control.',
   },
   {
     icon: <RefreshCw className="w-8 h-8" />,
@@ -200,6 +201,11 @@ export const codragFeatures: Feature[] = [
     title: 'Works With Every AI Tool',
     description: 'Native MCP integration means CoDRAG plugs directly into Cursor, Windsurf, VS Code, and Claude Desktop — no config gymnastics.',
     badge: 'MCP',
+  },
+  {
+    icon: <Shield className="w-8 h-8" />,
+    title: 'Privacy-First & Cloud-Ready',
+    description: 'Run 100% locally with zero network traffic, or seamlessly plug in your preferred cloud AI provider (BYOK). Every embedding, search, and compression step is configurable and auditable.',
   },
 ];
 
@@ -213,11 +219,11 @@ export const marketingFeatures: Feature[] = [
   {
     icon: <Lightbulb className="w-8 h-8" />,
     title: 'The Fix: Index Everything, Control What Surfaces',
-    description: 'CoDRAG\'s Rust engine indexes your entire codebase — semantics, symbols, and call graphs — then you steer what matters with path weights. Boost core modules, suppress vendor noise, compress the rest with CLaRa. Every prompt gets exactly the right context, automatically.',
+    description: 'CoDRAG\'s Rust engine indexes your entire codebase — semantics, symbols, and call graphs — then you steer what matters with path weights. Boost core modules, suppress vendor noise, and smart compression fits 3–20× more signal into every prompt. Every query gets exactly the right context, automatically.',
   },
   {
     icon: <TrendingUp className="w-8 h-8" />,
     title: 'The Result: AI That Understands Your Architecture',
-    description: 'More relevant suggestions, fewer corrections, faster iteration — even on the largest codebases and doc trees. Built-in embeddings, structural code graph, multi-pass enrichment with epistemic scoring, path weights, and 10–16× compression work together so your AI finally sees the whole picture.',
+    description: 'More relevant suggestions, fewer corrections, faster iteration — even on the largest codebases and doc trees. Built-in embeddings, structural code graph, deep reasoning with understanding scores, codebase atlas routing, path weights, and smart context compression work together so your AI finally sees the whole picture.',
   },
 ];

@@ -1,8 +1,12 @@
 """
 Context compression abstraction for CoDRAG.
 
-Provides a base class and CLaRa sidecar implementation for compressing
+Provides a base class and concrete implementations for compressing
 retrieved context before injecting it into LLM prompts.
+
+Implementations:
+  - NoopCompressor:   pass-through (no compression)
+  - LinguaCompressor: LLMLingua-2 token pruning for natural-language content
 """
 
 from __future__ import annotations
@@ -69,24 +73,67 @@ class ContextCompressor(ABC):
         return {"available": self.is_available()}
 
 
-class ClaraCompressor(ContextCompressor):
-    """CLaRa sidecar HTTP client for context compression.
 
-    Calls the CLaRa-Remembers-It-All server at the configured URL.
-    API: POST /compress with {memories: [...], query: "..."}
 
-    See: https://github.com/EricBintner/CLaRa-Remembers-It-All
+class LinguaCompressor(ContextCompressor):
+    """LLMLingua-2 token-pruning compressor for natural-language content.
+
+    Wraps ``llmlingua.PromptCompressor`` with the BERT-base multilingual
+    model (178 MB).  The model is lazy-loaded on first ``compress()`` call
+    so it never blocks server startup.
+
+    Falls back to noop (returns input unchanged) on any error.
     """
 
-    DEFAULT_URL = "http://localhost:8765"
+    HF_MODEL_ID = "microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank"
 
-    def __init__(
-        self,
-        base_url: str = DEFAULT_URL,
-        timeout_s: float = 60.0,
-    ):
-        self.base_url = base_url.rstrip("/")
-        self.timeout_s = timeout_s
+    # Compression-rate presets  (rate = fraction of tokens *kept*)
+    LEVEL_RATES = {
+        "light": 0.6,
+        "standard": 0.4,
+        "aggressive": 0.25,
+    }
+
+    # Tokens that must never be removed during compression
+    FORCE_TOKENS = [
+        # Structural formatting
+        "\n", "---", "|",
+        # File path components
+        "@", "/", ".py", ".ts", ".tsx", ".js", ".rs", ".go", ".md",
+        ".jsx", ".rb", ".java", ".swift", ".css", ".html", ".json",
+        ".toml", ".yaml", ".yml",
+        # CoDRAG context markers
+        "[", "]", "score=",
+        # Common code identifiers that appear in language descriptions
+        "(", ")", ":", "::", "->", "=>",
+        # Punctuation that changes meaning
+        "?", "!",
+    ]
+
+    def __init__(self, *, model_id: Optional[str] = None) -> None:
+        self._model_id = model_id or self.HF_MODEL_ID
+        self._compressor: Any = None  # lazy llmlingua.PromptCompressor
+        self._available: Optional[bool] = None
+
+    def _ensure_loaded(self) -> Any:
+        """Lazy-load the LLMLingua-2 model on first use."""
+        if self._compressor is not None:
+            return self._compressor
+        try:
+            from llmlingua import PromptCompressor  # type: ignore[import-untyped]
+
+            self._compressor = PromptCompressor(
+                model_name=self._model_id,
+                use_llmlingua2=True,
+                device_map="cpu",
+            )
+            self._available = True
+            logger.info("LinguaCompressor loaded model: %s", self._model_id)
+        except Exception as exc:
+            logger.warning("LinguaCompressor failed to load: %s", exc)
+            self._available = False
+            self._compressor = None
+        return self._compressor
 
     def compress(
         self,
@@ -97,119 +144,84 @@ class ClaraCompressor(ContextCompressor):
         level: str = "standard",
         timeout_s: float = 30.0,
     ) -> CompressResult:
-        """Compress context through the CLaRa sidecar server.
-
-        The text is split into chunks (by --- separators) and sent as
-        individual memories to CLaRa's /compress endpoint. CLaRa returns
-        a compressed answer focused on the query.
-
-        Falls back to returning the original text on any error.
-        """
         input_chars = len(text)
-        if not text.strip():
+        if input_chars == 0:
+            return CompressResult(compressed="", input_chars=0, output_chars=0)
+
+        comp = self._ensure_loaded()
+        if comp is None:
+            # Fallback: return text unchanged
             return CompressResult(
                 compressed=text,
                 input_chars=input_chars,
                 output_chars=input_chars,
+                error="LLMLingua-2 model not available",
             )
 
-        # Split context into individual memories (chunks separated by ---)
-        memories = [m.strip() for m in text.split("\n\n---\n\n") if m.strip()]
-        if not memories:
-            memories = [text]
+        rate = self.LEVEL_RATES.get(level, self.LEVEL_RATES["standard"])
 
-        payload: Dict[str, Any] = {
-            "memories": memories,
-            "query": query or "Summarize the key information",
-        }
-
-        effective_timeout = min(timeout_s, self.timeout_s)
-        t0 = time.monotonic()
-
+        t0 = time.perf_counter()
         try:
-            resp = requests.post(
-                f"{self.base_url}/compress",
-                json=payload,
-                timeout=effective_timeout,
+            result = comp.compress_prompt(
+                [text],
+                rate=rate,
+                force_tokens=self.FORCE_TOKENS,
+                drop_consecutive=True,
             )
-            resp.raise_for_status()
-            data = resp.json()
-        except requests.ConnectionError:
-            logger.warning("CLaRa server not reachable at %s", self.base_url)
-            return CompressResult(
-                compressed=text,
-                input_chars=input_chars,
-                output_chars=input_chars,
-                error=f"CLaRa server not reachable at {self.base_url}",
-            )
-        except requests.Timeout:
-            logger.warning("CLaRa compression timed out after %.1fs", effective_timeout)
-            return CompressResult(
-                compressed=text,
-                input_chars=input_chars,
-                output_chars=input_chars,
-                error=f"CLaRa compression timed out after {effective_timeout:.1f}s",
-            )
-        except Exception as e:
-            logger.warning("CLaRa compression failed: %s", e)
-            return CompressResult(
-                compressed=text,
-                input_chars=input_chars,
-                output_chars=input_chars,
-                error=str(e),
-            )
-
-        elapsed_ms = (time.monotonic() - t0) * 1000
-
-        if not data.get("success", False):
-            error_msg = data.get("error", "CLaRa returned success=false")
-            logger.warning("CLaRa compression unsuccessful: %s", error_msg)
-            return CompressResult(
-                compressed=text,
-                input_chars=input_chars,
-                output_chars=input_chars,
-                timing_ms=elapsed_ms,
-                error=error_msg,
-            )
-
-        compressed = str(data.get("answer", text))
-        output_chars = len(compressed)
-
-        # Respect budget_chars if set
-        if budget_chars > 0 and output_chars > budget_chars:
-            compressed = compressed[:budget_chars]
+            compressed = result.get("compressed_prompt", text)
             output_chars = len(compressed)
-
-        return CompressResult(
-            compressed=compressed,
-            input_chars=input_chars,
-            output_chars=output_chars,
-            input_tokens=int(data.get("original_tokens", 0)),
-            output_tokens=int(data.get("compressed_tokens", 0)),
-            compression_ratio=float(data.get("compression_ratio", 1.0)),
-            timing_ms=elapsed_ms,
-        )
+            timing_ms = (time.perf_counter() - t0) * 1000
+            ratio = input_chars / output_chars if output_chars > 0 else 1.0
+            return CompressResult(
+                compressed=compressed,
+                input_chars=input_chars,
+                output_chars=output_chars,
+                compression_ratio=round(ratio, 2),
+                timing_ms=round(timing_ms, 1),
+            )
+        except Exception as exc:
+            timing_ms = (time.perf_counter() - t0) * 1000
+            logger.warning("LinguaCompressor.compress failed: %s", exc)
+            return CompressResult(
+                compressed=text,
+                input_chars=input_chars,
+                output_chars=input_chars,
+                timing_ms=round(timing_ms, 1),
+                error=str(exc),
+            )
 
     def is_available(self) -> bool:
-        """Check if the CLaRa sidecar server is reachable."""
+        """Check if llmlingua is installed."""
+        if self._available is not None:
+            return self._available
+        # Quick check without loading the full model
         try:
-            resp = requests.get(f"{self.base_url}/health", timeout=3)
-            return resp.status_code == 200
-        except Exception:
+            import llmlingua  # type: ignore[import-untyped]  # noqa: F401
+            return True
+        except ImportError:
             return False
 
+    def download_model(self) -> str:
+        """Pre-download the LLMLingua-2 model from HuggingFace.
+        
+        Returns the path to the cached model directory.
+        """
+        from huggingface_hub import snapshot_download  # type: ignore[import-untyped]
+        
+        model_path = snapshot_download(
+            repo_id=self._model_id,
+            allow_patterns=["*.json", "*.bin", "*.safetensors", "*.txt"],
+        )
+        return model_path
+
     def status(self) -> Dict[str, Any]:
-        """Get detailed status from the CLaRa server."""
-        base = {"available": False, "url": self.base_url}
-        try:
-            resp = requests.get(f"{self.base_url}/status", timeout=5)
-            if resp.status_code == 200:
-                data = resp.json()
-                base["available"] = True
-                base.update(data)
-        except Exception:
-            pass
-        return base
+        loaded = self._compressor is not None
+        return {
+            "available": self.is_available(),
+            "model": self._model_id,
+            "loaded": loaded,
+            "type": "lingua",
+        }
 
 
 class NoopCompressor(ContextCompressor):

@@ -231,3 +231,16 @@ class ProjectRegistry:
 
         with self._connect() as conn:
             conn.execute("DELETE FROM projects WHERE id = ?", (str(project_id),))
+
+    def prune_orphans(self) -> List[Project]:
+        """Remove projects whose paths no longer exist on disk.
+
+        Returns the list of removed projects (for logging).
+        """
+        removed: List[Project] = []
+        for proj in self.list_projects():
+            if not Path(proj.path).exists():
+                with self._connect() as conn:
+                    conn.execute("DELETE FROM projects WHERE id = ?", (proj.id,))
+                removed.append(proj)
+        return removed

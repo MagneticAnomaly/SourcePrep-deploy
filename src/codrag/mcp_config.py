@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import shutil
 from typing import Any, Dict, Optional
 
 
 def detect_codrag_command() -> str:
-    return shutil.which("codrag") or "codrag"
+    return "codrag"
 
 
 def generate_mcp_configs(

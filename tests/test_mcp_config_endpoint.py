@@ -10,7 +10,7 @@ def client() -> TestClient:
 
 
 def test_mcp_config_default_daemon_url_uses_base_url(client: TestClient) -> None:
-    res = client.get("/api/code-index/mcp-config?ide=cursor&mode=auto")
+    res = client.get("/mcp/config?ide=cursor&mode=auto")
     assert res.status_code == 200
     env = res.json()
     assert env["success"] is True
@@ -22,7 +22,7 @@ def test_mcp_config_default_daemon_url_uses_base_url(client: TestClient) -> None
 
 def test_mcp_config_cursor_auto_with_explicit_daemon_url(client: TestClient) -> None:
     res = client.get(
-        "/api/code-index/mcp-config?ide=cursor&mode=auto&daemon_url=http://127.0.0.1:8400"
+        "/mcp/config?ide=cursor&mode=auto&daemon_url=http://127.0.0.1:8400"
     )
     assert res.status_code == 200
     env = res.json()
@@ -42,14 +42,14 @@ def test_mcp_config_cursor_auto_with_explicit_daemon_url(client: TestClient) -> 
 
 def test_mcp_config_project_mode_requires_project_id(client: TestClient) -> None:
     res = client.get(
-        "/api/code-index/mcp-config?ide=cursor&mode=project&daemon_url=http://127.0.0.1:8400"
+        "/mcp/config?ide=cursor&mode=project&daemon_url=http://127.0.0.1:8400"
     )
     assert res.status_code == 400
 
 
 def test_mcp_config_project_mode_includes_project_arg(client: TestClient) -> None:
     res = client.get(
-        "/api/code-index/mcp-config?ide=cursor&mode=project&project_id=proj_123&daemon_url=http://127.0.0.1:8400"
+        "/mcp/config?ide=cursor&mode=project&project_id=proj_123&daemon_url=http://127.0.0.1:8400"
     )
     assert res.status_code == 200
     env = res.json()
@@ -64,7 +64,7 @@ def test_mcp_config_project_mode_includes_project_arg(client: TestClient) -> Non
 
 def test_mcp_config_all_returns_configs_object(client: TestClient) -> None:
     res = client.get(
-        "/api/code-index/mcp-config?ide=all&mode=auto&daemon_url=http://127.0.0.1:8400"
+        "/mcp/config?ide=all&mode=auto&daemon_url=http://127.0.0.1:8400"
     )
     assert res.status_code == 200
     env = res.json()

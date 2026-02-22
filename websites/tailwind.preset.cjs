@@ -123,7 +123,9 @@ module.exports = {
       },
       fontFamily: {
         sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        mono: ['var(--font-mono)', 'ui-monospace', 'monospace']
+        mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
+        space: ['var(--font-space)', 'monospace'],
+        heading: ['var(--font-heading)', 'ui-sans-serif', 'system-ui', 'sans-serif']
       },
       fontSize: {
         'tremor-label': ['0.75rem', { lineHeight: '1rem' }],

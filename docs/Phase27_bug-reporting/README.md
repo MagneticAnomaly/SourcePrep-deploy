@@ -259,26 +259,28 @@ Access-Control-Allow-Headers: Content-Type
 The MVP uses email-as-storage. The schema and IDs are designed to migrate
 to a proper ticket system without breaking anything.
 
-### Phase 27.2 — Persistent Storage
+### Phase 27.2 — Persistent Storage ✅ DONE
 
-| ID | Task | Est |
-|----|------|-----|
-| BR-8 | Add Vercel Postgres (or D1/Supabase) `reports` table | 1h |
-| BR-9 | Insert report metadata on receipt (id, status, severity, email, created_at) | 30m |
-| BR-10 | Store full JSON in Vercel Blob / R2 | 30m |
-| BR-11 | API: `GET /api/bug-reports` (list, paginated, auth-gated) | 30m |
-| BR-12 | API: `GET /api/bug-report/:id` (detail, auth-gated) | 15m |
-| BR-13 | API: `PATCH /api/bug-report/:id` (update status, assign) | 15m |
+| ID | Task | Est | Status |
+|----|------|-----|--------|
+| BR-8 | `lib/reports.ts` — ReportStore abstraction (in-memory MVP, pluggable for Turso/Supabase) | 1h | ✅ |
+| BR-9 | Insert report metadata on receipt via `createReport()` + `store.insert()` | 30m | ✅ |
+| BR-10 | Full JSON payload stored alongside metadata in ReportFull | 30m | ✅ |
+| BR-11 | API: `GET /api/bug-reports` (list, paginated, filtered, auth-gated) | 30m | ✅ |
+| BR-12 | API: `GET /api/bug-reports/:id` (detail with full payload, auth-gated) | 15m | ✅ |
+| BR-13 | API: `PATCH /api/bug-reports/:id` (update status/assigned_to/resolution) | 15m | ✅ |
 
-### Phase 27.3 — Admin Dashboard
+**Storage architecture:** `ReportStore` interface with in-memory implementation. Swap to Turso/Supabase by implementing the interface and calling `setStore()`. The `GET /api/bug-reports/metrics` endpoint provides aggregate stats.
 
-| ID | Task | Est |
-|----|------|-----|
-| BR-14 | Admin page at `support.codrag.io/admin/reports` (auth-gated) | 2h |
-| BR-15 | List/detail views for reports | 2h |
-| BR-16 | Status tracking: New → Triaging → Investigating → Fixed → Closed | 1h |
-| BR-17 | Search + severity/status filters | 1h |
-| BR-18 | Metrics: reports per day, severity distribution, common loggers | 1h |
+### Phase 27.3 — Admin Dashboard ✅ DONE
+
+| ID | Task | Est | Status |
+|----|------|-----|--------|
+| BR-14 | Admin layout at `/admin` with ADMIN_TOKEN auth gate + cookie session | 2h | ✅ |
+| BR-15 | List view (`/admin/reports`) + detail view (`/admin/reports/:id`) | 2h | ✅ |
+| BR-16 | Status workflow buttons: New → Triaging → Investigating → Fixed → Closed | 1h | ✅ |
+| BR-17 | Status + severity dropdown filters + text search | 1h | ✅ |
+| BR-18 | Metrics cards: total, 24h, 7d, open, critical, fixed | 1h | ✅ |
 
 ### Planned `reports` Table Schema
 

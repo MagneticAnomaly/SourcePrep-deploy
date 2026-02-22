@@ -47,8 +47,11 @@ export const docsSidebar: DocNode[] = [
       { title: 'Overview', href: '/guides' },
       { title: 'Built-in Embeddings', href: '/guides/embeddings' },
       { title: 'Model Configuration', href: '/guides/models' },
-      { title: 'Context Compression (CLaRa)', href: '/guides/clara' },
+      { title: 'Context Compression (LOD)', href: '/guides/compression' },
       { title: 'Path Weights', href: '/guides/path-weights' },
+      { title: 'Knowledge Scope', href: '/guides/knowledge-scope' },
+      { title: 'BYOK Batch Processing', href: '/guides/byok-batching' },
+      { title: 'Model Setup Advisor', href: '/guides/model-advisor' },
     ],
   },
   {
@@ -65,7 +68,7 @@ export const docsSidebar: DocNode[] = [
     href: '/troubleshooting',
     children: [
       { title: 'Troubleshooting', href: '/troubleshooting' },
-      { title: 'FAQ', href: '/faq' },
+      { title: 'FAQ', href: `${MARKETING_URL}/faq` },
       { title: 'Support', href: `${MARKETING_URL}/support` },
     ],
   },

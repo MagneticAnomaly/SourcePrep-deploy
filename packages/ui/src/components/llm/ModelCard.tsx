@@ -97,7 +97,7 @@ export function ModelCard({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-lg font-semibold text-text">{title}</h3>
+              <h3 className="text-lg font-semibold font-mono text-text">{title}</h3>
               {info && <InfoTooltip content={info} href={infoLink} />}
             </div>
             <p className="text-sm text-text-muted">{description}</p>

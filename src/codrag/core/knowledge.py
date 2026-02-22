@@ -52,6 +52,13 @@ class KnowledgeIndex:
         
         self._load()
 
+    def _embedder_model(self) -> str:
+        return str(
+            getattr(self.embedder, "model", None)
+            or getattr(self.embedder, "model_name", None)
+            or "unknown"
+        )
+
     def _load(self) -> None:
         if not self.docs_path.exists() or not self.emb_path.exists():
             return
@@ -107,7 +114,11 @@ class KnowledgeIndex:
 
         # Embed query
         try:
-            q_vec = self.embedder.embed(query).vector
+            embed_query_fn = getattr(self.embedder, "embed_query", None)
+            if callable(embed_query_fn):
+                q_vec = embed_query_fn(query).vector
+            else:
+                q_vec = self.embedder.embed(query).vector
             q_vec = np.array(q_vec, dtype=np.float32)
         except Exception as e:
             logger.error(f"Failed to embed query: {e}")
@@ -152,7 +163,7 @@ class KnowledgeIndex:
         Returns empty dict if no previous index exists or model changed.
         """
         prev_model = str(self._manifest.get("model") or "")
-        cur_model = str(getattr(self.embedder, "model", "unknown"))
+        cur_model = self._embedder_model()
 
         # Can't reuse if model changed (different embedding space)
         if prev_model and prev_model != cur_model:
@@ -386,15 +397,15 @@ class KnowledgeIndex:
                     raise RuntimeError("Embedder returned empty vector")
                 logger.info(
                     "Embedder OK (model=%s, dim=%d)",
-                    getattr(self.embedder, 'model', '?'),
+                    self._embedder_model(),
                     len(test_result.vector),
                 )
             except Exception as e:
-                model_name = getattr(self.embedder, 'model', '?')
+                model_name = self._embedder_model()
                 logger.error("Embedder pre-flight FAILED: %s", e)
                 raise RuntimeError(
                     f"Knowledge embedding failed — embedding model '{model_name}' is not responding. "
-                    f"Check that the model is pulled and Ollama is running. Error: {e}"
+                    f"Check that your embedding provider is configured and available. Error: {e}"
                 ) from e
 
         # ── Generate Embeddings (only for new/changed docs) ─────────
@@ -440,7 +451,7 @@ class KnowledgeIndex:
             manifest = {
                 "built_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 "count": total,
-                "model": self.embedder.model,
+                "model": self._embedder_model(),
                 "version": 1,
                 "build": {
                     "mode": build_mode,

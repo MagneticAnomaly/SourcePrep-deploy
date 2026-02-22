@@ -5,6 +5,8 @@ import { StepperNumberInput } from '../primitives/StepperNumberInput';
 import { InfoTooltip } from '../primitives/InfoTooltip';
 import { cn } from '../../lib/utils';
 
+export type CompressionMode = 'none' | 'lod' | 'lingua';
+
 export interface ContextOptionsPanelProps {
   k: number;
   onKChange: (value: number) => void;
@@ -16,6 +18,10 @@ export interface ContextOptionsPanelProps {
   onIncludeScoresChange: (value: boolean) => void;
   structured: boolean;
   onStructuredChange: (value: boolean) => void;
+  includeAtlas?: boolean;
+  onIncludeAtlasChange?: (value: boolean) => void;
+  compression?: CompressionMode;
+  onCompressionChange?: (value: CompressionMode) => void;
   onGetContext: () => void;
   onCopyContext?: () => void;
   hasContext?: boolean;
@@ -46,6 +52,10 @@ export function ContextOptionsPanel({
   onIncludeScoresChange,
   structured,
   onStructuredChange,
+  includeAtlas = true,
+  onIncludeAtlasChange,
+  compression = 'none',
+  onCompressionChange,
   onGetContext,
   onCopyContext,
   hasContext = false,
@@ -151,8 +161,46 @@ export function ContextOptionsPanel({
               />
               <Text className="text-sm text-text">Structured</Text>
             </label>
+
+            {onIncludeAtlasChange && (
+              <label className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+                <Switch
+                  checked={includeAtlas}
+                  onChange={onIncludeAtlasChange}
+                  disabled={disabled}
+                />
+                <Text className="text-sm text-text">Atlas</Text>
+              </label>
+            )}
           </Flex>
         </div>
+
+        {onCompressionChange && (
+          <>
+            <div className="border-t border-border" />
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <label className="block text-sm font-medium text-text-muted">Compression</label>
+                <InfoTooltip content="LOD (Level of Detail) structurally compresses code using pre-computed symbol spans — no ML model required. High-scoring chunks stay full; lower-scoring chunks are reduced to signatures, names, or summaries." />
+              </div>
+              <select
+                value={compression}
+                onChange={(e) => onCompressionChange(e.target.value as CompressionMode)}
+                disabled={disabled}
+                className="text-sm border border-border rounded-md px-2 py-1.5 bg-surface text-text focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+              >
+                <option value="none">None</option>
+                <option value="lod">LOD (Structural · built-in)</option>
+                <option value="lingua">LLMLingua-2 (token pruning)</option>
+              </select>
+              {compression === 'lod' && (
+                <p className="text-xs text-text-muted">
+                  Assigns LOD 0–5 per file based on relevance score. High-score files stay full; peripheral files show signatures or summaries only.
+                </p>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </Container>
   );

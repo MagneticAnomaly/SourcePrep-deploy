@@ -284,9 +284,11 @@ class ClusterSynthesizer:
         self,
         llm: LLMClient,
         index_dir: Path,
+        batch_profile: Optional[Any] = None,
     ):
         self.llm = llm
         self.index_dir = index_dir
+        self._batch_profile = batch_profile
         self.modules_path = index_dir / "trace_modules.jsonl"
 
     def load_epistemic(self) -> Dict[str, EpistemicEntry]:
@@ -530,30 +532,120 @@ class ClusterSynthesizer:
         reused = 0
         synthesized = 0
 
-        for i, cluster in enumerate(clusters):
-            if progress_callback:
-                progress_callback("cluster_synthesis", i, total_work)
-
-            # Derive a unique module_id from the cluster_id
-            # (cluster_id is e.g. "cluster:ui:0", "cluster:ui:1")
+        # Separate reusable clusters from those needing synthesis
+        to_synthesize: List[Cluster] = []
+        for cluster in clusters:
             module_id = f"module:{cluster.cluster_id.replace('cluster:', '')}"
             new_fp = self._cluster_fingerprint(cluster.member_node_ids)
-
-            # Check if we can reuse an existing module
             if module_id in existing_fp:
                 old_fp, old_module = existing_fp[module_id]
                 if old_fp == new_fp:
                     modules[module_id] = old_module
                     reused += 1
                     continue
+            to_synthesize.append(cluster)
 
-            # New or changed cluster — synthesize via LLM
-            module = self.synthesize_cluster(cluster, epistemic, edges)
-            if module:
-                modules[module.module_id] = module
-                synthesized += 1
-            else:
-                failed += 1
+        # Decide: batched (BYOK) or sequential (local)
+        use_batching = (
+            self._batch_profile is not None
+            and self._batch_profile.name.value != "off"
+            and len(to_synthesize) > 1
+        )
+
+        if use_batching:
+            from .batch_profiles import BatchStage
+            from .batch_prompts import (
+                BATCHED_CLUSTER_SYSTEM,
+                build_batched_cluster_prompt,
+            )
+            from .batch_strategy import BatchedResponseParser
+
+            batch_size = self._batch_profile.batch_size(BatchStage.CLUSTERING)
+            logger.info(
+                "BATCHED cluster synthesis: %d clusters, batch_size=%d (%s profile)",
+                len(to_synthesize), batch_size, self._batch_profile.name.value,
+            )
+
+            for batch_start in range(0, len(to_synthesize), batch_size):
+                batch = to_synthesize[batch_start:batch_start + batch_size]
+                items = []
+                for cluster in batch:
+                    member_summaries = self._build_member_summaries(cluster, epistemic, max_files=30)
+                    external_deps = self._build_external_deps(cluster, edges, epistemic)
+                    items.append({
+                        "cluster_name": cluster.primary_tag.replace("_", " ").replace("-", " ").title(),
+                        "domain_tags": ", ".join(sorted(cluster.all_tags)),
+                        "file_count": len(cluster.member_node_ids),
+                        "member_summaries": member_summaries,
+                        "external_deps": external_deps,
+                        "_cluster": cluster,
+                    })
+
+                prompt = build_batched_cluster_prompt(items)
+                try:
+                    text, tokens = self.llm.generate(
+                        prompt, system=BATCHED_CLUSTER_SYSTEM,
+                        num_predict=len(items) * 500,
+                    )
+                    results_list = BatchedResponseParser.parse(text, expected_count=len(items))
+                except Exception as e:
+                    logger.warning("Batched cluster synthesis failed for %d items: %s", len(items), e)
+                    results_list = []
+
+                for idx, item in enumerate(items):
+                    cluster = item["_cluster"]
+                    cluster_name = item["cluster_name"]
+                    parsed = results_list[idx] if idx < len(results_list) else None
+
+                    if not parsed:
+                        parsed = {
+                            "name": f"{cluster_name} Subsystem",
+                            "summary": f"Cluster of {len(cluster.member_node_ids)} files related to {cluster.primary_tag}. (Batch synthesis failed)",
+                            "component_status": "unknown",
+                        }
+
+                    module_id = f"module:{cluster.cluster_id.replace('cluster:', '')}"
+                    confs = [
+                        epistemic[nid].epistemic_confidence
+                        for nid in cluster.member_node_ids
+                        if nid in epistemic
+                    ]
+                    avg_conf = sum(confs) / len(confs) if confs else 0.0
+
+                    module = ModuleEntry(
+                        module_id=module_id,
+                        name=str(parsed.get("name", cluster_name))[:200],
+                        summary=str(parsed.get("summary", ""))[:1000],
+                        member_files=[nid.replace("file:", "", 1) for nid in cluster.member_node_ids],
+                        domain_tags=sorted(cluster.all_tags),
+                        architecture_layers=sorted(parsed.get("architecture_layers", [])),
+                        component_status=parsed.get("component_status", "unknown"),
+                        data_flow=parsed.get("data_flow"),
+                        dependencies=parsed.get("dependencies"),
+                        tech_debt_summary=parsed.get("tech_debt_summary"),
+                        file_count=len(cluster.member_node_ids),
+                        avg_epistemic_confidence=avg_conf,
+                        synthesized_at=datetime.now(timezone.utc).isoformat(),
+                        model=self.llm.model,
+                    )
+                    modules[module.module_id] = module
+                    synthesized += 1
+
+                if progress_callback:
+                    progress_callback("cluster_synthesis", reused + synthesized + failed, total_work)
+
+        else:
+            # Sequential: one cluster at a time (local model)
+            for i, cluster in enumerate(to_synthesize):
+                if progress_callback:
+                    progress_callback("cluster_synthesis", reused + i, total_work)
+
+                module = self.synthesize_cluster(cluster, epistemic, edges)
+                if module:
+                    modules[module.module_id] = module
+                    synthesized += 1
+                else:
+                    failed += 1
 
         # Write atomically
         self._write_modules(modules)

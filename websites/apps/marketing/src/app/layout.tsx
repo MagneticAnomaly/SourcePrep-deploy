@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import Script from 'next/script';
-import { Inter, JetBrains_Mono, Playfair_Display, Space_Mono, IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
+import { Inter, JetBrains_Mono, IBM_Plex_Serif, Playfair_Display, Space_Mono, IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
 
 import '@codrag/ui/styles';
 import './globals.css';
@@ -14,6 +14,7 @@ const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-serif'
 const spaceMono = Space_Mono({ weight: ['400', '700'], subsets: ['latin'], variable: '--font-space' });
 const ibmPlexSans = IBM_Plex_Sans({ weight: ['400', '500', '600', '700'], subsets: ['latin'], variable: '--font-ibm-sans' });
 const ibmPlexMono = IBM_Plex_Mono({ weight: ['400', '500', '600'], subsets: ['latin'], variable: '--font-ibm-mono' });
+const ibmPlexSerif = IBM_Plex_Serif({ weight: ['400', '500', '600'], subsets: ['latin'], variable: '--font-heading' });
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://codrag.io'),
@@ -23,8 +24,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" data-codrag-theme="k" className={`${inter.variable} ${jetbrainsMono.variable} ${playfair.variable} ${spaceMono.variable} ${ibmPlexSans.variable} ${ibmPlexMono.variable}`}>
-      <body className="flex flex-col min-h-screen bg-background text-text selection:bg-primary/20 font-sans">
+    <html lang="en" data-codrag-theme="m" className={`${inter.variable} ${jetbrainsMono.variable} ${playfair.variable} ${spaceMono.variable} ${ibmPlexSans.variable} ${ibmPlexMono.variable} ${ibmPlexSerif.variable}`}>
+      <body className="flex flex-col min-h-screen bg-background text-text selection:bg-primary/20 font-mono">
         <Script src="https://plausible.io/js/pa-EyiWunLuXsVDCxYAfsQ6-.js" strategy="afterInteractive" />
         <Script id="plausible-init" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init()` }} />
         <ClientLayout>{children}</ClientLayout>

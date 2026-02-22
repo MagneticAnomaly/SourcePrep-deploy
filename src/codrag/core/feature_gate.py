@@ -3,16 +3,16 @@ Feature gating for CoDRAG tiers.
 
 Tiers:
   - free:       1 project, manual builds only, no watcher
-  - starter:    functionally identical to PRO (3-month time-limited trial)
-  - pro:        unlimited projects, full automation, all features
-  - team:       pro + shared config, centralized policy
+  - monthly:    full Pro features, $7/month subscription
+  - perpetual:  full Pro features, $79 one-time license (never expires)
+  - team:       perpetual + shared config, centralized policy
   - enterprise: team + air-gapped, SSO, audit
 
 License is read from ~/.codrag/license.json (offline Ed25519 signed token)
 or overridden via CODRAG_TIER env var for development.
 
-Phase 24 note: STARTER = PRO for all pipeline behavior. The only
-difference is the expiry date on the license.
+Note: MONTHLY and PERPETUAL are feature-identical. The only difference is
+the payment model and expiry: monthly licenses carry an expires_at date.
 """
 
 from __future__ import annotations
@@ -30,38 +30,37 @@ logger = logging.getLogger(__name__)
 
 class Tier(IntEnum):
     FREE = 0
-    STARTER = 1
-    PRO = 2
+    MONTHLY = 1
+    PERPETUAL = 2
     TEAM = 3
     ENTERPRISE = 4
 
 
 # Feature → minimum tier required
-# Note: STARTER = PRO for all pipeline/automation features.
-# STARTER is just PRO with a 3-month expiry.
+# Note: MONTHLY and PERPETUAL are feature-identical. MONTHLY has an expiry date.
 FEATURE_TIERS = {
     "projects_max": {
         Tier.FREE: 1,
-        Tier.STARTER: 999,   # Same as PRO
-        Tier.PRO: 999,
+        Tier.MONTHLY: 999,
+        Tier.PERPETUAL: 999,
         Tier.TEAM: 999,
         Tier.ENTERPRISE: 999,
     },
-    "auto_rebuild": Tier.STARTER,       # File watcher
-    "auto_trace": Tier.STARTER,         # Auto-rebuild triggers trace
+    "auto_rebuild": Tier.MONTHLY,       # File watcher
+    "auto_trace": Tier.MONTHLY,         # Auto-rebuild triggers trace
     "trace_index": Tier.FREE,           # Manual trace build (everyone gets to try it)
     "trace_search": Tier.FREE,          # Search the trace graph
     "mcp_tools": Tier.FREE,             # MCP tools (basic)
-    "mcp_trace_expand": Tier.STARTER,   # Trace-aware context expansion via MCP
+    "mcp_trace_expand": Tier.MONTHLY,   # Trace-aware context expansion via MCP
     "path_weights": Tier.FREE,          # Path weight overrides
-    "clara_compression": Tier.STARTER,  # CLaRa context compression
-    "multi_repo_agent": Tier.STARTER,   # Multi-repo agent mode
+    "context_compression": Tier.MONTHLY,  # LLMLingua-2 + LOD context compression
+    "multi_repo_agent": Tier.MONTHLY,   # Multi-repo agent mode
     "team_config": Tier.TEAM,           # Shared team configuration
     "audit_log": Tier.ENTERPRISE,       # Audit logging
     # Phase 24: Pipeline automation gates
-    "auto_fast_sync": Tier.STARTER,     # Auto Fast Sync on file changes
-    "auto_deep_enrichment": Tier.STARTER,  # Auto/scheduled Deep Enrichment
-    "auto_scope_rebuild": Tier.STARTER, # Auto Knowledge Scope rebuild on selection change
+    "auto_fast_sync": Tier.MONTHLY,     # Auto Fast Sync on file changes
+    "auto_deep_enrichment": Tier.MONTHLY,  # Auto/scheduled Deep Enrichment
+    "auto_scope_rebuild": Tier.MONTHLY, # Auto Knowledge Scope rebuild on selection change
 }
 
 
@@ -76,9 +75,8 @@ class License:
 
     @staticmethod
     def _display_tier(tier: 'Tier') -> str:
-        """Map internal tier name to user-facing name (STARTER → pro)."""
-        raw = tier.name.lower()
-        return "pro" if raw == "starter" else raw
+        """Return the user-facing tier name (lowercase)."""
+        return tier.name.lower()
 
     def to_dict(self):
         return {
@@ -116,7 +114,11 @@ def get_license() -> License:
     if _LICENSE_PATH.exists():
         try:
             data = json.loads(_LICENSE_PATH.read_text(encoding="utf-8"))
-            tier_str = str(data.get("tier", "free")).upper()
+            tier_raw = str(data.get("tier", "free")).lower()
+            # Backward compat: old license files may contain "starter" or "pro"
+            _LEGACY_MAP = {"starter": "monthly", "pro": "perpetual"}
+            tier_raw = _LEGACY_MAP.get(tier_raw, tier_raw)
+            tier_str = tier_raw.upper()
             tier = Tier[tier_str] if tier_str in Tier.__members__ else Tier.FREE
             _cached_license = License(
                 tier=tier,
@@ -177,9 +179,7 @@ def require_feature(feature: str) -> None:
     if not check_feature(feature):
         lic = get_license()
         req = FEATURE_TIERS.get(feature)
-        # STARTER is just PRO with a 3-month expiry; never show "starter" to users
-        raw = req.name.lower() if isinstance(req, Tier) else "pro"
-        min_tier = "pro" if raw == "starter" else raw
+        min_tier = req.name.lower() if isinstance(req, Tier) else "monthly"
         raise FeatureGateError(
             feature=feature,
             current_tier=License._display_tier(lic.tier),

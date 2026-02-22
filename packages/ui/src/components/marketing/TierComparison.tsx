@@ -21,10 +21,10 @@ const tiers = [
     highlight: false,
   },
   {
-    name: 'Pro',
+    name: 'Perpetual',
     price: '$79',
     period: 'one-time',
-    description: 'Unlimited projects. Perpetual license.',
+    description: 'Unlimited projects. Yours forever. Also available monthly at $7/mo.',
     highlight: true,
   },
 ];
@@ -52,7 +52,7 @@ const features: TierFeature[] = [
   { category: 'Privacy & Runtime', name: 'Optional cloud embeddings (BYOK)', free: true, pro: true },
 
   // License
-  { category: 'License', name: 'License type', free: 'Free forever', pro: 'Perpetual (one-time)' },
+  { category: 'License', name: 'License type', free: 'Free forever', pro: 'Perpetual (one-time) or Monthly ($7/mo)' },
   { category: 'License', name: 'Offline activation', free: false, pro: true },
 ];
 
@@ -180,7 +180,7 @@ export function TierComparison({ className = '' }: TierComparisonProps) {
                   : 'bg-surface border border-border text-text hover:bg-surface-raised'
               }`}
             >
-              {tier.highlight ? 'Get Pro' : 'Download Free'}
+              {tier.highlight ? 'Buy Perpetual' : 'Download Free'}
             </span>
           </div>
         ))}

@@ -8,7 +8,8 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  @apply font-bold tracking-tight text-text scroll-mt-24;
+  font-family: var(--font-heading, 'IBM Plex Sans', system-ui, Helvetica, Arial, sans-serif);
+  @apply font-medium tracking-tight text-text scroll-mt-24;
 }
 h1 {
   @apply text-4xl lg:text-5xl;

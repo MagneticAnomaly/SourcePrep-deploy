@@ -133,33 +133,38 @@
     "saved_endpoints": [
       {
         "id": "default_ollama",
-        "name": "Default Ollama",
+        "name": "Local Ollama",
         "provider": "ollama",
         "url": "http://localhost:11434"
-      },
-      {
-        "name": "CLaRa Server",
-        "provider": "clara",
-        "url": "http://localhost:8765",
-        "id": "ep_1770657747731_8834fca43c28e"
       }
     ],
     "embedding": {
-      "source": "endpoint",
+      "source": "huggingface",
       "hf_repo_id": "nomic-ai/nomic-embed-text-v1.5",
       "hf_downloaded": true,
       "endpoint_id": "default_ollama",
-      "model": "nomic-embed-text:latest"
+      "model": "nomic-embed-text-v2-moe:latest"
     },
     "small_model": {
       "enabled": true,
       "endpoint_id": "default_ollama",
-      "model": "ministral-3:3b"
+      "model": "qwen3:8b"
     },
     "large_model": {
       "enabled": true,
       "endpoint_id": "default_ollama",
-      "model": "ministral-3:14b"
+      "model": "hopephoto/qwen3-30b-a3b-thinking_q8:latest"
+    },
+    "code_model": {
+      "enabled": true,
+      "endpoint_id": "default_ollama",
+      "model": "qwen3-coder:30b"
+    },
+    "compression": {
+      "enabled": true,
+      "mode": "auto",
+      "level": "standard",
+      "lingua_downloaded": true
     },
     "clara": {
       "enabled": true,
@@ -168,14 +173,15 @@
       "endpoint_id": "ep_1770657747731_8834fca43c28e",
       "remote_url": "http://localhost:8765"
     },
-    "test_persist": true
+    "test_persist": true,
+    "batch_mode": "off"
   },
   "deep_analysis": {
-    "mode": "manual",
+    "mode": "auto",
     "threshold_percent": 20,
-    "frequency": "weekly",
+    "frequency": "daily",
     "day_of_week": 0,
-    "hour": 5,
+    "hour": 3,
     "budget_max_tokens": 50000,
     "budget_max_minutes": 30,
     "budget_max_items": 100,
@@ -189,11 +195,14 @@
       "auto": true
     },
     "deep_enrichment": {
-      "mode": "manual",
+      "mode": "auto",
       "schedule": {
-        "frequency": "weekly",
+        "frequency": "daily",
         "day_of_week": 0,
-        "hour": 2
+        "hour": 3,
+        "threshold_enabled": true,
+        "time_enabled": true,
+        "threshold_percent": 20
       }
     },
     "budgets": {
@@ -213,27 +222,18 @@
       {
         "id": "file-tree",
         "visible": true,
-        "height": 16,
+        "height": 13,
         "collapsed": false,
         "x": 0,
         "y": 0,
         "w": 4
       },
       {
-        "id": "trace-pipeline",
+        "id": "usage-guide",
         "visible": true,
-        "height": 14,
+        "height": 19,
         "collapsed": false,
         "x": 4,
-        "y": 0,
-        "w": 4
-      },
-      {
-        "id": "graph-structure",
-        "visible": true,
-        "height": 14,
-        "collapsed": false,
-        "x": 8,
         "y": 0,
         "w": 4
       },
@@ -243,16 +243,25 @@
         "height": 13,
         "collapsed": true,
         "x": 8,
-        "y": 14,
+        "y": 0,
         "w": 4
       },
       {
-        "id": "usage-guide",
+        "id": "graph-structure",
         "visible": true,
-        "height": 14,
-        "collapsed": true,
-        "x": 4,
-        "y": 14,
+        "height": 8,
+        "collapsed": false,
+        "x": 8,
+        "y": 2,
+        "w": 4
+      },
+      {
+        "id": "index-health",
+        "visible": true,
+        "height": 8,
+        "collapsed": false,
+        "x": 8,
+        "y": 10,
         "w": 4
       },
       {
@@ -261,17 +270,26 @@
         "height": 8,
         "collapsed": false,
         "x": 0,
-        "y": 16,
+        "y": 13,
         "w": 4
       },
       {
-        "id": "log-console",
+        "id": "trace-pipeline",
         "visible": true,
-        "height": 8,
+        "height": 16,
         "collapsed": false,
         "x": 4,
-        "y": 16,
-        "w": 8
+        "y": 19,
+        "w": 4
+      },
+      {
+        "id": "atlas",
+        "visible": true,
+        "height": 14,
+        "collapsed": false,
+        "x": 0,
+        "y": 21,
+        "w": 4
       },
       {
         "id": "llm-status",
@@ -279,61 +297,79 @@
         "height": 10,
         "collapsed": false,
         "x": 0,
-        "y": 24,
+        "y": 35,
+        "w": 4
+      },
+      {
+        "id": "log-console",
+        "visible": true,
+        "height": 16,
+        "collapsed": false,
+        "x": 4,
+        "y": 35,
+        "w": 8
+      },
+      {
+        "id": "context-options",
+        "visible": true,
+        "height": 7,
+        "collapsed": true,
+        "x": 0,
+        "y": 45,
+        "w": 4
+      },
+      {
+        "id": "context-output",
+        "visible": true,
+        "height": 10,
+        "collapsed": true,
+        "x": 0,
+        "y": 47,
+        "w": 4
+      },
+      {
+        "id": "token-budget",
+        "visible": true,
+        "height": 6,
+        "collapsed": false,
+        "x": 4,
+        "y": 51,
+        "w": 4
+      },
+      {
+        "id": "deep-analysis",
+        "visible": true,
+        "height": 12,
+        "collapsed": false,
+        "x": 8,
+        "y": 51,
+        "w": 4
+      },
+      {
+        "id": "watch",
+        "visible": true,
+        "height": 4,
+        "collapsed": false,
+        "x": 4,
+        "y": 57,
         "w": 4
       },
       {
         "id": "search",
         "visible": true,
-        "height": 6,
+        "height": 8,
         "collapsed": true,
         "x": 4,
-        "y": 24,
+        "y": 61,
         "w": 4
       },
       {
         "id": "results",
-        "visible": false,
+        "visible": true,
         "height": 9,
         "collapsed": true,
-        "x": 4,
-        "y": 30,
-        "w": 4
-      },
-      {
-        "id": "context-options",
-        "visible": false,
-        "height": 7,
-        "collapsed": true,
-        "x": 0,
-        "y": 40,
-        "w": 4
-      },
-      {
-        "id": "context-output",
-        "visible": false,
-        "height": 10,
-        "collapsed": true,
-        "x": 4,
-        "y": 30,
-        "w": 4
-      },
-      {
-        "id": "deep-analysis",
-        "visible": false,
-        "height": 12,
-        "collapsed": false,
         "x": 8,
-        "y": 28,
-        "w": 4
-      },
-      {
-        "id": "watch",
-        "visible": false,
-        "height": 4,
-        "collapsed": false,
-        "x": 0,
-        "y": 0,
+        "y": 63,
         "w": 4
       },
       {

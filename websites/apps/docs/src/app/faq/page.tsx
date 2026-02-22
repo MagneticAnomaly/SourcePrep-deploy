@@ -3,7 +3,7 @@ import { AnchorHeading } from '../../components/AnchorHeading';
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-6 pb-16 pt-0">
         <a href="/" className="text-sm text-text-muted">
           ← Back to Docs
         </a>
@@ -34,9 +34,9 @@ export default function Page() {
           <div>
             <AnchorHeading id="gpu-requirement" level="h2" className="text-xl font-semibold text-text">Do I need a GPU?</AnchorHeading>
             <p className="mt-2 text-text-muted leading-relaxed">
-              <strong>No.</strong> The core features (indexing, trace graph, search) run efficiently on CPU. 
+              <strong>No.</strong> The core features (indexing, trace graph, search, and compression) run efficiently on CPU. 
               The built-in embedding model is quantized and optimized for CPU inference. 
-              However, if you enable the CLaRa compression model locally, a GPU (NVIDIA or Apple Silicon) is highly recommended for reasonable latency.
+              Context compression is built in &mdash; structural compression for code runs instantly with no model, and language-aware compression for docs uses a lightweight CPU model.
             </p>
           </div>
 
@@ -49,10 +49,22 @@ export default function Page() {
           </div>
 
           <div>
+            <AnchorHeading id="bug-reports" level="h2" className="text-xl font-semibold text-text">What data is included in bug reports?</AnchorHeading>
+            <p className="mt-2 text-text-muted leading-relaxed">
+              CoDRAG&apos;s built-in bug report (dashboard → log console → bug icon) collects only diagnostic metadata:
+              app version, OS info, index stats, pipeline status, and error messages. <strong>It never includes
+              source code, file contents, embeddings, LLM prompts, or file paths beyond your project root name.</strong> You
+              can preview every field before submitting. If you&apos;re offline, the report saves as a local JSON
+              file you can review and email manually. See the full breakdown on our{' '}
+              <a href="https://codrag.io/security#bug-reports" className="text-primary hover:underline">Security &amp; Privacy</a> page.
+            </p>
+          </div>
+
+          <div>
             <AnchorHeading id="free-tier" level="h2" className="text-xl font-semibold text-text">Is there a free tier?</AnchorHeading>
             <p className="mt-2 text-text-muted leading-relaxed">
               <strong>Yes.</strong> The Free tier allows you to use CoDRAG with 1 active project and manual indexing. 
-              Upgrading to Starter or Pro unlocks unlimited projects, the real-time file watcher, and advanced features like CLaRa compression.
+              Upgrading to a paid plan (Monthly or Perpetual) unlocks unlimited projects, the real-time file watcher, and advanced automation features.
             </p>
           </div>
 

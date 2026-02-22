@@ -3,7 +3,7 @@ import { AnchorHeading } from '../../../components/AnchorHeading';
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-6 pb-16 pt-0">
         <a href="/cli" className="text-sm text-text-muted">
           ← CLI Reference
         </a>
@@ -63,7 +63,7 @@ legacy/</code>
                 </tr>
                 <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono">CODRAG_TIER</td>
-                  <td className="py-2 pr-4"><code>free</code> | <code>starter</code> | <code>pro</code></td>
+                  <td className="py-2 pr-4"><code>free</code> | <code>monthly</code> | <code>perpetual</code></td>
                   <td className="py-2">
                     Override the license tier for testing/development.
                   </td>

@@ -1,8 +1,43 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Button } from '@codrag/ui';
+import {
+  type PPPBand,
+  getBand,
+  formatPrice,
+  getCheckoutUrl,
+  LS_CHECKOUT_URLS,
+  PPP_PRICES,
+  DEFAULT_PPP_BAND,
+} from "../../lib/pricing";
+
+/** Read visitor country from cookie (set by edge function) or URL param (dev/testing). */
+function detectCountry(): string {
+  if (typeof window === "undefined") return "";
+
+  // Dev override: ?country=IN
+  const params = new URLSearchParams(window.location.search);
+  const override = params.get("country");
+  if (override) return override.toUpperCase();
+
+  // Production: cookie set by Netlify Edge Function
+  const match = document.cookie.match(/(?:^|; )visitor_country=([A-Z]{2})/);
+  return match ? match[1] : "";
+}
 
 export default function Page() {
+  const [country, setCountry] = useState("");
+  const [band, setBand] = useState<PPPBand>(DEFAULT_PPP_BAND);
+
+  useEffect(() => {
+    const c = detectCountry();
+    setCountry(c);
+    setBand(getBand(c));
+  }, []);
+
+  const prices = PPP_PRICES[band];
+
   return (
     <main className="min-h-screen bg-background text-text">
       <div className="mx-auto max-w-7xl px-6 py-16">
@@ -59,7 +94,7 @@ export default function Page() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Structural code compression (LOD)</span>
+                <span>Smart context compression (code &amp; docs)</span>
               </li>
             </ul>
             <Button asChild variant="outline" className="mt-6 w-full">
@@ -71,7 +106,7 @@ export default function Page() {
           <div className="rounded-xl border border-border bg-surface p-6 flex flex-col">
             <div className="text-sm font-semibold text-text-muted uppercase tracking-wide">Monthly</div>
             <div className="mt-3">
-              <span className="text-4xl font-bold">$7</span>
+              <span className="text-4xl font-bold">{formatPrice(prices.monthly)}</span>
               <span className="text-text-muted ml-1">/ month</span>
             </div>
             <p className="mt-3 text-sm text-text-muted">
@@ -104,7 +139,7 @@ export default function Page() {
               </li>
             </ul>
             <Button asChild variant="outline" className="mt-6 w-full">
-              <a href="https://payments.codrag.io">Start Monthly</a>
+              <a href={getCheckoutUrl(LS_CHECKOUT_URLS.monthly, country)}>Start Monthly</a>
             </Button>
           </div>
 
@@ -115,7 +150,7 @@ export default function Page() {
             </div>
             <div className="text-sm font-semibold text-primary uppercase tracking-wide">Perpetual</div>
             <div className="mt-3">
-              <span className="text-4xl font-bold">$79</span>
+              <span className="text-4xl font-bold">{formatPrice(prices.perpetual)}</span>
               <span className="text-text-muted ml-1">one-time</span>
             </div>
             <p className="mt-3 text-sm text-text-muted">
@@ -140,7 +175,7 @@ export default function Page() {
               </li>
             </ul>
             <Button asChild className="mt-6 w-full">
-              <a href="https://payments.codrag.io">Buy Perpetual License</a>
+              <a href={getCheckoutUrl(LS_CHECKOUT_URLS.perpetual, country)}>Buy Perpetual License</a>
             </Button>
           </div>
         </div>
@@ -151,7 +186,7 @@ export default function Page() {
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-text-muted uppercase tracking-wide">Team</div>
               <div>
-                <span className="text-2xl font-bold">$15</span>
+                <span className="text-2xl font-bold">{formatPrice(prices.team)}</span>
                 <span className="text-text-muted text-sm ml-1">/ seat / month</span>
               </div>
             </div>
@@ -173,7 +208,7 @@ export default function Page() {
               </li>
             </ul>
             <Button asChild variant="outline" className="mt-4">
-              <a href="https://payments.codrag.io">Start Team Trial</a>
+              <a href={getCheckoutUrl(LS_CHECKOUT_URLS.team, country)}>Start Team Trial</a>
             </Button>
           </div>
 
@@ -225,6 +260,10 @@ export default function Page() {
             <a href="/contact">Contact</a>
           </Button>
         </div>
+
+        <p className="mt-8 text-center text-xs text-text-muted max-w-lg mx-auto">
+          All prices in USD. Checkout displays your local currency automatically.
+        </p>
       </div>
     </main>
   );

@@ -3,7 +3,7 @@ import { AnchorHeading } from '../../../components/AnchorHeading';
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-6 pb-16 pt-0">
         <a href="/concepts" className="text-sm text-text-muted">
           ← Back to Concepts
         </a>

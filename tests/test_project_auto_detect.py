@@ -53,7 +53,7 @@ def test_add_project_populates_globs():
          patch("codrag.core.feature_gate.get_license") as mock_license, \
          patch("codrag.core.feature_gate.get_feature_limit", return_value=10):
         
-        mock_license.return_value.tier = 1 # Starter
+        mock_license.return_value.tier = 1 # Monthly
         
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

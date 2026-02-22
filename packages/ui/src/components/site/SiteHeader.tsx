@@ -1,3 +1,5 @@
+"use client";
+
 import { Badge } from '@tremor/react';
 import { Box, Menu, Search, X } from 'lucide-react';
 import { useState } from 'react';

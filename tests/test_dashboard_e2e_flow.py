@@ -22,6 +22,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import codrag.server as server
+import codrag.services.project_helpers as ph
 from codrag.core.project_registry import ProjectRegistry
 from codrag.server import app
 
@@ -31,6 +32,7 @@ def client(tmp_path: Path) -> TestClient:
     """Create a clean test client."""
     reg = ProjectRegistry(db_path=tmp_path / "registry.db")
     server._registry = reg
+    ph._registry = reg
 
     server._project_indexes.clear()
     server._project_trace_indexes.clear()

@@ -3,7 +3,7 @@ import { AnchorHeading } from '../../../components/AnchorHeading';
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-6 pb-16 pt-0">
         <a href="/concepts" className="text-sm text-text-muted">
           ← Back to Concepts
         </a>
@@ -53,11 +53,13 @@ export default function Page() {
             <li>Ensures "glue" code (class headers, function signatures) is preserved for context.</li>
           </ul>
 
-          <AnchorHeading id="compression" level="h3" className="text-lg font-semibold mt-6">4. Compression (CLaRa)</AnchorHeading>
+          <AnchorHeading id="compression" level="h3" className="text-lg font-semibold mt-6">4. Smart Compression</AnchorHeading>
           <p>
-            If <strong>CLaRa</strong> is enabled (Pro tier), the assembled text is passed through 
-            a specialized compression model. This rewrites verbose documentation and boilerplate 
-            into dense, high-entropy summaries, often reducing token count by 10-16x with minimal information loss.
+            When compression is enabled, CoDRAG uses two engines. <strong>Code files</strong> are structurally
+            compressed at a Level of Detail (LOD) determined by relevance score &mdash; top results stay full,
+            mid-relevance shows signatures, peripheral files show names only (3&ndash;20&times;, no model needed).
+            <strong>Documentation</strong> is compressed with a lightweight language model that removes filler
+            while preserving meaning (~1.6&times;, 89% concept retention). Both run on CPU.
           </p>
 
           <AnchorHeading id="formatting" level="h3" className="text-lg font-semibold mt-6">5. Formatting</AnchorHeading>

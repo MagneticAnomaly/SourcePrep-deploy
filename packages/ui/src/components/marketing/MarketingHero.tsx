@@ -67,7 +67,7 @@ function CenteredHero() {
         <p className="mt-6 text-lg md:text-xl text-text-muted max-w-2xl mx-auto leading-relaxed">
           CoDRAG's Rust-powered engine indexes your entire codebase — semantics, symbols,
           and call graphs — with built-in ONNX embeddings, path weights for precision control, and
-          optional 10–16× compression. Runs locally, or connect your preferred cloud APIs.
+          smart compression that fits 3–20× more signal into every prompt. Runs locally, or connect your preferred cloud APIs.
         </p>
 
         {/* CTAs */}
@@ -261,7 +261,7 @@ function GlassHero() {
           
           <p className="text-xl text-text-muted mb-8 max-w-2xl mx-auto">
             CoDRAG sits between your codebase and your AI tools — built-in embeddings, structural tracing,
-            path weights for precision control, and 3–20× structural compression. Better context in, better code out. Runs locally, or connects to your cloud APIs.
+            path weights for precision control, and smart compression for both code and docs. Better context in, better code out. Runs locally, or connects to your cloud APIs.
           </p>
 
           <Flex className="gap-4" justifyContent="center">
@@ -373,7 +373,7 @@ function SplitHero() {
           <FeaturePoint icon={<Search className="w-5 h-5 text-primary" />} text="Semantic search with built-in ONNX embeddings — Ollama or cloud API optional" />
           <FeaturePoint icon={<Layers className="w-5 h-5 text-primary" />} text="Rust-powered Code Graph maps imports, calls, and symbol hierarchies" />
           <FeaturePoint icon={<Zap className="w-5 h-5 text-primary" />} text="Path weights let you boost core modules and silence noise — instantly" />
-          <FeaturePoint icon={<Shield className="w-5 h-5 text-primary" />} text="Built-in 3–20× structural compression fits more signal into every prompt" />
+          <FeaturePoint icon={<Shield className="w-5 h-5 text-primary" />} text="Smart compression for code (3–20× structural) and docs (language-aware) — built in" />
         </div>
 
         <Flex className="mt-10 gap-4">
@@ -527,7 +527,7 @@ function YaleHero() {
           <div className="col-span-12 md:col-span-6">
             <h1
               className="font-heading text-5xl md:text-6xl font-medium text-text leading-tight tracking-tight mb-8"
-              style={{ fontFamily: "var(--font-heading, 'IBM Plex Serif', system-ui, sans-serif)" }}
+              style={{ fontFamily: "var(--font-heading, 'IBM Plex Sans', system-ui, Helvetica, Arial, sans-serif)" }}
             >
               This is the bridge between how you think about code and how your AI reads it.
             </h1>
@@ -543,7 +543,7 @@ function YaleHero() {
           <div className="col-span-12 md:col-span-3 md:col-start-4">
             <p className="font-sans text-base text-text leading-relaxed mb-6">
               CoDRAG's Rust-powered engine indexes your codebase locally—semantics, symbols, and call graphs—with built-in
-              ONNX embeddings, path weights for precision control, and built-in 3–20× structural compression. No cloud upload. No LLM required — Ollama and cloud APIs optional.
+              ONNX embeddings, path weights for precision control, and smart compression for code and documentation. No cloud upload. No LLM required — Ollama and cloud APIs optional.
             </p>
             <a href="#" className="font-sans font-medium text-primary hover:underline underline-offset-4 decoration-2 flex items-center gap-1">
               Documentation <ArrowRight className="w-3 h-3" />
@@ -566,7 +566,7 @@ function YaleHero() {
 
               <div className="flex items-baseline justify-between gap-4">
                 <span className="font-mono text-xs text-text-muted shrink-0">Compression</span>
-                <span className="font-mono text-sm text-text font-bold text-right">3–20× (LOD)</span>
+                <span className="font-mono text-sm text-text font-bold text-right">3–20× (Smart)</span>
               </div>
               
               <div className="flex items-baseline justify-between gap-4">
@@ -618,7 +618,7 @@ function FocusHero() {
 
         <p className="text-xl md:text-2xl text-text-muted max-w-2xl mx-auto mb-12 leading-relaxed font-medium">
           CoDRAG adds the context intelligence layer your AI tools are missing — built-in embeddings,
-          structural code graph, path weights, and 10–16× compression so Cursor, Windsurf, and Claude Desktop
+          structural code graph, path weights, and smart compression so Cursor, Windsurf, and Claude Desktop
           get the right code, not just more code.
         </p>
 

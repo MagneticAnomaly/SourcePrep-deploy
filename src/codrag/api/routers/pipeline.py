@@ -28,6 +28,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from codrag.api.envelope import ApiException, ok
+from codrag.core.project_registry import project_index_dir
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +110,7 @@ def pipeline_run_all(project_id: str) -> Dict[str, Any]:
 
 @router.get("/projects/{project_id}/pipeline/status")
 def pipeline_status(project_id: str) -> Dict[str, Any]:
-    """Get the full 8-stage pipeline status (two-group model).
+    """Get the full 10-stage pipeline status (two-group model).
 
     Returns both group-level run status and per-stage build slot status.
     Also includes legacy per-stage data fetched from existing sources
@@ -125,6 +126,7 @@ def pipeline_status(project_id: str) -> Dict[str, Any]:
     )
 
     proj = _require_project(project_id)
+    idx_dir = project_index_dir(proj)
 
     # 1. Structural trace
     trace_idx = build_manager.get_project_trace_index(proj)
@@ -135,14 +137,31 @@ def pipeline_status(project_id: str) -> Dict[str, Any]:
         "stats": trace_idx.node_count() if trace_idx.exists() and trace_idx.load() else 0,
     }
 
-    # 2. Fast Catalogue (augmentation)
+    # 2. Inferred Edges (code model)
+    inferred_edges_count = 0
+    try:
+        inferred_path = idx_dir / "trace_inferred_edges.jsonl"
+        if inferred_path.exists():
+            with open(inferred_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        inferred_edges_count += 1
+    except Exception:
+        inferred_edges_count = 0
+    inferred_edges_status = {
+        "enabled": True,
+        "exists": inferred_edges_count > 0,
+        "edge_count": inferred_edges_count,
+    }
+
+    # 3. Fast Catalogue (augmentation)
     augment_status = _augment_status(project_id)["data"]
 
-    # 3. Validation (pass-through for now)
+    # 4. Validation (pass-through for now)
     validation_status = {
         "enabled": True,
-        "inferred_edges": 0,
-        "validated_edges": 0,
+        "inferred_edges": inferred_edges_count,
+        "validated_edges": inferred_edges_count,
     }
 
     # 4 + 8. Knowledge embedding (shared by stage 4 and stage 8)
@@ -161,6 +180,51 @@ def pipeline_status(project_id: str) -> Dict[str, Any]:
     # 7. Deepening
     deepening_status = _deepening_status(project_id)["data"]
 
+    atlas_status: Dict[str, Any]
+    try:
+        from codrag.core.atlas import CodebaseAtlas
+        atlas = CodebaseAtlas(idx_dir)
+        doc = atlas.load()
+        if doc is None:
+            atlas_status = {
+                "exists": False,
+                "mode": None,
+                "model": None,
+                "generated_at": None,
+                "file_count": 0,
+                "module_count": 0,
+                "char_count": 0,
+                "stale": True,
+                "segmented": False,
+                "routing": atlas.has_routing(),
+            }
+        else:
+            atlas_status = {
+                "exists": True,
+                "mode": doc.mode,
+                "model": doc.model,
+                "generated_at": doc.generated_at,
+                "file_count": doc.file_count,
+                "module_count": doc.module_count,
+                "char_count": doc.char_count,
+                "stale": atlas.is_stale(),
+                "segmented": atlas.has_segments(),
+                "routing": atlas.has_routing(),
+            }
+    except Exception:
+        atlas_status = {
+            "exists": False,
+            "mode": None,
+            "model": None,
+            "generated_at": None,
+            "file_count": 0,
+            "module_count": 0,
+            "char_count": 0,
+            "stale": True,
+            "segmented": False,
+            "routing": False,
+        }
+
     # Pipeline orchestrator group-level status
     from codrag.services.pipeline_orchestrator import pipeline_orchestrator
     pipeline_state = pipeline_orchestrator.status(project_id)
@@ -170,11 +234,13 @@ def pipeline_status(project_id: str) -> Dict[str, Any]:
     slot_stages = pipeline_state.get("stages") or {}
     stage_data = {
         "structural": trace_status,
+        "inferred_edges": inferred_edges_status,
         "catalogue": augment_status,
         "validation": validation_status,
         "knowledge": knowledge_status,
         "enrichment": epistemic_status,
         "clustering": cluster_status,
+        "atlas": atlas_status,
         "deepening": deepening_status,
         "deep_knowledge": knowledge_status,  # Same index, re-built with richer data
     }
@@ -267,3 +333,25 @@ def pipeline_discard(req: DiscardRequest) -> Dict[str, Any]:
             message=f"No crashed run found with ID: {req.run_id}",
         )
     return ok({"discarded": True, "run_id": req.run_id})
+
+
+# ── Phase 26: Budget Usage Endpoint ──────────────────────────────
+
+@router.get("/projects/{project_id}/pipeline/budget")
+def pipeline_budget_usage(project_id: str) -> Dict[str, Any]:
+    """Get current token budget usage for a project's deep enrichment."""
+    from codrag.server import _require_project
+    _require_project(project_id)
+
+    try:
+        from codrag.services.pipeline_budget import budget
+        usage = budget.get_usage(project_id)
+    except Exception:
+        usage = {
+            "tokens_used": 0,
+            "max_tokens": 0,
+            "window_minutes": 5,
+            "remaining": -1,
+            "window_resets_in": 0,
+        }
+    return ok(usage)

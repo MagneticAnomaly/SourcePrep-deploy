@@ -4,7 +4,7 @@ import { AnchorHeading } from '../../components/AnchorHeading';
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-6 pb-16 pt-0">
         <a href="/" className="text-sm text-text-muted hover:text-primary transition-colors">
           ← Back to Docs
         </a>
@@ -22,7 +22,7 @@ export default function Page() {
           </p>
           <ol className="list-decimal pl-5 space-y-2 mt-4 mb-6">
             <li><strong>Graph Scope (Panel A)</strong>: Managing the inventory of files (what enters the graph).</li>
-            <li><strong>Graph Engine (Panel B)</strong>: Orchestrating the 7-stage knowledge pipeline (how it's processed).</li>
+            <li><strong>Graph Engine (Panel B)</strong>: Orchestrating the 9-stage knowledge pipeline (how it’s processed).</li>
           </ol>
           <p>
             This layout streamlines the workflow: you define the scope, and the AI engine handles the heavy lifting of tracing, indexing, and enriching your codebase.
@@ -85,7 +85,7 @@ export default function Page() {
 
           <AnchorHeading id="panel-b" level="h2" className="text-2xl font-bold mt-12 mb-6">2. Knowledge Pipeline (Panel B)</AnchorHeading>
           <p>
-            The <strong>Knowledge Pipeline</strong> panel (right pane) is the "Factory". It visualizes the 7-stage process that transforms your files (Scope) into intelligent context.
+            The <strong>Knowledge Pipeline</strong> panel (right pane) is the “Factory”. It visualizes the 9-stage process that transforms your files (Scope) into intelligent context.
           </p>
 
           <AnchorHeading id="pipeline-controls" level="h3" className="text-xl font-semibold mt-8 mb-4">Controls</AnchorHeading>
@@ -94,35 +94,44 @@ export default function Page() {
             <li><strong>Budget Info:</strong> Real-time tracking of token usage (e.g., "12k / 50k tokens") to ensure no surprise costs.</li>
           </ul>
 
-          <AnchorHeading id="pipeline-stages" level="h3" className="text-xl font-semibold mt-8 mb-4">The 7 Stages</AnchorHeading>
+          <AnchorHeading id="pipeline-stages" level="h3" className="text-xl font-semibold mt-8 mb-4">The 9 Stages</AnchorHeading>
+          <p className="text-sm text-text-muted mb-4">Stages 1–4 form <strong>Fast Sync</strong> (runs on every file save). Stages 5–9 form <strong>Deep Enrichment</strong> (runs on idle or schedule).</p>
           <div className="space-y-4 mb-8">
             <div className="p-4 border border-border rounded bg-surface">
-              <div className="font-semibold text-sm">1. Structural Trace (Rust)</div>
-              <div className="text-xs text-text-muted">Fast parsing of symbols and imports. Status: "Idle" or "Parsing...".</div>
+              <div className="font-semibold text-sm">1. Structural Graph <span className="text-xs font-normal text-text-muted">(Rust)</span></div>
+              <div className="text-xs text-text-muted">Tree-sitter AST parsing: symbols, imports, call edges, Markdown section extraction.</div>
             </div>
             <div className="p-4 border border-border rounded bg-surface">
-              <div className="font-semibold text-sm">2. Vector Indexing</div>
-              <div className="text-xs text-text-muted">Creating search embeddings. Status: "Indexed X chunks".</div>
+              <div className="font-semibold text-sm">2. Fast Catalogue <span className="text-xs font-normal text-text-muted">(3b LLM)</span></div>
+              <div className="text-xs text-text-muted">Rapid triage — classifies each file’s role and produces an initial summary.</div>
             </div>
             <div className="p-4 border border-border rounded bg-surface">
-              <div className="font-semibold text-sm">3. Fast Catalogue (3b)</div>
-              <div className="text-xs text-text-muted">Initial classification. Status: "Augmented X/Y".</div>
+              <div className="font-semibold text-sm">3. Relationship Validation <span className="text-xs font-normal text-text-muted">(Rust)</span></div>
+              <div className="text-xs text-text-muted">LLM-hypothesized relationships validated against the filesystem. Hallucinations discarded.</div>
             </div>
             <div className="p-4 border border-border rounded bg-surface">
-              <div className="font-semibold text-sm">4. Relationship Validation</div>
-              <div className="text-xs text-text-muted">Checking connections. Status: "Validated X edges".</div>
+              <div className="font-semibold text-sm">4. Knowledge Embedding <span className="text-xs font-normal text-text-muted">(Embeddings)</span></div>
+              <div className="text-xs text-text-muted">Validated nodes embedded for semantic search. Makes catalogue immediately searchable.</div>
             </div>
-            <div className="p-4 border border-border rounded bg-surface">
-              <div className="font-semibold text-sm">5. Epistemic Enrichment (14b)</div>
-              <div className="text-xs text-text-muted">Deep context analysis. Default OFF (requires manual trigger or config).</div>
+            <div className="p-4 border border-primary/30 rounded bg-surface">
+              <div className="font-semibold text-sm">5. Deep Reasoning <span className="text-xs font-normal text-text-muted">(14b LLM)</span></div>
+              <div className="text-xs text-text-muted"><em>Epistemic enrichment.</em> A larger model reasons about each node in graph context — adding domain tags, architecture layers, design patterns, and computing an understanding score (0.0–1.0).</div>
             </div>
-            <div className="p-4 border border-border rounded bg-surface">
-              <div className="font-semibold text-sm">6. Cluster Synthesis</div>
-              <div className="text-xs text-text-muted">Module-level grouping.</div>
+            <div className="p-4 border border-primary/30 rounded bg-surface">
+              <div className="font-semibold text-sm">6. Module Synthesis <span className="text-xs font-normal text-text-muted">(14b LLM)</span></div>
+              <div className="text-xs text-text-muted"><em>Cluster synthesis.</em> Groups enriched nodes by domain into subsystem modules with navigable summaries.</div>
             </div>
-            <div className="p-4 border border-border rounded bg-surface">
-              <div className="font-semibold text-sm">7. Knowledge Embedding</div>
-              <div className="text-xs text-text-muted">Final deep storage.</div>
+            <div className="p-4 border border-primary/30 rounded bg-surface">
+              <div className="font-semibold text-sm">7. Codebase Atlas <span className="text-xs font-normal text-text-muted">(Routing)</span></div>
+              <div className="text-xs text-text-muted">Builds a pre-retrieval routing index from synthesized modules. Scopes queries to the right subsystem.</div>
+            </div>
+            <div className="p-4 border border-primary/30 rounded bg-surface">
+              <div className="font-semibold text-sm">8. Continuous Deepening <span className="text-xs font-normal text-text-muted">(Loop)</span></div>
+              <div className="text-xs text-text-muted"><em>Convergence loop.</em> Re-enriches nodes with decayed understanding scores until the graph stabilizes. Inspired by belief propagation.</div>
+            </div>
+            <div className="p-4 border border-primary/30 rounded bg-surface">
+              <div className="font-semibold text-sm">9. Deep Knowledge Embedding <span className="text-xs font-normal text-text-muted">(Embeddings)</span></div>
+              <div className="text-xs text-text-muted">Re-embeds all enriched knowledge, module summaries, and refined connections for maximum retrieval accuracy.</div>
             </div>
           </div>
 

@@ -31,9 +31,12 @@ export type {
   TaskProgress,
   LogEntry,
   EvidenceTier,
+  DeepEnrichmentConfig,
+  DeepEnrichmentRunStatus,
   DeepAnalysisScheduleConfig,
   DeepAnalysisRunStatus,
   TraceAugmentation,
+  InferredEdgesStatus,
   AugmentationStatus,
   EpistemicStatus,
   ModuleStatus,
@@ -43,6 +46,7 @@ export type {
   GraphEngineStatus,
   GraphEngineConfig,
   KnowledgeEmbeddingStatus,
+  AtlasStatus,
   PipelineStatus,
   PipelineGroupRun,
   CrashedPipelineRun,
@@ -109,8 +113,8 @@ export { WatchStatusIndicator, WatchControlPanel } from './components/watch';
 export type { WatchStatusIndicatorProps, WatchControlPanelProps } from './components/watch';
 
 // Components - Trace (Phase 04)
-export { TraceStatusCard, TraceExplorer, TraceCoveragePanel, GraphEnrichmentPipeline, GraphStructurePanel } from './components/trace';
-export type { TraceStatusCardProps, TraceExplorerProps, TraceCoveragePanelProps, GraphEnrichmentPipelineProps, TraceStageInfo, EnrichmentStageId, EnrichmentAutoConfig, DeepEnrichmentMode, GraphStructurePanelProps } from './components/trace';
+export { TraceStatusCard, TraceExplorer, TraceCoveragePanel, GraphEnrichmentPipeline, GraphStructurePanel, AtlasStatusCard } from './components/trace';
+export type { TraceStatusCardProps, TraceExplorerProps, TraceCoveragePanelProps, GraphEnrichmentPipelineProps, TraceStageInfo, EnrichmentStageId, EnrichmentAutoConfig, DeepEnrichmentMode, GraphStructurePanelProps, AtlasStatusCardProps } from './components/trace';
 
 // Components - Layout (Modular Dashboard - Phase 15)
 export { PanelChrome, DashboardGrid, PanelPicker, ModularDashboard, useLayoutPersistence } from './components/layout';
@@ -130,9 +134,9 @@ export type { DocsLayoutProps, DocsSidebarNavProps, DocNode, TableOfContentsProp
 export { ServerModeIndicator, TeamConfigStatus, EmbeddedModeIndicator, LicenseStatusCard } from './components/team';
 export type { ServerModeIndicatorProps, TeamConfigStatusProps, EmbeddedModeIndicatorProps, LicenseStatusCardProps } from './components/team';
 
-// Components - Viz (Activity Heatmap)
-export { ActivityHeatmap, generateSampleActivityData } from './components/viz';
-export type { ActivityHeatmapProps, ActivityHeatmapData, ActivityDay } from './components/viz';
+// Components - Viz
+export { ActivityHeatmap, generateSampleActivityData, IndexHealthPanel, TokenBudgetPanel } from './components/viz';
+export type { ActivityHeatmapProps, ActivityHeatmapData, ActivityDay, IndexHealthPanelProps, IndexHealthData, DeepHealthData, TokenBudgetPanelProps, TokenBudgetData } from './components/viz';
 
 // Layout Types (Phase 15)
 export type { 

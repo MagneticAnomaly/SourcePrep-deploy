@@ -13,6 +13,7 @@ export function ClientLayout({ children }: { children: ReactNode }) {
     <div className="flex flex-col min-h-screen bg-background text-text">
       <SiteHeader
         productName="CoDRAG Support"
+        logo={<img src="/codrag-logo.png" alt="CoDRAG" className="w-6 h-6 rounded" />}
         links={[
           { label: 'Home', href: HOME_URL },
           { label: 'Docs', href: DOCS_URL },

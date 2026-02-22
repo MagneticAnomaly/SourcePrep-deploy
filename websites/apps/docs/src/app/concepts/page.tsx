@@ -1,7 +1,7 @@
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-6 pb-16 pt-0">
         <a href="/" className="text-sm text-text-muted">
           ← Back to Docs
         </a>
@@ -54,9 +54,10 @@ export default function Page() {
               <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full">Pro</span>
             </div>
             <p className="mt-2 text-sm text-text-muted">
-              A multi-pass pipeline that deepens the Code Graph over time — from fast structural
-              parsing to LLM-powered epistemic enrichment, cluster synthesis, and self-refining
-              convergence.
+              A 9-stage pipeline that deepens the Code Graph over time — from fast structural
+              parsing to LLM-powered deep reasoning, module synthesis, and self-refining
+              convergence. Rooted in epistemological principles: the graph knows what it knows,
+              and knows when that knowledge has gone stale.
             </p>
           </a>
         </div>

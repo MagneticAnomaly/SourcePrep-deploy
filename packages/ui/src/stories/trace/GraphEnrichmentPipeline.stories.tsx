@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { GraphEnrichmentPipeline } from '../../components/trace/GraphEnrichmentPipeline';
-import type { AugmentationStatus, DeepAnalysisRunStatus } from '../../types';
+import type { AugmentationStatus, DeepAnalysisRunStatus, InferredEdgesStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, AtlasStatus } from '../../types';
 import type { EnrichmentAutoConfig } from '../../components/trace/GraphEnrichmentPipeline';
 
 const meta: Meta<typeof GraphEnrichmentPipeline> = {
@@ -245,6 +245,36 @@ export const FastSyncRunning: Story = {
     onRunFastSync: () => alert('Running Fast Sync set...'),
     onRunDeepEnrichment: () => alert('Running Deep Enrichment set...'),
     onTogglePause: () => alert('Toggling pause...'),
+    isPro: true,
+  },
+};
+
+// ── Full 10-stage pipeline story ────────────────────────────
+
+const ieComplete: InferredEdgesStatus = { enabled: true, exists: true, edge_count: 42 };
+const epComplete: EpistemicStatus = { enabled: true, enriched_nodes: 1200, avg_confidence: 0.82, running: false };
+const modComplete: ModuleStatus = { enabled: true, module_count: 8, total_files_clustered: 1100, running: false };
+const atlasComplete: AtlasStatus = { exists: true, content: null, mode: 'structural', module_count: 8, file_count: 1100, routing: true, stale: false };
+const deepComplete: DeepeningStatus = { running: false, total_scored: 1200, settled_count: 1080, settled_ratio: 0.90, avg_score: 0.84 };
+const knowComplete: KnowledgeEmbeddingStatus = { enabled: true, running: false, chunks_embedded: 3200, deep_chunks_embedded: 3200, last_run_at: new Date().toISOString() };
+
+export const FullPipeline10Stages: Story = {
+  name: 'Full 10-Stage Pipeline (5+5)',
+  args: {
+    trace: traceReady,
+    inferredEdges: ieComplete,
+    augmentation: augFull,
+    epistemic: epComplete,
+    modules: modComplete,
+    atlas: atlasComplete,
+    deepening: deepComplete,
+    knowledge: knowComplete,
+    autoConfig: manualConfig,
+    onAutoConfigChange: (cfg) => console.log('Config changed:', cfg),
+    onRunFastSync: () => alert('Running Fast Sync...'),
+    onRunDeepEnrichment: () => alert('Running Deep Enrichment...'),
+    onTogglePause: () => alert('Toggling pause...'),
+    onDestroyGraph: () => alert('Destroying graph...'),
     isPro: true,
   },
 };

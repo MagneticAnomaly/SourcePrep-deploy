@@ -3,8 +3,10 @@ from PyInstaller.utils.hooks import collect_all
 
 datas = []
 binaries = []
-hiddenimports = ['codrag.core.embedder', 'codrag.core.compressor']
+hiddenimports = ['codrag.core.embedder', 'codrag.core.compressor', 'codrag_engine']
 tmp_ret = collect_all('codrag')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+tmp_ret = collect_all('codrag_engine')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('uvicorn')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]

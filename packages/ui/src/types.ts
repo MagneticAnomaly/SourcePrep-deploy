@@ -324,6 +324,18 @@ export interface TraceAugmentation {
 }
 
 /**
+ * Inferred edges status (Stage 2 — code model edge discovery)
+ */
+export interface InferredEdgesStatus {
+  enabled: boolean;
+  exists: boolean;
+  edge_count: number;
+  running?: boolean;
+  slot_progress?: { message: string; current: number; total: number };
+  slot_phase?: string;
+}
+
+/**
  * Augmentation status summary
  */
 export interface AugmentationStatus {
@@ -394,6 +406,9 @@ export interface AtlasStatus {
   module_count?: number;
   char_count?: number;
   stale?: boolean;
+  segmented?: boolean;
+  routing?: boolean;
+  running?: boolean;
 }
 
 // ============================================================
@@ -435,7 +450,7 @@ export type ServerMode = 'local' | 'remote';
 /**
  * License tier
  */
-export type LicenseTier = 'free' | 'starter' | 'pro' | 'team' | 'enterprise';
+export type LicenseTier = 'free' | 'monthly' | 'perpetual' | 'team' | 'enterprise';
 
 /**
  * Team config status
@@ -451,11 +466,6 @@ export interface LLMStatus {
     connected: boolean;
     models: string[];
   };
-  clara: {
-    url: string;
-    enabled: boolean;
-    connected: boolean;
-  };
 }
 
 // ============================================================
@@ -465,10 +475,10 @@ export interface LLMStatus {
 /**
  * Provider types for LLM endpoints
  */
-export type LLMProvider = 'ollama' | 'openai' | 'openai-compatible' | 'anthropic' | 'clara';
+export type LLMProvider = 'ollama' | 'openai' | 'openai-compatible' | 'anthropic';
 
 /**
- * Model source for embedding/CLaRa
+ * Model source for embedding
  */
 export type ModelSource = 'endpoint' | 'huggingface';
 
@@ -499,7 +509,7 @@ export interface EmbeddingConfig {
 }
 
 /**
- * Generic LLM slot configuration (small/large models)
+ * Generic LLM slot configuration (small/large/code models)
  */
 export interface LLMSlotConfig {
   enabled: boolean;
@@ -508,35 +518,39 @@ export interface LLMSlotConfig {
 }
 
 /**
- * CLaRa compression configuration
+ * Compression configuration (LLMLingua-2 + LOD)
  */
-export interface ClaraConfig {
+export interface CompressionConfig {
   enabled: boolean;
-  source: ModelSource;
-  // HuggingFace mode
-  hf_downloaded?: boolean;
-  hf_model_path?: string;
-  hf_download_progress?: number;
-  // Remote mode
-  remote_url?: string;
-  endpoint_id?: string;
+  mode: 'none' | 'lingua' | 'auto';
+  level: 'light' | 'standard' | 'aggressive';
+  lingua_downloaded?: boolean;
+  lingua_download_progress?: number;
 }
 
 /**
  * Full LLM configuration
  */
+/**
+ * Batch processing mode for BYOK cloud models.
+ * 'auto' detects the model and picks the best profile.
+ */
+export type BatchMode = 'auto' | 'large' | 'standard' | 'compact' | 'off';
+
 export interface LLMConfig {
   embedding: EmbeddingConfig;
   small_model: LLMSlotConfig;
   large_model: LLMSlotConfig;
-  clara: ClaraConfig;
+  code_model: LLMSlotConfig;
+  compression: CompressionConfig;
   saved_endpoints: SavedEndpoint[];
+  batch_mode?: BatchMode;
 }
 
 /**
  * Model slot type for UI
  */
-export type ModelSlotType = 'embedding' | 'small' | 'large' | 'clara';
+export type ModelSlotType = 'embedding' | 'small' | 'large' | 'code';
 
 /**
  * HuggingFace download status
@@ -733,7 +747,7 @@ export interface PipelineGroupRun {
 }
 
 /**
- * Full pipeline status (8-stage, two-group model)
+ * Full pipeline status (10-stage, two-group model)
  * Matches the backend `PipelineOrchestrator.status()` shape.
  */
 export interface PipelineStatus {
@@ -741,6 +755,7 @@ export interface PipelineStatus {
   deep_enrichment: PipelineGroupRun | null;
   stages: {
     structural: any;
+    inferred_edges: any;
     catalogue: any;
     validation: any;
     knowledge: any;
@@ -846,7 +861,7 @@ export interface FeatureAvailability {
   mcp_tools: boolean;
   mcp_trace_expand: boolean;
   path_weights: boolean;
-  clara_compression: boolean;
+  context_compression: boolean;
   multi_repo_agent: boolean;
   team_config: boolean;
   audit_log: boolean;
@@ -891,6 +906,7 @@ export interface LLMSlotsStatus {
   embedding: LLMSlotStatus;
   small_model: LLMSlotStatus;
   large_model: LLMSlotStatus;
+  code_model: LLMSlotStatus;
 }
 
 /**

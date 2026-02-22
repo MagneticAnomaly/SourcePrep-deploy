@@ -3,7 +3,7 @@ import { AnchorHeading } from '../../../components/AnchorHeading';
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-6 pb-16 pt-0">
         <a href="/concepts" className="text-sm text-text-muted">
           ← Back to Concepts
         </a>
@@ -109,15 +109,23 @@ export default function Page() {
                 <div className="text-sm text-text-muted mt-1">Verifying imports and call graph edges against the filesystem.</div>
               </div>
               <div className="p-4 bg-surface">
-                <div className="font-semibold">5. Epistemic Enrichment (14b)</div>
-                <div className="text-sm text-text-muted mt-1">Deep analysis to add "why" and "how" context to the nodes.</div>
+                <div className="font-semibold">5. Deep Reasoning (14b)</div>
+                <div className="text-sm text-text-muted mt-1"><em>Epistemic enrichment.</em> Deep analysis to add domain tags, architecture layers, and an understanding score (0.0–1.0).</div>
               </div>
               <div className="p-4 bg-surface">
-                <div className="font-semibold">6. Cluster Synthesis</div>
-                <div className="text-sm text-text-muted mt-1">Grouping related files into functional modules.</div>
+                <div className="font-semibold">6. Module Synthesis</div>
+                <div className="text-sm text-text-muted mt-1"><em>Cluster synthesis.</em> Grouping related files into functional subsystem modules with navigable summaries.</div>
               </div>
               <div className="p-4 bg-surface">
-                <div className="font-semibold text-purple-500">7. Knowledge Embedding</div>
+                <div className="font-semibold">7. Codebase Atlas</div>
+                <div className="text-sm text-text-muted mt-1">Pre-retrieval routing index built from synthesized modules.</div>
+              </div>
+              <div className="p-4 bg-surface">
+                <div className="font-semibold">8. Continuous Deepening</div>
+                <div className="text-sm text-text-muted mt-1"><em>Convergence loop.</em> Re-enriches nodes with decayed understanding scores until the graph stabilizes.</div>
+              </div>
+              <div className="p-4 bg-surface">
+                <div className="font-semibold text-purple-500">9. Deep Knowledge Embedding</div>
                 <div className="text-sm text-text-muted mt-1">Final deep-storage of synthesized knowledge and enriched connections.</div>
               </div>
             </div>

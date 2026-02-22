@@ -2,22 +2,24 @@
 CoDRAG Pipeline Orchestrator — Phase 24 (SM-6) + Phase 25 (Crash Protection)
 =============================================================================
 
-Sequences the 8-stage Trace Graph enrichment pipeline using
+Sequences the 10-stage Trace Graph enrichment pipeline using
 BuildOrchestrator (SM-4) slots.
 
 **Two Groups:**
 
-  Group A — Fast Sync (stages 1–4):
-    1. structural  (Rust: AST parse → nodes + edges)
-    2. augment     (3b LLM: fast catalogue)
-    3. validate    (Rust: relationship validation)
-    4. knowledge   (Embedding: embed fast-pass metadata)
+  Group A — Fast Sync (stages 1–5):
+    1. structural      (Rust: AST parse → nodes + edges)
+    2. inferred_edges  (LLM: cross-language/dynamic edge discovery)
+    3. augment         (3b LLM: fast catalogue)
+    4. validate        (Rust: relationship validation)
+    5. knowledge       (Embedding: embed fast-pass metadata)
 
-  Group B — Deep Enrichment (stages 5–8):
-    5. epistemic   (14b LLM: deep reasoning + confidence)
-    6. cluster     (14b LLM: module-level synthesis)
-    7. deepening   (Loop: re-enrich stale nodes)
-    8. knowledge   (Embedding: re-embed with deep metadata)
+  Group B — Deep Enrichment (stages 6–10):
+    6. epistemic   (14b LLM: deep reasoning + confidence)
+    7. cluster     (14b LLM: module-level synthesis)
+    8. deepening   (Loop: re-enrich stale nodes)
+    9. atlas       (14b LLM: codebase orientation document)
+   10. knowledge   (Embedding: re-embed with deep metadata)
 
 **Controls (group-level, NOT per-stage):**
   - Fast Sync: boolean on/off
@@ -69,13 +71,15 @@ logger = logging.getLogger(__name__)
 # ── Stage Definitions ────────────────────────────────────────────
 
 class StageId(str, enum.Enum):
-    """The 8 pipeline stages, matching the UI's EnrichmentStageId."""
+    """The 10 pipeline stages, matching the UI's EnrichmentStageId."""
     STRUCTURAL = "structural"
+    INFERRED_EDGES = "inferred_edges"
     CATALOGUE = "catalogue"
     VALIDATION = "validation"
     KNOWLEDGE = "knowledge"
     ENRICHMENT = "enrichment"
     CLUSTERING = "clustering"
+    ATLAS = "atlas"
     DEEPENING = "deepening"
     DEEP_KNOWLEDGE = "deep_knowledge"
 
@@ -83,17 +87,20 @@ class StageId(str, enum.Enum):
 # Map StageId → BuildType for dispatch to the orchestrator
 STAGE_BUILD_TYPE: Dict[StageId, BuildType] = {
     StageId.STRUCTURAL: BuildType.TRACE,
+    StageId.INFERRED_EDGES: BuildType.INFERRED_EDGES,
     StageId.CATALOGUE: BuildType.AUGMENT,
     StageId.VALIDATION: BuildType.VALIDATE,
     StageId.KNOWLEDGE: BuildType.KNOWLEDGE,
     StageId.ENRICHMENT: BuildType.EPISTEMIC,
     StageId.CLUSTERING: BuildType.CLUSTER,
+    StageId.ATLAS: BuildType.ATLAS,
     StageId.DEEPENING: BuildType.DEEPENING,
     StageId.DEEP_KNOWLEDGE: BuildType.KNOWLEDGE,  # Same build type, re-runs with richer data
 }
 
 FAST_SYNC_STAGES: List[StageId] = [
     StageId.STRUCTURAL,
+    StageId.INFERRED_EDGES,
     StageId.CATALOGUE,
     StageId.VALIDATION,
     StageId.KNOWLEDGE,
@@ -102,9 +109,28 @@ FAST_SYNC_STAGES: List[StageId] = [
 DEEP_ENRICHMENT_STAGES: List[StageId] = [
     StageId.ENRICHMENT,
     StageId.CLUSTERING,
+    StageId.ATLAS,
     StageId.DEEPENING,
     StageId.DEEP_KNOWLEDGE,
 ]
+
+
+# ── Model Slot Mapping ───────────────────────────────────────────
+# Which LLM slot each stage uses.  None = no LLM needed.
+# Used by the VRAM lifecycle manager to unload models between slot transitions.
+
+STAGE_MODEL_SLOT: Dict[StageId, Optional[str]] = {
+    StageId.STRUCTURAL:     None,
+    StageId.INFERRED_EDGES: "code",   # prefers code slot; worker falls back to small
+    StageId.CATALOGUE:      "small",
+    StageId.VALIDATION:     None,
+    StageId.KNOWLEDGE:      None,      # embedding only
+    StageId.ENRICHMENT:     "large",
+    StageId.CLUSTERING:     "large",
+    StageId.ATLAS:          "large",
+    StageId.DEEPENING:      "large",
+    StageId.DEEP_KNOWLEDGE: None,      # embedding only
+}
 
 
 # ── Pipeline Run ─────────────────────────────────────────────────
@@ -185,6 +211,8 @@ class WorkerFactory:
 
         if stage == StageId.STRUCTURAL:
             return WorkerFactory._trace_worker(project_id)
+        elif stage == StageId.INFERRED_EDGES:
+            return WorkerFactory._inferred_edges_worker(project_id)
         elif stage == StageId.CATALOGUE:
             return WorkerFactory._augment_worker(project_id)
         elif stage == StageId.VALIDATION:
@@ -195,6 +223,8 @@ class WorkerFactory:
             return WorkerFactory._epistemic_worker(project_id)
         elif stage == StageId.CLUSTERING:
             return WorkerFactory._cluster_worker(project_id)
+        elif stage == StageId.ATLAS:
+            return WorkerFactory._atlas_worker(project_id)
         elif stage == StageId.DEEPENING:
             return WorkerFactory._deepening_worker(project_id)
         else:
@@ -231,6 +261,18 @@ class WorkerFactory:
         if not client.is_available():
             raise RuntimeError(f"Model endpoint not reachable: {client.endpoint_url}")
         return client
+
+    @staticmethod
+    def _get_batch_profile(llm_client):
+        """Detect the batch profile for an LLM client, respecting user override."""
+        try:
+            from codrag.core.batch_profiles import resolve_profile
+            from codrag.server import _load_ui_config
+            ui_cfg = _load_ui_config()
+            override = (ui_cfg.get("llm_config") or {}).get("batch_mode")
+            return resolve_profile(llm_client.provider, llm_client.model, override=override)
+        except Exception:
+            return None
 
     # ── Stage Workers ──────────────────────────────────────────
 
@@ -278,6 +320,71 @@ class WorkerFactory:
         return worker
 
     @staticmethod
+    def _inferred_edges_worker(project_id: str):
+        def worker(slot: BuildSlot, progress_cb: Callable) -> Dict[str, Any]:
+            from codrag.core import InferredEdgesAnalyzer
+            from codrag.core.project_registry import project_index_dir
+
+            project, *_ = WorkerFactory._get_project_and_config(project_id)
+            idx_dir = project_index_dir(project)
+
+            # Prefer code model slot; fall back to small model
+            llm_client = None
+            slot_used = None
+            for try_slot in ("code", "small"):
+                try:
+                    client = WorkerFactory._get_llm_client(try_slot)
+                    if client and client.is_available():
+                        llm_client = client
+                        slot_used = try_slot
+                        break
+                except RuntimeError:
+                    pass
+
+            if not llm_client:
+                logger.info("No code or small model available — skipping inferred edges stage")
+                progress_cb("Skipped (no LLM configured)", 1, 1)
+                return {"stage": "inferred_edges", "skipped": True, "reason": "no_llm"}
+
+            # Verbose pipeline file logging
+            try:
+                from codrag.services.pipeline_logger import get_pipeline_logger
+                pfl = get_pipeline_logger(idx_dir)
+                pfl.log("inferred_edges", f"Starting: model={llm_client.model}, endpoint={llm_client.endpoint_url}")
+            except Exception:
+                pfl = None
+
+            batch_profile = WorkerFactory._get_batch_profile(llm_client)
+            if pfl and batch_profile:
+                pfl.log("inferred_edges", f"Batch profile: {batch_profile.name.value}")
+
+            analyzer = InferredEdgesAnalyzer(
+                index_dir=idx_dir,
+                repo_root=project.path,
+                llm_client=llm_client,
+                batch_profile=batch_profile,
+            )
+            result = analyzer.run(progress_callback=progress_cb)
+
+            if pfl:
+                pfl.log("inferred_edges", "Inferred edges complete", {
+                    "files_analyzed": result.files_analyzed,
+                    "edges_found": result.edges_found,
+                    "edges_written": result.edges_written,
+                    "skipped_low_confidence": result.skipped_low_confidence,
+                    "skipped_duplicate": result.skipped_duplicate,
+                    "failed": result.failed,
+                    "duration_ms": result.duration_ms,
+                })
+
+            return {
+                "stage": "inferred_edges",
+                "files_analyzed": result.files_analyzed,
+                "edges_written": result.edges_written,
+            }
+        return worker
+
+    @staticmethod
     def _augment_worker(project_id: str):
         def worker(slot: BuildSlot, progress_cb: Callable) -> Dict[str, Any]:
             from codrag.core import TraceAugmenter
@@ -287,11 +394,13 @@ class WorkerFactory:
             llm_client = WorkerFactory._get_llm_client("small")
             idx_dir = project_index_dir(project)
 
+            batch_profile = WorkerFactory._get_batch_profile(llm_client)
+
             # Verbose pipeline file logging
             try:
                 from codrag.services.pipeline_logger import get_pipeline_logger
                 pfl = get_pipeline_logger(idx_dir)
-                pfl.log("catalogue", f"Augmenter starting: model={llm_client.model}, endpoint={llm_client.endpoint_url}")
+                pfl.log("catalogue", f"Augmenter starting: model={llm_client.model}, endpoint={llm_client.endpoint_url}, batch_profile={batch_profile.name.value if batch_profile else 'none'}")
             except Exception:
                 pfl = None
 
@@ -299,6 +408,7 @@ class WorkerFactory:
                 index_dir=idx_dir,
                 repo_root=project.path,
                 llm_client=llm_client,
+                batch_profile=batch_profile,
             )
             result = augmenter.run(progress_callback=progress_cb)
 
@@ -361,10 +471,15 @@ class WorkerFactory:
             except Exception:
                 pfl = None
 
+            batch_profile = WorkerFactory._get_batch_profile(llm_client)
+            if pfl and batch_profile:
+                pfl.log("enrichment", f"Batch profile: {batch_profile.name.value}")
+
             enricher = EpistemicEnricher(
                 llm=llm_client,
                 repo_root=Path(project.path),
                 index_dir=idx_dir,
+                batch_profile=batch_profile,
             )
             result = enricher.run(progress_callback=progress_cb)
 
@@ -390,9 +505,66 @@ class WorkerFactory:
             llm_client = WorkerFactory._get_llm_client("large")
             idx_dir = project_index_dir(project)
 
-            synthesizer = ClusterSynthesizer(llm=llm_client, index_dir=idx_dir)
+            batch_profile = WorkerFactory._get_batch_profile(llm_client)
+
+            synthesizer = ClusterSynthesizer(llm=llm_client, index_dir=idx_dir, batch_profile=batch_profile)
             result = synthesizer.run(progress_callback=progress_cb)
             return {"stage": "clustering", **(result or {})}
+        return worker
+
+    @staticmethod
+    def _atlas_worker(project_id: str):
+        def worker(slot: BuildSlot, progress_cb: Callable) -> Dict[str, Any]:
+            from codrag.core.atlas import CodebaseAtlas
+            from codrag.core.project_registry import project_index_dir
+            from pathlib import Path
+
+            project, *_ = WorkerFactory._get_project_and_config(project_id)
+            idx_dir = project_index_dir(project)
+
+            # Use large LLM if available; fall back to structural atlas
+            try:
+                llm_client = WorkerFactory._get_llm_client("large")
+            except RuntimeError:
+                llm_client = None
+
+            atlas = CodebaseAtlas(idx_dir, llm=llm_client, project_root=Path(project.path))
+
+            # Only regenerate if stale or missing
+            if not atlas.is_stale() and atlas.exists():
+                progress_cb("Atlas up-to-date", 1, 1)
+                doc = atlas.load()
+                result = {
+                    "stage": "atlas",
+                    "skipped": True,
+                    "chars": doc.char_count if doc else 0,
+                    "mode": doc.mode if doc else "none",
+                }
+            else:
+                # Use segmented generation — produces root + per-segment atlases.
+                # Falls back to single atlas if <2 segments are discovered.
+                doc, segment_docs = atlas.generate_segmented(progress_callback=progress_cb)
+                result = {
+                    "stage": "atlas",
+                    "skipped": False,
+                    "chars": doc.char_count,
+                    "mode": doc.mode,
+                    "file_count": doc.file_count,
+                    "module_count": doc.module_count,
+                    "segment_count": len(segment_docs),
+                }
+
+            # Generate routing index (pre-retrieval segment selection)
+            try:
+                from codrag.services.build_manager import build_manager
+                embedder = build_manager.create_embedder()
+                routing_descs = atlas.generate_routing(embedder, progress_callback=progress_cb)
+                result["routing_segments"] = len(routing_descs)
+            except Exception as e:
+                logger.debug("Atlas routing generation skipped: %s", e)
+                result["routing_segments"] = 0
+
+            return result
         return worker
 
     @staticmethod
@@ -429,7 +601,7 @@ class WorkerFactory:
 # ── Pipeline Orchestrator ────────────────────────────────────────
 
 class PipelineOrchestrator:
-    """Sequences the 8-stage pipeline in two groups.
+    """Sequences the 10-stage pipeline in two groups.
 
     Uses BuildOrchestrator (SM-4) for individual stage execution and
     listens for completion events to advance the pipeline.
@@ -473,11 +645,11 @@ class PipelineOrchestrator:
     # ── Public API ─────────────────────────────────────────────
 
     def run_fast_sync(self, project_id: str) -> bool:
-        """Start the Fast Sync group (stages 1-4).  Returns False if already running."""
+        """Start the Fast Sync group (stages 1-5).  Returns False if already running."""
         return self._start_group(project_id, "fast_sync", FAST_SYNC_STAGES)
 
     def run_deep_enrichment(self, project_id: str) -> bool:
-        """Start the Deep Enrichment group (stages 5-8).  Returns False if already running."""
+        """Start the Deep Enrichment group (stages 6-10).  Returns False if already running."""
         return self._start_group(project_id, "deep_enrichment", DEEP_ENRICHMENT_STAGES)
 
     def run_all(self, project_id: str) -> bool:
@@ -531,6 +703,8 @@ class PipelineOrchestrator:
             for k in keys:
                 del self._runs[k]
         self._orchestrator.clear_project(project_id)
+        # Clear cached file logger so it doesn't reference stale paths
+        self._file_loggers.pop(project_id, None)
 
     # ── Internal ───────────────────────────────────────────────
 
@@ -633,8 +807,14 @@ class PipelineOrchestrator:
             )
             if pfl:
                 pfl.end_run("completed")
+            # VRAM lifecycle: unload models used by this group
+            self._unload_group_models(run)
             # Phase 25: journal — mark run completed + cleanup checkpoint
             self._journal_run_completed(run)
+            # After any group completes, trigger CodeIndex build so
+            # /context search works and file tree status badges update.
+            if run.group in ("fast_sync", "deep_enrichment"):
+                self._trigger_code_index_build(run.project_id, pfl)
             # Chain deep enrichment after fast sync if configured or explicitly requested
             if run.group == "fast_sync":
                 should_chain = False
@@ -654,6 +834,26 @@ class PipelineOrchestrator:
                     if is_auto:
                         should_chain = True
                         chain_reason = "auto_config"
+                # Phase 26 (S-26.5): Budget throttle — skip auto-chain if budget exhausted
+                if should_chain and chain_reason != "explicit_run_all":
+                    try:
+                        from codrag.services.pipeline_budget import budget as _budget
+                        if not _budget.check_allowed(run.project_id):
+                            usage = _budget.get_usage(run.project_id)
+                            logger.info(
+                                "Budget exhausted for %s — skipping auto-chain "
+                                "(used %d/%d tokens, resets in %ds)",
+                                run.project_id,
+                                usage["tokens_used"], usage["max_tokens"],
+                                usage["window_resets_in"],
+                            )
+                            if pfl:
+                                pfl.log("fast_sync", f"Auto-chain SKIPPED: budget exhausted ({usage['tokens_used']}/{usage['max_tokens']} tokens)")
+                            should_chain = False
+                            chain_reason = "budget_exhausted"
+                    except Exception:
+                        pass  # Budget module unavailable — allow chain
+
                 if should_chain:
                     logger.info(
                         "Chaining deep enrichment after fast sync for %s (reason=%s)",
@@ -683,6 +883,9 @@ class PipelineOrchestrator:
 
         stage = run.stages[run.current_stage_index]
         build_type = STAGE_BUILD_TYPE[stage]
+
+        # VRAM lifecycle: unload previous model if the slot is changing
+        self._maybe_unload_previous_model(run, stage)
 
         logger.info(
             "Pipeline %s/%s — starting stage %d/%d: %s",
@@ -794,6 +997,8 @@ class PipelineOrchestrator:
                     pfl.end_run("failed", error=slot.error)
                 # Phase 25: journal — record stage failure
                 self._journal_stage_failed(matching_run, stage, slot.error or "Unknown error")
+                # VRAM lifecycle: unload models on failure
+                self._unload_group_models(matching_run)
                 return
 
         # Advance outside the lock — wrapped in try/except so a failure
@@ -843,6 +1048,104 @@ class PipelineOrchestrator:
             except Exception:
                 logger.debug("Journal cancel write failed", exc_info=True)
         return True
+
+    # ── VRAM Lifecycle ─────────────────────────────────────────────
+
+    def _maybe_unload_previous_model(self, run: PipelineRun, next_stage: StageId) -> None:
+        """Unload the previous stage's LLM model if the slot is changing.
+
+        Prevents two models from occupying VRAM simultaneously.
+        Only acts when transitioning between different model slots
+        (e.g. small→None, small→large, large→None).
+
+        Non-fatal: logs warnings on failure but never blocks the pipeline.
+        """
+        next_slot = STAGE_MODEL_SLOT.get(next_stage)
+
+        # Determine the previous stage's slot
+        prev_slot: Optional[str] = None
+        if run.current_stage_index > 0:
+            prev_stage = run.stages[run.current_stage_index - 1]
+            prev_slot = STAGE_MODEL_SLOT.get(prev_stage)
+
+        # No transition needed if slot hasn't changed, or previous had no model
+        if prev_slot is None or prev_slot == next_slot:
+            return
+
+        # Unload the previous model
+        try:
+            from codrag.server import _get_llm_client_for_slot
+            client = _get_llm_client_for_slot(prev_slot)
+            if client:
+                logger.info(
+                    "VRAM lifecycle: unloading %s model (%s) before stage %s",
+                    prev_slot, client.model, next_stage.value,
+                )
+                client.unload()
+        except Exception as e:
+            logger.warning("VRAM lifecycle: failed to unload %s model: %s", prev_slot, e)
+
+    def _unload_group_models(self, run: PipelineRun) -> None:
+        """Unload any LLM models used by the completed/failed group.
+
+        Called when a pipeline group finishes to free VRAM for the next
+        group or for the user's own work.
+        """
+        # Find the last model slot used in this group's stages
+        slots_used = set()
+        for stage in run.stages:
+            slot = STAGE_MODEL_SLOT.get(stage)
+            if slot:
+                slots_used.add(slot)
+
+        for slot_name in slots_used:
+            try:
+                from codrag.server import _get_llm_client_for_slot
+                client = _get_llm_client_for_slot(slot_name)
+                if client:
+                    logger.info("VRAM lifecycle: unloading %s model (%s) — group %s finished",
+                                slot_name, client.model, run.group)
+                    client.unload()
+            except Exception as e:
+                logger.warning("VRAM lifecycle: failed to unload %s model after group: %s", slot_name, e)
+
+    # ── CodeIndex Build (post-pipeline) ─────────────────────────────
+
+    def _trigger_code_index_build(self, project_id: str, pfl: Any = None) -> None:
+        """Trigger a CodeIndex build after deep enrichment completes.
+
+        The pipeline builds KnowledgeIndex (knowledge_documents.json) but the
+        /context search endpoint requires CodeIndex (documents.json +
+        embeddings.npy).  This fires the build in the background so search
+        works immediately after the pipeline finishes.
+        """
+        try:
+            from codrag.services.build_manager import build_manager
+            from codrag.services.project_helpers import require_project
+
+            project = require_project(project_id)
+            cfg = project.config or {}
+            include_globs = cfg.get("include_globs") or None
+            exclude_globs = cfg.get("exclude_globs") or None
+            max_file_bytes = int(cfg.get("max_file_bytes") or 500_000)
+            hard_limit_bytes = int(cfg.get("hard_limit_bytes") or 100_000_000)
+            included_paths = cfg.get("included_paths") or None
+
+            started = build_manager.start_project_build(
+                project, None, include_globs, exclude_globs,
+                max_file_bytes, hard_limit_bytes,
+                included_paths=included_paths,
+            )
+            logger.info(
+                "CodeIndex build triggered for %s after pipeline: started=%s",
+                project_id, started,
+            )
+            if pfl:
+                pfl.log("code_index", f"CodeIndex build triggered: started={started}")
+        except Exception as e:
+            logger.warning("Failed to trigger CodeIndex build for %s: %s", project_id, e)
+            if pfl:
+                pfl.log("code_index", f"CodeIndex build FAILED: {e}")
 
     # ── Phase 25: Journal Helpers ─────────────────────────────────
 

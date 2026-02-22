@@ -130,13 +130,21 @@ def engine_status_project(project_id: str) -> Dict[str, Any]:
     augment_status = _project_augment_status(proj)
 
     # 4. Relationship Validation (Inferred Edges)
+    inferred_edges = 0
+    try:
+        inferred_path = idx_dir / "trace_inferred_edges.jsonl"
+        if inferred_path.exists():
+            with open(inferred_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        inferred_edges += 1
+    except Exception:
+        inferred_edges = 0
     validation_status = {
         "enabled": True,
-        "inferred_edges": 0,
-        "validated_edges": 0
+        "inferred_edges": inferred_edges,
+        "validated_edges": inferred_edges,
     }
-    if trace_idx.exists() and trace_idx.is_loaded():
-        pass
 
     # 5. Epistemic Enrichment
     epistemic_status = _epistemic_status(project_id)["data"]

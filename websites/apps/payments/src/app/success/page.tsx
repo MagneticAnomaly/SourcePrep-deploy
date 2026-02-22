@@ -28,7 +28,7 @@ export default function Page() {
             Read docs
           </a>
           <a
-            href="https://codrag.io/support"
+            href="https://support.codrag.io"
             className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-medium text-text"
           >
             Support

@@ -1,7 +1,7 @@
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-6 pb-16 pt-0">
         <a href="/" className="text-sm text-text-muted">
           ← Docs home
         </a>
@@ -35,13 +35,13 @@ export default function Page() {
           </a>
 
           <a
-            href="/guides/clara"
+            href="/guides/compression"
             className="block rounded-lg border border-border bg-surface p-6 hover:border-primary transition-colors"
           >
-            <h2 className="text-xl font-semibold">Context Compression (CLaRa)</h2>
+            <h2 className="text-xl font-semibold">Smart Context Compression</h2>
             <p className="mt-2 text-sm text-text-muted">
-              Compress retrieved context up to 16× before sending it to your LLM. Powered by the
-              CLaRa sidecar server. Works via API and MCP.
+              Two built-in engines: structural compression for code (3–20×) and language-aware
+              compression for docs. No GPU or sidecar needed.
             </p>
           </a>
 
@@ -53,6 +53,17 @@ export default function Page() {
             <p className="mt-2 text-sm text-text-muted">
               Boost or suppress specific files and folders in search results.
               Hierarchical weights let you tune relevance without rebuilding.
+            </p>
+          </a>
+
+          <a
+            href="/guides/model-advisor"
+            className="block rounded-lg border border-primary/30 bg-primary/5 p-6 hover:border-primary transition-colors"
+          >
+            <h2 className="text-xl font-semibold">Model Setup Advisor</h2>
+            <p className="mt-2 text-sm text-text-muted">
+              Interactive tool: pick your GPU, choose Local / Hybrid / Cloud,
+              and get personalized model recommendations with VRAM calculations.
             </p>
           </a>
         </div>

@@ -3,7 +3,7 @@ import { AnchorHeading } from '../../components/AnchorHeading';
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-6 pb-16 pt-0">
         <a href="/" className="text-sm text-text-muted">
           ← Back to Docs
         </a>
@@ -148,7 +148,7 @@ export default function Page() {
               <ul className="list-disc pl-5 space-y-2 text-sm">
                 <li>Reduce the number of indexed files by excluding large folders (<code>vendor/</code>, <code>node_modules/</code>) in <code>.codrag/ignore</code>.</li>
                 <li>Lower the <code>max_file_bytes</code> setting in your project configuration (via Dashboard or <code>.codrag/config.json</code>).</li>
-                <li>If using CLaRa locally, ensure you have enough GPU VRAM (or switch to a remote instance).</li>
+                <li>Context compression adds negligible memory overhead (structural compression needs no model; language compression loads a ~178 MB BERT model on demand).</li>
               </ul>
             </div>
           </div>

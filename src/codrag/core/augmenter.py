@@ -16,7 +16,9 @@ import json
 import logging
 import os
 import tempfile
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -107,6 +109,40 @@ class AugmentationEntry:
         )
 
 
+def _get_llm_concurrency() -> int:
+    """Read llm_concurrency from pipeline config. Default 1 (sequential).
+
+    Only applies to Pass 1 file augmentation. Epistemic enrichment (Pass 2)
+    and cluster synthesis stay sequential — they depend on prior results.
+
+    Discrete GPU (Ollama + CUDA/ROCm):
+      - 1: Safe default. Works on any hardware.
+      - 2: GPUs with ≥8GB VRAM running 3b/7b models.
+      - 3-4: GPUs with ≥12GB VRAM (e.g., RTX 3060 12GB, RTX 4070).
+      - 4-6: GPUs with ≥24GB VRAM (e.g., RTX 3090, RTX 4090).
+      - 8: Multi-GPU or cloud instances with ≥48GB total VRAM.
+
+    Apple Silicon (Ollama + Metal, unified memory):
+      - 1: M1/M2 8GB — tight with a loaded 7b model.
+      - 2: M1/M2 16GB, M3/M4 8GB+.
+      - 3: M1 Pro/Max/M2 Pro/Max (16-32GB).
+      - 4: M2 Ultra / M3 Max / M4 Max (48-96GB).
+      - 6: M2 Ultra / M3 Ultra (96-192GB).
+
+    Intel Mac:
+      - 1: Always. No Metal acceleration; CPU-only LLM inference is slow.
+
+    Ollama queues concurrent requests internally. Higher concurrency
+    saturates the GPU better but risks OOM if memory is tight.
+    """
+    try:
+        from codrag.services.settings_store import settings
+        config = settings.get("pipeline_config") or {}
+        return max(1, min(8, int(config.get("llm_concurrency", 1))))
+    except Exception:
+        return 1
+
+
 @dataclass
 class AugmentResult:
     """Result of an augmentation run."""
@@ -140,10 +176,22 @@ class LLMClient:
         self.api_key = api_key
         self.timeout = timeout
 
-    def generate(self, prompt: str, system: Optional[str] = None, num_predict: int = 2048) -> Tuple[str, int]:
+    def generate(
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        num_predict: int = 2048,
+        json_mode: bool = True,
+        temperature: float = 0.1,
+    ) -> Tuple[str, int]:
         """
         Call the LLM and return (response_text, tokens_used).
         Raises on network/parse errors.
+
+        Args:
+            json_mode: If True (default), request JSON output from Ollama.
+                       Set False for free-form prose (e.g. Atlas generation).
+            temperature: Sampling temperature. Lower = more deterministic.
         """
         import requests
 
@@ -152,9 +200,10 @@ class LLMClient:
                 "model": self.model,
                 "prompt": prompt,
                 "stream": False,
-                "format": "json",
-                "options": {"temperature": 0.1, "num_predict": num_predict},
+                "options": {"temperature": temperature, "num_predict": num_predict},
             }
+            if json_mode:
+                payload["format"] = "json"
             if system:
                 payload["system"] = system
 
@@ -175,8 +224,7 @@ class LLMClient:
             payload = {
                 "model": self.model,
                 "messages": messages,
-                "temperature": 0.1,
-                # "response_format": {"type": "json_object"}, # Not all OpenAI-compat models support this, so rely on prompt
+                "temperature": temperature,
             }
             
             headers = {
@@ -219,6 +267,39 @@ class LLMClient:
                 return resp.status_code == 200
             return False
         except Exception:
+            return False
+
+    def unload(self) -> bool:
+        """Unload the model from VRAM to free memory.
+
+        For Ollama: sends a generate request with keep_alive=0.
+        For OpenAI-compatible: no-op (cloud models don't need VRAM management).
+
+        Returns True if the unload request was accepted.
+        """
+        import requests
+
+        if self.provider != "ollama":
+            return True  # No-op for cloud providers
+
+        try:
+            resp = requests.post(
+                f"{self.endpoint_url}/api/generate",
+                json={
+                    "model": self.model,
+                    "prompt": "",
+                    "keep_alive": 0,
+                    "stream": False,
+                },
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                logger.info("Unloaded model %s from VRAM", self.model)
+                return True
+            logger.warning("Unload request for %s returned %d", self.model, resp.status_code)
+            return False
+        except Exception as e:
+            logger.warning("Failed to unload model %s: %s", self.model, e)
             return False
 
 
@@ -380,10 +461,12 @@ class TraceAugmenter:
         index_dir: str | Path,
         repo_root: str | Path,
         llm_client: LLMClient,
+        batch_profile: Optional["BatchProfile"] = None,
     ):
         self.index_dir = Path(index_dir).resolve()
         self.repo_root = Path(repo_root).resolve()
         self.llm = llm_client
+        self._batch_profile = batch_profile
 
         self.augmented_path = self.index_dir / "trace_augmented.jsonl"
         self.augment_manifest_path = self.index_dir / "trace_augment_manifest.json"
@@ -1007,6 +1090,204 @@ class TraceAugmenter:
             doc_status=doc_status,
         )
 
+    def _augment_files_batched(
+        self,
+        file_nodes: List[Dict[str, Any]],
+        edges: List[Dict[str, Any]],
+        nodes_by_id: Dict[str, Dict[str, Any]],
+        file_hashes: Dict[str, str],
+        augmented: Dict[str, "AugmentationEntry"],
+        result: "AugmentResult",
+        done: int,
+        total_work: int,
+        progress_callback: Optional[Callable[[str, int, int], None]] = None,
+    ) -> int:
+        """Process file nodes in batches using batched prompts.
+
+        Returns the updated 'done' counter.
+        """
+        from .batch_profiles import BatchStage
+        from .batch_prompts import (
+            BATCHED_FILE_SYSTEM,
+            BATCHED_DOC_SYSTEM,
+            build_batched_file_prompt,
+            build_batched_doc_prompt,
+        )
+        from .batch_strategy import BatchedResponseParser
+
+        batch_size = self._batch_profile.batch_size(BatchStage.CATALOGUE_FILE)
+        logger.info(
+            "Batched file augmentation: %d files, batch_size=%d (%s profile)",
+            len(file_nodes), batch_size, self._batch_profile.name.value,
+        )
+
+        # Split into code files and doc files
+        code_files = []
+        doc_files = []
+        for node in file_nodes:
+            fp = node.get("file_path", "")
+            lang = node.get("language", "")
+            is_md = lang == "markdown" or fp.endswith((".md", ".markdown"))
+            if is_md:
+                doc_files.append(node)
+            else:
+                code_files.append(node)
+
+        # Process code files in batches
+        for batch_start in range(0, len(code_files), batch_size):
+            batch = code_files[batch_start:batch_start + batch_size]
+            items = []
+            for node in batch:
+                fp = node.get("file_path", "")
+                nid = node["id"]
+                symbol_names = ", ".join(
+                    n.get("name", "")
+                    for n in nodes_by_id.values()
+                    if n.get("kind") == "symbol"
+                    and n.get("file_path") == fp
+                )[:500]
+                imports = self._get_file_imports(fp, edges, nodes_by_id)
+                head = self._get_file_head(fp, max_lines=30)
+                items.append({
+                    "file_path": fp,
+                    "symbol_names": symbol_names,
+                    "imports": imports,
+                    "content_label": "First 30 lines",
+                    "head": head,
+                    "_node": node,
+                    "_node_id": nid,
+                })
+
+            prompt = build_batched_file_prompt(items)
+            try:
+                text, tokens = self.llm.generate(prompt, system=BATCHED_FILE_SYSTEM, num_predict=batch_size * 200)
+                results_list = BatchedResponseParser.parse(text, expected_count=len(items))
+            except Exception as e:
+                logger.warning("Batched file augmentation failed for batch of %d: %s", len(items), e)
+                results_list = []
+
+            # Map results back to items
+            for idx, item in enumerate(items):
+                node = item["_node"]
+                nid = item["_node_id"]
+                fp = item["file_path"]
+                parsed = results_list[idx] if idx < len(results_list) else None
+
+                if parsed:
+                    entry = AugmentationEntry(
+                        node_id=nid,
+                        summary=str(parsed.get("summary", ""))[:500],
+                        role=parsed.get("role", self._infer_role_from_path(fp)),
+                        confidence=min(1.0, max(0.0, float(parsed.get("confidence", 0.7)))),
+                        augmented_at=datetime.now(timezone.utc).isoformat(),
+                        model=self.llm.model,
+                        file_hash=file_hashes.get(fp),
+                        related_files=parsed.get("related_files", [])[:5],
+                        key_exports=parsed.get("key_exports", [])[:10],
+                    )
+                    augmented[nid] = entry
+                    result.augmented += 1
+                else:
+                    # Fall back to synthetic entry
+                    entry = self._synthetic_entry(node, nodes_by_id, edges, file_hashes)
+                    if entry:
+                        augmented[nid] = entry
+                        result.synthetic += 1
+                    else:
+                        result.failed += 1
+                done += 1
+
+            if progress_callback:
+                progress_callback("augment_files", done, total_work)
+
+            logger.info(
+                "Batched file augmentation: %d/%d done (batch of %d → %d parsed)",
+                done, total_work, len(items), len(results_list),
+            )
+
+        # Process doc files in batches (smaller batch size)
+        doc_batch_size = max(1, batch_size // 5)  # Docs are bigger
+        for batch_start in range(0, len(doc_files), doc_batch_size):
+            batch = doc_files[batch_start:batch_start + doc_batch_size]
+            items = []
+            for node in batch:
+                fp = node.get("file_path", "")
+                nid = node["id"]
+                # Get section nodes for this file
+                section_nodes = [
+                    nodes_by_id[e["target"]]
+                    for e in edges
+                    if e.get("source") == nid
+                    and e.get("kind") == "contains"
+                    and e.get("target", "") in nodes_by_id
+                    and nodes_by_id[e["target"]].get("kind") == "section"
+                ]
+                section_names = [s.get("name", "") for s in section_nodes]
+                content = self._get_strategic_excerpt(fp, section_nodes)
+                file_refs = ", ".join(
+                    e.get("target", "").replace("file:", "")
+                    for e in edges
+                    if e.get("source") == nid and e.get("kind") == "references"
+                )[:300]
+                link_targets = ", ".join(
+                    e.get("target", "").replace("file:", "")
+                    for e in edges
+                    if e.get("source") == nid and e.get("kind") == "links_to"
+                )[:300]
+                items.append({
+                    "file_path": fp,
+                    "section_names": ", ".join(section_names[:20]) or "(none)",
+                    "file_refs": file_refs or "(none)",
+                    "link_targets": link_targets or "(none)",
+                    "content_label": "Content excerpt",
+                    "content": content,
+                    "_node": node,
+                    "_node_id": nid,
+                })
+
+            prompt = build_batched_doc_prompt(items)
+            try:
+                text, tokens = self.llm.generate(prompt, system=BATCHED_DOC_SYSTEM, num_predict=len(items) * 200)
+                results_list = BatchedResponseParser.parse(text, expected_count=len(items))
+            except Exception as e:
+                logger.warning("Batched doc augmentation failed for batch of %d: %s", len(items), e)
+                results_list = []
+
+            for idx, item in enumerate(items):
+                node = item["_node"]
+                nid = item["_node_id"]
+                fp = item["file_path"]
+                parsed = results_list[idx] if idx < len(results_list) else None
+
+                if parsed:
+                    entry = AugmentationEntry(
+                        node_id=nid,
+                        summary=str(parsed.get("summary", ""))[:500],
+                        role="documentation",
+                        confidence=min(1.0, max(0.0, float(parsed.get("confidence", 0.7)))),
+                        augmented_at=datetime.now(timezone.utc).isoformat(),
+                        model=self.llm.model,
+                        file_hash=file_hashes.get(fp),
+                        related_files=parsed.get("related_files", [])[:5],
+                        doc_type=parsed.get("doc_type"),
+                        doc_status=parsed.get("doc_status"),
+                    )
+                    augmented[nid] = entry
+                    result.augmented += 1
+                else:
+                    entry = self._synthetic_entry(node, nodes_by_id, edges, file_hashes)
+                    if entry:
+                        augmented[nid] = entry
+                        result.synthetic += 1
+                    else:
+                        result.failed += 1
+                done += 1
+
+            if progress_callback:
+                progress_callback("augment_files", done, total_work)
+
+        return done
+
     def run(
         self,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
@@ -1115,33 +1396,81 @@ class TraceAugmenter:
                 )
 
         # Pass 2: File augmentation
-        if to_augment_files:
-            logger.info("Pass 2: augmenting %d files...", len(to_augment_files))
-        for node in to_augment_files:
-            if progress_callback:
-                progress_callback("augment_files", done, total_work)
+        # Use batched path for BYOK models with batch_size > 1
+        use_batching = (
+            self._batch_profile is not None
+            and self._batch_profile.name.value != "off"
+        )
 
-            item_start = time.monotonic()
-            entry = self.augment_file(node, edges, nodes_by_id, file_hashes)
-            item_elapsed = time.monotonic() - item_start
-            if entry:
-                augmented[entry.node_id] = entry
-                if entry.model.startswith("synthetic:"):
-                    result.synthetic += 1
-                else:
-                    result.augmented += 1
+        if use_batching and to_augment_files:
+            logger.info("Pass 2: BATCHED file augmentation (%d files, profile=%s)",
+                        len(to_augment_files), self._batch_profile.name.value)
+            done = self._augment_files_batched(
+                to_augment_files, edges, nodes_by_id, file_hashes,
+                augmented, result, done, total_work, progress_callback,
+            )
+        elif to_augment_files:
+            # Individual file augmentation (local models / batching off)
+            concurrency = _get_llm_concurrency()
+            logger.info("Pass 2: augmenting %d files (concurrency=%d)...", len(to_augment_files), concurrency)
+
+            if concurrency <= 1:
+                # Sequential (default)
+                for node in to_augment_files:
+                    if progress_callback:
+                        progress_callback("augment_files", done, total_work)
+
+                    item_start = time.monotonic()
+                    entry = self.augment_file(node, edges, nodes_by_id, file_hashes)
+                    item_elapsed = time.monotonic() - item_start
+                    if entry:
+                        augmented[entry.node_id] = entry
+                        if entry.model.startswith("synthetic:"):
+                            result.synthetic += 1
+                        else:
+                            result.augmented += 1
+                    else:
+                        result.failed += 1
+                    done += 1
+
+                    if done % 25 == 0:
+                        elapsed = time.monotonic() - pass_start
+                        avg = elapsed / done if done else 0
+                        eta = avg * (total_work - done)
+                        logger.info(
+                            "Augmentation progress: %d/%d (%.0f%%) — avg %.1fs/item, ETA %.0fs",
+                            done, total_work, done / total_work * 100, avg, eta,
+                        )
             else:
-                result.failed += 1
-            done += 1
-
-            if done % 25 == 0:
-                elapsed = time.monotonic() - pass_start
-                avg = elapsed / done if done else 0
-                eta = avg * (total_work - done)
-                logger.info(
-                    "Augmentation progress: %d/%d (%.0f%%) — avg %.1fs/item, ETA %.0fs",
-                    done, total_work, done / total_work * 100, avg, eta,
-                )
+                # Concurrent LLM calls via thread pool
+                lock = threading.Lock()
+                with ThreadPoolExecutor(max_workers=concurrency) as pool:
+                    futures = {
+                        pool.submit(self.augment_file, node, edges, nodes_by_id, file_hashes): node
+                        for node in to_augment_files
+                    }
+                    for future in as_completed(futures):
+                        entry = future.result()
+                        with lock:
+                            if entry:
+                                augmented[entry.node_id] = entry
+                                if entry.model.startswith("synthetic:"):
+                                    result.synthetic += 1
+                                else:
+                                    result.augmented += 1
+                            else:
+                                result.failed += 1
+                            done += 1
+                            if progress_callback:
+                                progress_callback("augment_files", done, total_work)
+                            if done % 25 == 0:
+                                elapsed = time.monotonic() - pass_start
+                                avg = elapsed / done if done else 0
+                                eta = avg * (total_work - done)
+                                logger.info(
+                                    "Augmentation progress: %d/%d (%.0f%%) — avg %.1fs/item, ETA %.0fs",
+                                    done, total_work, done / total_work * 100, avg, eta,
+                                )
 
         result.skipped = result.total_nodes - total_work
 

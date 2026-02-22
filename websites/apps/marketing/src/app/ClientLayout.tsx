@@ -15,7 +15,7 @@ const navLinks = [
   { label: 'Download', href: '/download' },
   { label: 'Docs', href: DOCS_URL },
   { label: 'Pricing', href: '/pricing' },
-  { label: 'Support', href: SUPPORT_URL },
+  { label: 'FAQ', href: '/faq' },
 ];
 
 const footerSections = [
@@ -25,24 +25,14 @@ const footerSections = [
       { label: 'Download', href: '/download' },
       { label: 'Pricing', href: '/pricing' },
       { label: 'Changelog', href: '/changelog' },
-      { label: 'Docs', href: DOCS_URL },
-    ],
-  },
-  {
-    title: 'Resources',
-    links: [
-      { label: 'Blog', href: '/blog' },
-      { label: 'Community', href: '/community' },
-      { label: 'Help Center', href: SUPPORT_URL },
+      { label: 'Documentation', href: DOCS_URL },
     ],
   },
   {
     title: 'Company',
     links: [
-      { label: 'About', href: '/about' },
-      { label: 'Careers', href: '/careers' },
-      { label: 'Contact', href: '/contact' },
-      { label: 'Security', href: '/security' },
+      { label: 'FAQ', href: '/faq' },
+      { label: 'Support', href: SUPPORT_URL },
     ],
   },
 ];
@@ -52,11 +42,12 @@ export function ClientLayout({ children }: { children: ReactNode }) {
     <>
       <SiteHeader 
         productName="CoDRAG" 
+        logo={<img src="/codrag-logo.png" alt="CoDRAG" style={{ width: '3rem', height: '3rem' }} className="rounded" />}
         links={navLinks} 
         actions={
           <a 
             href="/download" 
-            className="px-4 py-2 bg-primary text-white rounded-md text-sm font-medium hover:bg-primary-hover transition-colors shadow-sm"
+            className="px-4 py-2 bg-primary text-background rounded-md text-sm font-medium hover:bg-primary-hover transition-colors shadow-sm"
           >
             Get Started
           </a>
@@ -67,12 +58,14 @@ export function ClientLayout({ children }: { children: ReactNode }) {
       </main>
       <SiteFooter 
         productName="CoDRAG"
+        logo={<img src="/codrag-logo.png" alt="CoDRAG" style={{ width: '2.5rem', height: '2.5rem' }} className="rounded" />}
         sections={footerSections}
         socials={{
           twitter: 'https://twitter.com/codrag_io',
           github: 'https://github.com/EricBintner/CoDRAG',
           email: 'hello@codrag.io'
         }}
+        copyright="© 2026 Magnetic Anomaly llc. All rights reserved."
       />
       <DevToolbar />
     </>

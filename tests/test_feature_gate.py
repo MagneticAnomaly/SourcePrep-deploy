@@ -40,7 +40,7 @@ def _clear_cache():
 
 class TestTierHierarchy:
     def test_tier_ordering(self):
-        assert Tier.FREE < Tier.STARTER < Tier.PRO < Tier.TEAM < Tier.ENTERPRISE
+        assert Tier.FREE < Tier.MONTHLY < Tier.PERPETUAL < Tier.TEAM < Tier.ENTERPRISE
 
     def test_free_is_zero(self):
         assert int(Tier.FREE) == 0
@@ -53,15 +53,15 @@ class TestLicenseFromEnv:
         assert lic.tier == Tier.FREE
         assert lic.valid is True
 
-    def test_env_starter(self):
-        os.environ["CODRAG_TIER"] = "starter"
+    def test_env_monthly(self):
+        os.environ["CODRAG_TIER"] = "monthly"
         lic = get_license()
-        assert lic.tier == Tier.STARTER
+        assert lic.tier == Tier.MONTHLY
 
-    def test_env_pro(self):
-        os.environ["CODRAG_TIER"] = "pro"
+    def test_env_perpetual(self):
+        os.environ["CODRAG_TIER"] = "perpetual"
         lic = get_license()
-        assert lic.tier == Tier.PRO
+        assert lic.tier == Tier.PERPETUAL
 
     def test_env_team(self):
         os.environ["CODRAG_TIER"] = "team"
@@ -89,8 +89,8 @@ class TestFeatureChecks:
         os.environ["CODRAG_TIER"] = "free"
         assert check_feature("auto_rebuild") is False
 
-    def test_starter_can_auto_rebuild(self):
-        os.environ["CODRAG_TIER"] = "starter"
+    def test_monthly_can_auto_rebuild(self):
+        os.environ["CODRAG_TIER"] = "monthly"
         assert check_feature("auto_rebuild") is True
 
     def test_free_can_trace_index(self):
@@ -101,13 +101,13 @@ class TestFeatureChecks:
         os.environ["CODRAG_TIER"] = "free"
         assert check_feature("trace_search") is True
 
-    def test_free_cannot_clara(self):
+    def test_free_cannot_compress(self):
         os.environ["CODRAG_TIER"] = "free"
-        assert check_feature("clara_compression") is False
+        assert check_feature("context_compression") is False
 
-    def test_pro_can_clara(self):
-        os.environ["CODRAG_TIER"] = "pro"
-        assert check_feature("clara_compression") is True
+    def test_monthly_can_compress(self):
+        os.environ["CODRAG_TIER"] = "monthly"
+        assert check_feature("context_compression") is True
 
     def test_free_can_mcp_tools(self):
         os.environ["CODRAG_TIER"] = "free"
@@ -117,8 +117,8 @@ class TestFeatureChecks:
         os.environ["CODRAG_TIER"] = "free"
         assert check_feature("mcp_trace_expand") is False
 
-    def test_pro_can_mcp_trace_expand(self):
-        os.environ["CODRAG_TIER"] = "pro"
+    def test_monthly_can_mcp_trace_expand(self):
+        os.environ["CODRAG_TIER"] = "monthly"
         assert check_feature("mcp_trace_expand") is True
 
     def test_unknown_feature_allowed(self):
@@ -129,8 +129,8 @@ class TestFeatureChecks:
         os.environ["CODRAG_TIER"] = "free"
         assert check_feature("auto_trace") is False
 
-    def test_starter_can_auto_trace(self):
-        os.environ["CODRAG_TIER"] = "starter"
+    def test_monthly_can_auto_trace(self):
+        os.environ["CODRAG_TIER"] = "monthly"
         assert check_feature("auto_trace") is True
 
 
@@ -139,12 +139,12 @@ class TestProjectLimits:
         os.environ["CODRAG_TIER"] = "free"
         assert get_feature_limit("projects_max") == 1
 
-    def test_starter_limit_is_999(self):
-        os.environ["CODRAG_TIER"] = "starter"
+    def test_monthly_limit_is_999(self):
+        os.environ["CODRAG_TIER"] = "monthly"
         assert get_feature_limit("projects_max") == 999
 
-    def test_pro_limit_is_999(self):
-        os.environ["CODRAG_TIER"] = "pro"
+    def test_perpetual_limit_is_999(self):
+        os.environ["CODRAG_TIER"] = "perpetual"
         assert get_feature_limit("projects_max") == 999
 
     def test_team_limit_is_999(self):
@@ -154,7 +154,7 @@ class TestProjectLimits:
 
 class TestRequireFeature:
     def test_require_allowed_feature_passes(self):
-        os.environ["CODRAG_TIER"] = "pro"
+        os.environ["CODRAG_TIER"] = "monthly"
         require_feature("auto_rebuild")  # Should not raise
 
     def test_require_gated_feature_raises(self):
@@ -163,21 +163,21 @@ class TestRequireFeature:
             require_feature("auto_rebuild")
         assert exc_info.value.feature == "auto_rebuild"
         assert exc_info.value.current_tier == "free"
-        assert exc_info.value.required_tier == "pro"
+        assert exc_info.value.required_tier == "monthly"
         assert "codrag.io/pricing" in str(exc_info.value)
 
-    def test_require_clara_as_free_raises(self):
+    def test_require_compression_as_free_raises(self):
         os.environ["CODRAG_TIER"] = "free"
         with pytest.raises(FeatureGateError) as exc_info:
-            require_feature("clara_compression")
-        assert exc_info.value.required_tier == "pro"
+            require_feature("context_compression")
+        assert exc_info.value.required_tier == "monthly"
 
 
 class TestLicenseToDict:
     def test_to_dict_structure(self):
-        lic = License(tier=Tier.PRO, email="test@example.com")
+        lic = License(tier=Tier.PERPETUAL, email="test@example.com")
         d = lic.to_dict()
-        assert d["tier"] == "pro"
+        assert d["tier"] == "perpetual"
         assert d["valid"] is True
         assert d["email"] == "test@example.com"
         assert d["seats"] == 1
@@ -207,8 +207,8 @@ class TestLicenseEndpoint:
         assert data["features"]["trace_index"] is True
         assert data["features"]["projects_max"] == 1
 
-    def test_license_endpoint_pro(self):
-        os.environ["CODRAG_TIER"] = "pro"
+    def test_license_endpoint_perpetual(self):
+        os.environ["CODRAG_TIER"] = "perpetual"
         from codrag.server import app
         from starlette.testclient import TestClient
 
@@ -216,14 +216,14 @@ class TestLicenseEndpoint:
         res = client.get("/license")
         assert res.status_code == 200
         data = res.json()["data"]
-        assert data["license"]["tier"] == "pro"
+        assert data["license"]["tier"] == "perpetual"
         assert data["features"]["auto_rebuild"] is True
-        assert data["features"]["clara_compression"] is True
+        assert data["features"]["context_compression"] is True
         assert data["features"]["projects_max"] == 999
 
 
 class TestWatcherGate:
-    """Test that the watcher endpoint is gated behind STARTER+ tier."""
+    """Test that the watcher endpoint is gated behind MONTHLY+ tier."""
 
     def test_free_cannot_start_watch(self):
         os.environ["CODRAG_TIER"] = "free"
@@ -231,8 +231,8 @@ class TestWatcherGate:
         from starlette.testclient import TestClient
 
         client = TestClient(app)
-        # Need a project first — create one at PRO tier, then downgrade
-        os.environ["CODRAG_TIER"] = "pro"
+        # Need a project first — create one at PERPETUAL tier, then downgrade
+        os.environ["CODRAG_TIER"] = "perpetual"
         clear_license_cache()
         import tempfile, json
         with tempfile.TemporaryDirectory() as tmp:
@@ -250,30 +250,30 @@ class TestWatcherGate:
             assert "auto_rebuild" in res.json()["error"]["details"]["feature"]
 
             # Cleanup
-            os.environ["CODRAG_TIER"] = "pro"
+            os.environ["CODRAG_TIER"] = "perpetual"
             clear_license_cache()
             client.delete(f"/projects/{pid}")
 
 
-class TestClaraGate:
-    """Test that CLaRa compression is gated behind PRO tier."""
+class TestCompressionGate:
+    """Test that context compression is gated behind MONTHLY+ tier."""
 
-    def test_free_clara_compression_returns_403(self):
+    def test_free_compression_returns_403(self):
         os.environ["CODRAG_TIER"] = "free"
-        assert check_feature("clara_compression") is False
+        assert check_feature("context_compression") is False
 
-    def test_pro_clara_compression_allowed(self):
-        os.environ["CODRAG_TIER"] = "pro"
-        assert check_feature("clara_compression") is True
+    def test_monthly_compression_allowed(self):
+        os.environ["CODRAG_TIER"] = "monthly"
+        assert check_feature("context_compression") is True
 
 
 class TestTraceExpandGate:
-    """Test that trace_expand is gated behind PRO tier."""
+    """Test that trace_expand is gated behind MONTHLY+ tier."""
 
     def test_free_trace_expand_returns_403(self):
         os.environ["CODRAG_TIER"] = "free"
         assert check_feature("mcp_trace_expand") is False
 
-    def test_pro_trace_expand_allowed(self):
-        os.environ["CODRAG_TIER"] = "pro"
+    def test_monthly_trace_expand_allowed(self):
+        os.environ["CODRAG_TIER"] = "monthly"
         assert check_feature("mcp_trace_expand") is True

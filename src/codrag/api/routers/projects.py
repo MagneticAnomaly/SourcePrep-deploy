@@ -37,10 +37,6 @@ CoDRAG Projects Router — Phase 23 Sprint 15
     - POST /projects/{id}/search
     - POST /projects/{id}/context
 
-  Deprecated Legacy:
-    - POST /api/code-index/context
-    - POST /api/code-index/chunk
-
 **Shared state accessed (from server.py):**
   - ``_require_project``          — project lookup
   - ``_get_registry``             — project registry singleton
@@ -81,8 +77,9 @@ from __future__ import annotations
 
 import fnmatch
 import logging
+import re as _re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from fastapi import APIRouter, Query, Response
 from fastapi.responses import JSONResponse
@@ -102,9 +99,67 @@ from codrag.core.repo_policy import (
 from codrag.core.repo_profile import scan_for_presets, STACK_PRESETS
 
 from codrag.core.watcher import AutoRebuildWatcher
-from codrag.core import ClaraCompressor, NoopCompressor
+from codrag.core import LinguaCompressor, NoopCompressor
 
 logger = logging.getLogger(__name__)
+
+# ── Phase 34e F: Query preprocessing ─────────────────────────────
+# Lightweight cleanup for better embedding similarity without
+# destroying semantic content.
+
+# F2: Conversational filler prefixes to strip
+_FILLER_PREFIXES = _re.compile(
+    r"^(?:"
+    r"(?:please|pls|plz)\s+|"
+    r"can you\s+|could you\s+|would you\s+|"
+    r"i (?:want|need|would like) (?:you )?to\s+|"
+    r"help me\s+|"
+    r"i'm (?:trying|looking|wanting) to\s+|"
+    r"show me\s+|"
+    r"let's\s+|"
+    r"go ahead and\s+|"
+    r"i'd like (?:you )?to\s+"
+    r")+",
+    _re.IGNORECASE,
+)
+
+# F3: Code entity patterns to preserve (not stripped)
+_CODE_ENTITY = _re.compile(
+    r"[a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)+|"   # dotted names: os.path.join
+    r"[a-z]+(?:[A-Z][a-z]+)+|"             # camelCase: getUserName
+    r"[A-Z][a-z]+(?:[A-Z][a-z]+)+|"        # PascalCase: UserManager
+    r"[a-zA-Z_]+(?:_[a-zA-Z_]+)+|"         # snake_case: get_user_name
+    r"[\w./\\]+\.\w{1,5}"                  # file paths: src/utils.py
+)
+
+_MAX_QUERY_CHARS = 300  # F1: Truncation limit
+
+
+def _preprocess_query(query: str) -> str:
+    """Phase 34e F: Lightweight query preprocessing for better retrieval.
+
+    F1: Truncate to 300 chars (embedding models plateau on long queries).
+    F2: Strip conversational filler prefixes.
+    F3: Preserve code entities (camelCase, snake_case, dotted names, paths).
+    """
+    q = query.strip()
+    if not q:
+        return q
+
+    # F2: Strip conversational filler from the start
+    q = _FILLER_PREFIXES.sub("", q).strip()
+
+    # F1: Truncate — break at last word boundary before limit
+    if len(q) > _MAX_QUERY_CHARS:
+        cut = q[:_MAX_QUERY_CHARS]
+        last_space = cut.rfind(" ")
+        if last_space > _MAX_QUERY_CHARS // 2:
+            q = cut[:last_space]
+        else:
+            q = cut
+
+    return q
+
 
 router = APIRouter(tags=["projects"])
 
@@ -144,22 +199,29 @@ class SearchRequest(BaseModel):
     query: str
     k: int = 8
     min_score: float = 0.15
+    score_drop_ratio: float = 0.4
+    mmr_lambda: float = 0.7
+    exclude_paths: List[str] = []
 
 
 class ContextRequest(BaseModel):
-    query: str
+    query: str = ""  # Phase 34 C4: optional — empty triggers ambient context mode
     k: int = 5
-    max_chars: int = 6000
+    max_chars: int = 12000  # Phase 34c E2: increased from 6000 — LOD compression means more files fit
     include_sources: bool = True
     include_scores: bool = False
     min_score: float = 0.15
+    score_drop_ratio: float = 0.4
+    mmr_lambda: float = 0.7
+    exclude_paths: List[str] = []
     structured: bool = False
-    trace_expand: bool = False  # Follow trace edges to include structurally related code
-    trace_max_chars: int = 2000  # Budget for trace-expanded chunks
-    compression: str = "none"  # "none" | "clara"
+    trace_expand: bool = True  # Follow trace edges to include structurally related code (Phase 34: on by default)
+    trace_max_chars: int = 4000  # Phase 34c B2: increased from 2000 — trace neighbors are LOD-compressed
+    compression: str = "none"  # "none" | "lingua" | "lod"
     compression_level: str = "standard"  # "light" | "standard" | "aggressive"
     compression_target_chars: Optional[int] = None
     compression_timeout_s: float = 30.0
+    include_atlas: bool = False  # Explicit opt-in: prepend atlas text to context. Routing (Phase 29B) handles segment selection automatically; atlas text is primarily accessed via the codrag_atlas tool.
 
 
 class ChunkRequest(BaseModel):
@@ -182,6 +244,9 @@ class UpdateProjectRequest(BaseModel):
 class PathWeightsRequest(BaseModel):
     path_weights: Dict[str, float]
 
+
+class IncludedPathsRequest(BaseModel):
+    included_paths: List[str]
 
 
 class DetectStackResponse(BaseModel):
@@ -264,8 +329,8 @@ def add_project(req: AddProjectRequest) -> Dict[str, Any]:
 
     # Determine defaults based on tier
     lic = get_license()
-    # Auto-rebuild is enabled by default for Starter tier and above
-    auto_rebuild_default = lic.tier >= 1  # Tier.STARTER = 1
+    # Auto-rebuild is enabled by default for Monthly tier and above
+    auto_rebuild_default = lic.tier >= 1  # Tier.MONTHLY = 1
 
     reg = _srv()._get_registry()
     default_cfg: Dict[str, Any] = {
@@ -391,6 +456,37 @@ def _persist_path_weights(proj: Project, raw_weights: Dict[str, float]) -> Proje
     return updated
 
 
+# ── Included Paths (Knowledge Scope) ─────────────────────────
+
+@router.put("/projects/{project_id}/included_paths")
+def update_included_paths(project_id: str, req: IncludedPathsRequest) -> Dict[str, Any]:
+    proj = _srv()._require_project(project_id)
+    updated = _persist_included_paths(proj, req.included_paths)
+    return ok({
+        "project": _srv()._project_to_dict(updated),
+        "included_paths": updated.config.get("included_paths", []),
+    })
+
+
+@router.get("/projects/{project_id}/included_paths")
+def get_included_paths(project_id: str) -> Dict[str, Any]:
+    proj = _srv()._require_project(project_id)
+    paths = proj.config.get("included_paths", [])
+    return ok({"included_paths": paths})
+
+
+def _persist_included_paths(proj, paths: List[str]):
+    """Persist included_paths to project config in SQLite."""
+    # Deduplicate and sort for deterministic storage
+    normalized = sorted(set(str(p) for p in paths if p))
+
+    reg = _srv()._get_registry()
+    new_config = dict(proj.config)
+    new_config["included_paths"] = normalized
+    updated = reg.update_project(proj.id, config=new_config)
+    return updated
+
+
 @router.delete("/projects/{project_id}")
 def delete_project(project_id: str, purge: bool = False) -> Dict[str, Any]:
     reg = _srv()._get_registry()
@@ -485,8 +581,9 @@ def start_project_watch(
         exclude_globs = list(exclude_raw) if isinstance(exclude_raw, list) else None
         max_file_bytes = int((cfg.get("max_file_bytes") or 500_000) if isinstance(cfg, dict) else 500_000)
         hard_limit_bytes = int((cfg.get("hard_limit_bytes") or 100_000_000) if isinstance(cfg, dict) else 100_000_000)
+        included_paths = cfg.get("included_paths") if isinstance(cfg, dict) else None
 
-        started = _srv()._start_project_build(proj, None, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes)
+        started = _srv()._start_project_build(proj, None, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes, included_paths=included_paths)
 
         # Phase 24: If auto_fast_sync is gated and allowed, trigger
         # the pipeline orchestrator for trace stages instead of raw build.
@@ -651,6 +748,17 @@ def get_project_file_content(project_id: str, path: str = Query(..., min_length=
         )
 
     abs_path = (repo_root / rel_path).resolve()
+    # SECURITY: Prevent Path Traversal by ensuring the resolved absolute path starts with the resolved repo_root
+    try:
+        abs_path.relative_to(repo_root)
+    except ValueError:
+        raise ApiException(
+            status_code=400,
+            code="INVALID_PATH",
+            message="Invalid file path",
+            hint="Provide a repo-root-relative path.",
+        )
+
     if not abs_path.is_relative_to(repo_root):
         raise ApiException(
             status_code=400,
@@ -876,8 +984,10 @@ def build_project(project_id: str, full: bool = False, req: Optional[BuildReques
         if "**/.codrag/**" not in exclude_globs:
             exclude_globs.append("**/.codrag/**")
 
-    # Extract included_paths from request body (file tree selections)
-    included_paths = req.included_paths if req else None
+    # Extract included_paths from request body, falling back to project config
+    included_paths = req.included_paths if req and req.included_paths else None
+    if not included_paths:
+        included_paths = cfg.get("included_paths") if isinstance(cfg, dict) else None
     logger.info("build_project: req=%s, included_paths count=%s", req, len(included_paths) if included_paths else None)
 
     started = _srv()._start_project_build(
@@ -912,7 +1022,11 @@ def search_project(project_id: str, req: SearchRequest) -> Dict[str, Any]:
             hint="Run a build first.",
         )
 
-    results = idx.search(req.query, k=req.k, min_score=req.min_score)
+    results = idx.search(
+        req.query, k=req.k, min_score=req.min_score,
+        score_drop_ratio=req.score_drop_ratio, mmr_lambda=req.mmr_lambda,
+        exclude_paths=req.exclude_paths or None,
+    )
     out: List[Dict[str, Any]] = []
     for r in results:
         d = r.doc
@@ -932,11 +1046,231 @@ def search_project(project_id: str, req: SearchRequest) -> Dict[str, Any]:
     return ok({"results": out})
 
 
+def _prepend_atlas(
+    context_str: str,
+    project_id: str,
+    file_count: int,
+    source_paths: Optional[List[str]] = None,
+) -> tuple:
+    """Prepend the Codebase Atlas to context if available.
+
+    If segmented atlases exist and source_paths are provided, injects
+    root atlas + relevant segment atlases. Otherwise falls back to the
+    single atlas.
+
+    Returns (new_context_str, atlas_meta_dict_or_None, atlas_chars_used).
+    """
+    from codrag.core.atlas import CodebaseAtlas, compute_atlas_budget
+    from codrag.core.project_registry import project_index_dir
+    from codrag.services.project_helpers import require_project
+
+    budget = compute_atlas_budget(file_count)
+    if budget <= 0:
+        return context_str, None, 0
+
+    try:
+        project = require_project(project_id)
+        idx_dir = project_index_dir(project)
+        atlas = CodebaseAtlas(idx_dir)
+        doc = atlas.load()
+    except Exception:
+        return context_str, None, 0
+
+    if doc is None or not doc.content:
+        return context_str, None, 0
+
+    # Try segmented atlas: root + relevant segments
+    segments_used: List[str] = []
+    if source_paths and atlas.has_segments():
+        seg_docs = atlas.select_segments(source_paths, max_segments=2)
+        if seg_docs:
+            # Build: root atlas (truncated to fit) + segment atlases
+            root_budget = min(len(doc.content), budget // 2)
+            remaining = budget - root_budget
+            blocks: List[str] = [f"[ATLAS | Codebase Map]\n{doc.content[:root_budget]}"]
+
+            for seg_doc in seg_docs:
+                seg_budget = min(len(seg_doc.content), remaining)
+                if seg_budget < 100:
+                    break
+                blocks.append(f"[ATLAS | {seg_doc.segment_name}]\n{seg_doc.content[:seg_budget]}")
+                remaining -= seg_budget
+                segments_used.append(seg_doc.segment_id)
+
+            atlas_block = "\n\n".join(blocks)
+            atlas_chars = len(atlas_block)
+
+            if context_str:
+                new_context = atlas_block + "\n\n---\n\n" + context_str
+            else:
+                new_context = atlas_block
+
+            atlas_meta = {
+                "included": True,
+                "chars": atlas_chars,
+                "mode": doc.mode,
+                "generated_at": doc.generated_at,
+                "stale": False,
+                "segmented": True,
+                "segments": segments_used,
+            }
+            return new_context, atlas_meta, atlas_chars
+
+    # Fallback: single atlas (no segments or no source_paths)
+    atlas_text = doc.content[:budget]
+    atlas_block = f"[ATLAS | Codebase Map]\n{atlas_text}"
+    atlas_chars = len(atlas_block)
+
+    if context_str:
+        new_context = atlas_block + "\n\n---\n\n" + context_str
+    else:
+        new_context = atlas_block
+
+    atlas_meta = {
+        "included": True,
+        "chars": atlas_chars,
+        "mode": doc.mode,
+        "generated_at": doc.generated_at,
+        "stale": False,
+        "segmented": False,
+    }
+
+    return new_context, atlas_meta, atlas_chars
+
+
+def _load_trace_nodes_for_project(proj: Any) -> List[Dict[str, Any]]:
+    """Load trace_nodes.jsonl for a project. Returns empty list on any error."""
+    import json
+    try:
+        from codrag.core.project_registry import project_index_dir
+        idx_dir = project_index_dir(proj)
+        nodes_path = idx_dir / "trace_nodes.jsonl"
+        if not nodes_path.exists():
+            return []
+        nodes: List[Dict[str, Any]] = []
+        with open(nodes_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    nodes.append(json.loads(line))
+        return nodes
+    except Exception as e:
+        logger.debug("Could not load trace_nodes for LOD: %s", e)
+        return []
+
+
+def _apply_lod_compression(
+    chunks: List[Dict[str, Any]],
+    proj: Any,
+    query: str,
+    max_chars: int,
+) -> Dict[str, Any]:
+    """Apply LOD-based structural compression to structured search results.
+
+    Each chunk's content is replaced by its file's LOD-extracted skeleton.
+    The LOD level is assigned per chunk based on its search score.
+    Files are deduplicated — each file appears once at its highest-fidelity LOD.
+    """
+    from codrag.core.lod_extractor import LODExtractor, assign_lod
+
+    repo_root = Path(proj.path) if proj.path else Path(".")
+    trace_nodes = _load_trace_nodes_for_project(proj)
+    extractor = LODExtractor()
+    augmented: Dict[str, Any] = {}
+    try:
+        from codrag.core.project_registry import project_index_dir
+        extractor = LODExtractor(index_dir=project_index_dir(proj))
+        augmented = extractor.load_augmented_data()
+    except Exception:
+        pass
+
+    # Deduplicate: each file gets the LOD of its highest-scoring chunk
+    file_lod: Dict[str, int] = {}  # source_path -> LOD
+    file_score: Dict[str, float] = {}
+    for ch in chunks:
+        sp = ch.get("source_path") or ch.get("text", "")
+        if not sp:
+            continue
+        score = float(ch.get("score", 0.0))
+        is_expanded = bool(ch.get("trace_expanded", False))
+        lod = assign_lod(score, is_trace_expanded=is_expanded)
+        if sp not in file_score or score > file_score[sp]:
+            file_score[sp] = score
+            file_lod[sp] = lod
+
+    parts: List[str] = []
+    new_chunks: List[Dict[str, Any]] = []
+    lod_distribution: Dict[str, int] = {}
+    seen_paths: set = set()
+    total = 0
+
+    for ch in chunks:
+        sp = ch.get("source_path") or ""
+        if not sp or sp in seen_paths:
+            continue
+        seen_paths.add(sp)
+
+        lod = file_lod.get(sp, 0)
+        result = extractor.extract(sp, lod, trace_nodes, repo_root, augmented_data=augmented)
+        content = result.content
+        if not content:
+            continue
+
+        lod_key = str(result.lod)
+        lod_distribution[lod_key] = lod_distribution.get(lod_key, 0) + 1
+
+        section = ch.get("section") or ""
+        header_bits = []
+        if section:
+            header_bits.append(section)
+        header_bits.append(f"@{sp}")
+        if result.lod > 0:
+            header_bits.append(f"lod={result.lod}")
+        header = " | ".join(header_bits)
+
+        sep = "\n\n---\n\n" if parts else ""
+        remaining = max_chars - total
+        if remaining <= 0:
+            break
+        block = f"[{header}]\n{content}"
+        if total + len(sep) + len(block) > max_chars:
+            allowed = remaining - len(sep) - len(f"[{header}]\n")
+            if allowed > 200:
+                block = f"[{header}]\n{content[:allowed]}..."
+            else:
+                break
+
+        parts.append(sep + block)
+        total += len(sep) + len(block)
+        new_chunks.append({
+            "source_path": sp,
+            "section": section,
+            "score": file_score.get(sp, 0.0),
+            "lod": result.lod,
+            "compression_ratio": round(result.compression_ratio, 2),
+            "truncated": block.endswith("..."),
+        })
+
+    context_str = "".join(parts)
+    return {
+        "context": context_str,
+        "chunks": new_chunks,
+        "total_chars": len(context_str),
+        "estimated_tokens": len(context_str) // 4,
+        "compression": {
+            "enabled": True,
+            "mode": "lod",
+            "input_chars": sum(len(ch.get("text", "") or "") for ch in chunks),
+            "output_chars": len(context_str),
+            "lod_distribution": lod_distribution,
+        },
+    }
+
+
 def _get_compressor(compression: str) -> "ContextCompressor":
     """Get the appropriate compressor based on the compression parameter."""
-    if compression == "clara":
-        clara_url = str(_srv()._config.get("clara_url", ClaraCompressor.DEFAULT_URL))
-        return ClaraCompressor(base_url=clara_url)
+    if compression in ("lingua", "auto"):
+        return LinguaCompressor()
     return NoopCompressor()
 
 
@@ -948,8 +1282,6 @@ def _apply_compression(
     if req.compression == "none":
         return {"context": context_str, "compression": None}
 
-    if req.compression == "clara":
-        require_feature("clara_compression")
 
     compressor = _get_compressor(req.compression)
     budget = req.compression_target_chars or req.max_chars
@@ -977,11 +1309,244 @@ def _apply_compression(
     return {"context": result.compressed, "compression": compression_meta}
 
 
+def _assemble_ambient_context(
+    proj,
+    project_id: str,
+    idx,
+    trace_idx,
+    included_paths: List[str],
+    max_chars: int = 6000,
+) -> Dict[str, Any]:
+    """Assemble context from project state without a query (Phase 34 C1/C2/C3).
+
+    Uses included_paths + trace graph hubs + module data to build structural
+    context that answers "what's in my focus area and how does it connect?"
+    """
+    from codrag.core.project_registry import project_index_dir
+
+    parts: List[str] = []
+    chunks: List[Dict[str, Any]] = []
+    total_chars = 0
+
+    idx_dir = project_index_dir(proj)
+
+    # ── C2: Module-aware header ──────────────────────────────────
+    # Load modules and find which ones overlap with included_paths
+    modules_path = idx_dir / "trace_modules.jsonl"
+    scope_modules: List[Dict[str, Any]] = []
+    if modules_path.exists():
+        try:
+            import json as _json
+            with open(modules_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        m = _json.loads(line)
+                        member_files = m.get("member_files", [])
+                        # Check if any member file falls under included_paths
+                        for ip in included_paths:
+                            prefix = ip.rstrip("/") + "/"
+                            if any(mf == ip or mf.startswith(prefix) for mf in member_files):
+                                scope_modules.append(m)
+                                break
+                    except _json.JSONDecodeError:
+                        continue
+        except OSError:
+            pass
+
+    if scope_modules:
+        mod_header = "## Modules in scope\n"
+        for m in sorted(scope_modules, key=lambda x: -x.get("file_count", 0)):
+            name = m.get("name", m.get("module_id", "?"))
+            summary = m.get("summary", "")
+            fc = m.get("file_count", 0)
+            tags = ", ".join(m.get("domain_tags", [])[:5])
+            deps = ", ".join(m.get("dependencies", [])[:3])
+            line = f"- **{name}** ({fc} files)"
+            if summary:
+                line += f": {summary}"
+            if tags:
+                line += f" [{tags}]"
+            if deps:
+                line += f" → {deps}"
+            mod_header += line + "\n"
+        parts.append(mod_header.strip())
+        total_chars += len(parts[-1])
+
+    # ── C1: Hub-file extraction ──────────────────────────────────
+    hub_files: List[Tuple[str, int]] = []
+    if trace_idx is not None and trace_idx.is_loaded():
+        scope_set = set(included_paths) if included_paths else None
+        hub_files = trace_idx.get_hub_files(scope_paths=scope_set, k=8)
+
+    # Fall back to included_paths as-is if no trace or no hubs found
+    if not hub_files and included_paths:
+        # Use included_paths directly — pick files from the index
+        indexed_docs = getattr(idx, '_documents', None) or []
+        for ip in included_paths:
+            prefix = ip.rstrip("/") + "/"
+            for d in indexed_docs:
+                sp = str(d.get("source_path") or "")
+                if sp == ip or sp.startswith(prefix):
+                    hub_files.append((sp, 0))
+                    if len(hub_files) >= 8:
+                        break
+            if len(hub_files) >= 8:
+                break
+
+    if not hub_files:
+        # No scope at all — fall back to global hubs from trace
+        if trace_idx is not None and trace_idx.is_loaded():
+            hub_files = trace_idx.get_hub_files(k=8)
+
+    # ── C3: LOD-stratified assembly ──────────────────────────────
+    # Hub files get full content (LOD 0), their neighbors get signatures
+    indexed_docs = getattr(idx, '_documents', None) or []
+    doc_by_path: Dict[str, List[Dict[str, Any]]] = {}
+    for d in indexed_docs:
+        sp = str(d.get("source_path") or "")
+        if sp:
+            doc_by_path.setdefault(sp, []).append(d)
+
+    # Collect neighbor files via trace
+    neighbor_files: Set[str] = set()
+    hub_paths = {fp for fp, _ in hub_files}
+    if trace_idx is not None and trace_idx.is_loaded():
+        for fp, _ in hub_files[:5]:  # Only expand top-5 hubs to limit volume
+            from codrag.core.ids import stable_file_node_id
+            file_node_id = stable_file_node_id(fp)
+            try:
+                neighbors = trace_idx.get_neighbors(file_node_id, direction="both", max_nodes=10)
+                for node in neighbors.get("in_nodes", []) + neighbors.get("out_nodes", []):
+                    nfp = node.get("file_path")
+                    if nfp and nfp not in hub_paths:
+                        neighbor_files.add(nfp)
+            except Exception:
+                pass
+
+    # Assemble hub file content (LOD 0 — full source, budget-aware)
+    chars_budget = max_chars - total_chars
+    hub_budget = int(chars_budget * 0.7)  # 70% for hubs
+    neighbor_budget = int(chars_budget * 0.3)  # 30% for neighbors
+
+    hub_chars = 0
+    for fp, deg in hub_files:
+        if hub_chars >= hub_budget:
+            break
+        file_docs = doc_by_path.get(fp, [])
+        if not file_docs:
+            continue
+        # Pick the largest chunk for this file (most representative)
+        best_doc = max(file_docs, key=lambda d: len(str(d.get("content") or "")))
+        content = str(best_doc.get("content") or "")
+        if hub_chars + len(content) > hub_budget and hub_chars > 0:
+            continue
+        section = str(best_doc.get("section") or "")
+        header = f"[hub | in-degree:{deg} | @{fp}"
+        if section:
+            header += f" § {section}"
+        header += "]"
+        block = f"{header}\n{content}"
+        parts.append(block)
+        chunks.append({
+            "source_path": fp,
+            "section": section,
+            "score": 1.0,
+            "truncated": False,
+            "ambient_role": "hub",
+        })
+        hub_chars += len(block)
+        total_chars += len(block)
+
+    # Assemble neighbor content (LOD 2-4 — signatures/names only)
+    # Try LOD compression; fall back to truncated content
+    neighbor_chars = 0
+    lod_extractor = None
+    try:
+        from codrag.core.lod_extractor import LODExtractor
+        lod_extractor = LODExtractor(index_dir=idx_dir)
+    except Exception:
+        pass
+
+    repo_root = Path(proj.path) if proj.path else None
+
+    for nfp in sorted(neighbor_files):
+        if neighbor_chars >= neighbor_budget:
+            break
+        file_docs = doc_by_path.get(nfp, [])
+
+        # Try LOD 2 (signatures + docstrings) via LODExtractor
+        lod_content = None
+        if lod_extractor is not None and repo_root is not None:
+            try:
+                # Load trace nodes for this file
+                trace_nodes = []
+                if trace_idx is not None and trace_idx.is_loaded():
+                    from codrag.core.ids import stable_file_node_id as _sfni
+                    file_nid = _sfni(nfp)
+                    fnode = trace_idx.get_node(file_nid)
+                    if fnode:
+                        trace_nodes = [fnode]
+                    # Also get symbol nodes in this file
+                    for nid_key in list(getattr(trace_idx, '_nodes', {}).keys()):
+                        n = trace_idx.get_node(nid_key)
+                        if n and n.get("file_path") == nfp and n.get("kind") != "file":
+                            trace_nodes.append(n)
+
+                lod_result = lod_extractor.extract(nfp, lod=2, trace_nodes=trace_nodes, repo_root=repo_root)
+                if lod_result and lod_result.content and not lod_result.error:
+                    lod_content = lod_result.content
+            except Exception:
+                pass
+
+        if lod_content:
+            content = lod_content
+            lod_label = "LOD 2"
+        elif file_docs:
+            # Fall back to first 500 chars of content
+            best_doc = max(file_docs, key=lambda d: len(str(d.get("content") or "")))
+            raw = str(best_doc.get("content") or "")
+            content = raw[:500] + ("..." if len(raw) > 500 else "")
+            lod_label = "truncated"
+        else:
+            continue
+
+        if neighbor_chars + len(content) > neighbor_budget and neighbor_chars > 0:
+            continue
+
+        header = f"[neighbor | {lod_label} | @{nfp}]"
+        block = f"{header}\n{content}"
+        parts.append(block)
+        chunks.append({
+            "source_path": nfp,
+            "section": "",
+            "score": 0.5,
+            "truncated": lod_label != "LOD 2",
+            "ambient_role": "neighbor",
+        })
+        neighbor_chars += len(block)
+        total_chars += len(block)
+
+    context_str = "\n\n---\n\n".join(parts) if parts else "(No context available — select files in the dashboard or build the trace index.)"
+    total_chars = len(context_str)
+
+    return ok({
+        "context": context_str,
+        "chunks": chunks,
+        "total_chars": total_chars,
+        "estimated_tokens": total_chars // 4,
+        "ambient": True,
+        "hub_files": len(hub_files),
+        "modules_in_scope": len(scope_modules),
+        "neighbor_files": len(neighbor_files),
+    })
+
+
 @router.post("/projects/{project_id}/context")
 def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
     proj = _srv()._require_project(project_id)
-    if not req.query.strip():
-        raise ApiException(status_code=400, code="VALIDATION_ERROR", message="query is required")
 
     idx = _srv()._get_project_index(proj)
     if not idx.is_loaded():
@@ -993,20 +1558,169 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
         )
 
     # Resolve trace index for trace expansion
+    # Phase 34: trace_expand defaults to True. Gracefully degrade if
+    # the feature gate blocks it (free tier) or trace isn't available.
     trace_idx = None
     if req.trace_expand:
-        require_feature("mcp_trace_expand")
-        cfg = proj.config or {}
-        trace_cfg = cfg.get("trace") if isinstance(cfg, dict) else None
-        if bool((trace_cfg or {}).get("enabled", False)):
-            try:
-                ti = _srv()._get_project_srv()._trace_index(proj)
-                if ti.exists():
-                    if not ti.is_loaded():
-                        ti.load()
-                    trace_idx = ti
-            except Exception:
-                pass  # Graceful: fall back to non-expanded context
+        try:
+            require_feature("mcp_trace_expand")
+            cfg = proj.config or {}
+            trace_cfg = cfg.get("trace") if isinstance(cfg, dict) else None
+            if bool((trace_cfg or {}).get("enabled", False)):
+                try:
+                    ti = _srv()._get_project_srv()._trace_index(proj)
+                    if ti.exists():
+                        if not ti.is_loaded():
+                            ti.load()
+                        trace_idx = ti
+                except Exception:
+                    pass  # Graceful: fall back to non-expanded context
+        except FeatureGateError:
+            pass  # Phase 34: default-on means graceful fallback for free tier
+
+    # ── Phase 34 C4: Ambient context mode (no query) ─────────────
+    if not req.query.strip():
+        _included = (proj.config or {}).get("included_paths") or []
+        return _assemble_ambient_context(
+            proj, project_id, idx, trace_idx, _included, max_chars=req.max_chars,
+        )
+
+    # ── Phase 34e F: Query preprocessing ─────────────────────────
+    req.query = _preprocess_query(req.query)
+
+    # Resolve file count for atlas budget (from index manifest)
+    _file_count = 0
+    try:
+        _manifest = getattr(idx, '_manifest', None) or {}
+        _file_count = (_manifest.get('stats') or {}).get('files_indexed', 0)
+        if _file_count == 0:
+            _file_count = len(getattr(idx, '_documents', None) or [])
+    except Exception:
+        pass
+
+    # ── Scope boost (Phase 34) ───────────────────────────────────
+    # Load included_paths from project config and use them as a
+    # query-time scope boost.  Files under selected paths get the
+    # same +boost as atlas-routed files, ensuring the user's file
+    # tree selections influence retrieval — not just build scoping.
+    _segment_file_paths: Optional[set] = None
+    _routing_meta: Optional[Dict[str, Any]] = None
+    _scope_boosted_files: int = 0
+    try:
+        _included = (proj.config or {}).get("included_paths") or []
+        if _included:
+            _segment_file_paths = set()
+            # included_paths may be files or directories — we need to
+            # resolve them against indexed documents so directory entries
+            # expand to all files beneath them.
+            _indexed_paths = set()
+            for d in (getattr(idx, '_documents', None) or []):
+                sp = d.get("source_path")
+                if sp:
+                    _indexed_paths.add(str(sp))
+            for ip in _included:
+                ip_str = str(ip)
+                if ip_str in _indexed_paths:
+                    _segment_file_paths.add(ip_str)
+                else:
+                    # Treat as directory prefix
+                    prefix = ip_str.rstrip("/") + "/"
+                    for idxp in _indexed_paths:
+                        if idxp.startswith(prefix):
+                            _segment_file_paths.add(idxp)
+            _scope_boosted_files = len(_segment_file_paths)
+            if _scope_boosted_files:
+                _routing_meta = {
+                    "scope_boosted_files": _scope_boosted_files,
+                }
+                logger.debug("Scope boost: %d files from %d included_paths", _scope_boosted_files, len(_included))
+            else:
+                _segment_file_paths = None  # No matches — don't pollute boost set
+    except Exception as e:
+        logger.debug("Scope boost unavailable: %s", e)
+
+    # ── Atlas routing (Phase 29B) ────────────────────────────────
+    # Route query to relevant segments BEFORE search, so search()
+    # can boost files in the selected segments.
+    try:
+        from codrag.core.atlas import CodebaseAtlas, route_query, ROUTING_SEGMENT_BOOST
+        from codrag.core.project_registry import project_index_dir
+        from codrag.services.project_helpers import require_project
+        import numpy as np
+
+        _proj = require_project(project_id)
+        _idx_dir = project_index_dir(_proj)
+        _atlas = CodebaseAtlas(_idx_dir)
+
+        if _atlas.has_routing():
+            descriptors, desc_embeddings = _atlas.load_routing()
+            if descriptors and desc_embeddings is not None:
+                # Embed query using the same embedder as the index
+                _embed_fn = getattr(idx.embedder, "embed_query", idx.embedder.embed)
+                _qvec = np.array(_embed_fn(req.query).vector, dtype=np.float32)
+
+                selected = route_query(_qvec, desc_embeddings, descriptors)
+                if selected:
+                    _atlas_paths = _atlas.get_routed_file_paths(selected)
+                    if _segment_file_paths is None:
+                        _segment_file_paths = _atlas_paths
+                    else:
+                        _segment_file_paths = _segment_file_paths | _atlas_paths
+                    _routing_meta = {
+                        "routed": True,
+                        "segments": [
+                            {"id": d.segment_id, "name": d.name, "score": round(s, 3)}
+                            for d, s in selected
+                        ],
+                        "boosted_files": len(_segment_file_paths),
+                        "scope_boosted_files": _scope_boosted_files,
+                    }
+    except Exception as e:
+        logger.debug("Atlas routing unavailable: %s", e)
+
+    # ── Knowledge routing (Phase 29C) ────────────────────────────
+    # Search the KnowledgeIndex (trace-derived LLM descriptions) to
+    # identify specific files whose *enriched descriptions* match the
+    # query. These are unioned into the segment boost set, giving a
+    # two-tier precision boost:
+    #   Tier 1 (atlas)     → which subsystem?  (segment granularity)
+    #   Tier 2 (knowledge) → which exact files? (node granularity)
+    # Zero context cost — only shapes the boost set, adds no text.
+    _knowledge_boosted_files: int = 0
+    try:
+        from codrag.server import _get_project_knowledge_index
+        from codrag.services.project_helpers import require_project as _rp_know
+        _know_proj = _rp_know(project_id)
+        _know_idx = _get_project_knowledge_index(_know_proj)
+        if _know_idx.is_loaded():
+            _know_results = _know_idx.search(req.query, k=15, min_score=0.25)
+            if _know_results:
+                if _segment_file_paths is None:
+                    _segment_file_paths = set()
+                for _kr in _know_results:
+                    _src = _kr["doc"].get("source_id") or ""
+                    if _src.startswith("file:"):
+                        _segment_file_paths.add(_src[5:])
+                    elif _src.startswith("sym:"):
+                        _at = _src.find("@")
+                        if _at >= 0:
+                            _rest = _src[_at + 1:]
+                            _colon = _rest.rfind(":")
+                            _segment_file_paths.add(_rest[:_colon] if _colon > 0 else _rest)
+                _knowledge_boosted_files = len(_know_results)
+                if _routing_meta is not None:
+                    _routing_meta["knowledge_boosted_files"] = _knowledge_boosted_files
+                elif _knowledge_boosted_files:
+                    _routing_meta = {
+                        "routed": False,
+                        "knowledge_boosted_files": _knowledge_boosted_files,
+                    }
+    except Exception as e:
+        logger.debug("Knowledge routing unavailable: %s", e)
+
+    # Update boosted_files to total pool size after both routing tiers
+    if _routing_meta is not None and _segment_file_paths:
+        _routing_meta["boosted_files"] = len(_segment_file_paths)
 
     if not req.structured:
         ctx = idx.get_context(
@@ -1016,12 +1730,21 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
             include_sources=req.include_sources,
             include_scores=req.include_scores,
             min_score=req.min_score,
+            segment_file_paths=_segment_file_paths,
         )
 
         comp = _apply_compression(ctx, req)
         resp: Dict[str, Any] = {"context": comp["context"]}
         if comp["compression"] is not None:
             resp["compression"] = comp["compression"]
+        # Atlas: routing metadata (no injection) + legacy prepend fallback
+        if _routing_meta:
+            resp["atlas"] = _routing_meta
+        elif req.include_atlas:
+            new_ctx, atlas_meta, _ = _prepend_atlas(resp["context"], project_id, _file_count)
+            resp["context"] = new_ctx
+            if atlas_meta:
+                resp["atlas"] = atlas_meta
         return ok(resp)
 
     # Structured context: use trace expansion if available
@@ -1033,22 +1756,76 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
             max_chars=req.max_chars,
             min_score=req.min_score,
             max_additional_chars=req.trace_max_chars,
+            segment_file_paths=_segment_file_paths,
         )
-        context_str = str(result.get("context") or "")
-        comp = _apply_compression(context_str, req)
-        resp_data: Dict[str, Any] = {
-            "context": comp["context"],
-            "chunks": result.get("chunks", []),
-            "total_chars": len(comp["context"]),
-            "estimated_tokens": len(comp["context"]) // 4,
-            "trace_expanded": result.get("trace_expanded", False),
-            "trace_nodes_added": result.get("trace_nodes_added", 0),
-        }
-        if comp["compression"] is not None:
-            resp_data["compression"] = comp["compression"]
+        if req.compression in ("none", "lod", "auto"):
+            # Phase 34c E1: auto-LOD — structural compression is always applied
+            # in the structured+trace path. "none", "lod", and "auto" all trigger it.
+            lod_result = _apply_lod_compression(
+                result.get("chunks", []), proj, req.query, req.max_chars
+            )
+            resp_data: Dict[str, Any] = {
+                **lod_result,
+                "trace_expanded": result.get("trace_expanded", False),
+                "trace_nodes_added": result.get("trace_nodes_added", 0),
+            }
+        else:
+            # lingua — skip LOD, apply requested compression
+            context_str = str(result.get("context") or "")
+            comp = _apply_compression(context_str, req)
+            resp_data = {
+                "context": comp["context"],
+                "chunks": result.get("chunks", []),
+                "total_chars": len(comp["context"]),
+                "estimated_tokens": len(comp["context"]) // 4,
+                "trace_expanded": result.get("trace_expanded", False),
+                "trace_nodes_added": result.get("trace_nodes_added", 0),
+            }
+            if comp["compression"] is not None:
+                resp_data["compression"] = comp["compression"]
+        # Atlas: routing metadata (no injection) + legacy prepend fallback
+        if _routing_meta:
+            resp_data["atlas"] = _routing_meta
+        elif req.include_atlas:
+            new_ctx, atlas_meta, atlas_chars = _prepend_atlas(resp_data["context"], project_id, _file_count)
+            resp_data["context"] = new_ctx
+            resp_data["total_chars"] = len(new_ctx)
+            resp_data["estimated_tokens"] = len(new_ctx) // 4
+            if atlas_meta:
+                resp_data["atlas"] = atlas_meta
         return ok(resp_data)
 
-    results = idx.search(req.query, k=req.k, min_score=req.min_score)
+    results = idx.search(
+        req.query, k=req.k, min_score=req.min_score,
+        score_drop_ratio=req.score_drop_ratio, mmr_lambda=req.mmr_lambda,
+        exclude_paths=req.exclude_paths or None,
+        segment_file_paths=_segment_file_paths,
+    )
+
+    # Phase 34c E1: auto-LOD in structured path (no trace fallback)
+    if req.compression in ("none", "lod", "auto"):
+        raw_chunks = [
+            {
+                "source_path": str(r.doc.get("source_path") or ""),
+                "section": str(r.doc.get("section") or ""),
+                "score": float(r.score),
+                "text": str(r.doc.get("content") or ""),
+            }
+            for r in results
+        ]
+        lod_result = _apply_lod_compression(raw_chunks, proj, req.query, req.max_chars)
+        resp_data: Dict[str, Any] = lod_result
+        if _routing_meta:
+            resp_data["atlas"] = _routing_meta
+        elif req.include_atlas:
+            new_ctx, atlas_meta, atlas_chars = _prepend_atlas(resp_data["context"], project_id, _file_count)
+            resp_data["context"] = new_ctx
+            resp_data["total_chars"] = len(new_ctx)
+            resp_data["estimated_tokens"] = len(new_ctx) // 4
+            if atlas_meta:
+                resp_data["atlas"] = atlas_meta
+        return ok(resp_data)
+
     parts: List[str] = []
     chunks: List[Dict[str, Any]] = []
     total = 0
@@ -1113,133 +1890,115 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
     }
     if comp["compression"] is not None:
         resp_data["compression"] = comp["compression"]
+    # Atlas: routing metadata (no injection) + legacy prepend fallback
+    if _routing_meta:
+        resp_data["atlas"] = _routing_meta
+    elif req.include_atlas:
+        new_ctx, atlas_meta, atlas_chars = _prepend_atlas(resp_data["context"], project_id, _file_count)
+        resp_data["context"] = new_ctx
+        resp_data["total_chars"] = len(new_ctx)
+        resp_data["estimated_tokens"] = len(new_ctx) // 4
+        if atlas_meta:
+            resp_data["atlas"] = atlas_meta
     return ok(resp_data)
 
 
 
 
-@router.post("/api/code-index/context", deprecated=True)
-def context(req: ContextRequest, response: Response):
-    """Get assembled context for LLM injection.
-    
-    DEPRECATED: Use POST /projects/{project_id}/context instead.
-    This endpoint uses a global singleton index and does not support multi-project.
-    """
-    response.headers["Deprecation"] = "true"
-    response.headers["Sunset"] = "2026-06-01"
-    response.headers["Link"] = '</projects/{project_id}/context>; rel="successor-version"'
-    logger.warning("DEPRECATED: /api/code-index/context called - migrate to /projects/{id}/context")
-    
-    if not req.query.strip():
-        raise ApiException(status_code=400, code="VALIDATION_ERROR", message="query is required")
+@router.get("/projects/{project_id}/atlas")
+def get_atlas(project_id: str) -> Dict[str, Any]:
+    """Get the cached Codebase Atlas for a project."""
+    from codrag.core.atlas import CodebaseAtlas
+    from codrag.core.project_registry import project_index_dir
 
-    idx = _srv()._get_index()
-    
-    # 1. Retrieve Context
-    if req.structured:
-        # Structured result (chunks list)
-        data = idx.get_context_structured(
-            req.query,
-            k=req.k,
-            max_chars=req.max_chars,
-            min_score=req.min_score,
-        )
-        ctx_text = data["context"]
-    else:
-        # Plain text result
-        policy = idx.query_policy(req.query)
-        ctx_text = idx.get_context(
-            req.query,
-            k=req.k,
-            max_chars=req.max_chars,
-            include_sources=req.include_sources,
-            include_scores=req.include_scores,
-            min_score=req.min_score,
-        )
-        data = {"context": ctx_text, "meta": {"query": req.query, "policy": policy}}
+    proj = _srv()._require_project(project_id)
+    idx_dir = project_index_dir(proj)
+    atlas = CodebaseAtlas(idx_dir)
+    doc = atlas.load()
 
-    # 2. Trace Expansion (if requested)
-    if req.trace_expand and _srv()._trace_index:
-        try:
-            # Ensure trace index is loaded
-            if not _srv()._trace_index.is_loaded():
-                _srv()._trace_index.load()
-            
-            # Use trace expansion for structured results
-            result = idx.get_context_with_trace_expansion(
-                req.query,
-                trace_index=_srv()._trace_index,
-                k=req.k,
-                max_chars=req.max_chars,
-                min_score=req.min_score,
-                max_additional_chars=req.trace_max_chars,
-            )
-            ctx_text = str(result.get("context") or "")
-            data = {
-                "context": ctx_text,
-                "chunks": result.get("chunks", []),
-                "trace_expanded": result.get("trace_expanded", False),
-                "trace_nodes_added": result.get("trace_nodes_added", 0),
-            }
-            if "meta" not in data:
-                data["meta"] = {"query": req.query}
-        except Exception:
-            pass  # Graceful fallback: use non-expanded context
-
-    # 3. Compression (CLaRa)
-    if req.compression == "clara" and ctx_text:
-        ui_cfg = _srv()._load_ui_config()
-        clara_cfg = (ui_cfg.get("llm_config") or {}).get("clara") or {}
-        clara_url = clara_cfg.get("remote_url") or _srv()._config.get("clara_url") or ClaraCompressor.DEFAULT_URL
-        
-        compressor = ClaraCompressor(base_url=str(clara_url), timeout_s=req.compression_timeout_s)
-        
-        # Calculate budget if not explicit
-        budget = req.compression_target_chars
-        if not budget:
-            # Default to 50% of max_chars or length? 
-            # Usually we want to fit into LLM context. 
-            # If max_chars was high (e.g. 20k) and we want to fit in 4k...
-            # For now, let CLaRa decide (budget=0) or use defaults.
-            budget = 0
-            
-        res = compressor.compress(
-            ctx_text,
-            query=req.query,
-            budget_chars=budget or 0,
-            level=req.compression_level
-        )
-        
-        data["context"] = res.compressed
-        if "meta" not in data:
-            data["meta"] = {}
-        data["meta"]["compression"] = {
-            "provider": "clara",
-            "original_chars": res.input_chars,
-            "compressed_chars": res.output_chars,
-            "ratio": res.compression_ratio,
-            "time_ms": res.timing_ms,
-            "error": res.error
-        }
-
-    return ok(data)
-
-
-@router.post("/api/code-index/chunk", deprecated=True)
-def chunk(req: ChunkRequest, response: Response):
-    """Get a specific chunk by ID.
-    
-    DEPRECATED: Use POST /projects/{project_id}/search instead.
-    This endpoint uses a global singleton index and does not support multi-project.
-    """
-    response.headers["Deprecation"] = "true"
-    response.headers["Sunset"] = "2026-06-01"
-    logger.warning("DEPRECATED: /api/code-index/chunk called - migrate to /projects/{id}/search")
-    
-    idx = _srv()._get_index()
-    doc = idx.get_chunk(req.chunk_id)
     if doc is None:
-        raise ApiException(status_code=404, code="CHUNK_NOT_FOUND", message="Chunk not found")
-    return ok({"chunk": doc})
+        return ok({
+            "exists": False,
+            "content": None,
+            "stale": True,
+        })
+
+    # For dashboard: concatenate root + all segments into one display string
+    display_content, display_chars = atlas.get_display_content()
+
+    return ok({
+        "exists": True,
+        "content": display_content or doc.content,
+        "mode": doc.mode,
+        "model": doc.model,
+        "generated_at": doc.generated_at,
+        "file_count": doc.file_count,
+        "module_count": doc.module_count,
+        "char_count": display_chars or doc.char_count,
+        "stale": atlas.is_stale(),
+        "segmented": atlas.has_segments(),
+    })
+
+
+@router.post("/projects/{project_id}/atlas/regenerate")
+def regenerate_atlas(project_id: str) -> Dict[str, Any]:
+    """Manually trigger Atlas regeneration."""
+    from codrag.core.atlas import CodebaseAtlas
+    from codrag.core.project_registry import project_index_dir
+
+    proj = _srv()._require_project(project_id)
+    idx_dir = project_index_dir(proj)
+
+    # Try to use large LLM; fall back to small, then structural
+    # Atlas synthesis is a heavy task — increase timeout to 180s
+    llm_client = None
+    try:
+        from codrag.server import _get_llm_client_for_slot
+        llm_client = _get_llm_client_for_slot("large")
+        if llm_client and not llm_client.is_available():
+            llm_client = _get_llm_client_for_slot("small")
+        if llm_client and not llm_client.is_available():
+            llm_client = None
+    except Exception:
+        llm_client = None
+
+    if llm_client:
+        llm_client.timeout = 180.0
+
+    # Pass project_root for workspace detection in segmented atlas
+    project_root = Path(proj.path) if proj.path else None
+    atlas = CodebaseAtlas(idx_dir, llm=llm_client, project_root=project_root)
+
+    # Try segmented generation first; falls back to single atlas internally
+    root_doc, seg_docs = atlas.generate_segmented()
+
+    # For dashboard: concatenate root + all segments into one display string
+    display_content, display_chars = atlas.get_display_content()
+
+    result: Dict[str, Any] = {
+        "exists": bool(root_doc.content),
+        "content": display_content or root_doc.content,
+        "mode": root_doc.mode,
+        "model": root_doc.model,
+        "char_count": display_chars or root_doc.char_count,
+        "file_count": root_doc.file_count,
+        "module_count": root_doc.module_count,
+        "generated_at": root_doc.generated_at,
+        "stale": False,
+        "segmented": bool(seg_docs),
+    }
+    if seg_docs:
+        result["segments"] = [
+            {
+                "segment_id": sd.segment_id,
+                "segment_name": sd.segment_name,
+                "dir_path": sd.dir_path,
+                "file_count": sd.file_count,
+                "char_count": sd.char_count,
+            }
+            for sd in seg_docs
+        ]
+    return ok(result)
+
 
 

@@ -19,6 +19,11 @@ import {
   FileExplorerDetail,
   CopyButton,
   LogConsole,
+  IndexHealthPanel,
+  TokenBudgetPanel,
+  AtlasStatusCard,
+  ActivityHeatmap,
+  type ActivityHeatmapData,
   PANEL_REGISTRY,
   type SearchResult,
   type ContextMeta,
@@ -29,6 +34,7 @@ import {
   type PinnedTextFile,
   type WatchStatus,
   type DeepAnalysisSchedule,
+  type InferredEdgesStatus,
   type AugmentationStatus,
   type EpistemicStatus,
   type ModuleStatus,
@@ -40,6 +46,8 @@ import {
   type SavedEndpoint,
   type EndpointTestResult,
   type ScopeStatus,
+  type TokenBudgetData,
+  type AtlasStatus,
 } from '@codrag/ui'
 import type { TraceStatus, TraceCoverage } from './useTraceSystem'
 
@@ -69,6 +77,10 @@ export interface PanelSearchProps {
   setContextIncludeScores: (b: boolean) => void
   contextStructured: boolean
   setContextStructured: (b: boolean) => void
+  contextIncludeAtlas: boolean
+  setContextIncludeAtlas: (b: boolean) => void
+  contextCompression: 'none' | 'lod' | 'lingua'
+  setContextCompression: (v: 'none' | 'lod' | 'lingua') => void
   context: string
   contextMeta: ContextMeta | null
   handleGetContext: () => void
@@ -112,6 +124,8 @@ export interface PanelTraceProps {
 }
 
 export interface PanelEnrichmentProps {
+  inferredEdgesStatus: InferredEdgesStatus
+  inferredEdgesRunning: boolean
   augmentationStatus: AugmentationStatus
   augmenting: boolean
   validating: boolean
@@ -122,11 +136,13 @@ export interface PanelEnrichmentProps {
   moduleStatus: ModuleStatus
   clusterRunning: boolean
   handleRunModuleSynthesis: () => void
+  atlasRunning: boolean
   deepeningStatus: DeepeningStatus
   deepeningRunning: boolean
   handleRunDeepening: () => void
   knowledgeStatus: KnowledgeEmbeddingStatus
-  knowledgeBuilding: boolean
+  fastKnowledgeBuilding: boolean
+  deepKnowledgeBuilding: boolean
   handleRunKnowledgeBuild: () => void
   handleRunDeepEnrichment: () => void
 }
@@ -147,17 +163,22 @@ export interface PanelLLMProps {
   handleDeleteEndpoint: (id: string) => void
   handleTestEndpoint: (ep: SavedEndpoint) => Promise<any>
   handleFetchModels: (endpointId: string) => Promise<any>
-  handleTestModel: (slot: 'embedding' | 'small' | 'large' | 'clara') => Promise<any>
-  handleDownloadModel: (slot: 'embedding' | 'clara') => Promise<void>
+  handleTestModel: (slot: 'embedding' | 'small' | 'large' | 'code') => Promise<any>
+  handleDownloadModel: (slot: 'embedding' | 'lingua') => Promise<void>
   availableModels: Record<string, string[]>
   loadingModels: Record<string, boolean>
-  testingSlot: 'small' | 'clara' | 'embedding' | 'large' | null
+  testingSlot: 'small' | 'embedding' | 'large' | 'code' | null
   testResults: Record<string, EndpointTestResult>
 }
 
 export interface PanelDeepAnalysisProps {
   deepAnalysisSchedule: DeepAnalysisSchedule
   setDeepAnalysisSchedule: (s: DeepAnalysisSchedule | ((prev: DeepAnalysisSchedule) => DeepAnalysisSchedule)) => void
+  budgetUsage: TokenBudgetData | null
+}
+
+export interface PanelAtlasProps {
+  atlasStatus: AtlasStatus | null
 }
 
 // ── Main interface ────────────────────────────────────────────
@@ -187,12 +208,14 @@ export interface DashboardPanelsProps {
   watch: PanelWatchProps
   llm: PanelLLMProps
   deepAnalysis: PanelDeepAnalysisProps
+  atlas: PanelAtlasProps
+  activityData: ActivityHeatmapData | null
 }
 
 /** Builds all dashboard panel content, detail views, and dynamic panel definitions from domain state. */
 export function useDashboardPanels(props: DashboardPanelsProps) {
   // Flatten grouped sub-objects for backward-compatible p.xxx access internally
-  const { search, files, trace, enrichment, watch, llm, deepAnalysis, ...core } = props
+  const { search, files, trace, enrichment, watch, llm, deepAnalysis, atlas, ...core } = props
   const p = { ...core, ...search, ...files, ...trace, ...enrichment, ...watch, ...llm, ...deepAnalysis }
   const panelContent = useMemo(() => ({
     'log-console': (
@@ -234,6 +257,8 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           index_auto_rebuild: p.indexAutoRebuild,
           enrichment_auto_config: p.enrichmentAutoConfig ?? null,
           enrichment: {
+            inferred_edges: p.inferredEdgesStatus,
+            inferred_edges_running: p.inferredEdgesRunning,
             augmentation: p.augmentationStatus,
             augmenting: p.augmenting,
             validating: p.validating,
@@ -241,10 +266,12 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
             epistemic_running: p.epistemicRunning,
             modules: p.moduleStatus,
             cluster_running: p.clusterRunning,
+            atlas_running: p.atlasRunning,
             deepening: p.deepeningStatus,
             deepening_running: p.deepeningRunning,
             knowledge: p.knowledgeStatus,
-            knowledge_building: p.knowledgeBuilding,
+            fast_knowledge_building: p.fastKnowledgeBuilding,
+            deep_knowledge_building: p.deepKnowledgeBuilding,
           },
           llm_config: {
             embedding: p.llmConfig.embedding,
@@ -256,7 +283,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
               endpoint_id: p.llmConfig.large_model.endpoint_id,
               model: p.llmConfig.large_model.model,
             } : null,
-            clara: p.llmConfig.clara ?? null,
+            compression: p.llmConfig.compression ?? null,
             saved_endpoints: p.llmConfig.saved_endpoints?.map((ep: SavedEndpoint) => ({
               id: ep.id, name: ep.name, provider: ep.provider, url: ep.url,
             })),
@@ -314,21 +341,21 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
       />
     ),
     'llm-status': (
-      <div className="h-full overflow-y-auto p-4">
+      <div className="h-full overflow-y-auto">
         <LLMStatusWidget
           services={(() => {
             const hasEmbedding = !!(p.llmConfig.embedding.model && (p.llmConfig.embedding.source === 'endpoint' || p.llmConfig.embedding.source === 'huggingface'));
             const hasFast = !!(p.llmConfig.small_model.enabled && p.llmConfig.small_model.model);
             const hasThinking = !!(p.llmConfig.large_model.enabled && p.llmConfig.large_model.model);
-            const hasCLaRa = !!(p.llmConfig.clara.enabled && (p.llmConfig.clara.remote_url || p.llmConfig.clara.endpoint_id || p.llmConfig.clara.source === 'huggingface'));
+            const hasCompression = !!(p.llmConfig.compression?.enabled);
             const fastName = hasThinking ? 'Fast Model' : 'Single LLM';
             
             // Map pipeline states to model activity
-            const embeddingRunning = p.searchLoading || (p.projectStatus?.building ?? false) || p.knowledgeBuilding;
+            const embeddingRunning = p.searchLoading || (p.projectStatus?.building ?? false) || p.fastKnowledgeBuilding || p.deepKnowledgeBuilding;
             const fastRunning = p.augmenting;
             const largeRunning = p.validating || p.epistemicRunning || p.deepeningRunning || p.clusterRunning;
 
-            type Svc = { name: string; status: 'connected' | 'disconnected' | 'disabled' | 'not-configured'; type: 'ollama' | 'clara' | 'openai' | 'other'; model?: string; running?: boolean };
+            type Svc = { name: string; status: 'connected' | 'disconnected' | 'disabled' | 'not-configured'; type: 'ollama' | 'openai' | 'other'; model?: string; running?: boolean };
             const items: Svc[] = [];
             if (hasEmbedding) {
               items.push({
@@ -369,12 +396,27 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
                 running: largeRunning,
               });
             }
-            if (hasCLaRa) {
+            const hasCode = !!(p.llmConfig.code_model?.enabled && p.llmConfig.code_model.model);
+            if (hasCode) {
               items.push({
-                name: 'CLaRa',
-                status: p.llmConfig.clara.remote_url || p.llmConfig.clara.endpoint_id ? 'connected' : 'not-configured',
-                type: 'clara',
-                model: 'Context Compression',
+                name: 'Code Model',
+                status: p.llmSlotsStatus?.code_model
+                  ? (p.llmSlotsStatus.code_model.status === 'connected' ? 'connected'
+                    : p.llmSlotsStatus.code_model.status === 'unreachable' ? 'disconnected'
+                    : p.llmSlotsStatus.code_model.configured ? 'disconnected' : 'not-configured')
+                  : 'connected',
+                type: 'ollama',
+                model: p.llmConfig.code_model.model,
+              });
+            }
+            if (hasCompression) {
+              const mode = p.llmConfig.compression.mode || 'auto';
+              const level = p.llmConfig.compression.level || 'standard';
+              items.push({
+                name: 'Compression',
+                status: 'connected',
+                type: 'other',
+                model: `${mode} (${level})`,
               });
             }
             if (items.length === 0) {
@@ -411,6 +453,10 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onIncludeScoresChange={p.setContextIncludeScores}
         structured={p.contextStructured}
         onStructuredChange={p.setContextStructured}
+        includeAtlas={search.contextIncludeAtlas}
+        onIncludeAtlasChange={search.setContextIncludeAtlas}
+        compression={search.contextCompression}
+        onCompressionChange={search.setContextCompression}
         onGetContext={p.handleGetContext}
         onCopyContext={p.handleCopyContext}
         hasContext={!!p.context}
@@ -509,7 +555,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
     ),
     // trace-coverage removed — consolidated into graph-structure (Graph Scope)
     'deep-analysis': (
-      <div className="h-full overflow-y-auto p-4">
+      <div className="h-full overflow-y-auto">
         <DeepAnalysisSettings
           schedule={p.deepAnalysisSchedule}
           onScheduleChange={p.setDeepAnalysisSchedule}
@@ -528,13 +574,16 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
             counts: p.traceStatus.counts,
             last_build_at: null,
           }}
+          inferredEdges={p.inferredEdgesStatus}
           augmentation={p.augmentationStatus}
           epistemic={p.epistemicStatus}
           modules={p.moduleStatus}
           deepening={p.deepeningStatus}
           knowledge={p.knowledgeStatus}
+          atlas={atlas.atlasStatus ?? undefined}
           smallModelConfigured={!!(p.llmConfig.small_model?.endpoint_id && p.llmConfig.small_model?.model)}
           largeModelConfigured={!!(p.llmConfig.large_model?.endpoint_id && p.llmConfig.large_model?.model)}
+          codeModelConfigured={!!(p.llmConfig.code_model?.endpoint_id && p.llmConfig.code_model?.model)}
           onBuildTrace={p.handleBuildTrace}
           onRunAugmentation={p.handleRunAugmentation}
           onRunEpistemic={p.handleRunEpistemic}
@@ -547,10 +596,13 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           onOpenDeepSettings={p.onOpenDeepSettings}
           augmenting={p.augmenting}
           validating={p.validating}
+          inferredEdgesRunning={p.inferredEdgesRunning}
           epistemicRunning={p.epistemicRunning}
           clusterRunning={p.clusterRunning}
+          atlasRunning={p.atlasRunning}
           deepeningRunning={p.deepeningRunning}
-          knowledgeBuilding={p.knowledgeBuilding}
+          fastKnowledgeBuilding={p.fastKnowledgeBuilding}
+          deepKnowledgeBuilding={p.deepKnowledgeBuilding}
           paused={p.projectConfig.trace.paused}
           onTogglePause={p.handleTogglePause}
           autoConfig={p.enrichmentAutoConfig}
@@ -581,6 +633,68 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
       />
     ),
     // graph-engine removed — consolidated into trace-pipeline (Graph Enrichment)
+    'index-health': (
+      <IndexHealthPanel
+        data={p.projectStatus ? {
+          total_chunks: p.projectStatus.index.total_chunks || p.knowledgeStatus.chunks_embedded || 0,
+          total_files: p.traceStatus.counts?.nodes ?? 0,
+          stale_count: p.projectStatus.stale_count ?? 0,
+          error_count: p.projectStatus.index.last_error ? 1 : 0,
+          last_build_at: p.projectStatus.index.last_build_at ?? p.knowledgeStatus.last_run_at ?? null,
+          embedding_dim: p.projectStatus.index.embedding_dim ?? 0,
+          trace_nodes: p.traceStatus.counts?.nodes ?? 0,
+          trace_edges: p.traceStatus.counts?.edges ?? 0,
+          coverage_pct: p.traceCoverage.summary?.coverage_pct ?? 0,
+          catalogued_nodes: p.augmentationStatus.augmented_nodes,
+          catalogued_total: p.augmentationStatus.total_nodes,
+          deep: (p.epistemicStatus.enriched_nodes > 0 || p.moduleStatus.module_count > 0
+              || p.epistemicRunning || p.clusterRunning || p.deepeningRunning) ? {
+            enriched_nodes: p.epistemicStatus.enriched_nodes,
+            enriched_total: p.epistemicStatus.total_file_nodes ?? 0,
+            avg_confidence: p.epistemicStatus.avg_confidence ?? 0,
+            module_count: p.moduleStatus.module_count,
+            files_clustered: p.moduleStatus.total_files_clustered,
+            deepening_settled_ratio: p.deepeningStatus.settled_ratio,
+            deepening_iteration: p.deepeningStatus.iteration ?? 0,
+            knowledge_chunks: p.knowledgeStatus.deep_chunks_embedded ?? 0,
+            deep_running: p.epistemicRunning || p.clusterRunning || p.deepeningRunning,
+            last_deep_at: p.epistemicStatus.pipeline_running ? null
+              : (p.moduleStatus.last_run_at ?? null),
+          } : null,
+        } : null}
+      />
+    ),
+    atlas: (
+      <AtlasStatusCard
+        atlas={atlas.atlasStatus}
+        className="h-full border-none shadow-none bg-transparent"
+      />
+    ),
+    'activity-heatmap': props.activityData ? (
+      <ActivityHeatmap
+        data={props.activityData}
+        weeks={12}
+        showLegend={true}
+        showLabels={true}
+        className="h-full border-none shadow-none bg-transparent"
+      />
+    ) : (
+      <div className="h-full flex items-center justify-center text-sm text-text-muted">
+        No activity data available yet. Build your index to see activity.
+      </div>
+    ),
+    'token-budget': (
+      <TokenBudgetPanel
+        data={p.deepAnalysisSchedule.budget_enabled ? (p.budgetUsage ?? {
+          tokens_used: 0,
+          max_tokens: p.deepAnalysisSchedule.budget_max_tokens,
+          window_minutes: p.deepAnalysisSchedule.budget_max_minutes,
+          remaining: p.deepAnalysisSchedule.budget_max_tokens,
+          window_resets_in: 0,
+        }) : null}
+        deepMode={p.enrichmentAutoConfig?.deepEnrichment ?? 'manual'}
+      />
+    ),
   }), [p])
 
   const dynamicPanelDefs = useMemo(() =>

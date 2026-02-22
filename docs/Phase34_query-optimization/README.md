@@ -1,6 +1,6 @@
 # Phase 34 — Context-First Architecture
 
-> **Status**: R&D planning. Supersedes the original "query optimization" framing after fundamental rethink of how users interact with CoDRAG via MCP.
+> **Status**: In progress. Phase 34a complete (A2 scope boost, B1 trace-always-on, D1+D3 tool description). Phase 34b complete (C1-C4 ambient context assembly). Supersedes the original "query optimization" framing after fundamental rethink of how users interact with CoDRAG via MCP.
 
 ---
 
@@ -165,7 +165,7 @@ The user's file tree selections already exist in `project.config["included_paths
 
 - [ ] **A1 — Path-based score boost**: At search time, load `included_paths` from project config. For each result, check if its `source_path` falls under any included path. If so, apply a score boost (similar to `segment_boost` from atlas routing). This is the simplest approach — 10-20 lines in `context_project()`.
 
-- [ ] **A2 — Included-paths as segment_file_paths**: Reuse the existing `segment_file_paths` mechanism. Convert `included_paths` to a set of file paths, union with atlas routing results, and pass to `search()`. Files in the set get the existing +0.12 boost.
+- [x] **A2 — Included-paths as segment_file_paths**: Reuse the existing `segment_file_paths` mechanism. Convert `included_paths` to a set of file paths, union with atlas routing results, and pass to `search()`. Files in the set get the existing +0.12 boost. *(Implemented: scope boost block in `context_project()` loads `included_paths`, resolves directory prefixes against indexed docs, unions into `_segment_file_paths`)*
 
 - [ ] **A3 — Dual-pool retrieval**: Run search twice — once scoped to `included_paths` files only, once against the full index. Interleave results. This guarantees representation from the user's focus area while still finding globally relevant chunks.
 
@@ -177,7 +177,7 @@ The user's file tree selections already exist in `project.config["included_paths
 
 **Cost: Low. Changes a default.**
 
-- [ ] **B1 — Default `trace_expand=true`**: Change the default in `ContextRequest` and in the MCP tool schema. When trace exists and is loaded, always follow structural edges. When trace doesn't exist, gracefully fall back.
+- [x] **B1 — Default `trace_expand=true`**: Change the default in `ContextRequest` and in the MCP tool schema. When trace exists and is loaded, always follow structural edges. When trace doesn't exist, gracefully fall back. *(Implemented: `ContextRequest.trace_expand=True`, `mcp_tools.py` schema default=True, `mcp_server.py` default=True, feature gate catch for free tier graceful degradation)*
 
 - [ ] **B2 — Increase trace budget**: Current `trace_max_chars=2000` is conservative. With LOD compression working, we can afford `trace_max_chars=4000-6000` because trace-expanded chunks can be served at LOD 2 (signatures + docstrings) or LOD 4 (names + types).
 
@@ -189,17 +189,17 @@ The user's file tree selections already exist in `project.config["included_paths
 
 Build the "no query" context mode:
 
-- [ ] **C1 — Hub-file extraction**: Given `included_paths`, walk the trace graph to find hub files (highest in-degree within the selected scope). These are the "most important files in the user's focus area."
+- [x] **C1 — Hub-file extraction**: Given `included_paths`, walk the trace graph to find hub files (highest in-degree within the selected scope). These are the "most important files in the user's focus area." *(Implemented: `TraceIndex.get_hub_files()` reads edge files directly, scopes by path prefix, returns top-k by in-degree)*
 
-- [ ] **C2 — Module-aware context**: Map `included_paths` to modules (from `trace_modules.jsonl`). For each module in scope, include: module description, key files, boundary edges to other modules. This gives macro-level context automatically.
+- [x] **C2 — Module-aware context**: Map `included_paths` to modules (from `trace_modules.jsonl`). For each module in scope, include: module description, key files, boundary edges to other modules. This gives macro-level context automatically. *(Implemented: `_assemble_ambient_context()` loads modules, matches member_files against scope, produces markdown header)*
 
-- [ ] **C3 — LOD-stratified assembly**: Use LOD compression to pack more files into the context budget:
+- [x] **C3 — LOD-stratified assembly**: Use LOD compression to pack more files into the context budget: *(Implemented: hubs=LOD 0 at 70% budget, neighbors=LOD 2 via `LODExtractor.extract()` at 30% budget, truncated fallback)*
   - Hub files → LOD 0 (full source)
   - Direct neighbors → LOD 2 (signatures + docstrings)
   - Transitive neighbors → LOD 4 (names + types)
   - Out-of-scope but connected → LOD 5 (file path + summary)
 
-- [ ] **C4 — Make `query` optional in tool schema**: Remove `query` from `required` in the `codrag` tool definition. When no query is provided, assemble ambient context from project state. Update tool description to communicate this capability.
+- [x] **C4 — Make `query` optional in tool schema**: Remove `query` from `required` in the `codrag` tool definition. When no query is provided, assemble ambient context from project state. Update tool description to communicate this capability. *(Implemented: `ContextRequest.query=""`, `required: []` in schema, `context_project()` routes to `_assemble_ambient_context()` on empty query)*
 
 ### Track D — Tool Description Rewrite
 
@@ -213,7 +213,7 @@ optimized for token efficiency."
 
 This tells the AI model "I'm a search endpoint." It should say:
 
-- [ ] **D1 — Context-first description**: Rewrite to communicate that CoDRAG is a context provider, not a search tool:
+- [x] **D1 — Context-first description**: Rewrite to communicate that CoDRAG is a context provider, not a search tool:
   ```
   "Get codebase context powered by structural analysis. CoDRAG uses
   your project's code graph, selected focus areas, and semantic search
@@ -225,7 +225,7 @@ This tells the AI model "I'm a search endpoint." It should say:
 
 - [ ] **D2 — Deprecate search-oriented params from default use**: Move `k`, `min_score`, `mmr_lambda` etc. to a secondary "advanced" section of the schema or give them smart defaults that rarely need override.
 
-- [ ] **D3 — Guide multi-call behavior**: Add to description: `"For complex requests spanning multiple topics, call this tool once per topic for best results."` Test whether this actually causes AI models to make focused calls.
+- [x] **D3 — Guide multi-call behavior**: Added to description: `"For complex requests spanning multiple topics, call this tool once per topic for best results."` *(Included in D1 rewrite)*
 
 ### Track E — Compression for Volume
 

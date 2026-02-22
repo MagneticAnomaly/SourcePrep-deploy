@@ -1,21 +1,17 @@
-"""
-CoDRAG LLM Router — Phase 23 Sprint 13
+"""CoDRAG LLM Router — Phase 23 Sprint 13 (updated Phase 31)
 ========================================
 
-**Origin:** Extracted from ``server.py`` (lines ~1246–1357, 2202–2668).
-
-**Endpoints moved here:**
+**Endpoints:**
   Embedding:
     - GET  /embedding/status    — native embedder availability & cache status
     - POST /embedding/download  — download HF model to local cache
 
-  CLaRa Compression:
-    - GET  /clara/status        — sidecar server status
-    - GET  /clara/health        — quick sidecar health check
+  Compression:
+    - GET  /compression/status  — LinguaCompressor + LOD availability
 
   LLM Slots & Status:
     - GET  /llm/slots/status    — per-slot connectivity check (embedding, small, large)
-    - GET  /llm/status          — legacy Ollama + CLaRa connectivity
+    - GET  /llm/status          — legacy Ollama connectivity
     - GET  /api/llm/status      — alias for above
 
   LLM Testing & Proxy:
@@ -27,33 +23,39 @@ CoDRAG LLM Router — Phase 23 Sprint 13
     - POST /api/llm/proxy/test-model — test a specific model with readiness gate
 
 **Shared state accessed (from server.py):**
-  - ``_config``           — CLI config (ollama_url, model, clara_url)
+  - ``_config``           — CLI config (ollama_url, model)
   - ``_load_ui_config``   — read global config for llm_config slots
-
-**Phase 24 note (State Machine):**
-  LLM endpoints are stateless proxies — they don't own any state machines.
-  However, SM-7 (License & Feature Gate) will gate certain LLM features
-  (e.g. clara_compression) at transition time.  The slot-status endpoint
-  could eventually emit events to SM-1 (Dashboard) so the frontend
-  subscribes to connectivity changes rather than polling.
 """
 
 from __future__ import annotations
 
 import logging
 from typing import Any, Dict, List, Optional
+import urllib.parse
+import ipaddress
+import socket
 
 import requests
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from codrag.api.envelope import ApiException, ok
-from codrag.core import NativeEmbedder, ClaraCompressor
+from codrag.core import NativeEmbedder, LinguaCompressor
 from codrag.core.model_readiness import (
     ModelStatus,
     get_model_status,
     ensure_model_ready,
 )
+
+def is_safe_url(url: str, provider: str) -> bool:
+    """Basic SSRF protection: ensure URL is HTTP/HTTPS."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return False
+        return True
+    except Exception:
+        return False
 
 logger = logging.getLogger(__name__)
 
@@ -162,45 +164,82 @@ def embedding_download() -> Dict[str, Any]:
 
 
 # ═════════════════════════════════════════════════════════════════
-# CLaRa Compression
+# Compression Status
 # ═════════════════════════════════════════════════════════════════
 
-@router.get("/clara/status")
-def clara_status() -> Dict[str, Any]:
-    """Return CLaRa sidecar server status and model info."""
-    from codrag.server import _load_ui_config, _config
-    ui_cfg = _load_ui_config()
-    llm_cfg = ui_cfg.get("llm_config") or {}
-    clara_cfg = llm_cfg.get("clara") or {}
-    enabled = bool(clara_cfg.get("enabled", False))
+@router.get("/compression/status")
+def compression_status() -> Dict[str, Any]:
+    """Return compression subsystem status (LLMLingua-2 + LOD)."""
+    from codrag.core import LinguaCompressor
     
-    clara_url = clara_cfg.get("remote_url") or _config.get("clara_url") or ClaraCompressor.DEFAULT_URL
+    lingua = LinguaCompressor()
+    lingua_info = lingua.status()
     
-    compressor = ClaraCompressor(base_url=str(clara_url))
-    info = compressor.status()
-    connected = compressor.is_available()
-    if not isinstance(info, dict):
-        info = {}
-    resp = dict(info)
-    resp["enabled"] = enabled
-    resp["url"] = str(clara_url)
-    resp["connected"] = connected
-    return ok(resp)
+    # Check if model is cached (only needs huggingface_hub, not llmlingua)
+    model_cached = False
+    model_path = None
+    try:
+        from huggingface_hub import try_to_load_from_cache  # type: ignore[import-untyped]
+        cached = try_to_load_from_cache(
+            LinguaCompressor.HF_MODEL_ID, "config.json"
+        )
+        if isinstance(cached, str):
+            model_cached = True
+            model_path = cached
+    except Exception:
+        pass
+    
+    lingua_info["downloaded"] = model_cached
+    lingua_info["model_path"] = model_path
+    lingua_info["hf_repo_id"] = LinguaCompressor.HF_MODEL_ID
+
+    # LOD is always available (pure Python, no external deps)
+    lod_info = {"available": True, "type": "lod"}
+
+    return ok({
+        "lingua": lingua_info,
+        "lod": lod_info,
+    })
 
 
-@router.get("/clara/health")
-def clara_health() -> Dict[str, Any]:
-    """Quick health check for the CLaRa sidecar."""
-    from codrag.server import _load_ui_config, _config
-    ui_cfg = _load_ui_config()
-    llm_cfg = ui_cfg.get("llm_config") or {}
-    clara_cfg = llm_cfg.get("clara") or {}
-    
-    clara_url = clara_cfg.get("remote_url") or _config.get("clara_url") or ClaraCompressor.DEFAULT_URL
-    
-    compressor = ClaraCompressor(base_url=str(clara_url))
-    available = compressor.is_available()
-    return ok({"url": str(clara_url), "available": available, "healthy": available})
+@router.post("/compression/download")
+def compression_download() -> Dict[str, Any]:
+    """Download the LLMLingua-2 compression model from HuggingFace Hub.
+
+    The model is cached in the standard HF cache directory (~/.cache/huggingface/).
+    This is a blocking call — the download happens synchronously.
+    Only requires huggingface_hub (not llmlingua) to download.
+    """
+    from codrag.core import LinguaCompressor
+
+    try:
+        from huggingface_hub import snapshot_download  # type: ignore[import-untyped]
+    except ImportError:
+        raise ApiException(
+            status_code=400,
+            code="HF_HUB_MISSING",
+            message="huggingface_hub is not installed",
+            hint="pip install huggingface-hub",
+        )
+
+    try:
+        model_path = snapshot_download(
+            repo_id=LinguaCompressor.HF_MODEL_ID,
+            allow_patterns=["*.json", "*.bin", "*.safetensors", "*.txt"],
+        )
+    except Exception as e:
+        raise ApiException(
+            status_code=500,
+            code="DOWNLOAD_FAILED",
+            message=f"Model download failed: {e}",
+            hint="Check your internet connection and try again.",
+        )
+
+    return ok({
+        "status": "downloaded",
+        "model_path": model_path,
+        "hf_repo_id": LinguaCompressor.HF_MODEL_ID,
+    })
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -209,7 +248,7 @@ def clara_health() -> Dict[str, Any]:
 
 @router.get("/llm/slots/status")
 def get_llm_slots_status() -> Dict[str, Any]:
-    """Check connectivity for all configured model slots (embedding, small, large).
+    """Check connectivity for all configured model slots (embedding, small, large, code).
     
     Returns per-slot status with endpoint reachability and model availability.
     """
@@ -313,6 +352,7 @@ def get_llm_slots_status() -> Dict[str, Any]:
         "embedding": emb_status,
         "small_model": _check_slot("small_model"),
         "large_model": _check_slot("large_model"),
+        "code_model": _check_slot("code_model"),
     })
 
 
@@ -338,16 +378,10 @@ def get_llm_status() -> Dict[str, Any]:
         models = []
 
     ui_cfg = _load_ui_config()
-    clara_cfg = (ui_cfg.get("llm_config") or {}).get("clara") or {}
-    clara_url = clara_cfg.get("remote_url") or _config.get("clara_url") or ClaraCompressor.DEFAULT_URL
-    
-    clara_compressor = ClaraCompressor(base_url=str(clara_url))
-    clara_connected = clara_compressor.is_available()
 
     return ok(
         {
             "ollama": {"url": ollama_url, "connected": connected, "models": models},
-            "clara": {"url": str(clara_url), "connected": clara_connected},
         }
     )
 
@@ -370,15 +404,10 @@ def test_llm() -> Dict[str, Any]:
         ollama_connected = False
 
     ui_cfg = _load_ui_config()
-    clara_cfg = (ui_cfg.get("llm_config") or {}).get("clara") or {}
-    clara_url = clara_cfg.get("remote_url") or _config.get("clara_url") or ClaraCompressor.DEFAULT_URL
-    clara_compressor = ClaraCompressor(base_url=str(clara_url))
-    clara_connected = clara_compressor.is_available()
 
     return ok(
         {
             "ollama": {"connected": ollama_connected},
-            "clara": {"connected": clara_connected},
         }
     )
 
@@ -389,10 +418,7 @@ def proxy_models(req: LLMProxyRequest) -> Dict[str, Any]:
     models: List[str] = []
     
     try:
-        if req.provider == "clara":
-            models = ["clara-7b"]
-
-        elif req.provider == "ollama":
+        if req.provider == "ollama":
             r = requests.get(f"{url}/api/tags", timeout=5)
             if r.status_code == 200:
                 data = r.json()
@@ -425,21 +451,15 @@ def proxy_models(req: LLMProxyRequest) -> Dict[str, Any]:
 @router.post("/api/llm/proxy/test")
 def proxy_test(req: LLMProxyRequest) -> Dict[str, Any]:
     url = req.url.rstrip("/")
+    if not is_safe_url(url, req.provider):
+        return ok({"success": False, "message": "Invalid or unsafe URL scheme", "models": []})
+
     success = False
     message = ""
     models: List[str] = []
 
     try:
-        if req.provider == "clara":
-            r = requests.get(f"{url}/health", timeout=5)
-            if r.status_code == 200:
-                success = True
-                message = "Connected to CLaRa Server"
-                models = ["clara-7b"]
-            else:
-                message = f"HTTP {r.status_code}: {r.text[:100]}"
-
-        elif req.provider == "ollama":
+        if req.provider == "ollama":
             r = requests.get(f"{url}/api/tags", timeout=5)
             if r.status_code == 200:
                 success = True
@@ -509,22 +529,15 @@ def proxy_test_model(req: LLMModelTestRequest) -> Dict[str, Any]:
     cold-start model loading.
     """
     url = req.url.rstrip("/")
+    if not is_safe_url(url, req.provider):
+        return ok({"success": False, "message": "Invalid or unsafe URL scheme", "model_status": "unknown"})
+
     success = False
     message = ""
     model_status_str = "unknown"
     
     try:
-        if req.provider == "clara":
-            compressor = ClaraCompressor(base_url=url)
-            if compressor.is_available():
-                success = True
-                message = "CLaRa is responding"
-                model_status_str = ModelStatus.READY.value
-            else:
-                message = "CLaRa is not available"
-                model_status_str = ModelStatus.ERROR.value
-
-        elif req.provider == "ollama":
+        if req.provider == "ollama":
             if req.kind == "embedding":
                 readiness = get_model_status(
                     provider="ollama", url=url, model=req.model,

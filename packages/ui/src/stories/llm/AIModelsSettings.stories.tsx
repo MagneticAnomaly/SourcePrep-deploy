@@ -61,14 +61,15 @@ const baseConfig: LLMConfig = {
   large_model: {
     enabled: true,
     endpoint_id: 'gpu-ollama',
-    model: 'mistral',
+    model: 'qwen3:8b',
   },
-  clara: {
+  code_model: {
     enabled: false,
-    source: 'huggingface',
-    hf_downloaded: false,
-    hf_download_progress: undefined,
-    remote_url: undefined,
+  },
+  compression: {
+    enabled: false,
+    mode: 'auto',
+    level: 'standard',
   },
   saved_endpoints: baseEndpoints,
 };
@@ -77,9 +78,9 @@ export const Default: Story = {
   render: () => {
     const [config, setConfig] = useState<LLMConfig>(baseConfig);
     const [availableModels, setAvailableModels] = useState<Record<string, string[]>>({
-      'local-ollama': ['nomic-embed-text', 'qwen3:4b-instruct', 'phi-3-mini'],
-      'gpu-ollama': ['mistral', 'qwen3:30b-instruct', 'deepseek-coder-v2'],
-      openai: ['gpt-4o-mini', 'gpt-4o'],
+      'local-ollama': ['nomic-embed-text', 'qwen3:4b', 'qwen3:1.7b', 'gemma3:4b'],
+      'gpu-ollama': ['qwen3:8b', 'qwen3:14b', 'qwen3:30b', 'qwen3-coder:30b'],
+      openai: ['gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4.1'],
     });
     const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({});
     const [testingSlot, setTestingSlot] = useState<ModelSlotType | null>(null);
@@ -136,9 +137,9 @@ export const Default: Story = {
           await sleep(400);
 
           const modelsByEndpoint: Record<string, string[]> = {
-            'local-ollama': ['nomic-embed-text', 'qwen3:4b-instruct', 'phi-3-mini'],
-            'gpu-ollama': ['mistral', 'qwen3:30b-instruct', 'deepseek-coder-v2'],
-            openai: ['gpt-4o-mini', 'gpt-4o'],
+            'local-ollama': ['nomic-embed-text', 'qwen3:4b', 'qwen3:1.7b', 'gemma3:4b'],
+            'gpu-ollama': ['qwen3:8b', 'qwen3:14b', 'qwen3:30b', 'qwen3-coder:30b'],
+            openai: ['gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4.1'],
           };
 
           setAvailableModels((prev) => ({
@@ -156,28 +157,14 @@ export const Default: Story = {
           setTestingSlot(null);
           return result;
         }}
-        onHFDownload={(slotType) => {
-          if (slotType === 'embedding') {
-            setConfig((prev) => ({
-              ...prev,
-              embedding: {
-                ...prev.embedding,
-                source: 'huggingface',
-                hf_downloaded: false,
-                hf_download_progress: 0.35,
-              },
-            }));
-            return;
-          }
-
+        onHFDownload={() => {
           setConfig((prev) => ({
             ...prev,
-            clara: {
-              ...prev.clara,
-              enabled: true,
+            embedding: {
+              ...prev.embedding,
               source: 'huggingface',
               hf_downloaded: false,
-              hf_download_progress: 0.2,
+              hf_download_progress: 0.35,
             },
           }));
         }}
@@ -186,16 +173,14 @@ export const Default: Story = {
   },
 };
 
-export const ClaraEnabledRemote: Story = {
+export const CompressionEnabled: Story = {
   render: () => {
     const [config, setConfig] = useState<LLMConfig>({
       ...baseConfig,
-      clara: {
+      compression: {
         enabled: true,
-        source: 'endpoint',
-        remote_url: 'http://192.168.1.10:8765',
-        hf_downloaded: false,
-        hf_download_progress: undefined,
+        mode: 'auto',
+        level: 'standard',
       },
     });
 

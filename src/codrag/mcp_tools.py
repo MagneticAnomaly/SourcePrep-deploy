@@ -52,27 +52,44 @@ TOOLS = [
     },
     {
         "name": "codrag_search",
-        "description": "Search the CoDRAG index with a semantic query. Returns ranked code/doc chunks.",
+        "description": "Search for specific code context using a natural language query. CoDRAG applies semantic search, structural trace expansion, LOD compression, and atlas routing to assemble focused context. For complex requests spanning multiple topics, call once per topic.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Natural language search query.",
+                    "description": "Natural language query describing what context you need.",
+                },
+                "exclude_paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "File paths already in your context. CoDRAG will exclude these from results to avoid redundancy.",
+                    "default": [],
+                },
+                "max_chars": {
+                    "type": "integer",
+                    "description": "Maximum characters in assembled context. Default: 12000.",
+                    "default": 12000,
                 },
                 "k": {
                     "type": "integer",
-                    "description": "Number of results to return. Default: 8.",
-                    "default": 8,
+                    "description": "(Advanced) Number of initial chunks to retrieve. Default: 5.",
+                    "default": 5,
                 },
-                "min_score": {
-                    "type": "number",
-                    "description": "Minimum similarity score (0-1). Default: 0.15.",
-                    "default": 0.15,
+                "trace_expand": {
+                    "type": "boolean",
+                    "description": "(Advanced) Follow trace edges to include structurally related code. Default: true.",
+                    "default": True,
+                },
+                "compression": {
+                    "type": "string",
+                    "description": "(Advanced) Compression mode: 'none' (default), 'lingua' (LLMLingua-2 for docs), or 'auto' (dual-channel: lingua for docs, LOD for code).",
+                    "enum": ["none", "lingua", "auto"],
+                    "default": "none",
                 },
                 "project_id": {
                     "type": "string",
-                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted.",
+                    "description": "CoDRAG project ID. Auto-detected from workspace root if omitted.",
                 },
             },
             "required": ["query"],
@@ -87,52 +104,21 @@ TOOLS = [
     },
     {
         "name": "codrag",
-        "description": "Get assembled context for LLM prompt injection. Returns formatted chunks optimized for token efficiency. Optionally compress context via CLaRa sidecar.",
+        "description": "Get ambient codebase context based on the user's selected focus areas and code graph structure. Returns hub files (highest connectivity), module summaries, and structurally related neighbors — no query needed. Use codrag_search instead when you need to find something specific.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Natural language query describing what context you need.",
-                },
-                "k": {
-                    "type": "integer",
-                    "description": "Number of chunks to include. Default: 5.",
-                    "default": 5,
-                },
                 "max_chars": {
                     "type": "integer",
-                    "description": "Maximum characters in assembled context. Default: 6000.",
-                    "default": 6000,
-                },
-                "trace_expand": {
-                    "type": "boolean",
-                    "description": "Follow trace edges (imports, calls) to include structurally related code. Requires trace index to be built. Default: false.",
-                    "default": False,
-                },
-                "compression": {
-                    "type": "string",
-                    "description": "Compression mode: 'none' (default) or 'clara' (CLaRa sidecar).",
-                    "enum": ["none", "clara"],
-                    "default": "none",
-                },
-                "compression_level": {
-                    "type": "string",
-                    "description": "Compression aggressiveness: 'light', 'standard' (default), or 'aggressive'.",
-                    "enum": ["light", "standard", "aggressive"],
-                    "default": "standard",
-                },
-                "compression_timeout_s": {
-                    "type": "number",
-                    "description": "Hard timeout for CLaRa compression in seconds. Default: 30.",
-                    "default": 30.0,
+                    "description": "Maximum characters in assembled context. Default: 12000.",
+                    "default": 12000,
                 },
                 "project_id": {
                     "type": "string",
                     "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted.",
                 },
             },
-            "required": ["query"],
+            "required": [],
         },
         "_meta": {
             "icons": {
@@ -236,6 +222,27 @@ TOOLS = [
                 "default": "pie-chart",
                 "light": "pie-chart",
                 "dark": "pie-chart"
+            }
+        }
+    },
+    {
+        "name": "codrag_hi",
+        "description": "Greet the user and show what you can see. Call this when the user says 'codrag_hi' or asks what CoDRAG knows. Present the response CONVERSATIONALLY — tell the user what files and areas you're looking at, mention any health issues, and offer the suggested prompts as numbered next-step options. If the user also asked a question, briefly summarize what you see then answer their question (use codrag_search for specifics).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {
+                    "type": "string",
+                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted.",
+                },
+            },
+            "required": [],
+        },
+        "_meta": {
+            "icons": {
+                "default": "hand-wave",
+                "light": "hand-wave",
+                "dark": "hand-wave"
             }
         }
     },

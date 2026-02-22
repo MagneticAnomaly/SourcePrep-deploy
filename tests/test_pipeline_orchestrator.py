@@ -56,14 +56,14 @@ def _slow_worker(barrier):
 # ── Stage / group constants ──────────────────────────────────────
 
 
-def test_fast_sync_has_4_stages():
-    assert len(FAST_SYNC_STAGES) == 4
+def test_fast_sync_has_5_stages():
+    assert len(FAST_SYNC_STAGES) == 5
     assert FAST_SYNC_STAGES[0] == StageId.STRUCTURAL
     assert FAST_SYNC_STAGES[-1] == StageId.KNOWLEDGE
 
 
-def test_deep_enrichment_has_4_stages():
-    assert len(DEEP_ENRICHMENT_STAGES) == 4
+def test_deep_enrichment_has_5_stages():
+    assert len(DEEP_ENRICHMENT_STAGES) == 5
     assert DEEP_ENRICHMENT_STAGES[0] == StageId.ENRICHMENT
     assert DEEP_ENRICHMENT_STAGES[-1] == StageId.DEEP_KNOWLEDGE
 
@@ -99,8 +99,8 @@ class TestFastSync:
             assert started2 is False
             barrier.set()
 
-    def test_fast_sync_sequences_all_4_stages(self, pipeline):
-        """Verify all 4 stages run in sequence and pipeline completes."""
+    def test_fast_sync_sequences_all_5_stages(self, pipeline):
+        """Verify all 5 stages run in sequence and pipeline completes."""
         with patch(
             "codrag.services.pipeline_orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
@@ -113,8 +113,8 @@ class TestFastSync:
             fast = status["fast_sync"]
             assert fast is not None
             assert fast["phase"] == "completed"
-            assert fast["current_stage_index"] == 4  # Past all stages
-            assert len(fast["stage_results"]) == 4
+            assert fast["current_stage_index"] == 5  # Past all stages
+            assert len(fast["stage_results"]) == 5
 
     def test_fast_sync_status_while_running(self, pipeline, orchestrator):
         barrier = threading.Event()
@@ -145,7 +145,7 @@ class TestDeepEnrichment:
             started = pipeline.run_deep_enrichment("proj-1")
             assert started is True
 
-    def test_deep_enrichment_sequences_all_4_stages(self, pipeline):
+    def test_deep_enrichment_sequences_all_5_stages(self, pipeline):
         with patch(
             "codrag.services.pipeline_orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
@@ -157,7 +157,8 @@ class TestDeepEnrichment:
             deep = status["deep_enrichment"]
             assert deep is not None
             assert deep["phase"] == "completed"
-            assert len(deep["stage_results"]) == 4
+            assert deep["current_stage_index"] == 5
+            assert len(deep["stage_results"]) == 5
 
 
 class TestRunAll:

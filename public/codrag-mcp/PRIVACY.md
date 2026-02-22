@@ -24,6 +24,7 @@ CoDRAG makes network requests **only** in the following specific scenarios:
 ### External LLM Providers (Optional)
 - If you configure CoDRAG to use an external LLM provider (e.g., OpenAI, Anthropic) via "Bring Your Own Key" (BYOK), text chunks will be sent to that provider.
 - **You** control this configuration. By default, CoDRAG uses local embeddings (Ollama) and performs no external inference.
+- When using a cloud model, CoDRAG **batches multiple files into single API calls** to reduce latency and cost. This means a single request to your provider may contain excerpts from multiple files in your project. The data sent is identical to what would be sent in individual calls — batching changes only the grouping, not the content. See our [BYOK Batch Processing guide](https://docs.codrag.io/guides/byok-batching) for full details.
 
 ### Updates
 - CoDRAG checks for application updates by querying our update server.

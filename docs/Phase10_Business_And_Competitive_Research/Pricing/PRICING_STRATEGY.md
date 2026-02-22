@@ -1,5 +1,10 @@
 # Pricing Strategy
 
+> **⚠️ PARTIALLY SUPERSEDED** — Tier names have changed: Starter → **Monthly** ($7/mo),
+> Pro → **Perpetual** ($79 one-time). International pricing is now covered in
+> [`GLOBAL_PRICING.md`](GLOBAL_PRICING.md). The authoritative pricing tiers are in
+> [`DISTRIBUTION_AND_REVENUE_PLAN.md`](../../DISTRIBUTION_AND_REVENUE_PLAN.md) §7.
+
 ## Executive Summary
 CoDRAG adopts a **"Software License"** model (Perpetual License) for individuals and a **"Seat-Based Subscription"** for teams. This aligns with our local-first, BYOK architecture where COGS is low (no hosted inference costs).
 

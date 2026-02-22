@@ -1603,6 +1603,7 @@ class TraceIndex:
         self.manifest_path = self.index_dir / "trace_manifest.json"
         self.nodes_path = self.index_dir / "trace_nodes.jsonl"
         self.edges_path = self.index_dir / "trace_edges.jsonl"
+        self.inferred_edges_path = self.index_dir / "trace_inferred_edges.jsonl"
 
         self._manifest: Optional[Dict[str, Any]] = None
         self._nodes: Dict[str, Dict[str, Any]] = {}
@@ -1675,6 +1676,22 @@ class TraceIndex:
                         tgt = edge["target"]
                         self._edges_by_source.setdefault(src, []).append(edge)
                         self._edges_by_target.setdefault(tgt, []).append(edge)
+
+            # Load LLM-inferred edges (produced by Stage 1.5)
+            if self.inferred_edges_path.exists():
+                try:
+                    with open(self.inferred_edges_path, "r", encoding="utf-8") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line:
+                                edge = json.loads(line)
+                                self._edges.append(edge)
+                                src = edge["source"]
+                                tgt = edge["target"]
+                                self._edges_by_source.setdefault(src, []).append(edge)
+                                self._edges_by_target.setdefault(tgt, []).append(edge)
+                except Exception as e:
+                    logger.warning("Failed to load inferred edges: %s", e)
 
             self._loaded = True
             return True
@@ -1857,6 +1874,78 @@ class TraceIndex:
             "in_nodes": in_nodes,
             "out_nodes": out_nodes,
         }
+
+    def get_hub_files(
+        self,
+        scope_paths: Optional[Set[str]] = None,
+        k: int = 10,
+    ) -> List[Tuple[str, int]]:
+        """Return top-k hub files by in-degree, optionally scoped to a set of paths.
+
+        Args:
+            scope_paths: If provided, only consider files whose path starts with
+                         one of these prefixes (files or directories).  Directories
+                         should end with ``/`` or be an exact file match.
+            k: Maximum number of hub files to return.
+
+        Returns:
+            List of ``(file_path, in_degree)`` tuples sorted by descending in-degree.
+        """
+        if not self._loaded:
+            self.load()
+
+        # Compute in-degree per file from edges.
+        # Works with both Rust and Python backends by reading edges files
+        # directly (Rust backend doesn't populate self._edges_by_target).
+        in_degree: Dict[str, int] = {}
+
+        for edge_file in ("trace_edges.jsonl", "trace_inferred_edges.jsonl"):
+            edge_path = self.index_dir / edge_file
+            if not edge_path.exists():
+                continue
+            try:
+                with open(edge_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            d = json.loads(line)
+                            target = d.get("target", "")
+                            if target.startswith("file:"):
+                                fp = target[5:]
+                            else:
+                                # Symbol target — resolve to file path via node
+                                node = self._nodes.get(target)
+                                fp = node.get("file_path") if node else None
+                            if fp:
+                                in_degree[fp] = in_degree.get(fp, 0) + 1
+                        except json.JSONDecodeError:
+                            continue
+            except OSError:
+                continue
+
+        # Scope filter
+        if scope_paths:
+            exact: Set[str] = set()
+            prefixes: List[str] = []
+            for sp in scope_paths:
+                s = str(sp)
+                if s.endswith("/"):
+                    prefixes.append(s)
+                else:
+                    exact.add(s)
+                    prefixes.append(s.rstrip("/") + "/")
+
+            def _in_scope(fp: str) -> bool:
+                if fp in exact:
+                    return True
+                return any(fp.startswith(pfx) for pfx in prefixes)
+
+            in_degree = {fp: deg for fp, deg in in_degree.items() if _in_scope(fp)}
+
+        sorted_files = sorted(in_degree.items(), key=lambda x: -x[1])
+        return sorted_files[:k]
 
 
 def build_trace(

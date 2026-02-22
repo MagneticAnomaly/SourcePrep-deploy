@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getStore, createReport } from '../../../lib/reports';
 
 // ── Types ─────────────────────────────────────────────────────
 interface BugReportPayload {
@@ -230,8 +231,14 @@ export async function POST(request: NextRequest) {
   // Send notification email
   const emailSent = await sendNotification(reportId, report);
 
-  // TODO (Phase 27.3): Store in database for ticket tracking
-  // await db.insert('reports', { id: reportId, status: 'new', ... });
+  // Phase 27.2: Persist report for ticket tracking
+  try {
+    const reportRecord = createReport(reportId, report as unknown as Record<string, unknown>);
+    await getStore().insert(reportRecord);
+  } catch (storeErr) {
+    console.error('[bug-report] Failed to store report:', storeErr);
+    // Non-fatal — email notification is the primary delivery
+  }
 
   return NextResponse.json(
     {

@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-02-20T23:00:01.070999+00:00",
+  "clara_url": "http://localhost:8765",
+  "clara_status": {
+    "model": "apple/CLaRa-7B-Instruct",
+    "subfolder": "compression-16",
+    "initialized": true,
+    "backend": "pytorch",
+    "device": "mps",
+    "dtype": "torch.float16",
+    "load_time_seconds": 14.732789993286133,
+    "requests_served": 6,
+    "errors": 0,
+    "avg_latency_ms": 24421.8731323878,
+    "uptime_seconds": 51955
+  },
+  "points": [
+    {
+      "volume_label": "1K-tiny",
+      "num_memories": 1,
+      "input_chars": 1887,
+      "input_tokens_est": 471,
+      "max_new_tokens": 128,
+      "output_chars": 624,
+      "output_tokens_est": 156,
+      "compression_ratio": 16.0,
+      "latency_ms": 11288.4,
+      "is_cold_start": false,
+      "success": true,
+      "error": null
+    },
+    {
+      "volume_label": "6K-default",
+      "num_memories": 7,
+      "input_chars": 13430,
+      "input_tokens_est": 3357,
+      "max_new_tokens": 256,
+      "output_chars": 980,
+      "output_tokens_est": 245,
+      "compression_ratio": 16.0,
+      "latency_ms": 25272.5,
+      "is_cold_start": false,
+      "success": true,
+      "error": null
+    },
+    {
+      "volume_label": "20K-large",
+      "num_memories": 25,
+      "input_chars": 48048,
+      "input_tokens_est": 12012,
+      "max_new_tokens": 512,
+      "output_chars": 1128,
+      "output_tokens_est": 282,
+      "compression_ratio": 16.0,
+      "latency_ms": 65278.7,
+      "is_cold_start": false,
+      "success": true,
+      "error": null
+    }
+  ],
+  "cold_start_ms": null,
+  "warm_avg_ms": 33946.5,
+  "total_duration_s": 107.1
+}

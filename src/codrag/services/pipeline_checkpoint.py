@@ -68,6 +68,13 @@ STAGE_OUTPUTS: Dict[str, List[str]] = {
     "knowledge":      [],  # Knowledge index uses its own atomic swap
     "enrichment":     ["trace_epistemic.jsonl", "trace_epistemic_manifest.json"],
     "clustering":     ["trace_modules.jsonl"],
+    "atlas":          [
+        "atlas.json",
+        "atlas_prev.json",
+        "atlas_segments_manifest.json",
+        "atlas_routing.json",
+        "atlas_routing_embeddings.npy",
+    ],
     "deepening":      ["trace_epistemic.jsonl", "trace_epistemic_manifest.json"],  # re-writes epistemic
     "deep_knowledge": [],  # Same atomic swap as knowledge
 }

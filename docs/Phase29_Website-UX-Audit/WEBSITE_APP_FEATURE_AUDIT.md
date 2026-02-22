@@ -99,4 +99,4 @@
 
 ✅ **Moved to [Phase 33 — Embedding Model Evaluation](../Phase33_embed-tests/README.md).**
 
-Initial benchmark (2026-02-20) kept `nomic-embed-text-v1.5` ONNX as the default. Extended real-world testing across 10 repos and 4 indexing modes is ongoing in Phase 33, including docs-only, strip-code, trace-only, and full code compression evaluation.
+Decision finalized (2026-02-21): `nomic-embed-text-v1.5` ONNX is the sole production embedding model. `v2-moe` was evaluated across 10 repos and rejected due to score calibration fragility and an Ollama context limit bug (hard 512-token limit).

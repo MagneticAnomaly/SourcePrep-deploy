@@ -122,7 +122,7 @@ function SearchResults() {
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-6 pb-16 pt-0">
         <Suspense fallback={<div>Loading...</div>}>
           <SearchResults />
         </Suspense>

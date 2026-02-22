@@ -103,6 +103,18 @@ export function useFileSystem(selectedProjectId: string | null, deps: UseFileSys
       const newRoots = data.tree as TreeNode[]
       
       setFileTree((prev) => {
+        // Strip stale status/chunks from nodes (used when preserving old
+        // children that were NOT refreshed by the API response).
+        function stripStatus(nodes: TreeNode[]): TreeNode[] {
+          return nodes.map(node => {
+            const { status, chunks, ...rest } = node as TreeNode & { chunks?: number }
+            if (rest.children) {
+              return { ...rest, children: stripStatus(rest.children) }
+            }
+            return rest
+          })
+        }
+
         // Recursive Deep Merge: Preserve loaded children from previous state
         // if new state (roots) doesn't have them. This prevents wiping out
         // the loaded tree structure on background refreshes.
@@ -119,9 +131,10 @@ export function useFileSystem(selectedProjectId: string | null, deps: UseFileSys
                  }
               }
               // If new node has NO children (or empty) but old node had children,
-              // preserve the old children (assuming new node is just a shallow update)
+              // preserve the old children structure but strip stale status/chunks
+              // (backend didn't confirm their status in this response).
               if (oldNode.children && oldNode.children.length > 0) {
-                return { ...newNode, children: oldNode.children }
+                return { ...newNode, children: stripStatus(oldNode.children) }
               }
             }
             return newNode
@@ -242,6 +255,12 @@ export function useFileSystem(selectedProjectId: string | null, deps: UseFileSys
       }
       
       localStorage.setItem('codrag_included_paths', JSON.stringify([...next]))
+
+      // Persist full canonical set to server (fire-and-forget)
+      if (selectedProjectId) {
+        api.updateIncludedPaths(selectedProjectId, [...next]).catch(() => {})
+      }
+
       return next
     })
 
@@ -258,7 +277,10 @@ export function useFileSystem(selectedProjectId: string | null, deps: UseFileSys
   const clearIncludedPaths = useCallback(() => {
     setIncludedPaths(new Set())
     localStorage.removeItem('codrag_included_paths')
-  }, [])
+    if (selectedProjectId) {
+      api.updateIncludedPaths(selectedProjectId, []).catch(() => {})
+    }
+  }, [api, selectedProjectId])
 
   // ── Pinned file handlers ────────────────────────────────────
 
@@ -295,7 +317,7 @@ export function useFileSystem(selectedProjectId: string | null, deps: UseFileSys
     return data.content
   }, [api, selectedProjectId])
 
-  // ── Hydration: fetch tree + path weights on project change ──
+  // ── Hydration: fetch tree + path weights + included paths on project change ──
 
   useEffect(() => {
     if (!selectedProjectId) return
@@ -303,6 +325,13 @@ export function useFileSystem(selectedProjectId: string | null, deps: UseFileSys
     api.getPathWeights(selectedProjectId).then((data) => {
       setPathWeights(data.path_weights ?? {})
     }).catch(() => { setPathWeights({}) })
+    api.getIncludedPaths(selectedProjectId).then((data) => {
+      const serverPaths = new Set(data.included_paths ?? [])
+      if (serverPaths.size > 0) {
+        setIncludedPaths(serverPaths)
+        localStorage.setItem('codrag_included_paths', JSON.stringify([...serverPaths]))
+      }
+    }).catch(() => { /* keep localStorage state as fallback */ })
   }, [api, selectedProjectId, fetchFileTree])
 
   // ── Sync pinned paths to dashboard layout ───────────────────

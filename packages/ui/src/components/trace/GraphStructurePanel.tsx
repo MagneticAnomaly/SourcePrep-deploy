@@ -385,7 +385,7 @@ export function GraphStructurePanel({
   return (
     <div ref={containerRef} className={cn('flex flex-col h-full', className)}>
       {/* Coverage summary bar */}
-      <div className="px-4 py-3 border-b border-border space-y-2">
+      <div className="py-3 border-b border-border space-y-2">
         {loading && !summary ? (
           <div className="flex items-center gap-2 text-xs text-text-muted py-2">
             <Loader2 className="w-3.5 h-3.5 animate-spin" />

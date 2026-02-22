@@ -3,7 +3,7 @@ import { AnchorHeading } from '../../components/AnchorHeading';
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-6 pb-16 pt-0">
         <a href="/" className="text-sm text-text-muted">
           ← Back to Docs
         </a>
@@ -48,9 +48,10 @@ export default function Page() {
             When you connect an editor like Cursor or Windsurf, their internal AI agents gain the ability to:
           </p>
           <ul className="list-disc pl-6 space-y-2">
-            <li><strong>Search Semantically:</strong> Find code by meaning (&quot;auth logic&quot;) rather than just keywords.</li>
-            <li><strong>Code Graph:</strong> Follow import paths and function calls (Rust-powered graph).</li>
-            <li><strong>Compress Context:</strong> Use CLaRa to fit massive documentation into the prompt.</li>
+            <li><strong>Get Oriented:</strong> Use <code>codrag_hi</code> to see exactly which files you&apos;ve selected — with doc previews, topic detection (&quot;authentication&quot;, &quot;UI components&quot;), hub file identification, import relationships, and tailored next-step suggestions.</li>
+            <li><strong>Search Semantically:</strong> Find code by meaning (&quot;auth logic&quot;) rather than just keywords, automatically scoped to your selected files.</li>
+            <li><strong>Code Graph:</strong> Follow import paths and function calls (Rust-powered graph). <code>codrag_hi</code> shows file connections and the most-imported files at a glance.</li>
+            <li><strong>Compress Context:</strong> Smart compression fits more files into the same token budget &mdash; structural for code, language-aware for docs. No sidecar needed.</li>
           </ul>
         </div>
       </div>

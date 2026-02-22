@@ -317,3 +317,28 @@ Yes option 2 -- if we think option 3 is a good option we can consider it for pro
 - [x] `handleToggleInclude` in `App.tsx` now calls `api.addScopeFiles()` / `api.removeScopeFiles()` → scope orchestrator notified
 - [x] `src/codrag/api/routers/scope.py` — Scope REST API: status, add, remove, rebuild. Registered in `server.py`.
 - [x] FolderTree stale indicator UI component: added to `FolderTreePanel` and `FileExplorerDetail` (Building/Stale/Pending badges)
+
+### Phase 6: SM-1 Frontend Reducers (Dashboard Refactoring) — In Progress
+
+**Phase A: Decompose useTraceSystem** ✅
+- [x] `useEnrichment.ts` (306 lines) — extracted enrichment stages with `enrichmentReducer.ts`
+- [x] Self-hydrate: `useTraceSystem` now owns trace status + coverage hydration on project change (was in App.tsx)
+- [x] Removed `setTraceStatus` / `setTraceCoverage` from hook return — hook owns its lifecycle, no external setters
+
+**Phase B: Extract Search + Context** ✅ (already done)
+- [x] `useSearchContext.ts` (141 lines) — extracted from App.tsx
+
+**Phase C: Extract Project + File System** ✅
+- [x] `useProjectManager.ts` (293 lines) — owns projects, selectedProjectId, projectStatuses, buildingProjects, transientCompleteProjects, projectConfig, configDirty, and all CRUD/build/config actions
+- [x] Self-hydrates on project change (status + config fetch)
+- [x] Auto-selects first project
+- [x] `useFileSystem.ts` (373 lines) — already extracted
+
+**Phase D: Simplify useDashboardPanels** — Pending
+- [ ] Replace 120+ individual props with domain hook return objects
+
+**Results:**
+- `App.tsx`: 771 → 531 lines (−31%)
+- `useTraceSystem.ts`: 800 → 552 lines (−31%)
+- New `useProjectManager.ts`: 293 lines
+- Zero TypeScript errors

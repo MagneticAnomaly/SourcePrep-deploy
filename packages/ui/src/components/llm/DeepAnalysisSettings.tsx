@@ -1,7 +1,7 @@
 import { cn } from '../../lib/utils';
 import { Select } from '../primitives/Select';
 import { StepperNumberInput } from '../primitives/StepperNumberInput';
-import { Brain, Calendar, Gauge, Info, Zap } from 'lucide-react';
+import { Calendar, Gauge, Info, Zap } from 'lucide-react';
 
 export interface DeepAnalysisSchedule {
   mode: 'manual' | 'auto' | 'scheduled';
@@ -88,17 +88,6 @@ export function DeepAnalysisSettings({
 
   return (
     <div className={cn('space-y-6', className)}>
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <Brain className="w-4 h-4 text-purple-400" />
-          <h3 className="text-sm font-semibold text-text">Deep Enrichment Strategy</h3>
-        </div>
-        <p className="text-xs text-text-muted mb-4">
-          Configures when Stages 5–8 run — epistemic enrichment, deepening, and knowledge synthesis.
-        </p>
-      </div>
-
       {/* Model requirement warning */}
       {!largeModelConfigured && !fastModelConfigured && (
         <div className="flex gap-2 p-3 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-500">
@@ -119,7 +108,7 @@ export function DeepAnalysisSettings({
 
       {/* Mode selector */}
       <section className="space-y-3">
-        <h4 className="text-xs font-medium text-text-muted uppercase tracking-wide flex items-center gap-1.5">
+        <h4 className="text-xs font-medium font-mono text-text-muted uppercase tracking-wide flex items-center gap-1.5">
           <Calendar className="w-3.5 h-3.5" /> Trigger Mode
         </h4>
         <Select
@@ -236,7 +225,7 @@ export function DeepAnalysisSettings({
 
       {/* Budget controls */}
       <section className="space-y-3">
-        <h4 className="text-xs font-medium text-text-muted uppercase tracking-wide flex items-center gap-1.5">
+        <h4 className="text-xs font-medium font-mono text-text-muted uppercase tracking-wide flex items-center gap-1.5">
           <Gauge className="w-3.5 h-3.5" /> Budget Per Session
         </h4>
 
@@ -308,7 +297,7 @@ export function DeepAnalysisSettings({
 
       {/* Priority */}
       <section className="space-y-2">
-        <h4 className="text-xs font-medium text-text-muted uppercase tracking-wide">Priority</h4>
+        <h4 className="text-xs font-medium font-mono text-text-muted uppercase tracking-wide">Priority</h4>
         <Select
           value={schedule.priority}
           onChange={(e) => update({ priority: e.target.value as DeepAnalysisSchedule['priority'] })}

@@ -58,6 +58,12 @@ class PipelineFileLogger:
         self._start_time = time.time()
         self.run_id = f"{group}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
 
+        # Re-create logs dir (may have been deleted by graph reset) and
+        # generate a fresh log path for this run.
+        self.logs_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        self.log_path = self.logs_dir / f"pipeline_{ts}.log"
+
         # Set up stdlib file handler for ALL codrag loggers
         self._file_handler = logging.FileHandler(str(self.log_path), encoding="utf-8")
         self._file_handler.setLevel(logging.DEBUG)

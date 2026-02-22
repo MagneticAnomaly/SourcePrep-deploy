@@ -254,6 +254,115 @@ class DirectMCPServer:
             "estimated_tokens": data.get("estimated_tokens", 0),
         }
 
+    async def tool_hi(self) -> Dict[str, Any]:
+        """Project overview and context discovery (direct mode)."""
+        await self._ensure_init()
+
+        project_name = self.repo_root.name
+
+        # Index stats
+        index_exists = False
+        total_chunks = 0
+        built_at = None
+        if self._index:
+            try:
+                s = await asyncio.to_thread(self._index.stats)
+                index_exists = s.get("loaded", False)
+                total_chunks = s.get("total_documents", 0)
+                built_at = s.get("built_at")
+            except Exception:
+                pass
+
+        # Trace stats
+        trace_enabled = False
+        total_nodes = 0
+        total_edges = 0
+        if self._trace_index and self._trace_index.exists():
+            trace_enabled = True
+            try:
+                total_nodes = len(self._trace_index.nodes()) if hasattr(self._trace_index, "nodes") else 0
+                total_edges = len(self._trace_index.edges()) if hasattr(self._trace_index, "edges") else 0
+            except Exception:
+                pass
+
+        # Build conversational summary
+        lines: List[str] = []
+
+        # What I'm looking at (lead with context, not status)
+        if self._building:
+            lines.append(f"I'm setting up **{project_name}** — the index is building right now.")
+        elif index_exists:
+            lines.append(f"I'm looking at **{project_name}** — {total_chunks} chunks indexed across the project.")
+        else:
+            lines.append(f"I see **{project_name}** but there's no index yet. I'll need one before I can help with code questions.")
+
+        if trace_enabled and total_nodes > 0:
+            lines.append(f"I can also follow the code graph ({total_nodes} nodes, {total_edges} edges) to trace imports, calls, and structural relationships.")
+
+        lines.append("")
+
+        # Health observations
+        observations: List[str] = []
+        if not index_exists:
+            observations.append("No index exists yet — run `codrag_build` to get started.")
+
+        if observations:
+            lines.append("**Heads up:**")
+            for obs in observations:
+                lines.append(f"- {obs}")
+            lines.append("")
+        else:
+            lines.append("Everything looks good — index is loaded and ready.\n")
+
+        # Suggested prompts
+        prompts: List[str] = []
+        if not index_exists:
+            prompts.append("Build my index: `codrag_build`")
+        else:
+            prompts.append(f"How is {project_name} structured? What are the main modules?")
+            prompts.append(f"Find the main entry point of {project_name}.")
+            prompts.append("What are the key data models or types?")
+            if trace_enabled:
+                prompts.append("What are the most connected modules in the code graph?")
+
+        if prompts:
+            lines.append("**Here are some things I can help with:**")
+            for i, p in enumerate(prompts[:6], 1):
+                lines.append(f"{i}. {p}")
+            lines.append("")
+
+        summary_md = "\n".join(lines)
+
+        diagnostics = {
+            "project_name": project_name,
+            "mode": "direct",
+            "repo_root": str(self.repo_root),
+            "index_loaded": index_exists,
+            "total_chunks": total_chunks,
+            "building": self._building,
+            "trace_enabled": trace_enabled,
+            "trace_nodes": total_nodes,
+            "trace_edges": total_edges,
+        }
+
+        ai_note = (
+            "STANDALONE (user only said 'codrag_hi'): Present the summary above "
+            "conversationally — tell the user what you're looking at, mention any "
+            "health issues naturally, and offer the suggested prompts as numbered "
+            "options they can pick from. Speak in first person: 'I can see...', "
+            "'I'm looking at...'. Keep it warm and helpful.\n\n"
+            "WITH A QUESTION (user said 'codrag_hi' AND asked something): Briefly "
+            "acknowledge what you see (1-2 sentences), then address their question. "
+            "If you need specific code context to answer, call codrag_search with "
+            "their question."
+        )
+
+        return {
+            "_ai_note": ai_note,
+            "summary": summary_md,
+            "diagnostics": diagnostics,
+        }
+
     # -------------------------------------------------------------------------
     # Protocol Handlers
     # -------------------------------------------------------------------------
@@ -294,6 +403,8 @@ class DirectMCPServer:
                     k=args.get("k", 5),
                     max_chars=args.get("max_chars", 6000),
                 )
+            elif name == "codrag_hi":
+                result = await self.tool_hi()
             else:
                 raise MethodNotFoundError(f"Unknown tool: {name}")
 

@@ -58,10 +58,15 @@
       }
     },
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; connect-src 'self' http://127.0.0.1:8400 ws://127.0.0.1:8400 ws://localhost:* http://localhost:* https://api.lemonsqueezy.com https://github.com https://objects.githubusercontent.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'"
     },
     "updater": {
-      "active": false
+      "active": true,
+      "dialog": false,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM0M0Y2QkYxOEFFQTFGRTAKUldUZ0grcUs4V3MveERBU29ObTNoNTBoM0Fna3NEMit4bjhHRE5vbG0yZE1wSnVBWGpHL25kWjgK",
+      "endpoints": [
+        "https://github.com/EricBintner/CoDRAG/releases/latest/download/latest.json"
+      ]
     },
     "windows": [
       {

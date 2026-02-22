@@ -30,7 +30,7 @@ from codrag import __version__
 app = typer.Typer(
     name="codrag",
     help="CoDRAG - Code Documentation and RAG.\n\nSemantic search, context assembly, and structural analysis for your codebase.",
-    no_args_is_help=True,
+    no_args_is_help=False,
     add_completion=False,
 )
 console = Console()
@@ -194,14 +194,16 @@ def _resolve_project(base: str, project_id: Optional[str] = None, auto: bool = T
     raise typer.Exit(1)
 
 
-@app.callback()
-def callback() -> None:
+@app.callback(invoke_without_command=True)
+def callback(ctx: typer.Context) -> None:
     """
     CoDRAG: Code Documentation and Retrieval Augmented Generation.
 
     Manage code indexes, run semantic searches, and assemble context for LLMs.
     """
-    pass
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
+        raise typer.Exit(0)
 
 
 @app.command()
@@ -620,11 +622,12 @@ def context(
 
 @app.command("models")
 def models_download() -> None:
-    """Download the native embedding model for offline/air-gapped use.
+    """Download the built-in CPU embedding model (offline/air-gapped backup).
 
-    Pre-downloads nomic-embed-text-v1.5 (ONNX, ~100 MB quantized) to the
-    HuggingFace cache (~/.cache/huggingface/).  After downloading, CoDRAG
-    can run semantic search without Ollama or any network access.
+    Pre-downloads nomic-embed-text-v1.5 (quantized ONNX, ~132 MB) to the
+    HuggingFace cache (~/.cache/huggingface/). Runs entirely on CPU —
+    no GPU or Ollama required. Use this if you cannot run Ollama or need
+    fully offline / air-gapped operation.
     """
     from codrag.core.embedder import NativeEmbedder
 
@@ -640,7 +643,7 @@ def models_download() -> None:
     try:
         model_path = native.download_model()
         console.print(f"[green]✓ Model downloaded to: {model_path}[/green]")
-        console.print("[dim]CoDRAG will now use native embeddings by default (no Ollama needed).[/dim]")
+        console.print("[dim]Built-in ONNX model ready.[/dim]")
     except Exception as e:
         console.print(f"[red]Download failed: {e}[/red]")
         raise typer.Exit(1)
@@ -852,7 +855,7 @@ def config(
     if key is None:
         # Show full config
         try:
-            cfg = _get_json(f"{base}/api/code-index/config")
+            cfg = _get_json(f"{base}/global/config")
             console.print("[cyan]Current configuration:[/cyan]")
             console.print(json.dumps(cfg, indent=2))
         except Exception as e:
@@ -860,7 +863,7 @@ def config(
     elif value is None:
         # Get specific key (dot-notation)
         try:
-            cfg = _get_json(f"{base}/api/code-index/config")
+            cfg = _get_json(f"{base}/global/config")
             parts = key.split(".")
             val = cfg
             for part in parts:
@@ -892,7 +895,7 @@ def config(
             
             # PUT the update
             import requests
-            resp = requests.put(f"{base}/api/code-index/config", json=update, timeout=10)
+            resp = requests.put(f"{base}/global/config", json=update, timeout=10)
             resp.raise_for_status()
             console.print(f"[green]Set {key} = {value}[/green]")
         except Exception as e:

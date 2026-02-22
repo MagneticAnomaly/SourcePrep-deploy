@@ -103,8 +103,8 @@ Apple's purchase receipt tied to the user's Apple ID is the "license", and the a
 optionally verifies the StoreKit receipt to prevent side-loading. No Lemon Squeezy,
 no api.codrag.io, no machine activation limits — Apple handles all of it.
 
-**Tiers on Apple:** Free app (free tier only) + Pro app ($84.99). **No Starter tier** —
-the 4-month pass model doesn't map cleanly to a paid-upfront App Store app.
+**Tiers on Apple:** Free app (free tier only) + Pro app ($84.99). **No Monthly tier** —
+the subscription model doesn't map cleanly to a paid-upfront App Store app.
 
 **For launch: Option C3 (Skip).** Revisit as C4 after direct download is stable.
 
@@ -136,7 +136,7 @@ an IAP variant on the Mac App Store.
 | **Role** | Merchant of Record (MoR) |
 | **What MoR means** | Lemon Squeezy is the legal seller. They handle sales tax, VAT, refunds, chargebacks, and compliance. You receive net payouts. |
 | **Storefront** | payments.codrag.io (Lemon Squeezy-hosted checkout or embedded) |
-| **Products** | Starter Pass, Pro License, Team Subscription (configured as LS products) |
+| **Products** | Monthly Subscription, Perpetual License, Team Subscription (configured as LS products) |
 | **Webhooks** | `order_completed` → triggers license generation on api.codrag.io |
 | **Fee** | ~5% + payment processing (~2.9% + $0.30 per txn) |
 | **Payout** | To Magnetic Anomaly LLC business bank account |
@@ -353,12 +353,30 @@ purchases of digital items or services."
 | Tier | Price | Duration | Projects | Key Features |
 |:---|:---|:---|:---|:---|
 | **Free** | $0 | Forever | 1 | Semantic search, manual indexing, basic MCP |
-| **Starter** | $29 | 4-month pass | 3 | Real-time watchers, priority support |
-| **Pro** | $79 | Perpetual license | Unlimited | Trace Index, full MCP, auto-rebuild, CLaRa compression |
+| **Monthly** | $7/mo | Subscription | Unlimited | Real-time watchers, full MCP, auto-rebuild, CLaRa compression |
+| **Perpetual** | $79 | One-time license | Unlimited | Everything in Monthly, never expires, offline activation |
 | **Team** | $15/seat/mo | Subscription | Unlimited | Shared config, centralized policy, license management |
 | **Enterprise** | Custom | Custom | Unlimited | Air-gapped, SSO/SCIM, audit logs, dedicated support |
 
 All tiers are Lemon Squeezy products. Enterprise may involve manual invoicing.
+
+### International Pricing (Purchasing Power Parity)
+
+Prices above are **Band 0 (US/EU/UK/AU/JP)** base prices. CoDRAG uses a 4-band PPP
+model to make pricing accessible in emerging developer markets while maintaining
+revenue from tier-1 economies.
+
+| Band | Discount | Monthly | Perpetual | Team | Example Countries |
+|:-----|:---------|:--------|:----------|:-----|:------------------|
+| **0 — Full** | 0% | $7/mo | $79 | $15/seat/mo | US, Canada, UK, Germany, Japan, Australia |
+| **1 — Moderate** | 20% | $5/mo | $59 | $12/seat/mo | Spain, Poland, South Korea, Taiwan, Chile |
+| **2 — High** | 40% | $4/mo | $45 | $9/seat/mo | Brazil, Mexico, Turkey, South Africa, Thailand |
+| **3 — Maximum** | 60% | $3/mo | $29 | $6/seat/mo | India, Indonesia, Vietnam, Nigeria, Pakistan |
+
+- Geo-detection via Netlify Edge Function (reads `context.geo.country`)
+- Prices adjusted on codrag.io/pricing; LS checkout uses PPP discount codes
+- License files are identical regardless of price paid — no tier difference
+- Full strategy: [`Phase10_.../Pricing/GLOBAL_PRICING.md`](Phase10_Business_And_Competitive_Research/Pricing/GLOBAL_PRICING.md)
 
 ---
 

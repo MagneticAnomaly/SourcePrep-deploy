@@ -18,6 +18,52 @@ import requests
 logger = logging.getLogger(__name__)
 
 
+# Known Ollama embedding model presets.
+# Maps model name (or common alias) → {query_prefix, document_prefix}.
+# Models not listed here get empty prefixes (no-op).
+KNOWN_OLLAMA_MODELS: dict = {
+    # nomic-embed-code (code-specialized, Qwen2-7B backbone)
+    # Query prefix from official Nomic documentation.
+    # matryoshka_dim: model outputs 3584-dim vectors but cosine spread is
+    # very narrow at full dim (~0.08).  Truncating to 768 via Matryoshka
+    # restores spread to ~0.31, matching the ONNX text model.
+    "nomic-embed-code": {
+        "query_prefix": "Represent this query for searching relevant code: ",
+        "document_prefix": "",
+        "matryoshka_dim": 768,
+    },
+    "manutic/nomic-embed-code": {"dim": 3584, "matryoshka_dim": 768},
+    # nomic-embed-text-v2-moe (deprecated: hard 512-token context limit + score compression)
+    "nomic-embed-text-v2-moe": {
+        "query_prefix": "search_query: ",
+        "document_prefix": "search_document: ",
+        "max_input_chars": 1_800,
+        "num_ctx": 8192,
+    },
+    "nomic-embed-text-v2-moe:latest": {
+        "query_prefix": "search_query: ",
+        "document_prefix": "search_document: ",
+        "max_input_chars": 1_800,
+        "num_ctx": 8192,
+    },
+    # nomic-embed-text (general-purpose, same model as NativeEmbedder)
+    "nomic-embed-text": {
+        "query_prefix": "search_query: ",
+        "document_prefix": "search_document: ",
+        "num_ctx": 8192,
+    },
+    "nomic-embed-text:latest": {
+        "query_prefix": "search_query: ",
+        "document_prefix": "search_document: ",
+        "num_ctx": 8192,
+    },
+    "nomic-ai/nomic-embed-text-v1.5": {
+        "query_prefix": "search_query: ",
+        "document_prefix": "search_document: ",
+    },
+}
+
+
 @dataclass(frozen=True)
 class EmbeddingResult:
     """Result of an embedding operation."""
@@ -55,6 +101,10 @@ class OllamaEmbedder(Embedder):
         max_retries: int = 4,
         keep_alive: str = "10m",
         max_input_chars: Optional[int] = None,
+        num_ctx: Optional[int] = None,
+        query_prefix: Optional[str] = None,
+        document_prefix: Optional[str] = None,
+        matryoshka_dim: Optional[int] = None,
     ):
         """
         Initialize the Ollama embedder.
@@ -69,14 +119,35 @@ class OllamaEmbedder(Embedder):
                              sending to Ollama.  Prevents "input length exceeds
                              context length" 500 errors.  Defaults to 24 000
                              (~8 k tokens for nomic-embed-text).
+            query_prefix: Text prepended to queries at search time.  If None,
+                          looked up from KNOWN_OLLAMA_MODELS, then defaults to "".
+            document_prefix: Text prepended to documents at index time.  If None,
+                             looked up from KNOWN_OLLAMA_MODELS, then defaults to "".
+            num_ctx: Context window size passed to Ollama via request options.
+                     Overrides Ollama's default (often 2048) to unlock the
+                     model's full context (e.g., 8192 for nomic-embed-text-v2-moe).
+                     If None, looked up from KNOWN_OLLAMA_MODELS preset.
+            matryoshka_dim: Truncate embeddings to this many dimensions via
+                            Matryoshka representation learning (truncate + L2
+                            re-normalize).  High-dim models (e.g., 3584-dim
+                            nomic-embed-code) have very narrow cosine spread;
+                            truncating to 768 restores discriminative power.
+                            If None, looked up from KNOWN_OLLAMA_MODELS preset.
         """
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.timeout_s = timeout_s
         self.max_retries = max_retries
         self.keep_alive = keep_alive
-        self.max_input_chars = max_input_chars if max_input_chars is not None else self._DEFAULT_MAX_INPUT_CHARS
         self._readiness_checked = False
+
+        # Resolve prefixes: explicit arg > KNOWN_OLLAMA_MODELS lookup > empty string
+        preset = KNOWN_OLLAMA_MODELS.get(model, {})
+        self.max_input_chars = max_input_chars if max_input_chars is not None else preset.get("max_input_chars", self._DEFAULT_MAX_INPUT_CHARS)
+        self.num_ctx: Optional[int] = num_ctx if num_ctx is not None else preset.get("num_ctx")
+        self.query_prefix: str = query_prefix if query_prefix is not None else preset.get("query_prefix", "")
+        self.document_prefix: str = document_prefix if document_prefix is not None else preset.get("document_prefix", "")
+        self.matryoshka_dim: Optional[int] = matryoshka_dim if matryoshka_dim is not None else preset.get("matryoshka_dim")
 
     def _ensure_model_ready(self) -> None:
         """Check if the embedding model is loaded and preload if needed.
@@ -95,11 +166,13 @@ class OllamaEmbedder(Embedder):
             # Use a generous timeout for model loading (not the per-request
             # timeout) — after a long LLM run Ollama may need to swap models.
             preload_timeout = max(self.timeout_s, 180)
+            preload_options = {"num_ctx": self.num_ctx} if self.num_ctx else None
             result = ollama_ensure_ready(
                 url=self.base_url,
                 model=self.model,
                 timeout_s=preload_timeout,
                 keep_alive=self.keep_alive,
+                options=preload_options,
             )
             if result.status == ModelStatus.READY:
                 logger.info("Embedding model '%s' is ready", self.model)
@@ -126,18 +199,30 @@ class OllamaEmbedder(Embedder):
             )
             text = text[: self.max_input_chars]
 
+        options: dict = {}
+        if self.num_ctx:
+            options["num_ctx"] = self.num_ctx
+
         endpoints = [
             (
                 f"{self.base_url}/api/embed",
-                {"model": self.model, "input": text, "keep_alive": self.keep_alive},
+                {"model": self.model, "input": text, "keep_alive": self.keep_alive,
+                 **({"options": options} if options else {})},
                 "embeddings",   # response key: list of vectors
             ),
-            (
-                f"{self.base_url}/api/embeddings",
-                {"model": self.model, "prompt": text, "keep_alive": self.keep_alive},
-                "embedding",    # response key: single vector
-            ),
         ]
+        # Only fall back to the legacy /api/embeddings endpoint when
+        # num_ctx is NOT required.  The legacy endpoint ignores the
+        # options dict, so it uses the Ollama model-file default
+        # (often 2 048 tokens) — far too small for v2-moe at 2 400
+        # chars.  Older Ollama (< 0.4) only has /api/embeddings.
+        if not self.num_ctx:
+            endpoints.append((
+                f"{self.base_url}/api/embeddings",
+                {"model": self.model, "prompt": text, "keep_alive": self.keep_alive,
+                 **({"options": options} if options else {})},
+                "embedding",    # response key: single vector
+            ))
 
         last_err: Optional[Exception] = None
         for url, payload, key in endpoints:
@@ -157,10 +242,30 @@ class OllamaEmbedder(Embedder):
                         f"{resp.status_code} Server Error for url: {resp.url} — {body}",
                         response=resp,
                     )
+                    # Context-length errors won't be fixed by a different
+                    # endpoint — /api/embeddings ignores num_ctx options and
+                    # has an even lower limit.  Raise immediately.
+                    if "context length" in body.lower():
+                        raise last_err
                     continue  # try next endpoint
 
                 if resp.status_code == 404:
                     continue  # endpoint not available, try next
+
+                if resp.status_code == 400:
+                    body = ""
+                    try:
+                        body = resp.text[:500]
+                    except Exception:
+                        pass
+                    logger.warning(
+                        "Ollama %s returned 400: %s (input %d chars)",
+                        url, body, len(text),
+                    )
+                    raise requests.HTTPError(
+                        f"400 Client Error for url: {resp.url} — {body}",
+                        response=resp,
+                    )
 
                 resp.raise_for_status()
                 data = resp.json() or {}
@@ -186,26 +291,64 @@ class OllamaEmbedder(Embedder):
                     )
                     continue
 
+                vec = [float(x) for x in emb]
+
+                # Matryoshka truncation: keep only the first N dims.
+                # High-dim models (e.g., 3584-dim nomic-embed-code) have
+                # very narrow cosine spread at full dim; truncating to
+                # 768 restores discriminative power.
+                if self.matryoshka_dim and len(vec) > self.matryoshka_dim:
+                    vec = vec[: self.matryoshka_dim]
+
+                # L2-normalize so dot products equal cosine similarity,
+                # consistent with NativeEmbedder output.
+                norm = sum(v * v for v in vec) ** 0.5
+                if norm > 1e-9:
+                    vec = [v / norm for v in vec]
+
                 return EmbeddingResult(
-                    vector=[float(x) for x in emb],
+                    vector=vec,
                     model=data.get("model") or self.model,
                 )
             except (requests.RequestException, ValueError) as e:
+                logger.debug("Ollama %s exception: %s", url, e)
                 last_err = e
                 continue
 
         raise last_err or RuntimeError("Ollama embedding failed (all endpoints)")
 
-    def embed(self, text: str) -> EmbeddingResult:
-        """Generate an embedding for a single text."""
+    def _embed_with_retries(self, text: str) -> EmbeddingResult:
+        """Send *text* (already prefixed) to Ollama with retry/back-off.
+
+        On context-length errors the input is progressively truncated
+        (75% → 56% → 42% of original) instead of retrying the same
+        text.  This handles dense content that exceeds the model's
+        token context at the character-level ``max_input_chars`` limit.
+        """
         self._ensure_model_ready()
 
+        current_text = text
         last_err: Optional[Exception] = None
         for attempt in range(max(1, self.max_retries)):
             try:
-                return self._try_embed_request(text)
+                return self._try_embed_request(current_text)
             except (requests.RequestException, ValueError) as e:
                 last_err = e
+                err_str = str(e).lower()
+
+                # Context-length error: shorten input instead of
+                # retrying the same text that will always fail.
+                if "context length" in err_str and len(current_text) > 200:
+                    new_len = int(len(current_text) * 0.75)
+                    logger.warning(
+                        "Context overflow at %d chars — truncating to %d "
+                        "(attempt %d/%d)",
+                        len(current_text), new_len,
+                        attempt + 1, self.max_retries,
+                    )
+                    current_text = current_text[:new_len]
+                    continue  # retry immediately with shorter text
+
                 logger.warning(
                     "Embedding attempt %d/%d failed: %s",
                     attempt + 1, self.max_retries, e,
@@ -219,9 +362,19 @@ class OllamaEmbedder(Embedder):
 
         raise last_err or RuntimeError("Ollama embedding failed")
 
+    def embed(self, text: str) -> EmbeddingResult:
+        """Embed a single document text (document_prefix applied)."""
+        prefixed = self.document_prefix + text if self.document_prefix else text
+        return self._embed_with_retries(prefixed)
+
+    def embed_query(self, text: str) -> EmbeddingResult:
+        """Embed a search query (query_prefix applied)."""
+        prefixed = self.query_prefix + text if self.query_prefix else text
+        return self._embed_with_retries(prefixed)
+
     def embed_batch(self, texts: List[str]) -> List[EmbeddingResult]:
-        """Generate embeddings for multiple texts (sequential for now)."""
-        return [self.embed(t) for t in texts]
+        """Embed multiple document texts (document_prefix applied to each)."""
+        return [self._embed_with_retries(self.document_prefix + t if self.document_prefix else t) for t in texts]
 
 
 class NativeEmbedder(Embedder):

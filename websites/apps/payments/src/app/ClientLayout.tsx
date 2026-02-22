@@ -20,6 +20,7 @@ export function ClientLayout({ children }: { children: ReactNode }) {
     <>
       <SiteHeader 
         productName="CoDRAG Payments" 
+        logo={<img src="/codrag-logo.png" alt="CoDRAG" className="w-6 h-6 rounded" />}
         links={navLinks}
       />
       <main className="flex-1">

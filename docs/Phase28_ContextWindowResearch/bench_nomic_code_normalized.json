@@ -1,0 +1,19 @@
+[
+  {
+    "model": "nomic-embed-code (7B, Ollama) [recommended]",
+    "recall_at_1": 1.0,
+    "recall_at_3": 1.0,
+    "recall_at_5": 1.0,
+    "mrr": 1.0,
+    "embed_p50_ms": 147.53804200154264,
+    "embed_p95_ms": 206.10435430280643,
+    "embed_p99_ms": 283.9393372667836,
+    "search_p50_ms": 150.43112500279676,
+    "search_p95_ms": 204.56280000653362,
+    "search_p99_ms": 283.2146600008126,
+    "avg_top_score": 1.1590161601702371,
+    "min_top_score": 0.8601253628730774,
+    "build_time_s": 12.62580394744873,
+    "total_chunks": 20
+  }
+]

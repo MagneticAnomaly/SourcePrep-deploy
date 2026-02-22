@@ -44,15 +44,20 @@ export interface AssembleContextRequest {
   include_sources?: boolean;
   include_scores?: boolean;
   structured?: boolean;
+  include_atlas?: boolean;
   trace_expand?: TraceExpandOptions;
+  compression?: 'none' | 'lod' | 'lingua' | 'auto';
 }
 
 export interface StructuredContextChunk {
-  chunk_id: string;
+  chunk_id?: string;
   source_path: string;
   span?: { start_line: number; end_line: number };
   score?: number;
-  text: string;
+  text?: string;
+  lod?: number;
+  compression_ratio?: number;
+  truncated?: boolean;
 }
 
 export interface AssembleContextResponseText {

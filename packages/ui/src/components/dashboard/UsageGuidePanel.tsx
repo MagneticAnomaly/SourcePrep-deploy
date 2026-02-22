@@ -9,11 +9,27 @@ export interface UsageGuidePanelProps {
   docsUrl?: string;
 }
 
-const MCP_TOOLS = [
+interface ToolDef {
+  name: string;
+  description: string;
+  example: string;
+  primary?: boolean;
+  category?: string;
+}
+
+const MCP_TOOLS: ToolDef[] = [
+  // ── Context & Search ────────────────────────────────
   {
     name: 'codrag',
-    description: 'Get assembled context for your current task — the primary tool your AI uses.',
+    description: 'Get assembled context from your selected files, code graph, and atlas routing — the primary tool your AI uses.',
     example: '"Use codrag to understand this codebase"',
+    primary: true,
+    category: 'Context & Search',
+  },
+  {
+    name: 'codrag_hi',
+    description: 'See what CoDRAG knows about your selected files — design docs, code areas, connections, and suggested next steps. Best first step.',
+    example: '"codrag_hi" — select files in Knowledge Sources first, then ask your AI',
     primary: true,
   },
   {
@@ -21,20 +37,24 @@ const MCP_TOOLS = [
     description: 'Semantic search across your indexed code and docs.',
     example: '"Use codrag_search to find authentication logic"',
   },
+  // ── Index Management ────────────────────────────────
   {
     name: 'codrag_status',
     description: 'Check if CoDRAG is connected and the index is ready.',
     example: '"Use codrag_status to check the index"',
+    category: 'Index Management',
   },
   {
     name: 'codrag_build',
     description: 'Trigger an index rebuild when your code has changed.',
     example: '"Use codrag_build to re-index the project"',
   },
+  // ── Code Graph ──────────────────────────────────────
   {
     name: 'codrag_trace_search',
     description: 'Search the structural code graph for symbols (functions, classes, modules).',
     example: '"Use codrag_trace_search to find the UserService class"',
+    category: 'Code Graph',
   },
   {
     name: 'codrag_trace_neighbors',
@@ -99,24 +119,46 @@ export function UsageGuidePanel({ className, bare = false, docsUrl = 'https://do
           Just ask your AI assistant to use these tools by name.
         </p>
 
-        {/* Primary tool highlight */}
-        <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1.5">
-          <div className="flex items-center gap-2">
-            <CopyBadge text={MCP_TOOLS[0].name} />
-            <span className="text-[10px] font-medium uppercase tracking-wider text-primary">Most used</span>
-          </div>
-          <p className="text-xs text-text-muted">{MCP_TOOLS[0].description}</p>
-          <p className="text-[11px] text-text-muted/70 italic">{MCP_TOOLS[0].example}</p>
-        </div>
-
-        {/* Other tools */}
-        <div className="space-y-1.5">
-          {MCP_TOOLS.slice(1).map((tool) => (
-            <div key={tool.name} className="flex items-start gap-2 py-1.5">
-              <CopyBadge text={tool.name} />
-              <span className="text-xs text-text-muted leading-snug pt-0.5">{tool.description}</span>
+        {/* Primary tools highlight */}
+        <div className="space-y-2">
+          {MCP_TOOLS.filter(t => t.primary).map((tool) => (
+            <div key={tool.name} className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <CopyBadge text={tool.name} />
+                {tool.name === 'codrag_hi' && (
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-primary">Start here</span>
+                )}
+                {tool.name === 'codrag' && (
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-primary">Most used</span>
+                )}
+              </div>
+              <p className="text-xs text-text-muted">{tool.description}</p>
+              <p className="text-[11px] text-text-muted/70 italic">{tool.example}</p>
             </div>
           ))}
+        </div>
+
+        {/* Other tools grouped by category */}
+        <div className="space-y-3">
+          {(() => {
+            const others = MCP_TOOLS.filter(t => !t.primary);
+            let lastCategory = '';
+            return others.map((tool) => {
+              const showCategory = tool.category && tool.category !== lastCategory;
+              if (tool.category) lastCategory = tool.category;
+              return (
+                <div key={tool.name}>
+                  {showCategory && (
+                    <div className="text-[10px] font-medium uppercase tracking-wider text-text-muted/60 mt-2 mb-1">{tool.category}</div>
+                  )}
+                  <div className="flex items-start gap-2 py-1">
+                    <CopyBadge text={tool.name} />
+                    <span className="text-xs text-text-muted leading-snug pt-0.5">{tool.description}</span>
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </div>
 
         {/* Docs link */}

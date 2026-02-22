@@ -4,7 +4,7 @@ import { AnchorHeading } from '../../../components/AnchorHeading';
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="mx-auto max-w-3xl px-6 pb-16 pt-0">
         <a href="/mcp" className="text-sm text-text-muted">
           ← Back to Integrations
         </a>
@@ -67,12 +67,50 @@ export default function Page() {
             Cascade (Windsurf&apos;s agent) is highly proactive. It will see the <code>codrag</code> tools (<code>codrag_search</code>, <code>codrag</code> (context), etc.) and call them automatically.
           </p>
 
-          <h3 className="text-xl font-semibold mt-6">The &quot;Magic&quot; Words</h3>
+          <h3 className="text-xl font-semibold mt-6">Start with <code>codrag_hi</code></h3>
+          <p>
+            The best way to start any session is to select files in the CoDRAG <strong>Knowledge Sources</strong> tree, then type <code>codrag_hi</code> in Cascade&apos;s chat. CoDRAG will tell the AI exactly which files you selected and suggest what to do next.
+          </p>
+
+          <div className="bg-surface border border-border p-4 rounded-lg font-mono text-sm my-4 space-y-4">
+            <div>
+                <span className="text-primary font-bold">You:</span> codrag_hi
+            </div>
+            <div className="pl-4 border-l-2 border-border-subtle">
+                <span className="text-xs text-text-muted uppercase tracking-wider">Cascade calls codrag_hi</span>
+            </div>
+            <div>
+                <span className="text-primary font-bold">Cascade:</span> I&apos;m looking at your project &mdash; you&apos;ve selected 8 design docs and 18 React components in <code>src/components/</code>.
+                <br/><br/>
+                <span className="font-sans text-text-muted text-xs">Your design docs cover: &quot;Overall Upgrade Plan&quot; (phased site redesign), &quot;Hero Section Design&quot; (parallax layout), and &quot;Trust Section with Parallax&quot;. It looks like you&apos;re working on <strong>animation &amp; visuals</strong> (<code>ParallaxController.tsx</code>, <code>CanvasBackground.tsx</code>) and <strong>UI components</strong> (<code>EnhancedHero.tsx</code>, <code>CardsSection.tsx</code>). The most connected components are <code>EnhancedHero.tsx</code> (6 connections) and <code>ParallaxController.tsx</code> (4 connections).</span>
+                <ol className="list-decimal pl-5 mt-2 space-y-1 font-sans text-text-muted">
+                  <li>What UI components are here and how do they connect?</li>
+                  <li>Compare the design docs to the implementation &mdash; anything out of sync?</li>
+                  <li>Summarize the design docs and identify next steps</li>
+                </ol>
+            </div>
+            <div>
+                <span className="text-primary font-bold">You:</span> 3
+            </div>
+            <div className="pl-4 border-l-2 border-border-subtle">
+                <span className="text-xs text-text-muted uppercase tracking-wider">Cascade calls codrag_search</span>
+            </div>
+            <div>
+                <span className="text-primary font-bold">Cascade:</span> Looking at your design docs vs the code, I can see the hero section design specifies a parallax scroll effect &mdash; and you have both <code>EnhancedHero.tsx</code> and <code>PercentageBasedHero.tsx</code>. It looks like you&apos;re mid-migration...
+            </div>
+          </div>
+
+          <h3 className="text-xl font-semibold mt-6">Other Triggers</h3>
           <p>
             While Cascade is smart, you can trigger specific CoDRAG behaviors with keywords:
           </p>
           
           <div className="space-y-4 mt-4">
+            <div className="border-l-4 border-primary pl-4 py-1">
+              <div className="font-bold text-sm">&quot;codrag_hi&quot;</div>
+              <div className="text-sm text-text-muted">See what CoDRAG knows about your selected files. Best first step for any new conversation.</div>
+            </div>
+
             <div className="border-l-4 border-primary pl-4 py-1">
               <div className="font-bold text-sm">&quot;Find the context...&quot;</div>
               <div className="text-sm text-text-muted">Triggers <code>codrag_search</code>. Great for finding relevant files based on meaning, not just keywords.</div>
@@ -84,22 +122,8 @@ export default function Page() {
             </div>
 
             <div className="border-l-4 border-primary pl-4 py-1">
-              <div className="font-bold text-sm">&quot;Compress the docs...&quot;</div>
-              <div className="text-sm text-text-muted">Triggers <code>codrag</code> with <code>compression: &quot;clara&quot;</code> (if CLaRa is configured).</div>
-            </div>
-          </div>
-
-          <h3 className="text-xl font-semibold mt-6">Example Conversation</h3>
-          <div className="bg-surface border border-border p-4 rounded-lg font-mono text-sm my-4 space-y-4">
-            <div>
-                <span className="text-primary font-bold">You:</span> I need to fix a bug in the billing logic. Graph where `process_charge` is called and check for error handling gaps.
-            </div>
-            <div className="pl-4 border-l-2 border-border-subtle">
-                <span className="text-xs text-text-muted uppercase tracking-wider">Cascade Actions</span><br/>
-                <span className="text-info">Running codrag(query=&quot;callers of process_charge&quot;, trace_expand=true)</span>
-            </div>
-            <div>
-                <span className="text-primary font-bold">Cascade:</span> I found 3 calls to `process_charge` in `payment_service.py` and `invoice_worker.py`. The call in `invoice_worker.py` (line 45) is inside a try/catch, but the one in `payment_service.py` isn&apos;t. Here is the plan...
+              <div className="font-bold text-sm">&quot;Compress the context...&quot;</div>
+              <div className="text-sm text-text-muted">Triggers <code>codrag</code> with <code>compression: &quot;auto&quot;</code> &mdash; structural for code, language-aware for docs.</div>
             </div>
           </div>
         </div>

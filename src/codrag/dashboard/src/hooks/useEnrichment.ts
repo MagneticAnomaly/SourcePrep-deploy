@@ -69,6 +69,21 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     } catch { /* silent */ }
   }, [api, selectedProjectId])
 
+  // Refresh stages that have no dedicated API endpoint (inferred_edges, atlas)
+  // by fetching the full pipeline status and extracting stage data.
+  const refreshStageDataFromPipeline = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      const ps = await api.getPipelineStatus(selectedProjectId)
+      if (ps.stages?.inferred_edges) {
+        dispatch({ type: 'INFERRED_EDGES_STATUS', payload: ps.stages.inferred_edges })
+      }
+      if (ps.stages?.atlas) {
+        dispatch({ type: 'ATLAS_STATUS', payload: ps.stages.atlas })
+      }
+    } catch { /* silent */ }
+  }, [api, selectedProjectId])
+
   // ── Run handlers ────────────────────────────────────────────
 
   const handleRunAugmentation = useCallback(async () => {
@@ -165,22 +180,31 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       if (know.status === 'fulfilled') dispatch({ type: 'KNOWLEDGE_STATUS', payload: know.value })
     })
 
-    // Hydrate running flags from pipeline status
+    // Hydrate running flags + stage data from pipeline status
     api.getPipelineStatus(selectedProjectId).then((ps: PipelineStatus) => {
       if (cancelled) return
       const fastRunning = ps.fast_sync?.phase === 'running'
       const deepRunning = ps.deep_enrichment?.phase === 'running'
       dispatch({
         type: 'SYNC_RUNNING',
+        inferredEdgesRunning: fastRunning && (ps.fast_sync?.current_stage === 'inferred_edges' || false),
         augmenting: fastRunning && (ps.fast_sync?.current_stage === 'catalogue' || ps.fast_sync?.current_stage === 'augment' || false),
         validating: fastRunning && (ps.fast_sync?.current_stage === 'validation' || false),
         epistemicRunning: deepRunning && (ps.deep_enrichment?.current_stage === 'enrichment' || false),
         clusterRunning: deepRunning && (ps.deep_enrichment?.current_stage === 'clustering' || false),
+        atlasRunning: deepRunning && (ps.deep_enrichment?.current_stage === 'atlas' || false),
         deepeningRunning: deepRunning && (ps.deep_enrichment?.current_stage === 'deepening' || false),
-        knowledgeBuilding:
-          (fastRunning && ps.fast_sync?.current_stage === 'knowledge') ||
-          (deepRunning && ps.deep_enrichment?.current_stage === 'deep_knowledge'),
+        fastKnowledgeBuilding: fastRunning && (ps.fast_sync?.current_stage === 'knowledge' || false),
+        deepKnowledgeBuilding: deepRunning && (ps.deep_enrichment?.current_stage === 'deep_knowledge' || false),
       })
+      // Hydrate inferred_edges (no dedicated API endpoint — only in pipeline status)
+      if (ps.stages?.inferred_edges) {
+        dispatch({ type: 'INFERRED_EDGES_STATUS', payload: ps.stages.inferred_edges })
+      }
+      // Hydrate atlas status from pipeline (supplements App.tsx atlas fetch)
+      if (ps.stages?.atlas) {
+        dispatch({ type: 'ATLAS_STATUS', payload: ps.stages.atlas })
+      }
     }).catch(() => { /* silent — SSE will provide updates */ })
 
     return () => { cancelled = true }
@@ -204,14 +228,15 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     // Sync running flags from current pipeline state
     dispatch({
       type: 'SYNC_RUNNING',
+      inferredEdgesRunning: fastRunning && (fast?.current_stage === 'inferred_edges' || false),
       augmenting: fastRunning && (fast?.current_stage === 'augment' || fast?.current_stage === 'catalogue' || false),
       validating: fastRunning && (fast?.current_stage === 'validation' || false),
       epistemicRunning: deepRunning && (deep?.current_stage === 'enrichment' || false),
       clusterRunning: deepRunning && (deep?.current_stage === 'clustering' || false),
+      atlasRunning: deepRunning && (deep?.current_stage === 'atlas' || false),
       deepeningRunning: deepRunning && (deep?.current_stage === 'deepening' || false),
-      knowledgeBuilding:
-        (fastRunning && fast?.current_stage === 'knowledge') ||
-        (deepRunning && deep?.current_stage === 'deep_knowledge'),
+      fastKnowledgeBuilding: fastRunning && (fast?.current_stage === 'knowledge' || false),
+      deepKnowledgeBuilding: deepRunning && (deep?.current_stage === 'deep_knowledge' || false),
     })
 
     // ── Detect transitions for status refresh ──
@@ -221,9 +246,27 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     const prevDeepStage = prev?.deep_enrichment?.current_stage
     const currentDeepStage = deep?.current_stage
 
-    // When deep pipeline moves away from 'enrichment' stage, flush epistemic status
-    if (prevDeepStage === 'enrichment' && currentDeepStage !== 'enrichment' && deepRunning) {
-      void fetchEpistemicStatus()
+    // ── Per-stage transition refreshes (deep enrichment) ──
+    // When pipeline moves past a stage, refresh that stage's status.
+    if (deepRunning && prevDeepStage && currentDeepStage !== prevDeepStage) {
+      // enrichment → clustering: flush epistemic status
+      if (prevDeepStage === 'enrichment') void fetchEpistemicStatus()
+      // clustering → atlas: flush module status
+      if (prevDeepStage === 'clustering') void fetchModuleStatus()
+      // atlas → deepening: refresh atlas via pipeline status
+      if (prevDeepStage === 'atlas') void refreshStageDataFromPipeline()
+      // deepening → deep_knowledge: flush deepening status
+      if (prevDeepStage === 'deepening') void fetchDeepeningStatus()
+    }
+
+    // ── Per-stage transition refreshes (fast sync) ──
+    const prevFastStage = prev?.fast_sync?.current_stage
+    const currentFastStage = fast?.current_stage
+    if (fastRunning && prevFastStage && currentFastStage !== prevFastStage) {
+      // inferred_edges → catalogue: refresh inferred edges from pipeline status
+      if (prevFastStage === 'inferred_edges') void refreshStageDataFromPipeline()
+      // catalogue → validation: flush augmentation status
+      if (prevFastStage === 'catalogue') void fetchAugmentationStatus()
     }
 
     // Fast sync completed → refresh fast-stage statuses
@@ -231,6 +274,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       dispatch({ type: 'FAST_COMPLETED' })
       void fetchAugmentationStatus()
       void fetchKnowledgeStatus()
+      void refreshStageDataFromPipeline() // picks up final inferred_edges
     }
     if (fast?.phase === 'failed' && prevFastPhase === 'running') {
       dispatch({ type: 'FAST_FAILED' })
@@ -243,43 +287,50 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       void fetchModuleStatus()
       void fetchDeepeningStatus()
       void fetchKnowledgeStatus()
+      void refreshStageDataFromPipeline() // picks up final atlas status
     }
     if (deep?.phase === 'failed' && prevDeepPhase === 'running') {
       dispatch({ type: 'DEEP_FAILED' })
     }
   }, [pipelineEvent, selectedProjectId,
     fetchAugmentationStatus, fetchKnowledgeStatus,
-    fetchEpistemicStatus, fetchModuleStatus, fetchDeepeningStatus])
+    fetchEpistemicStatus, fetchModuleStatus, fetchDeepeningStatus,
+    refreshStageDataFromPipeline])
 
   // ── Polling: progress bar updates while stages are running ──
 
   useEffect(() => {
     if (!selectedProjectId) return
-    const { augmenting, epistemicRunning, clusterRunning, deepeningRunning, knowledgeBuilding } = state
-    const anyRunning = augmenting || epistemicRunning || clusterRunning || deepeningRunning || knowledgeBuilding
+    const { inferredEdgesRunning, augmenting, epistemicRunning, clusterRunning, atlasRunning, deepeningRunning, fastKnowledgeBuilding, deepKnowledgeBuilding } = state
+    const anyRunning = inferredEdgesRunning || augmenting || epistemicRunning || clusterRunning || atlasRunning || deepeningRunning || fastKnowledgeBuilding || deepKnowledgeBuilding
     if (!anyRunning) return
 
     const interval = setInterval(() => {
+      if (state.inferredEdgesRunning || state.atlasRunning) void refreshStageDataFromPipeline()
       if (state.augmenting) void fetchAugmentationStatus()
       if (state.epistemicRunning || state.clusterRunning || state.deepeningRunning) void fetchEpistemicStatus()
       if (state.clusterRunning) void fetchModuleStatus()
       if (state.deepeningRunning) void fetchDeepeningStatus()
-      if (state.knowledgeBuilding) void fetchKnowledgeStatus()
+      if (state.fastKnowledgeBuilding || state.deepKnowledgeBuilding) void fetchKnowledgeStatus()
     }, 3000)
 
     return () => clearInterval(interval)
   }, [
     selectedProjectId,
+    state.inferredEdgesRunning,
     state.augmenting,
     state.epistemicRunning,
     state.clusterRunning,
+    state.atlasRunning,
     state.deepeningRunning,
-    state.knowledgeBuilding,
+    state.fastKnowledgeBuilding,
+    state.deepKnowledgeBuilding,
     fetchAugmentationStatus,
     fetchEpistemicStatus,
     fetchModuleStatus,
     fetchDeepeningStatus,
     fetchKnowledgeStatus,
+    refreshStageDataFromPipeline,
   ])
 
   // ── Return ──────────────────────────────────────────────────

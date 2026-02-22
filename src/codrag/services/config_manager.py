@@ -170,10 +170,15 @@ def default_ui_config(config: Dict[str, Any]) -> Dict[str, Any]:
             "endpoint_id": "",
             "model": "",
         },
-        "clara": {
+        "code_model": {
             "enabled": False,
-            "source": "huggingface",
-            "hf_repo_id": "apple/CLaRa-7B-Instruct",
+            "endpoint_id": "",
+            "model": "",
+        },
+        "compression": {
+            "enabled": False,
+            "mode": "auto",
+            "level": "standard",
         }
     }
 

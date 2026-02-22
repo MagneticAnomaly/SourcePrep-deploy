@@ -71,6 +71,10 @@ export interface ApiClient {
   getPathWeights(projectId: string): Promise<{ path_weights: Record<string, number> }>;
   updatePathWeights(projectId: string, pathWeights: Record<string, number>): Promise<{ path_weights: Record<string, number> }>;
 
+  // Included Paths (Knowledge Scope)
+  getIncludedPaths(projectId: string): Promise<{ included_paths: string[] }>;
+  updateIncludedPaths(projectId: string, includedPaths: string[]): Promise<{ included_paths: string[] }>;
+
   // LLM
   getLLMStatus(): Promise<LLMStatus>;
 
@@ -78,12 +82,12 @@ export interface ApiClient {
   getEmbeddingStatus(): Promise<{ available: boolean; model: string; dim: number; downloaded: boolean }>;
   downloadEmbedding(): Promise<{ status: string }>;
 
-  // CLaRa
-  getClaraStatus(): Promise<{ enabled: boolean; url: string; connected: boolean; model?: string }>;
-  getClaraHealth(): Promise<{ healthy: boolean }>;
+  // Compression
+  getCompressionStatus(): Promise<{ lingua: any; lod: any }>;
+  downloadLinguaModel(): Promise<{ status: string }>;
 
   // Activity & Coverage
-  getProjectActivity(projectId: string, weeks?: number): Promise<{ weeks: any[]; total_builds: number }>;
+  getProjectActivity(projectId: string, weeks?: number): Promise<{ days: any[]; totals: { embeddings: number; trace: number; builds: number } }>;
   getProjectCoverage(projectId: string): Promise<{ tree: any[] }>;
 
   // License
@@ -97,7 +101,7 @@ export interface ApiClient {
   updateGlobalConfig(config: GlobalConfig): Promise<GlobalConfig>;
 
   // LLM Proxy
-  testLLMConnectivity(): Promise<{ ollama: { connected: boolean }; clara: { connected: boolean } }>;
+  testLLMConnectivity(): Promise<{ ollama: { connected: boolean } }>;
   testLLMEndpoint(provider: string, url: string, apiKey?: string): Promise<{ success: boolean; models?: string[] }>;
   fetchLLMModels(provider: string, url: string, apiKey?: string): Promise<{ models: string[] }>;
   testLLMModel(provider: string, url: string, model: string, kind: string, apiKey?: string): Promise<{ success: boolean; message: string; model_status?: ModelReadinessStatus }>;
@@ -138,11 +142,16 @@ export interface ApiClient {
   runPipelineAll(projectId: string): Promise<{ started: boolean; group: string }>;
   getPipelineStatus(projectId: string): Promise<PipelineStatus>;
   cancelPipeline(projectId: string, group: string): Promise<{ cancelled: boolean; group: string }>;
+  getPipelineBudget(projectId: string): Promise<{ tokens_used: number; max_tokens: number; window_minutes: number; remaining: number; window_resets_in: number }>;
 
   // Pipeline Crash Protection (Phase 25)
   getCrashedRuns(projectId?: string): Promise<{ crashed_runs: CrashedPipelineRun[]; count: number }>;
   resumeCrashedRun(runId: string): Promise<{ resumed: boolean; run_id: string }>;
   discardCrashedRun(runId: string): Promise<{ discarded: boolean; run_id: string }>;
+
+  // Codebase Atlas (Phase 29)
+  getAtlas(projectId: string): Promise<import('../types').AtlasStatus>;
+  regenerateAtlas(projectId: string): Promise<import('../types').AtlasStatus>;
 
   // Settings Store (Phase 24)
   getSettings(): Promise<Record<string, any>>;
@@ -366,6 +375,21 @@ export class CodragApiClient implements ApiClient {
     );
   }
 
+  // ── Included Paths (Knowledge Scope) ──────────────────────
+
+  async getIncludedPaths(projectId: string): Promise<{ included_paths: string[] }> {
+    return this.requestEnvelope<{ included_paths: string[] }>(
+      `/projects/${encodeURIComponent(projectId)}/included_paths`
+    );
+  }
+
+  async updateIncludedPaths(projectId: string, includedPaths: string[]): Promise<{ included_paths: string[] }> {
+    return this.requestEnvelope<{ included_paths: string[] }>(
+      `/projects/${encodeURIComponent(projectId)}/included_paths`,
+      { method: 'PUT', body: { included_paths: includedPaths } }
+    );
+  }
+
   // ── LLM ────────────────────────────────────────────────────
 
   async getLLMStatus(): Promise<LLMStatus> {
@@ -409,20 +433,20 @@ export class CodragApiClient implements ApiClient {
     return this.requestEnvelope<{ status: string }>('/embedding/download', { method: 'POST' });
   }
 
-  // ── CLaRa ─────────────────────────────────────────────────
+  // ── Compression ───────────────────────────────────────────
 
-  async getClaraStatus(): Promise<{ enabled: boolean; url: string; connected: boolean; model?: string }> {
-    return this.requestEnvelope<{ enabled: boolean; url: string; connected: boolean; model?: string }>('/clara/status');
+  async getCompressionStatus(): Promise<{ lingua: any; lod: any }> {
+    return this.requestEnvelope<{ lingua: any; lod: any }>('/compression/status');
   }
 
-  async getClaraHealth(): Promise<{ healthy: boolean }> {
-    return this.requestEnvelope<{ healthy: boolean }>('/clara/health');
+  async downloadLinguaModel(): Promise<{ status: string; model_path: string; hf_repo_id: string }> {
+    return this.requestEnvelope<{ status: string; model_path: string; hf_repo_id: string }>('/compression/download', { method: 'POST' });
   }
 
   // ── Activity & Coverage ──────────────────────────────────
 
-  async getProjectActivity(projectId: string, weeks = 12): Promise<{ weeks: any[]; total_builds: number }> {
-    return this.requestEnvelope<{ weeks: any[]; total_builds: number }>(
+  async getProjectActivity(projectId: string, weeks = 12): Promise<{ days: any[]; totals: { embeddings: number; trace: number; builds: number } }> {
+    return this.requestEnvelope<{ days: any[]; totals: { embeddings: number; trace: number; builds: number } }>(
       `/projects/${encodeURIComponent(projectId)}/activity`,
       { query: { weeks } }
     );
@@ -434,8 +458,8 @@ export class CodragApiClient implements ApiClient {
 
   // ── LLM Proxy ─────────────────────────────────────────────
 
-  async testLLMConnectivity(): Promise<{ ollama: { connected: boolean }; clara: { connected: boolean } }> {
-    return this.requestEnvelope<{ ollama: { connected: boolean }; clara: { connected: boolean } }>('/llm/test', {
+  async testLLMConnectivity(): Promise<{ ollama: { connected: boolean } }> {
+    return this.requestEnvelope<{ ollama: { connected: boolean } }>('/llm/test', {
       method: 'POST',
     });
   }
@@ -713,6 +737,10 @@ export class CodragApiClient implements ApiClient {
     });
   }
 
+  async getPipelineBudget(projectId: string): Promise<{ tokens_used: number; max_tokens: number; window_minutes: number; remaining: number; window_resets_in: number }> {
+    return this.requestEnvelope<{ tokens_used: number; max_tokens: number; window_minutes: number; remaining: number; window_resets_in: number }>(`/projects/${projectId}/pipeline/budget`);
+  }
+
   // ── Pipeline Crash Protection (Phase 25) ───────────────────────
 
   async getCrashedRuns(projectId?: string): Promise<{ crashed_runs: CrashedPipelineRun[]; count: number }> {
@@ -731,6 +759,18 @@ export class CodragApiClient implements ApiClient {
     return this.requestEnvelope<{ discarded: boolean; run_id: string }>('/pipeline/discard', {
       method: 'POST',
       body: { run_id: runId },
+    });
+  }
+
+  // ── Codebase Atlas (Phase 29) ──────────────────────────────────
+
+  async getAtlas(projectId: string): Promise<import('../types').AtlasStatus> {
+    return this.requestEnvelope<import('../types').AtlasStatus>(`/projects/${encodeURIComponent(projectId)}/atlas`);
+  }
+
+  async regenerateAtlas(projectId: string): Promise<import('../types').AtlasStatus> {
+    return this.requestEnvelope<import('../types').AtlasStatus>(`/projects/${encodeURIComponent(projectId)}/atlas/regenerate`, {
+      method: 'POST',
     });
   }
 

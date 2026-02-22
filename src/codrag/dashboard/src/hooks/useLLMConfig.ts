@@ -25,11 +25,12 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     embedding: { source: 'endpoint', endpoint_id: 'default_ollama', model: 'nomic-embed-text' },
     small_model: { enabled: false },
     large_model: { enabled: false },
-    clara: { enabled: false, source: 'huggingface', remote_url: undefined },
+    code_model: { enabled: false },
+    compression: { enabled: false, mode: 'auto', level: 'standard' },
   })
   const [availableModels, setAvailableModels] = useState<Record<string, string[]>>({})
   const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({})
-  const [testingSlot, setTestingSlot] = useState<'embedding' | 'small' | 'large' | 'clara' | null>(null)
+  const [testingSlot, setTestingSlot] = useState<'embedding' | 'small' | 'large' | 'code' | null>(null)
   const [testResults, setTestResults] = useState<Record<string, EndpointTestResult>>({})
   const [llmSlotsStatus, setLlmSlotsStatus] = useState<LLMSlotsStatus | null>(null)
 
@@ -101,32 +102,7 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     }
   }, [llmConfig.saved_endpoints])
 
-  const handleTestModel = useCallback(async (slotType: 'embedding' | 'small' | 'large' | 'clara') => {
-    if (slotType === 'clara') {
-      // Resolve CLaRa URL: saved endpoint, remote_url, or default
-      let claraUrl = 'http://localhost:8765'
-      if (llmConfig.clara.endpoint_id) {
-        const ep = llmConfig.saved_endpoints.find((e) => e.id === llmConfig.clara.endpoint_id)
-        if (ep) claraUrl = ep.url
-      } else if (llmConfig.clara.remote_url) {
-        claraUrl = llmConfig.clara.remote_url
-      }
-      setTestingSlot('clara')
-      try {
-        const r = await fetch('/api/llm/proxy/test-model', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ provider: 'clara', url: claraUrl, model: 'clara', kind: 'completion' }),
-        })
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        const json = await r.json()
-        const data = (json?.data ?? json) as EndpointTestResult
-        setTestResults((prev) => ({ ...prev, clara: data }))
-        return data
-      } finally {
-        setTestingSlot(null)
-      }
-    }
+  const handleTestModel = useCallback(async (slotType: 'embedding' | 'small' | 'large' | 'code') => {
     let endpointId: string | undefined
     let model: string | undefined
     let kind = 'completion'
@@ -134,6 +110,8 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
       endpointId = llmConfig.embedding.endpoint_id; model = llmConfig.embedding.model; kind = 'embedding'
     } else if (slotType === 'small') {
       endpointId = llmConfig.small_model.endpoint_id; model = llmConfig.small_model.model
+    } else if (slotType === 'code') {
+      endpointId = llmConfig.code_model.endpoint_id; model = llmConfig.code_model.model
     } else {
       endpointId = llmConfig.large_model.endpoint_id; model = llmConfig.large_model.model
     }
@@ -160,20 +138,6 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     }
   }, [llmConfig])
 
-  const handleDownloadModel = useCallback(async (slot: 'embedding' | 'clara') => {
-    if (slot === 'embedding') {
-      try {
-        await api.downloadEmbedding()
-        // Poll status? Or assume backend updates status which we poll elsewhere?
-        // For now just trigger the request.
-      } catch (err) {
-        console.error('Failed to trigger embedding download:', err)
-      }
-    } else {
-      console.warn('Download not implemented for slot:', slot)
-    }
-  }, [api])
-
   const fetchLLMSlotsStatus = useCallback(async () => {
     try {
       const status = await api.getLLMSlotsStatus()
@@ -182,6 +146,64 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
       // Silent — not critical
     }
   }, [api])
+
+  const fetchCompressionStatus = useCallback(async () => {
+    try {
+      const status = await api.getCompressionStatus()
+      if (status.lingua) {
+        setLLMConfig((prev) => ({
+          ...prev,
+          compression: {
+            ...prev.compression,
+            lingua_downloaded: status.lingua.downloaded ?? false,
+          },
+        }))
+      }
+    } catch {
+      // Silent — not critical
+    }
+  }, [api])
+
+  const handleDownloadModel = useCallback(async (slot: 'embedding' | 'lingua') => {
+    try {
+      if (slot === 'embedding') {
+        await api.downloadEmbedding()
+      } else if (slot === 'lingua') {
+        // Show downloading state immediately
+        setLLMConfig((prev) => ({
+          ...prev,
+          compression: {
+            ...prev.compression,
+            lingua_download_progress: 0.1,
+          },
+        }))
+        await api.downloadLinguaModel()
+        // Mark as downloaded immediately, then confirm with server
+        setLLMConfig((prev) => ({
+          ...prev,
+          compression: {
+            ...prev.compression,
+            lingua_downloaded: true,
+            lingua_download_progress: undefined,
+          },
+        }))
+        // Also refresh from server to be sure
+        void fetchCompressionStatus()
+      }
+    } catch (err) {
+      console.error(`Failed to trigger ${slot} download:`, err)
+      // Clear downloading state on error
+      if (slot === 'lingua') {
+        setLLMConfig((prev) => ({
+          ...prev,
+          compression: {
+            ...prev.compression,
+            lingua_download_progress: undefined,
+          },
+        }))
+      }
+    }
+  }, [api, fetchCompressionStatus])
 
   // ── Auto-save LLM config to backend ─────────────────────────
   const llmConfigSkipRef = useRef(0) // skip initial + loaded-from-backend
@@ -212,6 +234,9 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
         void handleFetchModels(epId)
       }
     }
+    
+    // Also fetch compression status on mount
+    void fetchCompressionStatus()
   // Run once on mount — intentionally omitting deps to avoid re-fetching on every config change
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

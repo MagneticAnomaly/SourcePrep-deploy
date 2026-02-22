@@ -21,7 +21,7 @@ from codrag.mcp_server import (
     InvalidParamsError,
     MethodNotFoundError,
     ProjectSelectionAmbiguousError,
-    MAX_SEARCH_K,
+    MAX_CONTEXT_K,
     MAX_CONTEXT_CHARS,
 )
 
@@ -129,10 +129,10 @@ class TestMCPProtocol:
         
         assert response["id"] == 2
         tools = response["result"]["tools"]
-        assert len(tools) == 7
+        assert len(tools) == 8
         
         tool_names = {t["name"] for t in tools}
-        assert tool_names == {"codrag_status", "codrag_build", "codrag_search", "codrag", "codrag_trace_search", "codrag_trace_neighbors", "codrag_trace_coverage"}
+        assert tool_names == {"codrag_status", "codrag_build", "codrag_search", "codrag", "codrag_trace_search", "codrag_trace_neighbors", "codrag_trace_coverage", "codrag_hi"}
 
     @pytest.mark.asyncio
     async def test_ping(self, server):
@@ -258,24 +258,30 @@ class TestToolBuild:
 
 
 class TestToolSearch:
-    """Test codrag_search tool."""
+    """Test codrag_search tool (query-based context with trace + routing)."""
 
     @pytest.mark.asyncio
-    async def test_search_success(self, server, mock_search_response):
-        """Test successful search."""
+    async def test_search_success(self, server, mock_context_response):
+        """Test successful query-based context retrieval."""
         with patch.object(server, "_api_post", new_callable=AsyncMock) as mock_post:
-            mock_post.return_value = mock_search_response
-            
-            result = await server.tool_search(query="test query", k=5)
-            
-            assert result["query"] == "test query"
-            assert result["count"] == 2
-            assert len(result["results"]) == 2
-            assert result["results"][0]["path"] == "src/main.py"
-            assert result["results"][0]["score"] == 0.85
+            mock_post.return_value = mock_context_response
+
+            result = await server.tool_search(query="test query")
+
+            assert "context" in result
+            assert result["chunks_used"] == 1
+            assert result["total_chars"] == 50
             mock_post.assert_called_once_with(
-                f"/projects/{server.project_id}/search",
-                {"query": "test query", "k": 5, "min_score": 0.15},
+                f"/projects/{server.project_id}/context",
+                {
+                    "query": "test query",
+                    "k": 5,
+                    "max_chars": 12000,
+                    "include_sources": True,
+                    "include_scores": False,
+                    "structured": True,
+                    "trace_expand": True,
+                },
             )
 
     @pytest.mark.asyncio
@@ -291,50 +297,47 @@ class TestToolSearch:
             await server.tool_search(query="   ")
 
     @pytest.mark.asyncio
-    async def test_search_k_too_large(self, server):
-        """Test search rejects pathological k values."""
+    async def test_search_max_chars_too_large(self, server):
+        """Test search rejects pathological max_chars values."""
         with pytest.raises(InvalidParamsError) as e:
-            await server.tool_search(query="test", k=MAX_SEARCH_K + 1)
-        assert f"max {MAX_SEARCH_K}" in str(e.value)
+            await server.tool_search(query="test", max_chars=MAX_CONTEXT_CHARS + 1)
+        assert f"max {MAX_CONTEXT_CHARS}" in str(e.value)
 
 
 class TestToolContext:
-    """Test codrag tool (context assembly)."""
+    """Test codrag tool (ambient context assembly, no query)."""
 
     @pytest.mark.asyncio
-    async def test_context_success(self, server, mock_context_response):
-        """Test successful context retrieval."""
+    async def test_ambient_context_success(self, server):
+        """Test ambient context retrieval (no query)."""
+        ambient_response = {
+            "context": "[hub | in-degree:5 | @src/main.py]\ndef main(): ...",
+            "chunks": [{"source_path": "src/main.py", "ambient_role": "hub"}],
+            "total_chars": 50,
+            "estimated_tokens": 12,
+            "ambient": True,
+            "hub_files": 1,
+            "modules_in_scope": 0,
+            "neighbor_files": 0,
+        }
         with patch.object(server, "_api_post", new_callable=AsyncMock) as mock_post:
-            mock_post.return_value = mock_context_response
-            
-            result = await server.tool_context(query="test query")
-            
+            mock_post.return_value = ambient_response
+
+            result = await server.tool_context()
+
             assert "context" in result
-            assert result["chunks_used"] == 1
-            assert result["total_chars"] == 50
+            assert result["ambient"] is True
+            assert result["hub_files"] == 1
             mock_post.assert_called_once_with(
                 f"/projects/{server.project_id}/context",
-                {
-                    "query": "test query",
-                    "k": 5,
-                    "max_chars": 6000,
-                    "include_sources": True,
-                    "include_scores": False,
-                    "structured": True,
-                },
+                {"query": "", "max_chars": 12000},
             )
 
     @pytest.mark.asyncio
-    async def test_context_empty_query(self, server):
-        """Test context with empty query raises error."""
-        with pytest.raises(InvalidParamsError):
-            await server.tool_context(query="")
-
-    @pytest.mark.asyncio
-    async def test_context_max_chars_too_large(self, server):
-        """Test context rejects pathological max_chars values."""
+    async def test_ambient_context_max_chars_too_large(self, server):
+        """Test ambient context rejects pathological max_chars values."""
         with pytest.raises(InvalidParamsError) as e:
-            await server.tool_context(query="test", max_chars=MAX_CONTEXT_CHARS + 1)
+            await server.tool_context(max_chars=MAX_CONTEXT_CHARS + 1)
         assert f"max {MAX_CONTEXT_CHARS}" in str(e.value)
 
 
@@ -375,10 +378,10 @@ class TestToolsCall:
             mock_get.assert_called_once_with(f"/projects/{server.project_id}/status")
 
     @pytest.mark.asyncio
-    async def test_call_search(self, server, mock_search_response):
-        """Test calling search tool via MCP protocol."""
+    async def test_call_search(self, server, mock_context_response):
+        """Test calling search tool via MCP protocol (now uses /context endpoint)."""
         with patch.object(server, "_api_post", new_callable=AsyncMock) as mock_post:
-            mock_post.return_value = mock_search_response
+            mock_post.return_value = mock_context_response
             
             request = {
                 "jsonrpc": "2.0",
@@ -386,7 +389,7 @@ class TestToolsCall:
                 "method": "tools/call",
                 "params": {
                     "name": "codrag_search",
-                    "arguments": {"query": "find main function", "k": 5},
+                    "arguments": {"query": "find main function"},
                 },
             }
             
@@ -394,10 +397,18 @@ class TestToolsCall:
             
             assert response["result"]["isError"] is False
             data = json.loads(response["result"]["content"][0]["text"])
-            assert data["count"] == 2
+            assert "context" in data
             mock_post.assert_called_once_with(
-                f"/projects/{server.project_id}/search",
-                {"query": "find main function", "k": 5, "min_score": 0.15},
+                f"/projects/{server.project_id}/context",
+                {
+                    "query": "find main function",
+                    "k": 5,
+                    "max_chars": 12000,
+                    "include_sources": True,
+                    "include_scores": False,
+                    "structured": True,
+                    "trace_expand": True,
+                },
             )
 
     @pytest.mark.asyncio
@@ -449,13 +460,13 @@ class TestToolsCall:
             "method": "tools/call",
             "params": {
                 "name": "codrag_search",
-                "arguments": {"query": "find", "k": MAX_SEARCH_K + 1},
+                "arguments": {"query": "find", "k": MAX_CONTEXT_K + 1},
             },
         }
 
         response = await server.handle_request(request)
         assert response["result"]["isError"] is True
-        assert f"max {MAX_SEARCH_K}" in response["result"]["content"][0]["text"]
+        assert f"max {MAX_CONTEXT_K}" in response["result"]["content"][0]["text"]
 
     @pytest.mark.asyncio
     async def test_call_context_max_chars_too_large_returns_tool_error(self, server):
@@ -465,7 +476,7 @@ class TestToolsCall:
             "method": "tools/call",
             "params": {
                 "name": "codrag",
-                "arguments": {"query": "find", "max_chars": MAX_CONTEXT_CHARS + 1},
+                "arguments": {"max_chars": MAX_CONTEXT_CHARS + 1},
             },
         }
 
@@ -555,10 +566,11 @@ class TestToolSchemas:
         search_tool = next(t for t in TOOLS if t["name"] == "codrag_search")
         assert "query" in search_tool["inputSchema"]["required"]
 
-    def test_context_requires_query(self):
-        """Test context tool requires query parameter."""
+    def test_context_no_required_params(self):
+        """Test codrag (ambient) tool has no required parameters."""
         context_tool = next(t for t in TOOLS if t["name"] == "codrag")
-        assert "query" in context_tool["inputSchema"]["required"]
+        assert context_tool["inputSchema"]["required"] == []
+        assert "query" not in context_tool["inputSchema"]["properties"]
 
     def test_status_no_required_params(self):
         """Test status tool has no required parameters."""

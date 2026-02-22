@@ -69,9 +69,9 @@ CODE_DIR_NAMES: Set[str] = {
 
 DEFAULT_ROLE_WEIGHTS: Dict[str, float] = {
     "code": 1.0,
-    "docs": 0.95,
-    "tests": 0.98,
-    "other": 0.9,
+    "docs": 0.85,
+    "tests": 0.95,
+    "other": 0.80,
 }
 
 MARKER_FILES: Sequence[str] = (
@@ -292,6 +292,42 @@ def profile_repo(repo_root: Path, max_depth: int = 4, max_files: int = 5000) -> 
     if "pom.xml" in marker_files or "build.gradle" in marker_files or ext_counts.get(".java", 0) > 0:
         detected_languages.add("java")
 
+    if ext_counts.get(".kt", 0) > 0 or ext_counts.get(".kts", 0) > 0:
+        detected_languages.add("kotlin")
+
+    if "Gemfile" in marker_files or ext_counts.get(".rb", 0) > 0:
+        detected_languages.add("ruby")
+
+    if "composer.json" in marker_files or ext_counts.get(".php", 0) > 0:
+        detected_languages.add("php")
+
+    if ext_counts.get(".swift", 0) > 0:
+        detected_languages.add("swift")
+
+    if ext_counts.get(".c", 0) > 0 or ext_counts.get(".cpp", 0) > 0 or ext_counts.get(".cc", 0) > 0 or ext_counts.get(".h", 0) > 0:
+        detected_languages.add("c")
+
+    if ext_counts.get(".cs", 0) > 0:
+        detected_languages.add("csharp")
+
+    if ext_counts.get(".dart", 0) > 0:
+        detected_languages.add("dart")
+
+    if ext_counts.get(".scala", 0) > 0 or ext_counts.get(".sc", 0) > 0:
+        detected_languages.add("scala")
+
+    if ext_counts.get(".sh", 0) > 0 or ext_counts.get(".bash", 0) > 0:
+        detected_languages.add("shell")
+
+    if ext_counts.get(".lua", 0) > 0:
+        detected_languages.add("lua")
+
+    if ext_counts.get(".zig", 0) > 0:
+        detected_languages.add("zig")
+
+    if ext_counts.get(".ex", 0) > 0 or ext_counts.get(".exs", 0) > 0:
+        detected_languages.add("elixir")
+
     include_globs: List[str] = []
 
     if ext_counts.get(".md", 0) > 0 or (repo_root / "README.md").exists() or (repo_root / "docs").exists():
@@ -317,6 +353,42 @@ def profile_repo(repo_root: Path, max_depth: int = 4, max_files: int = 5000) -> 
 
     if "java" in detected_languages:
         include_globs.extend(["**/*.java", "**/*.kt", "**/*.kts"])
+
+    if "kotlin" in detected_languages and "java" not in detected_languages:
+        include_globs.extend(["**/*.kt", "**/*.kts"])
+
+    if "ruby" in detected_languages:
+        include_globs.append("**/*.rb")
+
+    if "php" in detected_languages:
+        include_globs.append("**/*.php")
+
+    if "swift" in detected_languages:
+        include_globs.append("**/*.swift")
+
+    if "c" in detected_languages:
+        include_globs.extend(["**/*.c", "**/*.cpp", "**/*.cc", "**/*.h", "**/*.hpp"])
+
+    if "csharp" in detected_languages:
+        include_globs.append("**/*.cs")
+
+    if "dart" in detected_languages:
+        include_globs.append("**/*.dart")
+
+    if "scala" in detected_languages:
+        include_globs.extend(["**/*.scala", "**/*.sc"])
+
+    if "shell" in detected_languages:
+        include_globs.extend(["**/*.sh", "**/*.bash", "**/*.zsh"])
+
+    if "lua" in detected_languages:
+        include_globs.append("**/*.lua")
+
+    if "zig" in detected_languages:
+        include_globs.append("**/*.zig")
+
+    if "elixir" in detected_languages:
+        include_globs.extend(["**/*.ex", "**/*.exs"])
 
     include_globs = sorted(set(include_globs))
 

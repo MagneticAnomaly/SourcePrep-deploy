@@ -20,6 +20,9 @@ wheels/
 .installed.cfg
 *.egg
 
+# Overnight build results
+overnight_results/
+
 # Virtual environments
 .venv/
 .venv_build/

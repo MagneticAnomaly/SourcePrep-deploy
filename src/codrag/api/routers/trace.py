@@ -123,6 +123,13 @@ TRACE_FILES = [
     "trace_epistemic.jsonl",
     "trace_epistemic_manifest.json",
     "trace_modules.jsonl",
+    # Codebase Atlas (Phase 29)
+    "atlas.json",
+    "atlas_prev.json",
+    "atlas_segments_manifest.json",
+    # Atlas Routing (Phase 29B)
+    "atlas_routing.json",
+    "atlas_routing_embeddings.npy",
 ]
 
 INDEX_FILES = [
@@ -543,6 +550,123 @@ def get_trace_node_neighbors(
         nodes_out.append(n)
 
     return ok({"nodes": nodes_out, "edges": edges})
+
+
+# ═════════════════════════════════════════════════════════════════
+# Hub Files & File Edges (Phase 32 — codrag_hi enhancements)
+# ═════════════════════════════════════════════════════════════════
+
+@router.get("/projects/{project_id}/trace/hub_files")
+def get_trace_hub_files(
+    project_id: str,
+    k: int = 5,
+    scope_paths: Optional[List[str]] = Query(None),
+) -> Dict[str, Any]:
+    """Return top-k hub files (highest in-degree) from the trace graph.
+
+    Optionally scoped to a set of file/directory paths.
+    """
+    from codrag.server import _require_project, _get_project_trace_index
+    proj = _require_project(project_id)
+
+    trace_idx = _get_project_trace_index(proj)
+    if not trace_idx.exists() or not trace_idx.is_loaded():
+        return ok({"hub_files": []})
+
+    scope_set: Optional[set] = None
+    if scope_paths:
+        cleaned: List[str] = []
+        for v in scope_paths:
+            for part in str(v).split(","):
+                p = part.strip()
+                if p:
+                    cleaned.append(p)
+        scope_set = set(cleaned) if cleaned else None
+
+    hubs = trace_idx.get_hub_files(scope_paths=scope_set, k=min(k, 20))
+    return ok({"hub_files": [{"path": p, "in_degree": d} for p, d in hubs]})
+
+
+@router.get("/projects/{project_id}/trace/file_edges")
+def get_trace_file_edges(
+    project_id: str,
+    paths: List[str] = Query(...),
+    max_edges: int = 30,
+) -> Dict[str, Any]:
+    """Return trace edges between a set of files.
+
+    Only returns edges where both source and target are in the given paths set.
+    Used by codrag_hi to show cross-file relationships.
+    """
+    from codrag.server import _require_project, _get_project_trace_index
+    proj = _require_project(project_id)
+
+    trace_idx = _get_project_trace_index(proj)
+    if not trace_idx.exists() or not trace_idx.is_loaded():
+        return ok({"edges": []})
+
+    # Normalize paths
+    path_set: set = set()
+    for v in paths:
+        for part in str(v).split(","):
+            p = part.strip()
+            if p:
+                path_set.add(p)
+
+    if not path_set:
+        return ok({"edges": []})
+
+    # Read edges and filter to those between the given file set
+    import json as _json
+    edges: List[Dict[str, str]] = []
+    for edge_file in ("trace_edges.jsonl", "trace_inferred_edges.jsonl"):
+        edge_path = trace_idx.index_dir / edge_file
+        if not edge_path.exists():
+            continue
+        try:
+            with open(edge_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        d = _json.loads(line)
+                        src = d.get("source", "")
+                        tgt = d.get("target", "")
+                        kind = d.get("kind", "imports")
+
+                        # Resolve to file paths
+                        src_fp = src[5:] if src.startswith("file:") else None
+                        tgt_fp = tgt[5:] if tgt.startswith("file:") else None
+
+                        if src_fp is None:
+                            node = trace_idx._nodes.get(src)
+                            src_fp = node.get("file_path") if node else None
+                        if tgt_fp is None:
+                            node = trace_idx._nodes.get(tgt)
+                            tgt_fp = node.get("file_path") if node else None
+
+                        if src_fp and tgt_fp and src_fp in path_set and tgt_fp in path_set and src_fp != tgt_fp:
+                            edges.append({"source": src_fp, "target": tgt_fp, "kind": kind})
+                            if len(edges) >= max_edges:
+                                break
+                    except _json.JSONDecodeError:
+                        continue
+        except OSError:
+            continue
+        if len(edges) >= max_edges:
+            break
+
+    # Deduplicate (same source→target pair, keep first)
+    seen: set = set()
+    unique: List[Dict[str, str]] = []
+    for e in edges:
+        key = f"{e['source']}→{e['target']}"
+        if key not in seen:
+            seen.add(key)
+            unique.append(e)
+
+    return ok({"edges": unique})
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -1251,6 +1375,13 @@ def trace_destroy_project(project_id: str) -> Dict[str, Any]:
 
     # Clear in-memory caches
     _project_trace_indexes.pop(project_id, None)
+
+    # Clear pipeline orchestrator state (cached file loggers, run history)
+    try:
+        from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+        pipeline_orchestrator.clear_project(project_id)
+    except Exception:
+        pass
 
     logger.info(
         "Destroyed trace graph for %s: deleted %d files, %d errors",

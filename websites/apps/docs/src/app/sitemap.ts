@@ -24,7 +24,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/guides',
     '/guides/embeddings',
     '/guides/models',
-    '/guides/clara',
+    '/guides/compression',
     '/guides/path-weights',
     '/troubleshooting',
     '/faq',

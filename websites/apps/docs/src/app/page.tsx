@@ -1,6 +1,5 @@
 "use client";
 
-import { FeatureBlocks } from '@codrag/ui';
 import { Rocket, LayoutDashboard, Terminal, Plug, Wrench, LifeBuoy, BookOpen } from 'lucide-react';
 
 const docFeatures = [
@@ -51,7 +50,7 @@ const docFeatures = [
 
 export default function Page() {
   return (
-    <div className="space-y-12">
+    <div className="space-y-12 max-w-3xl mx-auto pt-6">
       <div>
         <h1 className="text-4xl font-bold tracking-tight mb-4">CoDRAG Documentation</h1>
         <p className="text-xl text-text-muted">
@@ -59,7 +58,21 @@ export default function Page() {
         </p>
       </div>
 
-      <FeatureBlocks features={docFeatures} variant="cards" />
+      <div className="grid md:grid-cols-2 gap-6">
+        {docFeatures.map((feature) => (
+          <a
+            key={feature.title}
+            href={feature.href}
+            target={(feature as any).external ? '_blank' : undefined}
+            rel={(feature as any).external ? 'noopener noreferrer' : undefined}
+            className="border border-border bg-surface rounded-lg p-6 text-left block no-underline transition-all hover:shadow-lg hover:-translate-y-1"
+          >
+            <span className="text-primary">{feature.icon}</span>
+            <h3 className="mt-4 text-lg font-mono font-medium text-text">{feature.title}</h3>
+            <p className="mt-2 text-text-muted">{feature.description}</p>
+          </a>
+        ))}
+      </div>
     </div>
   );
 }

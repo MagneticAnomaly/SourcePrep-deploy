@@ -1,0 +1,312 @@
+"""Tests for Wave 2.1+2.2: ranked trace expansion + smart chunk selection.
+
+Verifies that get_context_with_trace_expansion():
+  2.1 - Sorts neighbor paths by query relevance (not alphabetically)
+  2.2 - Picks the best-matching chunk per file (not the first chunk)
+"""
+
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
+from unittest.mock import MagicMock, patch
+
+import numpy as np
+import pytest
+
+from codrag.core.index import CodeIndex, SearchResult
+from codrag.core.embedder import FakeEmbedder
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _make_index(tmp_path, docs: List[Dict], embeddings: np.ndarray) -> CodeIndex:
+    """Build a CodeIndex with pre-loaded documents and embeddings."""
+    index_dir = tmp_path / "idx"
+    index_dir.mkdir()
+    idx = CodeIndex(index_dir=index_dir, embedder=FakeEmbedder(dim=embeddings.shape[1]))
+    idx._documents = docs
+    idx._embeddings = embeddings
+    idx._manifest = {"config": {}}
+    return idx
+
+
+def _make_trace_index(neighbor_paths: List[str]) -> MagicMock:
+    """Create a mock TraceIndex that returns given file paths as neighbors."""
+    trace_idx = MagicMock()
+    trace_idx.is_loaded.return_value = True
+
+    out_nodes = [{"file_path": p, "id": f"node_{i}"} for i, p in enumerate(neighbor_paths)]
+    trace_idx.get_neighbors.return_value = {
+        "in_nodes": [],
+        "out_nodes": out_nodes,
+        "in_edges": [],
+        "out_edges": [],
+    }
+    return trace_idx
+
+
+# ---------------------------------------------------------------------------
+# Wave 2.1: Ranked trace expansion (sort by query relevance, not alphabetically)
+# ---------------------------------------------------------------------------
+
+class TestRankedTraceExpansion:
+
+    def test_neighbors_sorted_by_relevance_not_alphabetically(self, tmp_path):
+        """Neighbors should be ordered by cosine similarity to query, not by filename."""
+        # alpha.py → low relevance embedding
+        # beta.py  → high relevance embedding
+        # Alphabetically alpha comes first, but beta is more relevant.
+        dim = 4
+        query_vec = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+        alpha_vec = np.array([0.0, 1.0, 0.0, 0.0], dtype=np.float32)  # orthogonal to query
+        beta_vec  = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)  # parallel to query
+
+        docs = [
+            {"source_path": "alpha.py", "content": "alpha content", "section": ""},
+            {"source_path": "beta.py",  "content": "beta content",  "section": ""},
+        ]
+        embeddings = np.vstack([alpha_vec, beta_vec])
+
+        idx = _make_index(tmp_path, docs, embeddings)
+        trace_idx = _make_trace_index(["alpha.py", "beta.py"])
+
+        # Mock search to return an empty base result from a "source" file
+        with patch.object(idx, "get_context_structured") as mock_ctx:
+            mock_ctx.return_value = {
+                "context": "",
+                "chunks": [{"source_path": "source.py"}],
+                "total_chars": 0,
+                "estimated_tokens": 0,
+            }
+            # Mock embed_query to return our known query vector
+            idx.embedder = MagicMock()
+            idx.embedder.embed_query.return_value = MagicMock(vector=query_vec.tolist())
+
+            result = idx.get_context_with_trace_expansion(
+                query="test query",
+                trace_index=trace_idx,
+                k=3,
+                max_chars=10000,
+                max_additional_chars=5000,
+            )
+
+        chunks = [c for c in result.get("chunks", []) if c.get("trace_expanded")]
+        assert len(chunks) == 2
+        # beta.py (higher score) should come before alpha.py
+        assert chunks[0]["source_path"] == "beta.py"
+        assert chunks[1]["source_path"] == "alpha.py"
+        # Scores should be non-increasing
+        assert chunks[0]["score"] >= chunks[1]["score"]
+
+    def test_no_embeddings_falls_back_gracefully(self, tmp_path):
+        """When embeddings are unavailable, expansion still works (fallback order)."""
+        dim = 4
+        docs = [
+            {"source_path": "z_file.py", "content": "z content", "section": ""},
+            {"source_path": "a_file.py", "content": "a content", "section": ""},
+        ]
+        idx = _make_index(tmp_path, docs, np.zeros((2, dim)))
+        idx._embeddings = None  # Force no-embedding fallback
+
+        trace_idx = _make_trace_index(["z_file.py", "a_file.py"])
+
+        with patch.object(idx, "get_context_structured") as mock_ctx:
+            mock_ctx.return_value = {
+                "context": "",
+                "chunks": [{"source_path": "source.py"}],
+                "total_chars": 0,
+                "estimated_tokens": 0,
+            }
+            result = idx.get_context_with_trace_expansion(
+                query="test query",
+                trace_index=trace_idx,
+                k=3,
+                max_chars=10000,
+                max_additional_chars=5000,
+            )
+
+        chunks = [c for c in result.get("chunks", []) if c.get("trace_expanded")]
+        assert len(chunks) == 2  # Both files included, no crash
+
+    def test_scores_attached_to_trace_expanded_chunks(self, tmp_path):
+        """Trace-expanded chunks should carry a non-zero score when embeddings exist."""
+        dim = 4
+        query_vec = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+        rel_vec   = np.array([0.9, 0.1, 0.0, 0.0], dtype=np.float32)
+
+        docs = [{"source_path": "related.py", "content": "related content", "section": ""}]
+        embeddings = np.vstack([rel_vec])
+
+        idx = _make_index(tmp_path, docs, embeddings)
+        trace_idx = _make_trace_index(["related.py"])
+
+        with patch.object(idx, "get_context_structured") as mock_ctx:
+            mock_ctx.return_value = {
+                "context": "",
+                "chunks": [{"source_path": "source.py"}],
+                "total_chars": 0,
+                "estimated_tokens": 0,
+            }
+            idx.embedder = MagicMock()
+            idx.embedder.embed_query.return_value = MagicMock(vector=query_vec.tolist())
+
+            result = idx.get_context_with_trace_expansion(
+                query="test query",
+                trace_index=trace_idx,
+                k=3,
+                max_chars=10000,
+                max_additional_chars=5000,
+            )
+
+        trace_chunks = [c for c in result.get("chunks", []) if c.get("trace_expanded")]
+        assert len(trace_chunks) == 1
+        assert trace_chunks[0]["score"] > 0.0
+
+    def test_empty_related_paths_returns_base_result(self, tmp_path):
+        """When no neighbor paths are found, base result is returned unchanged."""
+        dim = 4
+        docs = [{"source_path": "src.py", "content": "content", "section": ""}]
+        idx = _make_index(tmp_path, docs, np.random.rand(1, dim).astype(np.float32))
+        trace_idx = _make_trace_index([])  # No neighbors
+
+        with patch.object(idx, "get_context_structured") as mock_ctx:
+            mock_ctx.return_value = {
+                "context": "base context",
+                "chunks": [{"source_path": "src.py"}],
+                "total_chars": 12,
+                "estimated_tokens": 3,
+            }
+            result = idx.get_context_with_trace_expansion(
+                query="test",
+                trace_index=trace_idx,
+            )
+
+        assert result["context"] == "base context"
+        assert result["trace_nodes_added"] == 0
+        assert result["trace_expanded"] is True
+
+
+# ---------------------------------------------------------------------------
+# Wave 2.2: Smart chunk selection (best chunk per file, not first)
+# ---------------------------------------------------------------------------
+
+class TestSmartChunkSelection:
+
+    def test_best_chunk_selected_not_first(self, tmp_path):
+        """When a file has multiple chunks, the most relevant one should be selected."""
+        dim = 4
+        query_vec = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+        # file.py has two chunks: first is irrelevant, second is highly relevant
+        chunk1_vec = np.array([0.0, 1.0, 0.0, 0.0], dtype=np.float32)  # irrelevant
+        chunk2_vec = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)  # highly relevant
+
+        docs = [
+            {"source_path": "file.py", "content": "irrelevant chunk (first)", "section": "imports"},
+            {"source_path": "file.py", "content": "highly relevant chunk (second)", "section": "core_logic"},
+        ]
+        embeddings = np.vstack([chunk1_vec, chunk2_vec])
+
+        idx = _make_index(tmp_path, docs, embeddings)
+        trace_idx = _make_trace_index(["file.py"])
+
+        with patch.object(idx, "get_context_structured") as mock_ctx:
+            mock_ctx.return_value = {
+                "context": "",
+                "chunks": [{"source_path": "source.py"}],
+                "total_chars": 0,
+                "estimated_tokens": 0,
+            }
+            idx.embedder = MagicMock()
+            idx.embedder.embed_query.return_value = MagicMock(vector=query_vec.tolist())
+
+            result = idx.get_context_with_trace_expansion(
+                query="core logic",
+                trace_index=trace_idx,
+                k=3,
+                max_chars=10000,
+                max_additional_chars=5000,
+            )
+
+        context = result.get("context", "")
+        # The best chunk (second, higher relevance) should appear in context
+        assert "highly relevant chunk" in context
+        # The irrelevant first chunk should NOT appear
+        assert "irrelevant chunk" not in context
+
+    def test_best_chunk_score_beats_first_chunk_score(self, tmp_path):
+        """Score on the expanded chunk should reflect the best chunk, not the first."""
+        dim = 4
+        query_vec = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+        chunk1_vec = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32)  # sim ≈ 0
+        chunk2_vec = np.array([0.9, 0.1, 0.0, 0.0], dtype=np.float32)  # sim ≈ 0.99
+
+        docs = [
+            {"source_path": "file.py", "content": "chunk1", "section": ""},
+            {"source_path": "file.py", "content": "chunk2", "section": ""},
+        ]
+        embeddings = np.vstack([chunk1_vec, chunk2_vec])
+
+        idx = _make_index(tmp_path, docs, embeddings)
+        trace_idx = _make_trace_index(["file.py"])
+
+        with patch.object(idx, "get_context_structured") as mock_ctx:
+            mock_ctx.return_value = {
+                "context": "",
+                "chunks": [{"source_path": "source.py"}],
+                "total_chars": 0,
+                "estimated_tokens": 0,
+            }
+            idx.embedder = MagicMock()
+            idx.embedder.embed_query.return_value = MagicMock(vector=query_vec.tolist())
+
+            result = idx.get_context_with_trace_expansion(
+                query="query",
+                trace_index=trace_idx,
+                k=3,
+                max_chars=10000,
+                max_additional_chars=5000,
+            )
+
+        trace_chunks = [c for c in result.get("chunks", []) if c.get("trace_expanded")]
+        assert len(trace_chunks) == 1
+        # Score should reflect chunk2 (high sim), not chunk1 (low sim)
+        assert trace_chunks[0]["score"] > 0.8
+
+    def test_chars_budget_respected(self, tmp_path):
+        """Trace expansion should not exceed max_additional_chars."""
+        dim = 4
+        query_vec = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+
+        docs = [
+            {"source_path": f"file{i}.py", "content": "x" * 1000, "section": ""}
+            for i in range(5)
+        ]
+        embeddings = np.random.rand(5, dim).astype(np.float32)
+        embeddings /= np.linalg.norm(embeddings, axis=1, keepdims=True)
+
+        idx = _make_index(tmp_path, docs, embeddings)
+        trace_idx = _make_trace_index([f"file{i}.py" for i in range(5)])
+
+        with patch.object(idx, "get_context_structured") as mock_ctx:
+            mock_ctx.return_value = {
+                "context": "",
+                "chunks": [{"source_path": "source.py"}],
+                "total_chars": 0,
+                "estimated_tokens": 0,
+            }
+            idx.embedder = MagicMock()
+            idx.embedder.embed_query.return_value = MagicMock(vector=query_vec.tolist())
+
+            result = idx.get_context_with_trace_expansion(
+                query="query",
+                trace_index=trace_idx,
+                k=5,
+                max_chars=10000,
+                max_additional_chars=2500,  # fits at most 2 files (1000 chars each)
+            )
+
+        trace_chunks = [c for c in result.get("chunks", []) if c.get("trace_expanded")]
+        # Should include at most 2 files (2 * 1000 ≤ 2500, but 3 * 1000 > 2500)
+        assert len(trace_chunks) <= 2

@@ -33,18 +33,18 @@ const stackComponents: StackComponent[] = [
     ],
   },
   {
-    name: 'CLaRa Compression',
+    name: 'Smart Context Compression',
     required: false,
-    tag: 'Optional — 10-16× context compression',
+    tag: 'Built-in — dual-engine compression for code & docs',
     accent: 'success',
     icon: <Shrink className="w-6 h-6" />,
-    description: 'An optional sidecar for when you need to maximize context efficiency. Compresses retrieved code and docs so you can fit more relevant signal into your prompt window.',
+    description: 'Two compression engines, each optimized for what it compresses. Code files are structurally compressed — the engine understands functions, classes, and imports, so it keeps what matters and summarizes the rest. Documentation and markdown are compressed with a lightweight language model that removes filler while preserving meaning. Both run on CPU, no GPU needed.',
     provides: [
-      '10–16× context compression with CLaRa-7B',
-      'Query-aware — compression focuses on what you asked for',
-      'Increases signal density for complex tasks',
-      'Best-effort — falls back to uncompressed if CLaRa is offline',
-      'Works via API, MCP, and dashboard',
+      '3–20× structural compression for code (understands your code\'s shape)',
+      'Language-aware compression for docs and markdown (~1.6×, 89% concept retention)',
+      'Score-aware — high-relevance stays full, low-relevance compresses more',
+      'Increases signal density — fit more relevant context into every prompt',
+      'Built-in — no GPU, no cloud, works via API, MCP, and dashboard',
     ],
   },
 ];
@@ -179,8 +179,8 @@ export function TechStackMatrix({ className = '' }: TechStackMatrixProps) {
         <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
         <span>
           <strong>Recommended:</strong> Install CoDRAG — embeddings, search, and context assembly work immediately.
-          The built-in model (~130 MB) downloads automatically on first build. For massive codebases, add CLaRa to
-          compress context 10–16× and fit more relevant signal into your prompt window.
+          The built-in model (~130 MB) downloads automatically on first build. Smart compression is built in —
+          structural compression for code, language-aware compression for docs, zero extra dependencies.
         </span>
       </div>
     </div>

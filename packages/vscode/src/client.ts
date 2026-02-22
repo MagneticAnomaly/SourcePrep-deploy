@@ -171,7 +171,7 @@ export class CodragDaemonClient {
   async getMCPConfig(projectId?: string): Promise<Record<string, unknown>> {
     const query: Record<string, string> = {};
     if (projectId) { query.project = projectId; }
-    return this.envelope<Record<string, unknown>>('/api/code-index/mcp-config', { query });
+    return this.envelope<Record<string, unknown>>('/mcp/config', { query });
   }
 
   // ── Internals ───────────────────────────────────────────────

@@ -25,10 +25,9 @@ const THEME_LABELS: Record<ThemeId, string> = {
   n: 'N — Retro: Mirage',
 };
 
-const RETRO_THEMES: { id: ThemeId; label: string; sub: string }[] = [
-  { id: 'h', label: 'Synth', sub: 'Pink/Purple' },
-  { id: 'm', label: 'Aurora', sub: 'Cyan/Blue' },
-  { id: 'n', label: 'Mirage', sub: 'Purple/Teal' },
+const WEB_THEMES: { id: ThemeId; label: string; sub: string }[] = [
+  { id: 'm', label: 'Aurora', sub: 'Cyan/Blue (default)' },
+  { id: 'k', label: 'Focus', sub: 'High Contrast' },
 ];
 
 const HERO_VARIANTS: HeroVariant[] = [
@@ -38,7 +37,7 @@ const HERO_VARIANTS: HeroVariant[] = [
 
 export function DevToolbar() {
   const [collapsed, setCollapsed] = useState(true);
-  const [currentTheme, setCurrentTheme] = useState<ThemeId>('k');
+  const [currentTheme, setCurrentTheme] = useState<ThemeId>('m');
   const [currentHero, setCurrentHero] = useState<string>('default');
 
   useEffect(() => {
@@ -49,7 +48,7 @@ export function DevToolbar() {
     const attrTheme = document.documentElement.getAttribute('data-codrag-theme');
     const theme = (urlTheme && urlTheme in THEME_LABELS) ? urlTheme as ThemeId
       : (attrTheme && attrTheme in THEME_LABELS) ? attrTheme as ThemeId
-      : 'a';
+      : 'm';
     document.documentElement.setAttribute('data-codrag-theme', theme);
     setCurrentTheme(theme);
 
@@ -163,17 +162,17 @@ export function DevToolbar() {
           </div>
 
           <div className="p-3 space-y-3 max-h-[60vh] overflow-y-auto">
-            {/* Retro theme picker — h/m/n all render the RetroHero, just with different palettes */}
+            {/* Theme picker — Aurora (default) + Focus */}
             <div>
-              <label className="block text-gray-400 mb-1">Retro Theme</label>
+              <label className="block text-gray-400 mb-1">Theme</label>
               <div className="flex gap-1">
-                {RETRO_THEMES.map(({ id, label, sub }) => (
+                {WEB_THEMES.map(({ id, label, sub }) => (
                   <button
                     key={id}
                     onClick={() => applyTheme(id)}
                     className={`flex-1 px-1.5 py-1.5 rounded border transition-colors text-center ${
                       currentTheme === id
-                        ? 'bg-purple-700 border-purple-500 text-white'
+                        ? 'bg-cyan-700 border-cyan-500 text-white'
                         : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'
                     }`}
                     title={THEME_LABELS[id]}
@@ -182,18 +181,6 @@ export function DevToolbar() {
                     <div className="text-[9px] text-gray-400">{sub}</div>
                   </button>
                 ))}
-                <button
-                  onClick={() => applyTheme('k')}
-                  className={`flex-1 px-1.5 py-1.5 rounded border transition-colors text-center ${
-                    currentTheme === 'k'
-                      ? 'bg-blue-700 border-blue-500 text-white'
-                      : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'
-                  }`}
-                  title="K — Focus (web default)"
-                >
-                  <div className="text-[10px] font-bold">Focus</div>
-                  <div className="text-[9px] text-gray-400">Default</div>
-                </button>
               </div>
             </div>
 

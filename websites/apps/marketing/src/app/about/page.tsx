@@ -17,9 +17,9 @@ export default function Page() {
               About CoDRAG
             </h1>
             <p className="text-xl text-text-muted leading-relaxed mb-12">
-              CoDRAG is the structural context layer for AI-assisted development.
-              We sit between your codebase and your AI tools, delivering the right context
-              so every suggestion is grounded in how your code actually works.
+              CoDRAG gives your AI coding tools better context. It indexes your codebase locally
+              using semantic search, a Rust-powered structural code graph, and multi-pass enrichment — then
+              delivers precisely the right context to Cursor, Windsurf, or any MCP-compatible editor.
             </p>
 
             {/* Mission */}
@@ -27,14 +27,15 @@ export default function Page() {
               <h2 className="text-2xl font-semibold">Our Mission</h2>
               <div className="prose  max-w-none">
                 <p className="text-lg text-text-muted leading-relaxed">
-                  AI coding tools are transforming how software gets built. But they work best
-                  when they understand the structure of your codebase — not just the files.
-                  We&apos;re building the mediation layer that gives AI tools structural
-                  understanding: imports, call graphs, symbol hierarchies, and dependency maps.
+                  AI coding tools work best when they understand how your codebase connects —
+                  not just individual files. CoDRAG provides multiple retrieval methods (semantic search,
+                  structural graph tracing, configurable path weights, and optional compression) so your
+                  AI assistant gets high-signal context instead of noise.
                 </p>
                 <p className="text-lg text-text-muted leading-relaxed mt-4">
-                  The result: AI suggestions that reflect how your code actually connects,
-                  delivered in under 100&thinsp;ms, running entirely on your machine.
+                  The result: more relevant suggestions, fewer corrections, and faster iteration —
+                  delivered in under 100&thinsp;ms, running locally on your machine with optional
+                  cloud enrichment via BYOK.
                 </p>
               </div>
             </section>
@@ -72,8 +73,8 @@ export default function Page() {
             <div className="rounded-xl border border-border bg-surface p-5">
               <div className="font-semibold text-text">Your code is yours</div>
               <div className="mt-1 text-sm text-text-muted">
-                CoDRAG runs 100% locally. No cloud upload, no telemetry, no phone-home.
-                Your source code never leaves your machine. Unless you want to BYOK.
+                CoDRAG is local-first. Your source code and indexes stay on your machine.
+                No telemetry, no phone-home. Add a cloud LLM provider via BYOK if you choose — you&apos;re in control.
               </div>
             </div>
             <div className="rounded-xl border border-border bg-surface p-5">

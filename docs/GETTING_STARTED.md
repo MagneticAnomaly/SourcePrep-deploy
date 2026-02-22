@@ -5,9 +5,19 @@ CoDRAG is a local-first semantic code search and context assembly tool that help
 ## Prerequisites
 
 - **Python 3.11+**
-- **Ollama** (optional) — only needed if you prefer Ollama-based embeddings or want small/large LLM models for analysis
+- **Ollama** (optional) — only needed if you want GPU-accelerated or code-specialized embeddings, or small/large LLM models for analysis
 
-CoDRAG ships with a **built-in embedding model** (nomic-embed-text-v1.5 via ONNX Runtime) that works out of the box with zero configuration.
+CoDRAG ships with a **built-in embedding model** (nomic-embed-text-v1.5, ~132 MB quantized ONNX) that downloads automatically and **runs entirely on CPU** — no GPU, no Ollama, no configuration required.
+
+### Embedding model tiers
+
+| Tier | Model | Size | GPU? | Notes |
+|---|---|---|---|---|
+| **Recommended** | `nomic-embed-code` via Ollama | ~4 GB | Required | Code-specialized, best retrieval quality |
+| **Middle** | `nomic-embed-text` via Ollama | ~274 MB | Optional | General-purpose, good quality |
+| **Default/Fallback** | `nomic-embed-text-v1.5` (built-in ONNX) | ~132 MB | None | CPU-only, zero-config |
+
+See the [Embedding Models guide](./docs/Phase28_ContextWindowResearch/EMBEDDING_MODEL_RESEARCH.md) for full details.
 
 ## Installation
 
@@ -25,17 +35,19 @@ cd CoDRAG
 pip install -e ".[dev]"
 ```
 
-### 2. (Optional) Pre-download the Embedding Model
+### 2. (Optional) Pre-download the Built-in Embedding Model
 
-The built-in model downloads automatically on first build (~100 MB). To pre-download:
+The built-in ONNX model downloads automatically on first build (~132 MB, CPU-only). To pre-download:
 
 ```bash
 codrag models
 ```
 
-### 3. (Optional) Install Ollama for Additional LLMs
+Model is cached at `~/.cache/huggingface/` and never re-downloaded.
 
-If you want Ollama-based embeddings or small/large models for analysis:
+### 3. (Optional) Install Ollama for GPU Embeddings or LLMs
+
+If you have a GPU and want the best code retrieval quality, or want small/large LLM models for analysis:
 
 ```bash
 # macOS
@@ -44,11 +56,16 @@ brew install ollama
 # Linux
 curl -fsSL https://ollama.com/install.sh | sh
 
-# Pull recommended models
-ollama pull nomic-embed-text    # Embedding (alternative to built-in)
+# Pull embedding models (choose one based on your hardware)
+ollama pull manutic/nomic-embed-code  # Recommended — code-specialized, ~4 GB, GPU required
+ollama pull nomic-embed-text          # Alternative — general-purpose, ~274 MB, GPU optional
+
+# Pull analysis models
 ollama pull ministral-3:3b      # Small model for fast analysis
 ollama pull ministral-3:14b     # Large model for complex reasoning
 ```
+
+Then in the dashboard go to **Settings → AI Models → Embedding → Use Endpoint** and select your Ollama instance. After changing the embedding model, trigger a full rebuild.
 
 ## Quick Start
 

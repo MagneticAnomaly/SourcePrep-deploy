@@ -24,6 +24,7 @@ import { CodeViewer } from '../../components/project/CodeViewer';
 import { UsageGuidePanel } from '../../components/dashboard/UsageGuidePanel';
 import { DeepAnalysisSettings } from '../../components/llm/DeepAnalysisSettings';
 import { LogConsole } from '../../components/console/LogConsole';
+import { ActivityHeatmap, generateSampleActivityData } from '../../components/viz/ActivityHeatmap';
 
 const meta: Meta = {
   title: 'Dashboard/Layouts/FullDashboard',
@@ -44,7 +45,7 @@ const sampleTraceNodes: TraceNode[] = [
 
 const sampleLLMServices: LLMServiceStatus[] = [
   { name: 'Ollama', url: 'localhost:11434', status: 'connected', type: 'ollama' },
-  { name: 'CLaRa', status: 'disabled', type: 'clara' },
+  { name: 'Compression', status: 'connected', type: 'other' },
   { name: 'OpenAI', status: 'disconnected', type: 'openai' },
 ];
 
@@ -430,6 +431,15 @@ export const FullDashboard: StoryObj = {
           ]}
           onClear={() => {}}
           defaultExpanded={true}
+          className="h-full border-none shadow-none bg-transparent"
+        />
+      ),
+      'activity-heatmap': (
+        <ActivityHeatmap
+          data={generateSampleActivityData(12)}
+          weeks={12}
+          showLegend={true}
+          showLabels={true}
           className="h-full border-none shadow-none bg-transparent"
         />
       ),

@@ -7,10 +7,12 @@
   NODE_VERSION = "20"
 
 # Required environment variables (set in Netlify dashboard):
-#   NEXT_PUBLIC_CODRAG_CHECKOUT_URL — Lemon Squeezy checkout URL
-#   LEMONSQUEEZY_API_KEY            — (secret) API key for license recovery
-#   LEMONSQUEEZY_STORE_ID           — Lemon Squeezy store ID
-#   NEXT_PUBLIC_SITE_URL            — https://payments.codrag.io
+#   NEXT_PUBLIC_LS_CHECKOUT_MONTHLY  — Lemon Squeezy checkout URL for Monthly product
+#   NEXT_PUBLIC_LS_CHECKOUT_PERPETUAL — Lemon Squeezy checkout URL for Perpetual product
+#   NEXT_PUBLIC_LS_CHECKOUT_TEAM     — Lemon Squeezy checkout URL for Team product
+#   LEMONSQUEEZY_API_KEY             — (secret) API key for license recovery
+#   LEMONSQUEEZY_STORE_ID            — Lemon Squeezy store ID
+#   NEXT_PUBLIC_SITE_URL             — https://payments.codrag.io
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

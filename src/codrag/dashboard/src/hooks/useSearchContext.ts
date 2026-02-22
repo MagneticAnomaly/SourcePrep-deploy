@@ -32,6 +32,8 @@ export function useSearchContext(selectedProjectId: string | null, { onError }: 
   const [contextIncludeSources, setContextIncludeSources] = useState(true)
   const [contextIncludeScores, setContextIncludeScores] = useState(false)
   const [contextStructured, setContextStructured] = useState(false)
+  const [contextIncludeAtlas, setContextIncludeAtlas] = useState(true)
+  const [contextCompression, setContextCompression] = useState<'none' | 'lod' | 'lingua'>('none')
   const [context, setContext] = useState<string>('')
   const [contextMeta, setContextMeta] = useState<ContextMeta | null>(null)
 
@@ -74,7 +76,9 @@ export function useSearchContext(selectedProjectId: string | null, { onError }: 
         include_sources: contextIncludeSources,
         include_scores: contextIncludeScores,
         min_score: minScore,
-        structured: contextStructured,
+        structured: contextStructured || contextCompression === 'lod',
+        include_atlas: contextIncludeAtlas,
+        compression: contextCompression === 'none' ? undefined : contextCompression,
       })
       setContext(String(data.context || ''))
       if ('chunks' in data && data.chunks) {
@@ -83,7 +87,9 @@ export function useSearchContext(selectedProjectId: string | null, { onError }: 
             source_path: c.source_path,
             section: '',
             score: c.score ?? 0,
-            truncated: false,
+            truncated: (c as any).truncated ?? false,
+            lod: (c as any).lod,
+            compression_ratio: (c as any).compression_ratio,
           })),
           total_chars: data.total_chars ?? 0,
           estimated_tokens: data.estimated_tokens ?? 0,
@@ -94,7 +100,7 @@ export function useSearchContext(selectedProjectId: string | null, { onError }: 
     } catch (e) {
       onErrorRef.current?.(e instanceof Error ? e.message : 'Failed to get context')
     }
-  }, [api, contextIncludeScores, contextIncludeSources, contextK, contextMaxChars, contextStructured, minScore, query, selectedProjectId])
+  }, [api, contextIncludeScores, contextIncludeSources, contextIncludeAtlas, contextCompression, contextK, contextMaxChars, contextStructured, minScore, query, selectedProjectId])
 
   const handleCopyContext = useCallback(async () => {
     if (!context) return
@@ -130,6 +136,8 @@ export function useSearchContext(selectedProjectId: string | null, { onError }: 
     contextIncludeSources, setContextIncludeSources,
     contextIncludeScores, setContextIncludeScores,
     contextStructured, setContextStructured,
+    contextIncludeAtlas, setContextIncludeAtlas,
+    contextCompression, setContextCompression,
     context,
     contextMeta,
     // Actions
