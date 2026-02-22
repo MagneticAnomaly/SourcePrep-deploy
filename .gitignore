@@ -12,6 +12,7 @@ eggs/
 .eggs/
 lib/
 !packages/ui/src/lib/
+!websites/apps/support/src/lib/
 lib64/
 parts/
 sdist/
