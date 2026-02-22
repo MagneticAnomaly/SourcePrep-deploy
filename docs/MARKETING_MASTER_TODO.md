@@ -8,9 +8,9 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 - IA + wireframe: `Phase12_Marketing-Documentation-Website/WIREFRAME_AND_IA.md`
 - Copy deck: `Phase12_Marketing-Documentation-Website/COPY_DECK.md`
 - Deployment/DNS: `Phase12_Marketing-Documentation-Website/DEPLOYMENT.md`
-- Phase TODO: `Phase12_Marketing-Documentation-Website/TODO.md`
 - Design system / Storybook: `Phase13_Storybook/TODO.md`
-- App backlog (separate): `MASTER_TODO.md`
+- App backlog: `MASTER_TODO.md`
+- Manual tasks (accounts, DNS, payments): `FOR_ERIC_TODO.md`
 
 ## Canonical decisions (locked unless explicitly changed)
 - Canonical domain: `codrag.io`
@@ -91,17 +91,19 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 - [x] Recovery path: `/recover` route implemented.
 - [x] Success page: `/success` route implemented with next steps.
 
-### MKT-W6: Deploy + DNS
+### MKT-W6: Deploy + DNS (See FOR_ERIC_TODO.md for manual steps)
 - [x] Create GitHub Actions workflow (`.github/workflows/websites-ci.yml`) for lint, build, and link validation.
 - [x] Choose deploy provider (**Netlify** — free tier, commercial OK per ToS; Vercel Hobby was rejected due to commercial-use prohibition).
   - [x] Create `netlify.toml` for marketing, docs, support, payments ✅ — `vercel.json` files removed.
-- [ ] Cloudflare DNS records + redirects (www + legacy domain).
+- [ ] Cloudflare DNS records + redirects (www + legacy domain). *See FOR_ERIC_TODO.md*
 - [ ] Preview deployments enabled for PRs (Netlify branch deploys).
+- [x] Custom 404 pages for all 4 sites (Marketing, Docs, Support, Payments) ✅ — `not-found.tsx` exists in all 4 apps.
 
 ### MKT-W7: Quality gates
 - [x] Link checker script (`scripts/validate_links.js`) implemented and passing.
 - [ ] Lighthouse pass (perf/a11y/SEO) for marketing home.
 - [ ] Manual QA: Chrome/Safari/Firefox.
+- [ ] Decide docs versioning strategy (latest vs versioned per release).
 
 ### MKT-W9: Final Polish & Ops (Pre-Launch)
 - [x] **Analytics**: Plausible per-site script bundles active in all 4 `layout.tsx` files ✅.
@@ -125,13 +127,13 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 
 **Remaining:**
 - [ ] **Support portal scope**: Define private/priority support for Pro/Team/Enterprise (email flow? SLA?). May not be MVP.
-- [ ] **Debug log export**: Add "How to send a bug report" section to Security/Privacy page AND FAQ. Document safe log export without leaking code.
+- [x] **Debug log export**: Added "Bug Reports & Debug Logs" section to Security page + FAQ entry ✅.
 - [ ] **Perpetual license messaging**: Research how comparable products (Sublime Text, JetBrains perpetual fallback, Sketch) phrase perpetual licenses. Align homepage copy.
 - [ ] **Lemon Squeezy post-purchase flow**: Investigate what Lemon Squeezy shows on the success page. Determine if we need custom copy about offline license.json delivery.
 - [ ] **Homepage screenshots**: Create/capture the top 3 dashboard screenshots for the homepage placeholders (suggested: Knowledge Query results, Code Graph Explorer, Graph Enrichment Pipeline).
 - [ ] **Docs: Codebase Atlas concept page**: Create `/concepts/atlas-routing` once Phase 29B implementation is complete.
-- [ ] **Docs: Pipeline stage count**: Ensure docs site `/concepts/graph-enrichment` reflects the accurate 9-stage pipeline (Fast Sync 4 + Deep Enrichment 5).
-- [ ] **Docs: Getting Started verification step**: Audit the "Verify" step — currently uses `trace_expand=true` which works for all tiers, but should clarify what happens on Free (manual trace build required first).
+- [x] **Docs: Pipeline stage count**: Docs site `/concepts/graph-enrichment` and `/dashboard` both reflect 9-stage pipeline ✅.
+- [x] **Docs: Getting Started verification step**: Added Free tier note about manual trace build requirement ✅.
 
 ### MKT-W11: Pricing & Payments Setup (Pre-Launch)
 
@@ -144,47 +146,11 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 - [x] `payments/page.tsx` — Per-product checkout cards (Monthly/Perpetual/Team) with env var URLs.
 - [x] `.env.example` files for marketing + payments apps with all env var names documented.
 
-**YOU need to do before launch:**
+**Manual tasks (Eric):** See `FOR_ERIC_TODO.md` §2 (Lemon Squeezy), §3 (Netlify env vars + DNS), §4 (Verification).
 
-*Lemon Squeezy setup:*
-- [ ] **LS-01**: Create Lemon Squeezy store at `lemonsqueezy.com` (if not already done).
-- [ ] **LS-02**: Create LS **Monthly** product — $7/mo recurring subscription.
-- [ ] **LS-03**: Create LS **Perpetual** product — $79 one-time payment.
-- [ ] **LS-04**: Create LS **Team** product — $15/seat/mo recurring subscription.
-- [ ] **LS-05**: Create PPP discount codes in LS dashboard:
-  - `PPP20` — 20% off, applicable to Monthly + Perpetual + Team.
-  - `PPP40` — 40% off, same products.
-  - `PPP60` — 60% off, same products.
-  - Set `max_redemptions` per code (e.g., 10,000). Rotate quarterly.
-- [ ] **LS-06**: Configure LS webhook → `api.codrag.io` for license generation on purchase.
-- [ ] **LS-07**: Set LS success redirect URL → `https://payments.codrag.io/success`.
-- [ ] **LS-08**: Test full purchase flow end-to-end (LS test mode).
-
-*Netlify environment variables:*
-- [ ] **ENV-01**: Set `NEXT_PUBLIC_LS_CHECKOUT_MONTHLY` on **marketing** Netlify site (LS checkout URL).
-- [ ] **ENV-02**: Set `NEXT_PUBLIC_LS_CHECKOUT_PERPETUAL` on **marketing** Netlify site.
-- [ ] **ENV-03**: Set `NEXT_PUBLIC_LS_CHECKOUT_TEAM` on **marketing** Netlify site.
-- [ ] **ENV-04**: Set same 3 `NEXT_PUBLIC_LS_CHECKOUT_*` vars on **payments** Netlify site.
-- [ ] **ENV-05**: Set `LEMONSQUEEZY_API_KEY` on **payments** Netlify site (secret, for license recovery).
-- [ ] **ENV-06**: Set `LEMONSQUEEZY_STORE_ID` on **payments** Netlify site.
-
-*DNS / Hosting (also in MKT-W6):*
-- [ ] **DNS-01**: Create Netlify site for `codrag.io` (marketing).
-- [ ] **DNS-02**: Create Netlify site for `payments.codrag.io`.
-- [ ] **DNS-03**: Point DNS CNAME records to Netlify (GoDaddy or Cloudflare).
-- [ ] **DNS-04**: Verify SSL auto-provisioned by Netlify for all domains.
-
-*License infrastructure:*
+**License infrastructure (AI-implementable):**
 - [ ] **LIC-01**: Deploy `api.codrag.io` serverless function for Ed25519 license signing.
-- [ ] **LIC-02**: Generate Ed25519 keypair and store private key securely.
-- [ ] **LIC-03**: Wire LS webhook → license signing → email delivery.
 - [ ] **LIC-04**: Implement license recovery API (replace mock in `payments/api/recover/route.ts`).
-
-*Verification:*
-- [ ] **VER-01**: Test PPP pricing by visiting `/pricing?country=IN` (should show $3/mo, $29 perpetual).
-- [ ] **VER-02**: Test PPP pricing for Band 1 (`?country=PL`) and Band 2 (`?country=BR`).
-- [ ] **VER-03**: Test checkout flow: pricing page → LS checkout → success page → license email.
-- [ ] **VER-04**: Test license recovery flow: payments.codrag.io/recover → email sent.
 
 ### MKT-W8: Later (post-v0 / 2.0)
 - [ ] **Support 2.0**: Full Helpdesk.
