@@ -544,6 +544,18 @@ Add brief notes here after completing a sprint:
 - what changed (decisions, scope)
 - new blockers
 
+### 2026-02-21: Phase 32 - `codrag_hi` MVP Capabilities
+
+**What was done:**
+- **Doc Content Previews (O-1):** `codrag_hi` now fetches the first heading + paragraph for `.md` files to provide content-aware summaries.
+- **Hub File Identification (O-2):** Trace graph identifies highly-connected files in the user's selection (`GET /trace/hub_files`).
+- **Filename-Based Topic Detection (O-3):** Groups selected files into project-specific topics (e.g., "authentication", "UI components") based on keyword clustering.
+- **Smart Prompt Ordering (O-4):** Suggested prompts are sorted by relevance to the dominant file category selected.
+- **Ambient Context Chain (O-5):** `_ai_note` updated to guide AI agents to use the `codrag` tool for deeper content retrieval after `codrag_hi`.
+- **Change Detection (O-7):** Surfaces `stale` files from the trace coverage endpoint to warn users if their context is outdated.
+- **Cross-File Relationships (O-8):** For small selections, `codrag_hi` queries trace edges (`GET /trace/file_edges`) to show how selected files connect.
+- **Docs updated:** `codrag_hi` capabilities are documented in Quick Start, MCP Overview, and Windsurf integration pages.
+
 ### 2026-02-15: MASTER_TODO Reconciliation + Trace Graph + Bug Fixes
 
 **What was done:**

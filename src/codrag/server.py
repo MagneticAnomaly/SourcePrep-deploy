@@ -11,11 +11,12 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -97,6 +98,25 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# IPC Token Auth Middleware
+@app.middleware("http")
+async def verify_ipc_token(request: Request, call_next):
+    # Allow health checks and SSE events to pass without token for simplicity in some contexts
+    if request.url.path in ["/health", "/events"]:
+        return await call_next(request)
+    
+    expected_token = os.environ.get("CODRAG_DAEMON_TOKEN")
+    if expected_token:
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return JSONResponse(status_code=401, content={"success": False, "error": {"message": "Missing Authorization header"}})
+        
+        token = auth_header.split(" ")[1]
+        if token != expected_token:
+            return JSONResponse(status_code=403, content={"success": False, "error": {"message": "Invalid daemon token"}})
+            
+    return await call_next(request)
 
 # ── Build Manager (Phase 23 Sprint 14) ────────────────────────────
 # All index caches, build threads, and locks live in the BuildManager
@@ -273,9 +293,10 @@ def _project_augment_status(project: Project) -> Dict[str, Any]:
     return augmenter.status()
 
 def _get_llm_client_for_slot(slot: str):
-    """Create an LLMClient for the given slot ('small' or 'large')."""
+    """Create an LLMClient for the given slot ('small', 'large', or 'code')."""
     # Map slot aliases to config keys
-    slot_key = "small_model" if slot == "small" else "large_model" if slot == "large" else slot
+    SLOT_MAP = {"small": "small_model", "large": "large_model", "code": "code_model"}
+    slot_key = SLOT_MAP.get(slot, slot)
     
     ui_cfg = _load_ui_config()
     llm_config = ui_cfg.get("llm_config") or {}
