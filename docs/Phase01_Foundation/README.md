@@ -1,4 +1,4 @@
-<div align="center" style="background-color: #0E1B2C; padding: 40px 0; width: 100%;">
+<div align="center" style="background-color: #0b0e23; padding: 40px 0; width: 100vw; margin-left: calc(-50vw + 50%);">
   <img src="../assets/header-logo.png" alt="CoDRAG" width="400">
 </div>
 
