@@ -1,3 +1,7 @@
+<div align="center" style="background-color: #0E1B2C; padding: 40px 0; width: 100%;">
+  <img src="../assets/header-logo.png" alt="CoDRAG" width="400">
+</div>
+
 # Phase 01 — Foundation
 
 ## Problem statement

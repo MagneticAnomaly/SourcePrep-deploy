@@ -1,6 +1,7 @@
 "use client";
 
-import { Button } from '@codrag/ui';
+import { Button, XIcon } from '@codrag/ui';
+import { Github } from 'lucide-react';
 import { BLOG_POSTS } from '../../config/blog';
 
 export default function Page() {
@@ -80,6 +81,14 @@ export default function Page() {
                   <span className="font-mono text-xs text-text-subtle">{post.date}</span>
                   <span className="font-mono text-xs uppercase text-primary">{post.author}</span>
                 </div>
+                <div className="flex gap-4 mb-4">
+                  <a href="https://x.com/CoDRAG_io" className="text-text-subtle hover:text-text transition-colors">
+                    <XIcon className="w-5 h-5" />
+                  </a>
+                  <a href="https://github.com/MagneticAnomaly/CoDRAG-MCP" className="text-text-subtle hover:text-text transition-colors">
+                    <Github className="w-5 h-5" />
+                  </a>
+                </div>
                 <h3 className="text-3xl font-bold mb-4 leading-tight group-hover:text-primary transition-colors">
                   {post.title}
                 </h3>
@@ -103,7 +112,7 @@ export default function Page() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
                <Button asChild>
-                 <a href="https://twitter.com/codrag">Follow on Twitter</a>
+                 <a href="https://x.com/CoDRAG_io">Follow on X</a>
                </Button>
                <Button asChild variant="outline">
                  <a href="/rss">RSS Feed</a>

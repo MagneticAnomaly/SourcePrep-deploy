@@ -1,4 +1,7 @@
-<h1 align="center">CoDRAG</h1>
+<div align="center" style="background-color: #0E1B2C; padding: 40px 0; width: 100%;">
+  <img src="../../docs/assets/header-logo.png" alt="CoDRAG" width="400">
+</div>
+
 <h2 align="center"><em>The bridge between how you think about code and how AI reads it.</em></h2>
 
 <div align="center">

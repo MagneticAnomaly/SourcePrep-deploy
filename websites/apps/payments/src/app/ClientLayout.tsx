@@ -29,8 +29,8 @@ export function ClientLayout({ children }: { children: ReactNode }) {
       <SiteFooter 
         productName="CoDRAG"
         socials={{
-          twitter: 'https://twitter.com/codrag_io',
-          github: 'https://github.com/EricBintner/CoDRAG',
+          twitter: 'https://x.com/CoDRAG_io',
+          github: 'https://github.com/MagneticAnomaly/CoDRAG-MCP',
           email: 'support@codrag.io'
         }}
       />

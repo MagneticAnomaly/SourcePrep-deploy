@@ -61,8 +61,8 @@ export function ClientLayout({ children }: { children: ReactNode }) {
         logo={<img src="/codrag-logo.png" alt="CoDRAG" style={{ width: '2.5rem', height: '2.5rem' }} className="rounded" />}
         sections={footerSections}
         socials={{
-          twitter: 'https://twitter.com/codrag_io',
-          github: 'https://github.com/EricBintner/CoDRAG',
+          twitter: 'https://x.com/CoDRAG_io',
+          github: 'https://github.com/MagneticAnomaly/CoDRAG-MCP',
           email: 'hello@codrag.io'
         }}
         copyright="© 2026 Magnetic Anomaly llc. All rights reserved."

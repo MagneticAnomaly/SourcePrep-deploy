@@ -31,8 +31,8 @@ export function ClientLayout({ children }: { children: ReactNode }) {
       footerProps={{
         productName: 'CoDRAG',
         socials: {
-          twitter: 'https://twitter.com/codrag_io',
-          github: 'https://github.com/EricBintner/CoDRAG',
+          twitter: 'https://x.com/CoDRAG_io',
+          github: 'https://github.com/MagneticAnomaly/CoDRAG-MCP',
           email: 'docs@codrag.io',
         },
       }}
