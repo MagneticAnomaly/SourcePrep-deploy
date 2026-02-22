@@ -123,7 +123,7 @@ export type { PanelChromeProps, DashboardGridProps, PanelPickerProps, ModularDas
 // Components - Marketing & Site (Phase 12)
 export { MarketingHero, FeatureBlocks, codragFeatures, marketingFeatures, TierComparison, tierComparisonFeatures, TechStackMatrix, techStackComponents } from './components/marketing';
 export type { MarketingHeroProps, FeatureBlocksProps, Feature, TierComparisonProps, TierFeature, TechStackMatrixProps, StackComponent } from './components/marketing';
-export { SiteHeader, SiteFooter } from './components/site';
+export { SiteHeader, SiteFooter, XIcon } from './components/site';
 export type { SiteHeaderProps, SiteFooterProps, NavLink, FooterSection, FooterLink } from './components/site';
 
 // Components - Docs (Phase 12)
