@@ -367,7 +367,7 @@
         "id": "results",
         "visible": true,
         "height": 9,
-        "collapsed": true,
+        "collapsed": false,
         "x": 8,
         "y": 63,
         "w": 4
