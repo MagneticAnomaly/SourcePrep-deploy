@@ -38,14 +38,14 @@ export default function Page() {
               <div className="flex items-start gap-3">
                 <span className="shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">1</span>
                 <div>
-                  <div className="font-medium">Set weights on folders or files</div>
+                  <div className="font-medium text-text">Set weights on folders or files</div>
                   <div className="mt-1 text-text-muted">Via the dashboard FolderTree or the API.</div>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <span className="shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">2</span>
                 <div>
-                  <div className="font-medium">CoDRAG resolves the most-specific weight</div>
+                  <div className="font-medium text-text">CoDRAG resolves the most-specific weight</div>
                   <div className="mt-1 text-text-muted">
                     For <code>src/auth/login.py</code>, CoDRAG checks: <code>src/auth/login.py</code> → <code>src/auth/</code> → <code>src/</code> → default (1.0).
                   </div>
@@ -54,7 +54,7 @@ export default function Page() {
               <div className="flex items-start gap-3">
                 <span className="shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">3</span>
                 <div>
-                  <div className="font-medium">Weight is applied as a multiplier to the similarity score</div>
+                  <div className="font-medium text-text">Weight is applied as a multiplier to the similarity score</div>
                   <div className="mt-1 text-text-muted">
                     <code>final_score = base_score × role_weight × path_weight</code>
                   </div>
@@ -68,7 +68,7 @@ export default function Page() {
         <section className="mt-10">
           <AnchorHeading id="using-the-dashboard" level="h2">Using the dashboard</AnchorHeading>
           <p className="mt-3 text-text-muted leading-relaxed">
-            In the project&apos;s <strong>FolderTree</strong> panel, each file and folder shows a
+            In the project&apos;s <span className="font-semibold text-text">FolderTree</span> panel, each file and folder shows a
             weight badge. Click the badge to edit the weight:
           </p>
           
@@ -76,15 +76,15 @@ export default function Page() {
             <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
               <ImageIcon className="w-6 h-6" />
             </div>
-            <p className="font-medium">Screenshot: Path Weight Badges</p>
+            <p className="font-medium text-text">Screenshot: Path Weight Badges</p>
             <p className="text-sm text-center">Show the FolderTree panel with various colored badges (green boost, red suppress, blue manual) on files/folders.</p>
           </div>
 
           <ul className="mt-4 space-y-2 text-sm text-text-muted list-disc pl-5">
-            <li><strong>Grey badge</strong> — inherited from parent (no override)</li>
-            <li><strong>Blue badge</strong> — explicitly set weight</li>
-            <li><strong>Green badge</strong> — boosted (&gt; 1.0)</li>
-            <li><strong>Red badge</strong> — suppressed (&lt; 1.0)</li>
+            <li><span className="font-semibold text-text">Grey badge</span> — inherited from parent (no override)</li>
+            <li><span className="font-semibold text-text">Blue badge</span> — explicitly set weight</li>
+            <li><span className="font-semibold text-text">Green badge</span> — boosted (&gt; 1.0)</li>
+            <li><span className="font-semibold text-text">Red badge</span> — suppressed (&lt; 1.0)</li>
           </ul>
           <p className="mt-3 text-sm text-text-muted">
             Changes take effect immediately on the next search — no rebuild needed.
@@ -95,7 +95,7 @@ export default function Page() {
         <section className="mt-10">
           <h2 className="text-2xl font-semibold">API usage</h2>
 
-          <h3 className="mt-6 text-lg font-medium">Set weights</h3>
+          <h3 className="mt-6 text-lg font-medium text-text">Set weights</h3>
           <div className="mt-2 rounded-lg bg-surface border border-border p-4 font-mono text-sm overflow-x-auto">
             <div>curl -X PUT http://localhost:8400/projects/my-project/path_weights \</div>
             <div>  -H &quot;Content-Type: application/json&quot; \</div>
@@ -109,7 +109,7 @@ export default function Page() {
             <div>  {'}'}&apos;</div>
           </div>
 
-          <h3 className="mt-6 text-lg font-medium">Get weights</h3>
+          <h3 className="mt-6 text-lg font-medium text-text">Get weights</h3>
           <div className="mt-2 rounded-lg bg-surface border border-border p-4 font-mono text-sm overflow-x-auto">
             <div>curl http://localhost:8400/projects/my-project/path_weights</div>
           </div>
@@ -145,14 +145,14 @@ export default function Page() {
           <AnchorHeading id="api-reference" level="h2">API reference</AnchorHeading>
           <div className="mt-4 space-y-4">
             <div className="rounded-lg border border-border bg-surface p-4">
-              <div className="font-mono text-sm font-medium">PUT /projects/{'{id}'}/path_weights</div>
+              <div className="font-mono text-sm font-medium text-text">PUT /projects/{'{id}'}/path_weights</div>
               <p className="mt-1 text-sm text-text-muted">
                 Set path weights. Body: <code>{`{ "path_weights": { "path": weight } }`}</code>.
                 Weights are clamped to 0.0–2.0 and persisted to <code>repo_policy.json</code>.
               </p>
             </div>
             <div className="rounded-lg border border-border bg-surface p-4">
-              <div className="font-mono text-sm font-medium">GET /projects/{'{id}'}/path_weights</div>
+              <div className="font-mono text-sm font-medium text-text">GET /projects/{'{id}'}/path_weights</div>
               <p className="mt-1 text-sm text-text-muted">
                 Returns the current path weights for the project.
               </p>
@@ -166,7 +166,7 @@ export default function Page() {
         <section className="mt-10">
           <AnchorHeading id="project-scope" level="h2">Project Scope & Patterns</AnchorHeading>
           <p className="mt-3 text-text-muted leading-relaxed">
-            While path weights control ranking, the <strong>Project Settings</strong> panel controls <em>what</em> gets indexed in the first place. This is the coarse-grained filter before weights are applied.
+            While path weights control ranking, the <span className="font-semibold text-text">Project Settings</span> panel controls <em>what</em> gets indexed in the first place. This is the coarse-grained filter before weights are applied.
           </p>
 
           <div className="mt-8 grid gap-6 md:grid-cols-2">
@@ -183,7 +183,7 @@ export default function Page() {
                 <li><code>docs/*.md</code> - Root docs only</li>
               </ul>
               <div className="mt-4 p-3 bg-surface-raised rounded text-xs text-text-subtle">
-                <strong>Presets:</strong> Click the "Presets" button to auto-populate standard patterns for stacks like Next.js, Python, or Rust.
+                <span className="font-semibold text-text">Presets:</span> Click the "Presets" button to auto-populate standard patterns for stacks like Next.js, Python, or Rust.
               </div>
             </div>
 
@@ -207,7 +207,7 @@ export default function Page() {
           </div>
 
           <div className="mt-6 p-4 rounded-lg border border-info/20 bg-info/5 text-sm text-info-text">
-            <strong>Pro Tip:</strong> Use the <strong>Auto-Detect Stack</strong> button in the dashboard to scan your repository structure and automatically configure optimal Include/Exclude patterns for your language and framework.
+            <span className="font-semibold text-text">Pro Tip:</span> Use the <span className="font-semibold text-text">Auto-Detect Stack</span> button in the dashboard to scan your repository structure and automatically configure optimal Include/Exclude patterns for your language and framework.
           </div>
         </section>
       </div>

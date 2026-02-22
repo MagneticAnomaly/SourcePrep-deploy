@@ -18,7 +18,7 @@ export default function Page() {
           <div>
             <AnchorHeading id="cloud-upload" level="h2" className="text-xl font-semibold text-text">Is my code uploaded to the cloud?</AnchorHeading>
             <p className="mt-2 text-text-muted leading-relaxed">
-              <strong>No.</strong> CoDRAG is local-first software. All indexing, vector storage, and processing happens on your machine. 
+              <span className="font-semibold text-text">No.</span> CoDRAG is local-first software. All indexing, vector storage, and processing happens on your machine. 
               The only time data leaves your machine is if you explicitly configure a cloud LLM (BYOK) or during the one-time license activation check.
             </p>
           </div>
@@ -26,7 +26,7 @@ export default function Page() {
           <div>
             <AnchorHeading id="editor-support" level="h2" className="text-xl font-semibold text-text">Does it work with any editor?</AnchorHeading>
             <p className="mt-2 text-text-muted leading-relaxed">
-              CoDRAG works best with editors that support the <strong>Model Context Protocol (MCP)</strong>, such as Cursor, Windsurf, and Claude Desktop. 
+              CoDRAG works best with editors that support the <span className="font-semibold text-text">Model Context Protocol (MCP)</span>, such as Cursor, Windsurf, and Claude Desktop. 
               There is also a VS Code extension in development. For other editors, you can copy-paste context from the Dashboard or CLI.
             </p>
           </div>
@@ -34,7 +34,7 @@ export default function Page() {
           <div>
             <AnchorHeading id="gpu-requirement" level="h2" className="text-xl font-semibold text-text">Do I need a GPU?</AnchorHeading>
             <p className="mt-2 text-text-muted leading-relaxed">
-              <strong>No.</strong> The core features (indexing, trace graph, search, and compression) run efficiently on CPU. 
+              <span className="font-semibold text-text">No.</span> The core features (indexing, trace graph, search, and compression) run efficiently on CPU. 
               The built-in embedding model is quantized and optimized for CPU inference. 
               Context compression is built in &mdash; structural compression for code runs instantly with no model, and language-aware compression for docs uses a lightweight CPU model.
             </p>
@@ -43,8 +43,8 @@ export default function Page() {
           <div>
             <AnchorHeading id="cursor-diff" level="h2" className="text-xl font-semibold text-text">How is this different from Cursor&apos;s built-in index?</AnchorHeading>
             <p className="mt-2 text-text-muted leading-relaxed">
-              Cursor&apos;s index is great, but CoDRAG adds a <strong>Structural Code Graph layer</strong> (understanding imports, definitions, and calls across the project) which reduces hallucinations. 
-              CoDRAG also gives you explicit control over context via <strong>Path Weights</strong> and <strong>Compression</strong>, allowing you to fit much more relevant code into the context window than a standard RAG approach.
+              Cursor&apos;s index is great, but CoDRAG adds a <span className="font-semibold text-text">Structural Code Graph layer</span> (understanding imports, definitions, and calls across the project) which reduces hallucinations. 
+              CoDRAG also gives you explicit control over context via <span className="font-semibold text-text">Path Weights</span> and <span className="font-semibold text-text">Compression</span>, allowing you to fit much more relevant code into the context window than a standard RAG approach.
             </p>
           </div>
 
@@ -52,8 +52,8 @@ export default function Page() {
             <AnchorHeading id="bug-reports" level="h2" className="text-xl font-semibold text-text">What data is included in bug reports?</AnchorHeading>
             <p className="mt-2 text-text-muted leading-relaxed">
               CoDRAG&apos;s built-in bug report (dashboard → log console → bug icon) collects only diagnostic metadata:
-              app version, OS info, index stats, pipeline status, and error messages. <strong>It never includes
-              source code, file contents, embeddings, LLM prompts, or file paths beyond your project root name.</strong> You
+              app version, OS info, index stats, pipeline status, and error messages. <span className="font-semibold text-text">It never includes
+              source code, file contents, embeddings, LLM prompts, or file paths beyond your project root name.</span> You
               can preview every field before submitting. If you&apos;re offline, the report saves as a local JSON
               file you can review and email manually. See the full breakdown on our{' '}
               <a href="https://codrag.io/security#bug-reports" className="text-primary hover:underline">Security &amp; Privacy</a> page.
@@ -63,8 +63,8 @@ export default function Page() {
           <div>
             <AnchorHeading id="free-tier" level="h2" className="text-xl font-semibold text-text">Is there a free tier?</AnchorHeading>
             <p className="mt-2 text-text-muted leading-relaxed">
-              <strong>Yes.</strong> The Free tier allows you to use CoDRAG with 1 active project and manual indexing. 
-              Upgrading to a paid plan (Monthly or Perpetual) unlocks unlimited projects, the real-time file watcher, and advanced automation features.
+              <span className="font-semibold text-text">Yes.</span> The Free tier allows you to use CoDRAG with 1 active project and manual indexing. 
+              Upgrading to Pro unlocks unlimited projects, the real-time file watcher, and advanced automation features.
             </p>
           </div>
 

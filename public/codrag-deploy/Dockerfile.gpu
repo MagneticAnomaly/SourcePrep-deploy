@@ -1,0 +1,65 @@
+# CoDRAG Headless — GPU Image
+# For serverless GPU providers (RunPod, Modal, AWS SageMaker) using local LLMs.
+# Includes Ollama runtime + pre-baked Qwen3:4b model weights.
+# No API keys needed — fully private, fully offline.
+#
+# Build:
+#   docker build -f Dockerfile.gpu -t codrag/headless:gpu .
+#
+# Usage:
+#   codrag sync-headless \
+#     --repo-path /workspace \
+#     --model-provider local --model-name qwen3:4b \
+#     --embedder native
+
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS base
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    OLLAMA_HOST=127.0.0.1:11434 \
+    OLLAMA_MODELS=/opt/ollama-models
+
+# System dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 python3.11-venv python3-pip \
+    git openssh-client curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
+    && update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
+
+# ── Install Ollama ────────────────────────────────────────────
+RUN curl -fsSL https://ollama.com/install.sh | sh
+
+# ── Pre-bake the default model ────────────────────────────────
+# Baking into the image avoids a multi-GB download on every serverless cold start.
+# qwen3:4b (~2.5 GB) is the default fast model for headless indexing.
+RUN ollama serve & \
+    sleep 3 && \
+    ollama pull qwen3:4b && \
+    kill %1 || true
+
+# ── Install CoDRAG ───────────────────────────────────────────
+WORKDIR /opt/codrag
+
+COPY pyproject.toml .
+COPY src/ src/
+COPY engine/ engine/
+
+RUN pip install --no-cache-dir ".[headless]"
+
+# ── Pre-download ONNX embedding model ────────────────────────
+RUN python -c "from codrag.core.embedder import NativeEmbedder; NativeEmbedder().download_model()" \
+    || echo "WARN: Model pre-download skipped (will download on first run)"
+
+# ── S3 sync dependencies ─────────────────────────────────────
+RUN pip install --no-cache-dir boto3 minio
+
+# ── Default entrypoint ────────────────────────────────────────
+# The entrypoint script starts Ollama in the background, then runs codrag.
+COPY public/codrag-deploy/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["sync-headless", "--help"]

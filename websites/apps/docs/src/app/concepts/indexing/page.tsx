@@ -16,7 +16,7 @@ export default function Page() {
         <div className="mt-12 prose  max-w-none">
           <AnchorHeading id="pipeline" level="h2">The Indexing Process</AnchorHeading>
           <p>
-            <strong>Vector Indexing</strong> is the second stage of the <a href="/dashboard#knowledge-pipeline">Knowledge Pipeline</a>. While the Structural Trace (Stage 1) maps the skeleton of your code, Vector Indexing creates the "muscle" that allows for fuzzy semantic search.
+            <span className="font-semibold text-text">Vector Indexing</span> is the second stage of the <a href="/dashboard#knowledge-pipeline">Knowledge Pipeline</a>. While the Structural Trace (Stage 1) maps the skeleton of your code, Vector Indexing creates the "muscle" that allows for fuzzy semantic search.
           </p>
           <p>
             Unlike cloud-based tools, this happens entirely on your localhost.
@@ -24,28 +24,28 @@ export default function Page() {
 
           <div className="my-8 pl-4 border-l-4 border-primary space-y-4">
             <div>
-              <strong className="text-text">1. Discovery</strong>
+              <span className="font-semibold text-text">1. Discovery</span>
               <p className="text-sm text-text-muted">
                 The <code>codrag-walker</code> crate (Rust) scans your directory, respecting 
                 <code>.gitignore</code> and user-defined exclusions. It computes BLAKE3 hashes for change detection.
               </p>
             </div>
             <div>
-              <strong className="text-text">2. Parsing & Chunking</strong>
+              <span className="font-semibold text-text">2. Parsing & Chunking</span>
               <p className="text-sm text-text-muted">
                 Files are parsed using Tree-sitter. Code is split into logical chunks (functions, classes) 
                 rather than arbitrary text windows. Markdown docs are split by headers.
               </p>
             </div>
             <div>
-              <strong className="text-text">3. Embedding</strong>
+              <span className="font-semibold text-text">3. Embedding</span>
               <p className="text-sm text-text-muted">
-                Chunks are passed to the <strong>Native Embedder</strong> (ONNX/nomic-embed-text) or 
+                Chunks are passed to the <span className="font-semibold text-text">Native Embedder</span> (ONNX/nomic-embed-text) or 
                 an optional Ollama instance. This converts text into 768-dimensional vectors.
               </p>
             </div>
             <div>
-              <strong className="text-text">4. Storage</strong>
+              <span className="font-semibold text-text">4. Storage</span>
               <p className="text-sm text-text-muted">
                 Vectors and metadata are stored in a local LanceDB instance (or Qdrant/Chroma if configured). 
                 The raw text is never sent to the cloud.
@@ -78,7 +78,7 @@ export default function Page() {
 
           <AnchorHeading id="ui-controls" level="h2">Dashboard Controls</AnchorHeading>
           <p>
-            The <strong>Knowledge Base</strong> column in the dashboard gives you visibility and control over this process.
+            The <span className="font-semibold text-text">Knowledge Base</span> column in the dashboard gives you visibility and control over this process.
           </p>
 
           <AnchorHeading id="status-card" level="h3" className="text-xl font-semibold mt-8 mb-4">Index Status Card</AnchorHeading>
@@ -86,27 +86,27 @@ export default function Page() {
             The top card provides a real-time health check. Watch for the status badge in the top right:
           </p>
           <ul className="list-disc pl-5 mt-2 space-y-2">
-            <li><span className="text-emerald-500 font-medium">Fresh</span>: The index is perfectly synced with your disk.</li>
-            <li><span className="text-amber-500 font-medium">Stale</span>: Files have changed, but the index hasn't updated yet (usually brief during debounce).</li>
-            <li><span className="text-blue-500 font-medium">Building</span>: The background worker is actively processing files.</li>
+            <li><span className="text-emerald-500 font-medium text-text">Fresh</span>: The index is perfectly synced with your disk.</li>
+            <li><span className="text-amber-500 font-medium text-text">Stale</span>: Files have changed, but the index hasn't updated yet (usually brief during debounce).</li>
+            <li><span className="text-blue-500 font-medium text-text">Building</span>: The background worker is actively processing files.</li>
           </ul>
           <p className="mt-4">
             It also breaks down the index composition:
           </p>
           <ul className="list-disc pl-5 mt-2 space-y-2">
-            <li><strong>Code:</strong> Source files (parsed into AST chunks).</li>
-            <li><strong>Instructions:</strong> Markdown, text, and documentation files (parsed by headers).</li>
-            <li><strong>Graph:</strong> Structural nodes (symbols, imports) used for graph traversal.</li>
+            <li><span className="font-semibold text-text">Code:</span> Source files (parsed into AST chunks).</li>
+            <li><span className="font-semibold text-text">Instructions:</span> Markdown, text, and documentation files (parsed by headers).</li>
+            <li><span className="font-semibold text-text">Graph:</span> Structural nodes (symbols, imports) used for graph traversal.</li>
           </ul>
 
           <AnchorHeading id="manual-rebuild" level="h3" className="text-xl font-semibold mt-8 mb-4">Manual Rebuild</AnchorHeading>
           <p>
-            While the watcher handles 99% of changes, you might need the <strong>Build Index</strong> card for:
+            While the watcher handles 99% of changes, you might need the <span className="font-semibold text-text">Build Index</span> card for:
           </p>
           <ul className="list-disc pl-5 mt-2 space-y-2">
-            <li><strong>Branch Switching:</strong> If you switch git branches and thousands of files change instantly, a manual rebuild ensures everything is caught.</li>
-            <li><strong>Config Changes:</strong> If you change <code>path_weights</code> or exclusion patterns, a rebuild applies them to the entire codebase.</li>
-            <li><strong>Troubleshooting:</strong> If search feels "off", a full rebuild (using the <code>--full</code> flag via CLI or the dashboard button) clears the vector store and starts fresh.</li>
+            <li><span className="font-semibold text-text">Branch Switching:</span> If you switch git branches and thousands of files change instantly, a manual rebuild ensures everything is caught.</li>
+            <li><span className="font-semibold text-text">Config Changes:</span> If you change <code>path_weights</code> or exclusion patterns, a rebuild applies them to the entire codebase.</li>
+            <li><span className="font-semibold text-text">Troubleshooting:</span> If search feels "off", a full rebuild (using the <code>--full</code> flag via CLI or the dashboard button) clears the vector store and starts fresh.</li>
           </ul>
         </div>
       </div>

@@ -8,12 +8,69 @@ export default function Page() {
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Smart Context Compression</h1>
         <p className="mt-4 text-lg text-text-muted">
-          CoDRAG uses two compression engines, each optimized for what it handles. <strong>Code files</strong> are
+          CoDRAG uses two compression engines, each optimized for what it handles. <a href="#structural-compression" className="font-semibold text-text hover:text-primary transition-colors cursor-pointer">Code files</a> are
           structurally compressed &mdash; keeping full source for top results, signatures for mid-relevance, and
-          names for peripheral files (3&ndash;20&times;). <strong>Documentation and markdown</strong> are compressed
+          names for peripheral files (3&ndash;20&times;). <a href="#language-compression" className="font-semibold text-text hover:text-primary transition-colors cursor-pointer">Documentation and markdown</a> are compressed
           with a lightweight language model that removes filler while preserving meaning (~1.6&times;, 89% concept
           retention). Both run on CPU with no GPU required.
         </p>
+
+        {/* Comparison */}
+        <section className="mt-10" id="comparison">
+          <h2 className="text-2xl font-semibold">Comparison: Structural vs. Language Compression</h2>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-text">
+                  <th className="py-2 pr-4 font-medium text-text">&nbsp;</th>
+                  <th className="py-2 pr-4 font-medium text-text">Structural (LOD)</th>
+                  <th className="py-2 font-medium text-text">Language (LLMLingua-2)</th>
+                </tr>
+              </thead>
+              <tbody className="text-text-muted">
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-medium text-text">Approach</td>
+                  <td className="py-2 pr-4">Structural &mdash; keeps signatures, removes bodies</td>
+                  <td className="py-2">Statistical &mdash; removes low-importance tokens</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-medium text-text">Dependencies</td>
+                  <td className="py-2 pr-4">None (built into engine)</td>
+                  <td className="py-2">BERT model (~178 MB, auto-downloaded)</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-medium text-text">GPU required</td>
+                  <td className="py-2 pr-4">No</td>
+                  <td className="py-2">No (CPU inference)</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-medium text-text">Best for</td>
+                  <td className="py-2 pr-4">Code files (.py, .ts, .rs, etc.)</td>
+                  <td className="py-2">Documentation &amp; markdown (.md, .txt, .rst)</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-medium text-text">Compression</td>
+                  <td className="py-2 pr-4">3&ndash;20&times;</td>
+                  <td className="py-2">1.6&ndash;3.9&times;</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-medium text-text">Concept retention</td>
+                  <td className="py-2 pr-4">100% (structure preserved)</td>
+                  <td className="py-2">89% at light, 79% at standard</td>
+                </tr>
+                <tr>
+                  <td className="py-2 pr-4 font-medium text-text">Latency</td>
+                  <td className="py-2 pr-4">&lt;10ms per file</td>
+                  <td className="py-2">~200ms per chunk</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 text-sm text-text-muted">
+            With <code>compression: &quot;auto&quot;</code> (the default when compression is enabled),
+            CoDRAG automatically routes each chunk to the right engine based on file type.
+          </p>
+        </section>
 
         {/* Overview */}
         <section className="mt-10">
@@ -23,8 +80,8 @@ export default function Page() {
             engine for each chunk:
           </p>
           <ul className="mt-4 space-y-2 text-sm text-text-muted list-disc pl-5">
-            <li><strong>Code files</strong> (.py, .ts, .rs, etc.) &rarr; <strong>Structural compression (LOD)</strong> &mdash; uses your code&apos;s trace graph to extract at variable fidelity</li>
-            <li><strong>Documentation</strong> (.md, .txt, .rst) &rarr; <strong>Language compression</strong> &mdash; a lightweight BERT model removes filler tokens while preserving key facts</li>
+            <li><a href="#structural-compression" className="font-semibold text-text hover:text-primary transition-colors">Code files</a> (.py, .ts, .rs, etc.) &rarr; <span className="font-semibold text-text">Structural compression (LOD)</span> &mdash; uses your code&apos;s trace graph to extract at variable fidelity</li>
+            <li><a href="#language-compression" className="font-semibold text-text hover:text-primary transition-colors">Documentation</a> (.md, .txt, .rst) &rarr; <span className="font-semibold text-text">Language compression</span> &mdash; a lightweight BERT model removes filler tokens while preserving key facts</li>
           </ul>
           <p className="mt-3 text-sm text-text-muted">
             You can also force a specific engine: <code>compression: &quot;lod&quot;</code> for structural only,
@@ -35,7 +92,7 @@ export default function Page() {
         <hr className="my-10 border-border" />
 
         {/* LOD section */}
-        <section>
+        <section id="structural-compression">
           <h2 className="text-2xl font-semibold">Structural Compression (LOD) &mdash; for Code</h2>
           <p className="mt-3 text-text-muted leading-relaxed">
             LOD (Levels of Detail) is a structural code compression system inspired by the
@@ -59,11 +116,11 @@ export default function Page() {
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="py-2 pr-4 font-medium">LOD</th>
-                  <th className="py-2 pr-4 font-medium">What&apos;s kept</th>
-                  <th className="py-2 pr-4 font-medium">Typical ratio</th>
-                  <th className="py-2 font-medium">When used</th>
+                <tr className="border-b border-border text-left text-text">
+                  <th className="py-2 pr-4 font-medium text-text">LOD</th>
+                  <th className="py-2 pr-4 font-medium text-text">What&apos;s kept</th>
+                  <th className="py-2 pr-4 font-medium text-text">Typical ratio</th>
+                  <th className="py-2 font-medium text-text">When used</th>
                 </tr>
               </thead>
               <tbody className="text-text-muted">
@@ -142,14 +199,14 @@ export default function Page() {
         <section className="mt-10">
           <h2 className="text-2xl font-semibold">Usage</h2>
 
-          <h3 className="mt-6 text-lg font-medium">Via Dashboard</h3>
+          <h3 className="mt-6 text-lg font-medium text-text">Via Dashboard</h3>
           <p className="mt-2 text-sm text-text-muted">
-            In the <strong>Context Options</strong> panel, select <strong>LOD (Structural)</strong> from
+            In the <span className="font-semibold text-text">Context Options</span> panel, select <span className="font-semibold text-text">LOD (Structural)</span> from
             the Compression dropdown. Click &ldquo;Assemble&rdquo; &mdash; each source citation will
             show an <code>LOD&#123;n&#125;</code> badge and compression ratio.
           </p>
 
-          <h3 className="mt-6 text-lg font-medium">Via API</h3>
+          <h3 className="mt-6 text-lg font-medium text-text">Via API</h3>
           <p className="mt-2 text-sm text-text-muted">
             Add <code>compression</code> and <code>structured</code> to your context request:
           </p>
@@ -165,7 +222,7 @@ export default function Page() {
             <div>&nbsp; {'}'}&apos;</div>
           </div>
 
-          <h3 className="mt-6 text-lg font-medium">Via MCP (Cursor / Windsurf)</h3>
+          <h3 className="mt-6 text-lg font-medium text-text">Via MCP (Cursor / Windsurf)</h3>
           <p className="mt-2 text-sm text-text-muted">
             The <code>codrag_context</code> tool accepts compression parameters:
           </p>
@@ -226,13 +283,13 @@ export default function Page() {
         <section className="mt-10">
           <h2 className="text-2xl font-semibold">Fallback behaviour</h2>
           <p className="mt-3 text-text-muted leading-relaxed">
-            Compression is <strong>best-effort</strong>. If the trace graph doesn&apos;t have symbol
+            Compression is <span className="font-semibold text-text">best-effort</span>. If the trace graph doesn&apos;t have symbol
             data for a file (e.g., the file was added after the last build), CoDRAG falls back to
             LOD 0 and returns the full source. The <code>fallback</code> field in the chunk metadata
             will be <code>true</code>.
           </p>
           <div className="mt-4 rounded-lg border border-blue-500/20 bg-blue-500/5 p-4 text-sm text-text-muted">
-            <strong className="text-blue-600">Tip:</strong> Keep your index up to date (enable the
+            <span className="font-semibold text-blue-600">Tip:</span> Keep your index up to date (enable the
             file watcher or rebuild regularly) for the best compression results.
           </div>
         </section>
@@ -240,7 +297,7 @@ export default function Page() {
         <hr className="my-10 border-border" />
 
         {/* Language compression section */}
-        <section>
+        <section id="language-compression">
           <h2 className="text-2xl font-semibold">Language Compression &mdash; for Documentation</h2>
           <p className="mt-3 text-text-muted leading-relaxed">
             For markdown, text, and other natural language files, CoDRAG uses a lightweight
@@ -256,68 +313,11 @@ export default function Page() {
             <li>File paths and code references are protected from removal</li>
           </ul>
           <div className="mt-4 rounded-lg border border-blue-500/20 bg-blue-500/5 p-4 text-sm text-text-muted">
-            <strong className="text-blue-600">Why two engines?</strong> Code has rigid structure (functions, classes, imports)
+            <span className="font-semibold text-blue-600">Why two engines?</span> Code has rigid structure (functions, classes, imports)
             that can be compressed by understanding that structure. Documentation is free-form natural language &mdash;
             compressing it requires understanding which <em>words</em> matter, not which <em>blocks</em> matter.
             Using the right tool for each type gives better results than a one-size-fits-all approach.
           </div>
-        </section>
-
-        {/* Comparison */}
-        <section className="mt-10">
-          <h2 className="text-2xl font-semibold">Comparison: Structural vs. Language Compression</h2>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="py-2 pr-4 font-medium">&nbsp;</th>
-                  <th className="py-2 pr-4 font-medium">Structural (LOD)</th>
-                  <th className="py-2 font-medium">Language (LLMLingua-2)</th>
-                </tr>
-              </thead>
-              <tbody className="text-text-muted">
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-medium text-text">Approach</td>
-                  <td className="py-2 pr-4">Structural &mdash; keeps signatures, removes bodies</td>
-                  <td className="py-2">Statistical &mdash; removes low-importance tokens</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-medium text-text">Dependencies</td>
-                  <td className="py-2 pr-4">None (built into engine)</td>
-                  <td className="py-2">BERT model (~178 MB, auto-downloaded)</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-medium text-text">GPU required</td>
-                  <td className="py-2 pr-4">No</td>
-                  <td className="py-2">No (CPU inference)</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-medium text-text">Best for</td>
-                  <td className="py-2 pr-4">Code files (.py, .ts, .rs, etc.)</td>
-                  <td className="py-2">Documentation &amp; markdown (.md, .txt, .rst)</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-medium text-text">Compression</td>
-                  <td className="py-2 pr-4">3&ndash;20&times;</td>
-                  <td className="py-2">1.6&ndash;3.9&times;</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-medium text-text">Concept retention</td>
-                  <td className="py-2 pr-4">100% (structure preserved)</td>
-                  <td className="py-2">89% at light, 79% at standard</td>
-                </tr>
-                <tr>
-                  <td className="py-2 pr-4 font-medium text-text">Latency</td>
-                  <td className="py-2 pr-4">&lt;10ms per file</td>
-                  <td className="py-2">~200ms per chunk</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-3 text-sm text-text-muted">
-            With <code>compression: &quot;auto&quot;</code> (the default when compression is enabled),
-            CoDRAG automatically routes each chunk to the right engine based on file type.
-          </p>
         </section>
       </div>
     </main>

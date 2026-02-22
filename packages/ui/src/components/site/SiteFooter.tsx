@@ -42,7 +42,7 @@ export function SiteFooter({
           
           {/* Brand Column */}
           <div className="md:col-span-1 space-y-4">
-            <a href="/" className="flex items-center gap-2 font-mono font-bold text-lg tracking-tight text-text hover:text-primary transition-colors">
+            <a href="/" className="flex items-center font-mono font-bold text-lg tracking-tight text-text hover:text-primary transition-colors">
               {logo}
               {productName}
             </a>

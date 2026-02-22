@@ -31,7 +31,7 @@ export default function Page() {
                 Code-specialized model built on a 7B-parameter backbone (Qwen2). Trained specifically
                 on source code. Useful for very large code-heavy codebases where the broader
                 training data may help. In our benchmark the built-in ONNX model scored slightly
-                higher, so this is a flexibility option, not a quality upgrade. <strong>Requires a GPU.</strong>
+                higher, so this is a flexibility option, not a quality upgrade. <span className="font-semibold text-text">Requires a GPU.</span>
               </p>
               <div className="mt-3 flex flex-wrap gap-4 text-xs text-text-muted">
                 <span>4 096-dim embeddings</span>
@@ -78,8 +78,8 @@ export default function Page() {
               </div>
               <p className="text-sm text-text-muted leading-relaxed">
                 The same nomic-embed-text model, shipped as a quantized ONNX file that CoDRAG
-                downloads automatically from HuggingFace. <strong>Runs entirely on CPU — no GPU,
-                no Ollama, no external service needed.</strong> CPU inference is perfectly fine for
+                downloads automatically from HuggingFace. <span className="font-semibold text-text">Runs entirely on CPU — no GPU,
+                no Ollama, no external service needed.</span> CPU inference is perfectly fine for
                 indexing and search; embedding speed is not a bottleneck in normal usage. This is the
                 zero-config default for any machine without Ollama.
               </p>
@@ -104,12 +104,12 @@ export default function Page() {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left py-2 pr-4 font-medium text-text-muted">Model</th>
-                  <th className="text-left py-2 pr-4 font-medium text-text-muted">Size</th>
-                  <th className="text-left py-2 pr-4 font-medium text-text-muted">GPU?</th>
-                  <th className="text-right py-2 pr-4 font-medium text-text-muted">Accuracy (R@1)</th>
-                  <th className="text-right py-2 pr-4 font-medium text-text-muted">Query speed</th>
-                  <th className="text-left py-2 font-medium text-text-muted">Best for</th>
+                  <th className="text-left py-2 pr-4 font-medium text-text">Model</th>
+                  <th className="text-left py-2 pr-4 font-medium text-text">Size</th>
+                  <th className="text-left py-2 pr-4 font-medium text-text">GPU?</th>
+                  <th className="text-right py-2 pr-4 font-medium text-text">Accuracy (R@1)</th>
+                  <th className="text-right py-2 pr-4 font-medium text-text">Query speed</th>
+                  <th className="text-left py-2 font-medium text-text">Best for</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -162,7 +162,7 @@ export default function Page() {
             between CPU and GPU for query-time embedding.
           </p>
           <div className="mt-4 rounded-lg border border-border bg-surface p-4 text-sm text-text-muted">
-            <strong className="text-text">Bottom line:</strong> Use the built-in ONNX model if you
+            <span className="font-semibold text-text">Bottom line:</span> Use the built-in ONNX model if you
             don&apos;t have Ollama or a GPU. Upgrade to <code>nomic-embed-code</code> via Ollama
             when you want the highest retrieval quality and have a GPU available.
           </div>
@@ -176,7 +176,7 @@ export default function Page() {
           <ol className="mt-3 space-y-1.5 text-sm text-text-muted list-decimal pl-5">
             <li>Install Ollama and ensure a GPU is available</li>
             <li><code>ollama pull manutic/nomic-embed-code</code></li>
-            <li>In the dashboard: <strong>Settings → AI Models → Embedding → Use Endpoint</strong></li>
+            <li>In the dashboard: <span className="font-semibold text-text">Settings → AI Models → Embedding → Use Endpoint</span></li>
             <li>Select your Ollama endpoint — the model is auto-selected if found</li>
             <li>Rebuild your project</li>
           </ol>
@@ -184,7 +184,7 @@ export default function Page() {
           <h3 className="mt-6 text-base font-semibold">Tier 2: nomic-embed-text via Ollama</h3>
           <ol className="mt-3 space-y-1.5 text-sm text-text-muted list-decimal pl-5">
             <li><code>ollama pull nomic-embed-text</code></li>
-            <li>In the dashboard: <strong>Settings → AI Models → Embedding → Use Endpoint</strong></li>
+            <li>In the dashboard: <span className="font-semibold text-text">Settings → AI Models → Embedding → Use Endpoint</span></li>
             <li>Select your Ollama endpoint and choose <code>nomic-embed-text</code></li>
             <li>Rebuild your project</li>
           </ol>
@@ -203,11 +203,11 @@ export default function Page() {
           </p>
           <p className="mt-3 text-sm text-text-muted">
             You can also switch to it explicitly in the dashboard:
-            <strong> Settings → AI Models → Embedding → Download from HF</strong>.
+            <span className="font-semibold text-text"> Settings → AI Models → Embedding → Download from HF</span>.
           </p>
 
           <div className="mt-6 rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-4 text-sm text-text-muted">
-            <strong className="text-yellow-600">Switching models requires a rebuild.</strong>{' '}
+            <span className="font-semibold text-yellow-600">Switching models requires a rebuild.</span>{' '}
             Embeddings from different models have different dimensions and are not compatible.
             After changing the embedding tier, trigger a full rebuild from the dashboard or
             run <code>codrag build --full</code>.
@@ -221,12 +221,12 @@ export default function Page() {
             Useful for restricted networks or air-gapped environments.
           </p>
 
-          <h3 className="mt-4 text-base font-medium">Via CLI</h3>
+          <h3 className="mt-4 text-base font-medium text-text">Via CLI</h3>
           <div className="mt-2 rounded-lg bg-surface border border-border p-4 font-mono text-sm">
             codrag models
           </div>
 
-          <h3 className="mt-4 text-base font-medium">Via API</h3>
+          <h3 className="mt-4 text-base font-medium text-text">Via API</h3>
           <div className="mt-2 rounded-lg bg-surface border border-border p-4 font-mono text-sm overflow-x-auto">
             <div className="text-text-muted"># Check status</div>
             <div>curl http://localhost:8400/embedding/status</div>
@@ -240,14 +240,14 @@ export default function Page() {
           <AnchorHeading id="api-reference" level="h2">API reference</AnchorHeading>
           <div className="mt-4 space-y-4">
             <div className="rounded-lg border border-border bg-surface p-4">
-              <div className="font-mono text-sm font-medium">GET /embedding/status</div>
+              <div className="font-mono text-sm font-medium text-text">GET /embedding/status</div>
               <p className="mt-1 text-sm text-text-muted">
                 Returns whether native embeddings are available, the model cache path, and HuggingFace
                 repo info.
               </p>
             </div>
             <div className="rounded-lg border border-border bg-surface p-4">
-              <div className="font-mono text-sm font-medium">POST /embedding/download</div>
+              <div className="font-mono text-sm font-medium text-text">POST /embedding/download</div>
               <p className="mt-1 text-sm text-text-muted">
                 Downloads the ONNX model (~132 MB) from HuggingFace Hub to the local cache.
                 Blocking — returns when complete. Safe to call multiple times (no-op if already cached).

@@ -27,45 +27,45 @@ export default function Page() {
           <AnchorHeading id="setup" level="h2">Setup</AnchorHeading>
           <ol className="list-decimal pl-6 space-y-4">
             <li>
-              <strong>Ensure CoDRAG is running.</strong> Open the CoDRAG desktop app or run <code>codrag serve</code> in your terminal. 
+              <span className="font-semibold text-text">Ensure CoDRAG is running.</span> Open the CoDRAG desktop app or run <code>codrag serve</code> in your terminal. 
               The server runs on <code>http://localhost:8400</code> by default.
             </li>
             <li>
-              <strong>Open Cursor Settings.</strong> Go to <code>Cursor Settings &gt; Features &gt; MCP</code>.
+              <span className="font-semibold text-text">Open Cursor Settings.</span> Go to <code>Cursor Settings &gt; Features &gt; MCP</code>.
               <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface flex flex-col items-center justify-center text-text-muted gap-2 not-prose">
                 <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
                   <ImageIcon className="w-6 h-6" />
                 </div>
-                <p className="font-medium">Screenshot: Cursor MCP Settings</p>
+                <p className="font-medium text-text">Screenshot: Cursor MCP Settings</p>
                 <p className="text-sm text-center">Show the Cursor Settings window navigated to the &apos;Features &gt; MCP&apos; tab.</p>
               </div>
             </li>
             <li>
-              <strong>Add New MCP Server.</strong> Click &quot;+ Add New MCP Server&quot;.
+              <span className="font-semibold text-text">Add New MCP Server.</span> Click &quot;+ Add New MCP Server&quot;.
               <p className="mt-2 text-sm text-text-muted">
                 Tip: Run <code>codrag mcp-config --ide cursor</code> to get the exact JSON configuration.
               </p>
               <ul className="list-disc pl-6 mt-2 space-y-1 text-sm text-text-muted">
-                <li><strong>Type:</strong> <code>command</code> (Stdio)</li>
-                <li><strong>Name:</strong> <code>codrag</code></li>
-                <li><strong>Command:</strong> <code>codrag</code> (or absolute path if not in PATH)</li>
-                <li><strong>Args:</strong> <code>mcp</code></li>
+                <li><span className="font-semibold text-text">Type:</span> <code>command</code> (Stdio)</li>
+                <li><span className="font-semibold text-text">Name:</span> <code>codrag</code></li>
+                <li><span className="font-semibold text-text">Command:</span> <code>codrag</code> (or absolute path if not in PATH)</li>
+                <li><span className="font-semibold text-text">Args:</span> <code>mcp</code></li>
               </ul>
               <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface flex flex-col items-center justify-center text-text-muted gap-2 not-prose">
                 <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
                   <ImageIcon className="w-6 h-6" />
                 </div>
-                <p className="font-medium">Screenshot: Add Server Dialog</p>
+                <p className="font-medium text-text">Screenshot: Add Server Dialog</p>
                 <p className="text-sm text-center">Show the &apos;Add New MCP Server&apos; form filled out with the correct values.</p>
               </div>
             </li>
             <li>
-              <strong>Verify Connection.</strong> You should see a green indicator next to &quot;codrag&quot;.
+              <span className="font-semibold text-text">Verify Connection.</span> You should see a green indicator next to &quot;codrag&quot;.
               <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface flex flex-col items-center justify-center text-text-muted gap-2 not-prose">
                 <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
                   <ImageIcon className="w-6 h-6" />
                 </div>
-                <p className="font-medium">Screenshot: Connected Status</p>
+                <p className="font-medium text-text">Screenshot: Connected Status</p>
                 <p className="text-sm text-center">Show the green &apos;Connected&apos; light next to the codrag server in the list.</p>
               </div>
             </li>

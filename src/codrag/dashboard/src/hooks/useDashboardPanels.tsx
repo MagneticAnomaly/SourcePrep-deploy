@@ -190,6 +190,7 @@ export interface DashboardPanelsProps {
   selectedProjectId: string | null
   projectConfig: ProjectConfig
   isPro: boolean
+  limitReached?: boolean
   scopeStatus?: ScopeStatus
   logs: any[]
   clearLogs: () => void
@@ -335,6 +336,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         autoRebuild={p.indexAutoRebuild}
         onAutoRebuildChange={p.handleIndexAutoRebuildChange}
         isPro={p.isPro}
+        limitReached={p.limitReached}
         className="h-full border-none shadow-none bg-transparent"
         bare
         hideChart={p.transientComplete}
@@ -608,6 +610,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           autoConfig={p.enrichmentAutoConfig}
           onAutoConfigChange={p.handleEnrichmentAutoConfigChange}
           isPro={p.isPro}
+          limitReached={p.limitReached}
         />
       </div>
     ),

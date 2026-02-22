@@ -45,7 +45,7 @@ export default function Page() {
             <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
               <ImageIcon className="w-6 h-6" />
             </div>
-            <p className="font-medium">Screenshot: CoDRAG Dashboard</p>
+            <p className="font-medium text-text">Screenshot: CoDRAG Dashboard</p>
             <p className="text-sm text-center">Show the CoDRAG dashboard with a green &apos;Connected&apos; status indicator.</p>
           </div>
           <p className="text-sm text-text-muted">
@@ -54,7 +54,7 @@ export default function Page() {
 
           <AnchorHeading id="add-repo" level="h2">3. Add Your Repo</AnchorHeading>
           <p>
-            In the CoDRAG dashboard, click the <strong>+</strong> button in the sidebar and select your project folder. CoDRAG will immediately start indexing (semantics + structure).
+            In the CoDRAG dashboard, click the <span className="font-semibold text-text">+</span> button in the sidebar and select your project folder. CoDRAG will immediately start indexing (semantics + structure).
           </p>
           <p className="text-sm text-text-muted mt-2">
             Or via CLI: <code>codrag add ~/my-project --name &quot;My Project&quot;</code>
@@ -103,13 +103,13 @@ export default function Page() {
             You should see the agent call <code>codrag</code> with <code>trace_expand=true</code> and return a structural graph analysis.
           </p>
           <p className="text-sm text-text-muted mt-2 bg-surface border border-border rounded-lg p-3">
-            <strong>Free tier note:</strong> Graph expansion requires a trace build. On the Free tier, trigger this manually from the dashboard (Graph Status → Build) before trying the graph query above. Paid tiers build the trace automatically on file save.
+            <span className="font-semibold text-text">Free tier note:</span> Graph expansion requires a trace build. On the Free tier, trigger this manually from the dashboard (Graph Status → Build) before trying the graph query above. Paid tiers build the trace automatically on file save.
           </p>
           <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface flex flex-col items-center justify-center text-text-muted gap-2">
             <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
               <ImageIcon className="w-6 h-6" />
             </div>
-            <p className="font-medium">Screenshot: Editor Verification</p>
+            <p className="font-medium text-text">Screenshot: Editor Verification</p>
             <p className="text-sm text-center">Show an IDE chat window (Cursor or Windsurf) successfully calling the &apos;codrag&apos; tool and displaying graph results.</p>
           </div>
 

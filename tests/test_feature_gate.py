@@ -163,21 +163,21 @@ class TestRequireFeature:
             require_feature("auto_rebuild")
         assert exc_info.value.feature == "auto_rebuild"
         assert exc_info.value.current_tier == "free"
-        assert exc_info.value.required_tier == "monthly"
+        assert exc_info.value.required_tier == "pro"
         assert "codrag.io/pricing" in str(exc_info.value)
 
     def test_require_compression_as_free_raises(self):
         os.environ["CODRAG_TIER"] = "free"
         with pytest.raises(FeatureGateError) as exc_info:
             require_feature("context_compression")
-        assert exc_info.value.required_tier == "monthly"
+        assert exc_info.value.required_tier == "pro"
 
 
 class TestLicenseToDict:
     def test_to_dict_structure(self):
         lic = License(tier=Tier.PERPETUAL, email="test@example.com")
         d = lic.to_dict()
-        assert d["tier"] == "perpetual"
+        assert d["tier"] == "pro"
         assert d["valid"] is True
         assert d["email"] == "test@example.com"
         assert d["seats"] == 1
@@ -216,7 +216,7 @@ class TestLicenseEndpoint:
         res = client.get("/license")
         assert res.status_code == 200
         data = res.json()["data"]
-        assert data["license"]["tier"] == "perpetual"
+        assert data["license"]["tier"] == "pro"
         assert data["features"]["auto_rebuild"] is True
         assert data["features"]["context_compression"] is True
         assert data["features"]["projects_max"] == 999

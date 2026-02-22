@@ -48,9 +48,9 @@ legacy/</code>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left">
-                  <th className="py-2 pr-4 font-medium">Variable</th>
-                  <th className="py-2 pr-4 font-medium">Values</th>
-                  <th className="py-2 font-medium">Description</th>
+                  <th className="py-2 pr-4 font-medium text-text">Variable</th>
+                  <th className="py-2 pr-4 font-medium text-text">Values</th>
+                  <th className="py-2 font-medium text-text">Description</th>
                 </tr>
               </thead>
               <tbody className="text-text-muted">
@@ -63,7 +63,7 @@ legacy/</code>
                 </tr>
                 <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono">CODRAG_TIER</td>
-                  <td className="py-2 pr-4"><code>free</code> | <code>monthly</code> | <code>perpetual</code></td>
+                  <td className="py-2 pr-4"><code>free</code> | <code>pro</code> | <code>team</code> | <code>enterprise</code></td>
                   <td className="py-2">
                     Override the license tier for testing/development.
                   </td>

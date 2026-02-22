@@ -1,0 +1,16 @@
+# CoDRAG Team Sync — RunPod Serverless Image
+# Inherits from the GPU base image and adds the RunPod job handler.
+#
+# Build:
+#   docker build -f runpod/Dockerfile.runpod -t my-org/codrag-runpod .
+#   docker push my-org/codrag-runpod
+#
+# Then create a RunPod Serverless Endpoint using this image.
+
+FROM ghcr.io/ericbintner/codrag-headless:gpu
+
+RUN pip install --no-cache-dir runpod
+
+COPY runpod/runpod_handler.py /handler.py
+
+CMD ["python", "-u", "/handler.py"]

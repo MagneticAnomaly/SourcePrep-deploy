@@ -55,6 +55,16 @@ class DiscardRequest(BaseModel):
 def pipeline_run_fast(project_id: str) -> Dict[str, Any]:
     """Run Fast Sync (stages 1-4): Structural → Catalogue → Validation → Knowledge Embedding."""
     from codrag.server import _require_project
+    from codrag.services.project_helpers import is_over_project_limit
+    
+    if is_over_project_limit():
+        raise ApiException(
+            status_code=403,
+            code="PROJECT_LIMIT_EXCEEDED",
+            message="Cannot run pipeline: Project limit exceeded for current tier",
+            hint="Upgrade your plan or remove projects to resume syncing."
+        )
+
     _require_project(project_id)
 
     from codrag.services.pipeline_orchestrator import pipeline_orchestrator
@@ -74,6 +84,16 @@ def pipeline_run_fast(project_id: str) -> Dict[str, Any]:
 def pipeline_run_deep(project_id: str) -> Dict[str, Any]:
     """Run Deep Enrichment (stages 5-8): Epistemic → Clustering → Deepening → Deep Knowledge."""
     from codrag.server import _require_project
+    from codrag.services.project_helpers import is_over_project_limit
+    
+    if is_over_project_limit():
+        raise ApiException(
+            status_code=403,
+            code="PROJECT_LIMIT_EXCEEDED",
+            message="Cannot run pipeline: Project limit exceeded for current tier",
+            hint="Upgrade your plan or remove projects to resume syncing."
+        )
+
     _require_project(project_id)
 
     from codrag.services.pipeline_orchestrator import pipeline_orchestrator
@@ -93,6 +113,16 @@ def pipeline_run_deep(project_id: str) -> Dict[str, Any]:
 def pipeline_run_all(project_id: str) -> Dict[str, Any]:
     """Run all stages: Fast Sync (1-4) then Deep Enrichment (5-8)."""
     from codrag.server import _require_project
+    from codrag.services.project_helpers import is_over_project_limit
+    
+    if is_over_project_limit():
+        raise ApiException(
+            status_code=403,
+            code="PROJECT_LIMIT_EXCEEDED",
+            message="Cannot run pipeline: Project limit exceeded for current tier",
+            hint="Upgrade your plan or remove projects to resume syncing."
+        )
+
     _require_project(project_id)
 
     from codrag.services.pipeline_orchestrator import pipeline_orchestrator

@@ -76,6 +76,8 @@ export interface GraphEnrichmentPipelineProps {
   onAutoConfigChange?: (config: EnrichmentAutoConfig) => void;
   /** Whether the user has a pro/paid plan (controls toggle availability) */
   isPro?: boolean;
+  /** Whether the user is over their project limit */
+  limitReached?: boolean;
   className?: string;
 }
 
@@ -415,6 +417,7 @@ export function GraphEnrichmentPipeline({
   autoConfig,
   onAutoConfigChange,
   isPro = false,
+  limitReached = false,
   // Per-stage handlers kept in props interface but not used directly;
   // group-level handlers trigger the full set.
   onRunFastSync,
@@ -690,11 +693,12 @@ export function GraphEnrichmentPipeline({
           {!fastAuto && onRunFastSync && (
             <button
               onClick={onRunFastSync}
-              disabled={fastRunning}
+              disabled={fastRunning || limitReached}
+              title={limitReached ? "Project limit reached. Upgrade to resume syncing." : undefined}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
-                fastRunning
-                  ? "border-border bg-surface text-text-subtle cursor-wait"
+                (fastRunning || limitReached)
+                  ? "border-border bg-surface text-text-subtle cursor-not-allowed"
                   : "border-success/40 bg-success/10 text-success hover:bg-success/20"
               )}
             >
@@ -726,11 +730,12 @@ export function GraphEnrichmentPipeline({
           {deepMode === 'manual' && onRunDeepEnrichment && (
             <button
               onClick={onRunDeepEnrichment}
-              disabled={deepRunning}
+              disabled={deepRunning || limitReached}
+              title={limitReached ? "Project limit reached. Upgrade to resume syncing." : undefined}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
-                deepRunning
-                  ? "border-border bg-surface text-text-subtle cursor-wait"
+                (deepRunning || limitReached)
+                  ? "border-border bg-surface text-text-subtle cursor-not-allowed"
                   : "border-success/40 bg-success/10 text-success hover:bg-success/20"
               )}
             >

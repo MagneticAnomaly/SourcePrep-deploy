@@ -44,14 +44,14 @@ export default function Page() {
           </p>
           <p>
             CoDRAG runs a local MCP server that exposes your indexed codebase as a set of tools. 
-            It supports both <strong>Stdio</strong> (recommended for local editors) and <strong>SSE</strong> (for remote/containerized setups).
+            It supports both <span className="font-semibold text-text">Stdio</span> (recommended for local editors) and <span className="font-semibold text-text">SSE</span> (for remote/containerized setups).
             When you connect an editor like Cursor or Windsurf, their internal AI agents gain the ability to:
           </p>
           <ul className="list-disc pl-6 space-y-2">
-            <li><strong>Get Oriented:</strong> Use <code>codrag_hi</code> to see exactly which files you&apos;ve selected — with doc previews, topic detection (&quot;authentication&quot;, &quot;UI components&quot;), hub file identification, import relationships, and tailored next-step suggestions.</li>
-            <li><strong>Search Semantically:</strong> Find code by meaning (&quot;auth logic&quot;) rather than just keywords, automatically scoped to your selected files.</li>
-            <li><strong>Code Graph:</strong> Follow import paths and function calls (Rust-powered graph). <code>codrag_hi</code> shows file connections and the most-imported files at a glance.</li>
-            <li><strong>Compress Context:</strong> Smart compression fits more files into the same token budget &mdash; structural for code, language-aware for docs. No sidecar needed.</li>
+            <li><span className="font-semibold text-text">Get Oriented:</span> Use <code>codrag_hi</code> to see exactly which files you&apos;ve selected — with doc previews, topic detection (&quot;authentication&quot;, &quot;UI components&quot;), hub file identification, import relationships, and tailored next-step suggestions.</li>
+            <li><span className="font-semibold text-text">Search Semantically:</span> Find code by meaning (&quot;auth logic&quot;) rather than just keywords, automatically scoped to your selected files.</li>
+            <li><span className="font-semibold text-text">Code Graph:</span> Follow import paths and function calls (Rust-powered graph). <code>codrag_hi</code> shows file connections and the most-imported files at a glance.</li>
+            <li><span className="font-semibold text-text">Compress Context:</span> Smart compression fits more files into the same token budget &mdash; structural for code, language-aware for docs. No sidecar needed.</li>
           </ul>
         </div>
       </div>

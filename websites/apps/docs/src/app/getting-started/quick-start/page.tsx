@@ -37,7 +37,7 @@ export default function Page() {
                 Index Your Repo
               </h3>
               <p className="text-sm text-text-muted mb-2 ml-8">
-                Click the <strong>+</strong> button in the sidebar, select your project folder, and CoDRAG will scan and build the Code Graph immediately.
+                Click the <span className="font-semibold text-text">+</span> button in the sidebar, select your project folder, and CoDRAG will scan and build the Code Graph immediately.
               </p>
               <p className="text-xs text-text-muted ml-8">
                 Or via CLI: <code>codrag add ~/my-project</code>
@@ -54,10 +54,10 @@ export default function Page() {
               </p>
               <div className="ml-8 grid grid-cols-2 gap-4">
                 <a href="/mcp/cursor" className="block p-3 border border-border rounded hover:border-primary">
-                  <strong>Cursor Guide →</strong>
+                  <span className="font-semibold text-text">Cursor Guide →</span>
                 </a>
                 <a href="/mcp/windsurf" className="block p-3 border border-border rounded hover:border-primary">
-                  <strong>Windsurf Guide →</strong>
+                  <span className="font-semibold text-text">Windsurf Guide →</span>
                 </a>
               </div>
             </div>
@@ -68,7 +68,7 @@ export default function Page() {
                 Select Files &amp; Say Hi
               </h3>
               <p className="text-sm text-text-muted mb-2 ml-8">
-                In the CoDRAG dashboard, use the <strong>Knowledge Sources</strong> tree to select the files and folders you want to work with. Then in your editor&apos;s AI chat, type:
+                In the CoDRAG dashboard, use the <span className="font-semibold text-text">Knowledge Sources</span> tree to select the files and folders you want to work with. Then in your editor&apos;s AI chat, type:
               </p>
               <blockquote className="ml-8 border-l-2 border-primary pl-4 py-1 italic text-text-muted">
                 &quot;codrag_hi&quot;
@@ -78,10 +78,10 @@ export default function Page() {
               </p>
               <div className="ml-8 mt-3 bg-surface border border-border p-4 rounded-lg text-sm space-y-3">
                 <p className="text-text-muted">
-                  <strong className="text-text">AI:</strong> I&apos;m looking at your project &mdash; you&apos;ve selected 8 design docs and 18 React components in <code>src/components/</code>.
+                  <span className="font-semibold text-text">AI:</span> I&apos;m looking at your project &mdash; you&apos;ve selected 8 design docs and 18 React components in <code>src/components/</code>.
                 </p>
                 <p className="text-text-muted text-xs">
-                  Your design docs cover: &quot;Overall Upgrade Plan&quot; (phased site redesign), &quot;Hero Section Design&quot; (parallax layout). It looks like you&apos;re working on <strong>animation &amp; visuals</strong> and <strong>UI components</strong>. The most connected are <code>EnhancedHero.tsx</code> (6 imports) and <code>ParallaxController.tsx</code> (4 imports).
+                  Your design docs cover: &quot;Overall Upgrade Plan&quot; (phased site redesign), &quot;Hero Section Design&quot; (parallax layout). It looks like you&apos;re working on <span className="font-semibold text-text">animation &amp; visuals</span> and <span className="font-semibold text-text">UI components</span>. The most connected are <code>EnhancedHero.tsx</code> (6 imports) and <code>ParallaxController.tsx</code> (4 imports).
                 </p>
                 <ol className="list-decimal pl-5 text-text-muted space-y-1">
                   <li>What UI components are here and how do they connect?</li>
@@ -103,13 +103,13 @@ export default function Page() {
           <AnchorHeading id="cli-tips" level="h2">Pro Tips</AnchorHeading>
           <ul className="list-disc pl-5 text-sm text-text-muted">
             <li>
-              <strong>Search via CLI:</strong> You can test retrieval without an editor using <code>codrag search &quot;query&quot;</code>.
+              <span className="font-semibold text-text">Search via CLI:</span> You can test retrieval without an editor using <code>codrag search &quot;query&quot;</code>.
             </li>
             <li>
-              <strong>Force Rebuild:</strong> If you switched branches massively, run <code>codrag build</code> to ensure the index is fresh (though the watcher handles this mostly).
+              <span className="font-semibold text-text">Force Rebuild:</span> If you switched branches massively, run <code>codrag build</code> to ensure the index is fresh (though the watcher handles this mostly).
             </li>
             <li>
-              <strong>Check Status:</strong> Run <code>codrag status</code> to see index stats and coverage.
+              <span className="font-semibold text-text">Check Status:</span> Run <code>codrag status</code> to see index stats and coverage.
             </li>
           </ul>
 

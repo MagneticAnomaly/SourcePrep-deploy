@@ -142,6 +142,18 @@ def require_project(project_id: str) -> Project:
     return proj
 
 
+def is_over_project_limit() -> bool:
+    """Check if the user has more projects than their current tier allows."""
+    from codrag.core.feature_gate import get_feature_limit
+    limit = get_feature_limit("projects_max")
+    if limit >= 999:
+        return False
+    reg = get_registry()
+    count = len(reg.list_projects())
+    return count > limit
+
+
+
 # ── Status helpers ──────────────────────────────────────────────
 
 def project_index_status(idx: CodeIndex, last_build_error: Optional[str] = None) -> Dict[str, Any]:

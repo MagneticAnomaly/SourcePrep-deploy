@@ -450,7 +450,7 @@ export type ServerMode = 'local' | 'remote';
 /**
  * License tier
  */
-export type LicenseTier = 'free' | 'monthly' | 'perpetual' | 'team' | 'enterprise';
+export type LicenseTier = 'free' | 'pro' | 'team' | 'enterprise';
 
 /**
  * Team config status

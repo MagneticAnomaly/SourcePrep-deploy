@@ -508,7 +508,7 @@ export default function Page() {
                 <div className="mt-2 flex items-center gap-2 text-xs">
                   <span className={SPEED_INFO[gpu.speed].color}>&#9679;</span>
                   <span className="text-text-muted">
-                    <strong>{SPEED_INFO[gpu.speed].label}</strong> &mdash; {SPEED_INFO[gpu.speed].note}
+                    <span className="font-semibold text-text">{SPEED_INFO[gpu.speed].label}</span> &mdash; {SPEED_INFO[gpu.speed].note}
                   </span>
                 </div>
               </>
@@ -586,13 +586,13 @@ export default function Page() {
             {plan.cost_per_1k && (
               <div className="flex items-center gap-1.5 text-text-muted">
                 <DollarSign className="w-4 h-4" />
-                <span>Est. cost per 1K files: <strong className="text-text">{plan.cost_per_1k}</strong></span>
+                <span>Est. cost per 1K files: <span className="font-semibold text-text">{plan.cost_per_1k}</span></span>
               </div>
             )}
             {peakVram > 0 && (
               <div className="flex items-center gap-1.5 text-text-muted">
                 <HardDrive className="w-4 h-4" />
-                <span>Peak VRAM: <strong className="text-text">{peakVram}GB</strong> (models swap, not cumulative)</span>
+                <span>Peak VRAM: <span className="font-semibold text-text">{peakVram}GB</span> (models swap, not cumulative)</span>
               </div>
             )}
           </div>
@@ -622,7 +622,7 @@ export default function Page() {
                     {PROVIDER_LABELS[provider]} <ExternalLink className="inline w-3 h-3" />
                   </a>
                 </li>
-                <li>In CoDRAG Dashboard, go to <strong>Settings &gt; AI Models &gt; Saved Endpoints</strong></li>
+                <li>In CoDRAG Dashboard, go to <span className="font-semibold text-text">Settings &gt; AI Models &gt; Saved Endpoints</span></li>
                 <li>Add a new endpoint with provider &quot;{provider === 'google' ? 'OpenAI Compatible' : PROVIDER_LABELS[provider]}&quot;
                   {provider === 'google' && <span> and URL <code className="text-xs">https://generativelanguage.googleapis.com/v1beta/openai/</code></span>}
                 </li>
@@ -643,11 +643,11 @@ export default function Page() {
             <table className="w-full text-sm border border-border">
               <thead>
                 <tr className="bg-surface">
-                  <th className="p-2 text-left border-b border-border">Model</th>
-                  <th className="p-2 text-left border-b border-border">Slot</th>
-                  <th className="p-2 text-left border-b border-border">Size</th>
-                  <th className="p-2 text-left border-b border-border">VRAM</th>
-                  <th className="p-2 text-left border-b border-border">Notes</th>
+                  <th className="p-2 text-left border-b border-border text-text">Model</th>
+                  <th className="p-2 text-left border-b border-border text-text">Slot</th>
+                  <th className="p-2 text-left border-b border-border text-text">Size</th>
+                  <th className="p-2 text-left border-b border-border text-text">VRAM</th>
+                  <th className="p-2 text-left border-b border-border text-text">Notes</th>
                 </tr>
               </thead>
               <tbody>
@@ -673,11 +673,11 @@ export default function Page() {
             <table className="w-full text-sm border border-border">
               <thead>
                 <tr className="bg-surface">
-                  <th className="p-2 text-left border-b border-border">Model</th>
-                  <th className="p-2 text-left border-b border-border">Provider</th>
-                  <th className="p-2 text-left border-b border-border">Input/1M</th>
-                  <th className="p-2 text-left border-b border-border">Output/1M</th>
-                  <th className="p-2 text-left border-b border-border">Batch</th>
+                  <th className="p-2 text-left border-b border-border text-text">Model</th>
+                  <th className="p-2 text-left border-b border-border text-text">Provider</th>
+                  <th className="p-2 text-left border-b border-border text-text">Input/1M</th>
+                  <th className="p-2 text-left border-b border-border text-text">Output/1M</th>
+                  <th className="p-2 text-left border-b border-border text-text">Batch</th>
                 </tr>
               </thead>
               <tbody>
@@ -699,41 +699,41 @@ export default function Page() {
             <table className="w-full text-sm border border-border">
               <thead>
                 <tr className="bg-surface">
-                  <th className="p-2 text-left border-b border-border">Usable VRAM</th>
-                  <th className="p-2 text-left border-b border-border">Fast</th>
-                  <th className="p-2 text-left border-b border-border">Thinking</th>
-                  <th className="p-2 text-left border-b border-border">Code</th>
+                  <th className="p-2 text-left border-b border-border text-text">Usable VRAM</th>
+                  <th className="p-2 text-left border-b border-border text-text">Fast</th>
+                  <th className="p-2 text-left border-b border-border text-text">Thinking</th>
+                  <th className="p-2 text-left border-b border-border text-text">Code</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td className="p-2 border-b border-border font-medium">&le; 2GB</td>
+                  <td className="p-2 border-b border-border font-medium text-text">&le; 2GB</td>
                   <td className="p-2 border-b border-border text-xs font-mono" colSpan={3}>qwen3:0.6b (single model for all)</td>
                 </tr>
                 <tr>
-                  <td className="p-2 border-b border-border font-medium">2&ndash;4GB</td>
+                  <td className="p-2 border-b border-border font-medium text-text">2&ndash;4GB</td>
                   <td className="p-2 border-b border-border text-xs font-mono" colSpan={3}>qwen3:1.7b or qwen3:4b (single model for all)</td>
                 </tr>
                 <tr>
-                  <td className="p-2 border-b border-border font-medium">5&ndash;6GB</td>
+                  <td className="p-2 border-b border-border font-medium text-text">5&ndash;6GB</td>
                   <td className="p-2 border-b border-border text-xs font-mono">qwen3:4b</td>
                   <td className="p-2 border-b border-border text-xs font-mono">qwen3:4b</td>
                   <td className="p-2 border-b border-border text-xs text-text-muted">(uses Fast)</td>
                 </tr>
                 <tr>
-                  <td className="p-2 border-b border-border font-medium">6&ndash;12GB</td>
+                  <td className="p-2 border-b border-border font-medium text-text">6&ndash;12GB</td>
                   <td className="p-2 border-b border-border text-xs font-mono">qwen3:4b</td>
                   <td className="p-2 border-b border-border text-xs font-mono">qwen3:8b</td>
                   <td className="p-2 border-b border-border text-xs text-text-muted">(uses Fast)</td>
                 </tr>
                 <tr>
-                  <td className="p-2 border-b border-border font-medium">12&ndash;20GB</td>
+                  <td className="p-2 border-b border-border font-medium text-text">12&ndash;20GB</td>
                   <td className="p-2 border-b border-border text-xs font-mono">qwen3:4b</td>
                   <td className="p-2 border-b border-border text-xs font-mono">qwen3:14b</td>
                   <td className="p-2 border-b border-border text-xs font-mono">qwen2.5-coder:7b</td>
                 </tr>
                 <tr>
-                  <td className="p-2 border-b border-border font-medium">20GB+</td>
+                  <td className="p-2 border-b border-border font-medium text-text">20GB+</td>
                   <td className="p-2 border-b border-border text-xs font-mono">qwen3:4b</td>
                   <td className="p-2 border-b border-border text-xs font-mono">qwen3:30b (MoE)</td>
                   <td className="p-2 border-b border-border text-xs font-mono">qwen3-coder:30b (MoE)</td>
@@ -749,8 +749,8 @@ export default function Page() {
             </h4>
             <p className="mt-2 text-sm">
               CoDRAG&apos;s pipeline runs one stage at a time. Ollama automatically loads and
-              unloads models as needed, so you only need enough VRAM for the <strong>single
-              largest model</strong> &mdash; not the total of all models combined.
+              unloads models as needed, so you only need enough VRAM for the <span className="font-semibold text-text">single
+              largest model</span> &mdash; not the total of all models combined.
             </p>
           </div>
         </div>

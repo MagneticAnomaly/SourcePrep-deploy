@@ -14,6 +14,7 @@ Exposes the scope orchestrator via HTTP endpoints for the FolderTree panel.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, Dict, List
 
 from fastapi import APIRouter
@@ -53,7 +54,27 @@ def _ensure_build_fn_registered(project_id: str) -> None:
             )
             logger.info("Scope build for %s: started=%s (included_paths=%d)",
                         project_id, started, len(included_paths) if included_paths else 0)
-            return started
+            if not started:
+                return False
+
+            # Wait for the build thread to actually finish so the scope
+            # orchestrator doesn't transition to IDLE while still building.
+            # The build runs in build_manager's thread; poll until done.
+            timeout = 600  # 10 minutes max
+            start_t = time.monotonic()
+            while build_manager.is_project_building(project_id):
+                if time.monotonic() - start_t > timeout:
+                    logger.warning("Scope build for %s timed out after %ds", project_id, timeout)
+                    return False
+                time.sleep(0.5)
+
+            # Check if the build succeeded (no error recorded)
+            last_err = build_manager.last_build_error.get(project_id)
+            if last_err:
+                logger.error("Scope build for %s finished with error: %s", project_id, last_err)
+                return False
+
+            return True
         except Exception as e:
             logger.error("Scope build failed for %s: %s", project_id, e)
             return False

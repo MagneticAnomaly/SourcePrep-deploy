@@ -86,7 +86,7 @@ def activate_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
         raise ApiException(status_code=400, code="VALIDATION_ERROR", message="key is required")
 
     allowed_tiers = {"free", "monthly", "perpetual", "team", "enterprise"}
-    _legacy_tier_map = {"starter": "monthly", "pro": "perpetual"}
+    _legacy_tier_map = {"starter": "monthly", "pro": "perpetual"}  # "pro" → perpetual internally
     lic_data: Optional[Dict[str, Any]] = None
 
     # 1. Try to verify as a signed offline key (Production/Enterprise)
@@ -153,7 +153,7 @@ def activate_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
             status_code=400,
             code="INVALID_LICENSE",
             message="Invalid license key",
-            hint="Provide a valid signed license key, or a tier name (free/monthly/perpetual) for development.",
+            hint="Provide a valid signed license key, or a tier name (free/pro/team/enterprise) for development.",
         )
 
     tier_raw = str(lic_data.get("tier") or "").strip().lower()

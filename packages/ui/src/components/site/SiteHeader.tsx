@@ -49,7 +49,7 @@ export function SiteHeader({
         
         {/* Left: Logo & Desktop Nav */}
         <div className="flex items-center gap-8">
-          <a href="/" className="flex items-center gap-2 font-mono font-bold text-lg tracking-tight text-text hover:text-primary transition-colors">
+          <a href="/" className="flex items-center font-mono font-bold text-lg tracking-tight text-text hover:text-primary transition-colors">
             <span className="text-primary">{logo}</span>
             {productName}
             {productBadge && (

@@ -89,7 +89,7 @@ function CenteredHero() {
             <Database className="w-4 h-4 text-success" /> Built-in embeddings or BYOK
           </span>
           <span className="flex items-center gap-2">
-            <Lock className="w-4 h-4 text-success" /> Perpetual license available
+            <Lock className="w-4 h-4 text-success" /> Pro license — yours forever
           </span>
           <span className="flex items-center gap-2">
             <Server className="w-4 h-4 text-success" /> macOS & Windows

@@ -19,8 +19,8 @@ export default function Page() {
           <AnchorHeading id="why-epistemology" level="h2">Why Epistemology?</AnchorHeading>
           <p>
             Most code intelligence tools answer a simple question: <em>&quot;Which files match this query?&quot;</em>
-            CoDRAG asks a fundamentally different one: <strong>&quot;How well does the system understand
-            this code — and how justified is that understanding?&quot;</strong>
+            CoDRAG asks a fundamentally different one: <span className="font-semibold text-text">&quot;How well does the system understand
+            this code — and how justified is that understanding?&quot;</span>
           </p>
           <p>
             That question is epistemological. Epistemology is the branch of philosophy concerned with
@@ -28,22 +28,20 @@ export default function Page() {
             and when it becomes <em>stale</em>. These aren&apos;t abstract concerns when you&apos;re building a code graph:
           </p>
           <ul className="list-disc pl-5">
-            <li>A file summary can be <strong>accurate</strong> (the text is correct) but not <strong>understood</strong> (we don&apos;t know how it connects to anything)</li>
-            <li>A node&apos;s understanding <strong>decays</strong> when its neighbors change — because context is relational, not intrinsic</li>
-            <li>A doc referencing a renamed file is <strong>drifted knowledge</strong> — technically present, epistemically broken</li>
+            <li>A file summary can be <span className="font-semibold text-text">accurate</span> (the text is correct) but not <span className="font-semibold text-text">understood</span> (we don&apos;t know how it connects to anything)</li>
+            <li>A node&apos;s understanding <span className="font-semibold text-text">decays</span> when its neighbors change — because context is relational, not intrinsic</li>
+            <li>A doc referencing a renamed file is <span className="font-semibold text-text">drifted knowledge</span> — technically present, epistemically broken</li>
             <li>Re-enriching the <em>least understood</em> nodes first (residual scheduling) mirrors how belief propagation converges in probabilistic graphical models</li>
           </ul>
           <p>
-            The trace graph doesn&apos;t just <em>contain</em> knowledge about your code — it <strong>knows
-            what it knows, knows what it doesn&apos;t know, and knows when what it knew has become
-            unreliable</strong>. That self-awareness is what makes the enrichment pipeline converge
-            instead of merely accumulate.
+            The trace graph doesn&apos;t just <em>contain</em> knowledge about your code — it <span className="font-semibold text-text">knows
+            about its own knowledge</span>.
           </p>
 
           <AnchorHeading id="the-pipeline" level="h2">The 9-Stage Pipeline</AnchorHeading>
           <p>
-            Enrichment is split into two groups: a <strong>Fast Sync</strong> group that runs on
-            every file save (~seconds), and a <strong>Deep Enrichment</strong> group that runs
+            Enrichment is split into two groups: a <span className="font-semibold text-text">Fast Sync</span> group that runs on
+            every file save (~seconds), and a <span className="font-semibold text-text">Deep Enrichment</span> group that runs
             when the system is idle or on a schedule (~minutes).
           </p>
 
@@ -74,7 +72,7 @@ export default function Page() {
               <div>
                 <div className="font-semibold">Relationship Validation <span className="text-xs font-normal bg-surface-raised border border-border-subtle px-1.5 py-0.5 rounded ml-1">Rust</span></div>
                 <div className="text-sm text-text-muted mt-1">
-                  The <strong>LLM hypothesizes, Rust validates</strong> pattern. The catalogue model suggests relationships (&quot;FileA probably relates to FileB&quot;) — the Rust engine checks if both files actually exist. Hallucinated edges are discarded. Confirmed edges gain boosted confidence. Inferred edges never override parser-derived structural edges.
+                  The <span className="font-semibold text-text">LLM hypothesizes, Rust validates</span> pattern. The catalogue model suggests relationships (&quot;FileA probably relates to FileB&quot;) — the Rust engine checks if both files actually exist. Hallucinated edges are discarded. Confirmed edges gain boosted confidence. Inferred edges never override parser-derived structural edges.
                 </div>
               </div>
             </div>
@@ -97,7 +95,7 @@ export default function Page() {
               <div>
                 <div className="font-semibold">Deep Reasoning <span className="text-xs font-normal bg-surface-raised border border-border-subtle px-1.5 py-0.5 rounded ml-1">14b LLM</span></div>
                 <div className="text-sm text-text-muted mt-1">
-                  <em>Epistemic enrichment.</em> A larger model reasons about each node <strong>in the context of its graph neighbors</strong> — adding domain tags, architecture layers, design patterns, cross-references, and a self-reported reasoning confidence. Nodes are processed in reverse-topological order (leaf files first) so each node&apos;s neighbors already have enriched summaries when it&apos;s processed.
+                  <em>Epistemic enrichment.</em> A larger model reasons about each node <span className="font-semibold text-text">in the context of its graph neighbors</span> — adding domain tags, architecture layers, design patterns, cross-references, and a self-reported reasoning confidence. Nodes are processed in reverse-topological order (leaf files first) so each node&apos;s neighbors already have enriched summaries when it&apos;s processed.
                 </div>
               </div>
             </div>
@@ -127,7 +125,7 @@ export default function Page() {
               <div>
                 <div className="font-semibold">Continuous Deepening <span className="text-xs font-normal bg-surface-raised border border-border-subtle px-1.5 py-0.5 rounded ml-1">Loop</span></div>
                 <div className="text-sm text-text-muted mt-1">
-                  <em>The convergence loop.</em> Nodes whose understanding scores have decayed — because a neighbor changed, a doc drifted, or source was modified — are re-enriched in priority order. Inspired by <strong>belief propagation</strong> (Pearl 1988): the least-understood nodes are processed first, and the loop continues until the graph stabilizes or a token budget is reached.
+                  <em>The convergence loop.</em> Nodes whose understanding scores have decayed — because a neighbor changed, a doc drifted, or source was modified — are re-enriched in priority order. Inspired by <span className="font-semibold text-text">belief propagation</span> (Pearl 1988): the least-understood nodes are processed first, and the loop continues until the graph stabilizes or a token budget is reached.
                 </div>
               </div>
             </div>
@@ -145,7 +143,7 @@ export default function Page() {
 
           <AnchorHeading id="understanding-score" level="h2">The Understanding Score</AnchorHeading>
           <p>
-            Every node in the graph gets an <strong>understanding score</strong> (0.0–1.0) — internally
+            Every node in the graph gets an <span className="font-semibold text-text">understanding score</span> (0.0–1.0) — internally
             called the <em>epistemic score</em> — that represents how well the trace comprehends
             this node in the context of the entire codebase. This is fundamentally different from
             search relevance or summary accuracy. A file can have a perfect summary but a low
@@ -185,17 +183,17 @@ export default function Page() {
 
           <AnchorHeading id="score-decay" level="h2">Score Decay — Knowledge Has a Half-Life</AnchorHeading>
           <p>
-            Understanding scores aren&apos;t static. They <strong>decay</strong> when the world changes
+            Understanding scores aren&apos;t static. They <span className="font-semibold text-text">decay</span> when the world changes
             around a node — because in epistemology, knowledge that hasn&apos;t been re-verified against
             current evidence is no longer justified belief:
           </p>
           <div className="not-prose my-6 overflow-x-auto">
             <table className="text-sm w-full">
               <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="py-2 pr-4 font-semibold">Event</th>
-                  <th className="py-2 pr-4 font-semibold">Effect</th>
-                  <th className="py-2 font-semibold">Rationale</th>
+                <tr className="border-b border-border text-left text-text">
+                  <th className="py-2 pr-4 font-medium text-text">Event</th>
+                  <th className="py-2 pr-4 font-medium text-text">Effect</th>
+                  <th className="py-2 font-medium text-text">Rationale</th>
                 </tr>
               </thead>
               <tbody className="text-text-muted">
@@ -213,7 +211,7 @@ export default function Page() {
             propagation limit. This mirrors how uncertainty propagates through belief networks.
           </p>
           <p>
-            Nodes with decayed scores enter a <strong>re-analysis queue</strong> ordered by score
+            Nodes with decayed scores enter a <span className="font-semibold text-text">re-analysis queue</span> ordered by score
             (lowest first). The Continuous Deepening stage processes this queue until the graph
             converges or the token budget is exhausted.
           </p>
@@ -225,10 +223,10 @@ export default function Page() {
             status markers, and cross-links. This enables:
           </p>
           <ul className="list-disc pl-5">
-            <li><strong>Doc↔code links</strong> — docs reference code files and vice versa</li>
-            <li><strong>Staleness detection</strong> — a doc referencing a renamed file is flagged as drifted</li>
-            <li><strong>Decision tracking</strong> — architecture decisions and their outcomes are captured</li>
-            <li><strong>Orphan detection</strong> — docs with no code references or incoming links are identified</li>
+            <li><span className="font-semibold text-text">Doc↔code links</span> — docs reference code files and vice versa</li>
+            <li><span className="font-semibold text-text">Staleness detection</span> — a doc referencing a renamed file is flagged as drifted</li>
+            <li><span className="font-semibold text-text">Decision tracking</span> — architecture decisions and their outcomes are captured</li>
+            <li><span className="font-semibold text-text">Orphan detection</span> — docs with no code references or incoming links are identified</li>
           </ul>
 
           <AnchorHeading id="research" level="h2">Research Foundation</AnchorHeading>
@@ -247,14 +245,14 @@ export default function Page() {
 
           <AnchorHeading id="why-it-matters" level="h2">Why This Matters in Practice</AnchorHeading>
           <p className="bg-info/10 border-l-4 border-info p-4 text-sm">
-            <strong>Without enrichment:</strong> asking your AI &quot;how does the ad framework work?&quot;
-            returns files with &quot;ad&quot; in the name — some relevant, some noise, no structure.
+            <span className="font-semibold text-text">Without enrichment:</span> asking your AI &quot;how does the ad framework work?&quot;
+            might return one file that mentions &quot;ad&quot;.
           </p>
           <p className="bg-success/10 border-l-4 border-success p-4 mt-3 text-sm">
-            <strong>With enrichment:</strong> the same query returns the module summary, the
+            <span className="font-semibold text-text">With enrichment:</span> the same query returns the module summary, the
             6 files that compose the subsystem, their entry points, the 3 docs that describe
             the architecture, and a flag that one doc references a renamed file. The understanding
-            score tells you the system is 94% confident in this answer — and the 6% gap is
+            score tells the AI that the framework is well understood, but one file&apos;s score has decayed
             because one neighbor was recently modified and hasn&apos;t been re-analyzed yet.
           </p>
           <p>

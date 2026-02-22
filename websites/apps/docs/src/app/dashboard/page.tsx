@@ -18,11 +18,11 @@ export default function Page() {
           
           <AnchorHeading id="overview" level="h2">Overview</AnchorHeading>
           <p>
-            The dashboard adopts a unified <strong>Two-Pane Architecture</strong> designed to separate concerns:
+            The dashboard adopts a unified <span className="font-semibold text-text">Two-Pane Architecture</span> designed to separate concerns:
           </p>
           <ol className="list-decimal pl-5 space-y-2 mt-4 mb-6">
-            <li><strong>Graph Scope (Panel A)</strong>: Managing the inventory of files (what enters the graph).</li>
-            <li><strong>Graph Engine (Panel B)</strong>: Orchestrating the 9-stage knowledge pipeline (how it’s processed).</li>
+            <li><span className="font-semibold text-text">Graph Scope (Panel A)</span>: Managing the inventory of files (what enters the graph).</li>
+            <li><span className="font-semibold text-text">Graph Engine (Panel B)</span>: Orchestrating the 9-stage knowledge pipeline (how it’s processed).</li>
           </ol>
           <p>
             This layout streamlines the workflow: you define the scope, and the AI engine handles the heavy lifting of tracing, indexing, and enriching your codebase.
@@ -32,7 +32,7 @@ export default function Page() {
             <div className="w-16 h-16 rounded-full bg-surface border border-border flex items-center justify-center mb-2">
               <ImageIcon className="w-8 h-8" />
             </div>
-            <p className="font-medium">Screenshot: Two-Pane Dashboard</p>
+            <p className="font-medium text-text">Screenshot: Two-Pane Dashboard</p>
             <p className="text-sm max-w-md text-center">Capture the unified dashboard showing the Scope (left) and Engine (right) panels.</p>
           </div>
 
@@ -40,16 +40,16 @@ export default function Page() {
 
           <AnchorHeading id="panel-a" level="h2" className="text-2xl font-bold mt-12 mb-6">1. Graph Scope (Panel A)</AnchorHeading>
           <p>
-            The <strong>Graph Scope</strong> panel (left pane) is your inventory control. It defines exactly <em>what</em> code and documentation CoDRAG is allowed to see.
+            The <span className="font-semibold text-text">Graph Scope</span> panel (left pane) is your inventory control. It defines exactly <em>what</em> code and documentation CoDRAG is allowed to see.
           </p>
 
           <AnchorHeading id="scope-header" level="h3" className="text-xl font-semibold mt-8 mb-4">Header & Health</AnchorHeading>
           <p>
-            The header displays the total file count tracked by the system and a <strong>Health Indicator</strong> (e.g., "97% Traced").
+            The header displays the total file count tracked by the system and a <span className="font-semibold text-text">Health Indicator</span> (e.g., "97% Traced").
           </p>
           <ul className="list-disc pl-5 space-y-2 mb-6 text-sm">
-            <li><strong>Green Bar:</strong> High coverage. Most files are successfully parsed and indexed.</li>
-            <li><strong>Yellow/Red:</strong> Low coverage. You may need to check the Queue or Excluded tabs.</li>
+            <li><span className="font-semibold text-text">Green Bar:</span> High coverage. Most files are successfully parsed and indexed.</li>
+            <li><span className="font-semibold text-text">Yellow/Red:</span> Low coverage. You may need to check the Queue or Excluded tabs.</li>
           </ul>
 
           <AnchorHeading id="scope-tabs" level="h3" className="text-xl font-semibold mt-8 mb-4">Management Tabs</AnchorHeading>
@@ -59,9 +59,9 @@ export default function Page() {
             Lists files that have been detected by the file watcher but are not yet fully integrated into the graph.
           </p>
           <ul className="list-disc pl-5 space-y-2 mb-6 text-sm">
-            <li><strong>Untraced:</strong> New files waiting for analysis.</li>
-            <li><strong>Stale:</strong> Modified files that need re-parsing.</li>
-            <li><strong>Action:</strong> Click <strong>Trace Selected</strong> or <strong>Trace All</strong> to hand these off to the Engine.</li>
+            <li><span className="font-semibold text-text">Untraced:</span> New files waiting for analysis.</li>
+            <li><span className="font-semibold text-text">Stale:</span> Modified files that need re-parsing.</li>
+            <li><span className="font-semibold text-text">Action:</span> Click <span className="font-semibold text-text">Trace Selected</span> or <span className="font-semibold text-text">Trace All</span> to hand these off to the Engine.</li>
           </ul>
 
           <h4 className="font-semibold mt-4 mb-2">Excluded Tab</h4>
@@ -70,14 +70,14 @@ export default function Page() {
           </p>
           <ul className="list-disc pl-5 space-y-2 mb-6 text-sm">
             <li>View active exclusion patterns (e.g., `**/*.min.js`).</li>
-            <li><strong>Un-ignore:</strong> Select files to remove them from the blocklist and add them to the Queue.</li>
+            <li><span className="font-semibold text-text">Un-ignore:</span> Select files to remove them from the blocklist and add them to the Queue.</li>
           </ul>
 
           <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface flex flex-col items-center justify-center text-text-muted gap-2">
             <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
               <ImageIcon className="w-6 h-6" />
             </div>
-            <p className="font-medium">Screenshot: Graph Scope Panel</p>
+            <p className="font-medium text-text">Screenshot: Graph Scope Panel</p>
             <p className="text-sm">Show the Scope panel with the Queue tab active.</p>
           </div>
 
@@ -85,17 +85,17 @@ export default function Page() {
 
           <AnchorHeading id="panel-b" level="h2" className="text-2xl font-bold mt-12 mb-6">2. Knowledge Pipeline (Panel B)</AnchorHeading>
           <p>
-            The <strong>Knowledge Pipeline</strong> panel (right pane) is the “Factory”. It visualizes the 9-stage process that transforms your files (Scope) into intelligent context.
+            The <span className="font-semibold text-text">Knowledge Pipeline</span> panel (right pane) is the “Factory”. It visualizes the 9-stage process that transforms your files (Scope) into intelligent context.
           </p>
 
           <AnchorHeading id="pipeline-controls" level="h3" className="text-xl font-semibold mt-8 mb-4">Controls</AnchorHeading>
           <ul className="list-disc pl-5 space-y-2 mb-6">
-            <li><strong>Auto-Pilot:</strong> Master toggle. When ON, the engine automatically advances files through the pipeline stages as resources allow.</li>
-            <li><strong>Budget Info:</strong> Real-time tracking of token usage (e.g., "12k / 50k tokens") to ensure no surprise costs.</li>
+            <li><span className="font-semibold text-text">Auto-Pilot:</span> Master toggle. When ON, the engine automatically advances files through the pipeline stages as resources allow.</li>
+            <li><span className="font-semibold text-text">Budget Info:</span> Real-time tracking of token usage (e.g., "12k / 50k tokens") to ensure no surprise costs.</li>
           </ul>
 
           <AnchorHeading id="pipeline-stages" level="h3" className="text-xl font-semibold mt-8 mb-4">The 9 Stages</AnchorHeading>
-          <p className="text-sm text-text-muted mb-4">Stages 1–4 form <strong>Fast Sync</strong> (runs on every file save). Stages 5–9 form <strong>Deep Enrichment</strong> (runs on idle or schedule).</p>
+          <p className="text-sm text-text-muted mb-4">Stages 1–4 form <span className="font-semibold text-text">Fast Sync</span> (runs on every file save). Stages 5–9 form <span className="font-semibold text-text">Deep Enrichment</span> (runs on idle or schedule).</p>
           <div className="space-y-4 mb-8">
             <div className="p-4 border border-border rounded bg-surface">
               <div className="font-semibold text-sm">1. Structural Graph <span className="text-xs font-normal text-text-muted">(Rust)</span></div>
@@ -139,7 +139,7 @@ export default function Page() {
             <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
               <ImageIcon className="w-6 h-6" />
             </div>
-            <p className="font-medium">Screenshot: Knowledge Pipeline</p>
+            <p className="font-medium text-text">Screenshot: Knowledge Pipeline</p>
             <p className="text-sm">Show the vertical pipeline list with status indicators.</p>
           </div>
 
@@ -147,12 +147,12 @@ export default function Page() {
 
           <AnchorHeading id="global-settings" level="h2" className="text-2xl font-bold mt-12 mb-6">3. Global Settings</AnchorHeading>
           <p>
-            The <strong>Engine Room</strong> where you configure the behavior of the AI.
+            The <span className="font-semibold text-text">Engine Room</span> where you configure the behavior of the AI.
           </p>
           <ul className="list-disc pl-5 space-y-2 mb-6">
-            <li><strong>Model Selection:</strong> Toggle between efficiency (3b models) and depth (14b+ models) for the enrichment stages.</li>
-            <li><strong>Budget Limits:</strong> Set hard caps on tokens or processing time.</li>
-            <li><strong>Schedule:</strong> Configure auto-save triggers and background processing intervals.</li>
+            <li><span className="font-semibold text-text">Model Selection:</span> Toggle between efficiency (3b models) and depth (14b+ models) for the enrichment stages.</li>
+            <li><span className="font-semibold text-text">Budget Limits:</span> Set hard caps on tokens or processing time.</li>
+            <li><span className="font-semibold text-text">Schedule:</span> Configure auto-save triggers and background processing intervals.</li>
           </ul>
 
           <AnchorHeading id="search-context" level="h2" className="text-2xl font-bold mt-12 mb-6">4. Search & Context</AnchorHeading>
@@ -163,7 +163,7 @@ export default function Page() {
             <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
               <ImageIcon className="w-6 h-6" />
             </div>
-            <p className="font-medium">Screenshot: Search Panel</p>
+            <p className="font-medium text-text">Screenshot: Search Panel</p>
             <p className="text-sm">Show the search input field.</p>
           </div>
 

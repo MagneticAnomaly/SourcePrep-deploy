@@ -47,7 +47,7 @@ export const docsSidebar: DocNode[] = [
       { title: 'Overview', href: '/guides' },
       { title: 'Built-in Embeddings', href: '/guides/embeddings' },
       { title: 'Model Configuration', href: '/guides/models' },
-      { title: 'Context Compression (LOD)', href: '/guides/compression' },
+      { title: 'Context Compression', href: '/guides/compression' },
       { title: 'Path Weights', href: '/guides/path-weights' },
       { title: 'Knowledge Scope', href: '/guides/knowledge-scope' },
       { title: 'BYOK Batch Processing', href: '/guides/byok-batching' },

@@ -77,6 +77,7 @@ export function PanelPicker({
         aria-expanded={open}
         aria-haspopup="true"
         icon={Plus}
+        className="flex-1 bg-surface hover:bg-surface-raised"
       >
         Panels
       </Button>

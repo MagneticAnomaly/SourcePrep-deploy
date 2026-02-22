@@ -291,6 +291,9 @@ class ScopeOrchestrator:
             removed = set(change.removed_paths)
             changed = set(change.changed_paths)
 
+        # Emit SSE so frontend picks up the BUILDING state immediately
+        self._emit_status_event(project_id)
+
         # Run build in a daemon thread
         t = threading.Thread(
             target=self._build_worker,
@@ -319,14 +322,7 @@ class ScopeOrchestrator:
                 if success:
                     self._last_rebuild_at[project_id] = time.time()
                     self._stale_since.pop(project_id, None)
-
-                    # Check if more changes arrived during the build
-                    new_change = self._pending.get(project_id)
-                    if new_change and not new_change.is_empty:
-                        self._states[project_id] = ScopeState.IDLE
-                        # Re-schedule for the new changes
-                    else:
-                        self._states[project_id] = ScopeState.IDLE
+                    self._states[project_id] = ScopeState.IDLE
                 else:
                     self._states[project_id] = ScopeState.FAILED
                     self._errors[project_id] = "Build returned failure"
@@ -337,13 +333,15 @@ class ScopeOrchestrator:
                 self._states[project_id] = ScopeState.FAILED
                 self._errors[project_id] = str(e)
 
-        # If changes arrived during build, re-schedule
+        # Emit SSE event so frontend detects the state change
+        self._emit_status_event(project_id)
+
+        # If changes arrived during build, re-schedule immediately
         with self._lock:
             new_change = self._pending.get(project_id)
-            if new_change and not new_change.is_empty:
-                pass  # Will be picked up on next schedule call
-            # Emit SSE event
-        self._emit_status_event(project_id)
+            has_pending = new_change is not None and not new_change.is_empty
+        if has_pending:
+            self._schedule_rebuild(project_id)
 
     def _emit_status_event(self, project_id: str) -> None:
         """Emit an SSE event with the current scope status."""

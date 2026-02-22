@@ -9,10 +9,12 @@ Usage:
     codrag search <id> <q>    Search project
     codrag reset-graph        Reset trace graph (keeps embeddings)
     codrag reset              Full reset (delete all project data)
+    codrag sync-headless      Run headless team sync (CI/CD)
     codrag ui                 Open dashboard
 """
 
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -1182,6 +1184,119 @@ def flow(
         render_rag_flow(demo_flow, console=console)
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
+
+
+@app.command("sync-headless")
+def sync_headless(
+    repo_url: str = typer.Option("", "--repo-url", help="HTTPS or SSH URL of the repository to clone"),
+    repo_path: str = typer.Option("", "--repo-path", help="Path to a pre-cloned repository (e.g., from GitHub Actions checkout)"),
+    branch: str = typer.Option("main", "--branch", "-b", help="Branch to index"),
+    model_provider: str = typer.Option("local", "--model-provider", help="LLM provider: local | openai | anthropic | google"),
+    model_name: str = typer.Option("qwen3:4b", "--model-name", help="Model name for the enrichment pipeline"),
+    api_key: str = typer.Option("", "--api-key", help="API key for cloud LLM provider (or use env vars)"),
+    embedder: str = typer.Option("native", "--embedder", help="Embedding engine: native (ONNX, CPU) | ollama"),
+    full: bool = typer.Option(False, "--full", help="Force a full rebuild (skip incremental diffing)"),
+    s3_endpoint: str = typer.Option("", "--s3-endpoint", help="S3-compatible endpoint URL (or CODRAG_S3_ENDPOINT env)"),
+    s3_bucket: str = typer.Option("", "--s3-bucket", help="S3 bucket name (or CODRAG_S3_BUCKET env)"),
+    s3_prefix: str = typer.Option("", "--s3-prefix", help="S3 key prefix for this project (or CODRAG_S3_PREFIX env)"),
+    s3_access_key: str = typer.Option("", "--s3-access-key", help="S3 access key (or CODRAG_S3_ACCESS_KEY env)"),
+    s3_secret_key: str = typer.Option("", "--s3-secret-key", help="S3 secret key (or CODRAG_S3_SECRET_KEY env)"),
+) -> None:
+    """
+    Run the headless indexing pipeline for team sync.
+
+    Clones (or uses) a repository, runs the 10-stage enrichment pipeline,
+    and uploads the resulting index artifacts to an S3-compatible bucket.
+
+    \b
+    Quick Start (CPU + BYOK):
+      codrag sync-headless --repo-path . --model-provider openai --model-name gpt-4.1-mini
+
+    \b
+    GPU + Local LLM:
+      codrag sync-headless --repo-url https://github.com/org/repo --model-provider local --model-name qwen3:4b
+
+    S3 credentials can be passed via flags or environment variables
+    (CODRAG_S3_ENDPOINT, CODRAG_S3_BUCKET, CODRAG_S3_ACCESS_KEY, CODRAG_S3_SECRET_KEY).
+    """
+    import logging
+    logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(name)s: %(message)s")
+
+    from codrag.services.s3_storage import S3Config
+    from codrag.services.headless_runner import HeadlessRunner, HeadlessConfig
+
+    if not repo_url and not repo_path:
+        console.print("[red]Error: Either --repo-url or --repo-path is required.[/red]")
+        raise typer.Exit(1)
+
+    # Build S3 config from flags + env vars (flags take priority)
+    s3_cfg = S3Config.from_env()
+    if s3_endpoint:
+        s3_cfg.endpoint = s3_endpoint
+    if s3_bucket:
+        s3_cfg.bucket = s3_bucket
+    if s3_prefix:
+        s3_cfg.prefix = s3_prefix
+    if s3_access_key:
+        s3_cfg.access_key = s3_access_key
+    if s3_secret_key:
+        s3_cfg.secret_key = s3_secret_key
+
+    # Validate S3 config if any S3 fields are set
+    has_s3 = bool(s3_cfg.bucket)
+    if has_s3:
+        errors = s3_cfg.validate()
+        if errors:
+            for e in errors:
+                console.print(f"[red]S3 config error: {e}[/red]")
+            raise typer.Exit(1)
+
+    # Resolve API key from flag or env
+    resolved_api_key = api_key
+    if not resolved_api_key:
+        if model_provider == "openai":
+            resolved_api_key = os.environ.get("OPENAI_API_KEY", "")
+        elif model_provider == "anthropic":
+            resolved_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        elif model_provider == "google":
+            resolved_api_key = os.environ.get("GOOGLE_API_KEY", "")
+
+    config = HeadlessConfig(
+        repo_url=repo_url,
+        repo_path=repo_path,
+        branch=branch,
+        model_provider=model_provider,
+        model_name=model_name,
+        api_key=resolved_api_key,
+        embedder=embedder,
+        full_rebuild=full,
+        s3=s3_cfg if has_s3 else None,
+    )
+
+    console.print(f"[cyan]CoDRAG Headless Sync[/cyan]")
+    console.print(f"  Repo: {repo_url or repo_path}")
+    console.print(f"  Branch: {branch}")
+    console.print(f"  Model: {model_provider}/{model_name}")
+    console.print(f"  Embedder: {embedder}")
+    console.print(f"  S3: {'s3://' + s3_cfg.bucket + '/' + s3_cfg.prefix if has_s3 else 'disabled (local only)'}")
+    console.print(f"  Mode: {'full rebuild' if full else 'incremental'}")
+    console.print()
+
+    try:
+        runner = HeadlessRunner(config)
+        manifest = runner.run()
+        console.print(f"[green]Sync complete.[/green]")
+        if manifest.commit_sha:
+            console.print(f"  Commit: {manifest.commit_sha[:12]}")
+        if manifest.artifact_count:
+            console.print(f"  Artifacts: {manifest.artifact_count}")
+    except NotImplementedError as e:
+        console.print(f"[yellow]Pipeline wiring not yet implemented: {e}[/yellow]")
+        console.print("[dim]This is tracked as P06-S05 in the Phase 06 roadmap.[/dim]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Headless sync failed: {e}[/red]")
+        raise typer.Exit(1)
 
 
 def main() -> None:

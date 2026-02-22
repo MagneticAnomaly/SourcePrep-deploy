@@ -548,6 +548,16 @@ def start_project_watch(
 ) -> Dict[str, Any]:
     """Enable auto-rebuild watcher for a project."""
     require_feature("auto_rebuild")
+    
+    from codrag.services.project_helpers import is_over_project_limit
+    if is_over_project_limit():
+        raise ApiException(
+            status_code=403,
+            code="PROJECT_LIMIT_EXCEEDED",
+            message="Cannot start watcher: Project limit exceeded for current tier",
+            hint="Upgrade your plan or remove projects to resume syncing."
+        )
+
     proj = _srv()._require_project(project_id)
     idx = _srv()._get_project_index(proj)
     
@@ -557,6 +567,11 @@ def start_project_watch(
         existing.stop()
     
     def trigger_build(paths: List[str]) -> bool:
+        from codrag.services.project_helpers import is_over_project_limit
+        if is_over_project_limit():
+            logger.info("Auto-rebuild skipped for %s — project limit exceeded", proj.id)
+            return False
+
         # Guard: skip auto-rebuild while the pipeline orchestrator is
         # actively running stages — the code-index atomic swap would race
         # with pipeline file writes and could snapshot stale data.
@@ -968,6 +983,15 @@ def list_project_files(
 
 @router.post("/projects/{project_id}/build")
 def build_project(project_id: str, full: bool = False, req: Optional[BuildRequest] = None) -> Dict[str, Any]:
+    from codrag.services.project_helpers import is_over_project_limit
+    if is_over_project_limit():
+        raise ApiException(
+            status_code=403,
+            code="PROJECT_LIMIT_EXCEEDED",
+            message="Cannot build index: Project limit exceeded for current tier",
+            hint="Upgrade your plan or remove projects to resume syncing."
+        )
+
     proj = _srv()._require_project(project_id)
 
     cfg = proj.config or {}

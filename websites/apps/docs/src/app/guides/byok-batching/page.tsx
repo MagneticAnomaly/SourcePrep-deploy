@@ -22,7 +22,7 @@ export default function Page() {
               Privacy Notice
             </h4>
             <p className="mt-2 text-sm">
-              CoDRAG only sends data to external LLM providers when <strong>you</strong> configure
+              CoDRAG only sends data to external LLM providers when <span className="font-semibold text-text">you</span> configure
               a BYOK (Bring Your Own Key) endpoint and explicitly trigger a build.
               By default, all processing is local. See our{' '}
               <a href="https://github.com/nicobailey/CoDRAG/blob/main/public/codrag-mcp/PRIVACY.md" className="text-primary hover:underline">
@@ -40,13 +40,13 @@ export default function Page() {
             file in your project.
           </p>
           <p>
-            When using a <strong>local model</strong> (e.g., via Ollama), CoDRAG sends one file at
+            When using a <span className="font-semibold text-text">local model</span> (e.g., via Ollama), CoDRAG sends one file at
             a time to the model. This is fast locally and costs nothing.
           </p>
           <p>
-            When using a <strong>cloud model</strong> (BYOK), sending files one at a time would mean
+            When using a <span className="font-semibold text-text">cloud model</span> (BYOK), sending files one at a time would mean
             hundreds of individual API calls &mdash; each with network latency and repeated overhead.
-            Instead, CoDRAG <strong>batches multiple files into a single API call</strong>, getting
+            Instead, CoDRAG <span className="font-semibold text-text">batches multiple files into a single API call</span>, getting
             results for many files at once.
           </p>
 
@@ -56,19 +56,19 @@ export default function Page() {
           </p>
           <ul className="list-disc pl-6 space-y-2">
             <li>
-              <strong>Catalogue stage:</strong> File names, symbol names, imports, and the first
+              <span className="font-semibold text-text">Catalogue stage:</span> File names, symbol names, imports, and the first
               ~30 lines of each file.
             </li>
             <li>
-              <strong>Inferred edges stage:</strong> Source code for each file, plus a list of
+              <span className="font-semibold text-text">Inferred edges stage:</span> Source code for each file, plus a list of
               known file paths in the project (for relationship detection).
             </li>
             <li>
-              <strong>Epistemic enrichment:</strong> Source excerpts (up to 150 lines for code,
+              <span className="font-semibold text-text">Epistemic enrichment:</span> Source excerpts (up to 150 lines for code,
               up to 3000 lines for documentation), plus summaries of neighboring files.
             </li>
             <li>
-              <strong>Clustering:</strong> Previously-generated summaries of files in each cluster
+              <span className="font-semibold text-text">Clustering:</span> Previously-generated summaries of files in each cluster
               (not raw source code).
             </li>
           </ul>
@@ -79,7 +79,7 @@ export default function Page() {
 
           <AnchorHeading id="how-batching-works" level="h2">How Batching Works</AnchorHeading>
           <p>
-            CoDRAG automatically selects a <strong>batch profile</strong> based on the model you
+            CoDRAG automatically selects a <span className="font-semibold text-text">batch profile</span> based on the model you
             configure. The profile determines how many files are processed per API call at
             each pipeline stage.
           </p>
@@ -88,29 +88,29 @@ export default function Page() {
             <table className="w-full text-sm border border-border">
               <thead>
                 <tr className="bg-surface">
-                  <th className="p-3 text-left border-b border-border">Profile</th>
-                  <th className="p-3 text-left border-b border-border">Models</th>
-                  <th className="p-3 text-left border-b border-border">Typical items/call</th>
+                  <th className="p-3 text-left border-b border-border text-text">Profile</th>
+                  <th className="p-3 text-left border-b border-border text-text">Models</th>
+                  <th className="p-3 text-left border-b border-border text-text">Typical items/call</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td className="p-3 border-b border-border font-medium">Large</td>
+                  <td className="p-3 border-b border-border font-medium text-text">Large</td>
                   <td className="p-3 border-b border-border text-text-muted">Claude Sonnet 4.5+, Gemini 2.5 Pro</td>
                   <td className="p-3 border-b border-border">50&ndash;100</td>
                 </tr>
                 <tr>
-                  <td className="p-3 border-b border-border font-medium">Standard</td>
+                  <td className="p-3 border-b border-border font-medium text-text">Standard</td>
                   <td className="p-3 border-b border-border text-text-muted">GPT-4.1, GPT-5, Claude 3</td>
                   <td className="p-3 border-b border-border">25&ndash;50</td>
                 </tr>
                 <tr>
-                  <td className="p-3 border-b border-border font-medium">Compact</td>
+                  <td className="p-3 border-b border-border font-medium text-text">Compact</td>
                   <td className="p-3 border-b border-border text-text-muted">DeepSeek, GPT-4o, Gemini Flash, Haiku 3.5</td>
                   <td className="p-3 border-b border-border">10&ndash;20</td>
                 </tr>
                 <tr>
-                  <td className="p-3 border-b border-border font-medium">Local</td>
+                  <td className="p-3 border-b border-border font-medium text-text">Local</td>
                   <td className="p-3 border-b border-border text-text-muted">Ollama, LM Studio</td>
                   <td className="p-3 border-b border-border">1 (no batching)</td>
                 </tr>
@@ -120,21 +120,21 @@ export default function Page() {
 
           <p>
             The profile is selected automatically when you configure a model. You can override
-            it in <strong>Settings &gt; AI Models</strong> if needed.
+            it in <span className="font-semibold text-text">Settings &gt; AI Models</span> if needed.
           </p>
 
           <AnchorHeading id="benefits" level="h2">Benefits</AnchorHeading>
           <ul className="list-disc pl-6 space-y-2">
             <li>
-              <strong>Faster builds:</strong> A 200-file project completes in ~8 API calls
+              <span className="font-semibold text-text">Faster builds:</span> A 200-file project completes in ~8 API calls
               instead of ~200, finishing in under a minute instead of 10&ndash;15 minutes.
             </li>
             <li>
-              <strong>Lower cost:</strong> Batching amortizes per-call overhead (system prompts,
+              <span className="font-semibold text-text">Lower cost:</span> Batching amortizes per-call overhead (system prompts,
               instructions) across many items, saving ~25&ndash;33% on token costs.
             </li>
             <li>
-              <strong>Same results:</strong> Each file receives the same analysis whether
+              <span className="font-semibold text-text">Same results:</span> Each file receives the same analysis whether
               processed individually or in a batch. The prompts and expected outputs are identical.
             </li>
           </ul>
@@ -142,7 +142,7 @@ export default function Page() {
           <AnchorHeading id="structured-output" level="h2">Structured Output &amp; Reliability</AnchorHeading>
           <p>
             When supported by the provider (OpenAI, Anthropic, Google), CoDRAG uses{' '}
-            <strong>structured output mode</strong> &mdash; a JSON schema that guarantees the model
+            <span className="font-semibold text-text">structured output mode</span> &mdash; a JSON schema that guarantees the model
             returns valid, correctly-formatted results. This eliminates parse errors and ensures
             every item in the batch produces a usable result.
           </p>

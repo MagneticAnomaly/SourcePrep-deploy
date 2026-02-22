@@ -17,8 +17,8 @@ export default function Page() {
           
           <AnchorHeading id="prerequisites" level="h2">Prerequisites</AnchorHeading>
           <ul className="list-disc pl-5 text-sm text-text-muted">
-            <li><strong>OS:</strong> macOS (11+) or Windows (10+). Linux is supported but experimental.</li>
-            <li><strong>Disk:</strong> ~500 MB for the app + embedding model. Index size depends on your codebase.</li>
+            <li><span className="font-semibold text-text">OS:</span> macOS (11+) or Windows (10+). Linux is supported but experimental.</li>
+            <li><span className="font-semibold text-text">Disk:</span> ~500 MB for the app + embedding model. Index size depends on your codebase.</li>
           </ul>
 
           <AnchorHeading id="download" level="h2" className="mt-8">Download</AnchorHeading>
@@ -48,7 +48,7 @@ export default function Page() {
           <AnchorHeading id="install-macos" level="h3" className="mt-6">macOS</AnchorHeading>
           <ol className="list-decimal pl-5 text-sm text-text-muted space-y-2">
             <li>Open the downloaded <code>.dmg</code> file.</li>
-            <li>Drag <strong>CoDRAG</strong> into your Applications folder.</li>
+            <li>Drag <span className="font-semibold text-text">CoDRAG</span> into your Applications folder.</li>
             <li>Launch CoDRAG from Applications (or Spotlight: <code>Cmd+Space</code> → &quot;CoDRAG&quot;).</li>
           </ol>
           <p className="text-sm text-text-muted mt-2">
@@ -76,12 +76,12 @@ export default function Page() {
 
           <AnchorHeading id="licensing" level="h2" className="mt-8">Licensing</AnchorHeading>
           <p>
-            CoDRAG is <strong>free to use</strong> with 1 active project. To unlock additional projects
+            CoDRAG is <span className="font-semibold text-text">free to use</span> with 1 active project. To unlock additional projects
             and advanced features, purchase a license at{' '}
             <a href="https://codrag.io/pricing" className="text-primary hover:underline">codrag.io/pricing</a>.
           </p>
           <p className="text-sm text-text-muted mt-2">
-            Payments are processed by <strong>Lemon Squeezy</strong> (our Merchant of Record). After purchase,
+            Payments are processed by <span className="font-semibold text-text">Lemon Squeezy</span> (our Merchant of Record). After purchase,
             enter your license key in the app to activate. Activation requires a one-time internet connection;
             after that, CoDRAG works fully offline.
           </p>

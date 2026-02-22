@@ -53,10 +53,10 @@ export function WatchControlPanel({
             type="button"
             onClick={onUpgrade}
             className="flex items-center gap-1.5 rounded-md border border-amber-400/40 bg-amber-50/60 dark:bg-amber-900/20 px-2.5 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-100/80 dark:hover:bg-amber-900/40 transition-colors"
-            title="Live Sync requires Monthly plan or above"
+            title="Live Sync requires Pro plan"
           >
             <Lock className="w-3 h-3 shrink-0" />
-            <span>Monthly feature</span>
+            <span>Pro feature</span>
             <ArrowUpRight className="w-3 h-3 shrink-0" />
           </button>
         ) : (
@@ -83,7 +83,7 @@ export function WatchControlPanel({
                 onClick={onUpgrade}
                 className="text-primary underline underline-offset-2 hover:no-underline"
               >
-                Upgrade to Monthly
+                Upgrade to Pro
               </button>
               {' '}to enable.
             </>

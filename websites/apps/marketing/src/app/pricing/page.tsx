@@ -102,9 +102,9 @@ export default function Page() {
             </Button>
           </div>
 
-          {/* Monthly */}
+          {/* Pro Monthly */}
           <div className="rounded-xl border border-border bg-surface p-6 flex flex-col">
-            <div className="text-sm font-semibold text-text-muted uppercase tracking-wide">Monthly</div>
+            <div className="text-sm font-semibold text-text-muted uppercase tracking-wide">Pro <span className="text-text-subtle font-normal normal-case">— monthly</span></div>
             <div className="mt-3">
               <span className="text-4xl font-bold">{formatPrice(prices.monthly)}</span>
               <span className="text-text-muted ml-1">/ month</span>
@@ -135,7 +135,7 @@ export default function Page() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-text-subtle mt-0.5">&#8594;</span>
-                <span className="text-text-muted">Switch to Perpetual anytime to own it outright</span>
+                <span className="text-text-muted">Switch to one-time payment anytime to own it outright</span>
               </li>
             </ul>
             <Button asChild variant="outline" className="mt-6 w-full">
@@ -143,12 +143,12 @@ export default function Page() {
             </Button>
           </div>
 
-          {/* Perpetual — highlighted */}
+          {/* Pro Perpetual — highlighted */}
           <div className="rounded-xl border-2 border-primary bg-gradient-to-br from-primary/5 to-transparent p-6 flex flex-col relative">
             <div className="absolute -top-3 right-4 bg-primary text-background text-xs font-bold px-3 py-1 rounded-full">
               Best Value
             </div>
-            <div className="text-sm font-semibold text-primary uppercase tracking-wide">Perpetual</div>
+            <div className="text-sm font-semibold text-primary uppercase tracking-wide">Pro <span className="font-normal normal-case">— one-time</span></div>
             <div className="mt-3">
               <span className="text-4xl font-bold">{formatPrice(prices.perpetual)}</span>
               <span className="text-text-muted ml-1">one-time</span>
@@ -159,7 +159,7 @@ export default function Page() {
             <ul className="mt-6 space-y-3 text-sm flex-1">
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span><strong>Everything in Monthly</strong></span>
+                <span><strong>All Pro features</strong></span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
@@ -175,7 +175,7 @@ export default function Page() {
               </li>
             </ul>
             <Button asChild className="mt-6 w-full">
-              <a href={getCheckoutUrl(LS_CHECKOUT_URLS.perpetual, country)}>Buy Perpetual License</a>
+              <a href={getCheckoutUrl(LS_CHECKOUT_URLS.perpetual, country)}>Get Pro — One-Time</a>
             </Button>
           </div>
         </div>
@@ -196,7 +196,7 @@ export default function Page() {
             <ul className="mt-4 space-y-2 text-sm">
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Everything in Perpetual, plus team management</span>
+                <span>Everything in Pro, plus team management</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>

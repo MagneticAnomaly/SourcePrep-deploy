@@ -88,13 +88,13 @@ export default function Page() {
                     </div>
 
                     <div className="border border-border p-6 rounded-sm bg-surface-raised">
-                       <h3 className="font-bold text-text mb-2">Paid Licenses (Monthly / Perpetual / Team)</h3>
+                       <h3 className="font-bold text-text mb-2">Paid Licenses (Pro / Team)</h3>
                        <p className="text-sm text-text-muted mb-4">
                          Grants non-exclusive, non-transferable right to use CoDRAG on specified number of machines.
                        </p>
                        <ul className="space-y-2 text-xs font-mono text-text-subtle">
-                         <li>- Perpetual: One-time license (does not expire).</li>
-                         <li>- Monthly/Team: Subscription (active while paid).</li>
+                         <li>- Pro (one-time): Perpetual license, does not expire.</li>
+                         <li>- Pro (monthly) / Team: Subscription, active while paid.</li>
                        </ul>
                     </div>
 

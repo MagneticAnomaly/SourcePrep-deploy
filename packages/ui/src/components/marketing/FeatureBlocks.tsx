@@ -157,7 +157,7 @@ export const codragFeatures: Feature[] = [
     icon: <Brain className="w-8 h-8" />,
     title: 'Graph Enrichment',
     description: 'A 9-stage pipeline that deepens understanding over time. Rust builds the structural skeleton, a Fast model catalogues every file, then a Thinking model reasons about each node in graph context — adding domain tags, architecture layers, and doc↔code cross-references. An understanding score (0.0–1.0) tracks how well the system comprehends each file, decaying when code changes and rising as knowledge crystallizes.',
-    badge: 'Monthly+',
+    badge: 'Pro',
     href: 'https://docs.codrag.io/concepts/graph-enrichment',
     external: true,
   },
@@ -176,7 +176,7 @@ export const codragFeatures: Feature[] = [
   {
     icon: <SlidersHorizontal className="w-8 h-8" />,
     title: 'Path Weights — You Steer the Signal',
-    description: 'Boost src/core/ to 1.5× so your domain logic always surfaces first. Set vendor/ to zero to silence noise. Hierarchical, instant, no rebuild required.',
+    description: 'Boost docs/style-guide.md to 1.5× so your design rules always surface first. Dial down src/components/ui/ to 0.5× to lower the volume on generic components. Hierarchical, instant, no rebuild required.',
     badge: 'New',
     highlight: true,
   },

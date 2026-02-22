@@ -26,9 +26,9 @@ export default function Page() {
             CoDRAG gathers candidates from multiple sources:
           </p>
           <ul className="list-disc pl-5">
-            <li><strong>Semantic Search:</strong> Top-K chunks via vector similarity.</li>
-            <li><strong>Keyword Search:</strong> BM25 matches for exact terms.</li>
-            <li><strong>Code Graph:</strong> Related definitions and call sites (if trace expansion is on).</li>
+            <li><span className="font-semibold text-text">Semantic Search:</span> Top-K chunks via vector similarity.</li>
+            <li><span className="font-semibold text-text">Keyword Search:</span> BM25 matches for exact terms.</li>
+            <li><span className="font-semibold text-text">Code Graph:</span> Related definitions and call sites (if trace expansion is on).</li>
           </ul>
 
           <AnchorHeading id="scoring" level="h3" className="text-lg font-semibold mt-6">2. Scoring & Weighting</AnchorHeading>
@@ -36,11 +36,11 @@ export default function Page() {
             Candidates are re-scored based on:
           </p>
           <ul className="list-disc pl-5">
-            <li><strong>Relevance:</strong> The raw vector distance.</li>
-            <li><strong>Query Intent:</strong> CoDRAG classifies your query (e.g. &quot;docs&quot;, &quot;tests&quot;, &quot;code&quot;, or &quot;default&quot;) and automatically adjusts role weights. For example, &quot;how to use auth&quot; boosts documentation, while &quot;auth test failure&quot; boosts test files.</li>
-            <li><strong>Path Weights:</strong> User-defined multipliers (e.g. boost <code>src/core</code> by 1.5x, suppress <code>tests/</code> by 0.5x).</li>
-            <li><strong>Priming:</strong> Files named <code>AGENTS.md</code>, <code>CODRAG_PRIMER.md</code>, or <code>PROJECT_PRIMER.md</code> receive a global score boost (default +0.25). These files are ideal for high-level architectural overviews that should be considered relevant to most queries.</li>
-            <li><strong>Recency:</strong> Slight boost for recently modified files (configurable).</li>
+            <li><span className="font-semibold text-text">Relevance:</span> The raw vector distance.</li>
+            <li><span className="font-semibold text-text">Query Intent:</span> CoDRAG classifies your query (e.g. &quot;docs&quot;, &quot;tests&quot;, &quot;code&quot;, or &quot;default&quot;) and automatically adjusts role weights. For example, &quot;how to use auth&quot; boosts documentation, while &quot;auth test failure&quot; boosts test files.</li>
+            <li><span className="font-semibold text-text">Path Weights:</span> User-defined multipliers (e.g. boost <code>src/core</code> by 1.5x, suppress <code>tests/</code> by 0.5x).</li>
+            <li><span className="font-semibold text-text">Priming:</span> Files named <code>AGENTS.md</code>, <code>CODRAG_PRIMER.md</code>, or <code>PROJECT_PRIMER.md</code> receive a global score boost (default +0.25). These files are ideal for high-level architectural overviews that should be considered relevant to most queries.</li>
+            <li><span className="font-semibold text-text">Recency:</span> Slight boost for recently modified files (configurable).</li>
           </ul>
 
           <AnchorHeading id="budgeting" level="h3" className="text-lg font-semibold mt-6">3. Budgeting & Truncation</AnchorHeading>
@@ -55,10 +55,10 @@ export default function Page() {
 
           <AnchorHeading id="compression" level="h3" className="text-lg font-semibold mt-6">4. Smart Compression</AnchorHeading>
           <p>
-            When compression is enabled, CoDRAG uses two engines. <strong>Code files</strong> are structurally
+            When compression is enabled, CoDRAG uses two engines. <span className="font-semibold text-text">Code files</span> are structurally
             compressed at a Level of Detail (LOD) determined by relevance score &mdash; top results stay full,
             mid-relevance shows signatures, peripheral files show names only (3&ndash;20&times;, no model needed).
-            <strong>Documentation</strong> is compressed with a lightweight language model that removes filler
+            <span className="font-semibold text-text">Documentation</span> is compressed with a lightweight language model that removes filler
             while preserving meaning (~1.6&times;, 89% concept retention). Both run on CPU.
           </p>
 
@@ -72,7 +72,7 @@ export default function Page() {
 
           <AnchorHeading id="ui-controls" level="h2">Context Panel Controls</AnchorHeading>
           <p>
-            The <strong>Context Assembler</strong> panel in the dashboard lets you tune this pipeline for your specific needs.
+            The <span className="font-semibold text-text">Context Assembler</span> panel in the dashboard lets you tune this pipeline for your specific needs.
           </p>
 
           <div className="grid gap-6 md:grid-cols-2 mt-8">
@@ -80,11 +80,11 @@ export default function Page() {
               <h4 className="font-semibold text-text mb-2">Retrieval Settings</h4>
               <ul className="space-y-3 text-sm text-text-muted">
                 <li>
-                  <strong className="text-text">Chunks (k):</strong> Controls how many distinct code blocks are retrieved from the vector database. 
+                  <span className="font-semibold text-text">Chunks (k):</span> Controls how many distinct code blocks are retrieved from the vector database. 
                   <br/><span className="text-xs">Default: 20. Increase for broad queries, decrease for precision.</span>
                 </li>
                 <li>
-                  <strong className="text-text">Max Chars:</strong> The hard limit for the final output. CoDRAG will stop adding chunks once this budget is hit.
+                  <span className="font-semibold text-text">Max Chars:</span> The hard limit for the final output. CoDRAG will stop adding chunks once this budget is hit.
                   <br/><span className="text-xs">Default: 24,000 chars (fits comfortably in most 32k context windows).</span>
                 </li>
               </ul>
@@ -94,15 +94,15 @@ export default function Page() {
               <h4 className="font-semibold text-text mb-2">Output Toggles</h4>
               <ul className="space-y-3 text-sm text-text-muted">
                 <li>
-                  <strong className="text-text">Sources:</strong> Adds the <code>@path/to/file:line-line</code> citation header to each chunk.
+                  <span className="font-semibold text-text">Sources:</span> Adds the <code>@path/to/file:line-line</code> citation header to each chunk.
                   <br/><span className="text-xs">Essential for AI editors to provide clickable links.</span>
                 </li>
                 <li>
-                  <strong className="text-text">Scores:</strong> Appends the relevance score (0.0-1.0) to each chunk.
+                  <span className="font-semibold text-text">Scores:</span> Appends the relevance score (0.0-1.0) to each chunk.
                   <br/><span className="text-xs">Useful for debugging why a specific piece of code was included.</span>
                 </li>
                 <li>
-                  <strong className="text-text">Structured:</strong> Returns a JSON object instead of a text blob.
+                  <span className="font-semibold text-text">Structured:</span> Returns a JSON object instead of a text blob.
                   <br/><span className="text-xs">Use this when building programmatic integrations.</span>
                 </li>
               </ul>

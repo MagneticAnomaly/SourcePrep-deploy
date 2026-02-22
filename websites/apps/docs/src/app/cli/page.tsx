@@ -45,13 +45,13 @@ export default function Page() {
           <AnchorHeading id="common-workflows" level="h3">Common Workflows</AnchorHeading>
           <ul className="list-disc pl-5">
             <li>
-              <strong>Running the Server:</strong> <code>codrag serve</code> (Required for Dashboard & MCP)
+              <span className="font-semibold text-text">Running the Server:</span> <code>codrag serve</code> (Required for Dashboard & MCP)
             </li>
             <li>
-              <strong>Adding Projects:</strong> <code>codrag add .</code>
+              <span className="font-semibold text-text">Adding Projects:</span> <code>codrag add .</code>
             </li>
             <li>
-              <strong>Debugging:</strong> <code>codrag status</code> and <code>codrag search "query"</code>
+              <span className="font-semibold text-text">Debugging:</span> <code>codrag status</code> and <code>codrag search "query"</code>
             </li>
           </ul>
         </div>

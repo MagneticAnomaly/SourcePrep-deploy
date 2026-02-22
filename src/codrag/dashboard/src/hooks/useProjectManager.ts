@@ -147,6 +147,39 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     }
   }, [projects, selectedProjectId])
 
+  // ── Auto-poll while building (catches scope-triggered & other auto-builds) ──
+  useEffect(() => {
+    if (!selectedProjectId) return
+    const ps = projectStatuses[selectedProjectId]
+    // Only start polling if the backend reports building but we didn't
+    // initiate it ourselves (handleBuild already has its own poll loop).
+    if (!ps?.building || buildingProjects.has(selectedProjectId)) return
+
+    const poll = setInterval(async () => {
+      try {
+        const status = await api.getProjectStatus(selectedProjectId)
+        setProjectStatuses((prev) => ({ ...prev, [selectedProjectId]: status }))
+        if (!status.building) {
+          clearInterval(poll)
+          // Transient complete state for 5s
+          setTransientCompleteProjects((prev) => new Set(prev).add(selectedProjectId))
+          setTimeout(() => {
+            setTransientCompleteProjects((prev) => {
+              const next = new Set(prev)
+              next.delete(selectedProjectId)
+              return next
+            })
+          }, 5000)
+          void fetchFileTreeRef.current?.(selectedProjectId)
+        }
+      } catch {
+        // Silently ignore poll errors
+      }
+    }, 2000)
+
+    return () => clearInterval(poll)
+  }, [api, selectedProjectId, projectStatuses, buildingProjects])
+
   // ── Actions ──────────────────────────────────────────────────
 
   const handleAddProject = useCallback(async (path: string, name: string, mode: ProjectMode, indexPath?: string) => {

@@ -1,11 +1,10 @@
 "use client";
 
 import { Button } from '@codrag/ui';
-import { CreditCard, RefreshCw, Mail, HelpCircle, Repeat, Infinity, Users } from 'lucide-react';
+import { RefreshCw, Mail, HelpCircle, Zap, Users } from 'lucide-react';
 
-const CHECKOUT_MONTHLY  = process.env.NEXT_PUBLIC_LS_CHECKOUT_MONTHLY  ?? '';
-const CHECKOUT_PERPETUAL = process.env.NEXT_PUBLIC_LS_CHECKOUT_PERPETUAL ?? '';
-const CHECKOUT_TEAM     = process.env.NEXT_PUBLIC_LS_CHECKOUT_TEAM      ?? '';
+const CHECKOUT_PRO  = process.env.NEXT_PUBLIC_LS_CHECKOUT_PERPETUAL ?? '';
+const CHECKOUT_TEAM = process.env.NEXT_PUBLIC_LS_CHECKOUT_TEAM      ?? '';
 
 export default function Page() {
   return (
@@ -20,28 +19,14 @@ export default function Page() {
         </div>
 
         {/* Product checkout cards */}
-        <div className="grid gap-6 sm:grid-cols-3 max-w-4xl mx-auto">
-          <div className="rounded-xl border border-border bg-surface p-6 flex flex-col items-center text-center">
-            <Repeat className="w-8 h-8 text-primary mb-3" />
-            <h2 className="text-lg font-semibold">Monthly</h2>
-            <p className="mt-1 text-sm text-text-muted">$7/mo — full features, cancel anytime.</p>
-            <Button asChild variant="outline" className="mt-4 w-full">
-              <a href={CHECKOUT_MONTHLY || 'https://codrag.io/pricing'}>
-                {CHECKOUT_MONTHLY ? 'Subscribe' : 'View Pricing'}
-              </a>
-            </Button>
-          </div>
-
+        <div className="grid gap-6 sm:grid-cols-2 max-w-3xl mx-auto">
           <div className="rounded-xl border-2 border-primary bg-gradient-to-br from-primary/5 to-transparent p-6 flex flex-col items-center text-center relative">
-            <div className="absolute -top-3 right-4 bg-primary text-background text-xs font-bold px-3 py-1 rounded-full">
-              Best Value
-            </div>
-            <Infinity className="w-8 h-8 text-primary mb-3" />
-            <h2 className="text-lg font-semibold">Perpetual</h2>
-            <p className="mt-1 text-sm text-text-muted">$79 once — yours forever.</p>
+            <Zap className="w-8 h-8 text-primary mb-3" />
+            <h2 className="text-lg font-semibold">Pro</h2>
+            <p className="mt-1 text-sm text-text-muted">$79 one-time or $7/mo. Unlimited projects, all features.</p>
             <Button asChild className="mt-4 w-full">
-              <a href={CHECKOUT_PERPETUAL || 'https://codrag.io/pricing'}>
-                {CHECKOUT_PERPETUAL ? 'Buy Now' : 'View Pricing'}
+              <a href={CHECKOUT_PRO || 'https://codrag.io/pricing'}>
+                {CHECKOUT_PRO ? 'Get Pro' : 'View Pricing'}
               </a>
             </Button>
           </div>
@@ -49,7 +34,7 @@ export default function Page() {
           <div className="rounded-xl border border-border bg-surface p-6 flex flex-col items-center text-center">
             <Users className="w-8 h-8 text-primary mb-3" />
             <h2 className="text-lg font-semibold">Team</h2>
-            <p className="mt-1 text-sm text-text-muted">$15/seat/mo — shared config + management.</p>
+            <p className="mt-1 text-sm text-text-muted">$15/seat/mo. Shared config + centralized management.</p>
             <Button asChild variant="outline" className="mt-4 w-full">
               <a href={CHECKOUT_TEAM || 'https://codrag.io/pricing'}>
                 {CHECKOUT_TEAM ? 'Start Team' : 'View Pricing'}

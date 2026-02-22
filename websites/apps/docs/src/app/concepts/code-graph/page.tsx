@@ -19,7 +19,7 @@ export default function Page() {
             at precision (&quot;where is the <code>User</code> struct defined and what calls it?&quot;).
           </p>
           <p>
-            To solve this, CoDRAG maintains a parallel <strong>Code Graph</strong> — a directed graph 
+            To solve this, CoDRAG maintains a parallel <span className="font-semibold text-text">Code Graph</span> — a directed graph 
             of your codebase's structure.
           </p>
 
@@ -28,9 +28,9 @@ export default function Page() {
             The Code Graph is built by a high-performance Rust engine (`codrag-engine`) that runs alongside the Python daemon.
           </p>
           <ul className="list-disc pl-5">
-            <li><strong>Speed:</strong> Parses ~50k files in seconds.</li>
-            <li><strong>Accuracy:</strong> Uses Tree-sitter to generate concrete syntax trees (CSTs) for accurate symbol extraction.</li>
-            <li><strong>Multi-language:</strong> Supports Python, TypeScript, JavaScript, Go, Rust, Java, C, and C++.</li>
+            <li><span className="font-semibold text-text">Speed:</span> Parses ~50k files in seconds.</li>
+            <li><span className="font-semibold text-text">Accuracy:</span> Uses Tree-sitter to generate concrete syntax trees (CSTs) for accurate symbol extraction.</li>
+            <li><span className="font-semibold text-text">Multi-language:</span> Supports Python, TypeScript, JavaScript, Go, Rust, Java, C, and C++.</li>
           </ul>
 
           <AnchorHeading id="the-graph" level="h2">The Graph</AnchorHeading>
@@ -54,17 +54,17 @@ export default function Page() {
 
           <AnchorHeading id="visualization" level="h2">Visualizing the Graph</AnchorHeading>
           <p>
-            The <strong>Code Graph</strong> panel in the dashboard provides an interactive way to explore these relationships.
+            The <span className="font-semibold text-text">Code Graph</span> panel in the dashboard provides an interactive way to explore these relationships.
           </p>
           <ul className="list-disc pl-5 mt-2 mb-6">
-            <li><strong>Interactive Map:</strong> Visualize your project's structure as a network of nodes (files/symbols) and edges (imports/calls).</li>
-            <li><strong>Neighborhood View:</strong> Click any file to see its immediate dependencies (upstream) and consumers (downstream).</li>
-            <li><strong>List View:</strong> Toggle to a detailed list to see exact import counts and symbol references.</li>
+            <li><span className="font-semibold text-text">Interactive Map:</span> Visualize your project's structure as a network of nodes (files/symbols) and edges (imports/calls).</li>
+            <li><span className="font-semibold text-text">Neighborhood View:</span> Click any file to see its immediate dependencies (upstream) and consumers (downstream).</li>
+            <li><span className="font-semibold text-text">List View:</span> Toggle to a detailed list to see exact import counts and symbol references.</li>
           </ul>
 
           <AnchorHeading id="usage" level="h2">Usage</AnchorHeading>
           <p>
-            You generally don&apos;t query the code graph directly. Instead, you enable <strong>Graph Expansion</strong> 
+            You generally don&apos;t query the code graph directly. Instead, you enable <span className="font-semibold text-text">Graph Expansion</span> 
             in your context request (or use the &quot;Trace&quot; keywords in your MCP editor).
           </p>
           <p>
@@ -78,7 +78,7 @@ export default function Page() {
           </ol>
           
           <p className="bg-info/10 border-l-4 border-info p-4 mt-6 text-sm">
-            <strong>Example:</strong> You ask &quot;How is billing calculated?&quot;. <br/>
+            <span className="font-semibold text-text">Example:</span> You ask &quot;How is billing calculated?&quot;. <br/>
             Vector search finds <code>billing.py</code>. <br/>
             The Code Graph notices <code>billing.py</code> imports <code>tax_rates.py</code>. <br/>
             CoDRAG includes <code>tax_rates.py</code> in the context automatically, preventing the AI from hallucinating tax logic.
@@ -86,7 +86,7 @@ export default function Page() {
 
           <AnchorHeading id="knowledge-pipeline" level="h2">The Knowledge Pipeline</AnchorHeading>
           <p>
-            The Code Graph is not a static artifact; it is the backbone of a dynamic <strong>7-Stage Knowledge Pipeline</strong> that transforms raw text into navigable knowledge.
+            The Code Graph is not a static artifact; it is the backbone of a dynamic <span className="font-semibold text-text">7-Stage Knowledge Pipeline</span> that transforms raw text into navigable knowledge.
           </p>
           
           <div className="mt-6 border border-border rounded-lg overflow-hidden">

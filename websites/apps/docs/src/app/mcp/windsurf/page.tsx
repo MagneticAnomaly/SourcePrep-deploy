@@ -27,16 +27,16 @@ export default function Page() {
           <AnchorHeading id="setup" level="h2">Setup</AnchorHeading>
           <ol className="list-decimal pl-6 space-y-4">
             <li>
-              <strong>Ensure CoDRAG is running.</strong> Open the CoDRAG desktop app or run <code>codrag serve</code>.
+              <span className="font-semibold text-text">Ensure CoDRAG is running.</span> Open the CoDRAG desktop app or run <code>codrag serve</code>.
             </li>
             <li>
-              <strong>Configure MCP.</strong> Windsurf reads MCP configuration from <code>~/.codeium/windsurf/mcp_config.json</code> (or via the UI in recent versions).
+              <span className="font-semibold text-text">Configure MCP.</span> Windsurf reads MCP configuration from <code>~/.codeium/windsurf/mcp_config.json</code> (or via the UI in recent versions).
               <p className="mt-2 text-sm text-text-muted">
                 Tip: Run <code>codrag mcp-config --ide windsurf</code> to generate the config block below.
               </p>
             </li>
             <li>
-              <strong>Add Server Config.</strong> Add the CoDRAG command to your config:
+              <span className="font-semibold text-text">Add Server Config.</span> Add the CoDRAG command to your config:
               <pre className="mt-2 overflow-x-auto text-sm">
 {`{
   "mcpServers": {
@@ -51,7 +51,7 @@ export default function Page() {
                 <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
                   <ImageIcon className="w-6 h-6" />
                 </div>
-                <p className="font-medium">Screenshot: Windsurf Config File</p>
+                <p className="font-medium text-text">Screenshot: Windsurf Config File</p>
                 <p className="text-sm text-center">Show the &apos;mcp_config.json&apos; file open in an editor with the codrag configuration added.</p>
               </div>
               <p className="text-sm text-text-muted mt-2">
@@ -69,7 +69,7 @@ export default function Page() {
 
           <h3 className="text-xl font-semibold mt-6">Start with <code>codrag_hi</code></h3>
           <p>
-            The best way to start any session is to select files in the CoDRAG <strong>Knowledge Sources</strong> tree, then type <code>codrag_hi</code> in Cascade&apos;s chat. CoDRAG will tell the AI exactly which files you selected and suggest what to do next.
+            The best way to start any session is to select files in the CoDRAG <span className="font-semibold text-text">Knowledge Sources</span> tree, then type <code>codrag_hi</code> in Cascade&apos;s chat. CoDRAG will tell the AI exactly which files you selected and suggest what to do next.
           </p>
 
           <div className="bg-surface border border-border p-4 rounded-lg font-mono text-sm my-4 space-y-4">
@@ -82,7 +82,7 @@ export default function Page() {
             <div>
                 <span className="text-primary font-bold">Cascade:</span> I&apos;m looking at your project &mdash; you&apos;ve selected 8 design docs and 18 React components in <code>src/components/</code>.
                 <br/><br/>
-                <span className="font-sans text-text-muted text-xs">Your design docs cover: &quot;Overall Upgrade Plan&quot; (phased site redesign), &quot;Hero Section Design&quot; (parallax layout), and &quot;Trust Section with Parallax&quot;. It looks like you&apos;re working on <strong>animation &amp; visuals</strong> (<code>ParallaxController.tsx</code>, <code>CanvasBackground.tsx</code>) and <strong>UI components</strong> (<code>EnhancedHero.tsx</code>, <code>CardsSection.tsx</code>). The most connected components are <code>EnhancedHero.tsx</code> (6 connections) and <code>ParallaxController.tsx</code> (4 connections).</span>
+                <span className="font-sans text-text-muted text-xs">Your design docs cover: &quot;Overall Upgrade Plan&quot; (phased site redesign), &quot;Hero Section Design&quot; (parallax layout), and &quot;Trust Section with Parallax&quot;. It looks like you&apos;re working on <span className="font-semibold text-text">animation &amp; visuals</span> (<code>ParallaxController.tsx</code>, <code>CanvasBackground.tsx</code>) and <span className="font-semibold text-text">UI components</span> (<code>EnhancedHero.tsx</code>, <code>CardsSection.tsx</code>). The most connected components are <code>EnhancedHero.tsx</code> (6 connections) and <code>ParallaxController.tsx</code> (4 connections).</span>
                 <ol className="list-decimal pl-5 mt-2 space-y-1 font-sans text-text-muted">
                   <li>What UI components are here and how do they connect?</li>
                   <li>Compare the design docs to the implementation &mdash; anything out of sync?</li>

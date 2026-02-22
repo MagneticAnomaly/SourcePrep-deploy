@@ -73,10 +73,20 @@ class License:
     seats: int = 1
     features: list = field(default_factory=list)
 
+    # Map internal billing tiers to user-facing product tiers.
+    # MONTHLY and PERPETUAL are both "Pro" — the only difference is billing.
+    _USER_FACING = {
+        "FREE": "free",
+        "MONTHLY": "pro",
+        "PERPETUAL": "pro",
+        "TEAM": "team",
+        "ENTERPRISE": "enterprise",
+    }
+
     @staticmethod
     def _display_tier(tier: 'Tier') -> str:
         """Return the user-facing tier name (lowercase)."""
-        return tier.name.lower()
+        return License._USER_FACING.get(tier.name, tier.name.lower())
 
     def to_dict(self):
         return {
@@ -179,7 +189,7 @@ def require_feature(feature: str) -> None:
     if not check_feature(feature):
         lic = get_license()
         req = FEATURE_TIERS.get(feature)
-        min_tier = req.name.lower() if isinstance(req, Tier) else "monthly"
+        min_tier = License._display_tier(req) if isinstance(req, Tier) else "pro"
         raise FeatureGateError(
             feature=feature,
             current_tier=License._display_tier(lic.tier),

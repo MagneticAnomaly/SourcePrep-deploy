@@ -46,6 +46,8 @@ export interface IndexStatusCardProps {
   onAutoRebuildChange?: (auto: boolean) => void;
   /** Whether user has pro plan (free users get manual-only) */
   isPro?: boolean;
+  /** Whether the user is over their project limit */
+  limitReached?: boolean;
   className?: string;
   bare?: boolean;
   /** Whether to hide the distribution chart (e.g. during transient completion state) */
@@ -75,6 +77,7 @@ export function IndexStatusCard({
   className,
   bare = false,
   hideChart = false,
+  limitReached = false,
 }: IndexStatusCardProps) {
   const showAutoToggle = onAutoRebuildChange !== undefined;
   // Free users are forced to Manual regardless of stored value
@@ -147,11 +150,12 @@ export function IndexStatusCard({
         {onBuild && (!stats.loaded || !isAuto) && (
           <button
             onClick={onBuild}
-            disabled={building}
+            disabled={building || limitReached}
+            title={limitReached ? "Project limit reached. Upgrade to resume syncing." : undefined}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
-              building
-                ? "border-border bg-surface text-text-subtle cursor-wait"
+              (building || limitReached)
+                ? "border-border bg-surface text-text-subtle cursor-not-allowed"
                 : !stats.loaded
                   ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20" // Initialize style
                   : stale

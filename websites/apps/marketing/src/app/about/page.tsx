@@ -87,7 +87,7 @@ export default function Page() {
             <div className="rounded-xl border border-border bg-surface p-5">
               <div className="font-semibold text-text">Own your tools</div>
               <div className="mt-1 text-sm text-text-muted">
-                Perpetual licenses, no subscriptions required for core features.
+                Pro license — pay once, own it forever. No subscriptions required for core features.
                 Your development infrastructure shouldn&apos;t depend on someone else&apos;s uptime.
               </div>
             </div>

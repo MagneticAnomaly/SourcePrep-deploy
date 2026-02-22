@@ -77,6 +77,16 @@ def knowledge_status_project(project_id: str) -> Dict[str, Any]:
 def build_knowledge_project(project_id: str) -> Dict[str, Any]:
     """Trigger knowledge index build."""
     from codrag.server import _require_project, _is_project_knowledge_building, _start_project_knowledge_build
+    from codrag.services.project_helpers import is_over_project_limit
+    
+    if is_over_project_limit():
+        raise ApiException(
+            status_code=403,
+            code="PROJECT_LIMIT_EXCEEDED",
+            message="Cannot build knowledge index: Project limit exceeded for current tier",
+            hint="Upgrade your plan or remove projects to resume syncing."
+        )
+
     proj = _require_project(project_id)
     
     if _is_project_knowledge_building(project_id):

@@ -212,8 +212,8 @@ export default function Page() {
               <div className="text-sm text-text-muted mt-1">Smart compression for code &amp; docs</div>
             </div>
             <div>
-              <div className="text-3xl font-bold text-primary">Perpetual</div>
-              <div className="text-sm text-text-muted mt-1">License available</div>
+              <div className="text-3xl font-bold text-primary">Pro</div>
+              <div className="text-sm text-text-muted mt-1">Own it forever</div>
             </div>
           </div>
           <div className="pt-4">

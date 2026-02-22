@@ -1,0 +1,71 @@
+# CoDRAG Team Sync — GitHub Actions Workflow
+#
+# Copy this file to your repository at .github/workflows/codrag-sync.yml
+# Then configure the secrets in your repo settings.
+#
+# Two modes:
+#   1. CPU + BYOK (default): Runs directly in the Actions runner using an OpenAI/Anthropic key.
+#   2. GPU webhook: Sends a webhook to your RunPod/Modal endpoint.
+#
+# Set MODE secret to "cpu" or "gpu" to choose. Default: cpu.
+
+name: "CoDRAG Team Sync"
+
+on:
+  push:
+    branches: ["main"]  # Add other branches as needed (e.g., "develop", "release/*")
+  workflow_dispatch:     # Allow manual trigger from GitHub UI
+
+concurrency:
+  group: codrag-sync-${{ github.ref }}
+  cancel-in-progress: true  # Cancel stale builds if a new push arrives
+
+jobs:
+  # ── Mode 1: CPU + BYOK (runs in the Actions runner) ─────────
+  sync-cpu:
+    if: ${{ vars.CODRAG_SYNC_MODE != 'gpu' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/ericbintner/codrag-headless:cpu
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build & Upload Index
+        env:
+          CODRAG_S3_ENDPOINT: ${{ secrets.CODRAG_S3_ENDPOINT }}
+          CODRAG_S3_BUCKET: ${{ secrets.CODRAG_S3_BUCKET }}
+          CODRAG_S3_PREFIX: ${{ github.event.repository.name }}/${{ github.ref_name }}
+          CODRAG_S3_ACCESS_KEY: ${{ secrets.CODRAG_S3_ACCESS_KEY }}
+          CODRAG_S3_SECRET_KEY: ${{ secrets.CODRAG_S3_SECRET_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          codrag sync-headless \
+            --repo-path . \
+            --branch "${{ github.ref_name }}" \
+            --model-provider "${CODRAG_MODEL_PROVIDER:-openai}" \
+            --model-name "${CODRAG_MODEL_NAME:-gpt-4.1-mini}" \
+            --embedder native
+
+  # ── Mode 2: GPU webhook (triggers RunPod/Modal) ─────────────
+  sync-gpu:
+    if: ${{ vars.CODRAG_SYNC_MODE == 'gpu' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Trigger GPU Indexer
+        env:
+          WEBHOOK_URL: ${{ secrets.CODRAG_GPU_WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.CODRAG_GPU_WEBHOOK_SECRET }}
+        run: |
+          curl -sf -X POST "$WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $WEBHOOK_SECRET" \
+            -d '{
+              "repo_url": "${{ github.server_url }}/${{ github.repository }}",
+              "branch": "${{ github.ref_name }}"
+            }'
+          echo "GPU indexer triggered successfully."

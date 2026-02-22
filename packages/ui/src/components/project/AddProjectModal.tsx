@@ -134,10 +134,7 @@ export function AddProjectModal({
               </div>
               <div className="w-full rounded-md border border-border bg-surface-raised/50 p-3 text-left text-xs space-y-1.5">
                 <div className="flex items-center gap-1.5 text-text-muted">
-                  <span className="font-medium text-text">Monthly</span> — unlimited projects + Live Sync ($7/mo)
-                </div>
-                <div className="flex items-center gap-1.5 text-text-muted">
-                  <span className="font-medium text-text">Perpetual</span> — unlimited projects + all features ($79 once)
+                  <span className="font-medium text-text">Pro</span> — unlimited projects, Live Sync, full features
                 </div>
               </div>
             </div>

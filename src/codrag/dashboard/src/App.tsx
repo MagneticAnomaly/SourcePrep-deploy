@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { FileText, Settings, AlertCircle } from 'lucide-react'
+import { FileText, Settings, AlertCircle, AlertTriangle } from 'lucide-react'
 import type { AtlasStatus, ActivityHeatmapData } from '@codrag/ui'
 import {
   // API
@@ -357,6 +357,15 @@ function App() {
     return () => clearTimeout(timeout)
   }, [api, dashboardLayout])
 
+  // ── Refresh project status when scope orchestrator signals a build ──
+  useEffect(() => {
+    if (!selectedProjectId) return
+    const se = scopeEvents[selectedProjectId]
+    if (se?.state === 'building' || se?.state === 'idle') {
+      void refreshStatus(selectedProjectId)
+    }
+  }, [scopeEvents, selectedProjectId, refreshStatus])
+
   // ── Refresh watch + deep analysis on project change ─────────
   // NOTE: Project status, config, trace — all self-hydrate in their own hooks now.
   useEffect(() => {
@@ -374,7 +383,7 @@ function App() {
   // ── Dashboard panels (hook) ─────────────────────────────────
   const { panelContent, panelDetails, allPanelDefs, PINNED_PREFIX: pinnedPrefix } = useDashboardPanels({
     // Cross-cutting
-    projectStatus, selectedProject, selectedProjectId, projectConfig, isPro,
+    projectStatus, selectedProject, selectedProjectId, projectConfig, isPro, limitReached: isAtProjectLimit,
     scopeStatus: selectedProjectId ? scopeEvents[selectedProjectId] : undefined,
     logs, clearLogs, findActiveTask, handleBuild,
     transientComplete: selectedProjectId ? transientCompleteProjects.has(selectedProjectId) : false,
@@ -446,6 +455,20 @@ function App() {
     <>
       <ErrorToast message={error} onClose={() => setError(null)} />
       <UpdateBanner />
+      {isAtProjectLimit && (
+        <div className="fixed inset-x-0 top-0 z-[95] bg-amber-500/90 backdrop-blur text-white px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 shadow-lg">
+          <AlertTriangle className="w-4 h-4" />
+          <span>
+            You have {project.projects.length} projects but your Free plan supports 1. Project updates and syncing are paused.
+          </span>
+          <button
+            onClick={() => { setSettingsOpenToTab('global'); setSettingsOpen(true) }}
+            className="ml-2 px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded font-semibold transition-colors"
+          >
+            Upgrade to Pro
+          </button>
+        </div>
+      )}
       {isDaemonUnhealthy && (
         <div className="fixed inset-x-0 top-0 z-[100] bg-error text-white px-4 py-2 text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
         <AlertCircle className="w-4 h-4" />

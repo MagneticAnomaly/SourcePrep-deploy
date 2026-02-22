@@ -49,10 +49,10 @@ export default function Page() {
             <div className="border border-border rounded-lg p-6 bg-surface">
               <h3 className="text-lg font-semibold mt-0">&quot;Ollama not found&quot; / Connection Error</h3>
               <p className="text-sm text-text-muted mb-4">
-                <strong>Good news:</strong> You probably don&apos;t need Ollama.
+                <span className="font-semibold text-text">Good news:</span> You probably don&apos;t need Ollama.
               </p>
               <p className="text-sm mb-4">
-                CoDRAG uses <strong>Native Embeddings</strong> (ONNX) by default, which run inside the CoDRAG process without any external dependencies.
+                CoDRAG uses <span className="font-semibold text-text">Native Embeddings</span> (ONNX) by default, which run inside the CoDRAG process without any external dependencies.
               </p>
               <p className="text-sm mb-4">
                 If you explicitly configured <code>embedding_source: &quot;ollama&quot;</code> in your project config:
@@ -86,9 +86,9 @@ export default function Page() {
                 If search returns nothing for a query you expect to match:
               </p>
               <ul className="list-disc pl-5 space-y-2 text-sm">
-                <li><strong>Check coverage:</strong> Is the file actually indexed? Run <code>codrag coverage</code> or check the dashboard.</li>
-                <li><strong>Lower threshold:</strong> The default <code>min_score</code> is 0.15. Try <code>codrag search &quot;query&quot; --min-score 0.01</code> to see if it&apos;s just a ranking issue.</li>
-                <li><strong>Broaden query:</strong> Semantic search works best with natural language sentences, not just keywords.</li>
+                <li><span className="font-semibold text-text">Check coverage:</span> Is the file actually indexed? Run <code>codrag coverage</code> or check the dashboard.</li>
+                <li><span className="font-semibold text-text">Lower threshold:</span> The default <code>min_score</code> is 0.15. Try <code>codrag search &quot;query&quot; --min-score 0.01</code> to see if it&apos;s just a ranking issue.</li>
+                <li><span className="font-semibold text-text">Broaden query:</span> Semantic search works best with natural language sentences, not just keywords.</li>
               </ul>
             </div>
           </div>
@@ -119,8 +119,8 @@ export default function Page() {
               </p>
               <ul className="list-disc pl-5 space-y-2 text-sm">
                 <li>You have multiple projects registered and are not inside a specific project directory.</li>
-                <li><strong>Fix:</strong> Pin the project ID in your MCP config (<code>&quot;args&quot;: [&quot;mcp&quot;, &quot;--project&quot;, &quot;proj_xyz&quot;]</code>).</li>
-                <li><strong>Fix:</strong> Or navigate to the project directory before running the tool (if using direct mode).</li>
+                <li><span className="font-semibold text-text">Fix:</span> Pin the project ID in your MCP config (<code>&quot;args&quot;: [&quot;mcp&quot;, &quot;--project&quot;, &quot;proj_xyz&quot;]</code>).</li>
+                <li><span className="font-semibold text-text">Fix:</span> Or navigate to the project directory before running the tool (if using direct mode).</li>
               </ul>
             </div>
 
