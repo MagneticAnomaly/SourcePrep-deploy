@@ -541,9 +541,9 @@ function YaleHero() {
         <div className="grid grid-cols-12 gap-x-6 pt-12">
           {/* Column 1: Description */} 
           <div className="col-span-12 md:col-span-3 md:col-start-4">
-            <p className="font-sans text-base text-text leading-relaxed mb-6">
+            <p className="font-sans text-base text-text leading-relaxed mb-6" >
               CoDRAG's Rust-powered engine indexes your codebase locally—semantics, symbols, and call graphs—with built-in
-              ONNX embeddings, path weights for precision control, and smart compression for code and documentation. No cloud upload. No LLM required — Ollama and cloud APIs optional.
+              ONNX embeddings, path weights for precision control, and smart compression for code and documentation. 
             </p>
             <a href="#" className="font-sans font-medium text-primary hover:underline underline-offset-4 decoration-2 flex items-center gap-1">
               Documentation <ArrowRight className="w-3 h-3" />
