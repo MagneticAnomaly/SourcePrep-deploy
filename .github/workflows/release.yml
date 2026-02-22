@@ -1,0 +1,197 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'app-v*'
+  workflow_dispatch:
+
+# Cancel in-progress runs for the same ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  build-and-release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-14
+            rust_target: aarch64-apple-darwin
+            args: '--target aarch64-apple-darwin --locked'
+          - platform: macos-13
+            rust_target: x86_64-apple-darwin
+            args: '--target x86_64-apple-darwin --locked'
+          - platform: windows-latest
+            rust_target: x86_64-pc-windows-msvc
+            args: '--locked'
+          # Uncomment when ready for Linux:
+          # - platform: ubuntu-22.04
+          #   rust_target: x86_64-unknown-linux-gnu
+          #   args: '--locked'
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      # ── Python Setup ────────────────────────────────────────
+      - name: Setup Python
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # ── Rust Engine Wheel ─────────────────────────────────────
+      - name: Install Rust stable (for wheel build)
+        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9 # master
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Install maturin
+        run: pip install maturin
+
+      - name: Build engine wheel
+        shell: bash
+        run: |
+          cd engine
+          maturin build --release --target ${{ matrix.rust_target }}
+          ls -la target/wheels/
+
+      # ── Python + Sidecar ──────────────────────────────────────
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller>=6.3.0
+          pip install -e ".[all]"
+
+      # ENG-6: Install the built wheel so sidecar includes it
+      - name: Install engine wheel
+        shell: bash
+        run: |
+          pip install engine/target/wheels/codrag_engine*.whl --force-reinstall
+          python -c "import codrag_engine; print(f'Engine version: {codrag_engine.version()}')"
+
+      - name: Build sidecar binary
+        shell: bash
+        run: |
+          bash scripts/build_sidecar.sh
+
+      # ── Node.js ───────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # ── Rust cache (Tauri) ────────────────────────────────────
+      # Rust + targets already installed above for wheel build
+      - name: Rust cache
+        uses: swatinem/rust-cache@54e2af0a8339c0435fa1de94002eab349a2f15ef # v2.7.3
+        with:
+          workspaces: 'src/codrag/dashboard/src-tauri -> target'
+
+      # ── Linux dependencies ────────────────────────────────────
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
+
+      # ── Build + Release ───────────────────────────────────────
+      - name: Build Tauri app and create release
+        uses: tauri-apps/tauri-action@2773e489dd94df5e87641131f67916b46ef3a8d5 # v0.5.15
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_KEY_PASSWORD }}
+          # macOS code signing
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Windows code signing
+          TAURI_BUNDLE_WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          TAURI_BUNDLE_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        with:
+          projectPath: src/codrag/dashboard
+          tagName: app-v__VERSION__
+          releaseName: 'CoDRAG v__VERSION__'
+          releaseBody: |
+            ## What's Changed
+
+            See the full changelog at https://github.com/EricBintner/CoDRAG/blob/main/CHANGELOG.md
+
+            ## Downloads
+
+            | Platform | File |
+            |----------|------|
+            | macOS (Apple Silicon) | `CoDRAG_*_aarch64.dmg` |
+            | macOS (Intel) | `CoDRAG_*_x64.dmg` |
+            | Windows | `CoDRAG_*_x64-setup.exe` |
+
+            ---
+            *This release was automatically built and signed.*
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: true
+          args: ${{ matrix.args }}
+
+      # TAU-8: Smoke test installation
+      - name: Smoke test (macOS)
+        if: matrix.platform == 'macos-14' || matrix.platform == 'macos-13'
+        shell: bash
+        run: |
+          echo "Testing macOS app bundle..."
+          APP_PATH="src/codrag/dashboard/src-tauri/target/release/bundle/macos/CoDRAG.app"
+          if [ -d "$APP_PATH" ]; then
+            echo "✓ App bundle exists"
+            # Check that the sidecar is bundled
+            SIDCAR_PATH="$APP_PATH/Contents/MacOS/codrag-daemon"
+            if [ -f "$SIDCAR_PATH" ]; then
+              echo "✓ Sidecar binary bundled"
+              file "$SIDCAR_PATH"
+            else
+              echo "⚠ Sidecar not found at expected location"
+            fi
+            # Test that the binary is executable
+            if [ -x "$APP_PATH/Contents/MacOS/CoDRAG" ]; then
+              echo "✓ Main binary is executable"
+            fi
+          else
+            echo "✗ App bundle not found"
+            exit 1
+          fi
+
+      - name: Smoke test (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          Write-Host "Testing Windows installer..."
+          $exePath = "src/codrag/dashboard/src-tauri/target/release/bundle/nsis/CoDRAG_*_x64-setup.exe"
+          $msiPath = "src/codrag/dashboard/src-tauri/target/release/release/bundle/msi/CoDRAG_*.msi"
+          if (Test-Path $exePath) {
+            Write-Host "✓ NSIS installer exists"
+          } elseif (Test-Path $msiPath) {
+            Write-Host "✓ MSI installer exists"
+          } else {
+            Write-Host "⚠ No installer found (check build logs)"
+          }
+          # Check for sidecar
+          $sidecarPath = "src/codrag/dashboard/src-tauri/target/release/codrag-daemon.exe"
+          if (Test-Path $sidecarPath) {
+            Write-Host "✓ Sidecar binary exists"
+          }

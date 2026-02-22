@@ -3,9 +3,15 @@ import { VsCodeApi } from "../global";
 import { Copy, Check, FileCode } from "lucide-react";
 import { Button } from "@codrag/ui";
 
+interface ContextChunk {
+  content?: string;
+  source_path?: string;
+  score?: number;
+}
+
 interface ContextResponse {
   context: string;
-  chunks?: any[];
+  chunks?: ContextChunk[];
   total_chars?: number;
   estimated_tokens?: number;
 }

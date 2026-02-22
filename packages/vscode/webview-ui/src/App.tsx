@@ -2,18 +2,26 @@ import React, { useState, useEffect } from "react";
 import { SearchResults } from "./components/SearchResults";
 import { ContextPreview } from "./components/ContextPreview";
 import { TracePanel } from "./components/TracePanel";
+import type { VsCodeApi } from "./global";
 
 // VS Code API wrapper
-const vscode = (window as any).acquireVsCodeApi();
+declare global {
+  interface Window {
+    acquireVsCodeApi: () => VsCodeApi;
+  }
+}
+const vscode = window.acquireVsCodeApi();
 
 // Type for the message sent from extension
 interface Message {
   command: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
 }
 
 const App: React.FC = () => {
   const [view, setView] = useState<"search" | "context" | "trace" | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, setData] = useState<any>(null);
 
   useEffect(() => {

@@ -11,7 +11,7 @@ name = "codrag_engine"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.23", features = ["extension-module"] }
+pyo3 = { version = "0.24.1", features = ["extension-module"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }
