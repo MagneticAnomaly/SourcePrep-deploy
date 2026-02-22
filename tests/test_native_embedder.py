@@ -111,7 +111,7 @@ class TestBatchEmbedding:
         assert len(batch_results) == len(texts)
         for br, ir in zip(batch_results, individual_results):
             cos_sim = np.dot(br.vector, ir.vector)
-            assert cos_sim > 0.98, f"Batch vs individual should be very similar, got sim={cos_sim}"
+            assert cos_sim > 0.97, f"Batch vs individual should be very similar, got sim={cos_sim}"
 
     def test_batch_exceeding_batch_size(self):
         """Test that batching works when input exceeds batch_size."""

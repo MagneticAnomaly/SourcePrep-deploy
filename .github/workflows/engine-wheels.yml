@@ -47,10 +47,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -64,7 +64,7 @@ jobs:
           sccache: true
 
       - name: Upload wheels
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.platform.target }}
           path: engine/dist/*.whl
@@ -75,10 +75,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -90,7 +90,7 @@ jobs:
         working-directory: engine
 
       - name: Upload sdist
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        uses: actions/upload-artifact@v4
         with:
           name: sdist
           path: engine/dist/*.tar.gz
@@ -113,12 +113,12 @@ jobs:
 
     steps:
       - name: Setup Python
-        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Download wheels
-        uses: actions/download-artifact@c850b930e6ba008568c5c6e395e5e95e776914aa # v4.1.4
+        uses: actions/download-artifact@v4
         with:
           name: wheels-${{ matrix.platform.target }}
           path: dist
@@ -147,14 +147,14 @@ jobs:
       id-token: write
     steps:
       - name: Download all wheels
-        uses: actions/download-artifact@c850b930e6ba008568c5c6e395e5e95e776914aa # v4.1.4
+        uses: actions/download-artifact@v4
         with:
           path: dist
           pattern: wheels-*
           merge-multiple: true
 
       - name: Download sdist
-        uses: actions/download-artifact@c850b930e6ba008568c5c6e395e5e95e776914aa # v4.1.4
+        uses: actions/download-artifact@v4
         with:
           name: sdist
           path: dist
@@ -175,7 +175,7 @@ jobs:
       contents: write
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@c850b930e6ba008568c5c6e395e5e95e776914aa # v4.1.4
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
           pattern: '*'
@@ -189,7 +189,7 @@ jobs:
           ls -la release/
 
       - name: Create Release
-        uses: softprops/action-gh-release@de2c0b89a30bda5d479bb1ac6c1855e40434c88c # v1
+        uses: softprops/action-gh-release@v1
         with:
           files: release/*
           generate_release_notes: true

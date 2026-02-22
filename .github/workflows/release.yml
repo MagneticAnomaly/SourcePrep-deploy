@@ -38,17 +38,17 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@v4
 
       # ── Python Setup ────────────────────────────────────────
       - name: Setup Python
-        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       # ── Rust Engine Wheel ─────────────────────────────────────
       - name: Install Rust stable (for wheel build)
-        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9 # master
+        uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.rust_target }}
 
@@ -83,7 +83,7 @@ jobs:
 
       # ── Node.js ───────────────────────────────────────────────
       - name: Setup Node.js
-        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -94,7 +94,7 @@ jobs:
       # ── Rust cache (Tauri) ────────────────────────────────────
       # Rust + targets already installed above for wheel build
       - name: Rust cache
-        uses: swatinem/rust-cache@54e2af0a8339c0435fa1de94002eab349a2f15ef # v2.7.3
+        uses: swatinem/rust-cache@v2
         with:
           workspaces: 'src/codrag/dashboard/src-tauri -> target'
 
@@ -107,7 +107,7 @@ jobs:
 
       # ── Build + Release ───────────────────────────────────────
       - name: Build Tauri app and create release
-        uses: tauri-apps/tauri-action@2773e489dd94df5e87641131f67916b46ef3a8d5 # v0.5.15
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
