@@ -1,6 +1,6 @@
-<div align="center" style="background-color: #0b0e23; padding: 40px 0; width: 100vw; margin-left: calc(-50vw + 50%);">
-  <img src="../assets/header-logo.png" alt="CoDRAG" width="400">
-</div>
+<p align="center">
+  <img src="../assets/codrag-github-header.png" alt="CoDRAG" width="100%">
+</p>
 
 # Phase 01 — Foundation
 
