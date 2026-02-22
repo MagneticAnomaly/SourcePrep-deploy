@@ -177,17 +177,17 @@ These sprints are intentionally cross-phase. Each sprint should end with:
   - [x] ENG-3 Windows x64 wheel builds
   - [x] ENG-4 Linux x64 + ARM64 wheel builds
   - [x] ENG-5 Publish wheels to PyPI
-  - [ ] ENG-6 Integrate correct platform wheel into sidecar build
+  - [x] ENG-6 Integrate correct platform wheel into sidecar build
   - [x] ENG-7 Document target matrix
 - [ ] S-07.4 Tauri Desktop App Build & Signing (TAU-1..8)
   - [x] TAU-1 Verify Tauri v1 builds locally
-  - [ ] TAU-2 Configure `externalBin` in `tauri.conf.json` for sidecar
-  - [ ] TAU-3 macOS code signing in CI
-  - [ ] TAU-4 macOS notarization in CI
-  - [ ] TAU-5 Windows code signing in CI
-  - [ ] TAU-6 GitHub Actions release workflow
-  - [ ] TAU-7 Release artifacts (`.dmg`, `.msi`)
-  - [ ] TAU-8 Smoke test installation
+  - [x] TAU-2 Configure `externalBin` in `tauri.conf.json` for sidecar
+  - [x] TAU-3 macOS code signing in CI (secrets configured)
+  - [x] TAU-4 macOS notarization in CI (secrets configured)
+  - [x] TAU-5 Windows code signing in CI (secrets configured)
+  - [x] TAU-6 GitHub Actions release workflow (`.github/workflows/release.yml`)
+  - [x] TAU-7 Release artifacts (`.dmg`, `.exe` via tauri-action)
+  - [x] TAU-8 Smoke test installation (post-build artifact verification)
 
 ### Sprint S-08: Public docs + design system alignment
 **Goal:** credible public-facing docs, consistent UI primitives across app + site.
