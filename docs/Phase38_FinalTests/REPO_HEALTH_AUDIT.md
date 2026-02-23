@@ -154,6 +154,8 @@ These are fine — they represent imports from external packages. The issue is o
 
 This wastes context tokens and could confuse the consuming AI.
 
+**needs testing with different LLMs** currently testing hopephoto/qwen3-30b-a3b-thinking_q8:latest 
+
 ---
 
 ## 7. Search & Context Quality (MCP Tooling)

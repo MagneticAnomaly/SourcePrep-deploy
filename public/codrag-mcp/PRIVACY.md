@@ -40,6 +40,6 @@ We collect minimal, anonymous usage data to improve the product.
 
 If you use optional integrations:
 - **Ollama**: Local-only. No data leaves your machine.
-- **Context Compression (LOD)**: Built into the engine. No data leaves your machine.
+- **Context Compression**: Built into the engine. No data leaves your machine.
 
 For the full commercial privacy policy, please visit [codrag.io/privacy](https://codrag.io/privacy).
