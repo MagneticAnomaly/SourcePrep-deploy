@@ -17,8 +17,8 @@ export const Default: Story = {
   args: {
     productName: 'CoDRAG',
     socials: {
-      twitter: 'https://twitter.com/codrag',
-      github: 'https://github.com/codrag',
+      twitter: 'https://x.com/CoDRAG_io',
+      github: 'https://github.com/MagneticAnomaly/CoDRAG-MCP',
       email: 'hello@codrag.io',
     },
   },

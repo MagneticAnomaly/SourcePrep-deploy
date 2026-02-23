@@ -30,7 +30,7 @@ pip install codrag
 Or install from source:
 
 ```bash
-git clone https://github.com/EricBintner/CoDRAG.git
+git clone https://github.com/MagneticAnomaly/CoDRAG-MCP.git
 cd CoDRAG
 pip install -e ".[dev]"
 ```
@@ -241,5 +241,5 @@ For repositories with many files:
 
 ## Getting Help
 
-- **Issues:** [GitHub Issues](https://github.com/EricBintner/CoDRAG/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/EricBintner/CoDRAG/discussions)
+- **Issues:** [GitHub Issues](https://github.com/MagneticAnomaly/CoDRAG-MCP/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/MagneticAnomaly/CoDRAG-MCP/discussions)

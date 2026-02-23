@@ -159,7 +159,7 @@ class AugmentResult:
 class LLMClient:
     """
     Minimal LLM client for augmentation calls.
-    Wraps Ollama-compatible /api/generate endpoint.
+    Supports: ollama, openai, openai-compatible, anthropic, google.
     """
 
     def __init__(
@@ -248,6 +248,65 @@ class LLMClient:
             tokens = usage.get("total_tokens", 0)
             return text, tokens
         
+        elif self.provider == "anthropic":
+            messages = []
+            messages.append({"role": "user", "content": prompt})
+
+            payload: Dict[str, Any] = {
+                "model": self.model,
+                "messages": messages,
+                "max_tokens": num_predict,
+                "temperature": temperature,
+            }
+            if system:
+                payload["system"] = system
+
+            headers = {
+                "Content-Type": "application/json",
+                "anthropic-version": "2023-06-01",
+            }
+            if self.api_key:
+                headers["x-api-key"] = self.api_key
+
+            url = f"{self.endpoint_url}/v1/messages"
+            resp = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
+            resp.raise_for_status()
+            data = resp.json()
+
+            # Anthropic returns content as a list of blocks
+            content_blocks = data.get("content", [])
+            text = "".join(b.get("text", "") for b in content_blocks if b.get("type") == "text")
+            usage = data.get("usage", {})
+            tokens = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+            return text, tokens
+
+        elif self.provider == "google":
+            # Google Gemini API — uses systemInstruction for system prompts
+            contents = [{"role": "user", "parts": [{"text": prompt}]}]
+
+            payload: Dict[str, Any] = {
+                "contents": contents,
+                "generationConfig": {
+                    "temperature": temperature,
+                    "maxOutputTokens": num_predict,
+                },
+            }
+            if system:
+                payload["systemInstruction"] = {"parts": [{"text": system}]}
+
+            url = f"{self.endpoint_url}/v1beta/models/{self.model}:generateContent"
+            params = {"key": self.api_key} if self.api_key else {}
+            resp = requests.post(url, json=payload, params=params, timeout=self.timeout)
+            resp.raise_for_status()
+            data = resp.json()
+
+            candidates = data.get("candidates", [{}])
+            parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
+            text = "".join(p.get("text", "") for p in parts)
+            usage = data.get("usageMetadata", {})
+            tokens = usage.get("totalTokenCount", 0)
+            return text, tokens
+
         else:
             raise ValueError(f"Unsupported LLM provider: {self.provider}")
 
@@ -262,8 +321,17 @@ class LLMClient:
                 headers = {}
                 if self.api_key:
                     headers["Authorization"] = f"Bearer {self.api_key}"
-                # Try listing models
                 resp = requests.get(f"{self.endpoint_url}/models", headers=headers, timeout=5)
+                return resp.status_code == 200
+            elif self.provider == "anthropic":
+                headers = {"anthropic-version": "2023-06-01"}
+                if self.api_key:
+                    headers["x-api-key"] = self.api_key
+                resp = requests.get(f"{self.endpoint_url}/v1/models", headers=headers, timeout=5)
+                return resp.status_code == 200
+            elif self.provider == "google":
+                params = {"key": self.api_key} if self.api_key else {}
+                resp = requests.get(f"{self.endpoint_url}/v1beta/models", params=params, timeout=5)
                 return resp.status_code == 200
             return False
         except Exception:

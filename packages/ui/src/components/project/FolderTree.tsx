@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File, FileText, Loader2, Eye } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../primitives/Button';
@@ -309,6 +309,20 @@ function TreeItem({ node, depth = 0, path = '', includedPaths, onToggleInclude, 
       onToggleInclude([currentPath], isIncluded ? 'remove' : 'add');
     }
   };
+
+  // Auto-load children for folders restored as "expanded" from localStorage
+  // but whose children haven't been fetched yet (beyond API depth limit).
+  useEffect(() => {
+    if (expanded && isLazyLoadable && onLoadChildren && !isLoading) {
+      onSetLoading(currentPath, true);
+      onLoadChildren(currentPath).then((children) => {
+        onMergeChildren(currentPath, children);
+      }).catch(() => {}).finally(() => {
+        onSetLoading(currentPath, false);
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded, isLazyLoadable]);
 
   const handleExpandToggle = (e: React.MouseEvent) => {
     e.stopPropagation();

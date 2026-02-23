@@ -129,7 +129,9 @@ jobs:
           releaseBody: |
             ## What's Changed
 
-            See the full changelog at https://github.com/EricBintner/CoDRAG/blob/main/CHANGELOG.md
+            **Full Changelog**: https://github.com/MagneticAnomaly/CoDRAG-MCP/compare/${{ needs.get-version.outputs.previous_tag }}...${{ github.ref_name }}
+
+            See the full changelog at https://github.com/MagneticAnomaly/CoDRAG-MCP/blob/main/CHANGELOG.md
 
             ## Downloads
 

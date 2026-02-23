@@ -1290,10 +1290,11 @@ def sync_headless(
             console.print(f"  Commit: {manifest.commit_sha[:12]}")
         if manifest.artifact_count:
             console.print(f"  Artifacts: {manifest.artifact_count}")
-    except NotImplementedError as e:
-        console.print(f"[yellow]Pipeline wiring not yet implemented: {e}[/yellow]")
-        console.print("[dim]This is tracked as P06-S05 in the Phase 06 roadmap.[/dim]")
-        raise typer.Exit(1)
+
+        # Print stage summary
+        for sr in runner.stage_results:
+            icon = "[green]✓[/green]" if sr.success else "[red]✗[/red]"
+            console.print(f"  {icon} {sr.stage} ({sr.duration_seconds:.1f}s)")
     except Exception as e:
         console.print(f"[red]Headless sync failed: {e}[/red]")
         raise typer.Exit(1)

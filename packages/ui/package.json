@@ -80,7 +80,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/EricBintner/CoDRAG",
+    "url": "https://github.com/MagneticAnomaly/CoDRAG-MCP",
     "directory": "packages/ui"
   }
 }

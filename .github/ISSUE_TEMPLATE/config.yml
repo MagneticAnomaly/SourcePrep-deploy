@@ -1,14 +1,13 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Ask a question (GitHub Discussions)
-    url: https://github.com/EricBintner/CoDRAG/discussions
-    about: Best for setup, usage, and workflow questions.
+  - name: Questions and Discussions
+    url: https://github.com/MagneticAnomaly/CoDRAG-MCP/discussions
+    about: Ask questions, share ideas, and discuss CoDRAG with the community.
   - name: Troubleshooting docs
     url: https://docs.codrag.io/troubleshooting
     about: Common issues and fixes.
   - name: Support hub
     url: https://codrag.io/support
-    about: All support channels in one place.
   - name: Billing & licensing (private)
     url: mailto:support@codrag.io
     about: Billing, licensing, enterprise, and other sensitive matters.

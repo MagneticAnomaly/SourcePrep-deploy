@@ -2,8 +2,8 @@
 # For CI/CD runners (GitHub Actions, GitLab CI) using BYOK cloud LLMs.
 # No GPU required. ONNX embeddings run natively on CPU.
 #
-# Build:
-#   docker build -f Dockerfile.cpu -t codrag/headless:cpu .
+# IMPORTANT: Build from the CoDRAG repo root (not from this directory):
+#   docker build -f public/codrag-deploy/Dockerfile.cpu -t codrag/headless:cpu .
 #
 # Usage:
 #   codrag sync-headless \

@@ -9,3 +9,6 @@ export type { EmbeddedModeIndicatorProps } from './EmbeddedModeIndicator';
 
 export { LicenseStatusCard } from './LicenseStatusCard';
 export type { LicenseStatusCardProps } from './LicenseStatusCard';
+
+export { TeamSyncIndicator } from './TeamSyncIndicator';
+export type { TeamSyncIndicatorProps } from './TeamSyncIndicator';

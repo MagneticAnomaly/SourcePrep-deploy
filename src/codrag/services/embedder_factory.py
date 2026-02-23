@@ -36,8 +36,20 @@ def create_embedder(embedding_source: Optional[str] = None) -> Any:
     2. Dashboard ``llm_config.embedding`` settings persisted in ui_config.json.
     3. CLI ``_config`` values (``--model``, ``--ollama-url``).
     4. NativeEmbedder (if deps available), else OllamaEmbedder fallback.
+
+    **Headless safety:** If ``codrag.server`` is not importable (e.g., in
+    a headless Docker container without FastAPI), steps 2-3 are skipped
+    gracefully and we fall through to step 4.
     """
-    from codrag.server import _config, _load_ui_config
+    # Try to load server config — gracefully degrade in headless mode
+    _config: dict = {}
+    _load_ui_config = None
+    try:
+        from codrag.server import _config as _srv_config, _load_ui_config as _srv_load_ui
+        _config = _srv_config
+        _load_ui_config = _srv_load_ui
+    except ImportError:
+        logger.debug("codrag.server not available (headless mode); skipping dashboard/CLI config")
 
     # ── 1. Explicit project-level override ──────────────────
     if embedding_source == "ollama":
@@ -53,7 +65,7 @@ def create_embedder(embedding_source: Optional[str] = None) -> Any:
             return native
 
     # ── 2. Dashboard llm_config (ui_config.json) ────────────
-    if embedding_source is None:
+    if embedding_source is None and _load_ui_config is not None:
         try:
             ui_cfg = _load_ui_config()
             emb_cfg = (ui_cfg.get("llm_config") or {}).get("embedding") or {}

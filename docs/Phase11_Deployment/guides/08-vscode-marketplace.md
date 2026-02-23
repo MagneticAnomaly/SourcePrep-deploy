@@ -93,7 +93,7 @@ vsce publish
 
 To publish automatically from CI on a `vscode-v*` tag:
 
-1. Go to [github.com/EricBintner/CoDRAG/settings/secrets/actions](https://github.com/EricBintner/CoDRAG/settings/secrets/actions)
+1. Go to [github.com/MagneticAnomaly/CoDRAG-MCP/settings/secrets/actions](https://github.com/MagneticAnomaly/CoDRAG-MCP/settings/secrets/actions)
 2. Add:
 
    | Secret Name | Value |
@@ -113,7 +113,7 @@ After publishing, complete the marketplace listing:
    - **Screenshots:** At least 2–3 showing the extension in action
    - **Categories:** `Other` or `Programming Languages`
    - **Tags:** `AI`, `code search`, `context`, `RAG`
-   - **Repository:** `https://github.com/EricBintner/CoDRAG`
+   - **Repository:** `https://github.com/MagneticAnomaly/CoDRAG-MCP`
    - **Bugs URL:** `https://support.codrag.io`
 
 ---

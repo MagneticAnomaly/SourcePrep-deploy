@@ -39,7 +39,7 @@ CI can't use your Keychain directly — you need to export the cert as a `.p12` 
    ```
    (This copies the base64 string to clipboard)
 
-2. Go to [github.com/EricBintner/CoDRAG/settings/secrets/actions](https://github.com/EricBintner/CoDRAG/settings/secrets/actions)
+2. Go to [github.com/MagneticAnomaly/CoDRAG-MCP/settings/secrets/actions](https://github.com/MagneticAnomaly/CoDRAG-MCP/settings/secrets/actions)
 3. Add these secrets:
 
    | Secret Name | Value |

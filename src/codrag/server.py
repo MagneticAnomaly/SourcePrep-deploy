@@ -130,6 +130,7 @@ _watcher: Optional[AutoRebuildWatcher] = None
 _SERVER_STARTED_AT = datetime.now(timezone.utc).isoformat()
 _registry: Optional[ProjectRegistry] = None
 _project_watchers: Dict[str, AutoRebuildWatcher] = {}
+_project_syncers: Dict[str, Any] = {}  # Dict[str, RemoteSyncService]
 
 # ── BuildManager aliases (backward compat for routers) ───────────
 _index = None  # legacy — use _bm.legacy_index
@@ -187,6 +188,7 @@ from codrag.services.project_helpers import (
     project_trace_status as _ph_project_trace_status,
     get_project_watcher as _ph_get_project_watcher,
     get_project_watcher_status as _ph_get_project_watcher_status,
+    get_project_sync_status as _ph_get_project_sync_status,
     check_index_staleness as _ph_check_index_staleness,
     invalidate_stale_cache as _ph_invalidate_stale_cache,
     read_json_file as _ph_read_json_file,
@@ -230,6 +232,10 @@ def _get_project_watcher(project: Project) -> Optional[AutoRebuildWatcher]:
 
 def _get_project_watcher_status(project: Project) -> Dict[str, Any]:
     return _ph_get_project_watcher_status(project, _project_watchers)
+
+
+def _get_project_sync_status(project: Project) -> Dict[str, Any]:
+    return _ph_get_project_sync_status(project, _project_syncers)
 
 
 def _check_index_staleness(project: Project, idx: CodeIndex) -> Dict[str, Any]:

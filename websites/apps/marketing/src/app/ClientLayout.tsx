@@ -42,6 +42,7 @@ export function ClientLayout({ children }: { children: ReactNode }) {
     <>
       <SiteHeader 
         productName="CoDRAG" 
+        productBadge=""
         logo={<img src="/codrag-logo.png" alt="CoDRAG" style={{ width: '3rem', height: '3rem' }} className="rounded" />}
         links={navLinks} 
         actions={
@@ -52,6 +53,9 @@ export function ClientLayout({ children }: { children: ReactNode }) {
             Get Started
           </a>
         }
+        onSearch={(query: string) => {
+          window.location.href = `${DOCS_URL}/search?q=${encodeURIComponent(query)}`;
+        }}
       />
       <main className="flex-1">
         {children}

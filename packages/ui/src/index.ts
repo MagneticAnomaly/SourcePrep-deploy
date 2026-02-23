@@ -131,8 +131,21 @@ export { DocsLayout, DocsSidebarNav, TableOfContents } from './components/docs';
 export type { DocsLayoutProps, DocsSidebarNavProps, DocNode, TableOfContentsProps, TocItem } from './components/docs';
 
 // Components - Team (License & Server Mode)
-export { ServerModeIndicator, TeamConfigStatus, EmbeddedModeIndicator, LicenseStatusCard } from './components/team';
-export type { ServerModeIndicatorProps, TeamConfigStatusProps, EmbeddedModeIndicatorProps, LicenseStatusCardProps } from './components/team';
+export {
+  ServerModeIndicator,
+  TeamConfigStatus,
+  EmbeddedModeIndicator,
+  LicenseStatusCard,
+  TeamSyncIndicator,
+} from './components/team';
+
+export type {
+  ServerModeIndicatorProps,
+  TeamConfigStatusProps,
+  EmbeddedModeIndicatorProps,
+  LicenseStatusCardProps,
+  TeamSyncIndicatorProps,
+} from './components/team';
 
 // Components - Viz
 export { ActivityHeatmap, generateSampleActivityData, IndexHealthPanel, TokenBudgetPanel } from './components/viz';

@@ -66,15 +66,30 @@ trace = [
 clara = [
     "torch>=2.1.0",
 ]
+headless = [
+    # Minimal deps for `codrag sync-headless` in Docker/CI.
+    # Deliberately excludes fastapi, uvicorn, watchdog, aiosqlite
+    # which are daemon-only and would bloat the container.
+    "requests>=2.31.0",
+    "numpy>=1.26.0",
+    "typer>=0.9.0",
+    "rich>=13.7.0",
+    "onnxruntime>=1.17.0",
+    "tokenizers>=0.15.0",
+    "huggingface-hub>=0.20.0",
+    "pathspec>=0.11.0",
+    "pydantic>=2.5.0",
+    "boto3>=1.34.0",
+]
 
 [project.scripts]
 codrag = "codrag.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/EricBintner/CoDRAG"
-Documentation = "https://github.com/EricBintner/CoDRAG#readme"
-Repository = "https://github.com/EricBintner/CoDRAG"
-Issues = "https://github.com/EricBintner/CoDRAG/issues"
+Homepage = "https://github.com/MagneticAnomaly/CoDRAG-MCP"
+Documentation = "https://github.com/MagneticAnomaly/CoDRAG-MCP#readme"
+Repository = "https://github.com/MagneticAnomaly/CoDRAG-MCP"
+Issues = "https://github.com/MagneticAnomaly/CoDRAG-MCP/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/codrag"]

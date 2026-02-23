@@ -216,6 +216,28 @@ def get_project_watcher_status(project: Project, watchers: Dict[str, AutoRebuild
     return watcher.status()
 
 
+def get_project_syncer(project: Project, syncers: Dict[str, Any]) -> Any:
+    """Get or create RemoteSyncService for a project."""
+    from codrag.services.remote_sync import RemoteSyncService
+    if project.id not in syncers:
+        syncers[project.id] = RemoteSyncService(Path(project.path))
+    return syncers[project.id]
+
+
+def get_project_sync_status(project: Project, syncers: Dict[str, Any]) -> Dict[str, Any]:
+    """Get remote sync status for a project."""
+    syncer = get_project_syncer(project, syncers)
+    # Ensure config is loaded so enabled state is accurate
+    if syncer._config is None:
+        syncer.load_config()
+        
+    # Start polling if enabled and not already polling
+    if syncer._config and syncer._config.enabled and syncer._poll_thread is None:
+        syncer.start_polling()
+        
+    return syncer.status_dict()
+
+
 def check_index_staleness(project: Project, idx: CodeIndex) -> Dict[str, Any]:
     """Lightweight mtime-based staleness check (works without watcher).
 

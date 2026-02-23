@@ -330,4 +330,4 @@ Include in bug reports:
 - Error message and stack trace
 - Minimal reproduction steps
 
-**GitHub Issues:** https://github.com/EricBintner/CoDRAG/issues
+**GitHub Issues:** https://github.com/MagneticAnomaly/CoDRAG-MCP/issues

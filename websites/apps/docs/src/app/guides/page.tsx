@@ -57,8 +57,19 @@ export default function Page() {
           </a>
 
           <a
-            href="/guides/model-advisor"
+            href="/guides/team-sync"
             className="block rounded-lg border border-primary/30 bg-primary/5 p-6 hover:border-primary transition-colors"
+          >
+            <h2 className="text-xl font-semibold">Team Sync</h2>
+            <p className="mt-2 text-sm text-text-muted">
+              Set up headless CI/CD indexing so your team shares a single, pre-built trace graph.
+              Supports CPU + BYOK (GitHub Actions) or GPU + local LLM (RunPod, Modal).
+            </p>
+          </a>
+
+          <a
+            href="/guides/model-advisor"
+            className="block rounded-lg border border-border bg-surface p-6 hover:border-primary transition-colors"
           >
             <h2 className="text-xl font-semibold">Model Setup Advisor</h2>
             <p className="mt-2 text-sm text-text-muted">

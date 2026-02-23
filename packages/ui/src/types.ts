@@ -85,14 +85,29 @@ export type BuildPhase =
  */
 export interface WatchStatus {
   enabled: boolean;
-  state: WatchState;
-  debounce_ms?: number;
-  stale?: boolean;
-  pending?: boolean;
-  pending_paths_count?: number;
-  next_rebuild_at?: string | null;
-  last_event_at?: string | null;
-  last_rebuild_at?: string | null;
+  state: 'disabled' | 'idle' | 'debounce' | 'rebuild_wait' | 'building';
+  debounce_ms: number;
+  stale: boolean;
+  stale_since: string | null;
+  pending: boolean;
+  pending_paths_count: number;
+  next_rebuild_at: string | null;
+  last_event_at: string | null;
+  last_rebuild_at: string | null;
+}
+
+/**
+ * Team remote sync status from API (Phase 06)
+ */
+export interface SyncStatus {
+  enabled: boolean;
+  last_sync_at: number | null;
+  last_sync_commit: string;
+  remote_version: number | null;
+  remote_timestamp: number | null;
+  is_syncing: boolean;
+  behind_minutes: number | null;
+  error: string | null;
 }
 
 /**
@@ -722,6 +737,7 @@ export interface ProjectStatus {
   index: IndexStatus;
   trace: TraceStatus;
   watch: WatchStatus;
+  sync?: SyncStatus;
   // Deep Analysis / Graph Engine extensions
   augmentation?: AugmentationStatus; // Stage 3
   epistemic?: EpistemicStatus;       // Stage 5

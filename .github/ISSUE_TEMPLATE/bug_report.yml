@@ -7,9 +7,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for the report.
-
-        - Questions and how-to: https://github.com/EricBintner/CoDRAG/discussions
+        Please search existing issues to see if this has already been reported. 
+        For questions or how-to help, please use GitHub Discussions instead:
+        - Questions and how-to: https://github.com/MagneticAnomaly/CoDRAG-MCP/discussions
         - Troubleshooting: https://docs.codrag.io/troubleshooting
         - Private support: support@codrag.io
 

@@ -265,6 +265,11 @@ class S3StorageProvider:
             tmp_target.mkdir(parents=True, exist_ok=True)
 
             with zipfile.ZipFile(tmp_path, "r") as zf:
+                # Zip-slip protection: reject entries that escape target dir
+                for member in zf.namelist():
+                    resolved = (tmp_target / member).resolve()
+                    if not str(resolved).startswith(str(tmp_target.resolve())):
+                        raise ValueError(f"Zip-slip detected: {member} escapes target directory")
                 zf.extractall(tmp_target)
 
             # Atomic swap: remove old, rename new

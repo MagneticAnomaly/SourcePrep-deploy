@@ -4,7 +4,7 @@ import { Button } from '@codrag/ui';
 
 const GITHUB_URL =
   process.env.NEXT_PUBLIC_CODRAG_GITHUB_URL ??
-  'https://github.com/EricBintner/CoDRAG';
+  'https://github.com/MagneticAnomaly/CoDRAG-MCP';
 
 export default function Page() {
   return (

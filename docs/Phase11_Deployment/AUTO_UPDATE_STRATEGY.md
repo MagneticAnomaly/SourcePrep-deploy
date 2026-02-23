@@ -92,15 +92,15 @@ GitHub Release "app-v0.2.0"
   "platforms": {
     "darwin-aarch64": {
       "signature": "<base64 sig>",
-      "url": "https://github.com/EricBintner/CoDRAG/releases/download/app-v0.2.0/CoDRAG_0.2.0_aarch64.app.tar.gz"
+      "url": "https://github.com/MagneticAnomaly/CoDRAG-MCP/releases/download/app-v0.2.0/CoDRAG_0.2.0_aarch64.app.tar.gz"
     },
     "windows-x86_64": {
       "signature": "<base64 sig>",
-      "url": "https://github.com/EricBintner/CoDRAG/releases/download/app-v0.2.0/CoDRAG_0.2.0_x64-setup.nsis.zip"
+      "url": "https://github.com/MagneticAnomaly/CoDRAG-MCP/releases/download/app-v0.2.0/CoDRAG_0.2.0_x64-setup.nsis.zip"
     },
     "linux-x86_64": {
       "signature": "<base64 sig>",
-      "url": "https://github.com/EricBintner/CoDRAG/releases/download/app-v0.2.0/CoDRAG_0.2.0_amd64.AppImage.tar.gz"
+      "url": "https://github.com/MagneticAnomaly/CoDRAG-MCP/releases/download/app-v0.2.0/CoDRAG_0.2.0_amd64.AppImage.tar.gz"
     }
   }
 }
@@ -378,7 +378,7 @@ jobs:
       "dialog": false,
       "pubkey": "<CONTENTS OF codrag.key.pub>",
       "endpoints": [
-        "https://github.com/EricBintner/CoDRAG/releases/latest/download/latest.json"
+        "https://github.com/MagneticAnomaly/CoDRAG-MCP/releases/latest/download/latest.json"
       ]
     }
   }

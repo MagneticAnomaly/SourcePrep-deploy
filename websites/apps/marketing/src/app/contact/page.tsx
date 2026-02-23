@@ -19,7 +19,7 @@ export default function Page() {
         <div className="space-y-3">
           <a href="mailto:support@codrag.io" className="block text-primary hover:underline font-mono">support@codrag.io</a>
           <a href="mailto:security@codrag.io" className="block text-primary hover:underline font-mono">security@codrag.io</a>
-          <a href="https://github.com/EricBintner/CoDRAG/discussions" className="block text-primary hover:underline">GitHub Discussions →</a>
+          <a href="https://github.com/MagneticAnomaly/CoDRAG-MCP/discussions" className="block text-primary hover:underline">GitHub Discussions →</a>
         </div>
         <div className="mt-8">
           <a href="/" className="text-sm text-text-muted hover:text-text transition-colors">← Return Home</a>

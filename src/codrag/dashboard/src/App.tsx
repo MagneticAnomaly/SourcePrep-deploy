@@ -8,6 +8,8 @@ import {
   AppShell,
   Sidebar,
   ProjectList,
+  ServerModeIndicator,
+  TeamSyncIndicator,
   // Dashboard
   ModularDashboard,
   // Project
@@ -378,12 +380,13 @@ function App() {
 
   // ── Project limit ───────────────────────────────────────────
   const projectLimit = effectiveTier === 'free' ? 1 : Infinity
+  const isOverProjectLimit = project.projects.length > projectLimit
   const isAtProjectLimit = project.projects.length >= projectLimit
 
   // ── Dashboard panels (hook) ─────────────────────────────────
   const { panelContent, panelDetails, allPanelDefs, PINNED_PREFIX: pinnedPrefix } = useDashboardPanels({
     // Cross-cutting
-    projectStatus, selectedProject, selectedProjectId, projectConfig, isPro, limitReached: isAtProjectLimit,
+    projectStatus, selectedProject, selectedProjectId, projectConfig, isPro, limitReached: isOverProjectLimit,
     scopeStatus: selectedProjectId ? scopeEvents[selectedProjectId] : undefined,
     logs, clearLogs, findActiveTask, handleBuild,
     transientComplete: selectedProjectId ? transientCompleteProjects.has(selectedProjectId) : false,
@@ -455,7 +458,7 @@ function App() {
     <>
       <ErrorToast message={error} onClose={() => setError(null)} />
       <UpdateBanner />
-      {isAtProjectLimit && (
+      {isOverProjectLimit && (
         <div className="fixed inset-x-0 top-0 z-[95] bg-amber-500/90 backdrop-blur text-white px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 shadow-lg">
           <AlertTriangle className="w-4 h-4" />
           <span>
@@ -572,6 +575,11 @@ function App() {
               onLayoutReady={(api) => { layoutApiRef.current = api }}
               onLayoutChange={setDashboardLayout}
               hidePanelPicker
+              headerRight={
+                <div className="flex items-center gap-2">
+                  <TeamSyncIndicator status={projectStatus?.sync} />
+                </div>
+              }
             />
           </div>
         ) : (

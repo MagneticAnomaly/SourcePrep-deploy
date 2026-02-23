@@ -1111,11 +1111,11 @@ All three trace tools now proxy to the project-scoped HTTP endpoints in `mcp_ser
 
  #### pyproject.toml Issues ✅ FIXED
 - [x] `requires-python = ">=3.11"` — kept as-is (3.11 is intended minimum per classifiers)
-- [x] `project.urls` → updated to `github.com/EricBintner/CoDRAG` ✅
+- [x] `project.urls` → updated to `github.com/MagneticAnomaly/CoDRAG-MCP` ✅
 - [x] `addopts` → removed `--cov` flags that crash pytest without pytest-cov ✅
 
  #### Wrong Org URL — ~~`anthropics/CoDRAG`~~ ✅ FIXED
-All URLs updated to `github.com/EricBintner/CoDRAG`:
+All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
 - [x] `pyproject.toml` lines 71-74 — `project.urls` ✅
 - [x] `packages/ui/package.json` line 83 — `repository.url` ✅
 - [x] `mcp-server.json` lines 5-6 — `homepage` + `repository` ✅

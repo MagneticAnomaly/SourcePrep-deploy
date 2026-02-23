@@ -3,8 +3,8 @@
 # Includes Ollama runtime + pre-baked Qwen3:4b model weights.
 # No API keys needed — fully private, fully offline.
 #
-# Build:
-#   docker build -f Dockerfile.gpu -t codrag/headless:gpu .
+# IMPORTANT: Build from the CoDRAG repo root (not from this directory):
+#   docker build -f public/codrag-deploy/Dockerfile.gpu -t codrag/headless:gpu .
 #
 # Usage:
 #   codrag sync-headless \

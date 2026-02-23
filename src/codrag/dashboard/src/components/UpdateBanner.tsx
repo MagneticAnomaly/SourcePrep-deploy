@@ -178,21 +178,21 @@ export function UpdateBanner({ checkIntervalMs = 30 * 60 * 1000 }: UpdateBannerP
         CoDRAG <strong>v{manifest?.version}</strong> is available.
       </span>
       {manifest?.body && (
-        <button
-          onClick={() => {
-            if (manifest.body) {
-              // Open release notes — could be a modal, for now just log
-              window.open(
-                `https://github.com/EricBintner/CoDRAG/releases/tag/app-v${manifest.version}`,
-                '_blank'
-              )
-            }
-          }}
-          className="underline underline-offset-2 opacity-80 hover:opacity-100 flex items-center gap-1"
+        <a
+          href={
+            manifest?.body?.includes('http')
+              ? manifest.body.match(/https?:\/\/[^\s]+/)?.[0] || '#'
+              : `https://github.com/MagneticAnomaly/CoDRAG-MCP/releases/tag/app-v${manifest.version}`
+          }
+          target="_blank"
         >
-          <ExternalLink className="w-3 h-3" />
-          What&apos;s new
-        </button>
+          <button
+            className="underline underline-offset-2 opacity-80 hover:opacity-100 flex items-center gap-1"
+          >
+            <ExternalLink className="w-3 h-3" />
+            What&apos;s new
+          </button>
+        </a>
       )}
       <Button
         variant="secondary"

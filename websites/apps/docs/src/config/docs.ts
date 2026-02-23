@@ -1,4 +1,4 @@
-import type { DocNode } from '@codrag/ui';
+import { type DocNode } from '@codrag/ui';
 
 const isDev = process.env.NODE_ENV !== 'production';
 const MARKETING_URL = isDev ? 'http://localhost:3000' : 'https://codrag.io';
@@ -51,6 +51,7 @@ export const docsSidebar: DocNode[] = [
       { title: 'Path Weights', href: '/guides/path-weights' },
       { title: 'Knowledge Scope', href: '/guides/knowledge-scope' },
       { title: 'BYOK Batch Processing', href: '/guides/byok-batching' },
+      { title: 'Team Sync', href: '/guides/team-sync' },
       { title: 'Model Setup Advisor', href: '/guides/model-advisor' },
     ],
   },

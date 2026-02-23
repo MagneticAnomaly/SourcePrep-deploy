@@ -65,7 +65,7 @@ signature before installing any update — this prevents tampered updates from b
 stores it encrypted, accessible only to your workflows.
 
 **Steps:**
-1. Go to [github.com/EricBintner/CoDRAG](https://github.com/EricBintner/CoDRAG)
+1. Go to [github.com/MagneticAnomaly/CoDRAG-MCP](https://github.com/MagneticAnomaly/CoDRAG-MCP)
 2. Click **Settings** → **Secrets and variables** → **Actions**
 3. Click **New repository secret** and add:
 
@@ -228,7 +228,7 @@ independently (VS Code extension, advanced users).
 3. Copy the token
 
 ### 3. Add to GitHub Secrets
-1. Go to [github.com/EricBintner/CoDRAG/settings/secrets/actions](https://github.com/EricBintner/CoDRAG/settings/secrets/actions)
+1. Go to [github.com/MagneticAnomaly/CoDRAG-MCP/settings/secrets/actions](https://github.com/MagneticAnomaly/CoDRAG-MCP/settings/secrets/actions)
 2. **New repository secret**:
    - Name: `PYPI_TOKEN`
    - Value: the token you copied

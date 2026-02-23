@@ -536,6 +536,7 @@ def get_project_status(project_id: str) -> Dict[str, Any]:
         "index": _srv()._project_index_status(idx, _srv()._project_last_build_error.get(proj.id)),
         "trace": _srv()._project_trace_status(proj),
         "watch": watch,
+        "sync": _srv()._get_project_sync_status(proj),
     }
     return ok(data)
 

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="../assets/codrag-github-header.png" alt="CoDRAG" width="100%">
+  <img src="../assets/codrag-banner.png" alt="CoDRAG - Phase 01 Foundation" width="100%">
 </p>
 
 # Phase 01 — Foundation
