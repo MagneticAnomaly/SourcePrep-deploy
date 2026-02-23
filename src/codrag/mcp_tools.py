@@ -226,8 +226,8 @@ TOOLS = [
         }
     },
     {
-        "name": "codrag_hi",
-        "description": "Greet the user and show what you can see. Call this when the user says 'codrag_hi' or asks what CoDRAG knows. Present the response CONVERSATIONALLY — tell the user what files and areas you're looking at, mention any health issues, and offer the suggested prompts as numbered next-step options. If the user also asked a question, briefly summarize what you see then answer their question (use codrag_search for specifics).",
+        "name": "hi_codrag",
+        "description": "Greet the user and show what you can see. Call this when the user says 'hi_codrag' or asks what CoDRAG knows. Present the response CONVERSATIONALLY — tell the user what files and areas you're looking at, mention any health issues, and offer the suggested prompts as numbered next-step options. If the user also asked a question, briefly summarize what you see then answer their question (use codrag_search for specifics).",
         "inputSchema": {
             "type": "object",
             "properties": {

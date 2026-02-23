@@ -51,10 +51,13 @@ def validate_trace_dir(trace_dir: Path) -> None:
             raise ValueError(f"Node {nid} missing required field: name")
 
         fp = n.get("file_path")
-        if not isinstance(fp, str) or not fp:
-            raise ValueError(f"Node {nid} missing required field: file_path")
-        if fp.startswith("/") or ":\\" in fp or "\\" in fp:
-            raise ValueError(f"Node {nid} has non-portable file_path: {fp}")
+        # External dependency nodes (ext:*) don't have file_path — that's expected
+        is_external = nid.startswith("ext:")
+        if not is_external:
+            if not isinstance(fp, str) or not fp:
+                raise ValueError(f"Node {nid} missing required field: file_path")
+            if fp.startswith("/") or ":\\" in fp or "\\" in fp:
+                raise ValueError(f"Node {nid} has non-portable file_path: {fp}")
 
         span = n.get("span")
         if span is not None:

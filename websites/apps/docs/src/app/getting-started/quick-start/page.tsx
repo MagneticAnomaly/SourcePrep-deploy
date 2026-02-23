@@ -71,7 +71,7 @@ export default function Page() {
                 In the CoDRAG dashboard, use the <span className="font-semibold text-text">Knowledge Sources</span> tree to select the files and folders you want to work with. Then in your editor&apos;s AI chat, type:
               </p>
               <blockquote className="ml-8 border-l-2 border-primary pl-4 py-1 italic text-text-muted">
-                &quot;codrag_hi&quot;
+                &quot;hi_codrag&quot;
               </blockquote>
               <p className="text-sm text-text-muted mt-2 ml-8">
                 CoDRAG will tell your AI exactly which files you selected &mdash; your design docs, code files, tests &mdash; and suggest relevant next steps. For example:

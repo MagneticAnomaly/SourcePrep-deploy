@@ -183,6 +183,7 @@ class LLMClient:
         num_predict: int = 2048,
         json_mode: bool = True,
         temperature: float = 0.1,
+        response_schema: Optional[Dict[str, Any]] = None,
     ) -> Tuple[str, int]:
         """
         Call the LLM and return (response_text, tokens_used).
@@ -192,6 +193,8 @@ class LLMClient:
             json_mode: If True (default), request JSON output from Ollama.
                        Set False for free-form prose (e.g. Atlas generation).
             temperature: Sampling temperature. Lower = more deterministic.
+            response_schema: Optional JSON schema dict for guaranteed structured output 
+                             (supported by OpenAI and Google).
         """
         import requests
 
@@ -202,8 +205,11 @@ class LLMClient:
                 "stream": False,
                 "options": {"temperature": temperature, "num_predict": num_predict},
             }
-            if json_mode:
+            if json_mode and not response_schema:
                 payload["format"] = "json"
+            elif response_schema:
+                # OpenAI structured outputs format (Ollama supports this for some models)
+                payload["format"] = response_schema
             if system:
                 payload["system"] = system
 
@@ -226,6 +232,16 @@ class LLMClient:
                 "messages": messages,
                 "temperature": temperature,
             }
+            
+            if response_schema:
+                payload["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "structured_response",
+                        "schema": response_schema,
+                        "strict": True
+                    }
+                }
             
             headers = {
                 "Content-Type": "application/json",
@@ -284,12 +300,20 @@ class LLMClient:
             # Google Gemini API — uses systemInstruction for system prompts
             contents = [{"role": "user", "parts": [{"text": prompt}]}]
 
+            generation_config = {
+                "temperature": temperature,
+                "maxOutputTokens": num_predict,
+            }
+            
+            if response_schema:
+                generation_config["responseMimeType"] = "application/json"
+                generation_config["responseSchema"] = response_schema
+            elif json_mode:
+                generation_config["responseMimeType"] = "application/json"
+
             payload: Dict[str, Any] = {
                 "contents": contents,
-                "generationConfig": {
-                    "temperature": temperature,
-                    "maxOutputTokens": num_predict,
-                },
+                "generationConfig": generation_config,
             }
             if system:
                 payload["systemInstruction"] = {"parts": [{"text": system}]}
@@ -1180,6 +1204,7 @@ class TraceAugmenter:
             BATCHED_DOC_SYSTEM,
             build_batched_file_prompt,
             build_batched_doc_prompt,
+            get_structured_schema,
         )
         from .batch_strategy import BatchedResponseParser
 
@@ -1188,6 +1213,9 @@ class TraceAugmenter:
             "Batched file augmentation: %d files, batch_size=%d (%s profile)",
             len(file_nodes), batch_size, self._batch_profile.name.value,
         )
+
+        file_schema = get_structured_schema("catalogue_file")
+        doc_schema = get_structured_schema("epistemic_doc") # doc aug matches epistemic doc shape closely enough
 
         # Split into code files and doc files
         code_files = []
@@ -1228,7 +1256,10 @@ class TraceAugmenter:
 
             prompt = build_batched_file_prompt(items)
             try:
-                text, tokens = self.llm.generate(prompt, system=BATCHED_FILE_SYSTEM, num_predict=batch_size * 200)
+                text, tokens = self.llm.generate(
+                    prompt, system=BATCHED_FILE_SYSTEM, num_predict=batch_size * 200,
+                    response_schema=file_schema,
+                )
                 results_list = BatchedResponseParser.parse(text, expected_count=len(items))
             except Exception as e:
                 logger.warning("Batched file augmentation failed for batch of %d: %s", len(items), e)
@@ -1315,7 +1346,10 @@ class TraceAugmenter:
 
             prompt = build_batched_doc_prompt(items)
             try:
-                text, tokens = self.llm.generate(prompt, system=BATCHED_DOC_SYSTEM, num_predict=len(items) * 200)
+                text, tokens = self.llm.generate(
+                    prompt, system=BATCHED_DOC_SYSTEM, num_predict=len(items) * 200,
+                    response_schema=doc_schema,
+                )
                 results_list = BatchedResponseParser.parse(text, expected_count=len(items))
             except Exception as e:
                 logger.warning("Batched doc augmentation failed for batch of %d: %s", len(items), e)

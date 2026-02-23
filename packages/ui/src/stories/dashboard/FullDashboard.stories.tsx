@@ -19,7 +19,6 @@ import { GraphEnrichmentPipeline } from '../../components/trace/GraphEnrichmentP
 import type { TraceCoverageFile, TraceCoverageSummary } from '../../types';
 import { ModularDashboard, type DashboardLayoutApi } from '../../components/layout/ModularDashboard';
 import type { PanelDefinition } from '../../types/layout';
-import { WatchControlPanel } from '../../components/watch/WatchControlPanel';
 import { CodeViewer } from '../../components/project/CodeViewer';
 import { UsageGuidePanel } from '../../components/dashboard/UsageGuidePanel';
 import { DeepAnalysisSettings } from '../../components/llm/DeepAnalysisSettings';
@@ -348,15 +347,6 @@ export const FullDashboard: StoryObj = {
             />
           </div>,
         ])
-      ),
-      watch: (
-        <WatchControlPanel
-          status={{ enabled: true, state: 'idle', stale: false, pending: false }}
-          onStartWatch={() => {}}
-          onStopWatch={() => {}}
-          onRebuildNow={() => {}}
-          bare
-        />
       ),
       trace: (
         <div className="h-full flex flex-col">

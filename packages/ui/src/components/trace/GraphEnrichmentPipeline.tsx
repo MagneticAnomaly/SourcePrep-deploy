@@ -5,7 +5,7 @@ import { ConfirmDialog } from '../primitives/ConfirmDialog';
 import { SlidingSwitch2, SlidingSwitch3 } from '../primitives/SlidingSwitch';
 import {
   GitBranch, Brain, ShieldCheck, Play, AlertTriangle, CheckCircle2,
-  Circle, Clock, Loader2, Layers, Network, Database, Trash2, Code2, Map
+  Circle, Clock, Loader2, Layers, Network, Database, Trash2, Code2, Map, Eye
 } from 'lucide-react';
 import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, InferredEdgesStatus, AtlasStatus } from '../../types';
 
@@ -688,7 +688,15 @@ export function GraphEnrichmentPipeline({
 
       {/* ── Fast Sync Group ─────────────────────────── */}
       <div className="flex items-center justify-between py-1.5 px-1">
-        <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Fast Sync</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Fast Sync</span>
+          {fastAuto && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-success-muted/10 text-success border border-success-muted/20">
+              <Eye className="w-2.5 h-2.5" />
+              Watching
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {!fastAuto && onRunFastSync && (
             <button

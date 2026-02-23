@@ -51,6 +51,12 @@ export type {
   PipelineGroupRun,
   CrashedPipelineRun,
   ScopeStatus,
+  SyncStatus,
+  ServerStatus,
+  ServerMode,
+  BatchMode,
+  TeamConfig,
+  TeamConfigStatus as TeamConfigStatusType,
 } from './types';
 
 // Components - Status

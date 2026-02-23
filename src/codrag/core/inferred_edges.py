@@ -234,6 +234,7 @@ class InferredEdgesAnalyzer:
             from .batch_prompts import (
                 BATCHED_INFERRED_EDGES_SYSTEM,
                 build_batched_inferred_edges_prompt,
+                get_structured_schema,
             )
             from .batch_strategy import BatchedResponseParser
 
@@ -243,6 +244,8 @@ class InferredEdgesAnalyzer:
                 "BATCHED inferred edges: %d files, batch_size=%d (%s profile)",
                 total, batch_size, self._batch_profile.name.value,
             )
+
+            schema = get_structured_schema("inferred_edges")
 
             for batch_start in range(0, total, batch_size):
                 batch = to_analyze[batch_start:batch_start + batch_size]
@@ -274,15 +277,14 @@ class InferredEdgesAnalyzer:
                     text, tokens = self.llm.generate(
                         prompt, system=BATCHED_INFERRED_EDGES_SYSTEM,
                         num_predict=len(items) * 300,
+                        response_schema=schema,
                     )
                     results_list = BatchedResponseParser.parse(text, expected_count=len(items))
                 except Exception as e:
                     logger.warning("Batched inferred edges failed for %d items: %s", len(items), e)
                     results_list = []
                     failed += len(items)
-                    for item in items:
-                        if item["_content_hash"]:
-                            new_manifest[item["file_path"]] = item["_content_hash"]
+                    # We do NOT update new_manifest here so failed files are retried next time
                     continue
 
                 for idx, item in enumerate(items):
@@ -311,11 +313,12 @@ class InferredEdgesAnalyzer:
                             new_edges.append(edge)
                             edges_written += 1
                             inferred_targets.setdefault(fp, set()).add(target)
+
+                        # Only update manifest if we successfully parsed the result
+                        if item["_content_hash"]:
+                            new_manifest[fp] = item["_content_hash"]
                     else:
                         failed += 1
-
-                    if item["_content_hash"]:
-                        new_manifest[fp] = item["_content_hash"]
 
                 if progress_callback:
                     progress_callback("Inferring edges", min(batch_start + batch_size, total), total)

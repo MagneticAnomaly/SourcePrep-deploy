@@ -61,6 +61,7 @@ export { ServerModeIndicator } from './team/ServerModeIndicator';
 export { TeamConfigStatus } from './team/TeamConfigStatus';
 export { EmbeddedModeIndicator } from './team/EmbeddedModeIndicator';
 export { LicenseStatusCard } from './team/LicenseStatusCard';
+export { TeamSyncIndicator } from './team/TeamSyncIndicator';
 
 // Marketing Components (Phase 12)
 export { MarketingHero, type MarketingHeroProps } from './marketing/MarketingHero';

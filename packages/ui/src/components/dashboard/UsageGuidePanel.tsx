@@ -27,9 +27,9 @@ const MCP_TOOLS: ToolDef[] = [
     category: 'Context & Search',
   },
   {
-    name: 'codrag_hi',
+    name: 'hi_codrag',
     description: 'See what CoDRAG knows about your selected files — design docs, code areas, connections, and suggested next steps. Best first step.',
-    example: '"codrag_hi" — select files in Knowledge Sources first, then ask your AI',
+    example: '"hi_codrag" — select files in Knowledge Sources first, then ask your AI',
     primary: true,
   },
   {
@@ -125,7 +125,7 @@ export function UsageGuidePanel({ className, bare = false, docsUrl = 'https://do
             <div key={tool.name} className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1.5">
               <div className="flex items-center gap-2">
                 <CopyBadge text={tool.name} />
-                {tool.name === 'codrag_hi' && (
+                {tool.name === 'hi_codrag' && (
                   <span className="text-[10px] font-medium uppercase tracking-wider text-primary">Start here</span>
                 )}
                 {tool.name === 'codrag' && (

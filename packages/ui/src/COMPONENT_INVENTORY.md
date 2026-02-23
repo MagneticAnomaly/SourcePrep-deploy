@@ -134,15 +134,14 @@ This document catalogs all UI components needed for CoDRAG across all tiers and 
 ### 6.1 LLM Status
 | Component | Status | Purpose |
 |-----------|--------|---------|
-| `LLMStatusWidget` | ✅ | Ollama/CLaRa connection status |
+| `LLMStatusWidget` | ✅ | Ollama connection status |
 | `OllamaStatusBadge` | 🔲 | Ollama connection state |
-| `ClaraStatusBadge` | 🔲 | CLaRa connection state (optional service) |
 | `ModelList` | 🔲 | Available embedding models |
 
 ### 6.2 LLM Settings
 | Component | Status | Purpose |
 |-----------|--------|---------|
-| `LLMEndpointConfig` | 🔲 | URL configuration for Ollama/CLaRa |
+| `LLMEndpointConfig` | 🔲 | URL configuration for Ollama |
 | `LLMTestButton` | 🔲 | Force connectivity check |
 
 ---
@@ -344,7 +343,6 @@ interface TraceEdge {
 // LLM status
 interface LLMStatus {
   ollama: { url: string; connected: boolean; models: string[] };
-  clara: { url: string; enabled: boolean; connected: boolean };
 }
 
 // Server status (Phase 06)

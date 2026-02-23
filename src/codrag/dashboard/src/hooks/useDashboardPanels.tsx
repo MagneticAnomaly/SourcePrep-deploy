@@ -14,7 +14,6 @@ import {
   TraceExplorer,
   GraphEnrichmentPipeline,
   GraphStructurePanel,
-  WatchControlPanel,
   FolderTreePanel,
   FileExplorerDetail,
   CopyButton,
@@ -32,7 +31,6 @@ import {
   type ProjectListItem,
   type TreeNode,
   type PinnedTextFile,
-  type WatchStatus,
   type DeepAnalysisSchedule,
   type InferredEdgesStatus,
   type AugmentationStatus,
@@ -147,13 +145,6 @@ export interface PanelEnrichmentProps {
   handleRunDeepEnrichment: () => void
 }
 
-export interface PanelWatchProps {
-  watchStatus: WatchStatus
-  watchLoading: boolean
-  handleStartWatch: () => void
-  handleStopWatch: () => void
-}
-
 export interface PanelLLMProps {
   llmConfig: LLMConfig
   llmSlotsStatus: LLMSlotsStatus | null
@@ -206,7 +197,6 @@ export interface DashboardPanelsProps {
   files: PanelFileSystemProps
   trace: PanelTraceProps
   enrichment: PanelEnrichmentProps
-  watch: PanelWatchProps
   llm: PanelLLMProps
   deepAnalysis: PanelDeepAnalysisProps
   atlas: PanelAtlasProps
@@ -216,8 +206,8 @@ export interface DashboardPanelsProps {
 /** Builds all dashboard panel content, detail views, and dynamic panel definitions from domain state. */
 export function useDashboardPanels(props: DashboardPanelsProps) {
   // Flatten grouped sub-objects for backward-compatible p.xxx access internally
-  const { search, files, trace, enrichment, watch, llm, deepAnalysis, atlas, ...core } = props
-  const p = { ...core, ...search, ...files, ...trace, ...enrichment, ...watch, ...llm, ...deepAnalysis }
+  const { search, files, trace, enrichment, llm, deepAnalysis, atlas, ...core } = props
+  const p = { ...core, ...search, ...files, ...trace, ...enrichment, ...llm, ...deepAnalysis }
   const panelContent = useMemo(() => ({
     'log-console': (
       <LogConsole
@@ -252,8 +242,6 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           },
           trace_status: p.traceStatus ?? null,
           trace_coverage: p.traceCoverage ?? null,
-          watch_status: p.watchStatus ?? null,
-          watch_loading: p.watchLoading,
           scope_status: p.scopeStatus ?? null,
           index_auto_rebuild: p.indexAutoRebuild,
           enrichment_auto_config: p.enrichmentAutoConfig ?? null,
@@ -288,6 +276,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
             saved_endpoints: p.llmConfig.saved_endpoints?.map((ep: SavedEndpoint) => ({
               id: ep.id, name: ep.name, provider: ep.provider, url: ep.url,
             })),
+            batch_mode: p.llmConfig.batch_mode ?? 'auto',
           },
           llm_slots_status: p.llmSlotsStatus ?? null,
           deep_analysis_schedule: p.deepAnalysisSchedule ?? null,
@@ -489,18 +478,6 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
       <ContextOutput
         context={p.context}
         meta={p.contextMeta}
-        bare
-      />
-    ),
-    watch: (
-      <WatchControlPanel
-        status={p.watchStatus}
-        onStartWatch={p.handleStartWatch}
-        onStopWatch={p.handleStopWatch}
-        onRebuildNow={() => p.selectedProjectId && void p.handleBuild()}
-        loading={p.watchLoading}
-        isFree={!p.isPro}
-        onUpgrade={p.onOpenSettings}
         bare
       />
     ),

@@ -81,10 +81,10 @@ const capabilityIcons: Record<string, React.ReactNode> = {
   'CLI for': <Server className="w-3.5 h-3.5 text-primary flex-shrink-0" />,
   'Real-time': <Eye className="w-3.5 h-3.5 text-primary flex-shrink-0" />,
   'Semantic +': <Search className="w-3.5 h-3.5 text-primary flex-shrink-0" />,
-  '10–16×': <Shrink className="w-3.5 h-3.5 text-success flex-shrink-0" />,
-  'Query-aware': <Search className="w-3.5 h-3.5 text-success flex-shrink-0" />,
+  '3–20×': <Shrink className="w-3.5 h-3.5 text-success flex-shrink-0" />,
+  'Score-aware': <Search className="w-3.5 h-3.5 text-success flex-shrink-0" />,
   'Increases signal': <Gauge className="w-3.5 h-3.5 text-success flex-shrink-0" />,
-  'Best-effort': <Eye className="w-3.5 h-3.5 text-success flex-shrink-0" />,
+  'Built-in': <Eye className="w-3.5 h-3.5 text-success flex-shrink-0" />,
   'Works via': <Plug className="w-3.5 h-3.5 text-success flex-shrink-0" />,
 };
 

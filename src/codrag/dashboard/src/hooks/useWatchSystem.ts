@@ -17,6 +17,12 @@ export function useWatchSystem(selectedProjectId: string | null, { onError }: Us
     state: 'disabled',
     stale: false,
     pending: false,
+    debounce_ms: 5000,
+    stale_since: null,
+    pending_paths_count: 0,
+    next_rebuild_at: null,
+    last_event_at: null,
+    last_rebuild_at: null,
   })
   const [watchLoading, setWatchLoading] = useState(false)
 
@@ -27,7 +33,7 @@ export function useWatchSystem(selectedProjectId: string | null, { onError }: Us
       const ws = await api.getWatchStatus(projId)
       setWatchStatus(ws)
     } catch {
-      setWatchStatus({ enabled: false, state: 'disabled', stale: false, pending: false })
+      setWatchStatus({ enabled: false, state: 'disabled', stale: false, pending: false, debounce_ms: 5000, stale_since: null, pending_paths_count: 0, next_rebuild_at: null, last_event_at: null, last_rebuild_at: null })
     }
   }, [api])
 

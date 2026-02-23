@@ -179,7 +179,8 @@ def default_ui_config(config: Dict[str, Any]) -> Dict[str, Any]:
             "enabled": False,
             "mode": "auto",
             "level": "standard",
-        }
+        },
+        "batch_mode": "auto",
     }
 
     return cfg

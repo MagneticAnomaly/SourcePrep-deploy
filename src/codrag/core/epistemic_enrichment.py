@@ -553,7 +553,8 @@ class EpistemicEnricher:
         nodes_by_id: Dict[str, Dict[str, Any]],
         augmentations: Dict[str, Dict[str, Any]],
         enriched: Dict[str, EpistemicEntry],
-        batch_size: int,
+        code_batch_size: int,
+        doc_batch_size: int,
     ) -> Tuple[int, int]:
         """Enrich a single tier of nodes using batched LLM calls.
 
@@ -567,11 +568,15 @@ class EpistemicEnricher:
             BATCHED_EPISTEMIC_DOC_SYSTEM,
             build_batched_epistemic_code_prompt,
             build_batched_epistemic_doc_prompt,
+            get_structured_schema,
         )
         from .batch_strategy import BatchedResponseParser
 
         done = 0
         failed = 0
+
+        code_schema = get_structured_schema("epistemic_code")
+        doc_schema = get_structured_schema("epistemic_doc")
 
         # Split into code and doc nodes
         code_nodes = []
@@ -586,8 +591,8 @@ class EpistemicEnricher:
                 code_nodes.append(node)
 
         # Batch code nodes
-        for batch_start in range(0, len(code_nodes), batch_size):
-            batch = code_nodes[batch_start:batch_start + batch_size]
+        for batch_start in range(0, len(code_nodes), code_batch_size):
+            batch = code_nodes[batch_start:batch_start + code_batch_size]
             items = []
             for node in batch:
                 fp = node.get("file_path", "")
@@ -613,6 +618,7 @@ class EpistemicEnricher:
                 text, tokens = self.llm.generate(
                     prompt, system=BATCHED_EPISTEMIC_CODE_SYSTEM,
                     num_predict=len(items) * 400,
+                    response_schema=code_schema,
                 )
                 results_list = BatchedResponseParser.parse(text, expected_count=len(items))
             except Exception as e:
@@ -646,8 +652,7 @@ class EpistemicEnricher:
                 else:
                     failed += 1
 
-        # Batch doc nodes (smaller batches — docs are bigger)
-        doc_batch_size = max(1, batch_size // 3)
+        # Batch doc nodes
         for batch_start in range(0, len(doc_nodes), doc_batch_size):
             batch = doc_nodes[batch_start:batch_start + doc_batch_size]
             items = []
@@ -680,6 +685,7 @@ class EpistemicEnricher:
                 text, tokens = self.llm.generate(
                     prompt, system=BATCHED_EPISTEMIC_DOC_SYSTEM,
                     num_predict=len(items) * 400,
+                    response_schema=doc_schema,
                 )
                 results_list = BatchedResponseParser.parse(text, expected_count=len(items))
             except Exception as e:
@@ -784,17 +790,18 @@ class EpistemicEnricher:
 
         if use_batching and to_enrich:
             from .batch_profiles import BatchStage
-            batch_size = self._batch_profile.batch_size(BatchStage.EPISTEMIC_CODE)
+            code_batch_size = self._batch_profile.batch_size(BatchStage.EPISTEMIC_CODE)
+            doc_batch_size = self._batch_profile.batch_size(BatchStage.EPISTEMIC_DOC)
 
             # Sort into tiers for tier-based batching
             tiers = topological_sort_into_tiers(to_enrich, edges)
             logger.info(
-                "BATCHED epistemic enrichment: %d files in %d tiers, batch_size=%d (%s profile)",
-                total_work, len(tiers), batch_size, self._batch_profile.name.value,
+                "BATCHED epistemic enrichment: %d files in %d tiers, code_batch_size=%d, doc_batch_size=%d (%s profile)",
+                total_work, len(tiers), code_batch_size, doc_batch_size, self._batch_profile.name.value,
             )
             for tier_idx, tier in enumerate(tiers):
                 tier_done, tier_failed = self._enrich_tier_batched(
-                    tier, edges, nodes_by_id, augmentations, enriched, batch_size,
+                    tier, edges, nodes_by_id, augmentations, enriched, code_batch_size, doc_batch_size,
                 )
                 done += tier_done
                 failed += tier_failed

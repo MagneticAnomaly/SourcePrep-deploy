@@ -525,6 +525,9 @@ class WorkerFactory:
             # Use large LLM if available; fall back to structural atlas
             try:
                 llm_client = WorkerFactory._get_llm_client("large")
+                # Atlas generates 4096 tokens of free-form prose — thinking
+                # models need much longer than the default 60s timeout.
+                llm_client.timeout = 300.0
             except RuntimeError:
                 llm_client = None
 

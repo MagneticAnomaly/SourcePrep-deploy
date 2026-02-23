@@ -177,7 +177,7 @@
     "batch_mode": "off"
   },
   "deep_analysis": {
-    "mode": "auto",
+    "mode": "manual",
     "threshold_percent": 20,
     "frequency": "daily",
     "day_of_week": 0,
@@ -195,7 +195,7 @@
       "auto": true
     },
     "deep_enrichment": {
-      "mode": "auto",
+      "mode": "manual",
       "schedule": {
         "frequency": "daily",
         "day_of_week": 0,
@@ -283,39 +283,12 @@
         "w": 4
       },
       {
-        "id": "log-console",
-        "visible": true,
-        "height": 16,
-        "collapsed": false,
-        "x": 4,
-        "y": 18,
-        "w": 8
-      },
-      {
         "id": "atlas",
         "visible": true,
         "height": 14,
         "collapsed": false,
-        "x": 0,
-        "y": 21,
-        "w": 4
-      },
-      {
-        "id": "token-budget",
-        "visible": true,
-        "height": 6,
-        "collapsed": false,
         "x": 4,
-        "y": 34,
-        "w": 4
-      },
-      {
-        "id": "deep-analysis",
-        "visible": true,
-        "height": 12,
-        "collapsed": false,
-        "x": 8,
-        "y": 34,
+        "y": 18,
         "w": 4
       },
       {
@@ -324,25 +297,7 @@
         "height": 11,
         "collapsed": false,
         "x": 0,
-        "y": 35,
-        "w": 4
-      },
-      {
-        "id": "watch",
-        "visible": true,
-        "height": 4,
-        "collapsed": false,
-        "x": 4,
-        "y": 40,
-        "w": 4
-      },
-      {
-        "id": "search",
-        "visible": true,
-        "height": 8,
-        "collapsed": true,
-        "x": 4,
-        "y": 44,
+        "y": 21,
         "w": 4
       },
       {
@@ -351,7 +306,52 @@
         "height": 7,
         "collapsed": true,
         "x": 0,
-        "y": 46,
+        "y": 32,
+        "w": 4
+      },
+      {
+        "id": "log-console",
+        "visible": true,
+        "height": 16,
+        "collapsed": false,
+        "x": 4,
+        "y": 32,
+        "w": 8
+      },
+      {
+        "id": "context-output",
+        "visible": true,
+        "height": 10,
+        "collapsed": true,
+        "x": 0,
+        "y": 34,
+        "w": 4
+      },
+      {
+        "id": "token-budget",
+        "visible": true,
+        "height": 6,
+        "collapsed": false,
+        "x": 4,
+        "y": 48,
+        "w": 4
+      },
+      {
+        "id": "deep-analysis",
+        "visible": true,
+        "height": 12,
+        "collapsed": false,
+        "x": 8,
+        "y": 48,
+        "w": 4
+      },
+      {
+        "id": "search",
+        "visible": true,
+        "height": 8,
+        "collapsed": true,
+        "x": 4,
+        "y": 54,
         "w": 4
       },
       {
@@ -360,16 +360,16 @@
         "height": 9,
         "collapsed": false,
         "x": 8,
-        "y": 46,
+        "y": 60,
         "w": 4
       },
       {
-        "id": "context-output",
-        "visible": true,
-        "height": 10,
-        "collapsed": true,
-        "x": 0,
-        "y": 48,
+        "id": "watch",
+        "visible": false,
+        "height": 4,
+        "collapsed": false,
+        "x": 4,
+        "y": 40,
         "w": 4
       },
       {

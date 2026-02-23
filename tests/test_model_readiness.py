@@ -257,16 +257,6 @@ class TestGetModelStatus:
         assert result.status == ModelStatus.READY
         mock_fn.assert_called_once()
 
-    def test_clara_reachable(self):
-        with _mock_requests_get(return_value=MagicMock(status_code=200)):
-            result = get_model_status("clara", "http://localhost:8080", "clara-7b")
-        assert result.status == ModelStatus.READY
-
-    def test_clara_unreachable(self):
-        with _mock_requests_get(side_effect=ConnectionError("refused")):
-            result = get_model_status("clara", "http://localhost:8080", "clara-7b")
-        assert result.status == ModelStatus.ERROR
-
     def test_openai_reachable(self):
         with _mock_requests_get(return_value=MagicMock(status_code=200)):
             result = get_model_status("openai", "https://api.openai.com/v1", "gpt-4", api_key="sk-test")

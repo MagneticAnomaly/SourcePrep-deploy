@@ -14,7 +14,7 @@ Tools:
 - codrag_trace_search: Search the code graph for symbols
 - codrag_trace_neighbors: Get neighbors for a trace node
 - codrag_trace_coverage: Get trace coverage statistics
-- codrag_hi: Project overview, health check, and suggested prompts
+- hi_codrag: Project overview, health check, and suggested prompts
 """
 
 from __future__ import annotations
@@ -1147,7 +1147,7 @@ class MCPServer:
         # -- AI presentation guidance ------------------------------------------
         ai_note = (
             "IMPORTANT: The selected files ARE the user's focus. Lead with them.\n\n"
-            "STANDALONE (user only said 'codrag_hi'): Present the file inventory "
+            "STANDALONE (user only said 'hi_codrag'): Present the file inventory "
             "conversationally — tell the user exactly which files and areas you're "
             "looking at. Group them naturally: 'I can see your design docs (X, Y), "
             "the code in components/ (A, B, C), and some tests.' If docs are selected, "
@@ -1155,7 +1155,7 @@ class MCPServer:
             "Mention hub files as 'the most important/connected files'. "
             "Mention trace/graph as a background capability, not the lead. "
             "Offer the suggested prompts as numbered options. Speak in first person.\n\n"
-            "WITH A QUESTION (user said 'codrag_hi' AND asked something): Briefly "
+            "WITH A QUESTION (user said 'hi_codrag' AND asked something): Briefly "
             "acknowledge the selected files (1 sentence), then address their question. "
             "Use codrag_search to retrieve specific content from the selected files.\n\n"
             "DEEPER CONTEXT: For detailed file content, call `codrag` (the ambient "
@@ -1297,7 +1297,7 @@ class MCPServer:
                 )
             elif name == "codrag_trace_coverage":
                 result = await self.tool_trace_coverage(project_override=project_override)
-            elif name == "codrag_hi":
+            elif name == "hi_codrag":
                 result = await self.tool_hi(project_override=project_override)
             else:
                 raise MethodNotFoundError(f"Unknown tool: {name}")

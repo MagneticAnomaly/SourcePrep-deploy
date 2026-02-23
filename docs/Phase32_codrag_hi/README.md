@@ -1,10 +1,10 @@
-# Phase 32: `codrag_hi` — IDE Sanity Check & Context Discovery Tool
+# Phase 32: `hi_codrag` — IDE Sanity Check & Context Discovery Tool
 
 ## Concept
 
-A new MCP tool called `codrag_hi` that serves as both a **developer diagnostic** and a **user onboarding/discovery** tool.
+A new MCP tool called `hi_codrag` that serves as both a **developer diagnostic** and a **user onboarding/discovery** tool.
 
-**User types "codrag_hi" in IDE chat → CoDRAG inspects project state → returns a friendly summary of what it's prepared to talk about + 3–6 suggested prompts ready to run.**
+**User types "hi_codrag" in IDE chat → CoDRAG inspects project state → returns a friendly summary of what it's prepared to talk about + 3–6 suggested prompts ready to run.**
 
 ### Two personas, one tool
 
@@ -19,7 +19,7 @@ A new MCP tool called `codrag_hi` that serves as both a **developer diagnostic**
 
 ### What data is already available at MCP tool-call time?
 
-Every `codrag_hi` call can hit these existing endpoints via `_api_get` / `_api_post` — **no new backend work required** for the data layer:
+Every `hi_codrag` call can hit these existing endpoints via `_api_get` / `_api_post` — **no new backend work required** for the data layer:
 
 | Data | Endpoint | What it tells us |
 |------|----------|-----------------|
@@ -67,7 +67,7 @@ Backend:
 
 **All gaps closed.** The `included_paths` set is now:
 - Persisted server-side in SQLite project config (survives browser clear, works across clients)
-- Readable via `GET /projects/{id}/included_paths` (MCP `codrag_hi` can report what user selected)
+- Readable via `GET /projects/{id}/included_paths` (MCP `hi_codrag` can report what user selected)
 - Synced from frontend on every toggle via `updateIncludedPaths` (belt) + `addScopeFiles`/`removeScopeFiles` (suspenders)
 - Hydrated from server on project load (server is source of truth)
 
@@ -124,7 +124,7 @@ All core data is accessible via existing endpoints. The `includedPaths` persiste
 - **Recommendation:** Option D for MVP (zero latency), Option B for Phase 2
 
 ### R-5: Multi-project behavior
-- **Question:** If the user has 3 projects, should `codrag_hi` report on all of them or just the resolved one?
+- **Question:** If the user has 3 projects, should `hi_codrag` report on all of them or just the resolved one?
 - **Recommendation:** Report on the resolved project, but mention others exist. ("You also have `project-b` and `project-c` indexed.")
 
 ### R-6: Rate of information vs. token cost
@@ -136,7 +136,7 @@ All core data is accessible via existing endpoints. The `includedPaths` persiste
 
 ## 3. MVP — ✅ SHIPPED (2026-02-20)
 
-### Tool: `codrag_hi`
+### Tool: `hi_codrag`
 
 A single MCP tool with **no required parameters** and one optional `project_id`.
 
@@ -144,12 +144,12 @@ A single MCP tool with **no required parameters** and one optional `project_id`.
 - `src/codrag/mcp_tools.py` — tool schema (no required params, optional `project_id`)
 - `src/codrag/mcp_server.py` — `tool_hi()` daemon-mode implementation (parallel API fetch, markdown generation)
 - `src/codrag/mcp_direct.py` — `tool_hi()` direct-mode implementation (in-process, simpler)
-- `tests/test_codrag_hi.py` — 29 tests, all passing
+- `tests/test_hi_codrag.py` — 29 tests, all passing
 
 **Response structure:**
 ```json
 {
-  "_ai_note": "STANDALONE (user only said 'codrag_hi'): Present the summary conversationally... WITH A QUESTION: Briefly acknowledge, then answer...",
+  "_ai_note": "STANDALONE (user only said 'hi_codrag'): Present the summary conversationally... WITH A QUESTION: Briefly acknowledge, then answer...",
   "summary": "I'm looking at **my-app** — 120 files selected across **src/** (45 files), **docs/** (22 files)...",
   "diagnostics": {
     "project_id": "proj_abc",
@@ -177,8 +177,8 @@ The `_ai_note` field in every response tells the AI model how to present the dat
 
 | Scenario | User says | AI behavior |
 |----------|-----------|-------------|
-| **Standalone** | "codrag_hi" (nothing else) | Present the summary conversationally — "I'm looking at your src/, docs/, and tests/ directories…" Mention health issues naturally. Offer suggested prompts as numbered next-step options. |
-| **With a question** | "codrag_hi, then explain the auth module" | Briefly acknowledge what you see (1–2 sentences), then answer the question. Call `codrag_search` if specific code context is needed. |
+| **Standalone** | "hi_codrag" (nothing else) | Present the summary conversationally — "I'm looking at your src/, docs/, and tests/ directories…" Mention health issues naturally. Offer suggested prompts as numbered next-step options. |
+| **With a question** | "hi_codrag, then explain the auth module" | Briefly acknowledge what you see (1–2 sentences), then answer the question. Call `codrag_search` if specific code context is needed. |
 
 The tool description also shapes this behavior: *"Present the response CONVERSATIONALLY — tell the user what files and areas you're looking at, mention any health issues, and offer the suggested prompts as numbered next-step options. If the user also asked a question, briefly summarize what you see then answer their question (use codrag_search for specifics)."*
 
@@ -216,7 +216,7 @@ _(You also have backend-api, shared-lib indexed.)_
 
 **Data assembly (daemon mode):** 6 API calls in parallel via `asyncio.gather`:
 ```
-codrag_hi called
+hi_codrag called
   ├─ _resolve_project_id()                    → project_id
   ├─ asyncio.gather (parallel):
   │   ├─ GET /projects/{id}/status            → index, trace, watch, stale
@@ -275,7 +275,7 @@ codrag_hi called
 
 ### Phase A: MVP (this sprint)
 - **A.0: `includedPaths` persistence** — `PUT/GET /projects/{id}/included_paths`, frontend sync, fix broken `addScopeFiles`/`removeScopeFiles` stubs
-- A.1: Add `codrag_hi` tool to MCP schema + both server modes
+- A.1: Add `hi_codrag` tool to MCP schema + both server modes
 - A.2: Rule-based prompt generation from project state (including file selection)
 - A.3: Response: formatted markdown summary + structured diagnostics
 - A.4: Tests
@@ -313,7 +313,7 @@ codrag_hi called
 
 | ID | Question | Impact | Decision needed by |
 |----|----------|--------|-------------------|
-| Q-1 | Should the tool be named `codrag_hi` or something more discoverable like `codrag_discover` or `codrag_overview`? | Branding, discoverability | Phase A |
+| Q-1 | Should the tool be named `hi_codrag` or something more discoverable like `codrag_discover` or `codrag_overview`? | Branding, discoverability | Phase A |
 | Q-2 | Should the prompt count be fixed (always 5) or dynamic (3–6 based on how much is interesting)? | UX consistency vs. relevance | Phase A |
 | Q-3 | Do we need a `verbose` flag for MVP or is that Phase D? | Scope | Phase A |
 | Q-4 | How do we handle the "no index built yet" state? Full onboarding wizard or just "run codrag_build"? | First-run experience | Phase A |
@@ -324,8 +324,8 @@ codrag_hi called
 
 ## 6. Why This Matters
 
-This isn't just a diagnostic — it's the **first-contact experience** for every CoDRAG user. Today, after setup, the user stares at their IDE and thinks "now what?" `codrag_hi` answers that question instantly.
+This isn't just a diagnostic — it's the **first-contact experience** for every CoDRAG user. Today, after setup, the user stares at their IDE and thinks "now what?" `hi_codrag` answers that question instantly.
 
 For development, it replaces the cycle of: open dashboard → check index status → check trace → mentally map what's available → go back to IDE → figure out what to ask. One command, full picture.
 
-**Marketing angle:** "Type `codrag_hi` and your AI tells you what it knows about your code."
+**Marketing angle:** "Type `hi_codrag` and your AI tells you what it knows about your code."

@@ -132,11 +132,6 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
-      '/clara': {
-        target: 'http://127.0.0.1:8400',
-        changeOrigin: true,
-        secure: false,
-      },
       '/mcp': {
         target: 'http://127.0.0.1:8400',
         changeOrigin: true,

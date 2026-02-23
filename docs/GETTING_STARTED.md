@@ -185,7 +185,7 @@ CoDRAG uses up to 4 model slots, all configurable from the dashboard **Settings 
 | **Embedding** | Semantic search vectors | Built-in (nomic-embed-text-v1.5 via ONNX) |
 | **Small** | Fast analysis & parsing | None (optional, e.g. `ministral-3:3b`) |
 | **Large** | Complex reasoning & summaries | None (optional, e.g. `ministral-3:14b`) |
-| **CLaRa** | 16× context compression | None (optional) |
+| **Code** | Code analysis (inferred edges) | None (optional, e.g. `qwen2.5-coder:3b`) |
 
 Changing the embedding model/source requires a **full index rebuild**.
 

@@ -117,17 +117,17 @@ CoDRAG is a **local-first, team-ready** application that provides:
 │  ├── EmbeddingIndex        Semantic vector search (per project)         │
 │  ├── TraceIndex            Symbol graph + import edges                  │
 │  ├── FileWatcher           Auto-rebuild on changes                      │
-│  └── LLMCoordinator        Ollama/CLaRa connection management           │
+│  └── LLMCoordinator        Ollama connection management                  │
 ├─────────────────────────────────────────────────────────────────────────┤
 │  CLI                                                                    │
 │  codrag serve | add | build | search | ui | mcp                         │
 └─────────────────────────────────────────────────────────────────────────┘
-            │                    │                    │
-            ▼                    ▼                    ▼
-       ┌─────────┐         ┌─────────┐           ┌─────────┐
-       │ Ollama  │         │  CLaRa  │           │ Project │
-       │ :11434  │         │  :8765  │           │  Dirs   │
-       └─────────┘         └─────────┘           └─────────┘
+            │                                        │
+            ▼                                        ▼
+       ┌─────────┐                              ┌─────────┐
+       │ Ollama  │                              │ Project │
+       │ :11434  │                              │  Dirs   │
+       └─────────┘                              └─────────┘
 ```
 
 ---
@@ -164,7 +164,7 @@ Each node gets an **epistemic score** (0.0–1.0) measuring how well the graph u
 
 ### LLM Integration
 - **Embeddings:** Ollama (`nomic-embed-text-v2-moe` recommended) or native ONNX v1.5 as a zero-dependency fallback
-- **Compression:** CLaRa (optional) for context window optimization
+- **Compression:** Built-in LOD (structural code compression, 3–20×, no model needed)
 - **Augmentation:** Mistral/Llama (optional) for code summaries
 - Reuses single Ollama connection across all indexed projects
 
@@ -309,10 +309,6 @@ ollama:
   embedding_model: nomic-embed-text-v2-moe  # recommended; fallback: nomic-embed-text-v1.5 (ONNX)
   augmentation_model: mistral  # optional
   
-clara:
-  url: http://localhost:8765
-  enabled: false  # optional compression
-
 # Index Settings
 index:
   data_dir: ~/.local/share/codrag
@@ -415,7 +411,7 @@ POST /projects/{id}/trace/neighbors  Graph expansion
 ### LLM
 
 ```
-GET  /llm/status                  Ollama/CLaRa connection status
+GET  /llm/status                  Ollama connection status
 POST /llm/test                    Test connections
 ```
 
@@ -547,6 +543,6 @@ See [PHASES.md](docs/PHASES.md) for the authoritative phase index and [ROADMAP.m
 ## Related Projects
 
 - **[Ollama](https://ollama.com/)** — Local LLM serving (CoDRAG uses for embeddings)
-- **[CLaRa](https://github.com/apple/ml-clara)** — Context compression (optional integration)
+- **[Model Context Protocol](https://modelcontextprotocol.io)** — The standard CoDRAG speaks natively
 ---
 

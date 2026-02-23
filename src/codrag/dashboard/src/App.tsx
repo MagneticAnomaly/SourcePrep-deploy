@@ -8,7 +8,6 @@ import {
   AppShell,
   Sidebar,
   ProjectList,
-  ServerModeIndicator,
   TeamSyncIndicator,
   // Dashboard
   ModularDashboard,
@@ -113,6 +112,8 @@ function App() {
   // ── Watch (hook) ─────────────────────────────────────────────
   // Declared before useProjectManager so refs can be passed as deps
   const watchHookPlaceholder = useRef<ReturnType<typeof useWatchSystem> | null>(null)
+  // Ref-forward fetchFileTree (defined later in useFileSystem) into useProjectManager
+  const fetchFileTreeRef = useRef<((projectId: string) => Promise<void>) | undefined>(undefined)
 
   // ── Project manager (hook — SM-1 Phase C1) ─────────────────
   // Owns: projects, selectedProjectId, projectStatuses, buildingProjects,
@@ -121,6 +122,7 @@ function App() {
     onError: (msg) => setError(msg),
     handleStartWatch: async () => { await watchHookPlaceholder.current?.handleStartWatch?.() },
     refreshWatchStatus: async (pid) => { await watchHookPlaceholder.current?.refreshWatchStatus?.(pid) },
+    fetchFileTree: async (pid) => { await fetchFileTreeRef.current?.(pid) },
   })
   const {
     selectedProjectId, selectedProject, projectStatus, projectSummaries,
@@ -161,11 +163,8 @@ function App() {
   } = useWatchSystem(selectedProjectId, { onError: (msg) => setError(msg) })
   // Update the placeholder ref so useProjectManager can call watch handlers
   watchHookPlaceholder.current = { watchStatus, watchLoading, refreshWatchStatus, handleStartWatch, handleStopWatch }
-
-  // Wire cross-hook deps into useProjectManager via refs (updated each render)
-  useEffect(() => {
-    // These are read via refs inside useProjectManager callbacks, not during render
-  }, [fetchFileTree, includedPaths])
+  // Update the fetchFileTree ref so useProjectManager can refresh the tree after builds
+  fetchFileTreeRef.current = fetchFileTree
   // Update refs that useProjectManager reads (done automatically via its internal ref pattern)
 
   // ── Deep analysis (hook) ─────────────────────────────────────
@@ -427,7 +426,6 @@ function App() {
       knowledgeStatus, fastKnowledgeBuilding, deepKnowledgeBuilding, handleRunKnowledgeBuild,
       handleRunDeepEnrichment,
     },
-    watch: { watchStatus, watchLoading, handleStartWatch, handleStopWatch },
     llm: {
       llmConfig, llmSlotsStatus,
       handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,

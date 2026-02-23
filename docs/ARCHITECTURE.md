@@ -10,7 +10,7 @@
 
 ### 2. Resource Efficiency
 - Single daemon serves all projects
-- Shared LLM connections (Ollama, CLaRa)
+- Shared LLM connections (Ollama)
 - Lazy loading of indexes (load on access)
 - Auto-unload of idle resources
 
@@ -63,7 +63,7 @@
 ├──────────────────┼──────────────────┼──────────────────┼────────────────────┤
 │  - projects      │  - DocumentStore │  - GraphBuilder  │  - NativeEmbedder  │
 │  - configs       │  - Chunker       │  - codrag_engine │  - OllamaEmbedder  │
-│  - build_history │  - Embeddings    │  - GraphQuery    │  - ClaraCompressor │
+│  - build_history │  - Embeddings    │  - GraphQuery    │  - LODExtractor    │
 │  - settings      │  - PathWeights   │  - Neighbors     │  - FeatureGate     │
 ├──────────────────┴──────────────────┴──────────────────┴────────────────────┤
 │  AutoRebuildWatcher (per-project, triggers CodeIndex + TraceBuilder)        │
@@ -94,9 +94,9 @@
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                          External Services                                  │
 ├──────────────────────────────┬──────────────────────────────────────────────┤
-│  Ollama (localhost:11434)    │  CLaRa (localhost:8765) [optional]           │
-│  ├── nomic-embed-text        │  ├── Context compression (PRO tier)          │
-│  └── (optional, not needed)  │  └── Query-time only                         │
+│  Ollama (localhost:11434)    │  Built-in Compression (LOD)                  │
+│  ├── nomic-embed-text        │  ├── Structural code compression (3–20×)     │
+│  └── (optional, not needed)  │  └── No GPU, no sidecar, no extra model      │
 ├──────────────────────────────┼──────────────────────────────────────────────┤
 │  Native ONNX (built-in)      │  License (~/.codrag/license.json)            │
 │  ├── nomic-embed-text-v1.5   │  ├── Ed25519 signed offline token            │
@@ -269,7 +269,7 @@ class EmbeddingIndex:
 
 ### LLMCoordinator
 
-**Purpose:** Manage connections to Ollama and CLaRa, handle request queuing and caching.
+**Purpose:** Manage connections to Ollama, handle request queuing and caching.
 
 ```python
 class LLMCoordinator:
@@ -278,7 +278,6 @@ class LLMCoordinator:
     def __init__(self, config: LLMConfig):
         self.config = config
         self.ollama = OllamaClient(config.ollama_url)
-        self.clara = ClaraClient(config.clara_url) if config.clara_enabled else None
         self._cache = LLMCache(config.cache_dir)
     
     async def embed(self, texts: List[str]) -> np.ndarray:
@@ -294,7 +293,7 @@ class LLMCoordinator:
         ...
     
     async def compress(self, context: str, query: str) -> str:
-        """Compress context using CLaRa (if enabled)."""
+        """Compress context using LOD (structural) or LLMLingua-2."""
         ...
     
     def status(self) -> LLMStatus:
@@ -431,8 +430,8 @@ User: codrag context <project-id> "how does auth work?" --max-chars 8000
          │
          ▼
 ┌─────────────────────────────────────┐
-│ 3. Optional: CLaRa compression      │
-│    (if context > budget, compress)  │
+│ 3. Optional: LOD compression         │
+│    (structural code compression)    │
 └─────────────────────────────────────┘
          │
          ▼
@@ -582,7 +581,7 @@ interface AppState {
 │  │                    Python Backend (sidecar)                          │   │
 │  │  - FastAPI server                                                    │   │
 │  │  - All core engine logic                                             │   │
-│  │  - Ollama/CLaRa communication                                        │   │
+│  │  - Ollama communication                                               │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -624,7 +623,7 @@ interface AppState {
 |-----------|--------|-------|
 | Search (hot) | <100ms | Index in memory |
 | Search (cold) | <500ms | Load index first |
-| Context assembly | <200ms | Plus network for CLaRa if enabled |
+| Context assembly | <200ms | LOD compression is in-process, no network |
 | Incremental build | <10s per 100 files | Hash-based skip |
 | Full build | ~1min per 1000 files | Depends on Ollama speed |
 

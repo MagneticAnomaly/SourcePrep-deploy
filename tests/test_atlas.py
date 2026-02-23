@@ -202,8 +202,8 @@ class TestAtlasDocument:
 
 class TestAdaptiveBudget:
     def test_tiny_project_no_atlas(self):
-        assert compute_atlas_budget(5) == 0
-        assert compute_atlas_budget(9) == 0
+        assert compute_atlas_budget(0) == 0
+        assert compute_atlas_budget(1) == 0
 
     def test_small_project(self):
         budget = compute_atlas_budget(50)
@@ -1032,7 +1032,7 @@ class TestAdaptiveRootBudget:
 
     def test_tiny_project_no_budget(self):
         from codrag.core.atlas import compute_root_atlas_budget
-        assert compute_root_atlas_budget(5) == 0
+        assert compute_root_atlas_budget(1) == 0
 
 
 class TestDisplayContent:

@@ -481,7 +481,7 @@ curl http://localhost:8400/projects/test/trace/search \
 ### Near-term (Months 2-3)
 
 - [ ] **Cross-project search** — Search across all projects (opt-in)
-- [ ] **CLaRa integration** — Query-time compression toggle
+- [x] **LOD compression** — Built-in structural code compression (shipped)
 - [ ] **AGENTS.md generation** — Export from trace index
 - [ ] **VS Code extension** — Native IDE integration
 - [ ] **More languages** — Java, Go, Rust analyzers
@@ -523,7 +523,7 @@ curl http://localhost:8400/projects/test/trace/search \
 | 2026-01-30 | Name: CoDRAG | "Code Documentation and RAG" — clear, memorable |
 | 2026-01-30 | Web UI first, Tauri for MVP | Faster iteration, proven approach |
 | 2026-01-31 | Enterprise features post-MVP | Enforce MVP boundaries; keep enterprise UX case studies |
-| 2026-01-30 | Repo at HumanAI root | Sibling to CLaRa, LinuxBrain for testing |
+| 2026-01-30 | Repo at HumanAI root | Sibling to LinuxBrain for testing |
 
 ---
 

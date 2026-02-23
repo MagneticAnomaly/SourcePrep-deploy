@@ -544,17 +544,17 @@ Add brief notes here after completing a sprint:
 - what changed (decisions, scope)
 - new blockers
 
-### 2026-02-21: Phase 32 - `codrag_hi` MVP Capabilities
+### 2026-02-21: Phase 32 - `hi_codrag` MVP Capabilities
 
 **What was done:**
-- **Doc Content Previews (O-1):** `codrag_hi` now fetches the first heading + paragraph for `.md` files to provide content-aware summaries.
+- **Doc Content Previews (O-1):** `hi_codrag` now fetches the first heading + paragraph for `.md` files to provide content-aware summaries.
 - **Hub File Identification (O-2):** Trace graph identifies highly-connected files in the user's selection (`GET /trace/hub_files`).
 - **Filename-Based Topic Detection (O-3):** Groups selected files into project-specific topics (e.g., "authentication", "UI components") based on keyword clustering.
 - **Smart Prompt Ordering (O-4):** Suggested prompts are sorted by relevance to the dominant file category selected.
-- **Ambient Context Chain (O-5):** `_ai_note` updated to guide AI agents to use the `codrag` tool for deeper content retrieval after `codrag_hi`.
+- **Ambient Context Chain (O-5):** `_ai_note` updated to guide AI agents to use the `codrag` tool for deeper content retrieval after `hi_codrag`.
 - **Change Detection (O-7):** Surfaces `stale` files from the trace coverage endpoint to warn users if their context is outdated.
-- **Cross-File Relationships (O-8):** For small selections, `codrag_hi` queries trace edges (`GET /trace/file_edges`) to show how selected files connect.
-- **Docs updated:** `codrag_hi` capabilities are documented in Quick Start, MCP Overview, and Windsurf integration pages.
+- **Cross-File Relationships (O-8):** For small selections, `hi_codrag` queries trace edges (`GET /trace/file_edges`) to show how selected files connect.
+- **Docs updated:** `hi_codrag` capabilities are documented in Quick Start, MCP Overview, and Windsurf integration pages.
 
 ### 2026-02-15: MASTER_TODO Reconciliation + Trace Graph + Bug Fixes
 
@@ -882,7 +882,7 @@ Add brief notes here after completing a sprint:
  Auto-rebuild         ✗      ✓        ✓      ✓      ✓
  Auto-trace           ✗      ✓        ✓      ✓      ✓
  MCP trace expand     ✗      ✗        ✓      ✓      ✓
- CLaRa compression    ✗      ✗        ✓      ✓      ✓
+ LOD compression      ✓      ✓        ✓      ✓      ✓
  Multi-repo agent     ✗      ✗        ✓      ✓      ✓
  Team config          ✗      ✗        ✗      ✓      ✓
  Audit log            ✗      ✗        ✗      ✗      ✓
@@ -892,7 +892,7 @@ Add brief notes here after completing a sprint:
  - [ ] Ed25519 license signature verification (currently trusts JSON file contents)
  - [ ] Tauri license entry UI + activation exchange flow
  - [x] Frontend upgrade prompts: **WON'T DO** — no upgrade prompts by design
- - [x] Gate `clara_compression` in context endpoint ✅ `_apply_compression()` now calls `require_feature("clara_compression")`
+ - [x] ~~Gate `clara_compression`~~ **REMOVED** — LOD compression is free for all tiers, no gate needed
  - [x] Gate `mcp_trace_expand` in context endpoint ✅ `context_project()` now calls `require_feature("mcp_trace_expand")` when `trace_expand=true`
  - [x] `WatchControlPanel` upgrade prompt: **WON'T DO** — no upgrade prompts by design
  - [x] `test_incremental_rebuild.py::test_deleted_file_not_carried_over` flaky test ✅ **FIXED:** `FakeEmbedder` now uses `hashlib.sha256` instead of `hash()` for cross-run determinism. Test now checks `_documents` directly instead of relying on search similarity.
@@ -909,12 +909,12 @@ Add brief notes here after completing a sprint:
  - `POST /projects/{id}/trace/ignore` — manage trace ignore patterns
  - `GET /projects/{id}/roots`, `GET /projects/{id}/files`, `GET /projects/{id}/file` — file access
  - `GET /embedding/status`, `POST /embedding/download` — native embedder
- - `GET /clara/status`, `GET /clara/health` — CLaRa sidecar
+ - ~~`GET /clara/status`, `GET /clara/health`~~ — **REMOVED** (CLaRa sidecar removed, replaced by built-in LOD)
  - Added `FEATURE_GATED` error code and HTTP 403 to spec
 
  **Architecture doc (ARCHITECTURE.md) had stale class names.** Fixed:
  - `IndexManager` → `CodeIndex` (actual class)
- - `LLMCoordinator` → `NativeEmbedder` + `OllamaEmbedder` + `ClaraCompressor` (actual classes)
+ - `LLMCoordinator` → `NativeEmbedder` + `OllamaEmbedder` + `LODExtractor` (actual classes)
  - `FileWatcher` → `AutoRebuildWatcher` (actual class)
  - Added `FeatureGate` to core engine diagram
  - Added `AutoRebuildWatcher` row (triggers both CodeIndex + TraceBuilder)
@@ -930,8 +930,8 @@ Add brief notes here after completing a sprint:
  - [ ] `POST /llm/test` — force connectivity check (spec exists, no client method; `testLLMEndpoint()` calls `/api/llm/proxy/test` which is a different handler)
  - [x] `GET /embedding/status` — ✅ `getEmbeddingStatus()` added
  - [x] `POST /embedding/download` — ✅ `downloadEmbedding()` added
- - [x] `GET /clara/status` — ✅ `getClaraStatus()` added
- - [x] `GET /clara/health` — ✅ `getClaraHealth()` added (client.ts:314)
+ - [x] ~~`GET /clara/status`~~ — **REMOVED** (CLaRa sidecar removed)
+ - [x] ~~`GET /clara/health`~~ — **REMOVED** (CLaRa sidecar removed)
  - [x] `GET /projects/{id}/activity` — ✅ `getProjectActivity()` added
  - [x] `GET /projects/{id}/coverage` — ✅ `getProjectCoverage()` added
 
@@ -940,7 +940,7 @@ Add brief notes here after completing a sprint:
  |---|---|---|
  | `POST /projects` | `projects_max` (count limit) | ✅ Wired |
  | `POST /watch/start` | `auto_rebuild` (STARTER+) | ✅ Wired |
- | `_apply_compression()` | `clara_compression` (PRO+) | ✅ Wired |
+ | `_apply_compression()` | LOD compression (all tiers) | ✅ Free |
  | `context_project()` trace_expand | `mcp_trace_expand` (PRO+) | ✅ Wired |
  | `GET /license` | All features | ✅ Wired |
 
@@ -1194,7 +1194,7 @@ All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
  All audited with no TODOs or stubs:
  - `core/index.py` (1095 lines) — hybrid semantic+keyword search
  - `core/embedder.py` (313 lines) — Ollama, Native, Fake providers
- - `core/compressor.py` (235 lines) — CLaRa + Noop
+ - `core/compressor.py` (247 lines) — LinguaCompressor + Noop (CLaRa removed)
  - `core/chunking.py` (274 lines) — markdown + code chunking
  - `core/trace.py` (40k+ lines) — trace builder + index
  - `core/project_registry.py` (234 lines) — SQLite registry
@@ -1207,9 +1207,9 @@ All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
 
  #### Dashboard Vite Proxy — ~~Missing Routes~~ ✅ FIXED
  `src/codrag/dashboard/vite.config.ts` now proxies **all 7 prefixes** to the daemon at `127.0.0.1:8400`:
- `/api`, `/projects`, `/health`, `/llm`, `/license`, `/embedding`, `/clara`.
- - [x] `/embedding/*` — ✅ proxy added (vite.config.ts lines 95-99)
- - [x] `/clara/*` — ✅ proxy added (vite.config.ts lines 100-104)
+ `/api`, `/projects`, `/health`, `/llm`, `/license`, `/embedding`, `/compression`.
+ - [x] `/embedding/*` — ✅ proxy added
+ - [x] `/compression/*` — ✅ proxy added (replaced `/clara/*`)
  - [x] `/license` — ✅ proxy added (vite.config.ts lines 90-94)
 
  #### ~~Legacy Endpoints Incompatible with Multi-Project~~ ✅ DELETED

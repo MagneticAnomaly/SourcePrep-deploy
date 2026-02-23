@@ -27,6 +27,7 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     large_model: { enabled: false },
     code_model: { enabled: false },
     compression: { enabled: false, mode: 'auto', level: 'standard' },
+    batch_mode: 'auto',
   })
   const [availableModels, setAvailableModels] = useState<Record<string, string[]>>({})
   const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({})

@@ -1,5 +1,5 @@
 """
-Tests for the codrag_hi MCP tool (Phase 32).
+Tests for the hi_codrag MCP tool (Phase 32).
 
 Tests cover:
 - Daemon-mode tool_hi() with mocked API responses
@@ -137,7 +137,7 @@ async def _mock_api_get_factory(
 # =============================================================================
 
 class TestToolHiDaemon:
-    """Test codrag_hi in daemon mode (MCPServer)."""
+    """Test hi_codrag in daemon mode (MCPServer)."""
 
     @pytest.mark.asyncio
     async def test_basic_summary_structure(self, server):
@@ -396,12 +396,12 @@ class TestToolHiDaemon:
 
     @pytest.mark.asyncio
     async def test_mcp_tools_call_dispatch(self, server):
-        """codrag_hi is properly dispatched via handle_tools_call."""
+        """hi_codrag is properly dispatched via handle_tools_call."""
         mock_get = await _mock_api_get_factory()
         server._api_get = mock_get
 
         response = await server.handle_tools_call({
-            "name": "codrag_hi",
+            "name": "hi_codrag",
             "arguments": {},
         })
 
@@ -412,12 +412,12 @@ class TestToolHiDaemon:
 
     @pytest.mark.asyncio
     async def test_mcp_tools_call_with_project_override(self, server):
-        """codrag_hi accepts project_id override."""
+        """hi_codrag accepts project_id override."""
         mock_get = await _mock_api_get_factory()
         server._api_get = mock_get
 
         response = await server.handle_tools_call({
-            "name": "codrag_hi",
+            "name": "hi_codrag",
             "arguments": {"project_id": "proj_test"},
         })
 
@@ -425,16 +425,16 @@ class TestToolHiDaemon:
 
     @pytest.mark.asyncio
     async def test_tool_listed_in_tools_list(self, server):
-        """codrag_hi appears in the tools/list response."""
+        """hi_codrag appears in the tools/list response."""
         response = await server.handle_tools_list({})
         tool_names = [t["name"] for t in response["tools"]]
-        assert "codrag_hi" in tool_names
+        assert "hi_codrag" in tool_names
 
     @pytest.mark.asyncio
     async def test_tool_schema_no_required_params(self, server):
-        """codrag_hi tool schema has no required params."""
+        """hi_codrag tool schema has no required params."""
         response = await server.handle_tools_list({})
-        hi_tool = next(t for t in response["tools"] if t["name"] == "codrag_hi")
+        hi_tool = next(t for t in response["tools"] if t["name"] == "hi_codrag")
         assert hi_tool["inputSchema"]["required"] == []
 
 
@@ -545,7 +545,7 @@ class TestPromptGeneration:
 # =============================================================================
 
 class TestFileInventory:
-    """Test file categorization and inventory in codrag_hi response."""
+    """Test file categorization and inventory in hi_codrag response."""
 
     @pytest.mark.asyncio
     async def test_file_inventory_in_response(self, server):

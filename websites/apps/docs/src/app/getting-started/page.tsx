@@ -88,10 +88,10 @@ export default function Page() {
             Open your editor&apos;s AI chat (e.g. Cursor Agent or Windsurf Cascade) and ask:
           </p>
           <blockquote className="border-l-4 border-primary pl-4 italic text-text-muted my-4">
-            &quot;Use codrag_hi to get oriented&quot;
+            &quot;Use hi_codrag to get oriented&quot;
           </blockquote>
           <p>
-            The <code>codrag_hi</code> tool returns a project overview: index status, trace coverage, your selected files, health notes, and suggested prompts tailored to your codebase. It&apos;s the best first step after connecting.
+            The <code>hi_codrag</code> tool returns a project overview: index status, trace coverage, your selected files, health notes, and suggested prompts tailored to your codebase. It&apos;s the best first step after connecting.
           </p>
           <p className="text-sm text-text-muted mt-2">
             Then try a deeper query:

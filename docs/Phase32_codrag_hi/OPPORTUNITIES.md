@@ -1,10 +1,10 @@
-# `codrag_hi` — Opportunities & Expansion Roadmap
+# `hi_codrag` — Opportunities & Expansion Roadmap
 
 > Last updated: 2026-02-21
 
 ## Core Principle
 
-**The selected files ARE the context.** `codrag_hi` exists to show the user what CoDRAG can see and help them take the next step. The trace graph, atlas routing, and index are invisible infrastructure — the user cares about *their files*.
+**The selected files ARE the context.** `hi_codrag` exists to show the user what CoDRAG can see and help them take the next step. The trace graph, atlas routing, and index are invisible infrastructure — the user cares about *their files*.
 
 ---
 
@@ -23,7 +23,7 @@
 
 ## Question Categories
 
-When a user says `codrag_hi`, the suggested prompts should match **what they're trying to do**. We can detect intent from what's selected:
+When a user says `hi_codrag`, the suggested prompts should match **what they're trying to do**. We can detect intent from what's selected:
 
 ### Category 1: Planning & Architecture
 **Trigger:** Design docs, architecture docs, RFC/proposal docs selected
@@ -74,58 +74,58 @@ When a user says `codrag_hi`, the suggested prompts should match **what they're 
 ### O-1: Doc Content Previews — ✅ SHIPPED
 **What:** For .md files in the selection, include the first heading + first paragraph (~200 chars) in the response.
 **Implementation:** Parallel API calls to `GET /projects/{id}/file?path=...` for top 5 .md files. Extracts `# heading` + first paragraph. Returned as `doc_previews` array in the response.
-**Impact:** Transforms `codrag_hi` from "I see you have design docs" to "Your design doc covers 'Overall Upgrade Plan' (phased site redesign)..."
-**Tests:** 4 tests in `test_codrag_hi.py::TestO1DocPreviews`.
+**Impact:** Transforms `hi_codrag` from "I see you have design docs" to "Your design doc covers 'Overall Upgrade Plan' (phased site redesign)..."
+**Tests:** 4 tests in `test_hi_codrag.py::TestO1DocPreviews`.
 
 ### O-2: Hub File Identification — ✅ SHIPPED
 **What:** Use the trace graph to identify which selected files are hubs (highest in-degree).
 **Implementation:** New `GET /projects/{id}/trace/hub_files?k=5` endpoint returns top hub files by in-degree. Wired into `tool_hi()` summary: "Most connected files: `EnhancedHero.tsx` (6 connections)..."
 **Impact:** Users immediately see which files are most important in their selection.
-**Tests:** 4 tests in `test_codrag_hi.py::TestO2HubFiles`.
+**Tests:** 4 tests in `test_hi_codrag.py::TestO2HubFiles`.
 
 ### O-3: Filename-Based Topic Detection — ✅ SHIPPED
 **What:** Cluster filenames into recognizable topics (authentication, e-commerce, UI components, API layer, data models, animation, etc.).
 **Implementation:** `_detect_topics()` in `tool_hi()` splits filenames (CamelCase, snake_case, kebab-case) into stems, matches against 12 keyword clusters, returns top 5 topics with matched files. Surfaced in summary: "It looks like you're working on: **authentication** (`login.py`, `session.py`)...". Topic-specific prompts generated: "Review the auth flow — any security concerns?"
 **Impact:** Prompts feel project-specific instead of generic.
-**Tests:** 11 tests in `test_codrag_hi.py::TestO3TopicDetection`.
+**Tests:** 11 tests in `test_hi_codrag.py::TestO3TopicDetection`.
 
 ### O-4: Smart Prompt Ordering — ✅ SHIPPED
 **What:** Order prompts by likely relevance based on dominant file category.
 **Implementation:** `_prompt_score()` scores each prompt by keyword match to the dominant category (docs, code, tests). Cross-cutting prompts get a boost when both docs+code are selected. `prompts.sort(key=_prompt_score, reverse=True)`.
 **Impact:** First prompt is now the most relevant to what the user selected.
-**Tests:** 3 tests in `test_codrag_hi.py::TestO4SmartPromptOrdering`.
+**Tests:** 3 tests in `test_hi_codrag.py::TestO4SmartPromptOrdering`.
 
 ---
 
 ## Medium-Term Opportunities (next 1-3 months)
 
 ### O-5: Ambient Context Chain — ✅ SHIPPED
-**What:** Guide the AI to call `codrag` (ambient context) after `codrag_hi` for deeper content.
+**What:** Guide the AI to call `codrag` (ambient context) after `hi_codrag` for deeper content.
 **Implementation:** `_ai_note` includes a "DEEPER CONTEXT" section: "For detailed file content, call `codrag` (the ambient context tool) — it returns LOD-stratified content from hub files and module summaries."
 **Impact:** AI chains tools naturally without user having to manually request deeper context.
-**Tests:** 2 tests in `test_codrag_hi.py::TestO5AmbientContextChain`.
+**Tests:** 2 tests in `test_hi_codrag.py::TestO5AmbientContextChain`.
 
 ### O-6: Selection-Aware Search — ✅ ALREADY HANDLED BY CORE
 **Status:** The index is built from `included_paths` only (see `core/index.py` line 337). Search results are already inherently scoped to the user's file selection because unselected files never enter the index. `path_weights` further boost/demote at search time.
-**Remaining opportunity:** If a user changes their file tree selection but hasn't rebuilt, results still reflect the old selection. The stale-detection system already warns about this via `codrag_hi` health notes.
+**Remaining opportunity:** If a user changes their file tree selection but hasn't rebuilt, results still reflect the old selection. The stale-detection system already warns about this via `hi_codrag` health notes.
 
 ### O-7: Change Detection — ✅ SHIPPED
 **What:** Show which selected files have changed since the last index build.
 **Implementation:** Extracts `stale` array from trace coverage response. Filenames surfaced in summary: "Changed since last build: `auth.py`, `login.tsx`." Also generates a stale-aware prompt: "Review what changed in `auth.py` since the last build."
 **Impact:** Users know immediately if their context is outdated.
-**Tests:** 3 tests in `test_codrag_hi.py::TestO7ChangeDetection`.
+**Tests:** 3 tests in `test_hi_codrag.py::TestO7ChangeDetection`.
 
 ### O-8: Cross-File Relationship Summary — ✅ SHIPPED
 **What:** For selections (≤30 files), show how the selected files relate using the trace graph.
 **Implementation:** New `GET /projects/{id}/trace/file_edges?paths=...` endpoint returns edges between selected files. Surfaced in summary: "File connections: `HeroPhase.tsx` imports `EnhancedHero.tsx`, `EnhancedHero.tsx` imports `ParallaxController.tsx`."
 **Impact:** Users see the structure of their selection at a glance.
-**Tests:** 3 tests in `test_codrag_hi.py::TestO8CrossFileRelationships`.
+**Tests:** 3 tests in `test_hi_codrag.py::TestO8CrossFileRelationships`.
 
 ### O-9: Question History — 🔨 NEW WORK  - not in MVP scope
 **Core status:** Not in core. No query history storage.
 **What:** Remember the user's last 3-5 questions and use them to make prompts more relevant.
 **Why:** "You were just asking about authentication — want to continue?" is powerful continuity.
-**How:** Store recent queries in SQLite (per project). Include in `codrag_hi` response.
+**How:** Store recent queries in SQLite (per project). Include in `hi_codrag` response.
 **Consideration:** Privacy — should be opt-in or at least clearable.
 
 ---
@@ -134,7 +134,7 @@ When a user says `codrag_hi`, the suggested prompts should match **what they're 
 
 ### O-10: Interactive Discovery Mode — 🔨 NEW WORK
 **Core status:** Not in core. Would chain existing `codrag_search` tool calls.
-**What:** After `codrag_hi`, the AI enters a "discovery mode" where it proactively explores the codebase and reports findings.
+**What:** After `hi_codrag`, the AI enters a "discovery mode" where it proactively explores the codebase and reports findings.
 **Why:** Instead of the user asking questions, the AI says "I found 3 interesting things about your selection..."
 **How:** Chain multiple `codrag_search` calls with heuristic queries based on the file inventory.
 
@@ -146,7 +146,7 @@ When a user says `codrag_hi`, the suggested prompts should match **what they're 
 
 ### O-12: Multi-Selection Comparison — 🔨 NEW WORK - not in MVP scope
 **Core status:** Not in core.
-**What:** Allow `codrag_hi` to compare two selections: "What changed between the old auth/ and new auth/?"
+**What:** Allow `hi_codrag` to compare two selections: "What changed between the old auth/ and new auth/?"
 **How:** Accept a `compare_to` param with a second set of paths.
 
 ### O-13: IDE Tab Awareness — ⛔ BLOCKED (MCP spec limitation)
@@ -160,16 +160,16 @@ When a user says `codrag_hi`, the suggested prompts should match **what they're 
 
 ## Tool Expansion Ideas
 
-### New tools that complement `codrag_hi`:
+### New tools that complement `hi_codrag`:
 
 | Tool | Description | Trigger |
 |------|-------------|---------|
 | `codrag_diff` | Show what changed since last build (file-level diff summary) | User asks "what changed?" |
-| `codrag_explain` | Deep-dive into a specific file with full trace context | User picks a file from `codrag_hi` inventory |
+| `codrag_explain` | Deep-dive into a specific file with full trace context | User picks a file from `hi_codrag` inventory |
 | `codrag_plan` | Generate a task plan from selected docs + code state | User has TODO/design docs selected |
 | `codrag_review` | Code review of selected files using trace + test coverage | User has code + tests selected |
 
-These are all **composable with `codrag_hi`**: the AI calls `codrag_hi` first for context, then chains with specialized tools.
+These are all **composable with `hi_codrag`**: the AI calls `hi_codrag` first for context, then chains with specialized tools.
 
 ---
 
@@ -177,7 +177,7 @@ These are all **composable with `codrag_hi`**: the AI calls `codrag_hi` first fo
 
 ### Scenario A: User selects design docs + components folder
 ```
-User: codrag_hi
+User: hi_codrag
 
 AI: Hi! I'm looking at your project — you've selected 3 design docs
 (DESIGN_SPEC.md, COMPONENT_GUIDE.md, UI_PATTERNS.md) and 12 React
@@ -196,7 +196,7 @@ Here's what I can help with:
 
 ### Scenario B: User selects TODO.md + a few code files
 ```
-User: codrag_hi
+User: hi_codrag
 
 AI: I can see your TODO.md and 4 code files in src/auth/ (login.py,
 session.py, tokens.py, middleware.py). Looks like you're working on
@@ -211,7 +211,7 @@ Here's what I can help with:
 
 ### Scenario C: User selects a focused set of test files
 ```
-User: codrag_hi
+User: hi_codrag
 
 AI: I'm looking at 6 test files in tests/api/ (test_users.py,
 test_auth.py, test_orders.py, test_payments.py, test_webhooks.py,

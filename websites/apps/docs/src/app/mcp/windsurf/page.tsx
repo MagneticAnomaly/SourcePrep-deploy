@@ -67,17 +67,17 @@ export default function Page() {
             Cascade (Windsurf&apos;s agent) is highly proactive. It will see the <code>codrag</code> tools (<code>codrag_search</code>, <code>codrag</code> (context), etc.) and call them automatically.
           </p>
 
-          <h3 className="text-xl font-semibold mt-6">Start with <code>codrag_hi</code></h3>
+          <h3 className="text-xl font-semibold mt-6">Start with <code>hi_codrag</code></h3>
           <p>
-            The best way to start any session is to select files in the CoDRAG <span className="font-semibold text-text">Knowledge Sources</span> tree, then type <code>codrag_hi</code> in Cascade&apos;s chat. CoDRAG will tell the AI exactly which files you selected and suggest what to do next.
+            The best way to start any session is to select files in the CoDRAG <span className="font-semibold text-text">Knowledge Sources</span> tree, then type <code>hi_codrag</code> in Cascade&apos;s chat. CoDRAG will tell the AI exactly which files you selected and suggest what to do next.
           </p>
 
           <div className="bg-surface border border-border p-4 rounded-lg font-mono text-sm my-4 space-y-4">
             <div>
-                <span className="text-primary font-bold">You:</span> codrag_hi
+                <span className="text-primary font-bold">You:</span> hi_codrag
             </div>
             <div className="pl-4 border-l-2 border-border-subtle">
-                <span className="text-xs text-text-muted uppercase tracking-wider">Cascade calls codrag_hi</span>
+                <span className="text-xs text-text-muted uppercase tracking-wider">Cascade calls hi_codrag</span>
             </div>
             <div>
                 <span className="text-primary font-bold">Cascade:</span> I&apos;m looking at your project &mdash; you&apos;ve selected 8 design docs and 18 React components in <code>src/components/</code>.
@@ -107,7 +107,7 @@ export default function Page() {
           
           <div className="space-y-4 mt-4">
             <div className="border-l-4 border-primary pl-4 py-1">
-              <div className="font-bold text-sm">&quot;codrag_hi&quot;</div>
+              <div className="font-bold text-sm">&quot;hi_codrag&quot;</div>
               <div className="text-sm text-text-muted">See what CoDRAG knows about your selected files. Best first step for any new conversation.</div>
             </div>
 

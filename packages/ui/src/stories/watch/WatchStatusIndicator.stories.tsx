@@ -17,7 +17,11 @@ const base: WatchStatus = {
   state: 'idle',
   stale: false,
   pending: false,
+  debounce_ms: 5000,
+  stale_since: null,
   pending_paths_count: 0,
+  next_rebuild_at: null,
+  last_event_at: null,
   last_rebuild_at: new Date(Date.now() - 1000 * 60 * 12).toISOString(),
 };
 

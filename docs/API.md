@@ -555,7 +555,6 @@ Response `data`:
     "mcp_tools": true,
     "mcp_trace_expand": false,
     "path_weights": true,
-    "clara_compression": false,
     "multi_repo_agent": false,
     "team_config": false,
     "audit_log": false,
@@ -606,11 +605,11 @@ The CoDRAG MCP server exposes the following tools via the Model Context Protocol
 | `codrag_trace_search` | `query` | Search code graph for symbols |
 | `codrag_trace_neighbors` | `node_id` | Get neighbors in code graph |
 | `codrag_trace_coverage` | — | Trace coverage statistics |
-| `codrag_hi` | — | Project overview, health check, and suggested prompts |
+| `hi_codrag` | — | Project overview, health check, and suggested prompts |
 
 All tools accept an optional `project_id` parameter. If omitted, the project is auto-detected from workspace roots or CWD.
 
-#### `codrag_hi` — Project Overview Tool
+#### `hi_codrag` — Project Overview Tool
 
 Purpose:
 - First-contact tool for new users: "What can CoDRAG help me with?"
@@ -1084,7 +1083,7 @@ Notes:
 - Path traversal (`..`) and absolute paths are rejected.
 - File must be within project root and pass include/exclude policy.
 
-### Embedding & CLaRa
+### Embedding & Compression
 
 #### `GET /embedding/status`
 
@@ -1108,16 +1107,6 @@ Response `data`:
 Purpose:
 - Download/verify native embedding model (HuggingFace ONNX).
 
-#### `GET /clara/status`
-
-Purpose:
-- Get CLaRa compression sidecar status.
-
-#### `GET /clara/health`
-
-Purpose:
-- CLaRa health check.
-
 ### LLM Proxy & Model Management
 
 These endpoints support the dashboard's AI Models settings page.
@@ -1125,14 +1114,13 @@ These endpoints support the dashboard's AI Models settings page.
 #### `GET /api/llm/status`
 
 Purpose:
-- Legacy status check for Ollama and CLaRa connectivity.
+- Legacy status check for Ollama connectivity.
 
 Response `data`:
 
 ```json
 {
-  "ollama": {"url": "http://localhost:11434", "connected": true, "models": ["nomic-embed-text"]},
-  "clara": {"url": "http://localhost:8765", "enabled": false, "connected": false}
+  "ollama": {"url": "http://localhost:11434", "connected": true, "models": ["nomic-embed-text"]}
 }
 ```
 
@@ -1199,7 +1187,7 @@ Response `data`:
 ```
 
 Notes:
-- `kind` can be `"embedding"`, `"small"`, `"large"`, or `"clara"`.
+- `kind` can be `"embedding"`, `"small"`, `"large"`, or `"code"`.
 - Embedding models bypass the `/api/generate` preload and use `/api/embeddings` directly.
 - Generous timeouts (120s) accommodate cold-start model loading.
 

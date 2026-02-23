@@ -557,6 +557,7 @@ class ClusterSynthesizer:
             from .batch_prompts import (
                 BATCHED_CLUSTER_SYSTEM,
                 build_batched_cluster_prompt,
+                get_structured_schema,
             )
             from .batch_strategy import BatchedResponseParser
 
@@ -565,6 +566,8 @@ class ClusterSynthesizer:
                 "BATCHED cluster synthesis: %d clusters, batch_size=%d (%s profile)",
                 len(to_synthesize), batch_size, self._batch_profile.name.value,
             )
+
+            schema = get_structured_schema("clustering")
 
             for batch_start in range(0, len(to_synthesize), batch_size):
                 batch = to_synthesize[batch_start:batch_start + batch_size]
@@ -586,6 +589,7 @@ class ClusterSynthesizer:
                     text, tokens = self.llm.generate(
                         prompt, system=BATCHED_CLUSTER_SYSTEM,
                         num_predict=len(items) * 500,
+                        response_schema=schema,
                     )
                     results_list = BatchedResponseParser.parse(text, expected_count=len(items))
                 except Exception as e:

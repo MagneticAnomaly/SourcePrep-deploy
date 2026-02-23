@@ -85,7 +85,7 @@ export type BuildPhase =
  */
 export interface WatchStatus {
   enabled: boolean;
-  state: 'disabled' | 'idle' | 'debounce' | 'rebuild_wait' | 'building';
+  state: WatchState;
   debounce_ms: number;
   stale: boolean;
   stale_since: string | null;

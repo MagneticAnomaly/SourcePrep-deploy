@@ -138,7 +138,7 @@ Output: Structural overview of the user's working context
 ```
 
 #### Mode 3: Macro Context (architectural overview)
-Already partially exists via `codrag_atlas` and `codrag_hi`, but should be available as a mode of `codrag`:
+Already partially exists via `codrag_atlas` and `hi_codrag`, but should be available as a mode of `codrag`:
 
 ```
 Input:  query="project overview" or explicit macro=true flag

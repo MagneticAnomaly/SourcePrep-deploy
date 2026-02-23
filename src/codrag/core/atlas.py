@@ -328,7 +328,7 @@ Target {target_chars} characters. Do not exceed {max_chars} characters. No markd
 
 # ── Adaptive Budget ──────────────────────────────────────────────────
 
-MIN_FILES_FOR_ATLAS = 10
+MIN_FILES_FOR_ATLAS = 2
 MIN_ATLAS_CHARS = 1200
 MAX_ATLAS_CHARS = 4000
 
@@ -337,12 +337,12 @@ def compute_atlas_budget(file_count: int) -> int:
     """Compute adaptive atlas budget based on project size.
 
     Tiered formula:
-      10-50 files   → 1200 chars (minimum meaningful atlas)
+      2-50 files    → 1200 chars (minimum meaningful atlas)
       50-200 files  → 1200 + (files - 50) * 6   (linear ramp)
       200-1000 files → 2100 + (files - 200) * 1.5 (slower ramp)
       1000+ files   → 3300 + (files - 1000) * 0.35 (diminishing)
     Capped at MAX_ATLAS_CHARS (4000).
-    Projects under 10 files get no atlas (returns 0).
+    Projects under 2 files get no atlas (returns 0).
     """
     if file_count < MIN_FILES_FOR_ATLAS:
         return 0
@@ -1739,6 +1739,12 @@ class CodebaseAtlas:
 
         content = text.strip()
 
+        # Strip LLM thinking tokens (e.g. <think>...</think> from reasoning models)
+        content = re.sub(r'<think>.*?</think>\s*', '', content, flags=re.DOTALL)
+        # Also handle unclosed <think> tags (model started thinking but didn't close)
+        content = re.sub(r'<think>.*', '', content, flags=re.DOTALL)
+        content = content.strip()
+
         # Strip markdown bold/italic markers
         content = re.sub(r'\*{1,3}([^*]+)\*{1,3}', r'\1', content)
         # Strip markdown headers (## Header → Header)
@@ -1789,12 +1795,18 @@ class CodebaseAtlas:
         if cached is None:
             return True
 
-        if not cached.content:
-            return True
-
-        # 1. Module fingerprint check
         modules = self._load_modules()
         graph_stats = self._load_graph_stats()
+
+        if not cached.content:
+            # Empty content is intentional for repos below the file threshold —
+            # don't mark as stale or the pipeline will regenerate endlessly.
+            if graph_stats.get("file_count", 0) >= MIN_FILES_FOR_ATLAS:
+                return True
+            # Below threshold: content is expected to be empty, check fingerprint
+            # to detect if the repo grew past the threshold.
+
+        # 1. Module fingerprint check
         current_fp = self._compute_fingerprint(modules, graph_stats)
         if current_fp != cached.fingerprint:
             logger.debug("Atlas stale: fingerprint changed")
