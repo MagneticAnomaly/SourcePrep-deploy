@@ -223,7 +223,8 @@ ATLAS_SYSTEM = """You are a senior software architect writing a codebase orienta
 2. Every claim must come from the provided data. Do not invent risks, patterns, or dependencies not present in the module summaries or graph statistics. If data is insufficient for a section, write "(insufficient data)" and move on.
 3. Use exact file paths, class names, and function names from the input — never paraphrase them.
 4. Be dense. Every sentence must convey architectural information. No filler phrases like "This project is" or "It should be noted that".
-5. Target {target_chars} characters. Do not exceed {max_chars} characters."""
+5. Target {target_chars} characters. Do not exceed {max_chars} characters.
+6. Output your final answer as plain text. Do NOT wrap your entire answer in thinking tags."""
 
 ATLAS_PROMPT = """Synthesize a codebase orientation document from the data below. An AI coding assistant will read this before every query to understand the project structure.
 
@@ -259,7 +260,8 @@ ROOT_ATLAS_SYSTEM = """You are a senior software architect writing a concise pro
 2. Every claim must come from the provided data. Do not invent.
 3. Use exact names from the input.
 4. Be maximally dense. This is a short global header — detailed subsystem docs are provided separately.
-5. Target {target_chars} characters. Do not exceed {max_chars} characters."""
+5. Target {target_chars} characters. Do not exceed {max_chars} characters.
+6. Output your final answer as plain text. Do NOT wrap your entire answer in thinking tags."""
 
 ROOT_ATLAS_PROMPT = """Write a short project orientation header from the data below. Detailed subsystem docs are injected separately per query — this header only provides global context.
 
@@ -288,7 +290,8 @@ SEGMENT_ATLAS_SYSTEM = """You are a senior software architect writing a subsyste
 3. Use ONLY exact file paths and names from the FILE LISTING. Never fabricate file names.
 4. Be dense. Every sentence must convey architectural information.
 5. If data is insufficient for a section, write "(insufficient data)" rather than guessing.
-6. Target {target_chars} characters. Do not exceed {max_chars} characters."""
+6. Target {target_chars} characters. Do not exceed {max_chars} characters.
+7. Output your final answer as plain text. Do NOT wrap your entire answer in thinking tags."""
 
 SEGMENT_ATLAS_PROMPT = """Write a subsystem orientation document for this segment of the codebase.
 
@@ -1263,6 +1266,18 @@ class CodebaseAtlas:
             content = self._postprocess(text, max_chars)
         except Exception as e:
             logger.warning("Root atlas LLM failed: %s — using structural", e)
+            content = ""
+
+        # Quality gate: thinking models may produce only <think> tokens which
+        # _postprocess strips, leaving empty content.  Fall back to structural.
+        if len(content) < MIN_ATLAS_CHARS // 2:
+            if content:
+                logger.warning(
+                    "Root atlas LLM output too short (%d chars) — using structural",
+                    len(content),
+                )
+            else:
+                logger.warning("Root atlas LLM output empty after postprocess — using structural")
             content = self._build_structural_content(
                 graph_stats, modules, self._load_epistemic_summary(),
                 self._identify_hubs(graph_stats),
@@ -1368,11 +1383,32 @@ class CodebaseAtlas:
             max_chars=max_chars,
         )
 
-        text, tokens = self.llm.generate(
-            prompt, system=system, num_predict=2048,
-            json_mode=False, temperature=0.3,
-        )
-        content = self._postprocess(text, max_chars)
+        try:
+            text, tokens = self.llm.generate(
+                prompt, system=system, num_predict=2048,
+                json_mode=False, temperature=0.3,
+            )
+            content = self._postprocess(text, max_chars)
+        except Exception as e:
+            logger.warning("Segment atlas LLM failed for %s: %s — using structural", segment.name, e)
+            content = ""
+
+        # Quality gate: fall back to structural summary for this segment
+        if len(content) < SEGMENT_ATLAS_MIN_CHARS // 2:
+            logger.warning(
+                "Segment atlas %s: LLM output too short (%d chars) — using structural",
+                segment.name, len(content),
+            )
+            parts = [f"SEGMENT: {segment.name} ({segment.dir_path}, {segment.file_count} files)"]
+            if seg_modules:
+                mod_names = [m.get("name", "?") for m in seg_modules[:10]]
+                parts.append(f"Modules: {', '.join(mod_names)}")
+            if seg_hubs:
+                hub_str = ", ".join(f"{p} ({d} edges)" for p, d in seg_hubs[:5])
+                parts.append(f"Key files: {hub_str}")
+            top_files = segment.file_paths[:15]
+            parts.append(f"Files: {', '.join(top_files)}")
+            content = ". ".join(parts)
 
         # Compute segment fingerprint
         fp = self._compute_segment_fingerprint(segment, seg_modules)

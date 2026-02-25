@@ -12,6 +12,9 @@ Use this document to inform:
 - “Local-first” positioning and what customers will expect
 
 ## Market map (high-level)
+
+> **Update Feb 2026**: A new wave of local-first context engines and agents (Vexp, Empirica, Serena, Grepai) has been analyzed in `COMPETITOR_LANDSCAPE_UPDATE_FEB2026.md`.
+
 ### AI IDEs / AI coding assistants (primary context)
 - Cursor
 - Windsurf

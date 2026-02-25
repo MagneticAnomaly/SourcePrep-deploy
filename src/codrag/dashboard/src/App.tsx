@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { FileText, Settings, AlertCircle, AlertTriangle } from 'lucide-react'
+import { FileText, Settings, AlertCircle, AlertTriangle, X } from 'lucide-react'
 import type { AtlasStatus, ActivityHeatmapData } from '@codrag/ui'
 import {
   // API
@@ -94,6 +94,7 @@ function App() {
     localStorage.getItem('codrag_bg_image') ?? null
   )
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout | null>(null)
+  const [projectLimitBannerDismissed, setProjectLimitBannerDismissed] = useState(false)
 
   // ── License (hook) ─────────────────────────────────────────
   const {
@@ -456,7 +457,7 @@ function App() {
     <>
       <ErrorToast message={error} onClose={() => setError(null)} />
       <UpdateBanner />
-      {isOverProjectLimit && (
+      {isOverProjectLimit && !projectLimitBannerDismissed && (
         <div className="fixed inset-x-0 top-0 z-[95] bg-amber-500/90 backdrop-blur text-white px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 shadow-lg">
           <AlertTriangle className="w-4 h-4" />
           <span>
@@ -467,6 +468,13 @@ function App() {
             className="ml-2 px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded font-semibold transition-colors"
           >
             Upgrade to Pro
+          </button>
+          <button
+            onClick={() => setProjectLimitBannerDismissed(true)}
+            className="ml-2 p-1 hover:bg-white/20 rounded transition-colors"
+            title="Dismiss"
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
       )}

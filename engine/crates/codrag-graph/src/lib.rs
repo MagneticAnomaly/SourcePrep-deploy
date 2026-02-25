@@ -357,6 +357,308 @@ impl TraceGraph {
         }
     }
 
+    /// Resolve import edges from `ext:*` targets to `file:*` targets (TG-1).
+    ///
+    /// Builds a project-wide symbol table from file nodes and exported symbols,
+    /// then rewrites import edges that point to `ext:*` nodes to instead point
+    /// to the actual in-project `file:*` node when the import can be resolved.
+    ///
+    /// Resolution strategies (tried in order):
+    /// 1. **Relative path**: `./foo` or `../bar` → resolve relative to importing file
+    /// 2. **Module path**: `codrag.core.trace` → map dots/colons to directory separators
+    /// 3. **Symbol name**: `Router` → search for files named `Router.{ext}` or containing
+    ///    an exported symbol named `Router`
+    /// 4. **Namespace prefix**: `Slim\Routing\Router` (PHP) → map `\` to `/`
+    ///
+    /// Unresolvable imports remain as `ext:*` nodes (external dependencies).
+    pub fn resolve_imports(&mut self, repo_root: &Path) {
+        // Collect all file paths in the project (for resolution targets)
+        let file_paths: Vec<String> = self
+            .nodes
+            .values()
+            .filter(|n| n.kind == "file")
+            .map(|n| n.file_path.clone())
+            .collect();
+
+        if file_paths.is_empty() {
+            return;
+        }
+
+        // Build lookup indexes for resolution
+        // 1. file_stem → [file_path] (e.g., "Router" → ["src/Router.tsx", "lib/Router.js"])
+        let mut stem_to_paths: HashMap<String, Vec<String>> = HashMap::new();
+        // 2. full_path set for fast existence checks
+        let mut path_set: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+        for fp in &file_paths {
+            path_set.insert(fp.clone());
+            if let Some(stem) = Path::new(fp).file_stem().and_then(|s| s.to_str()) {
+                let stem_lower = stem.to_lowercase();
+                stem_to_paths
+                    .entry(stem_lower)
+                    .or_default()
+                    .push(fp.clone());
+            }
+        }
+
+        // 3. Build symbol table: exported symbol name → file_path
+        let mut symbol_to_file: HashMap<String, String> = HashMap::new();
+        for node in self.nodes.values() {
+            if node.kind == "symbol" && !node.file_path.is_empty() {
+                let is_public = node.metadata.is_public.unwrap_or(false);
+                if is_public {
+                    symbol_to_file
+                        .entry(node.name.to_lowercase())
+                        .or_insert_with(|| node.file_path.clone());
+                }
+            }
+        }
+
+        // Collect external_module nodes to attempt resolution
+        let ext_nodes: Vec<(String, String)> = self
+            .nodes
+            .values()
+            .filter(|n| n.kind == "external_module")
+            .map(|n| (n.id.clone(), n.name.clone()))
+            .collect();
+
+        // For each ext node, find which files import it (to get the importing file's path)
+        let mut ext_importers: HashMap<String, Vec<String>> = HashMap::new();
+        for edge in &self.edges {
+            if edge.kind == "imports" && edge.target.starts_with("ext:") {
+                // Find importing file path from source node
+                if let Some(src_node) = self.nodes.get(&edge.source) {
+                    if src_node.kind == "file" {
+                        ext_importers
+                            .entry(edge.target.clone())
+                            .or_default()
+                            .push(src_node.file_path.clone());
+                    }
+                }
+            }
+        }
+
+        let extensions = [
+            ".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".java",
+            ".kt", ".php", ".rb", ".c", ".cpp", ".h", ".hpp", ".swift",
+        ];
+        let index_files = [
+            "index.ts", "index.tsx", "index.js", "index.jsx",
+            "__init__.py", "mod.rs",
+        ];
+
+        let mut rewrites: HashMap<String, String> = HashMap::new(); // ext_id → file_node_id
+
+        for (ext_id, module_name) in &ext_nodes {
+            if rewrites.contains_key(ext_id) {
+                continue;
+            }
+
+            let resolved = self.try_resolve_import(
+                module_name,
+                ext_importers.get(ext_id).and_then(|v| v.first()).map(|s| s.as_str()),
+                &path_set,
+                &stem_to_paths,
+                &symbol_to_file,
+                &extensions,
+                &index_files,
+                repo_root,
+            );
+
+            if let Some(file_path) = resolved {
+                let file_id = codrag_parser::stable_file_node_id(&file_path);
+                if self.nodes.contains_key(&file_id) {
+                    rewrites.insert(ext_id.clone(), file_id);
+                }
+            }
+        }
+
+        if rewrites.is_empty() {
+            return;
+        }
+
+        log::info!(
+            "TG-1: Resolved {} import edges to in-project files (of {} external modules)",
+            rewrites.len(),
+            ext_nodes.len(),
+        );
+
+        // Rewrite edges: replace ext targets with file targets
+        let old_edges = std::mem::take(&mut self.edges);
+        self.edges_by_source.clear();
+        self.edges_by_target.clear();
+
+        for mut edge in old_edges {
+            if let Some(new_target) = rewrites.get(&edge.target) {
+                edge.target = new_target.clone();
+                edge.metadata.external = None;
+                let disambiguator = edge
+                    .metadata
+                    .import_str
+                    .as_ref()
+                    .map(|s| format!("{}:{}", s, edge.metadata.line.unwrap_or(0)))
+                    .unwrap_or_default();
+                edge.id = codrag_parser::stable_edge_id(
+                    &edge.kind,
+                    &edge.source,
+                    &edge.target,
+                    &disambiguator,
+                );
+                edge.metadata.confidence = 0.85;
+            }
+            self.add_edge(edge);
+        }
+
+        // Remove orphaned external_module nodes (those that were fully resolved)
+        for ext_id in rewrites.keys() {
+            // Only remove if no remaining edges point to this ext node
+            let still_referenced = self.edges.iter().any(|e| e.target == *ext_id);
+            if !still_referenced {
+                self.nodes.remove(ext_id);
+            }
+        }
+    }
+
+    /// Try to resolve a single import string to an in-project file path.
+    fn try_resolve_import(
+        &self,
+        module_name: &str,
+        importer_path: Option<&str>,
+        path_set: &std::collections::HashSet<String>,
+        stem_to_paths: &HashMap<String, Vec<String>>,
+        symbol_to_file: &HashMap<String, String>,
+        extensions: &[&str],
+        index_files: &[&str],
+        _repo_root: &Path,
+    ) -> Option<String> {
+        // Strategy 1: Relative path resolution (./foo, ../bar)
+        if module_name.starts_with("./") || module_name.starts_with("../") {
+            if let Some(importer) = importer_path {
+                let importer_dir = Path::new(importer).parent().unwrap_or(Path::new(""));
+                let resolved_base = importer_dir.join(module_name);
+                let base_str = resolved_base.to_string_lossy().to_string();
+                // Normalize path (remove ../.. etc.)
+                let normalized = normalize_path(&base_str);
+
+                // Try exact match first
+                if path_set.contains(&normalized) {
+                    return Some(normalized);
+                }
+                // Try with extensions
+                for ext in extensions {
+                    let candidate = format!("{}{}", normalized, ext);
+                    if path_set.contains(&candidate) {
+                        return Some(candidate);
+                    }
+                }
+                // Try as directory with index file
+                for idx in index_files {
+                    let candidate = format!("{}/{}", normalized.trim_end_matches('/'), idx);
+                    if path_set.contains(&candidate) {
+                        return Some(candidate);
+                    }
+                }
+            }
+        }
+
+        // Strategy 2: Module path mapping (dots → dirs, backslash → dirs)
+        // Python: codrag.core.trace → codrag/core/trace.py or codrag/core/trace/__init__.py
+        // PHP:    Slim\Routing\Router → Slim/Routing/Router.php
+        // Rust:   crate::core::trace → src/core/trace.rs or src/core/trace/mod.rs
+        // Go:     ./internal/router → internal/router (relative)
+        let path_mapped = module_name
+            .replace('\\', "/")  // PHP namespaces
+            .replace("::", "/")  // Rust mod paths
+            .replace('.', "/");  // Python module paths
+
+        // Strip common prefixes
+        let stripped = path_mapped
+            .strip_prefix("crate/")    // Rust crate:: prefix
+            .or_else(|| path_mapped.strip_prefix("src/"))
+            .unwrap_or(&path_mapped);
+
+        // Try direct path match
+        if path_set.contains(stripped) {
+            return Some(stripped.to_string());
+        }
+
+        // Try with various src/ prefixes
+        for prefix in &["", "src/", "lib/", "app/", "pkg/"] {
+            let base = format!("{}{}", prefix, stripped);
+
+            // Try exact
+            if path_set.contains(&base) {
+                return Some(base);
+            }
+
+            // Try with extensions
+            for ext in extensions {
+                let candidate = format!("{}{}", base, ext);
+                if path_set.contains(&candidate) {
+                    return Some(candidate);
+                }
+            }
+
+            // Try as directory with index file
+            for idx in index_files {
+                let candidate = format!("{}/{}", base.trim_end_matches('/'), idx);
+                if path_set.contains(&candidate) {
+                    return Some(candidate);
+                }
+            }
+        }
+
+        // Strategy 3: Leaf name matching (last segment of module path)
+        let leaf = module_name
+            .rsplit(|c: char| c == '.' || c == '/' || c == '\\' || c == ':')
+            .next()
+            .unwrap_or(module_name);
+
+        if !leaf.is_empty() && leaf.len() > 1 {
+            let leaf_lower = leaf.to_lowercase();
+
+            // Check symbol table first (most precise)
+            if let Some(file_path) = symbol_to_file.get(&leaf_lower) {
+                return Some(file_path.clone());
+            }
+
+            // Check file stems
+            if let Some(candidates) = stem_to_paths.get(&leaf_lower) {
+                if candidates.len() == 1 {
+                    // Unique match — high confidence
+                    return Some(candidates[0].clone());
+                }
+                // Multiple candidates — try to disambiguate using the module path
+                if candidates.len() <= 5 {
+                    // Pick the candidate whose path best matches the module path
+                    let path_parts: Vec<&str> = module_name
+                        .split(|c: char| c == '.' || c == '/' || c == '\\' || c == ':')
+                        .filter(|s| !s.is_empty())
+                        .collect();
+
+                    let mut best: Option<(&String, usize)> = None;
+                    for c in candidates {
+                        let c_lower = c.to_lowercase();
+                        let matching_parts = path_parts
+                            .iter()
+                            .filter(|p| c_lower.contains(&p.to_lowercase()))
+                            .count();
+                        if best.is_none() || matching_parts > best.unwrap().1 {
+                            best = Some((c, matching_parts));
+                        }
+                    }
+                    if let Some((best_path, score)) = best {
+                        if score >= 2 {
+                            return Some(best_path.clone());
+                        }
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
     /// Get all nodes, sorted deterministically.
     pub fn sorted_nodes(&self) -> Vec<&ParsedNode> {
         let mut nodes: Vec<&ParsedNode> = self.nodes.values().collect();
@@ -572,6 +874,23 @@ fn load_path_aliases(repo_root: &Path) -> HashMap<String, String> {
     aliases
 }
 
+/// Normalize a relative path by resolving `.` and `..` components.
+///
+/// E.g., `src/api/../core/./trace` → `src/core/trace`
+fn normalize_path(path: &str) -> String {
+    let mut parts: Vec<&str> = Vec::new();
+    for component in path.split('/') {
+        match component {
+            "" | "." => {}
+            ".." => {
+                parts.pop();
+            }
+            other => parts.push(other),
+        }
+    }
+    parts.join("/")
+}
+
 /// Configuration for a full trace build.
 #[derive(Debug, Clone)]
 pub struct TraceBuildConfig {
@@ -685,6 +1004,9 @@ pub fn build_trace(
 
     // Phase 2.5: Resolve path aliases (e.g. @/ → src/) from tsconfig/jsconfig
     graph.resolve_path_aliases(repo_root);
+
+    // Phase 2.6 (TG-1): Resolve import edges to in-project file targets
+    graph.resolve_imports(repo_root);
 
     // Phase 3: Write
     graph.write_jsonl(index_dir)?;

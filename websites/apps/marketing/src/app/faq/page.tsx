@@ -11,6 +11,32 @@ interface FAQItem {
 
 const faqs: FAQItem[] = [
   {
+    id: "persistent-memory",
+    q: "Does the AI remember what it learned about my code in previous sessions?",
+    a: (
+      <div className="space-y-4">
+        <p><strong>Yes</strong> — and this is where CoDRAG diverges from every other context tool on the market. CoDRAG maintains a <strong>Persistent Agent Memory</strong>: a local store of observations — architectural decisions, discovered bugs, design patterns, working assumptions — each linked directly to specific files and symbols in your codebase.</p>
+        <p>What makes this different from bolting a memory file onto your repo: CoDRAG&apos;s observations are <strong>staleness-aware</strong>. Modify <code className="bg-surface px-1.5 py-0.5 rounded text-xs border border-border-subtle">auth.py</code> and every observation tied to that file is automatically flagged <code className="bg-surface px-1.5 py-0.5 rounded text-xs border border-border-subtle">[STALE]</code>. In the next session, the AI receives both the updated code <em>and</em> a signal that its prior assumptions may no longer hold. It doesn&apos;t blindly repeat outdated notes — it knows to re-evaluate.</p>
+        <p>This is not a prompt cache or a conversation log. It&apos;s a structured, file-linked, searchable knowledge layer that the AI maintains about your specific codebase. It works on <strong>every tier, including Free</strong> — it&apos;s local SQLite, zero cloud cost, zero telemetry. And because observations are injected alongside code context (not dumped in bulk), they respect the same tight token budget as everything else.</p>
+      </div>
+    ),
+  },
+  {
+    id: "stale-context",
+    q: "My code changes constantly. Does the AI just get stale context?",
+    a: (
+      <div className="space-y-4">
+        <p>This is the central challenge of any indexing tool, and CoDRAG takes it more seriously than most. Three mechanisms work together:</p>
+        <ol className="list-decimal list-inside space-y-3 text-text-muted">
+          <li><strong className="text-text">Incremental re-indexing.</strong> CoDRAG tracks file hashes at the individual symbol level. When you edit a file, only the affected chunks are re-embedded — not the entire project. A real-time file watcher detects changes within seconds.</li>
+          <li><strong className="text-text">Automatic observation staleness.</strong> CoDRAG&apos;s Persistent Agent Memory links observations to files. When a file changes, those observations are flagged <code className="bg-surface px-1 rounded border border-border-subtle text-xs">[STALE]</code> — the AI sees them with a clear warning, not as gospel.</li>
+          <li><strong className="text-text">A visible health indicator.</strong> The Dashboard shows exactly which files have changed since the last index, how many are stale, and whether a rebuild is in progress. You never have to guess whether the AI&apos;s context is current.</li>
+        </ol>
+        <p>Most other tools stop at #1. CoDRAG is the only local context engine that extends freshness tracking all the way into the AI&apos;s own learned knowledge.</p>
+      </div>
+    ),
+  },
+  {
     id: "context-window",
     q: "Won't this just use up my whole context window?",
     a: (
@@ -94,7 +120,9 @@ const faqs: FAQItem[] = [
                   ["Intent detection (query → weight adjustment)", "No", "No", "No", "Yes"],
                   ["Smart compression (code + docs)", "No", "No", "No", "Yes"],
                   ["Transparency (scores, chunks, what was sent)", "No", "No", "Partial", "Yes"],
-                  ["Works across all tools (MCP standard)", "—", "—", "—", "Yes"],
+                  ["Works across all tools (MCP standard)", "\u2014", "\u2014", "\u2014", "Yes"],
+                  ["Persistent agent memory (cross-session)", "No", "No", "No", "Yes"],
+                  ["Editor portability (Cursor, Windsurf, Claude, VS Code)", "No", "No", "No", "Yes"],
                 ].map(([cap, cursor, windsurf, claude, codrag]) => (
                   <tr key={cap as string} className="border-b border-border-subtle">
                     <td className="py-2 pr-6">{cap}</td>
@@ -108,6 +136,18 @@ const faqs: FAQItem[] = [
             </table>
           </div>
         </div>
+      </div>
+    ),
+  },
+  {
+    id: "claude-md",
+    q: "Why not just put everything in a CLAUDE.md or rules file?",
+    a: (
+      <div className="space-y-4">
+        <p><strong>Use both.</strong> Seriously \u2014 they solve different problems and work well together.</p>
+        <p>A <code className="bg-surface px-1.5 py-0.5 rounded text-xs border border-border-subtle">CLAUDE.md</code> is ideal for conventions a human can articulate: &quot;We use Tailwind,&quot; &quot;Never mutate state directly,&quot; &quot;Deploy via Terraform.&quot; That&apos;s high-level project DNA.</p>
+        <p>What a rules file <em>cannot</em> do is track the 3,000+ dependency edges in a real codebase. It can&apos;t tell the AI that <code className="bg-surface px-1.5 py-0.5 rounded text-xs border border-border-subtle">PaymentService.charge()</code> calls <code className="bg-surface px-1.5 py-0.5 rounded text-xs border border-border-subtle">StripeClient.create_intent()</code> which imports <code className="bg-surface px-1.5 py-0.5 rounded text-xs border border-border-subtle">crypto.sign()</code>. It can&apos;t automatically update when someone refactors the call chain. It can&apos;t compress 200 files into 2,000 tokens of structurally meaningful context.</p>
+        <p>CoDRAG automates the granular, structural layer \u2014 the connective tissue of your codebase. Your rules file handles the human intent. Together, the AI gets both &quot;what the code does&quot; and &quot;what the team wants.&quot;</p>
       </div>
     ),
   },
@@ -223,6 +263,7 @@ const faqs: FAQItem[] = [
           <li><strong className="text-text">User transparency and control.</strong> Every other tool is a black box. CoDRAG shows you the scores, lets you set weights, and tells you exactly what was sent and why.</li>
           <li><strong className="text-text">Tool-agnostic via MCP.</strong> Your index, configuration, and codebase understanding work whether you&apos;re in Cursor today or Claude Code tomorrow.</li>
           <li><strong className="text-text">Smart context compression.</strong> Two built-in engines: structural compression for code (3&ndash;20&times; &mdash; keeps full source for top results, signatures for mid-relevance, names only for peripheral files) and language-aware compression for docs and markdown (preserves meaning while removing filler). No GPU required.</li>
+          <li><strong className="text-text">Persistent cross-session knowledge.</strong> The AI accumulates linked observations about your codebase over time, with automatic staleness detection when files change. Its understanding of your project gets deeper across sessions, not just per-conversation.</li>
         </ul>
       </div>
     ),
@@ -232,7 +273,31 @@ const faqs: FAQItem[] = [
     q: "Is my code uploaded to the cloud?",
     a: (
       <div className="space-y-4">
-        <p><strong>No.</strong> CoDRAG is local-first software. All indexing, vector storage, and processing happens on your machine. The only time data leaves your machine is if you explicitly configure a cloud LLM (BYOK) or during the one-time license activation check.</p>
+        <p><strong>No.</strong> CoDRAG is local-first software &mdash; indexing, embedding, graph construction, search, and compression all happen on your machine. Your code never leaves your filesystem.</p>
+        <p>The only exceptions are things you explicitly opt into: if you configure a cloud LLM provider (OpenAI, Anthropic, Google) for the optional enrichment pipeline, only retrieved context snippets are sent to that provider &mdash; never your raw codebase. CoDRAG also makes a single HTTPS call during license activation. Both are optional and auditable.</p>
+        <p>What makes this different from tools that <em>claim</em> local-first: CoDRAG ships its own embedding model (ONNX, runs on CPU) and its own Rust parser. You don&apos;t need Ollama, you don&apos;t need Docker, you don&apos;t need an internet connection for core functionality. The entire stack runs offline, cold.</p>
+      </div>
+    ),
+  },
+  {
+    id: "lsp-wrapper",
+    q: "Is this just a wrapper around the Language Server Protocol?",
+    a: (
+      <div className="space-y-4">
+        <p><strong>No</strong> &mdash; and the distinction matters. LSP-backed tools require a running language server with the correct runtime environment configured for every project. Switch from Python to TypeScript? You need a different server. Working on a legacy project without a proper <code className="bg-surface px-1.5 py-0.5 rounded text-xs border border-border-subtle">tsconfig.json</code>? LSP can&apos;t help.</p>
+        <p>CoDRAG builds its own persistent trace graph using tree-sitter, a zero-dependency parser that handles 15+ languages from a single binary. The graph persists to disk, loads instantly, and works offline. No runtime, no IDE backend, no configuration per language.</p>
+        <p>The deeper difference: LSP gives you <em>live</em> analysis (great for autocomplete), but it can&apos;t answer cross-session questions, doesn&apos;t persist observations about your code, and can&apos;t compress structural context into a token budget. CoDRAG is a read-only context engine designed for a fundamentally different job &mdash; giving AI agents the right context at query time.</p>
+      </div>
+    ),
+  },
+  {
+    id: "semantic-search",
+    q: "I already use semantic search tools. How is CoDRAG different?",
+    a: (
+      <div className="space-y-4">
+        <p>Pure semantic search (vector embeddings) excels at fuzzy discovery &mdash; finding code when you describe it in natural language. CoDRAG includes a full semantic search engine (ONNX embeddings, runs locally on CPU, no external service needed).</p>
+        <p>But semantic search alone struggles with <strong>structural precision</strong>. It can find code that <em>sounds</em> related to &quot;authentication,&quot; but it can&apos;t traverse the actual import chain to tell you what <code className="bg-surface px-1.5 py-0.5 rounded text-xs border border-border-subtle">AuthService.validate()</code> calls, or what breaks if you change its signature.</p>
+        <p>CoDRAG adds a <strong>deterministic dependency graph</strong> on top of embeddings. When the AI asks about blast radius, it gets exact callers and importers from the parsed AST &mdash; not a list of files that happen to mention similar words. And because the graph and the vector index share a token budget, you get both conceptual relevance and structural precision without blowing up your context window.</p>
       </div>
     ),
   },
@@ -241,8 +306,8 @@ const faqs: FAQItem[] = [
     q: "Which editors does it work with?",
     a: (
       <div className="space-y-4">
-        <p>CoDRAG works best with editors that support the <strong>Model Context Protocol (MCP)</strong> — currently <strong>Cursor</strong>, <strong>Windsurf</strong>, and <strong>Claude Desktop</strong>. A VS Code extension is in development.</p>
-        <p>For other editors, you can copy-paste context from the Dashboard or use the CLI directly.</p>
+        <p>CoDRAG is a standalone daemon and an <strong>MCP (Model Context Protocol) server</strong>. It is not locked to any IDE. Today it works with <strong>Cursor</strong>, <strong>Windsurf</strong>, <strong>Claude Desktop</strong>, and <strong>Claude Code</strong> (terminal). A VS Code extension is in development.</p>
+        <p>Because CoDRAG uses the open MCP standard, any future editor or agent that supports MCP will work automatically &mdash; no integration work on our end. Your index, weights, observations, and full project configuration are stored locally and editor-independent. Switch tools without losing anything.</p>
       </div>
     ),
   },
@@ -255,6 +320,26 @@ const faqs: FAQItem[] = [
         <p><strong>Also No.</strong> You can run Anthropic or OpenAI or any other BYOK models from the cloud if you want to enhance trace content.</p>
         <p><strong>Or Yes</strong> if you want to run a local model for enhancement.</p>
         <p><strong>Context compression</strong> is built in &mdash; structural compression for code files runs instantly with no model at all, and language-aware compression for docs uses a lightweight CPU model (~178 MB). No GPU, no sidecar.</p>
+      </div>
+    ),
+  },
+  {
+    id: "pricing",
+    q: "Why pay for this? Can\u2019t I build it myself?",
+    a: (
+      <div className="space-y-4">
+        <p>You could build a basic RAG pipeline over a weekend. What takes years is everything beyond that: incremental rebuilds that don&apos;t re-embed your entire project on every save. A Rust parser that handles 15+ languages and produces a navigable dependency graph. Compression that treats code and documentation differently. An observation store that links AI knowledge to specific files and flags it stale when those files change. A real-time file watcher. A dashboard that shows you exactly what the AI sees.</p>
+        <p>CoDRAG offers a <strong>Free tier</strong> for evaluation. Pro is a <strong>one-time $79 perpetual license</strong> &mdash; not a subscription. You pay once, own the software, and it works offline forever. We fund development through that, not by monetizing your data or adding telemetry.</p>
+      </div>
+    ),
+  },
+  {
+    id: "docs-support",
+    q: "Does it work on documentation, not just code?",
+    a: (
+      <div className="space-y-4">
+        <p><strong>Yes</strong> &mdash; and it handles docs differently than code, which matters. CoDRAG runs two distinct compression strategies: <strong>structural compression</strong> for code files (preserving full source for top results, signatures for medium-relevance, names for peripheral) and <strong>language-aware compression</strong> for Markdown and text (preserving concepts while stripping filler words and redundant phrasing).</p>
+        <p>This means you can include architecture docs, API references, and design decisions in your project scope, and CoDRAG will compress them intelligently alongside your code. The AI gets both implementation details and the human reasoning behind them.</p>
       </div>
     ),
   },
@@ -290,7 +375,7 @@ function FAQAccordionItem({ item, isOpen, onToggle }: { item: FAQItem; isOpen: b
 }
 
 export default function FAQPage() {
-  const [openId, setOpenId] = useState<string | null>("context-window");
+  const [openId, setOpenId] = useState<string | null>("persistent-memory");
 
   const toggle = (id: string) => setOpenId(prev => prev === id ? null : id);
 

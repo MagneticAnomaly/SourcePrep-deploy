@@ -133,10 +133,18 @@ JSON response:"""
 
 # ── Clustering algorithm ─────────────────────────────────────────────
 
+# Maximum fraction of project files a single cluster may contain before splitting
+MAX_CLUSTER_FRACTION = 0.40
+# Absolute cap — any cluster above this size gets split regardless of project size
+MAX_CLUSTER_ABS = 50
+
+
 def build_clusters(
     epistemic_entries: Dict[str, EpistemicEntry],
     edges: List[Dict[str, Any]],
     min_cluster_size: int = 2,
+    max_cluster_fraction: float = MAX_CLUSTER_FRACTION,
+    max_cluster_abs: int = MAX_CLUSTER_ABS,
 ) -> List[Cluster]:
     """Group enriched file nodes into clusters by domain_tags + connectivity.
 
@@ -145,6 +153,7 @@ def build_clusters(
     2. Within each tag group, run connected-component analysis using
        structural + inferred edges to split disconnected subgroups.
     3. Merge small clusters (< min_cluster_size) into nearest neighbor.
+    4. Split oversized clusters that exceed max_cluster_fraction or max_cluster_abs (CL-2).
 
     Returns list of Cluster objects.
     """
@@ -193,7 +202,12 @@ def build_clusters(
     # Step 3: Merge small clusters
     merged = _merge_small_clusters(clusters, adjacency, min_cluster_size)
 
-    return merged
+    # Step 4 (CL-2): Split oversized clusters
+    total_files = sum(1 for nid in epistemic_entries if nid.startswith("file:"))
+    max_size = min(max_cluster_abs, max(min_cluster_size + 1, int(total_files * max_cluster_fraction)))
+    split = _split_large_clusters(merged, adjacency, epistemic_entries, max_size)
+
+    return split
 
 
 def _connected_components(
@@ -269,6 +283,614 @@ def _merge_small_clusters(
             largest.all_tags.update(sc.all_tags)
 
     return large
+
+
+def _split_large_clusters(
+    clusters: List[Cluster],
+    adjacency: Dict[str, Set[str]],
+    epistemic_entries: Dict[str, EpistemicEntry],
+    max_size: int,
+) -> List[Cluster]:
+    """Recursively split clusters that exceed max_size (CL-2).
+
+    Uses secondary domain tags to find natural split points within
+    oversized clusters. Falls back to connected-component bisection
+    if tag-based splitting doesn't reduce the size.
+    """
+    result: List[Cluster] = []
+    split_idx = 0
+
+    for cluster in clusters:
+        if len(cluster.member_node_ids) <= max_size:
+            result.append(cluster)
+            continue
+
+        # Try splitting by secondary domain tag
+        sub_groups = _split_by_secondary_tag(cluster, epistemic_entries)
+
+        if len(sub_groups) < 2:
+            # Fallback: split by connected components within the cluster
+            sub_groups = _connected_components(cluster.member_node_ids, adjacency)
+
+        if len(sub_groups) < 2:
+            # Cannot split further — keep as-is (rare edge case)
+            result.append(cluster)
+            continue
+
+        for sub in sub_groups:
+            sub_tags: Set[str] = set()
+            for nid in sub:
+                entry = epistemic_entries.get(nid)
+                if entry and entry.domain_tags:
+                    sub_tags.update(entry.domain_tags)
+
+            # Determine a distinguishing tag for the sub-cluster
+            primary = cluster.primary_tag
+            extra_tags = sub_tags - {primary}
+            if extra_tags:
+                secondary = sorted(extra_tags)[0]
+                sub_id = f"{cluster.cluster_id}:{secondary}:{split_idx}"
+            else:
+                sub_id = f"{cluster.cluster_id}:part{split_idx}"
+
+            sub_cluster = Cluster(
+                cluster_id=sub_id,
+                primary_tag=primary,
+                member_node_ids=sorted(sub),
+                all_tags=sub_tags,
+            )
+            split_idx += 1
+
+            # Recurse if still too large
+            if len(sub_cluster.member_node_ids) > max_size:
+                result.extend(
+                    _split_large_clusters([sub_cluster], adjacency, epistemic_entries, max_size)
+                )
+            else:
+                result.append(sub_cluster)
+
+    return result
+
+
+def _split_by_secondary_tag(
+    cluster: Cluster,
+    epistemic_entries: Dict[str, EpistemicEntry],
+) -> List[List[str]]:
+    """Split a cluster's members by their secondary (2nd) domain tag.
+
+    Returns a list of member-ID groups. If all members share the same
+    secondary tag (or have none), returns a single group (no split).
+    """
+    groups: Dict[str, List[str]] = defaultdict(list)
+    for nid in cluster.member_node_ids:
+        entry = epistemic_entries.get(nid)
+        if entry and len(entry.domain_tags) >= 2:
+            secondary = entry.domain_tags[1]
+        elif entry and entry.domain_tags:
+            secondary = entry.domain_tags[0]
+        else:
+            secondary = "_none"
+        groups[secondary].append(nid)
+
+    if len(groups) < 2:
+        return [cluster.member_node_ids]
+    return list(groups.values())
+
+
+# ── Leiden-Based Clustering (CL-1, CL-3, CL-4, CL-5) ───────────────
+
+# CL-5: Architecture layer classification patterns
+_TEST_PATTERNS = {"test", "tests", "spec", "specs", "__tests__", "__test__", "e2e", "integration"}
+_CONFIG_PATTERNS = {"config", "configs", "configuration", ".github", ".circleci"}
+_DOCS_PATTERNS = {"docs", "doc", "documentation", "wiki"}
+
+
+def _classify_layer(file_path: str) -> str:
+    """CL-5: Classify a file into an architecture layer."""
+    parts = file_path.lower().replace("\\", "/").split("/")
+    for p in parts:
+        if p in _TEST_PATTERNS or p.startswith("test_") or p.endswith("_test"):
+            return "test"
+        if p in _CONFIG_PATTERNS:
+            return "config"
+        if p in _DOCS_PATTERNS:
+            return "docs"
+    # Check file name patterns
+    basename = parts[-1] if parts else ""
+    if basename.startswith("test_") or basename.endswith("_test.py") or basename.endswith(".test.ts") or basename.endswith(".test.js") or basename.endswith(".spec.ts") or basename.endswith(".spec.js"):
+        return "test"
+    return "impl"
+
+
+def _directory_distance(path_a: str, path_b: str) -> int:
+    """CL-4: Compute directory distance between two file paths."""
+    import os.path as osp
+    dir_a = osp.dirname(path_a).split("/")
+    dir_b = osp.dirname(path_b).split("/")
+    # Find common prefix length
+    common = 0
+    for a_part, b_part in zip(dir_a, dir_b):
+        if a_part == b_part:
+            common += 1
+        else:
+            break
+    return (len(dir_a) - common) + (len(dir_b) - common)
+
+
+def _tag_jaccard(tags_a: List[str], tags_b: List[str]) -> float:
+    """CL-3: Compute Jaccard similarity between two tag sets."""
+    if not tags_a or not tags_b:
+        return 0.0
+    set_a, set_b = set(tags_a), set(tags_b)
+    inter = len(set_a & set_b)
+    union = len(set_a | set_b)
+    return inter / union if union > 0 else 0.0
+
+
+def _leiden_available() -> bool:
+    """Check if igraph + leidenalg are installed."""
+    try:
+        import igraph  # noqa: F401
+        import leidenalg  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+def build_clusters_leiden(
+    epistemic_entries: Dict[str, EpistemicEntry],
+    edges: List[Dict[str, Any]],
+    min_cluster_size: int = 2,
+    max_cluster_fraction: float = MAX_CLUSTER_FRACTION,
+    max_cluster_abs: int = MAX_CLUSTER_ABS,
+    resolution: float = 1.0,
+    dir_penalty_lambda: float = 0.3,
+    tag_weight: float = 0.4,
+    edge_weight: float = 0.6,
+) -> List[Cluster]:
+    """Leiden-based clustering with multi-tag affinity and structural priors.
+
+    Integrates:
+    - CL-1: Leiden algorithm for community detection
+    - CL-3: Multi-tag Jaccard affinity as edge weights
+    - CL-4: Directory distance penalty
+    - CL-5: Architecture layer separation (test/impl/config/docs)
+
+    Falls back to build_clusters() if igraph/leidenalg unavailable.
+    """
+    import math
+
+    if not _leiden_available():
+        logger.info("CL-1: igraph/leidenalg not available, falling back to tag-based clustering")
+        return build_clusters(
+            epistemic_entries, edges, min_cluster_size,
+            max_cluster_fraction, max_cluster_abs,
+        )
+
+    import igraph as ig
+    import leidenalg
+
+    # Collect file nodes
+    file_nodes = [
+        nid for nid in epistemic_entries
+        if nid.startswith("file:")
+    ]
+    if len(file_nodes) < 2:
+        return []
+
+    total_files = len(file_nodes)
+    max_size = min(max_cluster_abs, max(min_cluster_size + 1, int(total_files * max_cluster_fraction)))
+    node_to_idx = {nid: i for i, nid in enumerate(file_nodes)}
+
+    # CL-5: Separate into architecture layers
+    layer_map: Dict[str, str] = {}
+    for nid in file_nodes:
+        fp = nid[5:] if nid.startswith("file:") else nid
+        layer_map[nid] = _classify_layer(fp)
+
+    # Group by layer
+    layer_groups: Dict[str, List[str]] = defaultdict(list)
+    for nid in file_nodes:
+        layer_groups[layer_map[nid]].append(nid)
+
+    # Run Leiden per layer
+    all_clusters: List[Cluster] = []
+    cluster_idx = 0
+
+    for layer, layer_nodes in layer_groups.items():
+        if len(layer_nodes) < 2:
+            # Single file — make its own cluster
+            entry = epistemic_entries.get(layer_nodes[0])
+            tag = entry.domain_tags[0] if entry and entry.domain_tags else "uncategorized"
+            all_clusters.append(Cluster(
+                cluster_id=f"cluster:{tag}:{layer}:{cluster_idx}",
+                primary_tag=tag,
+                member_node_ids=layer_nodes,
+                all_tags=set(entry.domain_tags) if entry and entry.domain_tags else set(),
+            ))
+            cluster_idx += 1
+            continue
+
+        # Build weighted graph for this layer
+        layer_set = set(layer_nodes)
+        layer_idx = {nid: i for i, nid in enumerate(layer_nodes)}
+        n = len(layer_nodes)
+
+        # Start with edge-based adjacency
+        edge_pairs: Dict[Tuple[int, int], float] = {}
+
+        for e in edges:
+            src, tgt = e.get("source", ""), e.get("target", "")
+            if src in layer_set and tgt in layer_set and src != tgt:
+                i, j = layer_idx[src], layer_idx[tgt]
+                if i > j:
+                    i, j = j, i
+                conf = float(e.get("metadata", {}).get("confidence", 0.5) if isinstance(e.get("metadata"), dict) else 0.5)
+                edge_pairs[(i, j)] = max(edge_pairs.get((i, j), 0.0), conf)
+
+        # CL-3 + CL-4: Add tag affinity and directory prior edges
+        # Only compute for nearby files to avoid O(n²) for large projects
+        if n <= 200:
+            for a_idx in range(n):
+                nid_a = layer_nodes[a_idx]
+                entry_a = epistemic_entries.get(nid_a)
+                fp_a = nid_a[5:] if nid_a.startswith("file:") else nid_a
+                tags_a = entry_a.domain_tags if entry_a and entry_a.domain_tags else []
+
+                for b_idx in range(a_idx + 1, n):
+                    nid_b = layer_nodes[b_idx]
+                    entry_b = epistemic_entries.get(nid_b)
+                    fp_b = nid_b[5:] if nid_b.startswith("file:") else nid_b
+                    tags_b = entry_b.domain_tags if entry_b and entry_b.domain_tags else []
+
+                    # CL-3: Tag affinity
+                    tj = _tag_jaccard(tags_a, tags_b)
+
+                    # CL-4: Directory distance penalty
+                    dd = _directory_distance(fp_a, fp_b)
+                    dir_factor = math.exp(-dir_penalty_lambda * dd)
+
+                    # Combined affinity
+                    existing_edge_w = edge_pairs.get((a_idx, b_idx), 0.0)
+                    affinity = (
+                        edge_weight * existing_edge_w +
+                        tag_weight * tj * dir_factor
+                    )
+
+                    if affinity > 0.05:
+                        edge_pairs[(a_idx, b_idx)] = affinity
+
+        # Build igraph Graph
+        g = ig.Graph(n=n, directed=False)
+        if edge_pairs:
+            sorted_edges = sorted(edge_pairs.keys())
+            weights = [edge_pairs[e] for e in sorted_edges]
+            g.add_edges(sorted_edges)
+            g.es["weight"] = weights
+        else:
+            # No edges — fall back to connected components (each node is its own cluster)
+            for nid in layer_nodes:
+                entry = epistemic_entries.get(nid)
+                tag = entry.domain_tags[0] if entry and entry.domain_tags else "uncategorized"
+                all_clusters.append(Cluster(
+                    cluster_id=f"cluster:{tag}:{layer}:{cluster_idx}",
+                    primary_tag=tag,
+                    member_node_ids=[nid],
+                    all_tags=set(entry.domain_tags) if entry and entry.domain_tags else set(),
+                ))
+                cluster_idx += 1
+            continue
+
+        # Run Leiden
+        try:
+            partition = leidenalg.find_partition(
+                g,
+                leidenalg.RBConfigurationVertexPartition,
+                weights="weight",
+                resolution_parameter=resolution,
+                n_iterations=-1,
+            )
+        except Exception as e:
+            logger.warning("CL-1: Leiden failed for layer %s: %s, falling back", layer, e)
+            # Fallback: each node is its own cluster
+            for nid in layer_nodes:
+                entry = epistemic_entries.get(nid)
+                tag = entry.domain_tags[0] if entry and entry.domain_tags else "uncategorized"
+                all_clusters.append(Cluster(
+                    cluster_id=f"cluster:{tag}:{layer}:{cluster_idx}",
+                    primary_tag=tag,
+                    member_node_ids=[nid],
+                    all_tags=set(entry.domain_tags) if entry and entry.domain_tags else set(),
+                ))
+                cluster_idx += 1
+            continue
+
+        # Convert partition to clusters
+        for community in partition:
+            member_nids = [layer_nodes[i] for i in community]
+            if not member_nids:
+                continue
+
+            # Determine primary tag from majority vote
+            tag_counts: Dict[str, int] = defaultdict(int)
+            all_tags: Set[str] = set()
+            for nid in member_nids:
+                entry = epistemic_entries.get(nid)
+                if entry and entry.domain_tags:
+                    for t in entry.domain_tags:
+                        tag_counts[t] += 1
+                    all_tags.update(entry.domain_tags)
+
+            primary_tag = max(tag_counts, key=tag_counts.get) if tag_counts else "uncategorized"
+
+            # CL-5: Append layer suffix for non-impl layers
+            layer_suffix = f" ({layer})" if layer != "impl" else ""
+
+            all_clusters.append(Cluster(
+                cluster_id=f"cluster:{primary_tag}{layer_suffix}:{cluster_idx}",
+                primary_tag=primary_tag,
+                member_node_ids=sorted(member_nids),
+                all_tags=all_tags,
+            ))
+            cluster_idx += 1
+
+    # Merge small clusters
+    adjacency: Dict[str, Set[str]] = defaultdict(set)
+    file_ids = set(epistemic_entries.keys())
+    for e in edges:
+        src, tgt = e.get("source", ""), e.get("target", "")
+        if src in file_ids and tgt in file_ids:
+            adjacency[src].add(tgt)
+            adjacency[tgt].add(src)
+
+    merged = _merge_small_clusters(all_clusters, adjacency, min_cluster_size)
+
+    # CL-2: Split oversized clusters (reuse existing logic)
+    split = _split_large_clusters(merged, adjacency, epistemic_entries, max_size)
+
+    logger.info(
+        "CL-1: Leiden clustering produced %d clusters from %d files (%d layers)",
+        len(split), total_files, len(layer_groups),
+    )
+
+    return split
+
+
+# ── LLM-Free Structural Clustering Fallback (CL-10) ─────────────────
+
+# Edge kind → weight for structural clustering (no LLM tags needed)
+_STRUCTURAL_EDGE_WEIGHTS = {
+    "imports": 1.0,
+    "calls": 0.8,
+    "inherits": 0.9,
+    "implements": 0.9,
+    "co_changes": 0.6,
+    "co_located": 0.3,
+    "contains": 0.0,  # file→symbol edges are not inter-file
+}
+
+
+def build_clusters_structural(
+    file_paths: List[str],
+    edges: List[Dict[str, Any]],
+    min_cluster_size: int = 2,
+    max_cluster_abs: int = MAX_CLUSTER_ABS,
+    resolution: float = 0.8,
+) -> List[Cluster]:
+    """LLM-free clustering using only edge structure + directory naming.
+
+    Usable before epistemic enrichment completes. Requires no domain tags.
+    Uses Leiden if available, otherwise connected-components.
+
+    Args:
+        file_paths: List of repo-relative file paths.
+        edges: Trace edges (dicts with source, target, kind, metadata).
+        min_cluster_size: Merge clusters smaller than this.
+        max_cluster_abs: Maximum cluster size before splitting.
+        resolution: Leiden resolution parameter (lower = larger clusters).
+
+    Returns:
+        List of Cluster objects with directory-based names.
+    """
+    if len(file_paths) < 2:
+        return []
+
+    file_node_ids = [f"file:{fp}" for fp in file_paths]
+    file_set = set(file_node_ids)
+    node_to_idx = {nid: i for i, nid in enumerate(file_node_ids)}
+    n = len(file_node_ids)
+
+    # CL-5: Layer separation
+    layer_map: Dict[str, str] = {}
+    for fp in file_paths:
+        layer_map[f"file:{fp}"] = _classify_layer(fp)
+
+    layer_groups: Dict[str, List[str]] = defaultdict(list)
+    for nid in file_node_ids:
+        layer_groups[layer_map[nid]].append(nid)
+
+    # Build weighted edge pairs
+    all_clusters: List[Cluster] = []
+    cluster_idx = 0
+
+    for layer, layer_nodes in layer_groups.items():
+        if len(layer_nodes) < 2:
+            fp = layer_nodes[0][5:]
+            import os.path as osp
+            dir_name = osp.dirname(fp).split("/")[-1] or osp.splitext(osp.basename(fp))[0]
+            all_clusters.append(Cluster(
+                cluster_id=f"cluster:{dir_name}:{layer}:{cluster_idx}",
+                primary_tag=dir_name,
+                member_node_ids=layer_nodes,
+                all_tags=set(),
+            ))
+            cluster_idx += 1
+            continue
+
+        layer_set = set(layer_nodes)
+        layer_idx = {nid: i for i, nid in enumerate(layer_nodes)}
+        ln = len(layer_nodes)
+
+        edge_pairs: Dict[Tuple[int, int], float] = {}
+        for e in edges:
+            src, tgt = e.get("source", ""), e.get("target", "")
+            if src in layer_set and tgt in layer_set and src != tgt:
+                i, j = layer_idx[src], layer_idx[tgt]
+                if i > j:
+                    i, j = j, i
+                kind = e.get("kind", "")
+                w = _STRUCTURAL_EDGE_WEIGHTS.get(kind, 0.3)
+                conf = float(e.get("metadata", {}).get("confidence", 0.7) if isinstance(e.get("metadata"), dict) else 0.7)
+                edge_pairs[(i, j)] = max(edge_pairs.get((i, j), 0.0), w * conf)
+
+        # Add directory-proximity implicit edges (CL-4 style)
+        import os.path as osp
+        import math
+        for a_idx in range(min(ln, 200)):
+            fp_a = layer_nodes[a_idx][5:]
+            for b_idx in range(a_idx + 1, min(ln, 200)):
+                fp_b = layer_nodes[b_idx][5:]
+                dd = _directory_distance(fp_a, fp_b)
+                if dd == 0:
+                    # Same directory: add implicit proximity edge
+                    existing = edge_pairs.get((a_idx, b_idx), 0.0)
+                    edge_pairs[(a_idx, b_idx)] = max(existing, 0.25)
+
+        if not edge_pairs:
+            # No edges at all — group by directory
+            dir_groups: Dict[str, List[str]] = defaultdict(list)
+            for nid in layer_nodes:
+                fp = nid[5:]
+                d = osp.dirname(fp) or "root"
+                dir_groups[d].append(nid)
+            for d, members in dir_groups.items():
+                dir_name = d.split("/")[-1] or "root"
+                layer_suffix = f" ({layer})" if layer != "impl" else ""
+                all_clusters.append(Cluster(
+                    cluster_id=f"cluster:{dir_name}{layer_suffix}:{cluster_idx}",
+                    primary_tag=dir_name,
+                    member_node_ids=sorted(members),
+                    all_tags=set(),
+                ))
+                cluster_idx += 1
+            continue
+
+        # Try Leiden, fall back to connected components
+        communities: List[List[int]] = []
+        if _leiden_available():
+            import igraph as ig
+            import leidenalg
+            g = ig.Graph(n=ln, directed=False)
+            sorted_ep = sorted(edge_pairs.keys())
+            weights = [edge_pairs[ep] for ep in sorted_ep]
+            g.add_edges(sorted_ep)
+            g.es["weight"] = weights
+            try:
+                partition = leidenalg.find_partition(
+                    g, leidenalg.RBConfigurationVertexPartition,
+                    weights="weight", resolution_parameter=resolution,
+                    n_iterations=-1,
+                )
+                communities = list(partition)
+            except Exception:
+                communities = []
+
+        if not communities:
+            # Fallback: connected components
+            adjacency: Dict[str, Set[str]] = defaultdict(set)
+            for (i, j) in edge_pairs:
+                adjacency[layer_nodes[i]].add(layer_nodes[j])
+                adjacency[layer_nodes[j]].add(layer_nodes[i])
+            cc = _connected_components(layer_nodes, adjacency)
+            communities = [[layer_nodes.index(nid) for nid in comp] for comp in cc]
+
+        for community in communities:
+            member_nids = [layer_nodes[i] for i in community]
+            if not member_nids:
+                continue
+
+            # Name from majority directory
+            dir_counts: Dict[str, int] = defaultdict(int)
+            for nid in member_nids:
+                fp = nid[5:]
+                d = osp.dirname(fp).split("/")[-1] or osp.splitext(osp.basename(fp))[0]
+                dir_counts[d] += 1
+            primary_dir = max(dir_counts, key=dir_counts.get) if dir_counts else "misc"
+
+            layer_suffix = f" ({layer})" if layer != "impl" else ""
+            all_clusters.append(Cluster(
+                cluster_id=f"cluster:{primary_dir}{layer_suffix}:{cluster_idx}",
+                primary_tag=primary_dir,
+                member_node_ids=sorted(member_nids),
+                all_tags=set(),
+            ))
+            cluster_idx += 1
+
+    # Merge small clusters
+    adjacency_all: Dict[str, Set[str]] = defaultdict(set)
+    for e in edges:
+        src, tgt = e.get("source", ""), e.get("target", "")
+        if src in file_set and tgt in file_set:
+            adjacency_all[src].add(tgt)
+            adjacency_all[tgt].add(src)
+
+    merged = _merge_small_clusters(all_clusters, adjacency_all, min_cluster_size)
+
+    logger.info("CL-10: Structural clustering produced %d clusters from %d files", len(merged), len(file_paths))
+    return merged
+
+
+# ── Name Deduplication (CL-9) ────────────────────────────────────────
+
+def _deduplicate_module_names(modules: Dict[str, "ModuleEntry"]) -> None:
+    """Detect and resolve duplicate module names by appending distinguishing suffixes.
+
+    Mutates modules in-place. For duplicates, appends the most distinguishing
+    characteristic: majority directory, architecture layer, or primary domain tag.
+    """
+    # Group by name
+    name_groups: Dict[str, List[str]] = defaultdict(list)
+    for mod_id, mod in modules.items():
+        name_groups[mod.name].append(mod_id)
+
+    for name, mod_ids in name_groups.items():
+        if len(mod_ids) < 2:
+            continue
+
+        # Find distinguishing characteristic for each duplicate
+        for mod_id in mod_ids:
+            mod = modules[mod_id]
+
+            # Try: majority directory of member files
+            if mod.member_files:
+                import os.path as osp
+                dir_counts: Dict[str, int] = defaultdict(int)
+                for fp in mod.member_files:
+                    parent = osp.dirname(fp) or "."
+                    # Use the top-level directory for clarity
+                    top = parent.split("/")[0] if "/" in parent else parent
+                    dir_counts[top] += 1
+                majority_dir = max(dir_counts, key=dir_counts.get)
+                suffix = majority_dir.replace("_", " ").replace("-", " ").title()
+            elif mod.architecture_layers:
+                suffix = mod.architecture_layers[0].replace("_", " ").title()
+            elif mod.domain_tags:
+                # Use a secondary tag that's not the name itself
+                non_name_tags = [t for t in mod.domain_tags if t.lower() != name.lower()]
+                suffix = (non_name_tags[0] if non_name_tags else mod.domain_tags[0]).replace("_", " ").title()
+            else:
+                suffix = mod.module_id.split(":")[-1]
+
+            mod.name = f"{name} ({suffix})"
+
+    # Check for remaining duplicates after first pass (rare)
+    seen_names: Dict[str, int] = {}
+    for mod in modules.values():
+        if mod.name in seen_names:
+            seen_names[mod.name] += 1
+            mod.name = f"{mod.name} #{seen_names[mod.name]}"
+        else:
+            seen_names[mod.name] = 1
 
 
 # ── Synthesis engine ─────────────────────────────────────────────────
@@ -650,6 +1272,9 @@ class ClusterSynthesizer:
                     synthesized += 1
                 else:
                     failed += 1
+
+        # CL-9: Deduplicate module names
+        _deduplicate_module_names(modules)
 
         # Write atomically
         self._write_modules(modules)

@@ -246,4 +246,116 @@ TOOLS = [
             }
         }
     },
+    {
+        "name": "codrag_impact",
+        "description": "Analyze what depends on a file or symbol — 'what breaks if I change X?' Traverses reverse dependencies (callers, importers) in the code graph and returns a LOD-compressed impact summary. Use this before making changes to understand the blast radius.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "File path to analyze impact for (e.g., 'src/auth/login.py'). Converted to a file node ID internally.",
+                },
+                "symbol": {
+                    "type": "string",
+                    "description": "Symbol node ID to analyze (e.g., 'sym:UserService@src/auth/service.py:10'). Use this for symbol-level impact instead of file-level.",
+                },
+                "max_hops": {
+                    "type": "integer",
+                    "description": "Maximum traversal depth. 1 = direct dependents only, 2 = include transitive dependents. Default: 2.",
+                    "default": 2,
+                },
+                "project_id": {
+                    "type": "string",
+                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted.",
+                },
+            },
+            "required": [],
+        },
+        "_meta": {
+            "icons": {
+                "default": "alert-triangle",
+                "light": "alert-triangle",
+                "dark": "alert-triangle"
+            }
+        }
+    },
+    {
+        "name": "codrag_save_observation",
+        "description": "Save a note about the codebase for future sessions. Observations are linked to specific files or symbols and automatically flagged stale when those files change. Use this to record architectural decisions, discovered bugs, design patterns, or assumptions you've made during analysis. Observations persist across sessions so you don't re-discover the same things.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "description": "The observation text. Should be concise and actionable (max 2000 chars).",
+                },
+                "file_path": {
+                    "type": "string",
+                    "description": "File path the observation relates to. When this file changes, the observation is flagged stale.",
+                },
+                "symbol": {
+                    "type": "string",
+                    "description": "Fully qualified symbol name (e.g., 'UserService.validate'). Optional.",
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Observation category. Default: 'note'.",
+                    "enum": ["note", "decision", "bug", "pattern", "assumption"],
+                    "default": "note",
+                },
+                "project_id": {
+                    "type": "string",
+                    "description": "CoDRAG project ID. Auto-detected from workspace root if omitted.",
+                },
+            },
+            "required": ["content"],
+        },
+        "_meta": {
+            "icons": {
+                "default": "bookmark",
+                "light": "bookmark",
+                "dark": "bookmark"
+            }
+        }
+    },
+    {
+        "name": "codrag_get_observations",
+        "description": "Retrieve previous observations about the codebase. Returns notes saved in earlier sessions, with stale flags for observations whose linked files have changed. Use this at the start of a session or when working on a file to see what was previously discovered.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search observations by content. If omitted, returns the most recent observations.",
+                },
+                "file_path": {
+                    "type": "string",
+                    "description": "Filter observations linked to a specific file path.",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum observations to return. Default: 10.",
+                    "default": 10,
+                },
+                "include_stale": {
+                    "type": "boolean",
+                    "description": "Include stale observations (linked file changed). Default: true.",
+                    "default": True,
+                },
+                "project_id": {
+                    "type": "string",
+                    "description": "CoDRAG project ID. Auto-detected from workspace root if omitted.",
+                },
+            },
+            "required": [],
+        },
+        "_meta": {
+            "icons": {
+                "default": "book-open",
+                "light": "book-open",
+                "dark": "book-open"
+            }
+        }
+    },
 ]

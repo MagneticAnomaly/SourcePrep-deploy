@@ -244,12 +244,43 @@ fn extract_class(
         id: edge_id,
         kind: "contains".to_string(),
         source: file_node_id.to_string(),
-        target: node_id,
+        target: node_id.clone(),
         metadata: EdgeMetadata {
             confidence: 1.0,
             ..Default::default()
         },
     });
+
+    // TG-5: Extract inheritance edges from base class list
+    // Python grammar: class Foo(Bar, Baz): → superclasses field contains argument_list
+    if let Some(superclasses) = node.child_by_field_name("superclasses") {
+        let mut cursor = superclasses.walk();
+        for child in superclasses.children(&mut cursor) {
+            let base_name = match child.kind() {
+                "identifier" => node_text(&child, source).to_string(),
+                "attribute" => node_text(&child, source).to_string(),
+                _ => continue,
+            };
+            if base_name.is_empty() || base_name == "object" {
+                continue;
+            }
+            let target_id = stable_symbol_node_id(
+                &base_name, file_path, child.start_position().row + 1,
+            );
+            let inh_edge_id = stable_edge_id("inherits", &node_id, &target_id, "");
+            result.edges.push(ParsedEdge {
+                id: inh_edge_id,
+                kind: "inherits".to_string(),
+                source: node_id.clone(),
+                target: target_id,
+                metadata: EdgeMetadata {
+                    confidence: 1.0,
+                    line: Some(child.start_position().row + 1),
+                    ..Default::default()
+                },
+            });
+        }
+    }
 
     // Extract methods from the class body
     if let Some(body) = node.child_by_field_name("body") {

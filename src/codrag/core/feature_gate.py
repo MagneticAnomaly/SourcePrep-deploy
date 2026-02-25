@@ -112,6 +112,9 @@ def get_license() -> License:
     # Dev override via env var
     env_tier = os.environ.get("CODRAG_TIER", "").strip().lower()
     if env_tier:
+        # Map user-facing tier names to internal enum names
+        _ENV_TIER_MAP = {"pro": "perpetual", "starter": "monthly"}
+        env_tier = _ENV_TIER_MAP.get(env_tier, env_tier)
         try:
             tier = Tier[env_tier.upper()]
             _cached_license = License(tier=tier)

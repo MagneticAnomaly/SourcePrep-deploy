@@ -611,6 +611,148 @@ class MCPServer:
             "building": bool((data or {}).get("building", False)) if isinstance(data, dict) else False,
         }
 
+    async def tool_impact(
+        self,
+        file_path: Optional[str] = None,
+        symbol: Optional[str] = None,
+        max_hops: int = 2,
+        project_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Analyze what depends on a file or symbol — blast radius analysis."""
+        if not file_path and not symbol:
+            raise InvalidParamsError("Either file_path or symbol is required")
+
+        project_id = await self._resolve_project_id(override=project_override)
+
+        # Resolve node_id: symbol takes precedence, else convert file_path to file node ID
+        if symbol:
+            node_id = symbol
+        else:
+            node_id = f"file:{file_path}"
+
+        try:
+            max_hops = min(int(max_hops), 4)
+        except Exception:
+            max_hops = 2
+
+        data = await self._api_get(
+            f"/projects/{project_id}/trace/impact/{node_id}?max_hops={max_hops}&max_nodes=30"
+        )
+
+        if not isinstance(data, dict):
+            return {"project_id": project_id, "error": "No impact data available"}
+
+        target = data.get("target", {})
+        dependents = data.get("dependents", [])
+
+        # Format as human-readable summary for the LLM
+        lines = []
+        target_name = target.get("name", node_id)
+        target_path = target.get("file_path", "")
+        lines.append(f"Impact analysis for: {target_name} ({target_path})")
+        lines.append(f"Total dependents found: {len(dependents)}")
+        lines.append("")
+
+        if dependents:
+            d1 = [d for d in dependents if d.get("distance") == 1]
+            d2 = [d for d in dependents if d.get("distance", 0) > 1]
+
+            if d1:
+                lines.append(f"Direct dependents ({len(d1)}):")
+                for dep in d1:
+                    sig = dep.get("signature", dep.get("name", "?"))
+                    kind = dep.get("kind", "")
+                    path = dep.get("path", "")
+                    doc = dep.get("docstring", "")
+                    entry = f"  {sig} ({path}) [{kind}]"
+                    if doc:
+                        entry += f" -- {doc}"
+                    lines.append(entry)
+
+            if d2:
+                lines.append(f"\nTransitive dependents ({len(d2)}):")
+                for dep in d2:
+                    lines.append(f"  {dep.get('name', '?')} ({dep.get('path', '')})")
+        else:
+            lines.append("No dependents found — this node has no reverse dependencies.")
+
+        return {
+            "project_id": project_id,
+            "summary": "\n".join(lines),
+            "target": target,
+            "dependents": dependents,
+            "total_dependents": len(dependents),
+        }
+
+    async def tool_save_observation(
+        self,
+        content: str,
+        file_path: Optional[str] = None,
+        symbol: Optional[str] = None,
+        category: str = "note",
+        project_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Save an observation about the codebase for cross-session memory."""
+        project_id = await self._resolve_project_id(override=project_override)
+        payload = {"content": content}
+        if file_path:
+            payload["file_path"] = file_path
+        if symbol:
+            payload["symbol"] = symbol
+        if category:
+            payload["category"] = category
+        data = await self._api_post(f"/projects/{project_id}/observations", payload)
+        obs_id = (data or {}).get("id", "unknown") if isinstance(data, dict) else "unknown"
+        return {
+            "saved": True,
+            "id": obs_id,
+            "project_id": project_id,
+            "message": f"Observation saved (id={obs_id}). It will persist across sessions and be flagged stale if the linked file changes.",
+        }
+
+    async def tool_get_observations(
+        self,
+        query: Optional[str] = None,
+        file_path: Optional[str] = None,
+        limit: int = 10,
+        include_stale: bool = True,
+        project_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Retrieve previous observations about the codebase."""
+        project_id = await self._resolve_project_id(override=project_override)
+        params = []
+        if query:
+            params.append(f"query={query}")
+        if file_path:
+            params.append(f"file_path={file_path}")
+        params.append(f"limit={limit}")
+        if not include_stale:
+            params.append("include_stale=false")
+        qs = "&".join(params)
+        data = await self._api_get(f"/projects/{project_id}/observations?{qs}")
+
+        observations = []
+        if isinstance(data, dict):
+            for obs in data.get("observations", []):
+                entry = {
+                    "content": obs.get("content", ""),
+                    "category": obs.get("category", "note"),
+                }
+                if obs.get("file_path"):
+                    entry["file_path"] = obs["file_path"]
+                if obs.get("symbol_fqn"):
+                    entry["symbol"] = obs["symbol_fqn"]
+                if obs.get("stale"):
+                    entry["stale"] = True
+                    entry["stale_reason"] = obs.get("stale_reason", "file modified")
+                observations.append(entry)
+
+        return {
+            "project_id": project_id,
+            "count": len(observations),
+            "observations": observations,
+        }
+
     async def tool_hi(self, project_override: Optional[str] = None) -> Dict[str, Any]:
         """Project overview and context discovery tool.
 
@@ -1297,6 +1439,29 @@ class MCPServer:
                 )
             elif name == "codrag_trace_coverage":
                 result = await self.tool_trace_coverage(project_override=project_override)
+            elif name == "codrag_impact":
+                result = await self.tool_impact(
+                    file_path=args.get("file_path"),
+                    symbol=args.get("symbol"),
+                    max_hops=args.get("max_hops", 2),
+                    project_override=project_override,
+                )
+            elif name == "codrag_save_observation":
+                result = await self.tool_save_observation(
+                    content=args.get("content", ""),
+                    file_path=args.get("file_path"),
+                    symbol=args.get("symbol"),
+                    category=args.get("category", "note"),
+                    project_override=project_override,
+                )
+            elif name == "codrag_get_observations":
+                result = await self.tool_get_observations(
+                    query=args.get("query"),
+                    file_path=args.get("file_path"),
+                    limit=args.get("limit", 10),
+                    include_stale=args.get("include_stale", True),
+                    project_override=project_override,
+                )
             elif name == "hi_codrag":
                 result = await self.tool_hi(project_override=project_override)
             else:

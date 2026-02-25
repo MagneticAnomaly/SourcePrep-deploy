@@ -323,6 +323,17 @@ class ScopeOrchestrator:
                     self._last_rebuild_at[project_id] = time.time()
                     self._stale_since.pop(project_id, None)
                     self._states[project_id] = ScopeState.IDLE
+
+                    # Phase 39: Mark observations stale for changed/removed files
+                    stale_paths = list(changed | removed)
+                    if stale_paths:
+                        try:
+                            from codrag.services.observation_store import observation_store
+                            observation_store.mark_stale_batch(
+                                project_id, stale_paths, reason="file modified",
+                            )
+                        except Exception:
+                            logger.debug("Observation staleness update failed (non-fatal)", exc_info=True)
                 else:
                     self._states[project_id] = ScopeState.FAILED
                     self._errors[project_id] = "Build returned failure"

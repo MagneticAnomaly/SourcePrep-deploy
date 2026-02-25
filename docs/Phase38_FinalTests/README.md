@@ -235,7 +235,7 @@ The trace graph is the backbone of CoDRAG. Currently it suffers from:
 
 **Complexity**: MEDIUM-HIGH — many patterns to detect.
 
-**Verdict**: 🤔 **CONSIDER** — high impact for specific repos, but high implementation cost. Defer until TG-1/TG-2 are done.
+**Verdict**: ✅ **BUILD** — high impact for multi-language repos. Build after TG-1/TG-2 are done (Sprint 5).
 
 ---
 
@@ -258,7 +258,7 @@ The trace graph is the backbone of CoDRAG. Currently it suffers from:
 
 **Complexity**: HIGH — incremental graph updates with consistency guarantees are hard.
 
-**Verdict**: 🔄 **DEFER** — important for UX but not for graph quality. Do after TG-1.
+**Verdict**: ✅ **MUST DO** — critical for keeping the graph fresh. Promoted to Sprint 5 (after TG-1 establishes the symbol table it incrementally updates).
 
 ---
 
@@ -447,7 +447,7 @@ The current clustering algorithm (Pass 3) groups files by primary `domain_tag` t
 
 **Complexity**: MEDIUM
 
-**Verdict**: 🤔 **CONSIDER** — valuable for large projects, overkill for small ones.
+**Verdict**: ✅ **SHOULD DO** — natural fit for repos already using hierarchical/segmented atlas. The segment infrastructure (`atlas_segments/`, `compute_segments()`) already exists; hierarchical clustering would feed better data into it.
 
 ---
 
@@ -472,7 +472,7 @@ The current clustering algorithm (Pass 3) groups files by primary `domain_tag` t
 
 ### CL-10: LLM-Free Structural Clustering Fallback
 
-**What**: For repos where the LLM-based tag assignment fails or is unavailable (Free tier), provide a purely structural clustering algorithm based on edge connectivity + directory structure.
+**What**: Provide a purely structural clustering algorithm based on edge connectivity + directory structure, usable when LLM-based tag assignment fails or hasn't completed yet (e.g., first build before enrichment).
 
 **How it works**:
 1. Build weighted graph from edges (imports=1.0, calls=0.8, co_changes=0.6, co_located=0.3)
@@ -482,11 +482,11 @@ The current clustering algorithm (Pass 3) groups files by primary `domain_tag` t
 
 **Implementation**: ~100 LOC, reuses CL-1.
 
-**Impact**: MEDIUM — makes clustering available to all tiers.
+**Impact**: MEDIUM — provides clustering before enrichment completes, and as a robust fallback when LLM synthesis fails.
 
 **Complexity**: LOW
 
-**Verdict**: ✅ **SHOULD DO** — important for Free tier.
+**Verdict**: ✅ **SHOULD DO** — useful as a pre-enrichment fallback and for resilience when LLM is unreachable.
 
 ---
 
@@ -652,8 +652,7 @@ The search system uses embedding-based retrieval + trace expansion + atlas routi
 
 **Complexity**: LOW
 
-**Verdict**: 🤔 **CONSIDER** — nice refinement, not critical. Already partially implemented (`adaptive_k.py`).
-
+**Verdict**: ✅ **BUILD** — promoted. Already partially implemented (`adaptive_k.py`), needs integration into search pipeline.
 ---
 
 ### SR-9: Graph-Augmented Retrieval (GAR)
@@ -671,7 +670,7 @@ The search system uses embedding-based retrieval + trace expansion + atlas routi
 
 **Complexity**: LOW — adjustment to existing code.
 
-**Verdict**: ✅ **SHOULD DO** (after TG-1)
+**Verdict**: ✅ **MUST DO** (after TG-1) — core differentiator for marketing.
 
 ---
 
@@ -751,15 +750,16 @@ LOW Impact          SR-8 (adaptive K) CL-7 (stability)
 16. **TG-6**: Barrel file resolution (TS/JS only)
 17. **SR-3**: Weighted trace expansion with all edge types
 18. **SR-7**: Structure-aware chunk boundaries
-19. **SR-9**: Graph-augmented retrieval boost
+19. **SR-9**: Graph-augmented retrieval boost (marketing feature)
 20. **CL-10**: LLM-free structural clustering
+21. **TG-10**: Incremental graph updates (promoted — critical for freshness)
+22. **SR-8**: Adaptive K selection (promoted)
+23. **TG-9**: Cross-language bridge edges (build last)
+24. **CL-8**: Hierarchical module tree (leverage existing segment infra)
 
 #### Future / Research
-21. **SR-4**: Cross-encoder re-ranking
-22. **TG-7**: Semantic similarity edges
-23. **TG-9**: Cross-language bridge edges
-24. **CL-8**: Hierarchical module tree
-25. **TG-10**: Incremental graph updates
+25. **SR-4**: Cross-encoder re-ranking
+26. **TG-7**: Semantic similarity edges
 
 ---
 
@@ -772,42 +772,42 @@ LOW Impact          SR-8 (adaptive K) CL-7 (stability)
 - [ ] Prototype CL-2 (max module size) implementation
 
 ### Sprint 1
-- [ ] TG-1: Implement two-pass symbol table resolution
-  - [ ] TypeScript/JavaScript resolver
-  - [ ] Python resolver
-  - [ ] PHP PSR-4 resolver
-  - [ ] Go resolver
-  - [ ] Rust resolver
-  - [ ] Java/Kotlin resolver
-- [ ] TG-8: Directory proximity edges
-- [ ] CL-2: Max module size constraint
-- [ ] CL-9: Cluster name deduplication
-- [ ] Run health check on all repos, verify improvement
+- [x] TG-1: Two-pass symbol table resolution — `engine/crates/codrag-graph/src/lib.rs`
+  - [x] Multi-language resolver (relative paths, module mapping, leaf-name matching)
+  - [ ] PHP PSR-4 resolver (deferred)
+  - [ ] Go module resolver (deferred)
+- [x] TG-8: Directory proximity edges — `src/codrag/core/inferred_edges.py`
+- [x] CL-2: Max module size constraint — `src/codrag/core/cluster.py`
+- [x] CL-9: Cluster name deduplication — `src/codrag/core/cluster.py`
+- [x] Run health check on all repos, verify improvement ✅
 
 ### Sprint 2
-- [ ] SR-1: Integrate tantivy for BM25 index
-- [ ] SR-1: Implement RRF fusion
-- [ ] SR-2: Knowledge index fallback logic
-- [ ] SR-6: Tune atlas pre-filtering threshold
+- [x] SR-1: RRF fusion (FTS5 BM25 → Reciprocal Rank Fusion, rrf_weight=12, k=60) — `src/codrag/core/index.py`
+- [x] SR-2: Knowledge index content fallback for sparse repos — `src/codrag/api/routers/projects.py`
+- [x] SR-6: Atlas-guided pre-filtering (boost 0.30 when routing score > 0.7) — `src/codrag/api/routers/projects.py`
+- [x] All tests pass (172 passed) ✅
 
 ### Sprint 3
-- [ ] TG-2: Git co-change analysis
-- [ ] TG-4: Call chain extraction per language
-- [ ] TG-5: Inheritance/implementation edges
-- [ ] TG-3: String-based import heuristic
+- [x] TG-2: Git co-change analysis (Jaccard + recency decay) — `src/codrag/core/inferred_edges.py`
+- [x] TG-4: Intra-file call chain extraction (TypeScript) — `engine/crates/codrag-parser/src/typescript.rs`
+- [x] TG-5: Inheritance/implementation edges (TypeScript + Python) — `typescript.rs`, `python.rs`
+- [x] TG-3: Covered by TG-1 leaf-name matching in `resolve_imports`
+- [x] All Rust + Python tests pass ✅
 
 ### Sprint 4
-- [ ] CL-1: Leiden algorithm integration
-- [ ] CL-3: Multi-tag affinity matrix
-- [ ] CL-4: Directory-aware clustering
-- [ ] CL-5: Architecture-layer separation
+- [x] CL-1: Leiden algorithm integration (`igraph` + `leidenalg`) — `src/codrag/core/cluster.py`
+- [x] CL-3: Multi-tag Jaccard affinity matrix — integrated into `build_clusters_leiden`
+- [x] CL-4: Directory-aware clustering prior (exp decay penalty) — integrated into `build_clusters_leiden`
+- [x] CL-5: Architecture-layer separation (test/impl/config/docs) — integrated into `build_clusters_leiden`
+- [x] All tests pass (114 passed) ✅
 
 ### Sprint 5
-- [ ] TG-6: Barrel file resolution
-- [ ] SR-3: Weighted trace expansion
-- [ ] SR-7: Structure-aware chunking
-- [ ] SR-9: Graph-augmented retrieval boost
-- [ ] CL-10: LLM-free clustering fallback
+- [ ] TG-6: Barrel file resolution (deferred — TS/JS specific)
+- [ ] SR-3: Weighted trace expansion (deferred)
+- [ ] SR-7: Structure-aware chunking (deferred)
+- [ ] SR-9: Graph-augmented retrieval boost (deferred)
+- [x] CL-10: LLM-free structural clustering fallback — `src/codrag/core/cluster.py`
+- [x] All tests pass (158 passed) ✅
 
 ---
 

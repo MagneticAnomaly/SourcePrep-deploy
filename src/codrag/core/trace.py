@@ -1604,6 +1604,7 @@ class TraceIndex:
         self.nodes_path = self.index_dir / "trace_nodes.jsonl"
         self.edges_path = self.index_dir / "trace_edges.jsonl"
         self.inferred_edges_path = self.index_dir / "trace_inferred_edges.jsonl"
+        self.lsp_edges_path = self.index_dir / "trace_lsp_edges.jsonl"
 
         self._manifest: Optional[Dict[str, Any]] = None
         self._nodes: Dict[str, Dict[str, Any]] = {}
@@ -1692,6 +1693,22 @@ class TraceIndex:
                                 self._edges_by_target.setdefault(tgt, []).append(edge)
                 except Exception as e:
                     logger.warning("Failed to load inferred edges: %s", e)
+
+            # W1a: Load LSP edges (posted by IDE extensions)
+            if self.lsp_edges_path.exists():
+                try:
+                    with open(self.lsp_edges_path, "r", encoding="utf-8") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line:
+                                edge = json.loads(line)
+                                self._edges.append(edge)
+                                src = edge["source"]
+                                tgt = edge["target"]
+                                self._edges_by_source.setdefault(src, []).append(edge)
+                                self._edges_by_target.setdefault(tgt, []).append(edge)
+                except Exception as e:
+                    logger.warning("Failed to load LSP edges: %s", e)
 
             self._loaded = True
             return True
@@ -1875,6 +1892,165 @@ class TraceIndex:
             "out_nodes": out_nodes,
         }
 
+    def get_file_skeleton(self, file_path: str, max_symbols: int = 20) -> str:
+        """Return a structural skeleton for a file: signatures, classes, exports.
+
+        Uses trace node metadata (symbol_type, qualname, docstring) to build
+        a compact overview without implementation bodies.  70-80% token
+        reduction compared to raw source chunks.
+
+        Returns empty string if no symbol nodes exist for the file.
+        """
+        if not self._loaded:
+            self.load()
+
+        # Collect symbol nodes for this file
+        symbols: List[Dict[str, Any]] = []
+
+        if self._rust_handle is not None:
+            # Rust backend: iterate all nodes (no per-file index)
+            for nid, node_dict in self._nodes.items():
+                if node_dict.get("file_path") == file_path and node_dict.get("kind") == "symbol":
+                    symbols.append(node_dict)
+        else:
+            for nid, node_dict in self._nodes.items():
+                if node_dict.get("file_path") == file_path and node_dict.get("kind") == "symbol":
+                    symbols.append(node_dict)
+
+        if not symbols:
+            return ""
+
+        # Sort by span start line for natural order
+        symbols.sort(key=lambda s: (s.get("span") or {}).get("start_line", 0))
+
+        lines: List[str] = [f"// @{file_path}"]
+        for sym in symbols[:max_symbols]:
+            meta = sym.get("metadata") or {}
+            stype = meta.get("symbol_type", "")
+            qualname = meta.get("qualname") or sym.get("name", "?")
+            is_public = meta.get("is_public", True)
+            is_async = meta.get("is_async", False)
+            docstring = meta.get("docstring", "")
+
+            # Skip private symbols to keep skeleton concise
+            if not is_public:
+                continue
+
+            prefix = ""
+            if stype == "class":
+                prefix = "class "
+            elif stype in ("function", "method"):
+                prefix = "async " if is_async else ""
+                prefix += "function " if stype == "function" else ""
+            elif stype == "variable":
+                prefix = "const "
+            elif stype == "interface":
+                prefix = "interface "
+
+            line = f"{prefix}{qualname}"
+
+            # Add brief docstring if available
+            if docstring:
+                brief = docstring.split("\n")[0][:80]
+                line += f"  -- {brief}"
+
+            lines.append(line)
+
+        if len(symbols) > max_symbols:
+            lines.append(f"... +{len(symbols) - max_symbols} more symbols")
+
+        return "\n".join(lines)
+
+    def get_impact_graph(
+        self,
+        node_id: str,
+        max_hops: int = 2,
+        max_nodes: int = 30,
+    ) -> Dict[str, Any]:
+        """BFS reverse traversal: everything that depends on ``node_id``.
+
+        Follows in-edges only (callers, importers) up to ``max_hops`` hops.
+        Returns LOD-compressed result: distance-1 nodes get full signature,
+        distance-2+ nodes get file path + name only.
+
+        Returns::
+
+            {
+                "target": {node info},
+                "dependents": [{"path", "name", "kind", "distance", "signature"}],
+                "total_dependents": int,
+            }
+        """
+        if not self._loaded:
+            self.load()
+
+        target_node = self._nodes.get(node_id) or {}
+
+        visited: Set[str] = {node_id}
+        queue: List[Tuple[str, int]] = [(node_id, 0)]  # (node_id, distance)
+        dependents: List[Dict[str, Any]] = []
+
+        while queue and len(dependents) < max_nodes:
+            current_id, dist = queue.pop(0)
+            if dist >= max_hops:
+                continue
+
+            # Get in-edges (callers/importers of current node)
+            neighbors = self.get_neighbors(current_id, direction="in", max_nodes=50)
+            for edge, node in zip(
+                neighbors.get("in_edges", []),
+                neighbors.get("in_nodes", []),
+            ):
+                nid = node.get("id", "")
+                if nid in visited:
+                    continue
+                visited.add(nid)
+
+                fp = node.get("file_path", "")
+                name = node.get("name", "")
+                kind = edge.get("kind", "")
+                meta = node.get("metadata") or {}
+                next_dist = dist + 1
+
+                dep_info: Dict[str, Any] = {
+                    "path": fp,
+                    "name": name,
+                    "kind": kind,
+                    "distance": next_dist,
+                }
+
+                # LOD: distance-1 gets full signature, distance-2+ gets name only
+                if next_dist == 1:
+                    qualname = meta.get("qualname", name)
+                    stype = meta.get("symbol_type", node.get("kind", ""))
+                    docstring = (meta.get("docstring") or "")[:80]
+                    dep_info["signature"] = qualname
+                    dep_info["symbol_type"] = stype
+                    if docstring:
+                        dep_info["docstring"] = docstring
+                else:
+                    dep_info["signature"] = name
+
+                dependents.append(dep_info)
+
+                if len(dependents) >= max_nodes:
+                    break
+
+                # Enqueue for further traversal
+                queue.append((nid, next_dist))
+
+        return {
+            "target": {
+                "id": node_id,
+                "name": target_node.get("name", ""),
+                "file_path": target_node.get("file_path", ""),
+                "kind": target_node.get("kind", ""),
+            },
+            "dependents": dependents,
+            "total_dependents": len(dependents),
+            "max_hops": max_hops,
+        }
+
     def get_hub_files(
         self,
         scope_paths: Optional[Set[str]] = None,
@@ -1899,7 +2075,7 @@ class TraceIndex:
         # directly (Rust backend doesn't populate self._edges_by_target).
         in_degree: Dict[str, int] = {}
 
-        for edge_file in ("trace_edges.jsonl", "trace_inferred_edges.jsonl"):
+        for edge_file in ("trace_edges.jsonl", "trace_inferred_edges.jsonl", "trace_lsp_edges.jsonl"):
             edge_path = self.index_dir / edge_file
             if not edge_path.exists():
                 continue

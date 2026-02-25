@@ -365,6 +365,62 @@ class TestLLMAtlas:
         assert "Core Engine" in prompt
         assert "Dashboard UI" in prompt
 
+    def test_quality_gate_thinking_tags_fallback(self, tmp_index_dir):
+        """When a thinking model wraps output in <think> tags, _postprocess
+        strips them to empty — quality gate should trigger structural fallback."""
+        _populate_index(tmp_index_dir)
+        mock_llm = MagicMock()
+        mock_llm.model = "qwen3-thinking"
+        # Simulate a thinking model that ONLY outputs <think> tags
+        mock_llm.generate.return_value = (
+            "<think>\nLet me analyze this codebase...\n"
+            "The project has Python files in src/ and ui/ dirs...\n"
+            "I should structure my response with IDENTITY first...\n"
+            "</think>",
+            200,
+        )
+
+        atlas = CodebaseAtlas(tmp_index_dir, llm=mock_llm)
+        doc = atlas.generate()
+
+        # Quality gate should have caught the empty postprocessed output
+        # and fallen back to structural content
+        assert doc.content  # must not be empty
+        assert len(doc.content) > 50  # structural fallback produces real content
+        # The LLM was called (it didn't error), but the output was stripped
+        mock_llm.generate.assert_called()
+
+    def test_quality_gate_too_short_fallback(self, tmp_index_dir):
+        """LLM output that's too short after postprocessing triggers structural fallback."""
+        _populate_index(tmp_index_dir)
+        mock_llm = MagicMock()
+        mock_llm.model = "weak-model"
+        # Return something that's way too short to be useful
+        mock_llm.generate.return_value = ("OK.", 5)
+
+        atlas = CodebaseAtlas(tmp_index_dir, llm=mock_llm)
+        doc = atlas.generate()
+
+        assert doc.content
+        assert len(doc.content) > 50
+
+    def test_postprocess_strips_thinking_tags(self, tmp_index_dir):
+        """_postprocess should strip <think>...</think> and leave remaining content."""
+        text = (
+            "<think>Internal reasoning here</think>\n"
+            "IDENTITY: A Python toolkit for code search."
+        )
+        result = CodebaseAtlas._postprocess(text, 5000)
+        assert "<think>" not in result
+        assert "Internal reasoning" not in result
+        assert "IDENTITY" in result
+
+    def test_postprocess_strips_unclosed_think_tag(self, tmp_index_dir):
+        """_postprocess should strip unclosed <think> tags (model started but didn't close)."""
+        text = "<think>Reasoning that never ends..."
+        result = CodebaseAtlas._postprocess(text, 5000)
+        assert result == ""  # everything after unclosed <think> is stripped
+
 
 # ── Staleness Tests ──────────────────────────────────────────────────
 

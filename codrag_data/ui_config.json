@@ -166,6 +166,7 @@
       "level": "standard",
       "lingua_downloaded": true
     },
+    "batch_mode": "off",
     "clara": {
       "enabled": true,
       "source": "endpoint",
@@ -173,11 +174,10 @@
       "endpoint_id": "ep_1770657747731_8834fca43c28e",
       "remote_url": "http://localhost:8765"
     },
-    "test_persist": true,
-    "batch_mode": "off"
+    "test_persist": true
   },
   "deep_analysis": {
-    "mode": "manual",
+    "mode": "auto",
     "threshold_percent": 20,
     "frequency": "daily",
     "day_of_week": 0,
@@ -192,10 +192,10 @@
   },
   "pipeline_config": {
     "fast_sync": {
-      "auto": true
+      "auto": false
     },
     "deep_enrichment": {
-      "mode": "manual",
+      "mode": "auto",
       "schedule": {
         "frequency": "daily",
         "day_of_week": 0,
@@ -249,7 +249,7 @@
       {
         "id": "graph-structure",
         "visible": true,
-        "height": 8,
+        "height": 12,
         "collapsed": false,
         "x": 8,
         "y": 2,
@@ -265,27 +265,27 @@
         "w": 4
       },
       {
-        "id": "index-health",
-        "visible": true,
-        "height": 8,
-        "collapsed": false,
-        "x": 8,
-        "y": 10,
-        "w": 4
-      },
-      {
         "id": "status",
         "visible": true,
-        "height": 8,
+        "height": 9,
         "collapsed": false,
         "x": 0,
         "y": 13,
         "w": 4
       },
       {
+        "id": "index-health",
+        "visible": true,
+        "height": 8,
+        "collapsed": false,
+        "x": 8,
+        "y": 14,
+        "w": 4
+      },
+      {
         "id": "atlas",
         "visible": true,
-        "height": 14,
+        "height": 11,
         "collapsed": false,
         "x": 4,
         "y": 18,
@@ -297,16 +297,7 @@
         "height": 11,
         "collapsed": false,
         "x": 0,
-        "y": 21,
-        "w": 4
-      },
-      {
-        "id": "context-options",
-        "visible": true,
-        "height": 7,
-        "collapsed": true,
-        "x": 0,
-        "y": 32,
+        "y": 22,
         "w": 4
       },
       {
@@ -315,8 +306,17 @@
         "height": 16,
         "collapsed": false,
         "x": 4,
-        "y": 32,
+        "y": 29,
         "w": 8
+      },
+      {
+        "id": "context-options",
+        "visible": true,
+        "height": 7,
+        "collapsed": true,
+        "x": 0,
+        "y": 33,
+        "w": 4
       },
       {
         "id": "context-output",
@@ -324,7 +324,7 @@
         "height": 10,
         "collapsed": true,
         "x": 0,
-        "y": 34,
+        "y": 35,
         "w": 4
       },
       {
@@ -333,7 +333,7 @@
         "height": 6,
         "collapsed": false,
         "x": 4,
-        "y": 48,
+        "y": 45,
         "w": 4
       },
       {
@@ -342,7 +342,7 @@
         "height": 12,
         "collapsed": false,
         "x": 8,
-        "y": 48,
+        "y": 45,
         "w": 4
       },
       {
@@ -351,7 +351,7 @@
         "height": 8,
         "collapsed": true,
         "x": 4,
-        "y": 54,
+        "y": 51,
         "w": 4
       },
       {
@@ -360,7 +360,7 @@
         "height": 9,
         "collapsed": false,
         "x": 8,
-        "y": 60,
+        "y": 57,
         "w": 4
       },
       {

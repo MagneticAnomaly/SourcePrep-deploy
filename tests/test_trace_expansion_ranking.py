@@ -310,3 +310,94 @@ class TestSmartChunkSelection:
         trace_chunks = [c for c in result.get("chunks", []) if c.get("trace_expanded")]
         # Should include at most 2 files (2 * 1000 ≤ 2500, but 3 * 1000 > 2500)
         assert len(trace_chunks) <= 2
+
+
+# ---------------------------------------------------------------------------
+# W2c: Skeleton Context for Trace-Expanded Neighbors (Phase 39)
+# ---------------------------------------------------------------------------
+
+class TestSkeletonContext:
+
+    def test_skeleton_used_for_trace_expanded_neighbors(self, tmp_path):
+        """When trace_index.get_file_skeleton returns content, trace-expanded
+        neighbors should use the skeleton instead of raw chunk content."""
+        dim = 4
+        query_vec = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+        neighbor_vec = np.array([0.8, 0.2, 0.0, 0.0], dtype=np.float32)
+
+        docs = [
+            {"source_path": "neighbor.py", "content": "def foo():\n    # full implementation body\n    x = 1\n    return x * 2\n", "section": ""},
+        ]
+        embeddings = np.vstack([neighbor_vec])
+
+        idx = _make_index(tmp_path, docs, embeddings)
+
+        # Create a mock trace index that returns a real skeleton string
+        trace_idx = _make_trace_index(["neighbor.py"])
+        skeleton_content = "def foo() -> int\nclass Bar"
+        trace_idx.get_file_skeleton.return_value = skeleton_content
+
+        with patch.object(idx, "get_context_structured") as mock_ctx:
+            mock_ctx.return_value = {
+                "context": "",
+                "chunks": [{"source_path": "source.py"}],
+                "total_chars": 0,
+                "estimated_tokens": 0,
+            }
+            idx.embedder = MagicMock()
+            idx.embedder.embed_query.return_value = MagicMock(vector=query_vec.tolist())
+
+            result = idx.get_context_with_trace_expansion(
+                query="foo function",
+                trace_index=trace_idx,
+                k=3,
+                max_chars=10000,
+                max_additional_chars=5000,
+            )
+
+        context = result.get("context", "")
+        # Skeleton should appear instead of full implementation
+        assert "def foo() -> int" in context
+        assert "class Bar" in context
+        # Full implementation body should NOT appear
+        assert "full implementation body" not in context
+
+    def test_primary_hits_not_skeletonized(self, tmp_path):
+        """Primary search hits (non-trace-expanded) should still show full content."""
+        dim = 4
+        query_vec = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+        hit_vec = np.array([0.95, 0.05, 0.0, 0.0], dtype=np.float32)
+
+        docs = [
+            {"source_path": "main.py", "content": "def main():\n    # full primary content\n    return 42\n", "section": ""},
+        ]
+        embeddings = np.vstack([hit_vec])
+
+        idx = _make_index(tmp_path, docs, embeddings)
+        trace_idx = MagicMock()
+        trace_idx.is_loaded.return_value = True
+        trace_idx.get_neighbors.return_value = {
+            "in_nodes": [], "out_nodes": [], "in_edges": [], "out_edges": [],
+        }
+
+        with patch.object(idx, "get_context_structured") as mock_ctx:
+            mock_ctx.return_value = {
+                "context": "def main():\n    # full primary content\n    return 42\n",
+                "chunks": [{"source_path": "main.py", "content": "def main():\n    # full primary content\n    return 42\n"}],
+                "total_chars": 50,
+                "estimated_tokens": 12,
+            }
+            idx.embedder = MagicMock()
+            idx.embedder.embed_query.return_value = MagicMock(vector=query_vec.tolist())
+
+            result = idx.get_context_with_trace_expansion(
+                query="main function",
+                trace_index=trace_idx,
+                k=3,
+                max_chars=10000,
+                max_additional_chars=5000,
+            )
+
+        context = result.get("context", "")
+        # Primary hit should retain full content
+        assert "full primary content" in context

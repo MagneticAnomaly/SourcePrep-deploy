@@ -17,6 +17,19 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://support.codrag.io'),
   title: 'CoDRAG Support',
   description: 'Support hub for CoDRAG: tickets, bugs, questions, and security reporting.',
+  icons: {
+    icon: [
+      { url: '/favicon_io/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon_io/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon_io/favicon.ico', sizes: 'any' },
+    ],
+    apple: [
+      { url: '/favicon_io/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+    other: [
+      { rel: 'manifest', url: '/favicon_io/site.webmanifest' },
+    ],
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

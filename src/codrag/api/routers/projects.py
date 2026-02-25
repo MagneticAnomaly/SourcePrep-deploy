@@ -528,6 +528,14 @@ def get_project_status(project_id: str) -> Dict[str, Any]:
     is_stale = watcher_stale or mtime_stale
     stale_since = watch.get("stale_since") or mtime_check.get("stale_since")
 
+    # Phase 39: Observation stats for dashboard health panel
+    obs_stats = None
+    try:
+        from codrag.services.observation_store import observation_store
+        obs_stats = observation_store.get_stats(project_id)
+    except Exception:
+        pass  # Store not initialized or unavailable
+
     data = {
         "building": _srv()._is_project_building(proj.id),
         "stale": is_stale,
@@ -538,6 +546,8 @@ def get_project_status(project_id: str) -> Dict[str, Any]:
         "watch": watch,
         "sync": _srv()._get_project_sync_status(proj),
     }
+    if obs_stats and obs_stats.get("total", 0) > 0:
+        data["observations"] = obs_stats
     return ok(data)
 
 
@@ -1069,6 +1079,59 @@ def search_project(project_id: str, req: SearchRequest) -> Dict[str, Any]:
             }
         )
     return ok({"results": out})
+
+
+# ── Phase 39: Observation injection ──────────────────────────────
+# Append relevant observations as a [session-memory] section at the
+# end of the assembled context.  Stale observations are included but
+# marked so the agent knows to re-evaluate.
+_OBS_MAX_CHARS = 500
+_OBS_MAX_COUNT = 3
+
+
+def _inject_observations(
+    context_str: str,
+    project_id: str,
+    query: str,
+) -> tuple:
+    """Append relevant observations to context string.
+
+    Returns (new_context_str, obs_meta_dict_or_None).
+    """
+    try:
+        from codrag.services.observation_store import observation_store
+        observations = observation_store.get_for_query(
+            project_id, query, limit=_OBS_MAX_COUNT, include_stale=True,
+        )
+        if not observations:
+            return context_str, None
+
+        lines: list = []
+        chars = 0
+        included = 0
+        stale_count = 0
+        for obs in observations:
+            prefix = "[STALE] " if obs.stale else ""
+            cat = f"({obs.category}) " if obs.category != "note" else ""
+            file_ref = f" [{obs.file_path}]" if obs.file_path else ""
+            line = f"- {prefix}{cat}{obs.content}{file_ref}"
+            if chars + len(line) > _OBS_MAX_CHARS:
+                break
+            lines.append(line)
+            chars += len(line)
+            included += 1
+            if obs.stale:
+                stale_count += 1
+
+        if not lines:
+            return context_str, None
+
+        section = "\n\n---\n\n[session-memory]\n" + "\n".join(lines)
+        meta = {"observations_injected": included, "stale": stale_count}
+        return context_str + section, meta
+
+    except Exception:
+        return context_str, None
 
 
 def _prepend_atlas(
@@ -1631,6 +1694,7 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
     _segment_file_paths: Optional[set] = None
     _routing_meta: Optional[Dict[str, Any]] = None
     _scope_boosted_files: int = 0
+    _sr6_segment_boost: float = 0.12  # SR-6: default boost; raised to 0.30 for high-confidence routing
     try:
         _included = (proj.config or {}).get("included_paths") or []
         if _included:
@@ -1691,6 +1755,14 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
                         _segment_file_paths = _atlas_paths
                     else:
                         _segment_file_paths = _segment_file_paths | _atlas_paths
+
+                    # SR-6: High-confidence atlas routing → hard pre-filter
+                    # When the top segment score is very high (>0.7), exclude
+                    # files NOT in the routed segments from search results.
+                    # This reduces noise from unrelated subsystems.
+                    _top_routing_score = max(s for _, s in selected) if selected else 0.0
+                    _sr6_prefilter = _top_routing_score > 0.7 and len(_atlas_paths) >= 5
+
                     _routing_meta = {
                         "routed": True,
                         "segments": [
@@ -1699,7 +1771,14 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
                         ],
                         "boosted_files": len(_segment_file_paths),
                         "scope_boosted_files": _scope_boosted_files,
+                        "prefiltered": _sr6_prefilter,
                     }
+
+                    # SR-6: When pre-filtering is active, increase the segment
+                    # boost so routed files dominate results. Non-routed files
+                    # still appear if their embedding score is very high.
+                    if _sr6_prefilter:
+                        _sr6_segment_boost = 0.30  # 2.5x the default 0.12
     except Exception as e:
         logger.debug("Atlas routing unavailable: %s", e)
 
@@ -1756,6 +1835,7 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
             include_scores=req.include_scores,
             min_score=req.min_score,
             segment_file_paths=_segment_file_paths,
+            segment_boost=_sr6_segment_boost,
         )
 
         comp = _apply_compression(ctx, req)
@@ -1770,10 +1850,53 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
             resp["context"] = new_ctx
             if atlas_meta:
                 resp["atlas"] = atlas_meta
+        # Phase 39: Inject relevant observations as session-memory
+        resp["context"], _obs_meta = _inject_observations(resp["context"], project_id, req.query)
+        if _obs_meta:
+            resp["session_memory"] = _obs_meta
         return ok(resp)
+
+    # ── SR-2: Knowledge Index content fallback ──────────────────
+    # When CodeIndex coverage is sparse (few chunks indexed), supplement
+    # search with KnowledgeIndex results. The knowledge index contains
+    # LLM-enriched file descriptions that can fill gaps where source
+    # code chunks aren't indexed. This is additive — knowledge results
+    # appear as supplementary context, not a replacement.
+    _knowledge_fallback_chunks: List[Dict[str, Any]] = []
+    try:
+        from codrag.server import _get_project_knowledge_index
+        _know_idx = _get_project_knowledge_index(proj)
+        if _know_idx.is_loaded():
+            _code_doc_count = len(getattr(idx, '_documents', None) or [])
+            # Heuristic: if CodeIndex has fewer than 100 chunks, knowledge
+            # fallback is likely valuable (sparse coverage)
+            if _code_doc_count < 100:
+                _know_results = _know_idx.search(req.query, k=3, min_score=0.30)
+                for _kr in _know_results:
+                    _kd = _kr.get("doc") if isinstance(_kr, dict) else _kr
+                    if not isinstance(_kd, dict):
+                        continue
+                    _knowledge_fallback_chunks.append({
+                        "source_path": str(_kd.get("source_path") or _kd.get("source_id") or ""),
+                        "section": "knowledge-enriched",
+                        "score": float(_kr.get("score", 0.0) if isinstance(_kr, dict) else 0.0),
+                        "text": str(_kd.get("content") or _kd.get("text") or ""),
+                        "is_knowledge_fallback": True,
+                    })
+    except Exception as e:
+        logger.debug("SR-2 knowledge fallback unavailable: %s", e)
 
     # Structured context: use trace expansion if available
     if trace_idx is not None:
+        # W2b: Resolve modules path for module summary injection
+        _modules_path = None
+        try:
+            _modules_path = project_index_dir(proj) / "trace_modules.jsonl"
+            if not _modules_path.exists():
+                _modules_path = None
+        except Exception:
+            pass
+
         result = idx.get_context_with_trace_expansion(
             req.query,
             trace_index=trace_idx,
@@ -1782,7 +1905,15 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
             min_score=req.min_score,
             max_additional_chars=req.trace_max_chars,
             segment_file_paths=_segment_file_paths,
+            segment_boost=_sr6_segment_boost,
+            modules_path=_modules_path,
         )
+        # SR-2: Append knowledge fallback chunks to trace-expanded results
+        if _knowledge_fallback_chunks:
+            existing_chunks = result.get("chunks", [])
+            existing_chunks.extend(_knowledge_fallback_chunks)
+            result["chunks"] = existing_chunks
+
         if req.compression in ("none", "lod", "auto"):
             # Phase 34c E1: auto-LOD — structural compression is always applied
             # in the structured+trace path. "none", "lod", and "auto" all trigger it.
@@ -1818,6 +1949,12 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
             resp_data["estimated_tokens"] = len(new_ctx) // 4
             if atlas_meta:
                 resp_data["atlas"] = atlas_meta
+        # Phase 39: Inject relevant observations as session-memory
+        resp_data["context"], _obs_meta = _inject_observations(resp_data["context"], project_id, req.query)
+        if _obs_meta:
+            resp_data["session_memory"] = _obs_meta
+            resp_data["total_chars"] = len(resp_data["context"])
+            resp_data["estimated_tokens"] = resp_data["total_chars"] // 4
         return ok(resp_data)
 
     results = idx.search(
@@ -1825,6 +1962,7 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
         score_drop_ratio=req.score_drop_ratio, mmr_lambda=req.mmr_lambda,
         exclude_paths=req.exclude_paths or None,
         segment_file_paths=_segment_file_paths,
+        segment_boost=_sr6_segment_boost,
     )
 
     # Phase 34c E1: auto-LOD in structured path (no trace fallback)
@@ -1838,6 +1976,9 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
             }
             for r in results
         ]
+        # SR-2: Append knowledge fallback chunks to non-trace results
+        if _knowledge_fallback_chunks:
+            raw_chunks.extend(_knowledge_fallback_chunks)
         lod_result = _apply_lod_compression(raw_chunks, proj, req.query, req.max_chars)
         resp_data: Dict[str, Any] = lod_result
         if _routing_meta:
@@ -1849,6 +1990,12 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
             resp_data["estimated_tokens"] = len(new_ctx) // 4
             if atlas_meta:
                 resp_data["atlas"] = atlas_meta
+        # Phase 39: Inject relevant observations as session-memory
+        resp_data["context"], _obs_meta = _inject_observations(resp_data["context"], project_id, req.query)
+        if _obs_meta:
+            resp_data["session_memory"] = _obs_meta
+            resp_data["total_chars"] = len(resp_data["context"])
+            resp_data["estimated_tokens"] = resp_data["total_chars"] // 4
         return ok(resp_data)
 
     parts: List[str] = []
@@ -1925,6 +2072,12 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
         resp_data["estimated_tokens"] = len(new_ctx) // 4
         if atlas_meta:
             resp_data["atlas"] = atlas_meta
+    # Phase 39: Inject relevant observations as session-memory
+    resp_data["context"], _obs_meta = _inject_observations(resp_data["context"], project_id, req.query)
+    if _obs_meta:
+        resp_data["session_memory"] = _obs_meta
+        resp_data["total_chars"] = len(resp_data["context"])
+        resp_data["estimated_tokens"] = resp_data["total_chars"] // 4
     return ok(resp_data)
 
 

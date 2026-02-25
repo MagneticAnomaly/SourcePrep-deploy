@@ -34,7 +34,11 @@ export function Sidebar({
   maxWidth = 480,
   onWidthChange,
 }: SidebarProps) {
-  const [width, setWidth] = useState(defaultWidth);
+  const storageKey = 'codrag_sidebar_width';
+  const [width, setWidth] = useState(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
+    return saved ? parseInt(saved, 10) : defaultWidth;
+  });
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
 
@@ -56,6 +60,10 @@ export function Sidebar({
 
     const handleMouseUp = () => {
       setIsResizing(false);
+      // Persist width on resize end
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(storageKey, width.toString());
+      }
     };
 
     document.addEventListener('mousemove', handleMouseMove);
@@ -65,7 +73,7 @@ export function Sidebar({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isResizing, minWidth, maxWidth, onWidthChange]);
+  }, [isResizing, minWidth, maxWidth, onWidthChange, width]);
 
   return (
     <>

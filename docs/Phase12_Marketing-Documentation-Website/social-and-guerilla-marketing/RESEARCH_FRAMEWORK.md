@@ -70,9 +70,9 @@ Use these discovery methods (do not guess; verify policies):
   - `site:reddit.com "MCP" tool` / `site:reddit.com "RAG" local` / `site:reddit.com "code search" embeddings` / `site:reddit.com "developer tool" launch`
   - `"Show HN" code search tool` / `"Ask HN" local-first` / `"Lobsters" code graph`
   - `Medium publication developer tools` / `dev.to code search` / `hashnode RAG`
-- “Adjacent product” reconnaissance:
-  - Find where similar tools get traction (e.g., Sourcegraph, Continue.dev, Aider, OpenHands, CodeQL, ripgrep, Zed, Neovim plugins, MCP servers)
-  - Track which communities allow “here’s what I built” posts
+- “Adjacent product” and "Competitor" reconnaissance:
+  - Find where similar tools get traction (e.g., local RAG tools, code search CLIs, AI IDE extensions, AST-based context engines, LSP wrappers, Sourcegraph, Continue.dev, Aider, OpenHands)
+  - Track which communities allow “here’s what I built” posts and monitor competitor launch threads for feature gaps you can fill.
 - Community directory scanning:
   - Reddit: related subreddits sidebar, mod lists, weekly promo threads
   - Medium: browse Publications by tag; check submission guidelines

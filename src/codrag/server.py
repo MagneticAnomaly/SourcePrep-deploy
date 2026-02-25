@@ -352,6 +352,7 @@ from codrag.api.routers.projects import router as projects_router
 from codrag.api.routers.pipeline import router as pipeline_router
 from codrag.api.routers.settings import router as settings_router
 from codrag.api.routers.scope import router as scope_router
+from codrag.api.routers.observations import router as observations_router
 app.include_router(system_router)
 app.include_router(license_router)
 app.include_router(trace_router)
@@ -361,6 +362,7 @@ app.include_router(projects_router)
 app.include_router(pipeline_router)
 app.include_router(settings_router)
 app.include_router(scope_router)
+app.include_router(observations_router)
 
 
 # =============================================================================
@@ -414,6 +416,10 @@ def configure(
     # Initialize pipeline journal + crash recovery (Phase 25)
     from codrag.services.pipeline_journal import journal as _journal
     _journal.init(db_path)
+
+    # Initialize observation store (Phase 39: Session Continuity)
+    from codrag.services.observation_store import observation_store as _obs_store
+    _obs_store.init(db_path)
     from codrag.services.pipeline_orchestrator import pipeline_orchestrator as _pipeline
     crashed = _pipeline.startup_recovery()
     if crashed:

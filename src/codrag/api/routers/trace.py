@@ -563,6 +563,141 @@ def get_trace_node_neighbors(
 
 
 # ═════════════════════════════════════════════════════════════════
+# W4a: Impact Graph (Phase 39 — "what breaks if I change X?")
+# ═════════════════════════════════════════════════════════════════
+
+@router.get("/projects/{project_id}/trace/impact/{node_id:path}")
+def get_trace_impact(
+    project_id: str,
+    node_id: str,
+    max_hops: int = 2,
+    max_nodes: int = 30,
+) -> Dict[str, Any]:
+    """Return the reverse-dependency (impact) graph for a node.
+
+    BFS traversal following in-edges (callers, importers) to answer
+    "what depends on this?" and "what's the blast radius of changing this?"
+    """
+    from codrag.server import _require_project, _get_project_trace_index
+    proj = _require_project(project_id)
+
+    trace_idx = _get_project_trace_index(proj)
+    if not trace_idx.exists():
+        raise ApiException(status_code=409, code="TRACE_NOT_BUILT", message="Trace index has not been built yet")
+
+    if not trace_idx.is_loaded():
+        trace_idx.load()
+
+    node = trace_idx.get_node(node_id)
+    if node is None:
+        raise ApiException(status_code=404, code="NODE_NOT_FOUND", message=f"Node not found: {node_id}")
+
+    result = trace_idx.get_impact_graph(
+        node_id,
+        max_hops=min(max_hops, 4),
+        max_nodes=min(max_nodes, 100),
+    )
+    return ok(result)
+
+
+# ═════════════════════════════════════════════════════════════════
+# W1a: LSP Edge Ingestion (Phase 39 — IDE-sourced type-resolved edges)
+# ═════════════════════════════════════════════════════════════════
+
+class LSPEdge(BaseModel):
+    source: str
+    target: str
+    kind: str = "calls"
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class LSPEdgesRequest(BaseModel):
+    edges: List[LSPEdge]
+
+
+@router.post("/projects/{project_id}/trace/lsp-edges")
+def ingest_lsp_edges(
+    project_id: str,
+    req: LSPEdgesRequest,
+) -> Dict[str, Any]:
+    """Accept type-resolved call-graph edges from the user's IDE Language Server.
+
+    Edges are validated (source/target must be known file nodes), deduped
+    against existing edges, and appended to ``trace_lsp_edges.jsonl``.
+    The TraceIndex picks them up on next load.
+    """
+    from codrag.server import _require_project, _get_project_trace_index
+
+    proj = _require_project(project_id)
+    trace_idx = _get_project_trace_index(proj)
+    if not trace_idx.exists():
+        raise ApiException(
+            status_code=409, code="TRACE_NOT_BUILT",
+            message="Trace index has not been built yet",
+        )
+    if not trace_idx.is_loaded():
+        trace_idx.load()
+
+    idx_dir = project_index_dir(proj)
+    lsp_path = idx_dir / "trace_lsp_edges.jsonl"
+
+    # Load existing LSP edges for dedup
+    existing: set = set()
+    if lsp_path.exists():
+        try:
+            with open(lsp_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        e = json.loads(line)
+                        existing.add((e.get("source", ""), e.get("target", ""), e.get("kind", "")))
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    accepted = 0
+    rejected_unknown = 0
+    rejected_dup = 0
+
+    new_edges: List[Dict[str, Any]] = []
+    for edge in req.edges:
+        # Validate source/target are known nodes
+        src_node = trace_idx.get_node(edge.source)
+        tgt_node = trace_idx.get_node(edge.target)
+        if src_node is None or tgt_node is None:
+            rejected_unknown += 1
+            continue
+
+        # Dedup
+        key = (edge.source, edge.target, edge.kind)
+        if key in existing:
+            rejected_dup += 1
+            continue
+
+        existing.add(key)
+        new_edges.append({
+            "source": edge.source,
+            "target": edge.target,
+            "kind": edge.kind,
+            "origin": "lsp",
+            **({"metadata": edge.metadata} if edge.metadata else {}),
+        })
+        accepted += 1
+
+    # Append new edges
+    if new_edges:
+        with open(lsp_path, "a", encoding="utf-8") as f:
+            for e in new_edges:
+                f.write(json.dumps(e) + "\n")
+
+    return ok({
+        "accepted": accepted,
+        "rejected_unknown_node": rejected_unknown,
+        "rejected_duplicate": rejected_dup,
+        "total_lsp_edges": len(existing),
+    })
+
+
+# ═════════════════════════════════════════════════════════════════
 # Hub Files & File Edges (Phase 32 — hi_codrag enhancements)
 # ═════════════════════════════════════════════════════════════════
 

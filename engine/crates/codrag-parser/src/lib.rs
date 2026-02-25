@@ -104,6 +104,10 @@ pub struct EdgeMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub import_str: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub imported_names: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub re_exported_names: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub line: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub external: Option<bool>,

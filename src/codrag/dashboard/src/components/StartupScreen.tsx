@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { AlertCircle, RefreshCw, Power } from 'lucide-react'
-import { Button, LoadingState } from '@codrag/ui'
+import { Button } from '@codrag/ui'
 
 interface StartupScreenProps {
   apiBaseUrl: string
@@ -58,13 +58,80 @@ export function StartupScreen({ apiBaseUrl, onReady, timeoutMs = 30000 }: Startu
 
   if (status === 'connecting') {
     return (
-      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-4 z-50">
-        <LoadingState 
-          message="Starting CoDRAG engine..." 
-        />
-        <p className="text-sm text-text-muted mt-2">Initializing local daemon and verifying ports.</p>
-        <div className="mt-8 text-xs text-text-muted font-mono">
-          Connecting to {apiBaseUrl} (Attempt {attempts + 1})
+      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-4 z-50 overflow-hidden">
+        <style>{`
+          @keyframes loading-slide {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(300%); }
+          }
+          @keyframes loading-float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+          }
+          @keyframes loading-glow {
+            0%, 100% { opacity: 0.15; transform: scale(1); filter: blur(60px); }
+            50% { opacity: 0.3; transform: scale(1.1); filter: blur(80px); }
+          }
+          @keyframes loading-pulse-fast {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+          }
+          .animate-loading-slide { animation: loading-slide 2s ease-in-out infinite; }
+          .animate-loading-float { animation: loading-float 4s ease-in-out infinite; }
+          .animate-loading-glow { animation: loading-glow 4s ease-in-out infinite; }
+          .animate-loading-pulse-fast { animation: loading-pulse-fast 2s ease-in-out infinite; }
+        `}</style>
+
+        {/* Ambient background glow */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-[400px] h-[400px] bg-primary rounded-full animate-loading-glow"></div>
+        </div>
+
+        <div className="relative z-10 flex flex-col items-center">
+          {/* Logo Container */}
+          <div className="relative w-32 h-32 mb-8 flex items-center justify-center animate-loading-float">
+            {/* Spinning Rings */}
+            <div className="absolute inset-0 border-t-2 border-l-2 border-primary/80 rounded-full animate-spin"></div>
+            <div className="absolute inset-2 border-r-2 border-b-2 border-primary/50 rounded-full animate-[spin_3s_linear_infinite_reverse]"></div>
+            <div className="absolute inset-4 border-t-2 border-primary/30 rounded-full animate-[spin_4s_linear_infinite]"></div>
+            
+            {/* Transparent Logo */}
+            <img 
+              src="/codrag-logo.png" 
+              alt="CoDRAG Logo" 
+              className="w-16 h-16 object-contain animate-loading-pulse-fast"
+              style={{ filter: 'drop-shadow(0 0 15px hsl(var(--primary) / 0.5))' }}
+            />
+          </div>
+
+          {/* Text */}
+          <h1 className="text-3xl font-bold tracking-[0.2em] text-text mb-8 animate-loading-pulse-fast">
+            CoDRAG
+          </h1>
+          
+          <div className="flex flex-col items-center space-y-5">
+            {/* Progress Bar */}
+            <div className="h-1 w-64 bg-surface-raised rounded-full overflow-hidden relative shadow-inner">
+               <div className="absolute top-0 bottom-0 left-0 w-1/3 bg-primary rounded-full animate-loading-slide" style={{ boxShadow: '0 0 10px hsl(var(--primary) / 0.8)' }}></div>
+            </div>
+            
+            {/* Status Text */}
+            <div className="flex flex-col items-center gap-2 text-center">
+              <p className="text-sm text-text font-medium tracking-wider uppercase drop-shadow-md">
+                Starting Engine
+              </p>
+              <p className="text-xs text-text-muted">
+                Initializing local daemon and verifying ports
+              </p>
+              <div className="mt-2 text-xs text-text-subtle font-mono flex items-center gap-2 bg-surface px-3 py-1.5 rounded-full border border-border/50 shadow-sm">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                </span>
+                Connecting to {apiBaseUrl} (Attempt {attempts + 1})
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     )

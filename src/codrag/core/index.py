@@ -32,6 +32,69 @@ from codrag.api.envelope import ApiException
 logger = logging.getLogger(__name__)
 
 
+# ── W2a: Intent-aware search ─────────────────────────────────────────
+# Keyword-based intent classification — no LLM needed.
+
+_INTENT_KEYWORDS: Dict[str, List[str]] = {
+    "debug": [
+        "fix", "bug", "error", "crash", "failing", "broken", "exception",
+        "traceback", "issue", "wrong", "undefined", "null", "nan", "hang",
+        "deadlock", "leak", "segfault", "panic", "assert",
+    ],
+    "refactor": [
+        "refactor", "rename", "extract", "move", "clean", "simplify",
+        "reorganize", "restructure", "dedup", "consolidate", "split",
+    ],
+    "add_feature": [
+        "add", "create", "implement", "new", "feature", "build", "introduce",
+        "scaffold", "generate", "wire", "hook up", "integrate",
+    ],
+    "understand": [
+        "how", "what", "why", "explain", "where", "which", "describe",
+        "overview", "architecture", "understand", "walk me through",
+    ],
+}
+
+_INTENT_PARAMS: Dict[str, Dict[str, Any]] = {
+    "debug":       {"trace_direction": "in",   "trace_hops": 2, "trace_edge_kinds": ["calls", "imports", "implements"]},
+    "refactor":    {"trace_direction": "both", "trace_hops": 2, "trace_edge_kinds": None},
+    "add_feature": {"trace_direction": "out",  "trace_hops": 1, "trace_edge_kinds": ["imports", "calls", "configures"]},
+    "understand":  {"trace_direction": "both", "trace_hops": 1, "trace_edge_kinds": None},
+    "general":     {"trace_direction": "both", "trace_hops": 1, "trace_edge_kinds": None},
+}
+
+
+def _detect_intent(query: str) -> str:
+    """Classify query intent via keyword matching. Returns one of:
+    debug, refactor, add_feature, understand, general."""
+    q = query.lower()
+    scores: Dict[str, int] = {k: 0 for k in _INTENT_KEYWORDS}
+    for intent, keywords in _INTENT_KEYWORDS.items():
+        for kw in keywords:
+            if kw in q:
+                scores[intent] += 1
+    best = max(scores, key=scores.get)  # type: ignore[arg-type]
+    if scores[best] == 0:
+        return "general"
+    return best
+
+
+# ── W1b/SR-3: Edge kind weights for trace expansion ─────────────────
+# Higher weight = more important edge kind for context expansion.
+
+EDGE_KIND_WEIGHT: Dict[str, float] = {
+    "calls":       1.0,
+    "imports":     0.8,
+    "implements":  0.9,
+    "configures":  0.6,
+    "dispatches":  0.7,
+    "listens_to":  0.5,
+    "contains":    0.3,
+    "co_change":   0.4,
+    "proximity":   0.2,
+}
+
+
 @dataclass(frozen=True)
 class SearchResult:
     """A search result with document and score."""
@@ -1176,6 +1239,7 @@ class CodeIndex:
         min_score: float = 0.15,
         segment_file_paths: Optional[set] = None,
         segment_boost: float = 0.12,
+        trace_index: Any = None,
     ) -> Dict[str, Any]:
         policy = self.query_policy(query)
         results = self.search(
@@ -1183,6 +1247,32 @@ class CodeIndex:
             segment_file_paths=segment_file_paths,
             segment_boost=segment_boost,
         )
+
+        # -- W1b/SR-9: Graph-augmented retrieval boost --
+        # Boost base search hits by their in-degree in the trace graph.
+        # High-connectivity files are structurally important and should rank higher.
+        SR9_BOOST_MAX = 0.08
+        if trace_index is not None and results:
+            try:
+                if trace_index.is_loaded():
+                    in_degrees: Dict[str, int] = {}
+                    for r in results:
+                        sp = r.doc.get("source_path", "")
+                        if sp and sp not in in_degrees:
+                            fid = stable_file_node_id(sp)
+                            in_deg, _ = trace_index.node_degree(fid)
+                            in_degrees[sp] = in_deg
+                    max_deg = max(in_degrees.values()) if in_degrees else 0
+                    if max_deg > 0:
+                        boosted = []
+                        for r in results:
+                            sp = r.doc.get("source_path", "")
+                            deg = in_degrees.get(sp, 0)
+                            boost = SR9_BOOST_MAX * (deg / max_deg)
+                            boosted.append(SearchResult(doc=r.doc, score=r.score + boost))
+                        results = sorted(boosted, key=lambda x: -x.score)
+            except Exception:
+                pass  # degree lookup unavailable — skip boost
         
         parts: List[str] = []
         chunks_meta: List[Dict[str, Any]] = []
@@ -1322,6 +1412,7 @@ class CodeIndex:
         max_additional_chars: int = 2000,
         segment_file_paths: Optional[set] = None,
         segment_boost: float = 0.12,
+        modules_path: Optional[Path] = None,
     ) -> Dict[str, Any]:
         """
         Get context with optional trace-based expansion.
@@ -1329,12 +1420,36 @@ class CodeIndex:
         After retrieving initial chunks, expands context by following trace edges
         to find related symbols/files and including their chunks.
         """
+        # -- W2a: Intent-aware search --
+        # Detect query intent and adjust trace parameters automatically.
+        intent = _detect_intent(query)
+        intent_params = _INTENT_PARAMS.get(intent, _INTENT_PARAMS["general"])
+        # Only override if caller didn't explicitly set non-default values
+        if trace_direction == "both":
+            trace_direction = intent_params["trace_direction"]
+        if trace_hops == 1:
+            trace_hops = intent_params["trace_hops"]
+        if trace_edge_kinds is None:
+            trace_edge_kinds = intent_params["trace_edge_kinds"]
+
+        # -- W1b/SR-9: Pass trace_index to get_context_structured for in-degree boost --
         base_result = self.get_context_structured(
             query, k=k, max_chars=max_chars - max_additional_chars,
             min_score=min_score,
             segment_file_paths=segment_file_paths,
             segment_boost=segment_boost,
+            trace_index=trace_index,
         )
+
+        # -- W2b: Module summary injection --
+        # If top hits cluster into 1-2 modules, prepend the module summary.
+        if modules_path is not None:
+            base_result = self._inject_module_summary(
+                base_result, modules_path, max_module_chars=500,
+            )
+
+        base_result["meta"] = base_result.get("meta", {})
+        base_result["meta"]["intent"] = intent
         
         if trace_index is None or not trace_index.is_loaded():
             base_result["trace_expanded"] = False
@@ -1352,7 +1467,12 @@ class CodeIndex:
             base_result["trace_nodes_added"] = 0
             return base_result
         
+        # -- W1b/SR-3: Weighted trace expansion --
+        # Track per-path edge weight so higher-value edges (calls, implements)
+        # produce neighbors that rank above lower-value edges (proximity, contains).
         related_paths: set = set()
+        path_edge_weight: Dict[str, float] = {}  # path → max edge weight
+
         for sp in source_paths:
             file_node_id = stable_file_node_id(sp)
             neighbors = trace_index.get_neighbors(
@@ -1362,15 +1482,23 @@ class CodeIndex:
                 max_nodes=max_additional_nodes,
             )
             
-            for node in neighbors.get("in_nodes", []):
-                fp = node.get("file_path")
-                if fp and fp not in source_paths:
-                    related_paths.add(fp)
-            
-            for node in neighbors.get("out_nodes", []):
-                fp = node.get("file_path")
-                if fp and fp not in source_paths:
-                    related_paths.add(fp)
+            for edge, node_list in [
+                (neighbors.get("in_edges", []), neighbors.get("in_nodes", [])),
+                (neighbors.get("out_edges", []), neighbors.get("out_nodes", [])),
+            ]:
+                # Build edge-kind lookup for this batch
+                edge_kind_by_node: Dict[str, str] = {}
+                for e in edge:
+                    tgt = e.get("target") or e.get("source", "")
+                    edge_kind_by_node[tgt] = e.get("kind", "")
+                for node in node_list:
+                    fp = node.get("file_path")
+                    if fp and fp not in source_paths:
+                        related_paths.add(fp)
+                        nid = node.get("id", "")
+                        kind = edge_kind_by_node.get(nid, "")
+                        w = EDGE_KIND_WEIGHT.get(kind, 0.3)
+                        path_edge_weight[fp] = max(path_edge_weight.get(fp, 0.0), w)
         
         if not related_paths:
             base_result["trace_expanded"] = True
@@ -1412,10 +1540,11 @@ class CodeIndex:
                 if fp in related_paths and fp not in path_best:
                     path_best[fp] = (0.0, d)
 
-        # -- Phase 34d B3: Trace-aware ordering --
-        # Blend query relevance with structural importance (in-degree) so that
-        # hub trace neighbors rank above marginal search hits.
+        # -- Phase 34d B3 + W1b/SR-3: Trace-aware ordering --
+        # Blend query relevance with structural importance (in-degree) AND edge
+        # kind weight so that callers/implementors rank above proximity edges.
         HUB_BOOST_MAX = 0.15  # max additive boost for highest in-degree neighbor
+        EDGE_WEIGHT_BOOST_MAX = 0.10  # max additive boost for highest edge weight
         path_in_degree: Dict[str, int] = {}
         try:
             for rp in related_paths:
@@ -1428,10 +1557,13 @@ class CodeIndex:
         max_in_degree = max(path_in_degree.values()) if path_in_degree else 0
 
         def _blended_score(fp: str) -> float:
-            """Query relevance + normalized in-degree hub boost."""
+            """Query relevance + in-degree hub boost + edge kind weight."""
             base = path_best.get(fp, (0.0, None))[0]
             if max_in_degree > 0 and fp in path_in_degree:
                 base += HUB_BOOST_MAX * (path_in_degree[fp] / max_in_degree)
+            # W1b/SR-3: Edge kind weight boost
+            ew = path_edge_weight.get(fp, 0.0)
+            base += EDGE_WEIGHT_BOOST_MAX * ew
             return base
 
         sorted_paths = sorted(related_paths, key=lambda p: -_blended_score(p))
@@ -1490,6 +1622,7 @@ class CodeIndex:
                 base_result["chunks"] = base_result.get("chunks", []) + append_after
 
             # Rebuild context string from the new chunk order
+            # W2c: Use skeleton for trace-expanded neighbors (signatures only)
             parts: List[str] = []
             for chunk in base_result["chunks"]:
                 sp = chunk.get("source_path", "")
@@ -1501,8 +1634,19 @@ class CodeIndex:
                     _, d = entry
                     in_deg = chunk.get("in_degree", 0)
                     hub_label = f" | hub:{in_deg}" if in_deg > 0 else ""
+
+                    # W2c: Prefer skeleton over raw content for trace neighbors
+                    skeleton = ""
+                    try:
+                        sk = trace_index.get_file_skeleton(sp)
+                        if isinstance(sk, str) and sk.strip():
+                            skeleton = sk
+                    except Exception:
+                        pass
+                    content = skeleton if skeleton else d.get("content", "")
+
                     header = f"[trace-expanded{hub_label} | @{sp}]"
-                    block = f"{header}\n{d.get('content', '')}"
+                    block = f"{header}\n{content}"
                 else:
                     section = chunk.get("section", "")
                     header_bits = []
@@ -1521,6 +1665,85 @@ class CodeIndex:
         base_result["trace_expanded"] = True
         base_result["trace_nodes_added"] = len(additional_chunks)
         return base_result
+
+    # -- W2b: Module summary injection ─────────────────────────────────
+    def _inject_module_summary(
+        self,
+        result: Dict[str, Any],
+        modules_path: Path,
+        max_module_chars: int = 500,
+        threshold: float = 0.60,
+    ) -> Dict[str, Any]:
+        """Prepend the dominant module's summary if ≥threshold of hits share a module.
+
+        Loads trace_modules.jsonl, maps hit source_paths to module membership,
+        and prepends the module summary as a [module-context] header block.
+        """
+        chunks = result.get("chunks", [])
+        if not chunks or not modules_path.exists():
+            return result
+
+        # Load modules
+        try:
+            modules: List[Dict[str, Any]] = []
+            with open(modules_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        modules.append(json.loads(line))
+        except (OSError, json.JSONDecodeError):
+            return result
+
+        if not modules:
+            return result
+
+        # Build file → module index
+        file_to_module: Dict[str, Dict[str, Any]] = {}
+        for mod in modules:
+            for fp in mod.get("member_files", []):
+                file_to_module[fp] = mod
+
+        # Map hit paths to modules
+        from collections import Counter as _Counter
+        module_hits: _Counter = _Counter()
+        hit_count = 0
+        for chunk in chunks:
+            sp = chunk.get("source_path", "")
+            if not sp:
+                continue
+            hit_count += 1
+            mod = file_to_module.get(sp)
+            if mod:
+                module_hits[mod.get("name", "?")] += 1
+
+        if hit_count == 0:
+            return result
+
+        # Check if dominant module meets threshold
+        if not module_hits:
+            return result
+        top_name, top_count = module_hits.most_common(1)[0]
+        if top_count / hit_count < threshold:
+            return result
+
+        # Find the module data
+        top_mod = next((m for m in modules if m.get("name") == top_name), None)
+        if not top_mod or not top_mod.get("summary"):
+            return result
+
+        summary = top_mod["summary"][:max_module_chars]
+
+        # Prepend module context to the context string
+        module_block = f"[module-context | {top_name}]\n{summary}"
+        ctx = result.get("context", "")
+        if ctx:
+            result["context"] = module_block + "\n\n---\n\n" + ctx
+        else:
+            result["context"] = module_block
+        result["total_chars"] = len(result["context"])
+        result["estimated_tokens"] = result["total_chars"] // 4
+        result["module_injected"] = top_name
+        return result
 
     def _format_chunk_for_embedding(self, chunk: Chunk, file_hash: str) -> str:
         """Format a chunk for embedding."""
@@ -1649,7 +1872,15 @@ class CodeIndex:
             conn.close()
 
     def _fts_boosts(self, query: str, docs: List[Dict[str, Any]], limit: int) -> np.ndarray:
-        """Compute FTS5-based score boosts."""
+        """Compute FTS5-based score boosts using Reciprocal Rank Fusion (SR-1).
+
+        Uses RRF scoring: boost = rrf_weight / (rrf_k + bm25_rank_position)
+        where rrf_k=60 (standard) and rrf_weight scales the BM25 contribution.
+
+        This gives the #1 BM25 hit a boost of ~0.12, #2 ~0.11, #5 ~0.09,
+        providing meaningful keyword signal especially for identifier queries
+        where embedding search may miss exact matches.
+        """
         if not self.fts_path.exists():
             return np.zeros(len(docs), dtype=np.float32)
 
@@ -1676,13 +1907,17 @@ class CodeIndex:
         id_to_idx = {str(d.get("id")): i for i, d in enumerate(docs)}
         boosts = np.zeros(len(docs), dtype=np.float32)
 
-        for chunk_id, rank in rows:
+        # RRF parameters: k=60 is standard, weight=12.0 scales contribution
+        # so top BM25 hit gets ~12/61 ≈ 0.20 boost — strong enough to surface
+        # exact keyword matches above min_score even with weak embedding overlap
+        rrf_k = 60
+        rrf_weight = 12.0
+
+        for rank_pos, (chunk_id, _bm25_score) in enumerate(rows):
             i = id_to_idx.get(str(chunk_id))
             if i is None:
                 continue
-            r = float(rank) if rank is not None else 0.0
-            r = max(0.0, r)
-            boost = 0.35 / (1.0 + r)
+            boost = rrf_weight / (rrf_k + rank_pos + 1)
             boosts[i] = max(boosts[i], float(boost))
 
         return boosts

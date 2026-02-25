@@ -42,6 +42,21 @@ These are the core claims. Every channel placement should use 1–2 of these as 
 
 ---
 
+## Proactive Objection Handling (Anticipating the Competitor Narrative)
+
+Based on recent launches of similar tools in the local context engine space, the developer community will immediately ask specific skeptical questions. Every launch post or deep-dive article should **pre-emptively** answer these to control the narrative:
+
+| The Community Objection | Our Proactive Defense (Bake this into the copy) |
+|-------------------------|-------------------------------------------------|
+| *"Why isn't this free/open-source?"* | We address the elephant in the room: *"Most dev tools lock you into a $20/mo SaaS or sell your telemetry. We chose a $79 perpetual license so you own it forever. A sustainable business model means we don't have to monetize your data."* |
+| *"I already do this with a CLAUDE.md file."* | *"CLAUDE.md is great for human guidelines ('use Tailwind'), but it can't maintain thousands of dynamic dependency edges. CoDRAG automates the structural layer so your CLAUDE.md can focus on architecture."* |
+| *"Is this just semantic search?"* | *"Vector search is great for fuzzy matching, but terrible for structural precision (blast radius, callers). CoDRAG uses BOTH: native ONNX embeddings for concepts + an AST dependency graph for exact structure."* |
+| *"Does this only work in VS Code?"* | *"No. CoDRAG is a standalone daemon and an MCP server. It works in the terminal with Claude Code, in Cursor, Windsurf, or any MCP client."* |
+| *"Is it an LSP wrapper?"* | *"No. LSPs require an active runtime environment for every language. CoDRAG builds an offline, persistent trace graph using tree-sitter, making it much faster and allowing cross-repo queries without booting up 5 language servers."* |
+| *"Will SQLite handle my massive repo?"* | *"Yes. We optimized our SQLite schema specifically for the 2-to-3 hop traversals needed for context assembly. It delivers sub-millisecond graph queries with zero infrastructure overhead."* |
+
+---
+
 ## Tier 0: "Must activate" channels (highest business impact)
 
 These channels have the strongest overlap with our primary ICP and the highest leverage per post.

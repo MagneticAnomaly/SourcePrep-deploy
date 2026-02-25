@@ -547,3 +547,315 @@ class InferredEdgesAnalyzer:
             return hashlib.sha256(content).hexdigest()[:16]
         except Exception:
             return None
+
+
+# ── Directory Proximity Edges (TG-8) ────────────────────────────────
+
+# Non-code extensions that should be excluded from co_located edges
+_NON_CODE_EXTENSIONS = {
+    ".md", ".txt", ".rst", ".json", ".yaml", ".yml", ".toml", ".ini",
+    ".cfg", ".conf", ".lock", ".sum", ".csv", ".xml", ".html", ".css",
+    ".svg", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".woff", ".woff2",
+    ".ttf", ".eot", ".map", ".min.js", ".min.css", ".LICENSE", "",
+}
+
+
+def generate_directory_proximity_edges(
+    index_dir: Path,
+    max_dir_size: int = 20,
+    min_confidence: float = 0.3,
+) -> int:
+    """Generate co_located edges between code files in the same directory.
+
+    Provides baseline connectivity for repos where import resolution fails.
+    Files in the same directory are assumed to be related with a confidence
+    that decays with directory size (large directories are less informative).
+
+    Args:
+        index_dir: Path to .codrag index directory.
+        max_dir_size: Skip directories with more files than this (too noisy).
+        min_confidence: Minimum confidence threshold for emitted edges.
+
+    Returns:
+        Number of edges written.
+    """
+    nodes_path = index_dir / "trace_nodes.jsonl"
+    if not nodes_path.exists():
+        return 0
+
+    # Load file nodes
+    file_paths: List[str] = []
+    with open(nodes_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                node = json.loads(line)
+                if node.get("kind") == "file":
+                    fp = node.get("file_path", "")
+                    if fp:
+                        file_paths.append(fp)
+            except json.JSONDecodeError:
+                continue
+
+    if len(file_paths) < 2:
+        return 0
+
+    # Filter to code files only
+    import os.path as osp
+    code_files = [
+        fp for fp in file_paths
+        if osp.splitext(fp)[1].lower() not in _NON_CODE_EXTENSIONS
+    ]
+
+    # Group by parent directory
+    dir_groups: Dict[str, List[str]] = {}
+    for fp in code_files:
+        parent = osp.dirname(fp) or "."
+        dir_groups.setdefault(parent, []).append(fp)
+
+    # Load existing edges to avoid duplicates
+    existing_pairs: Set[Tuple[str, str]] = set()
+    for edge_file in ("trace_edges.jsonl", "trace_inferred_edges.jsonl"):
+        edge_path = index_dir / edge_file
+        if not edge_path.exists():
+            continue
+        try:
+            with open(edge_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        e = json.loads(line)
+                        src = e.get("source", "").replace("file:", "", 1)
+                        tgt = e.get("target", "").replace("file:", "", 1)
+                        if src and tgt:
+                            existing_pairs.add((src, tgt))
+                            existing_pairs.add((tgt, src))
+                    except json.JSONDecodeError:
+                        continue
+        except OSError:
+            continue
+
+    # Generate co_located edges
+    edges_written = 0
+    inferred_path = index_dir / "trace_inferred_edges.jsonl"
+
+    with open(inferred_path, "a", encoding="utf-8") as out:
+        for dir_path, members in dir_groups.items():
+            if len(members) < 2 or len(members) > max_dir_size:
+                continue
+
+            # Confidence decays with directory size: 2 files = 0.6, 10 files = 0.3
+            confidence = round(max(min_confidence, 0.7 - (len(members) * 0.04)), 2)
+
+            for i, src in enumerate(members):
+                for tgt in members[i + 1:]:
+                    if (src, tgt) in existing_pairs:
+                        continue
+                    existing_pairs.add((src, tgt))
+                    existing_pairs.add((tgt, src))
+
+                    edge = {
+                        "id": f"proximity:{src}->{tgt}",
+                        "kind": "co_located",
+                        "source": f"file:{src}",
+                        "target": f"file:{tgt}",
+                        "metadata": {
+                            "inferred": True,
+                            "method": "directory_proximity",
+                            "confidence": confidence,
+                            "directory": dir_path,
+                        },
+                    }
+                    out.write(json.dumps(edge) + "\n")
+                    edges_written += 1
+
+    if edges_written > 0:
+        logger.info("TG-8: Generated %d directory proximity edges", edges_written)
+
+    return edges_written
+
+
+# ── Git Co-Change Edges (TG-2) ──────────────────────────────────────
+
+def generate_git_cochange_edges(
+    index_dir: Path,
+    repo_root: Path,
+    min_commits: int = 3,
+    min_jaccard: float = 0.25,
+    max_commits: int = 500,
+    recency_halflife: int = 90,
+) -> int:
+    """Generate co_changes edges from git commit history.
+
+    Files that frequently change together in commits have an implicit
+    dependency even when no import edge exists. Uses Jaccard similarity
+    with exponential recency weighting.
+
+    Args:
+        index_dir: Path to .codrag index directory.
+        repo_root: Path to the git repository root.
+        min_commits: Minimum co-occurrence count to consider a pair.
+        min_jaccard: Minimum Jaccard similarity threshold.
+        max_commits: Maximum recent commits to analyze.
+        recency_halflife: Days for exponential decay half-life.
+
+    Returns:
+        Number of edges written.
+    """
+    import subprocess
+    import math
+    from datetime import datetime, timezone
+    from itertools import combinations
+
+    nodes_path = index_dir / "trace_nodes.jsonl"
+    if not nodes_path.exists():
+        return 0
+
+    # Collect known file paths from trace
+    known_files: Set[str] = set()
+    with open(nodes_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                node = json.loads(line)
+                if node.get("kind") == "file":
+                    fp = node.get("file_path", "")
+                    if fp:
+                        known_files.add(fp)
+            except json.JSONDecodeError:
+                continue
+
+    if len(known_files) < 2:
+        return 0
+
+    # Parse git log for commit → files mapping
+    try:
+        result = subprocess.run(
+            ["git", "log", f"--max-count={max_commits}",
+             "--name-only", "--pretty=format:COMMIT:%H:%at"],
+            capture_output=True, text=True, cwd=str(repo_root),
+            timeout=30,
+        )
+        if result.returncode != 0:
+            logger.debug("TG-2: git log failed: %s", result.stderr[:200])
+            return 0
+    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+        logger.debug("TG-2: git unavailable: %s", e)
+        return 0
+
+    now_ts = datetime.now(timezone.utc).timestamp()
+    decay_rate = math.log(2) / (recency_halflife * 86400)  # per-second decay
+
+    # Parse commits
+    commits: List[Tuple[float, List[str]]] = []  # (weight, [files])
+    current_weight = 1.0
+    current_files: List[str] = []
+
+    for raw_line in result.stdout.split("\n"):
+        raw_line = raw_line.strip()
+        if not raw_line:
+            continue
+        if raw_line.startswith("COMMIT:"):
+            # Save previous commit
+            if current_files:
+                commits.append((current_weight, current_files))
+            parts = raw_line.split(":")
+            commit_ts = float(parts[2]) if len(parts) >= 3 else now_ts
+            age_s = max(0, now_ts - commit_ts)
+            current_weight = math.exp(-decay_rate * age_s)
+            current_files = []
+        else:
+            # File path line
+            if raw_line in known_files:
+                current_files.append(raw_line)
+    if current_files:
+        commits.append((current_weight, current_files))
+
+    if not commits:
+        return 0
+
+    # Compute weighted co-occurrence and individual occurrence
+    cooccur: Dict[Tuple[str, str], float] = {}
+    occur: Dict[str, float] = {}
+
+    for weight, files in commits:
+        # Only consider commits with 2-30 files (skip merges and single-file changes)
+        if len(files) < 2 or len(files) > 30:
+            continue
+        for fp in files:
+            occur[fp] = occur.get(fp, 0.0) + weight
+        for a, b in combinations(sorted(files), 2):
+            pair = (a, b)
+            cooccur[pair] = cooccur.get(pair, 0.0) + weight
+
+    # Load existing edges to avoid duplicates
+    existing_pairs: Set[Tuple[str, str]] = set()
+    for edge_file in ("trace_edges.jsonl", "trace_inferred_edges.jsonl"):
+        edge_path = index_dir / edge_file
+        if not edge_path.exists():
+            continue
+        try:
+            with open(edge_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        e = json.loads(line)
+                        if e.get("kind") == "co_changes":
+                            src = e.get("source", "").replace("file:", "", 1)
+                            tgt = e.get("target", "").replace("file:", "", 1)
+                            if src and tgt:
+                                existing_pairs.add((min(src, tgt), max(src, tgt)))
+                    except json.JSONDecodeError:
+                        continue
+        except OSError:
+            continue
+
+    # Emit co_changes edges
+    edges_written = 0
+    inferred_path = index_dir / "trace_inferred_edges.jsonl"
+
+    with open(inferred_path, "a", encoding="utf-8") as out:
+        for (a, b), co_weight in cooccur.items():
+            if co_weight < min_commits * 0.5:  # weighted threshold
+                continue
+            pair_key = (min(a, b), max(a, b))
+            if pair_key in existing_pairs:
+                continue
+
+            union_weight = occur.get(a, 0.0) + occur.get(b, 0.0) - co_weight
+            if union_weight <= 0:
+                continue
+            jaccard = co_weight / union_weight
+
+            if jaccard < min_jaccard:
+                continue
+
+            existing_pairs.add(pair_key)
+            edge = {
+                "id": f"cochange:{a}->{b}",
+                "kind": "co_changes",
+                "source": f"file:{a}",
+                "target": f"file:{b}",
+                "metadata": {
+                    "inferred": True,
+                    "method": "git_cochange",
+                    "confidence": round(min(0.95, jaccard), 2),
+                    "jaccard": round(jaccard, 3),
+                    "co_occurrence_weight": round(co_weight, 2),
+                },
+            }
+            out.write(json.dumps(edge) + "\n")
+            edges_written += 1
+
+    if edges_written > 0:
+        logger.info("TG-2: Generated %d git co-change edges", edges_written)
+
+    return edges_written
