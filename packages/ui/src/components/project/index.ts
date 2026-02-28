@@ -17,7 +17,7 @@ export { FilePreviewPane } from './FilePreviewPane';
 export type { FilePreviewPaneProps } from './FilePreviewPane';
 
 export { FileExplorerDetail } from './FileExplorerDetail';
-export type { FileExplorerDetailProps } from './FileExplorerDetail';
+export type { FileExplorerDetailProps, FileExplorerTab } from './FileExplorerDetail';
 
 export { CodeViewer } from './CodeViewer';
 export type { CodeViewerProps } from './CodeViewer';

@@ -10,7 +10,9 @@ export type {
   SearchResult, 
   CodeChunk, 
   ProjectSummary, 
-  ProjectConfig, 
+  ProjectConfig,
+  ProjectAdvancedConfig,
+  AdvancedConfig,
   ProjectMode,
   LLMConfig, 
   SavedEndpoint, 
@@ -112,7 +114,7 @@ export type { BudgetPreviewProps } from './components/primitives/BudgetPreview';
 
 // Components - Project
 export { FolderTree, sampleFileTree, ProjectSettingsPanel, FolderTreePanel, PinnedTextFilesPanel, AddProjectModal, FilePreviewPane, FileExplorerDetail, CodeViewer } from './components/project';
-export type { FolderTreeProps, TreeNode, FileStatus, ProjectSettingsPanelProps, FolderTreePanelProps, PinnedTextFilesPanelProps, PinnedTextFile, AddProjectModalProps, FilePreviewPaneProps, FileExplorerDetailProps, CodeViewerProps } from './components/project';
+export type { FolderTreeProps, TreeNode, FileStatus, ProjectSettingsPanelProps, FolderTreePanelProps, PinnedTextFilesPanelProps, PinnedTextFile, AddProjectModalProps, FilePreviewPaneProps, FileExplorerDetailProps, FileExplorerTab, CodeViewerProps } from './components/project';
 
 // Components - Watch (Phase 03)
 export { WatchStatusIndicator, WatchControlPanel } from './components/watch';
@@ -127,8 +129,8 @@ export { PanelChrome, DashboardGrid, PanelPicker, ModularDashboard, useLayoutPer
 export type { PanelChromeProps, DashboardGridProps, PanelPickerProps, ModularDashboardProps, PanelContentMap, DashboardLayoutApi } from './components/layout';
 
 // Components - Marketing & Site (Phase 12)
-export { MarketingHero, FeatureBlocks, codragFeatures, marketingFeatures, TierComparison, tierComparisonFeatures, TechStackMatrix, techStackComponents } from './components/marketing';
-export type { MarketingHeroProps, FeatureBlocksProps, Feature, TierComparisonProps, TierFeature, TechStackMatrixProps, StackComponent } from './components/marketing';
+export { MarketingHero, FeatureBlocks, codragFeatures, marketingFeatures, TierComparison, tierComparisonFeatures, TechStackMatrix, techStackComponents, CompetitorMatrix } from './components/marketing';
+export type { MarketingHeroProps, FeatureBlocksProps, Feature, TierComparisonProps, TierFeature, TechStackMatrixProps, StackComponent, CompetitorMatrixProps } from './components/marketing';
 export { SiteHeader, SiteFooter, XIcon } from './components/site';
 export type { SiteHeaderProps, SiteFooterProps, NavLink, FooterSection, FooterLink } from './components/site';
 

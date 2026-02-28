@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { Settings, X, ImageIcon, Key, Shield, Trash2, Palette, Activity, ClipboardCheck } from 'lucide-react'
+import { Settings, X, ImageIcon, Key, Shield, Trash2, Palette, Activity, ClipboardCheck, Cpu } from 'lucide-react'
 import {
   useApiClient,
   Button,
@@ -12,6 +12,7 @@ import {
   type LicenseTier,
   type DeepAnalysisSchedule,
 } from '@codrag/ui'
+import { AdvancedSettingsPanel } from './AdvancedSettingsPanel'
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -38,6 +39,15 @@ const THEME_OPTIONS = [
   { value: 'l', label: 'L: Enterprise Console' },
 ]
 
+const LLM_CONCURRENCY_OPTIONS = [
+  { value: '1', label: '1 — Sequential (any hardware)' },
+  { value: '2', label: '2 — Standard (16 GB+)' },
+  { value: '3', label: '3 — Fast (24 GB+)' },
+  { value: '4', label: '4 — Turbo (32 GB+)' },
+  { value: '6', label: '6 — High (64 GB+)' },
+  { value: '8', label: '8 — Maximum (96 GB+)' },
+]
+
 const DEV_TIER_OPTIONS = [
   { value: '', label: 'Off (use real license)' },
   { value: 'free', label: 'Free' },
@@ -47,7 +57,7 @@ const DEV_TIER_OPTIONS = [
 ]
 
 // ── Settings Panel (drawer) ──────────────────────────────────
-type SettingsDrawerTab = 'project' | 'global' | 'developer'
+type SettingsDrawerTab = 'project' | 'global' | 'advanced' | 'developer'
 
 export interface SettingsDrawerProps {
   open: boolean
@@ -131,10 +141,36 @@ export function SettingsDrawer({
   const api = useApiClient()
   const [activeTab, setActiveTab] = useState<SettingsDrawerTab>('project')
   const [healthResult, setHealthResult] = useState<string>('No test run yet')
+  const [llmConcurrency, setLlmConcurrency] = useState<number>(1)
+  const [concurrencySaving, setConcurrencySaving] = useState(false)
 
   useEffect(() => {
     if (open && openToTab) setActiveTab(openToTab)
   }, [open, openToTab])
+
+  // Load pipeline config when Global tab is shown
+  useEffect(() => {
+    if (open && activeTab === 'global') {
+      api.getPipelineConfig()
+        .then((config: any) => {
+          if (config?.llm_concurrency) setLlmConcurrency(config.llm_concurrency)
+        })
+        .catch(() => {}) // Silently ignore if not available
+    }
+  }, [open, activeTab, api])
+
+  const handleConcurrencyChange = useCallback(async (value: number) => {
+    setLlmConcurrency(value)
+    setConcurrencySaving(true)
+    try {
+      await api.updatePipelineConfig({ llm_concurrency: value })
+    } catch {
+      // Revert on failure
+      setLlmConcurrency((prev) => prev)
+    } finally {
+      setConcurrencySaving(false)
+    }
+  }, [api])
 
   useEffect(() => {
     if (open && scrollToDeepAnalysis) {
@@ -174,6 +210,7 @@ export function SettingsDrawer({
   const tabs: { key: SettingsDrawerTab; label: string }[] = [
     { key: 'project', label: 'Project' },
     { key: 'global', label: 'Global' },
+    { key: 'advanced', label: 'Advanced' },
     { key: 'developer', label: 'Developer' },
   ]
 
@@ -317,6 +354,41 @@ export function SettingsDrawer({
               </div>
             </section>
 
+            {/* Pipeline Performance */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <Cpu className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-semibold text-text">Pipeline Performance</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-text-subtle">LLM Concurrency</label>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={String(llmConcurrency)}
+                      onChange={(e) => handleConcurrencyChange(parseInt(e.target.value))}
+                      aria-label="LLM Concurrency"
+                      size="sm"
+                      options={LLM_CONCURRENCY_OPTIONS}
+                    />
+                    {concurrencySaving && (
+                      <span className="text-[10px] text-text-muted animate-pulse">Saving...</span>
+                    )}
+                  </div>
+                </div>
+                <p className="text-[10px] text-text-muted leading-relaxed">
+                  Number of simultaneous LLM requests during pipeline builds.
+                  Higher values speed up builds but require more VRAM/RAM for KV caches.
+                  Each concurrent request needs its own memory slot on top of model weights.
+                </p>
+                <div className="text-[10px] text-text-muted bg-surface-raised p-2 rounded border border-border leading-relaxed">
+                  <strong className="text-text">VRAM guide:</strong> A 8B model uses ~5 GB for weights + ~1.5 GB per concurrent slot.
+                  A 35B model uses ~20 GB + ~2.5 GB per slot.
+                  Set <code className="text-primary">OLLAMA_NUM_PARALLEL</code> in Ollama to match or exceed this value.
+                </div>
+              </div>
+            </section>
+
             {/* License Key */}
             <section>
               <div className="flex items-center gap-2 mb-4">
@@ -380,6 +452,17 @@ export function SettingsDrawer({
               </div>
             </section>
           </>
+        )}
+
+        {/* ── Advanced tab ── */}
+        {activeTab === 'advanced' && (
+          <AdvancedSettingsPanel
+            projectConfig={projectConfig}
+            onProjectConfigChange={onProjectConfigChange}
+            onSaveConfig={onSaveConfig}
+            configDirty={configDirty}
+            hasProject={hasProject}
+          />
         )}
 
         {/* ── Developer tab ── */}

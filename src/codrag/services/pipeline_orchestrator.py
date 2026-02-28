@@ -241,12 +241,26 @@ class WorkerFactory:
         project = require_project(project_id)
         ui_cfg = _load_ui_config()
 
-        include_globs = (project.config or {}).get("include_globs") or ui_cfg.get("include_globs") or []
-        exclude_globs = (project.config or {}).get("exclude_globs") or ui_cfg.get("exclude_globs") or []
-        max_file_bytes = (project.config or {}).get("max_file_bytes") or ui_cfg.get("max_file_bytes", 500_000)
-        hard_limit_bytes = ui_cfg.get("hard_limit_bytes", 100_000_000)
+        pcfg = project.config or {}
+        include_globs = pcfg.get("include_globs") or ui_cfg.get("include_globs") or []
+        exclude_globs = pcfg.get("exclude_globs") or ui_cfg.get("exclude_globs") or []
+        max_file_bytes = pcfg.get("max_file_bytes") or ui_cfg.get("max_file_bytes", 500_000)
+        hard_limit_bytes = pcfg.get("hard_limit_bytes") or ui_cfg.get("hard_limit_bytes", 100_000_000)
 
-        return project, ui_cfg, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes
+        # Merge user trace-specific ignore patterns (from Exclude Tree / Patterns tab)
+        trace_ignore = (pcfg.get("trace") or {}).get("ignore_patterns", [])
+        if isinstance(trace_ignore, list) and trace_ignore:
+            merged = set(exclude_globs)
+            merged.update(str(p) for p in trace_ignore if p)
+            exclude_globs = sorted(merged)
+
+        # Advanced trace limits (per-project overrides)
+        adv = pcfg.get("advanced") or {}
+        max_files = int(adv.get("max_files", 50_000))
+        max_nodes = int(adv.get("max_nodes", 100_000))
+        max_edges = int(adv.get("max_edges", 500_000))
+
+        return project, ui_cfg, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes, max_files, max_nodes, max_edges
 
     @staticmethod
     def _get_llm_client(slot_name: str):
@@ -274,6 +288,18 @@ class WorkerFactory:
         except Exception:
             return None
 
+    @staticmethod
+    def _logged_progress(stage_name: str, progress_cb: Callable) -> Callable:
+        """Wrap a progress callback to also emit logger.info for Process Logs."""
+        def _wrapper(message: str, current: int, total: int) -> None:
+            progress_cb(message, current, total)
+            if total > 0:
+                pct = round(current / total * 100)
+                logger.info("[%s] %s (%d/%d — %d%%)", stage_name, message, current, total, pct)
+            else:
+                logger.info("[%s] %s", stage_name, message)
+        return _wrapper
+
     # ── Stage Workers ──────────────────────────────────────────
 
     @staticmethod
@@ -284,7 +310,7 @@ class WorkerFactory:
             from codrag.core.project_registry import project_index_dir
             from pathlib import Path
 
-            project, ui_cfg, inc, exc, max_fb, hard_lb = WorkerFactory._get_project_and_config(project_id)
+            project, ui_cfg, inc, exc, max_fb, hard_lb, max_f, max_n, max_e = WorkerFactory._get_project_and_config(project_id)
             idx_dir = project_index_dir(project)
 
             builder = TraceBuilder(
@@ -294,12 +320,18 @@ class WorkerFactory:
                 exclude_globs=exc,
                 max_file_bytes=max_fb,
                 hard_limit_bytes=hard_lb,
+                max_files=max_f,
+                max_nodes=max_n,
+                max_edges=max_e,
             )
-            builder.build(progress_callback=progress_cb)
+            log_cb = WorkerFactory._logged_progress("Structural", progress_cb)
+            logger.info("[Structural] Starting trace build for %s", project_id)
+            builder.build(progress_callback=log_cb)
 
             trace_idx = TraceIndex(idx_dir)
             trace_idx.load()
             build_manager.project_trace_indexes[project_id] = trace_idx
+            logger.info("[Structural] Complete — %d nodes", trace_idx.node_count())
 
             # Ensure trace.enabled=true in project config so status endpoint
             # reports exists correctly (belt-and-suspenders with frontend fix)
@@ -342,7 +374,7 @@ class WorkerFactory:
                     pass
 
             if not llm_client:
-                logger.info("No code or small model available — skipping inferred edges stage")
+                logger.info("[Edge Discovery] No code or small model available — skipping")
                 progress_cb("Skipped (no LLM configured)", 1, 1)
                 return {"stage": "inferred_edges", "skipped": True, "reason": "no_llm"}
 
@@ -358,13 +390,19 @@ class WorkerFactory:
             if pfl and batch_profile:
                 pfl.log("inferred_edges", f"Batch profile: {batch_profile.name.value}")
 
+            logger.info("[Edge Discovery] Starting: model=%s, slot=%s", llm_client.model, slot_used)
+            log_cb = WorkerFactory._logged_progress("Edge Discovery", progress_cb)
             analyzer = InferredEdgesAnalyzer(
                 index_dir=idx_dir,
                 repo_root=project.path,
                 llm_client=llm_client,
                 batch_profile=batch_profile,
             )
-            result = analyzer.run(progress_callback=progress_cb)
+            result = analyzer.run(progress_callback=log_cb)
+            logger.info(
+                "[Edge Discovery] Complete — %d files analyzed, %d edges written",
+                result.files_analyzed, result.edges_written,
+            )
 
             if pfl:
                 pfl.log("inferred_edges", "Inferred edges complete", {
@@ -404,13 +442,19 @@ class WorkerFactory:
             except Exception:
                 pfl = None
 
+            logger.info("[Fast Catalogue] Starting: model=%s", llm_client.model)
+            log_cb = WorkerFactory._logged_progress("Fast Catalogue", progress_cb)
             augmenter = TraceAugmenter(
                 index_dir=idx_dir,
                 repo_root=project.path,
                 llm_client=llm_client,
                 batch_profile=batch_profile,
             )
-            result = augmenter.run(progress_callback=progress_cb)
+            result = augmenter.run(progress_callback=log_cb)
+            logger.info(
+                "[Fast Catalogue] Complete — %d augmented, %d failed, %d skipped",
+                result.augmented, result.failed, result.skipped,
+            )
 
             if pfl:
                 pfl.log("catalogue", "Augmentation complete", {
@@ -436,8 +480,10 @@ class WorkerFactory:
             project, *_ = WorkerFactory._get_project_and_config(project_id)
             trace_idx = build_manager.get_project_trace_index(project)
 
+            logger.info("[Validation] Starting relationship validation for %s", project_id)
             progress_cb("Validating relationships", 0, 1)
             progress_cb("Validation complete", 1, 1)
+            logger.info("[Validation] Complete — trace exists=%s", trace_idx.exists())
             return {"stage": "validation", "exists": trace_idx.exists()}
         return worker
 
@@ -446,9 +492,12 @@ class WorkerFactory:
         def worker(slot: BuildSlot, progress_cb: Callable) -> Dict[str, Any]:
             from codrag.services.build_manager import build_manager
 
+            logger.info("[Knowledge Embedding] Starting for %s", project_id)
+            log_cb = WorkerFactory._logged_progress("Knowledge Embedding", progress_cb)
             project, *_ = WorkerFactory._get_project_and_config(project_id)
             idx = build_manager.get_project_knowledge_index(project)
-            result = idx.build(progress_callback=progress_cb)
+            result = idx.build(progress_callback=log_cb)
+            logger.info("[Knowledge Embedding] Complete for %s", project_id)
             return {"stage": "knowledge", **(result or {})}
         return worker
 
@@ -475,13 +524,19 @@ class WorkerFactory:
             if pfl and batch_profile:
                 pfl.log("enrichment", f"Batch profile: {batch_profile.name.value}")
 
+            logger.info("[Deep Reasoning] Starting: model=%s", llm_client.model)
+            log_cb = WorkerFactory._logged_progress("Deep Reasoning", progress_cb)
             enricher = EpistemicEnricher(
                 llm=llm_client,
                 repo_root=Path(project.path),
                 index_dir=idx_dir,
                 batch_profile=batch_profile,
             )
-            result = enricher.run(progress_callback=progress_cb)
+            result = enricher.run(progress_callback=log_cb)
+            logger.info(
+                "[Deep Reasoning] Complete — enriched=%s, failed=%s",
+                result.get("enriched_this_run"), result.get("failed_this_run"),
+            )
 
             if pfl:
                 pfl.log("enrichment", "Epistemic enrichment complete", {
@@ -507,8 +562,11 @@ class WorkerFactory:
 
             batch_profile = WorkerFactory._get_batch_profile(llm_client)
 
+            logger.info("[Module Synthesis] Starting: model=%s", llm_client.model)
+            log_cb = WorkerFactory._logged_progress("Module Synthesis", progress_cb)
             synthesizer = ClusterSynthesizer(llm=llm_client, index_dir=idx_dir, batch_profile=batch_profile)
-            result = synthesizer.run(progress_callback=progress_cb)
+            result = synthesizer.run(progress_callback=log_cb)
+            logger.info("[Module Synthesis] Complete")
             return {"stage": "clustering", **(result or {})}
         return worker
 
@@ -531,11 +589,14 @@ class WorkerFactory:
             except RuntimeError:
                 llm_client = None
 
+            logger.info("[Atlas] Starting atlas generation for %s", project_id)
+            log_cb = WorkerFactory._logged_progress("Atlas", progress_cb)
             atlas = CodebaseAtlas(idx_dir, llm=llm_client, project_root=Path(project.path))
 
             # Only regenerate if stale or missing
             if not atlas.is_stale() and atlas.exists():
-                progress_cb("Atlas up-to-date", 1, 1)
+                logger.info("[Atlas] Up-to-date — skipping regeneration")
+                log_cb("Atlas up-to-date", 1, 1)
                 doc = atlas.load()
                 result = {
                     "stage": "atlas",
@@ -546,7 +607,7 @@ class WorkerFactory:
             else:
                 # Use segmented generation — produces root + per-segment atlases.
                 # Falls back to single atlas if <2 segments are discovered.
-                doc, segment_docs = atlas.generate_segmented(progress_callback=progress_cb)
+                doc, segment_docs = atlas.generate_segmented(progress_callback=log_cb)
                 result = {
                     "stage": "atlas",
                     "skipped": False,
@@ -561,10 +622,11 @@ class WorkerFactory:
             try:
                 from codrag.services.build_manager import build_manager
                 embedder = build_manager.create_embedder()
-                routing_descs = atlas.generate_routing(embedder, progress_callback=progress_cb)
+                routing_descs = atlas.generate_routing(embedder, progress_callback=log_cb)
                 result["routing_segments"] = len(routing_descs)
+                logger.info("[Atlas] Routing complete — %d segments", len(routing_descs))
             except Exception as e:
-                logger.debug("Atlas routing generation skipped: %s", e)
+                logger.info("[Atlas] Routing generation skipped: %s", e)
                 result["routing_segments"] = 0
 
             return result
@@ -586,13 +648,19 @@ class WorkerFactory:
                 repo_root=Path(project.path),
                 index_dir=idx_dir,
             )
+            logger.info("[Deepening] Starting deepening loop: model=%s", llm_client.model)
+            log_cb = WorkerFactory._logged_progress("Deepening", progress_cb)
             loop = DeepeningLoop(
                 enricher=enricher,
                 index_dir=idx_dir,
                 max_iterations=10,
                 batch_size=20,
             )
-            result = loop.run(progress_callback=progress_cb)
+            result = loop.run(progress_callback=log_cb)
+            logger.info(
+                "[Deepening] Complete — %d iterations, converged=%s",
+                result.iterations, bool(result.convergence),
+            )
             return {
                 "stage": "deepening",
                 "iterations": result.iterations,

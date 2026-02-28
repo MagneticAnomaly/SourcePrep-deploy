@@ -96,7 +96,7 @@ from codrag.core.repo_policy import (
     load_repo_policy, policy_path_for_index, write_repo_policy,
     _normalize_path_weights,
 )
-from codrag.core.repo_profile import scan_for_presets, STACK_PRESETS
+from codrag.core.repo_profile import scan_for_presets, STACK_PRESETS, DEFAULT_EXCLUDE_DIR_NAMES
 
 from codrag.core.watcher import AutoRebuildWatcher
 from codrag.core import LinguaCompressor, NoopCompressor
@@ -583,23 +583,6 @@ def start_project_watch(
             logger.info("Auto-rebuild skipped for %s — project limit exceeded", proj.id)
             return False
 
-        # Guard: skip auto-rebuild while the pipeline orchestrator is
-        # actively running stages — the code-index atomic swap would race
-        # with pipeline file writes and could snapshot stale data.
-        try:
-            from codrag.services.pipeline_orchestrator import pipeline_orchestrator as _po
-            po_status = _po.status(proj.id)
-            fast_phase = (po_status.get("fast_sync") or {}).get("phase")
-            deep_phase = (po_status.get("deep_enrichment") or {}).get("phase")
-            if fast_phase == "running" or deep_phase == "running":
-                logger.info(
-                    "Auto-rebuild skipped for %s — pipeline is active (fast=%s, deep=%s)",
-                    proj.id, fast_phase, deep_phase,
-                )
-                return False
-        except Exception:
-            pass  # Pipeline not available — proceed normally
-
         cfg = proj.config or {}
         include_raw = cfg.get("include_globs") if isinstance(cfg, dict) else None
         exclude_raw = cfg.get("exclude_globs") if isinstance(cfg, dict) else None
@@ -609,7 +592,15 @@ def start_project_watch(
         hard_limit_bytes = int((cfg.get("hard_limit_bytes") or 100_000_000) if isinstance(cfg, dict) else 100_000_000)
         included_paths = cfg.get("included_paths") if isinstance(cfg, dict) else None
 
-        started = _srv()._start_project_build(proj, None, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes, included_paths=included_paths)
+        # Team Sync: if a remote index exists, write only changed files
+        # to local_deltas/ instead of rebuilding the entire main index.
+        if _srv()._has_remote_index(proj):
+            started = _srv()._start_project_delta_build(
+                proj, paths, include_globs, exclude_globs,
+                max_file_bytes, hard_limit_bytes,
+            )
+        else:
+            started = _srv()._start_project_build(proj, None, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes, included_paths=included_paths)
 
         # Phase 24: If auto_fast_sync is gated and allowed, trigger
         # the pipeline orchestrator for trace stages instead of raw build.
@@ -863,7 +854,7 @@ def get_project_roots(project_id: str) -> Dict[str, Any]:
     roots: List[str] = []
     
     # Generic discovery: list all top-level directories except ignored ones
-    ignore = {".git", ".venv", "node_modules", "__pycache__", ".next", "dist", "build", ".codrag", ".idea", ".vscode"}
+    ignore = DEFAULT_EXCLUDE_DIR_NAMES | {".idea", ".vscode"}
     try:
         for item in sorted(project_root.iterdir()):
             if not item.is_dir():
@@ -911,9 +902,8 @@ def list_project_files(
     if not target.exists() or not target.is_dir():
         raise ApiException(status_code=400, code="PATH_NOT_FOUND", message=f"Directory not found: {path}")
 
-    ignore = {".git", ".venv", "venv", "node_modules", "__pycache__", ".next", "dist",
-              "build", ".codrag", ".idea", ".vscode", ".mypy_cache", ".pytest_cache",
-              ".tox", ".eggs", "*.egg-info", ".DS_Store"}
+    ignore = DEFAULT_EXCLUDE_DIR_NAMES | {
+              ".idea", ".vscode", ".eggs", "*.egg-info", ".DS_Store"}
     depth = min(max(depth, 1), 10)
 
     # Build per-file chunk count from index documents for status annotation
@@ -1030,14 +1020,7 @@ def build_project(project_id: str, full: bool = False, req: Optional[BuildReques
         included_paths=included_paths,
     )
     if not started:
-        # Distinguish between "already building" and "pipeline active" for a better UX message
-        if _srv()._is_project_building(proj.id):
-            raise ApiException(status_code=409, code="BUILD_ALREADY_RUNNING", message="Build already running")
-        raise ApiException(
-            status_code=409,
-            code="PIPELINE_ACTIVE",
-            message="Cannot rebuild while the enrichment pipeline is running. Wait for it to finish or cancel it first.",
-        )
+        raise ApiException(status_code=409, code="BUILD_ALREADY_RUNNING", message="Build already running")
 
     return ok({"started": True, "building": True, "build_id": None})
 
@@ -1048,7 +1031,7 @@ def search_project(project_id: str, req: SearchRequest) -> Dict[str, Any]:
     if not req.query.strip():
         raise ApiException(status_code=400, code="VALIDATION_ERROR", message="query is required")
 
-    idx = _srv()._get_project_index(proj)
+    idx = _srv()._get_project_layered_index(proj)
     if not idx.is_loaded():
         raise ApiException(
             status_code=409,
@@ -1636,7 +1619,7 @@ def _assemble_ambient_context(
 def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
     proj = _srv()._require_project(project_id)
 
-    idx = _srv()._get_project_index(proj)
+    idx = _srv()._get_project_layered_index(proj)
     if not idx.is_loaded():
         raise ApiException(
             status_code=409,

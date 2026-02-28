@@ -230,7 +230,15 @@ class TestAutoChainDeepEnrichment:
             # Default: _is_deep_enrichment_auto returns False (settings not configured)
             started = pipeline.run_fast_sync("proj-1")
             assert started is True
-            time.sleep(2.0)
+
+            # Poll until fast sync completes (avoid fixed sleep flakiness)
+            deadline = time.monotonic() + 10.0
+            while time.monotonic() < deadline:
+                status = pipeline.status("proj-1")
+                fast = status["fast_sync"]
+                if fast and fast["phase"] == "completed":
+                    break
+                time.sleep(0.2)
 
             status = pipeline.status("proj-1")
             fast = status["fast_sync"]

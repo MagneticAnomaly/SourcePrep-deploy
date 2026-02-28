@@ -1222,8 +1222,19 @@ def sync_headless(
     import logging
     logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(name)s: %(message)s")
 
+    from codrag.core.feature_gate import check_feature, get_license, License
     from codrag.services.s3_storage import S3Config
     from codrag.services.headless_runner import HeadlessRunner, HeadlessConfig
+
+    # Team Sync requires Team or Enterprise tier
+    if not check_feature("team_config"):
+        lic = get_license()
+        console.print(
+            f"[red]Error: sync-headless requires a Team or Enterprise license "
+            f"(current: {License._display_tier(lic.tier)}). "
+            f"Upgrade at https://codrag.io/pricing[/red]"
+        )
+        raise typer.Exit(1)
 
     if not repo_url and not repo_path:
         console.print("[red]Error: Either --repo-url or --repo-path is required.[/red]")

@@ -168,8 +168,10 @@ def get_pipeline_config() -> Dict[str, Any]:
 def get_llm_concurrency_guidelines() -> Dict[str, Any]:
     """Return structured LLM concurrency guidelines for the dashboard info icon.
 
-    Concurrency only applies to Pass 1 (file augmentation). Epistemic enrichment
-    and cluster synthesis are always sequential — they depend on prior results.
+    Concurrency applies to all LLM pipeline stages:
+    - Inferred edges, Catalogue: all items processed independently
+    - Epistemic enrichment: concurrent within each dependency tier
+    - Cluster synthesis: all clusters processed independently
     """
     from codrag.services.settings_store import settings
     config = settings.get("pipeline_config") or {}
@@ -177,30 +179,33 @@ def get_llm_concurrency_guidelines() -> Dict[str, Any]:
 
     guidelines = {
         "current": current,
-        "applies_to": "Pass 1 file augmentation only",
-        "sequential_stages": [
-            "Epistemic Enrichment — each node reads prior results",
-            "Cluster Synthesis — incremental fingerprint reuse",
+        "applies_to": "All LLM pipeline stages",
+        "stages": [
+            "Inferred Edges — all files analyzed independently",
+            "Catalogue — all symbols and files augmented independently",
+            "Epistemic Enrichment — concurrent within each dependency tier",
+            "Cluster Synthesis — all clusters synthesized independently",
         ],
         "platforms": [
             {
                 "name": "Discrete GPU (CUDA / ROCm)",
                 "tiers": [
                     {"value": 1, "label": "Safe default — any hardware"},
-                    {"value": 2, "label": "≥8GB VRAM (3b/7b models)"},
-                    {"value": 4, "label": "≥12GB VRAM (RTX 3060 12GB, RTX 4070)"},
-                    {"value": 6, "label": "≥24GB VRAM (RTX 3090, RTX 4090)"},
-                    {"value": 8, "label": "Multi-GPU or ≥48GB total VRAM"},
+                    {"value": 2, "label": "16 GB+ VRAM (RTX 4060, 3b/8b models)"},
+                    {"value": 4, "label": "32 GB+ VRAM (RTX 5090, 8b/14b models)"},
+                    {"value": 6, "label": "48 GB+ VRAM (2x RTX 4090, 35b models)"},
+                    {"value": 8, "label": "64 GB+ VRAM (multi-GPU, 35b+ models)"},
                 ],
             },
             {
                 "name": "Apple Silicon (Metal, unified memory)",
                 "tiers": [
-                    {"value": 1, "label": "M1/M2 8GB — tight with 7b model loaded"},
+                    {"value": 1, "label": "M1/M2 8GB — tight with 8b model loaded"},
                     {"value": 2, "label": "M1/M2 16GB, M3/M4 8GB+"},
-                    {"value": 3, "label": "M1/M2 Pro/Max (16–32GB)"},
+                    {"value": 3, "label": "M1 Pro/Max (16–32GB)"},
                     {"value": 4, "label": "M2 Ultra / M3 Max / M4 Max (48–96GB)"},
-                    {"value": 6, "label": "M2/M3 Ultra (96–192GB)"},
+                    {"value": 6, "label": "M2/M3/M4 Ultra (96–128GB)"},
+                    {"value": 8, "label": "128 GB+ (Mac Studio / Mac Pro)"},
                 ],
             },
             {
@@ -262,4 +267,60 @@ def update_pipeline_config(body: PipelineConfigUpdate) -> Dict[str, Any]:
         config["llm_concurrency"] = max(1, min(8, body.llm_concurrency))
 
     settings.set("pipeline_config", config)
+    return ok(config)
+
+
+# ── Advanced config convenience endpoints ─────────────────────
+
+class AdvancedConfigUpdate(BaseModel):
+    # Pipeline
+    checkpoint_interval: Optional[int] = None       # Augmentation checkpoint frequency (default 500)
+    min_edge_confidence: Optional[float] = None     # Inferred edge confidence threshold (default 0.5)
+    # Chunking
+    chunk_max_chars: Optional[int] = None           # Code chunk size (default 2000)
+    chunk_overlap_chars: Optional[int] = None       # Code chunk overlap (default 200)
+    md_chunk_max_chars: Optional[int] = None        # Markdown chunk size (default 1800)
+    md_chunk_min_chars: Optional[int] = None        # Markdown chunk min size (default 350)
+
+
+_ADVANCED_DEFAULTS = {
+    "checkpoint_interval": 500,
+    "min_edge_confidence": 0.5,
+    "chunk_max_chars": 2000,
+    "chunk_overlap_chars": 200,
+    "md_chunk_max_chars": 1800,
+    "md_chunk_min_chars": 350,
+}
+
+
+@router.get("/settings/advanced-config")
+def get_advanced_config() -> Dict[str, Any]:
+    """Get global advanced configuration with defaults."""
+    from codrag.services.settings_store import settings
+    saved = settings.get("advanced_config") or {}
+    merged = {**_ADVANCED_DEFAULTS, **saved}
+    return ok(merged)
+
+
+@router.post("/settings/advanced-config")
+def update_advanced_config(body: AdvancedConfigUpdate) -> Dict[str, Any]:
+    """Update global advanced configuration (merges with existing)."""
+    from codrag.services.settings_store import settings
+
+    config = settings.get("advanced_config") or dict(_ADVANCED_DEFAULTS)
+
+    if body.checkpoint_interval is not None:
+        config["checkpoint_interval"] = max(50, min(5000, body.checkpoint_interval))
+    if body.min_edge_confidence is not None:
+        config["min_edge_confidence"] = max(0.0, min(1.0, body.min_edge_confidence))
+    if body.chunk_max_chars is not None:
+        config["chunk_max_chars"] = max(500, min(10000, body.chunk_max_chars))
+    if body.chunk_overlap_chars is not None:
+        config["chunk_overlap_chars"] = max(0, min(2000, body.chunk_overlap_chars))
+    if body.md_chunk_max_chars is not None:
+        config["md_chunk_max_chars"] = max(500, min(10000, body.md_chunk_max_chars))
+    if body.md_chunk_min_chars is not None:
+        config["md_chunk_min_chars"] = max(50, min(2000, body.md_chunk_min_chars))
+
+    settings.set("advanced_config", config)
     return ok(config)

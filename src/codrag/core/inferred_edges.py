@@ -25,10 +25,14 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+
+from .augmenter import _get_llm_concurrency, _parse_confidence
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +86,19 @@ JSON response:"""
 
 VALID_EDGE_KINDS = {"calls", "implements", "configures", "listens_to", "dispatches"}
 
-MIN_CONFIDENCE = 0.5  # Discard edges below this threshold
+_MIN_CONFIDENCE_DEFAULT = 0.5  # Discard edges below this threshold
+
+
+def _get_min_confidence() -> float:
+    """Read min_edge_confidence from global advanced_config, with fallback."""
+    try:
+        from codrag.services.settings_store import settings
+        adv = settings.get("advanced_config")
+        if adv and isinstance(adv, dict):
+            return float(adv.get("min_edge_confidence", _MIN_CONFIDENCE_DEFAULT))
+    except Exception:
+        pass
+    return _MIN_CONFIDENCE_DEFAULT
 
 
 @dataclass
@@ -167,6 +183,7 @@ class InferredEdgesAnalyzer:
         Incremental: skips files whose content hash matches the manifest.
         """
         start = time.time()
+        min_confidence = _get_min_confidence()
 
         nodes = self._load_nodes()
         existing_edges = self._load_existing_edges()
@@ -294,8 +311,8 @@ class InferredEdgesAnalyzer:
                         raw_edges = parsed.get("edges", [])
                         for re_item in raw_edges:
                             edges_found += 1
-                            conf = float(re_item.get("confidence", 0.0))
-                            if conf < MIN_CONFIDENCE:
+                            conf = _parse_confidence(re_item.get("confidence"), 0.0)
+                            if conf < min_confidence:
                                 skipped_low += 1
                                 continue
                             target = re_item.get("target_file", "")
@@ -324,37 +341,82 @@ class InferredEdgesAnalyzer:
                     progress_callback("Inferring edges", min(batch_start + batch_size, total), total)
 
         else:
-            # Sequential: one file at a time (local model)
-            for i, (node, content_hash) in enumerate(to_analyze):
-                fp = node.get("file_path", "")
-                if progress_callback:
-                    progress_callback("Inferring edges", i, total)
+            # Local model: sequential or concurrent
+            concurrency = _get_llm_concurrency()
+            logger.info("Inferred edges: %d files, concurrency=%d", total, concurrency)
 
-                try:
-                    file_edges = self._analyze_file(
-                        node, all_file_paths, edge_targets, inferred_targets
-                    )
-                    for edge in file_edges:
-                        edges_found += 1
-                        if edge.confidence < MIN_CONFIDENCE:
-                            skipped_low += 1
-                            continue
-                        # Check duplicate against both static and already-inferred
-                        existing = edge_targets.get(edge.source_file, set())
-                        already_inferred = inferred_targets.get(edge.source_file, set())
-                        if edge.target_file in existing or edge.target_file in already_inferred:
-                            skipped_dup += 1
-                            continue
-                        new_edges.append(edge)
-                        edges_written += 1
-                        # Track for dedup within this run
-                        inferred_targets.setdefault(edge.source_file, set()).add(edge.target_file)
+            if concurrency <= 1:
+                # Sequential: one file at a time
+                for i, (node, content_hash) in enumerate(to_analyze):
+                    fp = node.get("file_path", "")
+                    if progress_callback:
+                        progress_callback("Inferring edges", i, total)
 
-                    if content_hash:
-                        new_manifest[fp] = content_hash
-                except Exception as e:
-                    logger.warning("Inferred edges failed for %s: %s", fp, e)
-                    failed += 1
+                    try:
+                        file_edges = self._analyze_file(
+                            node, all_file_paths, edge_targets, inferred_targets
+                        )
+                        for edge in file_edges:
+                            edges_found += 1
+                            if edge.confidence < min_confidence:
+                                skipped_low += 1
+                                continue
+                            # Check duplicate against both static and already-inferred
+                            existing = edge_targets.get(edge.source_file, set())
+                            already_inferred = inferred_targets.get(edge.source_file, set())
+                            if edge.target_file in existing or edge.target_file in already_inferred:
+                                skipped_dup += 1
+                                continue
+                            new_edges.append(edge)
+                            edges_written += 1
+                            # Track for dedup within this run
+                            inferred_targets.setdefault(edge.source_file, set()).add(edge.target_file)
+
+                        if content_hash:
+                            new_manifest[fp] = content_hash
+                    except Exception as e:
+                        logger.warning("Inferred edges failed for %s: %s", fp, e)
+                        failed += 1
+            else:
+                # Concurrent LLM calls via thread pool
+                lock = threading.Lock()
+                done_count = 0
+                with ThreadPoolExecutor(max_workers=concurrency) as pool:
+                    futures = {
+                        pool.submit(
+                            self._analyze_file, node, all_file_paths, edge_targets, inferred_targets
+                        ): (node, content_hash)
+                        for node, content_hash in to_analyze
+                    }
+                    for future in as_completed(futures):
+                        node, content_hash = futures[future]
+                        fp = node.get("file_path", "")
+                        try:
+                            file_edges = future.result()
+                            with lock:
+                                for edge in file_edges:
+                                    edges_found += 1
+                                    if edge.confidence < min_confidence:
+                                        skipped_low += 1
+                                        continue
+                                    existing = edge_targets.get(edge.source_file, set())
+                                    already_inferred = inferred_targets.get(edge.source_file, set())
+                                    if edge.target_file in existing or edge.target_file in already_inferred:
+                                        skipped_dup += 1
+                                        continue
+                                    new_edges.append(edge)
+                                    edges_written += 1
+                                    inferred_targets.setdefault(edge.source_file, set()).add(edge.target_file)
+                                if content_hash:
+                                    new_manifest[fp] = content_hash
+                                done_count += 1
+                                if progress_callback:
+                                    progress_callback("Inferring edges", done_count, total)
+                        except Exception as e:
+                            logger.warning("Inferred edges failed for %s: %s", fp, e)
+                            with lock:
+                                failed += 1
+                                done_count += 1
 
         if progress_callback:
             progress_callback("Writing inferred edges", total, total)
@@ -432,7 +494,7 @@ class InferredEdgesAnalyzer:
         """Parse LLM response into InferredEdge objects."""
         from .augmenter import _parse_json_response
         parsed = _parse_json_response(text)
-        if not parsed:
+        if parsed is None:
             logger.warning("Failed to parse inferred edges response for %s", source_file)
             return []
 
@@ -448,8 +510,7 @@ class InferredEdgesAnalyzer:
             kind = item.get("kind", "calls")
             if kind not in VALID_EDGE_KINDS:
                 kind = "calls"
-            confidence = float(item.get("confidence", 0.5))
-            confidence = max(0.0, min(1.0, confidence))
+            confidence = _parse_confidence(item.get("confidence"), 0.5)
             evidence = str(item.get("evidence", ""))[:300]
 
             if not target:

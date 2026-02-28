@@ -102,20 +102,23 @@ We have selected a **Perpetual License** model for individuals and a **Seat-Base
 - Creates trust with privacy-conscious developers.
 
 **The Strategy (The "Context Drug" Ladder):**
-- **Free:** 1 repo, manual refresh (The Hook).
-- **Starter:** $29/4-mo pass, 3 repos, real-time watcher (The Bridge).
-- **Pro:** $79 One-time, Unlimited repos, Trace Index (Ownership).
-- **Team:** $15/mo/seat, Shared config/index (Standardization).
-- **Enterprise:** Custom pricing for air-gapped/compliance needs.
+- **Free:** 1 project, manual builds only (The Hook).
+- **Pro — monthly:** $7/mo, unlimited projects, full automation (The Bridge).
+- **Pro — one-time:** $79, all Pro features, never expires (Ownership).
+- **Team:** $15/seat/mo, headless CI/CD indexing, shared trace graph (Standardization).
+- **Enterprise:** Custom pricing, air-gapped deployment, SSO/SCIM, audit logging.
 
 See the detailed strategy in: [Pricing/PRICING_STRATEGY.md](Pricing/PRICING_STRATEGY.md)
 
+> **Note (Feb 2026):** The "Starter" tier ($29/4-month pass) was removed. Monthly and Perpetual are
+> both "Pro" — feature-identical, differing only in billing model.
+
 ## Decision outputs
-- **Adoption funnel:** Free (1 repo) -> Starter ($29/4mo) -> Pro License ($79).
+- **Adoption funnel:** Free (1 project) → Pro Monthly ($7/mo) → Pro Perpetual ($79) → Team ($15/seat/mo).
 - **Packaging:**
-    - **Free:** 1 active repo, manual indexing.
-    - **Starter:** 3 active repos, real-time indexing.
-    - **Pro:** Unlimited repos, Trace Index (structural), Full MCP.
-    - **Team:** Shared configs, License management.
-- **Cloud requirement:** None for Pro. Optional "Team Server" for shared configs/indexes in Phase 6.
+    - **Free:** 1 active project, manual builds.
+    - **Pro (Monthly / Perpetual):** Unlimited projects, full automation, full MCP, trace-aware context.
+    - **Team:** Everything in Pro + headless CI/CD indexer, shared trace graph via S3, delta sync.
+    - **Enterprise:** Everything in Team + air-gapped deployment, SSO/SCIM, audit logging.
+- **Cloud requirement:** None for Pro. Team uses S3-compatible storage for shared indexes (Cloudflare R2, AWS S3, MinIO).
 

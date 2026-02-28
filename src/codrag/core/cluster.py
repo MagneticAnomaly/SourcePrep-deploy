@@ -17,14 +17,16 @@ import json
 import logging
 import os
 import tempfile
+import threading
 import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
-from .augmenter import LLMClient, _parse_json_response
+from .augmenter import LLMClient, _get_llm_concurrency, _parse_confidence, _parse_json_response
 from .epistemic_score import EpistemicEntry
 
 logger = logging.getLogger(__name__)
@@ -85,7 +87,7 @@ class ModuleEntry:
             dependencies=d.get("dependencies"),
             tech_debt_summary=d.get("tech_debt_summary"),
             file_count=int(d.get("file_count", 0)),
-            avg_epistemic_confidence=float(d.get("avg_epistemic_confidence", 0.0)),
+            avg_epistemic_confidence=_parse_confidence(d.get("avg_epistemic_confidence"), 0.0),
             synthesized_at=d.get("synthesized_at", ""),
             model=d.get("model", ""),
         )
@@ -525,7 +527,7 @@ def build_clusters_leiden(
                 i, j = layer_idx[src], layer_idx[tgt]
                 if i > j:
                     i, j = j, i
-                conf = float(e.get("metadata", {}).get("confidence", 0.5) if isinstance(e.get("metadata"), dict) else 0.5)
+                conf = _parse_confidence(e.get("metadata", {}).get("confidence", 0.5) if isinstance(e.get("metadata"), dict) else 0.5, 0.5)
                 edge_pairs[(i, j)] = max(edge_pairs.get((i, j), 0.0), conf)
 
         # CL-3 + CL-4: Add tag affinity and directory prior edges
@@ -740,7 +742,7 @@ def build_clusters_structural(
                     i, j = j, i
                 kind = e.get("kind", "")
                 w = _STRUCTURAL_EDGE_WEIGHTS.get(kind, 0.3)
-                conf = float(e.get("metadata", {}).get("confidence", 0.7) if isinstance(e.get("metadata"), dict) else 0.7)
+                conf = _parse_confidence(e.get("metadata", {}).get("confidence", 0.7) if isinstance(e.get("metadata"), dict) else 0.7, 0.7)
                 edge_pairs[(i, j)] = max(edge_pairs.get((i, j), 0.0), w * conf)
 
         # Add directory-proximity implicit edges (CL-4 style)
@@ -1261,17 +1263,48 @@ class ClusterSynthesizer:
                     progress_callback("cluster_synthesis", reused + synthesized + failed, total_work)
 
         else:
-            # Sequential: one cluster at a time (local model)
-            for i, cluster in enumerate(to_synthesize):
-                if progress_callback:
-                    progress_callback("cluster_synthesis", reused + i, total_work)
+            # Local model: sequential or concurrent
+            concurrency = _get_llm_concurrency()
+            logger.info("Cluster synthesis: %d clusters to synthesize, concurrency=%d", len(to_synthesize), concurrency)
 
-                module = self.synthesize_cluster(cluster, epistemic, edges)
-                if module:
-                    modules[module.module_id] = module
-                    synthesized += 1
-                else:
-                    failed += 1
+            if concurrency <= 1:
+                # Sequential: one cluster at a time
+                for i, cluster in enumerate(to_synthesize):
+                    if progress_callback:
+                        progress_callback("cluster_synthesis", reused + i, total_work)
+
+                    module = self.synthesize_cluster(cluster, epistemic, edges)
+                    if module:
+                        modules[module.module_id] = module
+                        synthesized += 1
+                    else:
+                        failed += 1
+            else:
+                # Concurrent LLM calls via thread pool
+                lock = threading.Lock()
+                done_count = 0
+                with ThreadPoolExecutor(max_workers=concurrency) as pool:
+                    futures = {
+                        pool.submit(self.synthesize_cluster, cluster, epistemic, edges): cluster
+                        for cluster in to_synthesize
+                    }
+                    for future in as_completed(futures):
+                        try:
+                            module = future.result()
+                            with lock:
+                                if module:
+                                    modules[module.module_id] = module
+                                    synthesized += 1
+                                else:
+                                    failed += 1
+                                done_count += 1
+                                if progress_callback:
+                                    progress_callback("cluster_synthesis", reused + done_count, total_work)
+                        except Exception as e:
+                            logger.warning("Cluster synthesis failed: %s", e)
+                            with lock:
+                                failed += 1
+                                done_count += 1
 
         # CL-9: Deduplicate module names
         _deduplicate_module_names(modules)

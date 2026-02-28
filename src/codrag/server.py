@@ -269,6 +269,15 @@ def _build_coverage_tree(repo_root: Path, include_globs: List[str], exclude_glob
 def _get_project_index(project: Project) -> CodeIndex:
     return _bm.get_project_index(project)
 
+def _get_project_layered_index(project: Project):
+    return _bm.get_project_layered_index(project)
+
+def _has_remote_index(project: Project) -> bool:
+    return _bm.has_remote_index(project)
+
+def _start_project_delta_build(project: Project, changed_paths, include_globs, exclude_globs, max_file_bytes=500_000, hard_limit_bytes=100_000_000) -> bool:
+    return _bm.start_project_delta_build(project, changed_paths, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes)
+
 def _get_project_trace_index(project: Project) -> "TraceIndex":
     return _bm.get_project_trace_index(project)
 
@@ -434,6 +443,20 @@ def configure(
         )
     except Exception:
         logger.debug("Schedule evaluator startup failed (non-fatal)", exc_info=True)
+
+    # Team Sync: auto-start RemoteSyncService polling for projects with sync enabled
+    try:
+        from codrag.core.feature_gate import check_feature
+        if check_feature("team_config"):
+            for proj in reg.list():
+                try:
+                    sync_status = _get_project_sync_status(proj)
+                    if sync_status.get("enabled"):
+                        logger.info("Team sync polling started for project %s", proj.name)
+                except Exception:
+                    logger.debug("Team sync init failed for %s (non-fatal)", proj.name, exc_info=True)
+    except Exception:
+        logger.debug("Team sync startup failed (non-fatal)", exc_info=True)
 
 
 def mount_dashboard():

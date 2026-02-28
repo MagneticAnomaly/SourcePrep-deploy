@@ -401,3 +401,140 @@ class TestSkeletonContext:
         context = result.get("context", "")
         # Primary hit should retain full content
         assert "full primary content" in context
+
+
+# ---------------------------------------------------------------------------
+# W2b: Module Summary Injection Tests (Phase 39)
+# ---------------------------------------------------------------------------
+
+class TestModuleSummaryInjection:
+
+    def _write_modules(self, path, modules):
+        """Write trace_modules.jsonl to disk."""
+        import json
+        with open(path, "w") as f:
+            for m in modules:
+                f.write(json.dumps(m) + "\n")
+
+    def test_broad_query_injects_module_summary(self, tmp_path):
+        """When ≥60% of search hits share a module, the module summary is prepended."""
+        dim = 4
+        query_vec = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+
+        # 3 hits in module "Core Engine", 1 outside → 75% in one module
+        docs = [
+            {"source_path": "src/index.py", "content": "indexing code", "section": ""},
+            {"source_path": "src/search.py", "content": "search code", "section": ""},
+            {"source_path": "src/embedder.py", "content": "embedder code", "section": ""},
+            {"source_path": "ui/App.tsx", "content": "ui code", "section": ""},
+        ]
+        vecs = np.random.rand(4, dim).astype(np.float32)
+        vecs /= np.linalg.norm(vecs, axis=1, keepdims=True)
+
+        idx = _make_index(tmp_path, docs, vecs)
+        trace_idx = MagicMock()
+        trace_idx.is_loaded.return_value = False  # no trace expansion needed
+
+        modules_path = tmp_path / "trace_modules.jsonl"
+        self._write_modules(modules_path, [
+            {
+                "name": "Core Engine",
+                "summary": "Main indexing and search engine for semantic code search.",
+                "member_files": ["src/index.py", "src/search.py", "src/embedder.py"],
+            },
+            {
+                "name": "Dashboard UI",
+                "summary": "React dashboard for visualization.",
+                "member_files": ["ui/App.tsx", "ui/Search.tsx"],
+            },
+        ])
+
+        with patch.object(idx, "get_context_structured") as mock_ctx:
+            mock_ctx.return_value = {
+                "context": "indexing code\nsearch code\nembedder code\nui code",
+                "chunks": [
+                    {"source_path": "src/index.py"},
+                    {"source_path": "src/search.py"},
+                    {"source_path": "src/embedder.py"},
+                    {"source_path": "ui/App.tsx"},
+                ],
+                "total_chars": 50,
+                "estimated_tokens": 12,
+            }
+            idx.embedder = MagicMock()
+            idx.embedder.embed_query.return_value = MagicMock(vector=query_vec.tolist())
+
+            result = idx.get_context_with_trace_expansion(
+                query="how does the search engine work",
+                trace_index=trace_idx,
+                k=5,
+                max_chars=10000,
+                max_additional_chars=5000,
+                modules_path=modules_path,
+            )
+
+        context = result.get("context", "")
+        assert "[module-context | Core Engine]" in context
+        assert "Main indexing and search engine" in context
+        assert result.get("module_injected") == "Core Engine"
+
+    def test_narrow_query_no_module_injection(self, tmp_path):
+        """When hits are spread across modules (no ≥60% dominance), no module summary."""
+        dim = 4
+        query_vec = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+
+        # 2 hits in "Core", 2 in "UI" → 50% each, below 60% threshold
+        docs = [
+            {"source_path": "src/index.py", "content": "indexing code", "section": ""},
+            {"source_path": "src/search.py", "content": "search code", "section": ""},
+            {"source_path": "ui/App.tsx", "content": "app code", "section": ""},
+            {"source_path": "ui/Search.tsx", "content": "search ui", "section": ""},
+        ]
+        vecs = np.random.rand(4, dim).astype(np.float32)
+        vecs /= np.linalg.norm(vecs, axis=1, keepdims=True)
+
+        idx = _make_index(tmp_path, docs, vecs)
+        trace_idx = MagicMock()
+        trace_idx.is_loaded.return_value = False
+
+        modules_path = tmp_path / "trace_modules.jsonl"
+        self._write_modules(modules_path, [
+            {
+                "name": "Core Engine",
+                "summary": "Main indexing and search engine.",
+                "member_files": ["src/index.py", "src/search.py"],
+            },
+            {
+                "name": "Dashboard UI",
+                "summary": "React dashboard for visualization.",
+                "member_files": ["ui/App.tsx", "ui/Search.tsx"],
+            },
+        ])
+
+        with patch.object(idx, "get_context_structured") as mock_ctx:
+            mock_ctx.return_value = {
+                "context": "indexing code\nsearch code\napp code\nsearch ui",
+                "chunks": [
+                    {"source_path": "src/index.py"},
+                    {"source_path": "src/search.py"},
+                    {"source_path": "ui/App.tsx"},
+                    {"source_path": "ui/Search.tsx"},
+                ],
+                "total_chars": 50,
+                "estimated_tokens": 12,
+            }
+            idx.embedder = MagicMock()
+            idx.embedder.embed_query.return_value = MagicMock(vector=query_vec.tolist())
+
+            result = idx.get_context_with_trace_expansion(
+                query="find the search function",
+                trace_index=trace_idx,
+                k=5,
+                max_chars=10000,
+                max_additional_chars=5000,
+                modules_path=modules_path,
+            )
+
+        context = result.get("context", "")
+        assert "[module-context" not in context
+        assert result.get("module_injected") is None

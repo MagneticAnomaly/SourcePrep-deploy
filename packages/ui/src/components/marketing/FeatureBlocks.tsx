@@ -1,7 +1,7 @@
 import { Badge, Card, Flex, Text } from '@tremor/react';
 import { 
   Search, GitBranch, Zap, Lock, RefreshCw, Plug, 
-  AlertTriangle, Lightbulb, TrendingUp, SlidersHorizontal, Shrink, Brain, Shield, Waypoints
+  AlertTriangle, Lightbulb, TrendingUp, SlidersHorizontal, Shrink, Brain, Shield, Waypoints, Users
 } from 'lucide-react';
 
 export interface Feature {
@@ -206,6 +206,14 @@ export const codragFeatures: Feature[] = [
     icon: <Shield className="w-8 h-8" />,
     title: 'Privacy-First & Cloud-Ready',
     description: 'Run 100% locally with zero network traffic, or seamlessly plug in your preferred cloud AI provider (BYOK). Every embedding, search, and compression step is configurable and auditable.',
+  },
+  {
+    icon: <Users className="w-8 h-8" />,
+    title: 'Team Sync — Build Once, Share Instantly',
+    description: 'A headless Docker image runs the full enrichment pipeline in your CI/CD on every push. The enriched trace graph is uploaded to S3-compatible storage. Every developer downloads it instantly — only their uncommitted changes are re-enriched locally.',
+    badge: 'Team',
+    href: 'https://docs.codrag.io/guides/team-sync',
+    external: true,
   },
 ];
 

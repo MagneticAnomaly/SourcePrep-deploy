@@ -111,7 +111,9 @@ function getEffectiveWeight(
 export interface FolderTreeProps {
   data: TreeNode[];
   compact?: boolean;
-  /** Paths included in the RAG index */
+  /** Visual mode: 'include' for Knowledge Sources (default), 'exclude' for trace exclusions */
+  mode?: 'include' | 'exclude';
+  /** Paths included in the RAG index (or excluded from trace when mode='exclude') */
   includedPaths?: Set<string>;
   /** Called when user toggles inclusion of paths (array for bulk operations) */
   onToggleInclude?: (paths: string[], action: 'add' | 'remove') => void;
@@ -130,6 +132,7 @@ interface TreeItemProps {
   node: TreeNode;
   depth?: number;
   path?: string;
+  mode?: 'include' | 'exclude';
   includedPaths?: Set<string>;
   onToggleInclude?: (paths: string[], action: 'add' | 'remove') => void;
   onNodeClick?: (node: TreeNode, path: string) => void;
@@ -274,7 +277,8 @@ function WeightEditor({
   );
 }
 
-function TreeItem({ node, depth = 0, path = '', includedPaths, onToggleInclude, onNodeClick, pathWeights, onWeightChange, expandedPaths, onToggleExpand, onLoadChildren, loadingPaths, onSetLoading, onMergeChildren }: TreeItemProps) {
+function TreeItem({ node, depth = 0, path = '', mode = 'include', includedPaths, onToggleInclude, onNodeClick, pathWeights, onWeightChange, expandedPaths, onToggleExpand, onLoadChildren, loadingPaths, onSetLoading, onMergeChildren }: TreeItemProps) {
+  const isExcludeMode = mode === 'exclude';
   const currentPath = path ? `${path}/${node.name}` : node.name;
   const expanded = expandedPaths.has(currentPath);
   const hasChildren = node.children && node.children.length > 0;
@@ -298,15 +302,18 @@ function TreeItem({ node, depth = 0, path = '', includedPaths, onToggleInclude, 
   const handleRowClick = () => {
     if (!isSelectable || !onToggleInclude) return;
     
+    // Check if the item is effectively selected (either directly or via an ancestor)
+    const isEffectivelyIncluded = isIncluded;
+    
     if (isFolder) {
       // For folders: toggle the folder path itself
-      // If fully selected -> remove (deselect all)
+      // If fully selected (directly or via ancestor) -> remove
       // If partial or none -> add (select all)
-      const shouldSelect = folderSelectionState !== 'all';
+      const shouldSelect = !isEffectivelyIncluded && folderSelectionState !== 'all';
       onToggleInclude([currentPath], shouldSelect ? 'add' : 'remove');
     } else {
       // For files: just toggle this file
-      onToggleInclude([currentPath], isIncluded ? 'remove' : 'add');
+      onToggleInclude([currentPath], isEffectivelyIncluded ? 'remove' : 'add');
     }
   };
 
@@ -380,13 +387,21 @@ function TreeItem({ node, depth = 0, path = '', includedPaths, onToggleInclude, 
           // Ignored items are dimmed and not interactive
           isIgnored && 'opacity-50 cursor-default',
           // Selected/included items get a subtle background
-          isIncluded && !isIgnored && 'bg-primary/5',
+          isIncluded && !isIgnored && (isExcludeMode ? 'bg-error/8' : 'bg-primary/5'),
           effectiveWeight < 1 && effectiveWeight > 0 && (showFolderWeight || (isIncluded && (effectiveStatus === 'indexed' || effectiveStatus === 'pending'))) && 'opacity-75',
           effectiveWeight === 0 && (showFolderWeight || (isIncluded && (effectiveStatus === 'indexed' || effectiveStatus === 'pending'))) && 'opacity-40'
         )}
         onClick={handleRowClick}
         title={isIgnored 
           ? 'This item is excluded from indexing' 
+          : isExcludeMode
+            ? isFolder
+              ? (effectivelyIncluded || isPartiallySelected)
+                ? 'Click to un-exclude this folder from trace'
+                : 'Click to exclude this folder from trace'
+              : isIncluded
+                ? 'Click to un-exclude this file from trace'
+                : 'Click to exclude this file from trace'
           : isFolder
             ? (effectivelyIncluded || isPartiallySelected) 
               ? 'Click to remove folder and all contents from RAG index'
@@ -416,19 +431,19 @@ function TreeItem({ node, depth = 0, path = '', includedPaths, onToggleInclude, 
             isIgnored 
               ? 'text-text-subtle/50'
               : effectivelyIncluded 
-                ? 'text-primary' 
+                ? (isExcludeMode ? 'text-error' : 'text-primary')
                 : isPartiallySelected
-                  ? 'text-primary/60'
+                  ? (isExcludeMode ? 'text-error/60' : 'text-primary/60')
                   : 'text-text-subtle'
           )}
         >
           {isFolder 
             ? <FolderIcon className={cn(
                 'w-4 h-4', 
-                effectivelyIncluded && !isIgnored && 'fill-primary/20',
-                isPartiallySelected && !isIgnored && 'fill-primary/10'
+                effectivelyIncluded && !isIgnored && (isExcludeMode ? 'fill-error/20' : 'fill-primary/20'),
+                isPartiallySelected && !isIgnored && (isExcludeMode ? 'fill-error/10' : 'fill-primary/10')
               )} />
-            : <FileIcon className={cn('w-4 h-4', isIncluded && !isIgnored && 'fill-primary/20')} />
+            : <FileIcon className={cn('w-4 h-4', isIncluded && !isIgnored && (isExcludeMode ? 'fill-error/20' : 'fill-primary/20'))} />
           }
         </span>
 
@@ -436,11 +451,13 @@ function TreeItem({ node, depth = 0, path = '', includedPaths, onToggleInclude, 
           "text-sm ml-1 truncate transition-all",
           isIgnored
             ? "text-text-subtle font-mono"
-            : (effectivelyIncluded || isPartiallySelected)
-              ? "text-text font-semibold font-mono" 
-              : isFolder 
-                ? "text-text font-medium" 
-                : "text-text-muted font-mono"
+            : isExcludeMode && (effectivelyIncluded || isPartiallySelected)
+              ? "text-error font-mono line-through decoration-error/60"
+              : (effectivelyIncluded || isPartiallySelected)
+                ? "text-text font-semibold font-mono" 
+                : isFolder 
+                  ? "text-text font-medium" 
+                  : "text-text-muted font-mono"
         )}>
           {node.name}
         </span>
@@ -458,41 +475,43 @@ function TreeItem({ node, depth = 0, path = '', includedPaths, onToggleInclude, 
           </Button>
         )}
 
-        {/* Right side: chunk count, status badge, then weight - always at far right */}
-        <span className="ml-auto flex items-center gap-2 shrink-0">
-          {/* Chunk count for indexed items */}
-          {node.chunks !== undefined && effectiveStatus === 'indexed' && (
-            <span className="text-xs text-text-subtle">
-              {node.chunks} chunks
-            </span>
-          )}
-          
-          {/* Status badge: show for ignored items or included items with pending/indexed status */}
-          {showStatus && effectiveStatus && (
-            <span
-              className={cn(
-                "flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full",
-                `${statusColors[effectiveStatus]}/20`
-              )}
-            >
-              <span className={cn("w-1.5 h-1.5 rounded-full", statusColors[effectiveStatus])} />
-              <span className="text-text-subtle hidden sm:inline">{statusLabels[effectiveStatus]}</span>
-            </span>
-          )}
+        {/* Right side: chunk count, status badge, then weight - hidden entirely in exclude mode */}
+        {!isExcludeMode && (
+          <span className="ml-auto flex items-center gap-2 shrink-0">
+            {/* Chunk count for indexed items */}
+            {node.chunks !== undefined && effectiveStatus === 'indexed' && (
+              <span className="text-xs text-text-subtle">
+                {node.chunks} chunks
+              </span>
+            )}
+            
+            {/* Status badge: show for ignored items or included items with pending/indexed status */}
+            {showStatus && effectiveStatus && (
+              <span
+                className={cn(
+                  "flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full",
+                  `${statusColors[effectiveStatus]}/20`
+                )}
+              >
+                <span className={cn("w-1.5 h-1.5 rounded-full", statusColors[effectiveStatus])} />
+                <span className="text-text-subtle hidden sm:inline">{statusLabels[effectiveStatus]}</span>
+              </span>
+            )}
 
-          {/* Weight editor: for indexed/pending files OR included folders */}
-          {(showFolderWeight || ((effectiveStatus === 'indexed' || effectiveStatus === 'pending') && isIncluded)) && (
-            <WeightEditor
-              effectiveWeight={effectiveWeight}
-              isInherited={isWeightInherited}
-              inheritedFrom={weightSource}
-              onWeightChange={onWeightChange}
-              currentPath={currentPath}
-              isFolder={isFolder}
-              childOverridePaths={childOverridePaths}
-            />
-          )}
-        </span>
+            {/* Weight editor: for indexed/pending files OR included folders */}
+            {(showFolderWeight || ((effectiveStatus === 'indexed' || effectiveStatus === 'pending') && isIncluded)) && (
+              <WeightEditor
+                effectiveWeight={effectiveWeight}
+                isInherited={isWeightInherited}
+                inheritedFrom={weightSource}
+                onWeightChange={onWeightChange}
+                currentPath={currentPath}
+                isFolder={isFolder}
+                childOverridePaths={childOverridePaths}
+              />
+            )}
+          </span>
+        )}
       </div>
 
       {hasChildren && expanded && (
@@ -503,6 +522,7 @@ function TreeItem({ node, depth = 0, path = '', includedPaths, onToggleInclude, 
               node={child} 
               depth={depth + 1}
               path={currentPath}
+              mode={mode}
               includedPaths={includedPaths}
               onToggleInclude={onToggleInclude}
               onNodeClick={onNodeClick}
@@ -527,6 +547,7 @@ const EXPANDED_STORAGE_KEY = 'codrag_tree_expanded';
 export function FolderTree({
   data,
   compact,
+  mode = 'include',
   includedPaths,
   onToggleInclude,
   onNodeClick,
@@ -535,10 +556,11 @@ export function FolderTree({
   onLoadChildren,
   className,
 }: FolderTreeProps) {
+  const storageKey = mode === 'exclude' ? `${EXPANDED_STORAGE_KEY}_exclude` : EXPANDED_STORAGE_KEY;
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => {
     if (typeof window === 'undefined') return new Set();
     try {
-      const stored = localStorage.getItem(EXPANDED_STORAGE_KEY);
+      const stored = localStorage.getItem(storageKey);
       return stored ? new Set(JSON.parse(stored)) : new Set();
     } catch { return new Set(); }
   });
@@ -559,11 +581,11 @@ export function FolderTree({
       if (next.has(path)) next.delete(path);
       else next.add(path);
       if (typeof window !== 'undefined') {
-        localStorage.setItem(EXPANDED_STORAGE_KEY, JSON.stringify([...next]));
+        localStorage.setItem(storageKey, JSON.stringify([...next]));
       }
       return next;
     });
-  }, []);
+  }, [storageKey]);
 
   const handleSetLoading = useCallback((path: string, loading: boolean) => {
     setLoadingPaths((prev) => {
@@ -601,6 +623,7 @@ export function FolderTree({
         <TreeItem
           key={`${node.name}-${i}`}
           node={node}
+          mode={mode}
           includedPaths={includedPaths}
           onToggleInclude={onToggleInclude}
           onNodeClick={onNodeClick}

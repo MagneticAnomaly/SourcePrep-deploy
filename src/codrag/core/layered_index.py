@@ -54,6 +54,35 @@ class LayeredCodeIndex:
         self.delta = delta_index
         self._tombstone_paths: Optional[Set[str]] = None
 
+    # ── Compatibility proxies for CodeIndex duck-typing ────────
+    # These delegate to the remote (primary) index so that code
+    # accessing idx._documents, idx.embedder, etc. still works.
+
+    @property
+    def index_dir(self):
+        return self.remote.index_dir
+
+    @property
+    def embedder(self):
+        return self.remote.embedder
+
+    @property
+    def _documents(self):
+        """Merged documents list (delta overrides remote by source_path)."""
+        remote_docs = self.remote._documents or []
+        if not self.delta or not self.delta._documents:
+            return remote_docs
+        tombstones = self._get_tombstone_paths()
+        merged = list(self.delta._documents)
+        for d in remote_docs:
+            if d.get("source_path", "") not in tombstones:
+                merged.append(d)
+        return merged
+
+    @property
+    def _manifest(self):
+        return self.remote._manifest
+
     @classmethod
     def from_dirs(
         cls,
@@ -108,6 +137,15 @@ class LayeredCodeIndex:
         """True if at least the remote index is loaded."""
         return self.remote.is_loaded()
 
+    def get_context_with_trace_expansion(self, query: str, **kwargs) -> str:
+        """Delegate to remote index for trace-expanded context.
+
+        Trace expansion uses the trace graph (which is shared via team sync),
+        so the remote index is the correct source. Local deltas are merged
+        at the search() level.
+        """
+        return self.remote.get_context_with_trace_expansion(query, **kwargs)
+
     def search(
         self,
         query: str,
@@ -118,12 +156,16 @@ class LayeredCodeIndex:
         """Search both layers and merge results."""
         tombstones = self._get_tombstone_paths()
 
-        # Search remote, excluding tombstoned paths
+        # Merge caller-supplied exclude_paths with tombstone paths
+        caller_excludes = kwargs.pop("exclude_paths", None) or []
+        combined_excludes = list(set(list(caller_excludes) + list(tombstones))) if tombstones or caller_excludes else None
+
+        # Search remote, excluding tombstoned + caller-excluded paths
         remote_results = self.remote.search(
             query,
             k=k * 2,  # Over-fetch to compensate for tombstone exclusions
             min_score=min_score,
-            exclude_paths=list(tombstones) if tombstones else None,
+            exclude_paths=combined_excludes,
             **kwargs,
         )
 
@@ -210,24 +252,27 @@ class LayeredCodeIndex:
     # ── Stats ─────────────────────────────────────────────────
 
     def stats(self) -> Dict[str, Any]:
-        """Return stats about both layers."""
+        """Return stats about both layers, merged with remote stats."""
+        remote_stats = self.remote.stats() if hasattr(self.remote, 'stats') else {}
         remote_docs = self.remote._documents or []
         delta_docs_count = len(self.delta._documents or []) if self.delta else 0
         tombstones = self._get_tombstone_paths()
 
-        # Count remote chunks that would be excluded by tombstones
         tombstoned_chunks = sum(
             1 for d in remote_docs
             if d.get("source_path", "") in tombstones
         ) if tombstones else 0
 
-        return {
+        layered = {
             "remote_chunks": len(remote_docs),
             "delta_chunks": delta_docs_count,
             "tombstoned_files": len(tombstones),
             "tombstoned_chunks": tombstoned_chunks,
             "effective_chunks": len(remote_docs) - tombstoned_chunks + delta_docs_count,
+            "layered": True,
         }
+        # Merge: remote stats as base, layered info on top
+        return {**remote_stats, **layered}
 
 
 # ── Delta staleness detection ─────────────────────────────────

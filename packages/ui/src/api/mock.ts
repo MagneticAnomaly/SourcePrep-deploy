@@ -435,6 +435,10 @@ export class MockApiClient implements ApiClient {
     return { key: _key, deleted: true };
   }
 
+  async getPipelineConfig(): Promise<any> {
+    return { llm_concurrency: 1, fast_sync: { auto: true }, deep_enrichment: { mode: 'manual' }, budgets: {} };
+  }
+
   async updatePipelineConfig(): Promise<any> {
     return { success: true };
   }
@@ -445,6 +449,23 @@ export class MockApiClient implements ApiClient {
 
   async setProjectSetting(_projectId: string, _key: string, _value: any): Promise<{ key: string; value: any }> {
     return { key: _key, value: _value };
+  }
+
+  // ── Advanced Config ──────────────────────────────────────
+
+  async getAdvancedConfig(): Promise<import('../types').AdvancedConfig> {
+    return {
+      checkpoint_interval: 500,
+      min_edge_confidence: 0.5,
+      chunk_max_chars: 2000,
+      chunk_overlap_chars: 200,
+      md_chunk_max_chars: 1800,
+      md_chunk_min_chars: 350,
+    };
+  }
+
+  async updateAdvancedConfig(config: Partial<import('../types').AdvancedConfig>): Promise<import('../types').AdvancedConfig> {
+    return { checkpoint_interval: 500, min_edge_confidence: 0.5, chunk_max_chars: 2000, chunk_overlap_chars: 200, md_chunk_max_chars: 1800, md_chunk_min_chars: 350, ...config };
   }
 
   // ── Scope Orchestrator ────────────────────────────────────

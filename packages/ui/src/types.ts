@@ -650,6 +650,28 @@ export interface ProjectConfig {
   trace: { enabled: boolean; paused?: boolean };
   auto_rebuild: { enabled: boolean; debounce_ms?: number };
   graph_engine?: GraphEngineConfig;
+  advanced?: ProjectAdvancedConfig;
+}
+
+/**
+ * Per-project advanced trace limits
+ */
+export interface ProjectAdvancedConfig {
+  max_files?: number;
+  max_nodes?: number;
+  max_edges?: number;
+}
+
+/**
+ * Global advanced configuration (pipeline + chunking)
+ */
+export interface AdvancedConfig {
+  checkpoint_interval: number;
+  min_edge_confidence: number;
+  chunk_max_chars: number;
+  chunk_overlap_chars: number;
+  md_chunk_max_chars: number;
+  md_chunk_min_chars: number;
 }
 
 /**

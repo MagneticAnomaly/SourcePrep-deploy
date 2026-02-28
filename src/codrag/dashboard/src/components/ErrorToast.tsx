@@ -37,7 +37,7 @@ export function ErrorToast({ message, onClose, duration = 5000 }: ErrorToastProp
       <AlertCircle className="w-5 h-5 shrink-0" />
       <span className="text-sm font-medium">{message}</span>
       <button
-        onClick={() => setVisible(false)}
+        onClick={() => { setVisible(false); onClose(); }}
         className="ml-2 p-1 hover:bg-white/20 rounded-full transition-colors"
       >
         <X className="w-4 h-4" />

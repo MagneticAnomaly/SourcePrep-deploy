@@ -17,13 +17,15 @@ import json
 import logging
 import os
 import tempfile
+import threading
 import time
 from collections import defaultdict, deque
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
-from .augmenter import AugmentationEntry, LLMClient, _parse_json_response
+from .augmenter import AugmentationEntry, LLMClient, _get_llm_concurrency, _parse_confidence, _parse_json_response
 from .epistemic_score import EpistemicEntry, EpistemicScore, compute_epistemic_score
 
 logger = logging.getLogger(__name__)
@@ -512,7 +514,7 @@ class EpistemicEnricher:
             return None
 
         parsed = _parse_json_response(text)
-        if not parsed:
+        if parsed is None:
             logger.warning("Failed to parse 14b response for %s — raw: %.200s", file_path, text)
             return None
 
@@ -532,7 +534,7 @@ class EpistemicEnricher:
             cross_references=parsed.get("cross_references"),
             tech_debt=parsed.get("tech_debt"),
             staleness_risk=parsed.get("staleness_risk"),
-            epistemic_confidence=max(0.0, min(1.0, float(parsed.get("epistemic_confidence", 0.5)))),
+            epistemic_confidence=_parse_confidence(parsed.get("epistemic_confidence"), 0.5),
             pass_number=2,
             enriched_at=datetime.now(timezone.utc).isoformat(),
             model=self.llm.model,
@@ -812,22 +814,62 @@ class EpistemicEnricher:
                 if progress_callback:
                     progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count)
         else:
-            # Sort in reverse-topological order (leaves first)
-            to_enrich = topological_sort_files(to_enrich, edges)
+            concurrency = _get_llm_concurrency()
 
-            # Sequential by design: each node's neighbor context reads from 'enriched',
-            # which accumulates results from earlier nodes in topological order.
-            # Parallelizing would break the cascading context benefit.
-            for node in to_enrich:
-                entry = self.enrich_node(node, edges, nodes_by_id, augmentations, enriched)
-                if entry:
-                    enriched[entry.node_id] = entry
-                    done += 1
-                else:
-                    failed += 1
+            if concurrency <= 1:
+                # Sort in reverse-topological order (leaves first)
+                to_enrich = topological_sort_files(to_enrich, edges)
 
-                if progress_callback:
-                    progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count)
+                # Sequential by design: each node's neighbor context reads from 'enriched',
+                # which accumulates results from earlier nodes in topological order.
+                # Parallelizing would break the cascading context benefit.
+                for node in to_enrich:
+                    entry = self.enrich_node(node, edges, nodes_by_id, augmentations, enriched)
+                    if entry:
+                        enriched[entry.node_id] = entry
+                        done += 1
+                    else:
+                        failed += 1
+
+                    if progress_callback:
+                        progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count)
+            else:
+                # Tier-based concurrent enrichment: nodes within a tier are independent
+                # (they only depend on earlier tiers), so they can be processed in parallel.
+                # After each tier completes, results merge into 'enriched' before the next tier.
+                tiers = topological_sort_into_tiers(to_enrich, edges)
+                logger.info(
+                    "Concurrent epistemic enrichment: %d files in %d tiers, concurrency=%d",
+                    total_work, len(tiers), concurrency,
+                )
+                for tier_idx, tier in enumerate(tiers):
+                    lock = threading.Lock()
+                    tier_done = 0
+                    tier_failed = 0
+                    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+                        futures = {
+                            pool.submit(
+                                self.enrich_node, node, edges, nodes_by_id, augmentations, enriched
+                            ): node
+                            for node in tier
+                        }
+                        for future in as_completed(futures):
+                            try:
+                                entry = future.result()
+                                with lock:
+                                    if entry:
+                                        enriched[entry.node_id] = entry
+                                        tier_done += 1
+                                    else:
+                                        tier_failed += 1
+                            except Exception as e:
+                                logger.warning("Epistemic enrichment failed: %s", e)
+                                with lock:
+                                    tier_failed += 1
+                    done += tier_done
+                    failed += tier_failed
+                    if progress_callback:
+                        progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count)
 
         # Write atomically
         self._write_epistemic(enriched)

@@ -283,6 +283,9 @@ class RemoteSyncService:
             self.remote_index_dir.mkdir(parents=True, exist_ok=True)
             s3.download_index(self.remote_index_dir)
 
+            # Prune local deltas that are now covered by the fresh remote index
+            self._prune_stale_deltas()
+
             self._status.last_sync_at = time.time()
             self._status.last_sync_commit = remote_manifest.commit_sha
             self._status.is_syncing = False
@@ -346,6 +349,27 @@ class RemoteSyncService:
                 self.check_and_sync()
             except Exception as e:
                 logger.error("Remote sync poll failed: %s", e)
+
+    # ── Delta pruning ────────────────────────────────────────
+
+    def _prune_stale_deltas(self) -> None:
+        """Remove local deltas that are now covered by the fresh remote index.
+
+        Called automatically after a new remote index is downloaded.
+        """
+        delta_dir = self.codrag_dir / "index" / "local_deltas"
+        remote_manifest_path = self.remote_index_dir / "trace_manifest.json"
+
+        if not delta_dir.exists() or not remote_manifest_path.exists():
+            return
+
+        try:
+            from codrag.core.layered_index import prune_stale_deltas
+            pruned = prune_stale_deltas(remote_manifest_path, delta_dir)
+            if pruned > 0:
+                logger.info("Pruned %d stale local delta(s) after remote sync", pruned)
+        except Exception as e:
+            logger.warning("Delta pruning failed (non-fatal): %s", e)
 
     # ── Status ────────────────────────────────────────────────
 

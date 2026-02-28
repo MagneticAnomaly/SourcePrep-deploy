@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useCallback, useEffect } from 'react'
 import { FileText } from 'lucide-react'
 import {
   IndexStatusCard,
@@ -208,6 +208,124 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
   // Flatten grouped sub-objects for backward-compatible p.xxx access internally
   const { search, files, trace, enrichment, llm, deepAnalysis, atlas, ...core } = props
   const p = { ...core, ...search, ...files, ...trace, ...enrichment, ...llm, ...deepAnalysis }
+
+  // Optimistic local state for excluded paths — updates INSTANTLY on click.
+  // Seeded from trace coverage when it arrives, but local clicks are immediate.
+  const [localExcludedPaths, setLocalExcludedPaths] = useState<Set<string>>(new Set())
+
+  // Sync server-side excluded paths into local state (additive merge)
+  useEffect(() => {
+    if (p.traceCoverage?.excluded) {
+      setLocalExcludedPaths(prev => {
+        const merged = new Set(prev)
+        for (const f of p.traceCoverage!.excluded!) {
+          merged.add(f.path)
+        }
+        // Only update if the set actually changed
+        if (merged.size === prev.size) return prev
+        return merged
+      })
+    }
+  }, [p.traceCoverage?.excluded])
+
+  // Toggle exclude: mirrors the Knowledge Sources selection model exactly.
+  // - Add folder: adds folder path, removes descendant paths (parent covers them)
+  // - Remove child within selected parent: "explodes" the ancestor by removing it
+  //   and re-adding all sibling paths, then removing the target child.
+  const handleToggleExclude = useCallback(
+    (paths: string[], action: 'add' | 'remove') => {
+      // Helper: walk the fileTree to find sibling paths to preserve when
+      // "exploding" an ancestor selection (identical to Knowledge Sources logic)
+      function getExplodedPaths(ancestorPath: string, targetPath: string): string[] {
+        const tree = p.fileTree
+        const ancestorParts = ancestorPath.split('/')
+        const targetParts = targetPath.split('/')
+        let currentNodes = tree
+        for (const part of ancestorParts) {
+          const node = currentNodes.find((n: { name: string }) => n.name === part)
+          if (!node || !node.children) return []
+          currentNodes = node.children
+        }
+        const relativeParts = targetParts.slice(ancestorParts.length)
+        const result: string[] = []
+        let currentBasePath = ancestorPath
+        for (const part of relativeParts) {
+          for (const child of currentNodes) {
+            if (child.name !== part && child.status !== 'ignored') {
+              result.push(`${currentBasePath}/${child.name}`)
+            }
+          }
+          const nextNode = currentNodes.find((n: { name: string }) => n.name === part)
+          if (!nextNode || !nextNode.children) break
+          currentNodes = nextNode.children
+          currentBasePath = `${currentBasePath}/${part}`
+        }
+        return result
+      }
+
+      // 1. Optimistic UI update — instant red/strikethrough
+      setLocalExcludedPaths(prev => {
+        const next = new Set(prev)
+        for (const rawPath of paths) {
+          const cleanPath = rawPath.replace(/\/$/, '')
+          if (action === 'add') {
+            // Add the path
+            next.add(cleanPath)
+            // Remove any existing descendants (parent covers them)
+            const prefix = cleanPath + '/'
+            for (const existing of prev) {
+              if (existing.startsWith(prefix)) {
+                next.delete(existing)
+              }
+            }
+          } else {
+            // Check if an ancestor is selected (need to "explode" it)
+            let ancestorFound: string | null = null
+            const parts = cleanPath.split('/')
+            for (let i = parts.length - 1; i >= 1; i--) {
+              const ancestor = parts.slice(0, i).join('/')
+              if (next.has(ancestor)) {
+                ancestorFound = ancestor
+                break
+              }
+            }
+            if (ancestorFound) {
+              // Remove ancestor, re-add siblings to preserve them
+              next.delete(ancestorFound)
+              const siblingsToKeep = getExplodedPaths(ancestorFound, cleanPath)
+              siblingsToKeep.forEach(s => next.add(s))
+            }
+            // Remove the path itself
+            next.delete(cleanPath)
+            // Remove any descendants
+            const prefix = cleanPath + '/'
+            for (const existing of prev) {
+              if (existing.startsWith(prefix)) {
+                next.delete(existing)
+              }
+            }
+          }
+        }
+        return next
+      })
+
+      // 2. Fire API calls in background (persist to backend)
+      for (const rawPath of paths) {
+        const cleanPath = rawPath.replace(/\/$/, '')
+        if (action === 'add') {
+          p.handleAddExcludePattern(cleanPath)
+          p.handleAddExcludePattern(`${cleanPath}/**`)
+        } else {
+          p.handleRemoveExcludePattern(cleanPath)
+          p.handleRemoveExcludePattern(`${cleanPath}/**`)
+        }
+      }
+    },
+    [p.handleAddExcludePattern, p.handleRemoveExcludePattern, p.fileTree]
+  )
+
+  // Use local optimistic state as the source of truth for the UI
+  const excludedPaths = localExcludedPaths
   const panelContent = useMemo(() => ({
     'log-console': (
       <LogConsole
@@ -344,7 +462,8 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
             // Map pipeline states to model activity
             const embeddingRunning = p.searchLoading || (p.projectStatus?.building ?? false) || p.fastKnowledgeBuilding || p.deepKnowledgeBuilding;
             const fastRunning = p.augmenting;
-            const largeRunning = p.validating || p.epistemicRunning || p.deepeningRunning || p.clusterRunning;
+            const largeRunning = p.validating || p.epistemicRunning || p.deepeningRunning || p.clusterRunning || p.atlasRunning;
+            const codeRunning = p.inferredEdgesRunning;
 
             type Svc = { name: string; status: 'connected' | 'disconnected' | 'disabled' | 'not-configured'; type: 'ollama' | 'openai' | 'other'; model?: string; running?: boolean };
             const items: Svc[] = [];
@@ -398,6 +517,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
                   : 'connected',
                 type: 'ollama',
                 model: p.llmConfig.code_model.model,
+                running: codeRunning,
               });
             }
             if (hasCompression) {
@@ -610,6 +730,10 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onRemoveExcludePattern={p.handleRemoveExcludePattern}
         onRefresh={p.fetchTraceCoverage}
         traceExists={p.traceStatus.exists}
+        fileTree={p.fileTree}
+        excludedPaths={excludedPaths}
+        onToggleExclude={handleToggleExclude}
+        onLoadChildren={p.handleLoadChildren}
       />
     ),
     // graph-engine removed — consolidated into trace-pipeline (Graph Enrichment)
@@ -675,7 +799,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         deepMode={p.enrichmentAutoConfig?.deepEnrichment ?? 'manual'}
       />
     ),
-  }), [p])
+  }), [p, excludedPaths, handleToggleExclude])
 
   const dynamicPanelDefs = useMemo(() =>
     [...p.pinnedPaths].map((path) => ({
@@ -730,9 +854,30 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         pathWeights={p.pathWeights}
         onWeightChange={p.handlePathWeightChange}
         onLoadChildren={p.handleLoadChildren}
+        excludedPaths={excludedPaths}
+        onToggleExclude={handleToggleExclude}
+        initialTab="knowledge"
       />
     ),
-  }), [p])
+    'graph-structure': (
+      <FileExplorerDetail
+        treeData={p.fileTree}
+        pinnedPaths={p.pinnedPaths}
+        onPinFile={p.handlePinFile}
+        onUnpinFile={p.handleUnpinFile}
+        onLoadFileContent={p.handleLoadFileContent}
+        includedPaths={p.includedPaths}
+        scopeStatus={p.scopeStatus}
+        onToggleInclude={p.handleToggleInclude}
+        pathWeights={p.pathWeights}
+        onWeightChange={p.handlePathWeightChange}
+        onLoadChildren={p.handleLoadChildren}
+        excludedPaths={excludedPaths}
+        onToggleExclude={handleToggleExclude}
+        initialTab="exclude"
+      />
+    ),
+  }), [p, excludedPaths, handleToggleExclude])
 
   return { panelContent, panelDetails, allPanelDefs, PINNED_PREFIX }
 }

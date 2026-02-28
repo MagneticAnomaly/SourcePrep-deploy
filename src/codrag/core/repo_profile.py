@@ -26,6 +26,11 @@ DEFAULT_EXCLUDE_DIR_NAMES: Set[str] = {
     "target",
     ".next",
     ".cache",
+    # iOS / mobile dependency dirs
+    "Pods",
+    "Carthage",
+    ".gradle",
+    "DerivedData",
 }
 
 DOC_DIR_NAMES: Set[str] = {
@@ -140,10 +145,7 @@ def scan_for_presets(root: Path) -> List[str]:
     """
     detected_presets = set()
     # Limit depth and directories to avoid slow scans in huge monorepos
-    ignore_dirs = {
-        ".git", "node_modules", ".venv", "venv", "env", "__pycache__", 
-        "dist", "build", "target", ".next", ".idea", ".vscode", "vendor"
-    }
+    ignore_dirs = DEFAULT_EXCLUDE_DIR_NAMES | {"vendor", ".idea", ".vscode"}
     
     try:
         # We'll just walk up to 3 levels deep for speed, or until we find enough evidence

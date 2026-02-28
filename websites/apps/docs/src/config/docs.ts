@@ -56,6 +56,14 @@ export const docsSidebar: DocNode[] = [
     ],
   },
   {
+    title: 'Deployment',
+    href: '/guides/team-sync',
+    children: [
+      { title: 'Team Sync (CI/CD)', href: '/guides/team-sync' },
+      { title: 'Enterprise Deploy', href: '/guides/enterprise-deploy' },
+    ],
+  },
+  {
     title: 'Integrations',
     href: '/mcp',
     children: [

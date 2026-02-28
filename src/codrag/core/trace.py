@@ -1015,7 +1015,7 @@ class TraceBuilder:
         max_file_bytes: int = 500_000,
         hard_limit_bytes: int = 100_000_000,
         use_gitignore: bool = False,
-        max_files: int = 10_000,
+        max_files: int = 50_000,
         max_nodes: int = 100_000,
         max_edges: int = 500_000,
         max_failures: int = 50,
@@ -1908,10 +1908,14 @@ class TraceIndex:
         symbols: List[Dict[str, Any]] = []
 
         if self._rust_handle is not None:
-            # Rust backend: iterate all nodes (no per-file index)
-            for nid, node_dict in self._nodes.items():
-                if node_dict.get("file_path") == file_path and node_dict.get("kind") == "symbol":
-                    symbols.append(node_dict)
+            # Rust backend: _nodes is empty. Use get_neighbors on the file node
+            # to find contained symbols via "contains" edges.
+            from codrag.core.ids import stable_file_node_id
+            file_nid = stable_file_node_id(file_path)
+            neighbors = self.get_neighbors(file_nid, direction="out", edge_kinds=["contains"], max_nodes=max_symbols * 2)
+            for node in neighbors.get("out_nodes", []):
+                if node.get("kind") == "symbol":
+                    symbols.append(node)
         else:
             for nid, node_dict in self._nodes.items():
                 if node_dict.get("file_path") == file_path and node_dict.get("kind") == "symbol":
@@ -2402,6 +2406,35 @@ def compute_trace_coverage(
     traced_count_all = len(final_traced) + len(pending_embedding)
     coverage_pct = round(traced_count_all / total * 100, 1) if total > 0 else 0.0
 
+    # Count LSP edges (Phase 39 W1a)
+    lsp_edge_count = 0
+    lsp_edges_path = Path(index_dir) / "trace_lsp_edges.jsonl"
+    if lsp_edges_path.exists():
+        try:
+            with open(lsp_edges_path, "r", encoding="utf-8") as f:
+                lsp_edge_count = sum(1 for line in f if line.strip())
+        except OSError:
+            pass
+
+    # Count static + inferred edges for comparison
+    static_edge_count = 0
+    edges_path = Path(index_dir) / "trace_edges.jsonl"
+    if edges_path.exists():
+        try:
+            with open(edges_path, "r", encoding="utf-8") as f:
+                static_edge_count = sum(1 for line in f if line.strip())
+        except OSError:
+            pass
+
+    inferred_edge_count = 0
+    inferred_path = Path(index_dir) / "trace_inferred_edges.jsonl"
+    if inferred_path.exists():
+        try:
+            with open(inferred_path, "r", encoding="utf-8") as f:
+                inferred_edge_count = sum(1 for line in f if line.strip())
+        except OSError:
+            pass
+
     return {
         "traced": final_traced,
         "pending_embedding": pending_embedding,
@@ -2417,5 +2450,11 @@ def compute_trace_coverage(
             "excluded": len(excluded_files),
             "coverage_pct": coverage_pct,
             "last_build_at": manifest_built_at,
+            "edge_counts": {
+                "static": static_edge_count,
+                "inferred": inferred_edge_count,
+                "lsp": lsp_edge_count,
+                "total": static_edge_count + inferred_edge_count + lsp_edge_count,
+            },
         },
     }

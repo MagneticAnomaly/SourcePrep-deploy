@@ -68,5 +68,6 @@ codrag-deploy/
 ## Links
 
 - [Team Sync Guide](https://docs.codrag.io/guides/team-sync) — Full setup walkthrough
+- [Enterprise Deployment Guide](https://docs.codrag.io/guides/enterprise-deploy) — Air-gapped, VPC, serverless GPU
 - [CoDRAG](https://codrag.io) — Main product page
 - [Pricing](https://codrag.io/pricing) — Team & Enterprise plans

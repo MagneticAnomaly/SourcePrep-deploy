@@ -227,6 +227,13 @@ def build_trace_project(project_id: str) -> Dict[str, Any]:
     # Enforce default safety excludes
     current_excludes = set(exclude_globs or [])
     default_excludes = {f"**/{d}/**" for d in DEFAULT_EXCLUDE_DIR_NAMES}
+
+    # Merge user trace-specific ignore patterns (from Exclude Tree / Patterns tab)
+    # so they are actually honored during the build, not just in coverage display.
+    trace_ignore = (trace_cfg or {}).get("ignore_patterns", [])
+    if isinstance(trace_ignore, list):
+        current_excludes.update(str(p) for p in trace_ignore if p)
+
     exclude_globs = sorted(list(current_excludes | default_excludes))
 
     # Auto-detect stack presets if include_globs is empty or None
@@ -244,8 +251,9 @@ def build_trace_project(project_id: str) -> Dict[str, Any]:
                 if detected_globs:
                     include_globs = sorted(list(set(detected_globs)))
                     cfg["include_globs"] = include_globs
-                    proj.config = cfg
-                    _get_registry().update(proj)
+                    from dataclasses import replace as _replace
+                    proj = _replace(proj, config=cfg)
+                    _get_registry().update_project(proj.id, config=cfg)
         except Exception as e:
             logger.warning(f"Failed to auto-detect stack presets during trace build: {e}")
 
@@ -365,9 +373,8 @@ def update_trace_ignore(project_id: str, req: TraceIgnoreRequest) -> Dict[str, A
 
     trace_cfg["ignore_patterns"] = current_patterns
     cfg["trace"] = trace_cfg
-    proj.config = cfg
     reg = _get_registry()
-    reg.update(proj)
+    reg.update_project(proj.id, config=cfg)
 
     return ok({"ignore_patterns": current_patterns})
 

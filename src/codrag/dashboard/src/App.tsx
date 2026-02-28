@@ -88,7 +88,7 @@ function App() {
     localStorage.getItem('codrag_ui_theme') ?? 'none'
   )
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [settingsOpenToTab, setSettingsOpenToTab] = useState<'project' | 'global' | 'developer' | undefined>(undefined)
+  const [settingsOpenToTab, setSettingsOpenToTab] = useState<'project' | 'global' | 'advanced' | 'developer' | undefined>(undefined)
   const [scrollToDeepAnalysis, setScrollToDeepAnalysis] = useState(false)
   const [bgImage, setBgImage] = useState<string | null>(() =>
     localStorage.getItem('codrag_bg_image') ?? null

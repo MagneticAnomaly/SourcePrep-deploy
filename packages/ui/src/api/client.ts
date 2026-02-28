@@ -158,6 +158,7 @@ export interface ApiClient {
   getSetting(key: string): Promise<{ key: string; value: any }>;
   setSetting(key: string, value: any): Promise<{ key: string; value: any }>;
   deleteSetting(key: string): Promise<{ key: string; deleted: boolean }>;
+  getPipelineConfig(): Promise<any>;
   updatePipelineConfig(config: {
     fast_sync_auto?: boolean;
     deep_enrichment_mode?: string;
@@ -170,9 +171,14 @@ export interface ApiClient {
     budget_max_tokens?: number;
     budget_max_minutes?: number;
     budget_max_items?: number;
+    llm_concurrency?: number;
   }): Promise<any>;
   getProjectSettings(projectId: string): Promise<Record<string, any>>;
   setProjectSetting(projectId: string, key: string, value: any): Promise<{ key: string; value: any }>;
+
+  // Advanced Config
+  getAdvancedConfig(): Promise<import('../types').AdvancedConfig>;
+  updateAdvancedConfig(config: Partial<import('../types').AdvancedConfig>): Promise<import('../types').AdvancedConfig>;
 
   // Scope Orchestrator (Phase 24 SM-8)
   getScopeStatus(projectId: string): Promise<any>;
@@ -797,6 +803,10 @@ export class CodragApiClient implements ApiClient {
     });
   }
 
+  async getPipelineConfig(): Promise<any> {
+    return this.requestEnvelope<any>('/settings/pipeline-config');
+  }
+
   async updatePipelineConfig(config: {
     fast_sync_auto?: boolean;
     deep_enrichment_mode?: string;
@@ -809,6 +819,7 @@ export class CodragApiClient implements ApiClient {
     budget_max_tokens?: number;
     budget_max_minutes?: number;
     budget_max_items?: number;
+    llm_concurrency?: number;
   }): Promise<any> {
     return this.requestEnvelope<any>('/settings/pipeline-config', {
       method: 'POST',
@@ -824,6 +835,19 @@ export class CodragApiClient implements ApiClient {
     return this.requestEnvelope<{ key: string; value: any }>(`/projects/${projectId}/settings/${key}`, {
       method: 'PUT',
       body: { value },
+    });
+  }
+
+  // ── Advanced Config ────────────────────────────────────────────
+
+  async getAdvancedConfig(): Promise<import('../types').AdvancedConfig> {
+    return this.requestEnvelope<import('../types').AdvancedConfig>('/settings/advanced-config');
+  }
+
+  async updateAdvancedConfig(config: Partial<import('../types').AdvancedConfig>): Promise<import('../types').AdvancedConfig> {
+    return this.requestEnvelope<import('../types').AdvancedConfig>('/settings/advanced-config', {
+      method: 'POST',
+      body: config,
     });
   }
 

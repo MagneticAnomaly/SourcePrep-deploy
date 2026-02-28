@@ -191,25 +191,47 @@ export default function Page() {
               </div>
             </div>
             <p className="mt-3 text-sm text-text-muted">
-              Shared configuration, centralized policy, and license management for engineering teams.
+              Build the trace graph once in CI/CD. Your whole team downloads it instantly.
+              Only local changes get re-enriched — no developer runs LLMs.
             </p>
             <ul className="mt-4 space-y-2 text-sm">
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Everything in Pro, plus team management</span>
+                <span><strong>Everything in Pro</strong>, plus team infrastructure</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Centralized configuration & shared context layers</span>
+                <span>Headless CI/CD indexer — runs the 10-stage pipeline on every push to <code className="text-xs bg-surface-raised px-1 py-0.5 rounded">main</code></span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>License management dashboard</span>
+                <span>Shared trace graph via S3-compatible storage (R2, S3, MinIO)</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-success mt-0.5">&#10003;</span>
+                <span>Local delta sync — developers only enrich uncommitted changes</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-success mt-0.5">&#10003;</span>
+                <span>Multi-branch support — separate indexes per branch</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-success mt-0.5">&#10003;</span>
+                <span>Centralized configuration &amp; policy enforcement</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-success mt-0.5">&#10003;</span>
+                <span>License management for your team</span>
               </li>
             </ul>
-            <Button asChild variant="outline" className="mt-4">
-              <a href={getCheckoutUrl(LS_CHECKOUT_URLS.team, country)}>Start Team Trial</a>
-            </Button>
+            <div className="mt-4 flex items-center gap-3">
+              <Button asChild variant="outline">
+                <a href={getCheckoutUrl(LS_CHECKOUT_URLS.team, country)}>Start Team Trial</a>
+              </Button>
+              <a href="https://docs.codrag.io/guides/team-sync" className="text-xs text-primary hover:underline">
+                Setup guide &rarr;
+              </a>
+            </div>
           </div>
 
           <div className="rounded-xl border border-border bg-surface p-6">
@@ -218,28 +240,85 @@ export default function Page() {
               <div className="text-2xl font-bold">Custom</div>
             </div>
             <p className="mt-3 text-sm text-text-muted">
-              For organizations that need air-gapped deployment, SSO/SCIM, audit logging,
-              and procurement-ready terms.
+              Deploy inside your own infrastructure. No code leaves your network.
+              GPU or CPU images run on any container orchestrator.
             </p>
             <ul className="mt-4 space-y-2 text-sm">
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Everything in Team, plus enterprise controls</span>
+                <span><strong>Everything in Team</strong>, plus enterprise controls</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Air-gapped / on-premise deployment</span>
+                <span>Air-gapped deployment — GPU Docker image with baked-in models</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>SSO, SCIM, and audit logging</span>
+                <span>VPC deployment on AWS ECS, Azure, or your own infrastructure</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-success mt-0.5">&#10003;</span>
+                <span>RunPod &amp; Modal adapters for serverless GPU indexing</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-success mt-0.5">&#10003;</span>
+                <span>SSO (SAML/OIDC) and SCIM provisioning</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-success mt-0.5">&#10003;</span>
+                <span>Audit logging and compliance reporting</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-success mt-0.5">&#10003;</span>
+                <span>Offline license activation — no phone-home required</span>
               </li>
             </ul>
-            <Button asChild variant="outline" className="mt-4">
-              <a href="/contact">Contact Sales</a>
-            </Button>
+            <div className="mt-4 flex items-center gap-3">
+              <Button asChild variant="outline">
+                <a href="/contact">Contact Sales</a>
+              </Button>
+              <a href="https://docs.codrag.io/guides/enterprise-deploy" className="text-xs text-primary hover:underline">
+                Deployment guide &rarr;
+              </a>
+            </div>
           </div>
         </div>
+
+        {/* How Team Sync Works */}
+        <div className="mt-16 max-w-3xl mx-auto">
+          <h2 className="text-2xl font-bold text-center">How Team Sync Works</h2>
+          <p className="mt-4 text-text-muted text-center">
+            Your CI/CD builds the enriched trace graph once. Every developer gets it instantly.
+          </p>
+          <div className="mt-8 grid gap-6 sm:grid-cols-3">
+            <div className="text-center">
+              <div className="text-3xl">1</div>
+              <p className="mt-2 font-semibold">Build once</p>
+              <p className="mt-1 text-sm text-text-muted">
+                A CI/CD job runs the headless Docker image after every merge. It produces the full
+                10-stage enriched trace graph — structural, epistemic, clustered.
+              </p>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl">2</div>
+              <p className="mt-2 font-semibold">Store centrally</p>
+              <p className="mt-1 text-sm text-text-muted">
+                Index artifacts are uploaded to your S3-compatible bucket.
+                Cloudflare R2 (zero egress), AWS S3, or MinIO all work.
+              </p>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl">3</div>
+              <p className="mt-2 font-semibold">Sync locally</p>
+              <p className="mt-1 text-sm text-text-muted">
+                Each developer&apos;s CoDRAG downloads the latest index on startup.
+                Only uncommitted changes are re-enriched locally.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <hr className="mt-16 border-border" />
 
         {/* Trust strip */}
         <div className="mt-16 text-center space-y-4">

@@ -45,6 +45,46 @@ VALID_DOC_STATUSES = frozenset({
     "active", "completed", "shelved", "superseded", "draft", "stale",
 })
 
+# Checkpoint interval: save augmentations every N items to avoid losing
+# progress on mid-run crashes (LLM parse errors, OOM, timeouts, etc.).
+_CHECKPOINT_INTERVAL_DEFAULT = 500
+
+
+def _get_checkpoint_interval() -> int:
+    """Read checkpoint_interval from global advanced_config, with fallback."""
+    try:
+        from codrag.services.settings_store import settings
+        adv = settings.get("advanced_config")
+        if adv and isinstance(adv, dict):
+            return int(adv.get("checkpoint_interval", _CHECKPOINT_INTERVAL_DEFAULT))
+    except Exception:
+        pass
+    return _CHECKPOINT_INTERVAL_DEFAULT
+
+
+def _parse_confidence(raw: Any, default: float = 0.5) -> float:
+    """Safely parse a confidence value from LLM output.
+
+    Handles common LLM quirks like returning ``": 0.85"`` or ``"~0.9"``
+    instead of a bare number.
+    """
+    if isinstance(raw, (int, float)):
+        return max(0.0, min(1.0, float(raw)))
+    if not isinstance(raw, str):
+        return default
+    # Strip leading non-numeric characters (colon, tilde, spaces, etc.)
+    s = raw.strip()
+    # Remove common prefixes: ": ", "~ ", "≈ ", etc.
+    while s and s[0] not in '0123456789.-':
+        s = s[1:]
+    s = s.strip()
+    if not s:
+        return default
+    try:
+        return max(0.0, min(1.0, float(s)))
+    except (ValueError, TypeError):
+        return default
+
 
 @dataclass
 class AugmentationEntry:
@@ -95,7 +135,7 @@ class AugmentationEntry:
             node_id=d["node_id"],
             summary=d.get("summary", ""),
             role=d.get("role", "internal"),
-            confidence=float(d.get("confidence", 0.0)),
+            confidence=_parse_confidence(d.get("confidence"), 0.0),
             augmented_at=d.get("augmented_at", ""),
             model=d.get("model", "unknown"),
             version=int(d.get("version", 1)),
@@ -112,28 +152,22 @@ class AugmentationEntry:
 def _get_llm_concurrency() -> int:
     """Read llm_concurrency from pipeline config. Default 1 (sequential).
 
-    Only applies to Pass 1 file augmentation. Epistemic enrichment (Pass 2)
-    and cluster synthesis stay sequential — they depend on prior results.
+    Used by all LLM pipeline stages:
+      - Inferred edges (Stage 2): all files are independent
+      - Catalogue symbols + files (Stage 3): all items are independent
+      - Epistemic enrichment (Stage 6): within each dependency tier
+      - Cluster synthesis (Stage 7): all clusters are independent
 
-    Discrete GPU (Ollama + CUDA/ROCm):
+    Each concurrent request needs its own KV cache in VRAM/RAM:
+      Total memory = model_weights + (concurrency × kv_cache_size)
+
+    Guidelines by hardware:
       - 1: Safe default. Works on any hardware.
-      - 2: GPUs with ≥8GB VRAM running 3b/7b models.
-      - 3-4: GPUs with ≥12GB VRAM (e.g., RTX 3060 12GB, RTX 4070).
-      - 4-6: GPUs with ≥24GB VRAM (e.g., RTX 3090, RTX 4090).
-      - 8: Multi-GPU or cloud instances with ≥48GB total VRAM.
+      - 2: 16 GB+ VRAM/RAM (M1 Pro, RTX 4060)
+      - 3-4: 32 GB+ (RTX 5090, M1 Max, Mac Studio)
+      - 6-8: 64 GB+ (Mac Studio 96-128 GB, multi-GPU)
 
-    Apple Silicon (Ollama + Metal, unified memory):
-      - 1: M1/M2 8GB — tight with a loaded 7b model.
-      - 2: M1/M2 16GB, M3/M4 8GB+.
-      - 3: M1 Pro/Max/M2 Pro/Max (16-32GB).
-      - 4: M2 Ultra / M3 Max / M4 Max (48-96GB).
-      - 6: M2 Ultra / M3 Ultra (96-192GB).
-
-    Intel Mac:
-      - 1: Always. No Metal acceleration; CPU-only LLM inference is slow.
-
-    Ollama queues concurrent requests internally. Higher concurrency
-    saturates the GPU better but risks OOM if memory is tight.
+    Set OLLAMA_NUM_PARALLEL in Ollama to match or exceed this value.
     """
     try:
         from codrag.services.settings_store import settings
@@ -894,7 +928,7 @@ class TraceAugmenter:
             return self._synthetic_entry(node, file_hashes, reason="llm_failure")
 
         parsed = _parse_json_response(text)
-        if not parsed:
+        if parsed is None:
             logger.warning("Failed to parse LLM response for %s — raw: %.200s", node.get("name"), text)
             return self._synthetic_entry(node, file_hashes, reason="parse_failure")
 
@@ -902,8 +936,7 @@ class TraceAugmenter:
         if role not in VALID_ROLES:
             role = "internal"
 
-        confidence = float(parsed.get("confidence", 0.5))
-        confidence = max(0.0, min(1.0, confidence))
+        confidence = _parse_confidence(parsed.get("confidence"), 0.5)
 
         summary = str(parsed.get("summary", "")).strip()[:500]
         if not summary:
@@ -1057,7 +1090,7 @@ class TraceAugmenter:
             return self._synthetic_entry(node, file_hashes, reason="llm_failure")
 
         parsed = _parse_json_response(text)
-        if not parsed:
+        if parsed is None:
             logger.warning("Failed to parse LLM response for file %s — raw: %.200s", file_path, text)
             return self._synthetic_entry(node, file_hashes, reason="parse_failure")
 
@@ -1065,8 +1098,7 @@ class TraceAugmenter:
         if role not in VALID_ROLES:
             role = "utility"
 
-        confidence = float(parsed.get("confidence", 0.5))
-        confidence = max(0.0, min(1.0, confidence))
+        confidence = _parse_confidence(parsed.get("confidence"), 0.5)
 
         related = parsed.get("related_files")
         if isinstance(related, list):
@@ -1140,7 +1172,7 @@ class TraceAugmenter:
             return self._synthetic_entry(node, file_hashes, reason="llm_failure")
 
         parsed = _parse_json_response(text)
-        if not parsed:
+        if parsed is None:
             logger.warning("Failed to parse LLM response for doc %s — raw: %.200s", file_path, text)
             return self._synthetic_entry(node, file_hashes, reason="parse_failure")
 
@@ -1148,8 +1180,7 @@ class TraceAugmenter:
         if role not in VALID_ROLES:
             role = "documentation"
 
-        confidence = float(parsed.get("confidence", 0.5))
-        confidence = max(0.0, min(1.0, confidence))
+        confidence = _parse_confidence(parsed.get("confidence"), 0.5)
 
         doc_type = parsed.get("doc_type")
         if doc_type not in VALID_DOC_TYPES:
@@ -1277,12 +1308,11 @@ class TraceAugmenter:
                         node_id=nid,
                         summary=str(parsed.get("summary", ""))[:500],
                         role=parsed.get("role", self._infer_role_from_path(fp)),
-                        confidence=min(1.0, max(0.0, float(parsed.get("confidence", 0.7)))),
+                        confidence=_parse_confidence(parsed.get("confidence"), 0.7),
                         augmented_at=datetime.now(timezone.utc).isoformat(),
                         model=self.llm.model,
                         file_hash=file_hashes.get(fp),
                         related_files=parsed.get("related_files", [])[:5],
-                        key_exports=parsed.get("key_exports", [])[:10],
                     )
                     augmented[nid] = entry
                     result.augmented += 1
@@ -1366,7 +1396,7 @@ class TraceAugmenter:
                         node_id=nid,
                         summary=str(parsed.get("summary", ""))[:500],
                         role="documentation",
-                        confidence=min(1.0, max(0.0, float(parsed.get("confidence", 0.7)))),
+                        confidence=_parse_confidence(parsed.get("confidence"), 0.7),
                         augmented_at=datetime.now(timezone.utc).isoformat(),
                         model=self.llm.model,
                         file_hash=file_hashes.get(fp),
@@ -1458,44 +1488,89 @@ class TraceAugmenter:
                 f"is not responding. Check that the model is pulled and Ollama is running. Error: {e}"
             ) from e
 
+        # Read checkpoint interval from global settings (once per run)
+        checkpoint_interval = _get_checkpoint_interval()
+
         # Start with existing entries (will be updated/overwritten)
         augmented = dict(existing)
         done = 0
         pass_start = time.monotonic()
 
         # Pass 1: Symbol augmentation
+        concurrency = _get_llm_concurrency()
         if to_augment_symbols:
-            logger.info("Pass 1: augmenting %d symbols...", len(to_augment_symbols))
-        for node in to_augment_symbols:
-            if progress_callback:
-                progress_callback("augment_symbols", done, total_work)
+            logger.info("Pass 1: augmenting %d symbols (concurrency=%d)...", len(to_augment_symbols), concurrency)
 
-            item_start = time.monotonic()
-            entry = self.augment_symbol(node, edges, nodes_by_id, file_hashes)
-            item_elapsed = time.monotonic() - item_start
-            if entry:
-                augmented[entry.node_id] = entry
-                if entry.model.startswith("synthetic:"):
-                    result.synthetic += 1
+        if concurrency <= 1 or not to_augment_symbols:
+            # Sequential symbol augmentation
+            for node in to_augment_symbols:
+                if progress_callback:
+                    progress_callback("augment_symbols", done, total_work)
+
+                item_start = time.monotonic()
+                entry = self.augment_symbol(node, edges, nodes_by_id, file_hashes)
+                item_elapsed = time.monotonic() - item_start
+                if entry:
+                    augmented[entry.node_id] = entry
+                    if entry.model.startswith("synthetic:"):
+                        result.synthetic += 1
+                    else:
+                        result.augmented += 1
                 else:
-                    result.augmented += 1
-            else:
-                result.failed += 1
-            done += 1
+                    result.failed += 1
+                done += 1
 
-            if done == 1:
-                logger.info(
-                    "First LLM call %s (%.1fs) — node: %s",
-                    "succeeded" if entry else "FAILED", item_elapsed, node.get("id", "?"),
-                )
-            elif done % 25 == 0:
-                elapsed = time.monotonic() - pass_start
-                avg = elapsed / done if done else 0
-                eta = avg * (total_work - done)
-                logger.info(
-                    "Augmentation progress: %d/%d (%.0f%%) — avg %.1fs/item, ETA %.0fs",
-                    done, total_work, done / total_work * 100, avg, eta,
-                )
+                if done == 1:
+                    logger.info(
+                        "First LLM call %s (%.1fs) — node: %s",
+                        "succeeded" if entry else "FAILED", item_elapsed, node.get("id", "?"),
+                    )
+                elif done % 25 == 0:
+                    elapsed = time.monotonic() - pass_start
+                    avg = elapsed / done if done else 0
+                    eta = avg * (total_work - done)
+                    logger.info(
+                        "Augmentation progress: %d/%d (%.0f%%) — avg %.1fs/item, ETA %.0fs",
+                        done, total_work, done / total_work * 100, avg, eta,
+                    )
+
+                # Periodic checkpoint to avoid losing progress on crash
+                if done % checkpoint_interval == 0:
+                    self._write_augmentations(augmented)
+                    logger.info("Checkpoint saved at %d/%d items", done, total_work)
+        else:
+            # Concurrent symbol augmentation via thread pool
+            lock = threading.Lock()
+            with ThreadPoolExecutor(max_workers=concurrency) as pool:
+                futures = {
+                    pool.submit(self.augment_symbol, node, edges, nodes_by_id, file_hashes): node
+                    for node in to_augment_symbols
+                }
+                for future in as_completed(futures):
+                    entry = future.result()
+                    with lock:
+                        if entry:
+                            augmented[entry.node_id] = entry
+                            if entry.model.startswith("synthetic:"):
+                                result.synthetic += 1
+                            else:
+                                result.augmented += 1
+                        else:
+                            result.failed += 1
+                        done += 1
+                        if progress_callback:
+                            progress_callback("augment_symbols", done, total_work)
+                        if done % checkpoint_interval == 0:
+                            self._write_augmentations(augmented)
+                            logger.info("Checkpoint saved at %d/%d items", done, total_work)
+                        if done % 25 == 0:
+                            elapsed = time.monotonic() - pass_start
+                            avg = elapsed / done if done else 0
+                            eta = avg * (total_work - done)
+                            logger.info(
+                                "Augmentation progress: %d/%d (%.0f%%) — avg %.1fs/item, ETA %.0fs",
+                                done, total_work, done / total_work * 100, avg, eta,
+                            )
 
         # Pass 2: File augmentation
         # Use batched path for BYOK models with batch_size > 1
@@ -1543,6 +1618,11 @@ class TraceAugmenter:
                             "Augmentation progress: %d/%d (%.0f%%) — avg %.1fs/item, ETA %.0fs",
                             done, total_work, done / total_work * 100, avg, eta,
                         )
+
+                    # Periodic checkpoint to avoid losing progress on crash
+                    if done % checkpoint_interval == 0:
+                        self._write_augmentations(augmented)
+                        logger.info("Checkpoint saved at %d/%d items", done, total_work)
             else:
                 # Concurrent LLM calls via thread pool
                 lock = threading.Lock()
@@ -1565,6 +1645,10 @@ class TraceAugmenter:
                             done += 1
                             if progress_callback:
                                 progress_callback("augment_files", done, total_work)
+                            # Periodic checkpoint to avoid losing progress on crash
+                            if done % checkpoint_interval == 0:
+                                self._write_augmentations(augmented)
+                                logger.info("Checkpoint saved at %d/%d items", done, total_work)
                             if done % 25 == 0:
                                 elapsed = time.monotonic() - pass_start
                                 avg = elapsed / done if done else 0

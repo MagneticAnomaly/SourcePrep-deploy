@@ -21,15 +21,36 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-# Index artifacts that get zipped and uploaded
+# Index artifacts that get zipped and uploaded.
+# Must stay in sync with _PRESERVE_FILES in codrag.core.index.
 INDEX_ARTIFACTS = [
+    # Code index (semantic search)
     "documents.json",
     "embeddings.npy",
+    # Trace graph (structural)
     "trace_manifest.json",
+    "trace_nodes.jsonl",
+    "trace_edges.jsonl",
+    # Fast Catalogue (augmentation)
+    "trace_augmented.jsonl",
+    "trace_augment_manifest.json",
+    # Relationship Validation
+    "trace_inferred_edges.jsonl",
+    # Epistemic Enrichment
+    "trace_epistemic.jsonl",
+    "trace_epistemic_manifest.json",
+    # Cluster Synthesis
+    "trace_modules.jsonl",
+    # Codebase Atlas
+    "atlas.json",
+    "atlas_segments_manifest.json",
+    # Atlas Routing
     "atlas_routing.json",
     "atlas_routing_embeddings.npy",
+    # Knowledge Embedding
     "knowledge_documents.json",
     "knowledge_embeddings.npy",
+    "knowledge_manifest.json",
 ]
 
 

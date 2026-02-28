@@ -73,6 +73,7 @@ class BuildManager:
         self.project_indexes: Dict[str, CodeIndex] = {}
         self.project_trace_indexes: Dict[str, TraceIndex] = {}
         self.project_knowledge_indexes: Dict[str, KnowledgeIndex] = {}
+        self._layered_indexes: Dict[str, Any] = {}  # Dict[str, LayeredCodeIndex]
 
         # ── Index build threading ────────────────────────────────
         self.build_lock = threading.Lock()
@@ -84,9 +85,21 @@ class BuildManager:
         self.trace_build_lock = threading.Lock()
         self.trace_build_threads: Dict[str, threading.Thread] = {}
 
-        # ── Knowledge build threading ────────────────────────────
+        # ── Knowledge build threading ────────────────────────────────
         self.knowledge_build_lock = threading.Lock()
         self.knowledge_build_threads: Dict[str, threading.Thread] = {}
+
+        # ── Embedding serialization (DEPRECATED) ──────────────────────
+        # Previously, all embedding operations acquired this lock so they
+        # ran sequentially.  This caused a convoy effect: the CodeIndex
+        # build held the lock for hours (file walking + chunking +
+        # embedding), blocking the pipeline's knowledge stage and vice
+        # versa.  The actual embedder implementations (NativeEmbedder/
+        # ONNX, OllamaEmbedder/HTTP) are thread-safe, and CodeIndex vs
+        # KnowledgeIndex write to different files, so concurrent builds
+        # are safe.  The lock is retained for backward compatibility but
+        # is no longer acquired by any worker.
+        self.embedding_lock = threading.Lock()
 
         # ── Legacy singleton build threading ─────────────────────
         self._legacy_build_lock = threading.Lock()
@@ -121,6 +134,65 @@ class BuildManager:
             idx = CodeIndex(index_dir=idx_dir, embedder=embedder)
             self.project_indexes[project.id] = idx
         return idx
+
+    def get_project_layered_index(self, project: Project):
+        """Return a LayeredCodeIndex if a remote team-sync index exists.
+
+        If no remote index is present, returns the plain CodeIndex.
+        The LayeredCodeIndex merges the remote (shared) index with
+        any local delta index, using tombstone masking so local edits
+        take priority over the shared team graph.
+
+        Cached per project to avoid re-creating on every request.
+        Call invalidate_layered_cache(project_id) after builds or syncs.
+        """
+        idx_dir = Path(project_index_dir(project))
+        remote_dir = idx_dir / "remote"
+        remote_docs = remote_dir / "documents.json"
+
+        if not remote_docs.exists():
+            # No remote index — clear cache and return plain CodeIndex
+            self._layered_indexes.pop(project.id, None)
+            return self.get_project_index(project)
+
+        # Return cached instance if available
+        cached = self._layered_indexes.get(project.id)
+        if cached is not None:
+            return cached
+
+        from codrag.core.layered_index import LayeredCodeIndex
+
+        embedding_source = (project.config or {}).get("embedding_source")
+        embedder = self.create_embedder(embedding_source)
+
+        # Delta dir stores re-enriched chunks for locally modified files
+        delta_dir = idx_dir / "local_deltas"
+
+        remote_idx = CodeIndex(index_dir=remote_dir, embedder=embedder)
+
+        delta_idx = None
+        delta_docs_path = delta_dir / "documents.json"
+        if delta_docs_path.exists():
+            delta_idx = CodeIndex(index_dir=delta_dir, embedder=embedder)
+
+        # Remote is primary (the shared team graph), delta overrides it
+        layered = LayeredCodeIndex(remote_index=remote_idx, delta_index=delta_idx)
+        self._layered_indexes[project.id] = layered
+        logger.info(
+            "Using layered index for project %s (remote=%s, delta=%s)",
+            project.name, remote_dir, "yes" if delta_idx else "no",
+        )
+        return layered
+
+    def invalidate_layered_cache(self, project_id: str) -> None:
+        """Clear the cached LayeredCodeIndex for a project.
+
+        Call after:
+        - A new remote index is downloaded (sync)
+        - Local deltas are written or pruned
+        - A full rebuild is triggered
+        """
+        self._layered_indexes.pop(project_id, None)
 
     def get_project_trace_index(self, project: Project) -> TraceIndex:
         idx = self.project_trace_indexes.get(project.id)
@@ -173,16 +245,6 @@ class BuildManager:
             if self.is_project_building(project.id):
                 return False
 
-            # Block code-index rebuild while the pipeline orchestrator is
-            # actively running stages — the atomic directory swap would race
-            # with pipeline file writes and could snapshot stale data.
-            if self._is_pipeline_active(project.id):
-                logger.warning(
-                    "Skipping code-index build for %s — pipeline is active",
-                    project.id,
-                )
-                return False
-
             t = threading.Thread(
                 target=self._project_build_worker,
                 args=(project, roots, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes, use_gitignore, included_paths),
@@ -205,6 +267,7 @@ class BuildManager:
     ) -> None:
         pm = get_progress_manager()
         task_id = pm.start_task("index_build", project.id)
+
         try:
             idx = self.get_project_index(project)
 
@@ -229,6 +292,7 @@ class BuildManager:
             
             # Invalidate index cache so next read loads the new data
             self.project_indexes.pop(project.id, None)
+            self.invalidate_layered_cache(project.id)
             
             # Invalidate mtime-based stale cache so status shows fresh
             from codrag.services.project_helpers import invalidate_stale_cache
@@ -237,6 +301,103 @@ class BuildManager:
             pm.finish_task(task_id, success=True, message="Build complete")
         except Exception as e:
             logger.exception("Build failed")
+            self.last_build_error[project.id] = str(e)
+            pm.finish_task(task_id, success=False, message=str(e))
+        finally:
+            with self.build_lock:
+                cur = threading.current_thread()
+                if self.build_threads.get(project.id) is cur:
+                    self.build_threads.pop(project.id, None)
+
+    # ═════════════════════════════════════════════════════════════
+    # Delta build (for team sync — writes only changed files to local_deltas/)
+    # ═════════════════════════════════════════════════════════════
+
+    def has_remote_index(self, project: Project) -> bool:
+        """Check if a remote team-sync index exists for this project."""
+        idx_dir = Path(project_index_dir(project))
+        return (idx_dir / "remote" / "documents.json").exists()
+
+    def start_project_delta_build(
+        self,
+        project: Project,
+        changed_paths: List[str],
+        include_globs: Optional[List[str]],
+        exclude_globs: Optional[List[str]],
+        max_file_bytes: int = 500_000,
+        hard_limit_bytes: int = 100_000_000,
+    ) -> bool:
+        """Build only the changed files into local_deltas/ (for team sync).
+
+        When a remote index exists, the watcher should call this instead
+        of start_project_build. The main index is the remote (shared) one;
+        local edits go into a separate delta directory.
+        """
+        with self.build_lock:
+            if self.is_project_building(project.id):
+                return False
+
+            t = threading.Thread(
+                target=self._project_delta_build_worker,
+                args=(project, changed_paths, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes),
+                daemon=True,
+            )
+            self.build_threads[project.id] = t
+            t.start()
+            return True
+
+    def _project_delta_build_worker(
+        self,
+        project: Project,
+        changed_paths: List[str],
+        include_globs: Optional[List[str]],
+        exclude_globs: Optional[List[str]],
+        max_file_bytes: int,
+        hard_limit_bytes: int,
+    ) -> None:
+        """Build worker that writes only changed files to local_deltas/."""
+        pm = get_progress_manager()
+        task_id = pm.start_task("delta_build", project.id)
+
+        try:
+            idx_dir = Path(project_index_dir(project))
+            delta_dir = idx_dir / "local_deltas"
+            delta_dir.mkdir(parents=True, exist_ok=True)
+
+            embedder = self.create_embedder(
+                (project.config or {}).get("embedding_source")
+            )
+            delta_idx = CodeIndex(index_dir=delta_dir, embedder=embedder)
+
+            def _progress_cb(file_path: str, current: int, total: int):
+                msg = f"Delta indexing {file_path}"
+                pm.update(task_id, msg, current, total)
+
+            # Build the delta index with only the changed file paths as roots
+            # This re-indexes only the files that changed locally
+            delta_idx.build(
+                repo_root=Path(project.path),
+                roots=changed_paths,
+                include_globs=include_globs,
+                exclude_globs=exclude_globs,
+                max_file_bytes=max_file_bytes,
+                hard_limit_bytes=hard_limit_bytes,
+                progress_callback=_progress_cb,
+            )
+
+            # Invalidate layered cache so next search picks up new deltas
+            self.invalidate_layered_cache(project.id)
+
+            from codrag.services.project_helpers import invalidate_stale_cache
+            invalidate_stale_cache(project.id)
+
+            logger.info(
+                "Delta build complete for %s (%d changed paths)",
+                project.id, len(changed_paths),
+            )
+            pm.finish_task(task_id, success=True, message="Delta build complete")
+        except Exception as e:
+            logger.exception("Delta build failed for %s", project.id)
             self.last_build_error[project.id] = str(e)
             pm.finish_task(task_id, success=False, message=str(e))
         finally:
@@ -359,13 +520,6 @@ class BuildManager:
     def start_project_knowledge_build(self, project: Project) -> bool:
         with self.knowledge_build_lock:
             if self.is_project_knowledge_building(project.id):
-                return False
-
-            if self._is_pipeline_active(project.id):
-                logger.warning(
-                    "Skipping knowledge build for %s — pipeline is active",
-                    project.id,
-                )
                 return False
 
             t = threading.Thread(
