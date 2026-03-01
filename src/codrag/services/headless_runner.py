@@ -353,16 +353,17 @@ class HeadlessWorkerFactory:
 # ── Stage definitions for the sequential runner ───────────────
 
 HEADLESS_STAGES = [
-    ("structural",      "Stage 1/10: Structural (AST parse)"),
-    ("inferred_edges",  "Stage 2/10: Inferred Edges (LLM)"),
-    ("catalogue",       "Stage 3/10: Catalogue (LLM)"),
-    ("validation",      "Stage 4/10: Validation"),
-    ("knowledge",       "Stage 5/10: Knowledge Embedding"),
-    ("enrichment",      "Stage 6/10: Epistemic Enrichment (deep LLM)"),
-    ("clustering",      "Stage 7/10: Clustering (deep LLM)"),
-    ("atlas",           "Stage 8/10: Atlas Generation"),
-    ("deepening",       "Stage 9/10: Deepening Loop"),
-    ("deep_knowledge",  "Stage 10/10: Deep Knowledge Embedding"),
+    ("structural",       "Stage 1/11: Structural (AST parse)"),
+    ("inferred_edges",   "Stage 2/11: Inferred Edges (LLM)"),
+    ("catalogue",        "Stage 3/11: Catalogue (LLM)"),
+    ("validation",       "Stage 4/11: Validation"),
+    ("knowledge",        "Stage 5/11: Knowledge Embedding"),
+    ("enrichment",       "Stage 6/11: Epistemic Enrichment (deep LLM)"),
+    ("group_reasoning",  "Stage 7/11: Group Reasoning (deep LLM, think)"),
+    ("clustering",       "Stage 8/11: Clustering (deep LLM)"),
+    ("atlas",            "Stage 9/11: Atlas Generation"),
+    ("deepening",        "Stage 10/11: Deepening Loop"),
+    ("deep_knowledge",   "Stage 11/11: Deep Knowledge Embedding"),
 ]
 
 
