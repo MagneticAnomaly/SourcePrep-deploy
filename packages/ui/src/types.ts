@@ -500,7 +500,7 @@ export interface LLMStatus {
 /**
  * Provider types for LLM endpoints
  */
-export type LLMProvider = 'ollama' | 'openai' | 'openai-compatible' | 'anthropic';
+export type LLMProvider = 'ollama' | 'openai' | 'openai-compatible' | 'lm-studio' | 'anthropic';
 
 /**
  * Model source for embedding

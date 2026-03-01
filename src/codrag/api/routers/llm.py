@@ -293,9 +293,9 @@ def get_llm_slots_status() -> Dict[str, Any]:
                         for m in tags if isinstance(m, dict)
                     )
             else:
-                r = requests.get(f"{url}/models", timeout=3, headers={
-                    "Authorization": f"Bearer {ep.get('api_key', '')}",
-                })
+                headers = {"Authorization": f"Bearer {ep.get('api_key', '')}"}
+                target = f"{url}/models" if "v1" in url else f"{url}/v1/models"
+                r = requests.get(target, timeout=3, headers=headers)
                 reachable = r.status_code in (200, 401)
                 model_found = r.status_code == 200
         except Exception as e:
@@ -426,7 +426,7 @@ def proxy_models(req: LLMProxyRequest) -> Dict[str, Any]:
                     if isinstance(m, dict) and "name" in m:
                         models.append(m["name"])
         
-        elif req.provider in ("openai", "openai-compatible", "anthropic"):
+        elif req.provider in ("openai", "openai-compatible", "lm-studio", "anthropic"):
             headers = {}
             if req.api_key:
                 headers["Authorization"] = f"Bearer {req.api_key}"
@@ -633,7 +633,7 @@ def proxy_test_model(req: LLMModelTestRequest) -> Dict[str, Any]:
                     message = f"Model '{req.model}' timed out (may still be loading)"
                     model_status_str = ModelStatus.LOADING.value
                 
-        elif req.provider in ("openai", "openai-compatible"):
+        elif req.provider in ("openai", "openai-compatible", "lm-studio"):
             headers = {}
             if req.api_key:
                 headers["Authorization"] = f"Bearer {req.api_key}"

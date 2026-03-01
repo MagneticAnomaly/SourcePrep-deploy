@@ -122,6 +122,8 @@ function App() {
   const watchHookPlaceholder = useRef<ReturnType<typeof useWatchSystem> | null>(null)
   // Ref-forward fetchFileTree (defined later in useFileSystem) into useProjectManager
   const fetchFileTreeRef = useRef<((projectId: string) => Promise<void>) | undefined>(undefined)
+  // Ref-forward includedPaths (defined later in useFileSystem) into useProjectManager
+  const includedPathsRef = useRef<Set<string>>(new Set())
 
   // ── Project manager (hook — SM-1 Phase C1) ─────────────────
   // Owns: projects, selectedProjectId, projectStatuses, buildingProjects,
@@ -131,7 +133,9 @@ function App() {
     handleStartWatch: async () => { await watchHookPlaceholder.current?.handleStartWatch?.() },
     refreshWatchStatus: async (pid) => { await watchHookPlaceholder.current?.refreshWatchStatus?.(pid) },
     fetchFileTree: async (pid) => { await fetchFileTreeRef.current?.(pid) },
+    includedPaths: includedPathsRef.current,
   })
+  // (includedPathsRef.current is updated below after useFileSystem runs)
   const {
     selectedProjectId, selectedProject, projectStatus, projectSummaries,
     projectConfig, configDirty, transientCompleteProjects,
@@ -164,6 +168,7 @@ function App() {
     handleToggleInclude, clearIncludedPaths,
     handlePinFile, handleUnpinFile, handleLoadFileContent,
   } = useFileSystem(selectedProjectId, { layoutApiRef })
+  includedPathsRef.current = includedPaths
 
   // ── Watch (hook) ─────────────────────────────────────────────
   const {
@@ -207,6 +212,7 @@ function App() {
     inferredEdgesStatus, inferredEdgesRunning,
     augmentationStatus, augmenting, validating,
     epistemicStatus, epistemicRunning,
+    groupReasoningRunning,
     moduleStatus, clusterRunning,
     atlasRunning,
     deepeningStatus, deepeningRunning,
@@ -219,6 +225,7 @@ function App() {
   } = useEnrichment(selectedProjectId, {
     onError: (msg) => setError(msg),
     pipelineEvents,
+    onDeepCompleted: () => void fetchAtlas(),
   })
 
   // ── Atlas (Phase 29) ─────────────────────────────────────────
@@ -430,6 +437,7 @@ function App() {
       inferredEdgesStatus, inferredEdgesRunning,
       augmentationStatus, augmenting, validating, handleRunAugmentation,
       epistemicStatus, epistemicRunning, handleRunEpistemic,
+      groupReasoningRunning,
       moduleStatus, clusterRunning, handleRunModuleSynthesis,
       atlasRunning,
       deepeningStatus, deepeningRunning, handleRunDeepening,

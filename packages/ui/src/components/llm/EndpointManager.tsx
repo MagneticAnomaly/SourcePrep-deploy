@@ -3,6 +3,7 @@ import { cn } from '../../lib/utils';
 import type { SavedEndpoint, LLMProvider, EndpointTestResult } from '../../types';
 import { Plus, Trash2, Edit2, Play, CheckCircle, AlertCircle, Server } from 'lucide-react';
 import { Button } from '../primitives/Button';
+import { Select } from '../primitives/Select';
 import { InfoTooltip } from '../primitives/InfoTooltip';
 
 export interface EndpointManagerProps {
@@ -14,9 +15,10 @@ export interface EndpointManagerProps {
   className?: string;
 }
 
-const PROVIDER_OPTIONS: { value: LLMProvider; label: string }[] = [
-  { value: 'ollama', label: 'Ollama' },
-  { value: 'openai', label: 'OpenAI' },
+const PROVIDER_OPTIONS: { value: LLMProvider; label: string; hint?: string }[] = [
+  { value: 'ollama', label: 'Ollama', hint: 'http://localhost:11434' },
+  { value: 'lm-studio', label: 'LM Studio', hint: 'http://localhost:1234' },
+  { value: 'openai', label: 'OpenAI', hint: 'https://api.openai.com/v1' },
   { value: 'openai-compatible', label: 'OpenAI Compatible' },
   { value: 'anthropic', label: 'Anthropic (Claude)' },
 ];
@@ -98,6 +100,9 @@ export function EndpointManager({
   const providerNeedsApiKey = (provider: LLMProvider) =>
     provider === 'openai' || provider === 'anthropic' || provider === 'openai-compatible';
 
+  const providerDefaultUrl = (provider: LLMProvider) =>
+    PROVIDER_OPTIONS.find((o) => o.value === provider)?.hint ?? '';
+
   return (
     <div className={cn('codrag-card rounded-lg border border-border bg-surface p-6', className)}>
       <div className="flex items-center justify-between mb-6">
@@ -146,23 +151,18 @@ export function EndpointManager({
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-text-muted mb-1">Provider</label>
-                      <select
+                      <Select
                         value={formProvider}
                         onChange={(e) => setFormProvider(e.target.value as LLMProvider)}
-                        className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
-                      >
-                        {PROVIDER_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
+                        options={PROVIDER_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                        className="w-full"
+                      />
                     </div>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-text-muted mb-1">Endpoint URL</label>
                     <input
-                      placeholder="Endpoint URL"
+                      placeholder={providerDefaultUrl(formProvider) || 'Endpoint URL'}
                       value={formUrl}
                       onChange={(e) => setFormUrl(e.target.value)}
                       className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
@@ -275,23 +275,18 @@ export function EndpointManager({
             </div>
             <div>
               <label className="block text-xs font-medium text-text-muted mb-1">Provider</label>
-              <select
+              <Select
                 value={formProvider}
                 onChange={(e) => setFormProvider(e.target.value as LLMProvider)}
-                className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                {PROVIDER_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                options={PROVIDER_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                className="w-full"
+              />
             </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-text-muted mb-1">Endpoint URL</label>
             <input
-              placeholder="e.g., http://localhost:11434"
+              placeholder={providerDefaultUrl(formProvider) || 'e.g., http://localhost:11434'}
               value={formUrl}
               onChange={(e) => setFormUrl(e.target.value)}
               className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"

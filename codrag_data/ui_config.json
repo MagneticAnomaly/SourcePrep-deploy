@@ -139,9 +139,9 @@
       },
       {
         "name": "Local LM Studio",
-        "provider": "openai-compatible",
+        "provider": "lm-studio",
         "url": "http://192.168.86.22:1234",
-        "id": "ep_1772299420054_1d6e3766a4bd28"
+        "id": "ep_1772383175014_efdea339349a78"
       }
     ],
     "embedding": {
@@ -153,13 +153,13 @@
     },
     "small_model": {
       "enabled": true,
-      "endpoint_id": "default_ollama",
-      "model": "qwen3:1.7b"
+      "endpoint_id": "ep_1772383175014_efdea339349a78",
+      "model": "qwen3-4b-instruct-2507-mlx"
     },
     "large_model": {
       "enabled": true,
-      "endpoint_id": "default_ollama",
-      "model": "qwen3.5:27b"
+      "endpoint_id": "ep_1772383175014_efdea339349a78",
+      "model": "qwen/qwen3-14b"
     },
     "code_model": {
       "enabled": true,
@@ -268,7 +268,7 @@
       {
         "id": "trace-pipeline",
         "visible": true,
-        "height": 16,
+        "height": 18,
         "collapsed": false,
         "x": 4,
         "y": 2,
@@ -281,15 +281,6 @@
         "collapsed": false,
         "x": 0,
         "y": 13,
-        "w": 4
-      },
-      {
-        "id": "atlas",
-        "visible": true,
-        "height": 11,
-        "collapsed": true,
-        "x": 4,
-        "y": 18,
         "w": 4
       },
       {
@@ -311,12 +302,21 @@
         "w": 4
       },
       {
-        "id": "log-console",
+        "id": "atlas",
         "visible": true,
         "height": 11,
         "collapsed": false,
         "x": 4,
         "y": 20,
+        "w": 4
+      },
+      {
+        "id": "log-console",
+        "visible": true,
+        "height": 11,
+        "collapsed": false,
+        "x": 4,
+        "y": 31,
         "w": 8
       },
       {
@@ -325,24 +325,6 @@
         "height": 7,
         "collapsed": true,
         "x": 0,
-        "y": 31,
-        "w": 4
-      },
-      {
-        "id": "token-budget",
-        "visible": true,
-        "height": 6,
-        "collapsed": true,
-        "x": 4,
-        "y": 31,
-        "w": 4
-      },
-      {
-        "id": "deep-analysis",
-        "visible": true,
-        "height": 12,
-        "collapsed": true,
-        "x": 8,
         "y": 31,
         "w": 4
       },
@@ -356,12 +338,21 @@
         "w": 4
       },
       {
-        "id": "results",
+        "id": "token-budget",
         "visible": true,
-        "height": 9,
+        "height": 6,
+        "collapsed": true,
+        "x": 4,
+        "y": 42,
+        "w": 4
+      },
+      {
+        "id": "deep-analysis",
+        "visible": true,
+        "height": 12,
         "collapsed": true,
         "x": 8,
-        "y": 33,
+        "y": 42,
         "w": 4
       },
       {
@@ -370,7 +361,16 @@
         "height": 8,
         "collapsed": true,
         "x": 4,
-        "y": 33,
+        "y": 44,
+        "w": 4
+      },
+      {
+        "id": "results",
+        "visible": true,
+        "height": 9,
+        "collapsed": true,
+        "x": 8,
+        "y": 44,
         "w": 4
       },
       {
@@ -379,7 +379,7 @@
         "height": 8,
         "collapsed": false,
         "x": 0,
-        "y": 35,
+        "y": 46,
         "w": 12
       },
       {

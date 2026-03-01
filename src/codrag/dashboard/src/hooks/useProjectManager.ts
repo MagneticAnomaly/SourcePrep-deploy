@@ -208,10 +208,15 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
 
   const handleBuild = useCallback(async () => {
     if (!selectedProjectId) return
+    const paths = [...(includedPathsRef.current ?? [])]
+    // Never index the whole codebase as a default — require explicit scope selection
+    if (paths.length === 0) {
+      onErrorRef.current('No files selected. Use the Knowledge Sources panel to select files before building.')
+      return
+    }
     try {
       setBuildingProjects((prev) => new Set(prev).add(selectedProjectId))
-      const paths = [...(includedPathsRef.current ?? [])]
-      await api.buildProject(selectedProjectId, false, paths.length > 0 ? paths : undefined)
+      await api.buildProject(selectedProjectId, false, paths)
       // Poll status until build completes
       const poll = setInterval(async () => {
         try {

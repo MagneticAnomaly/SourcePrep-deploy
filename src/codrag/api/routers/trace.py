@@ -120,9 +120,11 @@ TRACE_FILES = [
     "trace_augmented.jsonl",
     "trace_augment_manifest.json",
     "trace_inferred_edges.jsonl",
+    "trace_inferred_manifest.json",
     "trace_epistemic.jsonl",
     "trace_epistemic_manifest.json",
     "trace_modules.jsonl",
+    "trace_group_reasoning.jsonl",
     # Codebase Atlas (Phase 29)
     "atlas.json",
     "atlas_prev.json",

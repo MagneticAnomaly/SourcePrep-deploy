@@ -344,7 +344,17 @@ class HeadlessWorkerFactory:
             "converged": bool(result.convergence),
         }
 
-    # ── Stage 10: Deep Knowledge (re-embed with deep data) ───
+    # ── Stage 7: Group Reasoning (cross-file deep reasoning) ──
+
+    def group_reasoning_worker(self, progress_cb: Callable) -> Dict[str, Any]:
+        from codrag.core import GroupReasoningEngine
+
+        llm = self._get_llm()
+        engine = GroupReasoningEngine(llm=llm, index_dir=self.index_dir)
+        result = engine.run(progress_callback=progress_cb)
+        return {"stage": "group_reasoning", **(result or {})}
+
+    # ── Stage 11: Deep Knowledge (re-embed with deep data) ───
 
     def deep_knowledge_worker(self, progress_cb: Callable) -> Dict[str, Any]:
         return self.knowledge_worker(progress_cb)
@@ -506,6 +516,7 @@ class HeadlessRunner:
             "validation":      factory.validation_worker,
             "knowledge":       factory.knowledge_worker,
             "enrichment":      factory.epistemic_worker,
+            "group_reasoning": factory.group_reasoning_worker,
             "clustering":      factory.cluster_worker,
             "atlas":           factory.atlas_worker,
             "deepening":       factory.deepening_worker,

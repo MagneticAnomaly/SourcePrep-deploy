@@ -131,6 +131,7 @@ export interface PanelEnrichmentProps {
   epistemicStatus: EpistemicStatus
   epistemicRunning: boolean
   handleRunEpistemic: () => void
+  groupReasoningRunning: boolean
   moduleStatus: ModuleStatus
   clusterRunning: boolean
   handleRunModuleSynthesis: () => void
@@ -463,7 +464,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
             // Map pipeline states to model activity
             const embeddingRunning = p.searchLoading || (p.projectStatus?.building ?? false) || p.fastKnowledgeBuilding || p.deepKnowledgeBuilding;
             const fastRunning = p.augmenting;
-            const largeRunning = p.validating || p.epistemicRunning || p.deepeningRunning || p.clusterRunning || p.atlasRunning;
+            const largeRunning = p.validating || p.epistemicRunning || p.groupReasoningRunning || p.deepeningRunning || p.clusterRunning || p.atlasRunning;
             const codeRunning = p.inferredEdgesRunning;
 
             type Svc = { name: string; status: 'connected' | 'disconnected' | 'disabled' | 'not-configured'; type: 'ollama' | 'openai' | 'other'; model?: string; running?: boolean };
@@ -699,6 +700,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           validating={p.validating}
           inferredEdgesRunning={p.inferredEdgesRunning}
           epistemicRunning={p.epistemicRunning}
+          groupReasoningRunning={p.groupReasoningRunning}
           clusterRunning={p.clusterRunning}
           atlasRunning={p.atlasRunning}
           deepeningRunning={p.deepeningRunning}

@@ -145,15 +145,26 @@ variant) for Stage 2 (inferred edges), and `qwen3.5:27b` for Stages 6-9 (deep re
 **Goal:** Fastest possible throughput for simple classification tasks.
 The prompts are short, the required output is simple JSON.
 
+> ⚠️ **Minimum model size: 4B parameters.**
+> Models below 4B (e.g. `qwen3:1.7b`, `qwen3:2b`, any `1b`/`2b` variant) will
+> **fail on real source files**. They cannot hold file content + prompt + JSON
+> schema in their context window at useful quality. Testing on a codebase like
+> click-python (103 files) showed **97.8% placeholder summaries** with `qwen3:1.7b` —
+> the model emits `"Source file at src/click/core.py"` instead of a real summary.
+> Every downstream stage (clustering, atlas, deepening) then has no signal to
+> work with and produces degenerate output. **Do not use sub-4B models.**
+
 | Recommendation | Model | Why |
 |---------------|-------|-----|
 | **Best speed** | `qwen3:4b-instruct` | 0.99 items/s — fastest raw throughput |
 | **Best quality/speed** | `qwen3:8b` | 0.71 items/s — 40% slower but better summaries |
+| **NOT recommended** | `qwen3:1.7b` / `qwen3:2b` | Too small — ~98% placeholder output on real files |
 | **NOT recommended** | `qwen3.5:35b-a3b` | 0.36 items/s — 2.8× slower, no quality benefit for simple tasks |
 
 **Verdict:** Use `qwen3:4b-instruct` or `qwen3:8b`. The catalogue stage
 asks simple questions (summarize this function, classify this file) —
-a 4B model handles these perfectly.
+a 4B model handles these perfectly. Anything smaller will silently produce
+garbage output that cascades through the entire pipeline.
 
 ### Coder Stage (Stage 2 — Inferred Edges)
 

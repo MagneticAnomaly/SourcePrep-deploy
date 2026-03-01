@@ -55,6 +55,7 @@ TRACE_FILES = [
     "trace_augmented.jsonl",
     "trace_augment_manifest.json",
     "trace_inferred_edges.jsonl",
+    "trace_inferred_manifest.json",
     "trace_epistemic.jsonl",
     "trace_epistemic_manifest.json",
     "trace_modules.jsonl",
@@ -64,7 +65,7 @@ TRACE_FILES = [
 STAGE_OUTPUTS: Dict[str, List[str]] = {
     "structural":     ["trace_nodes.jsonl", "trace_edges.jsonl", "trace_manifest.json"],
     "catalogue":      ["trace_augmented.jsonl", "trace_augment_manifest.json"],
-    "validation":     ["trace_inferred_edges.jsonl"],
+    "validation":     ["trace_inferred_edges.jsonl", "trace_inferred_manifest.json"],
     "knowledge":      [],  # Knowledge index uses its own atomic swap
     "enrichment":     ["trace_epistemic.jsonl", "trace_epistemic_manifest.json"],
     "clustering":     ["trace_modules.jsonl"],

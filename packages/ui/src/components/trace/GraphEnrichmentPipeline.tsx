@@ -69,6 +69,7 @@ export interface GraphEnrichmentPipelineProps {
   clusterRunning?: boolean;
   atlasRunning?: boolean;
   deepeningRunning?: boolean;
+  groupReasoningRunning?: boolean;
   fastKnowledgeBuilding?: boolean;
   deepKnowledgeBuilding?: boolean;
   paused?: boolean;
@@ -265,7 +266,7 @@ function computeFastKnowledgeState(
   // Catalogue and validation must finish before knowledge embedding
   if (augmenting) return 'disabled';
   if (!aug || !aug.enabled || aug.augmented_nodes === 0) return 'disabled';
-  if (building || know?.running) return 'running';
+  if (building) return 'running';
   if (!know || !know.enabled) return 'not_built';
   if (know.chunks_embedded === 0) return 'not_built';
   return 'complete';
@@ -414,6 +415,7 @@ export function GraphEnrichmentPipeline({
   clusterRunning = false,
   atlasRunning = false,
   deepeningRunning = false,
+  groupReasoningRunning = false,
   fastKnowledgeBuilding = false,
   deepKnowledgeBuilding = false,
   autoConfig,
@@ -619,18 +621,21 @@ export function GraphEnrichmentPipeline({
     {
       id: 'group_reasoning', label: 'Group Reasoning', icon: Network, modelTag: 'Thinking',
       state: (() => {
-        if (groupReasoning?.slot_phase === 'running' || groupReasoning?.running) return 'running' as StageState;
+        if (groupReasoningRunning || groupReasoning?.slot_phase === 'running' || groupReasoning?.running) return 'running' as StageState;
         if (!epistemic?.enabled || !epistemic?.enriched_nodes) return 'disabled' as StageState;
+        // If a later stage is running or already complete, group_reasoning must have finished
+        if (clusterRunning || atlasRunning || deepeningRunning || deepKnowledgeBuilding) return 'complete' as StageState;
+        if (clusteringState === 'complete' || atlasState === 'complete' || deepeningState === 'complete' || deepeningState === 'stale') return 'complete' as StageState;
         if (groupReasoning?.enabled && groupReasoning?.group_count > 0) return 'complete' as StageState;
         return 'not_built' as StageState;
       })(),
       stats: (() => {
-        if (groupReasoning?.slot_phase === 'running' || groupReasoning?.running) return 'Analyzing groups...';
+        if (groupReasoningRunning || groupReasoning?.slot_phase === 'running' || groupReasoning?.running) return 'Analyzing groups...';
         if (!epistemic?.enabled || !epistemic?.enriched_nodes) return 'Waiting for enrichment';
         if (groupReasoning?.enabled && groupReasoning?.group_count > 0) return `${groupReasoning.group_count} groups analyzed`;
-        return 'Ready to analyze';
+        return 'Analyzed';
       })(),
-      progress: (groupReasoning?.slot_phase === 'running' || groupReasoning?.running) && groupReasoning?.progress_total
+      progress: (groupReasoningRunning || groupReasoning?.slot_phase === 'running' || groupReasoning?.running) && groupReasoning?.progress_total
         ? Math.round((groupReasoning.progress_current ?? 0) / groupReasoning.progress_total * 100)
         : undefined,
     },

@@ -11,6 +11,8 @@ export interface UseEnrichmentDeps {
   onError: (msg: string) => void
   /** Pipeline SSE events keyed by project_id */
   pipelineEvents?: Record<string, PipelineStatus & { project_id: string }>
+  /** Called when deep enrichment pipeline completes (e.g. to refresh atlas) */
+  onDeepCompleted?: () => void
 }
 
 // ── Hook ──────────────────────────────────────────────────────
@@ -26,6 +28,8 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
 
   const onErrorRef = useRef(deps.onError)
   onErrorRef.current = deps.onError
+  const onDeepCompletedRef = useRef(deps.onDeepCompleted)
+  onDeepCompletedRef.current = deps.onDeepCompleted
 
   // ── Fetch functions ─────────────────────────────────────────
 
@@ -194,6 +198,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
         augmenting: fastRunning && (ps.fast_sync?.current_stage === 'catalogue' || ps.fast_sync?.current_stage === 'augment' || false),
         validating: fastRunning && (ps.fast_sync?.current_stage === 'validation' || false),
         epistemicRunning: deepRunning && (ps.deep_enrichment?.current_stage === 'enrichment' || false),
+        groupReasoningRunning: deepRunning && (ps.deep_enrichment?.current_stage === 'group_reasoning' || false),
         clusterRunning: deepRunning && (ps.deep_enrichment?.current_stage === 'clustering' || false),
         atlasRunning: deepRunning && (ps.deep_enrichment?.current_stage === 'atlas' || false),
         deepeningRunning: deepRunning && (ps.deep_enrichment?.current_stage === 'deepening' || false),
@@ -239,6 +244,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       augmenting: fastRunning && (fast?.current_stage === 'augment' || fast?.current_stage === 'catalogue' || false),
       validating: fastRunning && (fast?.current_stage === 'validation' || false),
       epistemicRunning: deepRunning && (deep?.current_stage === 'enrichment' || false),
+      groupReasoningRunning: deepRunning && (deep?.current_stage === 'group_reasoning' || false),
       clusterRunning: deepRunning && (deep?.current_stage === 'clustering' || false),
       atlasRunning: deepRunning && (deep?.current_stage === 'atlas' || false),
       deepeningRunning: deepRunning && (deep?.current_stage === 'deepening' || false),
@@ -297,7 +303,8 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       void fetchModuleStatus()
       void fetchDeepeningStatus()
       void fetchKnowledgeStatus()
-      void refreshStageDataFromPipeline() // picks up final atlas status
+      void refreshStageDataFromPipeline() // picks up final atlas + group_reasoning status
+      onDeepCompletedRef.current?.()
     }
     if (deep?.phase === 'failed' && prevDeepPhase === 'running') {
       dispatch({ type: 'DEEP_FAILED' })
@@ -311,12 +318,12 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
 
   useEffect(() => {
     if (!selectedProjectId) return
-    const { inferredEdgesRunning, augmenting, epistemicRunning, clusterRunning, atlasRunning, deepeningRunning, fastKnowledgeBuilding, deepKnowledgeBuilding } = state
-    const anyRunning = inferredEdgesRunning || augmenting || epistemicRunning || clusterRunning || atlasRunning || deepeningRunning || fastKnowledgeBuilding || deepKnowledgeBuilding
+    const { inferredEdgesRunning, augmenting, epistemicRunning, groupReasoningRunning, clusterRunning, atlasRunning, deepeningRunning, fastKnowledgeBuilding, deepKnowledgeBuilding } = state
+    const anyRunning = inferredEdgesRunning || augmenting || epistemicRunning || groupReasoningRunning || clusterRunning || atlasRunning || deepeningRunning || fastKnowledgeBuilding || deepKnowledgeBuilding
     if (!anyRunning) return
 
     const interval = setInterval(() => {
-      if (state.inferredEdgesRunning || state.atlasRunning) void refreshStageDataFromPipeline()
+      if (state.inferredEdgesRunning || state.atlasRunning || state.groupReasoningRunning) void refreshStageDataFromPipeline()
       if (state.augmenting) void fetchAugmentationStatus()
       if (state.epistemicRunning || state.clusterRunning || state.deepeningRunning) void fetchEpistemicStatus()
       if (state.clusterRunning) void fetchModuleStatus()
@@ -330,6 +337,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     state.inferredEdgesRunning,
     state.augmenting,
     state.epistemicRunning,
+    state.groupReasoningRunning,
     state.clusterRunning,
     state.atlasRunning,
     state.deepeningRunning,

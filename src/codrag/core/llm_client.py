@@ -232,7 +232,11 @@ class LLMClient:
         """
         import requests
 
-        if self.provider == "ollama":
+        # lm-studio uses the OpenAI-compatible API — alias it so the dispatch
+        # below routes to the correct /v1/chat/completions path
+        effective_provider = "openai-compatible" if self.provider == "lm-studio" else self.provider
+
+        if effective_provider == "ollama":
             options: Dict[str, Any] = {
                 "temperature": temperature,
                 "num_predict": num_predict,
@@ -280,7 +284,7 @@ class LLMClient:
             tokens = data.get("eval_count", 0) + data.get("prompt_eval_count", 0)
             return text, tokens
 
-        elif self.provider in ("openai", "openai-compatible"):
+        elif effective_provider in ("openai", "openai-compatible"):
             messages = []
             if system:
                 messages.append({"role": "system", "content": system})
@@ -308,10 +312,11 @@ class LLMClient:
             if self.api_key:
                 headers["Authorization"] = f"Bearer {self.api_key}"
 
-            # Assume endpoint_url is base URL (e.g. https://api.openai.com/v1)
-            # Some users might put /chat/completions in the URL, try to handle gracefully?
-            # Standard convention: endpoint_url is base, we append /chat/completions
-            url = f"{self.endpoint_url}/chat/completions"
+            # Normalize base URL: OpenAI uses https://api.openai.com/v1,
+            # but LM Studio / other servers use http://localhost:1234 (no /v1).
+            # Auto-add /v1 if missing so the request hits /v1/chat/completions.
+            base = self.endpoint_url if "v1" in self.endpoint_url else f"{self.endpoint_url}/v1"
+            url = f"{base}/chat/completions"
             
             resp = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
             resp.raise_for_status()
@@ -323,7 +328,7 @@ class LLMClient:
             tokens = usage.get("total_tokens", 0)
             return text, tokens
         
-        elif self.provider == "anthropic":
+        elif effective_provider == "anthropic":
             messages = []
             messages.append({"role": "user", "content": prompt})
 
@@ -355,7 +360,7 @@ class LLMClient:
             tokens = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
             return text, tokens
 
-        elif self.provider == "google":
+        elif effective_provider == "google":
             # Google Gemini API — uses systemInstruction for system prompts
             contents = [{"role": "user", "parts": [{"text": prompt}]}]
 
@@ -393,20 +398,22 @@ class LLMClient:
         else:
             raise ValueError(f"Unsupported LLM provider: {self.provider}")
 
+
     def is_available(self) -> bool:
         """Check if the endpoint is reachable."""
         import requests
+        effective_provider = "openai-compatible" if self.provider == "lm-studio" else self.provider
         try:
-            if self.provider == "ollama":
+            if effective_provider == "ollama":
                 resp = requests.get(f"{self.endpoint_url}/api/tags", timeout=5)
                 return resp.status_code == 200
-            elif self.provider in ("openai", "openai-compatible"):
+            elif effective_provider in ("openai", "openai-compatible"):
                 headers = {}
                 if self.api_key:
                     headers["Authorization"] = f"Bearer {self.api_key}"
-                resp = requests.get(f"{self.endpoint_url}/models", headers=headers, timeout=5)
+                resp = requests.get(f"{self.endpoint_url}/v1/models", headers=headers, timeout=5)
                 return resp.status_code == 200
-            elif self.provider == "anthropic":
+            elif effective_provider == "anthropic":
                 headers = {"anthropic-version": "2023-06-01"}
                 if self.api_key:
                     headers["x-api-key"] = self.api_key

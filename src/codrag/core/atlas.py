@@ -1052,11 +1052,14 @@ class CodebaseAtlas:
         if progress_callback:
             progress_callback("atlas_generation", 2, 3)
 
-        # One reasoning LLM call — free-form prose, not JSON
+        # One reasoning LLM call — free-form prose, not JSON.
+        # Disable thinking mode: qwen3/deepseek reasoning models stream their
+        # internal deliberation as plain text when think=None, corrupting the
+        # stored atlas.  We want only the final answer.
         try:
             text, tokens = self.llm.generate(
                 prompt, system=system, num_predict=4096,
-                json_mode=False, temperature=0.3,
+                json_mode=False, temperature=0.3, think=False,
             )
             content = self._postprocess(text, max_chars)
         except Exception as e:
@@ -1261,7 +1264,7 @@ class CodebaseAtlas:
         try:
             text, tokens = self.llm.generate(
                 prompt, system=system, num_predict=2048,
-                json_mode=False, temperature=0.3,
+                json_mode=False, temperature=0.3, think=False,
             )
             content = self._postprocess(text, max_chars)
         except Exception as e:
@@ -1386,7 +1389,7 @@ class CodebaseAtlas:
         try:
             text, tokens = self.llm.generate(
                 prompt, system=system, num_predict=2048,
-                json_mode=False, temperature=0.3,
+                json_mode=False, temperature=0.3, think=False,
             )
             content = self._postprocess(text, max_chars)
         except Exception as e:

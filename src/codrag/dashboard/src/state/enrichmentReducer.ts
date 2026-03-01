@@ -27,6 +27,7 @@ export interface EnrichmentState {
   knowledgeStatus: KnowledgeEmbeddingStatus
   fastKnowledgeBuilding: boolean
   deepKnowledgeBuilding: boolean
+  groupReasoningRunning: boolean
   groupReasoningStatus: { enabled: boolean; group_count: number; analyzed: number; running?: boolean; slot_phase?: string; progress_current?: number; progress_total?: number }
 }
 
@@ -50,6 +51,7 @@ export const initialEnrichmentState: EnrichmentState = {
   knowledgeStatus: { enabled: false, running: false, chunks_embedded: 0, deep_chunks_embedded: 0, last_run_at: null },
   fastKnowledgeBuilding: false,
   deepKnowledgeBuilding: false,
+  groupReasoningRunning: false,
   groupReasoningStatus: { enabled: false, group_count: 0, analyzed: 0 },
 }
 
@@ -68,7 +70,7 @@ export type EnrichmentAction =
   | { type: 'ATLAS_STATUS'; payload: AtlasStatus }
   | { type: 'GROUP_REASONING_STATUS'; payload: { enabled: boolean; group_count: number; analyzed: number; slot_phase?: string; progress_current?: number; progress_total?: number } }
   // Sync all running flags at once (from SSE or initial hydration)
-  | { type: 'SYNC_RUNNING'; inferredEdgesRunning: boolean; augmenting: boolean; validating: boolean; epistemicRunning: boolean; clusterRunning: boolean; atlasRunning: boolean; deepeningRunning: boolean; fastKnowledgeBuilding: boolean; deepKnowledgeBuilding: boolean }
+  | { type: 'SYNC_RUNNING'; inferredEdgesRunning: boolean; augmenting: boolean; validating: boolean; epistemicRunning: boolean; groupReasoningRunning: boolean; clusterRunning: boolean; atlasRunning: boolean; deepeningRunning: boolean; fastKnowledgeBuilding: boolean; deepKnowledgeBuilding: boolean }
   // Manual stage start (optimistic UI feedback)
   | { type: 'STAGE_STARTED'; stage: StageName }
   // Manual stage failure (revert optimistic flag)
@@ -111,6 +113,7 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
         augmenting: action.augmenting,
         validating: action.validating,
         epistemicRunning: action.epistemicRunning,
+        groupReasoningRunning: action.groupReasoningRunning,
         clusterRunning: action.clusterRunning,
         atlasRunning: action.atlasRunning,
         deepeningRunning: action.deepeningRunning,
@@ -149,7 +152,7 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
 
     case 'DEEP_COMPLETED':
     case 'DEEP_FAILED':
-      return { ...state, epistemicRunning: false, clusterRunning: false, atlasRunning: false, deepeningRunning: false, deepKnowledgeBuilding: false }
+      return { ...state, epistemicRunning: false, groupReasoningRunning: false, clusterRunning: false, atlasRunning: false, deepeningRunning: false, deepKnowledgeBuilding: false }
 
     // ── Full reset ──
     case 'DESTROYED':
