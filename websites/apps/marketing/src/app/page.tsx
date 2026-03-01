@@ -70,7 +70,7 @@ export default function Page() {
             {/* <img src="/images/hero-dashboard-preview.png" alt="CoDRAG Dashboard" className="absolute inset-0 w-full h-full object-cover" /> */}
           </div>
 
-          <FeatureBlocks features={codragFeatures.filter((_, i) => [0, 1, 3, 5, 6, 9].includes(i))} variant="cards" />
+          <FeatureBlocks features={codragFeatures.filter((_, i) => [0, 1, 2, 4, 6, 7, 10].includes(i))} variant="cards" />
         </section>
 
         {/* Comparison Grid */}

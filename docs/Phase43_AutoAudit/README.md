@@ -386,6 +386,8 @@ AI: Can you show me the architecture analysis?
 >>> I think this should be a user setting (maybe per project) personally I would want it to be git-tracked but I don't represent all devs -- I would researdh this and we can arrive at a default setting based on assumptions about how most devs might prefer.
 
 4. **What's the right LLM slot?** Synthesis quality benefits from the large model (14b+), but the small model (3b) would be faster and cheaper. Could use small for summaries, large for architecture analysis.
->>> good could we use the fast model in a stage in fast sync, then the large model in "Continuous Deepening" stage? would this fit into the plan? I'm open to options here.
+>>> good, could we use the fast model in a stage in fast sync, then the large model in "Continuous Deepening" stage? would this fit into the plan? I'm open to options here.
 
 5. **Should the audit compare against previous runs?** A "delta audit" showing "3 new findings since last week" would be powerful for continuous monitoring. Requires versioned findings.
+>>> Hmm mabybe. I'm concerned it might confuse the model, only if we know it can be helpful, maybe plan but save for later
+

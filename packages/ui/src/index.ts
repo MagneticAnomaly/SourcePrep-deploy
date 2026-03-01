@@ -156,6 +156,11 @@ export type {
   TeamSyncIndicatorProps,
 } from './components/team';
 
+// Components - Audit (Phase 43)
+export { AuditPanel } from './components/audit';
+export type { AuditPanelProps } from './components/audit';
+export type { AuditConfig, AuditFinding, AuditStatus, AuditReport, AuditSeverity, AuditCategory } from './types';
+
 // Components - Viz
 export { ActivityHeatmap, generateSampleActivityData, IndexHealthPanel, TokenBudgetPanel } from './components/viz';
 export type { ActivityHeatmapProps, ActivityHeatmapData, ActivityDay, IndexHealthPanelProps, IndexHealthData, DeepHealthData, TokenBudgetPanelProps, TokenBudgetData } from './components/viz';

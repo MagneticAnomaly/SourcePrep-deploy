@@ -53,6 +53,7 @@ export const docsSidebar: DocNode[] = [
       { title: 'BYOK Batch Processing', href: '/guides/byok-batching' },
       { title: 'Team Sync', href: '/guides/team-sync' },
       { title: 'Model Setup Advisor', href: '/guides/model-advisor' },
+      { title: 'Codebase Audit', href: '/guides/codebase-audit' },
     ],
   },
   {

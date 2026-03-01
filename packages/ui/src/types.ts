@@ -494,6 +494,58 @@ export interface LLMStatus {
 }
 
 // ============================================================
+// Phase 44 - LLM Mapping Types
+// ============================================================
+
+/**
+ * Canonical task IDs for LLM assignment (Phase 44).
+ * Each represents an atomic execution point that requires an LLM.
+ */
+export type CodragTaskId =
+  | 'catalogue'
+  | 'inferred_edges'
+  | 'enrichment'
+  | 'clustering'
+  | 'atlas'
+  | 'deepening'
+  | 'search_intent'
+  | 'audit'
+  | 'augmentation';
+
+export const ALL_TASK_IDS: CodragTaskId[] = [
+  'catalogue', 'inferred_edges', 'enrichment', 'clustering',
+  'atlas', 'deepening', 'search_intent', 'audit', 'augmentation',
+];
+
+export const TASK_LABELS: Record<CodragTaskId, string> = {
+  catalogue: 'Catalogue Summarization',
+  inferred_edges: 'Inferred Edge Discovery',
+  enrichment: 'Deep Reasoning',
+  clustering: 'Module Synthesis',
+  atlas: 'Atlas Generation',
+  deepening: 'Deepening Loop',
+  search_intent: 'Search Preprocessing',
+  audit: 'Automated Audits',
+  augmentation: 'Trace Augmentation',
+};
+
+/**
+ * LLM assignment mode (Phase 44)
+ */
+export type AssignmentMode = 'structured' | 'mapped';
+
+/**
+ * A single LLM assignment block in Mapped mode (Phase 44).
+ * Groups one model with one or more tasks.
+ */
+export interface LLMAssignmentBlock {
+  id: string;
+  endpoint_id: string;
+  model: string;
+  tasks: CodragTaskId[];
+}
+
+// ============================================================
 // LLM Configuration Types (AI Models Settings)
 // ============================================================
 
@@ -563,6 +615,7 @@ export interface CompressionConfig {
 export type BatchMode = 'auto' | 'large' | 'standard' | 'compact' | 'off';
 
 export interface LLMConfig {
+  assignment_mode?: AssignmentMode;
   embedding: EmbeddingConfig;
   small_model: LLMSlotConfig;
   large_model: LLMSlotConfig;
@@ -570,6 +623,7 @@ export interface LLMConfig {
   compression: CompressionConfig;
   saved_endpoints: SavedEndpoint[];
   batch_mode?: BatchMode;
+  assignment_blocks?: LLMAssignmentBlock[];
 }
 
 /**
@@ -999,4 +1053,60 @@ export interface TaskProgress {
   total: number;
   percent: number;
   status: 'running' | 'completed' | 'failed';
+}
+
+// ============================================================
+// Phase 43 - AutoAudit Types
+// ============================================================
+
+export type AuditSeverity = 'critical' | 'warning' | 'info' | 'suggestion';
+export type AuditCategory = 'size' | 'architecture' | 'quality' | 'coverage' | 'naming' | 'testing';
+
+export interface AuditConfig {
+  auto_run_after_deep: boolean;
+  auto_synthesize: boolean;
+  large_file_threshold_bytes: number;
+  large_file_warning_bytes: number;
+  hub_z_threshold: number;
+  similarity_threshold: number;
+}
+
+export type AuditPriority = 'P0' | 'P1' | 'P2' | 'P3' | 'P4';
+export type AuditEffort = 'small' | 'medium' | 'large';
+
+export interface AuditFinding {
+  analyzer: string;
+  severity: AuditSeverity;
+  category: AuditCategory;
+  title: string;
+  description: string;
+  file_paths: string[];
+  evidence: Record<string, unknown>;
+  suggested_action: string;
+  finding_id: string;
+  priority: AuditPriority;
+  effort: AuditEffort;
+}
+
+export interface AuditStatus {
+  running: boolean;
+  error: string | null;
+  has_results: boolean;
+  finding_count?: number;
+  severity_counts?: Record<AuditSeverity, number>;
+  last_run?: {
+    generated_at: string;
+    graph_node_count: number;
+    graph_edge_count: number;
+    finding_count: number;
+    document_count: number;
+    analyzers_run: string[];
+    documents: string[];
+  };
+}
+
+export interface AuditReport {
+  name: string;
+  filename: string;
+  size_bytes: number;
 }

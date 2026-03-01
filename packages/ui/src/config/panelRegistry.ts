@@ -1,6 +1,7 @@
 import { 
   BookOpen,
   Brain,
+  ClipboardCheck,
   Coins,
   Database, 
   Flame,
@@ -210,6 +211,18 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     closeable: true,
     resizable: true,
     docsUrl: 'https://docs.codrag.io/dashboard#token-budget',
+  },
+  {
+    id: 'audit',
+    title: 'Codebase Audit',
+    description: 'Autonomous health analysis: architecture findings, tech debt, test coverage gaps, dead code, and actionable recommendations — all from the trace graph.',
+    icon: ClipboardCheck,
+    minHeight: 6,
+    defaultHeight: 10,
+    category: 'status',
+    closeable: true,
+    resizable: true,
+    docsUrl: 'https://docs.codrag.io/guides/codebase-audit',
   },
   {
     id: 'activity-heatmap',

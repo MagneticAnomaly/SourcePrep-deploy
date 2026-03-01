@@ -129,10 +129,10 @@ class TestMCPProtocol:
         
         assert response["id"] == 2
         tools = response["result"]["tools"]
-        assert len(tools) == 11
+        assert len(tools) == 15
         
         tool_names = {t["name"] for t in tools}
-        assert tool_names == {"codrag_status", "codrag_build", "codrag_search", "codrag", "codrag_trace_search", "codrag_trace_neighbors", "codrag_trace_coverage", "hi_codrag", "codrag_save_observation", "codrag_get_observations", "codrag_impact"}
+        assert tool_names == {"codrag_status", "codrag_build", "codrag_search", "codrag", "codrag_trace_search", "codrag_trace_neighbors", "codrag_trace_coverage", "hi_codrag", "codrag_save_observation", "codrag_get_observations", "codrag_impact", "codrag_audit", "codrag_audit_refactor", "codrag_audit_check", "codrag_audit_report"}
 
     @pytest.mark.asyncio
     async def test_ping(self, server):

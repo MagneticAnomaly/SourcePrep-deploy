@@ -188,6 +188,13 @@ export interface ApiClient {
   addScopeFiles(projectId: string, paths: string[]): Promise<any>;
   removeScopeFiles(projectId: string, paths: string[]): Promise<any>;
   triggerScopeRebuild(projectId: string): Promise<any>;
+
+  // AutoAudit (Phase 43)
+  triggerAudit(projectId: string, opts?: { synthesize?: boolean; categories?: string[] }): Promise<{ status: string; synthesize: boolean }>;
+  getAuditStatus(projectId: string): Promise<import('../types').AuditStatus>;
+  getAuditFindings(projectId: string, opts?: { severity?: string; category?: string; limit?: number }): Promise<{ finding_count: number; total_finding_count: number; severity_counts: Record<string, number>; findings: import('../types').AuditFinding[] }>;
+  getAuditReports(projectId: string): Promise<{ reports: import('../types').AuditReport[] }>;
+  getAuditReport(projectId: string, reportName: string): Promise<{ name: string; content: string; size_bytes: number }>;
 }
 
 export interface ApiClientConfig {
@@ -881,6 +888,36 @@ export class CodragApiClient implements ApiClient {
     return this.requestEnvelope<any>(`/projects/${projectId}/scope/rebuild`, {
       method: 'POST',
     });
+  }
+
+  // AutoAudit (Phase 43)
+
+  async triggerAudit(projectId: string, opts?: { synthesize?: boolean; categories?: string[] }): Promise<{ status: string; synthesize: boolean }> {
+    return this.requestEnvelope<{ status: string; synthesize: boolean }>(`/projects/${projectId}/audit`, {
+      method: 'POST',
+      body: { synthesize: opts?.synthesize ?? false, categories: opts?.categories },
+    });
+  }
+
+  async getAuditStatus(projectId: string): Promise<import('../types').AuditStatus> {
+    return this.requestEnvelope<import('../types').AuditStatus>(`/projects/${projectId}/audit/status`);
+  }
+
+  async getAuditFindings(projectId: string, opts?: { severity?: string; category?: string; limit?: number }): Promise<{ finding_count: number; total_finding_count: number; severity_counts: Record<string, number>; findings: import('../types').AuditFinding[] }> {
+    const params = new URLSearchParams();
+    if (opts?.severity) params.set('severity', opts.severity);
+    if (opts?.category) params.set('category', opts.category);
+    if (opts?.limit) params.set('limit', String(opts.limit));
+    const qs = params.toString();
+    return this.requestEnvelope(`/projects/${projectId}/audit/findings${qs ? `?${qs}` : ''}`);
+  }
+
+  async getAuditReports(projectId: string): Promise<{ reports: import('../types').AuditReport[] }> {
+    return this.requestEnvelope(`/projects/${projectId}/audit/reports`);
+  }
+
+  async getAuditReport(projectId: string, reportName: string): Promise<{ name: string; content: string; size_bytes: number }> {
+    return this.requestEnvelope(`/projects/${projectId}/audit/report/${encodeURIComponent(reportName)}`);
   }
 }
 

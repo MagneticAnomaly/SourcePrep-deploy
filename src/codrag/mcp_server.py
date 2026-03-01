@@ -761,6 +761,246 @@ class MCPServer:
             "observations": observations,
         }
 
+    async def tool_audit(
+        self,
+        synthesize: bool = False,
+        category: Optional[str] = None,
+        project_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Run or retrieve a codebase health audit."""
+        project_id = await self._resolve_project_id(override=project_override)
+
+        # First try to get existing findings
+        try:
+            data = await self._api_get(f"/projects/{project_id}/audit/findings")
+            findings = data.get("findings", []) if isinstance(data, dict) else []
+        except Exception:
+            findings = []
+
+        # If no findings exist or caller wants fresh results, trigger a new audit
+        if not findings:
+            try:
+                payload: Dict[str, Any] = {"synthesize": synthesize}
+                if category:
+                    payload["categories"] = [category]
+                await self._api_post(f"/projects/{project_id}/audit", payload)
+
+                # Poll for completion (max 30s for Tier 1, should be <2s)
+                import asyncio
+                for _ in range(30):
+                    await asyncio.sleep(1)
+                    status = await self._api_get(f"/projects/{project_id}/audit/status")
+                    if isinstance(status, dict) and not status.get("running", True):
+                        break
+
+                data = await self._api_get(f"/projects/{project_id}/audit/findings")
+                findings = data.get("findings", []) if isinstance(data, dict) else []
+            except Exception as e:
+                return {"project_id": project_id, "error": f"Audit failed: {e}"}
+
+        # Format findings for token efficiency
+        severity_counts = {}
+        for f in findings:
+            sev = f.get("severity", "info")
+            severity_counts[sev] = severity_counts.get(sev, 0) + 1
+
+        # Return top findings with full detail
+        top_findings = []
+        for f in findings[:15]:
+            entry: Dict[str, Any] = {
+                "severity": f.get("severity"),
+                "title": f.get("title"),
+                "action": f.get("suggested_action"),
+            }
+            if f.get("file_paths"):
+                entry["files"] = f["file_paths"][:3]
+            top_findings.append(entry)
+
+        result: Dict[str, Any] = {
+            "project_id": project_id,
+            "total_findings": len(findings),
+            "severity_counts": severity_counts,
+            "findings": top_findings,
+        }
+
+        # Check if reports are available
+        try:
+            reports_data = await self._api_get(f"/projects/{project_id}/audit/reports")
+            reports = reports_data.get("reports", []) if isinstance(reports_data, dict) else []
+            if reports:
+                result["available_reports"] = [r.get("name") for r in reports]
+        except Exception:
+            pass
+
+        return result
+
+    async def tool_audit_refactor(
+        self,
+        finding_ids: List[str],
+        instructions: Optional[str] = None,
+        project_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get selected audit findings with trace context for implementation."""
+        if not finding_ids:
+            raise InvalidParamsError("finding_ids is required and must not be empty")
+
+        project_id = await self._resolve_project_id(override=project_override)
+
+        # Get findings
+        data = await self._api_get(f"/projects/{project_id}/audit/findings?limit=500")
+        all_findings = data.get("findings", []) if isinstance(data, dict) else []
+
+        # Filter to requested IDs
+        id_set = set(finding_ids)
+        selected = [f for f in all_findings if f.get("finding_id") in id_set]
+
+        if not selected:
+            return {
+                "project_id": project_id,
+                "error": f"No findings matched IDs: {finding_ids}. Run codrag_audit first.",
+            }
+
+        # Collect all affected file paths for context retrieval
+        affected_files: List[str] = []
+        for f in selected:
+            affected_files.extend(f.get("file_paths", []))
+        affected_files = list(dict.fromkeys(affected_files))[:20]  # dedupe, cap at 20
+
+        lines = [
+            "## Audit Findings to Address\n",
+            "CRITICAL SYSTEM INSTRUCTIONS FOR AI:",
+            "1. Focus strictly on resolving the findings listed below.",
+            "2. If 'Relevant Code Context' is truncated (stops abruptly), focus on the first few findings, then use `codrag_search` or `codrag_trace_search` to gather the rest.",
+            "3. When you finish implementing these fixes, you MUST call `codrag_audit_check` with the relevant analyzers to verify your work before telling the user you are done.\n"
+        ]
+        for f in selected:
+            fid = f.get("finding_id", "")
+            title = f.get("title", "")
+            priority = f.get("priority", "")
+            severity = f.get("severity", "")
+            effort = f.get("effort", "")
+            desc = f.get("description", "")
+            action = f.get("suggested_action", "")
+            files = ", ".join(f.get("file_paths", [])[:5])
+
+            lines.append(f"### {fid}: {title} [{priority} · {severity} · {effort}]")
+            lines.append(f"**Files:** {files}")
+            lines.append(f"**Problem:** {desc}")
+            lines.append(f"**Action:** {action}")
+            lines.append("")
+
+        if instructions:
+            lines.append(f"## User Instructions\n{instructions}\n")
+
+        # Get trace context for affected files
+        context_text = ""
+        if affected_files:
+            try:
+                query = " ".join(affected_files[:5])
+                ctx_data = await self._api_post(f"/projects/{project_id}/context", {
+                    "query": query,
+                    "k": 10,
+                    "max_chars": 8000,
+                    "include_sources": True,
+                    "structured": False,
+                    "trace_expand": True,
+                })
+                context_text = ctx_data.get("context", "") if isinstance(ctx_data, dict) else ""
+            except Exception:
+                pass
+
+        if context_text:
+            lines.append("---\n\n## Relevant Code Context\n")
+            lines.append(context_text)
+
+        return {
+            "project_id": project_id,
+            "finding_count": len(selected),
+            "finding_ids": [f.get("finding_id") for f in selected],
+            "content": "\n".join(lines),
+            "affected_files": affected_files,
+        }
+
+    async def tool_audit_check(
+        self,
+        analyzers: List[str],
+        project_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Re-run specific analyzers to verify fixes."""
+        if not analyzers:
+            raise InvalidParamsError("analyzers is required and must not be empty")
+
+        project_id = await self._resolve_project_id(override=project_override)
+
+        # Trigger audit with category filter
+        try:
+            await self._api_post(f"/projects/{project_id}/audit", {
+                "synthesize": False,
+            })
+
+            # Poll for completion
+            import asyncio
+            for _ in range(30):
+                await asyncio.sleep(1)
+                status = await self._api_get(f"/projects/{project_id}/audit/status")
+                if isinstance(status, dict) and not status.get("running", True):
+                    break
+
+            # Get fresh findings
+            data = await self._api_get(f"/projects/{project_id}/audit/findings?limit=500")
+            all_findings = data.get("findings", []) if isinstance(data, dict) else []
+
+            # Filter to requested analyzers
+            analyzer_set = set(analyzers)
+            matched = [f for f in all_findings if f.get("analyzer") in analyzer_set]
+
+            if not matched:
+                return {
+                    "project_id": project_id,
+                    "status": "clean",
+                    "message": f"No findings from analyzers: {analyzers}. The issues appear to be resolved!",
+                    "analyzers_checked": analyzers,
+                    "finding_count": 0,
+                }
+
+            return {
+                "project_id": project_id,
+                "status": "findings_remain",
+                "analyzers_checked": analyzers,
+                "finding_count": len(matched),
+                "findings": [
+                    {
+                        "id": f.get("finding_id"),
+                        "severity": f.get("severity"),
+                        "title": f.get("title"),
+                        "action": f.get("suggested_action"),
+                    }
+                    for f in matched[:15]
+                ],
+            }
+        except Exception as e:
+            return {"project_id": project_id, "error": f"Check failed: {e}"}
+
+    async def tool_audit_report(
+        self,
+        report_name: str,
+        project_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Retrieve a specific audit report document."""
+        if not report_name or not report_name.strip():
+            raise InvalidParamsError("report_name is required")
+
+        project_id = await self._resolve_project_id(override=project_override)
+
+        data = await self._api_get(f"/projects/{project_id}/audit/report/{report_name}")
+
+        content = data.get("content", "") if isinstance(data, dict) else ""
+        return {
+            "project_id": project_id,
+            "report": report_name,
+            "content": content,
+        }
+
     async def tool_hi(self, project_override: Optional[str] = None) -> Dict[str, Any]:
         """Project overview and context discovery tool.
 
@@ -1468,6 +1708,28 @@ class MCPServer:
                     file_path=args.get("file_path"),
                     limit=args.get("limit", 10),
                     include_stale=args.get("include_stale", True),
+                    project_override=project_override,
+                )
+            elif name == "codrag_audit":
+                result = await self.tool_audit(
+                    synthesize=bool(args.get("synthesize", False)),
+                    category=args.get("category"),
+                    project_override=project_override,
+                )
+            elif name == "codrag_audit_refactor":
+                result = await self.tool_audit_refactor(
+                    finding_ids=args.get("finding_ids", []),
+                    instructions=args.get("instructions"),
+                    project_override=project_override,
+                )
+            elif name == "codrag_audit_check":
+                result = await self.tool_audit_check(
+                    analyzers=args.get("analyzers", []),
+                    project_override=project_override,
+                )
+            elif name == "codrag_audit_report":
+                result = await self.tool_audit_report(
+                    report_name=args.get("report_name", ""),
                     project_override=project_override,
                 )
             elif name == "hi_codrag":

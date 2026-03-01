@@ -1,7 +1,7 @@
 import { Badge, Card, Flex, Text } from '@tremor/react';
 import { 
   Search, GitBranch, Zap, Lock, RefreshCw, Plug, 
-  AlertTriangle, Lightbulb, TrendingUp, SlidersHorizontal, Shrink, Brain, Shield, Waypoints, Users
+  AlertTriangle, Lightbulb, TrendingUp, SlidersHorizontal, Shrink, Brain, Shield, Waypoints, Users, Activity
 } from 'lucide-react';
 
 export interface Feature {
@@ -139,6 +139,13 @@ function BentoGrid({ features }: { features: Feature[] }) {
 }
 
 export const codragFeatures: Feature[] = [
+  {
+    icon: <Activity className="w-8 h-8" />,
+    title: 'AutoAudit V2 — Autonomous Codebase Health',
+    description: 'Transform your codebase intelligence into an active taskmaster. Run zero-config audits that map architecture bottlenecks and tech debt. Select a finding, click "Copy AI Command", and instantly hand off the context assembly to Cursor or Windsurf for a perfect refactor.',
+    badge: 'New',
+    highlight: true,
+  },
   {
     icon: <Search className="w-8 h-8" />,
     title: 'Semantic + Structural Search',

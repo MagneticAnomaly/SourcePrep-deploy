@@ -196,6 +196,14 @@
     "schedule_threshold_enabled": true,
     "schedule_time_enabled": true
   },
+  "audit_config": {
+    "auto_run_after_deep": false,
+    "auto_synthesize": false,
+    "large_file_threshold_bytes": 80000,
+    "large_file_warning_bytes": 40000,
+    "hub_z_threshold": 2.0,
+    "similarity_threshold": 0.65
+  },
   "pipeline_config": {
     "fast_sync": {
       "auto": true
@@ -222,8 +230,8 @@
     "llm_concurrency": 1
   },
   "ui_preferences": {
-    "mode": "light",
-    "theme": "m",
+    "mode": "dark",
+    "theme": "a",
     "bg_image": null
   },
   "module_layout": {
@@ -302,22 +310,31 @@
         "w": 4
       },
       {
-        "id": "atlas",
-        "visible": true,
-        "height": 11,
-        "collapsed": false,
-        "x": 4,
-        "y": 20,
-        "w": 4
-      },
-      {
         "id": "log-console",
         "visible": true,
         "height": 11,
+        "collapsed": true,
+        "x": 4,
+        "y": 20,
+        "w": 8
+      },
+      {
+        "id": "audit",
+        "visible": true,
+        "height": 21,
         "collapsed": false,
         "x": 4,
-        "y": 31,
+        "y": 22,
         "w": 8
+      },
+      {
+        "id": "atlas",
+        "visible": true,
+        "height": 12,
+        "collapsed": false,
+        "x": 0,
+        "y": 31,
+        "w": 4
       },
       {
         "id": "context-options",
@@ -325,16 +342,7 @@
         "height": 7,
         "collapsed": true,
         "x": 0,
-        "y": 31,
-        "w": 4
-      },
-      {
-        "id": "context-output",
-        "visible": true,
-        "height": 10,
-        "collapsed": true,
-        "x": 0,
-        "y": 33,
+        "y": 43,
         "w": 4
       },
       {
@@ -343,7 +351,7 @@
         "height": 6,
         "collapsed": true,
         "x": 4,
-        "y": 42,
+        "y": 43,
         "w": 4
       },
       {
@@ -352,7 +360,16 @@
         "height": 12,
         "collapsed": true,
         "x": 8,
-        "y": 42,
+        "y": 43,
+        "w": 4
+      },
+      {
+        "id": "context-output",
+        "visible": true,
+        "height": 10,
+        "collapsed": true,
+        "x": 0,
+        "y": 45,
         "w": 4
       },
       {
@@ -361,7 +378,7 @@
         "height": 8,
         "collapsed": true,
         "x": 4,
-        "y": 44,
+        "y": 45,
         "w": 4
       },
       {
@@ -370,7 +387,7 @@
         "height": 9,
         "collapsed": true,
         "x": 8,
-        "y": 44,
+        "y": 45,
         "w": 4
       },
       {
@@ -378,9 +395,9 @@
         "visible": true,
         "height": 8,
         "collapsed": false,
-        "x": 0,
-        "y": 46,
-        "w": 12
+        "x": 4,
+        "y": 47,
+        "w": 8
       },
       {
         "id": "watch",

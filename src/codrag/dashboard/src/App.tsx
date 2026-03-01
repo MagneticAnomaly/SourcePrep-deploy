@@ -39,6 +39,7 @@ import { useSearchContext } from './hooks/useSearchContext'
 import { useFileSystem } from './hooks/useFileSystem'
 import { useProjectManager } from './hooks/useProjectManager'
 import { useDashboardPanels } from './hooks/useDashboardPanels'
+import { useAuditSystem } from './hooks/useAuditSystem'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
@@ -188,6 +189,9 @@ function App() {
     fetchDeepAnalysisStatus,
     budgetUsage,
   } = useDeepAnalysis(selectedProjectId, { onError: (msg) => setError(msg) })
+
+  // ── Audit system (Phase 43) ────────────────────────────────
+  const audit = useAuditSystem(selectedProjectId)
 
   // ── Event Stream ───────────────────────────────────────────
   const eventsUrl = import.meta.env.DEV
@@ -453,6 +457,7 @@ function App() {
     },
     deepAnalysis: { deepAnalysisSchedule, setDeepAnalysisSchedule, budgetUsage },
     atlas: { atlasStatus },
+    audit,
     activityData,
   })
 

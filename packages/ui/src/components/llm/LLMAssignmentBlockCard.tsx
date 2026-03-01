@@ -1,0 +1,198 @@
+import { cn } from '../../lib/utils';
+import { Select } from '../primitives/Select';
+import { Button } from '../primitives/Button';
+import { X, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import type { CodragTaskId, SavedEndpoint, EndpointTestResult } from '../../types';
+import { TASK_LABELS } from '../../types';
+
+export interface LLMAssignmentBlockCardProps {
+  id: string;
+  endpointId: string;
+  model: string;
+  tasks: CodragTaskId[];
+
+  /** All saved endpoints for the endpoint dropdown */
+  endpoints: SavedEndpoint[];
+  /** Models available on the currently selected endpoint */
+  availableModels: string[];
+  loadingModels?: boolean;
+  /** Task IDs that are NOT yet assigned (available for the + dropdown) */
+  unassignedTasks: CodragTaskId[];
+
+  onEndpointChange: (blockId: string, endpointId: string) => void;
+  onModelChange: (blockId: string, model: string) => void;
+  onRefreshModels: (endpointId: string) => void;
+  onAddTask: (blockId: string, taskId: CodragTaskId) => void;
+  onRemoveTask: (blockId: string, taskId: CodragTaskId) => void;
+  onDelete: (blockId: string) => void;
+  onTest?: (blockId: string) => void;
+
+  testResult?: EndpointTestResult;
+  testingConnection?: boolean;
+
+  className?: string;
+}
+
+export function LLMAssignmentBlockCard({
+  id,
+  endpointId,
+  model,
+  tasks,
+  endpoints,
+  availableModels,
+  loadingModels = false,
+  unassignedTasks,
+  onEndpointChange,
+  onModelChange,
+  onRefreshModels,
+  onAddTask,
+  onRemoveTask,
+  onDelete,
+  onTest,
+  testResult,
+  testingConnection = false,
+  className,
+}: LLMAssignmentBlockCardProps) {
+  const hasEndpoint = !!endpointId;
+  const hasModel = !!model;
+  const isConfigured = hasEndpoint && hasModel;
+
+  return (
+    <div
+      className={cn(
+        'codrag-card rounded-lg border bg-surface p-5 transition-colors',
+        isConfigured
+          ? 'border-success/50 shadow-[0_0_12px_rgba(var(--success),0.08)]'
+          : 'border-border',
+        className,
+      )}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h4 className="text-sm font-semibold font-mono text-text">LLM Assignment</h4>
+        <button
+          onClick={() => onDelete(id)}
+          className="p-1 rounded text-text-muted hover:text-error hover:bg-error-muted/10 transition-colors"
+          title="Remove assignment block"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Endpoint + Model */}
+      <div className="space-y-3 mb-4">
+        <div>
+          <label className="block text-xs font-medium text-text-muted mb-1">Endpoint</label>
+          <Select
+            value={endpointId}
+            onChange={(e) => onEndpointChange(id, e.target.value)}
+            placeholder="Select endpoint..."
+            options={endpoints.map((ep) => ({
+              value: ep.id,
+              label: `${ep.name} (${ep.provider})`,
+            }))}
+            className="w-full"
+          />
+        </div>
+
+        {hasEndpoint && (
+          <div>
+            <label className="block text-xs font-medium text-text-muted mb-1">Model</label>
+            <div className="flex gap-2">
+              <Select
+                value={model}
+                onChange={(e) => onModelChange(id, e.target.value)}
+                placeholder="Select model..."
+                options={availableModels.map((m) => ({ value: m, label: m }))}
+                className="w-full flex-1"
+              />
+              <Button
+                onClick={() => onRefreshModels(endpointId)}
+                disabled={loadingModels}
+                variant="outline"
+                className="bg-surface-raised hover:bg-border border-border h-full aspect-square p-0 w-[36px]"
+                title="Refresh Models"
+              >
+                <RefreshCw className={cn('w-3.5 h-3.5', loadingModels && 'animate-spin')} />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Tasks */}
+      <div className="mb-4">
+        <label className="block text-xs font-medium text-text-muted mb-1.5">Tasks</label>
+        <div className="space-y-1.5">
+          {tasks.map((taskId) => (
+            <div
+              key={taskId}
+              className="flex items-center justify-between px-3 py-1.5 rounded-md bg-surface-raised border border-border text-xs"
+            >
+              <span className="text-text">{TASK_LABELS[taskId]}</span>
+              {tasks.length > 1 && (
+                <button
+                  onClick={() => onRemoveTask(id, taskId)}
+                  className="p-0.5 rounded text-text-muted hover:text-error transition-colors"
+                  title="Remove task from this block"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          ))}
+
+          {/* Add Task dropdown */}
+          {unassignedTasks.length > 0 && (
+            <Select
+              value=""
+              onChange={(e) => {
+                if (e.target.value) {
+                  onAddTask(id, e.target.value as CodragTaskId);
+                }
+              }}
+              placeholder="+ Add Task"
+              options={unassignedTasks.map((t) => ({
+                value: t,
+                label: TASK_LABELS[t],
+              }))}
+              className="w-full text-xs"
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Test Connection */}
+      {onTest && isConfigured && (
+        <div className="pt-3 border-t border-border">
+          {testResult && (
+            <div
+              className={cn(
+                'mb-2 p-2 rounded-md text-xs border flex items-start gap-2',
+                testResult.success
+                  ? 'bg-success-muted/10 text-success border-success-muted/20'
+                  : 'bg-error-muted/10 text-error border-error-muted/20',
+              )}
+            >
+              {testResult.success ? (
+                <CheckCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              ) : (
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              )}
+              <span>{testResult.message}</span>
+            </div>
+          )}
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => onTest(id)}
+            loading={testingConnection}
+            className="w-full bg-surface-raised hover:bg-border border-border text-text text-xs"
+          >
+            Test Connection
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}

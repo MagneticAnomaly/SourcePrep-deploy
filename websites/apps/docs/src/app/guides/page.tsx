@@ -77,6 +77,16 @@ export default function Page() {
               and get personalized model recommendations with VRAM calculations.
             </p>
           </a>
+          <a
+            href="/guides/codebase-audit"
+            className="block rounded-lg border border-border bg-surface p-6 hover:border-primary transition-colors"
+          >
+            <h2 className="text-xl font-semibold">Codebase Audit</h2>
+            <p className="mt-2 text-sm text-text-muted">
+              Autonomous health analysis: architecture reports, gap analysis, tech debt summaries,
+              and actionable recommendations — all generated from the trace graph.
+            </p>
+          </a>
         </div>
       </div>
     </main>

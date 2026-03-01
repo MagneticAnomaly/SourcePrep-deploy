@@ -22,6 +22,7 @@ import {
   TokenBudgetPanel,
   AtlasStatusCard,
   ActivityHeatmap,
+  AuditPanel,
   type ActivityHeatmapData,
   PANEL_REGISTRY,
   type SearchResult,
@@ -48,6 +49,7 @@ import {
   type AtlasStatus,
 } from '@codrag/ui'
 import type { TraceStatus, TraceCoverage } from './useTraceSystem'
+import type { UseAuditSystemReturn } from './useAuditSystem'
 
 const PINNED_PREFIX = 'pinned:'
 
@@ -202,13 +204,14 @@ export interface DashboardPanelsProps {
   llm: PanelLLMProps
   deepAnalysis: PanelDeepAnalysisProps
   atlas: PanelAtlasProps
+  audit: UseAuditSystemReturn
   activityData: ActivityHeatmapData | null
 }
 
 /** Builds all dashboard panel content, detail views, and dynamic panel definitions from domain state. */
 export function useDashboardPanels(props: DashboardPanelsProps) {
   // Flatten grouped sub-objects for backward-compatible p.xxx access internally
-  const { search, files, trace, enrichment, llm, deepAnalysis, atlas, ...core } = props
+  const { search, files, trace, enrichment, llm, deepAnalysis, atlas, audit: auditProps, ...core } = props
   const p = { ...core, ...search, ...files, ...trace, ...enrichment, ...llm, ...deepAnalysis }
 
   // Optimistic local state for excluded paths — updates INSTANTLY on click.
@@ -328,6 +331,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
 
   // Use local optimistic state as the source of truth for the UI
   const excludedPaths = localExcludedPaths
+
   const panelContent = useMemo(() => ({
     'log-console': (
       <LogConsole
@@ -790,6 +794,17 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
       <div className="h-full flex items-center justify-center text-sm text-text-muted">
         No activity data available yet. Build your index to see activity.
       </div>
+    ),
+    audit: (
+      <AuditPanel
+        status={auditProps.auditStatus}
+        findings={auditProps.auditFindings}
+        reports={auditProps.auditReports}
+        onRunAudit={auditProps.handleRunAudit}
+        onViewReport={auditProps.handleViewAuditReport}
+        reportContent={auditProps.auditReportContent}
+        viewingReport={auditProps.viewingAuditReport}
+      />
     ),
     'token-budget': (
       <TokenBudgetPanel

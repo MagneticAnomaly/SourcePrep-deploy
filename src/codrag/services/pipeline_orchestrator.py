@@ -118,22 +118,37 @@ DEEP_ENRICHMENT_STAGES: List[StageId] = [
 ]
 
 
-# ── Model Slot Mapping ───────────────────────────────────────────
-# Which LLM slot each stage uses.  None = no LLM needed.
-# Used by the VRAM lifecycle manager to unload models between slot transitions.
+# ── Task ID Mapping (Phase 44) ──────────────────────────────────────
+# Which CodragTaskId each stage uses.  None = no LLM needed.
+# Used by the VRAM lifecycle manager and the unified LLM resolver.
 
+STAGE_TASK_ID: Dict[StageId, Optional[str]] = {
+    StageId.STRUCTURAL:      None,
+    StageId.INFERRED_EDGES:  "inferred_edges",
+    StageId.CATALOGUE:       "catalogue",
+    StageId.VALIDATION:      None,
+    StageId.KNOWLEDGE:       None,      # embedding only
+    StageId.ENRICHMENT:      "enrichment",
+    StageId.GROUP_REASONING: "enrichment",  # shares enrichment task assignment
+    StageId.CLUSTERING:      "clustering",
+    StageId.ATLAS:           "atlas",
+    StageId.DEEPENING:       "deepening",
+    StageId.DEEP_KNOWLEDGE:  None,      # embedding only
+}
+
+# Backward-compat alias — kept so any external code referencing this still works.
 STAGE_MODEL_SLOT: Dict[StageId, Optional[str]] = {
     StageId.STRUCTURAL:     None,
-    StageId.INFERRED_EDGES: "code",   # prefers code slot; worker falls back to small
+    StageId.INFERRED_EDGES: "code",
     StageId.CATALOGUE:      "small",
     StageId.VALIDATION:     None,
-    StageId.KNOWLEDGE:      None,      # embedding only
+    StageId.KNOWLEDGE:      None,
     StageId.ENRICHMENT:     "large",
     StageId.GROUP_REASONING: "large",
     StageId.CLUSTERING:     "large",
     StageId.ATLAS:          "large",
     StageId.DEEPENING:      "large",
-    StageId.DEEP_KNOWLEDGE: None,      # embedding only
+    StageId.DEEP_KNOWLEDGE: None,
 }
 
 
@@ -269,12 +284,28 @@ class WorkerFactory:
         return project, ui_cfg, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes, max_files, max_nodes, max_edges
 
     @staticmethod
+    def _get_llm_client_for_task(task_id: str):
+        """Get an LLM client for the given task, with availability check.
+
+        Phase 44: Uses the unified resolver which respects assignment_mode.
+        Raises RuntimeError if no model is configured or endpoint is unreachable.
+        """
+        from codrag.server import _get_llm_client_for_task
+
+        client = _get_llm_client_for_task(task_id)
+        if not client:
+            raise RuntimeError(f"No model configured for task '{task_id}'. Configure a model in AI Models settings.")
+        if not client.is_available():
+            raise RuntimeError(f"Model endpoint not reachable: {client.endpoint_url}")
+        return client
+
+    @staticmethod
     def _get_llm_client(slot_name: str):
-        """Get an LLM client for the given slot ('small' or 'large'), with fallback."""
+        """Legacy helper — resolves via slot name.  Prefer _get_llm_client_for_task()."""
         from codrag.server import _get_llm_client_for_slot
 
         client = _get_llm_client_for_slot(slot_name)
-        if not client and slot_name == "large":
+        if not client and slot_name in ("large", "code"):
             client = _get_llm_client_for_slot("small")
         if not client:
             raise RuntimeError(f"No {slot_name} model configured. Configure a model in AI Models settings.")
@@ -367,21 +398,11 @@ class WorkerFactory:
             project, *_ = WorkerFactory._get_project_and_config(project_id)
             idx_dir = project_index_dir(project)
 
-            # Prefer code model slot; fall back to small model
-            llm_client = None
-            slot_used = None
-            for try_slot in ("code", "small"):
-                try:
-                    client = WorkerFactory._get_llm_client(try_slot)
-                    if client and client.is_available():
-                        llm_client = client
-                        slot_used = try_slot
-                        break
-                except RuntimeError:
-                    pass
-
-            if not llm_client:
-                logger.info("[Edge Discovery] No code or small model available — skipping")
+            # Phase 44: resolve via task ID (respects structured/mapped mode)
+            try:
+                llm_client = WorkerFactory._get_llm_client_for_task("inferred_edges")
+            except RuntimeError:
+                logger.info("[Edge Discovery] No model available for inferred_edges task — skipping")
                 progress_cb("Skipped (no LLM configured)", 1, 1)
                 return {"stage": "inferred_edges", "skipped": True, "reason": "no_llm"}
 
@@ -397,7 +418,7 @@ class WorkerFactory:
             if pfl and batch_profile:
                 pfl.log("inferred_edges", f"Batch profile: {batch_profile.name.value}")
 
-            logger.info("[%s/Edge Discovery] Starting: model=%s, slot=%s", project.name, llm_client.model, slot_used)
+            logger.info("[%s/Edge Discovery] Starting: model=%s", project.name, llm_client.model)
             log_cb = WorkerFactory._logged_progress("Edge Discovery", progress_cb, project.name)
             analyzer = InferredEdgesAnalyzer(
                 index_dir=idx_dir,
@@ -436,7 +457,7 @@ class WorkerFactory:
             from codrag.core.project_registry import project_index_dir
 
             project, *_ = WorkerFactory._get_project_and_config(project_id)
-            llm_client = WorkerFactory._get_llm_client("small")
+            llm_client = WorkerFactory._get_llm_client_for_task("catalogue")
             idx_dir = project_index_dir(project)
 
             batch_profile = WorkerFactory._get_batch_profile(llm_client)
@@ -516,7 +537,7 @@ class WorkerFactory:
             from pathlib import Path
 
             project, *_ = WorkerFactory._get_project_and_config(project_id)
-            llm_client = WorkerFactory._get_llm_client("large")
+            llm_client = WorkerFactory._get_llm_client_for_task("enrichment")
             idx_dir = project_index_dir(project)
 
             # Verbose pipeline file logging
@@ -574,7 +595,7 @@ class WorkerFactory:
             from codrag.core.project_registry import project_index_dir
 
             project, *_ = WorkerFactory._get_project_and_config(project_id)
-            llm_client = WorkerFactory._get_llm_client("large")
+            llm_client = WorkerFactory._get_llm_client_for_task("enrichment")  # group reasoning shares enrichment task
             idx_dir = project_index_dir(project)
 
             logger.info("[%s/Group Reasoning] Starting: model=%s", project.name, llm_client.model)
@@ -597,7 +618,7 @@ class WorkerFactory:
             from codrag.core.project_registry import project_index_dir
 
             project, *_ = WorkerFactory._get_project_and_config(project_id)
-            llm_client = WorkerFactory._get_llm_client("large")
+            llm_client = WorkerFactory._get_llm_client_for_task("clustering")
             idx_dir = project_index_dir(project)
 
             batch_profile = WorkerFactory._get_batch_profile(llm_client)
@@ -620,9 +641,9 @@ class WorkerFactory:
             project, *_ = WorkerFactory._get_project_and_config(project_id)
             idx_dir = project_index_dir(project)
 
-            # Use large LLM if available; fall back to structural atlas
+            # Use task-assigned LLM if available; fall back to structural atlas
             try:
-                llm_client = WorkerFactory._get_llm_client("large")
+                llm_client = WorkerFactory._get_llm_client_for_task("atlas")
                 # Atlas generates 4096 tokens of free-form prose — thinking
                 # models need much longer than the default 60s timeout.
                 llm_client.timeout = 300.0
@@ -680,7 +701,7 @@ class WorkerFactory:
             from pathlib import Path
 
             project, *_ = WorkerFactory._get_project_and_config(project_id)
-            llm_client = WorkerFactory._get_llm_client("large")
+            llm_client = WorkerFactory._get_llm_client_for_task("deepening")
             idx_dir = project_index_dir(project)
 
             enricher = EpistemicEnricher(
@@ -1163,62 +1184,73 @@ class PipelineOrchestrator:
     # ── VRAM Lifecycle ─────────────────────────────────────────────
 
     def _maybe_unload_previous_model(self, run: PipelineRun, next_stage: StageId) -> None:
-        """Unload the previous stage's LLM model if the slot is changing.
+        """Unload the previous stage's LLM model if the model identity is changing.
+
+        Phase 44: Tracks by (endpoint_id, model) tuple instead of slot name.
+        This works correctly in both structured and mapped assignment modes.
 
         Prevents two models from occupying VRAM simultaneously.
-        Only acts when transitioning between different model slots
-        (e.g. small→None, small→large, large→None).
-
         Non-fatal: logs warnings on failure but never blocks the pipeline.
         """
-        next_slot = STAGE_MODEL_SLOT.get(next_stage)
+        from codrag.server import _get_model_identity_for_task, _get_llm_client_for_task
 
-        # Determine the previous stage's slot
-        prev_slot: Optional[str] = None
+        next_task = STAGE_TASK_ID.get(next_stage)
+        next_identity = _get_model_identity_for_task(next_task) if next_task else None
+
+        # Determine the previous stage's model identity
+        prev_task: Optional[str] = None
+        prev_identity = None
         if run.current_stage_index > 0:
             prev_stage = run.stages[run.current_stage_index - 1]
-            prev_slot = STAGE_MODEL_SLOT.get(prev_stage)
+            prev_task = STAGE_TASK_ID.get(prev_stage)
+            prev_identity = _get_model_identity_for_task(prev_task) if prev_task else None
 
-        # No transition needed if slot hasn't changed, or previous had no model
-        if prev_slot is None or prev_slot == next_slot:
+        # No transition needed if same model or previous had no model
+        if prev_identity is None or prev_identity == next_identity:
             return
 
         # Unload the previous model
         try:
-            from codrag.server import _get_llm_client_for_slot
-            client = _get_llm_client_for_slot(prev_slot)
+            client = _get_llm_client_for_task(prev_task)
             if client:
                 logger.info(
                     "VRAM lifecycle: unloading %s model (%s) before stage %s",
-                    prev_slot, client.model, next_stage.value,
+                    prev_task, client.model, next_stage.value,
                 )
                 client.unload()
         except Exception as e:
-            logger.warning("VRAM lifecycle: failed to unload %s model: %s", prev_slot, e)
+            logger.warning("VRAM lifecycle: failed to unload model for task %s: %s", prev_task, e)
 
     def _unload_group_models(self, run: PipelineRun) -> None:
         """Unload any LLM models used by the completed/failed group.
 
+        Phase 44: Tracks unique (endpoint_id, model) identities across the
+        group's stages.  Deduplicates so shared models are only unloaded once.
+
         Called when a pipeline group finishes to free VRAM for the next
         group or for the user's own work.
         """
-        # Find the last model slot used in this group's stages
-        slots_used = set()
-        for stage in run.stages:
-            slot = STAGE_MODEL_SLOT.get(stage)
-            if slot:
-                slots_used.add(slot)
+        from codrag.server import _get_model_identity_for_task, _get_llm_client_for_task
 
-        for slot_name in slots_used:
+        # Collect unique model identities used by this group
+        identities_seen: dict = {}  # identity → task_id (for client resolution)
+        for stage in run.stages:
+            task_id = STAGE_TASK_ID.get(stage)
+            if not task_id:
+                continue
+            identity = _get_model_identity_for_task(task_id)
+            if identity and identity not in identities_seen:
+                identities_seen[identity] = task_id
+
+        for identity, task_id in identities_seen.items():
             try:
-                from codrag.server import _get_llm_client_for_slot
-                client = _get_llm_client_for_slot(slot_name)
+                client = _get_llm_client_for_task(task_id)
                 if client:
                     logger.info("VRAM lifecycle: unloading %s model (%s) — group %s finished",
-                                slot_name, client.model, run.group)
+                                task_id, client.model, run.group)
                     client.unload()
             except Exception as e:
-                logger.warning("VRAM lifecycle: failed to unload %s model after group: %s", slot_name, e)
+                logger.warning("VRAM lifecycle: failed to unload model for task %s after group: %s", task_id, e)
 
     # ── CodeIndex Build (post-pipeline) ─────────────────────────────
 

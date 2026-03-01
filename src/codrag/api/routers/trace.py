@@ -857,16 +857,16 @@ def augment_status_project(project_id: str) -> Dict[str, Any]:
 @router.post("/projects/{project_id}/augment/run")
 def augment_run_project(project_id: str, req: AugmentRequest) -> Dict[str, Any]:
     """Run LLM augmentation on trace nodes (Phase 1, Step 2)."""
-    from codrag.server import _require_project, _get_llm_client_for_slot
+    from codrag.server import _require_project, _get_llm_client_for_task
     proj = _require_project(project_id)
 
-    llm_client = _get_llm_client_for_slot("small")
+    llm_client = _get_llm_client_for_task("augmentation")
     if not llm_client:
         raise ApiException(
             status_code=409,
             code="NO_SMALL_MODEL",
-            message="No small model configured",
-            hint="Configure a Small Model in AI Models settings.",
+            message="No model configured for augmentation",
+            hint="Configure a model in AI Models settings.",
         )
 
     if not llm_client.is_available():
@@ -956,7 +956,7 @@ def deep_analysis_status_project(project_id: str, full: bool = False) -> Dict[st
 @router.post("/projects/{project_id}/deep-analysis/run")
 def deep_analysis_run_project(project_id: str, req: DeepAnalysisRequest) -> Dict[str, Any]:
     """Run deep analysis validation (Phase 2, Step 4). Uses Tier 0 evidence only."""
-    from codrag.server import _require_project, _get_llm_client_for_slot, _load_ui_config
+    from codrag.server import _require_project, _get_llm_client_for_task, _load_ui_config
     proj = _require_project(project_id)
 
     # Prevent double-run
@@ -968,10 +968,7 @@ def deep_analysis_run_project(project_id: str, req: DeepAnalysisRequest) -> Dict
             message="Deep analysis is already running for this project",
         )
 
-    llm_client = _get_llm_client_for_slot("large")
-    if not llm_client:
-        # Fall back to fast/small model if no large model configured
-        llm_client = _get_llm_client_for_slot("small")
+    llm_client = _get_llm_client_for_task("enrichment")
     if not llm_client:
         raise ApiException(
             status_code=409,
@@ -1184,16 +1181,14 @@ def epistemic_status_project(project_id: str) -> Dict[str, Any]:
 @router.post("/projects/{project_id}/epistemic/run")
 def epistemic_run_project(project_id: str, req: EpistemicRunRequest) -> Dict[str, Any]:
     """Run epistemic enrichment (Pass 2) using the large model."""
-    from codrag.server import _require_project, _get_llm_client_for_slot
+    from codrag.server import _require_project, _get_llm_client_for_task
     proj = _require_project(project_id)
 
     state = _epistemic_state.get(project_id)
     if state and state.get("thread") and state["thread"].is_alive():
         raise ApiException(status_code=409, code="ALREADY_RUNNING", message="Epistemic enrichment already running")
 
-    llm_client = _get_llm_client_for_slot("large")
-    if not llm_client:
-        llm_client = _get_llm_client_for_slot("small")
+    llm_client = _get_llm_client_for_task("enrichment")
     if not llm_client:
         raise ApiException(status_code=409, code="NO_MODEL", message="No model configured", hint="Configure a model in AI Models settings.")
     if not llm_client.is_available():
@@ -1297,16 +1292,14 @@ def modules_status_project(project_id: str) -> Dict[str, Any]:
 @router.post("/projects/{project_id}/modules/run")
 def modules_run_project(project_id: str) -> Dict[str, Any]:
     """Run cluster synthesis (Pass 3) using the large model."""
-    from codrag.server import _require_project, _get_llm_client_for_slot
+    from codrag.server import _require_project, _get_llm_client_for_task
     proj = _require_project(project_id)
 
     state = _cluster_state.get(project_id)
     if state and state.get("thread") and state["thread"].is_alive():
         raise ApiException(status_code=409, code="ALREADY_RUNNING", message="Cluster synthesis already running")
 
-    llm_client = _get_llm_client_for_slot("large")
-    if not llm_client:
-        llm_client = _get_llm_client_for_slot("small")
+    llm_client = _get_llm_client_for_task("clustering")
     if not llm_client:
         raise ApiException(status_code=409, code="NO_MODEL", message="No model configured")
     if not llm_client.is_available():
@@ -1415,16 +1408,14 @@ def deepening_status_project(project_id: str) -> Dict[str, Any]:
 @router.post("/projects/{project_id}/deepening/run")
 def deepening_run_project(project_id: str, req: DeepeningRunRequest) -> Dict[str, Any]:
     """Run continuous deepening loop (Pass 4+)."""
-    from codrag.server import _require_project, _get_llm_client_for_slot
+    from codrag.server import _require_project, _get_llm_client_for_task
     proj = _require_project(project_id)
 
     state = _deepening_state.get(project_id)
     if state and state.get("thread") and state["thread"].is_alive():
         raise ApiException(status_code=409, code="ALREADY_RUNNING", message="Deepening loop already running")
 
-    llm_client = _get_llm_client_for_slot("large")
-    if not llm_client:
-        llm_client = _get_llm_client_for_slot("small")
+    llm_client = _get_llm_client_for_task("deepening")
     if not llm_client:
         raise ApiException(status_code=409, code="NO_MODEL", message="No model configured")
     if not llm_client.is_available():

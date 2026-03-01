@@ -103,6 +103,14 @@ _DEFAULT_UI_CONFIG: Dict[str, Any] = {
         "budget_max_items": 100,
         "priority": "lowest_confidence",
     },
+    "audit_config": {
+        "auto_run_after_deep": False,   # Auto-run Tier 1 after deep enrichment completes
+        "auto_synthesize": False,        # Also generate LLM reports when auto-running
+        "large_file_threshold_bytes": 80000,   # ~2000 lines → critical
+        "large_file_warning_bytes": 40000,     # ~1000 lines → warning
+        "hub_z_threshold": 2.0,          # Z-score for hub bottleneck detection
+        "similarity_threshold": 0.65,    # Jaccard threshold for duplicate logic detection
+    },
     "pipeline_config": {
         "fast_sync": {
             "auto": True,
@@ -148,6 +156,7 @@ def default_ui_config(config: Dict[str, Any]) -> Dict[str, Any]:
     model = str(config.get("model") or "nomic-embed-text")
     
     cfg["llm_config"] = {
+        "assignment_mode": "structured",  # Phase 44: 'structured' | 'mapped'
         "saved_endpoints": [
             {
                 "id": "default_ollama",
@@ -184,6 +193,7 @@ def default_ui_config(config: Dict[str, Any]) -> Dict[str, Any]:
             "level": "standard",
         },
         "batch_mode": "auto",
+        "assignment_blocks": [],  # Phase 44: Mapped mode blocks
     }
 
     return cfg

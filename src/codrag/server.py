@@ -308,7 +308,12 @@ def _project_augment_status(project: Project) -> Dict[str, Any]:
     return augmenter.status()
 
 def _get_llm_client_for_slot(slot: str):
-    """Create an LLMClient for the given slot ('small', 'large', or 'code')."""
+    """Create an LLMClient for the given slot ('small', 'large', or 'code').
+
+    This is the low-level slot resolver used internally by the structured-mode
+    path of ``_get_llm_client_for_task()``.  Direct callers should prefer
+    ``_get_llm_client_for_task(task_id)`` instead.
+    """
     # Map slot aliases to config keys
     SLOT_MAP = {"small": "small_model", "large": "large_model", "code": "code_model"}
     slot_key = SLOT_MAP.get(slot, slot)
@@ -350,6 +355,121 @@ def _get_llm_client_for_slot(slot: str):
     )
 
 
+# ── Phase 44: Unified Task-Based LLM Resolver ─────────────────────
+
+# Maps CodragTaskId → structured slot name.  Used when assignment_mode == "structured".
+TASK_TO_SLOT: Dict[str, str] = {
+    "catalogue":       "small",
+    "inferred_edges":  "code",
+    "enrichment":      "large",
+    "clustering":      "large",
+    "atlas":           "large",
+    "deepening":       "large",
+    "search_intent":   "small",
+    "audit":           "large",
+    "augmentation":    "small",
+}
+
+# Tasks whose structured slot falls back to "small" when the primary slot is unconfigured.
+_SLOT_FALLBACK_TO_SMALL = {"code", "large"}
+
+
+def _get_llm_client_for_task(task_id: str):
+    """Resolve an LLM client for a specific pipeline/runtime task.
+
+    Phase 44 unified resolver.  In structured mode, maps task → slot → config
+    (identical to the old behaviour).  In mapped mode, maps task → assignment
+    block → endpoint+model.
+
+    Returns ``None`` if no model is configured for the task.
+    """
+    ui_cfg = _load_ui_config()
+    llm_cfg = ui_cfg.get("llm_config") or {}
+    mode = llm_cfg.get("assignment_mode", "structured")
+
+    if mode == "mapped":
+        return _resolve_mapped_task(task_id, llm_cfg)
+    return _resolve_structured_task(task_id)
+
+
+def _resolve_structured_task(task_id: str):
+    """Structured-mode resolver: task → slot → slot config."""
+    slot = TASK_TO_SLOT.get(task_id, "small")
+    client = _get_llm_client_for_slot(slot)
+    if not client and slot in _SLOT_FALLBACK_TO_SMALL:
+        client = _get_llm_client_for_slot("small")
+    return client
+
+
+def _resolve_mapped_task(task_id: str, llm_cfg: dict):
+    """Mapped-mode resolver: task → assignment block → endpoint+model."""
+    blocks = llm_cfg.get("assignment_blocks") or []
+    for block in blocks:
+        if task_id in (block.get("tasks") or []):
+            return _create_client_from_block(block, llm_cfg, task_id)
+    return None
+
+
+def _create_client_from_block(block: dict, llm_cfg: dict, task_id: str):
+    """Build an LLMClient from a mapped assignment block."""
+    endpoint_id = block.get("endpoint_id")
+    model = block.get("model")
+    if not endpoint_id or not model:
+        return None
+
+    endpoints = llm_cfg.get("saved_endpoints") or []
+    endpoint = next((ep for ep in endpoints if ep.get("id") == endpoint_id), None)
+    if not endpoint:
+        return None
+
+    url = endpoint.get("url")
+    if not url:
+        return None
+
+    from codrag.core import LLMClient
+    # Use long timeout for tasks that are typically assigned to large/thinking models
+    _LONG_TIMEOUT_TASKS = {"enrichment", "clustering", "atlas", "deepening", "audit"}
+    timeout = 600.0 if task_id in _LONG_TIMEOUT_TASKS else 120.0
+    return LLMClient(
+        endpoint_url=url,
+        model=model,
+        api_key=endpoint.get("api_key"),
+        provider=endpoint.get("provider", "ollama"),
+        timeout=timeout,
+    )
+
+
+def _get_model_identity_for_task(task_id: str) -> Optional[tuple]:
+    """Return (endpoint_id, model) for a task, or None.
+
+    Used by the VRAM lifecycle manager to detect whether consecutive pipeline
+    stages share the same physical model (no unload needed) or different
+    models (unload the previous one).
+    """
+    ui_cfg = _load_ui_config()
+    llm_cfg = ui_cfg.get("llm_config") or {}
+    mode = llm_cfg.get("assignment_mode", "structured")
+
+    if mode == "mapped":
+        for block in llm_cfg.get("assignment_blocks") or []:
+            if task_id in (block.get("tasks") or []):
+                eid = block.get("endpoint_id")
+                mdl = block.get("model")
+                return (eid, mdl) if eid and mdl else None
+        return None
+
+    # Structured: resolve to slot, then to endpoint+model
+    slot = TASK_TO_SLOT.get(task_id, "small")
+    SLOT_MAP = {"small": "small_model", "large": "large_model", "code": "code_model"}
+    slot_key = SLOT_MAP.get(slot, slot)
+    slot_cfg = llm_cfg.get(slot_key) or {}
+    if not slot_cfg.get("enabled"):
+        if slot in _SLOT_FALLBACK_TO_SMALL:
+            slot_cfg = llm_cfg.get("small_model") or {}
+        if not slot_cfg.get("enabled"):
+            return None
+    return (slot_cfg.get("endpoint_id"), slot_cfg.get("model"))
+
 
 # =============================================================================
 # Router Registration (Phase 23 — endpoint extraction)
@@ -367,6 +487,7 @@ from codrag.api.routers.pipeline import router as pipeline_router
 from codrag.api.routers.settings import router as settings_router
 from codrag.api.routers.scope import router as scope_router
 from codrag.api.routers.observations import router as observations_router
+from codrag.api.routers.audit import router as audit_router
 app.include_router(system_router)
 app.include_router(license_router)
 app.include_router(trace_router)
@@ -377,6 +498,7 @@ app.include_router(pipeline_router)
 app.include_router(settings_router)
 app.include_router(scope_router)
 app.include_router(observations_router)
+app.include_router(audit_router)
 
 
 # =============================================================================

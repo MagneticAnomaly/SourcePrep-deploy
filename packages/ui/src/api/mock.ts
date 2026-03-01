@@ -543,6 +543,23 @@ export class MockApiClient implements ApiClient {
   async updateIncludedPaths(_projectId: string, includedPaths: string[]): Promise<{ included_paths: string[] }> {
     return { included_paths: includedPaths };
   }
+
+  // AutoAudit (Phase 43)
+  async triggerAudit(_projectId: string, _opts?: { synthesize?: boolean; categories?: string[] }): Promise<{ status: string; synthesize: boolean }> {
+    return { status: 'started', synthesize: _opts?.synthesize ?? false };
+  }
+  async getAuditStatus(_projectId: string): Promise<import('../types').AuditStatus> {
+    return { running: false, error: null, has_results: false };
+  }
+  async getAuditFindings(_projectId: string, _opts?: { severity?: string; category?: string; limit?: number }): Promise<{ finding_count: number; total_finding_count: number; severity_counts: Record<string, number>; findings: import('../types').AuditFinding[] }> {
+    return { finding_count: 0, total_finding_count: 0, severity_counts: {}, findings: [] };
+  }
+  async getAuditReports(_projectId: string): Promise<{ reports: import('../types').AuditReport[] }> {
+    return { reports: [] };
+  }
+  async getAuditReport(_projectId: string, _reportName: string): Promise<{ name: string; content: string; size_bytes: number }> {
+    return { name: _reportName, content: '# No report generated yet', size_bytes: 0 };
+  }
 }
 
 export const createMockApiClient = (): ApiClient => new MockApiClient();

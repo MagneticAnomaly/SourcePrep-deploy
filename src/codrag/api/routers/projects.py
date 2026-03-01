@@ -2130,14 +2130,12 @@ def regenerate_atlas(project_id: str) -> Dict[str, Any]:
     proj = _srv()._require_project(project_id)
     idx_dir = project_index_dir(proj)
 
-    # Try to use large LLM; fall back to small, then structural
+    # Try to use task-assigned LLM; fall back to structural atlas
     # Atlas synthesis is a heavy task — increase timeout to 180s
     llm_client = None
     try:
-        from codrag.server import _get_llm_client_for_slot
-        llm_client = _get_llm_client_for_slot("large")
-        if llm_client and not llm_client.is_available():
-            llm_client = _get_llm_client_for_slot("small")
+        from codrag.server import _get_llm_client_for_task
+        llm_client = _get_llm_client_for_task("atlas")
         if llm_client and not llm_client.is_available():
             llm_client = None
     except Exception:
