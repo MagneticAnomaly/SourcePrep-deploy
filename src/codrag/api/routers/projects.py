@@ -681,11 +681,11 @@ def start_project_watch(
             logger.info("Auto-rebuild skipped for %s — project limit exceeded", proj.id)
             return False
 
+        include_globs, exclude_globs = _get_project_globs(proj, use_defaults=False)
+        # Pass None instead of [] so downstream build() applies its own policy defaults
+        include_globs = include_globs or None
+        exclude_globs = exclude_globs or None
         cfg = proj.config or {}
-        include_raw = cfg.get("include_globs") if isinstance(cfg, dict) else None
-        exclude_raw = cfg.get("exclude_globs") if isinstance(cfg, dict) else None
-        include_globs = list(include_raw) if isinstance(include_raw, list) else None
-        exclude_globs = list(exclude_raw) if isinstance(exclude_raw, list) else None
         max_file_bytes = int((cfg.get("max_file_bytes") or 500_000) if isinstance(cfg, dict) else 500_000)
         hard_limit_bytes = int((cfg.get("hard_limit_bytes") or 100_000_000) if isinstance(cfg, dict) else 100_000_000)
         included_paths = cfg.get("included_paths") if isinstance(cfg, dict) else None
