@@ -1070,6 +1070,44 @@ class TraceBuilder:
         self.edges_path = self.index_dir / "trace_edges.jsonl"
         self.gitignore_spec = None
 
+    def _get_analyzer(self, language: Optional[str], rel_path: str, source: str):
+        """Return the appropriate analyzer for the given language, or None."""
+        if language == "python":
+            return PythonAnalyzer(rel_path, source, self.repo_root)
+        if language == "swift":
+            return SwiftAnalyzer(rel_path, source, self.repo_root)
+        if language in ("javascript", "typescript"):
+            return JSAnalyzer(rel_path, source, self.repo_root)
+        if language in GenericRegexAnalyzer.LANGUAGE_CONFIGS:
+            return GenericRegexAnalyzer(rel_path, source, self.repo_root, language)
+        return None
+
+    @staticmethod
+    def _collect_analyzer_result(
+        sym_nodes: List[TraceNode],
+        sym_edges: List[TraceEdge],
+        nodes: List[TraceNode],
+        edges: List[TraceEdge],
+        external_modules: Dict[str, TraceNode],
+    ) -> None:
+        """Merge analyzer output into the shared node/edge lists and register external modules."""
+        nodes.extend(sym_nodes)
+        for edge in sym_edges:
+            if edge.metadata.get("external"):
+                ext_name = str(edge.metadata.get("import", ""))
+                if ext_name and ext_name not in external_modules:
+                    ext_node = TraceNode(
+                        id=stable_external_module_id(ext_name),
+                        kind="external_module",
+                        name=ext_name,
+                        file_path="",
+                        span=None,
+                        language=None,
+                        metadata={"external": True},
+                    )
+                    external_modules[ext_name] = ext_node
+        edges.extend(sym_edges)
+
     def build(
         self,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
