@@ -777,16 +777,7 @@ def get_project_activity(project_id: str, weeks: int = Query(12, ge=1, le=52)) -
 @router.get("/projects/{project_id}/coverage")
 def get_project_coverage(project_id: str) -> Dict[str, Any]:
     proj = _srv()._require_project(project_id)
-
-    cfg = proj.config or {}
-    include_raw = cfg.get("include_globs") if isinstance(cfg, dict) else None
-    exclude_raw = cfg.get("exclude_globs") if isinstance(cfg, dict) else None
-    include_globs = list(include_raw) if isinstance(include_raw, list) else list(_srv()._DEFAULT_UI_CONFIG.get("include_globs") or [])
-    exclude_globs = list(exclude_raw) if isinstance(exclude_raw, list) else list(_srv()._DEFAULT_UI_CONFIG.get("exclude_globs") or [])
-
-    if proj.mode == "embedded":
-        if "**/.codrag/**" not in exclude_globs:
-            exclude_globs.append("**/.codrag/**")
+    include_globs, exclude_globs = _get_project_globs(proj)
 
     repo_root = Path(proj.path).expanduser().resolve()
     if not repo_root.exists():
