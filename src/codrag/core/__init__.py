@@ -55,7 +55,8 @@ from .chunking import Chunk, chunk_markdown, chunk_code
 from .compressor import ContextCompressor, LinguaCompressor, NoopCompressor, CompressResult
 from .index import CodeIndex, SearchResult
 from .trace import TraceBuilder, TraceIndex, TraceNode, TraceEdge, build_trace
-from .augmenter import TraceAugmenter, LLMClient, AugmentationEntry, AugmentResult
+from .llm_client import LLMClient, _parse_json_response, _parse_confidence, _strip_think_tags, _get_llm_concurrency
+from .augmenter import TraceAugmenter, AugmentationEntry, AugmentResult
 from .deep_analysis import DeepAnalysisOrchestrator, DeepAnalysisSchedule, DeepAnalysisResult
 from .epistemic_score import EpistemicScore, EpistemicEntry, compute_epistemic_score, apply_decay
 from .epistemic_enrichment import EpistemicEnricher, topological_sort_files, topological_sort_into_tiers
