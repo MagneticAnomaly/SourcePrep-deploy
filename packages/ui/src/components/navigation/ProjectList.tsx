@@ -2,8 +2,9 @@ import { useState, type ReactNode } from 'react';
 import type { ProjectSummary } from '../../types';
 import { StatusBadge } from '../status/StatusBadge';
 import { cn } from '../../lib/utils';
-import { FolderPlus, X } from 'lucide-react';
+import { FolderPlus, X, Lock, Snowflake } from 'lucide-react';
 import { Button } from '../primitives/Button';
+import { Toggle } from '../primitives/Toggle';
 
 export interface ProjectListProps {
   projects: ProjectSummary[];
@@ -11,6 +12,8 @@ export interface ProjectListProps {
   onProjectSelect: (projectId: string) => void;
   onAddProject: () => void;
   onDeleteProject?: (projectId: string) => void;
+  onToggleActive?: (projectId: string, active: boolean, touch?: boolean) => void;
+  isPro?: boolean;
   extraActions?: ReactNode;
   className?: string;
 }
@@ -18,22 +21,37 @@ export interface ProjectListProps {
 export interface ProjectListItemProps {
   project: ProjectSummary;
   selected: boolean;
+  isPro: boolean;
   onClick: () => void;
   onDelete?: () => void;
+  onToggleActive?: (active: boolean) => void;
 }
 
 /**
  * ProjectListItem - Single project row in the sidebar
  */
-function ProjectListItem({ project, selected, onClick, onDelete }: ProjectListItemProps) {
+function ProjectListItem({ project, selected, isPro, onClick, onDelete, onToggleActive }: ProjectListItemProps) {
   const [confirming, setConfirming] = useState(false);
+  const rawStatus = project.activity_status ?? 'active';
+  // In Pro tier, there are no locked/frozen projects — only active/inactive.
+  // Force any stale locked/frozen from a race condition to "inactive".
+  const status = isPro && (rawStatus === 'locked' || rawStatus === 'frozen') ? 'inactive' : rawStatus;
+  const isLocked = status === 'locked';
+  const isFrozen = status === 'frozen';
+  const isInactive = status === 'inactive';
+  
+  const isToggleChecked = status === 'active';
+  // Pro: always toggleable. Free: can only toggle OFF projects ON (swap active slot), can't turn off the active one.
+  const isToggleDisabled = !isPro && isToggleChecked;
 
   return (
     <div
       className={cn(
         'w-full text-left px-4 py-3 border-b border-border group relative',
         'hover:bg-surface-raised transition-colors cursor-pointer',
-        selected ? 'bg-surface-raised border-l-4 border-l-primary' : 'border-l-4 border-l-transparent'
+        selected ? 'bg-surface-raised border-l-4 border-l-primary' : 'border-l-4 border-l-transparent',
+        isLocked && 'opacity-50 bg-surface-base', // Only heavily dim completely locked projects
+        (isInactive || isFrozen) && 'opacity-90', // Slightly reduce opacity for paused/read-only
       )}
       onClick={onClick}
       role="button"
@@ -63,11 +81,25 @@ function ProjectListItem({ project, selected, onClick, onDelete }: ProjectListIt
       ) : (
         <>
           <div className="flex items-center justify-between">
-            <span className={cn("font-medium truncate text-sm", selected ? "text-primary" : "text-text")}>
-              {project.name}
-            </span>
-            <div className="flex items-center gap-1">
-              <StatusBadge status={project.status} showLabel={false} />
+            <div className="flex items-center gap-1.5 min-w-0">
+              {isLocked && <span title="Locked — upgrade to Pro"><Lock className="w-3 h-3 text-text-muted shrink-0" /></span>}
+              {isFrozen && <span title="Frozen — read-only (Free tier)"><Snowflake className="w-3 h-3 text-blue-400 shrink-0" /></span>}
+              <span className={cn("font-medium truncate text-sm", selected ? "text-primary" : "text-text", isLocked && "text-text-muted")}>
+                {project.name}
+              </span>
+            </div>
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              {!isLocked && <StatusBadge status={project.status} showLabel={false} />}
+              {onToggleActive && (
+                <div className="flex items-center" title={isToggleDisabled ? "In Free tier, turn another project ON to swap." : "Toggle project auto-sync"}>
+                  <Toggle 
+                    checked={isToggleChecked} 
+                    onChange={onToggleActive} 
+                    disabled={isToggleDisabled}
+                    size="sm"
+                  />
+                </div>
+              )}
               {onDelete && (
                 <button
                   onClick={(e) => { e.stopPropagation(); setConfirming(true); }}
@@ -80,7 +112,7 @@ function ProjectListItem({ project, selected, onClick, onDelete }: ProjectListIt
               )}
             </div>
           </div>
-          <span className="text-xs text-text-muted truncate block mt-1">
+          <span className={cn("text-xs text-text-muted truncate block mt-1")}>
             {project.path}
           </span>
         </>
@@ -91,11 +123,6 @@ function ProjectListItem({ project, selected, onClick, onDelete }: ProjectListIt
 
 /**
  * ProjectList - List of registered projects in sidebar
- * 
- * Displays:
- * - List of projects with status indicators
- * - Selected state highlighting
- * - Add project button
  */
 export function ProjectList({
   projects,
@@ -103,6 +130,8 @@ export function ProjectList({
   onProjectSelect,
   onAddProject,
   onDeleteProject,
+  onToggleActive,
+  isPro = false,
   extraActions,
   className,
 }: ProjectListProps) {
@@ -122,8 +151,10 @@ export function ProjectList({
               key={project.id}
               project={project}
               selected={project.id === selectedProjectId}
+              isPro={isPro}
               onClick={() => onProjectSelect(project.id)}
               onDelete={onDeleteProject ? () => onDeleteProject(project.id) : undefined}
+              onToggleActive={onToggleActive ? (active) => onToggleActive(project.id, active, !isPro) : undefined}
             />
           ))
         )}

@@ -193,7 +193,7 @@ def build_trace_project(project_id: str) -> Dict[str, Any]:
     from codrag.server import (
         _require_project, _is_project_trace_building, _start_project_trace_build, _get_registry
     )
-    from codrag.services.project_helpers import is_over_project_limit
+    from codrag.services.project_helpers import is_over_project_limit, require_project_writable
     
     if is_over_project_limit():
         raise ApiException(
@@ -203,7 +203,7 @@ def build_trace_project(project_id: str) -> Dict[str, Any]:
             hint="Upgrade your plan or remove projects to resume syncing."
         )
 
-    proj = _require_project(project_id)
+    proj = require_project_writable(project_id)
 
     cfg = proj.config or {}
     trace_cfg = cfg.get("trace") if isinstance(cfg, dict) else None

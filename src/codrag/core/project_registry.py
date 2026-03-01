@@ -189,6 +189,7 @@ class ProjectRegistry:
         *,
         name: Optional[str] = None,
         config: Optional[Dict[str, Any]] = None,
+        touch: bool = True,
     ) -> Project:
         existing = self.get_project(project_id)
         if existing is None:
@@ -196,7 +197,7 @@ class ProjectRegistry:
 
         new_name = existing.name if name is None else str(name)
         new_config = existing.config if config is None else dict(config)
-        now = _now_iso()
+        now = _now_iso() if touch else existing.updated_at
 
         with self._connect() as conn:
             conn.execute(

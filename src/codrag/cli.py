@@ -1205,7 +1205,7 @@ def sync_headless(
     """
     Run the headless indexing pipeline for team sync.
 
-    Clones (or uses) a repository, runs the 10-stage enrichment pipeline,
+    Clones (or uses) a repository, runs the 11-stage enrichment pipeline,
     and uploads the resulting index artifacts to an S3-compatible bucket.
 
     \b

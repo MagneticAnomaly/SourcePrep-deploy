@@ -29,6 +29,7 @@ function toProjectSummary(p: ProjectListItem, ps: ProjectStatus | null, building
     status: deriveStatus(ps, building),
     chunk_count: ps?.index.total_chunks,
     last_build_at: ps?.index.last_build_at ?? undefined,
+    activity_status: p.activity_status,
   }
 }
 
@@ -260,8 +261,13 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
           include_globs: projectConfig.include_globs,
           exclude_globs: projectConfig.exclude_globs,
           max_file_bytes: projectConfig.max_file_bytes,
+          hard_limit_bytes: projectConfig.hard_limit_bytes,
+          active: projectConfig.active,
+          use_gitignore: projectConfig.use_gitignore,
           trace: projectConfig.trace,
           auto_rebuild: projectConfig.auto_rebuild,
+          graph_engine: projectConfig.graph_engine,
+          advanced: projectConfig.advanced,
         },
       })
       setConfigDirty(false)
@@ -279,6 +285,39 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     if (!selectedProjectId) throw new Error("No project selected")
     return await api.detectStack(selectedProjectId)
   }, [api, selectedProjectId])
+
+  const handleToggleActive = useCallback(async (projectId: string, active: boolean, touch: boolean = false) => {
+    // Optimistic UI update: immediately update the project summary activity_status so the toggle is responsive
+    setProjects(prev => prev.map(p => {
+      if (p.id === projectId) {
+        return {
+          ...p,
+          // If we are making it active, just say active. If we are turning it off, it's inactive.
+          // Note: free tier projects can't be toggled, so this only runs on Pro tier projects anyway.
+          activity_status: active ? 'active' : 'inactive',
+        };
+      }
+      return p;
+    }));
+
+    try {
+      // Get the existing project config first since we need to preserve other settings
+      const { project } = await api.getProject(projectId);
+      await api.updateProject(projectId, {
+        config: {
+          ...(project.config || {}),
+          active,
+        },
+        touch, // If true, bumps updated_at (needed for Free tier slot stealing)
+      });
+      // Refresh to ensure we have the authoritative state
+      refreshProjects();
+    } catch (e) {
+      // Revert on error
+      refreshProjects();
+      onErrorRef.current(e instanceof Error ? e.message : 'Failed to toggle project activity');
+    }
+  }, [api, refreshProjects]);
 
   // ── Derived ──────────────────────────────────────────────────
 
@@ -319,6 +358,7 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     handleSaveConfig,
     handleProjectConfigChange,
     handleDetectStack,
+    handleToggleActive,
     // Internal setters needed by other hooks (e.g. useTraceSystem needs setProjectConfig)
     setProjectConfig,
     setConfigDirty,

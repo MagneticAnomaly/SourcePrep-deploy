@@ -200,6 +200,36 @@ pub fn parse_file(
     }
 }
 
+/// Parse multiple files in parallel using rayon.
+///
+/// Each entry is (file_path, content, language). Results are returned
+/// in the same order as the input. Errors for individual files are
+/// captured in the ParseResult.errors field rather than propagated.
+pub fn parse_files_parallel(
+    entries: &[(String, String, String)],
+    repo_root: &std::path::Path,
+) -> Vec<ParseResult> {
+    use rayon::prelude::*;
+
+    entries
+        .par_iter()
+        .map(|(file_path, content, language)| {
+            match parse_file(file_path, content, language, repo_root) {
+                Ok(result) => result,
+                Err(e) => {
+                    let mut result = ParseResult::empty();
+                    result.errors.push(ParseFileError {
+                        file_path: file_path.clone(),
+                        error_type: "parse_error".to_string(),
+                        message: e.to_string(),
+                    });
+                    result
+                }
+            }
+        })
+        .collect()
+}
+
 /// Get the list of supported languages.
 pub fn supported_languages() -> &'static [&'static str] {
     &[

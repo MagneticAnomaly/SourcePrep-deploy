@@ -149,30 +149,52 @@ class AugmentationEntry:
         )
 
 
-def _get_llm_concurrency() -> int:
-    """Read llm_concurrency from pipeline config. Default 1 (sequential).
+def _get_llm_concurrency(stage: str = "fast") -> int:
+    """Read LLM concurrency from pipeline config for the given stage group.
 
-    Used by all LLM pipeline stages:
-      - Inferred edges (Stage 2): all files are independent
-      - Catalogue symbols + files (Stage 3): all items are independent
-      - Epistemic enrichment (Stage 6): within each dependency tier
-      - Cluster synthesis (Stage 7): all clusters are independent
+    Three separate settings matching the three model slots:
+
+      - ``llm_concurrency_fast``: Stage 3 (catalogue).
+        Uses the small/instruct model (e.g. qwen3:4b-instruct at 2.5 GB).
+
+      - ``llm_concurrency_code``: Stage 2 (inferred_edges).
+        Uses the coder model (e.g. qwen3-coder:30b at ~18 GB).
+        Falls back to ``llm_concurrency_fast`` if not set.
+
+      - ``llm_concurrency_deep``: Stages 6-9 (epistemic, clustering,
+        deepening).  Uses the large/thinking model (e.g. deepseek-r1:32b
+        or qwen3.5:35b-a3b at ~20 GB).
+
+    Falls back to legacy ``llm_concurrency`` if none of the split keys are set.
 
     Each concurrent request needs its own KV cache in VRAM/RAM:
       Total memory = model_weights + (concurrency × kv_cache_size)
 
-    Guidelines by hardware:
-      - 1: Safe default. Works on any hardware.
-      - 2: 16 GB+ VRAM/RAM (M1 Pro, RTX 4060)
-      - 3-4: 32 GB+ (RTX 5090, M1 Max, Mac Studio)
-      - 6-8: 64 GB+ (Mac Studio 96-128 GB, multi-GPU)
+    Set OLLAMA_NUM_PARALLEL in Ollama to at least max(fast, code, deep).
 
-    Set OLLAMA_NUM_PARALLEL in Ollama to match or exceed this value.
+    Args:
+        stage: "fast" for catalogue (stage 3),
+               "code" for inferred_edges (stage 2),
+               "deep" for deep-enrichment stages (6-9).
     """
     try:
         from codrag.services.settings_store import settings
         config = settings.get("pipeline_config") or {}
-        return max(1, min(8, int(config.get("llm_concurrency", 1))))
+
+        if stage == "deep":
+            key = "llm_concurrency_deep"
+        elif stage == "code":
+            key = "llm_concurrency_code"
+        else:
+            key = "llm_concurrency_fast"
+
+        # Try the split key first, fall back to fast key, then legacy single key
+        value = config.get(key)
+        if not value and stage == "code":
+            value = config.get("llm_concurrency_fast")
+        if not value:
+            value = config.get("llm_concurrency", 1)
+        return max(1, min(8, int(value)))
     except Exception:
         return 1
 
@@ -218,6 +240,7 @@ class LLMClient:
         json_mode: bool = True,
         temperature: float = 0.1,
         response_schema: Optional[Dict[str, Any]] = None,
+        think: Optional[bool] = None,
     ) -> Tuple[str, int]:
         """
         Call the LLM and return (response_text, tokens_used).
@@ -233,12 +256,24 @@ class LLMClient:
         import requests
 
         if self.provider == "ollama":
+            options: Dict[str, Any] = {
+                "temperature": temperature,
+                "num_predict": num_predict,
+                "top_k": 20,
+                "top_p": 0.95,
+            }
             payload: Dict[str, Any] = {
                 "model": self.model,
                 "prompt": prompt,
                 "stream": False,
-                "options": {"temperature": temperature, "num_predict": num_predict},
+                "options": options,
             }
+            # Disable thinking mode to skip massive thinking token overhead.
+            # Qwen3.5 generates 2000-5000 thinking tokens (3-5 min) before
+            # answering.  Disabling thinking cuts this to ~30-60s per item
+            # while still leveraging the full 27.8B dense model quality.
+            if think is not None:
+                payload["think"] = think
             if json_mode and not response_schema:
                 payload["format"] = "json"
             elif response_schema:
@@ -252,6 +287,19 @@ class LLMClient:
             resp.raise_for_status()
             data = resp.json()
             text = data.get("response", "")
+            # Ollama's new engine (Sept 2025+) puts thinking model output
+            # in a separate "thinking" field.  For qwen3.5, deepseek-r1,
+            # and other reasoning models, the JSON answer may land in
+            # "thinking" while "response" is empty.  Concatenate both so
+            # _parse_json_response / _strip_think_tags can handle it.
+            thinking = data.get("thinking", "")
+            if thinking and not text:
+                # Model put everything in thinking field (common with format=json)
+                text = thinking
+            elif thinking and text:
+                # Model has both thinking and response — wrap thinking in
+                # tags so _strip_think_tags can remove it cleanly.
+                text = f"<think>{thinking}</think>{text}"
             tokens = data.get("eval_count", 0) + data.get("prompt_eval_count", 0)
             return text, tokens
 
@@ -501,9 +549,37 @@ related_files: list up to 5 code files this doc most closely describes or refere
 JSON response:"""
 
 
+def _strip_think_tags(text: str) -> str:
+    """Strip LLM thinking tokens from all model families.
+
+    Handles:
+    - Qwen3/3.5: <think>reasoning...</think>
+    - DeepSeek-R1: <think>reasoning...</think>
+    - Unclosed <think> tags (model output truncated mid-thought)
+    - Nested or repeated think blocks
+    - <output> wrapper tags some models add around the answer
+    """
+    import re
+    # Strip closed <think>...</think> blocks (greedy within each block)
+    text = re.sub(r'<think>.*?</think>\s*', '', text, flags=re.DOTALL)
+    # Strip unclosed <think> (model started thinking but output was truncated)
+    text = re.sub(r'<think>.*', '', text, flags=re.DOTALL)
+    # Strip <output>...</output> wrapper some models add
+    text = re.sub(r'</?output>\s*', '', text, flags=re.DOTALL)
+    return text.strip()
+
+
 def _parse_json_response(text: str) -> Optional[Dict[str, Any]]:
-    """Best-effort JSON extraction from LLM response."""
+    """Best-effort JSON extraction from LLM response.
+
+    Handles think tags, markdown code fences, truncated JSON, and
+    various model output quirks across Qwen3, DeepSeek-R1, and others.
+    """
+    # Step 0: Strip think tags BEFORE any parsing attempts
+    text = _strip_think_tags(text)
     text = text.strip()
+    if not text:
+        return None
     # Try direct parse
     try:
         return json.loads(text)
@@ -1260,7 +1336,11 @@ class TraceAugmenter:
             else:
                 code_files.append(node)
 
-        # Process code files in batches
+        # Process code files in batches (concurrent batch dispatch for cloud APIs)
+        _BYOK_CONCURRENCY = 3  # Max concurrent batched API calls
+
+        # Pre-build all code batch payloads
+        code_batches = []
         for batch_start in range(0, len(code_files), batch_size):
             batch = code_files[batch_start:batch_start + batch_size]
             items = []
@@ -1284,65 +1364,80 @@ class TraceAugmenter:
                     "_node": node,
                     "_node_id": nid,
                 })
+            code_batches.append(items)
 
+        def _call_code_batch(items):
             prompt = build_batched_file_prompt(items)
             try:
                 text, tokens = self.llm.generate(
                     prompt, system=BATCHED_FILE_SYSTEM, num_predict=batch_size * 200,
                     response_schema=file_schema,
                 )
-                results_list = BatchedResponseParser.parse(text, expected_count=len(items))
+                return BatchedResponseParser.parse(text, expected_count=len(items))
             except Exception as e:
                 logger.warning("Batched file augmentation failed for batch of %d: %s", len(items), e)
-                results_list = []
+                return []
 
-            # Map results back to items
-            for idx, item in enumerate(items):
-                node = item["_node"]
-                nid = item["_node_id"]
-                fp = item["file_path"]
-                parsed = results_list[idx] if idx < len(results_list) else None
+        # Dispatch batches concurrently
+        with ThreadPoolExecutor(max_workers=min(_BYOK_CONCURRENCY, len(code_batches) or 1)) as pool:
+            future_to_items = {
+                pool.submit(_call_code_batch, items): items
+                for items in code_batches
+            }
+            for future in as_completed(future_to_items):
+                items = future_to_items[future]
+                try:
+                    results_list = future.result()
+                except Exception as e:
+                    logger.warning("Code batch future failed: %s", e)
+                    results_list = []
 
-                if parsed:
-                    entry = AugmentationEntry(
-                        node_id=nid,
-                        summary=str(parsed.get("summary", ""))[:500],
-                        role=parsed.get("role", self._infer_role_from_path(fp)),
-                        confidence=_parse_confidence(parsed.get("confidence"), 0.7),
-                        augmented_at=datetime.now(timezone.utc).isoformat(),
-                        model=self.llm.model,
-                        file_hash=file_hashes.get(fp),
-                        related_files=parsed.get("related_files", [])[:5],
-                    )
-                    augmented[nid] = entry
-                    result.augmented += 1
-                else:
-                    # Fall back to synthetic entry
-                    entry = self._synthetic_entry(node, nodes_by_id, edges, file_hashes)
-                    if entry:
+                for idx, item in enumerate(items):
+                    node = item["_node"]
+                    nid = item["_node_id"]
+                    fp = item["file_path"]
+                    parsed = results_list[idx] if idx < len(results_list) else None
+
+                    if parsed:
+                        entry = AugmentationEntry(
+                            node_id=nid,
+                            summary=str(parsed.get("summary", ""))[:500],
+                            role=parsed.get("role", self._infer_role_from_path(fp)),
+                            confidence=_parse_confidence(parsed.get("confidence"), 0.7),
+                            augmented_at=datetime.now(timezone.utc).isoformat(),
+                            model=self.llm.model,
+                            file_hash=file_hashes.get(fp),
+                            related_files=parsed.get("related_files", [])[:5],
+                        )
                         augmented[nid] = entry
-                        result.synthetic += 1
+                        result.augmented += 1
                     else:
-                        result.failed += 1
-                done += 1
+                        entry = self._synthetic_entry(node, nodes_by_id, edges, file_hashes)
+                        if entry:
+                            augmented[nid] = entry
+                            result.synthetic += 1
+                        else:
+                            result.failed += 1
+                    done += 1
 
-            if progress_callback:
-                progress_callback("augment_files", done, total_work)
+                if progress_callback:
+                    progress_callback("augment_files", done, total_work)
 
-            logger.info(
-                "Batched file augmentation: %d/%d done (batch of %d → %d parsed)",
-                done, total_work, len(items), len(results_list),
-            )
+                logger.info(
+                    "Batched file augmentation: %d/%d done (batch of %d → %d parsed)",
+                    done, total_work, len(items), len(results_list),
+                )
 
-        # Process doc files in batches (smaller batch size)
+        # Process doc files in batches (smaller batch size, concurrent dispatch)
         doc_batch_size = max(1, batch_size // 5)  # Docs are bigger
+
+        doc_batches = []
         for batch_start in range(0, len(doc_files), doc_batch_size):
             batch = doc_files[batch_start:batch_start + doc_batch_size]
             items = []
             for node in batch:
                 fp = node.get("file_path", "")
                 nid = node["id"]
-                # Get section nodes for this file
                 section_nodes = [
                     nodes_by_id[e["target"]]
                     for e in edges
@@ -1373,50 +1468,65 @@ class TraceAugmenter:
                     "_node": node,
                     "_node_id": nid,
                 })
+            doc_batches.append(items)
 
+        def _call_doc_batch(items):
             prompt = build_batched_doc_prompt(items)
             try:
                 text, tokens = self.llm.generate(
                     prompt, system=BATCHED_DOC_SYSTEM, num_predict=len(items) * 200,
                     response_schema=doc_schema,
                 )
-                results_list = BatchedResponseParser.parse(text, expected_count=len(items))
+                return BatchedResponseParser.parse(text, expected_count=len(items))
             except Exception as e:
                 logger.warning("Batched doc augmentation failed for batch of %d: %s", len(items), e)
-                results_list = []
+                return []
 
-            for idx, item in enumerate(items):
-                node = item["_node"]
-                nid = item["_node_id"]
-                fp = item["file_path"]
-                parsed = results_list[idx] if idx < len(results_list) else None
+        with ThreadPoolExecutor(max_workers=min(_BYOK_CONCURRENCY, len(doc_batches) or 1)) as pool:
+            future_to_items = {
+                pool.submit(_call_doc_batch, items): items
+                for items in doc_batches
+            }
+            for future in as_completed(future_to_items):
+                items = future_to_items[future]
+                try:
+                    results_list = future.result()
+                except Exception as e:
+                    logger.warning("Doc batch future failed: %s", e)
+                    results_list = []
 
-                if parsed:
-                    entry = AugmentationEntry(
-                        node_id=nid,
-                        summary=str(parsed.get("summary", ""))[:500],
-                        role="documentation",
-                        confidence=_parse_confidence(parsed.get("confidence"), 0.7),
-                        augmented_at=datetime.now(timezone.utc).isoformat(),
-                        model=self.llm.model,
-                        file_hash=file_hashes.get(fp),
-                        related_files=parsed.get("related_files", [])[:5],
-                        doc_type=parsed.get("doc_type"),
-                        doc_status=parsed.get("doc_status"),
-                    )
-                    augmented[nid] = entry
-                    result.augmented += 1
-                else:
-                    entry = self._synthetic_entry(node, nodes_by_id, edges, file_hashes)
-                    if entry:
+                for idx, item in enumerate(items):
+                    node = item["_node"]
+                    nid = item["_node_id"]
+                    fp = item["file_path"]
+                    parsed = results_list[idx] if idx < len(results_list) else None
+
+                    if parsed:
+                        entry = AugmentationEntry(
+                            node_id=nid,
+                            summary=str(parsed.get("summary", ""))[:500],
+                            role="documentation",
+                            confidence=_parse_confidence(parsed.get("confidence"), 0.7),
+                            augmented_at=datetime.now(timezone.utc).isoformat(),
+                            model=self.llm.model,
+                            file_hash=file_hashes.get(fp),
+                            related_files=parsed.get("related_files", [])[:5],
+                            doc_type=parsed.get("doc_type"),
+                            doc_status=parsed.get("doc_status"),
+                        )
                         augmented[nid] = entry
-                        result.synthetic += 1
+                        result.augmented += 1
                     else:
-                        result.failed += 1
-                done += 1
+                        entry = self._synthetic_entry(node, nodes_by_id, edges, file_hashes)
+                        if entry:
+                            augmented[nid] = entry
+                            result.synthetic += 1
+                        else:
+                            result.failed += 1
+                    done += 1
 
-            if progress_callback:
-                progress_callback("augment_files", done, total_work)
+                if progress_callback:
+                    progress_callback("augment_files", done, total_work)
 
         return done
 
@@ -1497,7 +1607,7 @@ class TraceAugmenter:
         pass_start = time.monotonic()
 
         # Pass 1: Symbol augmentation
-        concurrency = _get_llm_concurrency()
+        concurrency = _get_llm_concurrency("fast")
         if to_augment_symbols:
             logger.info("Pass 1: augmenting %d symbols (concurrency=%d)...", len(to_augment_symbols), concurrency)
 
@@ -1547,7 +1657,11 @@ class TraceAugmenter:
                     for node in to_augment_symbols
                 }
                 for future in as_completed(futures):
-                    entry = future.result()
+                    try:
+                        entry = future.result()
+                    except Exception as e:
+                        logger.warning("Symbol augmentation thread failed: %s", e)
+                        entry = None
                     with lock:
                         if entry:
                             augmented[entry.node_id] = entry
@@ -1588,7 +1702,7 @@ class TraceAugmenter:
             )
         elif to_augment_files:
             # Individual file augmentation (local models / batching off)
-            concurrency = _get_llm_concurrency()
+            concurrency = _get_llm_concurrency("fast")
             logger.info("Pass 2: augmenting %d files (concurrency=%d)...", len(to_augment_files), concurrency)
 
             if concurrency <= 1:

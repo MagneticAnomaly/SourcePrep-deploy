@@ -362,6 +362,37 @@ struct PyParseError {
     message: String,
 }
 
+/// Parse multiple files in parallel using rayon (Sprint 4).
+///
+/// Accepts a list of (file_path, content, language) tuples and returns
+/// a list of PyParseResult in the same order. Errors for individual
+/// files are captured in the errors field rather than raising exceptions.
+#[pyfunction]
+fn parse_files_parallel(
+    entries: Vec<(String, String, String)>,
+    repo_root: &str,
+) -> PyResult<Vec<PyParseResult>> {
+    let root = PathBuf::from(repo_root);
+    let results = codrag_parser::parse_files_parallel(&entries, &root);
+
+    Ok(results
+        .into_iter()
+        .map(|r| PyParseResult {
+            nodes: r.nodes.into_iter().map(PyParsedNode::from).collect(),
+            edges: r.edges.into_iter().map(PyParsedEdge::from).collect(),
+            errors: r
+                .errors
+                .into_iter()
+                .map(|e| PyParseError {
+                    file_path: e.file_path,
+                    error_type: e.error_type,
+                    message: e.message,
+                })
+                .collect(),
+        })
+        .collect())
+}
+
 // --- Trace Graph (opaque handle) ---
 
 #[pyclass]
@@ -587,6 +618,7 @@ fn codrag_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(hash_content, m)?)?;
     m.add_function(wrap_pyfunction!(detect_language, m)?)?;
     m.add_function(wrap_pyfunction!(parse_file, m)?)?;
+    m.add_function(wrap_pyfunction!(parse_files_parallel, m)?)?;
     m.add_function(wrap_pyfunction!(build_trace, m)?)?;
     m.add_function(wrap_pyfunction!(load_trace, m)?)?;
     m.add_class::<PyFileEntry>()?;

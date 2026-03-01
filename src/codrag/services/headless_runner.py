@@ -4,7 +4,7 @@ Headless runner for team sync.
 Orchestrates the full headless indexing workflow:
 1. Clone/checkout the repository
 2. Optionally download existing index from S3 (for incremental builds)
-3. Run the 10-stage enrichment pipeline
+3. Run the 11-stage enrichment pipeline
 4. Upload the resulting index artifacts to S3
 
 This module is called by the `codrag sync-headless` CLI command.
@@ -91,11 +91,13 @@ def headless_create_llm_client(config: HeadlessConfig):
 
     provider = config.model_provider
     if provider == "local":
-        # Local Ollama
+        # Local Ollama — 600s timeout for thinking models (qwen3.5:27b
+        # generates 2000-5000+ thinking tokens at ~11 tok/s before content)
         return LLMClient(
             endpoint_url=PROVIDER_ENDPOINTS["local"],
             model=config.model_name,
             provider="ollama",
+            timeout=600.0,
         )
     elif provider == "openai":
         return LLMClient(
@@ -488,7 +490,7 @@ class HeadlessRunner:
             logger.warning("Failed to download existing index — falling back to full build: %s", e)
 
     def _run_pipeline(self, repo_path: Path, index_dir: Path) -> None:
-        """Run all 10 stages sequentially using the HeadlessWorkerFactory."""
+        """Run all 11 stages sequentially using the HeadlessWorkerFactory."""
         factory = HeadlessWorkerFactory(
             repo_root=repo_path,
             index_dir=index_dir,

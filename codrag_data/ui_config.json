@@ -136,6 +136,12 @@
         "name": "Local Ollama",
         "provider": "ollama",
         "url": "http://localhost:11434"
+      },
+      {
+        "name": "Local LM Studio",
+        "provider": "openai-compatible",
+        "url": "http://192.168.86.22:1234",
+        "id": "ep_1772299420054_1d6e3766a4bd28"
       }
     ],
     "embedding": {
@@ -153,12 +159,12 @@
     "large_model": {
       "enabled": true,
       "endpoint_id": "default_ollama",
-      "model": "qwen3.5:35b-a3b"
+      "model": "qwen3.5:27b"
     },
     "code_model": {
       "enabled": true,
       "endpoint_id": "default_ollama",
-      "model": "qwen3-coder:30b"
+      "model": "deepseek-coder:6.7b"
     },
     "compression": {
       "enabled": true,
@@ -192,7 +198,7 @@
   },
   "pipeline_config": {
     "fast_sync": {
-      "auto": false
+      "auto": true
     },
     "deep_enrichment": {
       "mode": "auto",
@@ -209,7 +215,11 @@
       "max_tokens_per_run": 50000,
       "max_minutes_per_run": 30,
       "max_items_per_stage": 100
-    }
+    },
+    "llm_concurrency_deep": 1,
+    "llm_concurrency_fast": 1,
+    "llm_concurrency_code": 1,
+    "llm_concurrency": 1
   },
   "ui_preferences": {
     "mode": "light",
@@ -285,7 +295,7 @@
       {
         "id": "index-health",
         "visible": true,
-        "height": 7,
+        "height": 8,
         "collapsed": true,
         "x": 8,
         "y": 18,
@@ -322,7 +332,7 @@
         "id": "token-budget",
         "visible": true,
         "height": 6,
-        "collapsed": false,
+        "collapsed": true,
         "x": 4,
         "y": 31,
         "w": 4
@@ -331,7 +341,7 @@
         "id": "deep-analysis",
         "visible": true,
         "height": 12,
-        "collapsed": false,
+        "collapsed": true,
         "x": 8,
         "y": 31,
         "w": 4
@@ -346,21 +356,21 @@
         "w": 4
       },
       {
+        "id": "results",
+        "visible": true,
+        "height": 9,
+        "collapsed": true,
+        "x": 8,
+        "y": 33,
+        "w": 4
+      },
+      {
         "id": "search",
         "visible": true,
         "height": 8,
         "collapsed": true,
         "x": 4,
-        "y": 37,
-        "w": 4
-      },
-      {
-        "id": "results",
-        "visible": true,
-        "height": 9,
-        "collapsed": false,
-        "x": 8,
-        "y": 43,
+        "y": 33,
         "w": 4
       },
       {
@@ -369,7 +379,7 @@
         "height": 8,
         "collapsed": false,
         "x": 0,
-        "y": 52,
+        "y": 35,
         "w": 12
       },
       {

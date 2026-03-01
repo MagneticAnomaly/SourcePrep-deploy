@@ -108,6 +108,13 @@ function App() {
   const effectiveTier = devTierOverride ?? licenseStatus?.license?.tier ?? 'free'
   const isPro = effectiveTier !== 'free'
 
+  const licTier = licenseStatus?.license?.tier
+  useEffect(() => {
+    // Refresh projects after the backend license status changes (e.g., dev override synced).
+    // licenseStatus updates AFTER the API call completes, so the backend has the correct tier.
+    if (licTier) project.refreshProjects()
+  }, [licTier])
+
   const layoutApiRef = useRef<DashboardLayoutApi | null>(null)
 
   // ── Watch (hook) ─────────────────────────────────────────────
@@ -131,6 +138,7 @@ function App() {
     setSelectedProjectId, refreshProjects, refreshStatus,
     handleAddProject, handleDeleteProject, handleBuild,
     handleSaveConfig, handleProjectConfigChange, handleDetectStack,
+    handleToggleActive,
     setProjectConfig, setConfigDirty,
   } = project
 
@@ -203,6 +211,7 @@ function App() {
     atlasRunning,
     deepeningStatus, deepeningRunning,
     knowledgeStatus, fastKnowledgeBuilding, deepKnowledgeBuilding,
+    groupReasoningStatus,
     handleRunAugmentation, handleRunEpistemic, handleRunModuleSynthesis,
     handleRunDeepening, handleRunKnowledgeBuild,
     handleRunDeepEnrichment,
@@ -426,6 +435,7 @@ function App() {
       deepeningStatus, deepeningRunning, handleRunDeepening,
       knowledgeStatus, fastKnowledgeBuilding, deepKnowledgeBuilding, handleRunKnowledgeBuild,
       handleRunDeepEnrichment,
+      groupReasoningStatus,
     },
     llm: {
       llmConfig, llmSlotsStatus,
@@ -549,6 +559,8 @@ function App() {
                 onProjectSelect={setSelectedProjectId}
                 onAddProject={() => setAddModalOpen(true)}
                 onDeleteProject={handleDeleteProject}
+                onToggleActive={handleToggleActive}
+                isPro={isPro}
                 extraActions={
                   dashboardLayout && layoutApiRef.current ? (
                     <PanelPicker

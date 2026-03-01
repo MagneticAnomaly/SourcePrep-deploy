@@ -5,6 +5,8 @@ import { Terminal, ArrowRight, HelpCircle, Lightbulb, LayoutGrid, Check, Minus }
 import { DevMarketingHero } from './DevMarketingHero';
 
 
+const IS_BETA_MODE = true;
+
 export default function Page() {
   const showDevToolbar = process.env.NODE_ENV !== 'production';
 
@@ -13,6 +15,18 @@ export default function Page() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 space-y-24">
         {/* Hero Section */}
         {showDevToolbar ? <DevMarketingHero /> : <MarketingHero variant="yale" />}
+
+        {/* What is CoDRAG? (SEO Optimized) */}
+        <section className="sr-only sm:not-sr-only sm:max-w-4xl sm:mx-auto sm:text-center sm:mb-8">
+          <h2 className="text-xl font-semibold text-text mb-2">What is CoDRAG?</h2>
+          <p className="text-text-muted">
+            CoDRAG is a local-first codebase indexing and context assembly engine designed for AI-assisted development. 
+            It creates a structural code graph using Rust and tree-sitter to map imports, call chains, and symbol hierarchies. 
+            By integrating directly via the Model Context Protocol (MCP) into tools like Cursor, Windsurf, and Claude Desktop, 
+            CoDRAG provides highly compressed, structurally-aware context to AI models, ensuring they have perfect understanding 
+            of multi-repo environments without exposing code to cloud APIs.
+          </p>
+        </section>
 
         {/* Why CoDRAG — Problem / Solution / Result */}
         <section>
@@ -234,12 +248,21 @@ export default function Page() {
             </div>
           </div>
           <div className="pt-4">
-            <a
-              href="/download"
-              className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-semibold text-background shadow-lg shadow-primary/25 hover:bg-primary-hover transition-colors"
-            >
-              Get CoDRAG <ArrowRight className="w-4 h-4" />
-            </a>
+            {IS_BETA_MODE ? (
+              <a
+                href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request"
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-semibold text-background shadow-lg shadow-primary/25 hover:bg-primary-hover transition-colors"
+              >
+                Request Beta Access <ArrowRight className="w-4 h-4" />
+              </a>
+            ) : (
+              <a
+                href="/download"
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-semibold text-background shadow-lg shadow-primary/25 hover:bg-primary-hover transition-colors"
+              >
+                Get CoDRAG <ArrowRight className="w-4 h-4" />
+              </a>
+            )}
           </div>
         </section>
       </div>

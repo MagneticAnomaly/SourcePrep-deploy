@@ -10,25 +10,26 @@ import {
 } from 'lucide-react';
 
 export interface MarketingHeroProps {
+  isBetaMode?: boolean;
   variant?: 'centered' | 'split' | 'neo' | 'swiss' | 'glass' | 'retro' | 'studio' | 'yale' | 'focus' | 'enterprise';
 }
 
-export function MarketingHero({ variant = 'centered' }: MarketingHeroProps) {
+export function MarketingHero({ variant = 'centered', isBetaMode = true }: MarketingHeroProps) {
   switch (variant) {
-    case 'split': return <SplitHero />;
-    case 'neo': return <NeoBrutalistHero />;
-    case 'swiss': return <SwissHero />;
-    case 'glass': return <GlassHero />;
-    case 'retro': return <RetroHero />;
-    case 'studio': return <StudioHero />;
-    case 'yale': return <YaleHero />;
-    case 'focus': return <FocusHero />;
-    case 'enterprise': return <EnterpriseHero />;
-    default: return <CenteredHero />;
+    case 'split': return <SplitHero isBetaMode={isBetaMode} />;
+    case 'neo': return <NeoBrutalistHero isBetaMode={isBetaMode} />;
+    case 'swiss': return <SwissHero isBetaMode={isBetaMode} />;
+    case 'glass': return <GlassHero isBetaMode={isBetaMode} />;
+    case 'retro': return <RetroHero isBetaMode={isBetaMode} />;
+    case 'studio': return <StudioHero isBetaMode={isBetaMode} />;
+    case 'yale': return <YaleHero isBetaMode={isBetaMode} />;
+    case 'focus': return <FocusHero isBetaMode={isBetaMode} />;
+    case 'enterprise': return <EnterpriseHero isBetaMode={isBetaMode} />;
+    default: return <CenteredHero isBetaMode={isBetaMode} />;
   }
 }
 
-function CenteredHero() {
+function CenteredHero({ isBetaMode }: { isBetaMode: boolean }) {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-surface via-surface to-surface-raised">
       {/* Background pattern */}
@@ -72,11 +73,17 @@ function CenteredHero() {
 
         {/* CTAs */}
         <Flex className="mt-10 gap-4" justifyContent="center" alignItems="center">
-          <Button size="lg" className="shadow-lg shadow-primary/25">
-            Download for Free
-          </Button>
-          <Button size="lg" variant="outline" className="border-2">
-            See How It Works
+          {isBetaMode ? (
+            <Button size="lg" className="shadow-lg shadow-primary/25" asChild>
+              <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request">Request Beta Access</a>
+            </Button>
+          ) : (
+            <Button size="lg" className="shadow-lg shadow-primary/25" asChild>
+              <a href="/download">Download for Free</a>
+            </Button>
+          )}
+          <Button size="lg" variant="outline" className="border-2" asChild>
+            <a href="/docs">See How It Works</a>
           </Button>
         </Flex>
 
@@ -130,7 +137,7 @@ function CenteredHero() {
   );
 }
 
-function NeoBrutalistHero() {
+function NeoBrutalistHero({ isBetaMode }: { isBetaMode: boolean }) {
   return (
     <div className="border-4 border-border bg-surface p-8 md:p-12 shadow-xl">
       <div className="flex flex-col md:flex-row gap-8 items-start">
@@ -152,20 +159,33 @@ function NeoBrutalistHero() {
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row gap-4">
-            <Button 
-              size="lg"
-              className="border-2 border-border bg-primary text-background font-bold text-lg hover:translate-x-1 hover:translate-y-1 hover:shadow-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all rounded-none"
-              icon={Download}
-            >
-              GET_CODRAG
-            </Button>
+            {isBetaMode ? (
+              <Button 
+                size="lg"
+                className="border-2 border-border bg-primary text-background font-bold text-lg hover:translate-x-1 hover:translate-y-1 hover:shadow-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all rounded-none"
+                icon={Download}
+                asChild
+              >
+                <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request">JOIN_BETA</a>
+              </Button>
+            ) : (
+              <Button 
+                size="lg"
+                className="border-2 border-border bg-primary text-background font-bold text-lg hover:translate-x-1 hover:translate-y-1 hover:shadow-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all rounded-none"
+                icon={Download}
+                asChild
+              >
+                <a href="/download">GET_CODRAG</a>
+              </Button>
+            )}
             <Button 
               size="lg"
               variant="outline"
               className="border-2 border-border bg-surface text-text font-bold text-lg hover:translate-x-1 hover:translate-y-1 hover:shadow-none shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all rounded-none"
               icon={FileText}
+              asChild
             >
-              SEE_HOW_IT_WORKS
+              <a href="/docs">SEE_HOW_IT_WORKS</a>
             </Button>
           </div>
         </div>
@@ -205,7 +225,7 @@ function NeoBrutalistHero() {
   );
 }
 
-function SwissHero() {
+function SwissHero({ isBetaMode }: { isBetaMode: boolean }) {
   return (
     <div className="bg-background">
       <div className="grid grid-cols-12 gap-4 border-t border-text">
@@ -233,8 +253,17 @@ function SwissHero() {
             <p className="opacity-80">Structural codebase intelligence for Cursor, Windsurf, and Claude Desktop.</p>
             <Button 
               className="mt-8 bg-white text-primary rounded-full font-bold w-full flex items-center justify-between group hover:bg-white/90 border-none"
+              asChild
             >
-              Get Started <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              {isBetaMode ? (
+                <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request">
+                  Request Beta <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </a>
+              ) : (
+                <a href="/download">
+                  Get Started <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </a>
+              )}
             </Button>
           </div>
         </div>
@@ -243,7 +272,7 @@ function SwissHero() {
   );
 }
 
-function GlassHero() {
+function GlassHero({ isBetaMode }: { isBetaMode: boolean }) {
   return (
     <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-8 md:p-16">
       <div className="absolute top-0 left-0 w-64 h-64 bg-primary/30 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
@@ -265,11 +294,17 @@ function GlassHero() {
           </p>
 
           <Flex className="gap-4" justifyContent="center">
-            <Button size="lg" className="backdrop-blur-md bg-primary/80 hover:bg-primary text-background rounded-xl shadow-lg hover:shadow-primary/30 border border-white/20">
-              Download Free
-            </Button>
-            <Button size="lg" variant="ghost" className="backdrop-blur-md bg-white/40 hover:bg-white/60 text-text rounded-xl border border-white/40">
-              See How It Works
+            {isBetaMode ? (
+              <Button size="lg" className="backdrop-blur-md bg-primary/80 hover:bg-primary text-background rounded-xl shadow-lg hover:shadow-primary/30 border border-white/20" asChild>
+                <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request">Request Beta</a>
+              </Button>
+            ) : (
+              <Button size="lg" className="backdrop-blur-md bg-primary/80 hover:bg-primary text-background rounded-xl shadow-lg hover:shadow-primary/30 border border-white/20" asChild>
+                <a href="/download">Download Free</a>
+              </Button>
+            )}
+            <Button size="lg" variant="ghost" className="backdrop-blur-md bg-white/40 hover:bg-white/60 text-text rounded-xl border border-white/40" asChild>
+              <a href="/docs">See How It Works</a>
             </Button>
           </Flex>
         </div>
@@ -302,7 +337,7 @@ function GlassHero() {
   );
 }
 
-function RetroHero() {
+function RetroHero({ isBetaMode }: { isBetaMode: boolean }) {
   return (
     <div className="relative overflow-hidden rounded-lg bg-background border border-primary/50">
       {/* Grid Floor */}
@@ -338,17 +373,27 @@ function RetroHero() {
           </p>
         </div>
 
-        <Button 
-          className="mt-12 bg-transparent border-2 border-primary text-primary hover:bg-primary hover:text-background px-10 py-4 text-xl font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(255,0,255,0.4)] hover:shadow-[0_0_40px_rgba(255,0,255,0.8)] rounded-none h-auto"
-        >
-          Get CoDRAG
-        </Button>
+        {isBetaMode ? (
+          <Button 
+            className="mt-12 bg-transparent border-2 border-primary text-primary hover:bg-primary hover:text-background px-10 py-4 text-xl font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(255,0,255,0.4)] hover:shadow-[0_0_40px_rgba(255,0,255,0.8)] rounded-none h-auto"
+            asChild
+          >
+            <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request">Join Beta</a>
+          </Button>
+        ) : (
+          <Button 
+            className="mt-12 bg-transparent border-2 border-primary text-primary hover:bg-primary hover:text-background px-10 py-4 text-xl font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(255,0,255,0.4)] hover:shadow-[0_0_40px_rgba(255,0,255,0.8)] rounded-none h-auto"
+            asChild
+          >
+            <a href="/download">Get CoDRAG</a>
+          </Button>
+        )}
       </div>
     </div>
   );
 }
 
-function SplitHero() {
+function SplitHero({ isBetaMode }: { isBetaMode: boolean }) {
   return (
     <div className="grid lg:grid-cols-2 gap-12 items-center py-12">
       {/* Left: Content */}
@@ -377,11 +422,17 @@ function SplitHero() {
         </div>
 
         <Flex className="mt-10 gap-4">
-          <Button size="lg" className="font-semibold">
-            Download for Free
-          </Button>
-          <Button size="lg" variant="outline" className="font-semibold">
-            See How It Works
+          {isBetaMode ? (
+            <Button size="lg" className="font-semibold" asChild>
+              <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request">Request Beta</a>
+            </Button>
+          ) : (
+            <Button size="lg" className="font-semibold" asChild>
+              <a href="/download">Download for Free</a>
+            </Button>
+          )}
+          <Button size="lg" variant="outline" className="font-semibold" asChild>
+            <a href="/docs">See How It Works</a>
           </Button>
         </Flex>
       </div>
@@ -427,7 +478,7 @@ function FeaturePoint({ icon, text }: { icon: React.ReactNode; text: string }) {
   );
 }
 
-function StudioHero() {
+function StudioHero({ isBetaMode }: { isBetaMode: boolean }) {
   return (
     <div className="relative bg-background p-8 md:p-16 overflow-hidden min-h-[600px] flex items-center">
       {/* Abstract Shapes/Collage Elements */}
@@ -456,17 +507,29 @@ function StudioHero() {
           </div>
 
           <div className="flex gap-4 pt-4">
-            <Button 
-              className="px-8 py-6 bg-text text-background font-mono text-sm hover:bg-primary transition-colors gap-2 rounded-none"
-              icon={Download}
-            >
-              [ GET_CODRAG ]
-            </Button>
+            {isBetaMode ? (
+              <Button 
+                className="px-8 py-6 bg-text text-background font-mono text-sm hover:bg-primary transition-colors gap-2 rounded-none"
+                icon={Download}
+                asChild
+              >
+                <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request">[ JOIN_BETA ]</a>
+              </Button>
+            ) : (
+              <Button 
+                className="px-8 py-6 bg-text text-background font-mono text-sm hover:bg-primary transition-colors gap-2 rounded-none"
+                icon={Download}
+                asChild
+              >
+                <a href="/download">[ GET_CODRAG ]</a>
+              </Button>
+            )}
             <Button 
               variant="outline"
               className="px-8 py-6 border-text text-text font-serif italic hover:bg-surface-raised transition-colors gap-2 rounded-none"
+              asChild
             >
-              How it works <ArrowRight className="w-4 h-4 ml-2" />
+              <a href="/docs">How it works <ArrowRight className="w-4 h-4 ml-2" /></a>
             </Button>
           </div>
         </div>
@@ -513,7 +576,7 @@ function StudioHero() {
   );
 }
 
-function YaleHero() {
+function YaleHero({ isBetaMode }: { isBetaMode: boolean }) {
   return (
     <div className="bg-background min-h-[600px] border-t-8 border-primary">
       <div className="max-w-7xl mx-auto px-6 py-12">
@@ -587,11 +650,17 @@ function YaleHero() {
             <div className="pl-6 md:border-l md:border-border">
               <span className="font-sans font-bold text-sm mb-4 block">Get Started</span>
               <div className="flex flex-col gap-2">
-                <Button variant="ghost" className="justify-start px-0 hover:bg-transparent hover:text-primary h-auto py-2" icon={Download}>
-                  Download Installer
-                </Button>
-                <Button variant="ghost" className="justify-start px-0 hover:bg-transparent hover:text-primary h-auto py-2" icon={Code}>
-                  Documentation
+                {isBetaMode ? (
+                  <Button variant="ghost" className="justify-start px-0 hover:bg-transparent hover:text-primary h-auto py-2" icon={Download} asChild>
+                    <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request">Request Beta</a>
+                  </Button>
+                ) : (
+                  <Button variant="ghost" className="justify-start px-0 hover:bg-transparent hover:text-primary h-auto py-2" icon={Download} asChild>
+                    <a href="/download">Download Installer</a>
+                  </Button>
+                )}
+                <Button variant="ghost" className="justify-start px-0 hover:bg-transparent hover:text-primary h-auto py-2" icon={Code} asChild>
+                  <a href="/docs">Documentation</a>
                 </Button>
               </div>
             </div>
@@ -602,7 +671,7 @@ function YaleHero() {
   );
 }
 
-function FocusHero() {
+function FocusHero({ isBetaMode }: { isBetaMode: boolean }) {
   return (
     <div className="bg-background min-h-[600px] flex flex-col justify-center relative">
       <div className="w-full max-w-4xl mx-auto px-6 text-center z-10">
@@ -623,18 +692,30 @@ function FocusHero() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-          <Button 
-            size="lg" 
-            className="w-full sm:w-auto px-8 py-6 text-lg font-bold shadow-lg transform hover:-translate-y-1 h-auto"
-          >
-            Download for Free
-          </Button>
+          {isBetaMode ? (
+            <Button 
+              size="lg" 
+              className="w-full sm:w-auto px-8 py-6 text-lg font-bold shadow-lg transform hover:-translate-y-1 h-auto"
+              asChild
+            >
+              <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request">Request Beta Access</a>
+            </Button>
+          ) : (
+            <Button 
+              size="lg" 
+              className="w-full sm:w-auto px-8 py-6 text-lg font-bold shadow-lg transform hover:-translate-y-1 h-auto"
+              asChild
+            >
+              <a href="/download">Download for Free</a>
+            </Button>
+          )}
           <Button 
             size="lg" 
             variant="outline" 
             className="w-full sm:w-auto px-8 py-6 text-lg font-bold border-2 h-auto"
+            asChild
           >
-            See How It Works
+            <a href="/docs">See How It Works</a>
           </Button>
         </div>
 
@@ -660,7 +741,7 @@ function FocusHero() {
   );
 }
 
-function EnterpriseHero() {
+function EnterpriseHero({ isBetaMode }: { isBetaMode: boolean }) {
   return (
     <div className="bg-surface-raised min-h-[600px] border-b border-border">
       {/* Top Bar */}
@@ -707,9 +788,18 @@ function EnterpriseHero() {
             </div>
           </div>
 
-          <Button size="lg" className="w-fit shadow-sm">
-            Contact Sales
-          </Button>
+
+          <div className="pt-8">
+            {isBetaMode ? (
+              <Button size="lg" className="w-fit shadow-sm" asChild>
+                <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request%20-%20Enterprise">Contact Sales for Beta</a>
+              </Button>
+            ) : (
+              <Button size="lg" className="w-fit shadow-sm" asChild>
+                <a href="/contact">Contact Sales</a>
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Right: Dashboard Preview */}

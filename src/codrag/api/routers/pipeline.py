@@ -54,8 +54,7 @@ class DiscardRequest(BaseModel):
 @router.post("/projects/{project_id}/pipeline/fast")
 def pipeline_run_fast(project_id: str) -> Dict[str, Any]:
     """Run Fast Sync (stages 1-4): Structural → Catalogue → Validation → Knowledge Embedding."""
-    from codrag.server import _require_project
-    from codrag.services.project_helpers import is_over_project_limit
+    from codrag.services.project_helpers import is_over_project_limit, require_project_writable
     
     if is_over_project_limit():
         raise ApiException(
@@ -65,7 +64,7 @@ def pipeline_run_fast(project_id: str) -> Dict[str, Any]:
             hint="Upgrade your plan or remove projects to resume syncing."
         )
 
-    _require_project(project_id)
+    require_project_writable(project_id)
 
     from codrag.services.pipeline_orchestrator import pipeline_orchestrator
     started = pipeline_orchestrator.run_fast_sync(project_id)
@@ -83,8 +82,7 @@ def pipeline_run_fast(project_id: str) -> Dict[str, Any]:
 @router.post("/projects/{project_id}/pipeline/deep")
 def pipeline_run_deep(project_id: str) -> Dict[str, Any]:
     """Run Deep Enrichment (stages 5-8): Epistemic → Clustering → Deepening → Deep Knowledge."""
-    from codrag.server import _require_project
-    from codrag.services.project_helpers import is_over_project_limit
+    from codrag.services.project_helpers import is_over_project_limit, require_project_writable
     
     if is_over_project_limit():
         raise ApiException(
@@ -94,7 +92,7 @@ def pipeline_run_deep(project_id: str) -> Dict[str, Any]:
             hint="Upgrade your plan or remove projects to resume syncing."
         )
 
-    _require_project(project_id)
+    require_project_writable(project_id)
 
     from codrag.services.pipeline_orchestrator import pipeline_orchestrator
     started = pipeline_orchestrator.run_deep_enrichment(project_id)
@@ -112,8 +110,7 @@ def pipeline_run_deep(project_id: str) -> Dict[str, Any]:
 @router.post("/projects/{project_id}/pipeline/all")
 def pipeline_run_all(project_id: str) -> Dict[str, Any]:
     """Run all stages: Fast Sync (1-4) then Deep Enrichment (5-8)."""
-    from codrag.server import _require_project
-    from codrag.services.project_helpers import is_over_project_limit
+    from codrag.services.project_helpers import is_over_project_limit, require_project_writable
     
     if is_over_project_limit():
         raise ApiException(
@@ -123,7 +120,7 @@ def pipeline_run_all(project_id: str) -> Dict[str, Any]:
             hint="Upgrade your plan or remove projects to resume syncing."
         )
 
-    _require_project(project_id)
+    require_project_writable(project_id)
 
     from codrag.services.pipeline_orchestrator import pipeline_orchestrator
     started = pipeline_orchestrator.run_all(project_id)
@@ -140,7 +137,7 @@ def pipeline_run_all(project_id: str) -> Dict[str, Any]:
 
 @router.get("/projects/{project_id}/pipeline/status")
 def pipeline_status(project_id: str) -> Dict[str, Any]:
-    """Get the full 10-stage pipeline status (two-group model).
+    """Get the full 11-stage pipeline status (two-group model).
 
     Returns both group-level run status and per-stage build slot status.
     Also includes legacy per-stage data fetched from existing sources
@@ -262,6 +259,20 @@ def pipeline_status(project_id: str) -> Dict[str, Any]:
     # Merge live build-slot progress into each stage's data so the UI
     # can show progress bars that update during long-running stages.
     slot_stages = pipeline_state.get("stages") or {}
+    # Group reasoning status
+    group_reasoning_status: Dict[str, Any] = {"enabled": False, "group_count": 0, "analyzed": 0}
+    try:
+        gr_path = idx_dir / "trace_group_reasoning.jsonl"
+        if gr_path.exists():
+            gr_count = 0
+            with open(gr_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        gr_count += 1
+            group_reasoning_status = {"enabled": True, "group_count": gr_count, "analyzed": gr_count}
+    except Exception:
+        pass
+
     stage_data = {
         "structural": trace_status,
         "inferred_edges": inferred_edges_status,
@@ -269,6 +280,7 @@ def pipeline_status(project_id: str) -> Dict[str, Any]:
         "validation": validation_status,
         "knowledge": knowledge_status,
         "enrichment": epistemic_status,
+        "group_reasoning": group_reasoning_status,
         "clustering": cluster_status,
         "atlas": atlas_status,
         "deepening": deepening_status,

@@ -72,7 +72,7 @@ def get_registry() -> ProjectRegistry:
 # ── Project serialization ───────────────────────────────────────
 
 def project_to_dict(proj: Project) -> Dict[str, Any]:
-    return {
+    d = {
         "id": proj.id,
         "name": proj.name,
         "path": proj.path,
@@ -81,6 +81,13 @@ def project_to_dict(proj: Project) -> Dict[str, Any]:
         "created_at": proj.created_at,
         "updated_at": proj.updated_at,
     }
+    # Include activity status so the frontend knows if this project
+    # is active/inactive/frozen/locked without a separate API call.
+    try:
+        d["activity_status"] = get_project_activity_status(proj.id)
+    except Exception:
+        d["activity_status"] = "active"  # safe default
+    return d
 
 
 def project_id_for_root(root: str) -> str:
@@ -152,6 +159,115 @@ def is_over_project_limit() -> bool:
     count = len(reg.list_projects())
     return count > limit
 
+
+# ── Project Activity Status ────────────────────────────────────
+# Pro tier: projects have an explicit active/inactive toggle in config.
+# Free tier: 1 active + 2 frozen + rest locked, auto-determined by updated_at.
+# Paid tiers (Monthly/Perpetual/Team/Enterprise): all projects are writable
+# if config.active is True (default).
+
+# Activity status values:
+#   "active"  — full functionality (build, pipeline, watcher, MCP)
+#   "inactive" — Pro explicit toggle: no auto-sync, manual-only
+#   "frozen"  — Free tier: read-only (search stale index), no writes
+#   "locked"  — Free tier: completely inert, no data served
+
+_FREE_ACTIVE_SLOTS = 1
+_FREE_FROZEN_SLOTS = 2
+
+
+def is_project_active(project: Project) -> bool:
+    """Check if a project is marked active in its config (Pro tier toggle).
+
+    Defaults to True for backward compatibility — all existing projects
+    are active unless explicitly deactivated.
+    """
+    cfg = project.config if isinstance(project.config, dict) else {}
+    return cfg.get("active", True)
+
+
+def get_free_tier_slots(
+    projects: List[Project],
+) -> Dict[str, str]:
+    """Determine activity status for each project on the Free tier.
+
+    Sorts by updated_at descending.  The most recently used project is
+    "active", the next 2 are "frozen" (read-only), the rest are "locked".
+
+    Returns: { project_id: "active" | "frozen" | "locked" }
+    """
+    # Sort by updated_at descending (most recent first)
+    sorted_projects = sorted(
+        projects,
+        key=lambda p: p.updated_at or "",
+        reverse=True,
+    )
+
+    result: Dict[str, str] = {}
+    for i, proj in enumerate(sorted_projects):
+        if i < _FREE_ACTIVE_SLOTS:
+            result[proj.id] = "active"
+        elif i < _FREE_ACTIVE_SLOTS + _FREE_FROZEN_SLOTS:
+            result[proj.id] = "frozen"
+        else:
+            result[proj.id] = "locked"
+    return result
+
+
+def get_project_activity_status(project_id: str) -> str:
+    """Get the activity status of a project, respecting the current tier.
+
+    Returns: "active" | "inactive" | "frozen" | "locked"
+
+    - Paid tiers (Pro/Team/Enterprise): checks config.active (default True).
+      Returns "active" or "inactive".
+    - Free tier: auto-determined by updated_at ranking.
+      Returns "active", "frozen", or "locked".
+    """
+    from codrag.core.feature_gate import get_license, Tier
+
+    lic = get_license()
+
+    if lic.tier >= Tier.MONTHLY:
+        # Paid tier: explicit active/inactive toggle
+        proj = get_registry().get_project(project_id)
+        if proj is None:
+            return "locked"
+        return "active" if is_project_active(proj) else "inactive"
+
+    # Free tier: slot-based
+    projects = get_registry().list_projects()
+    slots = get_free_tier_slots(projects)
+    return slots.get(project_id, "locked")
+
+
+def require_project_writable(project_id: str) -> Project:
+    """Like require_project(), but also checks that the project is writable.
+
+    Raises 403 for frozen/locked projects on Free tier, or inactive projects
+    when the operation requires active status.
+
+    Returns the Project if writable.
+    """
+    proj = require_project(project_id)
+    status = get_project_activity_status(project_id)
+
+    if status == "locked":
+        raise ApiException(
+            status_code=403,
+            code="PROJECT_LOCKED",
+            message=f"Project '{proj.name}' is locked on your current plan.",
+            hint="Upgrade to Pro to access all your projects, or work on your most recent project.",
+        )
+    if status == "frozen":
+        raise ApiException(
+            status_code=403,
+            code="PROJECT_FROZEN",
+            message=f"Project '{proj.name}' is read-only on your current plan.",
+            hint="Upgrade to Pro to rebuild and sync this project.",
+        )
+
+    return proj
 
 
 # ── Status helpers ──────────────────────────────────────────────

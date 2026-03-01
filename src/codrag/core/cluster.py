@@ -3,7 +3,7 @@ Cluster Synthesis for CoDRAG (Pass 3).
 
 Groups enriched file nodes into subsystem clusters based on domain_tags
 and graph connectivity. For each cluster, generates a module-level
-summary using the 14b model.
+summary using the deep reasoning model.
 
 Creates virtual `module:*` nodes in the graph that represent subsystem-level
 understanding — answering questions like "what is the ad-framework subsystem?"
@@ -901,7 +901,7 @@ class ClusterSynthesizer:
     """Pass 3 cluster synthesis engine.
 
     Groups enriched nodes into subsystem clusters, then generates
-    module-level summaries via the 14b model.
+    module-level summaries via the deep reasoning model.
     """
 
     def __init__(
@@ -1026,7 +1026,7 @@ class ClusterSynthesizer:
         epistemic: Dict[str, EpistemicEntry],
         edges: List[Dict[str, Any]],
     ) -> Optional[ModuleEntry]:
-        """Synthesize a module entry for a cluster using the 14b model."""
+        """Synthesize a module entry for a cluster using the deep reasoning model."""
         
         # Helper to generate prompt with specific file limit
         def _generate_with_limit(limit: int) -> Optional[Dict[str, Any]]:
@@ -1041,7 +1041,10 @@ class ClusterSynthesizer:
                 external_deps=external_deps,
             )
             
-            text, tokens = self.llm.generate(prompt, system=MODULE_SYNTHESIS_SYSTEM, num_predict=2048)
+            text, tokens = self.llm.generate(
+                prompt, system=MODULE_SYNTHESIS_SYSTEM, num_predict=4096,
+                json_mode=False, think=False,
+            )
             return _parse_json_response(text)
 
         cluster_name = cluster.primary_tag.replace("_", " ").replace("-", " ").title()
@@ -1051,14 +1054,14 @@ class ClusterSynthesizer:
         try:
             parsed = _generate_with_limit(30)
         except Exception as e:
-            logger.warning("14b LLM call failed for cluster %s (full context): %s", cluster.cluster_id, e)
+            logger.warning("Deep reasoning LLM call failed for cluster %s (full context): %s", cluster.cluster_id, e)
             
             # Attempt 2: Reduced context (10 files)
             try:
                 logger.info("Retrying cluster %s with reduced context (10 files)...", cluster.cluster_id)
                 parsed = _generate_with_limit(10)
             except Exception as e2:
-                logger.warning("14b LLM call failed for cluster %s (reduced context): %s", cluster.cluster_id, e2)
+                logger.warning("Deep reasoning LLM call failed for cluster %s (reduced context): %s", cluster.cluster_id, e2)
 
         # Fallback 3: Basic entry
         if not parsed:
@@ -1124,7 +1127,7 @@ class ClusterSynthesizer:
         1. Load epistemic entries and edges.
         2. Build clusters by domain_tags + connectivity.
         3. Load existing modules and build fingerprint map for reuse.
-        4. Synthesize only new/changed clusters via 14b.
+        4. Synthesize only new/changed clusters via deep reasoning model.
         5. Write trace_modules.jsonl.
         """
         start = time.monotonic()
@@ -1264,7 +1267,7 @@ class ClusterSynthesizer:
 
         else:
             # Local model: sequential or concurrent
-            concurrency = _get_llm_concurrency()
+            concurrency = _get_llm_concurrency("deep")
             logger.info("Cluster synthesis: %d clusters to synthesize, concurrency=%d", len(to_synthesize), concurrency)
 
             if concurrency <= 1:

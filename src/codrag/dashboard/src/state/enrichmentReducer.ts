@@ -27,6 +27,7 @@ export interface EnrichmentState {
   knowledgeStatus: KnowledgeEmbeddingStatus
   fastKnowledgeBuilding: boolean
   deepKnowledgeBuilding: boolean
+  groupReasoningStatus: { enabled: boolean; group_count: number; analyzed: number; running?: boolean; slot_phase?: string; progress_current?: number; progress_total?: number }
 }
 
 export const initialEnrichmentState: EnrichmentState = {
@@ -49,6 +50,7 @@ export const initialEnrichmentState: EnrichmentState = {
   knowledgeStatus: { enabled: false, running: false, chunks_embedded: 0, deep_chunks_embedded: 0, last_run_at: null },
   fastKnowledgeBuilding: false,
   deepKnowledgeBuilding: false,
+  groupReasoningStatus: { enabled: false, group_count: 0, analyzed: 0 },
 }
 
 // ── Actions ───────────────────────────────────────────────────
@@ -64,6 +66,7 @@ export type EnrichmentAction =
   | { type: 'DEEPENING_STATUS'; payload: DeepeningStatus }
   | { type: 'KNOWLEDGE_STATUS'; payload: KnowledgeEmbeddingStatus }
   | { type: 'ATLAS_STATUS'; payload: AtlasStatus }
+  | { type: 'GROUP_REASONING_STATUS'; payload: { enabled: boolean; group_count: number; analyzed: number; slot_phase?: string; progress_current?: number; progress_total?: number } }
   // Sync all running flags at once (from SSE or initial hydration)
   | { type: 'SYNC_RUNNING'; inferredEdgesRunning: boolean; augmenting: boolean; validating: boolean; epistemicRunning: boolean; clusterRunning: boolean; atlasRunning: boolean; deepeningRunning: boolean; fastKnowledgeBuilding: boolean; deepKnowledgeBuilding: boolean }
   // Manual stage start (optimistic UI feedback)
@@ -97,6 +100,8 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
       return { ...state, knowledgeStatus: action.payload }
     case 'ATLAS_STATUS':
       return { ...state, atlasStatus: action.payload }
+    case 'GROUP_REASONING_STATUS':
+      return { ...state, groupReasoningStatus: action.payload }
 
     // ── Running flag sync (SSE / hydration) ──
     case 'SYNC_RUNNING':

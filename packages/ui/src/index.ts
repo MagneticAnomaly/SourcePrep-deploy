@@ -11,6 +11,7 @@ export type {
   CodeChunk, 
   ProjectSummary, 
   ProjectConfig,
+  ActivityStatus,
   ProjectAdvancedConfig,
   AdvancedConfig,
   ProjectMode,

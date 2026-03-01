@@ -279,11 +279,19 @@ class MCPServer:
 
         # Fetch all projects from daemon
         data = await self._api_get("/projects")
-        projects: List[Dict[str, Any]] = []
+        all_projects: List[Dict[str, Any]] = []
         if isinstance(data, dict):
             raw = data.get("projects")
             if isinstance(raw, list):
-                projects = [p for p in raw if isinstance(p, dict)]
+                all_projects = [p for p in raw if isinstance(p, dict)]
+
+        # Filter out locked/frozen projects — MCP only serves active projects.
+        # On paid tiers all projects are "active" (unless manually deactivated).
+        # On Free tier only the most recent project is "active".
+        projects = [
+            p for p in all_projects
+            if p.get("activity_status", "active") in ("active", "inactive")
+        ]
 
         if not projects:
             raise ProjectNotFoundError(

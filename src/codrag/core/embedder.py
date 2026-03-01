@@ -377,12 +377,66 @@ class OllamaEmbedder(Embedder):
         return [self._embed_with_retries(self.document_prefix + t if self.document_prefix else t) for t in texts]
 
 
+def _detect_onnx_providers() -> list:
+    """Detect the best available ONNX execution providers.
+
+    Tries GPU-accelerated providers first, falls back to CPU.
+    Order matters: ONNX runtime uses the first available provider.
+
+    Supported accelerated providers:
+    - CoreMLExecutionProvider: Apple Silicon (macOS), 3-5x speedup
+    - CUDAExecutionProvider: NVIDIA GPUs, 10-50x speedup
+    - DmlExecutionProvider: DirectML on Windows (AMD/Intel/NVIDIA)
+
+    Returns a list of provider names to pass to ort.InferenceSession().
+    """
+    import platform
+    try:
+        import onnxruntime as ort
+    except ImportError:
+        return ["CPUExecutionProvider"]
+
+    available = set(ort.get_available_providers())
+    providers: list = []
+
+    # macOS: CoreML (Apple Neural Engine + GPU)
+    if platform.system() == "Darwin" and "CoreMLExecutionProvider" in available:
+        providers.append("CoreMLExecutionProvider")
+
+    # NVIDIA: CUDA
+    if "CUDAExecutionProvider" in available:
+        providers.append("CUDAExecutionProvider")
+
+    # Windows: DirectML (works with AMD, Intel, NVIDIA)
+    if platform.system() == "Windows" and "DmlExecutionProvider" in available:
+        providers.append("DmlExecutionProvider")
+
+    # Always include CPU as final fallback
+    providers.append("CPUExecutionProvider")
+    return providers
+
+
+# Batch size by provider — GPU can handle much larger batches
+_PROVIDER_BATCH_SIZES = {
+    "CoreMLExecutionProvider": 128,
+    "CUDAExecutionProvider": 128,
+    "DmlExecutionProvider": 64,
+    "CPUExecutionProvider": 32,
+}
+
+
 class NativeEmbedder(Embedder):
     """Built-in ONNX-based embedder using nomic-embed-text-v1.5.
 
     Runs entirely locally — no Ollama, no cloud API, no torch.
     Model files are downloaded from HuggingFace Hub on first use and
     cached in the standard HF cache directory (~/.cache/huggingface/).
+
+    GPU acceleration is automatic when available:
+    - macOS: CoreML (Apple Neural Engine + Metal GPU), 3-5x faster
+    - NVIDIA: CUDA (requires onnxruntime-gpu), 10-50x faster
+    - Windows: DirectML (requires onnxruntime-directml)
+    Falls back to CPU if no GPU provider is available.
 
     Dependencies: onnxruntime, tokenizers, huggingface-hub.
     """
@@ -398,7 +452,7 @@ class NativeEmbedder(Embedder):
         repo_id: str = HF_REPO_ID,
         onnx_file: str = ONNX_FILE,
         max_length: int = MAX_LENGTH,
-        batch_size: int = 32,
+        batch_size: int = 0,
         document_prefix: str = "search_document: ",
         query_prefix: str = "search_query: ",
     ):
@@ -410,16 +464,20 @@ class NativeEmbedder(Embedder):
             onnx_file: Path within the repo to the ONNX model file.
             max_length: Maximum token sequence length (nomic-embed-text supports 8192).
             batch_size: Maximum texts per ONNX inference call.
+                        0 = auto-detect based on execution provider
+                        (128 for GPU, 32 for CPU).
             document_prefix: Prefix prepended to documents during indexing.
             query_prefix: Prefix prepended to queries during search.
         """
         self.repo_id = repo_id
         self.onnx_file = onnx_file
         self.max_length = max_length
-        self.batch_size = batch_size
+        self._requested_batch_size = batch_size
+        self.batch_size = batch_size if batch_size > 0 else 32  # default until GPU detected
         self.document_prefix = document_prefix
         self.query_prefix = query_prefix
         self.model_name = f"native:{repo_id.split('/')[-1]}"
+        self.active_provider: str = "CPUExecutionProvider"
 
         self._session: Optional[Any] = None
         self._tokenizer: Optional[Any] = None
@@ -427,7 +485,12 @@ class NativeEmbedder(Embedder):
     # -- lazy init ---------------------------------------------------------
 
     def _ensure_loaded(self) -> None:
-        """Download (if needed) and load ONNX model + tokenizer."""
+        """Download (if needed) and load ONNX model + tokenizer.
+
+        Automatically selects the best available execution provider:
+        CoreML on Apple Silicon, CUDA on NVIDIA, CPU as fallback.
+        Adjusts batch_size based on the active provider.
+        """
         if self._session is not None and self._tokenizer is not None:
             return
 
@@ -450,17 +513,49 @@ class NativeEmbedder(Embedder):
         self._tokenizer.enable_padding(pad_id=0, pad_token="[PAD]")
 
         sess_opts = ort.SessionOptions()
-        sess_opts.inter_op_num_threads = 1
-        sess_opts.intra_op_num_threads = 4
         sess_opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
 
-        self._session = ort.InferenceSession(
-            model_path,
-            sess_options=sess_opts,
-            providers=["CPUExecutionProvider"],
-        )
+        # Detect best available provider
+        providers = _detect_onnx_providers()
 
-        logger.info("Native embedding model loaded (%s, dim=%d)", self.model_name, self.DIM)
+        # CPU-specific thread tuning (ignored by GPU providers)
+        if providers[0] == "CPUExecutionProvider":
+            sess_opts.inter_op_num_threads = 1
+            sess_opts.intra_op_num_threads = 4
+
+        try:
+            self._session = ort.InferenceSession(
+                model_path,
+                sess_options=sess_opts,
+                providers=providers,
+            )
+        except Exception as e:
+            # GPU provider failed (e.g., CUDA OOM, CoreML compile error).
+            # Fall back to CPU silently.
+            logger.warning(
+                "GPU provider %s failed, falling back to CPU: %s",
+                providers[0], e,
+            )
+            sess_opts.inter_op_num_threads = 1
+            sess_opts.intra_op_num_threads = 4
+            self._session = ort.InferenceSession(
+                model_path,
+                sess_options=sess_opts,
+                providers=["CPUExecutionProvider"],
+            )
+
+        # Determine which provider is actually active
+        active = self._session.get_providers()
+        self.active_provider = active[0] if active else "CPUExecutionProvider"
+
+        # Auto-detect batch size based on active provider
+        if self._requested_batch_size <= 0:
+            self.batch_size = _PROVIDER_BATCH_SIZES.get(self.active_provider, 32)
+
+        logger.info(
+            "Native embedding model loaded (%s, dim=%d, provider=%s, batch_size=%d)",
+            self.model_name, self.DIM, self.active_provider, self.batch_size,
+        )
 
     # -- core embedding ----------------------------------------------------
 

@@ -1,0 +1,789 @@
+{
+  "accuracy": [
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b"
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b"
+    }
+  ],
+  "speed": [
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:4b-instruct",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3:8b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-coder:6.7b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3-coder:30b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "deepseek-r1:32b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 1
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 2
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 4
+    },
+    {
+      "status": "failed",
+      "error": "Fatal Python error: init_sys_streams: can't initialize sys standard streams\nPython runtime state: core initialized\nOSError: [Errno 9] Bad file descriptor\n\nCurrent thread 0x00000001f5b47240 (most recent call first):\n  <no Python frame>\n",
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 4
+    }
+  ],
+  "meta": {
+    "started_at": "20260228_023151",
+    "total_duration_s": 271.9,
+    "total_duration_h": 0.08,
+    "accuracy_tests": 24,
+    "speed_tests": 108,
+    "models_tested": [
+      "qwen3:4b-instruct",
+      "qwen3:8b",
+      "deepseek-coder:6.7b",
+      "qwen3-coder:30b",
+      "deepseek-r1:32b",
+      "qwen3.5:35b-a3b"
+    ]
+  }
+}

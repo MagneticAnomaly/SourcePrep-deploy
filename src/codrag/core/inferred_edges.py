@@ -263,7 +263,10 @@ class InferredEdgesAnalyzer:
             )
 
             schema = get_structured_schema("inferred_edges")
+            _BYOK_CONCURRENCY = 3  # Max concurrent batched API calls
 
+            # Pre-build all batch payloads
+            all_batches = []
             for batch_start in range(0, total, batch_size):
                 batch = to_analyze[batch_start:batch_start + batch_size]
                 items = []
@@ -285,10 +288,10 @@ class InferredEdgesAnalyzer:
                         "_node": node,
                         "_content_hash": content_hash,
                     })
+                if items:
+                    all_batches.append(items)
 
-                if not items:
-                    continue
-
+            def _call_edge_batch(items):
                 prompt = build_batched_inferred_edges_prompt(items, known_text)
                 try:
                     text, tokens = self.llm.generate(
@@ -296,53 +299,70 @@ class InferredEdgesAnalyzer:
                         num_predict=len(items) * 300,
                         response_schema=schema,
                     )
-                    results_list = BatchedResponseParser.parse(text, expected_count=len(items))
+                    return BatchedResponseParser.parse(text, expected_count=len(items))
                 except Exception as e:
                     logger.warning("Batched inferred edges failed for %d items: %s", len(items), e)
-                    results_list = []
-                    failed += len(items)
-                    # We do NOT update new_manifest here so failed files are retried next time
-                    continue
+                    return None  # Distinguish from empty parse
 
-                for idx, item in enumerate(items):
-                    fp = item["file_path"]
-                    parsed = results_list[idx] if idx < len(results_list) else None
-                    if parsed:
-                        raw_edges = parsed.get("edges", [])
-                        for re_item in raw_edges:
-                            edges_found += 1
-                            conf = _parse_confidence(re_item.get("confidence"), 0.0)
-                            if conf < min_confidence:
-                                skipped_low += 1
-                                continue
-                            target = re_item.get("target_file", "")
-                            existing_set = edge_targets.get(fp, set()) | inferred_targets.get(fp, set())
-                            if target in existing_set:
-                                skipped_dup += 1
-                                continue
-                            edge = InferredEdge(
-                                source_file=fp,
-                                target_file=target,
-                                kind=re_item.get("kind", "calls"),
-                                evidence=re_item.get("evidence", ""),
-                                confidence=conf,
-                            )
-                            new_edges.append(edge)
-                            edges_written += 1
-                            inferred_targets.setdefault(fp, set()).add(target)
+            # Dispatch batches concurrently
+            done_batches = 0
+            with ThreadPoolExecutor(max_workers=min(_BYOK_CONCURRENCY, len(all_batches) or 1)) as pool:
+                future_to_items = {
+                    pool.submit(_call_edge_batch, items): items
+                    for items in all_batches
+                }
+                for future in as_completed(future_to_items):
+                    items = future_to_items[future]
+                    try:
+                        results_list = future.result()
+                    except Exception as e:
+                        logger.warning("Edge batch future failed: %s", e)
+                        results_list = None
 
-                        # Only update manifest if we successfully parsed the result
-                        if item["_content_hash"]:
-                            new_manifest[fp] = item["_content_hash"]
-                    else:
-                        failed += 1
+                    if results_list is None:
+                        failed += len(items)
+                        done_batches += 1
+                        continue
 
-                if progress_callback:
-                    progress_callback("Inferring edges", min(batch_start + batch_size, total), total)
+                    for idx, item in enumerate(items):
+                        fp = item["file_path"]
+                        parsed = results_list[idx] if idx < len(results_list) else None
+                        if parsed:
+                            raw_edges = parsed.get("edges", [])
+                            for re_item in raw_edges:
+                                edges_found += 1
+                                conf = _parse_confidence(re_item.get("confidence"), 0.0)
+                                if conf < min_confidence:
+                                    skipped_low += 1
+                                    continue
+                                target = re_item.get("target_file", "")
+                                existing_set = edge_targets.get(fp, set()) | inferred_targets.get(fp, set())
+                                if target in existing_set:
+                                    skipped_dup += 1
+                                    continue
+                                edge = InferredEdge(
+                                    source_file=fp,
+                                    target_file=target,
+                                    kind=re_item.get("kind", "calls"),
+                                    evidence=re_item.get("evidence", ""),
+                                    confidence=conf,
+                                )
+                                new_edges.append(edge)
+                                edges_written += 1
+                                inferred_targets.setdefault(fp, set()).add(target)
+
+                            if item["_content_hash"]:
+                                new_manifest[fp] = item["_content_hash"]
+                        else:
+                            failed += 1
+
+                    done_batches += 1
+                    if progress_callback:
+                        progress_callback("Inferring edges", min(done_batches * batch_size, total), total)
 
         else:
             # Local model: sequential or concurrent
-            concurrency = _get_llm_concurrency()
+            concurrency = _get_llm_concurrency("code")
             logger.info("Inferred edges: %d files, concurrency=%d", total, concurrency)
 
             if concurrency <= 1:

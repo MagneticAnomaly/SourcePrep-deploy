@@ -2,7 +2,7 @@
 CoDRAG Pipeline Orchestrator — Phase 24 (SM-6) + Phase 25 (Crash Protection)
 =============================================================================
 
-Sequences the 10-stage Trace Graph enrichment pipeline using
+Sequences the 11-stage Trace Graph enrichment pipeline using
 BuildOrchestrator (SM-4) slots.
 
 **Two Groups:**
@@ -71,13 +71,14 @@ logger = logging.getLogger(__name__)
 # ── Stage Definitions ────────────────────────────────────────────
 
 class StageId(str, enum.Enum):
-    """The 10 pipeline stages, matching the UI's EnrichmentStageId."""
+    """The 11 pipeline stages, matching the UI's EnrichmentStageId."""
     STRUCTURAL = "structural"
     INFERRED_EDGES = "inferred_edges"
     CATALOGUE = "catalogue"
     VALIDATION = "validation"
     KNOWLEDGE = "knowledge"
     ENRICHMENT = "enrichment"
+    GROUP_REASONING = "group_reasoning"
     CLUSTERING = "clustering"
     ATLAS = "atlas"
     DEEPENING = "deepening"
@@ -92,6 +93,7 @@ STAGE_BUILD_TYPE: Dict[StageId, BuildType] = {
     StageId.VALIDATION: BuildType.VALIDATE,
     StageId.KNOWLEDGE: BuildType.KNOWLEDGE,
     StageId.ENRICHMENT: BuildType.EPISTEMIC,
+    StageId.GROUP_REASONING: BuildType.GROUP_REASONING,
     StageId.CLUSTERING: BuildType.CLUSTER,
     StageId.ATLAS: BuildType.ATLAS,
     StageId.DEEPENING: BuildType.DEEPENING,
@@ -108,6 +110,7 @@ FAST_SYNC_STAGES: List[StageId] = [
 
 DEEP_ENRICHMENT_STAGES: List[StageId] = [
     StageId.ENRICHMENT,
+    StageId.GROUP_REASONING,
     StageId.CLUSTERING,
     StageId.ATLAS,
     StageId.DEEPENING,
@@ -126,6 +129,7 @@ STAGE_MODEL_SLOT: Dict[StageId, Optional[str]] = {
     StageId.VALIDATION:     None,
     StageId.KNOWLEDGE:      None,      # embedding only
     StageId.ENRICHMENT:     "large",
+    StageId.GROUP_REASONING: "large",
     StageId.CLUSTERING:     "large",
     StageId.ATLAS:          "large",
     StageId.DEEPENING:      "large",
@@ -221,6 +225,8 @@ class WorkerFactory:
             return WorkerFactory._knowledge_worker(project_id)
         elif stage == StageId.ENRICHMENT:
             return WorkerFactory._epistemic_worker(project_id)
+        elif stage == StageId.GROUP_REASONING:
+            return WorkerFactory._group_reasoning_worker(project_id)
         elif stage == StageId.CLUSTERING:
             return WorkerFactory._cluster_worker(project_id)
         elif stage == StageId.ATLAS:
@@ -289,15 +295,16 @@ class WorkerFactory:
             return None
 
     @staticmethod
-    def _logged_progress(stage_name: str, progress_cb: Callable) -> Callable:
+    def _logged_progress(stage_name: str, progress_cb: Callable, project_name: str = "") -> Callable:
         """Wrap a progress callback to also emit logger.info for Process Logs."""
+        tag = f"{project_name}/{stage_name}" if project_name else stage_name
         def _wrapper(message: str, current: int, total: int) -> None:
             progress_cb(message, current, total)
             if total > 0:
                 pct = round(current / total * 100)
-                logger.info("[%s] %s (%d/%d — %d%%)", stage_name, message, current, total, pct)
+                logger.info("[%s] %s (%d/%d — %d%%)", tag, message, current, total, pct)
             else:
-                logger.info("[%s] %s", stage_name, message)
+                logger.info("[%s] %s", tag, message)
         return _wrapper
 
     # ── Stage Workers ──────────────────────────────────────────
@@ -324,14 +331,14 @@ class WorkerFactory:
                 max_nodes=max_n,
                 max_edges=max_e,
             )
-            log_cb = WorkerFactory._logged_progress("Structural", progress_cb)
-            logger.info("[Structural] Starting trace build for %s", project_id)
+            log_cb = WorkerFactory._logged_progress("Structural", progress_cb, project.name)
+            logger.info("[%s/Structural] Starting trace build", project.name)
             builder.build(progress_callback=log_cb)
 
             trace_idx = TraceIndex(idx_dir)
             trace_idx.load()
             build_manager.project_trace_indexes[project_id] = trace_idx
-            logger.info("[Structural] Complete — %d nodes", trace_idx.node_count())
+            logger.info("[%s/Structural] Complete — %d nodes", project.name, trace_idx.node_count())
 
             # Ensure trace.enabled=true in project config so status endpoint
             # reports exists correctly (belt-and-suspenders with frontend fix)
@@ -390,8 +397,8 @@ class WorkerFactory:
             if pfl and batch_profile:
                 pfl.log("inferred_edges", f"Batch profile: {batch_profile.name.value}")
 
-            logger.info("[Edge Discovery] Starting: model=%s, slot=%s", llm_client.model, slot_used)
-            log_cb = WorkerFactory._logged_progress("Edge Discovery", progress_cb)
+            logger.info("[%s/Edge Discovery] Starting: model=%s, slot=%s", project.name, llm_client.model, slot_used)
+            log_cb = WorkerFactory._logged_progress("Edge Discovery", progress_cb, project.name)
             analyzer = InferredEdgesAnalyzer(
                 index_dir=idx_dir,
                 repo_root=project.path,
@@ -400,8 +407,8 @@ class WorkerFactory:
             )
             result = analyzer.run(progress_callback=log_cb)
             logger.info(
-                "[Edge Discovery] Complete — %d files analyzed, %d edges written",
-                result.files_analyzed, result.edges_written,
+                "[%s/Edge Discovery] Complete — %d files analyzed, %d edges written",
+                project.name, result.files_analyzed, result.edges_written,
             )
 
             if pfl:
@@ -442,8 +449,8 @@ class WorkerFactory:
             except Exception:
                 pfl = None
 
-            logger.info("[Fast Catalogue] Starting: model=%s", llm_client.model)
-            log_cb = WorkerFactory._logged_progress("Fast Catalogue", progress_cb)
+            logger.info("[%s/Fast Catalogue] Starting: model=%s", project.name, llm_client.model)
+            log_cb = WorkerFactory._logged_progress("Fast Catalogue", progress_cb, project.name)
             augmenter = TraceAugmenter(
                 index_dir=idx_dir,
                 repo_root=project.path,
@@ -452,8 +459,8 @@ class WorkerFactory:
             )
             result = augmenter.run(progress_callback=log_cb)
             logger.info(
-                "[Fast Catalogue] Complete — %d augmented, %d failed, %d skipped",
-                result.augmented, result.failed, result.skipped,
+                "[%s/Fast Catalogue] Complete — %d augmented, %d failed, %d skipped",
+                project.name, result.augmented, result.failed, result.skipped,
             )
 
             if pfl:
@@ -480,10 +487,10 @@ class WorkerFactory:
             project, *_ = WorkerFactory._get_project_and_config(project_id)
             trace_idx = build_manager.get_project_trace_index(project)
 
-            logger.info("[Validation] Starting relationship validation for %s", project_id)
+            logger.info("[%s/Validation] Starting relationship validation", project.name)
             progress_cb("Validating relationships", 0, 1)
             progress_cb("Validation complete", 1, 1)
-            logger.info("[Validation] Complete — trace exists=%s", trace_idx.exists())
+            logger.info("[%s/Validation] Complete — trace exists=%s", project.name, trace_idx.exists())
             return {"stage": "validation", "exists": trace_idx.exists()}
         return worker
 
@@ -492,12 +499,12 @@ class WorkerFactory:
         def worker(slot: BuildSlot, progress_cb: Callable) -> Dict[str, Any]:
             from codrag.services.build_manager import build_manager
 
-            logger.info("[Knowledge Embedding] Starting for %s", project_id)
-            log_cb = WorkerFactory._logged_progress("Knowledge Embedding", progress_cb)
             project, *_ = WorkerFactory._get_project_and_config(project_id)
+            logger.info("[%s/Knowledge Embedding] Starting", project.name)
+            log_cb = WorkerFactory._logged_progress("Knowledge Embedding", progress_cb, project.name)
             idx = build_manager.get_project_knowledge_index(project)
             result = idx.build(progress_callback=log_cb)
-            logger.info("[Knowledge Embedding] Complete for %s", project_id)
+            logger.info("[%s/Knowledge Embedding] Complete", project.name)
             return {"stage": "knowledge", **(result or {})}
         return worker
 
@@ -524,8 +531,8 @@ class WorkerFactory:
             if pfl and batch_profile:
                 pfl.log("enrichment", f"Batch profile: {batch_profile.name.value}")
 
-            logger.info("[Deep Reasoning] Starting: model=%s", llm_client.model)
-            log_cb = WorkerFactory._logged_progress("Deep Reasoning", progress_cb)
+            logger.info("[%s/Deep Reasoning] Starting: model=%s", project.name, llm_client.model)
+            log_cb = WorkerFactory._logged_progress("Deep Reasoning", progress_cb, project.name)
             enricher = EpistemicEnricher(
                 llm=llm_client,
                 repo_root=Path(project.path),
@@ -533,21 +540,54 @@ class WorkerFactory:
                 batch_profile=batch_profile,
             )
             result = enricher.run(progress_callback=log_cb)
+            enriched = result.get("enriched_this_run", 0)
+            failed = result.get("failed_this_run", 0)
             logger.info(
-                "[Deep Reasoning] Complete — enriched=%s, failed=%s",
-                result.get("enriched_this_run"), result.get("failed_this_run"),
+                "[%s/Deep Reasoning] Complete — enriched=%s, failed=%s",
+                project.name, enriched, failed,
             )
 
             if pfl:
                 pfl.log("enrichment", "Epistemic enrichment complete", {
                     "total_file_nodes": result.get("total_file_nodes"),
-                    "enriched_this_run": result.get("enriched_this_run"),
-                    "failed_this_run": result.get("failed_this_run"),
+                    "enriched_this_run": enriched,
+                    "failed_this_run": failed,
                     "skipped": result.get("skipped"),
                     "total_enriched": result.get("total_enriched"),
                     "duration_ms": result.get("duration_ms"),
                 })
+
+            # If we attempted enrichment but got 0 results with failures,
+            # treat this as a failure so the UI shows warning (not green).
+            if enriched == 0 and failed > 0:
+                raise RuntimeError(
+                    f"Epistemic enrichment failed: 0 enriched, {failed} failed. "
+                    "Check model availability, timeout settings, and num_predict."
+                )
             return {"stage": "enrichment", **(result or {})}
+        return worker
+
+    @staticmethod
+    def _group_reasoning_worker(project_id: str):
+        def worker(slot: BuildSlot, progress_cb: Callable) -> Dict[str, Any]:
+            from codrag.core import GroupReasoningEngine
+            from codrag.core.project_registry import project_index_dir
+
+            project, *_ = WorkerFactory._get_project_and_config(project_id)
+            llm_client = WorkerFactory._get_llm_client("large")
+            idx_dir = project_index_dir(project)
+
+            logger.info("[%s/Group Reasoning] Starting: model=%s", project.name, llm_client.model)
+            log_cb = WorkerFactory._logged_progress("Group Reasoning", progress_cb, project.name)
+            engine = GroupReasoningEngine(llm=llm_client, index_dir=idx_dir)
+            result = engine.run(progress_callback=log_cb)
+            analyzed = result.get("analyzed", 0)
+            failed = result.get("failed", 0)
+            logger.info(
+                "[%s/Group Reasoning] Complete — %d analyzed, %d reused, %d failed",
+                project.name, analyzed, result.get("reused", 0), failed,
+            )
+            return {"stage": "group_reasoning", **(result or {})}
         return worker
 
     @staticmethod
@@ -562,11 +602,11 @@ class WorkerFactory:
 
             batch_profile = WorkerFactory._get_batch_profile(llm_client)
 
-            logger.info("[Module Synthesis] Starting: model=%s", llm_client.model)
-            log_cb = WorkerFactory._logged_progress("Module Synthesis", progress_cb)
+            logger.info("[%s/Module Synthesis] Starting: model=%s", project.name, llm_client.model)
+            log_cb = WorkerFactory._logged_progress("Module Synthesis", progress_cb, project.name)
             synthesizer = ClusterSynthesizer(llm=llm_client, index_dir=idx_dir, batch_profile=batch_profile)
             result = synthesizer.run(progress_callback=log_cb)
-            logger.info("[Module Synthesis] Complete")
+            logger.info("[%s/Module Synthesis] Complete", project.name)
             return {"stage": "clustering", **(result or {})}
         return worker
 
@@ -589,8 +629,8 @@ class WorkerFactory:
             except RuntimeError:
                 llm_client = None
 
-            logger.info("[Atlas] Starting atlas generation for %s", project_id)
-            log_cb = WorkerFactory._logged_progress("Atlas", progress_cb)
+            logger.info("[%s/Atlas] Starting atlas generation", project.name)
+            log_cb = WorkerFactory._logged_progress("Atlas", progress_cb, project.name)
             atlas = CodebaseAtlas(idx_dir, llm=llm_client, project_root=Path(project.path))
 
             # Only regenerate if stale or missing
@@ -648,8 +688,8 @@ class WorkerFactory:
                 repo_root=Path(project.path),
                 index_dir=idx_dir,
             )
-            logger.info("[Deepening] Starting deepening loop: model=%s", llm_client.model)
-            log_cb = WorkerFactory._logged_progress("Deepening", progress_cb)
+            logger.info("[%s/Deepening] Starting deepening loop: model=%s", project.name, llm_client.model)
+            log_cb = WorkerFactory._logged_progress("Deepening", progress_cb, project.name)
             loop = DeepeningLoop(
                 enricher=enricher,
                 index_dir=idx_dir,
@@ -672,7 +712,7 @@ class WorkerFactory:
 # ── Pipeline Orchestrator ────────────────────────────────────────
 
 class PipelineOrchestrator:
-    """Sequences the 10-stage pipeline in two groups.
+    """Sequences the 11-stage pipeline in two groups.
 
     Uses BuildOrchestrator (SM-4) for individual stage execution and
     listens for completion events to advance the pipeline.

@@ -1,0 +1,57 @@
+{
+  "results": [
+    {
+      "model": "qwen3:4b-instruct",
+      "concurrency": 1,
+      "batch_profile": "off",
+      "duration_s": 208.4,
+      "total_items": 207,
+      "augmented": 207,
+      "synthetic": 0,
+      "failed": 0,
+      "items_per_sec": 0.993,
+      "avg_per_item_s": 1.01,
+      "label": "qwen3:4b-instruct c=1"
+    },
+    {
+      "model": "qwen3:4b-instruct",
+      "concurrency": 2,
+      "batch_profile": "off",
+      "duration_s": 190.4,
+      "total_items": 207,
+      "augmented": 207,
+      "synthetic": 0,
+      "failed": 0,
+      "items_per_sec": 1.087,
+      "avg_per_item_s": 0.92,
+      "label": "qwen3:4b-instruct c=2"
+    },
+    {
+      "model": "qwen3:8b",
+      "concurrency": 1,
+      "batch_profile": "off",
+      "duration_s": 291.2,
+      "total_items": 207,
+      "augmented": 207,
+      "synthetic": 0,
+      "failed": 0,
+      "items_per_sec": 0.711,
+      "avg_per_item_s": 1.41,
+      "label": "qwen3:8b c=1"
+    },
+    {
+      "model": "qwen3:8b",
+      "concurrency": 2,
+      "batch_profile": "off",
+      "duration_s": 274.7,
+      "total_items": 207,
+      "augmented": 207,
+      "synthetic": 0,
+      "failed": 0,
+      "items_per_sec": 0.754,
+      "avg_per_item_s": 1.33,
+      "label": "qwen3:8b c=2"
+    }
+  ],
+  "repo": "tests/eval/real_repos/mini-redis-rust"
+}

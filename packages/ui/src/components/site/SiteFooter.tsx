@@ -148,6 +148,8 @@ const defaultSections: FooterSection[] = [
       { label: 'Careers', href: 'https://codrag.io/careers' },
       { label: 'Contact', href: 'https://codrag.io/contact' },
       { label: 'Security', href: 'https://codrag.io/security' },
+      { label: 'CoDRAG vs Cursor', href: 'https://codrag.io/compare/codrag-vs-cursor-indexing' },
+      { label: 'CoDRAG vs Greptile', href: 'https://codrag.io/compare/codrag-vs-greptile' },
     ],
   },
 ];

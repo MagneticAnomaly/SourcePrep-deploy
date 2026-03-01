@@ -1,0 +1,149 @@
+======================================================================
+PHASE 40 OVERNIGHT BENCHMARK REPORT
+Generated: 2026-02-28T07:37:28.289048+00:00
+======================================================================
+
+ACCURACY TESTS (sequential c=1 vs concurrent c=2)
+----------------------------------------------------------------------
+    failed  qwen3:4b-instruct              ?                    ?x
+    failed  qwen3:4b-instruct              ?                    ?x
+    failed  qwen3:4b-instruct              ?                    ?x
+    failed  qwen3:4b-instruct              ?                    ?x
+    failed  qwen3:8b                       ?                    ?x
+    failed  qwen3:8b                       ?                    ?x
+    failed  qwen3:8b                       ?                    ?x
+    failed  qwen3:8b                       ?                    ?x
+    failed  deepseek-coder:6.7b            ?                    ?x
+    failed  deepseek-coder:6.7b            ?                    ?x
+    failed  deepseek-coder:6.7b            ?                    ?x
+    failed  deepseek-coder:6.7b            ?                    ?x
+    failed  qwen3-coder:30b                ?                    ?x
+    failed  qwen3-coder:30b                ?                    ?x
+    failed  qwen3-coder:30b                ?                    ?x
+    failed  qwen3-coder:30b                ?                    ?x
+    failed  deepseek-r1:32b                ?                    ?x
+    failed  deepseek-r1:32b                ?                    ?x
+    failed  deepseek-r1:32b                ?                    ?x
+    failed  deepseek-r1:32b                ?                    ?x
+    failed  qwen3.5:35b-a3b                ?                    ?x
+    failed  qwen3.5:35b-a3b                ?                    ?x
+    failed  qwen3.5:35b-a3b                ?                    ?x
+    failed  qwen3.5:35b-a3b                ?                    ?x
+
+SPEED TESTS
+----------------------------------------------------------------------
+Model                            C Repo                     Time     Status
+----------------------------------------------------------------------
+  qwen3:4b-instruct                1 ?                          0s     failed
+  qwen3:4b-instruct                1 ?                          0s     failed
+  qwen3:4b-instruct                1 ?                          0s     failed
+  qwen3:4b-instruct                1 ?                          0s     failed
+  qwen3:4b-instruct                1 ?                          0s     failed
+  qwen3:4b-instruct                1 ?                          0s     failed
+  qwen3:4b-instruct                2 ?                          0s     failed
+  qwen3:4b-instruct                2 ?                          0s     failed
+  qwen3:4b-instruct                2 ?                          0s     failed
+  qwen3:4b-instruct                2 ?                          0s     failed
+  qwen3:4b-instruct                2 ?                          0s     failed
+  qwen3:4b-instruct                2 ?                          0s     failed
+  qwen3:4b-instruct                4 ?                          0s     failed
+  qwen3:4b-instruct                4 ?                          0s     failed
+  qwen3:4b-instruct                4 ?                          0s     failed
+  qwen3:4b-instruct                4 ?                          0s     failed
+  qwen3:4b-instruct                4 ?                          0s     failed
+  qwen3:4b-instruct                4 ?                          0s     failed
+  qwen3:8b                         1 ?                          0s     failed
+  qwen3:8b                         1 ?                          0s     failed
+  qwen3:8b                         1 ?                          0s     failed
+  qwen3:8b                         1 ?                          0s     failed
+  qwen3:8b                         1 ?                          0s     failed
+  qwen3:8b                         1 ?                          0s     failed
+  qwen3:8b                         2 ?                          0s     failed
+  qwen3:8b                         2 ?                          0s     failed
+  qwen3:8b                         2 ?                          0s     failed
+  qwen3:8b                         2 ?                          0s     failed
+  qwen3:8b                         2 ?                          0s     failed
+  qwen3:8b                         2 ?                          0s     failed
+  qwen3:8b                         4 ?                          0s     failed
+  qwen3:8b                         4 ?                          0s     failed
+  qwen3:8b                         4 ?                          0s     failed
+  qwen3:8b                         4 ?                          0s     failed
+  qwen3:8b                         4 ?                          0s     failed
+  qwen3:8b                         4 ?                          0s     failed
+  deepseek-coder:6.7b              1 ?                          0s     failed
+  deepseek-coder:6.7b              1 ?                          0s     failed
+  deepseek-coder:6.7b              1 ?                          0s     failed
+  deepseek-coder:6.7b              1 ?                          0s     failed
+  deepseek-coder:6.7b              1 ?                          0s     failed
+  deepseek-coder:6.7b              1 ?                          0s     failed
+  deepseek-coder:6.7b              2 ?                          0s     failed
+  deepseek-coder:6.7b              2 ?                          0s     failed
+  deepseek-coder:6.7b              2 ?                          0s     failed
+  deepseek-coder:6.7b              2 ?                          0s     failed
+  deepseek-coder:6.7b              2 ?                          0s     failed
+  deepseek-coder:6.7b              2 ?                          0s     failed
+  deepseek-coder:6.7b              4 ?                          0s     failed
+  deepseek-coder:6.7b              4 ?                          0s     failed
+  deepseek-coder:6.7b              4 ?                          0s     failed
+  deepseek-coder:6.7b              4 ?                          0s     failed
+  deepseek-coder:6.7b              4 ?                          0s     failed
+  deepseek-coder:6.7b              4 ?                          0s     failed
+  qwen3-coder:30b                  1 ?                          0s     failed
+  qwen3-coder:30b                  1 ?                          0s     failed
+  qwen3-coder:30b                  1 ?                          0s     failed
+  qwen3-coder:30b                  1 ?                          0s     failed
+  qwen3-coder:30b                  1 ?                          0s     failed
+  qwen3-coder:30b                  1 ?                          0s     failed
+  qwen3-coder:30b                  2 ?                          0s     failed
+  qwen3-coder:30b                  2 ?                          0s     failed
+  qwen3-coder:30b                  2 ?                          0s     failed
+  qwen3-coder:30b                  2 ?                          0s     failed
+  qwen3-coder:30b                  2 ?                          0s     failed
+  qwen3-coder:30b                  2 ?                          0s     failed
+  qwen3-coder:30b                  4 ?                          0s     failed
+  qwen3-coder:30b                  4 ?                          0s     failed
+  qwen3-coder:30b                  4 ?                          0s     failed
+  qwen3-coder:30b                  4 ?                          0s     failed
+  qwen3-coder:30b                  4 ?                          0s     failed
+  qwen3-coder:30b                  4 ?                          0s     failed
+  deepseek-r1:32b                  1 ?                          0s     failed
+  deepseek-r1:32b                  1 ?                          0s     failed
+  deepseek-r1:32b                  1 ?                          0s     failed
+  deepseek-r1:32b                  1 ?                          0s     failed
+  deepseek-r1:32b                  1 ?                          0s     failed
+  deepseek-r1:32b                  1 ?                          0s     failed
+  deepseek-r1:32b                  2 ?                          0s     failed
+  deepseek-r1:32b                  2 ?                          0s     failed
+  deepseek-r1:32b                  2 ?                          0s     failed
+  deepseek-r1:32b                  2 ?                          0s     failed
+  deepseek-r1:32b                  2 ?                          0s     failed
+  deepseek-r1:32b                  2 ?                          0s     failed
+  deepseek-r1:32b                  4 ?                          0s     failed
+  deepseek-r1:32b                  4 ?                          0s     failed
+  deepseek-r1:32b                  4 ?                          0s     failed
+  deepseek-r1:32b                  4 ?                          0s     failed
+  deepseek-r1:32b                  4 ?                          0s     failed
+  deepseek-r1:32b                  4 ?                          0s     failed
+  qwen3.5:35b-a3b                  1 ?                          0s     failed
+  qwen3.5:35b-a3b                  1 ?                          0s     failed
+  qwen3.5:35b-a3b                  1 ?                          0s     failed
+  qwen3.5:35b-a3b                  1 ?                          0s     failed
+  qwen3.5:35b-a3b                  1 ?                          0s     failed
+  qwen3.5:35b-a3b                  1 ?                          0s     failed
+  qwen3.5:35b-a3b                  2 ?                          0s     failed
+  qwen3.5:35b-a3b                  2 ?                          0s     failed
+  qwen3.5:35b-a3b                  2 ?                          0s     failed
+  qwen3.5:35b-a3b                  2 ?                          0s     failed
+  qwen3.5:35b-a3b                  2 ?                          0s     failed
+  qwen3.5:35b-a3b                  2 ?                          0s     failed
+  qwen3.5:35b-a3b                  4 ?                          0s     failed
+  qwen3.5:35b-a3b                  4 ?                          0s     failed
+  qwen3.5:35b-a3b                  4 ?                          0s     failed
+  qwen3.5:35b-a3b                  4 ?                          0s     failed
+  qwen3.5:35b-a3b                  4 ?                          0s     failed
+  qwen3.5:35b-a3b                  4 ?                          0s     failed
+
+SPEEDUP ANALYSIS
+----------------------------------------------------------------------
+
+======================================================================

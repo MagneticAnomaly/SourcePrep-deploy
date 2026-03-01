@@ -506,16 +506,29 @@ class EpistemicEnricher:
         prompt: str,
         is_doc: bool = False,
     ) -> Optional[EpistemicEntry]:
-        """Call the 14b LLM and parse the response into an EpistemicEntry."""
+        """Call the deep reasoning LLM and parse the response into an EpistemicEntry."""
+        import time as _time
+        _call_start = _time.monotonic()
+        logger.info("[Epistemic] Sending LLM call for: %s (prompt=%d chars)", file_path, len(prompt))
         try:
-            text, tokens = self.llm.generate(prompt, system=EPISTEMIC_SYSTEM, num_predict=2048)
+            # json_mode=False: thinking models (qwen3.5, deepseek-r1, etc.)
+            # return empty responses when Ollama's format:json is forced.
+            # Our _parse_json_response already handles JSON extraction from
+            # free-text output, including <think> tags and markdown fences.
+            text, tokens = self.llm.generate(
+                prompt, system=EPISTEMIC_SYSTEM, num_predict=4096,
+                json_mode=False, think=False,
+            )
+            _call_elapsed = _time.monotonic() - _call_start
+            logger.info("[Epistemic] LLM responded for %s in %.1fs (%d tokens)", file_path, _call_elapsed, tokens)
         except Exception as e:
-            logger.warning("14b LLM call failed for %s: %s", file_path, e)
+            _call_elapsed = _time.monotonic() - _call_start
+            logger.warning("Deep reasoning LLM call failed for %s after %.1fs: %s", file_path, _call_elapsed, e)
             return None
 
         parsed = _parse_json_response(text)
         if parsed is None:
-            logger.warning("Failed to parse 14b response for %s — raw: %.200s", file_path, text)
+            logger.warning("Failed to parse deep reasoning response for %s — raw: %.200s", file_path, text)
             return None
 
         # Validate architecture_layer
@@ -592,7 +605,10 @@ class EpistemicEnricher:
             else:
                 code_nodes.append(node)
 
-        # Batch code nodes
+        _BYOK_CONCURRENCY = 3  # Max concurrent batched API calls
+
+        # Pre-build all code batch payloads
+        code_batches = []
         for batch_start in range(0, len(code_nodes), code_batch_size):
             batch = code_nodes[batch_start:batch_start + code_batch_size]
             items = []
@@ -614,7 +630,9 @@ class EpistemicEnricher:
                     "_node": node,
                     "_node_id": nid,
                 })
+            code_batches.append(items)
 
+        def _call_code_batch(items):
             prompt = build_batched_epistemic_code_prompt(items)
             try:
                 text, tokens = self.llm.generate(
@@ -622,39 +640,54 @@ class EpistemicEnricher:
                     num_predict=len(items) * 400,
                     response_schema=code_schema,
                 )
-                results_list = BatchedResponseParser.parse(text, expected_count=len(items))
+                return BatchedResponseParser.parse(text, expected_count=len(items))
             except Exception as e:
                 logger.warning("Batched epistemic code failed for %d items: %s", len(items), e)
-                results_list = []
+                return []
 
-            for idx, item in enumerate(items):
-                nid = item["_node_id"]
-                parsed = results_list[idx] if idx < len(results_list) else None
-                if parsed:
-                    arch = parsed.get("architecture_layer", "unknown")
-                    if arch not in VALID_ARCHITECTURE_LAYERS:
-                        arch = "unknown"
-                    entry = EpistemicEntry(
-                        node_id=nid,
-                        extended_summary=str(parsed.get("extended_summary", ""))[:1000],
-                        domain_tags=[str(t) for t in parsed.get("domain_tags", [])][:6],
-                        architecture_layer=arch,
-                        subsystem=parsed.get("subsystem"),
-                        design_patterns=parsed.get("design_patterns"),
-                        cross_references=parsed.get("cross_references"),
-                        tech_debt=parsed.get("tech_debt"),
-                        staleness_risk=parsed.get("staleness_risk"),
-                        epistemic_confidence=max(0.0, min(1.0, float(parsed.get("epistemic_confidence", 0.5)))),
-                        pass_number=2,
-                        enriched_at=datetime.now(timezone.utc).isoformat(),
-                        model=self.llm.model,
-                    )
-                    enriched[nid] = entry
-                    done += 1
-                else:
-                    failed += 1
+        # Dispatch code batches concurrently
+        with ThreadPoolExecutor(max_workers=min(_BYOK_CONCURRENCY, len(code_batches) or 1)) as pool:
+            future_to_items = {
+                pool.submit(_call_code_batch, items): items
+                for items in code_batches
+            }
+            for future in as_completed(future_to_items):
+                items = future_to_items[future]
+                try:
+                    results_list = future.result()
+                except Exception as e:
+                    logger.warning("Code batch future failed: %s", e)
+                    results_list = []
 
-        # Batch doc nodes
+                for idx, item in enumerate(items):
+                    nid = item["_node_id"]
+                    parsed = results_list[idx] if idx < len(results_list) else None
+                    if parsed:
+                        arch = parsed.get("architecture_layer", "unknown")
+                        if arch not in VALID_ARCHITECTURE_LAYERS:
+                            arch = "unknown"
+                        entry = EpistemicEntry(
+                            node_id=nid,
+                            extended_summary=str(parsed.get("extended_summary", ""))[:1000],
+                            domain_tags=[str(t) for t in parsed.get("domain_tags", [])][:6],
+                            architecture_layer=arch,
+                            subsystem=parsed.get("subsystem"),
+                            design_patterns=parsed.get("design_patterns"),
+                            cross_references=parsed.get("cross_references"),
+                            tech_debt=parsed.get("tech_debt"),
+                            staleness_risk=parsed.get("staleness_risk"),
+                            epistemic_confidence=max(0.0, min(1.0, float(parsed.get("epistemic_confidence", 0.5)))),
+                            pass_number=2,
+                            enriched_at=datetime.now(timezone.utc).isoformat(),
+                            model=self.llm.model,
+                        )
+                        enriched[nid] = entry
+                        done += 1
+                    else:
+                        failed += 1
+
+        # Pre-build all doc batch payloads
+        doc_batches = []
         for batch_start in range(0, len(doc_nodes), doc_batch_size):
             batch = doc_nodes[batch_start:batch_start + doc_batch_size]
             items = []
@@ -681,7 +714,9 @@ class EpistemicEnricher:
                     "_node": node,
                     "_node_id": nid,
                 })
+            doc_batches.append(items)
 
+        def _call_doc_batch(items):
             prompt = build_batched_epistemic_doc_prompt(items)
             try:
                 text, tokens = self.llm.generate(
@@ -689,40 +724,54 @@ class EpistemicEnricher:
                     num_predict=len(items) * 400,
                     response_schema=doc_schema,
                 )
-                results_list = BatchedResponseParser.parse(text, expected_count=len(items))
+                return BatchedResponseParser.parse(text, expected_count=len(items))
             except Exception as e:
                 logger.warning("Batched epistemic doc failed for %d items: %s", len(items), e)
-                results_list = []
+                return []
 
-            for idx, item in enumerate(items):
-                nid = item["_node_id"]
-                parsed = results_list[idx] if idx < len(results_list) else None
-                if parsed:
-                    arch = parsed.get("architecture_layer", "documentation")
-                    if arch not in VALID_ARCHITECTURE_LAYERS:
-                        arch = "documentation"
-                    entry = EpistemicEntry(
-                        node_id=nid,
-                        extended_summary=str(parsed.get("extended_summary", ""))[:1000],
-                        domain_tags=[str(t) for t in parsed.get("domain_tags", [])][:6],
-                        architecture_layer=arch,
-                        subsystem=parsed.get("subsystem"),
-                        design_patterns=parsed.get("design_patterns"),
-                        cross_references=parsed.get("cross_references"),
-                        tech_debt=parsed.get("tech_debt"),
-                        staleness_risk=parsed.get("staleness_risk"),
-                        epistemic_confidence=max(0.0, min(1.0, float(parsed.get("epistemic_confidence", 0.5)))),
-                        pass_number=2,
-                        enriched_at=datetime.now(timezone.utc).isoformat(),
-                        model=self.llm.model,
-                        doc_type=parsed.get("doc_type"),
-                        doc_status=parsed.get("doc_status"),
-                        decision_chains=parsed.get("decision_chains"),
-                    )
-                    enriched[nid] = entry
-                    done += 1
-                else:
-                    failed += 1
+        # Dispatch doc batches concurrently
+        with ThreadPoolExecutor(max_workers=min(_BYOK_CONCURRENCY, len(doc_batches) or 1)) as pool:
+            future_to_items = {
+                pool.submit(_call_doc_batch, items): items
+                for items in doc_batches
+            }
+            for future in as_completed(future_to_items):
+                items = future_to_items[future]
+                try:
+                    results_list = future.result()
+                except Exception as e:
+                    logger.warning("Doc batch future failed: %s", e)
+                    results_list = []
+
+                for idx, item in enumerate(items):
+                    nid = item["_node_id"]
+                    parsed = results_list[idx] if idx < len(results_list) else None
+                    if parsed:
+                        arch = parsed.get("architecture_layer", "documentation")
+                        if arch not in VALID_ARCHITECTURE_LAYERS:
+                            arch = "documentation"
+                        entry = EpistemicEntry(
+                            node_id=nid,
+                            extended_summary=str(parsed.get("extended_summary", ""))[:1000],
+                            domain_tags=[str(t) for t in parsed.get("domain_tags", [])][:6],
+                            architecture_layer=arch,
+                            subsystem=parsed.get("subsystem"),
+                            design_patterns=parsed.get("design_patterns"),
+                            cross_references=parsed.get("cross_references"),
+                            tech_debt=parsed.get("tech_debt"),
+                            staleness_risk=parsed.get("staleness_risk"),
+                            epistemic_confidence=max(0.0, min(1.0, float(parsed.get("epistemic_confidence", 0.5)))),
+                            pass_number=2,
+                            enriched_at=datetime.now(timezone.utc).isoformat(),
+                            model=self.llm.model,
+                            doc_type=parsed.get("doc_type"),
+                            doc_status=parsed.get("doc_status"),
+                            decision_chains=parsed.get("decision_chains"),
+                        )
+                        enriched[nid] = entry
+                        done += 1
+                    else:
+                        failed += 1
 
         return done, failed
 
@@ -814,7 +863,7 @@ class EpistemicEnricher:
                 if progress_callback:
                     progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count)
         else:
-            concurrency = _get_llm_concurrency()
+            concurrency = _get_llm_concurrency("deep")
 
             if concurrency <= 1:
                 # Sort in reverse-topological order (leaves first)

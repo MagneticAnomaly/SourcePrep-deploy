@@ -1,0 +1,44 @@
+{
+  "results": [
+    {
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 1,
+      "batch_profile": "off",
+      "duration_s": 581.4,
+      "total_items": 207,
+      "augmented": 207,
+      "synthetic": 0,
+      "failed": 0,
+      "items_per_sec": 0.356,
+      "avg_per_item_s": 2.81,
+      "label": "qwen3.5:35b-a3b c=1"
+    },
+    {
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 2,
+      "batch_profile": "off",
+      "duration_s": 551.3,
+      "total_items": 207,
+      "augmented": 207,
+      "synthetic": 0,
+      "failed": 0,
+      "items_per_sec": 0.375,
+      "avg_per_item_s": 2.66,
+      "label": "qwen3.5:35b-a3b c=2"
+    },
+    {
+      "model": "qwen3.5:35b-a3b",
+      "concurrency": 1,
+      "batch_profile": "compact",
+      "duration_s": 565.2,
+      "total_items": 207,
+      "augmented": 207,
+      "synthetic": 0,
+      "failed": 0,
+      "items_per_sec": 0.366,
+      "avg_per_item_s": 2.73,
+      "label": "qwen3.5:35b-a3b batch=compact"
+    }
+  ],
+  "repo": "tests/eval/real_repos/mini-redis-rust"
+}

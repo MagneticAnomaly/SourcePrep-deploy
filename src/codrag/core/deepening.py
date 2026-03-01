@@ -18,13 +18,16 @@ from __future__ import annotations
 import heapq
 import json
 import logging
+import threading
 import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
+from .augmenter import _get_llm_concurrency
 from .epistemic_score import (
     EpistemicEntry,
     EpistemicScore,
@@ -314,7 +317,7 @@ class DeepeningLoop:
     1. Compute epistemic scores for all nodes.
     2. Run drift detection → identify stale nodes.
     3. Fill enrichment queue with nodes below threshold.
-    4. Process batch from queue (re-enrich via 14b).
+    4. Process batch from queue (re-enrich via deep reasoning model).
     5. Check convergence.
     6. Repeat until converged or budget exhausted.
     """
@@ -411,21 +414,53 @@ class DeepeningLoop:
             re_enriched_this_iter = 0
             existing_epistemic = self.enricher.load_existing()
 
-            for node_id, priority, reason in batch:
-                node = nodes_by_id.get(node_id)
-                if not node:
-                    continue
+            concurrency = _get_llm_concurrency("deep")
 
-                is_re_enrichment = node_id in existing_epistemic
-                entry = self.enricher.enrich_node(
-                    node, edges, nodes_by_id, augmentations, existing_epistemic
-                )
-                if entry:
-                    entry.pass_number = existing_epistemic[node_id].pass_number + 1 if is_re_enrichment else 2
-                    existing_epistemic[node_id] = entry
-                    enriched_this_iter += 1
-                    if is_re_enrichment:
-                        re_enriched_this_iter += 1
+            if concurrency <= 1:
+                # Sequential: one node at a time
+                for node_id, priority, reason in batch:
+                    node = nodes_by_id.get(node_id)
+                    if not node:
+                        continue
+
+                    is_re_enrichment = node_id in existing_epistemic
+                    entry = self.enricher.enrich_node(
+                        node, edges, nodes_by_id, augmentations, existing_epistemic
+                    )
+                    if entry:
+                        entry.pass_number = existing_epistemic[node_id].pass_number + 1 if is_re_enrichment else 2
+                        existing_epistemic[node_id] = entry
+                        enriched_this_iter += 1
+                        if is_re_enrichment:
+                            re_enriched_this_iter += 1
+            else:
+                # Concurrent enrichment within the batch
+                lock = threading.Lock()
+                items = [(node_id, nodes_by_id.get(node_id), node_id in existing_epistemic)
+                         for node_id, priority, reason in batch
+                         if nodes_by_id.get(node_id) is not None]
+
+                with ThreadPoolExecutor(max_workers=concurrency) as pool:
+                    futures = {
+                        pool.submit(
+                            self.enricher.enrich_node, node, edges, nodes_by_id, augmentations, existing_epistemic
+                        ): (node_id, is_re)
+                        for node_id, node, is_re in items
+                    }
+                    for future in as_completed(futures):
+                        node_id, is_re = futures[future]
+                        try:
+                            entry = future.result()
+                        except Exception as e:
+                            logger.warning("Deepening enrichment failed for %s: %s", node_id, e)
+                            entry = None
+                        with lock:
+                            if entry:
+                                entry.pass_number = existing_epistemic[node_id].pass_number + 1 if is_re else 2
+                                existing_epistemic[node_id] = entry
+                                enriched_this_iter += 1
+                                if is_re:
+                                    re_enriched_this_iter += 1
 
             result.total_enriched += enriched_this_iter
             result.total_re_enriched += re_enriched_this_iter

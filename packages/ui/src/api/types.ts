@@ -16,7 +16,7 @@ export interface ApiEnvelope<T> {
 
 export type ProjectListItem = Pick<
   Project,
-  'id' | 'name' | 'path' | 'mode' | 'created_at' | 'updated_at'
+  'id' | 'name' | 'path' | 'mode' | 'created_at' | 'updated_at' | 'activity_status'
 > & {
   config?: Project['config'];
 };
@@ -94,9 +94,15 @@ export interface UpdateProjectRequest {
     include_globs: string[];
     exclude_globs: string[];
     max_file_bytes: number;
-    trace: { enabled: boolean };
+    hard_limit_bytes?: number;
+    use_gitignore?: boolean;
+    active?: boolean;
+    trace: { enabled: boolean; paused?: boolean };
     auto_rebuild: { enabled: boolean; debounce_ms?: number };
+    graph_engine?: any;
+    advanced?: any;
   }>;
+  touch?: boolean;
 }
 
 export interface UpdateProjectResponse {

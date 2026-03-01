@@ -26,6 +26,8 @@ function detectCountry(): string {
   return match ? match[1] : "";
 }
 
+const IS_BETA_MODE = true;
+
 export default function Page() {
   const [country, setCountry] = useState("");
   const [band, setBand] = useState<PPPBand>(DEFAULT_PPP_BAND);
@@ -46,6 +48,15 @@ export default function Page() {
         </a>
 
         <div className="mt-12 text-center max-w-3xl mx-auto">
+          {IS_BETA_MODE && (
+            <div className="mb-6 inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+              <span className="relative flex h-2 w-2 mr-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+              </span>
+              CoDRAG is currently in closed beta. Prices below indicate our upcoming structure.
+            </div>
+          )}
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
             Simple, honest pricing
           </h1>
@@ -98,7 +109,11 @@ export default function Page() {
               </li>
             </ul>
             <Button asChild variant="outline" className="mt-6 w-full">
-              <a href="/download">Download Free</a>
+              {IS_BETA_MODE ? (
+                <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request%20-%20Free%20Tier">Join Free Beta</a>
+              ) : (
+                <a href="/download">Download Free</a>
+              )}
             </Button>
           </div>
 
@@ -139,7 +154,11 @@ export default function Page() {
               </li>
             </ul>
             <Button asChild variant="outline" className="mt-6 w-full">
-              <a href={getCheckoutUrl(LS_CHECKOUT_URLS.monthly, country)}>Start Monthly</a>
+              {IS_BETA_MODE ? (
+                <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request%20-%20Pro%20Monthly%20Tier">Request Beta Access</a>
+              ) : (
+                <a href={getCheckoutUrl(LS_CHECKOUT_URLS.monthly, country)}>Start Monthly</a>
+              )}
             </Button>
           </div>
 
@@ -175,7 +194,11 @@ export default function Page() {
               </li>
             </ul>
             <Button asChild className="mt-6 w-full">
-              <a href={getCheckoutUrl(LS_CHECKOUT_URLS.perpetual, country)}>Get Pro — One-Time</a>
+              {IS_BETA_MODE ? (
+                <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request%20-%20Pro%20Perpetual%20Tier">Request Beta Access</a>
+              ) : (
+                <a href={getCheckoutUrl(LS_CHECKOUT_URLS.perpetual, country)}>Get Pro — One-Time</a>
+              )}
             </Button>
           </div>
         </div>
@@ -226,7 +249,11 @@ export default function Page() {
             </ul>
             <div className="mt-4 flex items-center gap-3">
               <Button asChild variant="outline">
-                <a href={getCheckoutUrl(LS_CHECKOUT_URLS.team, country)}>Start Team Trial</a>
+                {IS_BETA_MODE ? (
+                  <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request%20-%20Team%20Tier">Request Beta Access</a>
+                ) : (
+                  <a href={getCheckoutUrl(LS_CHECKOUT_URLS.team, country)}>Start Team Trial</a>
+                )}
               </Button>
               <a href="https://docs.codrag.io/guides/team-sync" className="text-xs text-primary hover:underline">
                 Setup guide &rarr;
@@ -275,7 +302,11 @@ export default function Page() {
             </ul>
             <div className="mt-4 flex items-center gap-3">
               <Button asChild variant="outline">
-                <a href="/contact">Contact Sales</a>
+                {IS_BETA_MODE ? (
+                  <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request%20-%20Enterprise%20Tier">Request Enterprise Beta</a>
+                ) : (
+                  <a href="/contact">Contact Sales</a>
+                )}
               </Button>
               <a href="https://docs.codrag.io/guides/enterprise-deploy" className="text-xs text-primary hover:underline">
                 Deployment guide &rarr;

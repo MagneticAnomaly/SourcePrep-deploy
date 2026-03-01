@@ -81,6 +81,9 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       if (ps.stages?.atlas) {
         dispatch({ type: 'ATLAS_STATUS', payload: ps.stages.atlas })
       }
+      if (ps.stages?.group_reasoning) {
+        dispatch({ type: 'GROUP_REASONING_STATUS', payload: ps.stages.group_reasoning })
+      }
     } catch { /* silent */ }
   }, [api, selectedProjectId])
 
@@ -205,6 +208,10 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       if (ps.stages?.atlas) {
         dispatch({ type: 'ATLAS_STATUS', payload: ps.stages.atlas })
       }
+      // Hydrate group reasoning (no dedicated API endpoint — only in pipeline status)
+      if (ps.stages?.group_reasoning) {
+        dispatch({ type: 'GROUP_REASONING_STATUS', payload: ps.stages.group_reasoning })
+      }
     }).catch(() => { /* silent — SSE will provide updates */ })
 
     return () => { cancelled = true }
@@ -248,9 +255,12 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
 
     // ── Per-stage transition refreshes (deep enrichment) ──
     // When pipeline moves past a stage, refresh that stage's status.
+    // Stage order: enrichment → group_reasoning → clustering → atlas → deepening → deep_knowledge
     if (deepRunning && prevDeepStage && currentDeepStage !== prevDeepStage) {
-      // enrichment → clustering: flush epistemic status
+      // enrichment → group_reasoning: flush epistemic status
       if (prevDeepStage === 'enrichment') void fetchEpistemicStatus()
+      // group_reasoning → clustering: refresh group reasoning via pipeline status
+      if (prevDeepStage === 'group_reasoning') void refreshStageDataFromPipeline()
       // clustering → atlas: flush module status
       if (prevDeepStage === 'clustering') void fetchModuleStatus()
       // atlas → deepening: refresh atlas via pipeline status

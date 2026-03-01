@@ -64,6 +64,7 @@ class BuildType(str, enum.Enum):
     KNOWLEDGE = "knowledge"
     EPISTEMIC = "epistemic"
     CLUSTER = "cluster"
+    GROUP_REASONING = "group_reasoning"
     ATLAS = "atlas"
     DEEPENING = "deepening"
 

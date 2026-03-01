@@ -66,6 +66,12 @@ trace = [
 clara = [
     "torch>=2.1.0",
 ]
+gpu-cuda = [
+    "onnxruntime-gpu>=1.17.0",
+]
+gpu-directml = [
+    "onnxruntime-directml>=1.17.0",
+]
 headless = [
     # Minimal deps for `codrag sync-headless` in Docker/CI.
     # Deliberately excludes fastapi, uvicorn, watchdog, aiosqlite

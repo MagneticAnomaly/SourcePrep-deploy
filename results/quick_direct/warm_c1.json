@@ -1,0 +1,54 @@
+{
+  "benchmark": "phase40_concurrency",
+  "model": "qwen3:4b-instruct",
+  "concurrency": 1,
+  "repo_path": "tests/eval/real_repos/mini-redis-rust",
+  "stages": {
+    "structural": 0.21,
+    "inferred_edges": 38.65,
+    "catalogue": 207.82,
+    "validation": 0.0,
+    "knowledge": 5.95
+  },
+  "model_role": "both",
+  "ollama_url": "http://localhost:11434",
+  "started_at": "2026-02-28T14:27:40.214118+00:00",
+  "total_duration_s": 252.63,
+  "structural": {
+    "stage": "structural",
+    "nodes": 294
+  },
+  "inferred_edges": {
+    "stage": "inferred_edges",
+    "files_analyzed": 27,
+    "edges_written": 0
+  },
+  "catalogue": {
+    "stage": "catalogue",
+    "augmented": 207
+  },
+  "validation": {
+    "stage": "validation",
+    "exists": true
+  },
+  "knowledge": {
+    "stage": "knowledge",
+    "built_at": "2026-02-28T14:31:51Z",
+    "count": 207,
+    "model": "native:nomic-embed-text-v1.5",
+    "version": 1,
+    "build": {
+      "mode": "incremental",
+      "docs_reused": 181,
+      "docs_embedded": 26,
+      "docs_deleted": 0
+    }
+  },
+  "finished_at": "2026-02-28T14:31:52.848772+00:00",
+  "quality": {
+    "trace_nodes_count": 294,
+    "trace_edges_count": 318,
+    "trace_augmented_count": 207
+  },
+  "status": "completed"
+}

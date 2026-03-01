@@ -650,13 +650,16 @@ class CodeIndex:
                 # Fast Catalogue (augmentation)
                 "trace_augmented.jsonl",
                 "trace_augment_manifest.json",
-                # Relationship Validation
+                # Edge Discovery (inferred edges + incremental manifest)
                 "trace_inferred_edges.jsonl",
+                "trace_inferred_manifest.json",
                 # Epistemic Enrichment
                 "trace_epistemic.jsonl",
                 "trace_epistemic_manifest.json",
                 # Cluster Synthesis
                 "trace_modules.jsonl",
+                # Deep Analysis
+                "deep_analysis_manifest.json",
                 # Codebase Atlas
                 "atlas.json",
                 "atlas_prev.json",

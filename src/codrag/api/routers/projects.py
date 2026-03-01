@@ -239,6 +239,7 @@ class UpdateProjectRequest(BaseModel):
     name: Optional[str] = None
     config: Optional[Dict[str, Any]] = None
     path_weights: Optional[Dict[str, float]] = None
+    touch: bool = True
 
 
 class PathWeightsRequest(BaseModel):
@@ -265,18 +266,11 @@ class DetectStackResponse(BaseModel):
 def list_projects() -> Dict[str, Any]:
     reg = _srv()._get_registry()
     projects: List[Dict[str, Any]] = []
+    
+    # We need to use project_to_dict to ensure activity_status is injected correctly
     for p in reg.list_projects():
-        projects.append(
-            {
-                "id": p.id,
-                "name": p.name,
-                "path": p.path,
-                "mode": p.mode,
-                "created_at": p.created_at,
-                "updated_at": p.updated_at,
-                "config": p.config,
-            }
-        )
+        projects.append(_srv()._project_to_dict(p))
+        
     return ok({"projects": projects, "total": len(projects)})
 
 
@@ -398,8 +392,21 @@ def get_project(project_id: str) -> Dict[str, Any]:
 @router.put("/projects/{project_id}")
 def update_project(project_id: str, req: UpdateProjectRequest) -> Dict[str, Any]:
     reg = _srv()._get_registry()
+
+    # Detect activity toggle: compare old config.active with new config.active
+    old_proj = _srv()._require_project(project_id)
+    old_active = (old_proj.config or {}).get("active", True)
+    new_active = old_active  # default: unchanged
+    if req.config and "active" in req.config:
+        new_active = bool(req.config["active"])
+
     try:
-        updated = reg.update_project(project_id, name=req.name, config=req.config)
+        updated = reg.update_project(
+            project_id, 
+            name=req.name, 
+            config=req.config,
+            touch=req.touch,
+        )
     except ProjectNotFound:
         raise ApiException(
             status_code=404,
@@ -410,6 +417,14 @@ def update_project(project_id: str, req: UpdateProjectRequest) -> Dict[str, Any]
 
     if req.path_weights is not None:
         updated = _persist_path_weights(updated, req.path_weights)
+
+    # ── React to activity toggle ──────────────────────────────────
+    if old_active and not new_active:
+        # DEACTIVATED: stop watcher + cancel pipelines
+        _deactivate_project(project_id)
+    elif not old_active and new_active:
+        # ACTIVATED: start watcher if auto mode is configured
+        _activate_project(updated)
 
     return ok({"project": _srv()._project_to_dict(updated)})
 
@@ -426,6 +441,53 @@ def get_path_weights(project_id: str) -> Dict[str, Any]:
     proj = _srv()._require_project(project_id)
     pw = proj.config.get("path_weights", {})
     return ok({"path_weights": pw})
+
+
+def _deactivate_project(project_id: str) -> None:
+    """Stop watcher and cancel all pipelines for a project being deactivated."""
+    # Stop file watcher
+    watcher = _srv()._project_watchers.pop(project_id, None)
+    if watcher is not None:
+        watcher.stop()
+        logger.info("Stopped watcher for deactivated project %s", project_id)
+
+    # Cancel both pipeline groups
+    try:
+        from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+        cancelled_fast = pipeline_orchestrator.cancel_fast_sync(project_id)
+        cancelled_deep = pipeline_orchestrator.cancel_deep_enrichment(project_id)
+        if cancelled_fast or cancelled_deep:
+            logger.info(
+                "Cancelled pipelines for deactivated project %s (fast=%s, deep=%s)",
+                project_id, cancelled_fast, cancelled_deep,
+            )
+    except Exception as exc:
+        logger.warning("Failed to cancel pipelines for %s: %s", project_id, exc)
+
+
+def _activate_project(proj: Project) -> None:
+    """Start watcher and trigger auto-sync for a project being activated."""
+    cfg = proj.config or {}
+    trace_cfg = cfg.get("trace") if isinstance(cfg, dict) else None
+    trace_enabled = bool((trace_cfg or {}).get("enabled", False))
+    fast_sync_auto = bool(cfg.get("fast_sync_auto", False))
+
+    # Start watcher if fast_sync is set to auto
+    if fast_sync_auto:
+        try:
+            start_project_watch(proj.id)
+            logger.info("Started watcher for activated project %s", proj.id)
+        except Exception as exc:
+            logger.warning("Failed to start watcher for %s: %s", proj.id, exc)
+
+    # Trigger fast sync if trace is enabled and auto mode
+    if trace_enabled and fast_sync_auto:
+        try:
+            from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+            pipeline_orchestrator.run_fast_sync(proj.id)
+            logger.info("Triggered fast sync for activated project %s", proj.id)
+        except Exception as exc:
+            logger.warning("Failed to trigger fast sync for %s: %s", proj.id, exc)
 
 
 def _persist_path_weights(proj: Project, raw_weights: Dict[str, float]) -> Project:
@@ -569,7 +631,8 @@ def start_project_watch(
             hint="Upgrade your plan or remove projects to resume syncing."
         )
 
-    proj = _srv()._require_project(project_id)
+    from codrag.services.project_helpers import require_project_writable
+    proj = require_project_writable(project_id)
     idx = _srv()._get_project_index(proj)
     
     # Stop existing watcher if any
@@ -984,7 +1047,7 @@ def list_project_files(
 
 @router.post("/projects/{project_id}/build")
 def build_project(project_id: str, full: bool = False, req: Optional[BuildRequest] = None) -> Dict[str, Any]:
-    from codrag.services.project_helpers import is_over_project_limit
+    from codrag.services.project_helpers import is_over_project_limit, require_project_writable
     if is_over_project_limit():
         raise ApiException(
             status_code=403,
@@ -993,7 +1056,7 @@ def build_project(project_id: str, full: bool = False, req: Optional[BuildReques
             hint="Upgrade your plan or remove projects to resume syncing."
         )
 
-    proj = _srv()._require_project(project_id)
+    proj = require_project_writable(project_id)
 
     cfg = proj.config or {}
     include_raw = cfg.get("include_globs") if isinstance(cfg, dict) else None

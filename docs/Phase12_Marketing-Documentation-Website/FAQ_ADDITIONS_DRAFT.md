@@ -93,9 +93,21 @@ CoDRAG adds a **deterministic dependency graph** on top of embeddings. When the 
 
 ### 10. Do I need a GPU?
 **Draft Answer:**
-No. Core features — indexing, trace graph construction, search, and structural compression — run on CPU. The built-in embedding model is a quantized ONNX model optimized for CPU inference (~274 MB, auto-downloaded on first use).
+No. Core features — indexing, trace graph construction, search, and structural compression — run entirely on CPU. The built-in semantic search uses a quantized ONNX embedding model optimized for CPU inference (~274 MB, auto-downloaded on first use).
 
-If you want to run the optional enrichment pipeline (which generates deeper module summaries and inferred edges), you can point CoDRAG at any LLM: a cloud API (OpenAI, Anthropic, Google) or a local model via Ollama. A GPU helps for local models, but is never required.
+If you want to run the optional enrichment pipeline (which generates deeper module summaries and inferred edges), you need an LLM. You can use a cloud API (OpenAI, Anthropic, Google) with no local hardware, or a local model via Ollama or LM Studio. A GPU (like Apple Silicon or NVIDIA RTX) is highly recommended for local models, but not required for CoDRAG's core search features.
+
+### 11. Which local models do you recommend? (Updated 2026)
+**Draft Answer:**
+For the best balance of speed and intelligence, we recommend a multi-model setup:
+- **Fast pass (Stage 3):** `qwen3:4b-instruct` or `qwen3:8b`
+- **Coder pass (Stage 2):** `qwen3-coder:30b` (or `qwen3-coder-next` if using LM Studio)
+- **Deep reasoning (Stages 6-9):** `qwen3.5:27b` (dense model)
+
+**Why the 27b dense model over the 35b MoE?**
+The `qwen3.5:27b` is a dense model, meaning all 27.8 billion parameters are active per token. The `qwen3.5:35b-a3b` is a Mixture-of-Experts that only activates 3 billion parameters per token. For deep architectural reasoning, the 27b dense model is dramatically smarter (GPT-5 mini class) and is our top recommendation.
+
+**Apple Silicon Users:** We highly recommend using **LM Studio with an MLX-formatted model** (like `mlx-community/Qwen3.5-27B-bf16`) instead of Ollama for your deep reasoning model. MLX leverages Apple's Metal framework directly and runs up to 2× faster than standard GGUF formats on Mac Studios and MacBook Pros.
 
 ### 11. Why pay for this? Can't I build it myself?
 **Draft Answer:**

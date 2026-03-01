@@ -48,6 +48,15 @@ export interface CodeChunk {
 /**
  * Project summary for list display
  */
+/**
+ * Project activity status (Phase 41)
+ * - active: full functionality
+ * - inactive: Pro explicit deactivation (manual-only)
+ * - frozen: Free tier read-only (can search stale index)
+ * - locked: Free tier completely inert
+ */
+export type ActivityStatus = 'active' | 'inactive' | 'frozen' | 'locked';
+
 export interface ProjectSummary {
   id: string;
   name: string;
@@ -56,6 +65,7 @@ export interface ProjectSummary {
   status: StatusState;
   chunk_count?: number;
   last_build_at?: string;
+  activity_status?: ActivityStatus;
 }
 
 // ============================================================
@@ -645,6 +655,7 @@ export interface ProjectConfig {
   include_globs: string[];
   exclude_globs: string[];
   max_file_bytes: number;
+  active?: boolean;  // Pro tier: explicit active/inactive toggle (default true)
   hard_limit_bytes?: number;
   use_gitignore: boolean;
   trace: { enabled: boolean; paused?: boolean };
@@ -713,6 +724,7 @@ export interface Project {
   config: ProjectConfig;
   created_at: string;
   updated_at: string;
+  activity_status?: ActivityStatus;
 }
 
 /**
@@ -785,8 +797,12 @@ export interface PipelineGroupRun {
 }
 
 /**
- * Full pipeline status (10-stage, two-group model)
+ * Full pipeline status (11-stage, two-group model)
  * Matches the backend `PipelineOrchestrator.status()` shape.
+ *
+ * Stage order:
+ *   Fast Sync:       structural → inferred_edges → catalogue → validation → knowledge
+ *   Deep Enrichment: enrichment → group_reasoning → clustering → atlas → deepening → deep_knowledge
  */
 export interface PipelineStatus {
   fast_sync: PipelineGroupRun | null;
@@ -798,6 +814,7 @@ export interface PipelineStatus {
     validation: any;
     knowledge: any;
     enrichment: any;
+    group_reasoning: any;
     clustering: any;
     atlas: any;
     deepening: any;

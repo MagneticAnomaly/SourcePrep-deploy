@@ -105,30 +105,36 @@ export function StartupScreen({ apiBaseUrl, onReady, timeoutMs = 30000 }: Startu
           </div>
 
           {/* Text */}
-          <h1 className="text-3xl font-bold tracking-[0.2em] text-text mb-8 animate-loading-pulse-fast">
+          <h1 
+            className="text-5xl font-black text-text mb-8 animate-loading-pulse-fast"
+            style={{ 
+              fontFamily: 'var(--font-sans, "Inter", system-ui, sans-serif)',
+              letterSpacing: '-0.04em'
+            }}
+          >
             CoDRAG
           </h1>
           
-          <div className="flex flex-col items-center space-y-5">
+          <div className="flex flex-col items-center space-y-6">
             {/* Progress Bar */}
-            <div className="h-1 w-64 bg-surface-raised rounded-full overflow-hidden relative shadow-inner">
-               <div className="absolute top-0 bottom-0 left-0 w-1/3 bg-primary rounded-full animate-loading-slide" style={{ boxShadow: '0 0 10px hsl(var(--primary) / 0.8)' }}></div>
+            <div className="h-1.5 w-64 bg-surface-raised rounded-full overflow-hidden relative shadow-inner">
+               <div className="absolute top-0 bottom-0 left-0 w-1/3 bg-primary rounded-full animate-loading-slide shadow-[0_0_12px_hsl(var(--primary)_/_0.8)]"></div>
             </div>
             
             {/* Status Text */}
-            <div className="flex flex-col items-center gap-2 text-center">
-              <p className="text-sm text-text font-medium tracking-wider uppercase drop-shadow-md">
+            <div className="flex flex-col items-center gap-2 text-center" style={{ fontFamily: '"Inter", system-ui, sans-serif' }}>
+              <p className="text-sm text-text font-bold tracking-widest uppercase">
                 Starting Engine
               </p>
-              <p className="text-xs text-text-muted">
+              <p className="text-sm text-text-muted font-medium">
                 Initializing local daemon and verifying ports
               </p>
-              <div className="mt-2 text-xs text-text-subtle font-mono flex items-center gap-2 bg-surface px-3 py-1.5 rounded-full border border-border/50 shadow-sm">
+              <div className="mt-3 text-xs text-text-subtle font-mono flex items-center gap-2 bg-surface px-4 py-2 rounded-md border border-border/50 shadow-sm">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                 </span>
-                Connecting to {apiBaseUrl} (Attempt {attempts + 1})
+                Connecting to {apiBaseUrl} <span className="opacity-50">(Attempt {attempts + 1})</span>
               </div>
             </div>
           </div>

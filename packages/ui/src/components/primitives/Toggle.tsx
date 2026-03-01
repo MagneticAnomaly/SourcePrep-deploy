@@ -52,7 +52,8 @@ export function Toggle({
     >
       <span
         className={cn(
-          'pointer-events-none inline-block rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out',
+          'pointer-events-none inline-block rounded-full shadow-sm ring-0 transition-all duration-200 ease-in-out',
+          checked ? 'bg-white' : 'bg-gray-400',
           s.thumb,
           'translate-y-0.5 translate-x-0.5',
           checked && s.translate

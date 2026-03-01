@@ -172,6 +172,9 @@ export interface ApiClient {
     budget_max_minutes?: number;
     budget_max_items?: number;
     llm_concurrency?: number;
+    llm_concurrency_fast?: number;
+    llm_concurrency_code?: number;
+    llm_concurrency_deep?: number;
   }): Promise<any>;
   getProjectSettings(projectId: string): Promise<Record<string, any>>;
   setProjectSetting(projectId: string, key: string, value: any): Promise<{ key: string; value: any }>;
@@ -820,6 +823,9 @@ export class CodragApiClient implements ApiClient {
     budget_max_minutes?: number;
     budget_max_items?: number;
     llm_concurrency?: number;
+    llm_concurrency_fast?: number;
+    llm_concurrency_code?: number;
+    llm_concurrency_deep?: number;
   }): Promise<any> {
     return this.requestEnvelope<any>('/settings/pipeline-config', {
       method: 'POST',

@@ -60,6 +60,7 @@ from .deep_analysis import DeepAnalysisOrchestrator, DeepAnalysisSchedule, DeepA
 from .epistemic_score import EpistemicScore, EpistemicEntry, compute_epistemic_score, apply_decay
 from .epistemic_enrichment import EpistemicEnricher, topological_sort_files, topological_sort_into_tiers
 from .cluster import ClusterSynthesizer, ModuleEntry, build_clusters
+from .group_reasoning import GroupReasoningEngine, GroupReasoningEntry
 from .deepening import DeepeningLoop, EnrichmentQueue, DriftDetector, ConvergenceTracker
 from .inferred_edges import InferredEdgesAnalyzer, InferredEdgesResult
 from .batch_profiles import BatchProfile, BatchProfileName, BatchStage, detect_profile, resolve_profile
@@ -79,6 +80,8 @@ __all__ = [
     "Embedder",
     "EpistemicEnricher",
     "ClusterSynthesizer",
+    "GroupReasoningEngine",
+    "GroupReasoningEntry",
     "DeepeningLoop",
     "KnowledgeIndex",
     "EmbeddingResult",

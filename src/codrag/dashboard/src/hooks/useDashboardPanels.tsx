@@ -143,6 +143,7 @@ export interface PanelEnrichmentProps {
   deepKnowledgeBuilding: boolean
   handleRunKnowledgeBuild: () => void
   handleRunDeepEnrichment: () => void
+  groupReasoningStatus: { enabled: boolean; group_count: number; analyzed: number; running?: boolean; slot_phase?: string; progress_current?: number; progress_total?: number }
 }
 
 export interface PanelLLMProps {
@@ -680,6 +681,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           deepening={p.deepeningStatus}
           knowledge={p.knowledgeStatus}
           atlas={atlas.atlasStatus ?? undefined}
+          groupReasoning={p.groupReasoningStatus}
           smallModelConfigured={!!(p.llmConfig.small_model?.endpoint_id && p.llmConfig.small_model?.model)}
           largeModelConfigured={!!(p.llmConfig.large_model?.endpoint_id && p.llmConfig.large_model?.model)}
           codeModelConfigured={!!(p.llmConfig.code_model?.endpoint_id && p.llmConfig.code_model?.model)}

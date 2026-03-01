@@ -19,7 +19,7 @@ export interface TraceStageInfo {
   last_build_at: string | null;
 }
 
-export type EnrichmentStageId = 'structural' | 'inferred_edges' | 'catalogue' | 'validation' | 'knowledge' | 'enrichment' | 'clustering' | 'atlas' | 'deepening' | 'deep_knowledge';
+export type EnrichmentStageId = 'structural' | 'inferred_edges' | 'catalogue' | 'validation' | 'knowledge' | 'enrichment' | 'group_reasoning' | 'clustering' | 'atlas' | 'deepening' | 'deep_knowledge';
 
 export type DeepEnrichmentMode = 'manual' | 'auto' | 'scheduled' | 'threshold';
 
@@ -56,6 +56,8 @@ export interface GraphEnrichmentPipelineProps {
   /** Run the entire Deep Enrichment set (manual trigger) */
   onRunDeepEnrichment?: () => void;
   onDestroyGraph?: () => void;
+  /** Group reasoning status (Stage 6b) */
+  groupReasoning?: { enabled: boolean; group_count: number; analyzed: number; running?: boolean; slot_phase?: string; progress_current?: number; progress_total?: number };
   /** Open the settings drawer to the Deep Enrichment configuration */
   onOpenDeepSettings?: () => void;
   onTogglePause?: () => void;
@@ -423,6 +425,7 @@ export function GraphEnrichmentPipeline({
   onRunFastSync,
   onRunDeepEnrichment,
   onDestroyGraph,
+  groupReasoning,
   onOpenDeepSettings,
   className,
 }: GraphEnrichmentPipelineProps) {
@@ -612,6 +615,24 @@ export function GraphEnrichmentPipeline({
       progress: (epistemicRunning || epistemic?.running) && epistemic?.progress_total
         ? Math.round((epistemic.progress_current ?? 0) / epistemic.progress_total * 100)
         : (enrichmentState === 'running' ? 0 : undefined),
+    },
+    {
+      id: 'group_reasoning', label: 'Group Reasoning', icon: Network, modelTag: 'Thinking',
+      state: (() => {
+        if (groupReasoning?.slot_phase === 'running' || groupReasoning?.running) return 'running' as StageState;
+        if (!epistemic?.enabled || !epistemic?.enriched_nodes) return 'disabled' as StageState;
+        if (groupReasoning?.enabled && groupReasoning?.group_count > 0) return 'complete' as StageState;
+        return 'not_built' as StageState;
+      })(),
+      stats: (() => {
+        if (groupReasoning?.slot_phase === 'running' || groupReasoning?.running) return 'Analyzing groups...';
+        if (!epistemic?.enabled || !epistemic?.enriched_nodes) return 'Waiting for enrichment';
+        if (groupReasoning?.enabled && groupReasoning?.group_count > 0) return `${groupReasoning.group_count} groups analyzed`;
+        return 'Ready to analyze';
+      })(),
+      progress: (groupReasoning?.slot_phase === 'running' || groupReasoning?.running) && groupReasoning?.progress_total
+        ? Math.round((groupReasoning.progress_current ?? 0) / groupReasoning.progress_total * 100)
+        : undefined,
     },
     {
       id: 'clustering', label: 'Module Synthesis', icon: Layers, modelTag: 'Thinking',

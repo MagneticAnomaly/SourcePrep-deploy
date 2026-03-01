@@ -337,11 +337,16 @@ def _get_llm_client_for_slot(slot: str):
         return None
 
     from codrag.core import LLMClient
+    # Deep reasoning models (large slot) need very long timeouts because
+    # thinking models like qwen3.5:27b generate 2000-5000+ thinking tokens
+    # before content on complex files, taking 300-500s+ per call at ~11 tok/s.
+    timeout = 600.0 if slot in ("large", "large_model") else 120.0
     return LLMClient(
         endpoint_url=url,
         model=slot_cfg.get("model", ""),
         api_key=endpoint.get("api_key"),
         provider=endpoint.get("provider", "ollama"),
+        timeout=timeout,
     )
 
 
@@ -433,6 +438,92 @@ def configure(
     crashed = _pipeline.startup_recovery()
     if crashed:
         logger.warning("Phase 25: %d crashed pipeline run(s) detected on startup", len(crashed))
+
+    # Auto-run pipeline on startup if settings are set to Auto mode.
+    # Checks persisted pipeline_config and triggers runs for projects with
+    # stale or incomplete graphs.  Runs in a background thread with a short
+    # delay so the server finishes initialization first.
+    import threading
+
+    def _startup_auto_run():
+        import time
+        time.sleep(3)  # Let server fully initialize
+        try:
+            from codrag.services.settings_store import settings as _ss
+            pc = _ss.get("pipeline_config") or {}
+            fast_auto = (pc.get("fast_sync") or {}).get("auto", False)
+            deep_mode = (pc.get("deep_enrichment") or {}).get("mode", "manual")
+
+            logger.info(
+                "Startup auto-run check: fast_sync.auto=%s, deep_enrichment.mode=%s",
+                fast_auto, deep_mode,
+            )
+
+            if not fast_auto and deep_mode != "auto":
+                logger.info("Startup auto-run: nothing to auto-run (both disabled)")
+                return
+
+            from codrag.services.pipeline_orchestrator import pipeline_orchestrator as _po
+            from codrag.services.project_helpers import (
+                get_registry, is_project_active, get_project_activity_status,
+            )
+            all_projects = get_registry().list_projects()
+            projects = []
+            for p in all_projects:
+                pcfg = p.config if isinstance(p.config, dict) else {}
+                trace_cfg = pcfg.get("trace") if isinstance(pcfg.get("trace"), dict) else {}
+                if not trace_cfg.get("enabled"):
+                    logger.debug("Startup auto-run: skipping %s (trace not enabled)", p.name)
+                    continue
+                # Skip inactive (Pro toggle) and frozen/locked (Free tier)
+                status = get_project_activity_status(p.id)
+                if status not in ("active",):
+                    logger.info("Startup auto-run: skipping %s (status=%s, not active)", p.name, status)
+                    continue
+                projects.append(p)
+
+            logger.info(
+                "Startup auto-run: %d active trace-enabled project(s) out of %d total",
+                len(projects), len(all_projects),
+            )
+
+            # Process projects sequentially but with a max wait per project
+            # to prevent the thread from blocking forever on a slow model.
+            MAX_WAIT_PER_PROJECT = 120  # seconds to wait before moving to next
+            for proj in projects:
+                if fast_auto and deep_mode == "auto":
+                    started = _po.run_full_pipeline(proj.id)
+                    logger.info("Startup auto-run: full_pipeline for %s — started=%s", proj.name, started)
+                elif fast_auto:
+                    started = _po.run_fast_sync(proj.id)
+                    logger.info("Startup auto-run: fast_sync for %s — started=%s", proj.name, started)
+                elif deep_mode == "auto":
+                    started = _po.run_deep_enrichment(proj.id)
+                    logger.info("Startup auto-run: deep_enrichment for %s — started=%s", proj.name, started)
+                else:
+                    continue
+
+                if started:
+                    # Wait up to MAX_WAIT before moving to the next project.
+                    # The pipeline will continue running in the background.
+                    waited = 0
+                    while waited < MAX_WAIT_PER_PROJECT:
+                        time.sleep(2)
+                        waited += 2
+                        st = _po.status(proj.id)
+                        if not st.get("any_running"):
+                            break
+                    if waited >= MAX_WAIT_PER_PROJECT:
+                        logger.info(
+                            "Startup auto-run: %s still running after %ds, moving to next project",
+                            proj.name, MAX_WAIT_PER_PROJECT,
+                        )
+
+            logger.info("Startup auto-run: all projects triggered")
+        except Exception:
+            logger.warning("Startup auto-run failed", exc_info=True)
+
+    threading.Thread(target=_startup_auto_run, daemon=True).start()
 
     # Phase 26 (S-26.3): Start schedule evaluator for scheduled deep enrichment
     try:

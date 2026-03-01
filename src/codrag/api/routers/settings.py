@@ -49,7 +49,10 @@ class PipelineConfigUpdate(BaseModel):
     budget_max_tokens: Optional[int] = None
     budget_max_minutes: Optional[int] = None
     budget_max_items: Optional[int] = None
-    llm_concurrency: Optional[int] = None  # Concurrent LLM requests (1=sequential, 2-4 for GPU with ≥12GB VRAM)
+    llm_concurrency: Optional[int] = None  # Legacy: sets all three concurrency values
+    llm_concurrency_fast: Optional[int] = None  # Catalogue stage (small/instruct model, stage 3)
+    llm_concurrency_code: Optional[int] = None  # Inferred edges stage (coder model, stage 2)
+    llm_concurrency_deep: Optional[int] = None  # Deep-enrichment stages (thinking model, stages 6-9)
 
 
 # ── Global settings ──────────────────────────────────────────────
@@ -234,6 +237,10 @@ def update_pipeline_config(body: PipelineConfigUpdate) -> Dict[str, Any]:
         "budgets": {},
     }
 
+    # Detect mode transitions for triggering immediate runs
+    prev_fast_auto = (config.get("fast_sync") or {}).get("auto", False)
+    prev_deep_mode = (config.get("deep_enrichment") or {}).get("mode", "manual")
+
     if body.fast_sync_auto is not None:
         config.setdefault("fast_sync", {})["auto"] = body.fast_sync_auto
 
@@ -264,9 +271,70 @@ def update_pipeline_config(body: PipelineConfigUpdate) -> Dict[str, Any]:
         budgets["max_items_per_stage"] = body.budget_max_items
 
     if body.llm_concurrency is not None:
-        config["llm_concurrency"] = max(1, min(8, body.llm_concurrency))
+        # Legacy single key — sets all three
+        val = max(1, min(8, body.llm_concurrency))
+        config["llm_concurrency"] = val
+        config["llm_concurrency_fast"] = val
+        config["llm_concurrency_code"] = val
+        config["llm_concurrency_deep"] = val
+    if body.llm_concurrency_fast is not None:
+        config["llm_concurrency_fast"] = max(1, min(8, body.llm_concurrency_fast))
+    if body.llm_concurrency_code is not None:
+        config["llm_concurrency_code"] = max(1, min(8, body.llm_concurrency_code))
+    if body.llm_concurrency_deep is not None:
+        config["llm_concurrency_deep"] = max(1, min(8, body.llm_concurrency_deep))
 
     settings.set("pipeline_config", config)
+
+    # When fast_sync_auto transitions to true, trigger fast_sync for all
+    # trace-enabled projects so the existing backlog is processed immediately
+    # rather than waiting for new file-system events.
+    if body.fast_sync_auto and not prev_fast_auto:
+        import threading
+
+        def _trigger_auto_runs():
+            try:
+                from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+                from codrag.services.project_helpers import get_registry, get_project_activity_status
+                for proj in get_registry().list_projects():
+                    pcfg = proj.config if isinstance(proj.config, dict) else {}
+                    trace_cfg = pcfg.get("trace") if isinstance(pcfg.get("trace"), dict) else {}
+                    if not trace_cfg.get("enabled"):
+                        continue
+                    if get_project_activity_status(proj.id) != "active":
+                        continue
+                    started = pipeline_orchestrator.run_fast_sync(proj.id)
+                    if started:
+                        logger.info("Auto-mode activated: triggered fast_sync for %s", proj.id)
+            except Exception:
+                logger.debug("Auto-mode trigger failed (non-fatal)", exc_info=True)
+
+        threading.Thread(target=_trigger_auto_runs, daemon=True).start()
+
+    # When deep_enrichment_mode transitions to 'auto', trigger deep enrichment
+    # for all trace-enabled projects so incomplete deep stages start immediately.
+    if body.deep_enrichment_mode == "auto" and prev_deep_mode != "auto":
+        import threading
+
+        def _trigger_deep_runs():
+            try:
+                from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+                from codrag.services.project_helpers import get_registry, get_project_activity_status
+                for proj in get_registry().list_projects():
+                    pcfg = proj.config if isinstance(proj.config, dict) else {}
+                    trace_cfg = pcfg.get("trace") if isinstance(pcfg.get("trace"), dict) else {}
+                    if not trace_cfg.get("enabled"):
+                        continue
+                    if get_project_activity_status(proj.id) != "active":
+                        continue
+                    started = pipeline_orchestrator.run_deep_enrichment(proj.id)
+                    if started:
+                        logger.info("Deep auto-mode activated: triggered deep_enrichment for %s", proj.id)
+            except Exception:
+                logger.debug("Deep auto-mode trigger failed (non-fatal)", exc_info=True)
+
+        threading.Thread(target=_trigger_deep_runs, daemon=True).start()
+
     return ok(config)
 
 

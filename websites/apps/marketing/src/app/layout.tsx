@@ -16,6 +16,20 @@ const ibmPlexSans = IBM_Plex_Sans({ weight: ['400', '500', '600', '700'], subset
 const ibmPlexMono = IBM_Plex_Mono({ weight: ['400', '500', '600'], subsets: ['latin'], variable: '--font-ibm-mono' });
 const ibmPlexSerif = IBM_Plex_Serif({ weight: ['400', '500', '600'], subsets: ['latin'], variable: '--font-heading' });
 
+
+const productSchema = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "CoDRAG",
+  "operatingSystem": "macOS, Windows, Linux",
+  "applicationCategory": "DeveloperApplication",
+  "description": "Local-first codebase indexing and context assembly engine designed for AI-assisted development. It creates a structural code graph using Rust to map imports, call chains, and symbol hierarchies for perfect context.",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  }
+};
 export const metadata: Metadata = {
   metadataBase: new URL('https://codrag.io'),
   title: 'CoDRAG - Local-first Code Context',
@@ -38,6 +52,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" data-codrag-theme="m" className={`${inter.variable} ${jetbrainsMono.variable} ${playfair.variable} ${spaceMono.variable} ${ibmPlexSans.variable} ${ibmPlexMono.variable} ${ibmPlexSerif.variable}`}>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+        />
+      </head>
       <body className="flex flex-col min-h-screen bg-background text-text selection:bg-primary/20 font-mono">
         <Script src="https://plausible.io/js/pa-EyiWunLuXsVDCxYAfsQ6-.js" strategy="afterInteractive" />
         <Script id="plausible-init" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init()` }} />

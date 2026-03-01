@@ -56,7 +56,10 @@ class BatchedResponseParser:
             List of parsed dicts, one per item. May be fewer than expected_count
             if some items failed to parse.
         """
-        text = response_text.strip()
+        # Strip think tags before any parsing (Qwen3, DeepSeek-R1, etc.)
+        from .augmenter import _strip_think_tags
+        text = _strip_think_tags(response_text)
+        text = text.strip()
         if not text:
             return []
 
