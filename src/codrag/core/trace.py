@@ -1145,109 +1145,13 @@ class TraceBuilder:
                 continue
 
             language = _detect_language(rel_path)
-            if language == "python":
+            analyzer = self._get_analyzer(language, rel_path, source)
+            if analyzer is not None:
                 try:
-                    analyzer = PythonAnalyzer(rel_path, source, self.repo_root)
                     sym_nodes, sym_edges = analyzer.analyze()
-                    nodes.extend(sym_nodes)
-
-                    for edge in sym_edges:
-                        if edge.metadata.get("external"):
-                            ext_name = str(edge.metadata.get("import", ""))
-                            if ext_name and ext_name not in external_modules:
-                                ext_node = TraceNode(
-                                    id=stable_external_module_id(ext_name),
-                                    kind="external_module",
-                                    name=ext_name,
-                                    file_path="",
-                                    span=None,
-                                    language=None,
-                                    metadata={"external": True},
-                                )
-                                external_modules[ext_name] = ext_node
-
-                    edges.extend(sym_edges)
-                    files_parsed += 1
-                except Exception as e:
-                    files_failed += 1
-                    if len(file_errors) < self.max_failures:
-                        file_errors.append(FileError(rel_path, type(e).__name__, str(e)))
-            elif language == "swift":
-                try:
-                    analyzer = SwiftAnalyzer(rel_path, source, self.repo_root)
-                    sym_nodes, sym_edges = analyzer.analyze()
-                    nodes.extend(sym_nodes)
-
-                    for edge in sym_edges:
-                        if edge.metadata.get("external"):
-                            ext_name = str(edge.metadata.get("import", ""))
-                            if ext_name and ext_name not in external_modules:
-                                ext_node = TraceNode(
-                                    id=stable_external_module_id(ext_name),
-                                    kind="external_module",
-                                    name=ext_name,
-                                    file_path="",
-                                    span=None,
-                                    language=None,
-                                    metadata={"external": True},
-                                )
-                                external_modules[ext_name] = ext_node
-
-                    edges.extend(sym_edges)
-                    files_parsed += 1
-                except Exception as e:
-                    files_failed += 1
-                    if len(file_errors) < self.max_failures:
-                        file_errors.append(FileError(rel_path, type(e).__name__, str(e)))
-            elif language in ("javascript", "typescript"):
-                try:
-                    analyzer = JSAnalyzer(rel_path, source, self.repo_root)
-                    sym_nodes, sym_edges = analyzer.analyze()
-                    nodes.extend(sym_nodes)
-
-                    for edge in sym_edges:
-                        if edge.metadata.get("external"):
-                            ext_name = str(edge.metadata.get("import", ""))
-                            if ext_name and ext_name not in external_modules:
-                                ext_node = TraceNode(
-                                    id=stable_external_module_id(ext_name),
-                                    kind="external_module",
-                                    name=ext_name,
-                                    file_path="",
-                                    span=None,
-                                    language=None,
-                                    metadata={"external": True},
-                                )
-                                external_modules[ext_name] = ext_node
-
-                    edges.extend(sym_edges)
-                    files_parsed += 1
-                except Exception as e:
-                    files_failed += 1
-                    if len(file_errors) < self.max_failures:
-                        file_errors.append(FileError(rel_path, type(e).__name__, str(e)))
-            elif language in GenericRegexAnalyzer.LANGUAGE_CONFIGS:
-                try:
-                    analyzer = GenericRegexAnalyzer(rel_path, source, self.repo_root, language)
-                    sym_nodes, sym_edges = analyzer.analyze()
-                    nodes.extend(sym_nodes)
-
-                    for edge in sym_edges:
-                        if edge.metadata.get("external"):
-                            ext_name = str(edge.metadata.get("import", ""))
-                            if ext_name and ext_name not in external_modules:
-                                ext_node = TraceNode(
-                                    id=stable_external_module_id(ext_name),
-                                    kind="external_module",
-                                    name=ext_name,
-                                    file_path="",
-                                    span=None,
-                                    language=None,
-                                    metadata={"external": True},
-                                )
-                                external_modules[ext_name] = ext_node
-
-                    edges.extend(sym_edges)
+                    self._collect_analyzer_result(
+                        sym_nodes, sym_edges, nodes, edges, external_modules,
+                    )
                     files_parsed += 1
                 except Exception as e:
                     files_failed += 1
