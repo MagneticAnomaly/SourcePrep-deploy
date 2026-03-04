@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Magnetic Anomaly — High-Fidelity Software & Mobile Apps</title>
+  <meta name="description"
+    content="Magnetic Anomaly builds precise digital instruments. A portfolio of AI tools and mobile apps including CoDRAG, HomeColab, DinnerVision, and DebateHaus." />
+  <meta property="og:title" content="Magnetic Anomaly" />
+  <meta property="og:description"
+    content="High-fidelity software systems and mobile utilities. Tools for the Unknown." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://magneticanomaly.llc/" />
+  <meta property="og:image" content="https://magneticanomaly.llc/MagneticAnomaly.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Magnetic Anomaly Portfolio" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Magnetic Anomaly" />
+  <meta name="twitter:description" content="High-fidelity software systems and mobile utilities." />
+  <meta name="twitter:image" content="https://magneticanomaly.llc/MagneticAnomaly.jpg" />
+  <meta name="theme-color" content="#050508" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Grotesk:wght@400;600;700&display=swap"
+    rel="stylesheet">
+</head>
+
+<body class="bg-void text-ice antialiased selection:bg-titan/30 selection:text-titan overflow-x-hidden">
+  <!-- SVG Noise Filter -->
+  <svg style="display: none;">
+    <filter id="noiseFilter">
+      <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
+    </filter>
+  </svg>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+
+  <!-- Noise overlay via CSS layer instead of full div for better performance -->
+  <div class="pointer-events-none fixed inset-0 z-[9999] opacity-[0.03] mix-blend-overlay"
+    style="background-image: url('data:image/svg+xml;utf8,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E');">
+  </div>
+</body>
+
+</html>

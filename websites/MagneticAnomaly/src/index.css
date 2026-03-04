@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .text-shadow-titan {
+    text-shadow: 0 0 20px rgba(229, 141, 87, 0.3), 0 0 40px rgba(229, 141, 87, 0.1);
+  }
+}
+
+html {
+  font-family: 'JetBrains Mono', monospace;
+  background-color: #030305;
+  /* void text */
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar (Desktop only to prevent mobile offset issues) */
+@media (min-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #030305;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #252830;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #E58D57;
+  }
+}
+
+@media (max-width: 767px) {
+  ::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.glass-panel {
+  background: rgba(5, 5, 8, 0.8);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+@media (min-width: 768px) {
+  .glass-panel {
+    background: rgba(5, 5, 8, 0.5);
+  }
+}
+
+.glass-panel-blur {
+  backdrop-filter: blur(20px);
+}
+
+/* 
+  Fix GSAP pinning jump by ensuring the pin-spacer has a rigid box 
+*/
+.pin-spacer {
+  margin: 0 !important;
+  padding: 0 !important;
+}
