@@ -89,6 +89,7 @@ _DEFAULT_UI_CONFIG: Dict[str, Any] = {
     ],
     "max_file_bytes": 500_000,  # Threshold for full indexing (above this = summary only)
     "hard_limit_bytes": 100_000_000,  # 100MB hard limit (above this = ignored)
+    "max_active_projects": "infinite", # Number or 'infinite'
     "trace": {"enabled": False},
     "auto_rebuild": {"enabled": False, "debounce_ms": 5000},
     "llm_config": None,  # Will be populated with defaults if missing
@@ -176,16 +177,19 @@ def default_ui_config(config: Dict[str, Any]) -> Dict[str, Any]:
             "enabled": False,
             "endpoint_id": "",
             "model": "",
+            "always_on": False,
         },
         "large_model": {
             "enabled": False,
             "endpoint_id": "",
             "model": "",
+            "always_on": False,
         },
         "code_model": {
             "enabled": False,
             "endpoint_id": "",
             "model": "",
+            "always_on": False,
         },
         "compression": {
             "enabled": False,
@@ -263,6 +267,7 @@ def _merge_config_data(cfg: Dict[str, Any], data: Dict[str, Any]) -> None:
         "include_globs",
         "exclude_globs",
         "max_file_bytes",
+        "max_active_projects",
         "trace",
         "auto_rebuild",
         "ui_preferences",

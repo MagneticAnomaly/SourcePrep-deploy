@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
-from .augmenter import LLMClient, _parse_json_response
+from .llm_client import LLMClient, _parse_json_response
 from .epistemic_score import EpistemicEntry
 
 logger = logging.getLogger(__name__)
@@ -149,7 +149,7 @@ def build_dependency_groups(
     visited: Set[str] = set()
     components: List[List[str]] = []
 
-    for node_id in file_ids:
+    for node_id in sorted(file_ids):
         if node_id in visited:
             continue
         # BFS
@@ -177,7 +177,7 @@ def build_dependency_groups(
             # Simple greedy: pick a seed, BFS up to max_group_size
             remaining = set(comp)
             while remaining:
-                seed = next(iter(remaining))
+                seed = min(remaining)
                 sub: List[str] = []
                 sub_queue = [seed]
                 while sub_queue and len(sub) < max_group_size:
@@ -392,6 +392,7 @@ class GroupReasoningEngine:
     def run(
         self,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
+        cancel_token: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """Run group deep reasoning on all dependency groups.
 
@@ -401,6 +402,9 @@ class GroupReasoningEngine:
         3. Check staleness: skip groups whose member fingerprint hasn't changed.
         4. Analyze stale/new groups with deep reasoning (think=True).
         5. Write trace_group_reasoning.jsonl atomically.
+
+        If *cancel_token* is provided, the loop checks it periodically and
+        flushes partial results before raising.
         """
         start = time.monotonic()
 
@@ -460,6 +464,12 @@ class GroupReasoningEngine:
         results: Dict[str, GroupReasoningEntry] = dict(reuse)
 
         for gid, members in to_analyze:
+            # Cooperative cancellation check
+            if cancel_token and cancel_token.is_cancelled:
+                logger.info("Group reasoning paused/cancelled at %d/%d — flushing partial results", analyzed, len(to_analyze))
+                self._write_results(results)
+                cancel_token.raise_if_cancelled()
+
             entry = self.analyze_group(gid, members, epistemic, edges)
             if entry:
                 results[gid] = entry
@@ -473,6 +483,11 @@ class GroupReasoningEngine:
                     len(reuse) + analyzed + failed,
                     total_groups,
                 )
+
+            # Periodic checkpoint to avoid losing progress on crash
+            if analyzed > 0 and analyzed % 10 == 0:
+                self._write_results(results)
+                logger.info("Group reasoning checkpoint saved at %d/%d groups", analyzed, len(to_analyze))
 
         # Write atomically
         self._write_results(results)

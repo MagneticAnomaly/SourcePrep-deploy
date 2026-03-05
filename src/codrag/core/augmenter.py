@@ -1119,6 +1119,7 @@ class TraceAugmenter:
         self,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
         max_items: Optional[int] = None,
+        cancel_token: Optional[Any] = None,
     ) -> AugmentResult:
         """
         Run augmentation on all trace nodes that need it.
@@ -1199,6 +1200,12 @@ class TraceAugmenter:
         if concurrency <= 1 or not to_augment_symbols:
             # Sequential symbol augmentation
             for node in to_augment_symbols:
+                # Cooperative cancellation check
+                if cancel_token and cancel_token.is_cancelled:
+                    logger.info("Augmentation paused/cancelled at %d/%d — flushing partial results", done, total_work)
+                    self._write_augmentations(augmented)
+                    cancel_token.raise_if_cancelled()
+
                 if progress_callback:
                     progress_callback("augment_symbols", done, total_work)
 
@@ -1293,6 +1300,12 @@ class TraceAugmenter:
             if concurrency <= 1:
                 # Sequential (default)
                 for node in to_augment_files:
+                    # Cooperative cancellation check
+                    if cancel_token and cancel_token.is_cancelled:
+                        logger.info("Augmentation paused/cancelled at %d/%d — flushing partial results", done, total_work)
+                        self._write_augmentations(augmented)
+                        cancel_token.raise_if_cancelled()
+
                     if progress_callback:
                         progress_callback("augment_files", done, total_work)
 

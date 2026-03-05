@@ -3,27 +3,31 @@ import { Select } from '../primitives/Select';
 import { Button } from '../primitives/Button';
 import { X, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import type { CodragTaskId, SavedEndpoint, EndpointTestResult } from '../../types';
-import { TASK_LABELS } from '../../types';
+import { ALL_TASK_IDS, TASK_LABELS, TASK_TAGS } from '../../types';
 
 export interface LLMAssignmentBlockCardProps {
   id: string;
   endpointId: string;
   model: string;
   tasks: CodragTaskId[];
+  enableReasoning?: boolean;
+  alwaysOn?: boolean;
 
   /** All saved endpoints for the endpoint dropdown */
   endpoints: SavedEndpoint[];
   /** Models available on the currently selected endpoint */
   availableModels: string[];
   loadingModels?: boolean;
-  /** Task IDs that are NOT yet assigned (available for the + dropdown) */
-  unassignedTasks: CodragTaskId[];
+  /** Task IDs that are already assigned globally across all blocks */
+  assignedTasks: CodragTaskId[];
 
   onEndpointChange: (blockId: string, endpointId: string) => void;
   onModelChange: (blockId: string, model: string) => void;
   onRefreshModels: (endpointId: string) => void;
   onAddTask: (blockId: string, taskId: CodragTaskId) => void;
   onRemoveTask: (blockId: string, taskId: CodragTaskId) => void;
+  onEnableReasoningChange?: (blockId: string, enabled: boolean) => void;
+  onAlwaysOnChange?: (blockId: string, alwaysOn: boolean) => void;
   onDelete: (blockId: string) => void;
   onTest?: (blockId: string) => void;
 
@@ -38,15 +42,19 @@ export function LLMAssignmentBlockCard({
   endpointId,
   model,
   tasks,
+  enableReasoning = false,
+  alwaysOn = false,
   endpoints,
   availableModels,
   loadingModels = false,
-  unassignedTasks,
+  assignedTasks,
   onEndpointChange,
   onModelChange,
   onRefreshModels,
   onAddTask,
   onRemoveTask,
+  onEnableReasoningChange,
+  onAlwaysOnChange,
   onDelete,
   onTest,
   testResult,
@@ -77,6 +85,58 @@ export function LLMAssignmentBlockCard({
         >
           <X className="w-4 h-4" />
         </button>
+      </div>
+
+      {/* Tasks */}
+      <div className="mb-5">
+        <label className="block text-xs font-medium text-text-muted mb-1.5">Tasks</label>
+        <div className="space-y-1.5">
+          {tasks.map((taskId) => (
+            <div
+              key={taskId}
+              className="flex items-center justify-between px-3 py-1.5 rounded-md bg-surface-raised border border-border text-xs"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-text">{TASK_LABELS[taskId]}</span>
+                {TASK_TAGS[taskId] && (
+                  <span className="text-[10px] text-text-muted px-1.5 py-0.5 rounded bg-surface border border-border">
+                    {TASK_TAGS[taskId]}
+                  </span>
+                )}
+              </div>
+              {tasks.length > 1 && (
+                <button
+                  onClick={() => onRemoveTask(id, taskId)}
+                  className="p-0.5 rounded text-text-muted hover:text-error transition-colors"
+                  title="Remove task from this block"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          ))}
+
+          {/* Add Task dropdown */}
+          <Select
+            value=""
+            onChange={(e) => {
+              if (e.target.value) {
+                onAddTask(id, e.target.value as CodragTaskId);
+              }
+            }}
+            placeholder="+ Add Task"
+            options={ALL_TASK_IDS.map((t) => {
+              const isAssigned = assignedTasks.includes(t);
+              const tagStr = TASK_TAGS[t] ? ` [${TASK_TAGS[t]}]` : '';
+              return {
+                value: t,
+                label: isAssigned ? `✓ ${TASK_LABELS[t]}${tagStr}` : `${TASK_LABELS[t]}${tagStr}`,
+                disabled: isAssigned,
+              };
+            })}
+            className="w-full text-xs"
+          />
+        </div>
       </div>
 
       {/* Endpoint + Model */}
@@ -110,7 +170,7 @@ export function LLMAssignmentBlockCard({
                 onClick={() => onRefreshModels(endpointId)}
                 disabled={loadingModels}
                 variant="outline"
-                className="bg-surface-raised hover:bg-border border-border h-full aspect-square p-0 w-[36px]"
+                className="bg-surface-raised hover:bg-border border-border aspect-square p-0 w-[36px]"
                 title="Refresh Models"
               >
                 <RefreshCw className={cn('w-3.5 h-3.5', loadingModels && 'animate-spin')} />
@@ -118,48 +178,45 @@ export function LLMAssignmentBlockCard({
             </div>
           </div>
         )}
-      </div>
 
-      {/* Tasks */}
-      <div className="mb-4">
-        <label className="block text-xs font-medium text-text-muted mb-1.5">Tasks</label>
-        <div className="space-y-1.5">
-          {tasks.map((taskId) => (
-            <div
-              key={taskId}
-              className="flex items-center justify-between px-3 py-1.5 rounded-md bg-surface-raised border border-border text-xs"
-            >
-              <span className="text-text">{TASK_LABELS[taskId]}</span>
-              {tasks.length > 1 && (
-                <button
-                  onClick={() => onRemoveTask(id, taskId)}
-                  className="p-0.5 rounded text-text-muted hover:text-error transition-colors"
-                  title="Remove task from this block"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-          ))}
+        {/* Checkboxes: Reasoning & Always On */}
+        {hasEndpoint && hasModel && (
+          <div className="pt-2 flex flex-col gap-2">
+            {onEnableReasoningChange && (
+              <label className="flex items-center gap-2 cursor-pointer group w-max">
+                <div className="relative flex items-center justify-center">
+                  <input
+                    type="checkbox"
+                    checked={enableReasoning}
+                    onChange={(e) => onEnableReasoningChange(id, e.target.checked)}
+                    className="peer appearance-none w-4 h-4 border border-border rounded bg-surface checked:bg-primary checked:border-primary transition-colors cursor-pointer"
+                  />
+                  <CheckCircle className="absolute w-3 h-3 text-surface opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" />
+                </div>
+                <span className="text-xs text-text-muted group-hover:text-text transition-colors select-none">
+                  Enable Reasoning <span className="text-[10px] opacity-70">(parse {"<think>"} tags)</span>
+                </span>
+              </label>
+            )}
 
-          {/* Add Task dropdown */}
-          {unassignedTasks.length > 0 && (
-            <Select
-              value=""
-              onChange={(e) => {
-                if (e.target.value) {
-                  onAddTask(id, e.target.value as CodragTaskId);
-                }
-              }}
-              placeholder="+ Add Task"
-              options={unassignedTasks.map((t) => ({
-                value: t,
-                label: TASK_LABELS[t],
-              }))}
-              className="w-full text-xs"
-            />
-          )}
-        </div>
+            {onAlwaysOnChange !== undefined && (
+              <label className="flex items-center gap-2 cursor-pointer group w-max">
+                <div className="relative flex items-center justify-center">
+                  <input
+                    type="checkbox"
+                    checked={alwaysOn}
+                    onChange={(e) => onAlwaysOnChange(id, e.target.checked)}
+                    className="peer appearance-none w-4 h-4 border border-border rounded bg-surface checked:bg-primary checked:border-primary transition-colors cursor-pointer"
+                  />
+                  <CheckCircle className="absolute w-3 h-3 text-surface opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" />
+                </div>
+                <span className="text-xs text-text-muted group-hover:text-text transition-colors select-none">
+                  Always available (Keep loaded)
+                </span>
+              </label>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Test Connection */}

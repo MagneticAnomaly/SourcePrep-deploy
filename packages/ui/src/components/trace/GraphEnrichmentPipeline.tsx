@@ -5,7 +5,7 @@ import { ConfirmDialog } from '../primitives/ConfirmDialog';
 import { SlidingSwitch2, SlidingSwitch3 } from '../primitives/SlidingSwitch';
 import {
   GitBranch, Brain, ShieldCheck, Play, AlertTriangle, CheckCircle2,
-  Circle, Clock, Loader2, Layers, Network, Database, Trash2, Code2, Map, Eye
+  Circle, Clock, Loader2, Layers, Network, Database, Trash2, Code2, Map, Eye, Pause
 } from 'lucide-react';
 import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, InferredEdgesStatus, AtlasStatus } from '../../types';
 
@@ -61,6 +61,12 @@ export interface GraphEnrichmentPipelineProps {
   /** Open the settings drawer to the Deep Enrichment configuration */
   onOpenDeepSettings?: () => void;
   onTogglePause?: () => void;
+  /** Pause the currently running pipeline group (flush partial results + stop) */
+  onPausePipeline?: (group: 'fast_sync' | 'deep_enrichment') => void;
+  /** Resume a paused pipeline group */
+  onResumePipeline?: (group: 'fast_sync' | 'deep_enrichment') => void;
+  /** True if the pipeline is in a paused state (error === 'Paused by user') */
+  isPaused?: boolean;
   augmenting?: boolean;
   validating?: boolean;
   deepAnalyzing?: boolean;
@@ -81,6 +87,8 @@ export interface GraphEnrichmentPipelineProps {
   isPro?: boolean;
   /** Whether the user is over their project limit */
   limitReached?: boolean;
+  /** When true, the project is explicitly marked inactive */
+  inactive?: boolean;
   className?: string;
 }
 
@@ -334,18 +342,31 @@ function StateIcon({ state }: { state: StageState }) {
 
 import { StageProgressBar } from './StageProgressBar';
 
-function StageRow({ stage }: { stage: EnrichmentStage }) {
+function StageRow({ stage, onPause, onResume, isPaused }: {
+  stage: EnrichmentStage;
+  onPause?: () => void;
+  onResume?: () => void;
+  isPaused?: boolean;
+}) {
   const s = STATE_STYLES[stage.state];
+  const [hovered, setHovered] = useState(false);
+  const isRunning = stage.state === 'running';
   
   return (
-    <div className="flex items-start gap-3 relative py-0.5 px-1 group">
+    <div
+      className="flex items-start gap-3 relative py-0.5 px-1 group"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       {/* Connector Line */}
       <div className="absolute left-[19px] top-7 bottom-[-4px] w-px bg-border group-last:hidden" />
       
       {/* Icon Bubble */}
       <div className={cn(
         "w-8 h-8 rounded-full border flex items-center justify-center shrink-0 z-10 transition-colors",
-        s.bg, s.border, s.text
+        isPaused ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : s.bg,
+        isPaused ? '' : s.border,
+        isPaused ? '' : s.text,
       )}>
         <stage.icon className="w-4 h-4" />
       </div>
@@ -354,7 +375,7 @@ function StageRow({ stage }: { stage: EnrichmentStage }) {
       <div className="flex-1 min-w-0 py-0.5">
         <div className="flex items-center justify-between mb-0.5">
           <div className="flex items-center gap-2">
-            <span className={cn("text-xs font-semibold", s.text)}>{stage.label}</span>
+            <span className={cn("text-xs font-semibold", isPaused ? 'text-amber-400' : s.text)}>{stage.label}</span>
             {stage.modelTag && (
               <span className="text-[10px] text-text-muted px-1.5 py-0.5 rounded bg-surface-raised border border-border">
                 {stage.modelTag}
@@ -362,15 +383,41 @@ function StageRow({ stage }: { stage: EnrichmentStage }) {
             )}
           </div>
           <div className="flex items-center gap-1.5">
-            {stage.state === 'running' && stage.progress !== undefined && (
+            {isRunning && stage.progress !== undefined && (
               <span className="text-[10px] text-blue-400 opacity-80">{stage.progress}%</span>
             )}
-            <StateIcon state={stage.state} />
+            {isPaused && stage.progress !== undefined && (
+              <span className="text-[10px] text-amber-400 opacity-80">{stage.progress}%</span>
+            )}
+            {/* Fixed-size container for spinner/pause/play to prevent layout shift */}
+            <div className="w-5 h-5 flex items-center justify-center shrink-0">
+              {isPaused && onResume ? (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onResume(); }}
+                  className="p-0.5 rounded hover:bg-green-500/20 transition-colors"
+                  title="Resume pipeline from where it paused"
+                >
+                  <Play className="w-3.5 h-3.5 text-green-400" />
+                </button>
+              ) : isRunning && hovered && onPause ? (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onPause(); }}
+                  className="p-0.5 rounded hover:bg-amber-500/20 transition-colors"
+                  title="Pause pipeline (saves progress)"
+                >
+                  <Pause className="w-3.5 h-3.5 text-amber-400" />
+                </button>
+              ) : isPaused ? (
+                <Pause className="w-3.5 h-3.5 text-amber-400" />
+              ) : (
+                <StateIcon state={stage.state} />
+              )}
+            </div>
           </div>
         </div>
         
         {/* Stats Text OR Active Progress Bar */}
-        {stage.state === 'running' ? (
+        {isRunning ? (
           <div className="h-[13px] flex items-center w-full pr-8">
             <StageProgressBar 
               progress={stage.progress} 
@@ -378,6 +425,10 @@ function StageRow({ stage }: { stage: EnrichmentStage }) {
               color="bg-blue-500" 
             />
           </div>
+        ) : isPaused ? (
+          <p className="text-[10px] text-amber-400/70 truncate leading-tight">
+            Paused {stage.stats ? `· ${stage.stats}` : ''}
+          </p>
         ) : (
           stage.stats && (
             <p className="text-[10px] text-text-muted truncate leading-tight">
@@ -422,6 +473,7 @@ export function GraphEnrichmentPipeline({
   onAutoConfigChange,
   isPro = false,
   limitReached = false,
+  inactive = false,
   // Per-stage handlers kept in props interface but not used directly;
   // group-level handlers trigger the full set.
   onRunFastSync,
@@ -429,6 +481,9 @@ export function GraphEnrichmentPipeline({
   onDestroyGraph,
   groupReasoning,
   onOpenDeepSettings,
+  onPausePipeline,
+  onResumePipeline,
+  isPaused = false,
   className,
 }: GraphEnrichmentPipelineProps) {
 
@@ -696,8 +751,15 @@ export function GraphEnrichmentPipeline({
         </div>
         {onRunFastSync ? (
           <button
-            onClick={onRunFastSync}
-            className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 text-primary px-5 py-2 text-sm font-semibold hover:bg-primary/20 transition-colors"
+            onClick={inactive ? undefined : onRunFastSync}
+            disabled={inactive || limitReached}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-full border px-5 py-2 text-sm font-semibold transition-colors",
+              (inactive || limitReached)
+                ? "border-border bg-surface text-text-subtle cursor-not-allowed"
+                : "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
+            )}
+            title={inactive ? "Activate this project to run pipelines" : undefined}
           >
             <Play className="w-4 h-4" />
             Build Trace Graph
@@ -724,14 +786,27 @@ export function GraphEnrichmentPipeline({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {!fastAuto && onRunFastSync && (
+          {isPaused && onResumePipeline && !fastRunning && (
             <button
-              onClick={onRunFastSync}
-              disabled={fastRunning || limitReached}
-              title={limitReached ? "Project limit reached. Upgrade to resume syncing." : undefined}
+              onClick={() => onResumePipeline('fast_sync')}
+              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+              title="Resume from where it paused"
+            >
+              <Play className="w-3.5 h-3.5" />
+              Resume
+            </button>
+          )}
+          {!fastAuto && onRunFastSync && !isPaused && (
+            <button
+              onClick={inactive ? undefined : onRunFastSync}
+              disabled={fastRunning || limitReached || inactive}
+              title={
+                inactive ? "Activate this project to run pipelines." :
+                limitReached ? "Project limit reached. Upgrade to resume syncing." : undefined
+              }
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
-                (fastRunning || limitReached)
+                (fastRunning || limitReached || inactive)
                   ? "border-border bg-surface text-text-subtle cursor-not-allowed"
                   : "border-success/40 bg-success/10 text-success hover:bg-success/20"
               )}
@@ -743,14 +818,18 @@ export function GraphEnrichmentPipeline({
           <SlidingSwitch2
             value={fastAuto}
             onChange={onAutoConfigChange ? setFastSync : undefined}
-            disabled={!isPro}
-            disabledReason="Upgrade to Pro to enable auto-sync"
+            disabled={!isPro || inactive}
+            disabledReason={inactive ? "Project is inactive" : "Upgrade to Pro to enable auto-sync"}
           />
         </div>
       </div>
       <div className="flex flex-col gap-0.5 ml-1">
         {fastStages.map((stage) => (
-          <StageRow key={stage.id} stage={stage} />
+          <StageRow
+            key={stage.id}
+            stage={stage}
+            onPause={onPausePipeline ? () => onPausePipeline('fast_sync') : undefined}
+          />
         ))}
       </div>
 
@@ -761,20 +840,33 @@ export function GraphEnrichmentPipeline({
       <div className="flex items-center justify-between py-1.5 px-1">
         <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Deep Enrichment</span>
         <div className="flex items-center gap-2">
-          {deepMode === 'manual' && onRunDeepEnrichment && (
+          {isPaused && onResumePipeline && !deepRunning && (
             <button
-              onClick={onRunDeepEnrichment}
-              disabled={deepRunning || limitReached}
-              title={limitReached ? "Project limit reached. Upgrade to resume syncing." : undefined}
+              onClick={() => onResumePipeline('deep_enrichment')}
+              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+              title="Resume from where it paused"
+            >
+              <Play className="w-3.5 h-3.5" />
+              Resume
+            </button>
+          )}
+          {deepMode === 'manual' && onRunDeepEnrichment && !(isPaused && !deepRunning) && (
+            <button
+              onClick={inactive ? undefined : onRunDeepEnrichment}
+              disabled={deepRunning || limitReached || inactive}
+              title={
+                inactive ? "Activate this project to run pipelines." :
+                limitReached ? "Project limit reached. Upgrade to resume syncing." : undefined
+              }
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
-                (deepRunning || limitReached)
+                (deepRunning || limitReached || inactive)
                   ? "border-border bg-surface text-text-subtle cursor-not-allowed"
                   : "border-success/40 bg-success/10 text-success hover:bg-success/20"
               )}
             >
               <Play className="w-3.5 h-3.5" />
-              {deepRunning ? 'Running…' : 'Run'}
+              {deepRunning ? 'Running…' : isPaused ? 'Paused' : 'Run'}
             </button>
           )}
           {onOpenDeepSettings && deepMode === 'scheduled' && (
@@ -790,15 +882,26 @@ export function GraphEnrichmentPipeline({
             value={deepMode}
             options={DEEP_MODE_OPTIONS}
             onChange={onAutoConfigChange ? setDeepMode : undefined}
-            disabled={!isPro}
-            disabledReason="Upgrade to Pro to enable deep enrichment"
+            disabled={!isPro || inactive}
+            disabledReason={inactive ? "Project is inactive" : "Upgrade to Pro to enable deep enrichment"}
           />
         </div>
       </div>
       <div className="flex flex-col gap-0.5 ml-1">
-        {deepStages.map((stage) => (
-          <StageRow key={stage.id} stage={stage} />
-        ))}
+        {deepStages.map((stage, idx) => {
+          // When paused, the paused stage is the first non-complete stage after completed ones
+          const isStagePaused = !!(isPaused && !deepRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
+            deepStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
+          return (
+            <StageRow
+              key={stage.id}
+              stage={stage}
+              onPause={onPausePipeline ? () => onPausePipeline('deep_enrichment') : undefined}
+              onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('deep_enrichment') : undefined}
+              isPaused={isStagePaused}
+            />
+          );
+        })}
       </div>
 
       {/* Footer / Summary */}

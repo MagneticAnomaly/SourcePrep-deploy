@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, ReactNode } from 'react';
 import { Info } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { createPortal } from 'react-dom';
 
 export interface InfoTooltipProps {
-  content: string;
+  content: ReactNode;
   className?: string;
   side?: 'top' | 'right' | 'bottom' | 'left';
   href?: string;
@@ -12,7 +12,7 @@ export interface InfoTooltipProps {
 
 export function InfoTooltip({ content, className, side = 'top', href }: InfoTooltipProps) {
   const [isVisible, setIsVisible] = useState(false);
-  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const [coords, setCoords] = useState({ top: 0, left: 0, actualSide: side });
   const triggerRef = useRef<HTMLElement>(null);
 
   const updatePosition = () => {
@@ -38,7 +38,14 @@ export function InfoTooltip({ content, className, side = 'top', href }: InfoTool
       left = rect.right + gap;
     }
 
-    setCoords({ top, left });
+    // Force bottom side if clipping top of viewport and not explicitly requested left/right
+    // A typical tooltip might be ~100-150px tall, so we leave some breathing room
+    if ((side === 'top' || side === 'bottom') && top < 150) {
+      top = rect.bottom + gap;
+      setCoords({ top, left, actualSide: 'bottom' });
+    } else {
+      setCoords({ top, left, actualSide: side });
+    }
   };
 
   const handleMouseEnter = () => {
@@ -99,9 +106,9 @@ export function InfoTooltip({ content, className, side = 'top', href }: InfoTool
           style={{
             top: coords.top,
             left: coords.left,
-            transform: side === 'top' ? 'translate(-50%, -100%)' :
-                       side === 'bottom' ? 'translate(-50%, 0)' :
-                       side === 'left' ? 'translate(-100%, -50%)' :
+            transform: coords.actualSide === 'top' ? 'translate(-50%, -100%)' :
+                       coords.actualSide === 'bottom' ? 'translate(-50%, 0)' :
+                       coords.actualSide === 'left' ? 'translate(-100%, -50%)' :
                        'translate(0, -50%)' // right
           }}
         >

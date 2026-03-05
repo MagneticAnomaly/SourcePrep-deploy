@@ -29,6 +29,9 @@ export interface EnrichmentState {
   deepKnowledgeBuilding: boolean
   groupReasoningRunning: boolean
   groupReasoningStatus: { enabled: boolean; group_count: number; analyzed: number; running?: boolean; slot_phase?: string; progress_current?: number; progress_total?: number }
+  /** Pipeline group is paused (error === 'Paused by user') */
+  fastPaused: boolean
+  deepPaused: boolean
 }
 
 export const initialEnrichmentState: EnrichmentState = {
@@ -53,6 +56,8 @@ export const initialEnrichmentState: EnrichmentState = {
   deepKnowledgeBuilding: false,
   groupReasoningRunning: false,
   groupReasoningStatus: { enabled: false, group_count: 0, analyzed: 0 },
+  fastPaused: false,
+  deepPaused: false,
 }
 
 // ── Actions ───────────────────────────────────────────────────
@@ -71,6 +76,8 @@ export type EnrichmentAction =
   | { type: 'GROUP_REASONING_STATUS'; payload: { enabled: boolean; group_count: number; analyzed: number; slot_phase?: string; progress_current?: number; progress_total?: number } }
   // Sync all running flags at once (from SSE or initial hydration)
   | { type: 'SYNC_RUNNING'; inferredEdgesRunning: boolean; augmenting: boolean; validating: boolean; epistemicRunning: boolean; groupReasoningRunning: boolean; clusterRunning: boolean; atlasRunning: boolean; deepeningRunning: boolean; fastKnowledgeBuilding: boolean; deepKnowledgeBuilding: boolean }
+  // Sync paused flags (derived from pipeline error === 'Paused by user')
+  | { type: 'SYNC_PAUSED'; fastPaused: boolean; deepPaused: boolean }
   // Manual stage start (optimistic UI feedback)
   | { type: 'STAGE_STARTED'; stage: StageName }
   // Manual stage failure (revert optimistic flag)
@@ -121,6 +128,13 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
         deepKnowledgeBuilding: action.deepKnowledgeBuilding,
       }
 
+    case 'SYNC_PAUSED':
+      return {
+        ...state,
+        fastPaused: action.fastPaused,
+        deepPaused: action.deepPaused,
+      }
+
     // ── Optimistic stage start ──
     case 'STAGE_STARTED':
       switch (action.stage) {
@@ -152,7 +166,7 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
 
     case 'DEEP_COMPLETED':
     case 'DEEP_FAILED':
-      return { ...state, epistemicRunning: false, groupReasoningRunning: false, clusterRunning: false, atlasRunning: false, deepeningRunning: false, deepKnowledgeBuilding: false }
+      return { ...state, epistemicRunning: false, groupReasoningRunning: false, clusterRunning: false, atlasRunning: false, deepeningRunning: false, deepKnowledgeBuilding: false, deepPaused: false }
 
     // ── Full reset ──
     case 'DESTROYED':

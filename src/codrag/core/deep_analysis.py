@@ -447,7 +447,7 @@ class DeepAnalysisOrchestrator:
             logger.warning("Validation LLM call failed for %s: %s", item.node_name, e)
             return None
 
-        from .augmenter import _parse_json_response
+        from .llm_client import _parse_json_response
         parsed = _parse_json_response(text)
         if parsed is None:
             logger.warning("Failed to parse validation response for %s — raw: %.200s", item.node_name, text)

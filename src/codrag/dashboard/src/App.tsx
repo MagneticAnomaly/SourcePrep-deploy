@@ -28,7 +28,8 @@ import {
 import { StartupScreen } from './components/StartupScreen'
 import { UpdateBanner } from './components/UpdateBanner'
 import { SettingsDrawer } from './components/settings/SettingsDrawer'
-import { ErrorToast } from './components/ErrorToast'
+import { Toast, makeToast } from './components/Toast'
+import type { ToastMessage, ToastVariant } from './components/Toast'
 import { useLicenseSystem } from './hooks/useLicenseSystem'
 import { useLLMConfig } from './hooks/useLLMConfig'
 import { useDeepAnalysis } from './hooks/useDeepAnalysis'
@@ -77,7 +78,10 @@ function App() {
 
   // ── Global state ───────────────────────────────────────────
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [toast, setToast] = useState<ToastMessage | null>(null)
+  const showToast = useCallback((text: string, variant: ToastVariant = 'error', duration?: number) => {
+    setToast(makeToast(text, variant, duration))
+  }, [])
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
@@ -94,6 +98,7 @@ function App() {
   const [bgImage, setBgImage] = useState<string | null>(() =>
     localStorage.getItem('codrag_bg_image') ?? null
   )
+  const [maxActiveProjects, setMaxActiveProjects] = useState<number | 'infinite'>('infinite')
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout | null>(null)
   const [projectLimitBannerDismissed, setProjectLimitBannerDismissed] = useState(false)
 
@@ -130,7 +135,7 @@ function App() {
   // Owns: projects, selectedProjectId, projectStatuses, buildingProjects,
   // transientCompleteProjects, projectConfig, configDirty, and related actions.
   const project = useProjectManager({
-    onError: (msg) => setError(msg),
+    onError: (msg, variant) => showToast(msg, variant),
     handleStartWatch: async () => { await watchHookPlaceholder.current?.handleStartWatch?.() },
     refreshWatchStatus: async (pid) => { await watchHookPlaceholder.current?.refreshWatchStatus?.(pid) },
     fetchFileTree: async (pid) => { await fetchFileTreeRef.current?.(pid) },
@@ -160,7 +165,7 @@ function App() {
     context, contextMeta,
     handleSearch, handleGetContext, handleCopyContext,
     resetSearch,
-  } = useSearchContext(selectedProjectId, { onError: (msg) => setError(msg) })
+  } = useSearchContext(selectedProjectId, { onError: (msg, variant) => showToast(msg, variant) })
 
   // ── File system (hook) ───────────────────────────────────
   const {
@@ -175,7 +180,7 @@ function App() {
   const {
     watchStatus, watchLoading,
     refreshWatchStatus, handleStartWatch, handleStopWatch,
-  } = useWatchSystem(selectedProjectId, { onError: (msg) => setError(msg) })
+  } = useWatchSystem(selectedProjectId, { onError: (msg, variant) => showToast(msg, variant ?? 'warning') })
   // Update the placeholder ref so useProjectManager can call watch handlers
   watchHookPlaceholder.current = { watchStatus, watchLoading, refreshWatchStatus, handleStartWatch, handleStopWatch }
   // Update the fetchFileTree ref so useProjectManager can refresh the tree after builds
@@ -188,7 +193,7 @@ function App() {
     setDeepAnalysisStatus,
     fetchDeepAnalysisStatus,
     budgetUsage,
-  } = useDeepAnalysis(selectedProjectId, { onError: (msg) => setError(msg) })
+  } = useDeepAnalysis(selectedProjectId, { onError: (msg, variant) => showToast(msg, variant) })
 
   // ── Audit system (Phase 43) ────────────────────────────────
   const audit = useAuditSystem(selectedProjectId)
@@ -225,9 +230,11 @@ function App() {
     handleRunAugmentation, handleRunEpistemic, handleRunModuleSynthesis,
     handleRunDeepening, handleRunKnowledgeBuild,
     handleRunDeepEnrichment,
+    handlePausePipeline, handleResumePipeline,
+    fastPaused, deepPaused,
     resetAll: resetEnrichment,
   } = useEnrichment(selectedProjectId, {
-    onError: (msg) => setError(msg),
+    onError: (msg, variant) => showToast(msg, variant),
     pipelineEvents,
     onDeepCompleted: () => void fetchAtlas(),
   })
@@ -256,7 +263,7 @@ function App() {
     resetDeepAnalysisStatus: () => setDeepAnalysisStatus({} as any),
     refreshStatus,
     onResetSearch: resetSearch,
-    onError: (msg) => setError(msg),
+    onError: (msg, variant) => showToast(msg, variant),
     findActiveTask,
     pipelineEvents,
     startWatch: handleStartWatch,
@@ -326,6 +333,11 @@ function App() {
     return () => clearTimeout(timeout)
   }, [api, uiMode, uiTheme, bgImage])
 
+  const handleMaxActiveProjectsChange = useCallback((value: number | 'infinite') => {
+    setMaxActiveProjects(value)
+    api.updateGlobalConfig({ max_active_projects: value }).catch(() => {})
+  }, [api])
+
   // ── Init: load projects + global config ─────────────────────
   useEffect(() => {
     const init = async () => {
@@ -333,6 +345,9 @@ function App() {
         await refreshProjects()
         try {
           const globalCfg = await api.getGlobalConfig()
+          if (globalCfg.max_active_projects) {
+            setMaxActiveProjects(globalCfg.max_active_projects)
+          }
           if (globalCfg.llm_config) {
             setLLMConfig(globalCfg.llm_config)
             // Fetch compression status to populate lingua_downloaded
@@ -407,6 +422,7 @@ function App() {
   const { panelContent, panelDetails, allPanelDefs, PINNED_PREFIX: pinnedPrefix } = useDashboardPanels({
     // Cross-cutting
     projectStatus, selectedProject, selectedProjectId, projectConfig, isPro, limitReached: isOverProjectLimit,
+    inactive: selectedProject?.config?.active === false || selectedProject?.activity_status === 'inactive' || selectedProject?.activity_status === 'frozen' || selectedProject?.activity_status === 'locked',
     scopeStatus: selectedProjectId ? scopeEvents[selectedProjectId] : undefined,
     logs, clearLogs, findActiveTask, handleBuild,
     transientComplete: selectedProjectId ? transientCompleteProjects.has(selectedProjectId) : false,
@@ -447,6 +463,9 @@ function App() {
       deepeningStatus, deepeningRunning, handleRunDeepening,
       knowledgeStatus, fastKnowledgeBuilding, deepKnowledgeBuilding, handleRunKnowledgeBuild,
       handleRunDeepEnrichment,
+      handlePausePipeline, handleResumePipeline,
+      fastPaused,
+      deepPaused,
       groupReasoningStatus,
     },
     llm: {
@@ -478,7 +497,7 @@ function App() {
   // ── Render ─────────────────────────────────────────────────
   return (
     <>
-      <ErrorToast message={error} onClose={() => setError(null)} />
+      <Toast message={toast} onClose={() => setToast(null)} />
       <UpdateBanner />
       {isOverProjectLimit && !projectLimitBannerDismissed && (
         <div className="fixed inset-x-0 top-0 z-[95] bg-amber-500/90 backdrop-blur text-white px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 shadow-lg">
@@ -522,6 +541,8 @@ function App() {
         onDeepAnalysisScheduleChange={handleSyncedDeepAnalysisScheduleChange}
         largeModelConfigured={!!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model)}
         fastModelConfigured={!!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model)}
+        maxActiveProjects={maxActiveProjects}
+        onMaxActiveProjectsChange={handleMaxActiveProjectsChange}
         uiMode={uiMode}
         onModeChange={setUiMode}
         uiTheme={uiTheme}
@@ -572,7 +593,16 @@ function App() {
                 onProjectSelect={setSelectedProjectId}
                 onAddProject={() => setAddModalOpen(true)}
                 onDeleteProject={handleDeleteProject}
-                onToggleActive={handleToggleActive}
+                onToggleActive={async (projectId: string, active: boolean, touch?: boolean) => {
+                  if (!active) {
+                    // Auto-pause any running pipelines before deactivating
+                    await Promise.allSettled([
+                      handlePausePipeline('fast_sync'),
+                      handlePausePipeline('deep_enrichment'),
+                    ])
+                  }
+                  handleToggleActive(projectId, active, touch)
+                }}
                 isPro={isPro}
                 extraActions={
                   dashboardLayout && layoutApiRef.current ? (

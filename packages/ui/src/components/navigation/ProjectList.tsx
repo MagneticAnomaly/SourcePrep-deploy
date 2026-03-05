@@ -11,7 +11,7 @@ export interface ProjectListProps {
   selectedProjectId?: string;
   onProjectSelect: (projectId: string) => void;
   onAddProject: () => void;
-  onDeleteProject?: (projectId: string) => void;
+  onDeleteProject?: (projectId: string, purge?: boolean) => void;
   onToggleActive?: (projectId: string, active: boolean, touch?: boolean) => void;
   isPro?: boolean;
   extraActions?: ReactNode;
@@ -23,7 +23,7 @@ export interface ProjectListItemProps {
   selected: boolean;
   isPro: boolean;
   onClick: () => void;
-  onDelete?: () => void;
+  onDelete?: (purge?: boolean) => void;
   onToggleActive?: (active: boolean) => void;
 }
 
@@ -59,24 +59,32 @@ function ProjectListItem({ project, selected, isPro, onClick, onDelete, onToggle
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); }}
     >
       {confirming ? (
-        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <span className="text-xs text-text-muted flex-1">Delete project?</span>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={(e) => { e.stopPropagation(); onDelete?.(); setConfirming(false); }}
-            className="text-xs h-6 px-2"
-          >
-            Delete
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => { e.stopPropagation(); setConfirming(false); }}
-            className="text-xs h-6 px-2"
-          >
-            Cancel
-          </Button>
+        <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="text-xs text-text-muted">
+            {isPro ? "Delete project?" : "Delete project AND index data?"}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                onDelete?.(!isPro); // purge if not pro
+                setConfirming(false); 
+              }}
+              className="text-xs h-6 px-2 flex-1"
+            >
+              Delete
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => { e.stopPropagation(); setConfirming(false); }}
+              className="text-xs h-6 px-2 flex-1"
+            >
+              Cancel
+            </Button>
+          </div>
         </div>
       ) : (
         <>
@@ -153,7 +161,7 @@ export function ProjectList({
               selected={project.id === selectedProjectId}
               isPro={isPro}
               onClick={() => onProjectSelect(project.id)}
-              onDelete={onDeleteProject ? () => onDeleteProject(project.id) : undefined}
+              onDelete={onDeleteProject ? (purge) => onDeleteProject(project.id, purge) : undefined}
               onToggleActive={onToggleActive ? (active) => onToggleActive(project.id, active, !isPro) : undefined}
             />
           ))

@@ -32,7 +32,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
-from .augmenter import _get_llm_concurrency, _parse_confidence
+from .llm_client import _get_llm_concurrency, _parse_confidence
 
 logger = logging.getLogger(__name__)
 
@@ -177,10 +177,14 @@ class InferredEdgesAnalyzer:
         self,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
         max_items: Optional[int] = None,
+        cancel_token: Optional[Any] = None,
     ) -> InferredEdgesResult:
         """Run the inferred edges analysis.
 
         Incremental: skips files whose content hash matches the manifest.
+
+        If *cancel_token* is provided, the loop checks it periodically and
+        flushes partial results before raising.
         """
         start = time.time()
         min_confidence = _get_min_confidence()
@@ -368,6 +372,13 @@ class InferredEdgesAnalyzer:
             if concurrency <= 1:
                 # Sequential: one file at a time
                 for i, (node, content_hash) in enumerate(to_analyze):
+                    # Cooperative cancellation check
+                    if cancel_token and cancel_token.is_cancelled:
+                        logger.info("Inferred edges paused/cancelled at %d/%d — flushing partial results", i, total)
+                        self._write_edges(new_edges)
+                        self._save_manifest(new_manifest)
+                        cancel_token.raise_if_cancelled()
+
                     fp = node.get("file_path", "")
                     if progress_callback:
                         progress_callback("Inferring edges", i, total)
@@ -512,7 +523,7 @@ class InferredEdgesAnalyzer:
 
     def _parse_response(self, source_file: str, text: str) -> List[InferredEdge]:
         """Parse LLM response into InferredEdge objects."""
-        from .augmenter import _parse_json_response
+        from .llm_client import _parse_json_response
         parsed = _parse_json_response(text)
         if parsed is None:
             logger.warning("Failed to parse inferred edges response for %s", source_file)

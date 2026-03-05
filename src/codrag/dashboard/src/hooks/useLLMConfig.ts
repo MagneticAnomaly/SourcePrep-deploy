@@ -124,10 +124,11 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     }
     setTestingSlot(slotType)
     try {
+      const slotKey = slotType === 'small' ? 'small_model' : slotType === 'large' ? 'large_model' : slotType === 'code' ? 'code_model' : undefined
       const r = await fetch('/api/llm/proxy/test-model', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: ep.provider, url: ep.url, api_key: ep.api_key, model, kind }),
+        body: JSON.stringify({ provider: ep.provider, url: ep.url, api_key: ep.api_key, model, kind, slot: slotKey }),
       })
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
       const json = await r.json()

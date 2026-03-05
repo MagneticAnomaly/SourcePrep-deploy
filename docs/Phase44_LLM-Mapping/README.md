@@ -418,3 +418,13 @@ Existing `ui_config.json` files with no `assignment_mode` field default to `"str
 - Add confirmation dialogs for preset overwrites and mode switches.
 - E2E verification: full pipeline run in Mapped mode with 2-3 blocks.
 
+---
+
+## 13. Future Work: Reasoning Support (`<think>` Tags)
+
+**TODO:** Add backend support for parsing and handling `<think>` reasoning tags when `enable_reasoning` is checked for an assignment block.
+- When `enable_reasoning` is true, the backend LLM client needs to correctly parse and strip `<think>` tags from the output before passing the final response to the pipeline task logic.
+- We should preserve the contents of the `<think>` tag for UI observability (e.g., streaming the reasoning process to the user in a collapsible panel or logging it).
+- The actual pipeline prompts may need a system prompt injected instructing the model to "Please wrap your step-by-step reasoning in `<think>...</think>` tags before providing the final answer."
+- This is a complex build on the backend, so the frontend UI currently just saves the boolean `enable_reasoning` state in the config block for future implementation.
+

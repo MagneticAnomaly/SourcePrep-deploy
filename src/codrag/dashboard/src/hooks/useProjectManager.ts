@@ -44,8 +44,10 @@ const DEFAULT_CONFIG: ProjectConfig = {
 
 // ── Dependencies ─────────────────────────────────────────────
 
+export type ToastVariant = 'error' | 'warning' | 'info' | 'success'
+
 export interface UseProjectManagerDeps {
-  onError: (msg: string) => void
+  onError: (msg: string, variant?: ToastVariant) => void
   /** Start the file watcher (for auto-rebuild after build) */
   handleStartWatch?: () => Promise<void>
   /** Refresh watch status after watcher state change */
@@ -99,7 +101,7 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
       const data = await api.listProjects()
       setProjects(data.projects)
     } catch (e) {
-      onErrorRef.current(e instanceof Error ? e.message : 'Failed to list projects')
+      onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t load projects. Check your connection.', 'warning')
     }
   }, [api])
 
@@ -190,19 +192,19 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
       setSelectedProjectId(data.project.id)
       return data.project
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to add project'
-      onErrorRef.current(msg)
+      const msg = e instanceof Error ? e.message : 'Couldn\u2019t add project.'
+      onErrorRef.current(msg, 'error')
       throw e
     }
   }, [api])
 
-  const handleDeleteProject = useCallback(async (projectId: string) => {
+  const handleDeleteProject = useCallback(async (projectId: string, purge: boolean = false) => {
     try {
-      await api.deleteProject(projectId)
+      await api.deleteProject(projectId, purge)
       setProjects((prev) => prev.filter((p) => p.id !== projectId))
       setSelectedProjectId((prev) => prev === projectId ? null : prev)
     } catch (e) {
-      onErrorRef.current(e instanceof Error ? e.message : 'Failed to delete project')
+      onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t delete project.', 'error')
     }
   }, [api])
 
@@ -211,7 +213,7 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     const paths = [...(includedPathsRef.current ?? [])]
     // Never index the whole codebase as a default — require explicit scope selection
     if (paths.length === 0) {
-      onErrorRef.current('No files selected. Use the Knowledge Sources panel to select files before building.')
+      onErrorRef.current('No files selected. Use the Knowledge Sources panel to choose files before building.', 'info')
       return
     }
     try {
@@ -254,7 +256,7 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
         next.delete(selectedProjectId)
         return next
       })
-      onErrorRef.current(e instanceof Error ? e.message : 'Build failed')
+      onErrorRef.current(e instanceof Error ? e.message : 'Build failed — check logs for details.', 'error')
     }
   }, [api, selectedProjectId, refreshStatus])
 
@@ -277,7 +279,7 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
       })
       setConfigDirty(false)
     } catch (e) {
-      onErrorRef.current(e instanceof Error ? e.message : 'Failed to save config')
+      onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t save settings. Please try again.', 'warning')
     }
   }, [api, projectConfig, selectedProjectId])
 
@@ -320,7 +322,7 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     } catch (e) {
       // Revert on error
       refreshProjects();
-      onErrorRef.current(e instanceof Error ? e.message : 'Failed to toggle project activity');
+      onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t update project status. Please try again.', 'warning');
     }
   }, [api, refreshProjects]);
 

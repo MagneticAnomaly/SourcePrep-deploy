@@ -41,7 +41,7 @@ Update the Model Recommendations info box at the bottom of AI Models settings.
 ### Updated Recommendations (in info box)
 
 - Embedding: nomic-embed-text-v1.5 (Built-in ONNX — no Ollama needed)
-- Fast: qwen3:4b (2.5GB). Alt: qwen3:1.7b for low VRAM
+- Fast: qwen3:4b (2.5GB)
 - Thinking: qwen3:8b (5.2GB). Alt: qwen3:14b (9.3GB), qwen3:30b MoE (19GB)
 - Code: qwen3-coder:30b MoE (19GB, 3.3B active). Alt: qwen2.5-coder:7b
 

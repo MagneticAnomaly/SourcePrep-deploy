@@ -13,11 +13,10 @@ import pytest
 from codrag.core.augmenter import (
     AugmentationEntry,
     AugmentResult,
-    LLMClient,
     TraceAugmenter,
-    _parse_json_response,
     VALID_ROLES,
 )
+from codrag.core.llm_client import LLMClient, _parse_json_response
 from codrag.core.deep_analysis import (
     DeepAnalysisOrchestrator,
     DeepAnalysisResult,

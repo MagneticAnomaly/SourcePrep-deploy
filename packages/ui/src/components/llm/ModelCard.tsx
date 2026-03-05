@@ -43,6 +43,10 @@ export interface ModelCardProps {
   testResult?: EndpointTestResult;
   testingConnection?: boolean;
   
+  // Always on (keep loaded)
+  alwaysOn?: boolean;
+  onAlwaysOnChange?: (alwaysOn: boolean) => void;
+  
   hideModelSelector?: boolean;
 
   className?: string;
@@ -74,6 +78,8 @@ export function ModelCard({
   onTest,
   testResult,
   testingConnection = false,
+  alwaysOn = false,
+  onAlwaysOnChange,
   hideModelSelector = false,
   className,
   disabled = false,
@@ -84,7 +90,7 @@ export function ModelCard({
   
   return (
     <div className={cn(
-      'codrag-card rounded-lg border bg-surface p-6 transition-colors flex flex-col h-full',
+      'codrag-card rounded-lg border bg-surface p-6 transition-colors flex flex-col',
       isActive ? 'border-success/50 shadow-[0_0_15px_rgba(var(--success),0.1)]' : 'border-border',
       disabled && 'opacity-60 pointer-events-none grayscale',
       className
@@ -178,31 +184,50 @@ export function ModelCard({
             
             {/* Model Selector */}
             {endpoint && !hideModelSelector && (
-              <div>
-                <label className="block text-xs font-medium text-text-muted mb-1.5">
-                  Model
-                </label>
-                <div className="flex gap-2">
-                  <Select
-                    value={model || ''}
-                    onChange={(e) => onModelChange?.(e.target.value)}
-                    placeholder="Select model..."
-                    disabled={disabled}
-                    options={availableModels.map((m) => ({ value: m, label: m }))}
-                    className="w-full flex-1"
-                  />
-                  {onRefreshModels && (
-                    <Button
-                      onClick={onRefreshModels}
-                      disabled={loadingModels || disabled}
-                      variant="outline"
-                      className="bg-surface-raised hover:bg-border border-border h-full aspect-square p-0 w-[38px]"
-                      title="Refresh Models"
-                    >
-                      <RefreshCw className={cn("w-4 h-4", loadingModels && "animate-spin")} />
-                    </Button>
-                  )}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-text-muted mb-1.5">
+                    Model
+                  </label>
+                  <div className="flex gap-2">
+                    <Select
+                      value={model || ''}
+                      onChange={(e) => onModelChange?.(e.target.value)}
+                      placeholder="Select model..."
+                      disabled={disabled}
+                      options={availableModels.map((m) => ({ value: m, label: m }))}
+                      className="w-full flex-1"
+                    />
+                    {onRefreshModels && (
+                      <Button
+                        onClick={onRefreshModels}
+                        disabled={loadingModels}
+                        variant="outline"
+                        className="bg-surface-raised hover:bg-border border-border aspect-square p-0 w-[38px]"
+                        title="Refresh Models"
+                      >
+                        <RefreshCw className={cn("w-4 h-4", loadingModels && "animate-spin")} />
+                      </Button>
+                    )}
+                  </div>
                 </div>
+                
+                {/* Always On Toggle */}
+                {onAlwaysOnChange !== undefined && (
+                  <label className={cn(
+                    "flex items-center gap-2 text-sm select-none",
+                    disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+                  )}>
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded border-border bg-surface text-primary focus:ring-primary focus:ring-offset-surface cursor-pointer disabled:cursor-not-allowed"
+                      checked={!!alwaysOn}
+                      onChange={(e) => onAlwaysOnChange(e.target.checked)}
+                      disabled={disabled}
+                    />
+                    <span className="text-text-muted">Always available (Keep loaded)</span>
+                  </label>
+                )}
               </div>
             )}
           </div>
@@ -274,6 +299,12 @@ export function ModelCard({
               <span>{testResult.message}</span>
             </div>
           )}
+          {testResult?.warnings?.map((w, i) => (
+            <div key={i} className="mb-3 p-3 rounded-md text-xs border flex items-start gap-2 bg-warning-muted/10 text-warning border-warning-muted/20">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{w}</span>
+            </div>
+          ))}
           <Button
             size="sm"
             variant="secondary"

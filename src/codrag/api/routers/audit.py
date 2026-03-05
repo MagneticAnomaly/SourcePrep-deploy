@@ -50,7 +50,8 @@ def trigger_audit(project_id: str, req: Optional[AuditRequest] = None) -> Dict[s
     Tier 1 (analyzers) always runs. Set ``synthesize=true`` to also
     generate LLM-based report documents (Tier 2).
     """
-    proj = _srv()._require_project(project_id)
+    from codrag.services.project_helpers import require_project_writable
+    proj = require_project_writable(project_id)
 
     # Check if already running
     t = _audit_threads.get(proj.id)

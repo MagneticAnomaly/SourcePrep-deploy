@@ -266,6 +266,13 @@ def require_project_writable(project_id: str) -> Project:
             message=f"Project '{proj.name}' is read-only on your current plan.",
             hint="Upgrade to Pro to rebuild and sync this project.",
         )
+    if status == "inactive":
+        raise ApiException(
+            status_code=403,
+            code="PROJECT_INACTIVE",
+            message=f"Project '{proj.name}' is marked as inactive.",
+            hint="Activate this project to resume builds and syncing.",
+        )
 
     return proj
 

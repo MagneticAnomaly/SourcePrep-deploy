@@ -3,6 +3,8 @@
 
 // Utilities
 export { cn } from './lib/utils';
+export { getTaskTokenEstimate, estimateTaskTokens, getTaskTokenDescription, getTaskTokenVolume } from './lib/token-estimates';
+export type { TaskTokenEstimate, TokenVolume } from './lib/token-estimates';
 
 // Types
 export type { 

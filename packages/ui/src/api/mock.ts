@@ -379,6 +379,14 @@ export class MockApiClient implements ApiClient {
     return { cancelled: true, group: 'all' };
   }
 
+  async pausePipeline(_projectId: string, _group: string): Promise<{ paused: boolean; group: string }> {
+    return { paused: true, group: _group };
+  }
+
+  async resumePipeline(_projectId: string, _group: string): Promise<{ resumed: boolean; group: string }> {
+    return { resumed: true, group: _group };
+  }
+
   async getPipelineBudget(): Promise<any> {
     return { tokens_used: 0, max_tokens: 0, window_minutes: 5, remaining: -1, window_resets_in: 0 };
   }

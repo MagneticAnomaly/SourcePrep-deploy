@@ -39,7 +39,7 @@ export interface UseTraceSystemDeps {
   resetDeepAnalysisStatus: () => void
   refreshStatus: (projectId: string) => void
   onResetSearch: () => void
-  onError: (msg: string) => void
+  onError: (msg: string, variant?: 'error' | 'warning' | 'info' | 'success') => void
   findActiveTask: (type: 'index_build' | 'trace_build') => { status: string; task_id: string } | undefined
   /** Pipeline SSE events keyed by project_id (Phase 24) */
   pipelineEvents?: Record<string, PipelineStatus & { project_id: string }>
@@ -300,7 +300,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       await api.runPipelineFast(selectedProjectId)
     } catch (e) {
       setTraceStatus(prev => ({ ...prev, building: false }))
-      onErrorRef.current(e instanceof Error ? e.message : 'Fast sync failed')
+      onErrorRef.current(e instanceof Error ? e.message : 'Fast Sync encountered an issue. Check AI Gateway for model availability.', 'warning')
     }
   }, [api, selectedProjectId, deps.projectConfig, deps.setProjectConfig, deps.setConfigDirty])
 
@@ -311,7 +311,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       await api.runPipelineAll(selectedProjectId)
     } catch (e) {
       setTraceStatus(prev => ({ ...prev, building: false }))
-      onErrorRef.current(e instanceof Error ? e.message : 'Auto-pilot failed')
+      onErrorRef.current(e instanceof Error ? e.message : 'Auto-pilot encountered an issue. Check AI Gateway for model availability.', 'warning')
     }
   }, [api, selectedProjectId])
 
@@ -397,7 +397,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
         setTraceStatus(p => ({ ...p, building: true }))
       }
     } catch (e) {
-      onErrorRef.current(e instanceof Error ? e.message : 'Failed to resume pipeline')
+      onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t resume pipeline.', 'warning')
     }
   }, [api, selectedProjectId])
 
@@ -406,7 +406,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       await api.discardCrashedRun(runId)
       setCrashedRuns(prev => prev.filter(r => r.run_id !== runId))
     } catch (e) {
-      onErrorRef.current(e instanceof Error ? e.message : 'Failed to discard crashed run')
+      onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t discard crashed run.', 'warning')
     }
   }, [api])
 
@@ -428,7 +428,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
         }).catch(() => {})
       }, 300)
     } catch (e) {
-      onErrorRef.current(e instanceof Error ? e.message : 'Failed to destroy graph')
+      onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t destroy graph data.', 'error')
     }
   }, [api, selectedProjectId])
 
@@ -453,7 +453,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
         }).catch(() => {})
       }, 300)
     } catch (e) {
-      onErrorRef.current(e instanceof Error ? e.message : 'Failed to reset project data')
+      onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t reset project data.', 'error')
     }
   }, [api, selectedProjectId])
 

@@ -294,7 +294,7 @@ class TestMappingConsistency:
     def test_all_task_ids_in_task_to_slot(self):
         from codrag.server import TASK_TO_SLOT
         expected = {
-            "catalogue", "inferred_edges", "enrichment", "clustering",
+            "catalogue", "inferred_edges", "enrichment", "group_reasoning", "clustering",
             "atlas", "deepening", "search_intent", "audit", "augmentation",
         }
         assert set(TASK_TO_SLOT.keys()) == expected

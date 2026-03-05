@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react'
 import { useApiClient, type WatchStatus } from '@codrag/ui'
 
 interface UseWatchSystemOptions {
-  onError?: (msg: string) => void
+  onError?: (msg: string, variant?: 'error' | 'warning' | 'info' | 'success') => void
 }
 
 /** Manages file watch system: start/stop controls, status refresh, and loading state. */

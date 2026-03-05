@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
-from .augmenter import _get_llm_concurrency
+from .llm_client import _get_llm_concurrency
 from .epistemic_score import (
     EpistemicEntry,
     EpistemicScore,

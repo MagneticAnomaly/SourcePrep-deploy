@@ -25,7 +25,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
-from .augmenter import AugmentationEntry, LLMClient, _get_llm_concurrency, _parse_confidence, _parse_json_response
+from .augmenter import AugmentationEntry
+from .llm_client import LLMClient, _get_llm_concurrency, _parse_confidence, _parse_json_response
 from .epistemic_score import EpistemicEntry, EpistemicScore, compute_epistemic_score
 
 logger = logging.getLogger(__name__)
@@ -779,6 +780,7 @@ class EpistemicEnricher:
         self,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
         max_items: Optional[int] = None,
+        cancel_token: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """Run Pass 2 epistemic enrichment on all eligible file nodes.
 
@@ -787,6 +789,10 @@ class EpistemicEnricher:
         2. Sort file nodes in reverse-topological order (or into tiers for batching).
         3. Enrich each node with the LLM + neighbor context.
         4. Write trace_epistemic.jsonl overlay atomically.
+
+        If *cancel_token* is provided, the loop checks it periodically and
+        flushes partial results before raising PipelinePausedError or
+        PipelineCancelledError.
         """
         start = time.monotonic()
 
@@ -851,13 +857,21 @@ class EpistemicEnricher:
                 total_work, len(tiers), code_batch_size, doc_batch_size, self._batch_profile.name.value,
             )
             for tier_idx, tier in enumerate(tiers):
+                # Cooperative cancellation check between tiers
+                if cancel_token and cancel_token.is_cancelled:
+                    logger.info("Batched epistemic enrichment paused/cancelled at tier %d/%d — flushing partial results", tier_idx, len(tiers))
+                    self._write_epistemic(enriched)
+                    cancel_token.raise_if_cancelled()
+
                 tier_done, tier_failed = self._enrich_tier_batched(
                     tier, edges, nodes_by_id, augmentations, enriched, code_batch_size, doc_batch_size,
                 )
                 done += tier_done
                 failed += tier_failed
+                # Write checkpoint after each tier
+                self._write_epistemic(enriched)
                 logger.info(
-                    "Tier %d/%d complete: %d enriched, %d failed (%d items in tier)",
+                    "Tier %d/%d complete: %d enriched, %d failed (%d items in tier) — checkpoint saved",
                     tier_idx + 1, len(tiers), tier_done, tier_failed, len(tier),
                 )
                 if progress_callback:
@@ -873,6 +887,12 @@ class EpistemicEnricher:
                 # which accumulates results from earlier nodes in topological order.
                 # Parallelizing would break the cascading context benefit.
                 for node in to_enrich:
+                    # Cooperative cancellation check
+                    if cancel_token and cancel_token.is_cancelled:
+                        logger.info("Epistemic enrichment paused/cancelled at %d/%d — flushing partial results", done, total_work)
+                        self._write_epistemic(enriched)
+                        cancel_token.raise_if_cancelled()
+
                     entry = self.enrich_node(node, edges, nodes_by_id, augmentations, enriched)
                     if entry:
                         enriched[entry.node_id] = entry
@@ -882,6 +902,11 @@ class EpistemicEnricher:
 
                     if progress_callback:
                         progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count)
+
+                    # Periodic checkpoint to avoid losing progress on crash
+                    if done > 0 and done % 25 == 0:
+                        self._write_epistemic(enriched)
+                        logger.info("Epistemic checkpoint saved at %d/%d items", done, total_work)
             else:
                 # Tier-based concurrent enrichment: nodes within a tier are independent
                 # (they only depend on earlier tiers), so they can be processed in parallel.
@@ -892,6 +917,12 @@ class EpistemicEnricher:
                     total_work, len(tiers), concurrency,
                 )
                 for tier_idx, tier in enumerate(tiers):
+                    # Cooperative cancellation check between tiers
+                    if cancel_token and cancel_token.is_cancelled:
+                        logger.info("Epistemic enrichment paused/cancelled at tier %d/%d — flushing partial results", tier_idx, len(tiers))
+                        self._write_epistemic(enriched)
+                        cancel_token.raise_if_cancelled()
+
                     lock = threading.Lock()
                     tier_done = 0
                     tier_failed = 0
@@ -917,6 +948,9 @@ class EpistemicEnricher:
                                     tier_failed += 1
                     done += tier_done
                     failed += tier_failed
+                    # Write checkpoint after each tier
+                    self._write_epistemic(enriched)
+                    logger.info("Epistemic checkpoint saved after tier %d/%d (%d items so far)", tier_idx + 1, len(tiers), done)
                     if progress_callback:
                         progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count)
 

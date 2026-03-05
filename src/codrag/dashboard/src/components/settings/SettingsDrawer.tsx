@@ -109,6 +109,8 @@ export interface SettingsDrawerProps {
   largeModelConfigured: boolean
   fastModelConfigured: boolean
   // Global tab
+  maxActiveProjects: number | 'infinite'
+  onMaxActiveProjectsChange: (val: number | 'infinite') => void
   uiMode: 'light' | 'dark'
   onModeChange: (mode: 'light' | 'dark') => void
   uiTheme: string
@@ -145,6 +147,8 @@ export function SettingsDrawer({
   onDeepAnalysisScheduleChange,
   largeModelConfigured,
   fastModelConfigured,
+  maxActiveProjects,
+  onMaxActiveProjectsChange,
   uiMode,
   onModeChange,
   uiTheme,
@@ -413,6 +417,38 @@ export function SettingsDrawer({
             </section>
 
             {/* Hardware Profile */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <Cpu className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-semibold text-text">Resource Limits</h3>
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-text-subtle">Max Active Projects</label>
+                  <Select
+                    value={String(maxActiveProjects)}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      onMaxActiveProjectsChange(val === 'infinite' ? 'infinite' : parseInt(val))
+                    }}
+                    aria-label="Max Active Projects"
+                    size="sm"
+                    options={[
+                      { value: '1', label: '1 (Conservative)' },
+                      { value: '2', label: '2' },
+                      { value: '3', label: '3 (Standard)' },
+                      { value: '4', label: '4' },
+                      { value: '5', label: '5' },
+                      { value: 'infinite', label: 'Infinite (Uncapped)' },
+                    ]}
+                  />
+                  <p className="text-[10px] text-text-muted leading-relaxed">
+                    Limit how many projects can be active simultaneously. Applies to Pro+ tiers. Inactive projects can be browsed but will not auto-sync or run background LLM pipelines.
+                  </p>
+                </div>
+              </div>
+            </section>
+
             <section>
               <div className="flex items-center gap-2 mb-4">
                 <Cpu className="w-4 h-4 text-primary" />

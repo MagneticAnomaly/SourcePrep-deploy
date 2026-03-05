@@ -4,7 +4,7 @@ import { useApiClient, type SearchResult, type ContextMeta } from '@codrag/ui'
 // ── Dependencies ──────────────────────────────────────────────
 
 interface UseSearchContextDeps {
-  onError?: (msg: string) => void
+  onError?: (msg: string, variant?: 'error' | 'warning' | 'info' | 'success') => void
 }
 
 // ── Hook ──────────────────────────────────────────────────────
@@ -60,7 +60,7 @@ export function useSearchContext(selectedProjectId: string | null, { onError }: 
       setSearchResults(results)
       setSelectedChunk(results[0] ?? null)
     } catch (e) {
-      onErrorRef.current?.(e instanceof Error ? e.message : 'Search failed')
+      onErrorRef.current?.(e instanceof Error ? e.message : 'Search failed — is the index built?', 'warning')
     } finally {
       setSearchLoading(false)
     }
@@ -98,7 +98,7 @@ export function useSearchContext(selectedProjectId: string | null, { onError }: 
         setContextMeta(null)
       }
     } catch (e) {
-      onErrorRef.current?.(e instanceof Error ? e.message : 'Failed to get context')
+      onErrorRef.current?.(e instanceof Error ? e.message : 'Couldn\u2019t assemble context.', 'warning')
     }
   }, [api, contextIncludeScores, contextIncludeSources, contextIncludeAtlas, contextCompression, contextK, contextMaxChars, contextStructured, minScore, query, selectedProjectId])
 
@@ -107,7 +107,7 @@ export function useSearchContext(selectedProjectId: string | null, { onError }: 
     try {
       await navigator.clipboard.writeText(context)
     } catch (e) {
-      onErrorRef.current?.(e instanceof Error ? e.message : 'Copy failed')
+      onErrorRef.current?.(e instanceof Error ? e.message : 'Couldn\u2019t copy to clipboard.', 'warning')
     }
   }, [context])
 

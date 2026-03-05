@@ -41,6 +41,14 @@ class CancelRequest(BaseModel):
     group: str = "fast_sync"  # "fast_sync" or "deep_enrichment"
 
 
+class PauseRequest(BaseModel):
+    group: str = "fast_sync"  # "fast_sync" or "deep_enrichment"
+
+
+class ResumeGroupRequest(BaseModel):
+    group: str = "fast_sync"  # "fast_sync" or "deep_enrichment"
+
+
 class ResumeRequest(BaseModel):
     run_id: str
 
@@ -54,16 +62,7 @@ class DiscardRequest(BaseModel):
 @router.post("/projects/{project_id}/pipeline/fast")
 def pipeline_run_fast(project_id: str) -> Dict[str, Any]:
     """Run Fast Sync (stages 1-4): Structural → Catalogue → Validation → Knowledge Embedding."""
-    from codrag.services.project_helpers import is_over_project_limit, require_project_writable
-    
-    if is_over_project_limit():
-        raise ApiException(
-            status_code=403,
-            code="PROJECT_LIMIT_EXCEEDED",
-            message="Cannot run pipeline: Project limit exceeded for current tier",
-            hint="Upgrade your plan or remove projects to resume syncing."
-        )
-
+    from codrag.services.project_helpers import require_project_writable
     require_project_writable(project_id)
 
     from codrag.services.pipeline_orchestrator import pipeline_orchestrator
@@ -82,16 +81,7 @@ def pipeline_run_fast(project_id: str) -> Dict[str, Any]:
 @router.post("/projects/{project_id}/pipeline/deep")
 def pipeline_run_deep(project_id: str) -> Dict[str, Any]:
     """Run Deep Enrichment (stages 5-8): Epistemic → Clustering → Deepening → Deep Knowledge."""
-    from codrag.services.project_helpers import is_over_project_limit, require_project_writable
-    
-    if is_over_project_limit():
-        raise ApiException(
-            status_code=403,
-            code="PROJECT_LIMIT_EXCEEDED",
-            message="Cannot run pipeline: Project limit exceeded for current tier",
-            hint="Upgrade your plan or remove projects to resume syncing."
-        )
-
+    from codrag.services.project_helpers import require_project_writable
     require_project_writable(project_id)
 
     from codrag.services.pipeline_orchestrator import pipeline_orchestrator
@@ -110,16 +100,7 @@ def pipeline_run_deep(project_id: str) -> Dict[str, Any]:
 @router.post("/projects/{project_id}/pipeline/all")
 def pipeline_run_all(project_id: str) -> Dict[str, Any]:
     """Run all stages: Fast Sync (1-4) then Deep Enrichment (5-8)."""
-    from codrag.services.project_helpers import is_over_project_limit, require_project_writable
-    
-    if is_over_project_limit():
-        raise ApiException(
-            status_code=403,
-            code="PROJECT_LIMIT_EXCEEDED",
-            message="Cannot run pipeline: Project limit exceeded for current tier",
-            hint="Upgrade your plan or remove projects to resume syncing."
-        )
-
+    from codrag.services.project_helpers import require_project_writable
     require_project_writable(project_id)
 
     from codrag.services.pipeline_orchestrator import pipeline_orchestrator
@@ -145,7 +126,7 @@ def pipeline_status(project_id: str) -> Dict[str, Any]:
     """
     from codrag.server import _require_project
     from codrag.services.build_manager import build_manager
-    from codrag.api.routers.trace import (
+    from codrag.api.routers.trace_routes.enrichment import (
         augment_status_project as _augment_status,
         epistemic_status_project as _epistemic_status,
         modules_status_project as _cluster_status,
@@ -291,6 +272,9 @@ def pipeline_status(project_id: str) -> Dict[str, Any]:
             slot_progress = slot_info.get("progress")
             if slot_progress:
                 stage_data[stage_key]["slot_progress"] = slot_progress
+                # Flatten into top-level keys so the UI can read progress_current/progress_total directly
+                stage_data[stage_key]["progress_current"] = slot_progress.get("current", 0)
+                stage_data[stage_key]["progress_total"] = slot_progress.get("total", 0)
             if slot_info.get("phase"):
                 stage_data[stage_key]["slot_phase"] = slot_info["phase"]
 
@@ -335,7 +319,63 @@ def pipeline_cancel(project_id: str, req: CancelRequest) -> Dict[str, Any]:
     return ok({"cancelled": True, "group": req.group})
 
 
-# ── Phase 25: Crash Protection Endpoints ──────────────────────────
+@router.post("/projects/{project_id}/pipeline/pause")
+def pipeline_pause(project_id: str, req: PauseRequest) -> Dict[str, Any]:
+    """Pause a running pipeline group.
+
+    The current stage flushes partial results to disk before stopping.
+    Resume with POST /projects/{project_id}/pipeline/resume.
+    """
+    from codrag.server import _require_project
+    _require_project(project_id)
+
+    from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+
+    if req.group == "fast_sync":
+        paused = pipeline_orchestrator.pause_fast_sync(project_id)
+    elif req.group == "deep_enrichment":
+        paused = pipeline_orchestrator.pause_deep_enrichment(project_id)
+    else:
+        raise ApiException(
+            status_code=400,
+            code="INVALID_GROUP",
+            message=f"Unknown group: {req.group}. Must be 'fast_sync' or 'deep_enrichment'.",
+        )
+
+    if not paused:
+        raise ApiException(
+            status_code=409,
+            code="NOT_RUNNING",
+            message=f"{req.group} is not currently running",
+        )
+
+    return ok({"paused": True, "group": req.group})
+
+
+@router.post("/projects/{project_id}/pipeline/resume")
+def pipeline_resume_group(project_id: str, req: ResumeGroupRequest) -> Dict[str, Any]:
+    """Resume a paused pipeline group from where it left off.
+
+    Incremental stages skip already-processed items, so resuming
+    effectively continues from the exact point of the pause.
+    """
+    from codrag.server import _require_project
+    _require_project(project_id)
+
+    from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+
+    resumed = pipeline_orchestrator.resume_paused(project_id, req.group)
+    if not resumed:
+        raise ApiException(
+            status_code=409,
+            code="NOT_PAUSED",
+            message=f"{req.group} is not in a paused state",
+        )
+
+    return ok({"resumed": True, "group": req.group})
+
+
+# ── Phase 25: Crash Protection Endpoints ──────────────────────────────────
 
 @router.get("/pipeline/crashed")
 def pipeline_crashed_runs(project_id: Optional[str] = None) -> Dict[str, Any]:

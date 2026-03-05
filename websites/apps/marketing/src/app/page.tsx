@@ -1,7 +1,7 @@
 "use client";
 
 import { MarketingHero, FeatureBlocks, codragFeatures, marketingFeatures, CompetitorMatrix } from '@codrag/ui';
-import { Terminal, ArrowRight, HelpCircle, Lightbulb, LayoutGrid, Check, Minus } from 'lucide-react';
+import { Terminal, ArrowRight, HelpCircle, Lightbulb, Check, Minus } from 'lucide-react';
 import { DevMarketingHero } from './DevMarketingHero';
 
 
@@ -54,20 +54,16 @@ export default function Page() {
             </p>
           </div>
 
-          {/* Feature Showcase Placeholder */}
-          <div className="mb-16 w-full max-w-5xl mx-auto rounded-xl border border-border bg-surface shadow-2xl overflow-hidden aspect-video relative flex items-center justify-center group">
-            <div className="absolute inset-0 bg-gradient-to-br from-surface to-background opacity-50" />
-            <div className="relative text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                <LayoutGrid className="w-8 h-8 text-primary" />
-              </div>
-              <div>
-                <p className="font-mono text-sm text-text-muted">Requires Asset:</p>
-                <p className="font-medium text-text">public/images/hero-dashboard-preview.png</p>
-              </div>
-            </div>
-            {/* Optional: Add actual image once available */}
-            {/* <img src="/images/hero-dashboard-preview.png" alt="CoDRAG Dashboard" className="absolute inset-0 w-full h-full object-cover" /> */}
+          {/* Feature Showcase Video */}
+          <div className="mb-16 w-full max-w-5xl mx-auto rounded-xl border border-border shadow-2xl overflow-hidden aspect-video relative flex items-center justify-center bg-black">
+            <iframe 
+              className="absolute inset-0 w-full h-full"
+              src="https://www.youtube.com/embed/bjC6DFQ8Zmw?rel=0" 
+              title="CoDRAG Demo Video" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+              referrerPolicy="strict-origin-when-cross-origin" 
+              allowFullScreen
+            />
           </div>
 
           <FeatureBlocks features={codragFeatures.filter((_, i) => [0, 1, 2, 4, 6, 7, 10].includes(i))} variant="cards" />

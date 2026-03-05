@@ -14,6 +14,8 @@ export interface WatchControlPanelProps {
   bare?: boolean;
   /** When true, show a locked upgrade prompt instead of the enable button */
   isFree?: boolean;
+  /** When true, the project is explicitly marked inactive */
+  inactive?: boolean;
   /** Called when the user clicks the upgrade CTA */
   onUpgrade?: () => void;
 }
@@ -27,6 +29,7 @@ export function WatchControlPanel({
   className,
   bare = false,
   isFree = false,
+  inactive = false,
   onUpgrade,
 }: WatchControlPanelProps) {
   const isActive = status.state !== 'disabled';
@@ -44,7 +47,7 @@ export function WatchControlPanel({
       <div className="flex items-center justify-between gap-3">
         <WatchStatusIndicator
           status={status}
-          onRebuildNow={onRebuildNow}
+          onRebuildNow={inactive ? undefined : onRebuildNow}
           showDetails
         />
 
@@ -65,6 +68,8 @@ export function WatchControlPanel({
             variant={isActive ? 'outline' : 'default'}
             size="sm"
             loading={loading}
+            disabled={inactive}
+            title={inactive ? "Activate this project to run live sync" : undefined}
             icon={isActive ? EyeOff : Eye}
           >
             {isActive ? 'Disable Sync' : 'Enable Sync'}

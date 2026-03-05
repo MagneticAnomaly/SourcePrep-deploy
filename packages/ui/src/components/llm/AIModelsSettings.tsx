@@ -2,7 +2,7 @@ import { cn } from '../../lib/utils';
 import { ModelCard } from './ModelCard';
 import { EndpointManager } from './EndpointManager';
 import { LLMAssignmentBlockCard } from './LLMAssignmentBlockCard';
-import { UnassignedTasksBanner } from './UnassignedTasksBanner';
+import { LLMAssignmentsPipeline } from './LLMAssignmentsPipeline';
 import { Select } from '../primitives/Select';
 import { Button } from '../primitives/Button';
 import { InfoTooltip } from '../primitives/InfoTooltip';
@@ -15,9 +15,8 @@ import type {
   AssignmentMode,
   CodragTaskId,
 } from '../../types';
-import { ALL_TASK_IDS } from '../../types';
-import { Cpu, Info, Download, CheckCircle, Shrink, Cloud, Plus } from 'lucide-react';
-import { useCallback } from 'react';
+import { Cpu, Info, Download, CheckCircle, Shrink, Cloud, Plus, Save } from 'lucide-react';
+import { useCallback, useState } from 'react';
 
 export interface AIModelsSettingsProps {
   config: LLMConfig;
@@ -43,6 +42,8 @@ export interface AIModelsSettingsProps {
   testingSlot?: 'embedding' | 'small' | 'large' | 'code' | null;
   testResults?: Record<string, EndpointTestResult>;
   
+  fileCount?: number;
+  onModeSwitch?: (mode: AssignmentMode, blocks?: LLMConfig['assignment_blocks']) => Promise<void>;
   className?: string;
 
   // Phase 44: Mapped mode operations
@@ -62,7 +63,7 @@ export interface AIModelsSettingsProps {
 // nomic-embed-text is the fallback for Ollama users.
 const RECOMMENDED_MODELS: Record<string, string[]> = {
   embedding: ['nomic-embed-text', 'nomic-embed-code'],
-  small: ['qwen3:4b', 'qwen3:1.7b', 'gemma3:4b'],
+  small: ['qwen3:4b',  'gemma3:4b'],
   large: ['qwen3:8b', 'qwen3:14b', 'qwen3:30b', 'gemma3:12b'],
   code: ['qwen3-coder:30b', 'qwen2.5-coder:7b', 'qwen3:4b'],
 };
@@ -102,27 +103,105 @@ export function AIModelsSettings({
   loadingModels = {},
   testingSlot,
   testResults = {},
+  fileCount = 0,
+  onModeSwitch,
   className,
-  onAssignmentBlockAdd,
-  onAssignmentBlockDelete,
-  onAssignmentBlockEndpointChange,
-  onAssignmentBlockModelChange,
-  onAssignmentBlockAddTask,
-  onAssignmentBlockRemoveTask,
   onAssignmentBlockTest,
   assignmentBlockTestResults = {},
   assignmentBlockTesting,
 }: AIModelsSettingsProps) {
-  const assignmentMode: AssignmentMode = config.assignment_mode ?? 'structured';
-  const blocks = config.assignment_blocks ?? [];
+  const savedMode: AssignmentMode = config.assignment_mode ?? 'structured';
+  const [draftMode, setDraftMode] = useState<AssignmentMode>(savedMode);
+  const isDraftDirty = draftMode !== savedMode;
+  // Ensure we always have at least one block in mapped mode to avoid an empty screen
+  const blocks = config.assignment_blocks?.length ? config.assignment_blocks : (draftMode === 'mapped' ? [{ id: `block-${Date.now()}`, endpoint_id: '', model: '', tasks: [] }] : []);
 
   // Compute which tasks are assigned across all blocks
   const assignedTasks: CodragTaskId[] = blocks.flatMap((b) => b.tasks);
-  const unassignedTasks = ALL_TASK_IDS.filter((t) => !assignedTasks.includes(t));
 
-  const handleModeChange = useCallback((mode: AssignmentMode) => {
-    onConfigChange({ ...config, assignment_mode: mode });
-  }, [config, onConfigChange]);
+  const handleModeSave = useCallback(async () => {
+    let newBlocks = config.assignment_blocks || [];
+    if (draftMode === 'mapped' && newBlocks.length === 0) {
+      newBlocks = [{ id: `block-${Date.now()}`, endpoint_id: '', model: '', tasks: [] }];
+    }
+    if (onModeSwitch) {
+      await onModeSwitch(draftMode, newBlocks);
+    } else {
+      onConfigChange({ ...config, assignment_mode: draftMode, assignment_blocks: newBlocks });
+    }
+  }, [config, draftMode, onConfigChange, onModeSwitch]);
+  
+  // Mapped mode block handlers
+  const handleBlockAdd = () => {
+    onConfigChange({
+      ...config,
+      assignment_blocks: [
+        ...(config.assignment_blocks || []),
+        { id: `block-${Date.now()}`, endpoint_id: '', model: '', tasks: [] }
+      ]
+    });
+  };
+
+  const handleBlockDelete = (blockId: string) => {
+    onConfigChange({
+      ...config,
+      assignment_blocks: (config.assignment_blocks || []).filter(b => b.id !== blockId)
+    });
+  };
+
+  const handleBlockEndpointChange = (blockId: string, endpointId: string) => {
+    onConfigChange({
+      ...config,
+      assignment_blocks: (config.assignment_blocks || []).map(b => 
+        b.id === blockId ? { ...b, endpoint_id: endpointId, model: '' } : b
+      )
+    });
+  };
+
+  const handleBlockModelChange = (blockId: string, model: string) => {
+    onConfigChange({
+      ...config,
+      assignment_blocks: (config.assignment_blocks || []).map(b => 
+        b.id === blockId ? { ...b, model } : b
+      )
+    });
+  };
+
+  const handleBlockAddTask = (blockId: string, taskId: CodragTaskId) => {
+    onConfigChange({
+      ...config,
+      assignment_blocks: (config.assignment_blocks || []).map(b => 
+        b.id === blockId ? { ...b, tasks: [...b.tasks, taskId] } : b
+      )
+    });
+  };
+
+  const handleBlockRemoveTask = (blockId: string, taskId: CodragTaskId) => {
+    onConfigChange({
+      ...config,
+      assignment_blocks: (config.assignment_blocks || []).map(b => 
+        b.id === blockId ? { ...b, tasks: b.tasks.filter(t => t !== taskId) } : b
+      )
+    });
+  };
+
+  const handleBlockEnableReasoningChange = (blockId: string, enabled: boolean) => {
+    onConfigChange({
+      ...config,
+      assignment_blocks: (config.assignment_blocks || []).map(b => 
+        b.id === blockId ? { ...b, enable_reasoning: enabled } : b
+      )
+    });
+  };
+
+  const handleBlockAlwaysOnChange = (blockId: string, alwaysOn: boolean) => {
+    onConfigChange({
+      ...config,
+      assignment_blocks: (config.assignment_blocks || []).map(b => 
+        b.id === blockId ? { ...b, always_on: alwaysOn } : b
+      )
+    });
+  };
   
   const handleEmbeddingSourceChange = (source: ModelSource) => {
     onClearTestResult?.('embedding');
@@ -187,6 +266,13 @@ export function AIModelsSettings({
       small_model: { ...config.small_model, model, enabled: true },
     });
   };
+
+  const handleSmallAlwaysOnChange = (always_on: boolean) => {
+    onConfigChange({
+      ...config,
+      small_model: { ...config.small_model, always_on },
+    });
+  };
   
   const handleLargeModelEndpointChange = async (endpointId: string) => {
     onClearTestResult?.('large');
@@ -212,6 +298,13 @@ export function AIModelsSettings({
       large_model: { ...config.large_model, model, enabled: true },
     });
   };
+
+  const handleLargeAlwaysOnChange = (always_on: boolean) => {
+    onConfigChange({
+      ...config,
+      large_model: { ...config.large_model, always_on },
+    });
+  };
   
   const handleCodeModelEndpointChange = async (endpointId: string) => {
     onClearTestResult?.('code');
@@ -235,6 +328,13 @@ export function AIModelsSettings({
     onConfigChange({
       ...config,
       code_model: { ...config.code_model, model, enabled: true },
+    });
+  };
+
+  const handleCodeAlwaysOnChange = (always_on: boolean) => {
+    onConfigChange({
+      ...config,
+      code_model: { ...config.code_model, always_on },
     });
   };
   
@@ -267,23 +367,68 @@ export function AIModelsSettings({
 
   return (
     <div className={cn('codrag-ai-models-settings space-y-8', className)}>
-      {/* Header */}
-      <div>
-        <h2 className="text-xl font-semibold font-mono flex items-center gap-2 text-text">
-          <Cpu className="w-6 h-6 text-primary" />
-          AI Models
-          <InfoTooltip 
-            content="Learn how to choose and configure models." 
-            href="https://docs.codrag.io/guides/models" 
-          />
-        </h2>
-        <p className="text-sm text-text-muted mt-1">Configure LLMs for embedding, analysis, and compression</p>
+      {/* Header + Mode Toggle */}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold font-mono flex items-center gap-2 text-text">
+              <Cpu className="w-6 h-6 text-primary" />
+              AI Models
+              <InfoTooltip 
+                content="Learn how to choose and configure models." 
+                href="https://docs.codrag.io/guides/models" 
+              />
+            </h2>
+            <p className="text-sm text-text-muted mt-1">Configure LLMs for embedding, analysis, and compression</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="p-1 bg-surface-raised rounded-lg flex items-center border border-border">
+              <div className="flex items-center gap-1 border-r border-border/50 pr-2 mr-2">
+                <button
+                  onClick={() => setDraftMode('structured')}
+                  className={cn(
+                    'px-4 py-1.5 text-xs rounded-md transition-all font-medium',
+                    draftMode === 'structured'
+                      ? 'bg-surface text-text shadow-sm'
+                      : 'text-text-muted hover:text-text hover:bg-surface/50'
+                  )}
+                >
+                  Structured
+                </button>
+                <button
+                  onClick={() => setDraftMode('mapped')}
+                  className={cn(
+                    'px-4 py-1.5 text-xs rounded-md transition-all font-medium',
+                    draftMode === 'mapped'
+                      ? 'bg-surface text-text shadow-sm'
+                      : 'text-text-muted hover:text-text hover:bg-surface/50'
+                  )}
+                >
+                  Assigned
+                </button>
+              </div>
+              <button
+                onClick={handleModeSave}
+                disabled={!isDraftDirty}
+                className={cn(
+                  'inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors w-[84px]',
+                  isDraftDirty
+                    ? 'bg-primary text-surface hover:bg-primary/90 shadow-sm'
+                    : 'bg-transparent text-text-muted cursor-not-allowed opacity-50'
+                )}
+              >
+                <Save className="w-3.5 h-3.5" />
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Two-column layout: Left (Embed, Compression, Cloud) + Right (mode toggle + model cards OR assignment blocks) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* ══════ LEFT COLUMN — unchanged in both modes ══════ */}
-        <div className="space-y-6">
+        <div className="flex flex-col gap-6">
           {/* Embedding Model */}
           <ModelCard
             title="Embedding Model"
@@ -317,7 +462,7 @@ export function AIModelsSettings({
 
           {/* Context Compression */}
           <div className={cn(
-            'codrag-card rounded-lg border bg-surface p-6 transition-colors flex flex-col h-full',
+            'codrag-card rounded-lg border bg-surface p-6 transition-colors flex flex-col',
             config.compression?.enabled && config.compression?.lingua_downloaded
               ? 'border-success/50 shadow-[0_0_15px_rgba(var(--success),0.1)]'
               : 'border-border',
@@ -409,7 +554,7 @@ export function AIModelsSettings({
           </div>
 
           {/* Cloud Batch Processing */}
-          <div className="codrag-card rounded-lg border bg-surface border-border p-6 flex flex-col h-full">
+          <div className="codrag-card rounded-lg border bg-surface border-border p-6 flex flex-col">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-surface-raised text-primary">
@@ -442,35 +587,9 @@ export function AIModelsSettings({
           </div>
         </div>
 
-        {/* ══════ RIGHT COLUMN — mode toggle + conditional content ══════ */}
-        <div className="space-y-6">
-          {/* Structured / Mapped Toggle (Phase 44) */}
-          <div className="p-1 bg-surface-raised rounded-lg flex gap-1 border border-border">
-            <button
-              onClick={() => handleModeChange('structured')}
-              className={cn(
-                'flex-1 px-3 py-2 text-xs rounded-md transition-all font-medium',
-                assignmentMode === 'structured'
-                  ? 'bg-surface text-text shadow-sm'
-                  : 'text-text-muted hover:text-text hover:bg-surface/50'
-              )}
-            >
-              Structured
-            </button>
-            <button
-              onClick={() => handleModeChange('mapped')}
-              className={cn(
-                'flex-1 px-3 py-2 text-xs rounded-md transition-all font-medium',
-                assignmentMode === 'mapped'
-                  ? 'bg-surface text-text shadow-sm'
-                  : 'text-text-muted hover:text-text hover:bg-surface/50'
-              )}
-            >
-              Mapped
-            </button>
-          </div>
-
-          {assignmentMode === 'structured' ? (
+        {/* ══════ RIGHT COLUMN — conditional content ══════ */}
+        <div className="flex flex-col gap-6">
+          {draftMode === 'structured' ? (
             <>
               {/* Fast Model */}
               <ModelCard
@@ -485,6 +604,8 @@ export function AIModelsSettings({
                 infoLink="https://docs.codrag.io/guides/models"
                 endpoint={config.small_model.endpoint_id}
                 model={config.small_model.model}
+                alwaysOn={config.small_model.always_on}
+                onAlwaysOnChange={handleSmallAlwaysOnChange}
                 endpoints={config.saved_endpoints}
                 onEndpointChange={handleSmallModelEndpointChange}
                 availableModels={availableModels[config.small_model.endpoint_id || ''] || []}
@@ -510,6 +631,8 @@ export function AIModelsSettings({
                 infoLink="https://docs.codrag.io/guides/models"
                 endpoint={config.code_model?.endpoint_id}
                 model={config.code_model?.model}
+                alwaysOn={config.code_model?.always_on}
+                onAlwaysOnChange={handleCodeAlwaysOnChange}
                 endpoints={config.saved_endpoints}
                 onEndpointChange={handleCodeModelEndpointChange}
                 availableModels={availableModels[config.code_model?.endpoint_id || ''] || []}
@@ -534,6 +657,8 @@ export function AIModelsSettings({
                 }
                 endpoint={config.large_model.endpoint_id}
                 model={config.large_model.model}
+                alwaysOn={config.large_model.always_on}
+                onAlwaysOnChange={handleLargeAlwaysOnChange}
                 endpoints={config.saved_endpoints}
                 onEndpointChange={handleLargeModelEndpointChange}
                 availableModels={availableModels[config.large_model.endpoint_id || ''] || []}
@@ -549,7 +674,7 @@ export function AIModelsSettings({
           ) : (
             <>
               {/* Mapped Mode: Unassigned Tasks Banner */}
-              <UnassignedTasksBanner assignedTasks={assignedTasks} />
+              <LLMAssignmentsPipeline blocks={blocks} fileCount={fileCount} />
 
               {/* Assignment Blocks */}
               {blocks.map((block) => (
@@ -559,16 +684,19 @@ export function AIModelsSettings({
                   endpointId={block.endpoint_id}
                   model={block.model}
                   tasks={block.tasks}
+                  enableReasoning={block.enable_reasoning}
                   endpoints={config.saved_endpoints}
                   availableModels={availableModels[block.endpoint_id] || []}
                   loadingModels={loadingModels[block.endpoint_id]}
-                  unassignedTasks={unassignedTasks}
-                  onEndpointChange={(bid, eid) => onAssignmentBlockEndpointChange?.(bid, eid)}
-                  onModelChange={(bid, m) => onAssignmentBlockModelChange?.(bid, m)}
+                  assignedTasks={assignedTasks}
+                  onEndpointChange={handleBlockEndpointChange}
+                  onModelChange={handleBlockModelChange}
                   onRefreshModels={(eid) => onFetchModels(eid)}
-                  onAddTask={(bid, tid) => onAssignmentBlockAddTask?.(bid, tid)}
-                  onRemoveTask={(bid, tid) => onAssignmentBlockRemoveTask?.(bid, tid)}
-                  onDelete={(bid) => onAssignmentBlockDelete?.(bid)}
+                  onAddTask={handleBlockAddTask}
+                  onRemoveTask={handleBlockRemoveTask}
+                  onEnableReasoningChange={handleBlockEnableReasoningChange}
+                  onAlwaysOnChange={handleBlockAlwaysOnChange}
+                  onDelete={handleBlockDelete}
                   onTest={onAssignmentBlockTest ? (bid) => onAssignmentBlockTest(bid) : undefined}
                   testResult={assignmentBlockTestResults[block.id]}
                   testingConnection={assignmentBlockTesting === block.id}
@@ -576,16 +704,13 @@ export function AIModelsSettings({
               ))}
 
               {/* Add Assignment Button */}
-              {onAssignmentBlockAdd && (
-                <Button
-                  variant="outline"
-                  onClick={onAssignmentBlockAdd}
-                  className="w-full border-dashed border-border text-text-muted hover:text-text"
-                  icon={Plus}
-                >
-                  Add LLM Assignment
-                </Button>
-              )}
+              <button
+                onClick={handleBlockAdd}
+                className="w-full py-3 border border-dashed border-border rounded-lg text-sm text-text-muted hover:text-text hover:border-primary/50 hover:bg-surface-raised transition-all flex items-center justify-center gap-2 group"
+              >
+                <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                Add LLM Assignment
+              </button>
             </>
           )}
         </div>

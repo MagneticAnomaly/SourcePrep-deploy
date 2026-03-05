@@ -35,6 +35,17 @@ export default function Page() {
           </a>
 
           <a
+            href="/guides/dynamic-model-loading"
+            className="block rounded-lg border border-border bg-surface p-6 hover:border-primary transition-colors"
+          >
+            <h2 className="text-xl font-semibold">Dynamic Model Loading</h2>
+            <p className="mt-2 text-sm text-text-muted">
+              How CoDRAG manages VRAM by loading and unloading local models on demand.
+              Covers Ollama vs LM Studio, MLX performance, persistent models, and recommended setups.
+            </p>
+          </a>
+
+          <a
             href="/guides/compression"
             className="block rounded-lg border border-border bg-surface p-6 hover:border-primary transition-colors"
           >

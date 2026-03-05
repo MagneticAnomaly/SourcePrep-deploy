@@ -4,6 +4,8 @@
 > **Goal:** Add a 4th model slot for deep code analysis and an optional 11th  
 > pipeline stage for high-quality edge re-analysis during deep enrichment.
 
+>>> IMPORTANT:
+>>> this is legacy, we build and assigned model tool for more complex model configs
 ---
 
 ## 1. Problem Statement

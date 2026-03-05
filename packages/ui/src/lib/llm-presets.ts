@@ -18,7 +18,7 @@ function nextBlockId(): string {
 
 const FAST_TASKS: CodragTaskId[] = ['catalogue', 'search_intent', 'augmentation'];
 const CODE_TASKS: CodragTaskId[] = ['inferred_edges'];
-const THINKING_TASKS: CodragTaskId[] = ['enrichment', 'clustering', 'atlas', 'deepening', 'audit'];
+const THINKING_TASKS: CodragTaskId[] = ['enrichment', 'group_reasoning', 'clustering', 'atlas', 'deepening', 'audit'];
 
 // ── Preset 1: Local Standard ──────────────────────────────────────
 

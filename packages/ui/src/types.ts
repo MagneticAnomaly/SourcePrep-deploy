@@ -505,6 +505,7 @@ export type CodragTaskId =
   | 'catalogue'
   | 'inferred_edges'
   | 'enrichment'
+  | 'group_reasoning'
   | 'clustering'
   | 'atlas'
   | 'deepening'
@@ -513,7 +514,7 @@ export type CodragTaskId =
   | 'augmentation';
 
 export const ALL_TASK_IDS: CodragTaskId[] = [
-  'catalogue', 'inferred_edges', 'enrichment', 'clustering',
+  'inferred_edges', 'catalogue', 'enrichment', 'group_reasoning', 'clustering',
   'atlas', 'deepening', 'search_intent', 'audit', 'augmentation',
 ];
 
@@ -521,12 +522,41 @@ export const TASK_LABELS: Record<CodragTaskId, string> = {
   catalogue: 'Catalogue Summarization',
   inferred_edges: 'Inferred Edge Discovery',
   enrichment: 'Deep Reasoning',
+  group_reasoning: 'Group Reasoning',
   clustering: 'Module Synthesis',
   atlas: 'Atlas Generation',
   deepening: 'Deepening Loop',
   search_intent: 'Search Preprocessing',
   audit: 'Automated Audits',
   augmentation: 'Trace Augmentation',
+};
+
+export const TASK_TAGS: Record<CodragTaskId, string> = {
+  inferred_edges: 'Code',
+  catalogue: 'Fast',
+  search_intent: 'Fast',
+  augmentation: 'Fast',
+  enrichment: 'Reasoning (optional)',
+  group_reasoning: 'Reasoning (recommended)',
+  clustering: 'Reasoning (optional)',
+  atlas: 'Reasoning (optional)',
+  deepening: 'Reasoning (optional)',
+  audit: 'Reasoning (optional)',
+};
+
+export type CloudPreference = 'local-preferred' | 'cloud-preferred' | 'neutral';
+
+export const TASK_CLOUD_PREF: Record<CodragTaskId, CloudPreference> = {
+  catalogue: 'local-preferred',
+  search_intent: 'local-preferred',
+  augmentation: 'local-preferred',
+  inferred_edges: 'neutral',
+  enrichment: 'neutral',
+  group_reasoning: 'cloud-preferred',
+  clustering: 'neutral',
+  atlas: 'cloud-preferred',
+  deepening: 'cloud-preferred',
+  audit: 'cloud-preferred',
 };
 
 /**
@@ -543,6 +573,8 @@ export interface LLMAssignmentBlock {
   endpoint_id: string;
   model: string;
   tasks: CodragTaskId[];
+  enable_reasoning?: boolean;
+  always_on?: boolean;
 }
 
 // ============================================================
@@ -592,6 +624,7 @@ export interface LLMSlotConfig {
   enabled: boolean;
   endpoint_id?: string;
   model?: string;
+  always_on?: boolean;
 }
 
 /**
@@ -669,6 +702,8 @@ export interface EndpointTestResult {
   message: string;
   models?: string[];
   model_status?: ModelReadinessStatus;
+  warnings?: string[];
+  recommendations?: Record<string, any>;
 }
 
 /**
@@ -949,6 +984,7 @@ export interface GlobalConfig {
   use_gitignore?: boolean;
   trace?: { enabled: boolean };
   auto_rebuild?: { enabled: boolean; debounce_ms?: number };
+  max_active_projects?: number | 'infinite';
   llm_config?: LLMConfig;
   deep_analysis?: DeepEnrichmentConfig;
   ui_preferences?: {

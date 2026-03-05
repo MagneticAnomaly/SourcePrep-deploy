@@ -76,18 +76,10 @@ def knowledge_status_project(project_id: str) -> Dict[str, Any]:
 @router.post("/projects/{project_id}/knowledge/build")
 def build_knowledge_project(project_id: str) -> Dict[str, Any]:
     """Trigger knowledge index build."""
-    from codrag.server import _require_project, _is_project_knowledge_building, _start_project_knowledge_build
-    from codrag.services.project_helpers import is_over_project_limit
-    
-    if is_over_project_limit():
-        raise ApiException(
-            status_code=403,
-            code="PROJECT_LIMIT_EXCEEDED",
-            message="Cannot build knowledge index: Project limit exceeded for current tier",
-            hint="Upgrade your plan or remove projects to resume syncing."
-        )
+    from codrag.server import _is_project_knowledge_building, _start_project_knowledge_build
+    from codrag.services.project_helpers import require_project_writable
 
-    proj = _require_project(project_id)
+    proj = require_project_writable(project_id)
     
     if _is_project_knowledge_building(project_id):
         raise ApiException(status_code=409, code="BUILD_ALREADY_RUNNING", message="Knowledge build already running")
@@ -113,7 +105,7 @@ def engine_status_project(project_id: str) -> Dict[str, Any]:
         _get_project_knowledge_index, _is_project_knowledge_building,
         _project_augment_status,
     )
-    from codrag.api.routers.trace import (
+    from codrag.api.routers.trace_routes.enrichment import (
         epistemic_status_project as _epistemic_status,
         modules_status_project as _cluster_status,
         deepening_status_project as _deepening_status,

@@ -25,7 +25,7 @@
 6. Click **Continue**
 7. Cloudflare will show you **two nameserver addresses** (e.g., `ava.ns.cloudflare.com` and `bob.ns.cloudflare.com`)
    — **keep this tab open**, you'll need these in the next step
-
+>>> DONE
 ### CF-3 — Change nameservers in GoDaddy ⚠️ One-time handoff
 
 > **This is the key step.** Once done, all DNS for `codrag.io` is managed in Cloudflare.
@@ -40,6 +40,7 @@
    - Nameserver 1: (e.g., `ava.ns.cloudflare.com`)
    - Nameserver 2: (e.g., `bob.ns.cloudflare.com`)
 7. Save
+>>> DONE
 
 ### CF-4 — Wait for propagation
 
@@ -69,6 +70,8 @@ Once `codrag.ai` is active in Cloudflare:
    - **Redirect URL:** `https://codrag.io`
    - **Status code:** 301
 4. Save and deploy
+>>> thre is no codrag.ai
+
 
 ### CF-7 — Add DNS records for all 4 Netlify sites
 

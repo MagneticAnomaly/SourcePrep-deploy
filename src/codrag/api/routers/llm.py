@@ -64,6 +64,11 @@ router = APIRouter(tags=["llm"])
 
 # ── Pydantic models ─────────────────────────────────────────────
 
+class ModeSwitchRequest(BaseModel):
+    mode: str  # "structured" or "mapped"
+    assignment_blocks: Optional[List[Dict[str, Any]]] = None
+
+
 class LLMProxyRequest(BaseModel):
     provider: str = "ollama"
     url: str
@@ -76,6 +81,61 @@ class LLMModelTestRequest(BaseModel):
     model: str
     api_key: Optional[str] = None
     kind: str = "completion"
+    slot: Optional[str] = None  # small_model, large_model, code_model — for context recommendations
+
+
+# ── Context Window Recommendations ────────────────────────────────
+# Minimum recommended context window per model slot.
+# Deep stages (epistemic, group reasoning, deepening) routinely send
+# 8K–30K token prompts; the model needs headroom for output too.
+_SLOT_MIN_CONTEXT: Dict[str, int] = {
+    "small_model": 4096,
+    "code_model": 8192,
+    "large_model": 32768,
+}
+_SLOT_LABELS: Dict[str, str] = {
+    "small_model": "Catalogue / Fast stages",
+    "code_model": "Inferred Edges (code analysis)",
+    "large_model": "Deep Reasoning (epistemic, group reasoning, deepening)",
+}
+
+
+def _query_context_window(
+    provider: str, url: str, model: str, api_key: Optional[str] = None,
+) -> Optional[int]:
+    """Try to detect the model's current context window size.
+
+    - Ollama: ``/api/show`` returns model parameters including ``num_ctx``.
+    - LM Studio / OpenAI-compatible: no standard API for this; returns None.
+    """
+    url = url.rstrip("/")
+    try:
+        if provider == "ollama":
+            r = requests.post(
+                f"{url}/api/show",
+                json={"model": model},
+                timeout=5,
+            )
+            if r.status_code == 200:
+                data = r.json()
+                # Ollama returns model_info with context length
+                model_info = data.get("model_info") or {}
+                for key, val in model_info.items():
+                    if "context_length" in key and isinstance(val, (int, float)):
+                        return int(val)
+                # Fallback: check parameters string for num_ctx
+                params = data.get("parameters") or ""
+                for line in params.split("\n"):
+                    if "num_ctx" in line:
+                        parts = line.strip().split()
+                        if len(parts) >= 2:
+                            try:
+                                return int(parts[-1])
+                            except ValueError:
+                                pass
+    except Exception:
+        pass
+    return None
 
 
 class ModelStatusRequest(BaseModel):
@@ -239,6 +299,118 @@ def compression_download() -> Dict[str, Any]:
         "status": "downloaded",
         "model_path": model_path,
         "hf_repo_id": LinguaCompressor.HF_MODEL_ID,
+    })
+
+
+# ═════════════════════════════════════════════════════════════════
+# Pipeline-Safe Mode Switch (Phase 44C)
+# ═════════════════════════════════════════════════════════════════
+
+@router.post("/api/llm/mode-switch")
+def mode_switch(req: ModeSwitchRequest) -> Dict[str, Any]:
+    """Switch LLM assignment mode (structured ↔ mapped) safely.
+
+    If a pipeline is currently running, this endpoint:
+    1. Pauses the active pipeline group(s)
+    2. Writes the new config atomically
+    3. Verifies the next stage's model is available under the new config
+    4. Resumes the paused pipeline group(s)
+
+    This prevents pipeline breaks when the user changes their model
+    configuration mid-run.
+    """
+    from codrag.server import _load_ui_config, _save_ui_config
+    from codrag.core.project_registry import ProjectRegistry
+
+    if req.mode not in ("structured", "mapped"):
+        raise ApiException(
+            status_code=400,
+            code="INVALID_MODE",
+            message=f"Invalid mode: {req.mode}. Must be 'structured' or 'mapped'.",
+        )
+
+    # 1. Snapshot current config
+    ui_cfg = _load_ui_config()
+    llm_cfg = ui_cfg.get("llm_config") or {}
+    old_mode = llm_cfg.get("assignment_mode", "structured")
+
+    # 2. Find active pipeline runs across all projects
+    paused_groups: List[Dict[str, str]] = []
+    try:
+        from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+
+        registry = ProjectRegistry.instance()
+        for project in registry.list():
+            status = pipeline_orchestrator.status(project.id)
+
+            # Pause fast_sync if active
+            fast = status.get("fast_sync")
+            if fast and fast.get("is_active"):
+                pipeline_orchestrator.pause_fast_sync(project.id)
+                paused_groups.append({"project_id": project.id, "group": "fast_sync"})
+                logger.info("Mode switch: paused fast_sync for %s", project.id)
+
+            # Pause deep_enrichment if active
+            deep = status.get("deep_enrichment")
+            if deep and deep.get("is_active"):
+                pipeline_orchestrator.pause_deep_enrichment(project.id)
+                paused_groups.append({"project_id": project.id, "group": "deep_enrichment"})
+                logger.info("Mode switch: paused deep_enrichment for %s", project.id)
+    except Exception as e:
+        logger.warning("Mode switch: pipeline pause check failed: %s", e)
+
+    # 3. Write new config atomically
+    new_blocks = req.assignment_blocks
+    if new_blocks is None:
+        new_blocks = llm_cfg.get("assignment_blocks") or []
+    if req.mode == "mapped" and not new_blocks:
+        import time as _time
+        new_blocks = [{"id": f"block-{int(_time.time() * 1000)}", "endpoint_id": "", "model": "", "tasks": []}]
+
+    llm_cfg["assignment_mode"] = req.mode
+    llm_cfg["assignment_blocks"] = new_blocks
+    ui_cfg["llm_config"] = llm_cfg
+    _save_ui_config(ui_cfg)
+    logger.info("Mode switch: %s → %s (wrote config)", old_mode, req.mode)
+
+    # 4. Verify next stage models and resume paused groups
+    resumed: List[Dict[str, str]] = []
+    for pg in paused_groups:
+        try:
+            from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+            from codrag.services.pipeline.stages import STAGE_TASK_ID
+
+            # Try to acquire the model for the next stage under the new config
+            run_status = pipeline_orchestrator.status(pg["project_id"])
+            group_status = run_status.get(pg["group"])
+            if group_status and group_status.get("current_stage"):
+                next_task = STAGE_TASK_ID.get(group_status["current_stage"])
+                if next_task:
+                    try:
+                        from codrag.core.model_awareness import model_awareness
+                        model_awareness.acquire(next_task)
+                    except Exception as acq_err:
+                        logger.warning(
+                            "Mode switch: model acquire for %s failed: %s (resuming anyway)",
+                            next_task, acq_err,
+                        )
+
+            # Resume the paused group
+            pipeline_orchestrator.resume_paused(pg["project_id"], pg["group"])
+            resumed.append(pg)
+            logger.info("Mode switch: resumed %s/%s", pg["project_id"], pg["group"])
+        except Exception as e:
+            logger.warning(
+                "Mode switch: failed to resume %s/%s: %s",
+                pg["project_id"], pg["group"], e,
+            )
+
+    return ok({
+        "success": True,
+        "old_mode": old_mode,
+        "new_mode": req.mode,
+        "paused_groups": paused_groups,
+        "resumed_groups": resumed,
     })
 
 
@@ -672,4 +844,42 @@ def proxy_test_model(req: LLMModelTestRequest) -> Dict[str, Any]:
     except Exception as e:
         message = str(e)
 
-    return ok({"success": success, "message": message, "model_status": model_status_str})
+    # ── Context window check ────────────────────────────────────
+    warnings: List[str] = []
+    recommendations: Dict[str, Any] = {}
+
+    if success and req.slot:
+        detected_ctx = _query_context_window(req.provider, url, req.model, req.api_key)
+        min_ctx = _SLOT_MIN_CONTEXT.get(req.slot)
+        slot_label = _SLOT_LABELS.get(req.slot, req.slot)
+
+        if detected_ctx is not None:
+            recommendations["detected_context_window"] = detected_ctx
+            if min_ctx and detected_ctx < min_ctx:
+                warnings.append(
+                    f"Context window is {detected_ctx:,} tokens but {slot_label} "
+                    f"needs at least {min_ctx:,}. Increase the context length in "
+                    f"your model server settings to avoid truncated results."
+                )
+        elif min_ctx and req.provider in ("openai-compatible", "lm-studio"):
+            recommendations["note"] = (
+                f"{slot_label} sends prompts up to ~{min_ctx:,} tokens. "
+                f"Ensure your model's context window is set to at least {min_ctx:,} "
+                f"in your server settings (e.g. LM Studio → Load → Context Length)."
+            )
+
+        if min_ctx:
+            recommendations["min_context_window"] = min_ctx
+            recommendations["slot_label"] = slot_label
+
+    result: Dict[str, Any] = {
+        "success": success,
+        "message": message,
+        "model_status": model_status_str,
+    }
+    if warnings:
+        result["warnings"] = warnings
+    if recommendations:
+        result["recommendations"] = recommendations
+
+    return ok(result)

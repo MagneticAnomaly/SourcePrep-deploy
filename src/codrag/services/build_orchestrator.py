@@ -49,6 +49,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from codrag.services.cancellation import CancellationToken, PipelineCancelledError, PipelinePausedError
+
 logger = logging.getLogger(__name__)
 
 
@@ -82,6 +84,11 @@ class BuildPhase(str, enum.Enum):
 
 # ── Build Slot ───────────────────────────────────────────────────
 
+class BuildPhaseExt(str, enum.Enum):
+    """Extended phases that include paused state."""
+    PAUSED = "paused"
+
+
 @dataclass
 class BuildSlot:
     """State machine for a single project × build-type combination.
@@ -100,6 +107,7 @@ class BuildSlot:
     progress_message: Optional[str] = None
     progress_current: int = 0
     progress_total: int = 0
+    cancel_token: CancellationToken = field(default_factory=CancellationToken)
 
     @property
     def is_active(self) -> bool:
@@ -198,6 +206,7 @@ class BuildOrchestrator:
             slot.progress_message = None
             slot.progress_current = 0
             slot.progress_total = 0
+            slot.cancel_token = CancellationToken()
 
             t = threading.Thread(
                 target=self._run_worker,
@@ -242,10 +251,11 @@ class BuildOrchestrator:
             return False
 
     def cancel(self, project_id: str, build_type: BuildType) -> bool:
-        """Request cancellation.  Currently just marks as FAILED.
+        """Request cancellation.  Signals the CancellationToken so the
+        worker can cooperatively stop and flush partial results.
 
         Thread interruption is not supported (Python limitation).
-        The worker should check ``slot.phase == FAILED`` to self-terminate.
+        The worker checks ``cancel_token.is_cancelled`` to self-terminate.
         """
         with self._lock:
             key = (project_id, build_type)
@@ -253,11 +263,28 @@ class BuildOrchestrator:
             if slot is None or not slot.is_active:
                 return False
             old_phase = slot.phase
+            slot.cancel_token.cancel()
             slot.phase = BuildPhase.FAILED
             slot.finished_at = time.time()
             slot.error = "Cancelled by user"
 
         self._notify(project_id, build_type, old_phase, BuildPhase.FAILED)
+        return True
+
+    def pause(self, project_id: str, build_type: BuildType) -> bool:
+        """Request a graceful pause.  Signals the CancellationToken with
+        pause semantics so the worker flushes partial results and stops.
+
+        The worker raises PipelinePausedError which _run_worker catches
+        and records as a paused state (not failed).
+        """
+        with self._lock:
+            key = (project_id, build_type)
+            slot = self._slots.get(key)
+            if slot is None or not slot.is_active:
+                return False
+            slot.cancel_token.pause()
+        # Don't transition phase yet — let the worker do it when it stops
         return True
 
     def all_slots(self, project_id: Optional[str] = None) -> list[BuildSlot]:
@@ -333,6 +360,21 @@ class BuildOrchestrator:
                 slot.finished_at = time.time()
                 slot.result = result
             self._notify(project_id, build_type, old_phase, BuildPhase.COMPLETED)
+
+        except PipelinePausedError:
+            logger.info("Build paused: %s/%s (partial results flushed)", project_id, build_type.value)
+            with self._lock:
+                if slot.phase == BuildPhase.FAILED:
+                    return  # Cancel took priority over pause
+                old_phase = slot.phase
+                slot.phase = BuildPhase.FAILED  # Reuse FAILED for now; orchestrator distinguishes via cancel_token.is_pause
+                slot.finished_at = time.time()
+                slot.error = "Paused by user"
+            self._notify(project_id, build_type, old_phase, BuildPhase.FAILED)
+
+        except PipelineCancelledError:
+            logger.info("Build cancelled cooperatively: %s/%s (partial results flushed)", project_id, build_type.value)
+            # Phase already set to FAILED by cancel()
 
         except Exception as e:
             logger.exception("Build failed: %s/%s", project_id, build_type.value)

@@ -184,6 +184,7 @@ from codrag.services.project_helpers import (
     project_id_for_root as _ph_project_id_for_root,
     current_project as _ph_current_project,
     require_project as _ph_require_project,
+    require_project_writable as _ph_require_project_writable,
     project_index_status as _ph_project_index_status,
     project_trace_status as _ph_project_trace_status,
     get_project_watcher as _ph_get_project_watcher,
@@ -216,6 +217,10 @@ def _current_project() -> Dict[str, Any] | None:
 
 def _require_project(project_id: str) -> Project:
     return _ph_require_project(project_id)
+
+
+def _require_project_writable(project_id: str) -> Project:
+    return _ph_require_project_writable(project_id)
 
 
 def _project_index_status(idx: CodeIndex, last_build_error: Optional[str] = None) -> Dict[str, Any]:
@@ -352,6 +357,7 @@ def _get_llm_client_for_slot(slot: str):
         api_key=endpoint.get("api_key"),
         provider=endpoint.get("provider", "ollama"),
         timeout=timeout,
+        always_on=bool(slot_cfg.get("always_on", False)),
     )
 
 
@@ -362,6 +368,7 @@ TASK_TO_SLOT: Dict[str, str] = {
     "catalogue":       "small",
     "inferred_edges":  "code",
     "enrichment":      "large",
+    "group_reasoning": "large",
     "clustering":      "large",
     "atlas":           "large",
     "deepening":       "large",
@@ -436,6 +443,7 @@ def _create_client_from_block(block: dict, llm_cfg: dict, task_id: str):
         api_key=endpoint.get("api_key"),
         provider=endpoint.get("provider", "ollama"),
         timeout=timeout,
+        always_on=bool(block.get("always_on", False)),
     )
 
 
@@ -479,7 +487,7 @@ def _get_model_identity_for_task(task_id: str) -> Optional[tuple]:
 
 from codrag.api.routers.system import router as system_router
 from codrag.api.routers.license import router as license_router
-from codrag.api.routers.trace import router as trace_router
+from codrag.api.routers.trace_routes import router as trace_router
 from codrag.api.routers.knowledge import router as knowledge_router
 from codrag.api.routers.llm import router as llm_router
 from codrag.api.routers.projects import router as projects_router

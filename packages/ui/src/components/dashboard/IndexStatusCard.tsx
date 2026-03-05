@@ -52,6 +52,8 @@ export interface IndexStatusCardProps {
   bare?: boolean;
   /** Whether to hide the distribution chart (e.g. during transient completion state) */
   hideChart?: boolean;
+  /** When true, the project is explicitly marked inactive */
+  inactive?: boolean;
 }
 
 function formatNumber(num: number): string {
@@ -78,6 +80,7 @@ export function IndexStatusCard({
   bare = false,
   hideChart = false,
   limitReached = false,
+  inactive = false,
 }: IndexStatusCardProps) {
   const showAutoToggle = onAutoRebuildChange !== undefined;
   // Free users are forced to Manual regardless of stored value
@@ -149,12 +152,15 @@ export function IndexStatusCard({
         {/* Initialize (both modes when not built) / Rebuild (manual only when built) */}
         {onBuild && (!stats.loaded || !isAuto) && (
           <button
-            onClick={onBuild}
-            disabled={building || limitReached}
-            title={limitReached ? "Project limit reached. Upgrade to resume syncing." : undefined}
+            onClick={inactive ? undefined : onBuild}
+            disabled={building || limitReached || inactive}
+            title={
+              inactive ? "Activate this project to run builds." :
+              limitReached ? "Project limit reached. Upgrade to resume syncing." : undefined
+            }
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
-              (building || limitReached)
+              (building || limitReached || inactive)
                 ? "border-border bg-surface text-text-subtle cursor-not-allowed"
                 : !stats.loaded
                   ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20" // Initialize style

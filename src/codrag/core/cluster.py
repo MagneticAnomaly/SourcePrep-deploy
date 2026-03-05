@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
-from .augmenter import LLMClient, _get_llm_concurrency, _parse_confidence, _parse_json_response
+from .llm_client import LLMClient, _get_llm_concurrency, _parse_confidence, _parse_json_response
 from .epistemic_score import EpistemicEntry
 
 logger = logging.getLogger(__name__)
@@ -1116,6 +1116,7 @@ class ClusterSynthesizer:
         self,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
         min_cluster_size: int = 2,
+        cancel_token: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """Run Pass 3 cluster synthesis.
 
@@ -1129,6 +1130,9 @@ class ClusterSynthesizer:
         3. Load existing modules and build fingerprint map for reuse.
         4. Synthesize only new/changed clusters via deep reasoning model.
         5. Write trace_modules.jsonl.
+
+        If *cancel_token* is provided, the loop checks it periodically and
+        flushes partial results before raising.
         """
         start = time.monotonic()
 
@@ -1273,6 +1277,12 @@ class ClusterSynthesizer:
             if concurrency <= 1:
                 # Sequential: one cluster at a time
                 for i, cluster in enumerate(to_synthesize):
+                    # Cooperative cancellation check
+                    if cancel_token and cancel_token.is_cancelled:
+                        logger.info("Cluster synthesis paused/cancelled at %d/%d — flushing partial results", synthesized, len(to_synthesize))
+                        self._write_modules(modules)
+                        cancel_token.raise_if_cancelled()
+
                     if progress_callback:
                         progress_callback("cluster_synthesis", reused + i, total_work)
 
@@ -1282,6 +1292,11 @@ class ClusterSynthesizer:
                         synthesized += 1
                     else:
                         failed += 1
+
+                    # Periodic checkpoint to avoid losing progress on crash
+                    if synthesized > 0 and synthesized % 10 == 0:
+                        self._write_modules(modules)
+                        logger.info("Cluster checkpoint saved at %d/%d clusters", synthesized, len(to_synthesize))
             else:
                 # Concurrent LLM calls via thread pool
                 lock = threading.Lock()

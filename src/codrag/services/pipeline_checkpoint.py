@@ -80,9 +80,22 @@ STAGE_OUTPUTS: Dict[str, List[str]] = {
     "deep_knowledge": [],  # Same atomic swap as knowledge
 }
 
-# Stages where a checkpoint is *recommended* because they modify files
-# that were produced by an earlier stage
-CHECKPOINT_STAGES = {"deepening", "enrichment", "clustering"}
+# Stages where a checkpoint is created before the stage runs.
+# Previously limited to stages that modify earlier files, now expanded
+# to all stages that produce trace files — ensures every stage can
+# recover from abrupt stops or user-initiated pauses.
+CHECKPOINT_STAGES = {
+    "structural",
+    "inferred_edges",
+    "catalogue",
+    "validation",
+    "enrichment",
+    "group_reasoning",
+    "clustering",
+    "atlas",
+    "deepening",
+    "deep_knowledge",
+}
 
 
 def create_checkpoint(

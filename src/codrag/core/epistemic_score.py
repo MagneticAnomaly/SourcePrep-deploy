@@ -187,11 +187,13 @@ def compute_epistemic_score(
         c2 = 0.0
 
     # 3. Neighbor coverage
-    if not neighbor_ids:
+    # Only consider neighbors that are file nodes, since we only enrich files
+    file_neighbors = {n for n in neighbor_ids if n.startswith("file:")}
+    if not file_neighbors:
         c3 = 0.5  # isolated node, neutral
     else:
-        enriched = sum(1 for n in neighbor_ids if n in enriched_node_ids)
-        c3 = enriched / len(neighbor_ids)
+        enriched = sum(1 for n in file_neighbors if n in enriched_node_ids)
+        c3 = enriched / len(file_neighbors)
 
     # 4. Cross-reference density (sigmoid-like: saturates at 4)
     c4 = min(1.0, cross_ref_count / 4.0)

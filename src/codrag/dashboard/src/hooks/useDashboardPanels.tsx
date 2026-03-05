@@ -146,6 +146,10 @@ export interface PanelEnrichmentProps {
   deepKnowledgeBuilding: boolean
   handleRunKnowledgeBuild: () => void
   handleRunDeepEnrichment: () => void
+  handlePausePipeline: (group: 'fast_sync' | 'deep_enrichment') => void
+  handleResumePipeline: (group: 'fast_sync' | 'deep_enrichment') => void
+  fastPaused: boolean
+  deepPaused: boolean
   groupReasoningStatus: { enabled: boolean; group_count: number; analyzed: number; running?: boolean; slot_phase?: string; progress_current?: number; progress_total?: number }
 }
 
@@ -186,6 +190,7 @@ export interface DashboardPanelsProps {
   projectConfig: ProjectConfig
   isPro: boolean
   limitReached?: boolean
+  inactive?: boolean
   scopeStatus?: ScopeStatus
   logs: any[]
   clearLogs: () => void
@@ -217,6 +222,11 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
   // Optimistic local state for excluded paths — updates INSTANTLY on click.
   // Seeded from trace coverage when it arrives, but local clicks are immediate.
   const [localExcludedPaths, setLocalExcludedPaths] = useState<Set<string>>(new Set())
+
+  // Reset local state when switching projects to avoid cross-contamination
+  useEffect(() => {
+    setLocalExcludedPaths(new Set())
+  }, [p.selectedProject?.id])
 
   // Sync server-side excluded paths into local state (additive merge)
   useEffect(() => {
@@ -450,6 +460,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onAutoRebuildChange={p.handleIndexAutoRebuildChange}
         isPro={p.isPro}
         limitReached={p.limitReached}
+        inactive={p.inactive}
         className="h-full border-none shadow-none bg-transparent"
         bare
         hideChart={p.transientComplete}
@@ -712,10 +723,14 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           deepKnowledgeBuilding={p.deepKnowledgeBuilding}
           paused={p.projectConfig.trace.paused}
           onTogglePause={p.handleTogglePause}
+          onPausePipeline={p.handlePausePipeline}
+          onResumePipeline={p.handleResumePipeline}
+          isPaused={p.deepPaused || p.fastPaused}
           autoConfig={p.enrichmentAutoConfig}
           onAutoConfigChange={p.handleEnrichmentAutoConfigChange}
           isPro={p.isPro}
           limitReached={p.limitReached}
+          inactive={p.inactive}
         />
       </div>
     ),
@@ -857,6 +872,61 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           loadingModels={p.loadingModels}
           testingSlot={p.testingSlot}
           testResults={p.testResults}
+          onAssignmentBlockAdd={() => {
+            p.handleLLMConfigChange({
+              ...p.llmConfig,
+              assignment_blocks: [
+                ...(p.llmConfig.assignment_blocks || []),
+                { id: `block-${Date.now()}`, endpoint_id: '', model: '', tasks: [] },
+              ],
+            });
+          }}
+          onAssignmentBlockDelete={(blockId) => {
+            p.handleLLMConfigChange({
+              ...p.llmConfig,
+              assignment_blocks: (p.llmConfig.assignment_blocks || []).filter((b) => b.id !== blockId),
+            });
+          }}
+          onAssignmentBlockEndpointChange={(blockId, endpointId) => {
+            p.handleLLMConfigChange({
+              ...p.llmConfig,
+              assignment_blocks: (p.llmConfig.assignment_blocks || []).map((b) =>
+                b.id === blockId ? { ...b, endpoint_id: endpointId, model: '' } : b
+              ),
+            });
+          }}
+          onAssignmentBlockModelChange={(blockId, model) => {
+            p.handleLLMConfigChange({
+              ...p.llmConfig,
+              assignment_blocks: (p.llmConfig.assignment_blocks || []).map((b) =>
+                b.id === blockId ? { ...b, model } : b
+              ),
+            });
+          }}
+          onAssignmentBlockAddTask={(blockId, taskId) => {
+            p.handleLLMConfigChange({
+              ...p.llmConfig,
+              assignment_blocks: (p.llmConfig.assignment_blocks || []).map((b) =>
+                b.id === blockId ? { ...b, tasks: [...b.tasks, taskId] } : b
+              ),
+            });
+          }}
+          onAssignmentBlockRemoveTask={(blockId, taskId) => {
+            p.handleLLMConfigChange({
+              ...p.llmConfig,
+              assignment_blocks: (p.llmConfig.assignment_blocks || []).map((b) =>
+                b.id === blockId ? { ...b, tasks: b.tasks.filter((t) => t !== taskId) } : b
+              ),
+            });
+          }}
+          onAssignmentBlockTest={async (blockId) => {
+            // Simplified testing for mapped blocks using existing handleTestEndpoint logic
+            const block = p.llmConfig.assignment_blocks?.find(b => b.id === blockId);
+            if (!block) return { success: false, message: 'Block not found' };
+            const ep = p.llmConfig.saved_endpoints?.find(e => e.id === block.endpoint_id);
+            if (!ep) return { success: false, message: 'Endpoint not found' };
+            return p.handleTestEndpoint(ep);
+          }}
         />
       </div>
     ),

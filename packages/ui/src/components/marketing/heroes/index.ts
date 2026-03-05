@@ -1,0 +1,10 @@
+export { CenteredHero } from './centered';
+export { NeoBrutalistHero } from './neo';
+export { SwissHero } from './swiss';
+export { GlassHero } from './glass';
+export { RetroHero } from './retro';
+export { SplitHero } from './split';
+export { StudioHero } from './studio';
+export { YaleHero } from './yale';
+export { FocusHero } from './focus';
+export { EnterpriseHero } from './enterprise';

@@ -7,7 +7,7 @@ import {
 } from '@codrag/ui'
 
 interface UseDeepAnalysisOptions {
-  onError?: (msg: string) => void
+  onError?: (msg: string, variant?: 'error' | 'warning' | 'info' | 'success') => void
 }
 
 /** Manages deep analysis schedule, run/cancel actions, status polling, and auto-save to backend. */

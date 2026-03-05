@@ -201,13 +201,15 @@ class LLMClient:
         model: str,
         provider: str = "ollama",
         api_key: Optional[str] = None,
-        timeout: float = 60.0
+        timeout: float = 60.0,
+        always_on: bool = False,
     ):
         self.endpoint_url = endpoint_url.rstrip("/")
         self.model = model
         self.provider = provider
         self.api_key = api_key
         self.timeout = timeout
+        self.always_on = always_on
 
     def generate(
         self,
@@ -436,6 +438,10 @@ class LLMClient:
         Returns True if the unload request was accepted.
         """
         import requests
+        
+        if self.always_on:
+            logger.info("Skipping unload for %s (always_on=True)", self.model)
+            return True
 
         if self.provider != "ollama":
             return True  # No-op for cloud providers

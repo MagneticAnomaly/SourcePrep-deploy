@@ -104,7 +104,7 @@ export interface ApiClient {
   testLLMConnectivity(): Promise<{ ollama: { connected: boolean } }>;
   testLLMEndpoint(provider: string, url: string, apiKey?: string): Promise<{ success: boolean; models?: string[] }>;
   fetchLLMModels(provider: string, url: string, apiKey?: string): Promise<{ models: string[] }>;
-  testLLMModel(provider: string, url: string, model: string, kind: string, apiKey?: string): Promise<{ success: boolean; message: string; model_status?: ModelReadinessStatus }>;
+  testLLMModel(provider: string, url: string, model: string, kind: string, apiKey?: string, slot?: string): Promise<{ success: boolean; message: string; model_status?: ModelReadinessStatus; warnings?: string[]; recommendations?: Record<string, any> }>;
   getModelStatus(provider: string, url: string, model: string, ensureReady?: boolean, apiKey?: string): Promise<ModelStatusResult>;
 
   // LLM Slot Connectivity
@@ -142,6 +142,8 @@ export interface ApiClient {
   runPipelineAll(projectId: string): Promise<{ started: boolean; group: string }>;
   getPipelineStatus(projectId: string): Promise<PipelineStatus>;
   cancelPipeline(projectId: string, group: string): Promise<{ cancelled: boolean; group: string }>;
+  pausePipeline(projectId: string, group: string): Promise<{ paused: boolean; group: string }>;
+  resumePipeline(projectId: string, group: string): Promise<{ resumed: boolean; group: string }>;
   getPipelineBudget(projectId: string): Promise<{ tokens_used: number; max_tokens: number; window_minutes: number; remaining: number; window_resets_in: number }>;
 
   // Pipeline Crash Protection (Phase 25)
@@ -494,10 +496,10 @@ export class CodragApiClient implements ApiClient {
     });
   }
 
-  async testLLMModel(provider: string, url: string, model: string, kind: string, apiKey?: string): Promise<{ success: boolean; message: string; model_status?: ModelReadinessStatus }> {
-    return this.requestEnvelope<{ success: boolean; message: string; model_status?: ModelReadinessStatus }>('/api/llm/proxy/test-model', {
+  async testLLMModel(provider: string, url: string, model: string, kind: string, apiKey?: string, slot?: string): Promise<{ success: boolean; message: string; model_status?: ModelReadinessStatus; warnings?: string[]; recommendations?: Record<string, any> }> {
+    return this.requestEnvelope<{ success: boolean; message: string; model_status?: ModelReadinessStatus; warnings?: string[]; recommendations?: Record<string, any> }>('/api/llm/proxy/test-model', {
       method: 'POST',
-      body: { provider, url, api_key: apiKey, model, kind },
+      body: { provider, url, api_key: apiKey, model, kind, slot },
     });
   }
 
@@ -748,6 +750,20 @@ export class CodragApiClient implements ApiClient {
 
   async cancelPipeline(projectId: string, group: string): Promise<{ cancelled: boolean; group: string }> {
     return this.requestEnvelope<{ cancelled: boolean; group: string }>(`/projects/${projectId}/pipeline/cancel`, {
+      method: 'POST',
+      body: { group },
+    });
+  }
+
+  async pausePipeline(projectId: string, group: string): Promise<{ paused: boolean; group: string }> {
+    return this.requestEnvelope<{ paused: boolean; group: string }>(`/projects/${projectId}/pipeline/pause`, {
+      method: 'POST',
+      body: { group },
+    });
+  }
+
+  async resumePipeline(projectId: string, group: string): Promise<{ resumed: boolean; group: string }> {
+    return this.requestEnvelope<{ resumed: boolean; group: string }>(`/projects/${projectId}/pipeline/resume`, {
       method: 'POST',
       body: { group },
     });

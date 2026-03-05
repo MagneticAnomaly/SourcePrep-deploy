@@ -7,8 +7,10 @@ import {
 
 // ── Dependencies ──────────────────────────────────────────────
 
+type ToastVariant = 'error' | 'warning' | 'info' | 'success'
+
 export interface UseEnrichmentDeps {
-  onError: (msg: string) => void
+  onError: (msg: string, variant?: ToastVariant) => void
   /** Pipeline SSE events keyed by project_id */
   pipelineEvents?: Record<string, PipelineStatus & { project_id: string }>
   /** Called when deep enrichment pipeline completes (e.g. to refresh atlas) */
@@ -100,7 +102,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       await api.runAugmentation(selectedProjectId)
     } catch (e) {
       dispatch({ type: 'STAGE_FAILED', stage: 'augmentation' })
-      onErrorRef.current(e instanceof Error ? e.message : 'Augmentation failed')
+      onErrorRef.current(e instanceof Error ? e.message : 'Fast Catalogue stage encountered an issue.', 'warning')
     }
   }, [api, selectedProjectId])
 
@@ -111,7 +113,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       await api.runEpistemic(selectedProjectId)
     } catch (e) {
       dispatch({ type: 'STAGE_FAILED', stage: 'epistemic' })
-      onErrorRef.current(e instanceof Error ? e.message : 'Epistemic enrichment failed')
+      onErrorRef.current(e instanceof Error ? e.message : 'Relationship Validation stage encountered an issue.', 'warning')
     }
   }, [api, selectedProjectId])
 
@@ -122,7 +124,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       await api.runModuleSynthesis(selectedProjectId)
     } catch (e) {
       dispatch({ type: 'STAGE_FAILED', stage: 'modules' })
-      onErrorRef.current(e instanceof Error ? e.message : 'Module synthesis failed')
+      onErrorRef.current(e instanceof Error ? e.message : 'Module Synthesis stage encountered an issue.', 'warning')
     }
   }, [api, selectedProjectId])
 
@@ -133,7 +135,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       await api.runDeepening(selectedProjectId)
     } catch (e) {
       dispatch({ type: 'STAGE_FAILED', stage: 'deepening' })
-      onErrorRef.current(e instanceof Error ? e.message : 'Deepening loop failed')
+      onErrorRef.current(e instanceof Error ? e.message : 'Deep Reasoning stage encountered an issue.', 'warning')
     }
   }, [api, selectedProjectId])
 
@@ -144,7 +146,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       await api.runKnowledgeBuild(selectedProjectId)
     } catch (e) {
       dispatch({ type: 'STAGE_FAILED', stage: 'knowledge' })
-      onErrorRef.current(e instanceof Error ? e.message : 'Knowledge build failed')
+      onErrorRef.current(e instanceof Error ? e.message : 'Knowledge Embedding stage encountered an issue.', 'warning')
     }
   }, [api, selectedProjectId])
 
@@ -155,7 +157,25 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       await api.runPipelineDeep(selectedProjectId)
     } catch (e) {
       dispatch({ type: 'STAGE_FAILED', stage: 'deep_enrichment' })
-      onErrorRef.current(e instanceof Error ? e.message : 'Deep enrichment failed')
+      onErrorRef.current(e instanceof Error ? e.message : 'Deep Enrichment pipeline encountered an issue. Check AI Gateway for model availability.', 'warning')
+    }
+  }, [api, selectedProjectId])
+
+  const handlePausePipeline = useCallback(async (group: 'fast_sync' | 'deep_enrichment') => {
+    if (!selectedProjectId) return
+    try {
+      await api.pausePipeline(selectedProjectId, group)
+    } catch (e) {
+      onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t pause pipeline.', 'warning')
+    }
+  }, [api, selectedProjectId])
+
+  const handleResumePipeline = useCallback(async (group: 'fast_sync' | 'deep_enrichment') => {
+    if (!selectedProjectId) return
+    try {
+      await api.resumePipeline(selectedProjectId, group)
+    } catch (e) {
+      onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t resume pipeline.', 'warning')
     }
   }, [api, selectedProjectId])
 
@@ -250,6 +270,13 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       deepeningRunning: deepRunning && (deep?.current_stage === 'deepening' || false),
       fastKnowledgeBuilding: fastRunning && (fast?.current_stage === 'knowledge' || false),
       deepKnowledgeBuilding: deepRunning && (deep?.current_stage === 'deep_knowledge' || false),
+    })
+
+    // Sync paused flags — backend marks paused runs as failed with error 'Paused by user'
+    dispatch({
+      type: 'SYNC_PAUSED',
+      fastPaused: fast?.phase === 'failed' && fast?.error === 'Paused by user',
+      deepPaused: deep?.phase === 'failed' && deep?.error === 'Paused by user',
     })
 
     // ── Detect transitions for status refresh ──
@@ -363,6 +390,8 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     handleRunDeepening,
     handleRunKnowledgeBuild,
     handleRunDeepEnrichment,
+    handlePausePipeline,
+    handleResumePipeline,
     // Fetch (for external callers that need manual refresh)
     fetchAugmentationStatus,
     fetchEpistemicStatus,

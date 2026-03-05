@@ -57,7 +57,7 @@ class BatchedResponseParser:
             if some items failed to parse.
         """
         # Strip think tags before any parsing (Qwen3, DeepSeek-R1, etc.)
-        from .augmenter import _strip_think_tags
+        from .llm_client import _strip_think_tags
         text = _strip_think_tags(response_text)
         text = text.strip()
         if not text:

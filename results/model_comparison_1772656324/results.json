@@ -1,0 +1,902 @@
+{
+  "report": {
+    "repo": "mini-redis-rust",
+    "models": {
+      "qwen3-14b": {
+        "augment": {
+          "speed": {
+            "total_time_s": 182.5,
+            "avg_time_per_file_s": 18.2,
+            "median_time_s": 16.6,
+            "p95_time_s": 34.6,
+            "avg_tokens_per_sec": 22.9
+          },
+          "quality": {
+            "total_files": 10,
+            "json_parse_rate": 0.9,
+            "avg_confidence": 0.861111111111111,
+            "confidence_stdev": 0.033333333333333326,
+            "role_distribution": {
+              "utility": 5,
+              "script": 3,
+              "documentation": 1
+            },
+            "avg_summary_length": 94.44444444444444,
+            "errors": [
+              "JSON parse failed"
+            ]
+          }
+        },
+        "epistemic": {
+          "speed": {
+            "total_time_s": 82.3,
+            "avg_time_per_file_s": 8.2,
+            "median_time_s": 7.6,
+            "p95_time_s": 12.3,
+            "avg_tokens_per_sec": 18.2
+          },
+          "quality": {
+            "total_files": 10,
+            "json_parse_rate": 1.0,
+            "avg_confidence": 0.85,
+            "confidence_stdev": 0.0,
+            "layer_distribution": {
+              "infrastructure": 5,
+              "presentation": 2,
+              "business_logic": 2,
+              "testing": 1
+            },
+            "unique_domain_tags": 25,
+            "top_domain_tags": {
+              "redis": 8,
+              "example": 3,
+              "async": 2,
+              "client-server": 2,
+              "message-queue": 2,
+              "asynchronous-io": 2,
+              "command-line-interface": 2,
+              "networking": 2,
+              "chat": 1,
+              "tokio": 1,
+              "async-io": 1,
+              "client-library": 1,
+              "cli": 1,
+              "logging": 1,
+              "tracing": 1,
+              "synchronous-io": 1,
+              "client-implementation": 1,
+              "asynchronous": 1,
+              "message-passing": 1,
+              "concurrency": 1,
+              "client": 1,
+              "clients": 1,
+              "modularization": 1,
+              "Rust modules": 1,
+              "abstraction": 1
+            },
+            "avg_summary_length": 335,
+            "errors": []
+          }
+        }
+      },
+      "qwen3.5-27b": {
+        "augment": {
+          "speed": {
+            "total_time_s": 676.8,
+            "avg_time_per_file_s": 67.7,
+            "median_time_s": 67.3,
+            "p95_time_s": 71.9,
+            "avg_tokens_per_sec": 15.2
+          },
+          "quality": {
+            "total_files": 10,
+            "json_parse_rate": 0.1,
+            "avg_confidence": 0.95,
+            "confidence_stdev": 0,
+            "role_distribution": {
+              "script": 1
+            },
+            "avg_summary_length": 72,
+            "errors": [
+              "JSON parse failed",
+              "JSON parse failed",
+              "JSON parse failed",
+              "JSON parse failed",
+              "JSON parse failed",
+              "JSON parse failed",
+              "JSON parse failed",
+              "JSON parse failed",
+              "JSON parse failed"
+            ]
+          }
+        },
+        "epistemic": {
+          "speed": {
+            "total_time_s": 1237.7,
+            "avg_time_per_file_s": 123.8,
+            "median_time_s": 126.5,
+            "p95_time_s": 139.8,
+            "avg_tokens_per_sec": 15.6
+          },
+          "quality": {
+            "total_files": 10,
+            "json_parse_rate": 0.7,
+            "avg_confidence": 0.92,
+            "confidence_stdev": 0.03651483716701106,
+            "layer_distribution": {
+              "documentation": 4,
+              "infrastructure": 2,
+              "presentation": 1
+            },
+            "unique_domain_tags": 19,
+            "top_domain_tags": {
+              "redis": 4,
+              "networking": 3,
+              "async": 2,
+              "example": 2,
+              "async-rust": 2,
+              "chat": 1,
+              "tokio": 1,
+              "client": 1,
+              "messaging": 1,
+              "client-api": 1,
+              "pubsub": 1,
+              "client-example": 1,
+              "cli": 1,
+              "redis-protocol": 1,
+              "async-io": 1,
+              "client-library": 1,
+              "synchronization": 1,
+              "communication": 1,
+              "abstraction": 1
+            },
+            "avg_summary_length": 418.7142857142857,
+            "errors": [
+              "JSON parse failed",
+              "JSON parse failed",
+              "JSON parse failed"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "raw": {
+    "qwen3-14b": {
+      "augment": [
+        {
+          "file_path": "examples/chat.rs",
+          "task": "augment",
+          "model": "qwen3-14b",
+          "wall_time_s": 14.932996417046525,
+          "prompt_tokens": 194,
+          "completion_tokens": 436,
+          "tokens_per_sec": 29.197087297382,
+          "json_parsed": true,
+          "confidence": 0.85,
+          "summary": "Provides an example chat application demonstrating async functionality with Tokio.",
+          "role": "script",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": ""
+        },
+        {
+          "file_path": "examples/hello_world.rs",
+          "task": "augment",
+          "model": "qwen3-14b",
+          "wall_time_s": 34.603123584063724,
+          "prompt_tokens": 405,
+          "completion_tokens": 1023,
+          "tokens_per_sec": 29.563805056926622,
+          "json_parsed": false,
+          "confidence": 0.0,
+          "summary": "",
+          "role": "",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": "JSON parse failed"
+        },
+        {
+          "file_path": "examples/pub.rs",
+          "task": "augment",
+          "model": "qwen3-14b",
+          "wall_time_s": 25.03286112495698,
+          "prompt_tokens": 377,
+          "completion_tokens": 733,
+          "tokens_per_sec": 29.281511064239552,
+          "json_parsed": true,
+          "confidence": 0.85,
+          "summary": "Publishes a message to a Redis channel using mini-redis client.",
+          "role": "script",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": ""
+        },
+        {
+          "file_path": "examples/sub.rs",
+          "task": "augment",
+          "model": "qwen3-14b",
+          "wall_time_s": 32.3965922499774,
+          "prompt_tokens": 436,
+          "completion_tokens": 952,
+          "tokens_per_sec": 29.385806774188236,
+          "json_parsed": true,
+          "confidence": 0.95,
+          "summary": "This file demonstrates how to subscribe to Redis channels using the mini-redis client library.",
+          "role": "documentation",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": ""
+        },
+        {
+          "file_path": "src/bin/cli.rs",
+          "task": "augment",
+          "model": "qwen3-14b",
+          "wall_time_s": 7.457335417042486,
+          "prompt_tokens": 954,
+          "completion_tokens": 106,
+          "tokens_per_sec": 14.214192345131053,
+          "json_parsed": true,
+          "confidence": 0.85,
+          "summary": "This file implements a command-line interface (CLI) tool for interacting with a Redis server using the mini-redis crate.",
+          "role": "utility",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": ""
+        },
+        {
+          "file_path": "src/bin/server.rs",
+          "task": "augment",
+          "model": "qwen3-14b",
+          "wall_time_s": 7.666398458997719,
+          "prompt_tokens": 1050,
+          "completion_tokens": 101,
+          "tokens_per_sec": 13.17437393062458,
+          "json_parsed": true,
+          "confidence": 0.85,
+          "summary": "This file serves as the entry point for starting the mini-redis server, handling command line arguments and initializing logging.",
+          "role": "script",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": ""
+        },
+        {
+          "file_path": "src/clients/blocking_client.rs",
+          "task": "augment",
+          "model": "qwen3-14b",
+          "wall_time_s": 7.777079749968834,
+          "prompt_tokens": 1121,
+          "completion_tokens": 95,
+          "tokens_per_sec": 12.21538200124291,
+          "json_parsed": true,
+          "confidence": 0.85,
+          "summary": "Provides a blocking Redis client implementation for synchronous operations on a Redis server.",
+          "role": "utility",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": ""
+        },
+        {
+          "file_path": "src/clients/buffered_client.rs",
+          "task": "augment",
+          "model": "qwen3-14b",
+          "wall_time_s": 19.410497459000908,
+          "prompt_tokens": 1290,
+          "completion_tokens": 432,
+          "tokens_per_sec": 22.25599837987026,
+          "json_parsed": true,
+          "confidence": 0.85,
+          "summary": "Provides a buffered client for asynchronous Redis command execution with message passing.",
+          "role": "utility",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": ""
+        },
+        {
+          "file_path": "src/clients/client.rs",
+          "task": "augment",
+          "model": "qwen3-14b",
+          "wall_time_s": 15.345551833044738,
+          "prompt_tokens": 1261,
+          "completion_tokens": 312,
+          "tokens_per_sec": 20.33162465543577,
+          "json_parsed": true,
+          "confidence": 0.85,
+          "summary": "Provides an async Redis client for connecting to a server and issuing commands.",
+          "role": "utility",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": ""
+        },
+        {
+          "file_path": "src/clients/mod.rs",
+          "task": "augment",
+          "model": "qwen3-14b",
+          "wall_time_s": 17.875147499958985,
+          "prompt_tokens": 227,
+          "completion_tokens": 533,
+          "tokens_per_sec": 29.817935768150893,
+          "json_parsed": true,
+          "confidence": 0.85,
+          "summary": "This file serves as a central module for importing and re-exporting different client implementations.",
+          "role": "utility",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": ""
+        }
+      ],
+      "epistemic": [
+        {
+          "file_path": "examples/chat.rs",
+          "task": "epistemic",
+          "model": "qwen3-14b",
+          "wall_time_s": 5.079086875077337,
+          "prompt_tokens": 263,
+          "completion_tokens": 117,
+          "tokens_per_sec": 23.03563669566461,
+          "json_parsed": true,
+          "confidence": 0.85,
+          "summary": "This file serves as an example chat application demonstrating the use of asynchronous functionality with Tokio in Rust. It provides a template or starting point for building chat applications using async/await, though the actual implementation is currently unimplemented.",
+          "role": "",
+          "domain_tags": [
+            "chat",
+            "async",
+            "tokio",
+            "example"
+          ],
+          "architecture_layer": "presentation",
+          "error": ""
+        },
+        {
+          "file_path": "examples/hello_world.rs",
+          "task": "epistemic",
+          "model": "qwen3-14b",
+          "wall_time_s": 6.3539620420197025,
+          "prompt_tokens": 460,
+          "completion_tokens": 137,
+          "tokens_per_sec": 21.56135008267259,
+          "json_parsed": true,
+          "confidence": 0.85,
+          "summary": "This file demonstrates a simple client-server interaction with a mini-Redis server. It connects to the server, sets a key-value pair ('hello' -> 'world'), retrieves the value, and prints whether the retrieval was successful. This example is significant as it showcases basic usage of the mini-Redis client library in Rust.",
+          "role": "",
+          "domain_tags": [
+            "redis",
+            "client-server",
+            "async-io",
+            "example"
+          ],
+          "architecture_layer": "testing",
+          "error": ""
+        },
+        {
+          "file_path": "examples/pub.rs",
+          "task": "epistemic",
+          "model": "qwen3-14b",
+          "wall_time_s": 6.047061707940884,
+          "prompt_tokens": 441,
+          "completion_tokens": 134,
+          "tokens_per_sec": 22.159522503968134,
+          "json_parsed": true,
+          "confidence": 0.85,
+          "summary": "This file demonstrates how to publish a message to a Redis channel using the mini-redis client in Rust. It connects to a local mini-redis server, publishes a message on the 'foo' channel, and serves as an example of client-side Redis interaction within the codebase.",
+          "role": "",
+          "domain_tags": [
+            "redis",
+            "message-queue",
+            "client-server",
+            "example"
+          ],
+          "architecture_layer": "business_logic",
+          "error": ""
+        },
+        {
+          "file_path": "examples/sub.rs",
+          "task": "epistemic",
+          "model": "qwen3-14b",
+          "wall_time_s": 6.4878978750202805,
+          "prompt_tokens": 503,
+          "completion_tokens": 139,
+          "tokens_per_sec": 21.42450492865773,
+          "json_parsed": true,
+          "confidence": 0.85,
+          "summary": "This file provides an example of how to subscribe to Redis channels using the mini-redis client library in Rust. It demonstrates connecting to a Redis server, subscribing to specific channels, and receiving messages published on those channels. This example is useful for understanding how asynchronous Redis communication works in a Rust application.",
+          "role": "",
+          "domain_tags": [
+            "redis",
+            "asynchronous-io",
+            "client-library",
+            "message-queue"
+          ],
+          "architecture_layer": "business_logic",
+          "error": ""
+        },
+        {
+          "file_path": "src/bin/cli.rs",
+          "task": "epistemic",
+          "model": "qwen3-14b",
+          "wall_time_s": 9.90510791609995,
+          "prompt_tokens": 1178,
+          "completion_tokens": 155,
+          "tokens_per_sec": 15.648491799676412,
+          "json_parsed": true,
+          "confidence": 0.85,
+          "summary": "This file implements a command-line interface (CLI) tool for interacting with a Redis server using the mini-redis crate. It provides functionality to execute Redis commands such as PING, GET, SET, PUBLISH, and SUBSCRIBE through a user-friendly command-line interface. The tool uses the Tokio runtime for asynchronous operations and supports logging, connection handling, and parsing of command-line arguments.",
+          "role": "",
+          "domain_tags": [
+            "redis",
+            "cli",
+            "asynchronous-io",
+            "command-line-interface"
+          ],
+          "architecture_layer": "presentation",
+          "error": ""
+        },
+        {
+          "file_path": "src/bin/server.rs",
+          "task": "epistemic",
+          "model": "qwen3-14b",
+          "wall_time_s": 8.690664125024341,
+          "prompt_tokens": 1053,
+          "completion_tokens": 135,
+          "tokens_per_sec": 15.533910649161337,
+          "json_parsed": true,
+          "confidence": 0.85,
+          "summary": "This file serves as the entry point for starting the mini-redis server, handling command line arguments and initializing logging. It uses the `clap` crate for parsing arguments and initializes tracing and logging based on whether OpenTelemetry is enabled, providing support for distributed tracing with AWS X-Ray.",
+          "role": "",
+          "domain_tags": [
+            "redis",
+            "logging",
+            "tracing",
+            "command-line-interface"
+          ],
+          "architecture_layer": "infrastructure",
+          "error": ""
+        },
+        {
+          "file_path": "src/clients/blocking_client.rs",
+          "task": "epistemic",
+          "model": "qwen3-14b",
+          "wall_time_s": 12.347821166971698,
+          "prompt_tokens": 1811,
+          "completion_tokens": 149,
+          "tokens_per_sec": 12.066906216503153,
+          "json_parsed": true,
+          "confidence": 0.85,
+          "summary": "This file implements a blocking Redis client for synchronous operations, allowing direct interaction with a Redis server through a TcpStream. It wraps an asynchronous client and uses a Tokio current-thread runtime to execute operations in a blocking manner, providing methods for basic Redis commands like GET, SET, and PUBLISH. It also supports pub/sub mode through the BlockingSubscriber type.",
+          "role": "",
+          "domain_tags": [
+            "redis",
+            "networking",
+            "synchronous-io",
+            "client-implementation"
+          ],
+          "architecture_layer": "infrastructure",
+          "error": ""
+        },
+        {
+          "file_path": "src/clients/buffered_client.rs",
+          "task": "epistemic",
+          "model": "qwen3-14b",
+          "wall_time_s": 9.720893500023521,
+          "prompt_tokens": 1301,
+          "completion_tokens": 134,
+          "tokens_per_sec": 13.784741083695215,
+          "json_parsed": true,
+          "confidence": 0.85,
+          "summary": "This file implements a buffered client for asynchronous Redis command execution using message passing. It allows multiple tasks to send Redis commands through a channel, which are then processed by a dedicated task that interacts with the Redis connection. This design ensures safe concurrent access to the Redis client and avoids blocking operations.",
+          "role": "",
+          "domain_tags": [
+            "redis",
+            "asynchronous",
+            "message-passing",
+            "concurrency"
+          ],
+          "architecture_layer": "infrastructure",
+          "error": ""
+        },
+        {
+          "file_path": "src/clients/client.rs",
+          "task": "epistemic",
+          "model": "qwen3-14b",
+          "wall_time_s": 12.339223584043793,
+          "prompt_tokens": 1876,
+          "completion_tokens": 139,
+          "tokens_per_sec": 11.264890295021878,
+          "json_parsed": true,
+          "confidence": 0.85,
+          "summary": "This file implements an asynchronous Redis client in Rust, providing core functionality for connecting to a Redis server and issuing commands such as PING, GET, SET, and PUB/SUB. It encapsulates the Redis protocol handling within a `Connection` struct, ensuring clean separation of concerns and enabling interaction with Redis through a simple API.",
+          "role": "",
+          "domain_tags": [
+            "redis",
+            "networking",
+            "async",
+            "client"
+          ],
+          "architecture_layer": "infrastructure",
+          "error": ""
+        },
+        {
+          "file_path": "src/clients/mod.rs",
+          "task": "epistemic",
+          "model": "qwen3-14b",
+          "wall_time_s": 5.354907917091623,
+          "prompt_tokens": 291,
+          "completion_tokens": 134,
+          "tokens_per_sec": 25.02377297139006,
+          "json_parsed": true,
+          "confidence": 0.85,
+          "summary": "This file acts as a central module for organizing and re-exporting various client implementations, enabling modular access to different types of clients such as asynchronous, blocking, and buffered variants. It serves as a utility layer to streamline client usage across the codebase by providing a unified import interface.",
+          "role": "",
+          "domain_tags": [
+            "clients",
+            "modularization",
+            "Rust modules",
+            "abstraction"
+          ],
+          "architecture_layer": "infrastructure",
+          "error": ""
+        }
+      ]
+    },
+    "qwen3.5-27b": {
+      "augment": [
+        {
+          "file_path": "examples/chat.rs",
+          "task": "augment",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 63.42400358407758,
+          "prompt_tokens": 206,
+          "completion_tokens": 1023,
+          "tokens_per_sec": 16.129539956333208,
+          "json_parsed": true,
+          "confidence": 0.95,
+          "summary": "Executable example demonstrating chat functionality using tokio runtime.",
+          "role": "script",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": ""
+        },
+        {
+          "file_path": "examples/hello_world.rs",
+          "task": "augment",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 65.182398792007,
+          "prompt_tokens": 439,
+          "completion_tokens": 1023,
+          "tokens_per_sec": 15.694420870645304,
+          "json_parsed": false,
+          "confidence": 0.0,
+          "summary": "",
+          "role": "",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": "JSON parse failed"
+        },
+        {
+          "file_path": "examples/pub.rs",
+          "task": "augment",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 64.92793170805089,
+          "prompt_tokens": 408,
+          "completion_tokens": 1023,
+          "tokens_per_sec": 15.755930815722422,
+          "json_parsed": false,
+          "confidence": 0.0,
+          "summary": "",
+          "role": "",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": "JSON parse failed"
+        },
+        {
+          "file_path": "examples/sub.rs",
+          "task": "augment",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 65.30471150006633,
+          "prompt_tokens": 470,
+          "completion_tokens": 1023,
+          "tokens_per_sec": 15.665025945317298,
+          "json_parsed": false,
+          "confidence": 0.0,
+          "summary": "",
+          "role": "",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": "JSON parse failed"
+        },
+        {
+          "file_path": "src/bin/cli.rs",
+          "task": "augment",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 69.32978920801543,
+          "prompt_tokens": 1056,
+          "completion_tokens": 1023,
+          "tokens_per_sec": 14.75556195520248,
+          "json_parsed": false,
+          "confidence": 0.0,
+          "summary": "",
+          "role": "",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": "JSON parse failed"
+        },
+        {
+          "file_path": "src/bin/server.rs",
+          "task": "augment",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 70.09509104094468,
+          "prompt_tokens": 1125,
+          "completion_tokens": 1023,
+          "tokens_per_sec": 14.594459965854591,
+          "json_parsed": false,
+          "confidence": 0.0,
+          "summary": "",
+          "role": "",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": "JSON parse failed"
+        },
+        {
+          "file_path": "src/clients/blocking_client.rs",
+          "task": "augment",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 71.25798558397219,
+          "prompt_tokens": 1217,
+          "completion_tokens": 1023,
+          "tokens_per_sec": 14.356285707718628,
+          "json_parsed": false,
+          "confidence": 0.0,
+          "summary": "",
+          "role": "",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": "JSON parse failed"
+        },
+        {
+          "file_path": "src/clients/buffered_client.rs",
+          "task": "augment",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 71.91455962497275,
+          "prompt_tokens": 1376,
+          "completion_tokens": 1023,
+          "tokens_per_sec": 14.225213994702086,
+          "json_parsed": false,
+          "confidence": 0.0,
+          "summary": "",
+          "role": "",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": "JSON parse failed"
+        },
+        {
+          "file_path": "src/clients/client.rs",
+          "task": "augment",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 71.86586733395234,
+          "prompt_tokens": 1360,
+          "completion_tokens": 1023,
+          "tokens_per_sec": 14.234852203845781,
+          "json_parsed": false,
+          "confidence": 0.0,
+          "summary": "",
+          "role": "",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": "JSON parse failed"
+        },
+        {
+          "file_path": "src/clients/mod.rs",
+          "task": "augment",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 63.54073004203383,
+          "prompt_tokens": 242,
+          "completion_tokens": 1023,
+          "tokens_per_sec": 16.09990944899845,
+          "json_parsed": false,
+          "confidence": 0.0,
+          "summary": "",
+          "role": "",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": "JSON parse failed"
+        }
+      ],
+      "epistemic": [
+        {
+          "file_path": "examples/chat.rs",
+          "task": "epistemic",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 125.1181804999942,
+          "prompt_tokens": 279,
+          "completion_tokens": 2047,
+          "tokens_per_sec": 16.360532033153206,
+          "json_parsed": true,
+          "confidence": 0.85,
+          "summary": "This file serves as a placeholder executable example for demonstrating chat functionality within the project, utilizing the Tokio async runtime. Currently, it contains only a stub implementation with an unimplemented main function, indicating that the full chat logic is yet to be developed or integrated. It acts as a template for users to understand the expected entry point structure for asynchronous chat applications in this codebase.",
+          "role": "",
+          "domain_tags": [
+            "async",
+            "chat",
+            "tokio",
+            "example"
+          ],
+          "architecture_layer": "documentation",
+          "error": ""
+        },
+        {
+          "file_path": "examples/hello_world.rs",
+          "task": "epistemic",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 121.75698741700035,
+          "prompt_tokens": 499,
+          "completion_tokens": 1956,
+          "tokens_per_sec": 16.064786436452952,
+          "json_parsed": true,
+          "confidence": 0.95,
+          "summary": "This file serves as a runnable example demonstrating how to use the mini-redis client library. It establishes an asynchronous connection to a local server, performs set and get operations on a key-value pair, and verifies the result. Its significance lies in providing developers with a concrete usage pattern for integrating the client into their applications.",
+          "role": "",
+          "domain_tags": [
+            "redis",
+            "client",
+            "async",
+            "example"
+          ],
+          "architecture_layer": "documentation",
+          "error": ""
+        },
+        {
+          "file_path": "examples/pub.rs",
+          "task": "epistemic",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 106.90919179201592,
+          "prompt_tokens": 468,
+          "completion_tokens": 1713,
+          "tokens_per_sec": 16.022944063897867,
+          "json_parsed": true,
+          "confidence": 0.95,
+          "summary": "This file serves as a demonstration example for the mini-redis client library, specifically illustrating how to publish messages to a Redis channel. It establishes an asynchronous connection to the local server and sends a string payload on the 'foo' channel using the tokio runtime. Its significance lies in providing users with a concrete usage pattern for the client API within the mini-redis ecosystem.",
+          "role": "",
+          "domain_tags": [
+            "redis",
+            "messaging",
+            "async-rust",
+            "client-api"
+          ],
+          "architecture_layer": "documentation",
+          "error": ""
+        },
+        {
+          "file_path": "examples/sub.rs",
+          "task": "epistemic",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 103.89604987495113,
+          "prompt_tokens": 530,
+          "completion_tokens": 1655,
+          "tokens_per_sec": 15.92938328254011,
+          "json_parsed": true,
+          "confidence": 0.95,
+          "summary": "This file serves as an executable example demonstrating how to subscribe to Redis channels using the mini-redis client library. It establishes a connection to the local server, subscribes to specific channels, and asynchronously awaits incoming messages for display. Its significance lies in providing practical usage documentation for developers learning the pub/sub implementation within this async Rust project.",
+          "role": "",
+          "domain_tags": [
+            "redis",
+            "pubsub",
+            "async-rust",
+            "client-example"
+          ],
+          "architecture_layer": "documentation",
+          "error": ""
+        },
+        {
+          "file_path": "src/bin/cli.rs",
+          "task": "epistemic",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 127.8218141249381,
+          "prompt_tokens": 1295,
+          "completion_tokens": 1964,
+          "tokens_per_sec": 15.3651394595316,
+          "json_parsed": true,
+          "confidence": 0.92,
+          "summary": "This file implements the command-line interface (CLI) client for the mini-redis system, allowing users to interact with the server via standard Redis commands. It utilizes clap for argument parsing and tokio for asynchronous network communication, establishing a connection to the server based on provided host and port arguments. The significance lies in providing a direct, human-readable interface for testing and operating the mini-redis server without requiring external tools.",
+          "role": "",
+          "domain_tags": [
+            "cli",
+            "networking",
+            "redis-protocol",
+            "async-io"
+          ],
+          "architecture_layer": "presentation",
+          "error": ""
+        },
+        {
+          "file_path": "src/bin/server.rs",
+          "task": "epistemic",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 132.60077558399644,
+          "prompt_tokens": 1116,
+          "completion_tokens": 2047,
+          "tokens_per_sec": 15.437315437897423,
+          "json_parsed": false,
+          "confidence": 0.0,
+          "summary": "",
+          "role": "",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": "JSON parse failed"
+        },
+        {
+          "file_path": "src/clients/blocking_client.rs",
+          "task": "epistemic",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 138.45325499994215,
+          "prompt_tokens": 1968,
+          "completion_tokens": 2047,
+          "tokens_per_sec": 14.784773387963002,
+          "json_parsed": true,
+          "confidence": 0.9,
+          "summary": "This file implements a synchronous wrapper around an asynchronous Redis client using Tokio's runtime. It provides blocking methods for common Redis operations like get, set, and publish by executing async calls within a dedicated current-thread runtime. This abstraction allows developers to interact with the mini-redis server using standard blocking I/O patterns without managing async lifecycles directly.",
+          "role": "",
+          "domain_tags": [
+            "redis",
+            "networking",
+            "client-library",
+            "synchronization"
+          ],
+          "architecture_layer": "infrastructure",
+          "error": ""
+        },
+        {
+          "file_path": "src/clients/buffered_client.rs",
+          "task": "epistemic",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 134.23960887501016,
+          "prompt_tokens": 1384,
+          "completion_tokens": 2047,
+          "tokens_per_sec": 15.248852534321308,
+          "json_parsed": false,
+          "confidence": 0.0,
+          "summary": "",
+          "role": "",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": "JSON parse failed"
+        },
+        {
+          "file_path": "src/clients/client.rs",
+          "task": "epistemic",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 139.81164137506858,
+          "prompt_tokens": 2033,
+          "completion_tokens": 2047,
+          "tokens_per_sec": 14.641127018232861,
+          "json_parsed": false,
+          "confidence": 0.0,
+          "summary": "",
+          "role": "",
+          "domain_tags": [],
+          "architecture_layer": "",
+          "error": "JSON parse failed"
+        },
+        {
+          "file_path": "src/clients/mod.rs",
+          "task": "epistemic",
+          "model": "qwen3.5-27b",
+          "wall_time_s": 107.0640089160297,
+          "prompt_tokens": 298,
+          "completion_tokens": 1735,
+          "tokens_per_sec": 16.205259055456818,
+          "json_parsed": true,
+          "confidence": 0.92,
+          "summary": "This module acts as a central aggregation point for the clients subsystem, re-exporting core types like Client and Message from internal implementations. It exposes different client variants such as BlockingClient and BufferedClient to provide varied communication patterns for the application. By consolidating these exports, it simplifies dependency management and maintains a clean public API for external interaction.",
+          "role": "",
+          "domain_tags": [
+            "communication",
+            "networking",
+            "abstraction"
+          ],
+          "architecture_layer": "infrastructure",
+          "error": ""
+        }
+      ]
+    }
+  }
+}

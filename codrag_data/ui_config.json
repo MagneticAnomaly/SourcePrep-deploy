@@ -122,6 +122,7 @@
   ],
   "max_file_bytes": 400000,
   "hard_limit_bytes": 100000000,
+  "max_active_projects": 3,
   "trace": {
     "enabled": false
   },
@@ -130,6 +131,7 @@
     "debounce_ms": 5000
   },
   "llm_config": {
+    "assignment_mode": "structured",
     "saved_endpoints": [
       {
         "id": "default_ollama",
@@ -154,17 +156,20 @@
     "small_model": {
       "enabled": true,
       "endpoint_id": "ep_1772383175014_efdea339349a78",
-      "model": "qwen3-4b-instruct-2507-mlx"
+      "model": "qwen3.5-4b-mxfp8-mlx",
+      "always_on": false
     },
     "large_model": {
       "enabled": true,
       "endpoint_id": "ep_1772383175014_efdea339349a78",
-      "model": "qwen/qwen3-14b"
+      "model": "qwen3.5-27b-mxfp8",
+      "always_on": false
     },
     "code_model": {
       "enabled": true,
       "endpoint_id": "default_ollama",
-      "model": "deepseek-coder:6.7b"
+      "model": "deepseek-coder:6.7b",
+      "always_on": false
     },
     "compression": {
       "enabled": true,
@@ -173,6 +178,30 @@
       "lingua_downloaded": true
     },
     "batch_mode": "off",
+    "assignment_blocks": [
+      {
+        "id": "block-1772460953477",
+        "endpoint_id": "ep_1772383175014_efdea339349a78",
+        "model": "lmstudio-community/qwen3-coder-next-mlx",
+        "tasks": [
+          "inferred_edges"
+        ],
+        "enable_reasoning": false,
+        "always_on": true
+      },
+      {
+        "id": "block-1772465348966",
+        "endpoint_id": "ep_1772383175014_efdea339349a78",
+        "model": "qwen3.5-4b-mxfp8-mlx",
+        "tasks": [
+          "catalogue",
+          "search_intent",
+          "augmentation"
+        ],
+        "always_on": true,
+        "enable_reasoning": false
+      }
+    ],
     "clara": {
       "enabled": true,
       "source": "endpoint",
@@ -183,7 +212,7 @@
     "test_persist": true
   },
   "deep_analysis": {
-    "mode": "auto",
+    "mode": "manual",
     "threshold_percent": 20,
     "frequency": "daily",
     "day_of_week": 0,
@@ -209,7 +238,7 @@
       "auto": true
     },
     "deep_enrichment": {
-      "mode": "auto",
+      "mode": "manual",
       "schedule": {
         "frequency": "daily",
         "day_of_week": 0,
@@ -249,7 +278,7 @@
       {
         "id": "usage-guide",
         "visible": true,
-        "height": 19,
+        "height": 20,
         "collapsed": true,
         "x": 4,
         "y": 0,
@@ -312,19 +341,10 @@
       {
         "id": "log-console",
         "visible": true,
-        "height": 11,
-        "collapsed": true,
-        "x": 4,
-        "y": 20,
-        "w": 8
-      },
-      {
-        "id": "audit",
-        "visible": true,
-        "height": 21,
+        "height": 13,
         "collapsed": false,
         "x": 4,
-        "y": 22,
+        "y": 20,
         "w": 8
       },
       {
@@ -337,29 +357,20 @@
         "w": 4
       },
       {
+        "id": "audit",
+        "visible": true,
+        "height": 21,
+        "collapsed": false,
+        "x": 4,
+        "y": 33,
+        "w": 8
+      },
+      {
         "id": "context-options",
         "visible": true,
         "height": 7,
         "collapsed": true,
         "x": 0,
-        "y": 43,
-        "w": 4
-      },
-      {
-        "id": "token-budget",
-        "visible": true,
-        "height": 6,
-        "collapsed": true,
-        "x": 4,
-        "y": 43,
-        "w": 4
-      },
-      {
-        "id": "deep-analysis",
-        "visible": true,
-        "height": 12,
-        "collapsed": true,
-        "x": 8,
         "y": 43,
         "w": 4
       },
@@ -373,12 +384,30 @@
         "w": 4
       },
       {
+        "id": "token-budget",
+        "visible": true,
+        "height": 6,
+        "collapsed": true,
+        "x": 4,
+        "y": 54,
+        "w": 4
+      },
+      {
+        "id": "deep-analysis",
+        "visible": true,
+        "height": 12,
+        "collapsed": true,
+        "x": 8,
+        "y": 54,
+        "w": 4
+      },
+      {
         "id": "search",
         "visible": true,
         "height": 8,
         "collapsed": true,
         "x": 4,
-        "y": 45,
+        "y": 56,
         "w": 4
       },
       {
@@ -387,7 +416,7 @@
         "height": 9,
         "collapsed": true,
         "x": 8,
-        "y": 45,
+        "y": 56,
         "w": 4
       },
       {
@@ -396,7 +425,7 @@
         "height": 8,
         "collapsed": false,
         "x": 4,
-        "y": 47,
+        "y": 58,
         "w": 8
       },
       {
