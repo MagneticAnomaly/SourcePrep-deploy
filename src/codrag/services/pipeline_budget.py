@@ -225,6 +225,16 @@ class ScheduleEvaluator:
         now = time.time()
         for project in projects:
             pid = project.id
+
+            # Skip inactive / frozen / locked projects
+            try:
+                from codrag.services.project_helpers import get_project_activity_status
+                status = get_project_activity_status(pid)
+                if status != "active":
+                    continue
+            except Exception:
+                continue
+
             should_run = False
             reason = ""
 

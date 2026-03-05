@@ -272,11 +272,12 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       deepKnowledgeBuilding: deepRunning && (deep?.current_stage === 'deep_knowledge' || false),
     })
 
-    // Sync paused flags — backend marks paused runs as failed with error 'Paused by user'
+    // Sync paused flags — state machine uses proper 'paused' phase;
+    // also check legacy 'failed' + 'Paused by user' for backward compat
     dispatch({
       type: 'SYNC_PAUSED',
-      fastPaused: fast?.phase === 'failed' && fast?.error === 'Paused by user',
-      deepPaused: deep?.phase === 'failed' && deep?.error === 'Paused by user',
+      fastPaused: fast?.phase === 'paused' || (fast?.phase === 'failed' && fast?.error === 'Paused by user'),
+      deepPaused: deep?.phase === 'paused' || (deep?.phase === 'failed' && deep?.error === 'Paused by user'),
     })
 
     // ── Detect transitions for status refresh ──

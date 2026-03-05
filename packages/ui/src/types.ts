@@ -875,7 +875,7 @@ export interface ProjectStatus {
 export interface PipelineGroupRun {
   project_id: string;
   group: string;
-  phase: 'idle' | 'running' | 'completed' | 'failed';
+  phase: 'idle' | 'running' | 'pausing' | 'paused' | 'cancelling' | 'cancelled' | 'completed' | 'failed' | 'recovering';
   current_stage: string | null;
   current_stage_index: number;
   total_stages: number;

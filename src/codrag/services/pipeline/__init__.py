@@ -18,6 +18,12 @@ from .workers import (
     PipelineRun,
     WorkerFactory,
 )
+from .state_machine import (
+    PipelineGroupStateMachine,
+    PipelineState,
+    Event,
+    ActiveProjectGuard,
+)
 from .orchestrator import (
     PipelineOrchestrator,
     pipeline_orchestrator,
@@ -33,6 +39,10 @@ __all__ = [
     "PipelineRunPhase",
     "PipelineRun",
     "WorkerFactory",
+    "PipelineGroupStateMachine",
+    "PipelineState",
+    "Event",
+    "ActiveProjectGuard",
     "PipelineOrchestrator",
     "pipeline_orchestrator",
 ]

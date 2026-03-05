@@ -270,6 +270,17 @@ class ScopeOrchestrator:
 
     def _start_build(self, project_id: str) -> None:
         """Start the actual rebuild in a background thread."""
+        # Skip rebuilds for inactive / frozen / locked projects
+        try:
+            from codrag.services.project_helpers import get_project_activity_status
+            if get_project_activity_status(project_id) != "active":
+                logger.info("Scope rebuild skipped for %s — project not active", project_id)
+                with self._lock:
+                    self._states[project_id] = ScopeState.STALE
+                return
+        except Exception:
+            pass
+
         with self._lock:
             change = self._pending.pop(project_id, None)
             if change is None or change.is_empty:

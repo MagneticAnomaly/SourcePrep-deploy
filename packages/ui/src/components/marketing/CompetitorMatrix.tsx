@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import { Check, X, Minus, ArrowRight, Info } from 'lucide-react';
 
 export interface CompetitorMatrixProps {
@@ -48,7 +48,7 @@ interface FeatureRow {
 
 const matrixData: FeatureRow[] = [
   {
-    category: 'Architecture & Parsing',
+    category: 'Architecture',
     features: [
       {
         id: 'graph',
@@ -584,7 +584,7 @@ const StatusIcon = ({ status, className = '' }: { status: Status; className?: st
   if (status === 'full') return <Check className={`w-4 h-4 text-primary ${className}`} strokeWidth={3} />;
   if (status === 'partial') return <Minus className={`w-4 h-4 text-text-muted ${className}`} strokeWidth={2} />;
   return <X className={`w-4 h-4 text-border-subtle ${className}`} strokeWidth={2} />;
-};
+}; 
 
 // ── Main Component ─────────────────────────────────────────
 export function CompetitorMatrix({ className = '' }: CompetitorMatrixProps) {
@@ -592,6 +592,8 @@ export function CompetitorMatrix({ className = '' }: CompetitorMatrixProps) {
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const tooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const leftTableRef = useRef<HTMLTableElement>(null);
+  const rightTableRef = useRef<HTMLTableElement>(null);
 
   const checkScroll = () => {
     if (scrollRef.current) {
@@ -627,6 +629,31 @@ export function CompetitorMatrix({ className = '' }: CompetitorMatrixProps) {
       scrollRef.current.scrollBy({ left: 300, behavior: 'smooth' });
     }
   };
+
+  const syncRowHeights = useCallback(() => {
+    if (!leftTableRef.current || !rightTableRef.current) return;
+    const leftRows = Array.from(leftTableRef.current.querySelectorAll('tr'));
+    const rightRows = Array.from(rightTableRef.current.querySelectorAll('tr'));
+    leftRows.forEach(r => { (r as HTMLElement).style.height = ''; });
+    rightRows.forEach(r => { (r as HTMLElement).style.height = ''; });
+    const len = Math.min(leftRows.length, rightRows.length);
+    for (let idx = 0; idx < len; idx++) {
+      const lh = leftRows[idx].getBoundingClientRect().height;
+      const rh = rightRows[idx].getBoundingClientRect().height;
+      const maxH = Math.max(lh, rh);
+      (leftRows[idx] as HTMLElement).style.height = maxH + 'px';
+      (rightRows[idx] as HTMLElement).style.height = maxH + 'px';
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    syncRowHeights();
+  }, [syncRowHeights]);
+
+  useEffect(() => {
+    window.addEventListener('resize', syncRowHeights);
+    return () => window.removeEventListener('resize', syncRowHeights);
+  }, [syncRowHeights]);
 
   const showTooltip = useCallback((e: React.MouseEvent, content: string, featureName: string, toolName: string) => {
     if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
@@ -670,87 +697,117 @@ export function CompetitorMatrix({ className = '' }: CompetitorMatrixProps) {
           </div>
         )}
 
-        <div className="relative w-full rounded-xl border border-border bg-background shadow-xl overflow-hidden">
-          {canScrollRight && (
-            <div className="absolute top-0 right-0 bottom-0 w-32 bg-gradient-to-l from-background to-transparent z-40 pointer-events-none" />
-          )}
-
-          <div ref={scrollRef} onScroll={checkScroll} className="overflow-x-auto w-full custom-scrollbar pb-2">
-            <table className="w-max text-sm border-separate border-spacing-0 text-left">
+        <div className="flex w-full rounded-xl border border-border bg-background shadow-xl overflow-hidden">
+          {/* Fixed left columns: Category | Feature | CoDRAG */}
+          <div className="flex-none relative z-10 border-r border-primary/30">
+            <table ref={leftTableRef} className="text-sm border-separate border-spacing-0 text-left">
               <thead>
                 <tr>
-                  <th className="sticky top-0 left-0 z-[60] w-[180px] min-w-[180px] bg-background border-b border-r border-border p-3 align-bottom">
-                    <div className="text-xs font-bold uppercase tracking-widest text-text-subtle">Feature Comparison</div>
-                    <div className="text-[10px] text-text-muted mt-1">Hover any cell for details</div>
+                  <th className="w-[40px] min-w-[40px] bg-[#0c1222] border-b border-r border-border p-2"></th>
+                  <th className="w-[150px] min-w-[150px] bg-background border-b p-3 align-bottom">
+                    <div className="text-xs font-bold uppercase tracking-widest text-text-subtle whitespace-nowrap">Feature Comparison</div>
+                   
                   </th>
-                  <th className="sticky top-0 left-[180px] z-[60] w-[150px] min-w-[150px] bg-[#0c1222] border-b border-r border-primary/30 p-3 text-center align-bottom shadow-[8px_0_15px_-4px_rgba(0,0,0,0.3)]">
+                  <th className="w-[130px] min-w-[130px] bg-[#0c1222] border-b border-l border-primary/30 p-3 text-center align-bottom">
                     <div className="inline-flex items-center justify-center px-3 py-1 rounded-lg bg-primary border border-primary-hover text-background font-bold text-base mb-1 shadow-lg shadow-primary/20">CoDRAG</div>
                     <div className="text-[9px] font-bold text-primary uppercase tracking-wider">Continuous Graph RAG</div>
                   </th>
-                  {competitors.map((comp) => (
-                    <th key={comp.id} className="sticky top-0 z-50 w-[130px] min-w-[130px] bg-background border-b border-r border-border-subtle p-3 text-center align-bottom">
-                      <div className="font-bold text-text mb-1">{comp.name}</div>
-                      <div className="text-[10px] text-text-muted uppercase tracking-wider">{comp.category}</div>
-                    </th>
-                  ))}
                 </tr>
               </thead>
               <tbody>
                 {matrixData.map((category, catIdx) => (
                   <React.Fragment key={catIdx}>
-                    <tr>
-                      <td className="sticky left-0 z-40 bg-surface border-b border-r border-border px-3 py-2 font-bold text-text text-xs uppercase tracking-wider">{category.category}</td>
-                      <td className="sticky left-[180px] z-40 bg-[#0c1222] border-b border-r border-primary/30 shadow-[8px_0_15px_-4px_rgba(0,0,0,0.3)]" />
-                      {competitors.map((comp) => (
-                        <td key={comp.id} className="bg-surface border-b border-r border-border-subtle" />
-                      ))}
-                    </tr>
-                    {category.features.map((feature) => (
-                      <tr key={feature.id} className="group">
-                        <td className="sticky left-0 z-40 bg-background group-hover:bg-surface border-b border-r border-border p-3 align-top transition-colors duration-150">
-                          <div className="font-semibold text-text mb-1 text-[13px]">{feature.name}</div>
+                    {category.features.map((feature, featIdx) => (
+                      <tr key={feature.id}>
+                        {featIdx === 0 && (
+                          <td
+                            rowSpan={category.features.length}
+                            className="bg-[#0c1222] border-b border-r border-border p-2 align-middle"
+                          >
+                            <div className="flex items-center justify-center h-full">
+                              <span
+                                className="font-bold text-text-subtle text-xs uppercase tracking-[0.2em] whitespace-nowrap -rotate-180 pt-[4px]"
+                                style={{ writingMode: 'vertical-rl' }}
+                              >
+                                {category.category}
+                              </span>
+                            </div>
+                          </td>
+                        )}
+                        <td className="bg-background border-b p-3 align-top">
+                          <div className="font-semibold text-text mb-1 text-[13px] whitespace-nowrap">{feature.name}</div>
                           <div className="text-[11px] text-text-muted leading-relaxed">{feature.description}</div>
                         </td>
-                        <td
-                          className="sticky left-[180px] z-40 bg-[#0c1222] group-hover:bg-[#11192e] border-b border-r border-primary/30 text-center shadow-[8px_0_15px_-4px_rgba(0,0,0,0.3)] p-3 align-top transition-colors duration-150 cursor-help"
+                        <td className="bg-[#0c1222] border-b border-l border-primary/30 p-3 text-center align-top cursor-help"
                           onMouseEnter={(e) => showTooltip(e, feature.codrag.detail, feature.name, 'CoDRAG')}
                           onMouseLeave={hideTooltip}
                         >
                           <div className="flex flex-col items-center justify-start gap-2">
                             <StatusIcon status={feature.codrag.status} />
                             <span className="text-xs font-bold text-text leading-tight text-center">
-                              {feature.codrag.text.split('\\n').map((line, i) => (
-                                <span key={i} className="block">{line.trim()}</span>
+                              {feature.codrag.text.split('\n').map((line, li) => (
+                                <span key={li} className="block whitespace-nowrap">{line.trim()}</span>
                               ))}
                             </span>
                           </div>
                         </td>
-                        {competitors.map((comp) => {
-                          const cd = feature.competitors[comp.id];
-                          return (
-                            <td
-                              key={comp.id}
-                              className="bg-background group-hover:bg-surface border-b border-r border-border-subtle p-3 text-center align-top transition-colors duration-150 cursor-help"
-                              onMouseEnter={(e) => showTooltip(e, cd.detail, feature.name, comp.name)}
-                              onMouseLeave={hideTooltip}
-                            >
-                              <div className="flex flex-col items-center justify-start gap-2">
-                                <StatusIcon status={cd.status} />
-                                <span className="text-[11px] text-text-muted leading-tight text-center">
-                                  {cd.text.split('\\n').map((line, i) => (
-                                    <span key={i} className="block">{line.trim()}</span>
-                                  ))}
-                                </span>
-                              </div>
-                            </td>
-                          );
-                        })}
                       </tr>
                     ))}
                   </React.Fragment>
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Scrollable competitor columns */}
+          <div className="relative flex-1 min-w-0">
+            {canScrollRight && (
+              <div className="absolute top-0 right-0 bottom-0 w-32 bg-gradient-to-l from-background to-transparent z-40 pointer-events-none" />
+            )}
+            <div ref={scrollRef} onScroll={checkScroll} className="overflow-x-auto h-full custom-scrollbar">
+              <table ref={rightTableRef} className="w-max text-sm border-separate border-spacing-0 text-left">
+                <thead>
+                  <tr>
+                    {competitors.map((comp, ci) => (
+                      <th key={comp.id} className={`w-[120px] min-w-[120px] bg-background border-b border-border-subtle p-3 text-center align-bottom ${ci < competitors.length - 1 ? "border-r" : ""}`}>
+                        <div className="font-bold text-text mb-1 whitespace-nowrap">{comp.name}</div>
+                        <div className="text-[10px] text-text-muted uppercase tracking-wider">{comp.category}</div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {matrixData.map((category, catIdx) => (
+                    <React.Fragment key={catIdx}>
+                      {category.features.map((feature) => (
+                        <tr key={feature.id}>
+                          {competitors.map((comp, ci) => {
+                            const cd = feature.competitors[comp.id];
+                            return (
+                              <td
+                                key={comp.id}
+                                className={`bg-background border-b border-border-subtle p-3 text-center align-top cursor-help ${ci < competitors.length - 1 ? "border-r" : ""}`}
+                                onMouseEnter={(e) => showTooltip(e, cd.detail, feature.name, comp.name)}
+                                onMouseLeave={hideTooltip}
+                              >
+                                <div className="flex flex-col items-center justify-start gap-2">
+                                  <StatusIcon status={cd.status} />
+                                  <span className="text-[11px] text-text-muted leading-tight text-center">
+                                    {cd.text.split('\n').map((line, li) => (
+                                      <span key={li} className="block whitespace-nowrap">{line.trim()}</span>
+                                    ))}
+                                  </span>
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

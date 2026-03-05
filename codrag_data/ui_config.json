@@ -162,7 +162,7 @@
     "large_model": {
       "enabled": true,
       "endpoint_id": "ep_1772383175014_efdea339349a78",
-      "model": "qwen3.5-27b-mxfp8",
+      "model": "qwen3.5-35b-a3b",
       "always_on": false
     },
     "code_model": {

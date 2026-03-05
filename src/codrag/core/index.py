@@ -733,10 +733,36 @@ class CodeIndex:
             shutil.rmtree(backup_dir, ignore_errors=True)
 
     def _cleanup_stale_builds(self) -> None:
-        """Cleanup stale temporary build directories."""
+        """Cleanup stale temporary build directories.
+
+        Also recovers from interrupted atomic swaps: if ``index_dir`` is
+        missing (or empty) but a ``.index_backup_*`` directory exists,
+        the backup is restored instead of deleted — preventing a full
+        rebuild after a crash during ``_swap_index_dir``.
+        """
         if not self.index_dir.parent.exists():
             return
-            
+
+        try:
+            # Phase 25 crash recovery: if index_dir is missing/empty but a
+            # backup exists, the previous swap was interrupted.  Restore it.
+            index_missing = not self.index_dir.exists() or not any(self.index_dir.iterdir())
+            if index_missing:
+                for item in self.index_dir.parent.iterdir():
+                    if item.is_dir() and item.name.startswith(".index_backup_"):
+                        logger.warning(
+                            "Crash recovery: index_dir missing, restoring from backup %s",
+                            item.name,
+                        )
+                        if self.index_dir.exists():
+                            shutil.rmtree(self.index_dir, ignore_errors=True)
+                        item.rename(self.index_dir)
+                        # Reload after restoring
+                        self._load()
+                        return
+        except Exception as e:
+            logger.warning("Backup recovery check failed: %s", e)
+
         try:
             for item in self.index_dir.parent.iterdir():
                 if not item.is_dir():

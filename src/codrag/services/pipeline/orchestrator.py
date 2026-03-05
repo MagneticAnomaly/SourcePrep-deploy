@@ -26,6 +26,12 @@ from .stages import (
     STAGE_MODEL_SLOT,
 )
 from .workers import PipelineRunPhase, PipelineRun, WorkerFactory
+from .state_machine import (
+    PipelineGroupStateMachine,
+    PipelineState,
+    Event,
+    ActiveProjectGuard,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +54,10 @@ class PipelineOrchestrator:
     def __init__(self, orchestrator: Optional[BuildOrchestrator] = None) -> None:
         self._orchestrator = orchestrator or build_orchestrator
         self._lock = threading.Lock()
-        # Active pipeline runs: (project_id, group) → PipelineRun
-        self._runs: Dict[tuple[str, str], PipelineRun] = {}
+        # Active pipeline runs: (project_id, group) → state machine
+        self._runs: Dict[tuple[str, str], PipelineGroupStateMachine] = {}
+        # Default guard: block START for inactive projects
+        self._default_guard = ActiveProjectGuard()
         # Per-project pipeline file loggers
         self._file_loggers: Dict[str, Any] = {}
         # Register for build completion events
@@ -138,19 +146,16 @@ class PipelineOrchestrator:
     def resume_paused(self, project_id: str, group: str) -> bool:
         """Resume a paused pipeline group from the stage it was paused at.
 
-        Because all LLM-heavy stages write incremental results to disk
-        (augmentations, epistemic entries, inferred edges, modules, group
-        reasoning), restarting the same stage will skip already-processed
-        items.
+        Uses state machine: checks ``is_paused`` (proper PAUSED state)
+        instead of the old magic error string.  Because all LLM-heavy
+        stages write incremental results to disk, restarting the same
+        stage will skip already-processed items.
         """
         with self._lock:
             key = (project_id, group)
             run = self._runs.get(key)
-            if not run:
+            if not run or not run.is_paused:
                 return False
-            if run.error != "Paused by user":
-                return False
-            # Resume from the paused stage
             resume_from = run.current_stage_index
 
         logger.info(
@@ -165,10 +170,9 @@ class PipelineOrchestrator:
         else:
             return False
 
-        chain_deep = getattr(run, '_chain_deep', False)
         return self._start_group(
             project_id, group, stages,
-            chain_deep=chain_deep, resume_from=resume_from,
+            resume_from=resume_from,
         )
 
     def clear_project(self, project_id: str) -> None:
@@ -209,6 +213,9 @@ class PipelineOrchestrator:
         Returns False if this group OR any other group for the same
         project is already active — groups share files and must not
         run concurrently.
+
+        Uses ``PipelineGroupStateMachine`` with ``ActiveProjectGuard``
+        to enforce activity checks and formal state transitions.
         """
         with self._lock:
             # Block if this group is already running
@@ -218,9 +225,6 @@ class PipelineOrchestrator:
                 return False
 
             # Block if ANY other group for the same project is running.
-            # Fast Sync and Deep Enrichment share trace files (knowledge,
-            # modules, epistemic) and running them concurrently causes
-            # data corruption (e.g. knowledge embedding "doubling").
             for run_key, run_obj in self._runs.items():
                 if run_key[0] == project_id and run_key[1] != group and run_obj.is_active:
                     logger.warning(
@@ -229,15 +233,20 @@ class PipelineOrchestrator:
                     )
                     return False
 
-            run = PipelineRun(
+            # Create state machine (or reuse existing for resume)
+            sm = PipelineGroupStateMachine(
                 project_id=project_id,
                 group=group,
-                stages=list(stages),
-                phase=PipelineRunPhase.RUNNING,
-                started_at=time.time(),
-                current_stage_index=resume_from,
+                stages=[s.value for s in stages],
             )
-            self._runs[key] = run
+            sm.add_guard(self._default_guard)
+            sm.current_stage_index = resume_from
+
+            # Attempt START transition (ActiveProjectGuard may block)
+            if not sm.transition(Event.START):
+                return False
+
+            self._runs[key] = sm
 
         # Start pipeline file logger for this run
         pfl = self._get_file_logger(project_id)
@@ -252,29 +261,27 @@ class PipelineOrchestrator:
                 [s.value for s in stages],
                 chain_deep=chain_deep,
             )
-            run.journal_run_id = run_id
+            sm.journal_run_id = run_id
             # If resuming, mark already-completed stages
             if resume_from > 0:
                 for i in range(resume_from):
                     stage_val = stages[i].value
-                    run.stage_results[stage_val] = "completed"
+                    sm.stage_results[stage_val] = "completed"
                     journal.stage_completed(run_id, stage_val)
                 journal.stage_started(run_id, stages[resume_from].value, resume_from)
         except Exception:
             logger.debug("Journal write failed (non-fatal)", exc_info=True)
 
         # Start the first (or resumed) stage
-        self._advance_pipeline(run)
+        self._advance_pipeline(sm)
         return True
 
-    def _advance_pipeline(self, run: PipelineRun) -> None:
+    def _advance_pipeline(self, run: PipelineGroupStateMachine) -> None:
         """Advance to the next stage in the pipeline, or finish."""
         pfl = self._get_file_logger(run.project_id)
         if run.current_stage_index >= len(run.stages):
-            # All stages complete
-            with self._lock:
-                run.phase = PipelineRunPhase.COMPLETED
-                run.finished_at = time.time()
+            # All stages complete — formal transition
+            run.transition(Event.ALL_STAGES_DONE)
             logger.info(
                 "Pipeline %s/%s completed in %.1fs",
                 run.project_id, run.group,
@@ -356,7 +363,8 @@ class PipelineOrchestrator:
                     )
             return
 
-        stage = run.stages[run.current_stage_index]
+        stage_str = run.stages[run.current_stage_index]
+        stage = StageId(stage_str)
         build_type = STAGE_BUILD_TYPE[stage]
 
         # VRAM lifecycle: acquire model via state machine (handles unload of previous)
@@ -404,14 +412,11 @@ class PipelineOrchestrator:
         started = self._orchestrator.start(run.project_id, build_type, worker)
 
         if not started:
-            # Build slot is stuck in RUNNING/QUEUED from a prior run.
-            # Force-reset it and retry once so the pipeline doesn't stall.
             logger.warning(
                 "Stage %s slot already active for %s — force-resetting stuck slot",
                 stage.value, run.project_id,
             )
             self._orchestrator.cancel(run.project_id, build_type)
-            # Small delay to let the slot settle after cancel
             time.sleep(0.1)
             started = self._orchestrator.start(run.project_id, build_type, worker)
             if not started:
@@ -430,32 +435,33 @@ class PipelineOrchestrator:
         """Called by BuildOrchestrator when a build slot transitions.
 
         Advances the pipeline if the completed build matches the current stage.
+        Uses state machine events for formal state tracking.
         """
         if new_phase not in (BuildPhase.COMPLETED, BuildPhase.FAILED):
             return
 
+        stage: Optional[StageId] = None
         with self._lock:
             # Find any active pipeline run for this project where the current
             # stage matches this build type
-            matching_run: Optional[PipelineRun] = None
+            matching_run: Optional[PipelineGroupStateMachine] = None
             for key, run in self._runs.items():
                 if run.project_id != project_id or not run.is_active:
                     continue
-                current = run.current_stage
-                if current and STAGE_BUILD_TYPE[current] == build_type:
-                    matching_run = run
-                    break
+                current_str = run.current_stage
+                if current_str:
+                    current_stage = StageId(current_str)
+                    if STAGE_BUILD_TYPE[current_stage] == build_type:
+                        matching_run = run
+                        stage = current_stage
+                        break
 
-            if matching_run is None:
-                return
-
-            stage = matching_run.current_stage
-            if stage is None:
+            if matching_run is None or stage is None:
                 return
 
             if new_phase == BuildPhase.COMPLETED:
-                matching_run.stage_results[stage.value] = "completed"
-                matching_run.current_stage_index += 1
+                # State machine handles stage_results + index increment
+                matching_run.transition(Event.STAGE_COMPLETED)
                 logger.info(
                     "Pipeline %s/%s — stage %s completed",
                     project_id, matching_run.group, stage.value,
@@ -465,8 +471,6 @@ class PipelineOrchestrator:
                 if completed_task:
                     try:
                         from codrag.core.model_awareness import model_awareness
-                        # Don't unload yet — next stage might use the same model.
-                        # acquire() in _advance_pipeline will handle the swap.
                         model_awareness.release(completed_task, unload=False)
                     except Exception:
                         logger.debug("ModelAwareness release failed for %s", completed_task, exc_info=True)
@@ -482,17 +486,16 @@ class PipelineOrchestrator:
                                    f"Stage {stage.value} completed")
                 # Phase 25: journal — record stage completion
                 self._journal_stage_completed(matching_run, stage)
+
             elif new_phase == BuildPhase.FAILED:
-                matching_run.stage_results[stage.value] = "failed"
                 slot = self._orchestrator.status(project_id, build_type)
-                matching_run.phase = PipelineRunPhase.FAILED
-                matching_run.finished_at = time.time()
-                matching_run.error = f"Stage {stage.value} failed: {slot.error}"
+                error_msg = f"Stage {stage.value} failed: {slot.error}"
+                # State machine handles stage_results, phase, error, finished_at
+                matching_run.transition(Event.STAGE_FAILED, detail=error_msg)
                 logger.error(
                     "Pipeline %s/%s — stage %s failed: %s",
                     project_id, matching_run.group, stage.value, slot.error,
                 )
-                # Pipeline file logger
                 pfl = self._get_file_logger(project_id)
                 if pfl:
                     pfl.stage_end(stage.value, "failed", error=slot.error, data={
@@ -501,12 +504,11 @@ class PipelineOrchestrator:
                     pfl.end_run("failed", error=slot.error)
                 # Phase 25: journal — record stage failure
                 self._journal_stage_failed(matching_run, stage, slot.error or "Unknown error")
-                # VRAM lifecycle: release all group models via state machine
+                # VRAM lifecycle: release all group models
                 self._release_group_models_via_sm(matching_run)
                 return
 
-        # Advance outside the lock — wrapped in try/except so a failure
-        # in stage creation marks the run FAILED instead of silently stalling.
+        # Advance outside the lock
         if matching_run and matching_run.is_active:
             try:
                 self._advance_pipeline(matching_run)
@@ -521,28 +523,33 @@ class PipelineOrchestrator:
                     pfl.log(stage.value if stage else "unknown",
                             f"_advance_pipeline failed: {exc}")
                     pfl.end_run("failed", error=str(exc))
-                with self._lock:
-                    matching_run.phase = PipelineRunPhase.FAILED
-                    matching_run.finished_at = time.time()
-                    matching_run.error = f"Failed to advance after {stage.value if stage else '?'}: {exc}"
+                matching_run.transition(
+                    Event.STAGE_FAILED,
+                    detail=f"Failed to advance after {stage.value if stage else '?'}: {exc}",
+                )
 
     def _cancel_group(self, project_id: str, group: str) -> bool:
-        """Cancel a running group."""
+        """Cancel a running group using state machine events."""
         with self._lock:
             key = (project_id, group)
             run = self._runs.get(key)
-            if not run or not run.is_active:
+            if not run:
                 return False
 
-            current = run.current_stage
-            run.phase = PipelineRunPhase.FAILED
-            run.finished_at = time.time()
-            run.error = "Cancelled by user"
+            current_str = run.current_stage
+
+            # CANCEL from RUNNING → CANCELLING, from PAUSED → CANCELLED directly
+            if not run.transition(Event.CANCEL):
+                return False
 
         # Cancel the current stage's build
-        if current:
-            bt = STAGE_BUILD_TYPE[current]
+        if current_str:
+            bt = STAGE_BUILD_TYPE[StageId(current_str)]
             self._orchestrator.cancel(project_id, bt)
+
+        # If still in CANCELLING, complete the transition
+        if run.state == PipelineState.CANCELLING:
+            run.transition(Event.STAGE_STOPPED)
 
         # Phase 25: journal — record cancellation
         if run.journal_run_id:
@@ -554,55 +561,55 @@ class PipelineOrchestrator:
         return True
 
     def _pause_group(self, project_id: str, group: str) -> bool:
-        """Pause a running group.  The current stage's worker will
-        cooperatively stop after flushing partial results to disk.
+        """Pause a running group using state machine events.
 
-        The run is left in FAILED state with error="Paused by user"
-        so the orchestrator's _on_build_transition handler won't
-        advance to the next stage.  ``resume_paused()`` restarts from
-        the paused stage — incremental workers skip already-done items.
+        RUNNING → PAUSING → PAUSED (proper first-class state).
+        The current stage's worker cooperatively flushes partial results
+        before stopping.  ``resume_paused()`` restarts from the paused
+        stage — incremental workers skip already-done items.
         """
         with self._lock:
             key = (project_id, group)
             run = self._runs.get(key)
-            if not run or not run.is_active:
+            if not run:
                 return False
 
-            current = run.current_stage
+            current_str = run.current_stage
+
+            # RUNNING → PAUSING
+            if not run.transition(Event.PAUSE):
+                return False
 
         # Signal the worker to pause (not cancel)
-        if current:
-            bt = STAGE_BUILD_TYPE[current]
+        if current_str:
+            stage = StageId(current_str)
+            bt = STAGE_BUILD_TYPE[stage]
             self._orchestrator.pause(project_id, bt)
+            # Create a file-level checkpoint before stopping
+            self._create_checkpoint_if_needed(run, stage)
 
-        # Create a file-level checkpoint before stopping
-        self._create_checkpoint_if_needed(run, current) if current else None
-
-        # Mark the pipeline run as paused
-        with self._lock:
-            run.phase = PipelineRunPhase.FAILED
-            run.finished_at = time.time()
-            run.error = "Paused by user"
+        # PAUSING → PAUSED
+        run.transition(Event.STAGE_FLUSHED)
 
         # Journal: record pause
         if run.journal_run_id:
             try:
                 from codrag.services.pipeline_journal import journal
-                journal.run_cancelled(run.journal_run_id)  # Reuse cancelled for now
+                journal.run_cancelled(run.journal_run_id)
             except Exception:
                 logger.debug("Journal pause write failed", exc_info=True)
 
         logger.info(
             "Pipeline paused: %s/%s at stage %s (index %d)",
             project_id, group,
-            current.value if current else "?",
+            current_str or "?",
             run.current_stage_index,
         )
         return True
 
     # ── VRAM Lifecycle ─────────────────────────────────────────────
 
-    def _release_group_models_via_sm(self, run: PipelineRun) -> None:
+    def _release_group_models_via_sm(self, run: PipelineGroupStateMachine) -> None:
         """Release all models used by a pipeline group via the state machine.
 
         Phase 44C: Delegates to ModelAwareness.release_group() which handles
@@ -610,9 +617,9 @@ class PipelineOrchestrator:
         the legacy _unload_group_models() if the state machine fails.
         """
         task_ids = [
-            STAGE_TASK_ID[stage]
-            for stage in run.stages
-            if stage in STAGE_TASK_ID
+            STAGE_TASK_ID[StageId(stage_str)]
+            for stage_str in run.stages
+            if StageId(stage_str) in STAGE_TASK_ID
         ]
         try:
             from codrag.core.model_awareness import model_awareness
@@ -623,7 +630,7 @@ class PipelineOrchestrator:
             )
             self._unload_group_models(run)
 
-    def _maybe_unload_previous_model(self, run: PipelineRun, next_stage: StageId) -> None:
+    def _maybe_unload_previous_model(self, run: PipelineGroupStateMachine, next_stage: StageId) -> None:
         """Unload the previous stage's LLM model if the model identity is changing.
 
         Phase 44: Tracks by (endpoint_id, model) tuple instead of slot name.
@@ -641,7 +648,7 @@ class PipelineOrchestrator:
         prev_task: Optional[str] = None
         prev_identity = None
         if run.current_stage_index > 0:
-            prev_stage = run.stages[run.current_stage_index - 1]
+            prev_stage = StageId(run.stages[run.current_stage_index - 1])
             prev_task = STAGE_TASK_ID.get(prev_stage)
             prev_identity = _get_model_identity_for_task(prev_task) if prev_task else None
 
@@ -661,7 +668,7 @@ class PipelineOrchestrator:
         except Exception as e:
             logger.warning("VRAM lifecycle: failed to unload model for task %s: %s", prev_task, e)
 
-    def _unload_group_models(self, run: PipelineRun) -> None:
+    def _unload_group_models(self, run: PipelineGroupStateMachine) -> None:
         """Unload any LLM models used by the completed/failed group.
 
         Phase 44: Tracks unique (endpoint_id, model) identities across the
@@ -674,8 +681,8 @@ class PipelineOrchestrator:
 
         # Collect unique model identities used by this group
         identities_seen: dict = {}  # identity → task_id (for client resolution)
-        for stage in run.stages:
-            task_id = STAGE_TASK_ID.get(stage)
+        for stage_str in run.stages:
+            task_id = STAGE_TASK_ID.get(StageId(stage_str))
             if not task_id:
                 continue
             identity = _get_model_identity_for_task(task_id)
@@ -702,6 +709,15 @@ class PipelineOrchestrator:
         embeddings.npy).  This fires the build in the background so search
         works immediately after the pipeline finishes.
         """
+        # Don't trigger index builds for inactive projects
+        try:
+            from codrag.services.project_helpers import get_project_activity_status
+            if get_project_activity_status(project_id) != "active":
+                logger.info("Skipping CodeIndex build for %s — project not active", project_id)
+                return
+        except Exception:
+            pass
+
         try:
             from codrag.services.build_manager import build_manager
             from codrag.services.project_helpers import require_project
@@ -732,7 +748,7 @@ class PipelineOrchestrator:
 
     # ── Phase 25: Journal Helpers ─────────────────────────────────
 
-    def _journal_stage_started(self, run: PipelineRun, stage: StageId) -> None:
+    def _journal_stage_started(self, run: PipelineGroupStateMachine, stage: StageId) -> None:
         if not run.journal_run_id:
             return
         try:
@@ -741,7 +757,7 @@ class PipelineOrchestrator:
         except Exception:
             logger.debug("Journal stage_started write failed", exc_info=True)
 
-    def _journal_stage_completed(self, run: PipelineRun, stage: StageId) -> None:
+    def _journal_stage_completed(self, run: PipelineGroupStateMachine, stage: StageId) -> None:
         if not run.journal_run_id:
             return
         try:
@@ -750,7 +766,7 @@ class PipelineOrchestrator:
         except Exception:
             logger.debug("Journal stage_completed write failed", exc_info=True)
 
-    def _journal_stage_failed(self, run: PipelineRun, stage: StageId, error: str) -> None:
+    def _journal_stage_failed(self, run: PipelineGroupStateMachine, stage: StageId, error: str) -> None:
         if not run.journal_run_id:
             return
         try:
@@ -759,7 +775,7 @@ class PipelineOrchestrator:
         except Exception:
             logger.debug("Journal stage_failed write failed", exc_info=True)
 
-    def _journal_run_completed(self, run: PipelineRun) -> None:
+    def _journal_run_completed(self, run: PipelineGroupStateMachine) -> None:
         if not run.journal_run_id:
             return
         try:
@@ -777,7 +793,7 @@ class PipelineOrchestrator:
         except Exception:
             logger.debug("Checkpoint cleanup failed", exc_info=True)
 
-    def _create_checkpoint_if_needed(self, run: PipelineRun, stage: StageId) -> None:
+    def _create_checkpoint_if_needed(self, run: PipelineGroupStateMachine, stage: StageId) -> None:
         """Create a checkpoint before destructive stages."""
         if not run.journal_run_id:
             return

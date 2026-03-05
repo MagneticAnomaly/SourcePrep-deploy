@@ -1,0 +1,476 @@
+"""
+Tests for Pipeline State Machine (Phase 25B)
+=============================================
+
+Tests the formal state machine logic independently of the actual pipeline
+orchestrator. No LLM or server required — pure state transition tests.
+"""
+
+import pytest
+import threading
+import time
+
+from codrag.services.pipeline.state_machine import (
+    PipelineState,
+    PipelineGroupStateMachine,
+    Event,
+    TransitionGuard,
+    ActiveProjectGuard,
+    TERMINAL_STATES,
+    ACTIVE_STATES,
+    _TRANSITIONS,
+)
+
+
+# ── Helpers ──────────────────────────────────────────────────────
+
+def make_sm(stages=None, project_id="test-proj", group="fast_sync"):
+    """Create a state machine with default stages."""
+    if stages is None:
+        stages = ["structural", "inferred_edges", "catalogue", "validation", "knowledge"]
+    return PipelineGroupStateMachine(
+        project_id=project_id,
+        group=group,
+        stages=stages,
+    )
+
+
+# ── Basic lifecycle tests ────────────────────────────────────────
+
+class TestBasicLifecycle:
+    """Test the happy path: IDLE → RUNNING → stage completions → COMPLETED."""
+
+    def test_initial_state_is_idle(self):
+        sm = make_sm()
+        assert sm.state == PipelineState.IDLE
+        assert not sm.is_active
+        assert not sm.is_terminal
+        assert not sm.is_paused
+
+    def test_start_transitions_to_running(self):
+        sm = make_sm()
+        ok = sm.transition(Event.START)
+        assert ok
+        assert sm.state == PipelineState.RUNNING
+        assert sm.is_active
+        assert sm.started_at is not None
+
+    def test_cannot_start_twice(self):
+        sm = make_sm()
+        sm.transition(Event.START)
+        ok = sm.transition(Event.START)
+        assert not ok  # RUNNING + START is not a valid transition
+        assert sm.state == PipelineState.RUNNING
+
+    def test_stage_completed_stays_running(self):
+        sm = make_sm(["s1", "s2", "s3"])
+        sm.transition(Event.START)
+        assert sm.current_stage == "s1"
+
+        ok = sm.transition(Event.STAGE_COMPLETED)
+        assert ok
+        assert sm.state == PipelineState.RUNNING
+        assert sm.current_stage == "s2"
+        assert sm.stage_results.get("s1") == "completed"
+
+    def test_all_stages_done_completes(self):
+        sm = make_sm(["s1", "s2"])
+        sm.transition(Event.START)
+        sm.transition(Event.STAGE_COMPLETED)  # s1 done
+        sm.transition(Event.STAGE_COMPLETED)  # s2 done
+
+        ok = sm.transition(Event.ALL_STAGES_DONE)
+        assert ok
+        assert sm.state == PipelineState.COMPLETED
+        assert sm.is_terminal
+        assert not sm.is_active
+        assert sm.finished_at is not None
+
+    def test_full_happy_path(self):
+        sm = make_sm(["structural", "catalogue", "knowledge"])
+        sm.transition(Event.START)
+        sm.transition(Event.STAGE_COMPLETED)  # structural
+        sm.transition(Event.STAGE_COMPLETED)  # catalogue
+        sm.transition(Event.STAGE_COMPLETED)  # knowledge
+        sm.transition(Event.ALL_STAGES_DONE)
+
+        assert sm.state == PipelineState.COMPLETED
+        assert sm.stage_results == {
+            "structural": "completed",
+            "catalogue": "completed",
+            "knowledge": "completed",
+        }
+
+
+# ── Pause / Resume tests ────────────────────────────────────────
+
+class TestPauseResume:
+    """Test the pause → resume lifecycle."""
+
+    def test_pause_from_running(self):
+        sm = make_sm(["s1", "s2"])
+        sm.transition(Event.START)
+        sm.transition(Event.STAGE_COMPLETED)  # s1 done, now on s2
+
+        ok = sm.transition(Event.PAUSE)
+        assert ok
+        assert sm.state == PipelineState.PAUSING
+
+    def test_stage_flushed_completes_pause(self):
+        sm = make_sm(["s1", "s2"])
+        sm.transition(Event.START)
+        sm.transition(Event.STAGE_COMPLETED)
+        sm.transition(Event.PAUSE)
+
+        ok = sm.transition(Event.STAGE_FLUSHED)
+        assert ok
+        assert sm.state == PipelineState.PAUSED
+        assert sm.is_paused
+        assert not sm.is_active
+        assert sm.finished_at is not None
+
+    def test_resume_from_paused(self):
+        sm = make_sm(["s1", "s2", "s3"])
+        sm.transition(Event.START)
+        sm.transition(Event.STAGE_COMPLETED)  # s1 done
+        sm.transition(Event.PAUSE)
+        sm.transition(Event.STAGE_FLUSHED)
+
+        assert sm.state == PipelineState.PAUSED
+        assert sm.current_stage == "s2"  # Paused at s2
+
+        ok = sm.transition(Event.RESUME)
+        assert ok
+        assert sm.state == PipelineState.RUNNING
+        assert sm.current_stage == "s2"  # Resumes at same stage
+        assert sm.error is None
+        assert sm.finished_at is None
+
+    def test_cannot_pause_when_idle(self):
+        sm = make_sm()
+        ok = sm.transition(Event.PAUSE)
+        assert not ok
+        assert sm.state == PipelineState.IDLE
+
+    def test_cannot_resume_when_running(self):
+        sm = make_sm()
+        sm.transition(Event.START)
+        ok = sm.transition(Event.RESUME)
+        assert not ok
+
+    def test_pause_resume_continues_from_same_stage(self):
+        sm = make_sm(["s1", "s2", "s3"])
+        sm.transition(Event.START)
+        sm.transition(Event.STAGE_COMPLETED)  # s1 done
+        # Now running s2
+        assert sm.current_stage == "s2"
+
+        sm.transition(Event.PAUSE)
+        sm.transition(Event.STAGE_FLUSHED)
+        assert sm.current_stage == "s2"  # Still at s2
+
+        sm.transition(Event.RESUME)
+        assert sm.current_stage == "s2"  # Resumed at s2, not s1
+
+        sm.transition(Event.STAGE_COMPLETED)  # s2 done
+        assert sm.current_stage == "s3"
+
+
+# ── Cancel tests ─────────────────────────────────────────────────
+
+class TestCancel:
+    """Test cancellation from various states."""
+
+    def test_cancel_from_running(self):
+        sm = make_sm()
+        sm.transition(Event.START)
+
+        ok = sm.transition(Event.CANCEL)
+        assert ok
+        assert sm.state == PipelineState.CANCELLING
+
+        ok = sm.transition(Event.STAGE_STOPPED)
+        assert ok
+        assert sm.state == PipelineState.CANCELLED
+        assert sm.is_terminal
+
+    def test_cancel_from_paused(self):
+        sm = make_sm(["s1"])
+        sm.transition(Event.START)
+        sm.transition(Event.PAUSE)
+        sm.transition(Event.STAGE_FLUSHED)
+
+        ok = sm.transition(Event.CANCEL)
+        assert ok
+        assert sm.state == PipelineState.CANCELLED  # Immediate, no CANCELLING needed
+
+    def test_cancel_during_pausing(self):
+        sm = make_sm(["s1"])
+        sm.transition(Event.START)
+        sm.transition(Event.PAUSE)
+
+        ok = sm.transition(Event.CANCEL)
+        assert ok
+        assert sm.state == PipelineState.CANCELLING
+
+
+# ── Failure tests ────────────────────────────────────────────────
+
+class TestFailure:
+    """Test stage failure handling."""
+
+    def test_stage_failure_from_running(self):
+        sm = make_sm(["s1", "s2"])
+        sm.transition(Event.START)
+        sm.transition(Event.STAGE_COMPLETED)  # s1 done
+
+        ok = sm.transition(Event.STAGE_FAILED, detail="LLM timeout on s2")
+        assert ok
+        assert sm.state == PipelineState.FAILED
+        assert sm.error == "LLM timeout on s2"
+        assert sm.stage_results.get("s2") == "failed"
+        assert sm.is_terminal
+
+    def test_failure_during_pausing(self):
+        sm = make_sm(["s1"])
+        sm.transition(Event.START)
+        sm.transition(Event.PAUSE)
+
+        ok = sm.transition(Event.STAGE_FAILED, detail="Worker crashed")
+        assert ok
+        assert sm.state == PipelineState.FAILED
+
+
+# ── Crash recovery tests ────────────────────────────────────────
+
+class TestCrashRecovery:
+    """Test crash detection and recovery."""
+
+    def test_crash_detected_from_idle(self):
+        sm = make_sm(["s1", "s2", "s3"])
+        ok = sm.transition(Event.CRASH_DETECTED)
+        assert ok
+        assert sm.state == PipelineState.RECOVERING
+
+    def test_recovery_succeeded(self):
+        sm = make_sm(["s1", "s2", "s3"])
+        sm.current_stage_index = 2  # Was on s3 when crashed
+        sm.stage_results = {"s1": "completed", "s2": "completed"}
+
+        sm.transition(Event.CRASH_DETECTED)
+        ok = sm.transition(Event.RECOVERY_SUCCEEDED)
+        assert ok
+        assert sm.state == PipelineState.RUNNING
+        assert sm.current_stage == "s3"  # Resumes at s3
+
+    def test_recovery_failed(self):
+        sm = make_sm(["s1", "s2"])
+        sm.transition(Event.CRASH_DETECTED)
+
+        ok = sm.transition(Event.RECOVERY_FAILED, detail="Checkpoint corrupted")
+        assert ok
+        assert sm.state == PipelineState.FAILED
+        assert sm.error == "Checkpoint corrupted"
+
+
+# ── Reset tests ──────────────────────────────────────────────────
+
+class TestReset:
+    """Test reset from terminal states back to IDLE."""
+
+    def test_reset_from_completed(self):
+        sm = make_sm(["s1"])
+        sm.transition(Event.START)
+        sm.transition(Event.STAGE_COMPLETED)
+        sm.transition(Event.ALL_STAGES_DONE)
+
+        ok = sm.transition(Event.RESET)
+        assert ok
+        assert sm.state == PipelineState.IDLE
+        assert sm.current_stage_index == 0
+        assert sm.stage_results == {}
+
+    def test_reset_from_failed(self):
+        sm = make_sm(["s1"])
+        sm.transition(Event.START)
+        sm.transition(Event.STAGE_FAILED)
+
+        ok = sm.transition(Event.RESET)
+        assert ok
+        assert sm.state == PipelineState.IDLE
+
+    def test_reset_from_cancelled(self):
+        sm = make_sm(["s1"])
+        sm.transition(Event.START)
+        sm.transition(Event.CANCEL)
+        sm.transition(Event.STAGE_STOPPED)
+
+        ok = sm.transition(Event.RESET)
+        assert ok
+        assert sm.state == PipelineState.IDLE
+
+    def test_reset_from_paused(self):
+        sm = make_sm(["s1"])
+        sm.transition(Event.START)
+        sm.transition(Event.PAUSE)
+        sm.transition(Event.STAGE_FLUSHED)
+
+        ok = sm.transition(Event.RESET)
+        assert ok
+        assert sm.state == PipelineState.IDLE
+
+    def test_cannot_reset_from_running(self):
+        sm = make_sm()
+        sm.transition(Event.START)
+        ok = sm.transition(Event.RESET)
+        assert not ok
+
+
+# ── Guard tests ──────────────────────────────────────────────────
+
+class TestGuards:
+    """Test transition guards."""
+
+    def test_custom_guard_blocks_start(self):
+        sm = make_sm()
+
+        class AlwaysBlock(TransitionGuard):
+            def check(self, sm, event, **kwargs):
+                if event == Event.START:
+                    return "Blocked for testing"
+                return None
+
+        sm.add_guard(AlwaysBlock())
+        ok = sm.transition(Event.START)
+        assert not ok
+        assert sm.state == PipelineState.IDLE
+
+    def test_guard_allows_other_events(self):
+        """Guards that only block START should allow other transitions."""
+        sm = make_sm()
+
+        class OnlyBlockStart(TransitionGuard):
+            def check(self, sm, event, **kwargs):
+                if event == Event.START:
+                    return "Blocked"
+                return None
+
+        sm.add_guard(OnlyBlockStart())
+        # Manually set to RUNNING to test other transitions
+        sm.state = PipelineState.RUNNING
+        ok = sm.transition(Event.PAUSE)
+        assert ok  # Guard doesn't block PAUSE
+
+
+# ── History tests ────────────────────────────────────────────────
+
+class TestHistory:
+    """Test transition history recording."""
+
+    def test_history_recorded(self):
+        sm = make_sm(["s1"])
+        sm.transition(Event.START)
+        sm.transition(Event.STAGE_COMPLETED)
+        sm.transition(Event.ALL_STAGES_DONE)
+
+        assert len(sm.history) == 3
+        assert sm.history[0].from_state == PipelineState.IDLE
+        assert sm.history[0].to_state == PipelineState.RUNNING
+        assert sm.history[0].event == Event.START
+        assert sm.history[2].to_state == PipelineState.COMPLETED
+
+    def test_rejected_transitions_not_in_history(self):
+        sm = make_sm()
+        sm.transition(Event.PAUSE)  # Invalid from IDLE
+        assert len(sm.history) == 0
+
+    def test_history_bounded(self):
+        sm = make_sm(["s1"] * 200)
+        sm._max_history = 10
+        sm.transition(Event.START)
+        for _ in range(200):
+            sm.transition(Event.STAGE_COMPLETED)
+        assert len(sm.history) <= 10
+
+
+# ── Thread safety tests ─────────────────────────────────────────
+
+class TestThreadSafety:
+    """Test that concurrent transitions don't corrupt state."""
+
+    def test_concurrent_starts_only_one_succeeds(self):
+        sm = make_sm()
+        results = []
+
+        def try_start():
+            ok = sm.transition(Event.START)
+            results.append(ok)
+
+        threads = [threading.Thread(target=try_start) for _ in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert sum(results) == 1  # Only one START should succeed
+        assert sm.state == PipelineState.RUNNING
+
+
+# ── Serialization tests ─────────────────────────────────────────
+
+class TestSerialization:
+    """Test to_dict() backward compatibility."""
+
+    def test_to_dict_matches_old_format(self):
+        sm = make_sm(["s1", "s2"])
+        sm.transition(Event.START)
+        sm.transition(Event.STAGE_COMPLETED)
+
+        d = sm.to_dict()
+        assert d["project_id"] == "test-proj"
+        assert d["group"] == "fast_sync"
+        assert d["phase"] == "running"
+        assert d["current_stage"] == "s2"
+        assert d["current_stage_index"] == 1
+        assert d["total_stages"] == 2
+        assert d["started_at"] is not None
+        assert d["finished_at"] is None
+        assert d["error"] is None
+        assert d["stage_results"] == {"s1": "completed"}
+        assert d["is_active"] is True
+        assert d["is_paused"] is False
+
+    def test_to_dict_paused(self):
+        sm = make_sm(["s1"])
+        sm.transition(Event.START)
+        sm.transition(Event.PAUSE)
+        sm.transition(Event.STAGE_FLUSHED)
+
+        d = sm.to_dict()
+        assert d["phase"] == "paused"
+        assert d["is_paused"] is True
+        assert d["is_active"] is False
+
+
+# ── Transition table completeness ────────────────────────────────
+
+class TestTransitionTable:
+    """Verify the transition table is consistent."""
+
+    def test_all_states_have_at_least_one_outgoing(self):
+        states_with_outgoing = set()
+        for (state, _) in _TRANSITIONS:
+            states_with_outgoing.add(state)
+        # Every non-terminal state should have outgoing transitions
+        for state in PipelineState:
+            if state not in TERMINAL_STATES or state == PipelineState.PAUSED:
+                assert state in states_with_outgoing, \
+                    f"State {state.value} has no outgoing transitions"
+
+    def test_terminal_states_only_allow_reset(self):
+        for state in TERMINAL_STATES:
+            allowed_events = [
+                ev for (s, ev) in _TRANSITIONS if s == state
+            ]
+            assert all(ev == Event.RESET for ev in allowed_events), \
+                f"Terminal state {state.value} allows non-RESET events: {allowed_events}"
