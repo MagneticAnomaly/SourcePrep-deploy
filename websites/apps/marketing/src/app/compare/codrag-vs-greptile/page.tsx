@@ -1,10 +1,4 @@
-import type { Metadata } from 'next';
 import { ArrowRight, Check, X } from 'lucide-react';
-
-export const metadata: Metadata = {
-  title: 'CoDRAG vs Greptile: Why Local Code Indexing Wins',
-  description: 'A detailed comparison of CoDRAG and Greptile for codebase RAG. See why enterprise teams are switching to local-first structural indexing to protect their code.',
-};
 
 export default function CompareGreptilePage() {
   return (

@@ -1,10 +1,4 @@
-import type { Metadata } from 'next';
 import { ArrowRight, Check, X } from 'lucide-react';
-
-export const metadata: Metadata = {
-  title: 'CoDRAG vs Cursor Codebase Indexing',
-  description: 'Understand the difference between Cursor\'s built-in vector search and CoDRAG\'s structural code graph. Learn how to combine them via MCP for perfect context.',
-};
 
 export default function CompareCursorPage() {
   return (

@@ -32,8 +32,33 @@ const productSchema = {
 };
 export const metadata: Metadata = {
   metadataBase: new URL('https://codrag.io'),
-  title: 'CoDRAG - Local-first Code Context',
+  title: {
+    default: 'CoDRAG - Local-first Code Context',
+    template: '%s | CoDRAG'
+  },
   description: 'Semantic search and trace-aware context for your codebase. Local-first, no cloud required.',
+  openGraph: {
+    title: 'CoDRAG - Local-first Code Context',
+    description: 'Semantic search and trace-aware context for your codebase. Local-first, no cloud required.',
+    url: 'https://codrag.io',
+    siteName: 'CoDRAG',
+    images: [
+      {
+        url: '/images/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'CoDRAG Logo',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'CoDRAG - Local-first Code Context',
+    description: 'Semantic search and trace-aware context for your codebase. Local-first, no cloud required.',
+    images: ['/images/og-image.png'],
+  },
   icons: {
     icon: [
       { url: '/favicon_io/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
