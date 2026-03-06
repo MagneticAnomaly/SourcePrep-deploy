@@ -45,8 +45,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: '/images/og-image.png',
-        width: 1200,
-        height: 630,
+        width: 1245,
+        height: 779,
         alt: 'CoDRAG Logo',
       },
     ],

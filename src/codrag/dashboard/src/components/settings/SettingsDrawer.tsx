@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { Settings, X, ImageIcon, Key, Shield, Trash2, Palette, Activity, ClipboardCheck, Cpu, Info, ExternalLink } from 'lucide-react'
+import { Settings, X, ImageIcon, Key, Shield, Trash2, Palette, Activity, ClipboardCheck, Cpu } from 'lucide-react'
 import {
   useApiClient,
   Button,
@@ -38,41 +38,6 @@ const THEME_OPTIONS = [
   { value: 'k', label: 'K: Inclusive Focus' },
   { value: 'l', label: 'L: Enterprise Console' },
 ]
-
-const HARDWARE_PROFILE_OPTIONS = [
-  { value: 'apple_silicon', label: 'Apple Silicon (Mac)' },
-  { value: 'nvidia_small', label: 'NVIDIA GPU (≤24 GB)' },
-  { value: 'nvidia_large', label: 'NVIDIA GPU (32 GB+)' },
-  { value: 'cloud', label: 'Cloud API' },
-  { value: 'custom', label: 'Custom' },
-]
-
-const LLM_CONCURRENCY_OPTIONS = [
-  { value: '1', label: '1 — Sequential' },
-  { value: '2', label: '2' },
-  { value: '3', label: '3' },
-  { value: '4', label: '4' },
-  { value: '5', label: '5' },
-  { value: '6', label: '6' },
-  { value: '8', label: '8' },
-]
-
-/** Map hardware profile → concurrency values for fast/code/deep */
-const HARDWARE_CONCURRENCY: Record<string, { fast: number; code: number; deep: number }> = {
-  apple_silicon: { fast: 1, code: 1, deep: 1 },
-  nvidia_small:  { fast: 2, code: 2, deep: 1 },
-  nvidia_large:  { fast: 4, code: 2, deep: 2 },
-  cloud:         { fast: 5, code: 3, deep: 3 },
-}
-
-/** Detect hardware profile from concurrency values (returns 'custom' if user has overridden) */
-function detectProfile(fast: number, code: number, deep: number, forceCustom?: boolean): string {
-  if (forceCustom) return 'custom'
-  for (const [key, c] of Object.entries(HARDWARE_CONCURRENCY)) {
-    if (c.fast === fast && c.code === code && c.deep === deep) return key
-  }
-  return 'custom'
-}
 
 const DEV_TIER_OPTIONS = [
   { value: '', label: 'Off (use real license)' },
@@ -171,68 +136,13 @@ export function SettingsDrawer({
   const api = useApiClient()
   const [activeTab, setActiveTab] = useState<SettingsDrawerTab>('project')
   const [healthResult, setHealthResult] = useState<string>('No test run yet')
-  const [concurrencyFast, setConcurrencyFast] = useState<number>(1)
-  const [concurrencyCode, setConcurrencyCode] = useState<number>(1)
-  const [concurrencyDeep, setConcurrencyDeep] = useState<number>(1)
-  const [concurrencySaving, setConcurrencySaving] = useState(false)
-  const [forceCustomProfile, setForceCustomProfile] = useState(false)
 
   useEffect(() => {
     if (open && openToTab) setActiveTab(openToTab)
   }, [open, openToTab])
 
-  // Load pipeline config when Global tab is shown
-  useEffect(() => {
-    if (open && activeTab === 'global') {
-      api.getPipelineConfig()
-        .then((config: any) => {
-          if (config?.llm_concurrency_fast) setConcurrencyFast(config.llm_concurrency_fast)
-          else if (config?.llm_concurrency) setConcurrencyFast(config.llm_concurrency)
-          if (config?.llm_concurrency_code) setConcurrencyCode(config.llm_concurrency_code)
-          else if (config?.llm_concurrency_fast) setConcurrencyCode(config.llm_concurrency_fast)
-          else if (config?.llm_concurrency) setConcurrencyCode(config.llm_concurrency)
-          if (config?.llm_concurrency_deep) setConcurrencyDeep(config.llm_concurrency_deep)
-          else if (config?.llm_concurrency) setConcurrencyDeep(config.llm_concurrency)
-        })
-        .catch(() => {})
-    }
-  }, [open, activeTab, api])
+  // Pipeline config (concurrency) now lives in AI Gateway, not here
 
-  const handleConcurrencyFastChange = useCallback(async (value: number) => {
-    setConcurrencyFast(value)
-    setConcurrencySaving(true)
-    try {
-      await api.updatePipelineConfig({ llm_concurrency_fast: value })
-    } catch {
-      setConcurrencyFast((prev) => prev)
-    } finally {
-      setConcurrencySaving(false)
-    }
-  }, [api])
-
-  const handleConcurrencyCodeChange = useCallback(async (value: number) => {
-    setConcurrencyCode(value)
-    setConcurrencySaving(true)
-    try {
-      await api.updatePipelineConfig({ llm_concurrency_code: value })
-    } catch {
-      setConcurrencyCode((prev) => prev)
-    } finally {
-      setConcurrencySaving(false)
-    }
-  }, [api])
-
-  const handleConcurrencyDeepChange = useCallback(async (value: number) => {
-    setConcurrencyDeep(value)
-    setConcurrencySaving(true)
-    try {
-      await api.updatePipelineConfig({ llm_concurrency_deep: value })
-    } catch {
-      setConcurrencyDeep((prev) => prev)
-    } finally {
-      setConcurrencySaving(false)
-    }
-  }, [api])
 
   useEffect(() => {
     if (open && scrollToDeepAnalysis) {
@@ -416,139 +326,28 @@ export function SettingsDrawer({
               </div>
             </section>
 
-            {/* Hardware Profile */}
+            {/* AI Gateway shortcut — resource limits + hardware profile live in AI Gateway now */}
             <section>
               <div className="flex items-center gap-2 mb-4">
                 <Cpu className="w-4 h-4 text-primary" />
-                <h3 className="text-sm font-semibold text-text">Resource Limits</h3>
-              </div>
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-text-subtle">Max Active Projects</label>
-                  <Select
-                    value={String(maxActiveProjects)}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      onMaxActiveProjectsChange(val === 'infinite' ? 'infinite' : parseInt(val))
-                    }}
-                    aria-label="Max Active Projects"
-                    size="sm"
-                    options={[
-                      { value: '1', label: '1 (Conservative)' },
-                      { value: '2', label: '2' },
-                      { value: '3', label: '3 (Standard)' },
-                      { value: '4', label: '4' },
-                      { value: '5', label: '5' },
-                      { value: 'infinite', label: 'Infinite (Uncapped)' },
-                    ]}
-                  />
-                  <p className="text-[10px] text-text-muted leading-relaxed">
-                    Limit how many projects can be active simultaneously. Applies to Pro+ tiers. Inactive projects can be browsed but will not auto-sync or run background LLM pipelines.
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <Cpu className="w-4 h-4 text-primary" />
-                <h3 className="text-sm font-semibold text-text">Hardware Profile</h3>
-                <a
-                  href="https://docs.codrag.io/guides/hardware-profiles"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="ml-auto flex items-center gap-1 text-[10px] text-primary hover:underline"
-                  title="Learn more about hardware profiles and concurrency"
-                >
-                  <Info className="w-3 h-3" />
-                  Learn more <ExternalLink className="w-2.5 h-2.5" />
-                </a>
+                <h3 className="text-sm font-semibold text-text">AI Gateway</h3>
               </div>
               <p className="text-[10px] text-text-muted leading-relaxed mb-3">
-                Select your inference hardware. CoDRAG auto-tunes pipeline concurrency based on your hardware type.
+                Manage AI models, endpoints, compute resources, and concurrency settings.
               </p>
-              <div className="space-y-3">
-                <Select
-                  value={detectProfile(concurrencyFast, concurrencyCode, concurrencyDeep, forceCustomProfile)}
-                  onChange={(e) => {
-                    const profile = e.target.value
-                    if (profile === 'custom') {
-                      setForceCustomProfile(true)
-                      return
-                    }
-                    setForceCustomProfile(false)
-                    const c = HARDWARE_CONCURRENCY[profile] ?? HARDWARE_CONCURRENCY.apple_silicon
-                    handleConcurrencyFastChange(c.fast)
-                    handleConcurrencyCodeChange(c.code)
-                    handleConcurrencyDeepChange(c.deep)
-                  }}
-                  aria-label="Hardware Profile"
-                  size="sm"
-                  options={HARDWARE_PROFILE_OPTIONS}
-                />
-                {concurrencySaving && (
-                  <span className="text-[10px] text-text-muted animate-pulse block">Saving...</span>
-                )}
-
-                {/* Custom concurrency controls */}
-                {detectProfile(concurrencyFast, concurrencyCode, concurrencyDeep, forceCustomProfile) === 'custom' && (
-                  <div className="space-y-2 p-3 rounded border border-border bg-surface-raised">
-                    <p className="text-[10px] font-medium text-text">Custom Concurrency</p>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-medium text-text-muted">Fast Model</label>
-                        <Select
-                          value={String(concurrencyFast)}
-                          onChange={(e) => handleConcurrencyFastChange(parseInt(e.target.value))}
-                          aria-label="Fast Model Concurrency"
-                          size="sm"
-                          options={LLM_CONCURRENCY_OPTIONS}
-                        />
-                        <p className="text-[9px] text-text-muted">Stage 3: catalogue</p>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-medium text-text-muted">Coder Model</label>
-                        <Select
-                          value={String(concurrencyCode)}
-                          onChange={(e) => handleConcurrencyCodeChange(parseInt(e.target.value))}
-                          aria-label="Coder Model Concurrency"
-                          size="sm"
-                          options={LLM_CONCURRENCY_OPTIONS}
-                        />
-                        <p className="text-[9px] text-text-muted">Stage 2: edges</p>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-medium text-text-muted">Deep Model</label>
-                        <Select
-                          value={String(concurrencyDeep)}
-                          onChange={(e) => handleConcurrencyDeepChange(parseInt(e.target.value))}
-                          aria-label="Deep Model Concurrency"
-                          size="sm"
-                          options={LLM_CONCURRENCY_OPTIONS}
-                        />
-                        <p className="text-[9px] text-text-muted">Stages 6-9: deep</p>
-                      </div>
-                    </div>
-                    <div className="text-[9px] text-text-muted leading-relaxed mt-1">
-                      Set <code className="text-primary">OLLAMA_NUM_PARALLEL</code> in Ollama to at least the highest value above.
-                      Each parallel slot uses additional VRAM for KV cache.
-                    </div>
-                  </div>
-                )}
-
-                {/* Info box for preset profiles */}
-                {detectProfile(concurrencyFast, concurrencyCode, concurrencyDeep, forceCustomProfile) !== 'custom' && (
-                  <div className="text-[10px] text-text-muted bg-surface-raised p-2 rounded border border-border leading-relaxed">
-                    {detectProfile(concurrencyFast, concurrencyCode, concurrencyDeep, forceCustomProfile) === 'apple_silicon' ? (
-                      <><strong className="text-text">Apple Silicon:</strong> Concurrency locked to 1. Unified memory means parallel requests compete for the same bandwidth — sequential is fastest.</>
-                    ) : detectProfile(concurrencyFast, concurrencyCode, concurrencyDeep, forceCustomProfile) === 'cloud' ? (
-                      <><strong className="text-text">Cloud API:</strong> High concurrency (3-5) for network-bound requests. Ensure your API rate limits support this.</>
-                    ) : (
-                      <><strong className="text-text">NVIDIA GPU:</strong> Concurrency scaled to VRAM. Set <code className="text-primary">OLLAMA_NUM_PARALLEL</code> in Ollama to at least the same value.</>
-                    )}
-                  </div>
-                )}
-              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  onClose()
+                  // Open the AI Models panel — the parent component handles this
+                  window.dispatchEvent(new CustomEvent('codrag:open-ai-gateway'))
+                }}
+                className="w-full"
+              >
+                <Cpu className="w-3.5 h-3.5 mr-1.5" />
+                Open AI Gateway
+              </Button>
             </section>
 
             {/* License Key */}

@@ -75,6 +75,39 @@ STAGE_TASK_ID: Dict[StageId, Optional[str]] = {
     StageId.DEEP_KNOWLEDGE:  None,      # embedding only
 }
 
+# ── Queue Type Mapping (Phase 45) ─────────────────────────────────
+# Which compute queue each stage belongs to.
+# - RUST: CPU-only, no GPU contention, runs immediately
+# - EMBEDDING: Independent ONNX path (CoreML/CUDA), not LLM server
+# - LLM: Competes for LLM server slots (Ollama/LM Studio/cloud)
+#
+# NativeEmbedder uses CoreML/CUDA via ONNX — completely separate from
+# the LLM inference server.  Embedding stages can run in parallel with
+# LLM stages on the same machine without contention.
+#
+# Exception: if user configures OllamaEmbedder, embedding stages DO
+# compete for the same Ollama server.  The scheduler detects this.
+
+class QueueType(str, enum.Enum):
+    LLM = "llm"
+    EMBEDDING = "embedding"
+    RUST = "rust"
+
+STAGE_QUEUE_TYPE: Dict[StageId, QueueType] = {
+    StageId.STRUCTURAL:      QueueType.RUST,
+    StageId.INFERRED_EDGES:  QueueType.LLM,
+    StageId.CATALOGUE:       QueueType.LLM,
+    StageId.VALIDATION:      QueueType.RUST,
+    StageId.KNOWLEDGE:       QueueType.EMBEDDING,
+    StageId.ENRICHMENT:      QueueType.LLM,
+    StageId.GROUP_REASONING: QueueType.LLM,
+    StageId.CLUSTERING:      QueueType.LLM,
+    StageId.ATLAS:           QueueType.LLM,
+    StageId.DEEPENING:       QueueType.LLM,
+    StageId.DEEP_KNOWLEDGE:  QueueType.EMBEDDING,
+}
+
+
 # Backward-compat alias — kept so any external code referencing this still works.
 STAGE_MODEL_SLOT: Dict[StageId, Optional[str]] = {
     StageId.STRUCTURAL:     None,

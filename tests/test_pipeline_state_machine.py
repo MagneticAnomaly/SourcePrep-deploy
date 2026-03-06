@@ -452,6 +452,84 @@ class TestSerialization:
         assert d["is_active"] is False
 
 
+# ── Queue tests ──────────────────────────────────────────────────
+
+class TestQueuing:
+    """Test the QUEUED state for multi-project compute scheduling."""
+
+    def test_enqueue_from_idle(self):
+        sm = make_sm(["s1", "s2"])
+        ok = sm.transition(Event.ENQUEUE)
+        assert ok
+        assert sm.state == PipelineState.QUEUED
+        assert sm.is_queued
+        assert sm.is_active  # Queued counts as active
+
+    def test_capacity_available_starts_running(self):
+        sm = make_sm(["s1", "s2"])
+        sm.transition(Event.ENQUEUE)
+
+        ok = sm.transition(Event.CAPACITY_AVAILABLE)
+        assert ok
+        assert sm.state == PipelineState.RUNNING
+
+    def test_cancel_from_queued(self):
+        sm = make_sm(["s1"])
+        sm.transition(Event.ENQUEUE)
+
+        ok = sm.transition(Event.CANCEL)
+        assert ok
+        assert sm.state == PipelineState.CANCELLED
+
+    def test_reset_from_queued(self):
+        sm = make_sm(["s1"])
+        sm.transition(Event.ENQUEUE)
+
+        ok = sm.transition(Event.RESET)
+        assert ok
+        assert sm.state == PipelineState.IDLE
+
+    def test_between_stage_queuing(self):
+        """When a running pipeline hits a stage that needs a full compute node."""
+        sm = make_sm(["s1", "s2", "s3"])
+        sm.transition(Event.START)
+        sm.transition(Event.STAGE_COMPLETED)  # s1 done
+
+        # Next stage (s2) needs a compute slot that is full
+        ok = sm.transition(Event.ENQUEUE)
+        assert ok
+        assert sm.state == PipelineState.QUEUED
+        assert sm.current_stage == "s2"
+
+        # Slot frees up
+        ok = sm.transition(Event.CAPACITY_AVAILABLE)
+        assert ok
+        assert sm.state == PipelineState.RUNNING
+        assert sm.current_stage == "s2"  # Resumes at same stage
+
+    def test_full_lifecycle_with_queuing(self):
+        """IDLE → QUEUED → RUNNING → stage completions → COMPLETED."""
+        sm = make_sm(["s1", "s2"])
+        sm.transition(Event.ENQUEUE)          # No capacity
+        sm.transition(Event.CAPACITY_AVAILABLE)  # Got a slot
+        sm.transition(Event.STAGE_COMPLETED)  # s1 done
+        sm.transition(Event.STAGE_COMPLETED)  # s2 done
+        sm.transition(Event.ALL_STAGES_DONE)
+
+        assert sm.state == PipelineState.COMPLETED
+        assert sm.stage_results == {"s1": "completed", "s2": "completed"}
+
+    def test_to_dict_queued(self):
+        sm = make_sm(["s1"])
+        sm.transition(Event.ENQUEUE)
+
+        d = sm.to_dict()
+        assert d["phase"] == "queued"
+        assert d["is_queued"] is True
+        assert d["is_active"] is True
+        assert d["is_paused"] is False
+
+
 # ── Transition table completeness ────────────────────────────────
 
 class TestTransitionTable:

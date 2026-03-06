@@ -24,6 +24,8 @@ from .stages import (
     DEEP_ENRICHMENT_STAGES,
     STAGE_TASK_ID,
     STAGE_MODEL_SLOT,
+    QueueType,
+    STAGE_QUEUE_TYPE,
 )
 from .workers import PipelineRunPhase, PipelineRun, WorkerFactory
 from .state_machine import (
@@ -366,28 +368,37 @@ class PipelineOrchestrator:
         stage_str = run.stages[run.current_stage_index]
         stage = StageId(stage_str)
         build_type = STAGE_BUILD_TYPE[stage]
+        queue_type = STAGE_QUEUE_TYPE.get(stage, QueueType.LLM)
 
-        # VRAM lifecycle: acquire model via state machine (handles unload of previous)
-        task_id = STAGE_TASK_ID.get(stage)
-        if task_id:
-            try:
-                from codrag.core.model_awareness import model_awareness
-                slot = model_awareness.acquire(task_id)
-                if slot is None:
+        # VRAM lifecycle: only LLM stages need model acquire/unload.
+        # Embedding stages use NativeEmbedder (ONNX/CoreML/CUDA) — independent.
+        # Rust stages are CPU-only — no GPU contention.
+        if queue_type == QueueType.LLM:
+            task_id = STAGE_TASK_ID.get(stage)
+            if task_id:
+                try:
+                    from codrag.core.model_awareness import model_awareness
+                    slot = model_awareness.acquire(task_id)
+                    if slot is None:
+                        logger.warning(
+                            "ModelAwareness: no model configured for task %s (stage %s) — "
+                            "falling back to legacy VRAM lifecycle",
+                            task_id, stage.value,
+                        )
+                        self._maybe_unload_previous_model(run, stage)
+                except Exception as e:
                     logger.warning(
-                        "ModelAwareness: no model configured for task %s (stage %s) — "
-                        "falling back to legacy VRAM lifecycle",
-                        task_id, stage.value,
+                        "ModelAwareness acquire failed for %s: %s — falling back",
+                        task_id, e,
                     )
                     self._maybe_unload_previous_model(run, stage)
-            except Exception as e:
-                logger.warning(
-                    "ModelAwareness acquire failed for %s: %s — falling back",
-                    task_id, e,
-                )
+            else:
                 self._maybe_unload_previous_model(run, stage)
         else:
-            self._maybe_unload_previous_model(run, stage)
+            logger.debug(
+                "Stage %s uses %s queue — skipping VRAM lifecycle",
+                stage.value, queue_type.value,
+            )
 
         logger.info(
             "Pipeline %s/%s — starting stage %d/%d: %s",

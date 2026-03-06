@@ -8,6 +8,7 @@ guarded transitions, and crash recovery.  Replaces the ad-hoc
 
 States:
     IDLE        — No run in progress
+    QUEUED      — Waiting for compute capacity (LLM slot)
     RUNNING     — Actively executing stages
     PAUSING     — Pause signal sent, waiting for stage to flush
     PAUSED      — Stopped cleanly, checkpoint saved, can resume
@@ -52,6 +53,7 @@ logger = logging.getLogger(__name__)
 
 class PipelineState(str, enum.Enum):
     IDLE = "idle"
+    QUEUED = "queued"
     RUNNING = "running"
     PAUSING = "pausing"
     PAUSED = "paused"
@@ -69,6 +71,8 @@ class PipelineState(str, enum.Enum):
 
 class Event(str, enum.Enum):
     START = "start"
+    ENQUEUE = "enqueue"                    # No compute capacity → wait in queue
+    CAPACITY_AVAILABLE = "capacity_available"  # Slot freed → can start running
     STAGE_COMPLETED = "stage_completed"
     ALL_STAGES_DONE = "all_stages_done"
     PAUSE = "pause"
@@ -84,12 +88,21 @@ class Event(str, enum.Enum):
 
 
 _TRANSITIONS: Dict[tuple, PipelineState] = {
-    # Starting
+    # Starting — direct start if capacity available
     (PipelineState.IDLE, Event.START): PipelineState.RUNNING,
+
+    # Queuing — no compute capacity, wait in queue
+    (PipelineState.IDLE, Event.ENQUEUE): PipelineState.QUEUED,
+    (PipelineState.QUEUED, Event.CAPACITY_AVAILABLE): PipelineState.RUNNING,
+    (PipelineState.QUEUED, Event.CANCEL): PipelineState.CANCELLED,
 
     # Normal progression
     (PipelineState.RUNNING, Event.STAGE_COMPLETED): PipelineState.RUNNING,
     (PipelineState.RUNNING, Event.ALL_STAGES_DONE): PipelineState.COMPLETED,
+
+    # Between-stage queuing — next stage needs a different compute node
+    # that is currently full.  Park in QUEUED until slot frees.
+    (PipelineState.RUNNING, Event.ENQUEUE): PipelineState.QUEUED,
 
     # Pausing
     (PipelineState.RUNNING, Event.PAUSE): PipelineState.PAUSING,
@@ -118,6 +131,7 @@ _TRANSITIONS: Dict[tuple, PipelineState] = {
     (PipelineState.FAILED, Event.RESET): PipelineState.IDLE,
     (PipelineState.CANCELLED, Event.RESET): PipelineState.IDLE,
     (PipelineState.PAUSED, Event.RESET): PipelineState.IDLE,
+    (PipelineState.QUEUED, Event.RESET): PipelineState.IDLE,
 }
 
 # Terminal states — no further progression without explicit reset/resume
@@ -127,8 +141,9 @@ TERMINAL_STATES: Set[PipelineState] = {
     PipelineState.CANCELLED,
 }
 
-# Active states — pipeline is "doing something"
+# Active states — pipeline is "doing something" (including waiting for capacity)
 ACTIVE_STATES: Set[PipelineState] = {
+    PipelineState.QUEUED,
     PipelineState.RUNNING,
     PipelineState.PAUSING,
     PipelineState.CANCELLING,
@@ -231,6 +246,10 @@ class PipelineGroupStateMachine:
     @property
     def is_paused(self) -> bool:
         return self.state == PipelineState.PAUSED
+
+    @property
+    def is_queued(self) -> bool:
+        return self.state == PipelineState.QUEUED
 
     def can_transition(self, event: Event) -> bool:
         """Check if a transition is valid without performing it."""
@@ -364,4 +383,5 @@ class PipelineGroupStateMachine:
                 "journal_run_id": self.journal_run_id,
                 "is_active": self.is_active,
                 "is_paused": self.is_paused,
+                "is_queued": self.is_queued,
             }

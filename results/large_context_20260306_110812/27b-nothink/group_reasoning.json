@@ -1,0 +1,143 @@
+[
+  {
+    "group_id": "group:d7e9244214",
+    "member_count": 15,
+    "members": [
+      ".eslintrc.json",
+      "tailwind.config.js",
+      "src/components/PercentageBasedFooter.tsx",
+      "src/app/business/page.tsx",
+      "src/utils/mediaQueries.ts",
+      "postcss.config.js",
+      "docs/roadmap.md",
+      "docs/site_roadmap.md",
+      "next-env.d.ts",
+      "README.md",
+      "docs/DesignPlan/4-Updated-Trust-paralax.md",
+      "next.config.js",
+      "docs/DesignPlan/1-hero.md",
+      "docs/trust_section_redesign.md",
+      "docs/questions_for_designer.md"
+    ],
+    "prompt_chars": 8495,
+    "duration_s": 77.1,
+    "tokens": 2653,
+    "parsed_ok": true,
+    "pattern": "Configuration-Driven Presentation Layer with Documentation-First Design",
+    "data_flow": "The flow is primarily unidirectional from Configuration/Documentation to Implementation. Design specifications defined in the 'docs/' folder (roadmaps, design plans) dictate the visual and interactive requirements. These requirements are translated into build-time configurations (tailwind.config.js,",
+    "coupling_risks": [
+      "Semantic Coupling: The code (page.tsx, components) is tightly coupled to the specific design narratives in 'docs/'. Changes in the roadmap or design specs (e.g., the 'nested bubble' concept) require synchronous updates to the code, but the build system does not enforce this consistency.",
+      "Configuration Fragmentation: Styling and behavior are split across multiple config files (tailwind, postcss, next.config). A change in the design system (e.g., adding a new animation capability) might require updates in tailwind.config.js, postcss.config.js, and the mediaQueries utility simultaneously.",
+      "Documentation-Code Drift: The 'Tech debt' noted in docs/roadmap.md (timeline inconsistencies) and README.md (placeholder text) indicates a risk where the documentation no longer accurately reflects the intended or actual state of the application, leading to developer confusion.",
+      "False Dependency Graph: The provided dependency edges show 'imports' and 'configures' relationships that are semantically inverted or non-existent (e.g., a .tsx file 'configuring' a .md file). This suggests the dependency analysis is flawed, masking the true risk that the code is not actually validating against the documentation."
+    ],
+    "blast_radius": [
+      "src/app/business/page.tsx",
+      "src/components/PercentageBasedFooter.tsx",
+      "src/utils/mediaQueries.ts",
+      "tailwind.config.js",
+      "postcss.config.js",
+      "next.config.js",
+      "docs/DesignPlan/1-hero.md",
+      "docs/DesignPlan/4-Updated-Trust-paralax.md",
+      "docs/trust_section_redesign.md",
+      "docs/questions_for_designer.md",
+      "docs/roadmap.md",
+      "docs/site_roadmap.md",
+      "README.md"
+    ],
+    "architectural_insight": "This group exhibits a 'Design-First' architecture where documentation acts as the primary contract for the UI implementation, but the lack of automated validation between docs and code creates a high risk of drift. The dependency graph provided is semantically noisy, incorrectly suggesting that code files configure documentation, which obscures the true critical path: documentation changes must manually propagate to configuration files and then to components. The timeline inconsistencies in the ",
+    "confidence": 0.75,
+    "raw_text": ""
+  },
+  {
+    "group_id": "group:c7e78f81c9",
+    "member_count": 15,
+    "members": [
+      "public/data/copy.json",
+      "src/hooks/useCopy.ts",
+      "src/components/PercentageBasedTrustSection_OLD.tsx",
+      "src/components/PercentageBasedTrustSection.tsx",
+      "src/components/EnhancedHero.tsx",
+      "src/components/PercentageBasedTrustSection_BAD.tsx",
+      "src/components/EnhancedTrustSection.tsx",
+      "src/components/PercentageBasedHero.tsx",
+      "src/components/PercentageBasedRoadmapSection.tsx",
+      "src/components/EnhancedRoadmapSection.tsx",
+      "src/hooks/useGSAP.ts",
+      "src/components/ParallaxController.tsx",
+      "src/components/phases/HeroPhase.tsx",
+      "src/styles/globals.css",
+      "src/components/phases/ZoomPhase.tsx"
+    ],
+    "prompt_chars": 9186,
+    "duration_s": 69.2,
+    "tokens": 2650,
+    "parsed_ok": true,
+    "pattern": "Centralized State with Event-Driven Animation Orchestration",
+    "data_flow": "1. Static content originates in 'public/data/copy.json'. 2. 'src/hooks/useCopy.ts' acts as the typed gateway, loading and exposing this JSON to the UI layer. 3. 'src/hooks/useGSAP.ts' initializes the GSAP engine globally as a singleton. 4. Presentation components (e.g., 'EnhancedHero', 'EnhancedRoad",
+    "coupling_risks": [
+      "High coupling to the singleton 'useGSAP' hook creates a global mutable state risk where race conditions can occur during concurrent rendering or re-initialization.",
+      "Tight coupling between animation logic and UI components makes refactoring difficult; changing animation timing requires modifying multiple component files rather than a centralized configuration.",
+      "Presence of legacy files ('_OLD', '_BAD') alongside active components suggests potential naming conflicts or accidental usage of deprecated logic, increasing maintenance debt.",
+      "The 'ParallaxController' relies on global event patterns which may lead to 'event bus' style coupling where components implicitly depend on each other's scroll triggers."
+    ],
+    "blast_radius": [
+      "src/hooks/useCopy.ts",
+      "src/hooks/useGSAP.ts",
+      "public/data/copy.json",
+      "src/components/EnhancedHero.tsx",
+      "src/components/EnhancedRoadmapSection.tsx",
+      "src/components/EnhancedTrustSection.tsx",
+      "src/components/PercentageBasedHero.tsx",
+      "src/components/PercentageBasedRoadmapSection.tsx",
+      "src/components/PercentageBasedTrustSection.tsx",
+      "src/components/PercentageBasedTrustSection_BAD.tsx",
+      "src/components/PercentageBasedTrustSection_OLD.tsx",
+      "src/components/ParallaxController.tsx",
+      "src/components/phases/HeroPhase.tsx",
+      "src/components/phases/ZoomPhase.tsx"
+    ],
+    "architectural_insight": "This architecture exhibits a 'Command Pattern' variation where the GSAP hook acts as the central command executor for all visual transformations, decoupling the animation logic from the DOM structure but tightly coupling the lifecycle to a global singleton. The coexistence of 'PercentageBased' and 'Enhanced' variants alongside legacy files indicates an incomplete migration strategy, creating a 'parallel universe' of code that increases the risk of inconsistent user experiences and bloated bundle",
+    "confidence": 0.95,
+    "raw_text": ""
+  },
+  {
+    "group_id": "group:94769c5961",
+    "member_count": 7,
+    "members": [
+      "src/app/business-old/page.tsx",
+      "src/components/BetaSignupForm.tsx",
+      "src/components/CanvasBackground.tsx",
+      "src/app/page.tsx",
+      "src/app/layout.tsx",
+      "src/components/PercentageLayoutController.tsx",
+      "src/components/CardsSection.tsx"
+    ],
+    "prompt_chars": 4628,
+    "duration_s": 57.4,
+    "tokens": 1638,
+    "parsed_ok": true,
+    "pattern": "Compositional Presentation Layer with Global Context Injection",
+    "data_flow": "Data flows from the root layout (layout.tsx) which establishes global metadata and visual context (CanvasBackground), down to page-level components (page.tsx, business-old/page.tsx) that orchestrate specific user journeys. These pages import and instantiate interactive components like BetaSignupForm",
+    "coupling_risks": [
+      "Circular dependency risk: BetaSignupForm calls layout.tsx while layout.tsx implements BetaSignupForm, creating a potential runtime initialization loop or requiring complex lazy loading strategies.",
+      "Tight coupling to GSAP: Multiple components (CardsSection, PercentageLayoutController) depend on the specific behavior of the GSAP ScrollTrigger library, making library upgrades or replacements high-risk.",
+      "Hardcoded Animation Constants: BetaSignupForm contains hardcoded timing values (200ms, 300ms) that are not externalized, forcing code changes for any UX timing adjustments.",
+      "Simulated Backend Dependency: BetaSignupForm relies on setTimeout for API simulation, creating a false sense of completion and preventing integration testing with real data flows.",
+      "Layout Monolith: layout.tsx is attempting to orchestrate too many distinct visual components (Canvas, Cards, Forms), violating the Single Responsibility Principle and making the root layout difficult to maintain."
+    ],
+    "blast_radius": [
+      "src/app/layout.tsx",
+      "src/app/page.tsx",
+      "src/app/business-old/page.tsx",
+      "src/components/BetaSignupForm.tsx",
+      "src/components/CanvasBackground.tsx",
+      "src/components/CardsSection.tsx",
+      "src/components/PercentageLayoutController.tsx"
+    ],
+    "architectural_insight": "This group exhibits a 'Page-Centric Composition' pattern where the layout acts as a heavy orchestrator rather than a passive shell, leading to high coupling between global state and specific UI features. The presence of a 'business-old' page alongside a main page suggests a transitional state where architectural refactoring is pending, risking technical debt accumulation. The circular dependency between the form and the layout is a critical design flaw that likely relies on Next.js's specific re",
+    "confidence": 0.85,
+    "raw_text": ""
+  }
+]

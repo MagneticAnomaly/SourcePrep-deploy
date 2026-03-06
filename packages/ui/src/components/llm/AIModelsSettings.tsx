@@ -46,6 +46,14 @@ export interface AIModelsSettingsProps {
   onModeSwitch?: (mode: AssignmentMode, blocks?: LLMConfig['assignment_blocks']) => Promise<void>;
   className?: string;
 
+  // Compute settings (moved from Global Settings → AI Gateway)
+  maxActiveProjects?: number | 'infinite';
+  onMaxActiveProjectsChange?: (val: number | 'infinite') => void;
+  concurrencyFast?: number;
+  concurrencyCode?: number;
+  concurrencyDeep?: number;
+  onConcurrencyChange?: (key: 'fast' | 'code' | 'deep', value: number) => void;
+
   // Phase 44: Mapped mode operations
   onAssignmentBlockAdd?: () => void;
   onAssignmentBlockDelete?: (blockId: string) => void;

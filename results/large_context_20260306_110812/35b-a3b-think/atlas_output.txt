@@ -1,0 +1,13 @@
+IDENTITY: DebateHaus marketing site orchestrates immersive scroll-driven visual experiences for user onboarding and beta acquisition within a video-first debate ecosystem.
+
+STACK: Languages: .tsx (22), .ts (4), .js (3), .md (9), .json (5), .css (1). Frameworks: Next.js, React, GSAP, ScrollTrigger, Tailwind CSS. Build tools: ESLint, TypeScript, PostCSS, Autoprefixer, SWC.
+
+ARCHITECTURE: Layers are presentation (25 files), configuration (9 files), documentation (9 files), infrastructure (1 file). Entry points include src/components/EnhancedHero.tsx and src/hooks/useGSAP.ts. Configuration relies on tsconfig.json, .eslintrc.json, and next.config.js. Content is decoupled via copy.json and Ui Marketing Content Gateway.
+
+SUBSYSTEMS: Ui (Src) #2: src/hooks/useGSAP.ts, src/components/EnhancedHero.tsx. DebateHaus Marketing Landing Pages: src/components/BetaSignupForm.tsx. Ui (Docs) #3: docs/DesignPlan/1-hero.md. Ui (Src) #3: src/components/PercentageBasedRoadmapSection.tsx. Ui (Public): copy.json. Ui Marketing Content Gateway: src/hooks/useCopy.ts. TypeScript Build Configuration: tsconfig.json. Ui Build Configuration: next.config.js. Beta Signup Form: src/components/BetaSignupForm.tsx. Ui (Src): README.md.
+
+FLOW: User interaction triggers src/hooks/useGSAP.ts to manage GSAP ScrollTrigger animations. Content loads synchronously from copy.json via src/hooks/useCopy.ts. Navigation flows through src/components/EnhancedHero.tsx to src/components/BetaSignupForm.tsx for lead capture. Build pipeline uses next.config.js and tsconfig.json.
+
+PATTERNS: State management uses mutable singletons for animation state instead of React Context. Content is centralized in copy.json for localization. Styling uses Tailwind CSS with PostCSS and Autoprefixer. Type safety enforced via tsconfig.json and ESLint.
+
+RISKS: Ui (Src) #2 contains legacy files (_OLD, _BAD), production debug logging, and fragile ScrollTrigger cleanup. Mutable singletons pose race condition risks. Beta Signup Form has simulated API calls using setTimeout, hardcoded animation timing, and console.log in production. Ui (Src) #4 has hardcoded !important overrides and redundant style definitions. Ui (Docs) #4 has documentation inconsistencies.

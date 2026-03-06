@@ -12,6 +12,8 @@ from .stages import (
     DEEP_ENRICHMENT_STAGES,
     STAGE_TASK_ID,
     STAGE_MODEL_SLOT,
+    QueueType,
+    STAGE_QUEUE_TYPE,
 )
 from .workers import (
     PipelineRunPhase,
