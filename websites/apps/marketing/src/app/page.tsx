@@ -85,89 +85,126 @@ export default function Page() {
           </div>
         </section>
 
-        {/* How It Works — Quick visual */}
+        {/* How It Works — The Three Tools */}
         <section className="rounded-2xl border border-border bg-surface p-8 md:p-12">
           <div className="text-center mb-12">
-            <p className="text-sm font-semibold uppercase tracking-widest text-primary mb-3">Seamless Integration</p>
+            <p className="text-sm font-semibold uppercase tracking-widest text-primary mb-3">How Developers Use It</p>
             <h2 className="text-3xl font-medium tracking-tight text-text sm:text-4xl">
-              Works where you work.
+              Three tools. Zero configuration.
             </h2>
             <p className="mt-4 text-lg text-text-muted max-w-2xl mx-auto">
-              CoDRAG runs locally as an MCP server. Connect it to Cursor, Windsurf, Antigravity, or Claude Desktop once, and it&apos;s there forever.
+              CoDRAG runs locally as an MCP server. Connect it once to Cursor, Windsurf, Antigravity, or Claude Desktop &mdash; and your AI gets ambient codebase awareness, project orientation, and architectural audits automatically.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto mb-16">
-            {/* Step 1: Setup */}
-            <div className="rounded-xl border border-border bg-background p-6">
-              <div className="flex items-center gap-3 mb-4 border-b border-border pb-4">
-                <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">1</div>
-                <h3 className="font-mono font-medium text-lg text-text">Connect the Server</h3>
+          <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto mb-12">
+            {/* Tool 1: codrag — Ambient Context */}
+            <div className="rounded-xl border border-primary/30 bg-[#0c1222] p-5 flex flex-col">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="inline-flex items-center px-2 py-0.5 rounded bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider">Most Used</span>
               </div>
-              <div className="font-mono text-sm space-y-4">
-                <div>
-                  <div className="text-text-muted text-xs mb-1"># Start the local daemon</div>
-                  <div className="bg-surface p-2 rounded border border-border-subtle text-success">
-                    $ codrag serve
-                  </div>
+              <h3 className="font-mono font-bold text-lg text-text mb-1">codrag</h3>
+              <p className="text-sm text-text-muted mb-4">Ambient context. No query needed. Your AI calls this automatically to understand what it&apos;s working with.</p>
+
+              {/* Chat-style panel */}
+              <div className="flex-1 rounded-lg border border-border-subtle bg-[#0a0f1c] overflow-hidden">
+                {/* Tool call bar */}
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-border-subtle bg-surface/30">
+                  <Terminal className="w-3 h-3 text-primary" />
+                  <span className="font-mono text-[11px] text-primary">codrag()</span>
+                  <span className="font-mono text-[10px] text-text-muted ml-auto">auto</span>
                 </div>
-                <div>
-                  <div className="text-text-muted text-xs mb-1"># Add to Cursor / Windsurf / Antigravity config</div>
-                  <div className="bg-surface p-2 rounded border border-border-subtle text-text-subtle">
-                    {`"codrag": {`} <br/>
-                    &nbsp;&nbsp;{`"command": "codrag",`} <br/>
-                    &nbsp;&nbsp;{`"args": ["mcp"]`} <br/>
-                    {`}`}
+                {/* Response */}
+                <div className="px-3 py-3 font-mono text-xs text-text-subtle space-y-1.5">
+                  <div><span className="text-primary">&#9656;</span> Hub files: <span className="text-text">api/server.ts</span>, <span className="text-text">core/index.ts</span></div>
+                  <div><span className="text-primary">&#9656;</span> Module: Payment Processing (12 files)</div>
+                  <div><span className="text-primary">&#9656;</span> 4 structural neighbors loaded</div>
+                  <div><span className="text-primary">&#9656;</span> Understanding score: <span className="text-success">0.91</span></div>
+                </div>
+              </div>
+              <p className="text-[11px] text-text-muted italic mt-3">Hub files, module summaries, graph neighbors &mdash; delivered before the AI writes a single line.</p>
+            </div>
+
+            {/* Tool 2: hi_codrag — Project Orientation */}
+            <div className="rounded-xl border border-border bg-background p-5 flex flex-col">
+              <h3 className="font-mono font-bold text-lg text-text mb-1">hi_codrag</h3>
+              <p className="text-sm text-text-muted mb-4">Say <code className="bg-primary/10 text-primary px-1 rounded text-xs">hi_codrag</code> and see what the AI knows &mdash; project health, selected files, and suggested next steps.</p>
+
+              {/* Chat-style panel */}
+              <div className="flex-1 rounded-lg border border-border-subtle bg-[#0a0f1c] overflow-hidden">
+                {/* User message */}
+                <div className="px-3 py-2.5 border-b border-border-subtle">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">You</span>
+                  <p className="text-sm text-text mt-0.5">hi_codrag</p>
+                </div>
+                {/* Tool call bar */}
+                <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border-subtle bg-surface/30">
+                  <Terminal className="w-3 h-3 text-primary" />
+                  <span className="font-mono text-[11px] text-primary">hi_codrag()</span>
+                </div>
+                {/* AI response */}
+                <div className="px-3 py-2.5 text-xs text-text-muted space-y-1.5">
+                  <div>I can see <span className="text-text font-medium">3 code files</span> and <span className="text-text font-medium">2 design docs</span>.</div>
+                  <div>Graph health: <span className="text-success font-medium">92%</span> understanding.</div>
+                  <div className="pt-1.5 mt-1.5 border-t border-border-subtle text-text-muted">
+                    <div className="mb-1">Try next:</div>
+                    <div>1. &quot;Walk me through this code&quot;</div>
+                    <div>2. &quot;What should I work on?&quot;</div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Step 2: Usage */}
-            <div className="rounded-xl border border-border bg-background p-6">
-              <div className="flex items-center gap-3 mb-4 border-b border-border pb-4">
-                <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">2</div>
-                <h3 className="font-mono font-medium text-lg text-text">Just Ask Your Editor</h3>
-              </div>
-              <div className="space-y-4">
-                <div className="flex gap-3">
-                  <div className="mt-1 w-6 h-6 rounded bg-primary/20 flex-shrink-0" />
-                  <div className="text-sm bg-primary/5 p-3 rounded-lg text-text">
-                    <span className="font-bold block mb-1 text-primary">You</span>
-                    &quot;Trace the calls to <code className="bg-primary/10 px-1 rounded">processRefund</code> and check for missing error handlers.&quot;
-                  </div>
+            {/* Tool 3: codrag_audit — Architecture Audit */}
+            <div className="rounded-xl border border-border bg-background p-5 flex flex-col">
+              <h3 className="font-mono font-bold text-lg text-text mb-1">codrag_audit</h3>
+              <p className="text-sm text-text-muted mb-4">Structural codebase audit. Finds architectural issues, tech debt, and quality gaps from the trace graph &mdash; no LLM required.</p>
+
+              {/* Chat-style panel */}
+              <div className="flex-1 rounded-lg border border-border-subtle bg-[#0a0f1c] overflow-hidden">
+                {/* User message */}
+                <div className="px-3 py-2.5 border-b border-border-subtle">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">You</span>
+                  <p className="text-sm text-text mt-0.5">Audit my codebase</p>
                 </div>
-                <div className="flex gap-3">
-                  <div className="mt-1 w-6 h-6 rounded bg-info/20 flex-shrink-0" />
-                  <div className="text-sm bg-surface border border-border-subtle p-3 rounded-lg text-text-muted font-mono text-xs">
-                    <div className="flex items-center gap-2 mb-2 text-info">
-                      <Terminal className="w-3 h-3" />
-                      <span>Running codrag(trace_expand=true)...</span>
-                    </div>
-                    <div>&gt; Found definition in src/payments/refunds.ts</div>
-                    <div>&gt; Traced 4 call sites in src/api/* (Rust Graph)</div>
-                    <div>&gt; Found 1 unhandled Promise rejection</div>
+                {/* Tool call bar */}
+                <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border-subtle bg-surface/30">
+                  <Terminal className="w-3 h-3 text-primary" />
+                  <span className="font-mono text-[11px] text-primary">codrag_audit()</span>
+                </div>
+                {/* AI response */}
+                <div className="px-3 py-2.5 font-mono text-xs text-text-muted space-y-1.5">
+                  <div><span className="text-warning font-bold">ARCH-1</span> <span className="text-text-subtle">Circular dep: auth ↔ users</span></div>
+                  <div><span className="text-warning font-bold">QUAL-3</span> <span className="text-text-subtle">4 files &gt;500 lines (split)</span></div>
+                  <div><span className="text-success font-bold">TEST</span> <span className="text-text-subtle">89% coverage on core/</span></div>
+                  <div className="pt-1.5 mt-1.5 border-t border-border-subtle text-[11px]">
+                    Say <span className="text-text">&quot;fix ARCH-1&quot;</span> to get trace context + action plan.
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Integration Showcase Placeholder */}
-          <div className="w-full max-w-5xl mx-auto rounded-xl border border-border bg-surface shadow-lg overflow-hidden aspect-[21/9] relative flex items-center justify-center group">
-            <div className="absolute inset-0 bg-gradient-to-br from-surface to-background opacity-50" />
-            <div className="relative text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                <Terminal className="w-8 h-8 text-primary" />
+          {/* Setup snippet */}
+          <div className="max-w-2xl mx-auto">
+            <div className="rounded-xl border border-border bg-background p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">&#x2713;</div>
+                <h3 className="font-mono font-medium text-sm text-text">One-time setup &mdash; 30 seconds</h3>
               </div>
-              <div>
-                <p className="font-mono text-sm text-text-muted">Requires Asset:</p>
-                <p className="font-medium text-text">public/images/integration-cursor-windsurf.png</p>
+              <div className="font-mono text-sm space-y-3">
+                <div className="bg-surface p-2 rounded border border-border-subtle text-success text-xs">
+                  $ codrag serve
+                </div>
+                <div className="bg-surface p-2 rounded border border-border-subtle text-text-subtle text-xs">
+                  <span className="text-text-muted">{`// Add to your editor's MCP config:`}</span><br/>
+                  {`"codrag": { "command": "codrag", "args": ["mcp"] }`}
+                </div>
               </div>
             </div>
           </div>
           
-          <div className="text-center mt-12">
+          <div className="text-center mt-10">
              <a href="https://docs.codrag.io/mcp" className="text-sm text-primary hover:underline">View full integration guides for Cursor, Windsurf, & Antigravity →</a>
           </div>
         </section>

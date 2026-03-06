@@ -1,0 +1,21 @@
+{
+  "built_at": "2026-03-06T14:42:14.326154+00:00",
+  "counts": {
+    "augmented": 89,
+    "low_confidence": 0,
+    "skipped_external": 8,
+    "total_nodes": 89,
+    "validated": 0
+  },
+  "model": "qwen3.5:27b",
+  "stats": {
+    "augmented_this_run": 52,
+    "avg_confidence": 0.936,
+    "duration_ms": 0.0,
+    "failed_this_run": 0,
+    "skipped_this_run": 8,
+    "synthetic_this_run": 37,
+    "tokens_used": 0
+  },
+  "version": "1.0"
+}

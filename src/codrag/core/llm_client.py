@@ -248,7 +248,7 @@ class LLMClient:
             payload: Dict[str, Any] = {
                 "model": self.model,
                 "prompt": prompt,
-                "stream": False,
+                "stream": True,
                 "options": options,
             }
             # Disable thinking mode to skip massive thinking token overhead.
@@ -266,16 +266,33 @@ class LLMClient:
                 payload["system"] = system
 
             url = f"{self.endpoint_url}/api/generate"
-            resp = requests.post(url, json=payload, timeout=self.timeout)
+            # Use stream=True so Ollama sends token-by-token.  This lets
+            # the requests read-timeout fire if the model stalls (stream=False
+            # holds the connection open with zero data until done, making
+            # timeouts impossible).
+            resp = requests.post(url, json=payload, timeout=(30, self.timeout), stream=True)
             resp.raise_for_status()
-            data = resp.json()
-            text = data.get("response", "")
+            # Accumulate streamed NDJSON chunks into a single response
+            text_parts = []
+            thinking_parts = []
+            tokens = 0
+            for raw_line in resp.iter_lines(decode_unicode=True):
+                if not raw_line:
+                    continue
+                chunk = json.loads(raw_line)
+                text_parts.append(chunk.get("response", ""))
+                thinking_parts.append(chunk.get("thinking", ""))
+                if chunk.get("done"):
+                    tokens = chunk.get("eval_count", 0) + chunk.get("prompt_eval_count", 0)
+                    break
+            resp.close()
+            text = "".join(text_parts)
+            thinking = "".join(thinking_parts)
             # Ollama's new engine (Sept 2025+) puts thinking model output
             # in a separate "thinking" field.  For qwen3.5, deepseek-r1,
             # and other reasoning models, the JSON answer may land in
             # "thinking" while "response" is empty.  Concatenate both so
             # _parse_json_response / _strip_think_tags can handle it.
-            thinking = data.get("thinking", "")
             if thinking and not text:
                 # Model put everything in thinking field (common with format=json)
                 text = thinking
@@ -283,7 +300,6 @@ class LLMClient:
                 # Model has both thinking and response — wrap thinking in
                 # tags so _strip_think_tags can remove it cleanly.
                 text = f"<think>{thinking}</think>{text}"
-            tokens = data.get("eval_count", 0) + data.get("prompt_eval_count", 0)
             return text, tokens
 
         elif effective_provider in ("openai", "openai-compatible"):

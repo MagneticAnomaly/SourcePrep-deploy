@@ -184,7 +184,13 @@ def update_project(project_id: str, req: UpdateProjectRequest) -> Dict[str, Any]
             max_active_int = int(max_active)
             active_count = 0
             for p in reg.list_projects():
-                if p.id != project_id and get_project_activity_status(p.id) == "active":
+                if p.id == project_id:
+                    continue
+                # Only count projects explicitly toggled ON by the user.
+                # Projects without the "active" field in config default to True
+                # for backward compat but should NOT count against the limit.
+                pcfg = p.config if isinstance(p.config, dict) else {}
+                if "active" in pcfg and pcfg["active"] is True:
                     active_count += 1
             
             if active_count >= max_active_int:

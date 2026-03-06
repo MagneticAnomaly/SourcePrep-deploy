@@ -414,7 +414,7 @@ function App() {
   }, [selectedProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Project limit ───────────────────────────────────────────
-  const projectLimit = effectiveTier === 'free' ? 1 : Infinity
+  const projectLimit = effectiveTier === 'free' ? 1 : (maxActiveProjects === 'infinite' ? Infinity : maxActiveProjects as number)
   const isOverProjectLimit = project.projects.length > projectLimit
   const isAtProjectLimit = project.projects.length >= projectLimit
 
