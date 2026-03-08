@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
+from codrag.core.context_config import PipelineTask, compute_optimal_settings
 from .models import AtlasDocument, Segment, SegmentDocument, SegmentDescriptor
 from .prompts import (
     ATLAS_SYSTEM,
@@ -149,9 +150,17 @@ class CodebaseAtlas:
         # Disable thinking mode: qwen3/deepseek reasoning models stream their
         # internal deliberation as plain text when think=None, corrupting the
         # stored atlas.  We want only the final answer.
+        prompt_tokens = len(prompt) // 4
+        num_predict, num_ctx, warnings = compute_optimal_settings(
+            task=PipelineTask.ATLAS,
+            prompt_tokens=prompt_tokens,
+            model=self.llm.model,
+            think=False,
+        )
+
         try:
             text, tokens = self.llm.generate(
-                prompt, system=system, num_predict=4096,
+                prompt, system=system, num_predict=num_predict, num_ctx=num_ctx,
                 json_mode=False, temperature=0.3, think=False,
             )
             content = self._postprocess(text, max_chars)
@@ -354,9 +363,17 @@ class CodebaseAtlas:
             max_chars=max_chars,
         )
 
+        prompt_tokens = len(prompt) // 4
+        num_predict, num_ctx, warnings = compute_optimal_settings(
+            task=PipelineTask.ATLAS,
+            prompt_tokens=prompt_tokens,
+            model=self.llm.model,
+            think=False,
+        )
+
         try:
             text, tokens = self.llm.generate(
-                prompt, system=system, num_predict=2048,
+                prompt, system=system, num_predict=num_predict, num_ctx=num_ctx,
                 json_mode=False, temperature=0.3, think=False,
             )
             content = self._postprocess(text, max_chars)
@@ -479,9 +496,17 @@ class CodebaseAtlas:
             max_chars=max_chars,
         )
 
+        prompt_tokens = len(prompt) // 4
+        num_predict, num_ctx, warnings = compute_optimal_settings(
+            task=PipelineTask.ATLAS,
+            prompt_tokens=prompt_tokens,
+            model=self.llm.model,
+            think=False,
+        )
+
         try:
             text, tokens = self.llm.generate(
-                prompt, system=system, num_predict=2048,
+                prompt, system=system, num_predict=num_predict, num_ctx=num_ctx,
                 json_mode=False, temperature=0.3, think=False,
             )
             content = self._postprocess(text, max_chars)

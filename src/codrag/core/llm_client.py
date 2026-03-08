@@ -13,9 +13,87 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections import Counter
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+
+# ── Output safety guards ──────────────────────────────────────────────
+
+class OutputMonitor:
+    """Monitors streaming LLM output for degenerate patterns.
+
+    Designed to catch repetition loops (e.g., a model repeating the same
+    8-line block 73 times) and runaway output length.  Integrated into
+    the streaming response loop in :meth:`LLMClient.generate`.
+    """
+
+    def __init__(self, max_chars: int = 0):
+        self.max_chars = max_chars  # 0 = unlimited
+        self.buffer = ""
+        self._check_interval = 500  # chars between repetition checks
+        self._last_check_len = 0
+
+    def feed(self, chunk: str) -> tuple:
+        """Feed a new chunk of streamed output.
+
+        Returns:
+            (should_abort: bool, reason: str)
+        """
+        self.buffer += chunk
+        buf_len = len(self.buffer)
+
+        # Guard 1: Absolute length limit
+        if self.max_chars and buf_len > self.max_chars:
+            return True, f"Output exceeded max_chars ({self.max_chars})"
+
+        # Guard 2: Repetition detection (check every _check_interval chars)
+        if buf_len - self._last_check_len >= self._check_interval:
+            self._last_check_len = buf_len
+            abort, reason = self._check_repetition()
+            if abort:
+                return True, reason
+
+        return False, ""
+
+    def _check_repetition(self) -> tuple:
+        """Detect repetition loops in accumulated output."""
+        lines = [l.strip() for l in self.buffer.split("\n") if len(l.strip()) > 40]
+        if len(lines) < 12:
+            return False, ""
+        counts = Counter(lines)
+        top_line, top_count = counts.most_common(1)[0]
+        # If any single line appears > 4 times AND makes up > 25% of
+        # substantial lines, it's almost certainly a loop.
+        if top_count > 4 and top_count / len(lines) > 0.25:
+            return True, f"Repetition loop detected ({top_count} repeats)"
+        return False, ""
+
+    def truncate_to_good_content(self) -> str:
+        """If a loop was detected, return the content before the first repeat."""
+        lines = self.buffer.split("\n")
+        seen = {}
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if len(stripped) > 40:
+                if stripped in seen:
+                    # Return everything up to the line before this repeat
+                    return "\n".join(lines[:i]).rstrip()
+                seen[stripped] = i
+        return self.buffer
+
+
+# Default max_chars limits per CoDRAG task type.  Used by the pipeline
+# to cap output length and prevent runaway generation.
+TASK_MAX_CHARS = {
+    "atlas_small": 15_000,
+    "atlas_large": 80_000,
+    "audit": 15_000,
+    "group_reasoning": 8_000,
+    "augmentation": 2_000,
+    "epistemic": 3_000,
+}
 
 
 def _parse_confidence(raw: Any, default: float = 0.5) -> float:
@@ -220,6 +298,8 @@ class LLMClient:
         temperature: float = 0.1,
         response_schema: Optional[Dict[str, Any]] = None,
         think: Optional[bool] = None,
+        max_chars: int = 0,
+        num_ctx: Optional[int] = None,
     ) -> Tuple[str, int]:
         """
         Call the LLM and return (response_text, tokens_used).
@@ -231,6 +311,10 @@ class LLMClient:
             temperature: Sampling temperature. Lower = more deterministic.
             response_schema: Optional JSON schema dict for guaranteed structured output 
                              (supported by OpenAI and Google).
+            max_chars: If > 0, abort generation and truncate if output exceeds
+                       this many characters.  Also enables repetition-loop
+                       detection via :class:`OutputMonitor`.  Use
+                       :data:`TASK_MAX_CHARS` for per-task defaults.
         """
         import requests
 
@@ -239,22 +323,39 @@ class LLMClient:
         effective_provider = "openai-compatible" if self.provider == "lm-studio" else self.provider
 
         if effective_provider == "ollama":
+            # When thinking is enabled, Ollama counts thinking tokens AND
+            # response tokens against num_predict.  Scale the budget so the
+            # model has room for both the reasoning trace and the answer.
+            effective_num_predict = num_predict
+            if think:
+                # Scale budget for thinking overhead, but cap at 24576 to
+                # prevent runaway generation on small prompts (e.g., a 500-token
+                # audit prompt with np=16384 would otherwise get 49K budget,
+                # causing 30+ min of thinking for no benefit).
+                effective_num_predict = min(
+                    max(num_predict * 3, num_predict + 8192),
+                    max(num_predict, 24576),  # never less than base, capped at 24K
+                )
             options: Dict[str, Any] = {
                 "temperature": temperature,
-                "num_predict": num_predict,
+                "num_predict": effective_num_predict,
                 "top_k": 20,
                 "top_p": 0.95,
+                "repeat_penalty": 1.15,
+                "repeat_last_n": 256,
             }
+            if num_ctx is not None:
+                options["num_ctx"] = num_ctx
             payload: Dict[str, Any] = {
                 "model": self.model,
                 "prompt": prompt,
                 "stream": True,
                 "options": options,
             }
-            # Disable thinking mode to skip massive thinking token overhead.
-            # Qwen3.5 generates 2000-5000 thinking tokens (3-5 min) before
-            # answering.  Disabling thinking cuts this to ~30-60s per item
-            # while still leveraging the full 27.8B dense model quality.
+            # Pass think=True/False to enable/disable reasoning mode.
+            # When enabled, the model emits a separate thinking trace before
+            # the answer; effective_num_predict above already accounts for
+            # the extra token budget this requires.
             if think is not None:
                 payload["think"] = think
             if json_mode and not response_schema:
@@ -272,22 +373,40 @@ class LLMClient:
             # timeouts impossible).
             resp = requests.post(url, json=payload, timeout=(30, self.timeout), stream=True)
             resp.raise_for_status()
-            # Accumulate streamed NDJSON chunks into a single response
+            # Accumulate streamed NDJSON chunks into a single response,
+            # with OutputMonitor guarding against repetition loops.
+            monitor = OutputMonitor(max_chars=max_chars) if max_chars else None
             text_parts = []
             thinking_parts = []
             tokens = 0
+            aborted = False
+            abort_reason = ""
             for raw_line in resp.iter_lines(decode_unicode=True):
                 if not raw_line:
                     continue
                 chunk = json.loads(raw_line)
-                text_parts.append(chunk.get("response", ""))
+                resp_chunk = chunk.get("response", "")
+                text_parts.append(resp_chunk)
                 thinking_parts.append(chunk.get("thinking", ""))
+                # Feed response chunks (not thinking) to the monitor
+                if monitor and resp_chunk:
+                    should_abort, reason = monitor.feed(resp_chunk)
+                    if should_abort:
+                        aborted = True
+                        abort_reason = reason
+                        logger.warning("OutputMonitor aborted: %s", reason)
+                        break
                 if chunk.get("done"):
                     tokens = chunk.get("eval_count", 0) + chunk.get("prompt_eval_count", 0)
                     break
             resp.close()
             text = "".join(text_parts)
             thinking = "".join(thinking_parts)
+            # If aborted due to repetition, truncate to the good content
+            if aborted and monitor:
+                text = monitor.truncate_to_good_content()
+                logger.info("Truncated output from %d to %d chars (%s)",
+                            len(monitor.buffer), len(text), abort_reason)
             # Ollama's new engine (Sept 2025+) puts thinking model output
             # in a separate "thinking" field.  For qwen3.5, deepseek-r1,
             # and other reasoning models, the JSON answer may land in

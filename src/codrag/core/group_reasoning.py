@@ -29,6 +29,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from codrag.core.context_config import PipelineTask, compute_optimal_settings
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from .llm_client import LLMClient, _parse_json_response
@@ -344,10 +345,19 @@ class GroupReasoningEngine:
             # think=True: This is where deep reasoning adds genuine value.
             # The model reasons about relationships BETWEEN files, not just
             # individual file descriptions.
+            prompt_tokens = len(prompt) // 4
+            num_predict, num_ctx, warnings = compute_optimal_settings(
+                task=PipelineTask.GROUP_REASONING,
+                prompt_tokens=prompt_tokens,
+                model=self.llm.model,
+                think=True,
+            )
+
             text, tokens = self.llm.generate(
                 prompt,
                 system=GROUP_REASONING_SYSTEM,
-                num_predict=4096,
+                num_predict=num_predict,
+                num_ctx=num_ctx,
                 json_mode=False,
                 think=True,
                 temperature=0.6,  # Unsloth recommended for thinking mode

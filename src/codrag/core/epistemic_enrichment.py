@@ -23,6 +23,7 @@ from collections import defaultdict, deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
+from codrag.core.context_config import PipelineTask, compute_optimal_settings
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from .augmenter import AugmentationEntry
@@ -516,8 +517,16 @@ class EpistemicEnricher:
             # return empty responses when Ollama's format:json is forced.
             # Our _parse_json_response already handles JSON extraction from
             # free-text output, including <think> tags and markdown fences.
+            prompt_tokens = len(prompt) // 4
+            num_predict, num_ctx, warnings = compute_optimal_settings(
+                task=PipelineTask.EPISTEMIC,
+                prompt_tokens=prompt_tokens,
+                model=self.llm.model,
+                think=False,
+            )
+
             text, tokens = self.llm.generate(
-                prompt, system=EPISTEMIC_SYSTEM, num_predict=4096,
+                prompt, system=EPISTEMIC_SYSTEM, num_predict=num_predict, num_ctx=num_ctx,
                 json_mode=False, think=False,
             )
             _call_elapsed = _time.monotonic() - _call_start
@@ -636,9 +645,17 @@ class EpistemicEnricher:
         def _call_code_batch(items):
             prompt = build_batched_epistemic_code_prompt(items)
             try:
+                prompt_tokens = len(prompt) // 4
+                num_predict, num_ctx, warnings = compute_optimal_settings(
+                    task=PipelineTask.EPISTEMIC,
+                    prompt_tokens=prompt_tokens,
+                    model=self.llm.model,
+                    think=False,
+                )
+
                 text, tokens = self.llm.generate(
                     prompt, system=BATCHED_EPISTEMIC_CODE_SYSTEM,
-                    num_predict=len(items) * 400,
+                    num_predict=num_predict, num_ctx=num_ctx,
                     response_schema=code_schema,
                 )
                 return BatchedResponseParser.parse(text, expected_count=len(items))
@@ -720,9 +737,17 @@ class EpistemicEnricher:
         def _call_doc_batch(items):
             prompt = build_batched_epistemic_doc_prompt(items)
             try:
+                prompt_tokens = len(prompt) // 4
+                num_predict, num_ctx, warnings = compute_optimal_settings(
+                    task=PipelineTask.EPISTEMIC,
+                    prompt_tokens=prompt_tokens,
+                    model=self.llm.model,
+                    think=False,
+                )
+
                 text, tokens = self.llm.generate(
                     prompt, system=BATCHED_EPISTEMIC_DOC_SYSTEM,
-                    num_predict=len(items) * 400,
+                    num_predict=num_predict, num_ctx=num_ctx,
                     response_schema=doc_schema,
                 )
                 return BatchedResponseParser.parse(text, expected_count=len(items))

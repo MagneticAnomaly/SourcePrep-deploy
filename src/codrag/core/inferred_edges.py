@@ -30,6 +30,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
+from codrag.core.context_config import PipelineTask, compute_optimal_settings
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from .llm_client import _get_llm_concurrency, _parse_confidence
@@ -297,10 +298,18 @@ class InferredEdgesAnalyzer:
 
             def _call_edge_batch(items):
                 prompt = build_batched_inferred_edges_prompt(items, known_text)
+                prompt_tokens = len(prompt) // 4
+                num_predict, num_ctx, warnings = compute_optimal_settings(
+                    task=PipelineTask.AUGMENT,  # Treat similar to augment
+                    prompt_tokens=prompt_tokens,
+                    model=self.llm.model,
+                    think=False,
+                )
+
                 try:
                     text, tokens = self.llm.generate(
                         prompt, system=BATCHED_INFERRED_EDGES_SYSTEM,
-                        num_predict=len(items) * 300,
+                        num_predict=num_predict, num_ctx=num_ctx,
                         response_schema=schema,
                     )
                     return BatchedResponseParser.parse(text, expected_count=len(items))
@@ -512,10 +521,19 @@ class InferredEdgesAnalyzer:
             source_code=source[:self.MAX_SOURCE_CHARS],
         )
 
+        prompt_tokens = len(prompt) // 4
+        num_predict, num_ctx, warnings = compute_optimal_settings(
+            task=PipelineTask.AUGMENT,  # Treat similar to augment
+            prompt_tokens=prompt_tokens,
+            model=self.llm.model,
+            think=False,
+        )
+
         text, tokens = self.llm.generate(
             prompt,
             system=INFERRED_EDGES_SYSTEM,
-            num_predict=1024,
+            num_predict=num_predict,
+            num_ctx=num_ctx,
             temperature=0.1,
         )
 

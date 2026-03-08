@@ -22,6 +22,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from codrag.core.context_config import PipelineTask, compute_optimal_settings
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
@@ -522,20 +523,30 @@ class TraceAugmenter:
         self,
         prompt: str,
         system: Optional[str] = None,
-        num_predict: int = 2048,
         max_retries: int = 2,
-        label: str = "",
+        label: str = "item",
     ) -> Tuple[str, int]:
-        """Call LLM with retry on transient failures.
+        """Helper for robust single-item generation with retries.
 
-        Retries up to ``max_retries`` times with exponential back-off
-        (1s, 2s).  Returns (text, tokens) on success or raises the
-        last exception.
+        Returns (text, tokens_used).  Raises RuntimeError after max_retries
+        or for immediate parsing failures that shouldn't be retried.  Logs
+        the last exception.
         """
+        prompt_tokens = len(prompt) // 4
+        num_predict, num_ctx, warnings = compute_optimal_settings(
+            task=PipelineTask.AUGMENT,
+            prompt_tokens=prompt_tokens,
+            model=self.llm.model,
+            think=False,
+        )
+
         last_err: Optional[Exception] = None
         for attempt in range(1 + max_retries):
             try:
-                return self.llm.generate(prompt, system=system, num_predict=num_predict)
+                return self.llm.generate(
+                    prompt, system=system, 
+                    num_predict=num_predict, num_ctx=num_ctx,
+                )
             except Exception as e:
                 last_err = e
                 if attempt < max_retries:
@@ -953,9 +964,17 @@ class TraceAugmenter:
 
         def _call_code_batch(items):
             prompt = build_batched_file_prompt(items)
+            prompt_tokens = len(prompt) // 4
+            num_predict, num_ctx, warnings = compute_optimal_settings(
+                task=PipelineTask.AUGMENT,
+                prompt_tokens=prompt_tokens,
+                model=self.llm.model,
+                think=False,
+            )
             try:
                 text, tokens = self.llm.generate(
-                    prompt, system=BATCHED_FILE_SYSTEM, num_predict=batch_size * 200,
+                    prompt, system=BATCHED_FILE_SYSTEM, 
+                    num_predict=num_predict, num_ctx=num_ctx,
                     response_schema=file_schema,
                 )
                 return BatchedResponseParser.parse(text, expected_count=len(items))
@@ -1057,9 +1076,17 @@ class TraceAugmenter:
 
         def _call_doc_batch(items):
             prompt = build_batched_doc_prompt(items)
+            prompt_tokens = len(prompt) // 4
+            num_predict, num_ctx, warnings = compute_optimal_settings(
+                task=PipelineTask.AUGMENT,
+                prompt_tokens=prompt_tokens,
+                model=self.llm.model,
+                think=False,
+            )
             try:
                 text, tokens = self.llm.generate(
-                    prompt, system=BATCHED_DOC_SYSTEM, num_predict=len(items) * 200,
+                    prompt, system=BATCHED_DOC_SYSTEM, 
+                    num_predict=num_predict, num_ctx=num_ctx,
                     response_schema=doc_schema,
                 )
                 return BatchedResponseParser.parse(text, expected_count=len(items))

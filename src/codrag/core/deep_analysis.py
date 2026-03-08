@@ -18,6 +18,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from codrag.core.context_config import PipelineTask, compute_optimal_settings
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -441,8 +442,19 @@ class DeepAnalysisOrchestrator:
             contains=contains or "(none)",
         )
 
+        prompt_tokens = len(prompt) // 4
+        num_predict, num_ctx, warnings = compute_optimal_settings(
+            task=PipelineTask.EPISTEMIC,  # Deep analysis is similar to epistemic
+            prompt_tokens=prompt_tokens,
+            model=llm_client.model,
+            think=False,
+        )
+
         try:
-            text, tokens = llm_client.generate(prompt, system=VALIDATION_SYSTEM, num_predict=2048)
+            text, tokens = llm_client.generate(
+                prompt, system=VALIDATION_SYSTEM, 
+                num_predict=num_predict, num_ctx=num_ctx,
+            )
         except Exception as e:
             logger.warning("Validation LLM call failed for %s: %s", item.node_name, e)
             return None

@@ -24,6 +24,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from codrag.core.context_config import PipelineTask, compute_optimal_settings
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from .llm_client import LLMClient, _get_llm_concurrency, _parse_confidence, _parse_json_response
@@ -1041,8 +1042,16 @@ class ClusterSynthesizer:
                 external_deps=external_deps,
             )
             
+            prompt_tokens = len(prompt) // 4
+            num_predict, num_ctx, warnings = compute_optimal_settings(
+                task=PipelineTask.CLUSTER,
+                prompt_tokens=prompt_tokens,
+                model=self.llm.model,
+                think=False,
+            )
+
             text, tokens = self.llm.generate(
-                prompt, system=MODULE_SYNTHESIS_SYSTEM, num_predict=4096,
+                prompt, system=MODULE_SYNTHESIS_SYSTEM, num_predict=num_predict, num_ctx=num_ctx,
                 json_mode=False, think=False,
             )
             return _parse_json_response(text)
@@ -1217,9 +1226,17 @@ class ClusterSynthesizer:
 
                 prompt = build_batched_cluster_prompt(items)
                 try:
+                    prompt_tokens = len(prompt) // 4
+                    num_predict, num_ctx, warnings = compute_optimal_settings(
+                        task=PipelineTask.CLUSTER,
+                        prompt_tokens=prompt_tokens,
+                        model=self.llm.model,
+                        think=False,
+                    )
+
                     text, tokens = self.llm.generate(
                         prompt, system=BATCHED_CLUSTER_SYSTEM,
-                        num_predict=len(items) * 500,
+                        num_predict=num_predict, num_ctx=num_ctx,
                         response_schema=schema,
                     )
                     results_list = BatchedResponseParser.parse(text, expected_count=len(items))

@@ -10,6 +10,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from codrag.core.context_config import PipelineTask, compute_optimal_settings
 from typing import Any, Callable, Dict, List, Optional
 
 from .models import AuditContext, AuditDocument, AuditResult, Finding
@@ -96,12 +97,21 @@ class AuditSynthesizer:
             findings_formatted=findings_text,
         )
 
+        prompt_tokens = len(prompt) // 4
+        num_predict, num_ctx, warnings = compute_optimal_settings(
+            task=PipelineTask.AUDIT,
+            prompt_tokens=prompt_tokens,
+            model=self.llm.model,
+            think=False,
+        )
+
         text, _ = self.llm.generate(
             prompt=prompt,
             system=prompts.AUDIT_SUMMARY_SYSTEM,
             json_mode=False,
             temperature=0.3,
-            num_predict=4096,
+            num_predict=num_predict,
+            num_ctx=num_ctx,
         )
         return _clean_markdown(text)
 
@@ -127,12 +137,21 @@ class AuditSynthesizer:
             circular_deps=circular or "(none)",
         )
 
+        prompt_tokens = len(prompt) // 4
+        num_predict, num_ctx, warnings = compute_optimal_settings(
+            task=PipelineTask.AUDIT,
+            prompt_tokens=prompt_tokens,
+            model=self.llm.model,
+            think=False,
+        )
+
         text, _ = self.llm.generate(
             prompt=prompt,
             system=prompts.ARCHITECTURE_ANALYSIS_SYSTEM,
             json_mode=False,
             temperature=0.3,
-            num_predict=4096,
+            num_predict=num_predict,
+            num_ctx=num_ctx,
         )
         return _clean_markdown(text)
 
@@ -155,12 +174,21 @@ class AuditSynthesizer:
             modules_formatted=self._format_modules(ctx.modules),
         )
 
+        prompt_tokens = len(prompt) // 4
+        num_predict, num_ctx, warnings = compute_optimal_settings(
+            task=PipelineTask.AUDIT,
+            prompt_tokens=prompt_tokens,
+            model=self.llm.model,
+            think=False,
+        )
+
         text, _ = self.llm.generate(
             prompt=prompt,
             system=prompts.GAP_ANALYSIS_SYSTEM,
             json_mode=False,
             temperature=0.3,
-            num_predict=4096,
+            num_predict=num_predict,
+            num_ctx=num_ctx,
         )
         return _clean_markdown(text)
 
@@ -176,12 +204,21 @@ class AuditSynthesizer:
             modules_formatted=self._format_modules(ctx.modules),
         )
 
+        prompt_tokens = len(prompt) // 4
+        num_predict, num_ctx, warnings = compute_optimal_settings(
+            task=PipelineTask.AUDIT,
+            prompt_tokens=prompt_tokens,
+            model=self.llm.model,
+            think=False,
+        )
+
         text, _ = self.llm.generate(
             prompt=prompt,
             system=prompts.COMPONENT_INVENTORY_SYSTEM,
             json_mode=False,
             temperature=0.2,
-            num_predict=6000,
+            num_predict=num_predict,
+            num_ctx=num_ctx,
         )
         return _clean_markdown(text)
 
@@ -201,12 +238,21 @@ class AuditSynthesizer:
             modules_formatted=self._format_modules(ctx.modules),
         )
 
+        prompt_tokens = len(prompt) // 4
+        num_predict, num_ctx, warnings = compute_optimal_settings(
+            task=PipelineTask.AUDIT,
+            prompt_tokens=prompt_tokens,
+            model=self.llm.model,
+            think=False,
+        )
+
         text, _ = self.llm.generate(
             prompt=prompt,
             system=prompts.TECH_DEBT_REPORT_SYSTEM,
             json_mode=False,
             temperature=0.3,
-            num_predict=4096,
+            num_predict=num_predict,
+            num_ctx=num_ctx,
         )
         return _clean_markdown(text)
 
