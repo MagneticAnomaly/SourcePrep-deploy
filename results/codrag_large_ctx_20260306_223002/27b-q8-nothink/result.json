@@ -1,0 +1,173 @@
+{
+  "config": {
+    "id": "27b-q8-nothink",
+    "label": "qwen3.5:27b Q8 (no-think)",
+    "model": "qwen3.5:27b-q8_0",
+    "think": false,
+    "timeout": 600.0,
+    "description": "Higher quantization dense \u2014 does precision help?"
+  },
+  "atlas_50": {
+    "status": "success",
+    "duration_s": 180.2,
+    "tokens": 9032,
+    "prompt_chars": 39532,
+    "module_cap": 50,
+    "content": "IDENTITY: This project is a multi-language codebase integrating SQLModel database operations, Rust-based CLI tools, and React/TypeScript UI components for the CoDRAG platform, supported by extensive testing infrastructure and documentation.\nSTACK: Python with SQLModel and FastAPI for backend persistence; Rust for CLI tools like bat and ripgrep; TypeScript and React with Vite for UI; Kotlin for Android and OkHttp; Java for Javalin and Gson; C/C++ for build tools; Next.js for web frameworks; Tailwind CSS and Tremor for theming; Storybook for component documentation.\nARCHITECTURE: The system is organized into layers: testing (1814 files), documentation (1267 files), business_logic (1082 files), presentation (782 files), infrastructure (477 files), configuration (476 files), build (65 files), and data (25 files). The presentation layer relies heavily on TEST2/website.clean/app/download/page.tsx (3294 edges), TEST2/website.clean/app/privacy/page.tsx (1176 edges), and TEST2/website.clean/components/sections/HeroSection.tsx (957 edges). Business logic connects SQLModel integration with FastAPI endpoints, while infrastructure supports compression, caching, and network protocols like HTTP/2.\nSUBSYSTEMS: Testing Infrastructure for SQLModel: TEST2/website.clean/app/download/page.tsx, TEST2/website.clean/app/privacy/page.tsx. SQLModel Database Integration: TEST2/website.clean/components/sections/HeroSection.tsx. UI Configuration and Build System: TEST2/website.clean/app/layout.tsx. UI Components for Marketing: TEST2/website.clean/components/sections/Footer.tsx. CLI Tools and Text Processing: bat-rust, ripgrep. UI and Compression Infrastructure: CLaRa, CoDRAG. Dashboard User Interface: CoDRAG dashboards. UI and Logging Subsystem: log consoles, bug reporting modals. UI and Utility Functions: string manipulation, event handling. UI and Theming System: Tailwind CSS, custom properties. UI Component Development: PanelChrome, ModelCard, Button. Testing and Mocking Frameworks: batch scripts, C, Java, Kotlin. UI Icon Library: Lucide icon components. UI and JSON Handling: Gson, cjson-c, Javalin. UI and Syntax Highlighting: terminal.rs. UI Error Handling: HTTP status codes, custom exceptions. User Interface and Backend Integration: React hooks, Firebase Cloud Functions. UI and Search Subsystem: semantic search, trace exploration. UI Design System: typography, color systems. Marketing Subsystem: WebGL-based animations. Evaluation and Testing Subsystem: recall, MRR metrics. UI Styling and Theming: Tailwind CSS, typography. Alamofire Documentation: migration guides, API references. UI and Data Processing: trace enrichment, serialization. Android UI and Testing: OkHttp, Kotlin. UI Subsystem Tests: React, Storybook. UI and Integration: API communication, playback control. UI and Testing Infrastructure: React Native, Next.js. UI Navigation and Layout: header, footer, sidebar. UI and Web Framework Configuration: Next.js, Javalin, Slim PHP. Code Analysis Engine: Rust, Python bindings. UI Benchmarking: nomic-embed-text, nomic-embed-code. UI and Legal Documentation: privacy policies, terms of service. UI and Network Caching: Alamofire, OkHttp, Got. UI and Data Serialization: JSON, YAML. UI and Validation: schema validation, argument parsing. UI and Data Modeling: TypeScript interfaces. UI Communication: WebSockets, SSE. UI Components and Design System: buttons, toggles, dialogs. Testing Infrastructure for SQLModel and FastAPI: database schema, ORM operations. User Interface and Project Management: project configuration, file exploration. Database & API Operations Documentation: CRUD operations, FastAPI. Jezebel Backend Infrastructure: API foundations, middleware. UI and Testing Infrastructure for Kotlin: OkHttp ecosystem. Trace UI Visualization: trace data, coverage status. HTTP/2 Client Implementation: HPACK, flow control. Code Analysis Subsystem: LLM-driven analysis. SEO Configuration: robots.txt, sitemaps. Deployment Infrastructure: Google Cloud Run, Modal, RunPod. UI and Configuration Utilities: JSON configurations, radix trees.\nFLOW: Requests enter via TEST2/website.clean/app/download/page.tsx or TEST2/website.clean/app/layout.tsx, routing through UI components like TEST2/website.clean/components/sections/HeroSection.tsx. Data flows to SQLModel Database Integration for persistence, validated by Testing Infrastructure for SQLModel. CLI tools process text via bat-rust and ripgrep. Compression strategies in UI and Compression Infrastructure optimize HTTP responses. Real-time updates use UI Communication and Real-Time Networking with WebSockets. Errors are managed by UI Error Handling and Exception Management, logging via UI and Logging Subsystem.\nPATTERNS: Shared dependencies include website-ui, website-legal, website-content, legal-docs, and website-components across most subsystems. Error handling uses standardized HTTP status codes and custom exceptions in UI Error Handling and Exception Management. Testing relies on fixtures and mocking frameworks for isolation. Theming uses Tailwind CSS and custom properties for consistency.\nRISKS: Testing Infrastructure for SQLModel has TODOs for delete() function and .exec() overloads. UI Configuration and Build System has duplicate package-lock.json files and inconsistent TypeScript configurations. UI Components for Marketing has unresolved UX audit issues and accessibility gaps. CLI Tools and Text Processing has FIXME comments on regex logic. UI and Compression Infrastructure has TODOs for lzma, sdch, br algorithms. UI and Utility Functions has duplicated utilities and lack of centralized management. UI and JSON Handling has undeployed protobuf modules. UI and Syntax Highlighting has TODO for ANSI color conversion. User Interface and Backend Integration has unresolved Gson JsonTreeWriter TODO. Marketing Subsystem has inconsistent documentation and partial WebGL integration. UI and Data Processing has duplicated configurations and inconsistent error handling. UI Subsystem Tests has placeholder files. UI and Testing Infrastructure has outdated build script patches. UI and Data Modeling has auto-generated code misalignment. UI and Legal Documentation has payment processing inconsistencies. HTTP/2 Client Implementation has HPACK decoding TODOs. SEO Configuration has ignored Netty error tests. Deployment Infrastructure has configuration duplication and deprecated tooling references. UI and Configuration Utilities has incomplete test implementations.",
+    "char_count": 6478,
+    "num_predict": 4096
+  },
+  "atlas_100": {
+    "status": "success",
+    "duration_s": 239.5,
+    "tokens": 16113,
+    "prompt_chars": 73920,
+    "module_cap": 100,
+    "content": "IDENTITY: This project is a comprehensive codebase for the CoDRAG system, integrating AI-driven code analysis, SQLModel database operations, and a multi-platform user interface with extensive testing infrastructure.\n\nSTACK: The codebase utilizes TypeScript, JavaScript, Python, Rust, Java, Kotlin, Go, Swift, and C. Frameworks include Next.js, React, FastAPI, SQLModel, SQLAlchemy, Pydantic, Javalin, Spark, OkHttp, Alamofire, and Vite. Build tools involve Maven, Gradle, Maturin, and GitHub Actions. Runtime environments span web browsers, VS Code extensions, mobile devices, and serverless cloud platforms.\n\nARCHITECTURE: The system is organized into layers: testing (1814 files), documentation (1267 files), business_logic (1082 files), presentation (782 files), infrastructure (477 files), configuration (476 files), build (65 files), and data (25 files). The presentation layer centers on TEST2/website.clean/app/download/page.tsx and TEST2/website.clean/app/layout.tsx, which connect to business logic via API integrations. The infrastructure layer supports database operations through SQLModel and networking via OkHttp and Alamofire. Configuration files manage build processes and environment settings across multiple languages. The testing layer validates functionality across all modules, ensuring compatibility and performance.\n\nSUBSYSTEMS: Testing Infrastructure for SQLModel: test/sqlmodel/*.py, SQLModel Database Integration: docs/sqlmodel/*.md, UI Configuration and Build System: packages/ui/vite.config.ts, User Interface Components for Marketing: TEST2/website.clean/components/sections/HeroSection.tsx, CLI Tools and Text Processing: bat-rust/src/main.rs, UI and Compression Infrastructure: codrag/compression/*.py, Dashboard User Interface: dashboard/src/components/*.tsx, UI and Logging Subsystem: ui-logging/src/*.ts, UI and Utility Functions: utils/src/*.js, UI and Theming System: theme/src/*.css, UI Component Development: storybook/stories/*.tsx, Testing and Mocking Frameworks: test-mocks/src/*.java, UI Icon Library: icons/src/*.tsx, UI and JSON Handling: json-handler/src/*.java, UI and Syntax Highlighting: bat-rust/src/terminal.rs, UI Error Handling: error-handler/src/*.java, User Interface and Backend Integration: backend-integration/src/*.ts, UI and Search Subsystem: search-ui/src/*.tsx, UI Design System: design-system/src/*.css, Marketing Subsystem: marketing/src/*.tsx, Evaluation and Testing Subsystem: eval/src/*.py, UI Styling and Theming: styling/src/*.css, Alamofire Documentation: alamofire-docs/*.md, UI and Data Processing: data-process/src/*.swift, Android UI and Testing: android-test/src/*.kt, UI Subsystem Tests: ui-test/src/*.ts, UI and Integration: integration/src/*.ts, UI Navigation and Layout: navigation/src/*.tsx, UI and Web Framework Config: web-config/src/*.java, Code Analysis Engine: code-analysis/src/lib.rs, UI Benchmarking: benchmark/src/*.py, UI and Legal Documentation: legal-ui/src/*.tsx, UI and Network Caching: cache/src/*.swift, UI and Data Serialization: serialization/src/*.java, UI and Validation: validation/src/*.ts, UI and Data Modeling: models/src/*.ts, UI Communication and Real-Time: realtime/src/*.java, UI Components and Design: components/src/*.tsx, Testing Infrastructure for SQLModel and FastAPI: test/fastapi/*.py, User Interface and Project Management: project-mgmt/src/*.tsx, Database and API Operations: docs/api/*.md, Jezebel Backend Infrastructure: jezebel/src/*.kt, UI and Testing for Kotlin: kotlin-test/src/*.kt, Trace UI Visualization: trace-ui/src/*.tsx, HTTP/2 Client Implementation: http2-client/src/*.kt, Code Analysis Subsystem: analysis/src/*.py, SEO Configuration and Network Testing: seo-config/src/*.ts, Deployment Infrastructure: deploy/src/*.yaml, UI and Configuration Utilities: config-utils/src/*.java, UI and Data Handling: data-handling/src/*.go, LLM Configuration and Dashboard: llm-dash/src/*.tsx, UI and Serialization Infrastructure: serialization-infra/src/*.java, Code Quality Audit System: audit/src/*.py, CoDRAG User Interface and Documentation: codrag-docs/*.md, License Compliance for Test Components: license-test/*.md, Unit Testing Framework and JSON Parsing: json-test/src/*.c, UI and Performance Evaluation: perf-eval/src/*.py, UI Subsystem Tests #14: ui-test-14/src/*.ts, Concurrency and Networking Utilities: concurrency/src/*.swift, UI Configuration and Localization: i18n-config/src/*.ts, TLS and Security Configuration: tls-config/src/*.kt, UI and File System Interaction: file-system/src/*.ts, User Interface Components: ui-components/src/*.tsx, UI Styling and Configuration: ui-styling/src/*.css, Status and Progress UI Components: status-ui/src/*.tsx, UI Layout and Navigation System: layout-nav/src/*.tsx, Music Analysis: music-analysis/src/*.py, SQLModel Tutorial Testing: sqlmodel-tutorial-test/*.py, Codebase UI and Analysis Interface: codebase-ui/src/*.tsx, Development Environment and Deployment: dev-env/src/*.yaml, Ui Configuration and Dependency Management: ui-deps/src/*.json, UI and JSON Processing Tests: json-process-test/src/*.java, UI Components and Presentation Layer: presentation/src/*.tsx, UI Subsystem Test3: ui-test3/src/*.ts, UI Asset Management: assets/src/*.json, UI and Framework Configuration: framework-config/src/*.java, UI File Handling and Security: file-security/src/*.ts, UI and Server-Side Rendering: ssrc/src/*.vue, User Interface and CLI Subsystem: cli-ui/src/*.py, UI and Rendering Subsystem: rendering/src/*.go, Repository Analysis and Evaluation: repo-analysis/src/*.py, Web UI and HTTP Handling: web-http/src/*.java, Code Tracing: code-trace/src/*.py, Command Line Interface: cli-framework/src/*.py, Data Persistence Tests: data-persist-test/*.py, UI Backend Testing and Documentation: backend-test-docs/*.md, UI and I/O Utilities: io-utils/src/*.py, UI and Navigation Subsystem: nav-ui/src/*.ts, UI and SSL Configuration: ssl-config/src/*.java, UI and Versioning Utilities: versioning/src/*.ts, Dependency Configuration and Build Management: build-deps/src/*.yaml, UI Module Configuration and Testing: ui-module-test/src/*.java, UI and CLI Tools Subsystem: cli-tools/src/*.rs, Ui Tests #142: ui-test-142/src/*.java, UI Static File Handling: static-files/src/*.java, UI Encoding and Networking: encoding-net/src/*.java, Networking and HTTP Protocol Handling: http-protocol/src/*.kt, Regex and Search Utilities: regex-search/src/*.rs, Code Analysis and Quality Assurance: code-quality/src/*.py.\n\nFLOW: Requests enter via TEST2/website.clean/app/download/page.tsx, routing through TEST2/website.clean/app/layout.tsx. Data flows to business logic modules like SQLModel Database Integration for persistence. UI components in TEST2/website.clean/components/sections/HeroSection.tsx render content. Backend services handle API calls via FastAPI or Javalin. Responses traverse through UI and Data Handling Subsystem for serialization. Testing Infrastructure for SQLModel validates operations. Errors are managed by UI Error Handling and Exception Management. Real-time updates use UI Communication and Real-Time Networking.\n\nPATTERNS: Shared dependencies include website-ui, website-legal, and legal-docs across most subsystems. Dependency injection is evident in testing frameworks and backend services. Error handling follows standardized HTTP status codes and custom exceptions in UI Error Handling and Exception Management. Configuration management uses centralized files for build and environment settings.\n\nRISKS: Testing Infrastructure for SQLModel has TODOs for delete() function and .exec() overloads. UI Configuration and Build System has duplicate package-lock.json files and inconsistent TypeScript configurations. User Interface Components for Marketing has unresolved UX audit issues. CLI Tools and Text Processing has FIXME comments on regex logic. UI and Compression Infrastructure has TODOs for additional compression algorithms. UI and Utility Functions has duplicated utility functions. UI and JSON Handling has undeployed protobuf integration. UI and Syntax Highlighting has TODO for ANSI color conversion. User Interface and Backend Integration has unresolved Gson TODO. Marketing Subsystem has inconsistent implementation and partial WebGL integration. UI Subsystem Tests has placeholder files. UI and Testing Infrastructure has TODOs in build scripts. UI and Data Modeling has auto-generated code misalignment. UI and Configuration Utilities has incomplete test implementations. UI and Data Handling has duplicated configuration entries. Music Analysis has pending ML pipeline implementation. Codebase UI and Analysis Interface has incomplete research. Development Environment and Deployment has conditional architecture handling. Ui Configuration and Dependency Management has formatting inconsistencies. UI Components and Presentation Layer has fragmented organization. UI Subsystem Test3 has React Native bug. UI and Rendering Subsystem has unused functions. Repository Analysis and Evaluation has partial implementation. Web UI and HTTP Handling has NOSONAR suppression. Data Persistence Tests has refactoring TODO. Dependency Configuration and Build Management has fragmented management. UI Module Configuration and Testing has incomplete module names. Ui Tests #142 has stubbed implementations.",
+    "char_count": 9285,
+    "num_predict": 4096
+  },
+  "group_reasoning": {
+    "status": "success",
+    "total_groups": 5,
+    "parse_success": 5,
+    "parse_fail": 0,
+    "total_duration_s": 278.8,
+    "avg_duration_s": 55.8,
+    "num_predict": 4096,
+    "groups": [
+      {
+        "group_id": "group:c1e84cdefb",
+        "member_count": 4,
+        "members": [
+          "docs/Phase04_TraceIndex/LLM_MODEL_CONFIGURATION.md",
+          "src/codrag/dashboard/src/hooks/useTraceSystem.ts",
+          "src/codrag/dashboard/src/hooks/useDashboardPanels.tsx",
+          "src/codrag/dashboard/src/hooks/useAuditSystem.ts"
+        ],
+        "prompt_chars": 3218,
+        "duration_s": 47.1,
+        "tokens": 1220,
+        "parsed_ok": true,
+        "pattern": "Composite State Hook with Configuration-Driven Orchestration",
+        "data_flow": "The data flow originates from the static LLM_MODEL_CONFIGURATION.md, which defines the operational parameters for the trace pipeline. The useTraceSystem.ts hook interprets these configuration rules to manage the trace engine's lifecycle and status. The useAuditSystem.ts hook independently manages au",
+        "coupling_risks": [
+          "Implicit coupling between useTraceSystem.ts and the markdown configuration file creates a risk where schema changes in the documentation are not automatically validated against the runtime code, leading to potential configuration drift.",
+          "useDashboardPanels.tsx has a high fan-in dependency, meaning any interface change in useTraceSystem or useAuditSystem will directly break the dashboard panel rendering logic.",
+          "The separation of audit and trace logic into distinct hooks without a shared context or event bus creates a risk of state inconsistency if the UI requires synchronized updates between trace status and audit findings."
+        ],
+        "blast_radius_count": 3,
+        "architectural_insight": "This group exhibits a clean separation of concerns where business logic is encapsulated in specialized hooks, allowing the presentation layer to remain agnostic of implementation details. However, the reliance on a markdown file for runtime configuration is a significant architectural weakness that lacks type safety and automated validation, introducing potential runtime failures if the documentation and code diverge. The design effectively uses React hooks as a lightweight facade pattern, but t",
+        "confidence": 0.85
+      },
+      {
+        "group_id": "group:49022238fb",
+        "member_count": 2,
+        "members": [
+          "fix_node.js",
+          "packages/ui/src/components/marketing/MarketingHero.tsx"
+        ],
+        "prompt_chars": 2015,
+        "duration_s": 33.3,
+        "tokens": 810,
+        "parsed_ok": true,
+        "pattern": "Diagnostic Script Pattern",
+        "data_flow": "The fix_node.js script acts as a static entry point that reads the file system to locate and parse the MarketingHero.tsx source code. It extracts specific text segments (likely around a suspected syntax error) and outputs them to the console for manual inspection. No runtime data flows between the t",
+        "coupling_risks": [
+          "The script is tightly coupled to the exact file path of MarketingHero.tsx; moving the component will break the script.",
+          "The script relies on the internal syntax structure of the TypeScript file; a refactor that changes the brace placement or formatting may render the diagnostic logic useless.",
+          "The script assumes a specific encoding and line-ending format of the target file, which could fail in cross-platform environments."
+        ],
+        "blast_radius_count": 2,
+        "architectural_insight": "This group represents a temporary, ad-hoc debugging artifact rather than a formal architectural pattern. The fix_node.js script is a technical debt item that should be removed once the syntax error in MarketingHero.tsx is resolved, as it introduces a fragile dependency on a specific file's location and content structure. Its existence highlights a lack of automated static analysis tools in the CI/CD pipeline that could have caught the stray brace automatically.",
+        "confidence": 0.95
+      },
+      {
+        "group_id": "group:7578be7d9a",
+        "member_count": 5,
+        "members": [
+          "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/FolderTree.tsx",
+          "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/index.ts",
+          "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/TraceGraph.tsx",
+          "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/IndexStats.tsx",
+          "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/MarketingHero.tsx"
+        ],
+        "prompt_chars": 3917,
+        "duration_s": 58.8,
+        "tokens": 1506,
+        "parsed_ok": true,
+        "pattern": "Module Aggregation (Barrel File)",
+        "data_flow": "Data flow is unidirectional and static: individual component definitions (FolderTree, IndexStats, MarketingHero, TraceGraph) are compiled into their respective .tsx files. The index.ts file acts as a central aggregation point that imports these compiled modules and re-exports them, allowing external",
+        "coupling_risks": [
+          "Tight coupling to the barrel file: External consumers relying on index.ts will break if the export name or path in index.ts changes, even if the component implementation remains identical.",
+          "Circular dependency risk: If any component inadvertently imports from index.ts (e.g., for shared types or other components), it could create circular dependencies causing runtime errors or build failures.",
+          "Build performance bottleneck: The index.ts file forces the bundler to resolve all components in this group together, potentially increasing initial bundle size if tree-shaking is not perfectly configured.",
+          "Visibility of internal structure: The index file exposes the internal component structure; renaming a component file requires updating both the file and the barrel export, increasing the chance of human error."
+        ],
+        "blast_radius_count": 6,
+        "architectural_insight": "This group represents a classic 'Barrel File' pattern used to simplify public API surface area for a UI library, which is excellent for developer experience but introduces a single point of failure for imports. The components themselves appear decoupled and focused on presentation, suggesting a healthy separation of concerns, but the reliance on index.ts means that refactoring the directory structure or component names requires coordinated changes across the barrel file and all external consumer",
+        "confidence": 0.95
+      },
+      {
+        "group_id": "group:24f18c5ddd",
+        "member_count": 5,
+        "members": [
+          "packages/ui/src/components/layout/DashboardGrid.tsx",
+          "packages/ui/src/components/layout/index.ts",
+          "packages/ui/src/components/layout/PanelPicker.tsx",
+          "packages/ui/src/components/layout/useLayoutPersistence.ts",
+          "packages/ui/src/components/layout/PanelChrome.tsx"
+        ],
+        "prompt_chars": 3500,
+        "duration_s": 57.8,
+        "tokens": 1361,
+        "parsed_ok": true,
+        "pattern": "Composite UI Component with State Persistence Hook",
+        "data_flow": "1. The application initializes the dashboard by importing components from the central index.ts. 2. useLayoutPersistence hook loads layout configuration from localStorage and provides state management (load, save, migrate) to the parent component. 3. DashboardGrid consumes this layout state to render",
+        "coupling_risks": [
+          "High coupling between DashboardGrid and useLayoutPersistence: The grid component likely depends on the specific shape of the state object returned by the hook, making schema changes risky.",
+          "Implicit dependency via index.ts: The index.ts file acts as a facade; if it re-exports specific internal types or if consumers import directly from index.ts without tree-shaking, changes in any component force re-evaluation of the whole module.",
+          "State Shape Coupling: PanelChrome and PanelPicker likely expect specific properties on the layout state (e.g., panel IDs, dimensions). If useLayoutPersistence changes the data structure, all UI components relying on it will break.",
+          "Local Storage Assumption: The entire unit assumes a browser environment with localStorage access; porting this logic to a server-side or non-browser environment requires significant refactoring."
+        ],
+        "blast_radius_count": 6,
+        "architectural_insight": "This group effectively implements a 'Smart-Dumb' component pattern where useLayoutPersistence acts as the smart state manager and the TSX files act as presentational components. The design is cohesive but tightly coupled to the specific data schema of the layout state; introducing a centralized LayoutContext or a Redux/Zustand store would decouple the persistence logic from the specific component tree, improving testability and reusability. The use of debouncing in the persistence hook is a good",
+        "confidence": 0.92
+      },
+      {
+        "group_id": "group:b30409f16c",
+        "member_count": 15,
+        "members": [
+          "README.md",
+          "packages/ui/src/stories/molecules/CitationBlock.stories.tsx",
+          "tests/eval/real_repos/okhttp-kotlin/samples/guide/src/main/java/okhttp3/guide/GetExample.java",
+          "TEST2/research-docs/01_Initial-planning_concepts/README.md",
+          "packages/ui/src/stories/primitives/PathInput.stories.tsx"
+        ],
+        "prompt_chars": 9152,
+        "duration_s": 81.9,
+        "tokens": 2922,
+        "parsed_ok": true,
+        "pattern": "Synthetic Dependency Graph (False Positive)",
+        "data_flow": "No functional data flow exists between these files. The provided dependency edges represent an artificial or erroneous analysis where unrelated files (e.g., Java test cases, C sanitizers, Swift documentation) are incorrectly linked to a marketing planning document (TEST2/research-docs/01_Initial-pla",
+        "coupling_risks": [
+          "High risk of 'God Document' anti-pattern if the central README is treated as a runtime configuration source for unrelated languages.",
+          "False coupling implies that changes to a marketing plan would theoretically require updates to Java, C, and Swift test suites, which is logically impossible and indicates a broken build or analysis pipeline.",
+          "The mix of Storybook stories, evaluation test data, and documentation suggests a lack of separation of concerns in the repository structure or the analysis tool's scope."
+        ],
+        "blast_radius_count": 15,
+        "architectural_insight": "This group does not represent a coherent architectural unit but rather a collection of disparate files from different ecosystems (Java, C, Swift, JS) and purposes (testing, UI, docs) incorrectly linked by a central document. The 'pattern' is actually a symptom of a faulty dependency analysis tool that likely matches file paths or keywords to create spurious edges. In a real deployment, these files would be in separate repositories or isolated modules with zero interaction.",
+        "confidence": 0.95
+      }
+    ]
+  },
+  "audit_summary": {
+    "status": "success",
+    "duration_s": 97.3,
+    "tokens": 3022,
+    "prompt_chars": 8532,
+    "content": "# CoDRAG Codebase Health Audit\n\n## Health Score\n**Grade: C**\nThe codebase exhibits a complex, multi-platform architecture with 1,341 files and 4,927 nodes, but is currently hindered by 180 warnings related to incomplete feature implementations, documentation inconsistencies, and deferred security/ML logic, despite having zero critical failures.\n\n## Critical Findings\n*No critical findings were identified in the provided data (0 Critical, 180 Warning).*\n\n## Top Recommendations\n1.  **Synchronize Payment & Licensing Documentation**: Resolve inconsistencies between Stripe and Lemon Squeezy references in `docs/Phase10_Business_And_Competitive_Research/FINANCE_AND_LEGAL_STRUCTURE.md` and `docs/Phase11_Deployment/LICENSING_IMPLEMENTATION.md` to prevent deployment failures.\n2.  **Finalize Legal Compliance**: Address the `[TO BE DETERMINED]` EU Representative section in `TEST2/research-docs/05_legal/for-review/PRIVACY-POLICY.md` and complete pending marketing tasks in `TEST2/research-docs/02_site-copy/README.md` before launch.\n3.  **Implement Core Mobile Auth & Features**: Prioritize the implementation of Apple Sign-In (`TEST3/mobile/src/components/onboarding/SocialAuthButtons.tsx`) and anonymous user flows (`TEST3/mobile/src/screens/WelcomeScreen.tsx`) to unblock the mobile application.\n4.  **Fix Build & SEO Artifacts**: Resolve duplicate `<title>` tags in `TEST2/website/out/404.html` and `TEST2/website/out/404/index.html` to ensure proper SEO and user experience.\n5.  **Complete ML & Backend Pipelines**: Address the deferred ML logic in `TEST3/backend/src/ai/recommendation_engine.py` and `TEST3/backend/src/ai/transition_engine.py` to move from prototype to production-ready state.\n\n## Module Status\n*   **Project Root (_root)**: 5,578 files, **Warning**, Incomplete download logic and pending marketing tasks.\n*   **Ui (packages/ui)**: 590 files, **Warning**, Missing base components (`select.tsx`, `checkbox.tsx`) and inconsistent error handling.\n*   **Docs (websites/apps/docs)**: 47 files, **Warning**, Stale documentation and missing pricing file links.\n*   **Marketing (websites/apps/marketing)**: 35 files, **Warning**, Pending testimonials, meta descriptions, and demo video scripts.\n*   **Dashboard (src/codrag/dashboard)**: 33 files, **Warning**, No specific issues listed, but part of cross-cutting configuration dependencies.\n*   **Support (websites/apps/support)**: 29 files, **Warning**, No specific issues listed, but relies on shared auth/testing patterns.\n*   **Vscode (packages/vscode)**: 20 files, **Warning**, Signed binaries not yet available (dev-only).\n*   **Payments (websites/apps/payments)**: 17 files, **Warning**, Documentation mismatch between Stripe and Lemon Squeezy.\n*   **Webview Ui (packages/vscode/webview-ui)**: 14 files, **Warning**, No specific issues listed, but relies on shared build tools.\n*   **Backend (TEST3/backend)**: N/A files, **Warning**, Deferred ML pipeline and transition analysis implementations.\n*   **Mobile (TEST3/mobile)**: N/A files, **Warning**, Incomplete security checklist, missing Apple Sign-In, and unimplemented cache clearing.\n\n## Next Steps\n1.  **Audit Payment Logic**: Immediately update `docs/Phase11_Deployment/LICENSING_IMPLEMENTATION.md` and related finance docs to reflect Lemon Squeezy as the sole Merchant of Record, removing all Stripe webhook references.\n2.  **Execute Mobile Security Checklist**: Complete the items in `TEST3/mobile/SECURITY_GUIDE.md`, specifically adding `.env` to `.gitignore` and implementing Firebase security rules.\n3.  **Clean Up Build Artifacts**: Fix the duplicate `<title>` tags in the generated `TEST2/website/out` directory and verify the build process to prevent SEO penalties.",
+    "char_count": 3703,
+    "num_predict": 4096
+  }
+}

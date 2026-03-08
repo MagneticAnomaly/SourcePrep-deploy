@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
-from codrag.core.context_config import PipelineTask, compute_optimal_settings
+from codrag.core.context_config import PipelineTask, compute_optimal_settings, compute_module_cap
 from .models import AtlasDocument, Segment, SegmentDocument, SegmentDescriptor
 from .prompts import (
     ATLAS_SYSTEM,
@@ -103,6 +103,16 @@ class CodebaseAtlas:
             progress_callback("atlas_generation", 0, 3)
 
         modules = self._load_modules()
+
+        if self.llm:
+            from codrag.core.context_config import detect_available_vram_gb
+            vram = detect_available_vram_gb()
+            cap = compute_module_cap(len(modules), available_vram_gb=vram, model=self.llm.model)
+            if cap < len(modules):
+                # Sort by file count descending and take top N
+                modules = sorted(modules, key=lambda x: -x.get("file_count", 0))[:cap]
+                logger.info("Capped atlas modules at %d (from %d) due to VRAM", cap, len(modules))
+
         epistemic = self._load_epistemic_summary()
         graph_stats = self._load_graph_stats()
         hub_files = self._identify_hubs(graph_stats)
@@ -213,6 +223,16 @@ class CodebaseAtlas:
         """
         graph_stats = self._load_graph_stats()
         modules = self._load_modules()
+
+        if self.llm:
+            from codrag.core.context_config import detect_available_vram_gb
+            vram = detect_available_vram_gb()
+            cap = compute_module_cap(len(modules), available_vram_gb=vram, model=self.llm.model)
+            if cap < len(modules):
+                # Sort by file count descending and take top N
+                modules = sorted(modules, key=lambda x: -x.get("file_count", 0))[:cap]
+                logger.info("Capped atlas modules at %d (from %d) due to VRAM", cap, len(modules))
+
         epistemic = self._load_epistemic_summary()
         hub_files = self._identify_hubs(graph_stats)
 
@@ -272,6 +292,16 @@ class CodebaseAtlas:
 
         # Load shared data
         modules = self._load_modules()
+
+        if self.llm:
+            from codrag.core.context_config import detect_available_vram_gb
+            vram = detect_available_vram_gb()
+            cap = compute_module_cap(len(modules), available_vram_gb=vram, model=self.llm.model)
+            if cap < len(modules):
+                # Sort by file count descending and take top N
+                modules = sorted(modules, key=lambda x: -x.get("file_count", 0))[:cap]
+                logger.info("Capped atlas modules at %d (from %d) due to VRAM", cap, len(modules))
+
         epistemic = self._load_epistemic_summary()
         graph_stats = self._load_graph_stats()
         hub_files = self._identify_hubs(graph_stats)

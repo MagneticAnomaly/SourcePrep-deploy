@@ -114,6 +114,14 @@ export default function Page() {
                   <td className="py-2 pr-4 font-mono text-xs">codrag_audit</td>
                   <td className="py-2 text-xs">Run or retrieve codebase health audit (11 analyzers)</td>
                 </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-mono text-xs">codrag_audit_refactor</td>
+                  <td className="py-2 text-xs">Get trace context + action plan for specific findings (e.g. ARCH-1)</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-mono text-xs">codrag_audit_check</td>
+                  <td className="py-2 text-xs">Re-run specific analyzers to verify fixes resolved findings</td>
+                </tr>
                 <tr>
                   <td className="py-2 pr-4 font-mono text-xs">codrag_audit_report</td>
                   <td className="py-2 text-xs">Read a specific generated audit report by name</td>

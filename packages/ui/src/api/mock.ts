@@ -476,6 +476,33 @@ export class MockApiClient implements ApiClient {
     return { checkpoint_interval: 500, min_edge_confidence: 0.5, chunk_max_chars: 2000, chunk_overlap_chars: 200, md_chunk_max_chars: 1800, md_chunk_min_chars: 350, ...config };
   }
 
+  // ── Compute Nodes (Phase 45D) ────────────────────────────
+
+  async getComputeNodes(): Promise<{ nodes: import('../types').ComputeNode[]; count: number }> {
+    const nodes = [{ id: 'node_mock1', name: 'Local Machine', type: 'local' as const, max_concurrent: 1, endpoint_ids: [] }];
+    return { nodes, count: nodes.length };
+  }
+
+  async createComputeNode(node: Omit<import('../types').ComputeNode, 'id'>): Promise<import('../types').ComputeNode> {
+    return { id: `node_${Date.now()}`, ...node };
+  }
+
+  async updateComputeNode(_nodeId: string, updates: Partial<import('../types').ComputeNode>): Promise<import('../types').ComputeNode> {
+    return { id: _nodeId, name: 'Updated', type: 'local', max_concurrent: 1, endpoint_ids: [], ...updates };
+  }
+
+  async deleteComputeNode(nodeId: string): Promise<{ deleted: string }> {
+    return { deleted: nodeId };
+  }
+
+  async getComputeNodeStatus(nodeId: string): Promise<import('../types').SchedulerNodeStatus & { node_id: string; name: string }> {
+    return { node_id: nodeId, name: 'Local Machine', max_concurrent: 1, current_load: 0, active: {}, queued: [] };
+  }
+
+  async getSchedulerStatus(): Promise<import('../types').SchedulerStatus> {
+    return { nodes: { '__local__': { max_concurrent: 1, current_load: 0, active: {}, queued: [] } } };
+  }
+
   // ── Scope Orchestrator ────────────────────────────────────
 
   async getScopeStatus(): Promise<any> {

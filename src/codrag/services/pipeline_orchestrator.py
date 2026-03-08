@@ -11,6 +11,8 @@ from codrag.services.pipeline import (  # noqa: F401
     DEEP_ENRICHMENT_STAGES,
     STAGE_TASK_ID,
     STAGE_MODEL_SLOT,
+    QueueType,
+    STAGE_QUEUE_TYPE,
     PipelineRunPhase,
     PipelineRun,
     WorkerFactory,

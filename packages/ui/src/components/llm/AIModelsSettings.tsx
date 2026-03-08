@@ -53,6 +53,7 @@ export interface AIModelsSettingsProps {
   concurrencyCode?: number;
   concurrencyDeep?: number;
   onConcurrencyChange?: (key: 'fast' | 'code' | 'deep', value: number) => void;
+  schedulerStatus?: import('../../types').SchedulerStatus | null;
 
   // Phase 44: Mapped mode operations
   onAssignmentBlockAdd?: () => void;
@@ -114,6 +115,13 @@ export function AIModelsSettings({
   fileCount = 0,
   onModeSwitch,
   className,
+  maxActiveProjects,
+  onMaxActiveProjectsChange,
+  concurrencyFast = 1,
+  concurrencyCode: _concurrencyCode = 1,
+  concurrencyDeep: _concurrencyDeep = 1,
+  onConcurrencyChange,
+  schedulerStatus,
   onAssignmentBlockTest,
   assignmentBlockTestResults = {},
   assignmentBlockTesting,
@@ -732,6 +740,169 @@ export function AIModelsSettings({
         onDelete={onDeleteEndpoint}
         onTest={onTestEndpoint}
       />
+
+      {/* Compute Profile */}
+      {(onMaxActiveProjectsChange || onConcurrencyChange) && (
+        <div className="rounded-lg border border-border bg-surface p-4 space-y-4">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" /><rect x="9" y="9" width="6" height="6" /><line x1="9" y1="1" x2="9" y2="4" /><line x1="15" y1="1" x2="15" y2="4" /><line x1="9" y1="20" x2="9" y2="23" /><line x1="15" y1="20" x2="15" y2="23" /><line x1="20" y1="9" x2="23" y2="9" /><line x1="20" y1="14" x2="23" y2="14" /><line x1="1" y1="9" x2="4" y2="9" /><line x1="1" y1="14" x2="4" y2="14" /></svg>
+            <h3 className="text-sm font-semibold text-text">Compute Profile</h3>
+          </div>
+
+          {onMaxActiveProjectsChange && maxActiveProjects !== undefined && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-text-subtle">Max Active Projects</label>
+              <select
+                value={String(maxActiveProjects)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  onMaxActiveProjectsChange(val === 'infinite' ? 'infinite' : parseInt(val));
+                }}
+                className="w-full text-xs px-3 py-1.5 rounded border border-border bg-background text-text focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="1">1 (Conservative)</option>
+                <option value="2">2</option>
+                <option value="3">3 (Standard)</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="infinite">Unlimited</option>
+              </select>
+              <p className="text-[10px] text-text-muted leading-relaxed">
+                How many projects can run LLM pipelines simultaneously.
+              </p>
+            </div>
+          )}
+
+          {onConcurrencyChange && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-text-subtle">LLM Concurrency</label>
+              <p className="text-[10px] text-text-muted leading-relaxed">
+                How many LLM requests run simultaneously on your local hardware.
+                Embeddings run independently via ONNX and are not affected.
+              </p>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 6, 8].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => {
+                      onConcurrencyChange('fast', n);
+                      onConcurrencyChange('code', Math.min(n, 3));
+                      onConcurrencyChange('deep', Math.min(n, 4));
+                    }}
+                    className={cn(
+                      'flex-1 py-1.5 text-xs font-medium rounded border transition-colors',
+                      concurrencyFast === n
+                        ? 'bg-primary/10 border-primary/40 text-primary'
+                        : 'bg-surface-raised border-border text-text-muted hover:text-text hover:border-border'
+                    )}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <div className="text-[10px] text-text-muted bg-surface-raised p-2.5 rounded border border-border leading-relaxed space-y-1">
+                <p><strong className="text-text">Guidance:</strong></p>
+                <p><strong>1</strong> — Single GPU, 8-16GB (Mac M1/M2, RTX 3060, any 8b+ model)</p>
+                <p><strong>2</strong> — 16-32GB (Mac M3/M4, RTX 3070/4060, 4b models)</p>
+                <p><strong>4</strong> — 32-48GB (Mac Pro/Ultra, RTX 4090, 4-8b models)</p>
+                <p><strong>6+</strong> — 64GB+ or multi-GPU (Mac Ultra 128GB, dual 4090)</p>
+                <p className="mt-1 opacity-70">Each concurrent request uses its own KV cache in VRAM. When in doubt, start at 1.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Compute Nodes */}
+          {config.compute_nodes && config.compute_nodes.length > 0 && (
+            <div className="space-y-2 pt-2 border-t border-border">
+              <label className="text-xs font-medium text-text-subtle">Compute Nodes</label>
+              <div className="space-y-2">
+                {config.compute_nodes.map((node) => {
+                  const endpointCount = config.saved_endpoints.filter(
+                    (ep) => ep.compute_node_id === node.id
+                  ).length;
+                  return (
+                    <div
+                      key={node.id}
+                      className="flex items-center gap-3 p-2.5 rounded border border-border bg-surface-raised"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className={cn(
+                            'w-1.5 h-1.5 rounded-full shrink-0',
+                            node.type === 'cloud' ? 'bg-blue-400' : node.type === 'remote' ? 'bg-amber-400' : 'bg-emerald-400'
+                          )} />
+                          <span className="text-xs font-medium text-text truncate">{node.name}</span>
+                          <span className="text-[10px] text-text-muted capitalize">({node.type})</span>
+                        </div>
+                        {endpointCount > 0 && (
+                          <p className="text-[10px] text-text-muted mt-0.5 pl-3">
+                            {endpointCount} endpoint{endpointCount !== 1 ? 's' : ''}
+                            {node.gpu_name ? ` · ${node.gpu_name}` : ''}
+                            {node.gpu_vram_gb ? ` · ${node.gpu_vram_gb}GB` : ''}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[10px] text-text-muted">Slots:</span>
+                        <span className="text-xs font-mono font-semibold text-text w-5 text-center">
+                          {node.max_concurrent}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-[9px] text-text-muted opacity-70">
+                Compute nodes are auto-created from your endpoints. Multi-GPU management coming soon.
+              </p>
+            </div>
+          )}
+
+          {/* Pipeline Queue Status */}
+          {schedulerStatus && (() => {
+            const nodeEntries = Object.entries(schedulerStatus.nodes);
+            const hasActivity = nodeEntries.some(([, n]) => n.current_load > 0 || n.queued.length > 0);
+            if (!hasActivity) return null;
+            return (
+              <div className="space-y-2 pt-2 border-t border-border">
+                <label className="text-xs font-medium text-text-subtle">Pipeline Activity</label>
+                {nodeEntries.map(([nodeId, node]) => {
+                  if (node.current_load === 0 && node.queued.length === 0) return null;
+                  const activeEntries = Object.entries(node.active);
+                  return (
+                    <div key={nodeId} className="space-y-1.5">
+                      {activeEntries.length > 0 && (
+                        <div className="space-y-1">
+                          {activeEntries.map(([projId, stageId]) => (
+                            <div key={projId} className="flex items-center gap-2 text-[10px] px-2 py-1 rounded bg-primary/5 border border-primary/20">
+                              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shrink-0" />
+                              <span className="text-text-muted truncate">{projId.slice(0, 12)}</span>
+                              <span className="text-primary font-medium">{stageId}</span>
+                              <span className="ml-auto text-text-muted">{node.current_load}/{node.max_concurrent}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {node.queued.length > 0 && (
+                        <div className="space-y-1">
+                          {node.queued.map((q, i) => (
+                            <div key={i} className="flex items-center gap-2 text-[10px] px-2 py-1 rounded bg-amber-500/5 border border-amber-500/20">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                              <span className="text-text-muted truncate">{q.project_id.slice(0, 12)}</span>
+                              <span className="text-amber-500 font-medium">queued: {q.stage}</span>
+                              <span className="ml-auto text-text-muted">{Math.round(q.waiting_seconds)}s</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {/* Info Card */}
       <div className="rounded-lg bg-surface-raised border border-border p-4 flex gap-3">

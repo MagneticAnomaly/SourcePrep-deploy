@@ -19,6 +19,7 @@ export interface DashboardLayoutApi {
   addPanel: (panelId: string, options?: { height?: number; x?: number; w?: number }) => void;
   removePanel: (panelId: string) => void;
   togglePanelVisibility: (panelId: string) => void;
+  openDetails: (panelId: string) => void;
   resetLayout: () => void;
   reflowLayout: () => void;
   copyLayout: () => void;
@@ -118,6 +119,7 @@ export function ModularDashboard({
       addPanel,
       removePanel,
       togglePanelVisibility,
+      openDetails: (panelId: string) => setDetailsPanelId(panelId),
       resetLayout: handleResetLayout,
       reflowLayout,
       copyLayout: handleCopyLayout,

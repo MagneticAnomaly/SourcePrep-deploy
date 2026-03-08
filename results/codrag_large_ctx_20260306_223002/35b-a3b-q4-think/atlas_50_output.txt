@@ -1,0 +1,9 @@
+IDENTITY: This project is a comprehensive codebase for the CoDRAG and Halley chat platforms featuring SQLModel database integration, FastAPI backends, React UI components, and extensive testing infrastructure across Python, TypeScript, and Rust.
+
+STACK: Languages include Python, TypeScript, JavaScript, Rust, Java, Kotlin, and C. Frameworks include FastAPI, SQLModel, React, Vite, Tailwind CSS, OkHttp, Javalin, Slim, Spark, and Storybook. Build tools include Maturin, CI/CD pipelines, and Vite configurations. Runtime environments span web browsers, VS Code extensions, and cloud platforms like Google Cloud Run, Modal, and RunPod.
+
+ARCHITECTURE: The system organizes into layers including testing (1814 files), documentation (1267 files), business_logic (1082 files), presentation (782 files), infrastructure (477 files), and configuration (476 files). Core UI components reside in TEST2/website.clean/app and TEST2/website.clean/components/sections. Subsystems depend heavily on website-ui, website-legal, website-content, website-marketing, and website-components. The graph contains 4927 nodes and 19690 edges across 1341 files.
+
+SUBSYSTEMS:
+UI Components for Marketing and Product Pages: TEST2/website.clean/components/sections/HeroSection.tsx, TEST2/website.clean/components/sections/ExtendedFeatures.tsx
+Dashboard User Interface: TEST2/website.clean

@@ -80,15 +80,18 @@ export default function Page() {
           </div>
 
           <p>
-             Use the default local URL: <code>http://localhost:8400/mcp/sse</code>
+            Both editors use <span className="font-semibold text-text">stdio</span> (recommended). The MCP config tells your editor to spawn <code>codrag mcp</code> as a subprocess &mdash; no URLs to configure.
+          </p>
+          <p className="text-sm text-text-muted mt-2">
+            <em>Advanced: For remote/containerized setups, CoDRAG also supports SSE at <code>http://localhost:8400/mcp/sse</code>. See the <a href="/mcp" className="text-primary hover:underline">MCP reference</a> for details.</em>
           </p>
 
           <AnchorHeading id="verify" level="h2">5. Verify</AnchorHeading>
           <p>
-            Open your editor&apos;s AI chat (e.g. Cursor Agent or Windsurf Cascade) and ask:
+            Open your editor&apos;s AI chat (e.g. Cursor Agent or Windsurf Cascade) and type:
           </p>
           <blockquote className="border-l-4 border-primary pl-4 italic text-text-muted my-4">
-            &quot;Use hi_codrag to get oriented&quot;
+            &quot;hi_codrag&quot;
           </blockquote>
           <p>
             The <code>hi_codrag</code> tool returns a project overview: index status, trace coverage, your selected files, health notes, and suggested prompts tailored to your codebase. It&apos;s the best first step after connecting.
@@ -105,18 +108,29 @@ export default function Page() {
           <p className="text-sm text-text-muted mt-2 bg-surface border border-border rounded-lg p-3">
             <span className="font-semibold text-text">Free tier note:</span> Graph expansion requires a trace build. On the Free tier, trigger this manually from the dashboard (Graph Status → Build) before trying the graph query above. Paid tiers build the trace automatically on file save.
           </p>
-          <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface flex flex-col items-center justify-center text-text-muted gap-2">
-            <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
-              <ImageIcon className="w-6 h-6" />
-            </div>
-            <p className="font-medium text-text">Screenshot: Editor Verification</p>
-            <p className="text-sm text-center">Show an IDE chat window (Cursor or Windsurf) successfully calling the &apos;codrag&apos; tool and displaying graph results.</p>
-          </div>
+
+          <AnchorHeading id="audit" level="h2">6. Run a Codebase Audit</AnchorHeading>
+          <p>
+            Once your index is built, try an architectural audit:
+          </p>
+          <blockquote className="border-l-4 border-primary pl-4 italic text-text-muted my-4">
+            &quot;Audit my codebase&quot;
+          </blockquote>
+          <p>
+            The <code>codrag_audit</code> tool analyzes your trace graph for architectural issues, tech debt, test coverage gaps, and more &mdash; using 11 built-in analyzers. No LLM required. Results include severity-tagged findings like <code>ARCH-1</code>, <code>QUAL-3</code>, etc.
+          </p>
+          <p className="text-sm text-text-muted mt-2">
+            To fix a finding, just say <strong>&quot;fix ARCH-1&quot;</strong> &mdash; the AI will call <code>codrag_audit_refactor</code> to get trace context and an action plan for the affected files.
+          </p>
+          <p className="text-sm text-text-muted mt-2">
+            See the full <a href="/guides/codebase-audit" className="text-primary hover:underline">Codebase Audit Guide</a> for details on all analyzers and the refactor workflow.
+          </p>
 
           <hr className="my-12 border-border" />
 
           <AnchorHeading id="next-steps" level="h3">Next Steps</AnchorHeading>
           <ul className="list-disc pl-6 space-y-2">
+            <li><a href="/guides/codebase-audit" className="text-primary hover:underline">Codebase Audit Guide</a> &mdash; deep-dive into the 11 analyzers and the refactor workflow.</li>
             <li><a href="/guides/path-weights" className="text-primary hover:underline">Tune Path Weights</a> to focus the AI on what matters.</li>
             <li><a href="/guides/compression" className="text-primary hover:underline">Smart Compression</a> &mdash; structural for code (3&ndash;20&times;), language-aware for docs. Built in.</li>
             <li><a href="/troubleshooting" className="text-primary hover:underline">Troubleshooting</a> if something didn&apos;t work.</li>

@@ -9,6 +9,7 @@ import {
   Sidebar,
   ProjectList,
   TeamSyncIndicator,
+  SyncStatusCard,
   // Dashboard
   ModularDashboard,
   // Project
@@ -99,6 +100,10 @@ function App() {
     localStorage.getItem('codrag_bg_image') ?? null
   )
   const [maxActiveProjects, setMaxActiveProjects] = useState<number | 'infinite'>('infinite')
+  const [concurrencyFast, setConcurrencyFast] = useState<number>(1)
+  const [concurrencyCode, setConcurrencyCode] = useState<number>(1)
+  const [concurrencyDeep, setConcurrencyDeep] = useState<number>(1)
+  const [schedulerStatus, setSchedulerStatus] = useState<any>(null)
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout | null>(null)
   const [projectLimitBannerDismissed, setProjectLimitBannerDismissed] = useState(false)
 
@@ -122,6 +127,15 @@ function App() {
   }, [licTier])
 
   const layoutApiRef = useRef<DashboardLayoutApi | null>(null)
+
+  // Open AI Gateway panel when triggered from Global Settings
+  useEffect(() => {
+    const handler = () => {
+      layoutApiRef.current?.openDetails('llm-status')
+    }
+    window.addEventListener('codrag:open-ai-gateway', handler)
+    return () => window.removeEventListener('codrag:open-ai-gateway', handler)
+  }, [])
 
   // ── Watch (hook) ─────────────────────────────────────────────
   // Declared before useProjectManager so refs can be passed as deps
@@ -338,6 +352,26 @@ function App() {
     api.updateGlobalConfig({ max_active_projects: value }).catch(() => {})
   }, [api])
 
+  const handleConcurrencyChange = useCallback((key: 'fast' | 'code' | 'deep', value: number) => {
+    const setter = key === 'fast' ? setConcurrencyFast : key === 'code' ? setConcurrencyCode : setConcurrencyDeep
+    setter(value)
+    const configKey = `llm_concurrency_${key}` as const
+    api.updatePipelineConfig({ [configKey]: value }).catch(() => {})
+  }, [api])
+
+  // Poll scheduler status every 5s when connected
+  useEffect(() => {
+    if (!isConnected) return
+    const poll = () => {
+      api.getSchedulerStatus()
+        .then(setSchedulerStatus)
+        .catch(() => {})
+    }
+    poll()
+    const interval = setInterval(poll, 5000)
+    return () => clearInterval(interval)
+  }, [isConnected, api])
+
   // ── Init: load projects + global config ─────────────────────
   useEffect(() => {
     const init = async () => {
@@ -375,6 +409,16 @@ function App() {
             try { localStorage.setItem('codrag_dashboard_layout', JSON.stringify(globalCfg.module_layout)) } catch { /* storage full */ }
           }
         } catch { /* Global config not available — use defaults */ }
+        // Load pipeline concurrency settings
+        try {
+          const pipelineCfg = await api.getPipelineConfig()
+          if (pipelineCfg?.llm_concurrency_fast) setConcurrencyFast(pipelineCfg.llm_concurrency_fast)
+          else if (pipelineCfg?.llm_concurrency) setConcurrencyFast(pipelineCfg.llm_concurrency)
+          if (pipelineCfg?.llm_concurrency_code) setConcurrencyCode(pipelineCfg.llm_concurrency_code)
+          else if (pipelineCfg?.llm_concurrency) setConcurrencyCode(pipelineCfg.llm_concurrency)
+          if (pipelineCfg?.llm_concurrency_deep) setConcurrencyDeep(pipelineCfg.llm_concurrency_deep)
+          else if (pipelineCfg?.llm_concurrency) setConcurrencyDeep(pipelineCfg.llm_concurrency)
+        } catch { /* Pipeline config not critical */ }
         void fetchLLMSlotsStatus()
         void fetchLicense()
       } catch { /* Error already set */ } finally { setLoading(false) }
@@ -414,7 +458,9 @@ function App() {
   }, [selectedProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Project limit ───────────────────────────────────────────
-  const projectLimit = effectiveTier === 'free' ? 1 : (maxActiveProjects === 'infinite' ? Infinity : maxActiveProjects as number)
+  // Free tier: hard cap of 1 total project.
+  // Pro+ tiers: unlimited projects (maxActiveProjects only limits concurrent pipelines, not total count).
+  const projectLimit = effectiveTier === 'free' ? 1 : Infinity
   const isOverProjectLimit = project.projects.length > projectLimit
   const isAtProjectLimit = project.projects.length >= projectLimit
 
@@ -473,6 +519,10 @@ function App() {
       handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
       handleTestEndpoint, handleFetchModels, handleTestModel, handleDownloadModel,
       availableModels, loadingModels, testingSlot, testResults,
+      maxActiveProjects, onMaxActiveProjectsChange: handleMaxActiveProjectsChange,
+      concurrencyFast, concurrencyCode, concurrencyDeep,
+      onConcurrencyChange: handleConcurrencyChange,
+      schedulerStatus,
     },
     deepAnalysis: { deepAnalysisSchedule, setDeepAnalysisSchedule, budgetUsage },
     atlas: { atlasStatus },
@@ -503,7 +553,7 @@ function App() {
         <div className="fixed inset-x-0 top-0 z-[95] bg-amber-500/90 backdrop-blur text-white px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 shadow-lg">
           <AlertTriangle className="w-4 h-4" />
           <span>
-            You have {project.projects.length} projects but your Free plan supports 1. Project updates and syncing are paused.
+            You have {project.projects.length} projects but your {effectiveTier === 'free' ? 'Free' : effectiveTier.charAt(0).toUpperCase() + effectiveTier.slice(1)} plan supports {projectLimit === Infinity ? 'unlimited' : projectLimit}. Project updates and syncing are paused.
           </span>
           <button
             onClick={() => { setSettingsOpenToTab('global'); setSettingsOpen(true) }}

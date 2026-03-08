@@ -37,7 +37,8 @@ def orchestrator():
 @pytest.fixture
 def pipeline(orchestrator):
     """PipelineOrchestrator wired to a real BuildOrchestrator."""
-    return PipelineOrchestrator(orchestrator=orchestrator)
+    with patch("codrag.services.project_helpers.get_project_activity_status", return_value="active"):
+        yield PipelineOrchestrator(orchestrator=orchestrator)
 
 
 def _instant_worker(slot, progress_cb):
@@ -62,8 +63,8 @@ def test_fast_sync_has_5_stages():
     assert FAST_SYNC_STAGES[-1] == StageId.KNOWLEDGE
 
 
-def test_deep_enrichment_has_5_stages():
-    assert len(DEEP_ENRICHMENT_STAGES) == 5
+def test_deep_enrichment_has_6_stages():
+    assert len(DEEP_ENRICHMENT_STAGES) == 6
     assert DEEP_ENRICHMENT_STAGES[0] == StageId.ENRICHMENT
     assert DEEP_ENRICHMENT_STAGES[-1] == StageId.DEEP_KNOWLEDGE
 
@@ -85,7 +86,12 @@ class TestFastSync:
             "codrag.services.pipeline_orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ):
-            started = pipeline.run_fast_sync("proj-1")
+            import codrag.services.project_helpers
+            with patch("codrag.services.project_helpers.get_project_activity_status", return_value="active"):
+                started = pipeline.run_fast_sync("proj-1")
+            if not started:
+                import logging
+                logging.error(pipeline.status("proj-1"))
             assert started is True
 
     def test_run_fast_sync_rejects_duplicate(self, pipeline):
@@ -207,7 +213,12 @@ class TestAutoChainDeepEnrichment:
             PipelineOrchestrator, "_is_deep_enrichment_auto",
             staticmethod(lambda pid: True),
         ):
-            started = pipeline.run_fast_sync("proj-1")
+            import codrag.services.project_helpers
+            with patch("codrag.services.project_helpers.get_project_activity_status", return_value="active"):
+                started = pipeline.run_fast_sync("proj-1")
+            if not started:
+                import logging
+                logging.error(pipeline.status("proj-1"))
             assert started is True
             time.sleep(3.0)
 
@@ -228,7 +239,12 @@ class TestAutoChainDeepEnrichment:
             return_value=_instant_worker,
         ):
             # Default: _is_deep_enrichment_auto returns False (settings not configured)
-            started = pipeline.run_fast_sync("proj-1")
+            import codrag.services.project_helpers
+            with patch("codrag.services.project_helpers.get_project_activity_status", return_value="active"):
+                started = pipeline.run_fast_sync("proj-1")
+            if not started:
+                import logging
+                logging.error(pipeline.status("proj-1"))
             assert started is True
 
             # Poll until fast sync completes (avoid fixed sleep flakiness)

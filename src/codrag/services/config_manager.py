@@ -141,7 +141,69 @@ def ui_config_path(config: Dict[str, Any]) -> Path:
     return index_dir / "ui_config.json"
 
 
+
+def _ensure_compute_nodes(cfg: Dict[str, Any]) -> None:
+    """Phase 45: Auto-migrate existing configs to Multi-GPU structure."""
+    import uuid
+    
+    if "compute_nodes" not in cfg:
+        cfg["compute_nodes"] = []
+        
+    if not cfg["compute_nodes"]:
+        # We need to auto-create
+        
+        # 1. Local Node
+        hw_profile = cfg.get("hardware_profile", "apple_silicon")
+        concurrency = cfg.get("llm_concurrency", 1)
+        
+        local_node_id = f"node_{uuid.uuid4().hex[:8]}"
+        local_node = {
+            "id": local_node_id,
+            "name": "Local Machine",
+            "type": "local",
+            "hardware_profile": hw_profile,
+            "max_concurrent": concurrency,
+            "endpoint_ids": []
+        }
+        
+        endpoints = cfg.get("saved_endpoints", [])
+        
+        # Associate local endpoints
+        for ep in endpoints:
+            url = ep.get("url", "")
+            if "localhost" in url or "127.0.0.1" in url:
+                ep["compute_node_id"] = local_node_id
+                local_node["endpoint_ids"].append(ep["id"])
+                
+        cfg["compute_nodes"].append(local_node)
+        
+        # 2. Cloud Node (if applicable)
+        cloud_endpoints = [
+            ep for ep in endpoints 
+            if ep.get("provider") in ["openai", "anthropic", "google"] 
+            or ("localhost" not in ep.get("url", "") and "127.0.0.1" not in ep.get("url", ""))
+        ]
+        
+        if cloud_endpoints:
+            cloud_node_id = f"node_{uuid.uuid4().hex[:8]}"
+            cloud_node = {
+                "id": cloud_node_id,
+                "name": "Cloud",
+                "type": "cloud",
+                "hardware_profile": "cloud",
+                "max_concurrent": 100,
+                "endpoint_ids": []
+            }
+            
+            for ep in cloud_endpoints:
+                if not ep.get("compute_node_id"):
+                    ep["compute_node_id"] = cloud_node_id
+                    cloud_node["endpoint_ids"].append(ep["id"])
+                    
+            cfg["compute_nodes"].append(cloud_node)
+
 def default_ui_config(config: Dict[str, Any]) -> Dict[str, Any]:
+
     """Build a default UI config dict from CLI/server config."""
     from codrag.core import NativeEmbedder
 
@@ -239,6 +301,9 @@ def load_ui_config(config: Dict[str, Any]) -> Dict[str, Any]:
 
     if data:
         _merge_config_data(cfg, data)
+
+    # Phase 45: Ensure compute_nodes are populated on load for legacy clients
+    _ensure_compute_nodes(cfg)
 
     return cfg
 

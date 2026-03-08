@@ -168,6 +168,14 @@ export interface PanelLLMProps {
   loadingModels: Record<string, boolean>
   testingSlot: 'small' | 'embedding' | 'large' | 'code' | null
   testResults: Record<string, EndpointTestResult>
+  // Compute settings (Phase 45)
+  maxActiveProjects?: number | 'infinite'
+  onMaxActiveProjectsChange?: (val: number | 'infinite') => void
+  concurrencyFast?: number
+  concurrencyCode?: number
+  concurrencyDeep?: number
+  onConcurrencyChange?: (key: 'fast' | 'code' | 'deep', value: number) => void
+  schedulerStatus?: { nodes: Record<string, { max_concurrent: number; current_load: number; active: Record<string, string>; queued: Array<{ project_id: string; stage: string; waiting_seconds: number }> }> } | null
 }
 
 export interface PanelDeepAnalysisProps {
@@ -872,6 +880,13 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           loadingModels={p.loadingModels}
           testingSlot={p.testingSlot}
           testResults={p.testResults}
+          maxActiveProjects={p.maxActiveProjects}
+          onMaxActiveProjectsChange={p.onMaxActiveProjectsChange}
+          concurrencyFast={p.concurrencyFast}
+          concurrencyCode={p.concurrencyCode}
+          concurrencyDeep={p.concurrencyDeep}
+          onConcurrencyChange={p.onConcurrencyChange}
+          schedulerStatus={p.schedulerStatus}
           onAssignmentBlockAdd={() => {
             p.handleLLMConfigChange({
               ...p.llmConfig,

@@ -80,7 +80,7 @@ export default function Page() {
           </p>
 
           <h3 className="text-xl font-semibold mt-6">Natural Language (Implicit)</h3>
-          <p>Just ask questions that require codebase knowledge. Cursor will decide to call <code>codrag_search</code> or <code>codrag</code>.</p>
+          <p>Just ask questions that require codebase knowledge. Cursor will decide to call <code>codrag_search</code>, <code>codrag</code>, or <code>codrag_audit</code>.</p>
           <div className="bg-surface border border-border p-4 rounded-lg font-mono text-sm my-4">
             <span className="text-primary font-bold">User:</span> How does the authentication middleware handle expired tokens?<br/><br/>
             <span className="text-text-muted italic">Cursor (Thinking): Use codrag_search query=&quot;authentication middleware expired token&quot;...</span><br/><br/>
@@ -99,6 +99,7 @@ export default function Page() {
               <li>&quot;Use codrag to search for...&quot;</li>
               <li>&quot;Get the code graph for symbol X...&quot; (uses <code>codrag</code> with <code>trace_expand=true</code>)</li>
               <li>&quot;Compress the context for the auth module...&quot; (uses <code>compression: &quot;auto&quot;</code>)</li>
+              <li>&quot;Audit my codebase&quot; (uses <code>codrag_audit</code> &mdash; 11 structural analyzers, no LLM needed)</li>
             </ul>
           </p>
 

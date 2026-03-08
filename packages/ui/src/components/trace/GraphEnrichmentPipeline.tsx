@@ -92,7 +92,7 @@ export interface GraphEnrichmentPipelineProps {
   className?: string;
 }
 
-type StageState = 'disabled' | 'waiting' | 'running' | 'complete' | 'stale' | 'error' | 'idle' | 'not_built' | 'warning';
+type StageState = 'disabled' | 'waiting' | 'queued' | 'running' | 'complete' | 'stale' | 'error' | 'idle' | 'not_built' | 'warning';
 
 interface EnrichmentStage {
   id: EnrichmentStageId;
@@ -311,6 +311,7 @@ const STATE_STYLES: Record<StageState, { bg: string; border: string; text: strin
   disabled:  { bg: 'bg-surface-raised',     border: 'border-border',        text: 'text-text-subtle',  icon: 'text-text-subtle' },
   not_built: { bg: 'bg-surface-raised',     border: 'border-border',        text: 'text-text-muted',   icon: 'text-text-muted' },
   waiting:   { bg: 'bg-amber-500/10',       border: 'border-amber-500/30',  text: 'text-amber-400',    icon: 'text-amber-400' },
+  queued:    { bg: 'bg-purple-500/10',      border: 'border-purple-500/30', text: 'text-purple-400',   icon: 'text-purple-400' },
   running:   { bg: 'bg-blue-500/10',        border: 'border-blue-500/30',   text: 'text-blue-400',     icon: 'text-blue-400' },
   stale:     { bg: 'bg-amber-500/10',       border: 'border-amber-500/30',  text: 'text-amber-400',    icon: 'text-amber-400' },
   complete:  { bg: 'bg-success/10',         border: 'border-success/30',    text: 'text-success',      icon: 'text-success' },
@@ -329,6 +330,8 @@ function StateIcon({ state }: { state: StageState }) {
     case 'waiting':
     case 'stale':
       return <Clock className={cls} />;
+    case 'queued':
+      return <Clock className={cn(cls, 'animate-pulse')} />;
     case 'running':
       return <Loader2 className={cn(cls, 'animate-spin')} />;
     case 'warning':
@@ -428,6 +431,10 @@ function StageRow({ stage, onPause, onResume, isPaused }: {
         ) : isPaused ? (
           <p className="text-[10px] text-amber-400/70 truncate leading-tight">
             Paused {stage.stats ? `· ${stage.stats}` : ''}
+          </p>
+        ) : stage.state === 'queued' ? (
+          <p className="text-[10px] text-purple-400/70 truncate leading-tight">
+            Waiting for compute capacity…
           </p>
         ) : (
           stage.stats && (

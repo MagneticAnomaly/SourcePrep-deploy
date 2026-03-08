@@ -1,0 +1,3 @@
+IDENTITY: This project provides a comprehensive testing framework for SQLModel, UI components for marketing and product pages, CLI tools for text processing, and infrastructure for the CoDRAG system including dashboards and search functionality.
+
+STACK: Languages include Python, TypeScript, JavaScript, Rust, Kotlin, Java, PHP, Ruby, and C. Frameworks include FastAPI, SQLModel, SQLAlchemy, Pydantic, React, Next.js, Javalin, Slim, Spark, OkHttp, Alamofire. Build tools include Vite, TypeScript compiler, Maturin, C-compiler. Runtime environments cover web, mobile, VS Code extensions,

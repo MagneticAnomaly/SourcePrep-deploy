@@ -16,7 +16,7 @@ export function YaleHero({ isBetaMode }: { isBetaMode: boolean }) {
           </div>
           <div className="col-span-12 md:col-span-6">
             <h1
-              className="font-heading text-5xl md:text-6xl font-medium text-text leading-tight tracking-tight mb-8"
+              className="font-heading text-5xl md:text-6xl font-medium text-text pt-[0.25em] md:pt-0 leading-[1.05] md:leading-tight tracking-tight mb-8"
               style={{ fontFamily: "var(--font-heading, 'IBM Plex Sans', system-ui, Helvetica, Arial, sans-serif)" }}
             >
               This is the bridge between how you think about code and how your AI reads it.

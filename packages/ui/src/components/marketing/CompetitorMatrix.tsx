@@ -3,6 +3,8 @@ import { Check, X, Minus, ArrowRight, Info } from 'lucide-react';
 
 export interface CompetitorMatrixProps {
   className?: string;
+  mobileVariant?: 'detailed' | 'simplified';
+  mobileAction?: React.ReactNode;
 }
 
 type Status = 'full' | 'partial' | 'none';
@@ -587,7 +589,7 @@ const StatusIcon = ({ status, className = '' }: { status: Status; className?: st
 }; 
 
 // ── Main Component ─────────────────────────────────────────
-export function CompetitorMatrix({ className = '' }: CompetitorMatrixProps) {
+export function CompetitorMatrix({ className = '', mobileVariant = 'detailed', mobileAction }: CompetitorMatrixProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
@@ -812,53 +814,106 @@ export function CompetitorMatrix({ className = '' }: CompetitorMatrixProps) {
         </div>
       </div>
 
-      {/* Mobile Stacked View */}
-      <div className="lg:hidden space-y-8">
-        {matrixData.map((category, catIdx) => (
-          <div key={catIdx} className="space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-primary border-b border-border pb-2 pl-1">{category.category}</h3>
-            <div className="grid grid-cols-1 gap-4">
-              {category.features.map((feature) => (
-                <div key={feature.id} className="bg-surface border border-border rounded-xl overflow-hidden shadow-sm flex flex-col">
-                  <div className="p-4 bg-background border-b border-border">
-                    <div className="font-bold text-text mb-1">{feature.name}</div>
-                    <div className="text-xs text-text-muted">{feature.description}</div>
-                  </div>
-                  <div className="p-4 bg-[#0c1222] border-b border-primary/30 shadow-inner">
-                    <div className="flex items-start gap-3 mb-3">
-                      <div className="mt-0.5"><StatusIcon status={feature.codrag.status} className="w-5 h-5" /></div>
-                      <div>
-                        <div className="text-xs font-bold text-primary uppercase tracking-wider mb-1">CoDRAG</div>
-                        <div className="text-sm font-semibold text-text">{feature.codrag.text}</div>
+      {/* Mobile Stacked View (Detailed) */}
+      {mobileVariant === 'detailed' && (
+        <div className="lg:hidden space-y-8">
+          {matrixData.map((category, catIdx) => (
+            <div key={catIdx} className="space-y-4">
+              <h3 className="text-sm font-bold uppercase tracking-widest text-primary border-b border-border pb-2 pl-1">{category.category}</h3>
+              <div className="grid grid-cols-1 gap-4">
+                {category.features.map((feature) => (
+                  <div key={feature.id} className="bg-surface border border-border rounded-xl overflow-hidden shadow-sm flex flex-col">
+                    <div className="p-4 bg-background border-b border-border">
+                      <div className="font-bold text-text mb-1">{feature.name}</div>
+                      <div className="text-xs text-text-muted">{feature.description}</div>
+                    </div>
+                    <div className="p-4 bg-[#0c1222] border-b border-primary/30 shadow-inner">
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className="mt-0.5"><StatusIcon status={feature.codrag.status} className="w-5 h-5" /></div>
+                        <div>
+                          <div className="text-xs font-bold text-primary uppercase tracking-wider mb-1">CoDRAG</div>
+                          <div className="text-sm font-semibold text-text">{feature.codrag.text}</div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-text-muted leading-relaxed pl-8">{feature.codrag.detail}</p>
+                    </div>
+                    <div className="p-0 flex-1">
+                      <div className="divide-y divide-border-subtle">
+                        {competitors.map((comp) => {
+                          const cd = feature.competitors[comp.id];
+                          return (
+                            <details key={comp.id} className="group/detail">
+                              <summary className="flex items-center justify-between gap-3 p-3 text-sm bg-background cursor-pointer hover:bg-surface transition-colors list-none">
+                                <span className="font-medium text-text-muted text-xs">{comp.name}</span>
+                                <div className="flex items-center gap-2 text-right">
+                                  <span className="text-[11px] text-text-subtle max-w-[140px] truncate">{cd.text}</span>
+                                  <StatusIcon status={cd.status} className="flex-shrink-0" />
+                                </div>
+                              </summary>
+                              <div className="px-4 pb-3 pt-1 bg-surface text-xs text-text-muted leading-relaxed">{cd.detail}</div>
+                            </details>
+                          );
+                        })}
                       </div>
                     </div>
-                    <p className="text-xs text-text-muted leading-relaxed pl-8">{feature.codrag.detail}</p>
                   </div>
-                  <div className="p-0 flex-1">
-                    <div className="divide-y divide-border-subtle">
-                      {competitors.map((comp) => {
-                        const cd = feature.competitors[comp.id];
-                        return (
-                          <details key={comp.id} className="group/detail">
-                            <summary className="flex items-center justify-between gap-3 p-3 text-sm bg-background cursor-pointer hover:bg-surface transition-colors list-none">
-                              <span className="font-medium text-text-muted text-xs">{comp.name}</span>
-                              <div className="flex items-center gap-2 text-right">
-                                <span className="text-[11px] text-text-subtle max-w-[140px] truncate">{cd.text}</span>
-                                <StatusIcon status={cd.status} className="flex-shrink-0" />
-                              </div>
-                            </summary>
-                            <div className="px-4 pb-3 pt-1 bg-surface text-xs text-text-muted leading-relaxed">{cd.detail}</div>
-                          </details>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
+          ))}
+        </div>
+      )}
+
+      {/* Mobile Simplified Grid */}
+      {mobileVariant === 'simplified' && (
+        <div className="lg:hidden flex flex-col items-center">
+          <div className="w-full overflow-x-auto border border-border rounded-xl shadow-sm bg-background custom-scrollbar">
+            <table className="w-full text-left border-collapse min-w-[600px] text-xs">
+              <thead>
+                <tr>
+                  <th className="bg-surface w-[180px] min-w-[180px] p-3 border-b border-r border-border sticky left-0 z-10 font-bold text-text shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Feature</th>
+                  <th className="bg-[#0c1222] p-3 border-b border-border text-center font-bold text-primary whitespace-nowrap">CoDRAG</th>
+                  {competitors.map(c => (
+                    <th key={c.id} className="bg-surface p-3 border-b border-border text-center text-text-muted font-medium whitespace-nowrap">{c.name}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {matrixData.map((category) => (
+                  <React.Fragment key={category.category}>
+                    <tr>
+                      <td className="bg-surface p-2 font-bold text-text-subtle border-b border-r border-border sticky left-0 z-10 text-left uppercase tracking-widest text-[10px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                        {category.category}
+                      </td>
+                      <td colSpan={competitors.length + 1} className="bg-surface/50 border-b border-border"></td>
+                    </tr>
+                    {category.features.map(feature => (
+                      <tr key={feature.id}>
+                        <td className="bg-background p-3 border-b border-r border-border sticky left-0 z-10 font-medium text-text truncate max-w-[180px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                          {feature.name}
+                        </td>
+                        <td className="bg-[#0c1222] p-3 border-b border-border text-center">
+                          <StatusIcon status={feature.codrag.status} className="mx-auto" />
+                        </td>
+                        {competitors.map(c => (
+                          <td key={c.id} className="bg-background p-3 border-b border-border text-center">
+                            <StatusIcon status={feature.competitors[c.id].status} className="mx-auto opacity-75" />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ))}
-      </div>
+          {mobileAction && (
+            <div className="mt-6">
+              {mobileAction}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tandem Integrations */}
       <div className="mt-20">

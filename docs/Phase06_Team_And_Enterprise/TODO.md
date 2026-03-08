@@ -78,7 +78,7 @@ This section tracks the implementation of the **Shared Remote Indexing** feature
 ## Milestone 1: Headless CLI (`codrag sync-headless`)
 The foundational CLI command that runs the full pipeline in batch mode and syncs artifacts to/from S3-compatible storage.
 
-- [ ] **P06-S01** Design the `sync-headless` CLI argument schema
+- [x] **P06-S01** Design the `sync-headless` CLI argument schema
   - `--repo-url`, `--branch` (default: `main`), `--repo-path` (for pre-cloned repos in CI)
   - `--s3-bucket`, `--s3-prefix`, `--s3-endpoint`, `--s3-access-key`, `--s3-secret-key`
   - `--model-provider` (`local` | `openai` | `anthropic` | `google`), `--model-name`, `--api-key`
@@ -86,7 +86,7 @@ The foundational CLI command that runs the full pipeline in batch mode and syncs
   - All S3 and API credentials also readable from environment variables
   - File: `src/codrag/cli.py`
 
-- [ ] **P06-S02** Implement `S3StorageProvider` class
+- [x] **P06-S02** Implement `S3StorageProvider` class
   - Upload: zip index artifacts → upload to `s3://{bucket}/{prefix}/index-{timestamp}.zip`
   - Download: list objects in prefix → download latest zip → extract
   - Atomic upload: write to `.tmp` key, then copy to final key, then delete `.tmp`
@@ -95,7 +95,7 @@ The foundational CLI command that runs the full pipeline in batch mode and syncs
   - Dependency: `boto3` (already an optional dep) or `minio` SDK
   - File: `src/codrag/services/s3_storage.py`
 
-- [ ] **P06-S03** Implement incremental headless rebuild
+- [x] **P06-S03** Implement incremental headless rebuild
   - On `sync-headless` run: check S3 for existing `manifest.json`
   - If found: download existing index, load `trace_manifest.json`, diff against current repo state
   - Only re-index files where `content_hash` differs, plus new files, minus deleted files
@@ -103,14 +103,14 @@ The foundational CLI command that runs the full pipeline in batch mode and syncs
   - This is the single biggest cost saver (2 hours → 5 minutes for typical PRs)
   - Files: `src/codrag/cli.py`, `src/codrag/services/headless_runner.py`
 
-- [ ] **P06-S04** Implement Git clone / checkout logic for headless mode
+- [x] **P06-S04** Implement Git clone / checkout logic for headless mode
   - Support `--repo-url` with `$GIT_TOKEN` env var (HTTPS clone with token auth)
   - Support `--repo-url` with `$SSH_KEY` env var (SSH clone)
   - Support `--repo-path` for pre-cloned repos (GitHub Actions already checks out the repo)
   - Shallow clone by default (`--depth 1`) to minimize clone time
   - File: `src/codrag/services/headless_runner.py`
 
-- [ ] **P06-S05** Wire headless mode into the existing pipeline orchestrator
+- [x] **P06-S05** Wire headless mode into the existing pipeline orchestrator
   - The headless runner must call the same 10-stage pipeline as the interactive daemon
   - It must support both LLM modes:
     - `--model-provider local`: start embedded Ollama, use specified model
@@ -122,7 +122,7 @@ The foundational CLI command that runs the full pipeline in batch mode and syncs
 ## Milestone 2: Docker Images
 Two image tiers to support both CPU+BYOK and GPU+Local deployment patterns.
 
-- [ ] **P06-S06** Create `Dockerfile.cpu` (the slim image)
+- [x] **P06-S06** Create `Dockerfile.cpu` (the slim image)
   - Base: `ubuntu:22.04`
   - Contents: Python 3.11+, `codrag` package, Rust binaries, ONNX models, `boto3`, Git CLI
   - No Ollama, no CUDA libs, no GPU support
@@ -130,7 +130,7 @@ Two image tiers to support both CPU+BYOK and GPU+Local deployment patterns.
   - Use case: GitHub Actions, GitLab CI runners, any CPU-only environment
   - File: `deploy/Dockerfile.cpu`
 
-- [ ] **P06-S07** Create `Dockerfile.gpu` (the fat image)
+- [x] **P06-S07** Create `Dockerfile.gpu` (the fat image)
   - Base: `nvidia/cuda:12.x-runtime-ubuntu22.04`
   - Contents: Everything in `cpu`, plus Ollama runtime + pre-baked Qwen3:4b model weights
   - Baking the model avoids a 5GB download on every serverless cold start
@@ -138,7 +138,7 @@ Two image tiers to support both CPU+BYOK and GPU+Local deployment patterns.
   - Use case: RunPod Serverless, Modal, AWS SageMaker
   - File: `deploy/Dockerfile.gpu`
 
-- [ ] **P06-S08** GitHub Actions CI to build and publish both images
+- [x] **P06-S08** GitHub Actions CI to build and publish both images
   - Trigger: on release tag (e.g., `v1.0.0`) or manual dispatch
   - Push to GitHub Container Registry (`ghcr.io/ericbintner/codrag-headless:cpu`, `:gpu`)
   - Multi-arch builds (amd64 at minimum; arm64 if feasible)
@@ -147,27 +147,27 @@ Two image tiers to support both CPU+BYOK and GPU+Local deployment patterns.
 ## Milestone 3: Platform Adapters & Templates
 Thin wrappers that make the Docker images work on specific serverless providers.
 
-- [ ] **P06-S09** Modal adapter
+- [x] **P06-S09** Modal adapter
   - A Python script that imports the GPU image and exposes a POST webhook endpoint
   - Accepts `{repo_url, branch, s3_bucket, s3_prefix}` in the request body
   - Calls `codrag sync-headless` inside the container
   - Include README with step-by-step setup instructions
   - Files: `deploy/modal/modal_adapter.py`, `deploy/modal/README.md`
 
-- [ ] **P06-S10** RunPod Serverless adapter
+- [x] **P06-S10** RunPod Serverless adapter
   - `Dockerfile.runpod`: inherits from `codrag/headless:gpu`, adds `runpod` pip package and handler script
   - `runpod_handler.py`: parses RunPod job input, calls `codrag sync-headless`
   - Include README with step-by-step setup instructions
   - Files: `deploy/runpod/Dockerfile.runpod`, `deploy/runpod/runpod_handler.py`, `deploy/runpod/README.md`
 
-- [ ] **P06-S11** GitHub Actions workflow template (the CI/CD trigger)
+- [x] **P06-S11** GitHub Actions workflow template (the CI/CD trigger)
   - A reusable workflow that teams copy into their repo
   - Triggers on push to configurable branches (default: `main`)
   - For CPU+BYOK teams: runs `codrag sync-headless` directly in the Actions runner
   - For GPU teams: sends a webhook to their RunPod/Modal endpoint
   - Files: `deploy/github-actions/codrag-sync.yml`, `deploy/github-actions/README.md`
 
-- [ ] **P06-S12** AWS ECS task definition (Enterprise reference)
+- [x] **P06-S12** AWS ECS task definition (Enterprise reference)
   - A JSON task definition for running `codrag/headless:gpu` on AWS ECS/Fargate with GPU
   - Documents IAM role requirements for S3 access (no static keys needed)
   - Files: `deploy/aws/ecs-task-definition.json`, `deploy/aws/README.md`
@@ -175,13 +175,13 @@ Thin wrappers that make the Docker images work on specific serverless providers.
 ## Milestone 4: Local Client Sync
 The desktop CoDRAG daemon must know how to download and use remote indexes.
 
-- [ ] **P06-S13** Define `team_config.json` sync schema
+- [x] **P06-S13** Define `team_config.json` sync schema
   - Committed to repo at `.codrag/team_config.json` (secret-free)
   - Schema: `{ sync: { enabled: bool, s3_endpoint: str, s3_bucket: str, s3_prefix: str, poll_interval_minutes: int (default 30) } }`
   - Credentials: read from env vars `CODRAG_S3_ACCESS_KEY` / `CODRAG_S3_SECRET_KEY`, or from gitignored `.codrag/.secrets` file, or from OS keychain
   - File: extends `P06-I1` schema definition
 
-- [ ] **P06-S14** Implement client-side S3 download logic
+- [x] **P06-S14** Implement client-side S3 download logic
   - On daemon startup: if `team_config.json` has `sync.enabled: true`, check S3 for `manifest.json`
   - Compare remote `manifest.json` version/timestamp against local `.codrag/index/remote/manifest.json`
   - If remote is newer: download zip, extract to `.codrag/index/remote/`, update local manifest
@@ -198,14 +198,14 @@ The desktop CoDRAG daemon must know how to download and use remote indexes.
 ## Milestone 5: Layered Index Reading
 The search engine must merge remote + local indexes at query time.
 
-- [ ] **P06-S16** Refactor `index.py` to support layered document loading
+- [x] **P06-S16** Refactor `index.py` to support layered document loading
   - Currently: `get_context()` loads a single `documents.json` + `embeddings.npy`
   - New: load from multiple directories: `.codrag/index/remote/`, `.codrag/index/local_deltas/`
   - Concatenate document lists and embedding matrices (numpy `vstack`)
   - Apply tombstone mask: if a document path exists in both remote and delta, exclude the remote version
   - File: `src/codrag/core/index.py`
 
-- [ ] **P06-S17** Implement local delta detection and indexing
+- [x] **P06-S17** Implement local delta detection and indexing
   - When the file watcher detects a change to a file that exists in the remote `trace_manifest.json`:
     - Run the enrichment pipeline on only that file (using local LLM or BYOK)
     - Save the result to `.codrag/index/local_deltas/`
@@ -215,7 +215,7 @@ The search engine must merge remote + local indexes at query time.
     - If delta has further local edits beyond what was merged: keep the delta
   - Files: `src/codrag/services/delta_indexer.py`, `src/codrag/core/index.py`
 
-- [ ] **P06-S18** Integration test: end-to-end layered search
+- [x] **P06-S18** Integration test: end-to-end layered search
   - Build a remote index for a test repo
   - Modify one file locally (creating a delta)
   - Query and verify that the delta version is returned (not the stale remote version)
@@ -225,22 +225,22 @@ The search engine must merge remote + local indexes at query time.
 
 ## Milestone 6: Testing & Validation
 
-- [ ] **P06-S19** Unit tests for `S3StorageProvider`
+- [x] **P06-S19** Unit tests for `S3StorageProvider`
   - Mock S3 client (using `moto` library)
   - Test: upload, download, atomic swap, version manifest, error handling
   - File: `tests/test_s3_storage.py`
 
-- [ ] **P06-S20** Unit tests for `headless_runner`
+- [x] **P06-S20** Unit tests for `headless_runner`
   - Test: Git clone with token, incremental diff logic, full rebuild flag
   - File: `tests/test_headless_runner.py`
 
-- [ ] **P06-S21** Integration test: headless CLI end-to-end
+- [x] **P06-S21** Integration test: headless CLI end-to-end
   - Run `codrag sync-headless` against a fixture repo with a mock S3 (MinIO container)
   - Verify artifacts are uploaded correctly
   - Run again with one file changed, verify incremental rebuild
   - File: `tests/test_headless_e2e.py`
 
-- [ ] **P06-S22** Integration test: client sync end-to-end
+- [x] **P06-S22** Integration test: client sync end-to-end
   - Seed a mock S3 bucket with a pre-built index
   - Start the CoDRAG daemon with `team_config.json` pointing to the mock bucket
   - Verify the daemon downloads and uses the remote index
@@ -287,3 +287,43 @@ P06-S16 (Layered index)
 P06-S19–S22 (Tests) — can run in parallel after their dependencies
 P06-S23–S24 (Docs) — can be written incrementally
 ```
+
+---
+
+# Phase 45 — Multi-GPU Concurrency & AI Gateway Consolidation (P45-*)
+
+*Added: March 2026*
+*References: `docs/Phase45_MultiGPU-Concurrency/DESIGN.md`, `docs/Phase06_Team_And_Enterprise/COMPUTE_MANAGEMENT_FOUNDATIONS.md`*
+
+This section tracks the implementation of the Multi-GPU concurrency system and the new AI Gateway UI that serves as the foundation for Team/Enterprise compute node management.
+
+## Sprint 1: Close Out Team Sync UI (Phase 06)
+- [x] **P06-S15** Dashboard UI: Sync status indicator (`SyncStatusCard.tsx`)
+  - Show "Remote index: up to date" / "syncing..." / "X hours behind" in the project status area
+  - Add a manual "Sync Now" button
+  - Show last sync timestamp and remote commit SHA
+  - Wire into `App.tsx` below project status cards.
+
+## Sprint 2: Compute Node Data Model & UI (Phase 45B)
+- [x] **P45-B1** Add `ComputeNode` data model to settings store schema (`config_manager.py`)
+- [x] **P45-B2** Auto-create a "Local" node from existing hardware profile setting on load.
+- [x] **P45-B3** Add `compute_node_id` field to `SavedEndpoint` in `types.ts` and backend models.
+- [x] **P45-B4** Update AI Gateway UI (`AIModelsSettings.tsx`)
+  - Move "Resource Limits" and "Hardware Profile" out of `SettingsDrawer.tsx` into AI Gateway.
+  - Create "Single Compute" / "Multi-GPU" tabs.
+  - Multi-GPU tab: CRUD for compute nodes (name, hardware, concurrency, endpoints).
+- [ ] **P45-B5** Auto-detect LAN IPs on endpoint creation and prompt for remote compute node setup. *(deferred — UX polish)*
+
+## Sprint 3: Embedding Queue Separation (Phase 45C)
+- [x] **P45-C1** Introduce `QueueType` (`LLM`, `EMBEDDING`, `RUST`) to pipeline.
+- [x] **P45-C2** Map `STAGE_QUEUE_TYPE` to pipeline stages (`pipeline/stages.py`).
+- [x] **P45-C3** Update concurrency logic so NativeEmbedder stages do not block LLM stages.
+
+## Sprint 4: Multi-Node Pipeline Scheduler (Phase 45D)
+- [x] **P45-D1** `PipelineScheduler` singleton tracks concurrency *per node* (`pipeline/scheduler.py`, 17 tests passing).
+- [x] **P45-D2** `QUEUED` state + `ENQUEUE`/`CAPACITY_AVAILABLE` events in `PipelineGroupStateMachine` (42 tests passing).
+- [x] **P45-D3** Node-aware stage scheduling wired into `PipelineOrchestrator._advance_pipeline()` — enqueues when full, resumes on slot release.
+- [x] **P45-D4** Queued state visual in `GraphEnrichmentPipeline.tsx` (purple pulsing clock icon + "Waiting for compute capacity" text).
+- [x] **P45-D5** Compute Node CRUD API (`src/codrag/api/routers/compute.py`) — `GET/POST/PUT/DELETE /compute/nodes` + `/compute/scheduler`.
+- [x] **P45-D6** Scheduler status included in pipeline status API response.
+- [x] **P45-D7** Frontend API client methods (`getComputeNodes`, `createComputeNode`, `updateComputeNode`, `deleteComputeNode`, `getComputeNodeStatus`, `getSchedulerStatus`).

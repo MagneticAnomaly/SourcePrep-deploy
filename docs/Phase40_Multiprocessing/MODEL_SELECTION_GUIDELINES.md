@@ -504,9 +504,12 @@ content. CoDRAG must set this automatically.
 5. **qwen3:8b is the practical sweet spot** — Excellent quality, 12s per file,
    fits on 16GB hardware. Good enough for most users.
 
-6. **Thinking models need high num_predict** — The 27b generates ~2000 tokens of
-   thinking before content. CoDRAG must set `num_predict >= 4000` for thinking models
-   or risk empty responses.
+6. **Thinking models need high num_predict** — Ollama's `num_predict` is a
+   **shared budget** for thinking tokens + response tokens. When think=True,
+   CoDRAG automatically scales `num_predict` by 3× (or +8192, whichever is
+   larger) so the model has room for both the reasoning trace and the answer.
+   Without this, the model exhausts the budget on thinking and returns empty
+   or thinking-as-response output.
 
 7. **LM Studio MLX is 2× faster than Ollama** for text-only (type=llm) models,
    but crashes on Qwen3.5 VLM models due to an mlx-vlm engine bug.

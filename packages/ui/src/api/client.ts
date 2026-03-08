@@ -185,6 +185,14 @@ export interface ApiClient {
   getAdvancedConfig(): Promise<import('../types').AdvancedConfig>;
   updateAdvancedConfig(config: Partial<import('../types').AdvancedConfig>): Promise<import('../types').AdvancedConfig>;
 
+  // Compute Nodes (Phase 45D)
+  getComputeNodes(): Promise<{ nodes: import('../types').ComputeNode[]; count: number }>;
+  createComputeNode(node: Omit<import('../types').ComputeNode, 'id'>): Promise<import('../types').ComputeNode>;
+  updateComputeNode(nodeId: string, updates: Partial<import('../types').ComputeNode>): Promise<import('../types').ComputeNode>;
+  deleteComputeNode(nodeId: string): Promise<{ deleted: string }>;
+  getComputeNodeStatus(nodeId: string): Promise<import('../types').SchedulerNodeStatus & { node_id: string; name: string }>;
+  getSchedulerStatus(): Promise<import('../types').SchedulerStatus>;
+
   // Scope Orchestrator (Phase 24 SM-8)
   getScopeStatus(projectId: string): Promise<any>;
   addScopeFiles(projectId: string, paths: string[]): Promise<any>;
@@ -934,6 +942,40 @@ export class CodragApiClient implements ApiClient {
 
   async getAuditReport(projectId: string, reportName: string): Promise<{ name: string; content: string; size_bytes: number }> {
     return this.requestEnvelope(`/projects/${projectId}/audit/report/${encodeURIComponent(reportName)}`);
+  }
+
+  // ── Compute Nodes (Phase 45D) ─────────────────────────────────
+
+  async getComputeNodes(): Promise<{ nodes: import('../types').ComputeNode[]; count: number }> {
+    return this.requestEnvelope<{ nodes: import('../types').ComputeNode[]; count: number }>('/compute/nodes');
+  }
+
+  async createComputeNode(node: Omit<import('../types').ComputeNode, 'id'>): Promise<import('../types').ComputeNode> {
+    return this.requestEnvelope<import('../types').ComputeNode>('/compute/nodes', {
+      method: 'POST',
+      body: node,
+    });
+  }
+
+  async updateComputeNode(nodeId: string, updates: Partial<import('../types').ComputeNode>): Promise<import('../types').ComputeNode> {
+    return this.requestEnvelope<import('../types').ComputeNode>(`/compute/nodes/${encodeURIComponent(nodeId)}`, {
+      method: 'PUT',
+      body: updates,
+    });
+  }
+
+  async deleteComputeNode(nodeId: string): Promise<{ deleted: string }> {
+    return this.requestEnvelope<{ deleted: string }>(`/compute/nodes/${encodeURIComponent(nodeId)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getComputeNodeStatus(nodeId: string): Promise<import('../types').SchedulerNodeStatus & { node_id: string; name: string }> {
+    return this.requestEnvelope(`/compute/nodes/${encodeURIComponent(nodeId)}/status`);
+  }
+
+  async getSchedulerStatus(): Promise<import('../types').SchedulerStatus> {
+    return this.requestEnvelope<import('../types').SchedulerStatus>('/compute/scheduler');
   }
 }
 

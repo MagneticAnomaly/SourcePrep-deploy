@@ -64,7 +64,7 @@ export default function Page() {
 
           <AnchorHeading id="usage" level="h2">How to Use</AnchorHeading>
           <p>
-            Cascade (Windsurf&apos;s agent) is highly proactive. It will see the <code>codrag</code> tools (<code>codrag_search</code>, <code>codrag</code> (context), etc.) and call them automatically.
+            Cascade (Windsurf&apos;s agent) is highly proactive. It will see the <code>codrag</code> tools (<code>codrag_search</code>, <code>codrag</code>, <code>codrag_audit</code>, etc.) and call them automatically.
           </p>
 
           <h3 className="text-xl font-semibold mt-6">Start with <code>hi_codrag</code></h3>
@@ -124,6 +124,11 @@ export default function Page() {
             <div className="border-l-4 border-primary pl-4 py-1">
               <div className="font-bold text-sm">&quot;Compress the context...&quot;</div>
               <div className="text-sm text-text-muted">Triggers <code>codrag</code> with <code>compression: &quot;auto&quot;</code> &mdash; structural for code, language-aware for docs.</div>
+            </div>
+
+            <div className="border-l-4 border-primary pl-4 py-1">
+              <div className="font-bold text-sm">&quot;Audit my codebase&quot;</div>
+              <div className="text-sm text-text-muted">Triggers <code>codrag_audit</code>. Runs 11 structural analyzers against your trace graph &mdash; no LLM required. Say &quot;fix ARCH-1&quot; to get trace context + action plan. <a href="/guides/codebase-audit" className="text-primary hover:underline">Learn more →</a></div>
             </div>
           </div>
         </div>

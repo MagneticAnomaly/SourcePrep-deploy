@@ -1,0 +1,165 @@
+{
+  "config": {
+    "id": "27b-think",
+    "label": "qwen3.5:27b (think)",
+    "model": "qwen3.5:27b",
+    "think": true,
+    "timeout": 900.0
+  },
+  "atlas": {
+    "status": "success",
+    "duration_s": 595.4,
+    "tokens": 10292,
+    "prompt_chars": 21093,
+    "content": "IDENTITY: DebateHaus marketing site frontend orchestrating immersive scroll-driven visual experiences using GSAP and ScrollTrigger for user acquisition.\n\nSTACK: Next.js, React, TypeScript, GSAP, ScrollTrigger, Tailwind CSS, ESLint, SWC, PostCSS, Autoprefixer.\n\nARCHITECTURE: Layers: presentation (25 files), configuration (9 files), documentation (9 files), infrastructure (1 file). Presentation relies on configuration for build reproducibility. Hub files: src/hooks/useGSAP.ts, src/components/EnhancedHero.tsx, .eslintrc.json.\n\nSUBSYSTEMS: Ui (Src): src/components/EnhancedHero.tsx, src/components/CanvasBackground.tsx. DebateHaus Marketing Landing Pages: src/components/BetaSignupForm.tsx. Ui (Docs): docs/DesignPlan/1-hero.md, docs/questions_for_designer.md. Ui (Public): copy.json. Ui Marketing Content Gateway: src/hooks/useCopy.ts. Ui (.): .eslintrc.json, tsconfig.json.\n\nFLOW: Request enters via Ui (Src) root layout, initializes Tailwind CSS and Inter font. Data flows through Ui Marketing Content Gateway for type-safe text access. Animations trigger via src/hooks/useGSAP.ts managing ScrollTrigger instances. Conversion handled by BetaSignupForm.tsx modal.\n\nPATTERNS: Centralized configuration via tsconfig.json. Type safety enforced via TypeScript and Next.js compiler plugin. Animation state managed via custom hooks and global events.\n\nRISKS: Legacy files with _OLD and _BAD suffixes still exported. Production debug logging in Trust section. Fragile ScrollTrigger cleanup relying on iteration. Mutable singletons instead of React Context. Simulated API calls using setTimeout in BetaSignupForm.tsx. Hardcoded animation timing values. Console.log statements in production code. Documentation inconsistencies in roadmap timeline. Hardcoded utility classes with !important overrides.",
+    "raw_text": "<think>Thinking Process:\n\n1.  **Analyze the Request:**\n    *   **Role:** Senior Software Architect.\n    *   **Task:** Write a codebase orientation document from provided data (Module Summaries, Architecture Layers, Graph Statistics, Hub Files).\n    *   **Constraint 1:** PLAIN TEXT ONLY. No markdown, no bold, no headers, no bullet characters, no asterisks.\n    *   **Constraint 2:** Use short labeled sections separated by blank lines (e.g., \"IDENTITY:\", \"STACK:\", \"ARCHITECTURE:\").\n    *   **Constr",
+    "char_count": 1795,
+    "num_predict": 8192
+  },
+  "group_reasoning": {
+    "status": "success",
+    "total_groups": 3,
+    "parse_success": 3,
+    "parse_fail": 0,
+    "total_duration_s": 1220.0,
+    "avg_duration_s": 406.7,
+    "num_predict": 8192,
+    "groups": [
+      {
+        "group_id": "group:d7e9244214",
+        "member_count": 15,
+        "members": [
+          ".eslintrc.json",
+          "tailwind.config.js",
+          "src/components/PercentageBasedFooter.tsx",
+          "src/app/business/page.tsx",
+          "src/utils/mediaQueries.ts",
+          "postcss.config.js",
+          "docs/roadmap.md",
+          "docs/site_roadmap.md",
+          "next-env.d.ts",
+          "README.md",
+          "docs/DesignPlan/4-Updated-Trust-paralax.md",
+          "next.config.js",
+          "docs/DesignPlan/1-hero.md",
+          "docs/trust_section_redesign.md",
+          "docs/questions_for_designer.md"
+        ],
+        "prompt_chars": 8495,
+        "duration_s": 409.9,
+        "tokens": 6394,
+        "parsed_ok": true,
+        "pattern": "Configuration-Heavy Frontend Monolith",
+        "data_flow": "Build and style configuration files (next.config.js, tailwind.config.js, postcss.config.js) define the runtime environment and design constraints. Documentation files (docs/*) act as semantic specifications that source code (src/app/*, src/components/*) consumes or adheres to via 'configuration' lin",
+        "coupling_risks": [
+          "Reverse Dependency: Source code files (page.tsx, Footer.tsx) are marked as 'configuring' documentation and lint rules, creating a fragile loop where code changes might invalidate project specs.",
+          "Cross-Tool Configuration: postcss.config.js is linked to .eslintrc.json and documentation, implying CSS build changes could trigger linting or spec updates, which is technically anomalous.",
+          "Documentation Tech Debt: Inconsistencies in docs/roadmap.md (timeline regression) propagate to components that depend on them for content or structure."
+        ],
+        "blast_radius": [
+          "postcss.config.js",
+          "src/app/business/page.tsx",
+          "src/components/PercentageBasedFooter.tsx",
+          "tailwind.config.js",
+          ".eslintrc.json",
+          "docs/roadmap.md",
+          "docs/site_roadmap.md"
+        ],
+        "architectural_insight": "The dependency graph reveals a 'Spec-as-Code' architecture where documentation is treated as an active configuration node rather than passive reference, enforcing strict alignment between design intent and implementation. However, the non-standard configuration links (e.g., PostCSS configuring ESLint) suggest a potential misunderstanding of tool boundaries that could lead to brittle build processes and maintenance overhead.",
+        "confidence": 0.85,
+        "raw_text": ""
+      },
+      {
+        "group_id": "group:c7e78f81c9",
+        "member_count": 15,
+        "members": [
+          "public/data/copy.json",
+          "src/hooks/useCopy.ts",
+          "src/components/PercentageBasedTrustSection_OLD.tsx",
+          "src/components/PercentageBasedTrustSection.tsx",
+          "src/components/EnhancedHero.tsx",
+          "src/components/PercentageBasedTrustSection_BAD.tsx",
+          "src/components/EnhancedTrustSection.tsx",
+          "src/components/PercentageBasedHero.tsx",
+          "src/components/PercentageBasedRoadmapSection.tsx",
+          "src/components/EnhancedRoadmapSection.tsx",
+          "src/hooks/useGSAP.ts",
+          "src/components/ParallaxController.tsx",
+          "src/components/phases/HeroPhase.tsx",
+          "src/styles/globals.css",
+          "src/components/phases/ZoomPhase.tsx"
+        ],
+        "prompt_chars": 9186,
+        "duration_s": 441.8,
+        "tokens": 6817,
+        "parsed_ok": true,
+        "pattern": "Component Composition with Shared Services",
+        "data_flow": "Static content originates in copy.json, accessed via the useCopy hook facade. Animation state is managed globally by the useGSAP hook singleton. Components import both hooks to render UI text and trigger scroll-based animations via GSAP ScrollTrigger. ParallaxController orchestrates scroll phases (H",
+        "coupling_risks": [
+          "Global mutable state in useGSAP (singleton pattern) creates hidden dependencies and race conditions during concurrent rendering.",
+          "Significant component duplication (Enhanced*, PercentageBased*, _OLD, _BAD) leads to inconsistent behavior and maintenance debt.",
+          "Tight coupling to GSAP library internals within components reduces portability and increases refactoring cost.",
+          "globals.css contains !important overrides and contradictory comments indicating unresolved layout conflicts.",
+          "Implicit event-based communication (mentioned in summaries) creates fragile coupling between scroll listeners and components."
+        ],
+        "blast_radius": [
+          "src/hooks/useGSAP.ts",
+          "src/hooks/useCopy.ts",
+          "public/data/copy.json",
+          "src/styles/globals.css",
+          "src/components/ParallaxController.tsx",
+          "src/components/phases/ZoomPhase.tsx"
+        ],
+        "architectural_insight": "The architecture suffers from 'feature branching' debt, evidenced by multiple versions of the same logical sections (Trust, Hero) existing simultaneously. While the separation of content (copy.json) and animation logic (useGSAP) is sound, the use of global singleton state for animation violates React's unidirectional data flow principles, creating a fragile dependency graph that is difficult to test and scale.",
+        "confidence": 0.9,
+        "raw_text": ""
+      },
+      {
+        "group_id": "group:94769c5961",
+        "member_count": 7,
+        "members": [
+          "src/app/business-old/page.tsx",
+          "src/components/BetaSignupForm.tsx",
+          "src/components/CanvasBackground.tsx",
+          "src/app/page.tsx",
+          "src/app/layout.tsx",
+          "src/components/PercentageLayoutController.tsx",
+          "src/components/CardsSection.tsx"
+        ],
+        "prompt_chars": 4628,
+        "duration_s": 368.3,
+        "tokens": 5134,
+        "parsed_ok": true,
+        "pattern": "Component Composition with Global Layout Shell",
+        "data_flow": "The application initializes via src/app/layout.tsx which establishes the global shell, rendering persistent components like CanvasBackground and CardsSection. User navigation triggers src/app/page.tsx or src/app/business-old/page.tsx, which import and mount the BetaSignupForm. When users interact wi",
+        "coupling_risks": [
+          "High coupling between BetaSignupForm.tsx and layout.tsx due to child-to-parent direct calls",
+          "layout.tsx acts as a single point of failure for global UI state and visual effects",
+          "Hardcoded API simulation (setTimeout) in BetaSignupForm creates brittle integration points",
+          "Global components (CanvasBackground) persist across all routes, potentially causing performance overhead on pages that do not require them"
+        ],
+        "blast_radius": [
+          "src/app/layout.tsx",
+          "src/components/BetaSignupForm.tsx",
+          "src/app/page.tsx",
+          "src/app/business-old/page.tsx",
+          "src/components/CanvasBackground.tsx",
+          "src/components/CardsSection.tsx",
+          "src/components/PercentageLayoutController.tsx"
+        ],
+        "architectural_insight": "The architecture centralizes marketing assets in the root layout, which is efficient for caching but risks page-specific customization and performance bloat. The reverse dependency from BetaSignupForm to layout.tsx suggests a lack of proper state management abstraction, favoring direct parent access over Context or Redux. This tight coupling makes refactoring the global shell significantly risky.",
+        "confidence": 0.85,
+        "raw_text": ""
+      }
+    ]
+  },
+  "audit_summary": {
+    "status": "success",
+    "duration_s": 370.8,
+    "tokens": 5163,
+    "prompt_chars": 4624,
+    "content": "# Codebase Health Audit: DebateHaus Marketing\n\n## Health Score\n**Grade: B-**\nThe codebase is functionally stable with zero critical issues, but 12 warnings indicate significant technical debt in documentation, state management, and production hygiene.\n\n## Critical Findings\n*   **None identified.** (0 Critical, 12 Warning findings reported in audit data).\n\n## Top Recommendations\n1.  **Refactor Global State:** Replace global mutable state in `src/hooks/useGSAP.ts` with React Context to prevent race conditions in concurrent rendering.\n2.  **Clean Production Logs:** Remove debugging `console.log` statements from `src/components/EnhancedTrustSection.tsx` to ensure production code hygiene.\n3.  **Fix Documentation:** Correct timeline inconsistencies in `docs/roadmap.md` (Phase 1 vs Phase 2) and remove placeholder text ('I'm not sure') from `README.md`.\n4.  **Implement Real API:** Replace `setTimeout` simulation in `src/components/BetaSignupForm.tsx` with actual `fetch` or `axios` implementation.\n5.  **Resolve CSS Conflicts:** Remove redundant `html` styles and hardcoded `.pt-20` overrides in `src/styles/globals.css` to align with Tailwind utility standards.\n\n## Module Status\n*   **Presentation Layer:** 23 files, Warning, Console logs and legacy components (`_OLD.tsx`) present.\n*   **Configuration Layer:** 9 files, Healthy, No findings reported.\n*   **Documentation Layer:** 9 files, Warning, Placeholder text and timeline inconsistencies.\n*   **Business Logic Layer:** 2 files, Healthy, No findings reported.\n*   **Data Layer:** 1 file, Healthy, No findings reported.\n\n## Next Steps\n1.  **Refactor `src/hooks/useGSAP.ts`:** Eliminate `gsapInstance` and `scrollTriggerInstance` global variables to mitigate concurrency risks.\n2.  **Update Documentation:** Fix `docs/roadmap.md` chronological regression and finalize `README.md` project structure section.\n3.  **Audit Components:** Remove `src/components/PercentageBasedTrustSection_OLD.tsx` exports and clean `src/components/EnhancedTrustSection.tsx` cleanup logic.",
+    "char_count": 2029,
+    "num_predict": 8192
+  }
+}

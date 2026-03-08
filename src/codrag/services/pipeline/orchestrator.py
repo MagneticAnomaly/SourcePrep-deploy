@@ -27,6 +27,7 @@ from .stages import (
     QueueType,
     STAGE_QUEUE_TYPE,
 )
+from .scheduler import pipeline_scheduler
 from .workers import PipelineRunPhase, PipelineRun, WorkerFactory
 from .state_machine import (
     PipelineGroupStateMachine,
@@ -370,6 +371,23 @@ class PipelineOrchestrator:
         build_type = STAGE_BUILD_TYPE[stage]
         queue_type = STAGE_QUEUE_TYPE.get(stage, QueueType.LLM)
 
+        # Phase 45D: Check scheduler capacity before starting the stage.
+        # If the compute node is full, park the pipeline in QUEUED state.
+        if not pipeline_scheduler.can_start(run.project_id, stage):
+            pipeline_scheduler.enqueue(run.project_id, stage)
+            if run.can_transition(Event.ENQUEUE):
+                run.transition(Event.ENQUEUE, detail=f"waiting for compute slot ({stage.value})")
+            logger.info(
+                "Pipeline %s/%s — stage %s queued (compute node full)",
+                run.project_id, run.group, stage.value,
+            )
+            if pfl:
+                pfl.log(stage.value, "Queued — waiting for compute capacity")
+            return
+
+        # Acquire a scheduler slot for this stage
+        pipeline_scheduler.acquire(run.project_id, stage)
+
         # VRAM lifecycle: only LLM stages need model acquire/unload.
         # Embedding stages use NativeEmbedder (ONNX/CoreML/CUDA) — independent.
         # Rust stages are CPU-only — no GPU contention.
@@ -485,6 +503,12 @@ class PipelineOrchestrator:
                         model_awareness.release(completed_task, unload=False)
                     except Exception:
                         logger.debug("ModelAwareness release failed for %s", completed_task, exc_info=True)
+
+                # Phase 45D: release scheduler slot and resume any queued pipeline
+                next_entry = pipeline_scheduler.release(project_id, stage)
+                if next_entry:
+                    self._resume_queued_pipeline(next_entry.project_id, next_entry.stage)
+
                 # Pipeline file logger
                 pfl = self._get_file_logger(project_id)
                 if pfl:
@@ -507,6 +531,12 @@ class PipelineOrchestrator:
                     "Pipeline %s/%s — stage %s failed: %s",
                     project_id, matching_run.group, stage.value, slot.error,
                 )
+
+                # Phase 45D: release scheduler slot on failure too
+                next_entry = pipeline_scheduler.release(project_id, stage)
+                if next_entry:
+                    self._resume_queued_pipeline(next_entry.project_id, next_entry.stage)
+
                 pfl = self._get_file_logger(project_id)
                 if pfl:
                     pfl.stage_end(stage.value, "failed", error=slot.error, data={
@@ -767,6 +797,49 @@ class PipelineOrchestrator:
             journal.stage_started(run.journal_run_id, stage.value, run.current_stage_index)
         except Exception:
             logger.debug("Journal stage_started write failed", exc_info=True)
+
+    def _resume_queued_pipeline(self, project_id: str, stage: StageId) -> None:
+        """Resume a pipeline that was waiting for compute capacity.
+
+        Called when a scheduler slot frees up and a queued entry is dequeued.
+        Finds the matching state machine, transitions it from QUEUED → RUNNING,
+        and advances the pipeline.
+        """
+        # Find the state machine for this project
+        matching_sm = None
+        with self._lock:
+            for key, sm in self._runs.items():
+                if key[0] == project_id and sm.is_queued:
+                    matching_sm = sm
+                    break
+
+        if matching_sm is None:
+            logger.warning(
+                "Scheduler: dequeued %s/%s but no QUEUED state machine found",
+                project_id, stage.value,
+            )
+            return
+
+        # Transition QUEUED → RUNNING
+        if matching_sm.can_transition(Event.CAPACITY_AVAILABLE):
+            matching_sm.transition(
+                Event.CAPACITY_AVAILABLE,
+                detail=f"compute slot available for {stage.value}",
+            )
+            logger.info(
+                "Scheduler: resumed %s/%s from QUEUED → RUNNING",
+                project_id, matching_sm.group,
+            )
+
+        # Advance the pipeline (will re-attempt the stage that was queued)
+        if matching_sm.is_active:
+            try:
+                self._advance_pipeline(matching_sm)
+            except Exception as exc:
+                logger.exception(
+                    "Scheduler: _advance_pipeline failed for resumed %s: %s",
+                    project_id, exc,
+                )
 
     def _journal_stage_completed(self, run: PipelineGroupStateMachine, stage: StageId) -> None:
         if not run.journal_run_id:

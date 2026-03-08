@@ -1,0 +1,124 @@
+[
+  {
+    "group_id": "group:49022238fb",
+    "member_count": 2,
+    "members": [
+      "fix_node.js",
+      "packages/ui/src/components/marketing/MarketingHero.tsx"
+    ],
+    "prompt_chars": 2015,
+    "duration_s": 157.5,
+    "tokens": 3154,
+    "parsed_ok": true,
+    "pattern": "Static Analysis Tooling",
+    "data_flow": "The fix_node.js script executes as a standalone Node process, locates the MarketingHero.tsx file via file system I/O, reads its raw content as a string, parses specific sections to identify syntax anomalies like stray braces, and outputs diagnostic logs to the console without modifying the source fi",
+    "coupling_risks": [
+      "Hardcoded file path dependency creates fragility if MarketingHero.tsx is moved or refactored",
+      "Script parsing logic is tightly coupled to specific TSX syntax and component structure",
+      "Maintenance risk if the script is not updated alongside component changes, leading to false positives/negatives"
+    ],
+    "blast_radius_count": 2,
+    "architectural_insight": "This relationship represents a development-time dependency rather than a runtime architectural pattern, indicating a gap in standard tooling coverage that necessitated custom parsing logic. The tight coupling to file structure and syntax creates unnecessary fragility in the build/debug workflow that should ideally be handled by TypeScript compiler errors or ESLint rules.",
+    "confidence": 0.95
+  },
+  {
+    "group_id": "group:ea1a33956e",
+    "member_count": 2,
+    "members": [
+      "packages/ui/src/components/audit/AuditPanel.tsx",
+      "packages/ui/src/components/audit/index.ts"
+    ],
+    "prompt_chars": 2061,
+    "duration_s": 146.2,
+    "tokens": 2988,
+    "parsed_ok": true,
+    "pattern": "Barrel Module Aggregation",
+    "data_flow": "External consumers resolve the AuditPanel component through index.ts, passing audit data and configuration as props; the component renders the UI and emits interaction events back to the consumer context.",
+    "coupling_risks": [
+      "index.ts creates a hard dependency on AuditPanel's public interface signature",
+      "Consumers couple to the stability of the barrel file exports rather than the component directly",
+      "Risk of leaking internal types or sub-components through index.ts exports"
+    ],
+    "blast_radius_count": 2,
+    "architectural_insight": "This group establishes a stable public API surface using a barrel file, which decouples consumers from internal component structure changes. However, the index.ts file becomes a critical contract point; any breaking change here cascades to all consumers. Strict linting or export controls should be applied to index.ts to prevent accidental leakage of internal implementation details.",
+    "confidence": 0.95
+  },
+  {
+    "group_id": "group:7578be7d9a",
+    "member_count": 5,
+    "members": [
+      "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/FolderTree.tsx",
+      "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/index.ts",
+      "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/TraceGraph.tsx",
+      "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/MarketingHero.tsx",
+      "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/IndexStats.tsx"
+    ],
+    "prompt_chars": 3917,
+    "duration_s": 271.3,
+    "tokens": 5557,
+    "parsed_ok": true,
+    "pattern": "Barrel Module Pattern (Component Aggregation)",
+    "data_flow": "Data flows unidirectionally from external consumers into individual components via props; index.ts acts as a static facade for module resolution without runtime data transformation or inter-component communication.",
+    "coupling_risks": [
+      "index.ts creates a single point of failure for the public API surface",
+      "Implicit coupling via shared Storybook/Theme context not visible in import edges",
+      "Risk of circular dependencies if components import from index.ts"
+    ],
+    "blast_radius_count": 5,
+    "architectural_insight": "The group implements a clean separation of concerns using a barrel file to abstract component complexity, ensuring components remain stateless and reusable. However, being located within a Storybook demo path suggests these are illustrative examples rather than core business logic, reducing criticality but requiring strict isolation from demo-specific context.",
+    "confidence": 0.95
+  },
+  {
+    "group_id": "group:005b114b27",
+    "member_count": 6,
+    "members": [
+      "packages/ui/src/components/layout/DashboardGrid.tsx",
+      "packages/ui/src/components/layout/index.ts",
+      "packages/ui/src/components/layout/ModularDashboard.tsx",
+      "packages/ui/src/components/layout/PanelPicker.tsx",
+      "packages/ui/src/components/layout/useLayoutPersistence.ts"
+    ],
+    "prompt_chars": 4493,
+    "duration_s": 241.9,
+    "tokens": 5117,
+    "parsed_ok": true,
+    "pattern": "Container/Presentational Pattern",
+    "data_flow": "1. useLayoutPersistence loads layout config from localStorage. 2. ModularDashboard hydrates state and defines callbacks. 3. State is passed to DashboardGrid for rendering. 4. DashboardGrid renders PanelChrome for each item. 5. User interactions in PanelChrome or PanelPicker trigger callbacks to Modu",
+    "coupling_risks": [
+      "ModularDashboard acts as a God Component importing all sibling components",
+      "useLayoutPersistence schema is tightly coupled to ModularDashboard state shape",
+      "index.ts exposes internal business logic hook (useLayoutPersistence) to external consumers",
+      "DashboardGrid creates hard dependency on react-grid-layout library"
+    ],
+    "blast_radius_count": 6,
+    "architectural_insight": "While separation of persistence logic is achieved, the centralization of all orchestration in ModularDashboard creates high cognitive load and a single point of failure. Exposing the persistence hook publicly undermines the encapsulation of the dashboard state management.",
+    "confidence": 0.95
+  },
+  {
+    "group_id": "group:b30409f16c",
+    "member_count": 15,
+    "members": [
+      "README.md",
+      "tests/eval/real_repos/okhttp-kotlin/samples/guide/src/main/java/okhttp3/guide/GetExample.java",
+      "packages/ui/src/stories/molecules/CitationBlock.stories.tsx",
+      "TEST2/research-docs/01_Initial-planning_concepts/README.md",
+      "tests/eval/real_repos/javalin-java/javalin/src/test/resources/vue/scripts.js"
+    ],
+    "prompt_chars": 9152,
+    "duration_s": 111.3,
+    "tokens": 3955,
+    "parsed_ok": true,
+    "pattern": "Centralized Documentation-Driven Evaluation Framework",
+    "data_flow": "1) Research docs (TEST2/research-docs/README.md) define specifications and planning concepts; 2) External repository test files (okhttp, javalin, gson, etc.) reference these specs to validate CoDRAG's indexing/search capabilities against real codebases; 3) UI components (CitationBlock, PathInput, Ac",
+    "coupling_risks": [
+      "Single point of failure: TEST2/research-docs/01_Initial-planning_concepts/README.md has 13 incoming edges, creating massive coupling risk",
+      "Cross-repository dependencies: External test files from unrelated projects (okhttp, javalin, gson) depend on internal documentation",
+      "Documentation-to-code dependency inversion: Test files 'calling' documentation files is semantically unusual and indicates conceptual rather than technical coupling",
+      "UI storybook files depend on planning docs instead of component contracts",
+      "External repository test files may break if research docs change structure or content"
+    ],
+    "blast_radius_count": 15,
+    "architectural_insight": "This architecture exhibits a documentation-centric design where research specifications serve as the central hub for both evaluation tests and UI component documentation. The unusual dependency pattern (test files 'calling' documentation) suggests either a conceptual evaluation framework or a documentation-driven development approach that may benefit from separating concerns. The extreme coupling to a single research doc creates significant fragility - changes to planning documents would cascade",
+    "confidence": 0.72
+  }
+]

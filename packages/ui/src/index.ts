@@ -162,6 +162,7 @@ export type {
 export { AuditPanel } from './components/audit';
 export type { AuditPanelProps } from './components/audit';
 export type { AuditConfig, AuditFinding, AuditStatus, AuditReport, AuditSeverity, AuditCategory } from './types';
+export type { SchedulerStatus, SchedulerNodeStatus } from './types';
 
 // Components - Viz
 export { ActivityHeatmap, generateSampleActivityData, IndexHealthPanel, TokenBudgetPanel } from './components/viz';
@@ -186,3 +187,5 @@ export { useEventStream } from './hooks/useEventStream';
 
 // API (typed client + Storybook mocking helpers)
 export * from './api';
+export { SyncStatusCard } from './components/team/SyncStatusCard';
+export type { SyncStatusCardProps } from './components/team/SyncStatusCard';

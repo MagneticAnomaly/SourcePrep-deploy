@@ -1,0 +1,127 @@
+[
+  {
+    "group_id": "group:c1e84cdefb",
+    "member_count": 4,
+    "members": [
+      "docs/Phase04_TraceIndex/LLM_MODEL_CONFIGURATION.md",
+      "src/codrag/dashboard/src/hooks/useTraceSystem.ts",
+      "src/codrag/dashboard/src/hooks/useDashboardPanels.tsx",
+      "src/codrag/dashboard/src/hooks/useAuditSystem.ts"
+    ],
+    "prompt_chars": 3218,
+    "duration_s": 17.1,
+    "tokens": 1199,
+    "parsed_ok": true,
+    "pattern": "Controlled Composition with Configuration-Driven Behavior",
+    "data_flow": "The process initiates with the documentation defining the static LLM model configuration schema (slots, roles, providers). This configuration acts as the source of truth for the Trace System hook, which initializes and manages the pipeline logic based on these settings. The Dashboard Panels hook act",
+    "coupling_risks": [
+      "Hardcoded dependency on documentation structure: The Trace System hook implies a direct semantic link to the Markdown file; if the document structure or slot definitions change, the hook logic may break or require manual updates.",
+      "Circular state coupling: The Dashboard Panels hook depends on both Trace and Audit hooks; a change in the data shape of either hook propagates immediately to the UI layer, creating a tight coupling between business logic and presentation state.",
+      "Implicit configuration binding: The Trace System 'configures' the documentation rather than reading from a structured config file (JSON/YAML), creating a fragile link between code and unstructured text."
+    ],
+    "blast_radius_count": 4,
+    "architectural_insight": "The architecture suffers from a significant 'Documentation-as-Code' anti-pattern where the configuration source (Markdown) is not programmatically accessible, forcing the Trace System hook to rely on implicit knowledge or manual parsing rather than a typed configuration object. This creates a high risk of drift between the documented system behavior and the actual implementation. Refactoring the documentation into a typed JSON schema and importing it directly into the hooks would decouple the bu",
+    "confidence": 0.92
+  },
+  {
+    "group_id": "group:49022238fb",
+    "member_count": 2,
+    "members": [
+      "fix_node.js",
+      "packages/ui/src/components/marketing/MarketingHero.tsx"
+    ],
+    "prompt_chars": 2015,
+    "duration_s": 16.2,
+    "tokens": 907,
+    "parsed_ok": true,
+    "pattern": "Ad-hoc Diagnostic Utility",
+    "data_flow": "The fix_node.js script acts as an external trigger that initiates a data extraction process. It reads the raw file content of MarketingHero.tsx from the filesystem, parses the text to locate a specific section (likely around a syntax error), and outputs the data to the console for human analysis. Th",
+    "coupling_risks": [
+      "The utility script (fix_node.js) is tightly coupled to the physical location and internal structure of MarketingHero.tsx.",
+      "If the file path of MarketingHero.tsx changes or the project root structure is reorganized, fix_node.js will fail immediately.",
+      "The script relies on hard-coded assumptions about the content (e.g., line numbers or brace patterns) within MarketingHero.tsx, creating a fragile dependency on the specific code state.",
+      "The script bypasses the TypeScript compiler, potentially operating on stale or syntactically invalid code without type safety checks."
+    ],
+    "blast_radius_count": 3,
+    "architectural_insight": "This group represents a temporary, procedural intervention rather than a formal architectural pattern, highlighting a deviation from standard development workflows where debugging is typically handled by IDEs or linting tools. The existence of a standalone script to read a specific file for debugging suggests a lack of automated error detection or a specific, recurring issue that has not yet been resolved at the source code level. Integrating such logic directly into the source file or build pro",
+    "confidence": 0.95
+  },
+  {
+    "group_id": "group:7578be7d9a",
+    "member_count": 5,
+    "members": [
+      "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/FolderTree.tsx",
+      "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/index.ts",
+      "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/TraceGraph.tsx",
+      "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/IndexStats.tsx",
+      "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/MarketingHero.tsx"
+    ],
+    "prompt_chars": 3917,
+    "duration_s": 21.0,
+    "tokens": 1466,
+    "parsed_ok": true,
+    "pattern": "Component Aggregation (Barrel Export Pattern)",
+    "data_flow": "Data originates from external consumers (Storybook or application views) which import specific components via the central 'index.ts' file. The 'index.ts' file acts as a facade, re-exporting the definitions from the five distinct component files (FolderTree, IndexStats, MarketingHero, TraceGraph) wit",
+    "coupling_risks": [
+      "Tight coupling between the export surface (index.ts) and the implementation details of all five components; any change in a component's default export name breaks the barrel.",
+      "Circular dependency risk if any component file inadvertently imports from 'index.ts' instead of its peers, creating a bootstrapping loop.",
+      "Maintenance bottleneck where the 'index.ts' file becomes a single point of failure for the entire component library's visibility.",
+      "Implicit coupling between unrelated domains (e.g., MarketingHero and TraceGraph) through their co-location in a single aggregation file, reducing modularity."
+    ],
+    "blast_radius_count": 6,
+    "architectural_insight": "This group represents a classic 'Barrel File' pattern used to simplify public API surface management for a Storybook demo. While effective for reducing import clutter, the lack of internal data flow between the components suggests they are isolated 'dumb' presentational components, which is good for testability but limits their reusability as a cohesive system without external orchestration. The architectural strength lies in the clear separation of concerns, but the risk is that the 'index.ts' ",
+    "confidence": 0.95
+  },
+  {
+    "group_id": "group:24f18c5ddd",
+    "member_count": 5,
+    "members": [
+      "packages/ui/src/components/layout/DashboardGrid.tsx",
+      "packages/ui/src/components/layout/index.ts",
+      "packages/ui/src/components/layout/PanelPicker.tsx",
+      "packages/ui/src/components/layout/useLayoutPersistence.ts",
+      "packages/ui/src/components/layout/PanelChrome.tsx"
+    ],
+    "prompt_chars": 3500,
+    "duration_s": 19.1,
+    "tokens": 1276,
+    "parsed_ok": true,
+    "pattern": "Component Composition with Localized State Management",
+    "data_flow": "The flow begins with the useLayoutPersistence hook managing the source of truth for dashboard layout data in localStorage. This state is consumed by the DashboardGrid component, which renders the layout structure. PanelChrome components wrap individual data panels within the grid, receiving layout-s",
+    "coupling_risks": [
+      "Tight coupling between DashboardGrid and react-grid-layout makes switching layout libraries difficult without refactoring the core grid logic.",
+      "Circular dependency risk if PanelPicker or PanelChrome attempts to directly import and modify the internal state of useLayoutPersistence without a proper context or prop drilling mechanism.",
+      "The index.ts acts as a central point of failure; changes to its export structure could break any consumer relying on named exports from the layout package.",
+      "Shared state shape between useLayoutPersistence and DashboardGrid implies that schema migrations in the hook could invalidate the grid's rendering logic."
+    ],
+    "blast_radius_count": 6,
+    "architectural_insight": "This group exemplifies a 'Feature-Sliced Design' approach where layout logic is encapsulated within a cohesive domain, separating presentation (Grid, Chrome) from state management (Persistence Hook). The design effectively isolates the complex layout engine (react-grid-layout) from the persistence layer, but relies heavily on the index.ts barrel file for cohesion, which can obscure dependency graphs for new developers. To improve testability, the useLayoutPersistence hook should be extractable a",
+    "confidence": 0.95
+  },
+  {
+    "group_id": "group:b30409f16c",
+    "member_count": 15,
+    "members": [
+      "README.md",
+      "packages/ui/src/stories/molecules/CitationBlock.stories.tsx",
+      "tests/eval/real_repos/okhttp-kotlin/samples/guide/src/main/java/okhttp3/guide/GetExample.java",
+      "TEST2/research-docs/01_Initial-planning_concepts/README.md",
+      "packages/ui/src/stories/primitives/PathInput.stories.tsx"
+    ],
+    "prompt_chars": 9152,
+    "duration_s": 33.8,
+    "tokens": 3029,
+    "parsed_ok": true,
+    "pattern": "Fragmented Evaluation Harness with Spurious Documentation Coupling",
+    "data_flow": "The group does not exhibit a coherent data flow. Instead, it consists of isolated artifacts: UI component definitions (Storybook stories) and their type definitions; external third-party test suites (OkHttp, Gson, Gin, Javalin, Alamofire) containing business logic and tests; and documentation files.",
+    "coupling_risks": [
+      "Spurious Dependency Inflation: The 'calls' and 'configures' edges between unrelated files (e.g., a Go benchmark test and a marketing README) indicate a broken dependency graph that could lead to incorrect build failures or analysis errors if the tooling relies on these edges.",
+      "Context Leakage: The coupling of specific UI component stories to a marketing planning document suggests a potential confusion of architectural contexts, where development artifacts are incorrectly tied to project planning phases.",
+      "Maintenance Fragmentation: The group mixes third-party library evaluation code with internal UI components, risking that changes in third-party evaluation strategies (e.g., updating a test for Gson) might be mistakenly attributed to or affect the internal CoDRAG UI architecture.",
+      "Documentation Drift: The heavy reliance of diverse code files on specific README files for their 'dependency' status implies that updating the README could be seen as a breaking change for unrelated modules if the dependency graph is strictly enforced."
+    ],
+    "blast_radius_count": 15,
+    "architectural_insight": "This group represents a significant architectural anti-pattern where a static analysis or dependency mapping tool has hallucinated connections between unrelated codebases, specifically linking third-party evaluation artifacts to internal UI stories and planning documents. The lack of genuine data flow or logical coupling suggests the 'architecture' is an artifact of a faulty indexing process rather than a designed system, posing a high risk of misleading developers about system boundaries and de",
+    "confidence": 0.95
+  }
+]

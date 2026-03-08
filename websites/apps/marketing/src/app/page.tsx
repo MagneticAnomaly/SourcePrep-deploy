@@ -2,6 +2,7 @@
 
 import { MarketingHero, FeatureBlocks, codragFeatures, marketingFeatures, CompetitorMatrix } from '@codrag/ui';
 import { Terminal, ArrowRight, HelpCircle, Lightbulb, Check, Minus } from 'lucide-react';
+import Link from 'next/link';
 import { DevMarketingHero } from './DevMarketingHero';
 
 
@@ -81,7 +82,17 @@ export default function Page() {
             </p>
           </div>
           <div className="max-w-7xl mx-auto">
-            <CompetitorMatrix />
+            <CompetitorMatrix 
+              mobileVariant="simplified"
+              mobileAction={
+                <Link 
+                  href="/compare" 
+                  className="inline-flex items-center justify-center gap-2 bg-primary/10 text-primary hover:bg-primary/20 px-6 py-3 rounded-full text-sm font-semibold transition-colors w-full sm:w-auto"
+                >
+                  View Detailed Comparison <ArrowRight className="w-4 h-4" />
+                </Link>
+              }
+            />
           </div>
         </section>
 
@@ -111,7 +122,7 @@ export default function Page() {
                 {/* Tool call bar */}
                 <div className="flex items-center gap-2 px-3 py-2 border-b border-border-subtle bg-surface/30">
                   <Terminal className="w-3 h-3 text-primary" />
-                  <span className="font-mono text-[11px] text-primary">codrag()</span>
+                  <span className="font-mono text-[11px] text-primary">codrag</span>
                   <span className="font-mono text-[10px] text-text-muted ml-auto">auto</span>
                 </div>
                 {/* Response */}
@@ -140,7 +151,7 @@ export default function Page() {
                 {/* Tool call bar */}
                 <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border-subtle bg-surface/30">
                   <Terminal className="w-3 h-3 text-primary" />
-                  <span className="font-mono text-[11px] text-primary">hi_codrag()</span>
+                  <span className="font-mono text-[11px] text-primary">hi_codrag</span>
                 </div>
                 {/* AI response */}
                 <div className="px-3 py-2.5 text-xs text-text-muted space-y-1.5">
@@ -170,7 +181,7 @@ export default function Page() {
                 {/* Tool call bar */}
                 <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border-subtle bg-surface/30">
                   <Terminal className="w-3 h-3 text-primary" />
-                  <span className="font-mono text-[11px] text-primary">codrag_audit()</span>
+                  <span className="font-mono text-[11px] text-primary">codrag_audit</span>
                 </div>
                 {/* AI response */}
                 <div className="px-3 py-2.5 font-mono text-xs text-text-muted space-y-1.5">

@@ -281,12 +281,21 @@ def pipeline_status(project_id: str) -> Dict[str, Any]:
     # Phase 25: include crashed runs so the UI can show recovery banner
     crashed_runs = pipeline_orchestrator.get_crashed_runs(project_id)
 
+    # Phase 45D: include scheduler status so the UI can show queue state
+    scheduler_data = None
+    try:
+        from codrag.services.pipeline.scheduler import pipeline_scheduler
+        scheduler_data = pipeline_scheduler.status()
+    except Exception:
+        pass
+
     return ok({
         "fast_sync": pipeline_state.get("fast_sync"),
         "deep_enrichment": pipeline_state.get("deep_enrichment"),
         "stages": stage_data,
         "any_running": pipeline_state.get("any_running", False),
         "crashed_runs": crashed_runs,
+        "scheduler": scheduler_data,
     })
 
 

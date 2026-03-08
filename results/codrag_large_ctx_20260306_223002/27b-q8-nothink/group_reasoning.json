@@ -1,0 +1,125 @@
+[
+  {
+    "group_id": "group:c1e84cdefb",
+    "member_count": 4,
+    "members": [
+      "docs/Phase04_TraceIndex/LLM_MODEL_CONFIGURATION.md",
+      "src/codrag/dashboard/src/hooks/useTraceSystem.ts",
+      "src/codrag/dashboard/src/hooks/useDashboardPanels.tsx",
+      "src/codrag/dashboard/src/hooks/useAuditSystem.ts"
+    ],
+    "prompt_chars": 3218,
+    "duration_s": 47.1,
+    "tokens": 1220,
+    "parsed_ok": true,
+    "pattern": "Composite State Hook with Configuration-Driven Orchestration",
+    "data_flow": "The data flow originates from the static LLM_MODEL_CONFIGURATION.md, which defines the operational parameters for the trace pipeline. The useTraceSystem.ts hook interprets these configuration rules to manage the trace engine's lifecycle and status. The useAuditSystem.ts hook independently manages au",
+    "coupling_risks": [
+      "Implicit coupling between useTraceSystem.ts and the markdown configuration file creates a risk where schema changes in the documentation are not automatically validated against the runtime code, leading to potential configuration drift.",
+      "useDashboardPanels.tsx has a high fan-in dependency, meaning any interface change in useTraceSystem or useAuditSystem will directly break the dashboard panel rendering logic.",
+      "The separation of audit and trace logic into distinct hooks without a shared context or event bus creates a risk of state inconsistency if the UI requires synchronized updates between trace status and audit findings."
+    ],
+    "blast_radius_count": 3,
+    "architectural_insight": "This group exhibits a clean separation of concerns where business logic is encapsulated in specialized hooks, allowing the presentation layer to remain agnostic of implementation details. However, the reliance on a markdown file for runtime configuration is a significant architectural weakness that lacks type safety and automated validation, introducing potential runtime failures if the documentation and code diverge. The design effectively uses React hooks as a lightweight facade pattern, but t",
+    "confidence": 0.85
+  },
+  {
+    "group_id": "group:49022238fb",
+    "member_count": 2,
+    "members": [
+      "fix_node.js",
+      "packages/ui/src/components/marketing/MarketingHero.tsx"
+    ],
+    "prompt_chars": 2015,
+    "duration_s": 33.3,
+    "tokens": 810,
+    "parsed_ok": true,
+    "pattern": "Diagnostic Script Pattern",
+    "data_flow": "The fix_node.js script acts as a static entry point that reads the file system to locate and parse the MarketingHero.tsx source code. It extracts specific text segments (likely around a suspected syntax error) and outputs them to the console for manual inspection. No runtime data flows between the t",
+    "coupling_risks": [
+      "The script is tightly coupled to the exact file path of MarketingHero.tsx; moving the component will break the script.",
+      "The script relies on the internal syntax structure of the TypeScript file; a refactor that changes the brace placement or formatting may render the diagnostic logic useless.",
+      "The script assumes a specific encoding and line-ending format of the target file, which could fail in cross-platform environments."
+    ],
+    "blast_radius_count": 2,
+    "architectural_insight": "This group represents a temporary, ad-hoc debugging artifact rather than a formal architectural pattern. The fix_node.js script is a technical debt item that should be removed once the syntax error in MarketingHero.tsx is resolved, as it introduces a fragile dependency on a specific file's location and content structure. Its existence highlights a lack of automated static analysis tools in the CI/CD pipeline that could have caught the stray brace automatically.",
+    "confidence": 0.95
+  },
+  {
+    "group_id": "group:7578be7d9a",
+    "member_count": 5,
+    "members": [
+      "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/FolderTree.tsx",
+      "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/index.ts",
+      "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/TraceGraph.tsx",
+      "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/IndexStats.tsx",
+      "docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/MarketingHero.tsx"
+    ],
+    "prompt_chars": 3917,
+    "duration_s": 58.8,
+    "tokens": 1506,
+    "parsed_ok": true,
+    "pattern": "Module Aggregation (Barrel File)",
+    "data_flow": "Data flow is unidirectional and static: individual component definitions (FolderTree, IndexStats, MarketingHero, TraceGraph) are compiled into their respective .tsx files. The index.ts file acts as a central aggregation point that imports these compiled modules and re-exports them, allowing external",
+    "coupling_risks": [
+      "Tight coupling to the barrel file: External consumers relying on index.ts will break if the export name or path in index.ts changes, even if the component implementation remains identical.",
+      "Circular dependency risk: If any component inadvertently imports from index.ts (e.g., for shared types or other components), it could create circular dependencies causing runtime errors or build failures.",
+      "Build performance bottleneck: The index.ts file forces the bundler to resolve all components in this group together, potentially increasing initial bundle size if tree-shaking is not perfectly configured.",
+      "Visibility of internal structure: The index file exposes the internal component structure; renaming a component file requires updating both the file and the barrel export, increasing the chance of human error."
+    ],
+    "blast_radius_count": 6,
+    "architectural_insight": "This group represents a classic 'Barrel File' pattern used to simplify public API surface area for a UI library, which is excellent for developer experience but introduces a single point of failure for imports. The components themselves appear decoupled and focused on presentation, suggesting a healthy separation of concerns, but the reliance on index.ts means that refactoring the directory structure or component names requires coordinated changes across the barrel file and all external consumer",
+    "confidence": 0.95
+  },
+  {
+    "group_id": "group:24f18c5ddd",
+    "member_count": 5,
+    "members": [
+      "packages/ui/src/components/layout/DashboardGrid.tsx",
+      "packages/ui/src/components/layout/index.ts",
+      "packages/ui/src/components/layout/PanelPicker.tsx",
+      "packages/ui/src/components/layout/useLayoutPersistence.ts",
+      "packages/ui/src/components/layout/PanelChrome.tsx"
+    ],
+    "prompt_chars": 3500,
+    "duration_s": 57.8,
+    "tokens": 1361,
+    "parsed_ok": true,
+    "pattern": "Composite UI Component with State Persistence Hook",
+    "data_flow": "1. The application initializes the dashboard by importing components from the central index.ts. 2. useLayoutPersistence hook loads layout configuration from localStorage and provides state management (load, save, migrate) to the parent component. 3. DashboardGrid consumes this layout state to render",
+    "coupling_risks": [
+      "High coupling between DashboardGrid and useLayoutPersistence: The grid component likely depends on the specific shape of the state object returned by the hook, making schema changes risky.",
+      "Implicit dependency via index.ts: The index.ts file acts as a facade; if it re-exports specific internal types or if consumers import directly from index.ts without tree-shaking, changes in any component force re-evaluation of the whole module.",
+      "State Shape Coupling: PanelChrome and PanelPicker likely expect specific properties on the layout state (e.g., panel IDs, dimensions). If useLayoutPersistence changes the data structure, all UI components relying on it will break.",
+      "Local Storage Assumption: The entire unit assumes a browser environment with localStorage access; porting this logic to a server-side or non-browser environment requires significant refactoring."
+    ],
+    "blast_radius_count": 6,
+    "architectural_insight": "This group effectively implements a 'Smart-Dumb' component pattern where useLayoutPersistence acts as the smart state manager and the TSX files act as presentational components. The design is cohesive but tightly coupled to the specific data schema of the layout state; introducing a centralized LayoutContext or a Redux/Zustand store would decouple the persistence logic from the specific component tree, improving testability and reusability. The use of debouncing in the persistence hook is a good",
+    "confidence": 0.92
+  },
+  {
+    "group_id": "group:b30409f16c",
+    "member_count": 15,
+    "members": [
+      "README.md",
+      "packages/ui/src/stories/molecules/CitationBlock.stories.tsx",
+      "tests/eval/real_repos/okhttp-kotlin/samples/guide/src/main/java/okhttp3/guide/GetExample.java",
+      "TEST2/research-docs/01_Initial-planning_concepts/README.md",
+      "packages/ui/src/stories/primitives/PathInput.stories.tsx"
+    ],
+    "prompt_chars": 9152,
+    "duration_s": 81.9,
+    "tokens": 2922,
+    "parsed_ok": true,
+    "pattern": "Synthetic Dependency Graph (False Positive)",
+    "data_flow": "No functional data flow exists between these files. The provided dependency edges represent an artificial or erroneous analysis where unrelated files (e.g., Java test cases, C sanitizers, Swift documentation) are incorrectly linked to a marketing planning document (TEST2/research-docs/01_Initial-pla",
+    "coupling_risks": [
+      "High risk of 'God Document' anti-pattern if the central README is treated as a runtime configuration source for unrelated languages.",
+      "False coupling implies that changes to a marketing plan would theoretically require updates to Java, C, and Swift test suites, which is logically impossible and indicates a broken build or analysis pipeline.",
+      "The mix of Storybook stories, evaluation test data, and documentation suggests a lack of separation of concerns in the repository structure or the analysis tool's scope."
+    ],
+    "blast_radius_count": 15,
+    "architectural_insight": "This group does not represent a coherent architectural unit but rather a collection of disparate files from different ecosystems (Java, C, Swift, JS) and purposes (testing, UI, docs) incorrectly linked by a central document. The 'pattern' is actually a symptom of a faulty dependency analysis tool that likely matches file paths or keywords to create spurious edges. In a real deployment, these files would be in separate repositories or isolated modules with zero interaction.",
+    "confidence": 0.95
+  }
+]

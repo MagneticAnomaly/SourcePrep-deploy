@@ -594,12 +594,27 @@ export type ModelSource = 'endpoint' | 'huggingface';
 /**
  * Saved endpoint configuration
  */
+
+export type ComputeHardwareProfile = 'apple_silicon' | 'nvidia' | 'amd' | 'intel' | 'cloud';
+
+export interface ComputeNode {
+  id: string;
+  name: string;
+  type: 'local' | 'remote' | 'cloud';
+  hardware_profile?: ComputeHardwareProfile;
+  max_concurrent: number;
+  gpu_name?: string;
+  gpu_vram_gb?: number;
+  endpoint_ids: string[];
+}
+
 export interface SavedEndpoint {
   id: string;
   name: string;
   provider: LLMProvider;
   url: string;
   api_key?: string;
+  compute_node_id?: string | null;
 }
 
 /**
@@ -655,6 +670,7 @@ export interface LLMConfig {
   code_model: LLMSlotConfig;
   compression: CompressionConfig;
   saved_endpoints: SavedEndpoint[];
+  compute_nodes?: ComputeNode[];
   batch_mode?: BatchMode;
   assignment_blocks?: LLMAssignmentBlock[];
 }
@@ -875,7 +891,7 @@ export interface ProjectStatus {
 export interface PipelineGroupRun {
   project_id: string;
   group: string;
-  phase: 'idle' | 'running' | 'pausing' | 'paused' | 'cancelling' | 'cancelled' | 'completed' | 'failed' | 'recovering';
+  phase: 'idle' | 'queued' | 'running' | 'pausing' | 'paused' | 'cancelling' | 'cancelled' | 'completed' | 'failed' | 'recovering';
   current_stage: string | null;
   current_stage_index: number;
   total_stages: number;
@@ -883,6 +899,7 @@ export interface PipelineGroupRun {
   finished_at: number | null;
   error: string | null;
   stage_results: Record<string, string>;
+  is_queued?: boolean;
 }
 
 /**
@@ -912,6 +929,29 @@ export interface PipelineStatus {
   any_running: boolean;
   /** Phase 25: crashed pipeline runs awaiting user action */
   crashed_runs?: CrashedPipelineRun[];
+  /** Phase 45D: scheduler status — compute node loads and queues */
+  scheduler?: SchedulerStatus | null;
+}
+
+/**
+ * Scheduler status for a single compute node (Phase 45D)
+ */
+export interface SchedulerNodeStatus {
+  max_concurrent: number;
+  current_load: number;
+  active: Record<string, string>;  // project_id -> stage_id
+  queued: Array<{
+    project_id: string;
+    stage: string;
+    waiting_seconds: number;
+  }>;
+}
+
+/**
+ * Full pipeline scheduler status (Phase 45D)
+ */
+export interface SchedulerStatus {
+  nodes: Record<string, SchedulerNodeStatus>;
 }
 
 /**

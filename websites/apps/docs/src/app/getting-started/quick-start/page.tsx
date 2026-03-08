@@ -96,6 +96,27 @@ export default function Page() {
                 &quot;How does the authentication middleware interact with the user service? Trace the calls.&quot;
               </blockquote>
             </div>
+            <div>
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs">5</span>
+                Audit Your Codebase
+              </h3>
+              <p className="text-sm text-text-muted mb-2 ml-8">
+                Once your index is built, run a structural audit to find architectural issues, tech debt, and quality gaps &mdash; no LLM required:
+              </p>
+              <blockquote className="ml-8 border-l-2 border-primary pl-4 py-1 italic text-text-muted">
+                &quot;Audit my codebase&quot;
+              </blockquote>
+              <p className="text-sm text-text-muted mt-2 ml-8">
+                The AI calls <code>codrag_audit</code>, which runs 11 analyzers against your trace graph. You&apos;ll get severity-tagged findings like <code>ARCH-1</code> (circular dependency) or <code>QUAL-3</code> (oversized files). To act on a finding:
+              </p>
+              <blockquote className="ml-8 border-l-2 border-border pl-4 py-1 italic text-text-muted mt-2">
+                &quot;Fix ARCH-1&quot;
+              </blockquote>
+              <p className="text-xs text-text-muted ml-8 mt-2">
+                The AI calls <code>codrag_audit_refactor</code> to get trace context and an action plan for the affected files. See the <a href="/guides/codebase-audit" className="text-primary hover:underline">Codebase Audit Guide</a> for details.
+              </p>
+            </div>
           </div>
 
           <hr className="my-12 border-border" />

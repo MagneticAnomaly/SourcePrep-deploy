@@ -496,6 +496,7 @@ from codrag.api.routers.settings import router as settings_router
 from codrag.api.routers.scope import router as scope_router
 from codrag.api.routers.observations import router as observations_router
 from codrag.api.routers.audit import router as audit_router
+from codrag.api.routers.compute import router as compute_router
 app.include_router(system_router)
 app.include_router(license_router)
 app.include_router(trace_router)
@@ -507,6 +508,7 @@ app.include_router(settings_router)
 app.include_router(scope_router)
 app.include_router(observations_router)
 app.include_router(audit_router)
+app.include_router(compute_router)
 
 
 # =============================================================================
@@ -569,6 +571,10 @@ def configure(
     if crashed:
         logger.warning("Phase 25: %d crashed pipeline run(s) detected on startup", len(crashed))
 
+    # Initialize pipeline scheduler (Phase 45: Multi-GPU Concurrency)
+    from codrag.services.pipeline.scheduler import pipeline_scheduler as _scheduler
+    _scheduler.load_from_settings()
+
     # Auto-run pipeline on startup if settings are set to Auto mode.
     # Checks persisted pipeline_config and triggers runs for projects with
     # stale or incomplete graphs.  Runs in a background thread with a short
@@ -621,16 +627,41 @@ def configure(
             # to prevent the thread from blocking forever on a slow model.
             MAX_WAIT_PER_PROJECT = 120  # seconds to wait before moving to next
             for proj in projects:
-                if fast_auto and deep_mode == "auto":
-                    started = _po.run_full_pipeline(proj.id)
-                    logger.info("Startup auto-run: full_pipeline for %s — started=%s", proj.name, started)
-                elif fast_auto:
+                # Phase 45 Fix: Check if project is actually stale or incomplete before running
+                from codrag.services.build_manager import build_manager as _bm
+                from codrag.services.project_helpers import check_index_staleness
+                
+                idx = _bm.get_project_index(proj)
+                staleness = check_index_staleness(proj, idx)
+                is_stale = staleness.get("is_stale", True)
+                
+                trace_idx = _bm.get_project_trace_index(proj)
+                has_graph = trace_idx is not None and trace_idx.node_count > 0
+                
+                needs_fast_sync = is_stale or not has_graph
+                
+                # Check if deep enrichment needs to run (has graph but incomplete)
+                needs_deep = False
+                if has_graph and not is_stale and deep_mode == "auto":
+                    from codrag.core.epistemic_enrichment import EpistemicEnricher
+                    from codrag.core.project_registry import project_index_dir
+                    enricher = EpistemicEnricher(project_index_dir(proj), proj.path, None)
+                    pending = enricher.get_pending_nodes(trace_idx)
+                    if pending:
+                        needs_deep = True
+
+                started = False
+                if needs_fast_sync and fast_auto and deep_mode == "auto":
+                    started = _po.run_all(proj.id)
+                    logger.info("Startup auto-run: run_all for %s — started=%s", proj.name, started)
+                elif needs_fast_sync and fast_auto:
                     started = _po.run_fast_sync(proj.id)
                     logger.info("Startup auto-run: fast_sync for %s — started=%s", proj.name, started)
-                elif deep_mode == "auto":
+                elif needs_deep and deep_mode == "auto":
                     started = _po.run_deep_enrichment(proj.id)
                     logger.info("Startup auto-run: deep_enrichment for %s — started=%s", proj.name, started)
                 else:
+                    logger.info("Startup auto-run: skipping %s (already up to date)", proj.name)
                     continue
 
                 if started:
@@ -664,6 +695,14 @@ def configure(
         )
     except Exception:
         logger.debug("Schedule evaluator startup failed (non-fatal)", exc_info=True)
+
+    # Phase 45D: Initialize pipeline scheduler with compute node config
+    try:
+        from codrag.services.pipeline.scheduler import pipeline_scheduler
+        pipeline_scheduler.load_from_settings()
+        logger.info("Pipeline scheduler initialized from settings")
+    except Exception:
+        logger.debug("Pipeline scheduler init failed (non-fatal)", exc_info=True)
 
     # Team Sync: auto-start RemoteSyncService polling for projects with sync enabled
     try:

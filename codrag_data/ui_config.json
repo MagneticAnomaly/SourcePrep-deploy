@@ -447,5 +447,15 @@
         "w": 12
       }
     ]
-  }
+  },
+  "compute_nodes": [
+    {
+      "id": "node_ffb6389d",
+      "name": "Local Machine",
+      "type": "local",
+      "hardware_profile": "apple_silicon",
+      "max_concurrent": 1,
+      "endpoint_ids": []
+    }
+  ]
 }

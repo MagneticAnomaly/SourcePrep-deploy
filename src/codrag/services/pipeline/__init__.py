@@ -15,6 +15,7 @@ from .stages import (
     QueueType,
     STAGE_QUEUE_TYPE,
 )
+from .scheduler import PipelineScheduler, pipeline_scheduler
 from .workers import (
     PipelineRunPhase,
     PipelineRun,
@@ -38,6 +39,10 @@ __all__ = [
     "DEEP_ENRICHMENT_STAGES",
     "STAGE_TASK_ID",
     "STAGE_MODEL_SLOT",
+    "QueueType",
+    "STAGE_QUEUE_TYPE",
+    "PipelineScheduler",
+    "pipeline_scheduler",
     "PipelineRunPhase",
     "PipelineRun",
     "WorkerFactory",

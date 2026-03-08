@@ -2,7 +2,7 @@
 
 import { Badge } from '@tremor/react';
 import { Box, Menu, Search, X } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '../primitives/Button';
 
 export interface NavLink {
@@ -33,6 +33,17 @@ export function SiteHeader({
   className = '',
 }: SiteHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen]);
 
   const handleSearch = (query: string) => {
     if (onSearch) {
@@ -108,7 +119,10 @@ export function SiteHeader({
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-border bg-background p-4 space-y-4">
+        <div 
+          className="absolute top-full left-0 w-full md:hidden border-b border-border bg-background p-4 space-y-4 shadow-lg overflow-y-auto"
+          style={{ maxHeight: 'calc(100vh - 3.5rem)' }}
+        >
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-subtle" />
             <input

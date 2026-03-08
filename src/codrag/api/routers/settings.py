@@ -392,3 +392,135 @@ def update_advanced_config(body: AdvancedConfigUpdate) -> Dict[str, Any]:
 
     settings.set("advanced_config", config)
     return ok(config)
+
+
+# ── Compute node CRUD (Phase 45) ─────────────────────────────
+
+class ComputeNodeCreate(BaseModel):
+    name: str
+    type: str = "local"  # 'local' | 'remote' | 'cloud'
+    max_concurrent: int = 1
+    hardware_profile: Optional[str] = None
+    gpu_name: Optional[str] = None
+    gpu_vram_gb: Optional[float] = None
+    endpoint_ids: list = []
+
+
+class ComputeNodeUpdate(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    max_concurrent: Optional[int] = None
+    hardware_profile: Optional[str] = None
+    gpu_name: Optional[str] = None
+    gpu_vram_gb: Optional[float] = None
+    endpoint_ids: Optional[list] = None
+
+
+def _get_llm_config() -> dict:
+    from codrag.services.settings_store import settings
+    return settings.get("llm_config") or {}
+
+
+def _save_llm_config(cfg: dict) -> None:
+    from codrag.services.settings_store import settings
+    settings.set("llm_config", cfg)
+
+
+@router.get("/compute/nodes")
+def list_compute_nodes() -> Dict[str, Any]:
+    """List all compute nodes."""
+    cfg = _get_llm_config()
+    nodes = cfg.get("compute_nodes", [])
+    return ok({"nodes": nodes})
+
+
+@router.post("/compute/nodes")
+def create_compute_node(body: ComputeNodeCreate) -> Dict[str, Any]:
+    """Create a new compute node."""
+    import uuid
+
+    cfg = _get_llm_config()
+    nodes = cfg.setdefault("compute_nodes", [])
+
+    node = {
+        "id": f"node_{uuid.uuid4().hex[:8]}",
+        "name": body.name,
+        "type": body.type,
+        "max_concurrent": max(1, min(100, body.max_concurrent)),
+        "endpoint_ids": body.endpoint_ids,
+    }
+    if body.hardware_profile:
+        node["hardware_profile"] = body.hardware_profile
+    if body.gpu_name:
+        node["gpu_name"] = body.gpu_name
+    if body.gpu_vram_gb is not None:
+        node["gpu_vram_gb"] = body.gpu_vram_gb
+
+    nodes.append(node)
+    _save_llm_config(cfg)
+    return ok({"node": node})
+
+
+@router.put("/compute/nodes/{node_id}")
+def update_compute_node(node_id: str, body: ComputeNodeUpdate) -> Dict[str, Any]:
+    """Update a compute node."""
+    cfg = _get_llm_config()
+    nodes = cfg.get("compute_nodes", [])
+
+    node = next((n for n in nodes if n["id"] == node_id), None)
+    if not node:
+        raise ApiException(
+            status_code=404,
+            code="COMPUTE_NODE_NOT_FOUND",
+            message=f"Compute node '{node_id}' not found",
+        )
+
+    if body.name is not None:
+        node["name"] = body.name
+    if body.type is not None:
+        node["type"] = body.type
+    if body.max_concurrent is not None:
+        node["max_concurrent"] = max(1, min(100, body.max_concurrent))
+    if body.hardware_profile is not None:
+        node["hardware_profile"] = body.hardware_profile
+    if body.gpu_name is not None:
+        node["gpu_name"] = body.gpu_name
+    if body.gpu_vram_gb is not None:
+        node["gpu_vram_gb"] = body.gpu_vram_gb
+    if body.endpoint_ids is not None:
+        node["endpoint_ids"] = body.endpoint_ids
+
+    _save_llm_config(cfg)
+    return ok({"node": node})
+
+
+@router.delete("/compute/nodes/{node_id}")
+def delete_compute_node(node_id: str) -> Dict[str, Any]:
+    """Delete a compute node. Unlinks any associated endpoints."""
+    cfg = _get_llm_config()
+    nodes = cfg.get("compute_nodes", [])
+
+    original_len = len(nodes)
+    cfg["compute_nodes"] = [n for n in nodes if n["id"] != node_id]
+
+    if len(cfg["compute_nodes"]) == original_len:
+        raise ApiException(
+            status_code=404,
+            code="COMPUTE_NODE_NOT_FOUND",
+            message=f"Compute node '{node_id}' not found",
+        )
+
+    # Unlink endpoints that referenced this node
+    for ep in cfg.get("saved_endpoints", []):
+        if ep.get("compute_node_id") == node_id:
+            ep["compute_node_id"] = None
+
+    _save_llm_config(cfg)
+    return ok({"deleted": node_id})
+
+
+@router.get("/compute/scheduler-status")
+def get_scheduler_status() -> Dict[str, Any]:
+    """Return current scheduler status: active slots, queued pipelines per node."""
+    from codrag.services.pipeline.scheduler import pipeline_scheduler
+    return ok(pipeline_scheduler.status())
