@@ -111,6 +111,7 @@ class AuditSynthesizer:
             json_mode=False,
             temperature=0.3,
             num_predict=num_predict,
+            max_chars=TASK_MAX_CHARS["audit"],
             num_ctx=num_ctx,
         )
         return _clean_markdown(text)
@@ -151,6 +152,7 @@ class AuditSynthesizer:
             json_mode=False,
             temperature=0.3,
             num_predict=num_predict,
+            max_chars=TASK_MAX_CHARS["audit"],
             num_ctx=num_ctx,
         )
         return _clean_markdown(text)
@@ -188,6 +190,7 @@ class AuditSynthesizer:
             json_mode=False,
             temperature=0.3,
             num_predict=num_predict,
+            max_chars=TASK_MAX_CHARS["audit"],
             num_ctx=num_ctx,
         )
         return _clean_markdown(text)
@@ -218,6 +221,7 @@ class AuditSynthesizer:
             json_mode=False,
             temperature=0.2,
             num_predict=num_predict,
+            max_chars=TASK_MAX_CHARS["audit"],
             num_ctx=num_ctx,
         )
         return _clean_markdown(text)
@@ -252,6 +256,7 @@ class AuditSynthesizer:
             json_mode=False,
             temperature=0.3,
             num_predict=num_predict,
+            max_chars=TASK_MAX_CHARS["audit"],
             num_ctx=num_ctx,
         )
         return _clean_markdown(text)

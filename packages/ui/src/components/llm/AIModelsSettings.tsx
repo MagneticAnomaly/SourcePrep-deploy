@@ -14,8 +14,9 @@ import type {
   BatchMode,
   AssignmentMode,
   CodragTaskId,
+  ComputeNode,
 } from '../../types';
-import { Cpu, Info, Download, CheckCircle, Shrink, Cloud, Plus, Save } from 'lucide-react';
+import { Cpu, Info, Download, CheckCircle, Shrink, Cloud, Plus, Save, Trash2, Edit2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 
 export interface AIModelsSettingsProps {
@@ -54,6 +55,13 @@ export interface AIModelsSettingsProps {
   concurrencyDeep?: number;
   onConcurrencyChange?: (key: 'fast' | 'code' | 'deep', value: number) => void;
   schedulerStatus?: import('../../types').SchedulerStatus | null;
+
+  // Compute node management (Phase 45D)
+  computeNodes?: ComputeNode[];
+  onComputeNodeAdd?: (node: Omit<ComputeNode, 'id'>) => void;
+  onComputeNodeUpdate?: (nodeId: string, updates: Partial<ComputeNode>) => void;
+  onComputeNodeDelete?: (nodeId: string) => void;
+  onEndpointNodeChange?: (endpointId: string, nodeId: string | null) => void;
 
   // Phase 44: Mapped mode operations
   onAssignmentBlockAdd?: () => void;
@@ -97,6 +105,259 @@ function findRecommended(slot: string, list: string[]): string | undefined {
   return undefined;
 }
 
+// ── Compute Node CRUD Panel (Phase 45D) ──────────────────────
+
+function ComputeNodePanel({
+  nodes,
+  endpoints,
+  onAdd,
+  onUpdate,
+  onDelete,
+}: {
+  nodes: ComputeNode[];
+  endpoints: SavedEndpoint[];
+  onAdd?: (node: Omit<ComputeNode, 'id'>) => void;
+  onUpdate?: (nodeId: string, updates: Partial<ComputeNode>) => void;
+  onDelete?: (nodeId: string) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formName, setFormName] = useState('');
+  const [formType, setFormType] = useState<'local' | 'remote' | 'cloud'>('local');
+  const [formConcurrency, setFormConcurrency] = useState(1);
+  const [formGpuName, setFormGpuName] = useState('');
+
+  const resetForm = () => {
+    setFormName('');
+    setFormType('local');
+    setFormConcurrency(1);
+    setFormGpuName('');
+    setAdding(false);
+    setEditingId(null);
+  };
+
+  const handleAdd = () => {
+    if (!formName.trim() || !onAdd) return;
+    onAdd({
+      name: formName.trim(),
+      type: formType,
+      max_concurrent: formConcurrency,
+      gpu_name: formGpuName.trim() || undefined,
+      endpoint_ids: [],
+    });
+    resetForm();
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingId || !formName.trim() || !onUpdate) return;
+    onUpdate(editingId, {
+      name: formName.trim(),
+      type: formType,
+      max_concurrent: formConcurrency,
+      gpu_name: formGpuName.trim() || undefined,
+    });
+    resetForm();
+  };
+
+  const startEdit = (node: ComputeNode) => {
+    setEditingId(node.id);
+    setFormName(node.name);
+    setFormType(node.type);
+    setFormConcurrency(node.max_concurrent);
+    setFormGpuName(node.gpu_name || '');
+    setAdding(false);
+  };
+
+  if (nodes.length === 0 && !onAdd) return null;
+
+  return (
+    <div className="space-y-2 pt-2 border-t border-border">
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-medium text-text-subtle">Compute Nodes</label>
+        {onAdd && !adding && !editingId && (
+          <button
+            onClick={() => { resetForm(); setAdding(true); }}
+            className="text-[10px] text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+          >
+            <Plus className="w-3 h-3" />
+            Add Node
+          </button>
+        )}
+      </div>
+
+      {/* Node list */}
+      <div className="space-y-2">
+        {nodes.map((node) => {
+          const endpointCount = endpoints.filter(
+            (ep) => ep.compute_node_id === node.id
+          ).length;
+
+          if (editingId === node.id) {
+            return (
+              <div key={node.id} className="p-3 rounded border border-primary/40 bg-surface-raised space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-medium text-text-muted mb-1">Name</label>
+                    <input
+                      value={formName}
+                      onChange={(e) => setFormName(e.target.value)}
+                      className="w-full bg-surface border border-border rounded px-2 py-1.5 text-xs text-text focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-text-muted mb-1">Type</label>
+                    <Select
+                      size="sm"
+                      value={formType}
+                      onChange={(e) => setFormType(e.target.value as 'local' | 'remote' | 'cloud')}
+                      options={[
+                        { value: 'local', label: 'Local' },
+                        { value: 'remote', label: 'Remote (LAN)' },
+                        { value: 'cloud', label: 'Cloud' },
+                      ]}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-medium text-text-muted mb-1">GPU / Hardware</label>
+                    <input
+                      value={formGpuName}
+                      onChange={(e) => setFormGpuName(e.target.value)}
+                      placeholder="e.g. RTX 4090, M3 Max"
+                      className="w-full bg-surface border border-border rounded px-2 py-1.5 text-xs text-text focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-text-muted mb-1">Max Concurrent</label>
+                    <Select
+                      size="sm"
+                      value={String(formConcurrency)}
+                      onChange={(e) => setFormConcurrency(parseInt(e.target.value))}
+                      options={[1, 2, 3, 4, 6, 8].map((n) => ({ value: String(n), label: String(n) }))}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button onClick={resetForm} variant="outline" size="sm">Cancel</Button>
+                  <Button onClick={handleSaveEdit} size="sm">Save</Button>
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div
+              key={node.id}
+              className="flex items-center gap-3 p-2.5 rounded border border-border bg-surface-raised group"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className={cn(
+                    'w-1.5 h-1.5 rounded-full shrink-0',
+                    node.type === 'cloud' ? 'bg-blue-400' : node.type === 'remote' ? 'bg-amber-400' : 'bg-emerald-400'
+                  )} />
+                  <span className="text-xs font-medium text-text truncate">{node.name}</span>
+                  <span className="text-[10px] text-text-muted capitalize">({node.type})</span>
+                </div>
+                <p className="text-[10px] text-text-muted mt-0.5 pl-3">
+                  {endpointCount} endpoint{endpointCount !== 1 ? 's' : ''}
+                  {node.gpu_name ? ` · ${node.gpu_name}` : ''}
+                  {node.gpu_vram_gb ? ` · ${node.gpu_vram_gb}GB` : ''}
+                  {' · '}{node.max_concurrent} slot{node.max_concurrent !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                {onUpdate && (
+                  <button
+                    onClick={() => startEdit(node)}
+                    className="p-1 rounded hover:bg-surface transition-colors text-text-muted hover:text-text"
+                    title="Edit node"
+                  >
+                    <Edit2 className="w-3 h-3" />
+                  </button>
+                )}
+                {onDelete && (
+                  <button
+                    onClick={() => onDelete(node.id)}
+                    className="p-1 rounded hover:bg-error-muted/10 transition-colors text-text-muted hover:text-error"
+                    title="Delete node"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Add form */}
+      {adding && onAdd && (
+        <div className="p-3 rounded border border-dashed border-primary/40 bg-surface-raised/50 space-y-3 animate-in fade-in slide-in-from-top-1">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[10px] font-medium text-text-muted mb-1">Name</label>
+              <input
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder="e.g. GPU Server 2"
+                className="w-full bg-surface border border-border rounded px-2 py-1.5 text-xs text-text focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-medium text-text-muted mb-1">Type</label>
+              <Select
+                size="sm"
+                value={formType}
+                onChange={(e) => setFormType(e.target.value as 'local' | 'remote' | 'cloud')}
+                options={[
+                  { value: 'local', label: 'Local' },
+                  { value: 'remote', label: 'Remote (LAN)' },
+                  { value: 'cloud', label: 'Cloud' },
+                ]}
+                className="w-full"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[10px] font-medium text-text-muted mb-1">GPU / Hardware</label>
+              <input
+                value={formGpuName}
+                onChange={(e) => setFormGpuName(e.target.value)}
+                placeholder="e.g. RTX 4090, M3 Max"
+                className="w-full bg-surface border border-border rounded px-2 py-1.5 text-xs text-text focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-medium text-text-muted mb-1">Max Concurrent</label>
+              <Select
+                size="sm"
+                value={String(formConcurrency)}
+                onChange={(e) => setFormConcurrency(parseInt(e.target.value))}
+                options={[1, 2, 3, 4, 6, 8].map((n) => ({ value: String(n), label: String(n) }))}
+                className="w-full"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button onClick={resetForm} variant="outline" size="sm">Cancel</Button>
+            <Button onClick={handleAdd} size="sm" disabled={!formName.trim()}>Add Node</Button>
+          </div>
+        </div>
+      )}
+
+      <p className="text-[9px] text-text-muted opacity-70">
+        Assign endpoints to compute nodes to control which hardware runs each model. Concurrency slots are managed per node.
+      </p>
+    </div>
+  );
+}
+
+
 export function AIModelsSettings({
   config,
   onConfigChange,
@@ -122,6 +383,11 @@ export function AIModelsSettings({
   concurrencyDeep: _concurrencyDeep = 1,
   onConcurrencyChange,
   schedulerStatus,
+  computeNodes,
+  onComputeNodeAdd,
+  onComputeNodeUpdate,
+  onComputeNodeDelete,
+  onEndpointNodeChange,
   onAssignmentBlockTest,
   assignmentBlockTestResults = {},
   assignmentBlockTesting,
@@ -739,6 +1005,8 @@ export function AIModelsSettings({
         onEdit={onEditEndpoint}
         onDelete={onDeleteEndpoint}
         onTest={onTestEndpoint}
+        computeNodes={computeNodes}
+        onEndpointNodeChange={onEndpointNodeChange}
       />
 
       {/* Compute Profile */}
@@ -752,21 +1020,23 @@ export function AIModelsSettings({
           {onMaxActiveProjectsChange && maxActiveProjects !== undefined && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-text-subtle">Max Active Projects</label>
-              <select
+              <Select
+                size="sm"
                 value={String(maxActiveProjects)}
                 onChange={(e) => {
                   const val = e.target.value;
                   onMaxActiveProjectsChange(val === 'infinite' ? 'infinite' : parseInt(val));
                 }}
-                className="w-full text-xs px-3 py-1.5 rounded border border-border bg-background text-text focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="1">1 (Conservative)</option>
-                <option value="2">2</option>
-                <option value="3">3 (Standard)</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="infinite">Unlimited</option>
-              </select>
+                options={[
+                  { value: '1', label: '1 (Conservative)' },
+                  { value: '2', label: '2' },
+                  { value: '3', label: '3 (Standard)' },
+                  { value: '4', label: '4' },
+                  { value: '5', label: '5' },
+                  { value: 'infinite', label: 'Unlimited' },
+                ]}
+                className="w-full"
+              />
               <p className="text-[10px] text-text-muted leading-relaxed">
                 How many projects can run LLM pipelines simultaneously.
               </p>
@@ -811,52 +1081,14 @@ export function AIModelsSettings({
             </div>
           )}
 
-          {/* Compute Nodes */}
-          {config.compute_nodes && config.compute_nodes.length > 0 && (
-            <div className="space-y-2 pt-2 border-t border-border">
-              <label className="text-xs font-medium text-text-subtle">Compute Nodes</label>
-              <div className="space-y-2">
-                {config.compute_nodes.map((node) => {
-                  const endpointCount = config.saved_endpoints.filter(
-                    (ep) => ep.compute_node_id === node.id
-                  ).length;
-                  return (
-                    <div
-                      key={node.id}
-                      className="flex items-center gap-3 p-2.5 rounded border border-border bg-surface-raised"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className={cn(
-                            'w-1.5 h-1.5 rounded-full shrink-0',
-                            node.type === 'cloud' ? 'bg-blue-400' : node.type === 'remote' ? 'bg-amber-400' : 'bg-emerald-400'
-                          )} />
-                          <span className="text-xs font-medium text-text truncate">{node.name}</span>
-                          <span className="text-[10px] text-text-muted capitalize">({node.type})</span>
-                        </div>
-                        {endpointCount > 0 && (
-                          <p className="text-[10px] text-text-muted mt-0.5 pl-3">
-                            {endpointCount} endpoint{endpointCount !== 1 ? 's' : ''}
-                            {node.gpu_name ? ` · ${node.gpu_name}` : ''}
-                            {node.gpu_vram_gb ? ` · ${node.gpu_vram_gb}GB` : ''}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-[10px] text-text-muted">Slots:</span>
-                        <span className="text-xs font-mono font-semibold text-text w-5 text-center">
-                          {node.max_concurrent}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <p className="text-[9px] text-text-muted opacity-70">
-                Compute nodes are auto-created from your endpoints. Multi-GPU management coming soon.
-              </p>
-            </div>
-          )}
+          {/* Compute Nodes — CRUD Panel */}
+          <ComputeNodePanel
+            nodes={computeNodes ?? config.compute_nodes ?? []}
+            endpoints={config.saved_endpoints}
+            onAdd={onComputeNodeAdd}
+            onUpdate={onComputeNodeUpdate}
+            onDelete={onComputeNodeDelete}
+          />
 
           {/* Pipeline Queue Status */}
           {schedulerStatus && (() => {

@@ -42,6 +42,7 @@ from .routing import (
     compute_segments,
     build_routing_descriptors,
 )
+from codrag.core.llm_client import TASK_MAX_CHARS
 
 logger = logging.getLogger(__name__)
 

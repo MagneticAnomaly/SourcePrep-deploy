@@ -34,6 +34,7 @@ from codrag.core.context_config import PipelineTask, compute_optimal_settings
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from .llm_client import _get_llm_concurrency, _parse_confidence
+from codrag.core.llm_client import TASK_MAX_CHARS
 
 logger = logging.getLogger(__name__)
 
@@ -311,6 +312,7 @@ class InferredEdgesAnalyzer:
                         prompt, system=BATCHED_INFERRED_EDGES_SYSTEM,
                         num_predict=num_predict, num_ctx=num_ctx,
                         response_schema=schema,
+                        max_chars=TASK_MAX_CHARS["augmentation"],
                     )
                     return BatchedResponseParser.parse(text, expected_count=len(items))
                 except Exception as e:
@@ -535,6 +537,7 @@ class InferredEdgesAnalyzer:
             num_predict=num_predict,
             num_ctx=num_ctx,
             temperature=0.1,
+            max_chars=TASK_MAX_CHARS["augmentation"],
         )
 
         return self._parse_response(fp, text)

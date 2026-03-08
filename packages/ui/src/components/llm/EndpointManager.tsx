@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { cn } from '../../lib/utils';
-import type { SavedEndpoint, LLMProvider, EndpointTestResult } from '../../types';
+import type { SavedEndpoint, LLMProvider, EndpointTestResult, ComputeNode } from '../../types';
 import { Plus, Trash2, Edit2, Play, CheckCircle, AlertCircle, Server } from 'lucide-react';
 import { Button } from '../primitives/Button';
 import { Select } from '../primitives/Select';
@@ -12,6 +12,8 @@ export interface EndpointManagerProps {
   onEdit: (endpoint: SavedEndpoint) => void;
   onDelete: (id: string) => void;
   onTest: (endpoint: SavedEndpoint) => Promise<EndpointTestResult>;
+  computeNodes?: ComputeNode[];
+  onEndpointNodeChange?: (endpointId: string, nodeId: string | null) => void;
   className?: string;
 }
 
@@ -29,6 +31,8 @@ export function EndpointManager({
   onEdit,
   onDelete,
   onTest,
+  computeNodes,
+  onEndpointNodeChange,
   className,
 }: EndpointManagerProps) {
   const [showAddForm, setShowAddForm] = useState(false);
@@ -206,9 +210,26 @@ export function EndpointManager({
                         {ep.provider}
                       </span>
                     </div>
-                    <code className="text-xs text-text-subtle font-mono block truncate max-w-md">
-                      {ep.url}
-                    </code>
+                    <div className="flex items-center gap-2">
+                      <code className="text-xs text-text-subtle font-mono truncate max-w-[200px]">
+                        {ep.url}
+                      </code>
+                      {computeNodes && computeNodes.length > 0 && onEndpointNodeChange && (
+                        <Select
+                          size="sm"
+                          value={ep.compute_node_id || ''}
+                          onChange={(e) => onEndpointNodeChange(ep.id, e.target.value || null)}
+                          options={[
+                            { value: '', label: 'Auto (default node)' },
+                            ...computeNodes.map((n) => ({
+                              value: n.id,
+                              label: `${n.name}${n.gpu_name ? ` · ${n.gpu_name}` : ''}`
+                            }))
+                          ]}
+                          className="max-w-[180px]"
+                        />
+                      )}
+                    </div>
                     {testResults[ep.id] && (
                       <div className={cn(
                         'text-xs mt-2 flex items-center gap-1.5',

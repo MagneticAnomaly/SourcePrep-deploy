@@ -1,0 +1,57 @@
+[
+  {
+    "group_id": "65dc6beb53",
+    "member_count": 2,
+    "duration_s": 183.7,
+    "tokens": 3699,
+    "parsed_ok": true,
+    "pattern": "Centralized Configuration",
+    "coupling_risks": 4,
+    "confidence": 0.85,
+    "architectural_insight": "While centralizing ad configuration improves maintainability, the explicit reference to legacy code in documentation indicates a transitional state that risks architectural decay. The lack of automated validation between the design spec (MD) and the configuration implementation allows for silent div"
+  },
+  {
+    "group_id": "f9ebfe597d",
+    "member_count": 3,
+    "duration_s": 167.8,
+    "tokens": 3696,
+    "parsed_ok": true,
+    "pattern": "Documentation Hierarchy",
+    "coupling_risks": 3,
+    "confidence": 0.95,
+    "architectural_insight": "This group functions as a manual compliance gate rather than an automated system, relying on human review to resolve placeholders before launch. The structural dependency is weak (simple file references), but the logical dependency is critical; failure to resolve the identified tech debt in the poli"
+  },
+  {
+    "group_id": "b3fdeec8bc",
+    "member_count": 5,
+    "duration_s": 221.0,
+    "tokens": 4824,
+    "parsed_ok": true,
+    "pattern": "Centralized Documentation Hub",
+    "coupling_risks": 3,
+    "confidence": 0.9,
+    "architectural_insight": "This group functions as a Governance Control Plane where documentation acts as the system of record for compliance and migration strategy. The high coupling around the Implementation Log creates a single point of truth risk, requiring strict version synchronization to prevent legal or technical drif"
+  },
+  {
+    "group_id": "85af9b49a3",
+    "member_count": 5,
+    "duration_s": 236.6,
+    "tokens": 5193,
+    "parsed_ok": true,
+    "pattern": "Canonical Data Model",
+    "coupling_risks": 4,
+    "confidence": 0.9,
+    "architectural_insight": "The architecture relies on Markdown documentation (HomeColabCore/README.md) as the primary schema contract source, creating a fragile coupling between iOS and Web implementations that risks data inconsistency without automated validation or shared schema definitions."
+  },
+  {
+    "group_id": "5969fe70a4",
+    "member_count": 15,
+    "duration_s": 77.1,
+    "tokens": 3820,
+    "parsed_ok": true,
+    "pattern": "Design System Architecture",
+    "coupling_risks": 5,
+    "confidence": 0.92,
+    "architectural_insight": "This is a well-organized design system architecture with clear separation between implementation (Swift files) and documentation, but the cross-platform coupling between website docs and app code creates maintenance overhead. The system would benefit from automated validation to detect documentation"
+  }
+]

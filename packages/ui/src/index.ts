@@ -162,7 +162,7 @@ export type {
 export { AuditPanel } from './components/audit';
 export type { AuditPanelProps } from './components/audit';
 export type { AuditConfig, AuditFinding, AuditStatus, AuditReport, AuditSeverity, AuditCategory } from './types';
-export type { SchedulerStatus, SchedulerNodeStatus } from './types';
+export type { SchedulerStatus, SchedulerNodeStatus, ComputeNode, ComputeHardwareProfile } from './types';
 
 // Components - Viz
 export { ActivityHeatmap, generateSampleActivityData, IndexHealthPanel, TokenBudgetPanel } from './components/viz';

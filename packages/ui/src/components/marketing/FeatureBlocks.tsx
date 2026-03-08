@@ -1,4 +1,4 @@
-import { Badge, Card, Flex, Text } from '@tremor/react';
+import { Badge, Card, Text } from '@tremor/react';
 import { 
   Search, GitBranch, Zap, Lock, RefreshCw, Plug, 
   AlertTriangle, Lightbulb, TrendingUp, SlidersHorizontal, Shrink, Brain, Shield, Waypoints, Users, Activity
@@ -79,22 +79,22 @@ function FeatureCards({ features }: { features: Feature[] }) {
 function FeatureList({ features }: { features: Feature[] }) {
   return (
     <div
-      className="rounded-2xl border border-primary/30 bg-surface p-6"
+      className="rounded-2xl border border-primary/30 bg-surface p-2 sm:p-6"
       style={{ boxShadow: '0 0 70px -10px color-mix(in srgb, var(--primary) 20%, transparent)' }}
     >
       {features.map((feature) => (
         <div
           key={feature.title}
-          className="flex gap-6 items-start px-10 py-8"
+          className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-start px-4 py-6 sm:px-10 sm:py-8"
         >
-          <div className="flex-shrink-0 w-16 h-16 rounded-xl bg-surface-raised border border-border-subtle flex items-center justify-center text-primary">
+          <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-surface-raised border border-border-subtle flex items-center justify-center text-primary [&>svg]:w-6 [&>svg]:h-6 sm:[&>svg]:w-8 sm:[&>svg]:h-8">
             {feature.icon}
           </div>
-          <div className="flex-1">
-            <Flex justifyContent="between" alignItems="start">
+          <div className="flex-1 w-full">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-0">
               <h3 className="text-lg font-mono font-medium text-text">{feature.title}</h3>
               {feature.badge && <Badge color="blue">{feature.badge}</Badge>}
-            </Flex>
+            </div>
             <Text className="mt-2 text-text-muted leading-relaxed">{feature.description}</Text>
           </div>
         </div>

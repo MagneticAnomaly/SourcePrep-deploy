@@ -18,7 +18,7 @@ Models:
   6. qwen3.5:122b-a10b think
 
 Usage:
-    .venv/bin/python scripts/benchmark_multi_repo.py [--repos test2,test3,homecolab] [--only-config N]
+    .venv/bin/python scripts/benchmark_multi_repo.py [--repos test2,test3,homecolab,linuxbrain] [--only-config N]
 """
 
 import argparse
@@ -62,6 +62,28 @@ REPOS = {
             "**/.build/**",  # SPM build artifacts (26K files)
             "**/xcuserdata/**", "**/Legacy_Backups*/**", "**/backups/**",
             "**/node_modules/**", "**/data/**",
+        ],
+    },
+    "linuxbrain": {
+        "path": Path("/Volumes/4TB-BAD/HumanAI/LinuxBrain"),
+        "index": Path("/Volumes/4TB-BAD/HumanAI/LinuxBrain/.codrag"),
+        "name": "LinuxBrain (Vue/Electron)",
+        "needs_build": True,
+        "exclude_globs": [
+            "**/.git/**", 
+            "**/node_modules/**", 
+            "**/data/**",              # 24GB Vector DB + Datasets
+            "**/build/**", 
+            "**/dist/**", 
+            "**/installers/**",
+            "**/src-tauri/target/**",  # 20GB Rust build artifacts
+            "**/src-tauri/gen/**",
+            "**/halley_core/.venv/**", 
+            "**/Docs_Halley/**",
+            "**/code_index/**",        # 105M generated chunks
+            "**/self_rag/**",
+            "**/tests/**",
+            "**/__pycache__/**",
         ],
     },
 }
@@ -419,7 +441,7 @@ def run_repo(repo_key, repo_info, configs, run_dir, logger):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--repos", default="test2,test3,homecolab",
+    parser.add_argument("--repos", default="test2,test3,homecolab,linuxbrain",
                         help="Comma-separated repo keys to test")
     parser.add_argument("--only-config", type=int, help="Run only config N (1-indexed)")
     args = parser.parse_args()

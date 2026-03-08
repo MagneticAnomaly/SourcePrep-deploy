@@ -176,6 +176,12 @@ export interface PanelLLMProps {
   concurrencyDeep?: number
   onConcurrencyChange?: (key: 'fast' | 'code' | 'deep', value: number) => void
   schedulerStatus?: { nodes: Record<string, { max_concurrent: number; current_load: number; active: Record<string, string>; queued: Array<{ project_id: string; stage: string; waiting_seconds: number }> }> } | null
+  // Compute node CRUD (Phase 45D)
+  computeNodes?: import('@codrag/ui').ComputeNode[]
+  onComputeNodeAdd?: (node: Omit<import('@codrag/ui').ComputeNode, 'id'>) => void
+  onComputeNodeUpdate?: (nodeId: string, updates: Partial<import('@codrag/ui').ComputeNode>) => void
+  onComputeNodeDelete?: (nodeId: string) => void
+  onEndpointNodeChange?: (endpointId: string, nodeId: string | null) => void
 }
 
 export interface PanelDeepAnalysisProps {
@@ -887,6 +893,11 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           concurrencyDeep={p.concurrencyDeep}
           onConcurrencyChange={p.onConcurrencyChange}
           schedulerStatus={p.schedulerStatus}
+          computeNodes={p.computeNodes}
+          onComputeNodeAdd={p.onComputeNodeAdd}
+          onComputeNodeUpdate={p.onComputeNodeUpdate}
+          onComputeNodeDelete={p.onComputeNodeDelete}
+          onEndpointNodeChange={p.onEndpointNodeChange}
           onAssignmentBlockAdd={() => {
             p.handleLLMConfigChange({
               ...p.llmConfig,

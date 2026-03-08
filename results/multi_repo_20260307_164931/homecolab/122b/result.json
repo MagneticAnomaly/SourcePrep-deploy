@@ -1,0 +1,81 @@
+{
+  "atlas": {
+    "status": "success",
+    "duration_s": 204.1,
+    "tokens": 20618,
+    "prompt_chars": 103456,
+    "module_cap": 100,
+    "content": "IDENTITY: HomeColab is a collaborative real estate search platform enabling agents and clients to share, compare, and rank property listings via iOS and web interfaces using Firebase backend services.\nSTACK: Languages include Swift, TypeScript, JavaScript, Markdown, and Shell. Frameworks encompass SwiftUI, React, React Three Fiber, Next.js, Framer Motion, and Lucide. Build tools involve Xcode, Swift Package Manager, and Next.js CLI. Runtime environments cover iOS 15+, Web Browsers, and Node.js.\nARCHITECTURE: The system follows a shared core strategy decoupling reusable logic into HomeColabCore Swift Package while maintaining separate Consumer and Business App entry points. Major layers include Documentation (282 files), Presentation (202 files), Business Logic (45 files), Configuration (20 files), Infrastructure (17 files), Data (8 files), Testing (8 files), and Build (5 files). The architecture bridges native mobile functionality with web-based acquisition via a Next.js marketing site and support portal. Core data models like Listing and SharedSpace reside in HomeColabCore, synchronized via FirestoreManager.swift. The presentation layer utilizes a design system defined in DesignSystem/Colors.swift and Components/UnifiedListingCard.swift.\nSUBSYSTEMS: HomeColab Property Comparison & Data Ingestion: HomeColabApp.swift, Managers/FirestoreManager.swift. HomeColab Marketing Landing Page: marketing/landing-page components. HomeColab Monetization, Legal, and Analytics Dashboard: Monetization subsystem files. HomeColab Design System & UI Components: DesignSystem/Colors.swift, Components/UnifiedListingCard.swift. HomeColab iOS Documentation & Architecture: Docs/TODO_AppDevelopment.md, Docs/SRS/HomeColab_SRS.md. HomeColab Media and Property Management Subsystem: Property Management files. HomeColab Collaboration & Partner Linking: Collaboration subsystem files. HomeColab Core & Collaboration Architecture: HomeColabCore models. HomeColab Core Infrastructure & Web Presence: Next.js marketing site files. Legal Compliance (Homecolabapp) #2: Legal documentation files. Mobile App Documentation & Monetization Strategy: Monetization strategy docs. Spatial Visualization & Comparison Matrix: 3D visualization files. Design System: DesignSystem files. HomeColab Phase 3 Architecture Strategy: Phase 3 strategy docs. Ios 3D Visualization & Animation Subsystem: 3D animation files. Product Strategy & Design Framework: Product strategy docs. AI Strategy & Planning Subsystem: AI strategy docs. HomeColab Ad Monetization Subsystem: Ad monetization files. Ios (Homecolabapp): App/HomeColabApp.swift. HomeColab UI Components and Sections: UI component files. Real Estate Spatial Comparison & Dashboard: Dashboard visualization files. HomeColabApp Documentation & Audit Subsystem: Audit documentation files. Ios (Homecolabwebsite): Website presentation files. Notification and Communication Subsystem: Notification files. HomeColab Pro & Advertising Subsystem: Pro tier files. Navigation and Presentation Layer: Navigation files. Legal Compliance & Data Enrichment: Legal compliance files. HomeColab Pro Business App: Business App files. Architectural Audit & Migration Subsystem: Migration strategy files. Dashboard Client Management: Dashboard files. HomeColabApp Core & Compliance: Core compliance files. Ios Authentication and Data Integrity Subsystem: Auth files. Ios Presentation Layer: Presentation files. Ios (Homecolabcore) #2: Core config files. HomeColab Communication & Notification Subsystem: Chat files. HomeColab iOS Setup & Onboarding: Setup docs. Legal Compliance (Homecolabapp): Legal docs. Property Workspace UI/UX Subsystem: Workspace UI files. HomeColabApp Documentation & Governance: Governance docs. Dashboard Matrix Visualization & Persistence: Matrix persistence files. Ios 3D Visualization Dashboard: 3D dashboard files. Ios (Homecolabapp) #24: Pre-launch readiness files. Real Estate Data Ingestion and Normalization: Ingestion files. Ios (Homecolabapp) #23: Compliance files. HomeColab Ranking & Collaboration UI: Ranking UI files. Ios Firebase Integration and Security: Firebase integration files. HomeColab Testing and Simulation Subsystem: Testing files. Ios UI Layout and Styling Utilities: Layout utilities. Dashboard and Global Error Handling: Error handling files. HomeColab Documentation and Verification Cluster: Verification docs. Ios (Homecolabapp) #11: Research docs. FAQ Section Components: FAQ files. Property Management and Voting Interface: Voting interface files. HomeColab Onboarding and Platform Entry: Onboarding files. Legal Documentation Layout System: Legal layout files. Compare View Feature: Compare view files. Mobile App Ranking & UI Specification: Ranking specs. Product Management: Product management docs. Voting System: Voting system files. Procedural Heart Geometry Renderer: Heart geometry files. Ios Freemium & UX Strategy: Freemium strategy docs. Ios Loading and Presentation Subsystem: Loading files. Ios (Homecolabapp) #4: Polish files. Ios Design System & UI Unification: Design unification files. User Profile and Settings Interface: Profile files. HomeColab iOS Documentation & Strategy: Strategy docs. Ios Attribution and Compliance Subsystem: Attribution files. iOS App Store Compliance & Legal: App Store compliance files. Feature Flags and Debug Infrastructure: Feature flag files. Ios (Homecolabapp) #17: Data architecture files. Ios (Homecolabapp) #29: Deprecation files. Ios Asset Management and Rendering: Asset files. Ios (Homecolabapp) #35: Build config files. HomeColab Website Frontend: Website frontend files. HomeColab Support Site: Support site files. Ios (Homecolabapp) #7: Requirements docs. Deep Real Estate App Research (Homecolabapp): Research docs. Ios Mock Data Subsystem: Mock data files. Ios Competitive Analysis & Strategy: Competitive analysis docs. Ios UI Components: UI component files. HomeColab Marketing Content Configuration: Marketing config files. Property Listing Ingestion Subsystem: Ingestion files. HomeColab MVP Strategic & Architectural Blueprint: MVP blueprint docs. Ios Filtering and State Management: Filtering files. HomeColab Privacy Policy Subsystem: Privacy policy files. HomeColab Web & Marketing Subsystem: Web marketing files. HomeColab Landing Page Cluster: Landing page files. Image Selection Subsystem: Image selection files. HomeColab iOS Architecture & Documentation: iOS architecture docs. Marketing Strategy: Marketing strategy docs. Marketing Subsystem: Marketing subsystem docs. Marketing Website Subsystem: Marketing website docs. Monetization: Monetization files. Real Estate Data Ingestion and Unfurling: Unfurling files. Real Estate MLS Integration Strategy: MLS strategy docs. Ios (Homecolabprowebsite) #5: Pro website files. Ios (Homecolabapp) #19: MLS integration docs. Ios (Homecolabapp) #5: AI subscription docs. Ios (Homecolabapp) #20: MLS supplier evaluation docs. Ios (Homecolabapp) #21: MVP scoping docs.\nFLOW: User interactions begin at App/HomeColabApp.swift or marketing site entry points, routing through Views/Queue/QueueView.swift for property discovery. Data ingestion occurs via Real Estate Data Ingestion and Normalization subsystems parsing URLs or CSVs, validated by CMA logic, then persisted to Firestore via Managers/FirestoreManager.swift. Collaborative features synchronize state through Firestore rules defined in Firebase/firestore.rules, updating UI components like Components/UnifiedListingCard.swift. 3D visualizations in Spatial Visualization & Comparison Matrix render data using React Three Fiber. Monetization logic in HomeColab Ad Monetization Subsystem controls ad display based on user context.\nPATTERNS: The system employs a Shared Core, Separate Apps architecture using HomeColabCore for decoupled logic. Dependency injection is managed via singleton state managers like FirestoreManager.swift. Error handling utilizes a unified AppError enumeration in Ios (Homecolabapp) #35. Design consistency is enforced through DesignSystem/Colors.swift and centralized content configuration. State management relies on Zustand stores for web and SwiftUI state for iOS.\nRISKS: Critical migration required for ListRowView to replace deprecated LinkPresentation with UnifiedListingCard. Significant reliance on hardcoded mock data in web comparison components prevents real-time backend integration. Brittle URL parsing logic and missing type definitions in activity feeds require refactoring. GoogleMobileAds SDK not yet integrated; placeholder views and commented-out code must be configured. Monolithic FirestoreManager and UnifiedListingCard violate Single Responsibility principle. Hardcoded feature flags and missing crash reporting exist. FirestoreManager+Sync contains risk of infinite loops due to timestamp mismatches. 1:1 user-to-space Firestore model blocks multi-project management. Legacy print statements and deprecated utilities coexist with planned os.log migration. Deprecated singleton PropertyEditorModeManager scheduled for removal. Incomplete SKAdNetwork identifier list and missing GDPR/CCPA UMP SDK implementation. Performance concerns with over 50 HTML elements in 3D scenes. Exposed API keys in Info.plist and missing Firebase App Check.",
+    "char_count": 9230,
+    "num_predict": 32768
+  },
+  "group_reasoning": {
+    "total_groups": 5,
+    "parse_success": 5,
+    "total_duration_s": 183.8,
+    "groups": [
+      {
+        "group_id": "65dc6beb53",
+        "member_count": 2,
+        "duration_s": 26.6,
+        "tokens": 974,
+        "parsed_ok": true,
+        "pattern": "Configuration Hub with Design Specification",
+        "coupling_risks": 4,
+        "confidence": 0.9,
+        "architectural_insight": "This group represents a foundational 'Strategy Definition' layer where business rules for monetization are centralized, which is excellent for maintainability but currently lacks dynamic adaptability. The explicit mention of legacy code and incomplete implementation checkboxes suggests this is a tra"
+      },
+      {
+        "group_id": "f9ebfe597d",
+        "member_count": 3,
+        "duration_s": 31.6,
+        "tokens": 1338,
+        "parsed_ok": true,
+        "pattern": "Compliance Documentation Triad",
+        "coupling_risks": 3,
+        "confidence": 0.95,
+        "architectural_insight": "This group represents a 'Documentation-as-Code' pattern where the checklist serves as a dependency graph for legal compliance, ensuring that all necessary artifacts are present before launch. However, the reliance on manual resolution of placeholders within the referenced documents introduces a sign"
+      },
+      {
+        "group_id": "b3fdeec8bc",
+        "member_count": 5,
+        "duration_s": 37.4,
+        "tokens": 1644,
+        "parsed_ok": true,
+        "pattern": "Centralized Change Management Hub",
+        "coupling_risks": 4,
+        "confidence": 0.95,
+        "architectural_insight": "This group functions as a 'Living Specification' pattern where the Implementation Log acts as the source of truth for project state, but it currently suffers from 'Documentation Debt' due to references to missing legal artifacts. The architecture relies heavily on the Log's ability to maintain consi"
+      },
+      {
+        "group_id": "85af9b49a3",
+        "member_count": 5,
+        "duration_s": 37.4,
+        "tokens": 1727,
+        "parsed_ok": true,
+        "pattern": "Specification-Driven Development with Shared Schema Contract",
+        "coupling_risks": 4,
+        "confidence": 0.85,
+        "architectural_insight": "This group represents a 'Design-First' architecture where documentation acts as the primary source of truth for the codebase, which is currently in a fragile state due to unresolved business logic questions and incomplete schema definitions. The heavy reliance on documentation references creates a '"
+      },
+      {
+        "group_id": "5969fe70a4",
+        "member_count": 15,
+        "duration_s": 50.9,
+        "tokens": 3368,
+        "parsed_ok": true,
+        "pattern": "Centralized Design System with Cross-Platform Synchronization",
+        "coupling_risks": 5,
+        "confidence": 0.92,
+        "architectural_insight": "This group exhibits a mature 'Design Token' architecture where the mobile app serves as the canonical source of truth for the brand identity, a strategy that ensures consistency but introduces a heavy synchronization burden for the web team. The heavy reliance on documentation references rather than"
+      }
+    ]
+  },
+  "audit": {
+    "status": "success",
+    "duration_s": 54.2,
+    "tokens": 3085,
+    "content": "# HomeColab Codebase Health Audit\n\n## Health Score\n**Grade: C**\nThe codebase is structurally stable with no critical runtime failures, but it is heavily burdened by incomplete feature implementations, logical contradictions in documentation, and future-dated placeholders that impede immediate production readiness.\n\n## Critical Findings\n*No critical severity findings were detected in the provided data (0 critical, 179 warnings).*\n\n## Top Recommendations\n1.  **Resolve Data Model Incompatibility:** Refactor `FirestoreManager` in `HomeColabApp/Docs/2.0/BusinessAPP/Phase01_Consolidate/05_CROSS_REFERENCE_MAP.md` and `Phase03_ArchitectureStrategy/01_CONSUMER_APP_ARCHITECTURE.md` to support 1-agent-to-N-spaces relationships, as the current 1:1 assumption blocks agent functionality.\n2.  **Finalize Ad Monetization Stack:** Complete the integration of the GoogleMobileAds SDK by addressing the 6+ TODOs in `HomeColabApp/Components/Ads/` (specifically `AdConfiguration.swift`, `AdPlacementCoordinator.swift`, and `InterstitialAdManager.swift`) to unblock revenue features.\n3.  **Standardize Pricing & Business Logic:** Resolve the conflicting pricing figures ($29 vs $49/mo) noted in `HomeColabApp/Docs/2.0/BusinessAPP/QUESTIONS.md` and update all related marketing and logic documents to ensure consistency.\n4.  **Clean Documentation Artifacts:** Remove future-dated content (e.g., Feb 2026 dates) and placeholder text (e.g., `[Your First Name]`) from `HomeColabApp/Docs/2.0/BusinessAPP/Phase04_DESIGN/` and `Pre-Launch/APP_STORE_METADATA.md` to prevent deployment blockers.\n5.  **Fix Link Preview Logic:** Address the \"Safety Locks\" in `DomainPolicy.swift` and `UnifiedListingCard.swift` that block standard link previews for real estate domains, as identified in `HomeColabApp/Docs/2.0/BusinessAPP/Research/1_Link_unfurrling_findings.md`.\n\n## Module Status\n| Module Name | File Count | Status | Key Issue |\n| :--- | :--- | :--- | :--- |\n| **Components/Ads** | 6 | Warning | Incomplete SDK integration; multiple TODOs for backend connection and presentation logic. |\n| **DesignSystem** | 1 | Warning | Staleness indicated by future-dated \"Last Updated\" (Oct 20, 2025). |\n| **Docs/2.0/BusinessAPP** | 20+ | Warning | Logical sequencing errors, duplicate sections, and future-dated planning content. |\n| **Research** | 6 | Warning | Missing implementation details for \"Partner Match\" and unexecuted research tasks. |\n| **Plans/Pre-Launch** | 2 | Warning | Incomplete support URL setup and placeholder contact information in App Store metadata. |\n\n## Next Steps\n1.  **Architecture Refactor:** Update `FirestoreManager` logic to handle multiple shared spaces per agent to align with the Business App requirements.\n2.  **Ad Implementation Sprint:** Unblock the Ads module by adding the `GoogleMobileAds` SDK and implementing the `isPremiumUser` backend connection.\n3.  **Documentation Cleanup:** Run a global search/replace to remove all \"2026\" dates and `[Placeholder]` text from the `Docs/2.0` directory to ensure accurate project tracking.",
+    "char_count": 3039
+  }
+}

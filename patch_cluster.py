@@ -1,53 +1,23 @@
 import re
 
-with open('src/codrag/core/cluster.py', 'r') as f:
+with open('/Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/core/cluster.py', 'r') as f:
     content = f.read()
 
-# Add imports if not present
-if 'from codrag.core.context_config import PipelineTask, compute_optimal_settings' not in content:
-    content = re.sub(
-        r'from typing import ',
-        r'from codrag.core.context_config import PipelineTask, compute_optimal_settings\nfrom typing import ',
-        content
-    )
+# Fix 1: Module Synthesis
+p1 = r'json_mode=False, think=False,\s*\)'
+r1 = '''json_mode=False, think=False,
+                max_chars=TASK_MAX_CHARS["augmentation"],
+            )'''
 
-def replace_generate_call_1(match):
-    return """            prompt_tokens = len(prompt) // 4
-            num_predict, num_ctx, warnings = compute_optimal_settings(
-                task=PipelineTask.CLUSTER,
-                prompt_tokens=prompt_tokens,
-                model=self.llm.model,
-                think=False,
-            )
+# Fix 2: Batched Synthesis
+p2 = r'response_schema=schema,\s*\)'
+r2 = '''response_schema=schema,
+                        max_chars=TASK_MAX_CHARS["augmentation"],
+                    )'''
 
-            text, tokens = self.llm.generate(
-                prompt, system=MODULE_SYNTHESIS_SYSTEM, num_predict=num_predict, num_ctx=num_ctx,"""
+content = "from codrag.core.llm_client import TASK_MAX_CHARS\n" + content
+content = re.sub(p1, r1, content)
+content = re.sub(p2, r2, content)
 
-content = re.sub(
-    r'            text, tokens = self\.llm\.generate\(\n                prompt, system=MODULE_SYNTHESIS_SYSTEM, num_predict=4096,',
-    replace_generate_call_1,
-    content
-)
-
-def replace_generate_call_2(match):
-    return """                    prompt_tokens = len(prompt) // 4
-                    num_predict, num_ctx, warnings = compute_optimal_settings(
-                        task=PipelineTask.CLUSTER,
-                        prompt_tokens=prompt_tokens,
-                        model=self.llm.model,
-                        think=False,
-                    )
-
-                    text, tokens = self.llm.generate(
-                        prompt, system=BATCHED_CLUSTER_SYSTEM,
-                        num_predict=num_predict, num_ctx=num_ctx,"""
-
-content = re.sub(
-    r'                    text, tokens = self\.llm\.generate\(\n                        prompt, system=BATCHED_CLUSTER_SYSTEM,\n                        num_predict=len\(items\) \* 500,',
-    replace_generate_call_2,
-    content
-)
-
-with open('src/codrag/core/cluster.py', 'w') as f:
+with open('/Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/core/cluster.py', 'w') as f:
     f.write(content)
-

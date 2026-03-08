@@ -104,6 +104,7 @@ function App() {
   const [concurrencyCode, setConcurrencyCode] = useState<number>(1)
   const [concurrencyDeep, setConcurrencyDeep] = useState<number>(1)
   const [schedulerStatus, setSchedulerStatus] = useState<any>(null)
+  const [computeNodes, setComputeNodes] = useState<any[]>([])
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout | null>(null)
   const [projectLimitBannerDismissed, setProjectLimitBannerDismissed] = useState(false)
 
@@ -372,6 +373,38 @@ function App() {
     return () => clearInterval(interval)
   }, [isConnected, api])
 
+  // Load compute nodes on connect
+  const refreshComputeNodes = useCallback(() => {
+    api.getComputeNodes()
+      .then((res) => setComputeNodes(res.nodes))
+      .catch(() => {})
+  }, [api])
+
+  useEffect(() => {
+    if (isConnected) refreshComputeNodes()
+  }, [isConnected, refreshComputeNodes])
+
+  const handleComputeNodeAdd = useCallback(async (node: any) => {
+    await api.createComputeNode(node)
+    refreshComputeNodes()
+  }, [api, refreshComputeNodes])
+
+  const handleComputeNodeUpdate = useCallback(async (nodeId: string, updates: any) => {
+    await api.updateComputeNode(nodeId, updates)
+    refreshComputeNodes()
+  }, [api, refreshComputeNodes])
+
+  const handleComputeNodeDelete = useCallback(async (nodeId: string) => {
+    await api.deleteComputeNode(nodeId)
+    refreshComputeNodes()
+  }, [api, refreshComputeNodes])
+
+  const handleEndpointNodeChange = useCallback((endpointId: string, nodeId: string | null) => {
+    const ep = llmConfig.saved_endpoints?.find((e: any) => e.id === endpointId)
+    if (!ep) return
+    handleEditEndpoint({ ...ep, compute_node_id: nodeId })
+  }, [llmConfig.saved_endpoints, handleEditEndpoint])
+
   // ── Init: load projects + global config ─────────────────────
   useEffect(() => {
     const init = async () => {
@@ -460,7 +493,9 @@ function App() {
   // ── Project limit ───────────────────────────────────────────
   // Free tier: hard cap of 1 total project.
   // Pro+ tiers: unlimited projects (maxActiveProjects only limits concurrent pipelines, not total count).
-  const projectLimit = effectiveTier === 'free' ? 1 : Infinity
+  const projectLimit = effectiveTier === 'free'
+    ? 1
+    : (maxActiveProjects === 'infinite' ? Infinity : maxActiveProjects)
   const isOverProjectLimit = project.projects.length > projectLimit
   const isAtProjectLimit = project.projects.length >= projectLimit
 
@@ -523,6 +558,11 @@ function App() {
       concurrencyFast, concurrencyCode, concurrencyDeep,
       onConcurrencyChange: handleConcurrencyChange,
       schedulerStatus,
+      computeNodes,
+      onComputeNodeAdd: handleComputeNodeAdd,
+      onComputeNodeUpdate: handleComputeNodeUpdate,
+      onComputeNodeDelete: handleComputeNodeDelete,
+      onEndpointNodeChange: handleEndpointNodeChange,
     },
     deepAnalysis: { deepAnalysisSchedule, setDeepAnalysisSchedule, budgetUsage },
     atlas: { atlasStatus },

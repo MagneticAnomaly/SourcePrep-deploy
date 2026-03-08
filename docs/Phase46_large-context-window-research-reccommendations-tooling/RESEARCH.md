@@ -331,7 +331,7 @@ Clean separation of thinking and response fields. All models produced valid JSON
 
 ## 12. Multi-Repo Validation Findings
 
-To validate findings beyond the CoDRAG codebase, we ran a multi-repo benchmark against **TEST2** (React website, ~210 files) and **TEST3** (React Native, ~200 files).
+To validate findings beyond the CoDRAG codebase, we ran a multi-repo benchmark against **TEST2** (React website, ~210 files), **TEST3** (React Native, ~200 files), and **HomeColab** (iOS Swift, ~665 files).
 
 ### 12a. Think Mode: Prose vs Structured (Confirmed)
 We discovered a critical issue with think mode on small repos: when `think=True`, `llm_client.py` scales `num_predict` 3× to give the model room to think. For an Audit task on a small repo (prompt ~500 tokens), the model received a `num_predict` of 49,152. This caused the model to spend 30+ minutes generating thinking tokens without stopping.
@@ -348,12 +348,74 @@ With this split, TEST2 completed Atlas in 21s (no-think) and produced high-quali
 On TEST3 with `qwen3.5:35b-a3b-q8_0` (no-think), the Audit task took **581s** and output **62,770 characters**. The model entered a hallucination loop and output a wall of text until it hit the context limit. This confirms that:
 - Generous `num_predict` allows the model to output full reports, but also allows infinite loops if the model degrades.
 - Higher precision (Q8) does not guarantee better behavior at large contexts; the Q4 model completed the same task flawlessly in 26s (3,383 chars).
+*(Note: We implemented a 3-layer defense against this in `llm_client.py` via `OutputMonitor` and repetition penalties.)*
 
-### 12c. MoE Speed Consistency
-Across repos, the MoE models scale precisely with their active parameter count:
-- **35b Q4 (3B active):** ~21s on TEST2, ~45s on TEST3.
-- **122b Q4 (10B active):** ~47s on TEST2, ~84s on TEST3.
-The 122b model is consistently ~2× slower than the 35b model, despite being 3.5× larger in total parameters. This confirms the MoE computational advantage is highly stable.
+### 12c. MoE Speed Consistency (Cross-Language)
+Across all three repos (Python, React/TS, and iOS Swift), the MoE models scale precisely with their active parameter count:
+- **35b Q4 (3B active):** ~21s on TEST2, ~45s on TEST3, ~130s on HomeColab.
+- **122b Q4 (10B active):** ~47s on TEST2, ~84s on TEST3, ~204s on HomeColab.
+The 122b model is consistently ~1.6× to 2.0× slower than the 35b model, despite being 3.5× larger in total parameters. This confirms the MoE computational advantage is highly stable across different prompt structures and programming languages.
+
+### 12d. HomeColab (iOS Swift) Results
+| Config | Atlas (100 mods) | Group Reasoning (5 groups) | Audit | Atlas Chars |
+|---|---|---|---|---|
+| 35b-q4 | 130s | 98s (no-think) | 23s | 12,269 |
+| 35b-q4 (GR think) | 143s | 453s (think) | 26s | 12,966 |
+| 35b-q8 | 120s | 110s (no-think) | 42s | 10,604 |
+| 35b-q8 (GR think) | 114s | 546s (think) | 28s | 10,556 |
+| 122b | 204s | 184s (no-think) | 54s | 9,230 |
+| 122b (GR think) | 230s | 886s (think) | 93s | 10,613 |
+
+*Key takeaway:* The `think` multiplier on Group Reasoning takes 4-5× longer, but produces significantly better architectural names (e.g., "Design System Architecture" vs generic "Configuration Pattern"). Q8 models produced slightly *less* Atlas content than Q4 models.
+
+### 12e. Quality Analysis: Q4 vs Q8 vs 122b (Content, Not Volume)
+
+More chars ≠ better quality. We compared the *content accuracy* and *specificity* of the same HomeColab prompts across quantizations:
+
+**IDENTITY (Atlas opening line):**
+| Model | Description Style | Example Specifics |
+|---|---|---|
+| **35b Q4** | High-level, user-facing | "vote on listings", "legal compliance", "monetization strategies" |
+| **35b Q8** | Implementation-specific, technical | "CSV and URL parsing", "CMA logic", "3D comparison matrices" |
+| **122b** | Balanced, platform-aware | "Firebase backend services", "share, compare, rank" |
+
+The Q8 model describes *how the system works internally*. The Q4 model describes *what it does for users*. The 122b model splits the difference. For CoDRAG's purpose (developer orientation), **Q8's technical specificity is arguably more useful** — a developer needs to know about CSV parsing and CMA logic, not marketing language.
+
+**ARCHITECTURE (Graph-aware reasoning):**
+- **Q8 uniquely cited quantitative graph data:** "FirestoreManager.swift which acts as the central hub with 64 incoming edges" — this is the actual edge count from the knowledge graph. Neither Q4 nor 122b included this.
+- All three models correctly identified the "Shared Core, Separate Apps" migration strategy.
+- Q4 mentioned more file paths in the SUBSYSTEMS section (actual paths vs module names).
+
+**GROUP REASONING (Structured JSON quality):**
+| Model | Avg Confidence | Total Coupling Risks | Pattern Specificity |
+|---|---|---|---|
+| 35b Q4 no-think | 0.93 | 18 | Good — "Configuration-Driven Component Architecture" |
+| 35b Q8 no-think | **0.94** | **21** | Better — "Spec-Driven Development with Centralized Schema Governance" |
+| 35b Q4 think | 0.90 | 20 | Good — "Hub-and-Spoke Documentation Orchestration" |
+| 35b Q8 think | 0.91 | 18 | Good — "Schema-First Architecture with Documentation Orchestration" |
+| 122b no-think | 0.91 | 20 | Good — "Specification-Driven Development with Shared Schema Contract" |
+| 122b think | 0.90 | 19 | Concise — "Design System Architecture" |
+
+**Key finding:** Q8 no-think found the **most coupling risks** (21) with the **highest confidence** (0.94), and produced the most specific pattern names. The think multiplier didn't consistently improve risk detection — it sometimes produced fewer risks with longer reasoning.
+
+**AUDIT (Health Report):**
+- Q4 (2,584 chars): Concise, well-structured, mentions "179 warnings with no critical failures"
+- Q8 (4,923 chars): More detailed, covers "incomplete SDK integrations, pervasive documentation inconsistencies"
+- 122b (3,039 chars): Balanced, mentions "incomplete feature implementations, logical contradictions"
+
+**Conclusion:** Q8 quantization produces **denser, more technically specific** content with better graph-awareness. Q4 produces more text but is more "marketing-level." For CoDRAG's developer-facing use case, **Q8 is qualitatively superior per token**. The tradeoff is ~40% slower generation and ~60% more RAM. The 122b model is the most balanced but 2× slower than 35b.
+
+### 12f. Dynamic Optimization Opportunities (By Model/Quant)
+
+Based on the quality analysis, different quantizations have different output characteristics that we can optimize for:
+
+1. **Q8 models are more concise → lower `num_predict` budget needed.** Q8 consistently produced ~15% fewer chars than Q4 for the same task. We could reduce the token budget by 15-20% for Q8 models, saving time without losing content.
+
+2. **Q8 models are more prone to repetition loops → higher `repeat_penalty`.** The 1/12 babbling incident was Q8. Raising `repeat_penalty` from 1.15 to 1.2 for Q8 models adds a safety margin.
+
+3. **122b models produce the best IDENTITY accuracy → prioritize for Atlas.** If the pipeline has model choice, route Atlas generation to 122b and augmentation to 35b for best speed/quality balance.
+
+4. **Think mode helps pattern naming but not risk detection.** The no-think Q8 found *more* coupling risks than any think config. Think mode's value is in pattern *naming quality*, not analytical depth. This suggests think mode should be optional/configurable per user preference, not mandatory.
 
 ### Future: Stress Tests
 - Test with explicit `num_ctx=131072` (128K) on a large prompt

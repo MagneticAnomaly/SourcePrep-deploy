@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from codrag.core.context_config import PipelineTask, compute_optimal_settings
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from codrag.core.llm_client import TASK_MAX_CHARS
 
 logger = logging.getLogger(__name__)
 
@@ -546,6 +547,7 @@ class TraceAugmenter:
                 return self.llm.generate(
                     prompt, system=system, 
                     num_predict=num_predict, num_ctx=num_ctx,
+                    max_chars=TASK_MAX_CHARS["augmentation"],
                 )
             except Exception as e:
                 last_err = e
@@ -976,6 +978,7 @@ class TraceAugmenter:
                     prompt, system=BATCHED_FILE_SYSTEM, 
                     num_predict=num_predict, num_ctx=num_ctx,
                     response_schema=file_schema,
+                    max_chars=TASK_MAX_CHARS["augmentation"],
                 )
                 return BatchedResponseParser.parse(text, expected_count=len(items))
             except Exception as e:
@@ -1088,6 +1091,7 @@ class TraceAugmenter:
                     prompt, system=BATCHED_DOC_SYSTEM, 
                     num_predict=num_predict, num_ctx=num_ctx,
                     response_schema=doc_schema,
+                    max_chars=TASK_MAX_CHARS["augmentation"],
                 )
                 return BatchedResponseParser.parse(text, expected_count=len(items))
             except Exception as e:

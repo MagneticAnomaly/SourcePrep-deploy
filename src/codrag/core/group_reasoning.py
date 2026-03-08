@@ -353,14 +353,16 @@ class GroupReasoningEngine:
                 think=True,
             )
 
+            from codrag.core.llm_client import TASK_MAX_CHARS
             text, tokens = self.llm.generate(
                 prompt,
                 system=GROUP_REASONING_SYSTEM,
                 num_predict=num_predict,
                 num_ctx=num_ctx,
-                json_mode=False,
+                json_mode=True,
+                temperature=0.6,
                 think=True,
-                temperature=0.6,  # Unsloth recommended for thinking mode
+                max_chars=TASK_MAX_CHARS["group_reasoning"],
             )
             elapsed = _time.monotonic() - _start
             logger.info(

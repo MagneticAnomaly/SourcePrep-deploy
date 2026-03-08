@@ -83,7 +83,7 @@ class TestFastSync:
     def test_run_fast_sync_starts(self, pipeline):
         # Patch WorkerFactory to return instant workers
         with patch(
-            "codrag.services.pipeline_orchestrator.WorkerFactory.create_worker",
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ):
             import codrag.services.project_helpers
@@ -97,7 +97,7 @@ class TestFastSync:
     def test_run_fast_sync_rejects_duplicate(self, pipeline):
         barrier = threading.Event()
         with patch(
-            "codrag.services.pipeline_orchestrator.WorkerFactory.create_worker",
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_slow_worker(barrier),
         ):
             pipeline.run_fast_sync("proj-1")
@@ -108,7 +108,7 @@ class TestFastSync:
     def test_fast_sync_sequences_all_5_stages(self, pipeline):
         """Verify all 5 stages run in sequence and pipeline completes."""
         with patch(
-            "codrag.services.pipeline_orchestrator.WorkerFactory.create_worker",
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ):
             pipeline.run_fast_sync("proj-1")
@@ -125,7 +125,7 @@ class TestFastSync:
     def test_fast_sync_status_while_running(self, pipeline, orchestrator):
         barrier = threading.Event()
         with patch(
-            "codrag.services.pipeline_orchestrator.WorkerFactory.create_worker",
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_slow_worker(barrier),
         ):
             pipeline.run_fast_sync("proj-1")
@@ -145,7 +145,7 @@ class TestDeepEnrichment:
 
     def test_run_deep_enrichment_starts(self, pipeline):
         with patch(
-            "codrag.services.pipeline_orchestrator.WorkerFactory.create_worker",
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ):
             started = pipeline.run_deep_enrichment("proj-1")
@@ -153,7 +153,7 @@ class TestDeepEnrichment:
 
     def test_deep_enrichment_sequences_all_5_stages(self, pipeline):
         with patch(
-            "codrag.services.pipeline_orchestrator.WorkerFactory.create_worker",
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ):
             pipeline.run_deep_enrichment("proj-1")
@@ -172,7 +172,7 @@ class TestRunAll:
 
     def test_run_all_chains_deep_after_fast(self, pipeline):
         with patch(
-            "codrag.services.pipeline_orchestrator.WorkerFactory.create_worker",
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ):
             started = pipeline.run_all("proj-1")
@@ -203,10 +203,10 @@ class TestAutoChainDeepEnrichment:
         }
 
         with patch(
-            "codrag.services.pipeline_orchestrator.WorkerFactory.create_worker",
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ), patch(
-            "codrag.services.pipeline_orchestrator.settings",
+            "codrag.services.pipeline.orchestrator.settings",
             mock_settings,
             create=True,
         ), patch.object(
@@ -235,7 +235,7 @@ class TestAutoChainDeepEnrichment:
         """When pipeline_config.deep_enrichment.mode == 'manual', deep enrichment
         should NOT auto-start after fast sync."""
         with patch(
-            "codrag.services.pipeline_orchestrator.WorkerFactory.create_worker",
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ):
             # Default: _is_deep_enrichment_auto returns False (settings not configured)
@@ -281,7 +281,7 @@ class TestFailureHandling:
             return {"ok": True}
 
         with patch(
-            "codrag.services.pipeline_orchestrator.WorkerFactory.create_worker",
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=failing_worker,
         ):
             pipeline.run_fast_sync("proj-1")
@@ -302,7 +302,7 @@ class TestCancellation:
     def test_cancel_fast_sync(self, pipeline):
         barrier = threading.Event()
         with patch(
-            "codrag.services.pipeline_orchestrator.WorkerFactory.create_worker",
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_slow_worker(barrier),
         ):
             pipeline.run_fast_sync("proj-1")
@@ -338,7 +338,7 @@ class TestStatus:
     def test_any_running_flag(self, pipeline):
         barrier = threading.Event()
         with patch(
-            "codrag.services.pipeline_orchestrator.WorkerFactory.create_worker",
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_slow_worker(barrier),
         ):
             pipeline.run_fast_sync("proj-1")
@@ -363,7 +363,7 @@ class TestClearProject:
 
     def test_clear_project(self, pipeline):
         with patch(
-            "codrag.services.pipeline_orchestrator.WorkerFactory.create_worker",
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ):
             pipeline.run_fast_sync("proj-1")
@@ -383,7 +383,7 @@ class TestMultiProject:
 
     def test_independent_projects(self, pipeline):
         with patch(
-            "codrag.services.pipeline_orchestrator.WorkerFactory.create_worker",
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ):
             pipeline.run_fast_sync("proj-1")

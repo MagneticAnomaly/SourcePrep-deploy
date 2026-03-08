@@ -1,0 +1,106 @@
+IDENTITY: HomeColab is a collaborative real estate search platform for iOS and web that enables agents and clients to share property data, vote on listings, and visualize comparisons through 3D matrices while adhering to strict legal compliance and monetization strategies.
+STACK: Languages include Swift, TypeScript, JavaScript, Markdown, and Shell. Frameworks are SwiftUI, React, React Three Fiber, Framer Motion, Next.js 14, and Firebase. Build tools involve Swift Package Manager, Xcode, and Netlify. Runtime environments cover iOS, web browsers, and server-side Node.js.
+ARCHITECTURE: The system follows a layered architecture with documentation (282 files), presentation (202 files), business logic (45 files), configuration (20 files), infrastructure (17 files), data (8 files), testing (8 files), and build (5 files). The core entry point is App/HomeColabApp.swift which initializes Firebase and manages the app lifecycle. Business logic is centralized in Managers/FirestoreManager.swift which acts as a monolithic hub for data operations. The presentation layer is split between iOS views like Views/Queue/QueueView.swift and web components in Components/UnifiedListingCard.swift. Data models are defined in HomeColabCore and shared via Swift Packages. The architecture bridges a legacy single-tenant model with a proposed 'Shared Core, Separate Apps' strategy for the Business App.
+SUBSYSTEMS: HomeColab Property Comparison & Data Ingestion: HomeColabPropertyComparison/DataIngestion.swift, HomeColabPropertyComparison/Validation.swift
+HomeColab Marketing Landing Page: HomeColabMarketing/LandingPage.swift, HomeColabMarketing/Components.swift
+HomeColab Monetization, Legal, and Analytics Dashboard: HomeColabMonetization/AdMob.swift, HomeColabLegal/Compliance.swift
+HomeColab Design System & UI Components: DesignSystem/Colors.swift, DesignSystem/Typography.swift
+HomeColab iOS Documentation & Architecture: Docs/TODO_AppDevelopment.md, Docs/SRS/HomeColab_SRS.md
+HomeColab Media and Property Management Subsystem: HomeColabMedia/ImageManager.swift, HomeColabMedia/PropertyEditor.swift
+HomeColab Collaboration & Partner Linking: HomeColabCollaboration/SyncManager.swift, HomeColabCollaboration/Invitation.swift
+HomeColab Core & Collaboration Architecture: HomeColabCore/Listing.swift, HomeColabCore/SharedSpace.swift
+HomeColab Core Infrastructure & Web Presence: App/HomeColabApp.swift, Web/NextApp.tsx
+Legal Compliance (Homecolabapp) #2: Docs/Legal/GDPR.md, Docs/Legal/CCPA.md
+Mobile App Documentation & Monetization Strategy: Docs/Monetization/AdMobStrategy.md, Docs/Monetization/ATT.md
+Spatial Visualization & Comparison Matrix: Spatial/MatrixView.swift, Spatial/LLMService.swift
+Design System: DesignSystem/Colors.swift, DesignSystem/ComponentsView.swift
+HomeColab Phase 3 Architecture Strategy: Docs/Phase3/Architecture.md, Docs/Phase3/DataModel.md
+Ios 3D Visualization & Animation Subsystem: Ios3D/CameraRig.swift, Ios3D/HeartAnimation.swift
+Product Strategy & Design Framework: Docs/Strategy/ProductStrategy.md, Docs/Design/UXFlows.md
+AI Strategy & Planning Subsystem: Docs/AI/Strategy.md, Docs/AI/DataContracts.md
+HomeColab Ad Monetization Subsystem: HomeColabAds/AdManager.swift, HomeColabAds/AdUnit.swift
+Ios (Homecolabapp): App/HomeColabApp.swift, Views/OnboardingView.swift
+HomeColab UI Components and Sections: Components/Badges.swift, Components/HeroSection.swift
+Real Estate Spatial Comparison & Dashboard: Dashboard/MatrixView.swift, Dashboard/ScatterPlot.swift
+HomeColabApp Documentation & Audit Subsystem: Docs/Audit/Remediation.md, Docs/Audit/Security.md
+Ios (Homecolabwebsite): Web/HeartGeometry.tsx, Web/FadeIn.tsx
+Notification and Communication Subsystem: Notifications/InboxView.swift, Notifications/ToastView.swift
+HomeColab Pro & Advertising Subsystem: Pro/LandingPage.swift, Pro/ComparisonView.swift
+Navigation and Presentation Layer: Navigation/TabBar.swift, Navigation/HeaderView.swift
+Legal Compliance & Data Enrichment: Legal/DataEnrichment.swift, Legal/ComplianceRules.swift
+HomeColab Pro Business App: ProBusiness/App.swift, ProBusiness/Ingestion.swift
+Architectural Audit & Migration Subsystem: Audit/MigrationPlan.swift, Audit/Refactoring.md
+Dashboard Client Management: Dashboard/ClientView.swift, Dashboard/OverviewView.swift
+HomeColabApp Core & Compliance: Core/Refactoring.swift, Core/Compliance.swift
+Ios Authentication and Data Integrity Subsystem: Auth/Authentication.swift, Auth/DataIntegrity.swift
+Ios Presentation Layer: Presentation/GradientBackground.tsx, Presentation/Footer.tsx
+Ios (Homecolabcore) #2: Core/FeatureFlags.swift, Core/Config.ts
+HomeColab Communication & Notification Subsystem: Chat/ChatStore.swift, Chat/InviteLink.swift
+HomeColab iOS Setup & Onboarding: Setup/OnboardingGuide.md, Setup/FirebaseConfig.swift
+Legal Compliance (Homecolabapp): Legal/PrivacyPolicy.md, Legal/TermsOfService.md
+Property Workspace UI/UX Subsystem: Workspace/PropertyWorkspaceView.swift, Workspace/DeprecationPlan.md
+HomeColabApp Documentation & Governance: Docs/Governance/Traceability.md, Docs/Governance/Roadmap.md
+Dashboard Matrix Visualization & Persistence: Dashboard/MatrixStore.swift, Dashboard/Persistence.swift
+Ios 3D Visualization Dashboard: Dashboard/RootScene.tsx, Dashboard/RenderEngine.tsx
+Ios (Homecolabapp) #24: Docs/Readiness/Performance.md, Docs/Readiness/DragAndDrop.md
+Real Estate Data Ingestion and Normalization: Ingestion/LinkPreviewManager.swift, Ingestion/Normalization.swift
+Ios (Homecolabapp) #23: Docs/Readiness/Compliance.md, Docs/Readiness/Monetization.md
+HomeColab Ranking & Collaboration UI: Ranking/RankView.swift, Ranking/RankBadge.swift
+Ios Firebase Integration and Security: Security/AppCheck.swift, Security/CloudFunctions.swift
+HomeColab Testing and Simulation Subsystem: Testing/MockData.swift, Testing/SimulationView.swift
+Ios UI Layout and Styling Utilities: Layout/Utilities.swift, Layout/Styling.swift
+Dashboard and Global Error Handling: Error/ErrorBoundary.tsx, Error/NotFound.tsx
+HomeColab Documentation and Verification Cluster: Docs/Verification/Traceability.md, Docs/Verification/Specs.md
+Ios (Homecolabapp) #11: Docs/Research/CompetitiveAnalysis.md, Docs/Research/Strategy.md
+FAQ Section Components: Components/FAQ.tsx, Components/FAQItem.tsx
+Property Management and Voting Interface: Property/PropertyView.swift, Property/VotingView.swift
+HomeColab Onboarding and Platform Entry: Onboarding/EntryView.swift, Onboarding/PlatformDetect.tsx
+Legal Documentation Layout System: Layout/LegalLayout.tsx, Layout/LegalPage.tsx
+Compare View Feature: Compare/CompareView.swift, Compare/SmartNote.swift
+Mobile App Ranking & UI Specification: Docs/Spec/RankingUI.md, Docs/Spec/VotingFlow.md
+Product Management: Docs/Product/Scope.md, Docs/Product/Personas.md
+Voting System: Voting/VoteManager.swift, Voting/StateMachine.swift
+Procedural Heart Geometry Renderer: Render/HeartGeometry.tsx, Render/HeartRenderer.tsx
+Ios Freemium & UX Strategy: Docs/Strategy/Freemium.md, Docs/Strategy/UX.md
+Ios Loading and Presentation Subsystem: Loading/LoadingView.swift, Loading/SkeletonView.swift
+Ios (Homecolabapp) #4: Polish/Accessibility.swift, Polish/Haptics.swift
+Ios Design System & UI Unification: Docs/Design/Unification.md, Docs/Design/Changelog.md
+User Profile and Settings Interface: Profile/ProfileView.swift, Profile/SettingsView.swift
+HomeColab iOS Documentation & Strategy: Docs/Strategy/ReleaseHistory.md, Docs/Strategy/ShareChat.md
+Ios Attribution and Compliance Subsystem: Attribution/AttributionBadge.swift, Attribution/ComplianceOverlay.swift
+iOS App Store Compliance & Legal: Legal/AppStoreCompliance.swift, Legal/TermsInterface.swift
+Feature Flags and Debug Infrastructure: Debug/FeatureFlags.swift, Debug/DebugInterface.swift
+Ios (Homecolabapp) #17: Core/Schema.swift, Core/Validation.swift
+Ios (Homecolabapp) #29: Docs/Deprecation/LinkPresentation.md, Docs/Deprecation/WorkspaceMigration.md
+Ios Asset Management and Rendering: Assets/AssetManager.swift, Assets/RenderingSpec.md
+Ios (Homecolabapp) #35: Build/BuildConfig.swift, Build/AppError.swift
+HomeColab Website Frontend: Web/MarketingSite.tsx, Web/Config.ts
+HomeColab Support Site: Support/SupportSite.tsx, Support/Layout.tsx
+Ios (Homecolabapp) #7: Docs/Requirements/Design.md, Docs/Requirements/Personas.md
+Deep Real Estate App Research: Docs/Research/DeepRealEstate.md, Docs/Research/Validation.md
+Ios Mock Data Subsystem: Mock/MockData.swift, Mock/Generator.swift
+Ios Competitive Analysis & Strategy: Docs/Strategy/CompetitiveAnalysis.md, Docs/Strategy/Constraints.md
+Ios UI Components: Components/UIComponents.swift, Components/InteractionGroups.swift
+HomeColab Marketing Content Configuration: Config/MarketingContent.ts, Config/Copy.ts
+Property Listing Ingestion Subsystem: Ingestion/IngestionWizard.swift, Ingestion/Validation.swift
+HomeColab MVP Strategic & Architectural Blueprint: Docs/MVP/Blueprint.md, Docs/MVP/Strategy.md
+Ios Filtering and State Management: Filter/FilterManager.swift, Filter/StateSync.swift
+HomeColab Privacy Policy Subsystem: Privacy/PrivacyPolicy.tsx, Privacy/LegalLayout.tsx
+HomeColab Web & Marketing Subsystem: Web/MarketingSite.tsx, Web/Prototype.tsx
+HomeColab Landing Page Cluster: Landing/LandingPage.tsx, Landing/ProLandingPage.tsx
+Image Selection Subsystem: Image/ImagePicker.swift, Image/PickerWrapper.swift
+HomeColab iOS Architecture & Documentation: Docs/Arch/Architecture.md, Docs/Arch/Firebase.md
+Marketing Strategy: Docs/Marketing/Strategy.md, Docs/Marketing/Content.md
+Marketing Subsystem: Docs/Marketing/Architecture.md, Docs/Marketing/Specs.md
+Marketing Website Subsystem: Docs/Marketing/SiteSpec.md, Docs/Marketing/Layout.md
+Monetization: Monetization/AdConfig.swift, Monetization/AdManager.swift
+Real Estate Data Ingestion and Unfurling: Ingestion/Unfurling.swift, Ingestion/DomainPolicy.swift
+Real Estate MLS Integration Strategy: Docs/MLS/IntegrationStrategy.md, Docs/MLS/Models.md
+Ios (Homecolabprowebsite) #5: Render/HeartComponent.tsx, Render/Geometry.tsx
+Ios (Homecolabapp) #19: Docs/MLS/Training.md, Docs/MLS/Testing.md
+Ios (Homecolabapp) #5: Docs/AI/Subscription.md, Docs/AI/UXGating.md
+Ios (Homecolabapp) #20: Docs/MLS/Feasibility.md, Docs/MLS/Repliers.md
+Ios (Homecolabapp) #21: Docs/MVP/Scope.md, Docs/MVP/Strategy.md
+FLOW: User interaction begins at App/HomeColabApp.swift which initializes Firebase and routes to Views/Queue/QueueView.swift or web landing pages. Data ingestion flows through Ingestion/LinkPreviewManager.swift or Ingestion/Normalization.swift to Managers/FirestoreManager.swift. The FirestoreManager writes to Firestore and triggers Cloud Functions for notifications. Real-time updates are handled by the SyncManager in HomeColabCollaboration. Visualization renders via Spatial/MatrixView.swift or React components in Dashboard/MatrixView.swift. Legal compliance is enforced by Legal/Compliance.swift and Legal/ComplianceRules.swift during data ingestion. Monetization logic in Monetization/AdManager.swift determines ad visibility based on user state.
+PATTERNS: The system uses a monolithic FirestoreManager for data operations, violating single responsibility. Dependency injection is partially implemented via Swift Packages for shared logic. Error handling is centralized in Build/AppError.swift but suffers from inconsistent practices. State management relies on a mix of SwiftUI state, Zustand stores for web, and in-memory chat stores. Feature flags are migrating from static Swift constants to Firebase Remote Config.
+RISKS: Critical technical debt includes monolithic 'god object' components (FirestoreManager, UnifiedListingCard) violating Single Responsibility. Hardcoded feature flags and missing crash reporting exist. Insecure Firestore rules allow unauthorized updates. The advertising layer lacks GoogleMobileAds SDK integration. Deprecated LinkPresentation framework requires migration to UnifiedListingCard. Potential infinite loops exist in FirestoreManager+Sync due to timestamp mismatches. The current 1:1 user-to-space Firestore model blocks multi-user spaces required for the Business App. Legacy print statements coexist with planned logging migration. Placeholder Ad Unit IDs and incomplete SKAdNetwork identifiers hinder monetization. Documentation contains future-dated timestamps and unresolved placeholders.

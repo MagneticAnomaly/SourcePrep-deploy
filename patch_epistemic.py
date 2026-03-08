@@ -1,72 +1,30 @@
 import re
 
-with open('src/codrag/core/epistemic_enrichment.py', 'r') as f:
+with open('/Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/core/epistemic_enrichment.py', 'r') as f:
     content = f.read()
 
-# Add imports if not present
-if 'from codrag.core.context_config import PipelineTask, compute_optimal_settings' not in content:
-    content = re.sub(
-        r'from typing import ',
-        r'from codrag.core.context_config import PipelineTask, compute_optimal_settings\nfrom typing import ',
-        content
-    )
+# Fix 1: Single file
+p1 = r'json_mode=False, think=False,\s*\)'
+r1 = '''json_mode=False, think=False,
+                max_chars=TASK_MAX_CHARS["epistemic"],
+            )'''
 
-def replace_generate_call_1(match):
-    return """            prompt_tokens = len(prompt) // 4
-            num_predict, num_ctx, warnings = compute_optimal_settings(
-                task=PipelineTask.EPISTEMIC,
-                prompt_tokens=prompt_tokens,
-                model=self.llm.model,
-                think=False,
-            )
+# Fix 2: Batched code
+p2 = r'response_schema=code_schema,\s*\)'
+r2 = '''response_schema=code_schema,
+                    max_chars=TASK_MAX_CHARS["epistemic"],
+                )'''
 
-            text, tokens = self.llm.generate(
-                prompt, system=EPISTEMIC_SYSTEM, num_predict=num_predict, num_ctx=num_ctx,"""
+# Fix 3: Batched doc
+p3 = r'response_schema=doc_schema,\s*\)'
+r3 = '''response_schema=doc_schema,
+                    max_chars=TASK_MAX_CHARS["epistemic"],
+                )'''
 
-content = re.sub(
-    r'            text, tokens = self\.llm\.generate\(\n                prompt, system=EPISTEMIC_SYSTEM, num_predict=4096,',
-    replace_generate_call_1,
-    content
-)
+content = "from codrag.core.llm_client import TASK_MAX_CHARS\n" + content
+content = re.sub(p1, r1, content)
+content = re.sub(p2, r2, content)
+content = re.sub(p3, r3, content)
 
-def replace_generate_call_2(match):
-    return """                prompt_tokens = len(prompt) // 4
-                num_predict, num_ctx, warnings = compute_optimal_settings(
-                    task=PipelineTask.EPISTEMIC,
-                    prompt_tokens=prompt_tokens,
-                    model=self.llm.model,
-                    think=False,
-                )
-
-                text, tokens = self.llm.generate(
-                    prompt, system=BATCHED_EPISTEMIC_CODE_SYSTEM,
-                    num_predict=num_predict, num_ctx=num_ctx,"""
-
-content = re.sub(
-    r'                text, tokens = self\.llm\.generate\(\n                    prompt, system=BATCHED_EPISTEMIC_CODE_SYSTEM,\n                    num_predict=len\(items\) \* 400,',
-    replace_generate_call_2,
-    content
-)
-
-def replace_generate_call_3(match):
-    return """                prompt_tokens = len(prompt) // 4
-                num_predict, num_ctx, warnings = compute_optimal_settings(
-                    task=PipelineTask.EPISTEMIC,
-                    prompt_tokens=prompt_tokens,
-                    model=self.llm.model,
-                    think=False,
-                )
-
-                text, tokens = self.llm.generate(
-                    prompt, system=BATCHED_EPISTEMIC_DOC_SYSTEM,
-                    num_predict=num_predict, num_ctx=num_ctx,"""
-
-content = re.sub(
-    r'                text, tokens = self\.llm\.generate\(\n                    prompt, system=BATCHED_EPISTEMIC_DOC_SYSTEM,\n                    num_predict=len\(items\) \* 400,',
-    replace_generate_call_3,
-    content
-)
-
-with open('src/codrag/core/epistemic_enrichment.py', 'w') as f:
+with open('/Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/core/epistemic_enrichment.py', 'w') as f:
     f.write(content)
-

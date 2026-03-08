@@ -1,0 +1,57 @@
+[
+  {
+    "group_id": "65dc6beb53",
+    "member_count": 2,
+    "duration_s": 81.1,
+    "tokens": 2953,
+    "parsed_ok": true,
+    "pattern": "Centralized Configuration Pattern",
+    "coupling_risks": 3,
+    "confidence": 0.9,
+    "architectural_insight": "The architecture isolates environment-specific data (Ad Unit IDs) from business logic, facilitating easier multi-environment deployment and A/B testing via feature flags. However, the reliance on a Markdown specification for structural contracts introduces a risk of specification drift, where code i"
+  },
+  {
+    "group_id": "f9ebfe597d",
+    "member_count": 3,
+    "duration_s": 132.3,
+    "tokens": 4763,
+    "parsed_ok": true,
+    "pattern": "Regulatory Compliance Gate",
+    "coupling_risks": 4,
+    "confidence": 0.9,
+    "architectural_insight": "This group functions as a soft boundary between the software product and legal infrastructure, where documentation acts as a deployment contract. The presence of unfulfilled placeholders and future dates reveals a lack of automated compliance validation in the build pipeline, creating a high-risk ma"
+  },
+  {
+    "group_id": "b3fdeec8bc",
+    "member_count": 5,
+    "duration_s": 110.7,
+    "tokens": 4325,
+    "parsed_ok": true,
+    "pattern": "Centralized Decision Hub",
+    "coupling_risks": 3,
+    "confidence": 0.9,
+    "architectural_insight": "This documentation group functions as a governance layer rather than a code structure, creating a high-risk dependency where legal compliance constraints are tightly coupled with implementation tracking. The centralization in the Implementation Log creates a potential bottleneck where strategic shif"
+  },
+  {
+    "group_id": "85af9b49a3",
+    "member_count": 5,
+    "duration_s": 105.0,
+    "tokens": 4257,
+    "parsed_ok": true,
+    "pattern": "Schema-First Architecture with Documentation Orchestration",
+    "coupling_risks": 3,
+    "confidence": 0.9,
+    "architectural_insight": "This group exhibits a high reliance on documentation as the contract between disparate platforms (Web/TS and iOS/Swift), creating a significant maintenance burden for schema consistency. The lack of an automated IDL (Interface Definition Language) to generate types across platforms increases the ris"
+  },
+  {
+    "group_id": "5969fe70a4",
+    "member_count": 15,
+    "duration_s": 116.5,
+    "tokens": 6031,
+    "parsed_ok": true,
+    "pattern": "Design System Specification Pattern",
+    "coupling_risks": 5,
+    "confidence": 0.95,
+    "architectural_insight": "This architecture treats documentation as executable contracts, which enhances clarity but introduces significant fragility if the Markdown specs diverge from the Swift implementation. The tight coupling between static Web strategy documents and dynamic iOS code files suggests a need for automated t"
+  }
+]

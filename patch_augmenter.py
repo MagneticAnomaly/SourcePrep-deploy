@@ -1,98 +1,30 @@
 import re
 
-with open('src/codrag/core/augmenter.py', 'r') as f:
+with open('/Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/core/augmenter.py', 'r') as f:
     content = f.read()
 
-# Add imports if not present
-if 'from codrag.core.context_config import PipelineTask, compute_optimal_settings' not in content:
-    content = re.sub(
-        r'from typing import ',
-        r'from codrag.core.context_config import PipelineTask, compute_optimal_settings\nfrom typing import ',
-        content
-    )
+# Fix 1: _generate_with_retry
+p1 = r'num_predict=num_predict, num_ctx=num_ctx,\s*\)'
+r1 = '''num_predict=num_predict, num_ctx=num_ctx,
+                    max_chars=TASK_MAX_CHARS["augmentation"],
+                )'''
 
-def replace_retry(match):
-    return """    def _llm_generate_with_retry(
-        self,
-        prompt: str,
-        system: Optional[str] = None,
-        max_retries: int = 2,
-        label: str = "item",
-    ) -> Tuple[str, int]:
-        \"\"\"Helper for robust single-item generation with retries.
+# Fix 2: process_file_batch
+p2 = r'response_schema=file_schema,\s*\)'
+r2 = '''response_schema=file_schema,
+                    max_chars=TASK_MAX_CHARS["augmentation"],
+                )'''
 
-        Returns (text, tokens_used).  Raises RuntimeError after max_retries
-        or for immediate parsing failures that shouldn't be retried.  Logs
-        the last exception.
-        \"\"\"
-        prompt_tokens = len(prompt) // 4
-        num_predict, num_ctx, warnings = compute_optimal_settings(
-            task=PipelineTask.AUGMENT,
-            prompt_tokens=prompt_tokens,
-            model=self.llm.model,
-            think=False,
-        )
+# Fix 3: process_doc_batch
+p3 = r'response_schema=doc_schema,\s*\)'
+r3 = '''response_schema=doc_schema,
+                    max_chars=TASK_MAX_CHARS["augmentation"],
+                )'''
 
-        last_err: Optional[Exception] = None
-        for attempt in range(1 + max_retries):
-            try:
-                return self.llm.generate(
-                    prompt, system=system, 
-                    num_predict=num_predict, num_ctx=num_ctx,
-                )"""
+content = "from codrag.core.llm_client import TASK_MAX_CHARS\n" + content
+content = re.sub(p1, r1, content)
+content = re.sub(p2, r2, content)
+content = re.sub(p3, r3, content)
 
-content = re.sub(
-    r'    def _llm_generate_with_retry\([\s\S]*?return self\.llm\.generate\(prompt, system=system, num_predict=num_predict\)',
-    replace_retry,
-    content
-)
-
-def replace_code_batch(match):
-    return """        def _call_code_batch(items):
-            prompt = build_batched_file_prompt(items)
-            prompt_tokens = len(prompt) // 4
-            num_predict, num_ctx, warnings = compute_optimal_settings(
-                task=PipelineTask.AUGMENT,
-                prompt_tokens=prompt_tokens,
-                model=self.llm.model,
-                think=False,
-            )
-            try:
-                text, tokens = self.llm.generate(
-                    prompt, system=BATCHED_FILE_SYSTEM, 
-                    num_predict=num_predict, num_ctx=num_ctx,
-                    response_schema=file_schema,
-                )"""
-
-content = re.sub(
-    r'        def _call_code_batch\(items\):\n            prompt = build_batched_file_prompt\(items\)\n            try:\n                text, tokens = self\.llm\.generate\(\n                    prompt, system=BATCHED_FILE_SYSTEM, num_predict=batch_size \* 200,\n                    response_schema=file_schema,\n                \)',
-    replace_code_batch,
-    content
-)
-
-def replace_doc_batch(match):
-    return """        def _call_doc_batch(items):
-            prompt = build_batched_doc_prompt(items)
-            prompt_tokens = len(prompt) // 4
-            num_predict, num_ctx, warnings = compute_optimal_settings(
-                task=PipelineTask.AUGMENT,
-                prompt_tokens=prompt_tokens,
-                model=self.llm.model,
-                think=False,
-            )
-            try:
-                text, tokens = self.llm.generate(
-                    prompt, system=BATCHED_DOC_SYSTEM, 
-                    num_predict=num_predict, num_ctx=num_ctx,
-                    response_schema=doc_schema,
-                )"""
-
-content = re.sub(
-    r'        def _call_doc_batch\(items\):\n            prompt = build_batched_doc_prompt\(items\)\n            try:\n                text, tokens = self\.llm\.generate\(\n                    prompt, system=BATCHED_DOC_SYSTEM, num_predict=len\(items\) \* 200,\n                    response_schema=doc_schema,\n                \)',
-    replace_doc_batch,
-    content
-)
-
-with open('src/codrag/core/augmenter.py', 'w') as f:
+with open('/Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/core/augmenter.py', 'w') as f:
     f.write(content)
-

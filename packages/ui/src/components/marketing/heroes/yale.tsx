@@ -73,21 +73,30 @@ export function YaleHero({ isBetaMode }: { isBetaMode: boolean }) {
           </div>
 
           {/* Column 3: Action */}
-          <div className="col-span-12 md:col-span-3 mt-8 md:mt-0 flex flex-col justify-between">
-            <div className="pl-6 md:border-l md:border-border">
-              <span className="font-sans font-bold text-sm mb-4 block">Get Started</span>
-              <div className="flex flex-col gap-2">
+          <div className="col-span-12 md:col-span-3 mt-10 md:mt-0 flex flex-col justify-between">
+            <div className="md:pl-6 md:border-l md:border-border">
+              <span className="hidden md:block font-sans font-bold text-sm mb-4">Get Started</span>
+              <div className="flex flex-col gap-3 md:gap-2">
                 {isBetaMode ? (
-                  <Button variant="ghost" className="justify-start px-0 hover:bg-transparent hover:text-primary h-auto py-2" icon={Download} asChild>
-                    <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request">Request Beta</a>
+                  <Button className="w-full md:w-auto md:justify-start md:px-0 md:bg-transparent md:text-text md:hover:bg-transparent md:hover:text-primary md:shadow-none h-12 md:h-auto md:py-2 text-base md:text-sm font-semibold md:font-medium" variant="default" asChild>
+                    <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request">
+                      <Download className="hidden md:block w-4 h-4 mr-2" />
+                      Request Beta
+                    </a>
                   </Button>
                 ) : (
-                  <Button variant="ghost" className="justify-start px-0 hover:bg-transparent hover:text-primary h-auto py-2" icon={Download} asChild>
-                    <a href="/download">Download Installer</a>
+                  <Button className="w-full md:w-auto md:justify-start md:px-0 md:bg-transparent md:text-text md:hover:bg-transparent md:hover:text-primary md:shadow-none h-12 md:h-auto md:py-2 text-base md:text-sm font-semibold md:font-medium" variant="default" asChild>
+                    <a href="/download">
+                      <Download className="hidden md:block w-4 h-4 mr-2" />
+                      Download Installer
+                    </a>
                   </Button>
                 )}
-                <Button variant="ghost" className="justify-start px-0 hover:bg-transparent hover:text-primary h-auto py-2" icon={Code} asChild>
-                  <a href="/docs">Documentation</a>
+                <Button className="hidden md:flex md:justify-start md:px-0 md:bg-transparent md:text-text md:hover:bg-transparent md:hover:text-primary md:shadow-none md:border-none md:h-auto md:py-2" variant="outline" asChild>
+                  <a href="/docs">
+                    <Code className="w-4 h-4 mr-2" />
+                    Documentation
+                  </a>
                 </Button>
               </div>
             </div>

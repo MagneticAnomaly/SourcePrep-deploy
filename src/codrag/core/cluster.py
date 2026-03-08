@@ -29,6 +29,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from .llm_client import LLMClient, _get_llm_concurrency, _parse_confidence, _parse_json_response
 from .epistemic_score import EpistemicEntry
+from codrag.core.llm_client import TASK_MAX_CHARS
 
 logger = logging.getLogger(__name__)
 
@@ -1053,6 +1054,7 @@ class ClusterSynthesizer:
             text, tokens = self.llm.generate(
                 prompt, system=MODULE_SYNTHESIS_SYSTEM, num_predict=num_predict, num_ctx=num_ctx,
                 json_mode=False, think=False,
+                max_chars=TASK_MAX_CHARS["augmentation"],
             )
             return _parse_json_response(text)
 
@@ -1238,6 +1240,7 @@ class ClusterSynthesizer:
                         prompt, system=BATCHED_CLUSTER_SYSTEM,
                         num_predict=num_predict, num_ctx=num_ctx,
                         response_schema=schema,
+                        max_chars=TASK_MAX_CHARS["augmentation"],
                     )
                     results_list = BatchedResponseParser.parse(text, expected_count=len(items))
                 except Exception as e:

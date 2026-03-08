@@ -1,0 +1,57 @@
+[
+  {
+    "group_id": "65dc6beb53",
+    "member_count": 2,
+    "duration_s": 27.8,
+    "tokens": 1387,
+    "parsed_ok": true,
+    "pattern": "Configuration Pattern with Centralized Configuration Hub",
+    "coupling_risks": 4,
+    "confidence": 0.75,
+    "architectural_insight": "This represents a classic Configuration-as-Source-of-Truth pattern but with significant technical debt that threatens architectural integrity. The incomplete SDK integration status and legacy AdManager references indicate the architecture is in transition, creating a risk where documentation and imp"
+  },
+  {
+    "group_id": "f9ebfe597d",
+    "member_count": 3,
+    "duration_s": 137.3,
+    "tokens": 5136,
+    "parsed_ok": true,
+    "pattern": "Documentation Governance Hierarchy",
+    "coupling_risks": 3,
+    "confidence": 0.95,
+    "architectural_insight": "This group functions as a pre-deployment gatekeeper where documentation integrity directly dictates deployment feasibility. The separation of process management (Checklist) from content creation (Policies) is architecturally sound, but the unresolved placeholder text represents a critical 'silent fa"
+  },
+  {
+    "group_id": "b3fdeec8bc",
+    "member_count": 5,
+    "duration_s": 109.9,
+    "tokens": 4487,
+    "parsed_ok": true,
+    "pattern": "Hub-and-Spoke Documentation Orchestration",
+    "coupling_risks": 3,
+    "confidence": 0.95,
+    "architectural_insight": "This documentation structure mimics a Facade pattern where the Implementation Log abstracts the complexity of the migration initiative into a single status view. However, the lack of bidirectional synchronization mechanisms creates a high risk of documentation drift, where the 'truth' of the legal r"
+  },
+  {
+    "group_id": "85af9b49a3",
+    "member_count": 5,
+    "duration_s": 134.8,
+    "tokens": 5358,
+    "parsed_ok": true,
+    "pattern": "Specification-Driven ETL Architecture",
+    "coupling_risks": 5,
+    "confidence": 0.95,
+    "architectural_insight": "This group exhibits a strong 'Documentation-First' approach where the MASTER_TODO.md acts as the central hub of truth, but this creates a high maintenance burden where code must constantly mirror documentation. The reliance on a shared schema contract (HomeColabCore) between Web and iOS introduces a"
+  },
+  {
+    "group_id": "5969fe70a4",
+    "member_count": 15,
+    "duration_s": 43.3,
+    "tokens": 3892,
+    "parsed_ok": true,
+    "pattern": "Design System with Single Source of Truth",
+    "coupling_risks": 5,
+    "confidence": 0.92,
+    "architectural_insight": "This architecture implements a strong separation between implementation (iOS DesignSystem files) and documentation (multiple .md files), which is excellent for maintainability. However, the tight coupling between website documentation and iOS implementation files creates a cross-platform dependency "
+  }
+]
