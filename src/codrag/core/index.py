@@ -640,64 +640,28 @@ class CodeIndex:
             )
             write_manifest(temp_dir / "manifest.json", manifest)
 
-            # Preserve ALL pipeline-produced files in the old directory
-            # because the atomic swap will wipe them out.
-            _PRESERVE_FILES = [
-                # Trace graph (structural)
-                "trace_manifest.json",
-                "trace_nodes.jsonl",
-                "trace_edges.jsonl",
-                # Fast Catalogue (augmentation)
-                "trace_augmented.jsonl",
-                "trace_augment_manifest.json",
-                # Edge Discovery (inferred edges + incremental manifest)
-                "trace_inferred_edges.jsonl",
-                "trace_inferred_manifest.json",
-                # Epistemic Enrichment
-                "trace_epistemic.jsonl",
-                "trace_epistemic_manifest.json",
-                # Cluster Synthesis
-                "trace_modules.jsonl",
-                # Deep Analysis
-                "deep_analysis_manifest.json",
-                # Codebase Atlas
-                "atlas.json",
-                "atlas_prev.json",
-                "atlas_segments_manifest.json",
-                # Atlas Routing (Phase 29B)
-                "atlas_routing.json",
-                "atlas_routing_embeddings.npy",
-                # Knowledge Embedding
-                "knowledge_documents.json",
-                "knowledge_embeddings.npy",
-                "knowledge_manifest.json",
-            ]
-            for trace_file in _PRESERVE_FILES:
-                old_path = self.index_dir / trace_file
-                if old_path.exists():
+            # Preserve ALL existing files/dirs from the old index directory
+            # that were NOT produced by this build.  This is a catch-all:
+            # instead of maintaining a fragile whitelist, we copy everything
+            # the new build didn't create — trace graph, pipeline enrichment,
+            # LSP edges, atlas, audit reports, logs, checkpoints, etc.
+            if self.index_dir.is_dir():
+                # Files the build just wrote — never overwrite these
+                _BUILD_PRODUCED = {item.name for item in temp_dir.iterdir()}
+                for item in self.index_dir.iterdir():
+                    if item.name in _BUILD_PRODUCED:
+                        continue  # new build already has this file
+                    if item.name.startswith(".index_build_") or item.name.startswith(".index_backup_"):
+                        continue  # stale temp dirs — skip
+                    dest = temp_dir / item.name
                     try:
-                        shutil.copy2(old_path, temp_dir / trace_file)
-                        logger.info(f"Preserved existing trace file: {trace_file}")
+                        if item.is_dir():
+                            shutil.copytree(item, dest)
+                        else:
+                            shutil.copy2(item, dest)
+                        logger.info(f"Preserved existing index item: {item.name}")
                     except Exception as e:
-                        logger.warning(f"Failed to preserve trace file {trace_file}: {e}")
-
-            # Preserve pipeline checkpoint directory (rollback data)
-            old_cp = self.index_dir / ".checkpoints"
-            if old_cp.is_dir():
-                try:
-                    shutil.copytree(old_cp, temp_dir / ".checkpoints")
-                    logger.info("Preserved .checkpoints directory")
-                except Exception as e:
-                    logger.warning(f"Failed to preserve .checkpoints: {e}")
-
-            # Preserve atlas segments directory
-            old_segs = self.index_dir / "atlas_segments"
-            if old_segs.is_dir():
-                try:
-                    shutil.copytree(old_segs, temp_dir / "atlas_segments")
-                    logger.info("Preserved atlas_segments directory")
-                except Exception as e:
-                    logger.warning(f"Failed to preserve atlas_segments: {e}")
+                        logger.warning(f"Failed to preserve {item.name}: {e}")
 
             # Atomic swap
             self._swap_index_dir(temp_dir)

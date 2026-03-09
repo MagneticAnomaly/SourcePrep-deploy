@@ -464,6 +464,7 @@ class HeadlessRunner:
             "--depth", "1",
             "--branch", self.config.branch,
             "--single-branch",
+            "--",  # Prevent flag injection via malicious URLs
             url,
             str(repo_dir),
         ]

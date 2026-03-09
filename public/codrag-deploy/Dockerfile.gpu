@@ -56,10 +56,17 @@ RUN python -c "from codrag.core.embedder import NativeEmbedder; NativeEmbedder()
 # ── S3 sync dependencies ─────────────────────────────────────
 RUN pip install --no-cache-dir boto3 minio
 
+# ── Non-root user ─────────────────────────────────────────────
+RUN groupadd -r codrag && useradd -r -g codrag -m -s /bin/bash codrag
+RUN mkdir -p /workspace && chown codrag:codrag /workspace
+RUN chown -R codrag:codrag /opt/ollama-models
+
 # ── Default entrypoint ────────────────────────────────────────
-# The entrypoint script starts Ollama in the background, then runs codrag.
 COPY public/codrag-deploy/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
+
+USER codrag
+WORKDIR /workspace
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["sync-headless", "--help"]

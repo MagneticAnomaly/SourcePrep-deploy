@@ -163,7 +163,10 @@ class S3StorageProvider:
     def _s3_key(self, filename: str) -> str:
         """Build the full S3 key from prefix + filename."""
         if self.config.prefix:
-            return f"{self.config.prefix.rstrip('/')}/{filename}"
+            prefix = self.config.prefix.rstrip('/')
+            if '..' in prefix or prefix.startswith('/'):
+                raise ValueError(f"S3 prefix contains unsafe path segments: {prefix}")
+            return f"{prefix}/{filename}"
         return filename
 
     # ── Upload ────────────────────────────────────────────────
@@ -286,6 +289,16 @@ class S3StorageProvider:
             tmp_target.mkdir(parents=True, exist_ok=True)
 
             with zipfile.ZipFile(tmp_path, "r") as zf:
+                # Zip bomb protection: reject if uncompressed size > 10 GB
+                MAX_UNCOMPRESSED_BYTES = 10 * 1024 * 1024 * 1024
+                total_uncompressed = sum(info.file_size for info in zf.infolist())
+                if total_uncompressed > MAX_UNCOMPRESSED_BYTES:
+                    raise ValueError(
+                        f"Index zip uncompressed size ({total_uncompressed:,} bytes) "
+                        f"exceeds safety limit ({MAX_UNCOMPRESSED_BYTES:,} bytes). "
+                        f"Possible zip bomb — aborting extraction."
+                    )
+
                 # Zip-slip protection: reject entries that escape target dir
                 for member in zf.namelist():
                     resolved = (tmp_target / member).resolve()
@@ -300,8 +313,22 @@ class S3StorageProvider:
 
             logger.info("Index extracted to %s", target_dir)
 
-            # Read and return the manifest
+            # Verify content hash of downloaded zip against manifest
             manifest = self.get_remote_manifest()
+            if manifest and manifest.content_hash:
+                h = sha256()
+                with open(tmp_path, "rb") as fh:
+                    for chunk in iter(lambda: fh.read(8192), b""):
+                        h.update(chunk)
+                actual_hash = h.hexdigest()[:16]
+                if actual_hash != manifest.content_hash:
+                    logger.warning(
+                        "SECURITY: Index zip content hash mismatch! "
+                        "Expected %s, got %s. The index may have been tampered with.",
+                        manifest.content_hash, actual_hash,
+                    )
+
+            # Read and return the manifest
             if manifest:
                 # Save a local copy
                 manifest_path = target_dir / "manifest.json"

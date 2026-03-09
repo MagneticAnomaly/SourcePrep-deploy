@@ -37,9 +37,19 @@ app = modal.App("codrag-team-sync")
 )
 @modal.web_endpoint(method="POST")
 def trigger_sync(payload: dict):
-    """Webhook endpoint: triggers a headless index build."""
+    """Webhook endpoint: triggers a headless index build.
+
+    Set CODRAG_WEBHOOK_SECRET in your Modal Secret to enable auth.
+    """
     import subprocess
     import os
+
+    # Authenticate the request
+    webhook_secret = os.environ.get("CODRAG_WEBHOOK_SECRET", "")
+    if webhook_secret:
+        request_secret = payload.pop("_webhook_secret", "")
+        if request_secret != webhook_secret:
+            return {"status": "error", "message": "Unauthorized: invalid or missing webhook secret"}
 
     repo_url = payload.get("repo_url", "")
     branch = payload.get("branch", "main")

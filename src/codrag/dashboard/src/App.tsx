@@ -99,9 +99,6 @@ function App() {
     localStorage.getItem('codrag_bg_image') ?? null
   )
   const [maxActiveProjects, setMaxActiveProjects] = useState<number | 'infinite'>('infinite')
-  const [concurrencyFast, setConcurrencyFast] = useState<number>(1)
-  const [concurrencyCode, setConcurrencyCode] = useState<number>(1)
-  const [concurrencyDeep, setConcurrencyDeep] = useState<number>(1)
   const [schedulerStatus, setSchedulerStatus] = useState<any>(null)
   const [computeNodes, setComputeNodes] = useState<any[]>([])
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout | null>(null)
@@ -352,12 +349,6 @@ function App() {
     api.updateGlobalConfig({ max_active_projects: value }).catch(() => {})
   }, [api])
 
-  const handleConcurrencyChange = useCallback((key: 'fast' | 'code' | 'deep', value: number) => {
-    const setter = key === 'fast' ? setConcurrencyFast : key === 'code' ? setConcurrencyCode : setConcurrencyDeep
-    setter(value)
-    const configKey = `llm_concurrency_${key}` as const
-    api.updatePipelineConfig({ [configKey]: value }).catch(() => {})
-  }, [api])
 
   // Poll scheduler status every 5s when connected
   useEffect(() => {
@@ -441,16 +432,6 @@ function App() {
             try { localStorage.setItem('codrag_dashboard_layout', JSON.stringify(globalCfg.module_layout)) } catch { /* storage full */ }
           }
         } catch { /* Global config not available — use defaults */ }
-        // Load pipeline concurrency settings
-        try {
-          const pipelineCfg = await api.getPipelineConfig()
-          if (pipelineCfg?.llm_concurrency_fast) setConcurrencyFast(pipelineCfg.llm_concurrency_fast)
-          else if (pipelineCfg?.llm_concurrency) setConcurrencyFast(pipelineCfg.llm_concurrency)
-          if (pipelineCfg?.llm_concurrency_code) setConcurrencyCode(pipelineCfg.llm_concurrency_code)
-          else if (pipelineCfg?.llm_concurrency) setConcurrencyCode(pipelineCfg.llm_concurrency)
-          if (pipelineCfg?.llm_concurrency_deep) setConcurrencyDeep(pipelineCfg.llm_concurrency_deep)
-          else if (pipelineCfg?.llm_concurrency) setConcurrencyDeep(pipelineCfg.llm_concurrency)
-        } catch { /* Pipeline config not critical */ }
         void fetchLLMSlotsStatus()
         void fetchLicense()
       } catch { /* Error already set */ } finally { setLoading(false) }
@@ -554,8 +535,6 @@ function App() {
       handleTestEndpoint, handleFetchModels, handleTestModel, handleDownloadModel,
       availableModels, loadingModels, testingSlot, testResults,
       maxActiveProjects, onMaxActiveProjectsChange: handleMaxActiveProjectsChange,
-      concurrencyFast, concurrencyCode, concurrencyDeep,
-      onConcurrencyChange: handleConcurrencyChange,
       schedulerStatus,
       computeNodes,
       onComputeNodeAdd: handleComputeNodeAdd,

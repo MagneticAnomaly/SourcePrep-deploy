@@ -192,7 +192,7 @@
       {
         "id": "block-1772465348966",
         "endpoint_id": "ep_1772383175014_efdea339349a78",
-        "model": "qwen3.5-4b-mxfp8-mlx",
+        "model": "qwen3.5-35b-a3b",
         "tasks": [
           "catalogue",
           "search_intent",
@@ -235,7 +235,7 @@
   },
   "pipeline_config": {
     "fast_sync": {
-      "auto": true
+      "auto": false
     },
     "deep_enrichment": {
       "mode": "manual",
@@ -450,7 +450,7 @@
   },
   "compute_nodes": [
     {
-      "id": "node_8f9ec2d1",
+      "id": "node_a881ad31",
       "name": "Local Machine",
       "type": "local",
       "hardware_profile": "apple_silicon",

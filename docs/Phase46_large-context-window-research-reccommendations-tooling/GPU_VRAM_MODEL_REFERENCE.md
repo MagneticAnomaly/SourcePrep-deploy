@@ -196,15 +196,51 @@ is_mac = compute_node.hardware_profile == "apple_silicon"
 
 ### Concurrency × Context Window Interaction
 
-On Apple Silicon (concurrency=1), the full GPU memory is available for one model's context window.
+**UI Decision (Mar 2026):** Global LLM concurrency buttons (1-8) removed from Compute Profile.
+Concurrency is now a **per-model setting** (1 or 2) on each LLM assignment card, because
+it depends on the specific model's weight size vs available VRAM — not a global hardware property.
 
-On NVIDIA with concurrency>1, each concurrent request needs its own KV cache allocation. This means:
+**Apple Silicon:** Always concurrency=1. Phase 40 testing confirmed only 5-9% speedup with
+concurrency>1 on unified memory due to shared memory bandwidth contention.
+
+**NVIDIA single GPU:** Default concurrency=1. Only set to 2 if VRAM has 8+ GB free after
+loading the model weights. Each concurrent request needs its own KV cache allocation:
 - `available_vram_for_kv = VRAM - model_size`
 - `kv_per_request = num_ctx × kv_per_1k / 1000`
 - `max_concurrent = available_vram_for_kv / kv_per_request`
 
-Example: RTX 4090 (24GB) with 35b-a3b Q4 (24GB):
-- Available for KV: ~0GB → concurrency=1 only
-- With layer offloading (model uses 18GB VRAM): 6GB for KV → ~3-4 concurrent with 8K context
+**Multi-GPU:** Handled by Compute Nodes (separate concept). Each node routes to different
+hardware. The per-model concurrency setting controls slots within a single GPU.
 
-This interaction should be modeled in the AI Gateway's concurrency settings.
+### RTX 5090 (32GB) + Qwen3.5-35b-a3b Analysis
+
+- **35b-a3b Q4 weights**: ~24 GB → 8 GB free for KV cache
+- **DeltaNet hybrid attention** (Qwen3.5): 75% of layers use linear attention with
+  **fixed-size recurrent state** (no growing KV cache). Only 25% of layers (full attention)
+  grow KV cache linearly with context length.
+  - Source: Raschka, "Beyond Standard LLMs" (2025)
+  - MHA KV cache: `batch × n_tokens × n_heads × d_head × 2 × bytes` (grows with context)
+  - DeltaNet state: `batch × n_heads × d_head × d_head × bytes` (fixed, no n_tokens)
+- KV cache per slot is **~75% smaller** than a standard transformer of the same layer count
+- At CoDRAG's typical context (8K-32K tokens), 2 concurrent slots *may* fit in the remaining 8 GB
+- **Caveat**: Triton autotuner needs 4-8 GB scratch space on first inference (joshua8.ai, Feb 2026)
+- **Recommendation**: concurrency=1 is safe default; concurrency=2 is *possible* at short context
+
+### MoE "Active Params" Clarification
+
+The 35b-a3b has only 3B *active* params per token, but **ALL 35B params must be loaded into
+VRAM/RAM**. "3B active" = fewer FLOPs per token (faster inference), NOT less memory.
+For VRAM budgeting, always use the full model weight size (24 GB Q4).
+
+### Why Not Recommend 4b Models?
+
+Phase 46 testing showed 8b models are the minimum for quality pipeline output. Recommending
+4b models to enable higher concurrency is backwards — model quality matters more than
+parallelism for CoDRAG's sequential-per-project pipeline.
+
+### Cloud API Concurrency
+
+Cloud providers handle concurrency server-side. CoDRAG's batch profiles (BYOK) are the
+primary throughput mechanism for cloud endpoints — they group multiple items into fewer,
+larger requests. Additional cloud concurrency is deferred (cost risk, minimal benefit for
+CoDRAG's sequential pipeline).

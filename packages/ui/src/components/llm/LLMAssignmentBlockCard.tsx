@@ -1,6 +1,7 @@
 import { cn } from '../../lib/utils';
 import { Select } from '../primitives/Select';
 import { Button } from '../primitives/Button';
+import { InfoTooltip } from '../primitives/InfoTooltip';
 import { X, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import type { CodragTaskId, SavedEndpoint, EndpointTestResult } from '../../types';
 import { ALL_TASK_IDS, TASK_LABELS, TASK_TAGS } from '../../types';
@@ -12,6 +13,7 @@ export interface LLMAssignmentBlockCardProps {
   tasks: CodragTaskId[];
   enableReasoning?: boolean;
   alwaysOn?: boolean;
+  concurrency?: number;
 
   /** All saved endpoints for the endpoint dropdown */
   endpoints: SavedEndpoint[];
@@ -28,6 +30,7 @@ export interface LLMAssignmentBlockCardProps {
   onRemoveTask: (blockId: string, taskId: CodragTaskId) => void;
   onEnableReasoningChange?: (blockId: string, enabled: boolean) => void;
   onAlwaysOnChange?: (blockId: string, alwaysOn: boolean) => void;
+  onConcurrencyChange?: (blockId: string, concurrency: number) => void;
   onDelete: (blockId: string) => void;
   onTest?: (blockId: string) => void;
 
@@ -44,6 +47,7 @@ export function LLMAssignmentBlockCard({
   tasks,
   enableReasoning = false,
   alwaysOn = false,
+  concurrency = 1,
   endpoints,
   availableModels,
   loadingModels = false,
@@ -55,6 +59,7 @@ export function LLMAssignmentBlockCard({
   onRemoveTask,
   onEnableReasoningChange,
   onAlwaysOnChange,
+  onConcurrencyChange,
   onDelete,
   onTest,
   testResult,
@@ -214,6 +219,26 @@ export function LLMAssignmentBlockCard({
                   Always available (Keep loaded)
                 </span>
               </label>
+            )}
+
+            {/* Per-model Concurrency (advanced, local only) */}
+            {onConcurrencyChange && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-text-muted whitespace-nowrap">Concurrency</label>
+                <Select
+                  size="sm"
+                  value={String(concurrency)}
+                  onChange={(e) => onConcurrencyChange(id, parseInt(e.target.value))}
+                  options={[
+                    { value: '1', label: '1 (Standard)' },
+                    { value: '2', label: '2 (High VRAM)' },
+                  ]}
+                  className="w-[140px]"
+                />
+                <InfoTooltip
+                  content="How many simultaneous requests this model handles. 1 is recommended for all setups. Only set to 2 if your GPU has 8+ GB free VRAM after loading the model. Apple Silicon: always use 1. Embeddings are unaffected (run via ONNX)."
+                />
+              </div>
             )}
           </div>
         )}

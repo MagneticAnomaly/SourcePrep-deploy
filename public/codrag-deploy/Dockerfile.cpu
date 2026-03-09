@@ -45,6 +45,12 @@ RUN python -c "from codrag.core.embedder import NativeEmbedder; NativeEmbedder()
 # ── S3 sync dependencies ─────────────────────────────────────
 RUN pip install --no-cache-dir boto3 minio
 
+# ── Non-root user ─────────────────────────────────────────────
+RUN groupadd -r codrag && useradd -r -g codrag -m -s /bin/bash codrag
+RUN mkdir -p /workspace && chown codrag:codrag /workspace
+USER codrag
+WORKDIR /workspace
+
 # ── Default entrypoint ────────────────────────────────────────
 ENTRYPOINT ["codrag"]
 CMD ["sync-headless", "--help"]

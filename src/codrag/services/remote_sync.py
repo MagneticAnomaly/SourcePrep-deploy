@@ -41,15 +41,24 @@ class TeamSyncConfig:
     s3_prefix: str = ""
     poll_interval_minutes: int = 30
 
+    MIN_POLL_INTERVAL_MINUTES = 5
+
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "TeamSyncConfig":
         sync = d.get("sync", {})
+        raw_interval = int(sync.get("poll_interval_minutes", 30))
+        safe_interval = max(raw_interval, cls.MIN_POLL_INTERVAL_MINUTES)
+        if raw_interval < cls.MIN_POLL_INTERVAL_MINUTES:
+            logger.warning(
+                "poll_interval_minutes=%d is below minimum (%d). Using %d.",
+                raw_interval, cls.MIN_POLL_INTERVAL_MINUTES, safe_interval,
+            )
         return cls(
             enabled=bool(sync.get("enabled", False)),
             s3_endpoint=str(sync.get("s3_endpoint", "")),
             s3_bucket=str(sync.get("s3_bucket", "")),
             s3_prefix=str(sync.get("s3_prefix", "")),
-            poll_interval_minutes=int(sync.get("poll_interval_minutes", 30)),
+            poll_interval_minutes=safe_interval,
         )
 
 

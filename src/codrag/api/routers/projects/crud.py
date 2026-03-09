@@ -143,6 +143,25 @@ def add_project(req: AddProjectRequest) -> Dict[str, Any]:
     except Exception as e:
         logger.warning(f"Failed to auto-detect stack presets: {e}")
 
+    # Detect existing index directory — reuse it, never overwrite
+    existing_index = False
+    existing_index_files: List[str] = []
+    if req.mode == "embedded":
+        codrag_dir = p / ".codrag"
+        if codrag_dir.is_dir():
+            existing_index_files = [f.name for f in codrag_dir.iterdir() if not f.name.startswith(".")]
+            existing_index = len(existing_index_files) > 0
+            logger.info(
+                "Reusing existing .codrag directory at %s (%d files: %s)",
+                codrag_dir, len(existing_index_files),
+                ", ".join(existing_index_files[:10]),
+            )
+    elif req.mode == "custom" and custom_index_path:
+        cp = Path(custom_index_path)
+        if cp.is_dir() and any(cp.iterdir()):
+            existing_index = True
+            logger.info("Reusing existing custom index directory at %s", cp)
+
     try:
         proj = reg.add_project(path=str(p), name=req.name, mode=req.mode, config=default_cfg)
     except ProjectAlreadyExists:
@@ -153,7 +172,14 @@ def add_project(req: AddProjectRequest) -> Dict[str, Any]:
             hint="Use a different path or remove the existing project first.",
         )
 
-    return ok({"project": _srv()._project_to_dict(proj)})
+    result: Dict[str, Any] = {"project": _srv()._project_to_dict(proj)}
+    if existing_index:
+        result["existing_index"] = {
+            "reused": True,
+            "files": existing_index_files[:20] if existing_index_files else [],
+        }
+
+    return ok(result)
 
 
 @router.get("/projects/{project_id}")

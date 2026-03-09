@@ -171,10 +171,6 @@ export interface PanelLLMProps {
   // Compute settings (Phase 45)
   maxActiveProjects?: number | 'infinite'
   onMaxActiveProjectsChange?: (val: number | 'infinite') => void
-  concurrencyFast?: number
-  concurrencyCode?: number
-  concurrencyDeep?: number
-  onConcurrencyChange?: (key: 'fast' | 'code' | 'deep', value: number) => void
   schedulerStatus?: { nodes: Record<string, { max_concurrent: number; current_load: number; active: Record<string, string>; queued: Array<{ project_id: string; stage: string; waiting_seconds: number }> }> } | null
   // Compute node CRUD (Phase 45D)
   computeNodes?: import('@codrag/ui').ComputeNode[]
@@ -888,10 +884,6 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           testResults={p.testResults}
           maxActiveProjects={p.maxActiveProjects}
           onMaxActiveProjectsChange={p.onMaxActiveProjectsChange}
-          concurrencyFast={p.concurrencyFast}
-          concurrencyCode={p.concurrencyCode}
-          concurrencyDeep={p.concurrencyDeep}
-          onConcurrencyChange={p.onConcurrencyChange}
           schedulerStatus={p.schedulerStatus}
           computeNodes={p.computeNodes}
           onComputeNodeAdd={p.onComputeNodeAdd}

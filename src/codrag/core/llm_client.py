@@ -318,9 +318,15 @@ class LLMClient:
         """
         import requests
 
-        # lm-studio uses the OpenAI-compatible API — alias it so the dispatch
-        # below routes to the correct /v1/chat/completions path
-        effective_provider = "openai-compatible" if self.provider == "lm-studio" else self.provider
+        if self.provider == "lm-studio":
+            return self._generate_lmstudio(
+                prompt, system=system, num_predict=num_predict,
+                json_mode=json_mode, temperature=temperature,
+                response_schema=response_schema, think=think,
+                max_chars=max_chars, num_ctx=num_ctx,
+            )
+
+        effective_provider = self.provider
 
         if effective_provider == "ollama":
             # When thinking is enabled, Ollama counts thinking tokens AND
@@ -535,6 +541,142 @@ class LLMClient:
         else:
             raise ValueError(f"Unsupported LLM provider: {self.provider}")
 
+
+    def _generate_lmstudio(
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        num_predict: int = 2048,
+        json_mode: bool = True,
+        temperature: float = 0.1,
+        response_schema: Optional[Dict[str, Any]] = None,
+        think: Optional[bool] = None,
+        max_chars: int = 0,
+        num_ctx: Optional[int] = None,
+    ) -> Tuple[str, int]:
+        """Generate text using LM Studio's native /api/v1/chat endpoint.
+
+        This gives us per-request control over context_length,
+        max_output_tokens, and reasoning mode — features not available
+        through the OpenAI-compatible /v1/chat/completions path.
+
+        Streams via SSE: message.delta for text, reasoning.delta for
+        thinking, chat.end for final stats.
+        """
+        import requests
+        from codrag.core.model_readiness import _lmstudio_api_base
+
+        base = _lmstudio_api_base(self.endpoint_url)
+        url = f"{base}/chat"
+
+        # Native API uses "input" — string for simple, array for system+user
+        if system:
+            input_val: Any = [
+                {"type": "message", "role": "system", "content": system},
+                {"type": "message", "role": "user", "content": prompt},
+            ]
+        else:
+            input_val = prompt
+
+        payload: Dict[str, Any] = {
+            "model": self.model,
+            "input": input_val,
+            "temperature": temperature,
+            "stream": True,
+            "max_output_tokens": num_predict,
+        }
+
+        # Per-request context window — key advantage over OpenAI-compat path
+        if num_ctx is not None:
+            payload["context_length"] = num_ctx
+
+        # Reasoning mode: "off" | "low" | "medium" | "high" | "on"
+        if think is not None:
+            payload["reasoning"] = "on" if think else "off"
+
+        # System prompt (simple string form when input is a plain string)
+        if system and isinstance(input_val, str):
+            payload["system_prompt"] = system
+
+        resp = requests.post(url, json=payload, timeout=(30, self.timeout), stream=True)
+        resp.raise_for_status()
+
+        # Parse SSE stream
+        monitor = OutputMonitor(max_chars=max_chars) if max_chars else None
+        text_parts: list = []
+        thinking_parts: list = []
+        tokens = 0
+        aborted = False
+        abort_reason = ""
+
+        for raw_line in resp.iter_lines(decode_unicode=True):
+            if not raw_line:
+                continue
+            # SSE lines are prefixed with "data: "
+            line = raw_line
+            if line.startswith("data: "):
+                line = line[6:]
+            if not line or line == "[DONE]":
+                continue
+
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            event_type = event.get("type", "")
+
+            if event_type == "message.delta":
+                content = event.get("content", "")
+                text_parts.append(content)
+                if monitor and content:
+                    should_abort, reason = monitor.feed(content)
+                    if should_abort:
+                        aborted = True
+                        abort_reason = reason
+                        logger.warning("OutputMonitor aborted: %s", reason)
+                        break
+
+            elif event_type == "reasoning.delta":
+                thinking_parts.append(event.get("content", ""))
+
+            elif event_type == "chat.end":
+                result = event.get("result", {})
+                stats = result.get("stats", {})
+                tokens = stats.get("input_tokens", 0) + stats.get("total_output_tokens", 0)
+                # If we didn't get streaming deltas, extract from final result
+                if not text_parts:
+                    for item in result.get("output", []):
+                        if item.get("type") == "message":
+                            text_parts.append(item.get("content", ""))
+                        elif item.get("type") == "reasoning":
+                            thinking_parts.append(item.get("content", ""))
+                break
+
+            elif event_type == "error":
+                error_info = event.get("error", {})
+                raise RuntimeError(
+                    f"LM Studio error: {error_info.get('message', 'unknown')} "
+                    f"(type={error_info.get('type', '?')})"
+                )
+
+        resp.close()
+        text = "".join(text_parts)
+        thinking = "".join(thinking_parts)
+
+        # Handle repetition abort
+        if aborted and monitor:
+            text = monitor.truncate_to_good_content()
+            logger.info("Truncated output from %d to %d chars (%s)",
+                        len(monitor.buffer), len(text), abort_reason)
+
+        # Merge thinking + response (same logic as Ollama path)
+        if thinking and not text:
+            text = thinking
+        elif thinking and text:
+            text = f"<think>{thinking}</think>{text}"
+
+        return text, tokens
 
     def is_available(self) -> bool:
         """Check if the endpoint is reachable."""

@@ -90,10 +90,21 @@ async def _feature_gate_handler(request, exc: FeatureGateError):
     )
 
 
-# CORS for dashboard
+# CORS for dashboard (restricted to known origins)
+# In development, set CODRAG_CORS_ALLOW_ALL=1 to revert to allow_origins=["*"].
+_cors_origins = [
+    "http://localhost:*",
+    "http://127.0.0.1:*",
+    "https://localhost:*",
+    "tauri://localhost",
+    "https://tauri.localhost",
+]
+if os.environ.get("CODRAG_CORS_ALLOW_ALL"):
+    _cors_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins to rule out CORS issues
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

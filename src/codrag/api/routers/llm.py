@@ -47,12 +47,43 @@ from codrag.core.model_readiness import (
     ensure_model_ready,
 )
 
+# Known local LLM provider ports allowed on loopback
+_ALLOWED_LOCAL_PORTS = {11434, 1234, 1235}  # Ollama, LM Studio
+
 def is_safe_url(url: str, provider: str) -> bool:
-    """Basic SSRF protection: ensure URL is HTTP/HTTPS."""
+    """SSRF protection: ensure URL is HTTP/HTTPS and not targeting private networks.
+
+    Local providers (ollama, lm-studio) are allowed on specific ports.
+    Cloud metadata endpoints (169.254.x.x) are always blocked.
+    """
     try:
         parsed = urllib.parse.urlparse(url)
         if parsed.scheme not in ("http", "https"):
             return False
+
+        hostname = parsed.hostname or ""
+        port = parsed.port
+
+        # Always block cloud metadata endpoint (AWS/GCP/Azure)
+        if hostname in ("169.254.169.254", "metadata.google.internal"):
+            return False
+
+        # Local providers need loopback access
+        if provider in ("ollama", "lm-studio"):
+            return True
+
+        # For cloud providers, block private/reserved IP ranges
+        try:
+            resolved = socket.getaddrinfo(hostname, port, proto=socket.IPPROTO_TCP)
+            for _, _, _, _, sockaddr in resolved:
+                ip = ipaddress.ip_address(sockaddr[0])
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                    if ip.is_loopback and port in _ALLOWED_LOCAL_PORTS:
+                        return True
+                    return False
+        except (socket.gaierror, ValueError, OSError):
+            pass  # DNS resolution failed — allow (cloud endpoints may not resolve locally)
+
         return True
     except Exception:
         return False
@@ -587,6 +618,8 @@ def test_llm() -> Dict[str, Any]:
 @router.post("/api/llm/proxy/models")
 def proxy_models(req: LLMProxyRequest) -> Dict[str, Any]:
     url = req.url.rstrip("/")
+    if not is_safe_url(url, req.provider):
+        return ok({"models": [], "error": "Invalid or unsafe URL"})
     models: List[str] = []
     
     try:

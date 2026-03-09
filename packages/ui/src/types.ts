@@ -575,6 +575,8 @@ export interface LLMAssignmentBlock {
   tasks: CodragTaskId[];
   enable_reasoning?: boolean;
   always_on?: boolean;
+  /** Per-model LLM concurrency (1 or 2). Default: 1. Only for local endpoints. */
+  concurrency?: number;
 }
 
 // ============================================================
@@ -640,6 +642,8 @@ export interface LLMSlotConfig {
   endpoint_id?: string;
   model?: string;
   always_on?: boolean;
+  /** Per-model LLM concurrency (1 or 2). Default: 1. Only for local endpoints. */
+  concurrency?: number;
 }
 
 /**

@@ -50,10 +50,6 @@ export interface AIModelsSettingsProps {
   // Compute settings (moved from Global Settings → AI Gateway)
   maxActiveProjects?: number | 'infinite';
   onMaxActiveProjectsChange?: (val: number | 'infinite') => void;
-  concurrencyFast?: number;
-  concurrencyCode?: number;
-  concurrencyDeep?: number;
-  onConcurrencyChange?: (key: 'fast' | 'code' | 'deep', value: number) => void;
   schedulerStatus?: import('../../types').SchedulerStatus | null;
 
   // Compute node management (Phase 45D)
@@ -80,9 +76,9 @@ export interface AIModelsSettingsProps {
 // nomic-embed-text is the fallback for Ollama users.
 const RECOMMENDED_MODELS: Record<string, string[]> = {
   embedding: ['nomic-embed-text', 'nomic-embed-code'],
-  small: ['qwen3:4b',  'gemma3:4b'],
+  small: ['qwen3:8b', 'qwen3:14b', 'gemma3:12b'],
   large: ['qwen3:8b', 'qwen3:14b', 'qwen3:30b', 'gemma3:12b'],
-  code: ['qwen3-coder:30b', 'qwen2.5-coder:7b', 'qwen3:4b'],
+  code: ['qwen3-coder:30b', 'qwen2.5-coder:7b'],
 };
 
 /** Check if a model name matches an entry in the available list (handles ':latest' suffix) */
@@ -124,13 +120,11 @@ function ComputeNodePanel({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formName, setFormName] = useState('');
   const [formType, setFormType] = useState<'local' | 'remote' | 'cloud'>('local');
-  const [formConcurrency, setFormConcurrency] = useState(1);
   const [formGpuName, setFormGpuName] = useState('');
 
   const resetForm = () => {
     setFormName('');
     setFormType('local');
-    setFormConcurrency(1);
     setFormGpuName('');
     setAdding(false);
     setEditingId(null);
@@ -141,7 +135,7 @@ function ComputeNodePanel({
     onAdd({
       name: formName.trim(),
       type: formType,
-      max_concurrent: formConcurrency,
+      max_concurrent: 1,
       gpu_name: formGpuName.trim() || undefined,
       endpoint_ids: [],
     });
@@ -153,7 +147,6 @@ function ComputeNodePanel({
     onUpdate(editingId, {
       name: formName.trim(),
       type: formType,
-      max_concurrent: formConcurrency,
       gpu_name: formGpuName.trim() || undefined,
     });
     resetForm();
@@ -163,7 +156,6 @@ function ComputeNodePanel({
     setEditingId(node.id);
     setFormName(node.name);
     setFormType(node.type);
-    setFormConcurrency(node.max_concurrent);
     setFormGpuName(node.gpu_name || '');
     setAdding(false);
   };
@@ -229,16 +221,6 @@ function ComputeNodePanel({
                       className="w-full bg-surface border border-border rounded px-2 py-1.5 text-xs text-text focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-medium text-text-muted mb-1">Max Concurrent</label>
-                    <Select
-                      size="sm"
-                      value={String(formConcurrency)}
-                      onChange={(e) => setFormConcurrency(parseInt(e.target.value))}
-                      options={[1, 2, 3, 4, 6, 8].map((n) => ({ value: String(n), label: String(n) }))}
-                      className="w-full"
-                    />
-                  </div>
                 </div>
                 <div className="flex gap-2 justify-end">
                   <Button onClick={resetForm} variant="outline" size="sm">Cancel</Button>
@@ -266,7 +248,6 @@ function ComputeNodePanel({
                   {endpointCount} endpoint{endpointCount !== 1 ? 's' : ''}
                   {node.gpu_name ? ` · ${node.gpu_name}` : ''}
                   {node.gpu_vram_gb ? ` · ${node.gpu_vram_gb}GB` : ''}
-                  {' · '}{node.max_concurrent} slot{node.max_concurrent !== 1 ? 's' : ''}
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -332,16 +313,6 @@ function ComputeNodePanel({
                 className="w-full bg-surface border border-border rounded px-2 py-1.5 text-xs text-text focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
-            <div>
-              <label className="block text-[10px] font-medium text-text-muted mb-1">Max Concurrent</label>
-              <Select
-                size="sm"
-                value={String(formConcurrency)}
-                onChange={(e) => setFormConcurrency(parseInt(e.target.value))}
-                options={[1, 2, 3, 4, 6, 8].map((n) => ({ value: String(n), label: String(n) }))}
-                className="w-full"
-              />
-            </div>
           </div>
           <div className="flex gap-2 justify-end">
             <Button onClick={resetForm} variant="outline" size="sm">Cancel</Button>
@@ -351,7 +322,7 @@ function ComputeNodePanel({
       )}
 
       <p className="text-[9px] text-text-muted opacity-70">
-        Assign endpoints to compute nodes to control which hardware runs each model. Concurrency slots are managed per node.
+        Assign endpoints to compute nodes to control which hardware runs each model.
       </p>
     </div>
   );
@@ -378,10 +349,6 @@ export function AIModelsSettings({
   className,
   maxActiveProjects,
   onMaxActiveProjectsChange,
-  concurrencyFast = 1,
-  concurrencyCode: _concurrencyCode = 1,
-  concurrencyDeep: _concurrencyDeep = 1,
-  onConcurrencyChange,
   schedulerStatus,
   computeNodes,
   onComputeNodeAdd,
@@ -484,6 +451,15 @@ export function AIModelsSettings({
       )
     });
   };
+
+  const handleBlockConcurrencyChange = (blockId: string, concurrency: number) => {
+    onConfigChange({
+      ...config,
+      assignment_blocks: (config.assignment_blocks || []).map(b => 
+        b.id === blockId ? { ...b, concurrency } : b
+      )
+    });
+  };
   
   const handleEmbeddingSourceChange = (source: ModelSource) => {
     onClearTestResult?.('embedding');
@@ -555,6 +531,13 @@ export function AIModelsSettings({
       small_model: { ...config.small_model, always_on },
     });
   };
+
+  const handleSmallConcurrencyChange = (concurrency: number) => {
+    onConfigChange({
+      ...config,
+      small_model: { ...config.small_model, concurrency },
+    });
+  };
   
   const handleLargeModelEndpointChange = async (endpointId: string) => {
     onClearTestResult?.('large');
@@ -587,6 +570,13 @@ export function AIModelsSettings({
       large_model: { ...config.large_model, always_on },
     });
   };
+
+  const handleLargeConcurrencyChange = (concurrency: number) => {
+    onConfigChange({
+      ...config,
+      large_model: { ...config.large_model, concurrency },
+    });
+  };
   
   const handleCodeModelEndpointChange = async (endpointId: string) => {
     onClearTestResult?.('code');
@@ -617,6 +607,13 @@ export function AIModelsSettings({
     onConfigChange({
       ...config,
       code_model: { ...config.code_model, always_on },
+    });
+  };
+
+  const handleCodeConcurrencyChange = (concurrency: number) => {
+    onConfigChange({
+      ...config,
+      code_model: { ...config.code_model, concurrency },
     });
   };
   
@@ -888,6 +885,8 @@ export function AIModelsSettings({
                 model={config.small_model.model}
                 alwaysOn={config.small_model.always_on}
                 onAlwaysOnChange={handleSmallAlwaysOnChange}
+                concurrency={config.small_model.concurrency ?? 1}
+                onConcurrencyChange={handleSmallConcurrencyChange}
                 endpoints={config.saved_endpoints}
                 onEndpointChange={handleSmallModelEndpointChange}
                 availableModels={availableModels[config.small_model.endpoint_id || ''] || []}
@@ -915,6 +914,8 @@ export function AIModelsSettings({
                 model={config.code_model?.model}
                 alwaysOn={config.code_model?.always_on}
                 onAlwaysOnChange={handleCodeAlwaysOnChange}
+                concurrency={config.code_model?.concurrency ?? 1}
+                onConcurrencyChange={handleCodeConcurrencyChange}
                 endpoints={config.saved_endpoints}
                 onEndpointChange={handleCodeModelEndpointChange}
                 availableModels={availableModels[config.code_model?.endpoint_id || ''] || []}
@@ -941,6 +942,8 @@ export function AIModelsSettings({
                 model={config.large_model.model}
                 alwaysOn={config.large_model.always_on}
                 onAlwaysOnChange={handleLargeAlwaysOnChange}
+                concurrency={config.large_model.concurrency ?? 1}
+                onConcurrencyChange={handleLargeConcurrencyChange}
                 endpoints={config.saved_endpoints}
                 onEndpointChange={handleLargeModelEndpointChange}
                 availableModels={availableModels[config.large_model.endpoint_id || ''] || []}
@@ -978,6 +981,7 @@ export function AIModelsSettings({
                   onRemoveTask={handleBlockRemoveTask}
                   onEnableReasoningChange={handleBlockEnableReasoningChange}
                   onAlwaysOnChange={handleBlockAlwaysOnChange}
+                  onConcurrencyChange={handleBlockConcurrencyChange}
                   onDelete={handleBlockDelete}
                   onTest={onAssignmentBlockTest ? (bid) => onAssignmentBlockTest(bid) : undefined}
                   testResult={assignmentBlockTestResults[block.id]}
@@ -1010,7 +1014,7 @@ export function AIModelsSettings({
       />
 
       {/* Compute Profile */}
-      {(onMaxActiveProjectsChange || onConcurrencyChange) && (
+      {onMaxActiveProjectsChange && (
         <div className="rounded-lg border border-border bg-surface p-4 space-y-4">
           <div className="flex items-center gap-2">
             <svg className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" /><rect x="9" y="9" width="6" height="6" /><line x1="9" y1="1" x2="9" y2="4" /><line x1="15" y1="1" x2="15" y2="4" /><line x1="9" y1="20" x2="9" y2="23" /><line x1="15" y1="20" x2="15" y2="23" /><line x1="20" y1="9" x2="23" y2="9" /><line x1="20" y1="14" x2="23" y2="14" /><line x1="1" y1="9" x2="4" y2="9" /><line x1="1" y1="14" x2="4" y2="14" /></svg>
@@ -1040,44 +1044,6 @@ export function AIModelsSettings({
               <p className="text-[10px] text-text-muted leading-relaxed">
                 How many projects can run LLM pipelines simultaneously.
               </p>
-            </div>
-          )}
-
-          {onConcurrencyChange && (
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-text-subtle">LLM Concurrency</label>
-              <p className="text-[10px] text-text-muted leading-relaxed">
-                How many LLM requests run simultaneously on your local hardware.
-                Embeddings run independently via ONNX and are not affected.
-              </p>
-              <div className="flex gap-1">
-                {[1, 2, 3, 4, 6, 8].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => {
-                      onConcurrencyChange('fast', n);
-                      onConcurrencyChange('code', Math.min(n, 3));
-                      onConcurrencyChange('deep', Math.min(n, 4));
-                    }}
-                    className={cn(
-                      'flex-1 py-1.5 text-xs font-medium rounded border transition-colors',
-                      concurrencyFast === n
-                        ? 'bg-primary/10 border-primary/40 text-primary'
-                        : 'bg-surface-raised border-border text-text-muted hover:text-text hover:border-border'
-                    )}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-              <div className="text-[10px] text-text-muted bg-surface-raised p-2.5 rounded border border-border leading-relaxed space-y-1">
-                <p><strong className="text-text">Guidance:</strong></p>
-                <p><strong>1</strong> — Single GPU, 8-16GB (Mac M1/M2, RTX 3060, any 8b+ model)</p>
-                <p><strong>2</strong> — 16-32GB (Mac M3/M4, RTX 3070/4060, 4b models)</p>
-                <p><strong>4</strong> — 32-48GB (Mac Pro/Ultra, RTX 4090, 4-8b models)</p>
-                <p><strong>6+</strong> — 64GB+ or multi-GPU (Mac Ultra 128GB, dual 4090)</p>
-                <p className="mt-1 opacity-70">Each concurrent request uses its own KV cache in VRAM. When in doubt, start at 1.</p>
-              </div>
             </div>
           )}
 
@@ -1147,7 +1113,7 @@ export function AIModelsSettings({
           <ul className="text-xs text-text-muted space-y-1.5 list-disc pl-4">
             <li><strong>Embedding:</strong> nomic-embed-text-v1.5 (Built-in ONNX — no Ollama needed)</li>
             <li>
-              <strong>Fast:</strong> <a href="https://ollama.com/library/qwen3" target="_blank" rel="noreferrer" className="text-primary hover:underline">qwen3:4b</a> (2.5GB) — rivals 72B models at this size. Alt: qwen3:1.7b for low VRAM
+              <strong>Fast:</strong> <a href="https://ollama.com/library/qwen3" target="_blank" rel="noreferrer" className="text-primary hover:underline">qwen3:8b</a> (5.2GB) — strong quality for fast tasks. Alt: qwen3:14b (9.3GB) for better output
             </li>
             <li>
               <strong>Thinking:</strong> <a href="https://ollama.com/library/qwen3" target="_blank" rel="noreferrer" className="text-primary hover:underline">qwen3:8b</a> (5.2GB) — strong reasoning. Alt: qwen3:14b (9.3GB) or qwen3:30b MoE (19GB) for better quality
