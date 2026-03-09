@@ -1,0 +1,35 @@
+[
+  {
+    "group_id": "2f07f5eb4f",
+    "member_count": 2,
+    "duration_s": 100.7,
+    "tokens": 3478,
+    "parsed_ok": true,
+    "pattern": "Requirement-Implementation Traceability",
+    "coupling_risks": 3,
+    "confidence": 0.85,
+    "architectural_insight": "This group represents a meta-architectural coupling where project management artifacts directly influence the implementation lifecycle of a UI component. The design quality is contingent on developer discipline rather than enforced structural constraints, creating a potential single point of failure"
+  },
+  {
+    "group_id": "ba7ba3fbd3",
+    "member_count": 2,
+    "duration_s": 184.7,
+    "tokens": 5979,
+    "parsed_ok": true,
+    "pattern": "Builder Pattern",
+    "coupling_risks": 4,
+    "confidence": 0.85,
+    "architectural_insight": "This unit demonstrates a Specification-Driven Design where documentation acts as the conceptual contract for the Builder implementation. While this ensures clear intent, it introduces a synchronization risk where code and spec can diverge without automated validation. To improve robustness, the docu"
+  },
+  {
+    "group_id": "67e112b36e",
+    "member_count": 15,
+    "duration_s": 144.0,
+    "tokens": 6242,
+    "parsed_ok": true,
+    "pattern": "Local-First Client-Server Architecture",
+    "coupling_risks": 4,
+    "confidence": 0.95,
+    "architectural_insight": "The project utilizes a Documentation-Driven approach where architectural contracts are explicitly defined in Markdown files before or alongside implementation, ensuring clarity on Local-First constraints. However, this creates a brittle maintenance model where documentation is tightly coupled to spe"
+  }
+]

@@ -1,0 +1,35 @@
+[
+  {
+    "group_id": "2f07f5eb4f",
+    "member_count": 2,
+    "duration_s": 112.0,
+    "tokens": 3916,
+    "parsed_ok": true,
+    "pattern": "Requirement-Code Traceability",
+    "coupling_risks": 4,
+    "confidence": 0.85,
+    "architectural_insight": "This group exemplifies a decoupled planning layer where requirements are externalized from the codebase, enhancing roadmap visibility but introducing synchronization overhead. The lack of automated linkage between the TODO and code creates a high risk of documentation rot if manual updates are not e"
+  },
+  {
+    "group_id": "ba7ba3fbd3",
+    "member_count": 2,
+    "duration_s": 126.4,
+    "tokens": 4363,
+    "parsed_ok": true,
+    "pattern": "Design Specification & Implementation",
+    "coupling_risks": 3,
+    "confidence": 0.9,
+    "architectural_insight": "This group exemplifies a 'Design-First' approach where documentation serves as the primary source of architectural truth for the configuration layer. While this ensures clarity in complex domains like AI safety and persona management, it introduces a significant maintenance burden where code and doc"
+  },
+  {
+    "group_id": "67e112b36e",
+    "member_count": 15,
+    "duration_s": 38.1,
+    "tokens": 3123,
+    "parsed_ok": true,
+    "pattern": "Documentation-Driven Client-Server Architecture",
+    "coupling_risks": 5,
+    "confidence": 0.92,
+    "architectural_insight": "This is a documentation-first architecture where design specifications precede implementation, creating strong traceability between intent and code. The heavy coupling between documentation and specific implementation files (especially vite.config.ts and app.py) creates a maintenance burden where co"
+  }
+]

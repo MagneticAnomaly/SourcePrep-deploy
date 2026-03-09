@@ -636,7 +636,7 @@ def configure(
                 is_stale = staleness.get("is_stale", True)
                 
                 trace_idx = _bm.get_project_trace_index(proj)
-                has_graph = trace_idx is not None and trace_idx.node_count > 0
+                has_graph = trace_idx is not None and trace_idx.node_count() > 0
                 
                 needs_fast_sync = is_stale or not has_graph
                 

@@ -231,7 +231,8 @@ function computeAtlasState(
   atlas?: AtlasStatus,
   running?: boolean,
   deepeningRunning?: boolean,
-  deepKnowledgeBuilding?: boolean
+  deepKnowledgeBuilding?: boolean,
+  deep?: DeepeningStatus
 ): StageState {
   // SSE flags are always fresh — check them before stale status data
   if (deepeningRunning || deepKnowledgeBuilding) return 'complete';
@@ -240,6 +241,11 @@ function computeAtlasState(
   if (!ep || !ep.enabled || ep.enriched_nodes === 0) return 'disabled';
   if (!mod || !mod.enabled || mod.module_count === 0) return 'disabled';
   if (!atlas || !atlas.exists) return 'not_built';
+  // If deepening has run (stage AFTER atlas), atlas was built in this pipeline run.
+  // Deepening updates epistemic data which changes module fingerprints, causing
+  // atlas.is_stale() to return true even though atlas was just generated.
+  // Treat as complete if a later stage has already produced data.
+  if (deep && deep.total_scored > 0) return 'complete';
   if (atlas.stale) return 'stale';
   return 'complete';
 }
@@ -258,8 +264,8 @@ function computeDeepeningState(
   if (!ep || !ep.enabled || ep.enriched_nodes === 0) return 'disabled';
   if (!mod || !mod.enabled || mod.module_count === 0) return 'disabled';
   if (!deep || deep.total_scored === 0) return 'not_built';
-  if (deep.settled_ratio >= 0.90) return 'complete';
-  if (deep.settled_ratio >= 0.5) return 'stale';
+  if (deep.settled_ratio >= 0.70) return 'complete';
+  if (deep.settled_ratio >= 0.40) return 'stale';
   return 'warning';
 }
 
@@ -596,7 +602,7 @@ export function GraphEnrichmentPipeline({
   })();
 
   // 6. Atlas Building (Thinking)
-  const atlasState = computeAtlasState(epistemic, modules, atlas, atlasRunning, deepeningRunning, deepKnowledgeBuilding);
+  const atlasState = computeAtlasState(epistemic, modules, atlas, atlasRunning, deepeningRunning, deepKnowledgeBuilding, deepening);
   const atlasStats = (() => {
     if (atlasState === 'running') return 'Building atlas...';
     if (atlasState === 'disabled') return 'Waiting for modules';

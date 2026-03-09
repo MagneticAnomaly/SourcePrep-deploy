@@ -584,7 +584,7 @@ export interface LLMAssignmentBlock {
 /**
  * Provider types for LLM endpoints
  */
-export type LLMProvider = 'ollama' | 'openai' | 'openai-compatible' | 'lm-studio' | 'anthropic';
+export type LLMProvider = 'ollama' | 'openai' | 'openai-compatible' | 'lm-studio' | 'anthropic' | 'google';
 
 /**
  * Model source for embedding

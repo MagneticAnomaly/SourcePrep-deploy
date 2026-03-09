@@ -204,13 +204,21 @@ class ScheduleEvaluator:
     def _do_evaluate(self) -> None:
         config = self._get_schedule_config()
         mode = config.get("mode", "manual")
-        if mode != "scheduled":
-            return
 
-        interval_minutes = config.get("interval_minutes", 60)
-        threshold_percent = config.get("threshold_percent", 20)
+        # Phase 48 (P48-F6): Handle both 'scheduled' and 'auto' modes.
+        # In auto mode, periodically check if there's unconverged deepening
+        # work that needs more passes (the watcher handles file changes,
+        # but this handles convergence-only re-triggers).
+        if mode == "auto":
+            interval_minutes = 2  # Check every 2 minutes in auto mode
+            threshold_percent = 0
+        elif mode == "scheduled":
+            interval_minutes = config.get("interval_minutes", 60)
+            threshold_percent = config.get("threshold_percent", 20)
+        else:
+            return  # manual mode — nothing to evaluate
 
-        if interval_minutes <= 0 and threshold_percent <= 0:
+        if interval_minutes <= 0 and threshold_percent <= 0 and mode != "auto":
             return  # Nothing to trigger
 
         # Get all projects

@@ -1,0 +1,107 @@
+IDENTITY: Halley Core is a local-first AI persona system managing autonomous agent cognition, memory persistence, and multimodal roleplay interactions through a hybrid Rust-Tauri desktop and Python-React architecture.
+STACK: Python, TypeScript, React, Tauri, Rust, Tailwind CSS, Radix UI, Ollama, ComfyUI, Diffusers, RunPod CLI.
+ARCHITECTURE: The system follows a layered architecture with business logic in Python and TypeScript, presentation in React, and infrastructure in Rust and Python. The halley_core/api/app.py serves as the central API gateway connecting frontend components like halley_core/frontend/vite.config.ts to backend services. The architecture separates concerns into persona management, memory systems, and inference orchestration, with the halley_core/frontend directory housing UI primitives and the halley_core/api directory managing LLM providers.
+SUBSYSTEMS:
+Halley Core Persona & Memory System: halley_core/core/persona.py, halley_core/core/memory.py
+Roleplay (Halley Core) #34: halley_core/frontend/components/TabbedSelector.tsx, halley_core/frontend/components/PersonasDialog.tsx
+Roleplay Data & Persona Management: halley_core/data/persistence.py, halley_core/data/backup.py
+Roleplay (Halley Core) #13: halley_core/core/cognitive.py, halley_core/core/state.py
+Halley Core AI Framework: halley_core/framework/orchestration.py, halley_core/framework/memory.py
+Halley Core Resource & Task Orchestration: halley_core/resources/gpu_monitor.py, halley_core/resources/task_scheduler.py
+Roleplay Chat Interface (Halley Core): halley_core/chat/interface.py, halley_core/chat/state.py
+Memory Quality Analysis System: halley_core/analysis/memory_quality.py
+Halley Core Persona Vision & Identity Infrastructure: halley_core/vision/identity.py, halley_core/vision/clip.py
+Roleplay Core: halley_core/core/identity.py, halley_core/core/drift.py
+Roleplay Image Generation Subsystem: halley_core/images/generation.py, halley_core/images/compatibility.py
+Roleplay Subsystem (Halley Core) #2: halley_core/subsystem2/orchestration.py, halley_core/subsystem2/resources.py
+Roleplay (Halley Core): halley_core/memory/v2.py, halley_core/memory/legacy.py
+Roleplay (Halley Core) #35: halley_core/config/persona.py, halley_core/config/storage.py
+PuLID Identity-Preserving Generation: halley_core/pulid/generation.py, halley_core/pulid/face.py
+Roleplay (Halley Core) #9: halley_core/daemon/scheduler.py, halley_core/daemon/generation.py
+Roleplay (Halley Core) #28: halley_core/ui/speak.py, halley_core/ui/dialog.py
+Roleplay Persona & Scheduling Subsystem: halley_core/persona/scheduling.py, halley_core/persona/profile.py
+Halley Core Resilience and Prompt Management: halley_core/resilience/error.py, halley_core/resilience/prompt.py
+Roleplay (Halley Core) #6: halley_core/media/pipeline.py, halley_core/media/vram.py
+Roleplay Cognitive Core: halley_core/cognitive/core.py, halley_core/cognitive/beliefs.py
+Roleplay Scene & Persona Orchestration: halley_core/scene/orchestration.py, halley_core/scene/parser.py
+Roleplay Narrative Engine: halley_core/narrative/engine.py, halley_core/narrative/parser.py
+Roleplay (Halley Core) #48: halley_core/rag/ingestion.py, halley_core/rag/adapter.py
+Personality Interaction & Visualization: halley_core/ui/personality.py, halley_core/ui/mbti.py
+Halley Local-First Ethos & Documentation: Docs_Halley/ETHOS.md, Docs_Halley/memory.md
+Roleplay Subsystem (Halley Core): halley_core/subsystem_health/monitor.py, halley_core/subsystem_health/api.py
+Roleplay Memory Evaluation & Scoring: halley_core/evaluation/scoring.py, halley_core/evaluation/crag.py
+Roleplay Media Generation Subsystem: halley_core/media/generation.py, halley_core/media/providers.py
+Roleplay (Halley Core) #8: halley_core/infra/models.py, halley_core/infra/providers.py
+Roleplay Memory & Context Orchestration: halley_core/context/orchestration.py, halley_core/context/budget.py
+Roleplay (Halley Core) #14: halley_core/prompt/dynamic.py, halley_core/prompt/cycling.py
+Halley Persona Management Subsystem: halley_core/persona/management.py, halley_core/persona/conflict.py
+Roleplay (Halley Core) #15: halley_core/ui/websocket.py, halley_core/ui/backup.py
+Halley Helper Desktop Application: halley_helper/main.rs, halley_helper/src/lib.rs
+Roleplay (Halley Core) #29: halley_core/logging/logger.py, halley_core/logging/metrics.py
+Image Generation: halley_core/images/prompts.py, halley_core/images/config.py
+Memory Quality Analysis Subsystem (Halley Core) #2: halley_core/analysis/specs.py
+Memory Quality Analysis Subsystem (Halley Core): halley_core/analysis/prompts.py
+Memory Quality Analysis Agent: halley_core/agent/prompts.py
+Roleplay (Halley Core) #44: halley_core/ui/tts.py, halley_core/ui/photos.py
+Roleplay Memory System v2: halley_core/memory/v2_system.py, halley_core/memory/consolidation.py
+Roleplay (Halley Core) #61: halley_core/evaluation/deterioration.py, halley_core/evaluation/protocol.py
+Roleplay Identity Encoder: halley_core/identity/encoder.py, halley_core/identity/adapter.py
+Roleplay (Halley Core) #26: halley_core/rag/self_rag.py, halley_core/rag/ui.py
+World Management Subsystem: halley_core/worlds/management.py, halley_core/worlds/api.py
+Roleplay (Halley Core) #10: halley_core/persona/generation.py, halley_core/persona/images.py
+Roleplay (Halley Core) #11: halley_core/media/orchestration.py, halley_core/media/providers.py
+Roleplay Memory Subsystem: halley_core/memory/subsystem.py, halley_core/memory/remediation.py
+Roleplay Error Handling & Observability: halley_core/errors/handling.py, halley_core/errors/observability.py
+Roleplay Visual Identity & Model Configuration: halley_core/visual/config.py, halley_core/visual/upload.py
+Roleplay Visual Identity & Image Generation: halley_core/visual/generation.py, halley_core/visual/models.py
+Roleplay Temporal Analytics: halley_core/analytics/temporal.py, halley_core/analytics/patterns.py
+Worlds and Roleplay Configuration: halley_core/config/worlds.py, halley_core/config/settings.py
+Roleplay Subsystem (Halley Helper): halley_helper/api/gpu.py, halley_helper/api/persona.py
+Roleplay (Halley Core) #2: halley_core/api/routes.py, halley_core/api/state.py
+Roleplay (Halley Core) #18: halley_core/api/routes.py, halley_core/frontend/App.tsx
+Roleplay (Halley Core) #33: halley_core/api/docs.py, halley_core/frontend/media.py
+Roleplay (Halley Core) #59: halley_core/cognitive/autonomous.py, halley_core/cognitive/memory.py
+Roleplay (Halley Helper App) #3: halley_helper/frontend/index.tsx, halley_core/frontend/index.tsx
+Halley Tauri Application Entry Point: halley_helper/src/main.rs, halley_helper/src-tauri/src/lib.rs
+Roleplay Retrieval Subsystem: halley_core/retrieval/subsystem.py, halley_core/retrieval/search.py
+CLaRa Context Compression Subsystem: halley_core/compression/clara.py, halley_core/compression/config.py
+Roleplay Persona Core: halley_core/persona/core.py, halley_core/persona/emotions.py
+Roleplay (Halley Helper App) #4: halley_helper/frontend/tailwind.config.js, halley_core/frontend/tailwind.config.js
+Roleplay (Documentation) #3: halley_core/docs/migration.py, halley_core/docs/config.py
+Roleplay Context Management: halley_core/context/management.py, halley_core/context/budget.py
+Roleplay (Halley Helper App) #2: halley_helper/frontend/dashboard.tsx, halley_helper/src/gpu.rs
+Roleplay Optimization Monitoring: halley_core/monitoring/optimization.py, halley_core/monitoring/sse.py
+Roleplay (Halley Helper): halley_helper/docs/airllm.md, halley_helper/docs/optimization.md
+Roleplay Documentation Hub: Docs_Halley/_MASTER_CROSSREFERENCE/README.md, Docs_Halley/README.md
+RunPod CLI Automation: runpodctl/main.py, runpodctl/docs/README.md
+Roleplay (.): runpodctl/CHANGELOG.md
+Halley Helper GPU Service: halley_helper/gpu/service.py, halley_helper/gpu/docs/README.md
+Roleplay Video Generation Providers: halley_core/video/providers.py
+Roleplay TTS Core: halley_core/tts/core.py
+Roleplay (Halley Core) #39: halley_core/ui/button.tsx
+Roleplay (Halley Core) #40: halley_core/ui/confirm.tsx, halley_core/ui/toast.tsx
+Roleplay (Halley Core) #42: halley_core/ui/textarea.tsx
+Roleplay Adaptive Sampling: halley_core/sampling/adaptive.py
+Roleplay Structured Persona Generator: halley_core/generator/persona.py
+Roleplay (Documentation): Docs_Halley/roleplay_architecture.md
+Roleplay Evaluation Subsystem: halley_core/evaluation/llm_judge.py
+Roleplay Scenario Builder: halley_core/scenario/builder.tsx
+Roleplay (Halley Core) #4: halley_core/data/schema.py
+Roleplay Memory Architecture: Docs_Halley/memory_architecture.md
+Persona Management Subsystem: halley_core/types/persona.ts
+Roleplay Onboarding: halley_core/onboarding/wizard.tsx
+Roleplay (Halley Core) #27: halley_core/settings/hub.tsx
+Roleplay (Halley Core) #23: halley_core/ui/image_viewer.tsx
+Roleplay Scenario Generator: halley_core/scenario/generator.py
+Roleplay (Halley Core) #25: halley_core/ui/face_generation.tsx
+Roleplay (Halley Core) #71: halley_core/ollama/provider.py
+Roleplay (Halley Core) #72: halley_core/llm/adapter.py
+Roleplay (Halley Core) #54: halley_core/tools/orchestration.py
+Roleplay Memory Classification: halley_core/memory/classifier.py
+Roleplay (Scripts) #2: halley_core/scripts/clothing.py
+Roleplay Tool Registry: halley_core/tools/registry.py
+Roleplay (.) #4: Docs_Halley/roadmap.md
+Roleplay (Halley Core) #55: halley_core/persistence/layer.py
+FLOW: User interaction begins at halley_core/frontend/index.tsx or halley_helper/frontend/index.tsx, routing through halley_core/frontend/App.tsx to the chat interface. Requests pass to halley_core/api/app.py, which routes to specific subsystems like halley_core/core/persona.py for persona logic or halley_core/ollama/provider.py for inference. Data flows to halley_core/memory/v2_system.py for storage, then to halley_core/resources/gpu_monitor.py for resource allocation. Responses return via halley_core/api/app.py to the frontend, with error handling managed by halley_core/resilience/error.py.
+PATTERNS: The system uses a provider pattern for AI models (halley_core/llm/adapter.py, halley_core/media/providers.py) and a facade pattern for image generation (halley_core/images/generation.py). Dependency injection is used for tool registration (halley_core/tools/registry.py). Error handling follows a centralized resilience model (halley_core/resilience/error.py) with circuit breakers.
+RISKS: Test scripts in Halley Core Persona & Memory System contain hardcoded absolute paths and magic numbers. Roleplay Data & Persona Management has hardcoded polling intervals and inconsistent error handling. Roleplay (Halley Core) #13 relies on placeholder JSX for UI migration. Halley Core Resource & Task Orchestration has incomplete ComfyUI and AMD GPU support. PuLID Identity-Preserving Generation has hardcoded paths and brittle state parsing. Roleplay (Halley Core) #9 has unimplemented CoreML and Mochi backends. Roleplay Narrative Engine relies on silent fallbacks for missing libraries. Roleplay (Halley Core) #48 lacks robust model metadata retrieval. Roleplay (Halley Core) #15 has WebSocket reconnection limitations. Roleplay (Halley Core) #14 has deprecated legacy modules. Roleplay (Halley Core) #55 has incomplete regeneration logic. Roleplay (Scripts) #2 has hardcoded server IPs and security risks. Roleplay (.) #4 has unresolved legacy references and missing testing.

@@ -9,7 +9,6 @@ import {
   Sidebar,
   ProjectList,
   TeamSyncIndicator,
-  SyncStatusCard,
   // Dashboard
   ModularDashboard,
   // Project

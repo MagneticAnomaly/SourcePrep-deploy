@@ -341,6 +341,284 @@ def ollama_ensure_ready(
 
 
 # ---------------------------------------------------------------------------
+# LM Studio readiness helpers (v1 REST API — LM Studio 0.4+)
+# ---------------------------------------------------------------------------
+
+def _lmstudio_api_base(url: str) -> str:
+    """Normalise an LM Studio endpoint URL to the /api/v1 base.
+
+    Users typically configure ``http://localhost:1234`` as the endpoint.
+    The native management API lives at ``/api/v1/*`` (NOT the
+    OpenAI-compat ``/v1/*`` path).
+    """
+    url = url.rstrip("/")
+    if url.endswith("/api/v1"):
+        return url
+    if url.endswith("/v1"):
+        url = url[:-3]
+    return f"{url}/api/v1"
+
+
+def _lmstudio_key_matches(key: str, model: str) -> bool:
+    """Check if an LM Studio model key matches the user-provided model name.
+
+    LM Studio keys use ``publisher/model-name`` format (e.g.
+    ``qwen/qwen3-4b-2507``).  We accept a match if:
+    - Exact match (case-insensitive)
+    - Key ends with the model name (publisher prefix stripped)
+    - Model contains the key or vice versa
+    """
+    key_l = key.lower().strip()
+    model_l = model.lower().strip()
+    if key_l == model_l:
+        return True
+    if key_l.endswith(f"/{model_l}"):
+        return True
+    if model_l.endswith(f"/{key_l}"):
+        return True
+    if model_l in key_l or key_l in model_l:
+        return True
+    return False
+
+
+def lmstudio_server_reachable(url: str) -> bool:
+    """Return True if the LM Studio server responds to a lightweight probe."""
+    try:
+        base = _lmstudio_api_base(url)
+        r = requests.get(f"{base}/models", timeout=_QUICK_TIMEOUT)
+        return r.status_code == 200
+    except Exception:
+        return False
+
+
+def lmstudio_model_exists(url: str, model: str) -> bool:
+    """Check whether *model* is available (downloaded) in LM Studio."""
+    try:
+        base = _lmstudio_api_base(url)
+        r = requests.get(f"{base}/models", timeout=_QUICK_TIMEOUT)
+        if r.status_code != 200:
+            return False
+        for m in r.json().get("models", []):
+            if _lmstudio_key_matches(m.get("key", ""), model):
+                return True
+        return False
+    except Exception:
+        return False
+
+
+def lmstudio_model_loaded(url: str, model: str) -> bool:
+    """Check whether *model* is currently loaded into memory."""
+    try:
+        base = _lmstudio_api_base(url)
+        r = requests.get(f"{base}/models", timeout=_QUICK_TIMEOUT)
+        if r.status_code != 200:
+            return False
+        for m in r.json().get("models", []):
+            if _lmstudio_key_matches(m.get("key", ""), model):
+                if m.get("loaded_instances"):
+                    return True
+        return False
+    except Exception:
+        return False
+
+
+def lmstudio_list_loaded(url: str) -> List[str]:
+    """Return keys of all models currently loaded in LM Studio."""
+    try:
+        base = _lmstudio_api_base(url)
+        r = requests.get(f"{base}/models", timeout=_QUICK_TIMEOUT)
+        if r.status_code != 200:
+            return []
+        return [m.get("key", "") for m in r.json().get("models", []) if m.get("loaded_instances")]
+    except Exception:
+        return []
+
+
+def _lmstudio_resolve_key(url: str, model: str) -> Optional[str]:
+    """Resolve a user-provided model name to the exact LM Studio model key."""
+    try:
+        base = _lmstudio_api_base(url)
+        r = requests.get(f"{base}/models", timeout=_QUICK_TIMEOUT)
+        if r.status_code != 200:
+            return None
+        for m in r.json().get("models", []):
+            key = m.get("key", "")
+            if _lmstudio_key_matches(key, model):
+                return key
+        return None
+    except Exception:
+        return None
+
+
+def _lmstudio_get_instance_id(url: str, model: str) -> Optional[str]:
+    """Get the instance_id of a loaded model (needed for unload)."""
+    try:
+        base = _lmstudio_api_base(url)
+        r = requests.get(f"{base}/models", timeout=_QUICK_TIMEOUT)
+        if r.status_code != 200:
+            return None
+        for m in r.json().get("models", []):
+            if _lmstudio_key_matches(m.get("key", ""), model):
+                instances = m.get("loaded_instances", [])
+                if instances:
+                    return instances[0].get("id", m.get("key", ""))
+        return None
+    except Exception:
+        return None
+
+
+def lmstudio_load(
+    url: str,
+    model: str,
+    timeout_s: int = _PRELOAD_TIMEOUT,
+    context_length: Optional[int] = None,
+) -> bool:
+    """Load a model into memory via ``POST /api/v1/models/load``.
+
+    Returns True if the model was successfully loaded.
+
+    Args:
+        context_length: Max context length for the model.  If None,
+                        LM Studio uses its default for the model.
+    """
+    base = _lmstudio_api_base(url)
+    resolved_key = _lmstudio_resolve_key(url, model)
+    if resolved_key is None:
+        logger.error("LM Studio: model '%s' not found on %s", model, url)
+        return False
+
+    payload: Dict[str, Any] = {"model": resolved_key}
+    if context_length is not None:
+        payload["context_length"] = context_length
+
+    try:
+        r = requests.post(f"{base}/models/load", json=payload, timeout=timeout_s)
+        if r.status_code == 200:
+            data = r.json()
+            load_time = data.get("load_time_seconds", "?")
+            logger.info("LM Studio: loaded '%s' (instance=%s, %.1fs)",
+                        resolved_key, data.get("instance_id", "?"),
+                        float(load_time) if load_time != "?" else 0)
+            return True
+        if lmstudio_model_loaded(url, model):
+            logger.info("LM Studio: '%s' already loaded", resolved_key)
+            return True
+        logger.warning("LM Studio load '%s' returned %d: %s",
+                        resolved_key, r.status_code, r.text[:300])
+        return False
+    except requests.Timeout:
+        if lmstudio_model_loaded(url, model):
+            return True
+        logger.warning("LM Studio load '%s' timed out after %ds", resolved_key, timeout_s)
+        return False
+    except Exception as e:
+        logger.warning("LM Studio load '%s' failed: %s", resolved_key, e)
+        return False
+
+
+def lmstudio_unload(url: str, model: str) -> bool:
+    """Unload a model from memory via ``POST /api/v1/models/unload``."""
+    base = _lmstudio_api_base(url)
+    instance_id = _lmstudio_get_instance_id(url, model)
+    if instance_id is None:
+        logger.debug("LM Studio: '%s' not loaded, nothing to unload", model)
+        return True
+    try:
+        r = requests.post(f"{base}/models/unload", json={"instance_id": instance_id}, timeout=10)
+        if r.status_code == 200:
+            logger.info("LM Studio: unloaded '%s' (instance=%s)", model, instance_id)
+            return True
+        logger.warning("LM Studio unload '%s' returned %d: %s",
+                        instance_id, r.status_code, r.text[:300])
+        return False
+    except Exception as e:
+        logger.warning("LM Studio unload '%s' failed: %s", instance_id, e)
+        return False
+
+
+def lmstudio_get_status(url: str, model: str) -> ModelReadinessResult:
+    """Return a composite readiness status for *model* on LM Studio."""
+    base_result = ModelReadinessResult(model=model, provider="lm-studio",
+                                       status=ModelStatus.ERROR, message="")
+    if not lmstudio_server_reachable(url):
+        base_result.message = f"Cannot reach LM Studio at {url}"
+        return base_result
+    if not lmstudio_model_exists(url, model):
+        base_result.status = ModelStatus.NOT_FOUND
+        base_result.message = (f"Model '{model}' is not available in LM Studio. "
+                                f"Download it via the LM Studio UI or: lms get {model}")
+        return base_result
+    if lmstudio_model_loaded(url, model):
+        base_result.status = ModelStatus.READY
+        base_result.message = f"Model '{model}' is loaded and ready"
+        base_result.details["loaded_models"] = lmstudio_list_loaded(url)
+        return base_result
+    base_result.status = ModelStatus.DOWNLOADED
+    base_result.message = f"Model '{model}' is available but not loaded into memory"
+    return base_result
+
+
+def lmstudio_ensure_ready(
+    url: str,
+    model: str,
+    timeout_s: int = _PRELOAD_TIMEOUT,
+    poll_interval_s: float = 1.0,
+    context_length: Optional[int] = None,
+) -> ModelReadinessResult:
+    """Ensure *model* is loaded and ready in LM Studio, loading if necessary.
+
+    Args:
+        context_length: Max context length to set when loading the model.
+    """
+    status = lmstudio_get_status(url, model)
+    if status.status == ModelStatus.READY:
+        return status
+    if status.status in (ModelStatus.NOT_FOUND, ModelStatus.ERROR):
+        return status
+
+    logger.info("LM Studio: model '%s' not loaded, triggering load on %s (timeout=%ds)...",
+                model, url, timeout_s)
+    status.status = ModelStatus.LOADING
+    status.message = f"Loading model '{model}' into memory..."
+
+    import threading
+    load_done = threading.Event()
+    load_ok = [False]
+
+    def _do_load():
+        load_ok[0] = lmstudio_load(url, model, timeout_s=timeout_s, context_length=context_length)
+        load_done.set()
+
+    t = threading.Thread(target=_do_load, daemon=True)
+    t.start()
+    deadline = time.monotonic() + timeout_s
+
+    while time.monotonic() < deadline:
+        if load_done.is_set():
+            break
+        if lmstudio_model_loaded(url, model):
+            break
+        time.sleep(poll_interval_s)
+
+    if lmstudio_model_loaded(url, model):
+        elapsed = timeout_s - (deadline - time.monotonic())
+        status.status = ModelStatus.READY
+        status.message = f"Model '{model}' loaded and ready (took ~{elapsed:.1f}s)"
+        status.details["load_time_s"] = round(elapsed, 1)
+        logger.info("LM Studio: model '%s' is now ready (%.1fs)", model, elapsed)
+    elif load_done.is_set() and load_ok[0]:
+        status.status = ModelStatus.READY
+        status.message = f"Model '{model}' loaded and ready"
+    elif load_done.is_set() and not load_ok[0]:
+        status.status = ModelStatus.ERROR
+        status.message = f"Failed to load model '{model}' in LM Studio"
+    else:
+        status.status = ModelStatus.LOADING
+        status.message = f"Model '{model}' is still loading (exceeded {timeout_s}s poll window)"
+    return status
+
+
+# ---------------------------------------------------------------------------
 # Generic provider readiness (extensible)
 # ---------------------------------------------------------------------------
 
@@ -360,6 +638,9 @@ def get_model_status(
 
     if provider == "ollama":
         return ollama_get_status(url, model)
+
+    if provider == "lm-studio":
+        return lmstudio_get_status(url, model)
 
     # OpenAI / Anthropic / compatible — always "ready" if endpoint works
     try:
@@ -403,5 +684,8 @@ def ensure_model_ready(
 
     if provider == "ollama":
         return ollama_ensure_ready(url, model, timeout_s=timeout_s, keep_alive=keep_alive)
+
+    if provider == "lm-studio":
+        return lmstudio_ensure_ready(url, model, timeout_s=timeout_s)
 
     return get_model_status(provider, url, model, api_key=api_key)

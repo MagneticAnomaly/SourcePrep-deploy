@@ -24,6 +24,11 @@ logger = logging.getLogger(__name__)
 CLOUD_PROVIDERS: Set[str] = {"openai", "anthropic", "google", "openai-compatible"}
 LOCAL_PROVIDERS: Set[str] = {"ollama", "lm-studio"}
 
+# LM Studio defaults to 4096 context which is too small for most CoDRAG tasks.
+# Unlike Ollama (where num_ctx is set per-request), LM Studio sets context_length
+# at model load time only.  16384 covers all pipeline tasks comfortably.
+_LMSTUDIO_DEFAULT_CONTEXT_LENGTH = 16384
+
 
 def is_cloud_provider(provider: str) -> bool:
     return provider in CLOUD_PROVIDERS
@@ -31,14 +36,14 @@ def is_cloud_provider(provider: str) -> bool:
 
 def is_manageable_provider(provider: str) -> bool:
     """Can we programmatically load/unload models for this provider?"""
-    return provider == "ollama"
+    return provider in ("ollama", "lm-studio")
 
 
-# ── State Enum ────────────────────────────────────────────────────
+# ── State Enum ────────────────────────────────────────────────────────
 
 class ModelState(enum.Enum):
     IDLE = "idle"              # Not loaded, not needed
-    LOADING = "loading"        # Preload in progress (Ollama only)
+    LOADING = "loading"        # Preload in progress (Ollama / LM Studio)
     READY = "ready"            # Loaded in VRAM, available for inference
     ACTIVE = "active"          # Currently processing a pipeline stage
     UNLOADING = "unloading"    # Being unloaded from VRAM
@@ -449,11 +454,9 @@ class ModelAwareness:
             return True
 
         if not slot.is_manageable:
-            # LM Studio: can't load programmatically.
-            # Check if it's responding and warn if model mismatch.
-            return self._check_lm_studio_ready(slot, task_id)
+            return True  # Unmanaged providers: assume ready
 
-        # Ollama: ensure room, then preload
+        # Ensure VRAM room (evict other models if needed)
         room_ok = self.ensure_room_for(slot.identity)
         if not room_ok:
             logger.error(
@@ -465,14 +468,24 @@ class ModelAwareness:
         with self._lock:
             slot.state = ModelState.LOADING
 
-        from codrag.core.model_readiness import ollama_ensure_ready
-        result = ollama_ensure_ready(
-            slot.endpoint_url,
-            slot.identity[1],  # model name
-            timeout_s=300,
-        )
-
         from codrag.core.model_readiness import ModelStatus
+
+        if slot.provider == "lm-studio":
+            from codrag.core.model_readiness import lmstudio_ensure_ready
+            result = lmstudio_ensure_ready(
+                slot.endpoint_url,
+                slot.identity[1],
+                timeout_s=300,
+                context_length=_LMSTUDIO_DEFAULT_CONTEXT_LENGTH,
+            )
+        else:
+            from codrag.core.model_readiness import ollama_ensure_ready
+            result = ollama_ensure_ready(
+                slot.endpoint_url,
+                slot.identity[1],
+                timeout_s=300,
+            )
+
         return result.status == ModelStatus.READY
 
     def _unload_model(self, slot: ModelSlot) -> bool:
@@ -480,6 +493,11 @@ class ModelAwareness:
         if slot.is_cloud or not slot.is_manageable:
             return True
 
+        if slot.provider == "lm-studio":
+            from codrag.core.model_readiness import lmstudio_unload
+            return lmstudio_unload(slot.endpoint_url, slot.identity[1])
+
+        # Ollama (default)
         try:
             import requests
             resp = requests.post(
@@ -502,37 +520,6 @@ class ModelAwareness:
             return False
         except Exception as e:
             logger.warning("Failed to unload model %s: %s", slot.identity[1], e)
-            return False
-
-    def _check_lm_studio_ready(self, slot: ModelSlot, task_id: str) -> bool:
-        """Check if LM Studio is responding. Warn on model mismatch."""
-        try:
-            import requests
-            base = slot.endpoint_url if "v1" in slot.endpoint_url else f"{slot.endpoint_url}/v1"
-            resp = requests.get(f"{base}/models", timeout=5)
-            if resp.status_code != 200:
-                return False
-
-            data = resp.json()
-            loaded_models = [m.get("id", "") for m in data.get("data", [])]
-            target = slot.identity[1]
-
-            if not any(target in m for m in loaded_models):
-                self._emit(ModelAwarenessEvent(
-                    ModelEvent.MISMATCH_WARNING, slot.identity,
-                    f"LM Studio has {loaded_models} loaded but task '{task_id}' "
-                    f"requires '{target}' — please switch in LM Studio UI",
-                ))
-                logger.warning(
-                    "LM Studio model mismatch: loaded=%s, need=%s for %s",
-                    loaded_models, target, task_id,
-                )
-                # Still return True — the request will go through, LM Studio
-                # serves whatever is loaded. The user gets a warning.
-
-            return True
-        except Exception as e:
-            logger.warning("LM Studio health check failed: %s", e)
             return False
 
     def _try_restore_evicted(self) -> None:
@@ -565,12 +552,22 @@ class ModelAwareness:
             logger.info("Restoring evicted persistent model %s", slot.identity[1])
             slot.state = ModelState.LOADING
 
-            from codrag.core.model_readiness import ollama_ensure_ready, ModelStatus
-            result = ollama_ensure_ready(
-                slot.endpoint_url,
-                slot.identity[1],
-                timeout_s=120,
-            )
+            from codrag.core.model_readiness import ModelStatus
+            if slot.provider == "lm-studio":
+                from codrag.core.model_readiness import lmstudio_ensure_ready
+                result = lmstudio_ensure_ready(
+                    slot.endpoint_url,
+                    slot.identity[1],
+                    timeout_s=120,
+                    context_length=_LMSTUDIO_DEFAULT_CONTEXT_LENGTH,
+                )
+            else:
+                from codrag.core.model_readiness import ollama_ensure_ready
+                result = ollama_ensure_ready(
+                    slot.endpoint_url,
+                    slot.identity[1],
+                    timeout_s=120,
+                )
             if result.status == ModelStatus.READY:
                 slot.state = ModelState.READY
                 slot.eviction_warning = False

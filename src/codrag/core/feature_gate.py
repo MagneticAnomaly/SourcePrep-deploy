@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from dataclasses import dataclass, field
 from enum import IntEnum
 from pathlib import Path
@@ -72,6 +73,7 @@ class License:
     expires_at: Optional[str] = None
     seats: int = 1
     features: list = field(default_factory=list)
+    signature_verified: bool = False
 
     # Map internal billing tiers to user-facing product tiers.
     # MONTHLY and PERPETUAL are both "Pro" — the only difference is billing.
@@ -96,11 +98,39 @@ class License:
             "expires_at": self.expires_at,
             "seats": self.seats,
             "features": self.features,
+            "signature_verified": self.signature_verified,
         }
 
 
 _LICENSE_PATH = Path.home() / ".codrag" / "license.json"
 _cached_license: Optional[License] = None
+
+
+def _parse_expires_at(raw: Optional[str]) -> Optional[float]:
+    """Parse expires_at as Unix timestamp or ISO 8601 string. Returns epoch float or None."""
+    if raw is None:
+        return None
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    try:
+        return float(raw)
+    except (ValueError, TypeError):
+        pass
+    try:
+        from datetime import datetime, timezone
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        return dt.timestamp()
+    except (ValueError, AttributeError):
+        pass
+    return None
+
+
+def _is_license_expired(expires_at: Optional[str]) -> bool:
+    """Check if the license has expired. Returns False if no expiry is set."""
+    epoch = _parse_expires_at(expires_at)
+    if epoch is None:
+        return False
+    return time.time() > epoch
 
 
 def get_license() -> License:
@@ -109,39 +139,97 @@ def get_license() -> License:
     if _cached_license is not None:
         return _cached_license
 
-    # Dev override via env var
+    # EA-A8: Dev override via env var — requires CODRAG_DEV_MODE=1
     env_tier = os.environ.get("CODRAG_TIER", "").strip().lower()
     if env_tier:
-        # Map user-facing tier names to internal enum names
-        _ENV_TIER_MAP = {"pro": "perpetual", "starter": "monthly"}
-        env_tier = _ENV_TIER_MAP.get(env_tier, env_tier)
-        try:
-            tier = Tier[env_tier.upper()]
-            _cached_license = License(tier=tier)
-            logger.info("Using tier from CODRAG_TIER env: %s", tier.name)
-            return _cached_license
-        except KeyError:
-            logger.warning("Invalid CODRAG_TIER=%s, falling back to FREE", env_tier)
+        dev_mode = os.environ.get("CODRAG_DEV_MODE", "").strip()
+        if dev_mode != "1":
+            logger.warning(
+                "SECURITY: CODRAG_TIER=%s is set but CODRAG_DEV_MODE=1 is not. "
+                "Ignoring CODRAG_TIER. Set CODRAG_DEV_MODE=1 to enable tier override for development.",
+                env_tier,
+            )
+        else:
+            _ENV_TIER_MAP = {"pro": "perpetual", "starter": "monthly"}
+            env_tier = _ENV_TIER_MAP.get(env_tier, env_tier)
+            try:
+                tier = Tier[env_tier.upper()]
+                _cached_license = License(tier=tier)
+                logger.warning(
+                    "DEV MODE: Using tier from CODRAG_TIER env: %s (NOT for production)",
+                    tier.name,
+                )
+                return _cached_license
+            except KeyError:
+                logger.warning("Invalid CODRAG_TIER=%s, falling back to FREE", env_tier)
 
     # Try loading license file
     if _LICENSE_PATH.exists():
         try:
             data = json.loads(_LICENSE_PATH.read_text(encoding="utf-8"))
+
+            # EA-A6: If license contains a signed key, verify signature first
+            signed_key = data.get("key", "")
+            signature_verified = False
+            if signed_key:
+                try:
+                    from codrag.core.licensing import verify_license_key
+                    verified_payload = verify_license_key(signed_key)
+                    if verified_payload is None:
+                        logger.error(
+                            "SECURITY: License signature verification FAILED. "
+                            "The license file may be tampered with. Falling back to FREE."
+                        )
+                        _cached_license = License(tier=Tier.FREE, valid=False)
+                        return _cached_license
+                    data = verified_payload
+                    signature_verified = True
+                    logger.info("License signature verified successfully")
+                except ImportError:
+                    logger.warning(
+                        "cryptography library not available \u2014 cannot verify license signature. "
+                        "Install with: pip install cryptography"
+                    )
+            else:
+                logger.warning(
+                    "SECURITY: License file at %s has no cryptographic signature. "
+                    "Unsigned licenses will be rejected in a future version. "
+                    "Re-activate your license at https://codrag.io/settings to get a signed license.",
+                    _LICENSE_PATH,
+                )
+
             tier_raw = str(data.get("tier", "free")).lower()
-            # Backward compat: old license files may contain "starter" or "pro"
             _LEGACY_MAP = {"starter": "monthly", "pro": "perpetual"}
             tier_raw = _LEGACY_MAP.get(tier_raw, tier_raw)
             tier_str = tier_raw.upper()
             tier = Tier[tier_str] if tier_str in Tier.__members__ else Tier.FREE
+
+            expires_at_raw = data.get("expires_at")
+            valid = bool(data.get("valid", True))
+
+            # EA-A7: Validate expires_at
+            if valid and _is_license_expired(expires_at_raw):
+                logger.warning(
+                    "License has expired (expires_at=%s). Reverting to FREE tier. "
+                    "Renew at https://codrag.io/pricing",
+                    expires_at_raw,
+                )
+                valid = False
+                tier = Tier.FREE
+
             _cached_license = License(
                 tier=tier,
-                valid=bool(data.get("valid", True)),
+                valid=valid,
                 email=data.get("email"),
-                expires_at=data.get("expires_at"),
+                expires_at=str(expires_at_raw) if expires_at_raw else None,
                 seats=int(data.get("seats", 1)),
                 features=list(data.get("features", [])),
+                signature_verified=signature_verified,
             )
-            logger.info("Loaded license: tier=%s", tier.name)
+            logger.info(
+                "Loaded license: tier=%s valid=%s signed=%s",
+                tier.name, valid, signature_verified,
+            )
             return _cached_license
         except Exception as e:
             logger.warning("Failed to load license from %s: %s", _LICENSE_PATH, e)

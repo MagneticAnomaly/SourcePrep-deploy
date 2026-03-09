@@ -1,0 +1,35 @@
+[
+  {
+    "group_id": "2f07f5eb4f",
+    "member_count": 2,
+    "duration_s": 27.2,
+    "tokens": 936,
+    "parsed_ok": true,
+    "pattern": "Documentation-Driven UI Configuration",
+    "coupling_risks": 3,
+    "confidence": 0.85,
+    "architectural_insight": "This group represents a weak architectural coupling where documentation acts as a hard constraint on code implementation rather than a loose guide, creating a risk of synchronization failure. The presence of specific tech debt items (e.g., 'Halbert' references) in the documentation that likely exist"
+  },
+  {
+    "group_id": "ba7ba3fbd3",
+    "member_count": 2,
+    "duration_s": 23.1,
+    "tokens": 872,
+    "parsed_ok": true,
+    "pattern": "Specification-Implementation Alignment",
+    "coupling_risks": 3,
+    "confidence": 0.85,
+    "architectural_insight": "This group represents a 'living documentation' pattern where the design spec and the configuration code are tightly coupled by semantic intent rather than direct import. While this ensures the code reflects the current architectural vision, the lack of automated validation (e.g., schema tests derive"
+  },
+  {
+    "group_id": "67e112b36e",
+    "member_count": 15,
+    "duration_s": 46.6,
+    "tokens": 2714,
+    "parsed_ok": true,
+    "pattern": "Documentation-Driven Reference Architecture",
+    "coupling_risks": 4,
+    "confidence": 0.95,
+    "architectural_insight": "This group exhibits a 'Living Documentation' pattern where the codebase is explicitly designed to be the artifact of the documentation, creating a strong traceability loop but also a high maintenance burden. The architecture is currently 'docs-heavy,' suggesting that the system's complexity is manag"
+  }
+]

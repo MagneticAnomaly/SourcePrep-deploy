@@ -613,7 +613,30 @@ def proxy_models(req: LLMProxyRequest) -> Dict[str, Any]:
                 for m in data.get("data", []):
                     if isinstance(m, dict) and "id" in m:
                         models.append(m["id"])
-                        
+
+        elif req.provider == "google":
+            params = {"key": req.api_key} if req.api_key else {}
+            target = f"{url}/v1beta/models"
+            r = requests.get(target, params=params, timeout=5)
+            if r.status_code == 200:
+                data = r.json()
+                for m in data.get("models", []):
+                    if not isinstance(m, dict) or "name" not in m:
+                        continue
+                    # Only include models that support text generation
+                    methods = m.get("supportedGenerationMethods", [])
+                    if "generateContent" not in methods:
+                        continue
+                    # Filter out non-LLM models (image, audio, video, embedding)
+                    lower_name = m["name"].lower()
+                    if any(x in lower_name for x in [
+                        "embedding", "imagen", "veo", "audio", "vision",
+                        "aqa", "tts", "-image", "image-generation", "computer-use",
+                    ]):
+                        continue
+                    name = m["name"].replace("models/", "") if m["name"].startswith("models/") else m["name"]
+                    models.append(name)
+
     except Exception as e:
         raise ApiException(status_code=500, code="CONNECTION_FAILED", message=str(e))
 
@@ -640,7 +663,24 @@ def proxy_test(req: LLMProxyRequest) -> Dict[str, Any]:
                 message = f"Connected to Ollama v{r.headers.get('version', 'unknown')}"
             else:
                 message = f"HTTP {r.status_code}: {r.text[:100]}"
-        
+
+        elif req.provider == "google":
+            params = {"key": req.api_key} if req.api_key else {}
+            target = f"{url}/v1beta/models"
+            r = requests.get(target, params=params, timeout=5)
+            if r.status_code == 200:
+                success = True
+                data = r.json()
+                models = [
+                    m["name"].replace("models/", "") if m["name"].startswith("models/") else m["name"]
+                    for m in data.get("models", [])
+                    if isinstance(m, dict) and "name" in m
+                    and "generateContent" in m.get("supportedGenerationMethods", [])
+                ]
+                message = "Connected successfully to Google Gemini"
+            else:
+                message = f"HTTP {r.status_code}: {r.text[:100]}"
+
         else:
             headers = {}
             if req.api_key:
@@ -804,7 +844,29 @@ def proxy_test_model(req: LLMModelTestRequest) -> Dict[str, Any]:
                 except requests.Timeout:
                     message = f"Model '{req.model}' timed out (may still be loading)"
                     model_status_str = ModelStatus.LOADING.value
-                
+
+        elif req.provider == "google":
+            params = {"key": req.api_key} if req.api_key else {}
+            target = f"{url}/v1beta/models/{req.model}:generateContent"
+            try:
+                r = requests.post(
+                    target,
+                    params=params,
+                    json={
+                        "contents": [{"role": "user", "parts": [{"text": "Hi"}]}],
+                        "generationConfig": {"maxOutputTokens": 5}
+                    },
+                    timeout=30,
+                )
+                if r.status_code == 200:
+                    success = True
+                    message = "Model responded successfully"
+                    model_status_str = "ready"
+                else:
+                    message = f"HTTP {r.status_code}: {r.text[:200]}"
+            except requests.Timeout:
+                message = f"Model '{req.model}' timed out"
+
         elif req.provider in ("openai", "openai-compatible", "lm-studio"):
             headers = {}
             if req.api_key:

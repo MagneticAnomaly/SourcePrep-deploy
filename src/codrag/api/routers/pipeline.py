@@ -172,12 +172,26 @@ def pipeline_status(project_id: str) -> Dict[str, Any]:
         "validated_edges": inferred_edges_count,
     }
 
-    # 4 + 8. Knowledge embedding (shared by stage 4 and stage 8)
+    # 4 + 8. Knowledge embedding
     know_idx = build_manager.get_project_knowledge_index(proj)
     knowledge_status = know_idx.status()
     is_know_building = build_manager.is_project_knowledge_building(project_id)
     knowledge_status["building"] = is_know_building
     knowledge_status["running"] = is_know_building
+
+    # Phase 48 (P48-F4): Create separate deep_knowledge_status.
+    # Stage 11 reuses the same KnowledgeIndex but we need to distinguish
+    # whether it ran after deep enrichment (with richer data) or not.
+    deep_knowledge_status = dict(knowledge_status)  # Shallow copy
+    deepening_path = idx_dir / "trace_epistemic.jsonl"
+    modules_path = idx_dir / "trace_modules.jsonl"
+    deep_has_run = (
+        deepening_path.exists() and deepening_path.stat().st_size > 0 and
+        modules_path.exists() and modules_path.stat().st_size > 0
+    )
+    deep_knowledge_status["deep_chunks_embedded"] = (
+        knowledge_status.get("chunks_embedded", 0) if deep_has_run else 0
+    )
 
     # 5. Epistemic enrichment
     epistemic_status = _epistemic_status(project_id)["data"]
@@ -265,7 +279,7 @@ def pipeline_status(project_id: str) -> Dict[str, Any]:
         "clustering": cluster_status,
         "atlas": atlas_status,
         "deepening": deepening_status,
-        "deep_knowledge": knowledge_status,  # Same index, re-built with richer data
+        "deep_knowledge": deep_knowledge_status,  # Separate status with deep_chunks_embedded field
     }
     for stage_key, slot_info in slot_stages.items():
         if stage_key in stage_data and isinstance(slot_info, dict):

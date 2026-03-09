@@ -300,6 +300,11 @@ class PipelineOrchestrator:
             # /context search works and file tree status badges update.
             if run.group in ("fast_sync", "deep_enrichment"):
                 self._trigger_code_index_build(run.project_id, pfl)
+            # Phase 48 (P48-F5): After deep enrichment completes in auto mode,
+            # check if deepening has converged. If not, re-trigger.
+            if run.group == "deep_enrichment":
+                self._maybe_retrigger_deepening(run.project_id, pfl)
+
             # Chain deep enrichment after fast sync if configured or explicitly requested
             if run.group == "fast_sync":
                 should_chain = False
@@ -739,6 +744,80 @@ class PipelineOrchestrator:
                     client.unload()
             except Exception as e:
                 logger.warning("VRAM lifecycle: failed to unload model for task %s after group: %s", task_id, e)
+
+    # ── Phase 48: Continuous Deepening Re-trigger ──────────────────
+
+    _DEEPENING_CONVERGE_TARGET = 0.70
+    _DEEPENING_RETRIGGER_DELAY = 30.0
+
+    def _maybe_retrigger_deepening(self, project_id: str, pfl: Any = None) -> None:
+        """Re-trigger deep enrichment if auto mode is on and deepening hasn't converged."""
+        if not self._is_deep_enrichment_auto(project_id):
+            return
+
+        try:
+            from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
+            from codrag.core import EpistemicEnricher, LLMClient
+            from pathlib import Path
+
+            project = require_project(project_id)
+            idx_dir = project_index_dir(project)
+
+            modules_path = idx_dir / "trace_modules.jsonl"
+            if not modules_path.exists() or modules_path.stat().st_size == 0:
+                return
+
+            enricher = EpistemicEnricher(
+                llm=LLMClient("http://localhost:11434", "none"),
+                repo_root=Path(project.path),
+                index_dir=idx_dir,
+            )
+            scores = enricher.compute_all_scores()
+            if not scores:
+                return
+            composites = [s.composite for s in scores.values()]
+            settled_count = sum(1 for c in composites if c >= 0.60)
+            settled = settled_count / len(composites) if composites else 0.0
+        except Exception:
+            logger.debug("Could not compute settled_ratio for %s — skipping retrigger", project_id, exc_info=True)
+            return
+
+        if settled >= self._DEEPENING_CONVERGE_TARGET:
+            logger.info(
+                "Deepening converged for %s (%.1f%% >= %.1f%%) — no retrigger",
+                project_id, settled * 100, self._DEEPENING_CONVERGE_TARGET * 100,
+            )
+            if pfl:
+                pfl.log("deepening", f"Converged: {settled*100:.1f}%")
+            return
+
+        try:
+            from codrag.services.pipeline_budget import budget as _budget
+            if not _budget.check_allowed(project_id):
+                logger.info("Budget exhausted for %s — deferring retrigger", project_id)
+                return
+        except Exception:
+            pass
+
+        logger.info(
+            "Scheduling deepening retrigger for %s in %.0fs (settled=%.1f%%)",
+            project_id, self._DEEPENING_RETRIGGER_DELAY, settled * 100,
+        )
+        if pfl:
+            pfl.log("deepening", f"Re-trigger in {self._DEEPENING_RETRIGGER_DELAY:.0f}s (settled={settled*100:.1f}%)")
+
+        import threading
+        def _retrigger():
+            try:
+                started = self.run_deep_enrichment(project_id)
+                logger.info("Deepening retrigger for %s: started=%s", project_id, started)
+            except Exception as e:
+                logger.warning("Deepening retrigger failed for %s: %s", project_id, e)
+
+        timer = threading.Timer(self._DEEPENING_RETRIGGER_DELAY, _retrigger)
+        timer.daemon = True
+        timer.start()
 
     # ── CodeIndex Build (post-pipeline) ─────────────────────────────
 

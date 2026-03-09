@@ -1,0 +1,59 @@
+{
+  "atlas": {
+    "status": "success",
+    "duration_s": 123.0,
+    "tokens": 16237,
+    "prompt_chars": 84467,
+    "module_cap": 100,
+    "content": "IDENTITY: Halley is a local-first, self-aware AI persona system orchestrating cognitive modeling, persistent memory, multimodal generation, and roleplay interactions through a modular React frontend and Python/Rust backend infrastructure.\n\nSTACK: Languages include Python (286 files), TypeScript/TSX (111 files), Markdown (55 files), Rust (6 files), Shell (5 files), and JavaScript (4 files). Frameworks and tools include React, Radix UI, Tailwind CSS, Tauri, FastAPI, Flask, ComfyUI, Ollama, and Docker. Build tools involve PostCSS, Vite, and systemd service management.\n\nARCHITECTURE: The system follows a layered architecture with business_logic (173 files), presentation (103 files), infrastructure (98 files), documentation (56 files), configuration (13 files), data (9 files), testing (8 files), and build (5 files). The presentation layer relies on React components in halley_core/frontend, while business logic is distributed across persona management, memory systems, and AI orchestration modules in halley_core. Infrastructure components handle GPU resource management, API gateways, and remote GPU services via FastAPI and Flask. The halley_core/api/app.py serves as a central API entry point, connecting to frontend entry points like halley_core/frontend/vite.config.ts. Documentation hubs in Docs_Halley provide architectural guidance and cross-references.\n\nSUBSYSTEMS: Halley Core Persona & Memory System: halley_core/persona, halley_core/memory. Roleplay Frontend: halley_core/frontend/components/TabbedSelector, halley_core/frontend/components/PersonasDialog. Roleplay Data & Persona Management: halley_core/data/persona, halley_core/data/memory. Halley Core AI Framework: halley_core/ai/orchestration. Resource & Task Orchestration: halley_core/infrastructure/gpu_monitor. Roleplay Chat Interface: halley_core/frontend/components/ChatInterface. Memory Quality Analysis: halley_core/analysis/memory_quality. Persona Vision & Identity: halley_core/vision/encoder. Roleplay Core: halley_core/persona/core. Image Generation: halley_core/media/generation. Deep Thinking Daemon: halley_core/daemon/scheduler. Identity-Preserving Generation: halley_core/vision/pulid. TTS Core: halley_core/audio/tts. World Management: halley_core/narrative/worlds.\n\nFLOW: User interactions enter via halley_core/frontend components, triggering state updates in React stores. Requests route through halley_core/api/app.py to business logic modules handling persona state, memory retrieval, and LLM inference. The Roleplay Subsystem coordinates model selection, VRAM allocation, and prompt construction. Generated content flows back through the API to the frontend for display. Background tasks like memory consolidation and image generation are scheduled via the Deep Thinking Daemon, utilizing GPU resources managed by the Resource & Task Orchestration subsystem.\n\nPATTERNS: The system employs a provider pattern for AI model abstraction, allowing runtime selection of LLM and image generation backends. Dependency injection is used for tool registration and execution via the ToolRegistry. Error handling is centralized with a declarative taxonomy and circuit breakers in Halley Core Resilience and Prompt Management. Lazy loading resolves circular dependencies, and event-driven architecture facilitates communication between cognitive layers.\n\nRISKS: Test scripts contain hardcoded absolute paths and magic numbers limiting portability. TabbedSelector component casts 'tab' to 'any' indicating type safety gaps. Hardcoded polling intervals cause potential API load. Silent error swallowing in some failure paths. Incomplete ComfyUI image generation provider initialization and partial AMD GPU support. Generic subprocess timeout handling may not cover driver unresponsiveness. Legacy fallback mechanisms like 'human_memory' alongside 'memory_v2' require cleanup. Hardcoded repository paths and model names in PuLID subsystem limit portability. Unimplemented generative backends for CoreML and Mochi return explicit errors. Hardcoded Ollama server IPs in data generation scripts create deployment fragility. Missing error handling and logging in legacy code references.",
+    "char_count": 4165,
+    "num_predict": 32768
+  },
+  "group_reasoning": {
+    "total_groups": 3,
+    "parse_success": 3,
+    "total_duration_s": 479.3,
+    "groups": [
+      {
+        "group_id": "2f07f5eb4f",
+        "member_count": 2,
+        "duration_s": 198.0,
+        "tokens": 3906,
+        "parsed_ok": true,
+        "pattern": "Documentation-Implementation Traceability",
+        "coupling_risks": 3,
+        "confidence": 0.9,
+        "architectural_insight": "This group represents a development artifact coupling rather than a runtime architectural pattern, creating a single point of truth for feature planning that is prone to drift. To reduce risk, requirement specifications should be embedded closer to the code, such as via typed configuration objects o"
+      },
+      {
+        "group_id": "ba7ba3fbd3",
+        "member_count": 2,
+        "duration_s": 189.4,
+        "tokens": 3760,
+        "parsed_ok": true,
+        "pattern": "Configuration-Driven Builder",
+        "coupling_risks": 3,
+        "confidence": 0.85,
+        "architectural_insight": "The design effectively decouples prompt logic from raw generation calls but risks technical debt by hardcoding vendor-specific syntax in the core persona layer. Maintaining the documentation as an executable specification would mitigate the risk of implementation drift."
+      },
+      {
+        "group_id": "67e112b36e",
+        "member_count": 15,
+        "duration_s": 91.9,
+        "tokens": 3503,
+        "parsed_ok": true,
+        "pattern": "Living Documentation Pattern with Client-Server Architecture",
+        "coupling_risks": 5,
+        "confidence": 0.85,
+        "architectural_insight": "This group demonstrates strong specification-first architecture with comprehensive living documentation, but creates maintenance overhead through 13 documentation files referencing only 2 code artifacts. The documentation-to-code ratio (13:2) suggests potential documentation drift risk where specs m"
+      }
+    ]
+  },
+  "audit": {
+    "status": "success",
+    "duration_s": 46.7,
+    "tokens": 2426,
+    "content": "# LinuxBrain Codebase Health Audit\n\n## Health Score\n**Grade: C**\nThe codebase is functional but heavily burdened by legacy artifacts, incomplete feature implementations (Phases 2\u20134), and inconsistent error handling, requiring significant refactoring before production readiness.\n\n## Critical Findings\n*No critical (severity: Critical) findings were reported in the provided data.*\n\n## Top Recommendations\n1.  **Remove Legacy & Deprecated Code**: Eliminate `halley_core/conversation/prompt_cycling.py` (marked LEGACY), the 2,250 lines of legacy JSX in `Chat.tsx`, and all 'Halbert' references in `MASTER_TODO.md` and `TODO.md` to reduce technical debt.\n2.  **Standardize Configuration & Portability**: Replace hardcoded URLs (`http://localhost:8001/api` in `VisualIdentity.tsx`), hardcoded model fallbacks (`llava` in `image_self_awareness.py`), and hardcoded polling intervals with environment variables and dynamic configuration.\n3.  **Implement Robust Error Handling**: Add retry logic and error catching to the fire-and-forget `persist()` function in `UIPreferencesContext.tsx` and replace print-based dependency fallbacks in `eva_clip` modules with explicit validation.\n4.  **Resolve Data Integrity Risks**: Investigate and resolve the direct memory contradictions (cat named Luna vs. allergies) found in `2026-01-24_memory-quality_*.md` and fix the incomplete scoring logic in `body_awareness.py` that returns early without sorting.\n5.  **Modernize Async & Concurrency Patterns**: Refactor `optimization_routes.py` to use direct async route handling instead of manual event loop management and replace in-memory test session storage in `personalities.py` with persistent storage.\n\n## Module Status\n| Module Name | File Count | Status | Key Issue |\n| :--- | :--- | :--- | :--- |\n| `halley_core` | ~45 | Warning | Legacy code, incomplete implementations, and memory contradictions. |\n| `halley_core/frontend` | ~12 | Warning | Hardcoded URLs, type safety issues, and massive legacy JSX migration debt. |\n| `halley-helper-app` | 2 | Warning | TODOs regarding port tracking and future-proofing torch versions. |\n| `halley_core/memory_v2` | 2 | Warning | Stub implementations and incorrect testing command paths. |\n| `halley_core/gpu` | 1 | Warning | Incomplete AMD GPU support and detection logic. |\n\n## Next Steps\n1.  **Audit & Prune**: Execute a global search to remove all 'Halbert' references and delete files explicitly marked as `LEGACY` or `DEPRICIATED`.\n2.  **Configuration Refactor**: Create a centralized `.env` schema and update `VisualIdentity.tsx`, `image_self_awareness.py`, and `useWebSocket.ts` to consume dynamic values.\n3.  **Memory Consistency Check**: Review the conflicting memory entries in `deep_thinking_logs` and implement a validation step in `body_awareness.py` to prevent contradictory data ingestion.",
+    "char_count": 2830
+  }
+}

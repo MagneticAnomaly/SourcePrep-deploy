@@ -539,18 +539,20 @@ class LLMClient:
     def is_available(self) -> bool:
         """Check if the endpoint is reachable."""
         import requests
-        effective_provider = "openai-compatible" if self.provider == "lm-studio" else self.provider
         try:
-            if effective_provider == "ollama":
+            if self.provider == "lm-studio":
+                from codrag.core.model_readiness import lmstudio_server_reachable
+                return lmstudio_server_reachable(self.endpoint_url)
+            elif self.provider == "ollama":
                 resp = requests.get(f"{self.endpoint_url}/api/tags", timeout=5)
                 return resp.status_code == 200
-            elif effective_provider in ("openai", "openai-compatible"):
+            elif self.provider in ("openai", "openai-compatible"):
                 headers = {}
                 if self.api_key:
                     headers["Authorization"] = f"Bearer {self.api_key}"
                 resp = requests.get(f"{self.endpoint_url}/v1/models", headers=headers, timeout=5)
                 return resp.status_code == 200
-            elif effective_provider == "anthropic":
+            elif self.provider == "anthropic":
                 headers = {"anthropic-version": "2023-06-01"}
                 if self.api_key:
                     headers["x-api-key"] = self.api_key
@@ -568,15 +570,19 @@ class LLMClient:
         """Unload the model from VRAM to free memory.
 
         For Ollama: sends a generate request with keep_alive=0.
-        For OpenAI-compatible: no-op (cloud models don't need VRAM management).
+        For LM Studio: uses the native /api/v1/models/unload endpoint.
+        For cloud providers: no-op (no VRAM management needed).
 
-        Returns True if the unload request was accepted.
-        """
+        Returns True if the unload request was accepted."""
         import requests
         
         if self.always_on:
             logger.info("Skipping unload for %s (always_on=True)", self.model)
             return True
+
+        if self.provider == "lm-studio":
+            from codrag.core.model_readiness import lmstudio_unload
+            return lmstudio_unload(self.endpoint_url, self.model)
 
         if self.provider != "ollama":
             return True  # No-op for cloud providers

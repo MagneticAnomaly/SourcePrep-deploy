@@ -22,7 +22,8 @@ const PROVIDER_OPTIONS: { value: LLMProvider; label: string; hint?: string }[] =
   { value: 'lm-studio', label: 'LM Studio', hint: 'http://localhost:1234' },
   { value: 'openai', label: 'OpenAI', hint: 'https://api.openai.com/v1' },
   { value: 'openai-compatible', label: 'OpenAI Compatible' },
-  { value: 'anthropic', label: 'Anthropic (Claude)' },
+  { value: 'anthropic', label: 'Anthropic (Claude)', hint: 'https://api.anthropic.com' },
+  { value: 'google', label: 'Google (Gemini)', hint: 'https://generativelanguage.googleapis.com' },
 ];
 
 export function EndpointManager({
@@ -102,7 +103,7 @@ export function EndpointManager({
   };
 
   const providerNeedsApiKey = (provider: LLMProvider) =>
-    provider === 'openai' || provider === 'anthropic' || provider === 'openai-compatible';
+    provider === 'openai' || provider === 'anthropic' || provider === 'openai-compatible' || provider === 'google';
 
   const providerDefaultUrl = (provider: LLMProvider) =>
     PROVIDER_OPTIONS.find((o) => o.value === provider)?.hint ?? '';

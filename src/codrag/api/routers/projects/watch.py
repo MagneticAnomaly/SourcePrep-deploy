@@ -87,7 +87,6 @@ def start_project_watch(
             return False
 
         include_globs, exclude_globs = _get_project_globs(proj, use_defaults=False)
-        # Pass None instead of [] so downstream build() applies its own policy defaults
         include_globs = include_globs or None
         exclude_globs = exclude_globs or None
         cfg = proj.config or {}
@@ -95,18 +94,10 @@ def start_project_watch(
         hard_limit_bytes = int((cfg.get("hard_limit_bytes") or 100_000_000) if isinstance(cfg, dict) else 100_000_000)
         included_paths = cfg.get("included_paths") if isinstance(cfg, dict) else None
 
-        # Team Sync: if a remote index exists, write only changed files
-        # to local_deltas/ instead of rebuilding the entire main index.
-        if _srv()._has_remote_index(proj):
-            started = _srv()._start_project_delta_build(
-                proj, paths, include_globs, exclude_globs,
-                max_file_bytes, hard_limit_bytes,
-            )
-        else:
-            started = _srv()._start_project_build(proj, None, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes, included_paths=included_paths)
-
-        # Phase 24: If auto_fast_sync is gated and allowed, trigger
-        # the pipeline orchestrator for trace stages instead of raw build.
+        # Phase 48 (P48-F3+F7): When trace is enabled and pipeline is available,
+        # delegate entirely to the pipeline orchestrator.  The pipeline's structural
+        # stage handles trace build and knowledge stage handles embedding — avoid
+        # dual-triggering the legacy build path which competes with the pipeline.
         from codrag.core.feature_gate import check_feature
         trace_cfg = cfg.get("trace") if isinstance(cfg, dict) else None
         trace_enabled = bool((trace_cfg or {}).get("enabled", False))
@@ -114,14 +105,33 @@ def start_project_watch(
         if trace_enabled and check_feature("auto_fast_sync"):
             try:
                 from codrag.services.pipeline_orchestrator import pipeline_orchestrator
-                pipeline_orchestrator.run_fast_sync(proj.id)
+                # P48-F7: When deep enrichment is also auto, use run_all() so
+                # deep enrichment chains automatically after fast sync.
+                from codrag.services.settings_store import settings as _ss
+                pc = _ss.get("pipeline_config") or {}
+                deep_mode = (pc.get("deep_enrichment") or {}).get("mode", "manual")
+                if deep_mode == "auto":
+                    started = pipeline_orchestrator.run_all(proj.id)
+                    logger.info("Watcher: run_all for %s (fast+deep auto) — started=%s", proj.id, started)
+                else:
+                    started = pipeline_orchestrator.run_fast_sync(proj.id)
+                    logger.info("Watcher: run_fast_sync for %s — started=%s", proj.id, started)
+                return started
             except Exception:
-                # Fallback to legacy trace build
+                logger.warning("Pipeline trigger failed for %s, falling back to legacy", proj.id, exc_info=True)
                 _srv()._start_project_trace_build(proj, include_globs, exclude_globs, max_file_bytes=max_file_bytes, hard_limit_bytes=hard_limit_bytes)
+                return True
         elif trace_enabled:
             _srv()._start_project_trace_build(proj, include_globs, exclude_globs, max_file_bytes=max_file_bytes, hard_limit_bytes=hard_limit_bytes)
+            return True
 
-        return started
+        # No trace — use legacy CodeIndex build path
+        if _srv()._has_remote_index(proj):
+            return _srv()._start_project_delta_build(
+                proj, paths, include_globs, exclude_globs,
+                max_file_bytes, hard_limit_bytes,
+            )
+        return _srv()._start_project_build(proj, None, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes, included_paths=included_paths)
     
     def is_building() -> bool:
         if _srv()._is_project_building(proj.id) or _srv()._is_project_trace_building(proj.id):
