@@ -64,7 +64,7 @@ export default function Page() {
 
           <AnchorHeading id="usage" level="h2">How to Use</AnchorHeading>
           <p>
-            Cascade (Windsurf&apos;s agent) is highly proactive. It will see the <code>codrag</code> tools (<code>codrag_search</code>, <code>codrag</code>, <code>codrag_audit</code>, etc.) and call them automatically.
+            Cascade (Windsurf&apos;s agent) is highly proactive. It will see the CoDRAG tools (<code>codrag_search</code>, <code>codrag</code>, <code>codrag_audit</code>, etc.) and call them automatically.
           </p>
 
           <h3 className="text-xl font-semibold mt-6">Start with <code>hi_codrag</code></h3>

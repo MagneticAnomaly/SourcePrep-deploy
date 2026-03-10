@@ -200,6 +200,12 @@ export interface ApiClient {
   // Admin Policy (EA-C3)
   getAdminPolicy(): Promise<import('../types').AdminPolicy>;
 
+  // Admin Security (EA-I)
+  getSecurityHealth(): Promise<import('../components/enterprise/EnterpriseAdminPanel').SecurityHealthResult>;
+  getSecurityEvents(limit?: number): Promise<Array<{ timestamp: number; event_type: string; severity: string; message: string }>>;
+  exportSecurityReport(): Promise<any>;
+  exportAuditLog(format?: 'json' | 'csv'): Promise<any>;
+
   // Batch Estimate
   getBatchEstimate(): Promise<any>;
 
@@ -1039,6 +1045,33 @@ export class CodragApiClient implements ApiClient {
 
   async validateLicense(): Promise<any> {
     return this.requestEnvelope<any>('/license/validate', { method: 'POST' });
+  }
+
+  // ── Admin Security (EA-I) ──────────────────────────────────
+
+  async getSecurityHealth(): Promise<import('../components/enterprise/EnterpriseAdminPanel').SecurityHealthResult> {
+    return this.requestEnvelope<import('../components/enterprise/EnterpriseAdminPanel').SecurityHealthResult>('/admin/security-health');
+  }
+
+  async getSecurityEvents(limit: number = 50): Promise<Array<{ timestamp: number; event_type: string; severity: string; message: string }>> {
+    const data = await this.requestEnvelope<{ events: any[]; count: number }>('/admin/audit-log', {
+      method: 'POST',
+      body: { severity: null, event_type: null, limit },
+    });
+    return (data.events || []).map((e: any) => ({
+      timestamp: e.timestamp,
+      event_type: e.event_type,
+      severity: e.severity,
+      message: e.message || e.event_type,
+    }));
+  }
+
+  async exportSecurityReport(): Promise<any> {
+    return this.requestEnvelope<any>('/admin/security-report');
+  }
+
+  async exportAuditLog(format: 'json' | 'csv' = 'json'): Promise<any> {
+    return this.requestEnvelope<any>(`/admin/audit-log/export?format=${format}`);
   }
 }
 

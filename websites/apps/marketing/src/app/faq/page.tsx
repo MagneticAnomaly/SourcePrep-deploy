@@ -275,7 +275,17 @@ const faqs: FAQItem[] = [
       <div className="space-y-4">
         <p><strong>No.</strong> CoDRAG is local-first software &mdash; indexing, embedding, graph construction, search, and compression all happen on your machine. Your code never leaves your filesystem.</p>
         <p>The only exceptions are things you explicitly opt into: if you configure a cloud LLM provider (OpenAI, Anthropic, Google) for the optional enrichment pipeline, only retrieved context snippets are sent to that provider &mdash; never your raw codebase. CoDRAG also makes a single HTTPS call during license activation. Both are optional and auditable.</p>
-        <p>What makes this different from tools that <em>claim</em> local-first: CoDRAG ships its own embedding model (ONNX, runs on CPU) and its own Rust parser. You don&apos;t need Ollama, you don&apos;t need Docker, you don&apos;t need an internet connection for core functionality. The entire stack runs offline, cold.</p>
+        <p>What makes this different from tools that <em>claim</em> local-first: CoDRAG ships its own local embedding model (ONNX, runs on CPU) and Rust parser. You don&apos;t need an internet connection, Docker, or external tools like Ollama for the core indexing and search functionality to work out of the box.</p>
+      </div>
+    ),
+  },
+  {
+    id: "local-vs-cloud-reasoning",
+    q: "Should I use a local model or a cloud API for reasoning?",
+    a: (
+      <div className="space-y-4">
+        <p>For the absolute best results, we recommend bringing your own API key (BYOK) for frontier cloud models like Anthropic Claude 3.5 Sonnet, OpenAI o3-mini, or Google Gemini 1.5 Pro. These models have massive context windows and superior reasoning capabilities for complex codebase analysis.</p>
+        <p>However, if strict data privacy is required (e.g., enterprise compliance, air-gapped environments), you can easily connect local models via Ollama. CoDRAG is designed to support both seamlessly. The code <em>index</em> itself always remains 100% local on your machine.</p>
       </div>
     ),
   },
@@ -312,13 +322,11 @@ const faqs: FAQItem[] = [
     ),
   },
   {
-    id: "gpu-requirement",
-    q: "Do I need a GPU?",
+    id: "gpu",
+    q: "Does CoDRAG require a powerful GPU?",
     a: (
       <div className="space-y-4">
-        <p><strong>No.</strong> Core features (indexing, trace graph, search) run efficiently on CPU. The built-in embedding model is quantized and optimized for CPU inference.</p>
-        <p><strong>Also No.</strong> You can run Anthropic or OpenAI or any other BYOK models from the cloud if you want to enhance trace content.</p>
-        <p><strong>Or Yes</strong> if you want to run a local model for enhancement.</p>
+        <p><strong>No.</strong> The core CoDRAG indexing engine, structural graph generation, and ONNX embeddings all run highly efficiently on standard CPUs. You only need a powerful GPU if you choose to run large local reasoning models (like Qwen or Llama 3) via Ollama instead of using cloud APIs.</p>
         <p><strong>Context compression</strong> is built in &mdash; structural compression for code files runs instantly with no model at all, and language-aware compression for docs uses a lightweight CPU model (~178 MB). No GPU, no sidecar.</p>
       </div>
     ),

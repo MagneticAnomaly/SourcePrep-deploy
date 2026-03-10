@@ -101,7 +101,7 @@ export default function CompareGreptilePage() {
           <section>
             <h3 className="text-2xl font-bold mb-4">3. Cost and BYOK</h3>
             <p className="text-text-muted leading-relaxed">
-              Cloud indexers often charge steep per-seat monthly fees and mark up token costs. CoDRAG offers a one-time perpetual license option and fully supports Bring Your Own Key (BYOK). If you want to use Anthropic Claude 3.5 Sonnet or OpenAI o3-mini for reasoning, you pay exactly what the API costs—not a penny more. Or, connect local models via Ollama for entirely free inference.
+              Cloud indexers often charge steep per-seat monthly fees and mark up token costs. CoDRAG offers a one-time perpetual license option and fully supports Bring Your Own Key (BYOK). The core index runs locally for free. For reasoning, use Anthropic Claude 3.5 Sonnet or OpenAI o3-mini and pay exactly what the API costs—not a penny more. Or, connect local models via Ollama for entirely free inference.
             </p>
           </section>
         </div>

@@ -421,15 +421,40 @@ def _get_llm_client_for_task(task_id: str):
     (identical to the old behaviour).  In mapped mode, maps task → assignment
     block → endpoint+model.
 
-    Returns ``None`` if no model is configured for the task.
+    Returns ``None`` if no model is configured for the task, or if the resolved
+    model violates the Enterprise Admin Policy.
     """
     ui_cfg = _load_ui_config()
     llm_cfg = ui_cfg.get("llm_config") or {}
     mode = llm_cfg.get("assignment_mode", "structured")
 
     if mode == "mapped":
-        return _resolve_mapped_task(task_id, llm_cfg)
-    return _resolve_structured_task(task_id)
+        client = _resolve_mapped_task(task_id, llm_cfg)
+    else:
+        client = _resolve_structured_task(task_id)
+        
+    # EA-C8: Enforce Admin Policy at execution time
+    if client:
+        try:
+            from codrag.core.team_config import parse_admin_policy, is_model_allowed
+            admin_policy_raw = ui_cfg.get("_admin_policy_cache")
+            if admin_policy_raw:
+                policy = parse_admin_policy({"admin_policy": admin_policy_raw})
+                if not is_model_allowed(client.model, policy, slot=TASK_TO_SLOT.get(task_id)):
+                    logger.warning("Execution blocked by IT Policy: Model '%s' is not allowed for task '%s'", client.model, task_id)
+                    from codrag.core.audit_log import audit_log
+                    audit_log.record(
+                        "policy_violation_blocked",
+                        f"Execution blocked by IT Policy: Model '{client.model}' not allowed",
+                        task_id=task_id,
+                        model=client.model,
+                        provider=client.provider,
+                    )
+                    return None
+        except Exception as e:
+            logger.debug("Failed to enforce admin policy on task %s: %s", task_id, e)
+            
+    return client
 
 
 def _resolve_structured_task(task_id: str):

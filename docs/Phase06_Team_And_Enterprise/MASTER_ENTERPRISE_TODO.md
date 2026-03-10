@@ -156,7 +156,7 @@
 
 | Category | Total | Done | Remaining |
 |----------|-------|------|-----------|
-| Security Health Panel | 10 | **10** | 0 |
+| Security Health Panel | 16 | **15** | 1 (SEC-TEST) |
 | LemonSqueezy Integration | 8 | **5** | 3 (Eric tasks) |
 | Seat Management | 6 | **6** | 0 |
 | AI Gateway Enhancements | 6 | **6** | 0 |
@@ -172,6 +172,6 @@
 | Priority | Count | Description |
 |----------|-------|-------------|
 | **P0** | 3 | Ship blockers (Eric: LS products, Ed25519, webhook) |
-| **P1** | 1 | License recovery flow (LS-4) |
-| **P2** | 8 | 3-6 month roadmap |
-| **P3** | 9 | 6-12 month roadmap |
+| **P1** | 1 | SEC-TEST (verify 16 checks pass on clean install) |
+| **P2** | 7 | 3-6 month roadmap (AUTH-3, COMP-1, DEPLOY-1/2/4/5, FULL-3) |
+| **P3** | 7 | 6-12 month roadmap (AUTH-1/2/4, COMP-2/3/6, MED-2) |

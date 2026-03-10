@@ -185,7 +185,7 @@ export type { SchedulerStatus, SchedulerNodeStatus, ComputeNode, ComputeHardware
 
 // Components - Enterprise (Phase 06)
 export { EnterpriseAdminPanel } from './components/enterprise';
-export type { EnterpriseAdminPanelProps, SyncFleetEntry, UsageData } from './components/enterprise';
+export type { EnterpriseAdminPanelProps, SecurityHealthResult, TokenUsageSummary, SyncFleetEntry, UsageData } from './components/enterprise';
 
 // Components - Viz
 export { ActivityHeatmap, generateSampleActivityData, IndexHealthPanel, TokenBudgetPanel } from './components/viz';

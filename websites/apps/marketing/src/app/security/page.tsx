@@ -125,14 +125,12 @@ export default function Page() {
                   </div>
                 </section>
 
-                <section id="embedding">
+                <section id="llm-usage">
                   <h2 className="text-xl font-bold text-text mb-4 flex items-center gap-3">
-                    <span className="font-mono text-primary text-sm bg-primary/10 px-2 py-1 rounded">04.</span> Flexible Embedding
+                    <span className="font-mono text-primary text-sm bg-primary/10 px-2 py-1 rounded">04.</span> LLM & Embedding Usage
                   </h2>
                   <p className="text-sm text-text-muted leading-relaxed">
-                    CoDRAG&apos;s structural code graph (imports, calls, symbol graphs) works entirely
-                    without any LLM. For optional semantic embeddings, you may connect Ollama locally or bring
-                    your own cloud API keys. We never proxy calls, never store keys, and never mark up
+                    CoDRAG&apos;s structural code graph (imports, calls, symbol graphs) and semantic search (via built-in ONNX embeddings) work entirely locally without any external LLM. For deep reasoning and trace enrichment, you may bring your own cloud API keys (BYOK) or connect Ollama locally. We never proxy calls, never store keys, and never mark up
                     token costs.
                   </p>
                 </section>

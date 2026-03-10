@@ -138,13 +138,25 @@ def start_project_watch(
             return True
         # Also treat active pipeline runs as "building" so the watcher
         # waits instead of repeatedly trying to trigger builds.
+        # Guard: if the pipeline claims "running" but hasn't updated in
+        # >10 minutes, treat it as stale/stuck and allow the watcher to
+        # proceed.  This prevents a crashed pipeline from permanently
+        # blocking auto-rebuilds.
         try:
+            import time as _time
             from codrag.services.pipeline_orchestrator import pipeline_orchestrator as _po
             po_status = _po.status(proj.id)
-            fast_phase = (po_status.get("fast_sync") or {}).get("phase")
-            deep_phase = (po_status.get("deep_enrichment") or {}).get("phase")
-            if fast_phase == "running" or deep_phase == "running":
-                return True
+            for group_key in ("fast_sync", "deep_enrichment"):
+                group = po_status.get(group_key) or {}
+                if group.get("phase") == "running":
+                    started_at = group.get("started_at")
+                    if started_at and (_time.time() - started_at > 600):
+                        logger.warning(
+                            "Watcher: pipeline %s/%s stuck in 'running' for >10min — ignoring",
+                            proj.id, group_key,
+                        )
+                        continue
+                    return True
         except Exception:
             pass
         return False

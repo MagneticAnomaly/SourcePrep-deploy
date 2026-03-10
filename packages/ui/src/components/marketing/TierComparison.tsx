@@ -48,8 +48,8 @@ const features: TierFeature[] = [
   // Privacy & Runtime
   { category: 'Privacy & Runtime', name: '100% local — no cloud upload', free: true, pro: true },
   { category: 'Privacy & Runtime', name: 'Works without any LLM', free: true, pro: true },
-  { category: 'Privacy & Runtime', name: 'Optional Ollama for local embeddings', free: true, pro: true },
-  { category: 'Privacy & Runtime', name: 'Optional cloud embeddings (BYOK)', free: true, pro: true },
+  { category: 'Privacy & Runtime', name: 'Optional Ollama for local reasoning', free: true, pro: true },
+  { category: 'Privacy & Runtime', name: 'Optional cloud LLM (BYOK)', free: true, pro: true },
 
   // License
   { category: 'License', name: 'License type', free: 'Free forever', pro: 'One-time ($79) or monthly ($7/mo)' },

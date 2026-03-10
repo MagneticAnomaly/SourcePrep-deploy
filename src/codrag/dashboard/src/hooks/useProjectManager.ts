@@ -211,14 +211,14 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
   const handleBuild = useCallback(async () => {
     if (!selectedProjectId) return
     const paths = [...(includedPathsRef.current ?? [])]
-    // Never index the whole codebase as a default — require explicit scope selection
-    if (paths.length === 0) {
-      onErrorRef.current('No files selected. Use the Knowledge Sources panel to choose files before building.', 'info')
-      return
-    }
+    // If the frontend has explicit selections, send them.
+    // Otherwise, pass undefined so the backend falls back to the
+    // project config's stored included_paths (which may have been
+    // set in a previous session or by the watcher).
+    const sendPaths = paths.length > 0 ? paths : undefined
     try {
       setBuildingProjects((prev) => new Set(prev).add(selectedProjectId))
-      await api.buildProject(selectedProjectId, false, paths)
+      await api.buildProject(selectedProjectId, false, sendPaths)
       // Poll status until build completes
       const poll = setInterval(async () => {
         try {

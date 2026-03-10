@@ -429,6 +429,25 @@ def check_index_staleness(project: Project, idx: CodeIndex) -> Dict[str, Any]:
     from codrag.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
     prune_dirs = DEFAULT_EXCLUDE_DIR_NAMES
 
+    # Respect included_paths: only check files within the user's selected
+    # scope.  Without this, files matching include_globs but outside the
+    # selected Knowledge Sources would trigger a false "Stale" badge.
+    included_paths_raw = cfg.get("included_paths") if isinstance(cfg, dict) else None
+    included_set: Optional[set] = None
+    if isinstance(included_paths_raw, list) and included_paths_raw:
+        included_set = set(str(p) for p in included_paths_raw if p)
+
+    def _is_in_scope(rel: str) -> bool:
+        if included_set is None:
+            return True  # No scope restriction — all files are in scope
+        if rel in included_set:
+            return True
+        parts = rel.split("/")
+        for i in range(1, len(parts)):
+            if "/".join(parts[:i]) in included_set:
+                return True
+        return False
+
     stale_count = 0
     earliest_stale_mtime: Optional[float] = None
 
@@ -451,6 +470,10 @@ def check_index_staleness(project: Project, idx: CodeIndex) -> Dict[str, Any]:
             if exc_spec is not None:
                 if exc_spec.match_file(rel):
                     continue
+
+            # Apply included_paths scope filter
+            if not _is_in_scope(rel):
+                continue
 
             # Check mtime
             try:

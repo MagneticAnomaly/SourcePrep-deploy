@@ -357,6 +357,42 @@ export class MockApiClient implements ApiClient {
     };
   }
 
+  async getSecurityHealth(): Promise<any> {
+    return {
+      score: 14, total: 16, status: 'warnings',
+      checks: [
+        { name: 'Network Security', status: 'pass', issues: [], details: {} },
+        { name: 'Daemon Authentication', status: 'warn', issues: ['No auth token set (localhost only)'], details: {} },
+        { name: 'CORS Configuration', status: 'pass', issues: [], details: {} },
+        { name: 'License Verification', status: 'pass', issues: [], details: {} },
+        { name: 'Dev Mode Detection', status: 'warn', issues: ['CODRAG_DEV_MODE=1 active'], details: {} },
+        { name: 'DLP Compliance', status: 'pass', issues: [], details: {} },
+        { name: 'Content Sanitization', status: 'pass', issues: [], details: {} },
+        { name: 'S3 Endpoint Security', status: 'pass', issues: [], details: {} },
+        { name: 'Index Integrity', status: 'pass', issues: [], details: {} },
+        { name: 'API Key Hygiene', status: 'pass', issues: [], details: {} },
+        { name: 'MCP Rate Limiting', status: 'pass', issues: [], details: {} },
+        { name: 'Secrets & Credentials', status: 'pass', issues: [], details: {} },
+        { name: 'Config Drift', status: 'pass', issues: [], details: {} },
+        { name: 'Secret Detection Coverage', status: 'pass', issues: [], details: { builtin_patterns: 11 } },
+        { name: 'Data Exposure Summary', status: 'pass', issues: [], details: {} },
+        { name: 'Unicode Injection Scan', status: 'pass', issues: [], details: {} },
+      ],
+    };
+  }
+
+  async getSecurityEvents(): Promise<any[]> {
+    return [];
+  }
+
+  async exportSecurityReport(): Promise<any> {
+    return { generated_at: Date.now() / 1000, health: {}, recent_events: [], event_count: 0 };
+  }
+
+  async exportAuditLog(): Promise<any> {
+    return { format: 'json', events: [], count: 0 };
+  }
+
   async getAdminPolicy(): Promise<any> {
     return {
       provider: { allowed_providers: [], blocked_providers: [], allow_local_providers: true, allow_user_endpoints: true, allow_user_api_keys: true, locked_endpoints: [] },

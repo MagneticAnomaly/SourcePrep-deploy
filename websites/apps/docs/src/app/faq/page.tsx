@@ -41,6 +41,16 @@ export default function Page() {
           </div>
 
           <div>
+            <AnchorHeading id="ai-tool-usage" level="h2" className="text-xl font-semibold text-text">Why does the AI sometimes ignore the CoDRAG tools and use its own search?</AnchorHeading>
+            <p className="mt-2 text-text-muted leading-relaxed">
+              AI agents (like Cascade or Cursor) are trained to find the cheapest, fastest path to an answer. If you ask a <span className="font-semibold text-text">textual</span> question (e.g., &quot;audit the copy for mentions of 'cloud'&quot; or &quot;find the word 'Ollama'&quot;), the AI will usually prefer its native <code>grep</code> or file search tools because regex is the right tool for pure text matching.
+            </p>
+            <p className="mt-2 text-text-muted leading-relaxed">
+              CoDRAG tools shine for <span className="font-semibold text-text">structural</span> and <span className="font-semibold text-text">semantic</span> tasks. The AI will naturally reach for CoDRAG when you ask about relationships (e.g., &quot;what breaks if I change this function?&quot;), architecture (e.g., &quot;map out the authentication flow&quot;), or when it needs to compress huge amounts of context. You can always force it to use CoDRAG by saying: <span className="italic">&quot;Use the codrag tools to...&quot;</span>
+            </p>
+          </div>
+
+          <div>
             <AnchorHeading id="cursor-diff" level="h2" className="text-xl font-semibold text-text">How is this different from Cursor&apos;s built-in index?</AnchorHeading>
             <p className="mt-2 text-text-muted leading-relaxed">
               Cursor&apos;s index is great, but CoDRAG adds a <span className="font-semibold text-text">Structural Code Graph layer</span> (understanding imports, definitions, and calls across the project) which reduces hallucinations. 

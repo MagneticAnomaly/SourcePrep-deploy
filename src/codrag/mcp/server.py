@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from logging.handlers import RotatingFileHandler
 import sys
 import uuid
@@ -157,8 +158,15 @@ class MCPServer:
             path = "/" + path
         url = f"{self.daemon_url}{path}"
         logger.debug(f"GET {url}")
+        
+        # SECURITY: Include IPC token if daemon requires authentication
+        headers: Dict[str, str] = {}
+        ipc_token = os.environ.get("CODRAG_DAEMON_TOKEN")
+        if ipc_token:
+            headers["Authorization"] = f"Bearer {ipc_token}"
+        
         try:
-            resp = await client.get(url)
+            resp = await client.get(url, headers=headers)
             resp.raise_for_status()
         except httpx.ConnectError:
             raise DaemonUnavailableError(f"Cannot connect to CoDRAG daemon at {self.daemon_url}")
@@ -184,8 +192,15 @@ class MCPServer:
             path = "/" + path
         url = f"{self.daemon_url}{path}"
         logger.debug(f"POST {url} payload_keys={list(payload.keys())}")
+        
+        # SECURITY: Include IPC token if daemon requires authentication
+        headers: Dict[str, str] = {}
+        ipc_token = os.environ.get("CODRAG_DAEMON_TOKEN")
+        if ipc_token:
+            headers["Authorization"] = f"Bearer {ipc_token}"
+        
         try:
-            resp = await client.post(url, json=payload)
+            resp = await client.post(url, json=payload, headers=headers)
             resp.raise_for_status()
         except httpx.ConnectError:
             raise DaemonUnavailableError(f"Cannot connect to CoDRAG daemon at {self.daemon_url}")
@@ -223,12 +238,29 @@ class MCPServer:
                 continue
             for check_path in paths:
                 check = check_path.rstrip("/")
-                if check == p_path or check.startswith(p_path + "/"):
-                    if len(p_path) > best_len:
+                if not check:
+                    check = "/"
+                    
+                score = -1
+                if check == p_path:
+                    # Exact match gets highest priority
+                    score = 10000 + len(p_path)
+                elif check.startswith(p_path + "/"):
+                    # Check path is a subfolder of the project
+                    score = 1000 + len(p_path)
+                elif p_path.startswith(check + "/"):
+                    # Project is a subfolder of the check path
+                    score = len(check)
+                elif check == "/" and p_path:
+                    # If check is root, all projects technically match as children
+                    score = 1
+
+                if score > -1:
+                    if score > best_len:
                         best_id = str(pid)
-                        best_len = len(p_path)
+                        best_len = score
                         ambiguous = False
-                    elif len(p_path) == best_len and str(pid) != best_id:
+                    elif score == best_len and str(pid) != best_id:
                         ambiguous = True
 
         if ambiguous:
@@ -1680,7 +1712,7 @@ class MCPServer:
                     exclude_paths=args.get("exclude_paths") or None,
                     project_override=project_override,
                 )
-            elif name == "codrag":
+            elif name in ("codrag", "codrag_context", "codrag_"):
                 result = await self.tool_context(
                     max_chars=args.get("max_chars", 12000),
                     project_override=project_override,

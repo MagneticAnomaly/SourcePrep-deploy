@@ -376,7 +376,7 @@ def mode_switch(req: ModeSwitchRequest) -> Dict[str, Any]:
     configuration mid-run.
     """
     from codrag.server import _load_ui_config, _save_ui_config
-    from codrag.core.project_registry import ProjectRegistry
+    from codrag.services.project_helpers import get_registry
 
     if req.mode not in ("structured", "mapped"):
         raise ApiException(
@@ -395,8 +395,8 @@ def mode_switch(req: ModeSwitchRequest) -> Dict[str, Any]:
     try:
         from codrag.services.pipeline_orchestrator import pipeline_orchestrator
 
-        registry = ProjectRegistry.instance()
-        for project in registry.list():
+        registry = get_registry()
+        for project in registry.list_projects():
             status = pipeline_orchestrator.status(project.id)
 
             # Pause fast_sync if active
@@ -488,13 +488,17 @@ def mode_switch(req: ModeSwitchRequest) -> Dict[str, Any]:
     for pg in paused_groups:
         try:
             from codrag.services.pipeline_orchestrator import pipeline_orchestrator
-            from codrag.services.pipeline.stages import STAGE_TASK_ID
+            from codrag.services.pipeline.stages import STAGE_TASK_ID, StageId
 
             # Try to acquire the model for the next stage under the new config
             run_status = pipeline_orchestrator.status(pg["project_id"])
             group_status = run_status.get(pg["group"])
             if group_status and group_status.get("current_stage"):
-                next_task = STAGE_TASK_ID.get(group_status["current_stage"])
+                try:
+                    stage_enum = StageId(group_status["current_stage"])
+                except ValueError:
+                    stage_enum = None
+                next_task = STAGE_TASK_ID.get(stage_enum) if stage_enum else None
                 if next_task:
                     try:
                         from codrag.core.model_awareness import model_awareness
@@ -639,11 +643,11 @@ def get_llm_slots_status() -> Dict[str, Any]:
     running_task_id: Optional[str] = None
     try:
         from codrag.services.pipeline_orchestrator import pipeline_orchestrator
-        from codrag.core.project_registry import ProjectRegistry
+        from codrag.services.project_helpers import get_registry as _get_reg
         from codrag.services.pipeline.stages import STAGE_TASK_ID, StageId
 
-        registry = ProjectRegistry.instance()
-        for project in registry.list():
+        registry = _get_reg()
+        for project in registry.list_projects():
             ps = pipeline_orchestrator.status(project.id)
             for group_name in ("fast_sync", "deep_enrichment"):
                 group_run = ps.get(group_name)

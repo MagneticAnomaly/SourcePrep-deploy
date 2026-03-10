@@ -356,7 +356,7 @@ export default function Page() {
           <h2 className="text-xl font-semibold">Every plan includes</h2>
           <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-text-muted">
             <span>Local-first — your code stays on your machine</span>
-            <span>Built-in embeddings — add Ollama or BYOK cloud for enrichment</span>
+            <span>Built-in local embeddings — connect frontier cloud APIs or local models for advanced reasoning</span>
             <span>macOS & Windows</span>
             <span>MCP integration</span>
           </div>

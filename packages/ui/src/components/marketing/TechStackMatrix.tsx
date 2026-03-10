@@ -21,7 +21,7 @@ const stackComponents: StackComponent[] = [
     tag: 'One install — batteries included',
     accent: 'primary',
     icon: <Box className="w-6 h-6" />,
-    description: 'The Rust-powered daemon that runs entirely on your machine. Indexes codebases of any size — 500 files or 500,000 — with built-in semantic embeddings. No Ollama, no cloud, no GPU required.',
+    description: 'The Rust-powered daemon runs entirely on your machine. It indexes codebases of any size — 500 files or 500,000 — with built-in local semantic embeddings. The core index requires no GPU, no cloud, and no external AI sidecars. You optionally plug in cloud LLMs just for reasoning.',
     provides: [
       'Built-in embeddings (nomic-embed-text via ONNX — no Ollama needed)',
       'Structural Code Graph (imports, calls, symbol graphs)',

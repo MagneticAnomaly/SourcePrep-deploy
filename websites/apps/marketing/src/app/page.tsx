@@ -21,11 +21,10 @@ export default function Page() {
         <section className="sr-only sm:not-sr-only sm:max-w-4xl sm:mx-auto sm:text-center sm:mb-8">
           <h2 className="text-xl font-semibold text-text mb-2">What is CoDRAG?</h2>
           <p className="text-text-muted">
-            CoDRAG is a local-first codebase indexing and context assembly engine designed for AI-assisted development. 
+            CoDRAG is a local codebase indexing and context assembly engine designed for AI-assisted development. 
             It creates a structural code graph using Rust and tree-sitter to map imports, call chains, and symbol hierarchies. 
             By integrating directly via the Model Context Protocol (MCP) into tools like Cursor, Windsurf, and Claude Desktop, 
-            CoDRAG provides highly compressed, structurally-aware context to AI models, ensuring they have perfect understanding 
-            of multi-repo environments without exposing code to cloud APIs.
+            CoDRAG provides highly compressed, structurally-aware context to AI models. Your code index stays perfectly secure on your machine, while you freely connect your choice of cloud APIs or local models for reasoning.
           </p>
         </section>
 

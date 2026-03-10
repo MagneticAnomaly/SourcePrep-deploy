@@ -104,7 +104,33 @@ TOOLS = [
     },
     {
         "name": "codrag",
-        "description": "Get ambient codebase context based on the user's selected focus areas and code graph structure. Returns hub files (highest connectivity), module summaries, and structurally related neighbors — no query needed. Use codrag_search instead when you need to find something specific.",
+        "description": "Get ambient codebase context — the primary CoDRAG tool. Returns hub files (highest connectivity), module summaries, and structurally related neighbors based on the user's selected focus areas. No query needed. Use codrag_search instead when you need to find something specific. (Full name: codrag_context)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "max_chars": {
+                    "type": "integer",
+                    "description": "Maximum characters in assembled context. Default: 12000.",
+                    "default": 12000,
+                },
+                "project_id": {
+                    "type": "string",
+                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted.",
+                },
+            },
+            "required": [],
+        },
+        "_meta": {
+            "icons": {
+                "default": "box",
+                "light": "box",
+                "dark": "box"
+            }
+        }
+    },
+    {
+        "name": "codrag_context",
+        "description": "Alias for the primary `codrag` tool — get ambient codebase context. Returns hub files (highest connectivity), module summaries, and structurally related neighbors based on the user's selected focus areas. No query needed. Use codrag_search instead when you need to find something specific.",
         "inputSchema": {
             "type": "object",
             "properties": {

@@ -166,6 +166,7 @@ export interface PanelLLMProps {
   handleTestModel: (slot: 'embedding' | 'small' | 'large' | 'code') => Promise<any>
   handleClearTestResult: (slot: string) => void
   handleDownloadModel: (slot: 'embedding' | 'lingua') => Promise<void>
+  handleModeSwitch: (mode: import('@codrag/ui').AssignmentMode, blocks?: import('@codrag/ui').LLMConfig['assignment_blocks']) => Promise<any>
   availableModels: Record<string, string[]>
   modelDetails: Record<string, Array<{ name: string; context_window?: string; cost_tier?: string; rate_limits?: { rpd?: number; rpm?: number }; batch_estimate?: { files_per_request: number; daily_file_capacity?: number } }>>
   loadingModels: Record<string, boolean>
@@ -230,6 +231,11 @@ export interface DashboardPanelsProps {
   adminPolicy?: import('@codrag/ui').AdminPolicy | null
   seatStatus?: any | null
   onProvisionSeat?: (email: string) => Promise<{ provisioned: boolean; message: string }>
+  // Admin Security (EA-I)
+  securityHealth?: import('@codrag/ui').SecurityHealthResult | null
+  securityEvents?: Array<{ timestamp: number; event_type: string; severity: string; message: string }>
+  onExportSecurityReport?: () => void
+  onExportAuditLog?: () => void
 }
 
 /** Builds all dashboard panel content, detail views, and dynamic panel definitions from domain state. */
@@ -490,9 +496,8 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         <LLMStatusWidget
           services={(() => {
             const hasEmbedding = !!(p.llmConfig.embedding.model && (p.llmConfig.embedding.source === 'endpoint' || p.llmConfig.embedding.source === 'huggingface'));
-            const hasFast = !!(p.llmConfig.small_model.enabled && p.llmConfig.small_model.model);
-            const hasThinking = !!(p.llmConfig.large_model.enabled && p.llmConfig.large_model.model);
-            const hasCompression = !!(p.llmConfig.compression?.enabled);
+            const hasFast = !!(p.llmConfig.small_model.model);
+            const hasThinking = !!(p.llmConfig.large_model.model);
             const fastName = hasThinking ? 'Fast Model' : 'Single LLM';
             
             // Map pipeline states to model activity
@@ -542,7 +547,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
                 running: largeRunning,
               });
             }
-            const hasCode = !!(p.llmConfig.code_model?.enabled && p.llmConfig.code_model.model);
+            const hasCode = !!(p.llmConfig.code_model?.model);
             if (hasCode) {
               items.push({
                 name: 'Code Model',
@@ -554,16 +559,6 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
                 type: 'ollama',
                 model: p.llmConfig.code_model.model,
                 running: codeRunning,
-              });
-            }
-            if (hasCompression) {
-              const mode = p.llmConfig.compression.mode || 'auto';
-              const level = p.llmConfig.compression.level || 'standard';
-              items.push({
-                name: 'Compression',
-                status: 'connected',
-                type: 'other',
-                model: `${mode} (${level})`,
               });
             }
             if (items.length === 0) {
@@ -910,6 +905,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           onComputeNodeUpdate={p.onComputeNodeUpdate}
           onComputeNodeDelete={p.onComputeNodeDelete}
           onEndpointNodeChange={p.onEndpointNodeChange}
+          onModeSwitch={p.handleModeSwitch}
           onAssignmentBlockAdd={() => {
             p.handleLLMConfigChange({
               ...p.llmConfig,
@@ -1015,6 +1011,10 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           adminPolicy={p.adminPolicy}
           seatStatus={p.seatStatus}
           onProvisionSeat={p.onProvisionSeat}
+          securityHealth={p.securityHealth}
+          securityEvents={p.securityEvents}
+          onExportSecurityReport={p.onExportSecurityReport}
+          onExportAuditLog={p.onExportAuditLog}
         />
       </div>
     ),

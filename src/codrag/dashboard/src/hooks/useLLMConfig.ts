@@ -250,7 +250,10 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
       return
     }
     const timeout = setTimeout(() => {
-      api.updateGlobalConfig({ llm_config: llmConfig }).catch(() => {
+      api.updateGlobalConfig({ llm_config: llmConfig }).then(() => {
+        // Refresh slot status after saving so the widget picks up endpoint/model changes
+        void fetchLLMSlotsStatus()
+      }).catch(() => {
         // Silent fail — config will be retried on next change
       })
     }, 500)

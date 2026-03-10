@@ -85,6 +85,11 @@ export function IndexStatusCard({
   const showAutoToggle = onAutoRebuildChange !== undefined;
   // Free users are forced to Manual regardless of stored value
   const isAuto = isPro ? (autoRebuild ?? false) : false;
+
+  // Debug: trace disabled state for rebuild button
+  if (!isAuto && onBuild && stats.loaded && (building || limitReached || inactive)) {
+    console.warn('[IndexStatusCard] Rebuild button disabled in Manual mode:', { building, limitReached, inactive, isPro, stale });
+  }
   const Container = bare ? 'div' : Card;
   
   // Calculate stats
@@ -119,7 +124,7 @@ export function IndexStatusCard({
     task_id: 'pending',
     message: 'Starting build...',
     current: 0,
-    total: 100,
+    total: 0,
     percent: 0,
     status: 'running'
   } as TaskProgress : undefined);
@@ -155,6 +160,7 @@ export function IndexStatusCard({
             onClick={inactive ? undefined : onBuild}
             disabled={building || limitReached || inactive}
             title={
+              building ? "A build is already in progress." :
               inactive ? "Activate this project to run builds." :
               limitReached ? "Project limit reached. Upgrade to resume syncing." : undefined
             }

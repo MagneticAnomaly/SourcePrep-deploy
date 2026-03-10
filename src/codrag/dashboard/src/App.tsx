@@ -112,6 +112,8 @@ function App() {
 
   const [adminPolicy, setAdminPolicy] = useState<any>(null)
   const [seatStatus, setSeatStatus] = useState<any>(null)
+  const [securityHealth, setSecurityHealth] = useState<any>(null)
+  const [securityEvents, setSecurityEvents] = useState<any[]>([])
 
   // ── License (hook) ─────────────────────────────────────────
   const {
@@ -418,6 +420,8 @@ function App() {
     const fetchAdminData = () => {
       api.getAdminPolicy().then(setAdminPolicy).catch(() => {})
       api.getSeatStatus().then(setSeatStatus).catch(() => {})
+      api.getSecurityHealth().then(setSecurityHealth).catch(() => {})
+      api.getSecurityEvents(30).then(setSecurityEvents).catch(() => {})
     }
     validate() // Check on connect
     fetchAdminData()
@@ -608,7 +612,7 @@ function App() {
     llm: {
       llmConfig, llmSlotsStatus,
       handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
-      handleTestEndpoint, handleFetchModels, handleTestModel, handleClearTestResult, handleDownloadModel,
+      handleTestEndpoint, handleFetchModels, handleTestModel, handleClearTestResult, handleDownloadModel, handleModeSwitch,
       availableModels, modelDetails, loadingModels, testingSlot, testResults,
       maxActiveProjects, onMaxActiveProjectsChange: handleMaxActiveProjectsChange,
       schedulerStatus,
@@ -626,6 +630,25 @@ function App() {
     adminPolicy,
     seatStatus,
     onProvisionSeat: handleProvisionSeat,
+    securityHealth,
+    securityEvents,
+    onExportSecurityReport: () => {
+      api.exportSecurityReport().then((data: any) => {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a'); a.href = url; a.download = 'codrag-security-report.json'; a.click()
+        URL.revokeObjectURL(url)
+      }).catch(() => {})
+    },
+    onExportAuditLog: () => {
+      api.exportAuditLog('csv').then((data: any) => {
+        const content = data.content || JSON.stringify(data, null, 2)
+        const blob = new Blob([content], { type: data.format === 'csv' ? 'text/csv' : 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a'); a.href = url; a.download = `codrag-audit-log.${data.format || 'json'}`; a.click()
+        URL.revokeObjectURL(url)
+      }).catch(() => {})
+    },
   })
 
   // ── Loading state ──────────────────────────────────────────

@@ -505,7 +505,7 @@ export function EnterpriseAdminPanel({
                     <Shield className="w-5 h-5 text-primary" />
                     <div>
                       <h3 className="text-sm font-semibold text-text">Security Health</h3>
-                      <p className="text-[10px] text-text-muted">13 automated checks across 4 categories</p>
+                      <p className="text-[10px] text-text-muted">{securityHealth.total} automated checks across 5 categories</p>
                     </div>
                     <span className={cn(
                       "text-lg font-mono font-bold px-3 py-1 rounded-lg",
@@ -524,15 +524,24 @@ export function EnterpriseAdminPanel({
                 </div>
               </section>
 
-              {/* Grouped checks */}
+              {/* Grouped checks — match by name so grouping is stable across backend changes */}
               {(() => {
                 const checks = securityHealth.checks;
+                const byName = (names: string[]) => checks.filter(c => names.includes(c.name));
+                const INFRA = ['Network Security', 'Daemon Authentication', 'CORS Configuration'];
+                const COMPLIANCE = ['License Verification', 'Dev Mode Detection', 'DLP Compliance'];
+                const DATA = ['Content Sanitization', 'S3 Endpoint Security', 'Index Integrity', 'API Key Hygiene', 'Secret Detection Coverage', 'Unicode Injection Scan'];
+                const RUNTIME = ['MCP Rate Limiting', 'Secrets & Credentials', 'Config Drift'];
+                const EXPOSURE = ['Data Exposure Summary'];
+                const assigned = new Set([...INFRA, ...COMPLIANCE, ...DATA, ...RUNTIME, ...EXPOSURE]);
+                const ungrouped = checks.filter(c => !assigned.has(c.name));
                 const groups = [
-                  { label: 'Infrastructure', icon: <Server className="w-3.5 h-3.5" />, checks: checks.slice(0, 3) },
-                  { label: 'License & Compliance', icon: <Shield className="w-3.5 h-3.5" />, checks: checks.slice(3, 6) },
-                  { label: 'Data Protection', icon: <Lock className="w-3.5 h-3.5" />, checks: checks.slice(6, 10) },
-                  { label: 'Runtime', icon: <Activity className="w-3.5 h-3.5" />, checks: checks.slice(10, 13) },
-                ];
+                  { label: 'Infrastructure', icon: <Server className="w-3.5 h-3.5" />, checks: byName(INFRA) },
+                  { label: 'License & Compliance', icon: <Shield className="w-3.5 h-3.5" />, checks: byName(COMPLIANCE) },
+                  { label: 'Data Protection', icon: <Lock className="w-3.5 h-3.5" />, checks: byName(DATA) },
+                  { label: 'Runtime', icon: <Activity className="w-3.5 h-3.5" />, checks: byName(RUNTIME) },
+                  { label: 'Data Exposure', icon: <Activity className="w-3.5 h-3.5" />, checks: [...byName(EXPOSURE), ...ungrouped] },
+                ].filter(g => g.checks.length > 0);
                 return (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                     {groups.map((group) => {

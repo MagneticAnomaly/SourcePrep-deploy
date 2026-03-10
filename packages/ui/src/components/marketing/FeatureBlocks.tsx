@@ -149,7 +149,7 @@ export const codragFeatures: Feature[] = [
   {
     icon: <Search className="w-8 h-8" />,
     title: 'Semantic + Structural Search',
-    description: 'Ask "where is the auth middleware?" and get ranked results in under 100 ms. Built-in ONNX embeddings (nomic-embed-text) work out of the box — or connect Ollama or a cloud API like OpenAI if you prefer an alternative model.',
+    description: 'Ask "where is the auth middleware?" and get ranked results in under 100 ms. Fast, privacy-first ONNX embeddings run locally out of the box — or connect your preferred cloud AI provider (BYOK) if you want alternative embedding models.',
     badge: 'Built-in',
     highlight: true,
   },
@@ -196,7 +196,7 @@ export const codragFeatures: Feature[] = [
   {
     icon: <Lock className="w-8 h-8" />,
     title: 'Runs on Your Machine',
-    description: 'Your code index stays on localhost. Use the built-in local models for zero network traffic, or connect to a cloud provider (BYOK) for enhanced trace understanding — you\'re in control.',
+    description: 'Your code index stays strictly on localhost. The entire structural trace graph and embedding index are built offline. When it\'s time for AI reasoning, you\'re in control: use local models for zero network traffic, or securely connect a frontier cloud provider (BYOK) for maximum intelligence.',
   },
   {
     icon: <RefreshCw className="w-8 h-8" />,

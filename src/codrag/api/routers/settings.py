@@ -645,7 +645,7 @@ def get_security_health() -> Dict[str, Any]:
         return ok(results)
     except Exception as e:
         logger.error("Security health check failed: %s", e)
-        return ok({"score": 0, "total": 7, "status": "error", "checks": [], "error": str(e)})
+        return ok({"score": 0, "total": 16, "status": "error", "checks": [], "error": str(e)})
 
 
 # ── EA-I12: Security Report Export ────────────────────────────────────

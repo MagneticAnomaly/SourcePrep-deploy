@@ -34,7 +34,9 @@ export function ProgressIndicator({
             {progress.message}
           </span>
           <span className="text-text-subtle font-mono shrink-0">
-            {progress.percent}% ({progress.current}/{progress.total})
+            {progress.total > 0
+              ? `${progress.percent}% (${progress.current}/${progress.total})`
+              : progress.message === 'Starting build...' ? '' : `${progress.current} processed`}
           </span>
         </div>
       )}

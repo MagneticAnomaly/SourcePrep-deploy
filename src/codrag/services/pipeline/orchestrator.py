@@ -302,9 +302,13 @@ class PipelineOrchestrator:
             self._release_group_models_via_sm(run)
             # Phase 25: journal — mark run completed + cleanup checkpoint
             self._journal_run_completed(run)
-            # After any group completes, trigger CodeIndex build so
+            # After deep enrichment completes, trigger CodeIndex build so
             # /context search works and file tree status badges update.
-            if run.group in ("fast_sync", "deep_enrichment"):
+            # Note: fast_sync does NOT trigger CodeIndex — it only builds
+            # the trace graph.  CodeIndex rebuilds are heavyweight (re-embed
+            # all files) and should only happen after deep enrichment or
+            # when the user explicitly clicks Rebuild.
+            if run.group == "deep_enrichment":
                 self._trigger_code_index_build(run.project_id, pfl)
             # Phase 48 (P48-F5): After deep enrichment completes in auto mode,
             # check if deepening has converged. If not, re-trigger.

@@ -665,8 +665,14 @@ export function AIModelsSettings({
     // A successful test result always means connected
     if (testResults[slotKey]?.success) return 'connected';
     if (!slot.endpoint_id || !slot.model) return 'not-configured';
+    // Check if the endpoint still exists in saved_endpoints
+    const epExists = config.saved_endpoints.some(e => e.id === slot.endpoint_id);
+    if (!epExists) return 'disconnected';
     const epModels = availableModels[slot.endpoint_id] || [];
-    if (epModels.length === 0) return 'loading';
+    // Only show 'loading' if a fetch is actually in progress
+    if (epModels.length === 0) {
+      return loadingModels[slot.endpoint_id] ? 'loading' : 'connected';
+    }
     return modelInList(slot.model, epModels) ? 'connected' : 'disconnected';
   };
   

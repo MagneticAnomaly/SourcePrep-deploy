@@ -235,7 +235,7 @@ const matrixData: FeatureRow[] = [
         name: 'LLM Augmentation',
         description: 'How AI deepens the knowledge graph',
         codrag: {
-          text: 'Local / BYOK LLM\nEpistemic Pipeline',
+          text: 'Flexible AI Pipeline\n(Cloud BYOK or Local)',
           status: 'full',
           detail: "CoDRAG uses local or bring-your-own-key LLMs to continuously augment the structural trace graph with deep semantic understanding. The pipeline generates module summaries, infers cross-module relationships, computes understanding scores, and validates edge correctness \u2014 all automatically. This is not simple indexing: it's a multi-stage epistemic enrichment process where each pass deepens the AI's comprehension. You can run it with a local Ollama model for zero-cloud privacy, or use your own OpenAI/Anthropic key for maximum quality.",
         },

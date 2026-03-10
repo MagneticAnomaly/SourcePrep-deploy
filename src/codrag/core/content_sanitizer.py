@@ -92,8 +92,11 @@ def strip_invisible_unicode(text: str) -> str:
 
     Returns the cleaned text. These characters are used in "Rules File Backdoor"
     attacks where AI reads hidden instructions that human reviewers can't see.
+    Also strips Plane 14 tag characters (U+E0000 to U+E007F) used for hidden text.
     """
-    return _INVISIBLE_RE.sub("", text)
+    text = _INVISIBLE_RE.sub("", text)
+    # Strip Plane 14 language tag characters (U+E0000 - U+E007F)
+    return re.sub(r'[\U000e0000-\U000e007f]', '', text)
 
 
 def detect_invisible_unicode(text: str) -> bool:
@@ -102,7 +105,11 @@ def detect_invisible_unicode(text: str) -> bool:
     Returns True if any invisible characters are found. Use this for
     security health checks and config file validation without modifying content.
     """
-    return bool(_INVISIBLE_RE.search(text))
+    if _INVISIBLE_RE.search(text):
+        return True
+    if re.search(r'[\U000e0000-\U000e007f]', text):
+        return True
+    return False
 
 
 # ── NFKC normalization (Finding F: EchoLeak-style homoglyph attacks) ──
@@ -133,7 +140,7 @@ BUILTIN_SECRET_PATTERNS: List[re.Pattern] = [
     re.compile(r"AIza[0-9A-Za-z\-_]{35}"),                                  # Google API Key
     re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"),   # Private Key Header
     re.compile(r"eyJ[A-Za-z0-9\-_]+\.eyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_.+/=]+"),  # JWT Token
-    re.compile(r"(?i)(?:api[_\-]?key|secret[_\-]?key|password|token|credential)\s*[:=]\s*['\"][^\s'\"]{8,}['\"]"),  # Generic secrets
+    re.compile(r"(?i)(?:api[_\-]?key|secret[_\-]?key|password|token|credential)[^=\n\r]{0,20}[:=]\s*['\"][^\s'\"]{8,}['\"]"),  # Generic secrets
 ]
 
 
@@ -190,12 +197,35 @@ def sanitize_llm_input(content: str, source_path: Optional[str] = None) -> str:
     return cleaned
 
 
-def sanitize_output(content: str) -> str:
+# ── Finding E: URL stripping for MCP output ──────────────────
+
+# Matches http(s) URLs that could be exfiltration vectors (EchoLeak, GeminiJack).
+# Preserves localhost/127.0.0.1 URLs (legitimate dev references).
+_EXTERNAL_URL_RE = re.compile(
+    r"https?://(?!(?:localhost|127\.0\.0\.1)(?:[:/]|$))[^\s)\]>\"']+",
+    re.IGNORECASE,
+)
+
+
+def strip_external_urls(content: str) -> str:
+    """Replace external URLs with a safe placeholder.
+
+    EchoLeak and GeminiJack demonstrated data exfiltration via image URLs
+    embedded in LLM output. This strips external URLs from assembled context
+    while preserving localhost references.
+
+    Returns content with external URLs replaced by [URL-REMOVED].
+    """
+    return _EXTERNAL_URL_RE.sub("[URL-REMOVED]", content)
+
+
+def sanitize_output(content: str, *, strip_urls: bool = False) -> str:
     """Sanitize assembled context before returning via MCP/API.
 
     CORE protection (all tiers):
     1. Escape code fence boundaries (prevents prompt injection breakout)
     2. Strip invisible Unicode (prevents hidden instructions in output)
+    3. Optionally strip external URLs (Finding E: exfiltration defense)
 
     Called from index.py get_context() and layered_index.py get_context().
     """
@@ -203,6 +233,8 @@ def sanitize_output(content: str) -> str:
         return content
     content = sanitize_code_fence_content(content)
     content = strip_invisible_unicode(content)
+    if strip_urls:
+        content = strip_external_urls(content)
     return content
 
 
@@ -258,8 +290,8 @@ def validate_llm_output(response: str, task_name: Optional[str] = None) -> tuple
         )
         # EA-F5: Record to audit log
         try:
-            from codrag.core.audit_log import audit_log
-            audit_log.record(
+            from codrag.core.audit_log import get_audit_log
+            get_audit_log().record(
                 "suspicious_llm_output",
                 f"LLM output validation found {len(warnings)} suspicious pattern(s){task_label}",
                 pattern_count=len(warnings),
@@ -281,19 +313,25 @@ def is_file_blocked_by_dlp(
 
     Returns True if the file matches any pattern in never_send_globs.
     Uses PurePath.match() for ** glob support, with fnmatch fallback.
+    Case-insensitive to prevent bypasses like 'SeCrEt.txt' evading '*secret*'.
     """
     if not never_send_globs or not file_path:
         return False
     from pathlib import PurePath
-    p = PurePath(file_path)
+    
+    # Lowercase for case-insensitive matching
+    p_lower = PurePath(file_path.lower())
+    path_lower = file_path.lower()
+    
     for pattern in never_send_globs:
+        pat_lower = pattern.lower()
         try:
-            if p.match(pattern):
+            if p_lower.match(pat_lower):
                 logger.info("DLP: File '%s' blocked by never_send_glob '%s'", file_path, pattern)
                 return True
         except (ValueError, TypeError):
             # Fallback to fnmatch for simple patterns
-            if _fnmatch.fnmatch(file_path, pattern):
+            if _fnmatch.fnmatch(path_lower, pat_lower):
                 logger.info("DLP: File '%s' blocked by never_send_glob '%s'", file_path, pattern)
                 return True
     return False

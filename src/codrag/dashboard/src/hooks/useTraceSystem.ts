@@ -591,6 +591,40 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     }
   }, [pipelineEvent, selectedProjectId, api, fetchTraceCoverage])
 
+  // ── Ensure watcher is running when Auto is on (hydration) ────
+  // The watcher runs in-memory on the backend.  If the daemon restarts,
+  // the watcher is lost but localStorage still says "auto=true".  This
+  // effect checks the backend watcher status on project change and
+  // re-starts it if needed.  A short delay avoids racing with the
+  // license sync (dev-tier override must reach the backend before the
+  // require_feature("auto_rebuild") gate passes).
+  useEffect(() => {
+    if (!selectedProjectId || !indexAutoRebuild) return
+    let cancelled = false
+
+    const timer = setTimeout(() => {
+      if (cancelled) return
+      // Check current watcher status first
+      api.getWatchStatus(selectedProjectId).then((ws) => {
+        if (cancelled) return
+        // Only start if not already running
+        if (!ws.enabled || ws.state === 'disabled') {
+          startWatchRef.current?.().then(() => {
+            refreshWatchStatusRef.current?.(selectedProjectId)
+          }).catch(() => {
+            // Feature-gated or other error — silently fall through
+          })
+        }
+      }).catch(() => {
+        // Status fetch failed — try starting anyway
+        if (cancelled) return
+        startWatchRef.current?.().catch(() => {})
+      })
+    }, 2000) // 2s delay for license sync to complete
+
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [api, selectedProjectId, indexAutoRebuild])
+
   // ── Polling: trace coverage during build ─────────────────────
   useEffect(() => {
     if (!selectedProjectId || !traceStatus.building) return

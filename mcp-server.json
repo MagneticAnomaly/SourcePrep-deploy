@@ -54,7 +54,7 @@
     },
     {
       "name": "codrag",
-      "description": "Get assembled context for LLM prompt injection (primary tool)"
+      "description": "Get ambient codebase context for LLM prompt injection (primary tool)"
     }
   ],
   "resources": [],

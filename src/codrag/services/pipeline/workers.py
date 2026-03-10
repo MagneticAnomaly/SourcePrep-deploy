@@ -485,7 +485,7 @@ class WorkerFactory:
             from codrag.core.project_registry import project_index_dir
 
             project, *_ = WorkerFactory._get_project_and_config(project_id)
-            llm_client = WorkerFactory._get_llm_client_for_task("enrichment")  # group reasoning shares enrichment task
+            llm_client = WorkerFactory._get_llm_client_for_task("group_reasoning")
             idx_dir = project_index_dir(project)
 
             logger.info("[%s/Group Reasoning] Starting: model=%s", project.name, llm_client.model)

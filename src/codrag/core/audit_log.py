@@ -254,6 +254,7 @@ class AuditLog:
         event_type: Optional[str] = None,
         severity: Optional[str] = None,
         since: Optional[float] = None,
+        until: Optional[float] = None,
     ) -> int:
         """Count entries matching filters."""
         self._ensure_init()
@@ -270,6 +271,9 @@ class AuditLog:
         if since is not None:
             conditions.append("timestamp >= ?")
             params.append(since)
+        if until is not None:
+            conditions.append("timestamp <= ?")
+            params.append(until)
 
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
         sql = f"SELECT COUNT(*) FROM audit_log {where}"
@@ -319,6 +323,29 @@ class AuditLog:
             stage=stage,
             endpoint_url=endpoint_url,
         )
+
+    # ── EA-H8: CSV export ────────────────────────────────────────
+
+    def export_csv(self, *, limit: int = 50_000) -> str:
+        """Export the audit log as a CSV string.
+
+        Used by the ``/admin/audit-log/export?format=csv`` endpoint.
+        Returns a UTF-8 CSV string with headers.
+        """
+        import csv
+        import io
+
+        entries = self.query(limit=limit)
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(["id", "timestamp", "event_type", "severity", "message", "details", "project_id", "user"])
+        for e in entries:
+            writer.writerow([
+                e.id, e.timestamp, e.event_type, e.severity,
+                e.message, json.dumps(e.details, default=str),
+                e.project_id or "", e.user or "",
+            ])
+        return buf.getvalue()
 
     def get_token_usage(
         self,
@@ -387,3 +414,13 @@ SECURITY_EVENT_TYPES = {
 
 # Singleton instance
 audit_log = AuditLog()
+
+
+def get_audit_log() -> AuditLog:
+    """Return the global AuditLog singleton.
+
+    Preferred accessor — callers should use this instead of importing
+    the ``audit_log`` variable directly so the singleton is always
+    returned regardless of import-time initialisation order.
+    """
+    return audit_log

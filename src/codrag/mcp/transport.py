@@ -37,41 +37,40 @@ async def run_stdio(server: "MCPServer") -> None:
     Reads JSON-RPC messages from stdin, writes responses to stdout.
     Messages are newline-delimited.
     """
-    reader = asyncio.StreamReader()
-    protocol = asyncio.StreamReaderProtocol(reader)
-    await asyncio.get_event_loop().connect_read_pipe(lambda: protocol, sys.stdin)
+    loop = asyncio.get_event_loop()
 
-    writer_transport, writer_protocol = await asyncio.get_event_loop().connect_write_pipe(
-        asyncio.streams.FlowControlMixin, sys.stdout
-    )
-    writer = asyncio.StreamWriter(writer_transport, writer_protocol, None, asyncio.get_event_loop())
+    def read_line():
+        return sys.stdin.readline()
 
     try:
         while True:
-            line = await reader.readline()
-            if not line:
+            # Read line in a separate thread to avoid blocking the event loop
+            line_str = await loop.run_in_executor(None, read_line)
+            if not line_str:
                 break
 
-            line = line.decode("utf-8").strip()
-            if not line:
+            line_str = line_str.strip()
+            if not line_str:
                 continue
 
             try:
-                request = json.loads(line)
+                request = json.loads(line_str)
             except json.JSONDecodeError as e:
+                from .server import JSONRPC_VERSION
+                from .errors import PARSE_ERROR
                 error_response = {
                     "jsonrpc": JSONRPC_VERSION,
                     "id": None,
                     "error": {"code": PARSE_ERROR, "message": f"Parse error: {e}"},
                 }
-                writer.write((json.dumps(error_response) + "\n").encode("utf-8"))
-                await writer.drain()
+                sys.stdout.write(json.dumps(error_response) + "\n")
+                sys.stdout.flush()
                 continue
 
             response = await server.handle_request(request)
             if response is not None:
-                writer.write((json.dumps(response) + "\n").encode("utf-8"))
-                await writer.drain()
+                sys.stdout.write(json.dumps(response) + "\n")
+                sys.stdout.flush()
 
     except Exception as e:
         logger.exception("Error in stdio loop")
