@@ -332,7 +332,7 @@
         "id": "index-health",
         "visible": true,
         "height": 8,
-        "collapsed": false,
+        "collapsed": true,
         "x": 8,
         "y": 18,
         "w": 4
@@ -352,7 +352,7 @@
         "height": 13,
         "collapsed": false,
         "x": 4,
-        "y": 26,
+        "y": 20,
         "w": 8
       },
       {
@@ -370,7 +370,7 @@
         "height": 21,
         "collapsed": false,
         "x": 4,
-        "y": 39,
+        "y": 33,
         "w": 8
       },
       {
@@ -397,7 +397,7 @@
         "height": 6,
         "collapsed": true,
         "x": 4,
-        "y": 60,
+        "y": 54,
         "w": 4
       },
       {
@@ -406,7 +406,7 @@
         "height": 12,
         "collapsed": true,
         "x": 8,
-        "y": 60,
+        "y": 54,
         "w": 4
       },
       {
@@ -415,7 +415,7 @@
         "height": 8,
         "collapsed": true,
         "x": 4,
-        "y": 62,
+        "y": 56,
         "w": 4
       },
       {
@@ -424,7 +424,7 @@
         "height": 9,
         "collapsed": true,
         "x": 8,
-        "y": 62,
+        "y": 56,
         "w": 4
       },
       {
@@ -433,7 +433,7 @@
         "height": 8,
         "collapsed": false,
         "x": 4,
-        "y": 64,
+        "y": 58,
         "w": 8
       },
       {
@@ -458,7 +458,7 @@
   },
   "compute_nodes": [
     {
-      "id": "node_b9f2fd0c",
+      "id": "node_df740693",
       "name": "Local Machine",
       "type": "local",
       "hardware_profile": "apple_silicon",

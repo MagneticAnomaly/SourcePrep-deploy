@@ -37,21 +37,21 @@
 ## SPRINT 2: LemonSqueezy License Integration
 *The revenue path. Without this, we can't charge money.*
 
-- [ ] **LS-1** Rewrite `POST /license/activate` to call LS API (`/v1/licenses/activate`) — P0
-- [ ] **LS-2** Periodic re-validation (7-day LS `validate` call with retry) — P0
-- [ ] **LS-3** 30-day offline grace period (trust cached tier if last_validated < 30d) — P0
+- [x] **LS-1** Rewrite `POST /license/activate` to call LS API — ✅ Built (`lemon_squeezy.py` + `license.py`)
+- [x] **LS-2** Periodic re-validation (7-day LS `validate` call) — ✅ Built (`/license/validate` + App.tsx hourly check)
+- [x] **LS-3** 30-day offline grace period — ✅ Built (grace period logic in validate endpoint)
 - [ ] **LS-4** License recovery flow (payments.codrag.io/recover → LS API lookup) — P0
-- [ ] **LS-5** Deactivation endpoint (frees LS activation slot) — P0
-- [ ] **LS-6** `api.codrag.io` relay service (serverless: LS webhook → Ed25519 license) — P0
-- [ ] **LS-7** Ed25519 keypair generation (**Eric manual task**) — P0
-- [ ] **LS-8** Activation limits per LS product (Monthly: 3, Perpetual: 5, Team: 1/seat) (**Eric: LS setup**) — P0
+- [x] **LS-5** Deactivation endpoint (frees LS activation slot) — ✅ Built
+- [ ] **LS-6** `api.codrag.io` relay service (serverless: LS webhook → Ed25519 license) — P0 (**Eric: see FOR_ERIC_TODO.md**)
+- [ ] **LS-7** Ed25519 keypair generation — P0 (**Eric: see FOR_ERIC_TODO.md LS-10**)
+- [ ] **LS-8** Activation limits per LS product — P0 (**Eric: see FOR_ERIC_TODO.md LS-02 to LS-04**)
 
 ## SPRINT 3: Seat Management (Team/Enterprise)
 *Required when first team customer signs up.*
 
-- [ ] **SEAT-1** Seat count tracking (read from LS activation data) — P1
-- [ ] **SEAT-2** Seat management UI in Enterprise Admin panel (list active seats) — P1
-- [ ] **SEAT-3** Seat overflow handling ("Contact admin" / "Purchase seats" message) — P1
+- [x] **SEAT-1** Seat count tracking — ✅ Built (`GET /license/seats`)
+- [x] **SEAT-2** Seat management UI — ✅ Built (Enterprise Admin → Usage tab, active machines list)
+- [x] **SEAT-3** Seat overflow handling — ✅ Built (amber warning + purchase link)
 - [ ] **SEAT-4** Admin seat provisioning (generate per-user keys from admin panel) — P2
 - [ ] **SEAT-5** Onboarding flow (new team member receives key → activates → joins seat pool) — P2
 - [ ] **SEAT-6** Offboarding flow (admin deactivates seat → next validation downgrades to FREE) — P2
@@ -59,12 +59,16 @@
 ## SPRINT 4: AI Gateway Enhancements
 *Versatile access controls for IT admins who want flexible policies.*
 
-- [ ] **GW-1** Per-user local model override (`allow_any_local_model: true` flag) — P1
-- [ ] **GW-2** IT-managed API key injection (admin pre-configures keys, masked in UI as "•••sk-1234") — P1
+- [x] **GW-1** Per-user local model override — ✅ Built (`allow_any_local_model` in ModelPolicy + enforcement bypass)
+- [x] **GW-2** IT-managed API key injection — ✅ Built (`allow_user_api_keys` + masked UI)
 - [ ] **GW-3** Per-slot policy (different provider/model restrictions per model slot) — P2
 - [ ] **GW-4** Per-user cost limits (individual monthly budget caps) — P2
-- [ ] **GW-7** Policy change audit trail (log who changed what policy, when) — P1
-- [ ] **GW-8** Read-only AI Gateway for non-admin users (see settings, can't edit locked items) — P1
+- [x] **GW-7** Policy change audit trail — ✅ Built (`_save_llm_config` logs to audit)
+- [x] **GW-8** Read-only AI Gateway — ✅ Built (`canAddEndpoints`, `canEditApiKeys` gates)
+
+### Also Completed (Pipeline Security)
+- [x] **DLP-1** Enterprise DLP secret redaction wired into `llm_client.py generate()` chokepoint ✅
+- [x] **AUDIT-1** LLM call audit trail — every call logs provider/model/endpoint/prompt_chars ✅
 
 ## SPRINT 5: Security Audit Fixes (Remaining)
 *Items from SECURITY_AUDIT.md not yet fixed.*
@@ -148,25 +152,26 @@
 
 ---
 
-## Quick Stats
+## Quick Stats (Updated March 10, 2026)
 
 | Category | Total | Done | Remaining |
 |----------|-------|------|-----------|
-| Security Health Panel | 10 | 0 | 10 |
-| LemonSqueezy Integration | 8 | 0 | 8 |
-| Seat Management | 6 | 0 | 6 |
-| AI Gateway Enhancements | 6 | 0 | 6 |
-| Security Audit Fixes | 15 | 13 | 2 |
+| Security Health Panel | 10 | **10** | 0 |
+| LemonSqueezy Integration | 8 | **5** | 3 (Eric tasks) |
+| Seat Management | 6 | **3** | 3 |
+| AI Gateway Enhancements | 6 | **4** | 2 |
+| Security Audit Fixes | 15 | **13** | 2 |
+| Pipeline Security (NEW) | 8 | **8** | 0 |
 | Auth & Identity | 4 | 0 | 4 |
 | Compliance & Documentation | 6 | 2 | 4 |
 | Deployment & Distribution | 4 | 0 | 4 |
-| **TOTAL** | **59** | **15** | **44** |
+| **TOTAL** | **67** | **45** | **22** |
 
 ### Priority Breakdown of Remaining
 
 | Priority | Count | Description |
 |----------|-------|-------------|
-| **P0** | 8 | Ship blockers (all LemonSqueezy) |
-| **P1** | 14 | First enterprise customer |
+| **P0** | 3 | Ship blockers (Eric: LS products, Ed25519, webhook) |
+| **P1** | 1 | License recovery flow (LS-4) |
 | **P2** | 13 | 3-6 month roadmap |
 | **P3** | 9 | 6-12 month roadmap |

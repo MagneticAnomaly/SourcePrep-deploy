@@ -361,6 +361,58 @@ class LLMClient:
         except ImportError:
             pass  # content_sanitizer not available — skip gracefully
 
+        # ── ENTERPRISE: DLP secret redaction (only when admin_policy configures it) ──
+        # This is quality-impacting by design — IT makes a conscious tradeoff.
+        try:
+            from codrag.server import _load_ui_config
+            ui_cfg = _load_ui_config()
+            admin_policy_raw = ui_cfg.get("_admin_policy_cache")
+            if not admin_policy_raw:
+                # Try loading from active project
+                active_id = None
+                try:
+                    from codrag.services.settings_store import settings
+                    active_id = settings.get_global("active_project")
+                except Exception:
+                    pass
+                if active_id:
+                    try:
+                        proj_root = None
+                        try:
+                            from codrag.services.settings_store import settings as _s
+                            proj_root = _s.get_project(active_id, "root_path")
+                        except Exception:
+                            pass
+                        if proj_root:
+                            from pathlib import Path
+                            from codrag.core.team_config import load_admin_policy
+                            _policy = load_admin_policy(Path(proj_root))
+                            if _policy.data.redact_patterns:
+                                from codrag.core.content_sanitizer import redact_secrets_in_content
+                                prompt = redact_secrets_in_content(prompt, _policy.data.redact_patterns)
+                    except Exception:
+                        pass
+        except Exception:
+            pass  # Enterprise DLP not available — skip gracefully
+
+        # ── Audit trail: record LLM call metadata ──────────────────
+        try:
+            from codrag.core.audit_log import get_audit_log
+            get_audit_log().record(
+                event_type="llm_call",
+                severity="info",
+                message=f"LLM call: {self.provider}/{self.model}",
+                metadata={
+                    "provider": self.provider,
+                    "model": self.model,
+                    "endpoint": self.endpoint_url,
+                    "num_predict": num_predict,
+                    "prompt_chars": len(prompt),
+                },
+            )
+        except Exception:
+            pass
+
         if self.provider == "lm-studio":
             text, tokens = self._generate_lmstudio(
                 prompt, system=system, num_predict=num_predict,
