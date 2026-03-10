@@ -202,6 +202,9 @@ export interface ApiClient {
   // Batch Estimate
   getBatchEstimate(): Promise<any>;
 
+  // License validation (LS-2)
+  validateLicense(): Promise<any>;
+
   // Scope Orchestrator (Phase 24 SM-8)
   getScopeStatus(projectId: string): Promise<any>;
   addScopeFiles(projectId: string, paths: string[]): Promise<any>;
@@ -1011,6 +1014,10 @@ export class CodragApiClient implements ApiClient {
 
   async getBatchEstimate(): Promise<any> {
     return this.requestEnvelope<any>('/settings/batch-estimate');
+  }
+
+  async validateLicense(): Promise<any> {
+    return this.requestEnvelope<any>('/license/validate', { method: 'POST' });
   }
 }
 

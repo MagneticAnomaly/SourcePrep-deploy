@@ -330,6 +330,10 @@ export class MockApiClient implements ApiClient {
     return { deleted: [], errors: [] };
   }
 
+  async validateLicense(): Promise<any> {
+    return { validated: true, reason: 'Mock — no validation needed' };
+  }
+
   async getBatchEstimate(): Promise<any> {
     return {
       batch_mode: 'auto',

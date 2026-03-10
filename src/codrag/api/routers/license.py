@@ -81,70 +81,87 @@ def get_license_status() -> Dict[str, Any]:
 
 @router.post("/license/activate")
 def activate_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
+    """Activate a license key.
+
+    Supports three activation methods (tried in order):
+    1. LemonSqueezy UUID key → calls LS API for online activation
+    2. Ed25519 signed offline key → cryptographic verification (enterprise)
+    3. Dev/testing: tier name, JSON, or base64 (requires CODRAG_DEV_MODE=1)
+    """
+    import time as _time
+
     key = str(req.key or "").strip()
     if not key:
         raise ApiException(status_code=400, code="VALIDATION_ERROR", message="key is required")
 
     allowed_tiers = {"free", "monthly", "perpetual", "team", "enterprise"}
-    _legacy_tier_map = {"starter": "monthly", "pro": "perpetual"}  # "pro" → perpetual internally
+    _legacy_tier_map = {"starter": "monthly", "pro": "perpetual"}
     lic_data: Optional[Dict[str, Any]] = None
 
-    # 1. Try to verify as a signed offline key (Production/Enterprise)
-    # This is the most secure method and should be prioritized.
-    verified_payload = verify_license_key(key)
-    if verified_payload:
-        lic_data = verified_payload
-        logger.info(f"Verified signed license key for {lic_data.get('issued_to', 'unknown')}")
+    # ── Method 1: LemonSqueezy UUID key (production path) ────────
+    # LS keys look like UUIDs: 38b1460a-5104-4067-a91d-77b872934d51
+    _uuid_like = len(key) >= 30 and key.count("-") >= 3 and all(c in "0123456789abcdef-" for c in key.lower())
+    if _uuid_like:
+        try:
+            from codrag.core.lemon_squeezy import activate_key
+            result = activate_key(key)
+            if result.success:
+                lic_data = {
+                    "tier": result.tier,
+                    "valid": True,
+                    "email": result.email,
+                    "expires_at": result.expires_at,
+                    "seats": result.seats,
+                    "features": [],
+                    "license_key": result.license_key,
+                    "instance_id": result.instance_id,
+                    "product_id": result.product_id,
+                    "activated_at": _time.time(),
+                    "last_validated": _time.time(),
+                    "activation_method": "lemonsqueezy",
+                }
+                logger.info("Activated license via LemonSqueezy: tier=%s email=%s", result.tier, result.email)
+            else:
+                raise ApiException(
+                    status_code=400,
+                    code="ACTIVATION_FAILED",
+                    message=result.error or "LemonSqueezy activation failed",
+                )
+        except ApiException:
+            raise
+        except ImportError:
+            logger.warning("lemon_squeezy module not available — falling back to offline methods")
+        except Exception as e:
+            logger.warning("LS activation failed, trying offline methods: %s", e)
 
-    # 2. Dev/Testing: Allow direct tier names (including legacy names)
+    # ── Method 2: Ed25519 signed offline key (enterprise) ────────
     if lic_data is None:
-        tier_guess = key.lower()
-        tier_guess = _legacy_tier_map.get(tier_guess, tier_guess)
+        verified_payload = verify_license_key(key)
+        if verified_payload:
+            lic_data = verified_payload
+            lic_data["activation_method"] = "ed25519"
+            lic_data["signature_verified"] = True
+            lic_data["last_validated"] = _time.time()
+            logger.info("Verified signed license key for %s", lic_data.get("issued_to", "unknown"))
+
+    # ── Method 3: Dev/testing shortcuts ──────────────────────────
+    # Only available when CODRAG_DEV_MODE=1 is set
+    dev_mode = os.environ.get("CODRAG_DEV_MODE", "").strip() == "1"
+
+    if lic_data is None and dev_mode:
+        tier_guess = _legacy_tier_map.get(key.lower(), key.lower())
         if tier_guess in allowed_tiers:
-            lic_data = {"tier": tier_guess, "valid": True, "seats": 1, "features": []}
-            logger.info(f"Activated dev license via tier name: {tier_guess}")
+            lic_data = {"tier": tier_guess, "valid": True, "seats": 1, "features": [], "activation_method": "dev"}
+            logger.info("DEV MODE: Activated via tier name: %s", tier_guess)
 
-    # 3. Dev/Testing: Allow plain JSON
-    if lic_data is None:
+    if lic_data is None and dev_mode:
         try:
             if key.startswith("{") and key.endswith("}"):
                 parsed = json.loads(key)
                 if isinstance(parsed, dict):
                     lic_data = dict(parsed)
-                    logger.info("Activated dev license via plain JSON")
-        except Exception:
-            pass
-
-    # 4. Legacy: Try Base64 encoded JSON (plain or JWT-like parts)
-    # This is mostly for backward compatibility or simple encoding
-    if lic_data is None and "." in key:
-        parts = [p for p in key.split(".") if p]
-        payload_part: Optional[str] = None
-        if len(parts) >= 2:
-            # Assume middle part is payload in header.payload.signature
-            # Or first part in payload.signature
-            payload_part = parts[1] if len(parts) >= 3 else parts[0]
-        
-        if payload_part:
-            try:
-                padded = payload_part + "=" * (-len(payload_part) % 4)
-                decoded = base64.urlsafe_b64decode(padded.encode("utf-8")).decode("utf-8")
-                parsed = json.loads(decoded)
-                if isinstance(parsed, dict):
-                    lic_data = dict(parsed)
-                    logger.info("Activated license via legacy token parsing")
-            except Exception:
-                pass
-
-    if lic_data is None:
-        # Final attempt: try decoding the whole key as base64
-        try:
-            padded = key + "=" * (-len(key) % 4)
-            decoded = base64.urlsafe_b64decode(padded.encode("utf-8")).decode("utf-8")
-            parsed = json.loads(decoded)
-            if isinstance(parsed, dict):
-                lic_data = dict(parsed)
-                logger.info("Activated license via base64 decoding")
+                    lic_data["activation_method"] = "dev_json"
+                    logger.info("DEV MODE: Activated via plain JSON")
         except Exception:
             pass
 
@@ -152,43 +169,170 @@ def activate_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
         raise ApiException(
             status_code=400,
             code="INVALID_LICENSE",
-            message="Invalid license key",
-            hint="Provide a valid signed license key, or a tier name (free/pro/team/enterprise) for development.",
+            message="Invalid license key. Enter a valid LemonSqueezy license key.",
+            hint="Purchase a license at https://codrag.io/pricing",
         )
 
-    tier_raw = str(lic_data.get("tier") or "").strip().lower()
+    # Normalize tier
+    tier_raw = str(lic_data.get("tier") or "pro").strip().lower()
     tier_raw = _legacy_tier_map.get(tier_raw, tier_raw)
     if tier_raw not in allowed_tiers:
-        raise ApiException(
-            status_code=400,
-            code="VALIDATION_ERROR",
-            message=f"Invalid license tier: {tier_raw}. Must be one of: {', '.join(sorted(allowed_tiers))}",
-        )
-
+        tier_raw = "pro"  # Safe default for LS keys without explicit tier
     lic_data["tier"] = tier_raw
     lic_data.setdefault("valid", True)
     lic_data.setdefault("seats", 1)
     lic_data.setdefault("features", [])
+    lic_data.setdefault("activated_at", _time.time())
+    lic_data.setdefault("last_validated", _time.time())
 
-    # Ensure critical timestamps are present if available in meta
-    if "expires_at" not in lic_data and "meta" in lic_data:
-         # Some issuers might put expiry in meta, flatten it if needed or standard schema logic
-         pass
-
+    # Save to disk
     license_path = Path.home() / ".codrag" / "license.json"
     license_path.parent.mkdir(parents=True, exist_ok=True)
     license_path.write_text(json.dumps(lic_data, indent=2), encoding="utf-8")
 
     clear_license_cache()
-    
-    # Reload license to ensure we return what the system sees
-    new_status = get_license_status()
-    return new_status
+
+    # Audit log
+    try:
+        from codrag.core.audit_log import get_audit_log
+        get_audit_log().record(
+            event_type="license_activated",
+            severity="info",
+            message=f"License activated: tier={tier_raw}, method={lic_data.get('activation_method')}",
+            metadata={"tier": tier_raw, "method": lic_data.get("activation_method"), "email": lic_data.get("email")},
+        )
+    except Exception:
+        pass
+
+    return get_license_status()
+
+
+@router.post("/license/validate")
+def validate_license_online() -> Dict[str, Any]:
+    """Re-validate the current license with LemonSqueezy.
+
+    Called periodically (every 7 days) by the dashboard.
+    Updates last_validated timestamp on success.
+    If LS says invalid → downgrade to FREE.
+    If offline → check grace period (30 days).
+    """
+    import time as _time
+
+    license_path = Path.home() / ".codrag" / "license.json"
+    if not license_path.exists():
+        return ok({"validated": False, "reason": "No license file"})
+
+    try:
+        lic_data = json.loads(license_path.read_text(encoding="utf-8"))
+    except Exception:
+        return ok({"validated": False, "reason": "Cannot read license file"})
+
+    ls_key = lic_data.get("license_key")
+    instance_id = lic_data.get("instance_id")
+    method = lic_data.get("activation_method", "")
+
+    # Only LS-activated licenses need online validation
+    if method != "lemonsqueezy" or not ls_key or not instance_id:
+        return ok({"validated": True, "reason": "Offline license — no validation needed", "method": method})
+
+    # Check if validation is needed (7-day interval)
+    from codrag.core.lemon_squeezy import needs_revalidation, validate_key, is_grace_period_expired, grace_period_days_remaining
+
+    last_validated = lic_data.get("last_validated")
+    if not needs_revalidation(last_validated):
+        days_since = int((_time.time() - (last_validated or 0)) / 86400) if last_validated else 0
+        return ok({
+            "validated": True,
+            "reason": f"Recently validated ({days_since}d ago)",
+            "next_check_days": max(0, 7 - days_since),
+        })
+
+    # Call LS API
+    result = validate_key(ls_key, instance_id)
+
+    if result.success:
+        # Update last_validated timestamp
+        lic_data["last_validated"] = _time.time()
+        lic_data["valid"] = True
+        if result.tier:
+            lic_data["tier"] = result.tier
+        if result.expires_at:
+            lic_data["expires_at"] = result.expires_at
+        license_path.write_text(json.dumps(lic_data, indent=2), encoding="utf-8")
+        clear_license_cache()
+        return ok({"validated": True, "reason": "License confirmed valid by LemonSqueezy"})
+
+    elif result.error in ("OFFLINE", "TIMEOUT"):
+        # Network error — check grace period
+        grace_days = grace_period_days_remaining(last_validated)
+        if is_grace_period_expired(last_validated):
+            # Grace period expired — downgrade
+            lic_data["valid"] = False
+            lic_data["tier"] = "free"
+            license_path.write_text(json.dumps(lic_data, indent=2), encoding="utf-8")
+            clear_license_cache()
+            logger.warning("License grace period expired (offline > 30 days). Downgrading to FREE.")
+            return ok({
+                "validated": False,
+                "reason": "Offline grace period expired (30 days). Connect to internet to re-validate.",
+                "grace_days_remaining": 0,
+            })
+        else:
+            return ok({
+                "validated": True,
+                "reason": f"Offline — using cached license ({grace_days} days remaining in grace period)",
+                "grace_days_remaining": grace_days,
+            })
+
+    else:
+        # LS explicitly says invalid (subscription cancelled, refunded, etc.)
+        lic_data["valid"] = False
+        lic_data["tier"] = "free"
+        license_path.write_text(json.dumps(lic_data, indent=2), encoding="utf-8")
+        clear_license_cache()
+        logger.warning("License invalidated by LemonSqueezy: %s", result.error)
+
+        try:
+            from codrag.core.audit_log import get_audit_log
+            get_audit_log().record(
+                event_type="license_invalidated",
+                severity="warning",
+                message=f"License invalidated: {result.error}",
+                metadata={"error": result.error},
+            )
+        except Exception:
+            pass
+
+        return ok({
+            "validated": False,
+            "reason": result.error or "License is no longer valid",
+        })
 
 
 @router.post("/license/deactivate")
 def deactivate_license() -> Dict[str, Any]:
+    """Deactivate the license and revert to FREE tier.
+
+    If this is a LemonSqueezy license, calls LS API to free the activation slot.
+    """
     license_path = Path.home() / ".codrag" / "license.json"
+
+    # Try to deactivate with LS first (frees activation slot)
+    if license_path.exists():
+        try:
+            lic_data = json.loads(license_path.read_text(encoding="utf-8"))
+            ls_key = lic_data.get("license_key")
+            instance_id = lic_data.get("instance_id")
+            if ls_key and instance_id:
+                from codrag.core.lemon_squeezy import deactivate_key
+                if deactivate_key(ls_key, instance_id):
+                    logger.info("Deactivated license with LemonSqueezy (freed activation slot)")
+                else:
+                    logger.warning("LS deactivation failed — removing local license anyway")
+        except Exception as e:
+            logger.warning("Error during LS deactivation: %s", e)
+
+    # Remove local license file
     try:
         if license_path.exists():
             license_path.unlink()
@@ -196,6 +340,18 @@ def deactivate_license() -> Dict[str, Any]:
         raise ApiException(status_code=500, code="IO_ERROR", message="Failed to remove license file")
 
     clear_license_cache()
+
+    # Audit log
+    try:
+        from codrag.core.audit_log import get_audit_log
+        get_audit_log().record(
+            event_type="license_deactivated",
+            severity="info",
+            message="License deactivated",
+        )
+    except Exception:
+        pass
+
     return get_license_status()
 
 

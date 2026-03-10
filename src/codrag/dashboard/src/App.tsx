@@ -406,6 +406,17 @@ function App() {
     if (isConnected) refreshBatchEstimate()
   }, [isConnected, refreshBatchEstimate, llmConfig])
 
+  // LS-2: Periodic license re-validation (every hour, backend checks 7-day interval)
+  useEffect(() => {
+    if (!isConnected) return
+    const validate = () => {
+      api.validateLicense().catch(() => {})
+    }
+    validate() // Check on connect
+    const interval = setInterval(validate, 60 * 60 * 1000) // Every hour
+    return () => clearInterval(interval)
+  }, [isConnected, api])
+
   // Load compute nodes on connect
   const refreshComputeNodes = useCallback(() => {
     api.getComputeNodes()
