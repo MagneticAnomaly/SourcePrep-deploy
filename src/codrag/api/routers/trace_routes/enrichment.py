@@ -314,7 +314,7 @@ def epistemic_status_project(project_id: str) -> Dict[str, Any]:
             "avg_confidence": 0.0,
         }
     else:
-        count = 0
+        seen_nodes = set()
         total_conf = 0.0
         with open(epistemic_path, "r", encoding="utf-8") as f:
             for line in f:
@@ -322,15 +322,22 @@ def epistemic_status_project(project_id: str) -> Dict[str, Any]:
                 if line:
                     try:
                         d = json.loads(line)
-                        count += 1
-                        total_conf += float(d.get("epistemic_confidence", 0.0))
+                        node_id = d.get("node_id")
+                        if node_id and node_id not in seen_nodes:
+                            seen_nodes.add(node_id)
+                            total_conf += float(d.get("epistemic_confidence", 0.0))
                     except Exception:
                         pass
+        count = len(seen_nodes)
+        
+        # Ensure we don't exceed 100% due to legacy data
+        display_count = min(count, total_file_nodes) if total_file_nodes > 0 else count
+        
         result = {
             "enabled": True,
-            "enriched_nodes": count,
+            "enriched_nodes": display_count,
             "total_file_nodes": total_file_nodes,
-            "avg_confidence": round(total_conf / count, 3) if count else 0.0,
+            "avg_confidence": round(total_conf / count, 3) if count > 0 else 0.0,
         }
 
     # Inject live running state — check legacy threads first

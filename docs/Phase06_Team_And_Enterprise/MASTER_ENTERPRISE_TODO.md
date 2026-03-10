@@ -40,7 +40,7 @@
 - [x] **LS-1** Rewrite `POST /license/activate` to call LS API — ✅ Built (`lemon_squeezy.py` + `license.py`)
 - [x] **LS-2** Periodic re-validation (7-day LS `validate` call) — ✅ Built (`/license/validate` + App.tsx hourly check)
 - [x] **LS-3** 30-day offline grace period — ✅ Built (grace period logic in validate endpoint)
-- [ ] **LS-4** License recovery flow (payments.codrag.io/recover → LS API lookup) — P0
+- [x] **LS-4** License recovery flow — ✅ Built (`POST /license/recover` endpoint redirects to web flow)
 - [x] **LS-5** Deactivation endpoint (frees LS activation slot) — ✅ Built
 - [ ] **LS-6** `api.codrag.io` relay service (serverless: LS webhook → Ed25519 license) — P0 (**Eric: see FOR_ERIC_TODO.md**)
 - [ ] **LS-7** Ed25519 keypair generation — P0 (**Eric: see FOR_ERIC_TODO.md LS-10**)

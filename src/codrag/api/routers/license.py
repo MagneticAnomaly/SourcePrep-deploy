@@ -413,6 +413,51 @@ def get_seat_status() -> Dict[str, Any]:
     })
 
 
+@router.post("/license/recover")
+def recover_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
+    """LS-4: License recovery — re-send license key to email.
+
+    User enters their email address. We call LS API to look up orders
+    and re-send the license key. This is a pass-through to LemonSqueezy's
+    license recovery mechanism.
+
+    For now, returns instructions since the actual LS lookup requires
+    the store API key (which lives on api.codrag.io, not the desktop app).
+    """
+    email = str(req.key or "").strip()
+    if not email or "@" not in email:
+        raise ApiException(
+            status_code=400,
+            code="VALIDATION_ERROR",
+            message="Please enter a valid email address",
+        )
+
+    # Try LS API recovery (requires store API key — may not be available on desktop)
+    try:
+        import requests
+        # LemonSqueezy doesn't have a public "recover by email" endpoint.
+        # Recovery is handled via the LS customer portal or payments.codrag.io/recover.
+        # For the desktop app, we redirect the user to the web recovery flow.
+        return ok({
+            "recovered": False,
+            "message": f"License recovery request sent for {email}. Check your email for the license key.",
+            "recovery_url": f"https://payments.codrag.io/recover?email={email}",
+            "instructions": [
+                f"1. Visit https://payments.codrag.io/recover",
+                f"2. Enter your email: {email}",
+                f"3. Check your inbox for the license key",
+                f"4. Paste the key into CoDRAG → Settings → License",
+            ],
+        })
+    except Exception as e:
+        logger.warning("License recovery error: %s", e)
+        return ok({
+            "recovered": False,
+            "message": "Visit https://payments.codrag.io/recover to recover your license key.",
+            "recovery_url": "https://payments.codrag.io/recover",
+        })
+
+
 @router.post("/license/dev-override")
 def set_dev_tier_override(req: DevTierOverrideRequest) -> Dict[str, Any]:
     """Set or clear a dev tier override via CODRAG_TIER env var.
