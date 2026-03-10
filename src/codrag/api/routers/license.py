@@ -212,6 +212,7 @@ def set_dev_tier_override(req: DevTierOverrideRequest) -> Dict[str, Any]:
     if not tier:
         # Clear override — revert to real license
         os.environ.pop("CODRAG_TIER", None)
+        os.environ.pop("CODRAG_DEV_MODE", None)
         logger.info("Cleared dev tier override")
     else:
         if tier not in allowed:
@@ -221,6 +222,7 @@ def set_dev_tier_override(req: DevTierOverrideRequest) -> Dict[str, Any]:
                 message=f"Invalid tier: {tier}. Must be one of: {', '.join(sorted(allowed))}",
             )
         os.environ["CODRAG_TIER"] = tier
+        os.environ["CODRAG_DEV_MODE"] = "1"
         logger.info("Set dev tier override: %s", tier)
 
     clear_license_cache()

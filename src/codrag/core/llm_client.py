@@ -349,13 +349,31 @@ class LLMClient:
         """
         import requests
 
+        # ── CORE security: sanitize input before ANY LLM call ──────
+        # These are always-on, zero-quality-impact protections that run
+        # for all tiers. They strip invisible Unicode (Rules File Backdoor)
+        # and normalize homoglyphs (EchoLeak CVE-2025-32711).
+        try:
+            from codrag.core.content_sanitizer import sanitize_llm_input, validate_llm_output
+            prompt = sanitize_llm_input(prompt)
+            if system:
+                system = sanitize_llm_input(system)
+        except ImportError:
+            pass  # content_sanitizer not available — skip gracefully
+
         if self.provider == "lm-studio":
-            return self._generate_lmstudio(
+            text, tokens = self._generate_lmstudio(
                 prompt, system=system, num_predict=num_predict,
                 json_mode=json_mode, temperature=temperature,
                 response_schema=response_schema, think=think,
                 max_chars=max_chars, num_ctx=num_ctx,
             )
+            # CORE: validate output for suspicious patterns
+            try:
+                text, _warnings = validate_llm_output(text)
+            except Exception:
+                pass
+            return text, tokens
 
         effective_provider = self.provider
 
@@ -471,6 +489,12 @@ class LLMClient:
                 logger.info(f"[DEBUG_LLM] Time: {t1 - t0:.2f}s, Tokens: {tokens}, Tok/s: {tokens / (t1 - t0) if t1 > t0 else 0:.1f}")
                 logger.info(f"[DEBUG_LLM] Body:\n{text}\n")
                 
+            # CORE: validate output for suspicious patterns
+            try:
+                from codrag.core.content_sanitizer import validate_llm_output
+                text, _warnings = validate_llm_output(text)
+            except Exception:
+                pass
             return text, tokens
 
         elif effective_provider in ("openai", "openai-compatible"):
@@ -515,6 +539,12 @@ class LLMClient:
             text = choice.get("message", {}).get("content", "")
             usage = data.get("usage", {})
             tokens = usage.get("total_tokens", 0)
+            # CORE: validate output
+            try:
+                from codrag.core.content_sanitizer import validate_llm_output
+                text, _warnings = validate_llm_output(text)
+            except Exception:
+                pass
             return text, tokens
         
         elif effective_provider == "anthropic":
@@ -547,6 +577,12 @@ class LLMClient:
             text = "".join(b.get("text", "") for b in content_blocks if b.get("type") == "text")
             usage = data.get("usage", {})
             tokens = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+            # CORE: validate output
+            try:
+                from codrag.core.content_sanitizer import validate_llm_output
+                text, _warnings = validate_llm_output(text)
+            except Exception:
+                pass
             return text, tokens
 
         elif effective_provider == "azure-openai":
@@ -587,6 +623,12 @@ class LLMClient:
             text = choice.get("message", {}).get("content", "")
             usage = data.get("usage", {})
             tokens = usage.get("total_tokens", 0)
+            # CORE: validate output
+            try:
+                from codrag.core.content_sanitizer import validate_llm_output
+                text, _warnings = validate_llm_output(text)
+            except Exception:
+                pass
             return text, tokens
 
         elif effective_provider == "google":
@@ -622,6 +664,12 @@ class LLMClient:
             text = "".join(p.get("text", "") for p in parts)
             usage = data.get("usageMetadata", {})
             tokens = usage.get("totalTokenCount", 0)
+            # CORE: validate output
+            try:
+                from codrag.core.content_sanitizer import validate_llm_output
+                text, _warnings = validate_llm_output(text)
+            except Exception:
+                pass
             return text, tokens
 
         else:

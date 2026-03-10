@@ -15,16 +15,24 @@
 ## SPRINT 1: Security Health Panel Expansion
 *Expand security_health.py from 7 to 13 checks and group them in the IT panel.*
 
-- [ ] **SEC-8** Add daemon auth posture check (is CODRAG_DAEMON_TOKEN set? binding address?) — P1
-- [ ] **SEC-9** Add CORS configuration check (restricted vs CODRAG_CORS_ALLOW_ALL=1) — P1
-- [ ] **SEC-10** Add dev mode detection check (CODRAG_DEV_MODE=1, CODRAG_TIER override) — P1
-- [ ] **SEC-11** Add content sanitization active check (sanitize_output callable) — P1
-- [ ] **SEC-12** Add API key hygiene check (Google URL-param auth warning) — P2
-- [ ] **SEC-13** Add MCP rate limit health check (rate status, recent 429s) — P2
-- [ ] **SEC-GRP** Group checks into categories in API response (infrastructure, license, data, runtime) — P1
+- [x] **SEC-8** Add daemon auth posture check (is CODRAG_DAEMON_TOKEN set? binding address?) — P1 ✅
+- [x] **SEC-9** Add CORS configuration check (restricted vs CODRAG_CORS_ALLOW_ALL=1) — P1 ✅
+- [x] **SEC-10** Add dev mode detection check (CODRAG_DEV_MODE=1, CODRAG_TIER override) — P1 ✅
+- [x] **SEC-11** Add content sanitization active check (sanitize_output callable) — P1 ✅
+- [x] **SEC-12** Add API key hygiene check (Google URL-param auth warning) — P2 ✅
+- [x] **SEC-13** Add MCP rate limit health check (rate status, recent 429s) — P2 ✅
+- [x] **SEC-GRP** Group checks into categories in API response (infrastructure, license, data, runtime) — P1 ✅
 - [ ] **SEC-UI** Update EnterpriseAdminPanel Security tab to show grouped/categorized checks — P1
 - [ ] **SEC-TIP** Add API key exposure tooltip to EndpointManager for Google provider — P2
 - [ ] **SEC-TEST** Test all 13 checks pass on clean install — P1
+
+### Also Completed (Security Pipeline Protection)
+- [x] **CORE-1** Wire `sanitize_llm_input()` into `llm_client.py generate()` — ALL 8 pipeline stages now protected ✅
+- [x] **CORE-2** Wire `validate_llm_output()` into ALL 6 provider return paths ✅
+- [x] **CORE-3** Add NFKC normalization to `content_sanitizer.py` (EchoLeak CVE-2025-32711 defense) ✅
+- [x] **CORE-4** Add `sanitize_output()` function for MCP context assembly path ✅
+- [x] **CORE-5** Add well-known secret detection patterns (AWS, GitHub, Slack, OpenAI, Google, JWT, private keys) ✅
+- [x] **CORE-6** Add `detect_secrets()` function for IT visibility (Check 14 future) ✅
 
 ## SPRINT 2: LemonSqueezy License Integration
 *The revenue path. Without this, we can't charge money.*

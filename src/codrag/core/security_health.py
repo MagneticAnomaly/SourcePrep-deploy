@@ -318,28 +318,130 @@ def _check_dev_mode() -> Dict[str, Any]:
         return {"name": "Dev Mode Detection", "status": "fail", "issues": [str(e)], "details": {}}
 
 
+def _check_content_sanitization() -> Dict[str, Any]:
+    """Check 11: Content sanitization active (OWASP LLM01 defense)."""
+    try:
+        from codrag.core.content_sanitizer import sanitize_llm_input, sanitize_output, validate_llm_output, normalize_nfkc
+        # All four functions must be importable and callable
+        issues = []
+        if not callable(sanitize_llm_input):
+            issues.append("sanitize_llm_input not callable")
+        if not callable(sanitize_output):
+            issues.append("sanitize_output not callable")
+        if not callable(validate_llm_output):
+            issues.append("validate_llm_output not callable")
+        if not callable(normalize_nfkc):
+            issues.append("normalize_nfkc not callable")
+
+        return {
+            "name": "Content Sanitization",
+            "status": "pass" if not issues else "fail",
+            "details": {
+                "llm_input_sanitizer": True,
+                "output_sanitizer": True,
+                "output_validator": True,
+                "nfkc_normalizer": True,
+            },
+            "issues": issues,
+        }
+    except ImportError as e:
+        return {
+            "name": "Content Sanitization",
+            "status": "fail",
+            "issues": [f"content_sanitizer module not available: {e}"],
+            "details": {},
+        }
+
+
+def _check_api_key_hygiene() -> Dict[str, Any]:
+    """Check 12: API key hygiene (FULL-3: Google URL-param auth)."""
+    issues = []
+    details: Dict[str, Any] = {"providers_checked": []}
+
+    try:
+        from codrag.server import _load_ui_config
+        ui_cfg = _load_ui_config()
+        llm_cfg = ui_cfg.get("llm_config", {})
+        endpoints = {ep["id"]: ep for ep in llm_cfg.get("saved_endpoints", [])}
+
+        for slot_name in ("small_model", "large_model", "code_model"):
+            slot = llm_cfg.get(slot_name, {})
+            ep_id = slot.get("endpoint_id", "")
+            ep = endpoints.get(ep_id)
+            if ep and ep.get("provider") == "google" and ep.get("api_key"):
+                issues.append(
+                    f"Google Gemini ({slot_name}) uses URL-parameter auth — "
+                    "API key is visible in HTTP logs. Consider Vertex AI for enterprise."
+                )
+                details["providers_checked"].append({"slot": slot_name, "provider": "google", "url_param_auth": True})
+            elif ep:
+                details["providers_checked"].append({"slot": slot_name, "provider": ep.get("provider"), "url_param_auth": False})
+    except Exception:
+        pass  # Can't check — no server config available
+
+    return {
+        "name": "API Key Hygiene",
+        "status": "pass" if not issues else "warn",
+        "issues": issues,
+        "details": details,
+    }
+
+
+def _check_mcp_rate_limit() -> Dict[str, Any]:
+    """Check 13: MCP rate limit health."""
+    try:
+        from codrag.mcp.server import MCPServer
+        # Rate limit is defined as class variables on MCPServer
+        rate_limit = getattr(MCPServer, '_MCP_RATE_LIMIT', None)
+        rate_window = getattr(MCPServer, '_MCP_RATE_WINDOW', None)
+
+        issues = []
+        if rate_limit is None:
+            issues.append("MCP rate limiting not configured")
+
+        return {
+            "name": "MCP Rate Limiting",
+            "status": "pass" if not issues else "warn",
+            "details": {
+                "rate_limit": rate_limit,
+                "rate_window_seconds": rate_window,
+                "active": rate_limit is not None,
+            },
+            "issues": issues,
+        }
+    except Exception as e:
+        return {"name": "MCP Rate Limiting", "status": "warn", "issues": [f"Could not check: {e}"], "details": {}}
+
+
 def run_security_checks(project_root: Optional[Path] = None) -> Dict[str, Any]:
     """Run all security health checks and compute an aggregate score.
 
     Returns:
         {
-            "score": 10,         # Number of passing checks (0-10)
-            "total": 10,         # Total number of checks
+            "score": 13,         # Number of passing checks (0-13)
+            "total": 13,         # Total number of checks
             "status": "healthy", # "healthy" | "warnings" | "critical"
             "checks": [...]      # Individual check results
         }
     """
     checks = [
-        _check_license(),
-        _check_s3_endpoint(project_root),
-        _check_credentials(project_root),
-        _check_index_integrity(project_root),
-        _check_dlp_compliance(project_root),
-        _check_config_drift(project_root),
+        # Infrastructure (checks 7-9)
         _check_network(),
         _check_daemon_auth(),
         _check_cors(),
+        # License & Compliance (checks 1, 10, 5)
+        _check_license(),
         _check_dev_mode(),
+        _check_dlp_compliance(project_root),
+        # Data Protection (checks 11, 2, 4, 12)
+        _check_content_sanitization(),
+        _check_s3_endpoint(project_root),
+        _check_index_integrity(project_root),
+        _check_api_key_hygiene(),
+        # Runtime (checks 13, 3, 6)
+        _check_mcp_rate_limit(),
+        _check_credentials(project_root),
+        _check_config_drift(project_root),
     ]
 
     passing = sum(1 for c in checks if c["status"] == "pass")

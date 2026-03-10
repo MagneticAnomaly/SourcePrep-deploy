@@ -162,20 +162,20 @@
     },
     "small_model": {
       "enabled": true,
-      "endpoint_id": "ep_1773104528594_b76deacadc9308",
-      "model": "qwen3.5-4b-mxfp8-mlx",
+      "endpoint_id": "ep_1772383175014_efdea339349a78",
+      "model": "qwen3.5-35b-a3b",
       "always_on": false
     },
     "large_model": {
       "enabled": true,
-      "endpoint_id": "ep_1772383175014_efdea339349a78",
-      "model": "qwen3.5-35b-a3b",
+      "endpoint_id": "default_ollama",
+      "model": "kimi-k2.5:cloud",
       "always_on": false
     },
     "code_model": {
       "enabled": true,
       "endpoint_id": "default_ollama",
-      "model": "deepseek-coder:6.7b",
+      "model": "qwen3-coder-next:cloud",
       "always_on": false
     },
     "compression": {
@@ -219,7 +219,7 @@
     "test_persist": true
   },
   "deep_analysis": {
-    "mode": "manual",
+    "mode": "auto",
     "threshold_percent": 20,
     "frequency": "daily",
     "day_of_week": 0,
@@ -245,7 +245,7 @@
       "auto": false
     },
     "deep_enrichment": {
-      "mode": "manual",
+      "mode": "auto",
       "schedule": {
         "frequency": "daily",
         "day_of_week": 0,
@@ -265,6 +265,7 @@
     "llm_concurrency_code": 1,
     "llm_concurrency": 1
   },
+  "developer_debug_mode": false,
   "ui_preferences": {
     "mode": "dark",
     "theme": "a",
@@ -331,7 +332,7 @@
         "id": "index-health",
         "visible": true,
         "height": 8,
-        "collapsed": true,
+        "collapsed": false,
         "x": 8,
         "y": 18,
         "w": 4
@@ -351,7 +352,7 @@
         "height": 13,
         "collapsed": false,
         "x": 4,
-        "y": 20,
+        "y": 26,
         "w": 8
       },
       {
@@ -369,7 +370,7 @@
         "height": 21,
         "collapsed": false,
         "x": 4,
-        "y": 33,
+        "y": 39,
         "w": 8
       },
       {
@@ -396,7 +397,7 @@
         "height": 6,
         "collapsed": true,
         "x": 4,
-        "y": 54,
+        "y": 60,
         "w": 4
       },
       {
@@ -405,7 +406,7 @@
         "height": 12,
         "collapsed": true,
         "x": 8,
-        "y": 54,
+        "y": 60,
         "w": 4
       },
       {
@@ -414,7 +415,7 @@
         "height": 8,
         "collapsed": true,
         "x": 4,
-        "y": 56,
+        "y": 62,
         "w": 4
       },
       {
@@ -423,7 +424,7 @@
         "height": 9,
         "collapsed": true,
         "x": 8,
-        "y": 56,
+        "y": 62,
         "w": 4
       },
       {
@@ -432,7 +433,7 @@
         "height": 8,
         "collapsed": false,
         "x": 4,
-        "y": 58,
+        "y": 64,
         "w": 8
       },
       {
@@ -457,7 +458,7 @@
   },
   "compute_nodes": [
     {
-      "id": "node_61bb8694",
+      "id": "node_732131f4",
       "name": "Local Machine",
       "type": "local",
       "hardware_profile": "apple_silicon",

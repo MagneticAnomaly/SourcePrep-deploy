@@ -18,7 +18,8 @@ from __future__ import annotations
 import fnmatch as _fnmatch
 import re
 import logging
-from typing import Optional
+import unicodedata
+from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -104,15 +105,65 @@ def detect_invisible_unicode(text: str) -> bool:
     return bool(_INVISIBLE_RE.search(text))
 
 
+# ── NFKC normalization (Finding F: EchoLeak-style homoglyph attacks) ──
+
+def normalize_nfkc(text: str) -> str:
+    """Apply Unicode NFKC normalization to collapse homoglyphs.
+
+    EchoLeak (CVE-2025-32711) demonstrated that attackers use character
+    substitutions (e.g., fullwidth Latin, Cyrillic lookalikes) to bypass
+    naive string-matching filters. NFKC normalization maps these to their
+    canonical ASCII equivalents.
+
+    This is a CORE protection — zero quality impact on legitimate source code.
+    """
+    return unicodedata.normalize("NFKC", text)
+
+
+# ── Well-known secret patterns (from LLM Guard / Presidio research) ──
+
+BUILTIN_SECRET_PATTERNS: List[re.Pattern] = [
+    re.compile(r"AKIA[0-9A-Z]{16}"),                                        # AWS Access Key
+    re.compile(r"(?:aws_secret_access_key|aws_secret)\s*[:=]\s*['\"]?[A-Za-z0-9/+=]{40}"),  # AWS Secret
+    re.compile(r"gh[ps]_[A-Za-z0-9_]{36,}"),                                # GitHub Token
+    re.compile(r"gho_[A-Za-z0-9_]{36,}"),                                   # GitHub OAuth
+    re.compile(r"xox[bporas]-[0-9A-Za-z\-]{10,}"),                          # Slack Token
+    re.compile(r"sk-[A-Za-z0-9]{20,}"),                                     # OpenAI API Key
+    re.compile(r"sk-ant-[A-Za-z0-9\-]{20,}"),                               # Anthropic API Key
+    re.compile(r"AIza[0-9A-Za-z\-_]{35}"),                                  # Google API Key
+    re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"),   # Private Key Header
+    re.compile(r"eyJ[A-Za-z0-9\-_]+\.eyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_.+/=]+"),  # JWT Token
+    re.compile(r"(?i)(?:api[_\-]?key|secret[_\-]?key|password|token|credential)\s*[:=]\s*['\"][^\s'\"]{8,}['\"]"),  # Generic secrets
+]
+
+
+def detect_secrets(content: str) -> List[str]:
+    """Scan content for well-known secret patterns.
+
+    Returns a list of matched pattern descriptions. Does NOT modify content.
+    Used for security health checks and IT visibility (Check 14).
+    """
+    found = []
+    for pattern in BUILTIN_SECRET_PATTERNS:
+        if pattern.search(content):
+            found.append(pattern.pattern[:60])
+    return found
+
+
 def sanitize_llm_input(content: str, source_path: Optional[str] = None) -> str:
     """Sanitize content before sending to an LLM for enrichment.
 
-    Strips invisible Unicode and logs a warning if any were found.
+    CORE protection (all tiers, always-on):
+    1. Strip invisible Unicode (Rules File Backdoor defense)
+    2. NFKC normalize (EchoLeak homoglyph defense)
+
     This is the primary defense against prompt injection via repository content.
+    Zero quality impact — these characters should never be in legitimate source code.
     """
     if not content:
         return content
 
+    # Step 1: Strip invisible Unicode
     cleaned = strip_invisible_unicode(content)
     if len(cleaned) != len(content):
         chars_removed = len(content) - len(cleaned)
@@ -123,16 +174,36 @@ def sanitize_llm_input(content: str, source_path: Optional[str] = None) -> str:
             source_path or "content",
         )
         try:
-            from codrag.core.audit_log import audit_log
-            audit_log.record(
-                "unicode_injection_detected",
-                f"Stripped {chars_removed} invisible Unicode chars from {source_path or 'content'}",
-                chars_removed=chars_removed,
-                file_path=source_path,
+            from codrag.core.audit_log import get_audit_log
+            get_audit_log().record(
+                event_type="unicode_injection_detected",
+                severity="warning",
+                message=f"Stripped {chars_removed} invisible Unicode chars from {source_path or 'content'}",
+                metadata={"chars_removed": chars_removed, "file_path": source_path},
             )
         except Exception:
             pass
+
+    # Step 2: NFKC normalization (collapses homoglyphs)
+    cleaned = normalize_nfkc(cleaned)
+
     return cleaned
+
+
+def sanitize_output(content: str) -> str:
+    """Sanitize assembled context before returning via MCP/API.
+
+    CORE protection (all tiers):
+    1. Escape code fence boundaries (prevents prompt injection breakout)
+    2. Strip invisible Unicode (prevents hidden instructions in output)
+
+    Called from index.py get_context() and layered_index.py get_context().
+    """
+    if not content:
+        return content
+    content = sanitize_code_fence_content(content)
+    content = strip_invisible_unicode(content)
+    return content
 
 
 # ── EA-B11: LLM output validation ────────────────────────────
