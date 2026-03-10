@@ -1093,13 +1093,33 @@ export interface LLMSlotStatus {
 }
 
 /**
+ * Per-block connectivity status for mapped mode from /llm/slots/status
+ */
+export interface LLMBlockStatus {
+  id: string;
+  configured: boolean;
+  status: 'not_configured' | 'endpoint_missing' | 'unreachable' | 'connected' | 'connected_no_model';
+  model?: string;
+  endpoint_id?: string;
+  endpoint_url?: string;
+  provider?: string;
+  endpoint_name?: string;
+  tasks: CodragTaskId[];
+  model_available?: boolean;
+  error?: string;
+}
+
+/**
  * All LLM slot statuses from /llm/slots/status
  */
 export interface LLMSlotsStatus {
+  assignment_mode?: AssignmentMode;
+  running_task_id?: CodragTaskId | null;
   embedding: LLMSlotStatus;
   small_model: LLMSlotStatus;
   large_model: LLMSlotStatus;
   code_model: LLMSlotStatus;
+  assignment_blocks?: LLMBlockStatus[];
 }
 
 /**

@@ -272,11 +272,17 @@ export class MockApiClient implements ApiClient {
 
   async getLLMSlotsStatus(): Promise<any> {
     return {
+      assignment_mode: 'structured',
+      running_task_id: null,
       embedding: { configured: false, status: 'not_configured' },
       small_model: { configured: false, status: 'not_configured' },
       large_model: { configured: false, status: 'not_configured' },
       code_model: { configured: false, status: 'not_configured' },
     };
+  }
+
+  async switchAssignmentMode(): Promise<any> {
+    return { success: true, old_mode: 'structured', new_mode: 'mapped', unloaded_models: [], kept_models: [] };
   }
 
   async getAugmentStatus(): Promise<any> {

@@ -571,6 +571,11 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
             }
             return items;
           })()}
+          assignmentMode={p.llmSlotsStatus?.assignment_mode ?? (p.llmConfig.assignment_mode || 'structured')}
+          assignedBlocks={p.llmConfig.assignment_blocks}
+          assignedEndpoints={p.llmConfig.saved_endpoints}
+          runningTaskId={p.llmSlotsStatus?.running_task_id ?? null}
+          fileCount={p.projectStatus?.index?.total_chunks ?? 0}
           bare
         />
       </div>

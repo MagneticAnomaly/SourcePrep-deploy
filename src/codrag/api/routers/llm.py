@@ -415,7 +415,25 @@ def mode_switch(req: ModeSwitchRequest) -> Dict[str, Any]:
     except Exception as e:
         logger.warning("Mode switch: pipeline pause check failed: %s", e)
 
-    # 3. Write new config atomically
+    # 3. Compute model identity diff (old vs new) for graceful VRAM swap
+    #    Models shared between old and new configs stay loaded.
+    #    Models only in old config get unloaded.
+    old_identities: set = set()  # {(endpoint_id, model), ...}
+    new_identities: set = set()
+    unloaded_models: List[str] = []
+    kept_models: List[str] = []
+
+    # Gather old identities from current config
+    try:
+        from codrag.server import _get_model_identity_for_task, TASK_TO_SLOT
+        for task_id in TASK_TO_SLOT:
+            identity = _get_model_identity_for_task(task_id)
+            if identity and identity[0] and identity[1]:
+                old_identities.add(identity)
+    except Exception as e:
+        logger.debug("Mode switch: failed to gather old identities: %s", e)
+
+    # 3b. Write new config atomically
     new_blocks = req.assignment_blocks
     if new_blocks is None:
         new_blocks = llm_cfg.get("assignment_blocks") or []
@@ -428,6 +446,42 @@ def mode_switch(req: ModeSwitchRequest) -> Dict[str, Any]:
     ui_cfg["llm_config"] = llm_cfg
     _save_ui_config(ui_cfg)
     logger.info("Mode switch: %s → %s (wrote config)", old_mode, req.mode)
+
+    # 3c. Gather new identities from freshly written config
+    try:
+        for task_id in TASK_TO_SLOT:
+            identity = _get_model_identity_for_task(task_id)
+            if identity and identity[0] and identity[1]:
+                new_identities.add(identity)
+    except Exception as e:
+        logger.debug("Mode switch: failed to gather new identities: %s", e)
+
+    # 3d. Unload models that are no longer needed, keep shared ones
+    removed = old_identities - new_identities
+    shared = old_identities & new_identities
+    if shared:
+        kept_models = [f"{eid}:{mdl}" for eid, mdl in shared]
+        logger.info("Mode switch: keeping %d shared model(s) loaded: %s", len(shared), kept_models)
+
+    for eid, mdl in removed:
+        try:
+            # Find any endpoint config to create a client for unloading
+            endpoints = llm_cfg.get("saved_endpoints") or []
+            ep = next((e for e in endpoints if e.get("id") == eid), None)
+            if ep and ep.get("url"):
+                from codrag.core import LLMClient
+                client = LLMClient(
+                    endpoint_url=ep["url"],
+                    model=mdl,
+                    api_key=ep.get("api_key"),
+                    provider=ep.get("provider", "ollama"),
+                    timeout=10.0,
+                )
+                client.unload()
+                unloaded_models.append(f"{eid}:{mdl}")
+                logger.info("Mode switch: unloaded removed model %s from %s", mdl, eid)
+        except Exception as e:
+            logger.warning("Mode switch: failed to unload %s:%s — %s", eid, mdl, e)
 
     # 4. Verify next stage models and resume paused groups
     resumed: List[Dict[str, str]] = []
@@ -467,6 +521,8 @@ def mode_switch(req: ModeSwitchRequest) -> Dict[str, Any]:
         "new_mode": req.mode,
         "paused_groups": paused_groups,
         "resumed_groups": resumed,
+        "unloaded_models": unloaded_models,
+        "kept_models": kept_models,
     })
 
 
@@ -576,12 +632,113 @@ def get_llm_slots_status() -> Dict[str, Any]:
     else:
         emb_status = {"configured": False, "status": "not_configured"}
 
-    return ok({
+    # Determine current assignment mode
+    assignment_mode = llm_cfg.get("assignment_mode", "structured")
+
+    # Detect running task from active pipeline runs
+    running_task_id: Optional[str] = None
+    try:
+        from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+        from codrag.core.project_registry import ProjectRegistry
+        from codrag.services.pipeline.stages import STAGE_TASK_ID, StageId
+
+        registry = ProjectRegistry.instance()
+        for project in registry.list():
+            ps = pipeline_orchestrator.status(project.id)
+            for group_name in ("fast_sync", "deep_enrichment"):
+                group_run = ps.get(group_name)
+                if group_run and group_run.get("is_active") and group_run.get("current_stage"):
+                    stage_str = group_run["current_stage"]
+                    try:
+                        task_id = STAGE_TASK_ID.get(StageId(stage_str))
+                        if task_id:
+                            running_task_id = task_id
+                    except (ValueError, KeyError):
+                        pass
+                if running_task_id:
+                    break
+            if running_task_id:
+                break
+    except Exception:
+        pass  # Non-critical
+
+    # Build mapped-mode block statuses
+    block_statuses: Optional[List[Dict[str, Any]]] = None
+    if assignment_mode == "mapped":
+        blocks = llm_cfg.get("assignment_blocks") or []
+        block_statuses = []
+        for block in blocks:
+            if not isinstance(block, dict):
+                continue
+            b_eid = block.get("endpoint_id") or ""
+            b_model = block.get("model") or ""
+            b_tasks = block.get("tasks") or []
+            b_id = block.get("id") or ""
+
+            if not b_eid or not b_model:
+                block_statuses.append({
+                    "id": b_id, "configured": False, "status": "not_configured",
+                    "model": b_model, "endpoint_id": b_eid, "tasks": b_tasks,
+                })
+                continue
+
+            ep = ep_map.get(b_eid)
+            if not ep:
+                block_statuses.append({
+                    "id": b_id, "configured": True, "status": "endpoint_missing",
+                    "model": b_model, "endpoint_id": b_eid, "tasks": b_tasks,
+                    "error": f"Endpoint '{b_eid}' not found",
+                })
+                continue
+
+            b_url = str(ep.get("url", "")).rstrip("/")
+            b_provider = ep.get("provider", "ollama")
+            try:
+                if b_provider == "ollama":
+                    r = requests.get(f"{b_url}/api/tags", timeout=3)
+                    b_reachable = r.status_code == 200
+                    b_found = False
+                    if b_reachable:
+                        tags = r.json().get("models", []) if isinstance(r.json(), dict) else []
+                        b_found = any(
+                            str(m.get("name", "")).startswith(b_model.split(":")[0])
+                            for m in tags if isinstance(m, dict)
+                        )
+                else:
+                    headers = {"Authorization": f"Bearer {ep.get('api_key', '')}"}
+                    target = f"{b_url}/models" if "v1" in b_url else f"{b_url}/v1/models"
+                    r = requests.get(target, timeout=3, headers=headers)
+                    b_reachable = r.status_code in (200, 401)
+                    b_found = r.status_code == 200
+
+                block_statuses.append({
+                    "id": b_id, "configured": True,
+                    "status": "connected" if b_found else ("connected_no_model" if b_reachable else "unreachable"),
+                    "model": b_model, "endpoint_id": b_eid, "endpoint_url": b_url,
+                    "provider": b_provider, "tasks": b_tasks,
+                    "endpoint_name": ep.get("name", ""),
+                    "model_available": b_found,
+                })
+            except Exception as e:
+                block_statuses.append({
+                    "id": b_id, "configured": True, "status": "unreachable",
+                    "model": b_model, "endpoint_id": b_eid, "endpoint_url": b_url,
+                    "provider": b_provider, "tasks": b_tasks,
+                    "error": str(e),
+                })
+
+    result: Dict[str, Any] = {
+        "assignment_mode": assignment_mode,
+        "running_task_id": running_task_id,
         "embedding": emb_status,
         "small_model": _check_slot("small_model"),
         "large_model": _check_slot("large_model"),
         "code_model": _check_slot("code_model"),
-    })
+    }
+    if block_statuses is not None:
+        result["assignment_blocks"] = block_statuses
+
+    return ok(result)
 
 
 @router.get("/llm/status")
@@ -732,6 +889,20 @@ def proxy_models(req: LLMProxyRequest) -> Dict[str, Any]:
     except Exception as e:
         raise ApiException(status_code=500, code="CONNECTION_FAILED", message=str(e))
 
+    # Inject batch profile tier based on context window
+    try:
+        from codrag.core.batch_profiles import detect_profile_from_context, _LOCAL_PROVIDERS
+        is_local = req.provider.lower().strip() in _LOCAL_PROVIDERS
+        for detail in model_details:
+            ctx = detail.get("context_tokens", 0)
+            if ctx and ctx > 0 and not is_local:
+                bp = detect_profile_from_context(ctx, req.provider)
+                detail["batch_profile"] = bp.name.value
+            else:
+                detail["batch_profile"] = "off"
+    except Exception:
+        pass
+
     # GW-3: Filter models through admin policy if applicable
     try:
         from codrag.server import _load_ui_config
@@ -740,19 +911,14 @@ def proxy_models(req: LLMProxyRequest) -> Dict[str, Any]:
         admin_policy_raw = ui_cfg.get("_admin_policy_cache")
         if admin_policy_raw:
             policy = parse_admin_policy({"admin_policy": admin_policy_raw})
-            # Only filter if we're actually returning models
             if models:
-                filtered_models = filter_models_by_policy(
-                    models, policy, slot=req.slot
-                )
-                
-                # If a model was blocked, keep it in the list but mark it blocked in details
+                allowed = set(filter_models_by_policy(models, policy, slot=req.slot))
                 for detail in model_details:
-                    if detail["name"] not in filtered_models:
+                    if detail["name"] not in allowed:
                         detail["blocked_by_policy"] = True
                         detail["cost_tier"] = "Blocked by IT Policy"
     except Exception as e:
-        logger.warning(f"Failed to apply model policy filtering: {e}")
+        logger.warning("Failed to apply model policy filtering: %s", e)
 
     return ok({"models": models, "model_details": model_details})
 

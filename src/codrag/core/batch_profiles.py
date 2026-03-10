@@ -191,8 +191,42 @@ _MODEL_REGISTRY = [
 ]
 
 
+# ── Local provider set (never batched) ────────────────────────────
+_LOCAL_PROVIDERS = frozenset({"ollama", "lm-studio"})
+
+
+def detect_profile_from_context(context_tokens: int, provider: str) -> BatchProfile:
+    """Derive batch profile from the model's actual context window size.
+
+    This is more accurate than regex matching because it uses the real
+    capability reported by the provider API rather than guessing from
+    the model name.
+
+    Args:
+        context_tokens: Model context window in tokens (e.g. 128000, 1000000).
+        provider: LLM provider identifier.
+
+    Returns:
+        The matching BatchProfile.
+    """
+    if provider.lower().strip() in _LOCAL_PROVIDERS:
+        return PROFILE_OFF
+
+    if context_tokens >= 200_000:     # 200K+ (Gemini 2.5 Pro 1M, Claude 4.5 200K)
+        return PROFILE_LARGE
+    elif context_tokens >= 100_000:   # 100K–200K (GPT-4.1 1M, Claude 3 200K)
+        return PROFILE_STANDARD
+    elif context_tokens >= 32_000:    # 32K–100K (GPT-4o 128K, DeepSeek 64K)
+        return PROFILE_COMPACT
+    else:                             # <32K — too small for safe batching
+        return PROFILE_OFF
+
+
 def detect_profile(provider: str, model: str) -> BatchProfile:
     """Detect the best batch profile for a given provider + model name.
+
+    Uses regex matching on the model name. Prefer detect_profile_from_context()
+    when the model's actual context window is known.
 
     Args:
         provider: LLM provider identifier ("ollama", "openai", "openai-compatible", "anthropic")
@@ -222,14 +256,22 @@ def resolve_profile(
     provider: str,
     model: str,
     override: Optional[str] = None,
+    context_tokens: Optional[int] = None,
 ) -> BatchProfile:
     """Resolve the batch profile, respecting user override.
+
+    Resolution order:
+    1. Explicit user override ("large", "standard", "compact", "off")
+    2. Context-window-based detection (if context_tokens is known)
+    3. Regex-based model name detection (fallback)
 
     Args:
         provider: LLM provider identifier
         model: Model name string
         override: User-selected profile name ("auto", "large", "standard",
                   "compact", "off"), or None for auto-detect.
+        context_tokens: Model context window in tokens, if known from the
+                        provider API. Enables accurate auto-detection.
 
     Returns:
         The resolved BatchProfile.
@@ -240,5 +282,14 @@ def resolve_profile(
             return PROFILES[profile_name]
         except (ValueError, KeyError):
             logger.warning("Unknown batch profile override '%s' — falling back to auto", override)
+
+    # Prefer context-window-based detection when available
+    if context_tokens and context_tokens > 0:
+        profile = detect_profile_from_context(context_tokens, provider)
+        logger.info(
+            "Batch profile for %s/%s: %s (via %dK context window)",
+            provider, model, profile.name.value, context_tokens // 1000,
+        )
+        return profile
 
     return detect_profile(provider, model)

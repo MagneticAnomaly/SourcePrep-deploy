@@ -14,7 +14,7 @@ import type {
   SearchResponse,
   WatchActionResponse,
 } from './types';
-import type { LLMStatus, LicenseStatus, Project, ProjectStatus, TraceCoverage, TraceStatus, WatchStatus, GlobalConfig, ModelStatusResult, ModelReadinessStatus, AugmentationStatus, DeepAnalysisRunStatus, LLMSlotsStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, GraphEngineStatus, PipelineStatus, CrashedPipelineRun } from '../types';
+import type { LLMStatus, LicenseStatus, Project, ProjectStatus, TraceCoverage, TraceStatus, WatchStatus, GlobalConfig, ModelStatusResult, ModelReadinessStatus, AugmentationStatus, DeepAnalysisRunStatus, LLMSlotsStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, GraphEngineStatus, PipelineStatus, CrashedPipelineRun, AssignmentMode, LLMAssignmentBlock } from '../types';
 
 export interface FileTreeNode {
   name: string;
@@ -109,6 +109,7 @@ export interface ApiClient {
 
   // LLM Slot Connectivity
   getLLMSlotsStatus(): Promise<LLMSlotsStatus>;
+  switchAssignmentMode(mode: AssignmentMode, blocks?: LLMAssignmentBlock[]): Promise<{ success: boolean; old_mode: string; new_mode: string; unloaded_models: string[]; kept_models: string[] }>;
 
   // Augmentation & Deep Analysis
   getAugmentStatus(projectId: string): Promise<AugmentationStatus>;
@@ -653,6 +654,13 @@ export class CodragApiClient implements ApiClient {
 
   async getLLMSlotsStatus(): Promise<LLMSlotsStatus> {
     return this.requestEnvelope<LLMSlotsStatus>('/llm/slots/status');
+  }
+
+  async switchAssignmentMode(mode: AssignmentMode, blocks?: LLMAssignmentBlock[]): Promise<{ success: boolean; old_mode: string; new_mode: string; unloaded_models: string[]; kept_models: string[] }> {
+    return this.requestEnvelope('/api/llm/mode-switch', {
+      method: 'POST',
+      body: { mode, assignment_blocks: blocks ?? null },
+    });
   }
 
   // ── Augmentation & Deep Analysis ──────────────────────────

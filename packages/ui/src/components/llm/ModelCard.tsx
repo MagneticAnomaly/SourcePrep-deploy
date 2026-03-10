@@ -25,7 +25,7 @@ export interface ModelCardProps {
   
   // Model selection
   availableModels?: string[];
-  modelDetails?: Array<{ name: string; context_window?: string; cost_tier?: string; rate_limits?: { rpd?: number; rpm?: number }; batch_estimate?: { files_per_request: number; daily_file_capacity?: number } }>;
+  modelDetails?: Array<{ name: string; context_window?: string; context_tokens?: number; cost_tier?: string; batch_profile?: string; rate_limits?: { rpd?: number; rpm?: number }; batch_estimate?: { files_per_request: number; daily_file_capacity?: number } }>;
   onModelChange?: (model: string) => void;
   onRefreshModels?: () => void;
   loadingModels?: boolean;
@@ -236,14 +236,19 @@ export function ModelCard({
                     if (!detail) return null;
                     const rl = detail.rate_limits;
                     const be = detail.batch_estimate;
-                    if (!rl && !be) return null;
+                    const bp = (detail as any).batch_profile as string | undefined;
+                    if (!rl && !be && !bp) return null;
                     const parts: string[] = [];
                     if (detail.context_window) parts.push(`Context: ${detail.context_window} tokens`);
+                    if (bp && bp !== 'off') {
+                      const tierLabel = bp.charAt(0).toUpperCase() + bp.slice(1);
+                      parts.push(`Batch: ${tierLabel}`);
+                    }
                     if (rl?.rpd) parts.push(`Free: ${rl.rpd} req/day`);
-                    if (be && be.files_per_request > 1) parts.push(`Auto-Batch: ~${be.files_per_request} files/request`);
+                    if (be && be.files_per_request > 1) parts.push(`~${be.files_per_request} files/req`);
                     if (be?.daily_file_capacity) {
                       const cap = be.daily_file_capacity;
-                      parts.push(`Estimated capacity: ~${cap >= 1000 ? `${Math.round(cap / 1000)}k` : cap} files/day on free tier`);
+                      parts.push(`~${cap >= 1000 ? `${Math.round(cap / 1000)}k` : cap} files/day free`);
                     }
                     if (parts.length === 0) return null;
                     return (

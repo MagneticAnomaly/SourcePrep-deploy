@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { AlertCircle, RefreshCw, Power } from 'lucide-react'
 import { Button } from '@codrag/ui'
 
@@ -12,6 +12,9 @@ export function StartupScreen({ apiBaseUrl, onReady, timeoutMs = 30000 }: Startu
   const [status, setStatus] = useState<'connecting' | 'failed'>('connecting')
   const [attempts, setAttempts] = useState(0)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
+  const onReadyRef = useRef(onReady)
+  useEffect(() => { onReadyRef.current = onReady }, [onReady])
 
   useEffect(() => {
     let mounted = true
@@ -24,7 +27,7 @@ export function StartupScreen({ apiBaseUrl, onReady, timeoutMs = 30000 }: Startu
             headers: { Accept: 'application/json' } 
         })
         if (res.ok && mounted) {
-          onReady()
+          onReadyRef.current()
           return
         }
       } catch (e) {
@@ -48,12 +51,13 @@ export function StartupScreen({ apiBaseUrl, onReady, timeoutMs = 30000 }: Startu
       mounted = false
       clearTimeout(timeoutId)
     }
-  }, [apiBaseUrl, onReady, timeoutMs, attempts]) // Depend on attempts to trigger re-poll if needed, though recursive timeout handles it. Actually recursive is better.
+  }, [apiBaseUrl, timeoutMs, retryKey])
 
   const handleRetry = () => {
     setStatus('connecting')
     setAttempts(0)
     setErrorMsg(null)
+    setRetryKey(k => k + 1)
   }
 
   if (status === 'connecting') {

@@ -184,13 +184,34 @@ class WorkerFactory:
 
     @staticmethod
     def _get_batch_profile(llm_client):
-        """Detect the batch profile for an LLM client, respecting user override."""
+        """Detect the batch profile for an LLM client, respecting user override.
+
+        Resolution order:
+        1. Explicit user override (batch_mode in llm_config)
+        2. Context-window-based detection (from saved model_details)
+        3. Regex-based model name detection (fallback)
+        """
         try:
             from codrag.core.batch_profiles import resolve_profile
             from codrag.server import _load_ui_config
             ui_cfg = _load_ui_config()
-            override = (ui_cfg.get("llm_config") or {}).get("batch_mode")
-            return resolve_profile(llm_client.provider, llm_client.model, override=override)
+            llm_cfg = ui_cfg.get("llm_config") or {}
+            override = llm_cfg.get("batch_mode")
+
+            # Look up context_tokens from saved model_details cache
+            context_tokens = None
+            try:
+                model_details = llm_cfg.get("model_details") or {}
+                detail = model_details.get(llm_client.model)
+                if detail and isinstance(detail, dict):
+                    context_tokens = detail.get("context_tokens")
+            except Exception:
+                pass
+
+            return resolve_profile(
+                llm_client.provider, llm_client.model,
+                override=override, context_tokens=context_tokens,
+            )
         except Exception:
             return None
 

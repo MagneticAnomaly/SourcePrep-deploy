@@ -5,6 +5,8 @@ import {
   type SavedEndpoint,
   type EndpointTestResult,
   type LLMSlotsStatus,
+  type AssignmentMode,
+  type LLMAssignmentBlock,
 } from '@codrag/ui'
 
 interface UseLLMConfigOptions {
@@ -222,6 +224,24 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     }
   }, [api, fetchCompressionStatus])
 
+  const handleModeSwitch = useCallback(async (mode: AssignmentMode, blocks?: LLMConfig['assignment_blocks']) => {
+    try {
+      const result = await api.switchAssignmentMode(mode, blocks as LLMAssignmentBlock[] | undefined)
+      // Update local config to reflect the switch
+      setLLMConfig((prev) => ({
+        ...prev,
+        assignment_mode: mode,
+        assignment_blocks: blocks ?? prev.assignment_blocks,
+      }))
+      // Refresh slot status to pick up new assignment_mode + running_task_id
+      void fetchLLMSlotsStatus()
+      return result
+    } catch (err) {
+      console.error('Mode switch failed:', err)
+      throw err
+    }
+  }, [api, fetchLLMSlotsStatus])
+
   // ── Auto-save LLM config to backend ─────────────────────────
   const llmConfigSkipRef = useRef(0) // skip initial + loaded-from-backend
   useEffect(() => {
@@ -276,6 +296,7 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     handleTestModel,
     handleClearTestResult,
     handleDownloadModel,
+    handleModeSwitch,
     fetchLLMSlotsStatus,
   }
 }

@@ -325,7 +325,7 @@ function App() {
     llmSlotsStatus,
     handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
     handleTestEndpoint, handleFetchModels, handleTestModel, handleClearTestResult,
-    handleDownloadModel,
+    handleDownloadModel, handleModeSwitch,
     fetchLLMSlotsStatus,
   } = useLLMConfig({ onDirty: () => setConfigDirty(true) })
 

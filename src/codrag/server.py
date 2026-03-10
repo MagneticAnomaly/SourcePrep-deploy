@@ -10,8 +10,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hmac
 import logging
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -32,50 +34,53 @@ from codrag.core.watcher import AutoRebuildWatcher
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(
-    title="CoDRAG",
-    description="Code Documentation and RAG - Multi-project semantic search platform",
-    version=__version__,
-)
-install_api_exception_handlers(app)
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize services on startup."""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: initialize services on startup, cleanup on shutdown."""
     import asyncio
-    
+
     # Initialize EventBus with running loop for thread-safe dispatch
     bus = get_event_bus()
     loop = asyncio.get_running_loop()
     bus.set_loop(loop)
-    
+
     # Attach log handler to capture root logs and broadcast via SSE.
-    # Guard: only attach once (hot-reload / test re-entry safety).
+    # Root logger defaults to WARNING — lower it so INFO messages
+    # (build progress, model readiness, etc.) reach the handler.
+    handler = BroadcastLogHandler(bus)
+    handler.setLevel(logging.INFO)  # Don't broadcast DEBUG noise
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    handler.setFormatter(formatter)
+
+    # Attach to root logger
     root_logger = logging.getLogger()
-    if any(isinstance(h, BroadcastLogHandler) for h in root_logger.handlers):
-        logger.debug("BroadcastLogHandler already attached — skipping duplicate")
-    else:
-        handler = BroadcastLogHandler(bus)
-        handler.setLevel(logging.INFO)  # Don't broadcast DEBUG noise
-        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        handler.setFormatter(formatter)
+    if root_logger.level > logging.INFO:
+        root_logger.setLevel(logging.INFO)
+    root_logger.addHandler(handler)
 
-        # Root logger captures all codrag.* logs via propagation (default).
-        if root_logger.level > logging.INFO:
-            root_logger.setLevel(logging.INFO)
-        root_logger.addHandler(handler)
+    # Uvicorn and other libraries often have their own handlers and propagate=False.
+    # We must explicitly attach to key namespaces to guarantee visibility.
+    for logger_name in ["codrag", "uvicorn", "uvicorn.error", "uvicorn.access"]:
+        ns_logger = logging.getLogger(logger_name)
+        ns_logger.addHandler(handler)
+        if ns_logger.level > logging.INFO:
+            ns_logger.setLevel(logging.INFO)
 
-        # Uvicorn sets propagate=False on its loggers, so root handler misses them.
-        # Attach to uvicorn.error (real server logs) but NOT uvicorn.access
-        # (every HTTP request would flood Process Logs with noise).
-        uv_error = logging.getLogger("uvicorn.error")
-        uv_error.addHandler(handler)
-    
     # Initialize ProgressManager (ensure it's created)
     get_progress_manager()
-    
+
     logger.info("CoDRAG EventBus initialized")
+    yield
+    # Shutdown: nothing to clean up currently
+
+
+app = FastAPI(
+    title="CoDRAG",
+    description="Code Documentation and RAG - Multi-project semantic search platform",
+    version=__version__,
+    lifespan=lifespan,
+)
+install_api_exception_handlers(app)
 
 
 @app.exception_handler(FeatureGateError)
@@ -100,25 +105,27 @@ async def _feature_gate_handler(request, exc: FeatureGateError):
     )
 
 
-# CORS for dashboard (restricted to known origins)
+# CORS for dashboard (restricted to known origins).
+# Starlette's CORSMiddleware does NOT support wildcard port patterns like
+# "http://localhost:*".  Use allow_origin_regex for port-flexible matching.
 # In development, set CODRAG_CORS_ALLOW_ALL=1 to revert to allow_origins=["*"].
-_cors_origins = [
-    "http://localhost:*",
-    "http://127.0.0.1:*",
-    "https://localhost:*",
-    "tauri://localhost",
-    "https://tauri.localhost",
-]
 if os.environ.get("CODRAG_CORS_ALLOW_ALL"):
-    _cors_origins = ["*"]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,  # Cannot use credentials with wildcard origin
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+        allow_origins=["tauri://localhost", "https://tauri.localhost"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # IPC Token Auth Middleware
 @app.middleware("http")
@@ -129,12 +136,12 @@ async def verify_ipc_token(request: Request, call_next):
     
     expected_token = os.environ.get("CODRAG_DAEMON_TOKEN")
     if expected_token:
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
+        auth_header = request.headers.get("Authorization") or ""
+        if not auth_header.startswith("Bearer "):
             return JSONResponse(status_code=401, content={"success": False, "error": {"message": "Missing Authorization header"}})
         
-        token = auth_header.split(" ")[1]
-        if token != expected_token:
+        token = auth_header[7:]  # len("Bearer ") == 7
+        if not token or not hmac.compare_digest(token, expected_token):
             return JSONResponse(status_code=403, content={"success": False, "error": {"message": "Invalid daemon token"}})
             
     return await call_next(request)
@@ -371,7 +378,8 @@ def _get_llm_client_for_slot(slot: str):
     # Deep reasoning models (large slot) need very long timeouts because
     # thinking models like qwen3.5:27b generate 2000-5000+ thinking tokens
     # before content on complex files, taking 300-500s+ per call at ~11 tok/s.
-    timeout = 600.0 if slot in ("large", "large_model") else 120.0
+    _LARGE_SLOTS = {"large", "large_model"}
+    timeout = 600.0 if slot in _LARGE_SLOTS else 120.0
     return LLMClient(
         endpoint_url=url,
         model=slot_cfg.get("model", ""),
@@ -401,6 +409,9 @@ TASK_TO_SLOT: Dict[str, str] = {
 
 # Tasks whose structured slot falls back to "small" when the primary slot is unconfigured.
 _SLOT_FALLBACK_TO_SMALL = {"code", "large"}
+
+# Tasks whose mapped-mode blocks should use the long (600s) timeout
+_LONG_TIMEOUT_TASKS = {"enrichment", "clustering", "atlas", "deepening", "audit"}
 
 
 def _get_llm_client_for_task(task_id: str):
@@ -456,8 +467,6 @@ def _create_client_from_block(block: dict, llm_cfg: dict, task_id: str):
         return None
 
     from codrag.core import LLMClient
-    # Use long timeout for tasks that are typically assigned to large/thinking models
-    _LONG_TIMEOUT_TASKS = {"enrichment", "clustering", "atlas", "deepening", "audit"}
     timeout = 600.0 if task_id in _LONG_TIMEOUT_TASKS else 120.0
     return LLMClient(
         endpoint_url=url,
@@ -718,19 +727,13 @@ def configure(
     except Exception:
         logger.debug("Schedule evaluator startup failed (non-fatal)", exc_info=True)
 
-    # Phase 45D: Initialize pipeline scheduler with compute node config
-    try:
-        from codrag.services.pipeline.scheduler import pipeline_scheduler
-        pipeline_scheduler.load_from_settings()
-        logger.info("Pipeline scheduler initialized from settings")
-    except Exception:
-        logger.debug("Pipeline scheduler init failed (non-fatal)", exc_info=True)
+    # Note: Pipeline scheduler already initialized above (line ~597).
 
     # Team Sync: auto-start RemoteSyncService polling for projects with sync enabled
     try:
         from codrag.core.feature_gate import check_feature
         if check_feature("team_config"):
-            for proj in reg.list():
+            for proj in reg.list_projects():
                 try:
                     sync_status = _get_project_sync_status(proj)
                     if sync_status.get("enabled"):
@@ -746,9 +749,9 @@ def mount_dashboard():
     dashboard_dir = Path(__file__).parent / "dashboard" / "dist"
     if dashboard_dir.exists():
         app.mount("/ui", StaticFiles(directory=str(dashboard_dir), html=True), name="dashboard")
-        logger.info(f"Dashboard mounted at /ui from {dashboard_dir}")
+        logger.info("Dashboard mounted at /ui from %s", dashboard_dir)
     else:
-        logger.warning(f"Dashboard not found at {dashboard_dir} - run 'npm run build' in dashboard/")
+        logger.warning("Dashboard not found at %s - run 'npm run build' in dashboard/", dashboard_dir)
 
 
 def main():
@@ -771,7 +774,7 @@ def main():
     mount_dashboard()
 
     import uvicorn
-    logger.info(f"Starting CoDRAG server on {args.host}:{args.port}")
+    logger.info("Starting CoDRAG server on %s:%d", args.host, args.port)
     uvicorn.run(app, host=args.host, port=args.port)
 
 
