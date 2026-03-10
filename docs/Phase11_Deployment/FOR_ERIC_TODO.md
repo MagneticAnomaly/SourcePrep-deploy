@@ -27,15 +27,48 @@ Detailed step-by-step instructions for these tasks can be found in the guides di
 
 ## 2. Payments & Licensing (Lemon Squeezy)
 *Requires websites to be deployed first.*
+*Code integration: Sprint 2 built `lemon_squeezy.py` + `license.py` endpoints. Ready for LS product IDs.*
 
+### Create LS Products
 - [ ] LS-01 Create Lemon Squeezy store at `lemonsqueezy.com`
 - [ ] LS-02 Create LS **Monthly** product — $7/mo recurring subscription
+  - Enable "License keys" in product settings
+  - Set activation limit: **3** (3 machines per user)
 - [ ] LS-03 Create LS **Perpetual** product — $79 one-time payment
+  - Enable "License keys" in product settings
+  - Set activation limit: **5** (5 machines per user)
 - [ ] LS-04 Create LS **Team** product — $15/seat/mo recurring subscription
+  - Enable "License keys" in product settings
+  - Set activation limit: **1 per seat** (LS handles seat counting)
 - [ ] LS-05 Create PPP discount codes (`PPP20`, `PPP40`, `PPP60`)
-- [ ] LS-06 Configure LS webhook → `api.codrag.io` for license generation
+
+### Configure LS Integration
+- [ ] LS-06 Configure LS webhook → `api.codrag.io/webhooks/lemonsqueezy`
+  - Events needed: `order_created`, `subscription_updated`, `subscription_cancelled`, `license_key_created`
 - [ ] LS-07 Set LS success redirect URL → `https://payments.codrag.io/success`
+- [ ] LS-09 **After creating products, note down these IDs from LS dashboard:**
+  - `STORE_ID` (your Lemon Squeezy store ID)
+  - `PRODUCT_ID_MONTHLY` (Monthly Pro product)
+  - `PRODUCT_ID_PERPETUAL` (Perpetual Pro product)
+  - `PRODUCT_ID_TEAM` (Team product)
+  - **Give these to AI to update `PRODUCT_TIER_MAP` in `src/codrag/core/lemon_squeezy.py`**
+
+### Ed25519 Keypair (Enterprise Offline Licenses)
+- [ ] LS-10 Generate Ed25519 signing keypair:
+  ```bash
+  # Generate private key (KEEP SECRET — store in HSM or secure vault)
+  openssl genpkey -algorithm ed25519 -out codrag_license_private.pem
+  # Extract public key (shipped in app binary)
+  openssl pkey -in codrag_license_private.pem -pubout -out codrag_license_public.pem
+  ```
+- [ ] LS-11 Store private key securely (GitHub Secret `CODRAG_LICENSE_PRIVATE_KEY` or HSM)
+- [ ] LS-12 Give public key to AI to embed in `src/codrag/core/licensing.py`
+
+### Testing
 - [ ] LS-08 Test full purchase flow end-to-end (LS test mode)
+- [ ] LS-13 Test activation: enter LS test key in CoDRAG → verify tier activates
+- [ ] LS-14 Test deactivation: click Deactivate → verify LS slot freed
+- [ ] LS-15 Test grace period: disconnect internet → verify 30-day countdown works
 
 ---
 

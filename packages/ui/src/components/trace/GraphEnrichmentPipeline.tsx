@@ -289,6 +289,7 @@ function computeFastKnowledgeState(
   if (augmenting) return 'disabled';
   if (!aug || !aug.enabled || aug.augmented_nodes === 0) return 'disabled';
   if (building) return 'running';
+  // Don't show as running just because know?.running is true — that could be the deep build
   if (!know || !know.enabled) return 'not_built';
   if (know.chunks_embedded === 0) return 'not_built';
   return 'complete';
@@ -305,7 +306,7 @@ function computeDeepKnowledgeState(
   if (!mod || !mod.enabled || mod.module_count === 0) return 'disabled';
   // Deepening (Stage 7) must have run before Deep Knowledge (Stage 8) can be complete
   if (!deep || deep.total_scored === 0) return 'disabled';
-  if (building || know?.running) return 'running';
+  if (building) return 'running';
   // Use deep_chunks_embedded to distinguish Stage 8 from Stage 4 (Fast Sync)
   const deepChunks = know?.deep_chunks_embedded ?? 0;
   if (!know || deepChunks === 0) return 'not_built';

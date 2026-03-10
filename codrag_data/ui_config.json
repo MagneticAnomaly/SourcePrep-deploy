@@ -458,7 +458,7 @@
   },
   "compute_nodes": [
     {
-      "id": "node_fd439568",
+      "id": "node_b9f2fd0c",
       "name": "Local Machine",
       "type": "local",
       "hardware_profile": "apple_silicon",

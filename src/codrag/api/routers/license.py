@@ -355,6 +355,64 @@ def deactivate_license() -> Dict[str, Any]:
     return get_license_status()
 
 
+@router.get("/license/seats")
+def get_seat_status() -> Dict[str, Any]:
+    """SEAT-1: Get seat usage for the current license.
+
+    Returns seat count, activation limit, and activation method info.
+    For LS licenses, this reflects the LS activation limit.
+    """
+    license_path = Path.home() / ".codrag" / "license.json"
+    if not license_path.exists():
+        return ok({"seats_used": 0, "seats_total": 1, "tier": "free", "activations": []})
+
+    try:
+        lic_data = json.loads(license_path.read_text(encoding="utf-8"))
+    except Exception:
+        return ok({"seats_used": 0, "seats_total": 1, "tier": "free", "activations": []})
+
+    tier = lic_data.get("tier", "free")
+    seats_total = int(lic_data.get("seats", 1))
+    method = lic_data.get("activation_method", "")
+    instance_id = lic_data.get("instance_id")
+    email = lic_data.get("email")
+    activated_at = lic_data.get("activated_at")
+    last_validated = lic_data.get("last_validated")
+
+    # This machine counts as 1 used seat
+    activations = []
+    if instance_id:
+        import platform
+        activations.append({
+            "instance_id": instance_id,
+            "machine": platform.node(),
+            "platform": platform.system(),
+            "activated_at": activated_at,
+            "is_current": True,
+        })
+
+    # Grace period info
+    grace_days = None
+    if method == "lemonsqueezy" and last_validated:
+        try:
+            from codrag.core.lemon_squeezy import grace_period_days_remaining
+            grace_days = grace_period_days_remaining(last_validated)
+        except Exception:
+            pass
+
+    return ok({
+        "seats_used": len(activations),
+        "seats_total": seats_total,
+        "tier": tier,
+        "email": email,
+        "activation_method": method,
+        "instance_id": instance_id,
+        "last_validated": last_validated,
+        "grace_days_remaining": grace_days,
+        "activations": activations,
+    })
+
+
 @router.post("/license/dev-override")
 def set_dev_tier_override(req: DevTierOverrideRequest) -> Dict[str, Any]:
     """Set or clear a dev tier override via CODRAG_TIER env var.

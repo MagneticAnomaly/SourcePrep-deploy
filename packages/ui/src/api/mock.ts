@@ -334,6 +334,10 @@ export class MockApiClient implements ApiClient {
     return { validated: true, reason: 'Mock — no validation needed' };
   }
 
+  async getSeatStatus(): Promise<any> {
+    return { seats_used: 1, seats_total: 3, tier: 'pro', email: 'user@example.com', activations: [] };
+  }
+
   async getBatchEstimate(): Promise<any> {
     return {
       batch_mode: 'auto',

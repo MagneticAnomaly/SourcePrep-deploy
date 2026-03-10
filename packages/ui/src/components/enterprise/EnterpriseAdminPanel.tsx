@@ -55,6 +55,17 @@ export interface EnterpriseAdminPanelProps {
   onExportAuditLog?: () => void;
   /** Admin policy from team_config.json */
   adminPolicy?: AdminPolicy | null;
+  /** SEAT-2: Seat management data */
+  seatStatus?: {
+    seats_used: number;
+    seats_total: number;
+    tier: string;
+    email?: string;
+    activation_method?: string;
+    last_validated?: number | null;
+    grace_days_remaining?: number | null;
+    activations: Array<{ instance_id: string; machine: string; platform: string; activated_at?: number; is_current: boolean }>;
+  } | null;
   /** Default tab to show */
   defaultTab?: AdminTab;
   className?: string;
@@ -97,6 +108,7 @@ export function EnterpriseAdminPanel({
   onExportSecurityReport,
   onExportAuditLog,
   adminPolicy,
+  seatStatus,
   defaultTab = 'fleet',
   className,
 }: EnterpriseAdminPanelProps) {
@@ -367,7 +379,69 @@ export function EnterpriseAdminPanel({
             </section>
           )}
 
-          {!usage && !tokenUsage && (
+          {/* SEAT-2: Seat Management */}
+          {seatStatus && (seatStatus.tier === 'team' || seatStatus.tier === 'enterprise') && (
+            <section className="rounded-lg border border-border bg-surface p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Server className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-semibold text-text">Seat Management</h3>
+                <span className={cn(
+                  "text-xs font-mono px-2 py-0.5 rounded ml-auto",
+                  seatStatus.seats_used >= seatStatus.seats_total ? 'bg-amber-500/10 text-amber-500' : 'bg-success/10 text-success'
+                )}>
+                  {seatStatus.seats_used}/{seatStatus.seats_total} seats
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-3 rounded border border-border bg-surface-raised">
+                  <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Used</div>
+                  <div className="text-lg font-mono font-semibold text-text">{seatStatus.seats_used}</div>
+                </div>
+                <div className="p-3 rounded border border-border bg-surface-raised">
+                  <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Total</div>
+                  <div className="text-lg font-mono font-semibold text-text">{seatStatus.seats_total}</div>
+                </div>
+                <div className="p-3 rounded border border-border bg-surface-raised">
+                  <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Available</div>
+                  <div className={cn("text-lg font-mono font-semibold", seatStatus.seats_total - seatStatus.seats_used <= 0 ? 'text-amber-500' : 'text-success')}>
+                    {Math.max(0, seatStatus.seats_total - seatStatus.seats_used)}
+                  </div>
+                </div>
+              </div>
+              {seatStatus.activations.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="text-[10px] text-text-muted uppercase tracking-wider">Active Machines</div>
+                  {seatStatus.activations.map((act, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs p-2 rounded border border-border bg-surface-raised">
+                      <span className={cn("w-2 h-2 rounded-full shrink-0", act.is_current ? "bg-success" : "bg-text-muted")} />
+                      <span className="text-text font-medium">{act.machine}</span>
+                      <span className="text-text-muted">{act.platform}</span>
+                      {act.is_current && <span className="text-[10px] text-success ml-auto">This machine</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {seatStatus.grace_days_remaining != null && seatStatus.grace_days_remaining < 30 && (
+                <div className={cn(
+                  "p-2 rounded border text-xs",
+                  seatStatus.grace_days_remaining <= 7 ? "border-error/30 bg-error/5 text-error" : "border-amber-500/30 bg-amber-500/5 text-amber-400"
+                )}>
+                  {seatStatus.grace_days_remaining <= 0
+                    ? "⚠ Offline grace period expired. Connect to internet to re-validate license."
+                    : `⏱ Offline grace: ${seatStatus.grace_days_remaining} days remaining until license re-validation required.`
+                  }
+                </div>
+              )}
+              {seatStatus.seats_used >= seatStatus.seats_total && (
+                <div className="p-2 rounded border border-amber-500/30 bg-amber-500/5 text-xs text-amber-400">
+                  All seats are in use. To activate on another machine, deactivate one first or purchase additional seats at{' '}
+                  <a href="https://codrag.io/pricing" target="_blank" rel="noreferrer" className="underline hover:text-amber-300">codrag.io/pricing</a>.
+                </div>
+              )}
+            </section>
+          )}
+
+          {!usage && !tokenUsage && !seatStatus && (
             <div className="text-center py-8 text-sm text-text-muted">
               No usage data available yet. Usage tracking begins after the first pipeline run.
             </div>
