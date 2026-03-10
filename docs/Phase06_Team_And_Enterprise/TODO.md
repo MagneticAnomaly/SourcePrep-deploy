@@ -327,3 +327,76 @@ This section tracks the implementation of the Multi-GPU concurrency system and t
 - [x] **P45-D5** Compute Node CRUD API (`src/codrag/api/routers/compute.py`) — `GET/POST/PUT/DELETE /compute/nodes` + `/compute/scheduler`.
 - [x] **P45-D6** Scheduler status included in pipeline status API response.
 - [x] **P45-D7** Frontend API client methods (`getComputeNodes`, `createComputeNode`, `updateComputeNode`, `deleteComputeNode`, `getComputeNodeStatus`, `getSchedulerStatus`).
+
+---
+
+# Enterprise Features Roadmap (Mar 9, 2026)
+
+*Full plan: `ENTERPRISE_FEATURES_PLAN.md`*
+*Lost work recovery: `../REPAIR/COMPREHENSIVE_LOST_WORK_AND_MEMORIES.md`*
+
+## User & License Controls (LemonSqueezy)
+- [ ] **LS-INT-1** Rewrite `POST /license/activate` to call LS API (currently stubs)
+- [ ] **LS-INT-2** Periodic re-validation (7-day LS `validate` call)
+- [ ] **LS-INT-3** 30-day offline grace period logic
+- [ ] **LS-INT-4** License recovery flow (`payments.codrag.io/recover`)
+- [ ] **LS-INT-5** Deactivation endpoint (frees activation slot)
+- [ ] **LS-INT-6** `api.codrag.io` relay service (Ed25519 signing on webhook)
+- [ ] **LS-INT-7** Ed25519 keypair generation (Eric manual task)
+- [ ] **LS-INT-8** Activation limits per product in LS settings (Eric)
+- [ ] **SEAT-1** Seat count tracking (Team/Enterprise)
+- [ ] **SEAT-2** Seat management UI in admin panel
+- [ ] **SEAT-3** Seat overflow handling ("Contact admin" message)
+- [ ] **SEAT-4** Admin seat provisioning (generate per-user keys)
+- [ ] **SEAT-5** Onboarding flow (new team member activation)
+- [ ] **SEAT-6** Offboarding flow (admin deactivates departed employee)
+
+## AI Gateway Controls (Versatile Access)
+- [x] **GW-BUILT** Provider allowlist/blocklist, locked endpoints, model restrictions, enforcement modes
+- [x] **GW-BUILT** EndpointManager: provider filtering, locked endpoint display, allow_user_endpoints gate
+- [x] **GW-BUILT** Policy tab in EnterpriseAdminPanel with orange AdminSection borders
+- [ ] **GW-1** Per-user local model override (`allow_any_local_model: true`)
+- [ ] **GW-2** IT-managed API key injection (masked in UI)
+- [ ] **GW-3** Per-slot policy (different restrictions per model slot)
+- [ ] **GW-4** Per-user cost limits (individual budget caps)
+- [ ] **GW-7** Policy change audit trail
+- [ ] **GW-8** Read-only AI Gateway for non-admin users
+
+## Authentication & Identity
+- [ ] **AUTH-1** SSO/SAML integration
+- [ ] **AUTH-2** SCIM provisioning (Okta/Azure AD)
+- [ ] **AUTH-3** Expanded RBAC (viewer/developer/admin/super-admin)
+- [ ] **AUTH-4** Multi-org support
+
+## Compliance & Audit
+- [x] **COMP-4** Immutable audit log with export (audit_log.py)
+- [x] **COMP-5** Security health dashboard (7 checks)
+- [ ] **COMP-1** SOC 2 Type II readiness documentation
+- [ ] **COMP-2** GDPR data export endpoint
+- [ ] **COMP-3** Data residency controls (S3 region restrictions)
+- [ ] **COMP-6** Penetration test readiness
+
+## Deployment & Management
+- [ ] **DEPLOY-1** MDM distribution (Jamf/Intune silent install)
+- [ ] **DEPLOY-2** Pre-configured installer (baked-in team_config)
+- [ ] **DEPLOY-4** Version pinning (block auto-update until IT approves)
+
+## Enterprise Admin — Built This Session (Mar 9, 2026)
+- [x] `team_config.py`: AdminPolicy schema (7 dataclasses) + enforcement utilities
+- [x] `settings.py`: 8 enterprise API endpoints (admin-policy, audit-log, security-health, etc.)
+- [x] `types.ts`: AdminPolicy TypeScript types (7 interfaces)
+- [x] `useAdminPolicy.ts`: React hook with 5-min cache
+- [x] `AdminSection.tsx`: Orange-bordered admin component
+- [x] `client.ts` + `mock.ts`: getAdminPolicy + getBatchEstimate
+- [x] `EndpointManager.tsx`: Admin policy integration + URL autofill + Azure OpenAI
+- [x] `AIModelsSettings.tsx`: adminPolicy prop + batchEstimate display
+- [x] `ModelCard.tsx`: Rich model metadata (context window + cost tier with bullet separators)
+- [x] `EnterpriseAdminPanel.tsx`: Policy tab with orange AdminSection borders (provider, model, DLP, budget)
+- [x] `remote_sync.py`: SSRF prevention + secrets permission checks
+- [x] `cli.py`: Secret deprecation warnings
+- [x] `index.py` + `layered_index.py`: Content sanitizer wiring
+- [x] `mcp/server.py`: Audit logging + rate limiting (120 calls/60s)
+- [x] `llm_client.py`: Azure OpenAI generation + is_available
+- [x] `batch_profiles.py`: Azure batch profile entries
+- [x] `test_admin_policy.py`: ~35 unit tests
+- [x] Batch estimate endpoint + UI display in Cloud Processing card
