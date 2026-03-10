@@ -130,6 +130,7 @@ _DEFAULT_UI_CONFIG: Dict[str, Any] = {
             "max_items_per_stage": 100,
         },
     },
+    "developer_debug_mode": False,
 }
 
 

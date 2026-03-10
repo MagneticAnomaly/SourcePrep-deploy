@@ -477,6 +477,9 @@ export type ServerMode = 'local' | 'remote';
  */
 export type LicenseTier = 'free' | 'pro' | 'team' | 'enterprise';
 
+export type UserRole = 'user' | 'admin';
+
+
 /**
  * Team config status
  */
@@ -1037,6 +1040,7 @@ export interface GlobalConfig {
     bg_image?: string | null;
   };
   module_layout?: import('./types/layout').DashboardLayout;
+  developer_debug_mode?: boolean;
 }
 
 /**
@@ -1189,4 +1193,53 @@ export interface AuditReport {
   name: string;
   filename: string;
   size_bytes: number;
+}
+
+// ── EA-C1: Admin Policy Types ────────────────────────────────────────
+
+export interface ProviderPolicy {
+  allowed_providers: string[];
+  blocked_providers: string[];
+  allow_local_providers: boolean;
+  allow_user_endpoints: boolean;
+  locked_endpoints: Array<Record<string, any>>;
+}
+
+export interface ModelPolicy {
+  allowed_models: string[];
+  blocked_models: string[];
+  require_approved_models: boolean;
+}
+
+export interface DataPolicy {
+  never_send_globs: string[];
+  redact_patterns: string[];
+  block_unapproved_cloud: boolean;
+  allowed_destinations: string[];
+}
+
+export interface SyncPolicy {
+  require_s3_https: boolean;
+  allowed_s3_endpoints: string[];
+}
+
+export interface NetworkPolicy {
+  block_metadata_endpoints: boolean;
+  allowed_ports: number[];
+}
+
+export interface BudgetPolicy {
+  monthly_token_limit: number;
+  monthly_cost_limit_usd: number;
+  alert_threshold_percent: number;
+}
+
+export interface AdminPolicy {
+  provider: ProviderPolicy;
+  model: ModelPolicy;
+  data: DataPolicy;
+  sync: SyncPolicy;
+  network: NetworkPolicy;
+  budgets: BudgetPolicy;
+  enforcement_mode: 'suggest' | 'enforce';
 }

@@ -714,6 +714,10 @@ def trace_destroy_project(project_id: str) -> Dict[str, Any]:
             )
 
     idx_dir = project_index_dir(proj)
+
+    # Backup before delete when debug mode is on
+    backup_path = _backup_files_if_debug(idx_dir, TRACE_FILES, "graph_reset")
+
     deleted: list[str] = []
     errors: list[str] = []
 
@@ -740,7 +744,155 @@ def trace_destroy_project(project_id: str) -> Dict[str, Any]:
         "Destroyed trace graph for %s: deleted %d files, %d errors",
         project_id, len(deleted), len(errors),
     )
-    return ok({"deleted": deleted, "errors": errors})
+    result: Dict[str, Any] = {"deleted": deleted, "errors": errors}
+    if backup_path:
+        result["backup"] = backup_path
+    return ok(result)
+
+
+# ── Selective Reset (Developer Tools — Phase 47) ─────────────────
+
+ATLAS_FILES = [
+    "atlas.json",
+    "atlas_prev.json",
+    "atlas_segments_manifest.json",
+    "atlas_routing.json",
+    "atlas_routing_embeddings.npy",
+]
+
+GROUP_REASONING_FILES = [
+    "trace_group_reasoning.jsonl",
+]
+
+DEEP_ENRICHMENT_FILES = [
+    # Deep Reasoning (Epistemic)
+    "trace_epistemic.jsonl",
+    "trace_epistemic_manifest.json",
+    # Group Reasoning
+    "trace_group_reasoning.jsonl",
+    # Module Synthesis
+    "trace_modules.jsonl",
+    # Atlas Building
+    "atlas.json",
+    "atlas_prev.json",
+    "atlas_segments_manifest.json",
+    "atlas_routing.json",
+    "atlas_routing_embeddings.npy",
+    # NOTE: Knowledge Embedding files (knowledge_documents.json, knowledge_embeddings.npy,
+    # knowledge_manifest.json) are intentionally NOT deleted here because they are shared
+    # with Fast Sync stage 5. The Deep Knowledge Embedding stage will rebuild them
+    # automatically from the new enrichment data when it runs.
+]
+
+
+def _backup_files_if_debug(idx_dir, file_list: list, label: str) -> Optional[str]:
+    """If developer_debug_mode is enabled, copy affected files to a timestamped backup dir.
+
+    Returns the backup directory path (relative) if created, None otherwise.
+    """
+    import shutil
+    from datetime import datetime
+    try:
+        from codrag.server import _load_ui_config
+        ui_cfg = _load_ui_config()
+        debug_on = ui_cfg.get("developer_debug_mode", False)
+        logger.info("_backup_files_if_debug: developer_debug_mode=%s", debug_on)
+        if not debug_on:
+            return None
+    except Exception as e:
+        logger.warning("_backup_files_if_debug: failed to read config: %s", e)
+        return None
+
+    # Check if any files actually exist to backup
+    existing = [idx_dir / f for f in file_list if (idx_dir / f).exists()]
+    if not existing:
+        return None
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_dir = idx_dir / "backups" / f"{label.replace(' ', '_')}_{ts}"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+
+    for fp in existing:
+        try:
+            shutil.copy2(fp, backup_dir / fp.name)
+        except Exception as e:
+            logger.warning("Backup failed for %s: %s", fp.name, e)
+
+    logger.info("Debug backup: saved %d files to %s", len(existing), backup_dir.relative_to(idx_dir))
+    return str(backup_dir.relative_to(idx_dir))
+
+
+def _selective_delete(project_id: str, file_list: list, label: str) -> Dict[str, Any]:
+    """Delete specific files for a project. Shared helper for selective resets.
+    
+    Uses _require_project (not _require_project_writable) so developer tools
+    can reset data on inactive projects too.
+    """
+    from codrag.server import (
+        _require_project, _is_project_trace_building, _project_trace_indexes,
+    )
+    proj = _require_project(project_id)
+
+    if _is_project_trace_building(project_id):
+        raise ApiException(status_code=409, code="PIPELINE_RUNNING", message=f"Cannot reset {label} while pipeline is running")
+
+    for state_map, state_label in [
+        (_deep_analysis_state, "deep analysis"),
+        (_epistemic_state, "epistemic enrichment"),
+        (_cluster_state, "cluster synthesis"),
+        (_deepening_state, "deepening loop"),
+    ]:
+        state = state_map.get(project_id)
+        if state and state.get("thread") and state["thread"].is_alive():
+            raise ApiException(status_code=409, code="PIPELINE_RUNNING", message=f"Cannot reset {label} while {state_label} is running")
+
+    idx_dir = project_index_dir(proj)
+
+    # Backup before delete when debug mode is on
+    backup_path = _backup_files_if_debug(idx_dir, file_list, label)
+
+    deleted: list[str] = []
+    errors: list[str] = []
+
+    for fname in file_list:
+        fp = idx_dir / fname
+        if fp.exists():
+            try:
+                fp.unlink()
+                deleted.append(fname)
+            except Exception as e:
+                errors.append(f"{fname}: {e}")
+
+    # Invalidate in-memory trace cache so next load picks up the change
+    _project_trace_indexes.pop(project_id, None)
+
+    logger.info("Selective reset (%s) for %s: deleted %d files, %d errors", label, project_id, len(deleted), len(errors))
+    result: Dict[str, Any] = {"deleted": deleted, "errors": errors}
+    if backup_path:
+        result["backup"] = backup_path
+    return ok(result)
+
+
+@router.delete("/projects/{project_id}/atlas/destroy")
+def atlas_destroy(project_id: str) -> Dict[str, Any]:
+    """Delete only the atlas data for a project."""
+    return _selective_delete(project_id, ATLAS_FILES, "atlas")
+
+
+@router.delete("/projects/{project_id}/group-reasoning/destroy")
+def group_reasoning_destroy(project_id: str) -> Dict[str, Any]:
+    """Delete only group reasoning data for a project."""
+    return _selective_delete(project_id, GROUP_REASONING_FILES, "group reasoning")
+
+
+@router.delete("/projects/{project_id}/deep-enrichment/destroy")
+def deep_enrichment_destroy(project_id: str) -> Dict[str, Any]:
+    """Delete all 6 deep enrichment stages for a project.
+
+    Removes: epistemic, group reasoning, modules, atlas, and knowledge embedding.
+    Preserves: structural graph, augmentation, inferred edges (fast sync stages).
+    """
+    return _selective_delete(project_id, DEEP_ENRICHMENT_FILES, "deep enrichment")
 
 
 @router.delete("/projects/{project_id}/index/destroy")
@@ -783,6 +935,10 @@ def index_destroy_project(project_id: str) -> Dict[str, Any]:
             )
 
     idx_dir = project_index_dir(proj)
+
+    # Backup before delete when debug mode is on
+    backup_path = _backup_files_if_debug(idx_dir, ALL_DATA_FILES, "full_reset")
+
     deleted: list[str] = []
     errors: list[str] = []
 
@@ -804,4 +960,7 @@ def index_destroy_project(project_id: str) -> Dict[str, Any]:
         "Full reset for %s: deleted %d files, %d errors",
         project_id, len(deleted), len(errors),
     )
-    return ok({"deleted": deleted, "errors": errors})
+    result: Dict[str, Any] = {"deleted": deleted, "errors": errors}
+    if backup_path:
+        result["backup"] = backup_path
+    return ok(result)

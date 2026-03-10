@@ -120,6 +120,9 @@ export interface ApiClient {
   // Graph & index destruction
   destroyGraph(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
   destroyIndex(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
+  destroyAtlas(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
+  destroyGroupReasoning(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
+  destroyDeepEnrichment(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
 
   // Epistemic Enrichment, Modules & Deepening
   getEpistemicStatus(projectId: string): Promise<EpistemicStatus>;
@@ -192,6 +195,12 @@ export interface ApiClient {
   deleteComputeNode(nodeId: string): Promise<{ deleted: string }>;
   getComputeNodeStatus(nodeId: string): Promise<import('../types').SchedulerNodeStatus & { node_id: string; name: string }>;
   getSchedulerStatus(): Promise<import('../types').SchedulerStatus>;
+
+  // Admin Policy (EA-C3)
+  getAdminPolicy(): Promise<import('../types').AdminPolicy>;
+
+  // Batch Estimate
+  getBatchEstimate(): Promise<any>;
 
   // Scope Orchestrator (Phase 24 SM-8)
   getScopeStatus(projectId: string): Promise<any>;
@@ -675,6 +684,24 @@ export class CodragApiClient implements ApiClient {
     });
   }
 
+  async destroyAtlas(projectId: string): Promise<{ deleted: string[]; errors: string[] }> {
+    return this.requestEnvelope<{ deleted: string[]; errors: string[] }>(`/projects/${projectId}/atlas/destroy`, {
+      method: 'DELETE',
+    });
+  }
+
+  async destroyGroupReasoning(projectId: string): Promise<{ deleted: string[]; errors: string[] }> {
+    return this.requestEnvelope<{ deleted: string[]; errors: string[] }>(`/projects/${projectId}/group-reasoning/destroy`, {
+      method: 'DELETE',
+    });
+  }
+
+  async destroyDeepEnrichment(projectId: string): Promise<{ deleted: string[]; errors: string[] }> {
+    return this.requestEnvelope<{ deleted: string[]; errors: string[] }>(`/projects/${projectId}/deep-enrichment/destroy`, {
+      method: 'DELETE',
+    });
+  }
+
   // ── Epistemic Enrichment ────────────────────────────────────
 
   async getEpistemicStatus(projectId: string): Promise<EpistemicStatus> {
@@ -976,6 +1003,14 @@ export class CodragApiClient implements ApiClient {
 
   async getSchedulerStatus(): Promise<import('../types').SchedulerStatus> {
     return this.requestEnvelope<import('../types').SchedulerStatus>('/compute/scheduler');
+  }
+
+  async getAdminPolicy(): Promise<import('../types').AdminPolicy> {
+    return this.requestEnvelope<import('../types').AdminPolicy>('/settings/admin-policy');
+  }
+
+  async getBatchEstimate(): Promise<any> {
+    return this.requestEnvelope<any>('/settings/batch-estimate');
   }
 }
 

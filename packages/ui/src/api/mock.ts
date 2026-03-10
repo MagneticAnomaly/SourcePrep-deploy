@@ -318,6 +318,39 @@ export class MockApiClient implements ApiClient {
     return { deleted: [], errors: [] };
   }
 
+  async destroyAtlas(): Promise<any> {
+    return { deleted: [], errors: [] };
+  }
+
+  async destroyGroupReasoning(): Promise<any> {
+    return { deleted: [], errors: [] };
+  }
+
+  async destroyDeepEnrichment(): Promise<any> {
+    return { deleted: [], errors: [] };
+  }
+
+  async getBatchEstimate(): Promise<any> {
+    return {
+      batch_mode: 'auto',
+      slots: {},
+      file_count: 0,
+      estimated_calls: {},
+    };
+  }
+
+  async getAdminPolicy(): Promise<any> {
+    return {
+      provider: { allowed_providers: [], blocked_providers: [], allow_local_providers: true, allow_user_endpoints: true, locked_endpoints: [] },
+      model: { allowed_models: [], blocked_models: [], require_approved_models: false },
+      data: { never_send_globs: [], redact_patterns: [], block_unapproved_cloud: false, allowed_destinations: [] },
+      sync: { require_s3_https: true, allowed_s3_endpoints: [] },
+      network: { block_metadata_endpoints: true, allowed_ports: [] },
+      budgets: { monthly_token_limit: 0, monthly_cost_limit_usd: 0, alert_threshold_percent: 0.8 },
+      enforcement_mode: 'suggest',
+    };
+  }
+
   async getEpistemicStatus(): Promise<any> {
     return { enabled: false, enriched_nodes: 0, avg_confidence: 0, running: false };
   }

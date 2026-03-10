@@ -524,3 +524,303 @@ def get_scheduler_status() -> Dict[str, Any]:
     """Return current scheduler status: active slots, queued pipelines per node."""
     from codrag.services.pipeline.scheduler import pipeline_scheduler
     return ok(pipeline_scheduler.status())
+
+
+# ── EA-C2: Admin Policy Endpoint ──────────────────────────────────────
+
+
+@router.get("/settings/admin-policy")
+def get_admin_policy() -> Dict[str, Any]:
+    """Return the parsed admin policy from the active project's team_config.
+
+    Returns a default permissive policy if no team_config or admin_policy exists.
+    """
+    from codrag.core.team_config import AdminPolicy, parse_admin_policy
+
+    try:
+        store = _get_store()
+        active_id = store.get_global("active_project")
+        if active_id:
+            proj_root = store.get_project(active_id, "root_path")
+            if proj_root:
+                from pathlib import Path
+                from codrag.core.team_config import load_admin_policy
+                policy = load_admin_policy(Path(proj_root))
+                return ok(policy.to_dict())
+    except Exception as e:
+        logger.warning("Failed to load admin policy: %s", e)
+
+    return ok(AdminPolicy().to_dict())
+
+
+# ── EA-H2: Audit Log Query Endpoint ──────────────────────────────────
+
+
+class AuditLogQuery(BaseModel):
+    event_type: Optional[str] = None
+    severity: Optional[str] = None
+    since: Optional[float] = None
+    until: Optional[float] = None
+    limit: int = 100
+    offset: int = 0
+
+
+@router.post("/admin/audit-log")
+def query_audit_log(q: AuditLogQuery) -> Dict[str, Any]:
+    """Query the audit log with optional filters."""
+    from codrag.core.audit_log import get_audit_log
+
+    audit = get_audit_log()
+    events = audit.query(
+        event_type=q.event_type,
+        severity=q.severity,
+        since=q.since,
+        until=q.until,
+        limit=q.limit,
+        offset=q.offset,
+    )
+    total = audit.count(
+        event_type=q.event_type,
+        severity=q.severity,
+        since=q.since,
+        until=q.until,
+    )
+    return ok({"events": events, "total": total, "limit": q.limit, "offset": q.offset})
+
+
+# ── EA-H8: Audit Log Export ───────────────────────────────────────────
+
+
+@router.get("/admin/audit-log/export")
+def export_audit_log(format: str = "json") -> Dict[str, Any]:
+    """Export the full audit log as JSON or CSV."""
+    from codrag.core.audit_log import get_audit_log
+
+    audit = get_audit_log()
+    if format.lower() == "csv":
+        content = audit.export_csv()
+        return ok({"format": "csv", "content": content})
+    else:
+        events = audit.query(limit=10000)
+        return ok({"format": "json", "events": events, "count": len(events)})
+
+
+# ── EA-I1: Security Health Check ──────────────────────────────────────
+
+
+@router.get("/admin/security-health")
+def get_security_health() -> Dict[str, Any]:
+    """Run all security health checks and return aggregate results."""
+    from codrag.core.security_health import run_security_checks
+
+    try:
+        store = _get_store()
+        active_id = store.get_global("active_project")
+        project_root = None
+        if active_id:
+            root = store.get_project(active_id, "root_path")
+            if root:
+                from pathlib import Path
+                project_root = Path(root)
+
+        results = run_security_checks(project_root=project_root)
+        return ok(results)
+    except Exception as e:
+        logger.error("Security health check failed: %s", e)
+        return ok({"score": 0, "total": 7, "status": "error", "checks": [], "error": str(e)})
+
+
+# ── EA-I12: Security Report Export ────────────────────────────────────
+
+
+@router.get("/admin/security-report")
+def export_security_report() -> Dict[str, Any]:
+    """Export a comprehensive security report combining health checks and recent events."""
+    from codrag.core.audit_log import get_audit_log
+    from codrag.core.security_health import run_security_checks
+
+    try:
+        store = _get_store()
+        active_id = store.get_global("active_project")
+        project_root = None
+        if active_id:
+            root = store.get_project(active_id, "root_path")
+            if root:
+                from pathlib import Path
+                project_root = Path(root)
+
+        health = run_security_checks(project_root=project_root)
+        audit = get_audit_log()
+        recent_events = audit.query(limit=50)
+
+        import time
+        return ok({
+            "generated_at": time.time(),
+            "health": health,
+            "recent_events": recent_events,
+            "event_count": audit.count(),
+        })
+    except Exception as e:
+        logger.error("Security report export failed: %s", e)
+        raise ApiException(status_code=500, code="REPORT_FAILED", message=str(e))
+
+
+# ── EA-I11: Admin Actions ─────────────────────────────────────────────
+
+
+class AdminActionRequest(BaseModel):
+    project_id: Optional[str] = None
+    endpoint_id: Optional[str] = None
+    reason: str = ""
+
+
+@router.post("/admin/actions/quarantine-project")
+def quarantine_project(req: AdminActionRequest) -> Dict[str, Any]:
+    """Quarantine a project — mark it inactive and stop pipelines."""
+    from codrag.core.audit_log import get_audit_log
+
+    if not req.project_id:
+        raise ApiException(status_code=400, code="MISSING_PROJECT_ID", message="project_id is required")
+
+    store = _get_store()
+    store.set_project(req.project_id, "quarantined", "true")
+
+    audit = get_audit_log()
+    audit.record(
+        event_type="admin_quarantine",
+        severity="warning",
+        message=f"Project {req.project_id} quarantined: {req.reason}",
+        metadata={"project_id": req.project_id, "reason": req.reason},
+    )
+    return ok({"quarantined": req.project_id})
+
+
+@router.post("/admin/actions/block-endpoint")
+def block_endpoint(req: AdminActionRequest) -> Dict[str, Any]:
+    """Block an LLM endpoint from being used."""
+    from codrag.core.audit_log import get_audit_log
+
+    if not req.endpoint_id:
+        raise ApiException(status_code=400, code="MISSING_ENDPOINT_ID", message="endpoint_id is required")
+
+    cfg = _get_llm_config()
+    for ep in cfg.get("saved_endpoints", []):
+        if ep.get("id") == req.endpoint_id:
+            ep["blocked"] = True
+            ep["blocked_reason"] = req.reason
+            break
+    _save_llm_config(cfg)
+
+    audit = get_audit_log()
+    audit.record(
+        event_type="admin_block_endpoint",
+        severity="warning",
+        message=f"Endpoint {req.endpoint_id} blocked: {req.reason}",
+        metadata={"endpoint_id": req.endpoint_id, "reason": req.reason},
+    )
+    return ok({"blocked": req.endpoint_id})
+
+
+@router.post("/admin/actions/approve-config")
+def approve_config_change(req: AdminActionRequest) -> Dict[str, Any]:
+    """Log approval of a configuration change."""
+    from codrag.core.audit_log import get_audit_log
+
+    audit = get_audit_log()
+    audit.record(
+        event_type="admin_config_approval",
+        severity="info",
+        message=f"Config change approved: {req.reason}",
+        metadata={"project_id": req.project_id, "reason": req.reason},
+    )
+    return ok({"approved": True})
+
+
+# ── Batch Estimate Endpoint ───────────────────────────────────────────
+
+
+@router.get("/settings/batch-estimate")
+def get_batch_estimate() -> Dict[str, Any]:
+    """Return the auto-detected batch profile for the current LLM config.
+
+    Resolves the batch profile for each configured model slot (small, large, code)
+    and returns per-stage batch sizes + estimated API calls based on file count.
+    """
+    from codrag.core.batch_profiles import (
+        BatchStage,
+        resolve_profile,
+        PROFILE_OFF,
+    )
+
+    cfg = _get_llm_config()
+    batch_mode_override = cfg.get("batch_mode")
+    endpoints = {ep["id"]: ep for ep in cfg.get("saved_endpoints", [])}
+
+    def _resolve_slot(slot_cfg: dict) -> Optional[Dict[str, Any]]:
+        ep_id = slot_cfg.get("endpoint_id", "")
+        model = slot_cfg.get("model", "")
+        if not ep_id or not model:
+            return None
+        ep = endpoints.get(ep_id)
+        if not ep:
+            return None
+        provider = ep.get("provider", "ollama")
+        profile = resolve_profile(provider, model, override=batch_mode_override)
+        is_local = profile.name.value == "off"
+        return {
+            "provider": provider,
+            "model": model,
+            "profile_name": profile.name.value,
+            "output_class": profile.output_class,
+            "is_local": is_local,
+            "per_stage": {
+                stage.value: profile.batch_size(stage)
+                for stage in BatchStage
+            },
+        }
+
+    # Resolve each slot
+    slots = {}
+    for slot_name in ("small_model", "large_model", "code_model"):
+        slot_cfg = cfg.get(slot_name, {})
+        resolved = _resolve_slot(slot_cfg)
+        if resolved:
+            slots[slot_name] = resolved
+
+    # Get file count for the active project to estimate API calls
+    file_count = 0
+    try:
+        store = _get_store()
+        active_id = store.get_global("active_project")
+        if active_id:
+            from codrag.core.project_registry import get_project, project_index_dir
+            from codrag.core.trace import TraceIndex
+            proj = get_project(active_id)
+            if proj:
+                idx_dir = project_index_dir(proj)
+                ti = TraceIndex(idx_dir)
+                if ti.exists():
+                    ti.load()
+                    file_count = ti.node_count()
+    except Exception:
+        pass
+
+    # Compute estimated API calls per stage for the primary model
+    estimates = {}
+    primary = slots.get("small_model") or next(iter(slots.values()), None)
+    if primary and not primary["is_local"] and file_count > 0:
+        for stage_key, batch_size in primary["per_stage"].items():
+            if batch_size > 0:
+                calls = max(1, -(-file_count // batch_size))  # ceil division
+                estimates[stage_key] = {
+                    "batch_size": batch_size,
+                    "estimated_calls": calls,
+                    "file_count": file_count,
+                }
+
+    return ok({
+        "batch_mode": batch_mode_override or "auto",
+        "slots": slots,
+        "file_count": file_count,
+        "estimated_calls": estimates,
+    })

@@ -13,10 +13,39 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from collections import Counter
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+
+# ── Cloud rate-limit detection ────────────────────────────────────────
+
+class CloudRateLimitError(Exception):
+    """Raised when a cloud LLM endpoint returns HTTP 429 (rate limit exceeded).
+
+    The pipeline orchestrator catches this to gracefully pause the pipeline
+    instead of failing the entire run.  The user can resume later or switch
+    to a local model.
+
+    Attributes:
+        retry_after: Seconds to wait before retrying (from Retry-After header), or None.
+        model: The model tag that was rate-limited.
+        endpoint: The endpoint URL.
+    """
+
+    def __init__(self, message: str, *, retry_after: Optional[int] = None,
+                 model: str = "", endpoint: str = ""):
+        super().__init__(message)
+        self.retry_after = retry_after
+        self.model = model
+        self.endpoint = endpoint
+
+
+def _is_cloud_model(model: str) -> bool:
+    """Return True if the model tag indicates a cloud-hosted model."""
+    return ":cloud" in model.lower()
 
 
 # ── Output safety guards ──────────────────────────────────────────────
@@ -281,6 +310,7 @@ class LLMClient:
         api_key: Optional[str] = None,
         timeout: float = 60.0,
         always_on: bool = False,
+        debug_mode: bool = False,
     ):
         self.endpoint_url = endpoint_url.rstrip("/")
         self.model = model
@@ -288,6 +318,7 @@ class LLMClient:
         self.api_key = api_key
         self.timeout = timeout
         self.always_on = always_on
+        self.debug_mode = debug_mode
 
     def generate(
         self,
@@ -373,6 +404,14 @@ class LLMClient:
                 payload["system"] = system
 
             url = f"{self.endpoint_url}/api/generate"
+            
+            if self.debug_mode:
+                logger.info(f"\n[DEBUG_LLM] Request (ollama): POST {url}")
+                logger.info(f"[DEBUG_LLM] Model: {self.model}, Budget: {effective_num_predict}")
+                logger.info(f"[DEBUG_LLM] Prompt:\n{prompt}\n")
+            
+            t0 = time.monotonic()
+            
             # Use stream=True so Ollama sends token-by-token.  This lets
             # the requests read-timeout fire if the model stalls (stream=False
             # holds the connection open with zero data until done, making
@@ -419,12 +458,19 @@ class LLMClient:
             # "thinking" while "response" is empty.  Concatenate both so
             # _parse_json_response / _strip_think_tags can handle it.
             if thinking and not text:
-                # Model put everything in thinking field (common with format=json)
+                # Model put everything in thinking field
                 text = thinking
             elif thinking and text:
                 # Model has both thinking and response — wrap thinking in
                 # tags so _strip_think_tags can remove it cleanly.
                 text = f"<think>{thinking}</think>{text}"
+                
+            if self.debug_mode:
+                t1 = time.monotonic()
+                logger.info(f"[DEBUG_LLM] Response (ollama):")
+                logger.info(f"[DEBUG_LLM] Time: {t1 - t0:.2f}s, Tokens: {tokens}, Tok/s: {tokens / (t1 - t0) if t1 > t0 else 0:.1f}")
+                logger.info(f"[DEBUG_LLM] Body:\n{text}\n")
+                
             return text, tokens
 
         elif effective_provider in ("openai", "openai-compatible"):
@@ -501,6 +547,46 @@ class LLMClient:
             text = "".join(b.get("text", "") for b in content_blocks if b.get("type") == "text")
             usage = data.get("usage", {})
             tokens = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+            return text, tokens
+
+        elif effective_provider == "azure-openai":
+            # Azure OpenAI uses deployment-based URLs and api-key header
+            messages = []
+            if system:
+                messages.append({"role": "system", "content": system})
+            messages.append({"role": "user", "content": prompt})
+
+            payload = {
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": num_predict,
+            }
+            if response_schema:
+                payload["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "structured_response",
+                        "schema": response_schema,
+                        "strict": True,
+                    },
+                }
+
+            headers = {"Content-Type": "application/json"}
+            if self.api_key:
+                headers["api-key"] = self.api_key
+
+            # Azure uses: https://<resource>.openai.azure.com/openai/deployments/<deployment>/chat/completions?api-version=...
+            url = f"{self.endpoint_url}/openai/deployments/{self.model}/chat/completions"
+            params = {"api-version": "2024-02-01"}
+
+            resp = requests.post(url, json=payload, headers=headers, params=params, timeout=self.timeout)
+            resp.raise_for_status()
+            data = resp.json()
+
+            choice = data.get("choices", [{}])[0]
+            text = choice.get("message", {}).get("content", "")
+            usage = data.get("usage", {})
+            tokens = usage.get("total_tokens", 0)
             return text, tokens
 
         elif effective_provider == "google":
@@ -703,6 +789,13 @@ class LLMClient:
             elif self.provider == "google":
                 params = {"key": self.api_key} if self.api_key else {}
                 resp = requests.get(f"{self.endpoint_url}/v1beta/models", params=params, timeout=5)
+                return resp.status_code == 200
+            elif self.provider == "azure-openai":
+                headers = {}
+                if self.api_key:
+                    headers["api-key"] = self.api_key
+                url = f"{self.endpoint_url}/openai/deployments?api-version=2024-02-01"
+                resp = requests.get(url, headers=headers, timeout=5)
                 return resp.status_code == 200
             return False
         except Exception:

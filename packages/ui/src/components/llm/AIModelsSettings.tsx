@@ -15,6 +15,7 @@ import type {
   AssignmentMode,
   CodragTaskId,
   ComputeNode,
+  AdminPolicy,
 } from '../../types';
 import { Cpu, Info, Download, CheckCircle, Shrink, Cloud, Plus, Save, Trash2, Edit2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
@@ -39,6 +40,7 @@ export interface AIModelsSettingsProps {
   
   // UI state
   availableModels?: Record<string, string[]>; // endpointId -> models
+  modelDetails?: Record<string, Array<{ name: string; context_window?: string; cost_tier?: string }>>;
   loadingModels?: Record<string, boolean>;
   testingSlot?: 'embedding' | 'small' | 'large' | 'code' | null;
   testResults?: Record<string, EndpointTestResult>;
@@ -69,6 +71,28 @@ export interface AIModelsSettingsProps {
   onAssignmentBlockTest?: (blockId: string) => Promise<EndpointTestResult>;
   assignmentBlockTestResults?: Record<string, EndpointTestResult>;
   assignmentBlockTesting?: string | null;
+
+  // EA-C10: Admin policy for provider/model restrictions
+  adminPolicy?: AdminPolicy | null;
+
+  // Batch estimate for cloud models
+  batchEstimate?: {
+    batch_mode: string;
+    slots: Record<string, {
+      provider: string;
+      model: string;
+      profile_name: string;
+      output_class: string;
+      is_local: boolean;
+      per_stage: Record<string, number>;
+    }>;
+    file_count: number;
+    estimated_calls: Record<string, {
+      batch_size: number;
+      estimated_calls: number;
+      file_count: number;
+    }>;
+  } | null;
 }
 
 // Recommended models per slot.
@@ -341,6 +365,7 @@ export function AIModelsSettings({
   onClearTestResult,
   onHFDownload,
   availableModels = {},
+  modelDetails = {},
   loadingModels = {},
   testingSlot,
   testResults = {},
@@ -358,6 +383,8 @@ export function AIModelsSettings({
   onAssignmentBlockTest,
   assignmentBlockTestResults = {},
   assignmentBlockTesting,
+  adminPolicy,
+  batchEstimate,
 }: AIModelsSettingsProps) {
   const savedMode: AssignmentMode = config.assignment_mode ?? 'structured';
   const [draftMode, setDraftMode] = useState<AssignmentMode>(savedMode);
@@ -853,6 +880,45 @@ export function AIModelsSettings({
                 <label className="block text-xs font-medium text-text-muted mb-1.5">Batch mode</label>
                 <Select value={config.batch_mode ?? 'standard'} onChange={(e) => onConfigChange({ ...config, batch_mode: e.target.value as BatchMode })} options={[{ value: 'large', label: 'Large — 50–100 items/call' }, { value: 'standard', label: 'Standard — 25–50 items/call' }, { value: 'compact', label: 'Compact — 10–20 items/call' }, { value: 'off', label: 'Off — one item per call' }]} className="w-full" />
               </div>
+              {/* Batch Estimate Display */}
+              {(() => {
+                const primary = batchEstimate?.slots?.small_model || Object.values(batchEstimate?.slots ?? {})[0];
+                const est = batchEstimate?.estimated_calls;
+                const totalCalls = est ? Object.values(est).reduce((sum, e) => sum + e.estimated_calls, 0) : 0;
+                if (primary && !primary.is_local) {
+                  return (
+                    <div className="rounded border border-primary/20 bg-primary/5 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold text-primary">Auto-detected: {primary.profile_name.charAt(0).toUpperCase() + primary.profile_name.slice(1)}</p>
+                        <span className="text-[10px] text-text-muted">{primary.output_class}</span>
+                      </div>
+                      <p className="text-[10px] text-text-muted">
+                        Using <strong className="text-text">{primary.model}</strong> via {primary.provider}
+                      </p>
+                      {batchEstimate!.file_count > 0 && est && totalCalls > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-medium text-text-subtle">
+                            ~{totalCalls} API calls for {batchEstimate!.file_count} files across all stages:
+                          </p>
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px] text-text-muted">
+                            {Object.entries(est).map(([stage, info]) => (
+                              <div key={stage} className="flex justify-between">
+                                <span>{stage.replace(/_/g, ' ')}</span>
+                                <span className="text-text-subtle font-mono">{info.estimated_calls} calls ({info.batch_size}/call)</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {batchEstimate!.file_count === 0 && (
+                        <p className="text-[10px] text-text-muted italic">Build a project index to see estimated API calls.</p>
+                      )}
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               <div className="text-xs text-text-muted space-y-1.5">
                 <p className="font-medium text-text">Recommended models</p>
                 <ul className="list-disc pl-4 space-y-1">
@@ -890,6 +956,7 @@ export function AIModelsSettings({
                 endpoints={config.saved_endpoints}
                 onEndpointChange={handleSmallModelEndpointChange}
                 availableModels={availableModels[config.small_model.endpoint_id || ''] || []}
+                modelDetails={modelDetails[config.small_model.endpoint_id || '']}
                 onModelChange={handleSmallModelChange}
                 onRefreshModels={() => config.small_model.endpoint_id && onFetchModels(config.small_model.endpoint_id)}
                 loadingModels={loadingModels[config.small_model.endpoint_id || '']}
@@ -919,6 +986,7 @@ export function AIModelsSettings({
                 endpoints={config.saved_endpoints}
                 onEndpointChange={handleCodeModelEndpointChange}
                 availableModels={availableModels[config.code_model?.endpoint_id || ''] || []}
+                modelDetails={modelDetails[config.code_model?.endpoint_id || '']}
                 onModelChange={handleCodeModelChange}
                 onRefreshModels={() => config.code_model?.endpoint_id && onFetchModels(config.code_model.endpoint_id)}
                 loadingModels={loadingModels[config.code_model?.endpoint_id || '']}
@@ -947,6 +1015,7 @@ export function AIModelsSettings({
                 endpoints={config.saved_endpoints}
                 onEndpointChange={handleLargeModelEndpointChange}
                 availableModels={availableModels[config.large_model.endpoint_id || ''] || []}
+                modelDetails={modelDetails[config.large_model.endpoint_id || '']}
                 onModelChange={handleLargeModelChange}
                 onRefreshModels={() => config.large_model.endpoint_id && onFetchModels(config.large_model.endpoint_id)}
                 loadingModels={loadingModels[config.large_model.endpoint_id || '']}
@@ -1011,6 +1080,7 @@ export function AIModelsSettings({
         onTest={onTestEndpoint}
         computeNodes={computeNodes}
         onEndpointNodeChange={onEndpointNodeChange}
+        adminPolicy={adminPolicy}
       />
 
       {/* Compute Profile */}

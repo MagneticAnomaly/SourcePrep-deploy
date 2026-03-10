@@ -179,6 +179,13 @@ _MODEL_REGISTRY = [
     # Generic fallback for unknown compatible models
     ("openai-compatible", r".*", BatchProfileName.COMPACT),
 
+    # Azure OpenAI — deployment names map to GPT models
+    ("azure-openai", r"gpt-5", BatchProfileName.STANDARD),
+    ("azure-openai", r"gpt-4\.1", BatchProfileName.STANDARD),
+    ("azure-openai", r"gpt-4o", BatchProfileName.COMPACT),
+    ("azure-openai", r"gpt-4", BatchProfileName.COMPACT),
+    ("azure-openai", r".*", BatchProfileName.COMPACT),
+
     # Ollama — always local, no batching
     ("ollama", r".*", BatchProfileName.OFF),
 ]

@@ -5,6 +5,7 @@ import {
   Button,
   ConfirmDialog,
   Select,
+  Toggle,
   ProjectSettingsPanel,
   DeepAnalysisSettings,
   type ProjectConfig,
@@ -91,11 +92,21 @@ export interface SettingsDrawerProps {
   licenseLoading: boolean
   licenseError: string | null
   // Project tab – danger zone
+  projectName?: string
   onDestroyGraph: () => void
   onDestroyIndex: () => void
+  // Developer tab – selective resets
+  onDestroyAtlas?: () => void
+  onDestroyGroupReasoning?: () => void
+  onDestroyDeepEnrichment?: () => void
+  // Global config for debug mode
+  globalConfig?: { developer_debug_mode?: boolean }
+  onGlobalConfigChange?: (config: Partial<{ developer_debug_mode?: boolean }>) => void
   // Developer tab
   devTierOverride: LicenseTier | null
   onDevTierOverrideChange: (tier: LicenseTier | null) => void
+  devRoleOverride: import('@codrag/ui').UserRole | null
+  onDevRoleOverrideChange: (role: import('@codrag/ui').UserRole | null) => void
 }
 
 export function SettingsDrawer({
@@ -127,10 +138,18 @@ export function SettingsDrawer({
   onDeactivateLicense,
   licenseLoading,
   licenseError,
+  projectName,
   onDestroyGraph,
   onDestroyIndex,
+  onDestroyAtlas,
+  onDestroyGroupReasoning,
+  onDestroyDeepEnrichment,
+  globalConfig,
+  onGlobalConfigChange,
   devTierOverride,
   onDevTierOverrideChange,
+  devRoleOverride,
+  onDevRoleOverrideChange,
   scrollToDeepAnalysis,
 }: SettingsDrawerProps) {
   const api = useApiClient()
@@ -151,13 +170,16 @@ export function SettingsDrawer({
       }, 100)
     }
   }, [open, scrollToDeepAnalysis])
-  const [confirmAction, setConfirmAction] = useState<'graph' | 'index' | null>(null)
+  const [confirmAction, setConfirmAction] = useState<'graph' | 'index' | 'atlas' | 'group_reasoning' | 'deep_enrichment' | null>(null)
 
   const handleConfirmedAction = useCallback(() => {
     if (confirmAction === 'graph') onDestroyGraph()
     if (confirmAction === 'index') onDestroyIndex()
+    if (confirmAction === 'atlas') onDestroyAtlas?.()
+    if (confirmAction === 'group_reasoning') onDestroyGroupReasoning?.()
+    if (confirmAction === 'deep_enrichment') onDestroyDeepEnrichment?.()
     setConfirmAction(null)
-  }, [confirmAction, onDestroyGraph, onDestroyIndex])
+  }, [confirmAction, onDestroyGraph, onDestroyIndex, onDestroyAtlas, onDestroyGroupReasoning, onDestroyDeepEnrichment])
 
   const runHealthTest = async () => {
     setHealthResult('Testing...')
@@ -431,12 +453,36 @@ export function SettingsDrawer({
           <>
             <section>
               <div className="flex items-center gap-2 mb-4">
+                <div className="w-4 h-4 text-primary"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M17.47 9c1.93-.2 3.53-1.9 3.53-4"/></svg></div>
+                <h3 className="text-sm font-semibold text-text">Debug Tools</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 gap-3">
+                <div className="flex items-center justify-between p-3 rounded bg-bg-surface border border-border">
+                  <div>
+                    <h4 className="text-sm font-medium text-text">Verbose Telemetry</h4>
+                    <p className="text-xs text-text-muted mt-1">
+                      Log deep LLM analytics, raw prompts, and response timings to stdout for local testing.
+                    </p>
+                  </div>
+                  <Toggle
+                    checked={globalConfig?.developer_debug_mode ?? false}
+                    onChange={(val: boolean) => {
+                      onGlobalConfigChange?.({ developer_debug_mode: val })
+                    }}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <div className="flex items-center gap-2 mb-4 mt-6">
                 <Key className="w-4 h-4 text-primary" />
                 <h3 className="text-sm font-semibold text-text">Tier Override</h3>
               </div>
               <div className="grid grid-cols-1 gap-3">
                 <p className="text-xs text-text-muted">
-                  Override the license tier for local development and testing.
+                  Override the license tier and role for local development and testing.
                 </p>
                 <div className="flex items-center gap-2">
                   <Select
@@ -451,11 +497,29 @@ export function SettingsDrawer({
                     className="flex-1"
                   />
                 </div>
-                {devTierOverride && (
+                <label className="text-xs font-medium text-text-subtle mt-2">Role Override</label>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={devRoleOverride ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      onDevRoleOverrideChange(val ? val as any : null)
+                    }}
+                    aria-label="Dev Role Override"
+                    size="sm"
+                    options={[
+                      { value: '', label: 'Default (user)' },
+                      { value: 'user', label: 'User' },
+                      { value: 'admin', label: 'IT Admin' },
+                    ]}
+                    className="flex-1"
+                  />
+                </div>
+                {(devTierOverride || devRoleOverride) && (
                   <div className="p-3 rounded border border-warning/30 bg-warning/5">
                     <p className="text-xs text-warning font-medium">⚠ Development Mode Active</p>
                     <p className="text-xs text-text-muted mt-1">
-                      Simulating <strong className="capitalize text-text">{devTierOverride}</strong> tier.
+                      Simulating <strong className="capitalize text-text">{devTierOverride || 'Free'}</strong> tier with <strong className="capitalize text-text">{devRoleOverride || 'User'}</strong> role.
                     </p>
                   </div>
                 )}
@@ -511,6 +575,40 @@ export function SettingsDrawer({
                 </div>
               </div>
             </section>
+
+            {/* Selective Reset — Developer Danger Zone */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <Trash2 className="w-4 h-4 text-error" />
+                <h3 className="text-sm font-semibold text-error">Selective Reset</h3>
+              </div>
+              <p className="text-xs text-text-muted mb-3">
+                Reset specific pipeline stages for the current project. Fast Sync stages are preserved.
+              </p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-3 rounded border border-border bg-bg-surface text-center">
+                  <h4 className="text-xs font-semibold text-text mb-1">Reset Atlas</h4>
+                  <p className="text-[10px] text-text-muted mb-2">Deletes atlas and routing data only.</p>
+                  <Button variant="outline" size="sm" onClick={() => setConfirmAction('atlas')} className="w-full text-xs">
+                    Reset
+                  </Button>
+                </div>
+                <div className="p-3 rounded border border-border bg-bg-surface text-center">
+                  <h4 className="text-xs font-semibold text-text mb-1">Reset Group Reasoning</h4>
+                  <p className="text-[10px] text-text-muted mb-2">Deletes group reasoning data only.</p>
+                  <Button variant="outline" size="sm" onClick={() => setConfirmAction('group_reasoning')} className="w-full text-xs">
+                    Reset
+                  </Button>
+                </div>
+                <div className="p-3 rounded border border-error/40 bg-error/5 text-center">
+                  <h4 className="text-xs font-semibold text-error mb-1">Reset Deep Enrichment</h4>
+                  <p className="text-[10px] text-text-muted mb-2">Deletes all 6 deep stages.</p>
+                  <Button variant="outline" size="sm" onClick={() => setConfirmAction('deep_enrichment')} className="w-full text-xs border-error/40 text-error hover:bg-error/10">
+                    Reset All
+                  </Button>
+                </div>
+              </div>
+            </section>
           </>
         )}
       </div>
@@ -520,13 +618,31 @@ export function SettingsDrawer({
         open={confirmAction !== null}
         onConfirm={handleConfirmedAction}
         onCancel={() => setConfirmAction(null)}
-        title={confirmAction === 'graph' ? 'Reset Graph?' : 'Full Reset?'}
+        title={
+          confirmAction === 'graph' ? `Reset Graph for ${projectName || 'Project'}?`
+          : confirmAction === 'atlas' ? `Reset Atlas for ${projectName || 'Project'}?`
+          : confirmAction === 'group_reasoning' ? `Reset Group Reasoning for ${projectName || 'Project'}?`
+          : confirmAction === 'deep_enrichment' ? `Reset Deep Enrichment for ${projectName || 'Project'}?`
+          : `Full Reset for ${projectName || 'Project'}?`
+        }
         description={
           confirmAction === 'graph'
             ? 'This will permanently delete the trace graph, all augmentation, epistemic enrichment, and cluster data. Embeddings and search will remain intact.'
+            : confirmAction === 'atlas'
+            ? 'This will permanently delete the atlas and routing data for this project. Other enrichment stages will remain intact.'
+            : confirmAction === 'group_reasoning'
+            ? 'This will permanently delete the group reasoning data for this project. Other enrichment stages will remain intact.'
+            : confirmAction === 'deep_enrichment'
+            ? 'This will permanently delete ALL deep enrichment data (epistemic, group reasoning, modules, atlas, deepening, knowledge embeddings). Fast Sync stages (graph, augmentation, inferred edges) will remain intact.'
             : 'This will permanently delete ALL project data: embeddings, search index, trace graph, and all enrichment. You will need to rebuild everything from scratch.'
         }
-        confirmLabel={confirmAction === 'graph' ? 'Reset Graph' : 'Reset Everything'}
+        confirmLabel={
+          confirmAction === 'graph' ? 'Reset Graph'
+          : confirmAction === 'atlas' ? 'Reset Atlas'
+          : confirmAction === 'group_reasoning' ? 'Reset Group Reasoning'
+          : confirmAction === 'deep_enrichment' ? 'Reset Deep Enrichment'
+          : 'Reset Everything'
+        }
       />
     </div>
   )

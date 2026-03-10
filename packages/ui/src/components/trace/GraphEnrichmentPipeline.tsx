@@ -89,10 +89,12 @@ export interface GraphEnrichmentPipelineProps {
   limitReached?: boolean;
   /** When true, the project is explicitly marked inactive */
   inactive?: boolean;
+  /** Stale file counts for rerun visualization */
+  staleCounts?: { total: number; stale: number };
   className?: string;
 }
 
-type StageState = 'disabled' | 'waiting' | 'queued' | 'running' | 'complete' | 'stale' | 'error' | 'idle' | 'not_built' | 'warning';
+type StageState = 'disabled' | 'waiting' | 'queued' | 'running' | 'rerunning' | 'complete' | 'stale' | 'error' | 'idle' | 'not_built' | 'warning';
 
 interface EnrichmentStage {
   id: EnrichmentStageId;
@@ -103,6 +105,8 @@ interface EnrichmentStage {
   stats?: string;
   progress?: number;
   duration?: string;
+  /** For rerunning state: ratio of done vs stale files (0-100 each) */
+  rerun?: { donePercent: number; stalePercent: number };
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -319,6 +323,7 @@ const STATE_STYLES: Record<StageState, { bg: string; border: string; text: strin
   waiting:   { bg: 'bg-amber-500/10',       border: 'border-amber-500/30',  text: 'text-amber-400',    icon: 'text-amber-400' },
   queued:    { bg: 'bg-purple-500/10',      border: 'border-purple-500/30', text: 'text-purple-400',   icon: 'text-purple-400' },
   running:   { bg: 'bg-blue-500/10',        border: 'border-blue-500/30',   text: 'text-blue-400',     icon: 'text-blue-400' },
+  rerunning: { bg: 'bg-purple-500/10',      border: 'border-purple-500/30', text: 'text-purple-400',   icon: 'text-purple-400' },
   stale:     { bg: 'bg-amber-500/10',       border: 'border-amber-500/30',  text: 'text-amber-400',    icon: 'text-amber-400' },
   complete:  { bg: 'bg-success/10',         border: 'border-success/30',    text: 'text-success',      icon: 'text-success' },
   warning:   { bg: 'bg-orange-500/10',      border: 'border-orange-500/30', text: 'text-orange-400',   icon: 'text-orange-400' },
@@ -339,6 +344,7 @@ function StateIcon({ state }: { state: StageState }) {
     case 'queued':
       return <Clock className={cn(cls, 'animate-pulse')} />;
     case 'running':
+    case 'rerunning':
       return <Loader2 className={cn(cls, 'animate-spin')} />;
     case 'warning':
       return <AlertTriangle className={cls} />;
@@ -351,16 +357,26 @@ function StateIcon({ state }: { state: StageState }) {
 
 import { StageProgressBar } from './StageProgressBar';
 
-function StageRow({ stage, onPause, onResume, isPaused }: {
+function StageRow({ 
+  stage, 
+  isPaused,
+  onPause,
+  onResume
+}: { 
   stage: EnrichmentStage;
-  onPause?: () => void;
-  onResume?: () => void;
-  isPaused?: boolean;
+  isPaused: boolean;
+  onPause?: (group: "fast_sync" | "deep_enrichment") => void;
+  onResume?: (group: "fast_sync" | "deep_enrichment") => void;
 }) {
   const s = STATE_STYLES[stage.state];
   const [hovered, setHovered] = useState(false);
-  const isRunning = stage.state === 'running';
+  const isRunning = stage.state === 'running' || stage.state === 'rerunning';
+  const isRerunning = stage.state === 'rerunning';
   
+  const group = ['structural', 'inferred_edges', 'catalogue', 'validation', 'knowledge'].includes(stage.id) 
+    ? 'fast_sync' 
+    : 'deep_enrichment';
+
   return (
     <div
       className="flex items-start gap-3 relative py-0.5 px-1 group"
@@ -402,7 +418,7 @@ function StageRow({ stage, onPause, onResume, isPaused }: {
             <div className="w-5 h-5 flex items-center justify-center shrink-0">
               {isPaused && onResume ? (
                 <button
-                  onClick={(e) => { e.stopPropagation(); onResume(); }}
+                  onClick={(e) => { e.stopPropagation(); onResume(group); }}
                   className="p-0.5 rounded hover:bg-green-500/20 transition-colors"
                   title="Resume pipeline from where it paused"
                 >
@@ -410,7 +426,7 @@ function StageRow({ stage, onPause, onResume, isPaused }: {
                 </button>
               ) : isRunning && hovered && onPause ? (
                 <button
-                  onClick={(e) => { e.stopPropagation(); onPause(); }}
+                  onClick={(e) => { e.stopPropagation(); onPause(group); }}
                   className="p-0.5 rounded hover:bg-amber-500/20 transition-colors"
                   title="Pause pipeline (saves progress)"
                 >
@@ -431,7 +447,8 @@ function StageRow({ stage, onPause, onResume, isPaused }: {
             <StageProgressBar 
               progress={stage.progress} 
               className="h-1.5 mt-0 w-full"
-              color="bg-blue-500" 
+              color={isRerunning ? "bg-purple-500" : "bg-blue-500"}
+              rerun={isRerunning && stage.rerun ? stage.rerun : undefined}
             />
           </div>
         ) : isPaused ? (
@@ -841,7 +858,8 @@ export function GraphEnrichmentPipeline({
           <StageRow
             key={stage.id}
             stage={stage}
-            onPause={onPausePipeline ? () => onPausePipeline('fast_sync') : undefined}
+            isPaused={isPaused}
+            onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
           />
         ))}
       </div>
@@ -923,12 +941,10 @@ export function GraphEnrichmentPipeline({
           <span>Overall Health</span>
           <span>{roundedProgress}% Complete ({completedStages}/{allStates.length} stages)</span>
         </div>
-        <div className="h-1 w-full bg-surface-raised rounded-full mt-1.5 overflow-hidden">
-          <div 
-            className="h-full bg-primary/50 transition-all duration-500"
-            style={{ width: `${roundedProgress}%` }}
-          />
-        </div>
+        <StageProgressBar 
+          progress={roundedProgress} 
+          rerun={{ donePercent: 50, stalePercent: 20 }} 
+        />
       </div>
 
       {/* Destroy Graph */}

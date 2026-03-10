@@ -165,6 +165,7 @@ export interface PanelLLMProps {
   handleTestModel: (slot: 'embedding' | 'small' | 'large' | 'code') => Promise<any>
   handleDownloadModel: (slot: 'embedding' | 'lingua') => Promise<void>
   availableModels: Record<string, string[]>
+  modelDetails: Record<string, Array<{ name: string; context_window?: string; cost_tier?: string }>>
   loadingModels: Record<string, boolean>
   testingSlot: 'small' | 'embedding' | 'large' | 'code' | null
   testResults: Record<string, EndpointTestResult>
@@ -178,6 +179,8 @@ export interface PanelLLMProps {
   onComputeNodeUpdate?: (nodeId: string, updates: Partial<import('@codrag/ui').ComputeNode>) => void
   onComputeNodeDelete?: (nodeId: string) => void
   onEndpointNodeChange?: (endpointId: string, nodeId: string | null) => void
+  // Batch estimate for cloud models
+  batchEstimate?: any
 }
 
 export interface PanelDeepAnalysisProps {
@@ -879,6 +882,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           onTestModel={p.handleTestModel}
           onHFDownload={p.handleDownloadModel}
           availableModels={p.availableModels}
+          modelDetails={p.modelDetails}
           loadingModels={p.loadingModels}
           testingSlot={p.testingSlot}
           testResults={p.testResults}
@@ -945,6 +949,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
             if (!ep) return { success: false, message: 'Endpoint not found' };
             return p.handleTestEndpoint(ep);
           }}
+          batchEstimate={p.batchEstimate}
         />
       </div>
     ),

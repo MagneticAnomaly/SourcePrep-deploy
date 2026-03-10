@@ -144,6 +144,13 @@
         "provider": "lm-studio",
         "url": "http://192.168.86.22:1234",
         "id": "ep_1772383175014_efdea339349a78"
+      },
+      {
+        "name": "Gemini",
+        "provider": "google",
+        "url": "https://generativelanguage.googleapis.com",
+        "api_key": "AIzaSyDY7u6iRhNnFkMIxI_TDyHwVzpgV-npJPc",
+        "id": "ep_1773104528594_b76deacadc9308"
       }
     ],
     "embedding": {
@@ -155,7 +162,7 @@
     },
     "small_model": {
       "enabled": true,
-      "endpoint_id": "ep_1772383175014_efdea339349a78",
+      "endpoint_id": "ep_1773104528594_b76deacadc9308",
       "model": "qwen3.5-4b-mxfp8-mlx",
       "always_on": false
     },
@@ -450,7 +457,7 @@
   },
   "compute_nodes": [
     {
-      "id": "node_a881ad31",
+      "id": "node_61bb8694",
       "name": "Local Machine",
       "type": "local",
       "hardware_profile": "apple_silicon",

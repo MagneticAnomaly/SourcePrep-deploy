@@ -93,6 +93,30 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["llm"])
 
 
+# ── Gemini free-tier rate limits (Mar 2026) ─────────────────────
+# Source: https://ai.google.dev/pricing
+_GEMINI_RATE_FALLBACKS: List[tuple] = [
+    ("gemini-2.5-flash",  {"rpd": 500,  "rpm": 10}),
+    ("gemini-2.5-pro",    {"rpd": 25,   "rpm": 5}),
+    ("gemini-2.0-flash",  {"rpd": 1500, "rpm": 15}),
+    ("gemini-1.5-flash",  {"rpd": 1500, "rpm": 15}),
+    ("gemini-1.5-pro",    {"rpd": 50,   "rpm": 2}),
+    ("gemini-3-flash",    {"rpd": 500,  "rpm": 10}),
+    ("gemini-3-pro",      {"rpd": 25,   "rpm": 5}),
+    ("gemini-3.1-flash",  {"rpd": 500,  "rpm": 10}),
+    ("gemini-3.1-pro",    {"rpd": 25,   "rpm": 5}),
+    ("gemma",             {"rpd": 1500, "rpm": 15}),
+]
+
+def _get_gemini_rate_limits(model_id: str) -> Optional[Dict[str, int]]:
+    for prefix, limits in _GEMINI_RATE_FALLBACKS:
+        if model_id.startswith(prefix):
+            return limits
+    return None
+
+_AVG_PROMPT_TOKENS = 3000  # conservative per-file prompt size
+
+
 # ── Pydantic models ─────────────────────────────────────────────
 
 class ModeSwitchRequest(BaseModel):
@@ -621,6 +645,7 @@ def proxy_models(req: LLMProxyRequest) -> Dict[str, Any]:
     if not is_safe_url(url, req.provider):
         return ok({"models": [], "error": "Invalid or unsafe URL"})
     models: List[str] = []
+    model_details: List[Dict[str, Any]] = []
     
     try:
         if req.provider == "ollama":
@@ -670,10 +695,43 @@ def proxy_models(req: LLMProxyRequest) -> Dict[str, Any]:
                     name = m["name"].replace("models/", "") if m["name"].startswith("models/") else m["name"]
                     models.append(name)
 
+                    # Rich metadata for UI
+                    ctx = m.get("inputTokenLimit", 0)
+                    ctx_label = f"{ctx // 1000}k" if ctx >= 1000 else str(ctx)
+                    output_limit = m.get("outputTokenLimit", 0)
+
+                    # Free-tier heuristic (API doesn't expose this directly)
+                    free_patterns = ["gemma", "nano-banana", "flash-lite", "gemini-2.0-flash", "gemini-2.5-flash", "gemini-3-flash"]
+                    paid_patterns = ["pro", "ultra", "robotics"]
+                    is_free_tier = any(p in lower_name for p in free_patterns) and not any(p in lower_name for p in paid_patterns)
+                    cost_label = "Free Tier Available" if is_free_tier else "Paid/Quota"
+
+                    # Rate limits + batch estimation
+                    rl = _get_gemini_rate_limits(name)
+                    batch_est: Optional[Dict[str, Any]] = None
+                    if ctx > 0:
+                        fpr = max(1, ctx // _AVG_PROMPT_TOKENS)
+                        batch_est = {"files_per_request": fpr}
+                        if rl and rl.get("rpd"):
+                            batch_est["daily_file_capacity"] = fpr * rl["rpd"]
+
+                    detail: Dict[str, Any] = {
+                        "name": name,
+                        "context_window": ctx_label,
+                        "context_tokens": ctx,
+                        "output_limit": output_limit,
+                        "cost_tier": cost_label,
+                    }
+                    if rl:
+                        detail["rate_limits"] = rl
+                    if batch_est:
+                        detail["batch_estimate"] = batch_est
+                    model_details.append(detail)
+
     except Exception as e:
         raise ApiException(status_code=500, code="CONNECTION_FAILED", message=str(e))
 
-    return ok({"models": models})
+    return ok({"models": models, "model_details": model_details})
 
 
 @router.post("/api/llm/proxy/test")

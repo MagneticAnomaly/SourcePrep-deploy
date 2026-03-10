@@ -1622,10 +1622,43 @@ class MCPServer:
         """Handle tools/list request."""
         return {"tools": TOOLS}
 
+    # EA-B12: MCP rate limiting state
+    _mcp_call_times: List[float] = []
+    _MCP_RATE_LIMIT = 120       # max calls
+    _MCP_RATE_WINDOW = 60.0     # per N seconds
+
+    def _check_rate_limit(self) -> None:
+        """EA-B12: Enforce rate limit on MCP tool calls (120 calls/60s)."""
+        import time
+        now = time.monotonic()
+        # Prune old entries
+        self._mcp_call_times = [t for t in self._mcp_call_times if now - t < self._MCP_RATE_WINDOW]
+        if len(self._mcp_call_times) >= self._MCP_RATE_LIMIT:
+            raise MCPError(-32000, f"Rate limit exceeded: {self._MCP_RATE_LIMIT} calls per {int(self._MCP_RATE_WINDOW)}s")
+        self._mcp_call_times.append(now)
+
+    def _audit_mcp_call(self, tool_name: str, args: Dict[str, Any]) -> None:
+        """EA-B12: Record MCP tool call to audit log."""
+        try:
+            from codrag.core.audit_log import get_audit_log
+            audit = get_audit_log()
+            audit.record(
+                event_type="mcp_tool_call",
+                severity="info",
+                message=f"MCP tool called: {tool_name}",
+                metadata={"tool": tool_name, "args_keys": list(args.keys())},
+            )
+        except Exception:
+            pass  # Audit logging is best-effort
+
     async def handle_tools_call(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle tools/call request."""
         name = params.get("name", "")
         args = params.get("arguments", {})
+
+        # EA-B12: Rate limit + audit log
+        self._check_rate_limit()
+        self._audit_mcp_call(name, args)
 
         # Extract project_id override (available on all project-scoped tools)
         project_override = args.get("project_id")

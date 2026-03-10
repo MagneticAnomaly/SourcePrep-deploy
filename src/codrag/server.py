@@ -369,6 +369,7 @@ def _get_llm_client_for_slot(slot: str):
         provider=endpoint.get("provider", "ollama"),
         timeout=timeout,
         always_on=bool(slot_cfg.get("always_on", False)),
+        debug_mode=bool(ui_cfg.get("developer_debug_mode", False)),
     )
 
 

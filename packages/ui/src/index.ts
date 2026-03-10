@@ -30,9 +30,17 @@ export type {
   TraceCoverageSummary,
   TraceCoverage,
   LicenseTier,
+  UserRole,
   LicenseInfo,
   LicenseStatus,
   FeatureAvailability,
+  AdminPolicy,
+  ProviderPolicy,
+  ModelPolicy,
+  DataPolicy,
+  SyncPolicy,
+  NetworkPolicy,
+  BudgetPolicy,
   TaskProgress,
   LogEntry,
   EvidenceTier,
@@ -104,6 +112,9 @@ export { Select } from './components/primitives/Select';
 export type { SelectProps, SelectOption } from './components/primitives/Select';
 export { PathInput } from './components/primitives/PathInput';
 export type { PathInputProps, PathPickerMode } from './components/primitives/PathInput';
+export { Toggle } from './components/primitives/Toggle';
+export type { ToggleProps } from './components/primitives/Toggle';
+export { SlidingSwitch2, SlidingSwitch3 } from './components/primitives/SlidingSwitch';
 export { SettingsSection } from './components/primitives/SettingsSection';
 export type { SettingsSectionProps } from './components/primitives/SettingsSection';
 export { SettingsRow } from './components/primitives/SettingsRow';
@@ -114,6 +125,11 @@ export { BudgetPill } from './components/primitives/BudgetPill';
 export type { BudgetPillProps } from './components/primitives/BudgetPill';
 export { BudgetPreview } from './components/primitives/BudgetPreview';
 export type { BudgetPreviewProps } from './components/primitives/BudgetPreview';
+export { AdminSection } from './components/primitives/AdminSection';
+export type { AdminSectionProps } from './components/primitives/AdminSection';
+
+// Hooks - Enterprise (EA-C4)
+export { useAdminPolicy } from './hooks/useAdminPolicy';
 
 // Components - Project
 export { FolderTree, sampleFileTree, ProjectSettingsPanel, FolderTreePanel, PinnedTextFilesPanel, AddProjectModal, FilePreviewPane, FileExplorerDetail, CodeViewer } from './components/project';
@@ -163,6 +179,10 @@ export { AuditPanel } from './components/audit';
 export type { AuditPanelProps } from './components/audit';
 export type { AuditConfig, AuditFinding, AuditStatus, AuditReport, AuditSeverity, AuditCategory } from './types';
 export type { SchedulerStatus, SchedulerNodeStatus, ComputeNode, ComputeHardwareProfile } from './types';
+
+// Components - Enterprise (Phase 06)
+export { EnterpriseAdminPanel } from './components/enterprise';
+export type { EnterpriseAdminPanelProps, SyncFleetEntry, UsageData } from './components/enterprise';
 
 // Components - Viz
 export { ActivityHeatmap, generateSampleActivityData, IndexHealthPanel, TokenBudgetPanel } from './components/viz';

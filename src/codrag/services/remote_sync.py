@@ -62,6 +62,69 @@ class TeamSyncConfig:
         )
 
 
+def _validate_s3_endpoint(url: str) -> tuple:
+    """EA-B1: SSRF prevention for S3 endpoints.
+
+    Returns (safe, reason). Blocks private IPs, metadata endpoints, non-HTTPS.
+    """
+    import ipaddress
+    import socket
+    import urllib.parse
+
+    if not url:
+        return True, ""
+
+    try:
+        parsed = urllib.parse.urlparse(url)
+
+        # Require HTTPS for S3 endpoints (unless localhost for dev)
+        hostname = parsed.hostname or ""
+        if parsed.scheme != "https" and hostname not in ("localhost", "127.0.0.1"):
+            return False, f"S3 endpoint must use HTTPS (got {parsed.scheme}://)"
+
+        # Block cloud metadata endpoints
+        if hostname in ("169.254.169.254", "metadata.google.internal"):
+            return False, "S3 endpoint targets a cloud metadata service"
+
+        # Resolve and check for private IPs
+        try:
+            resolved = socket.getaddrinfo(hostname, parsed.port, proto=socket.IPPROTO_TCP)
+            for _, _, _, _, sockaddr in resolved:
+                ip = ipaddress.ip_address(sockaddr[0])
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                    # Allow localhost for development
+                    if ip.is_loopback:
+                        continue
+                    return False, f"S3 endpoint resolves to private IP: {ip}"
+        except (socket.gaierror, ValueError, OSError):
+            pass  # DNS failure — allow (may not resolve locally)
+
+        return True, ""
+    except Exception as e:
+        return False, f"Invalid S3 endpoint URL: {e}"
+
+
+def _check_secrets_permissions(secrets_path: Path) -> None:
+    """EA-B3: Check that .codrag/.secrets file has restrictive permissions.
+
+    Warns if the file is world-readable or group-readable (mode should be 0o600).
+    """
+    if not secrets_path.exists():
+        return
+
+    try:
+        mode = secrets_path.stat().st_mode & 0o777
+        if mode & 0o077:  # group or world bits set
+            logger.warning(
+                "SECURITY: Secrets file %s has permissive mode %o. "
+                "Should be 0600 (owner read/write only). "
+                "Fix with: chmod 600 %s",
+                secrets_path, mode, secrets_path,
+            )
+    except OSError as e:
+        logger.warning("Could not check permissions on %s: %s", secrets_path, e)
+
+
 @dataclass
 class SyncStatus:
     """Current sync state for a project."""

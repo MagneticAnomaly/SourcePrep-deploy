@@ -247,7 +247,16 @@ class LayeredCodeIndex:
             total += len(block)
 
         parts.append("<!-- END OF RETRIEVED CONTEXT -->")
-        return "\n\n---\n\n".join(parts)
+        assembled = "\n\n---\n\n".join(parts)
+
+        # EA-B5: Sanitize output before returning to MCP/API
+        try:
+            from codrag.core.content_sanitizer import sanitize_output
+            assembled = sanitize_output(assembled)
+        except ImportError:
+            pass
+
+        return assembled
 
     # ── Stats ─────────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { FileText, Settings, AlertCircle, AlertTriangle, X } from 'lucide-react'
-import type { AtlasStatus, ActivityHeatmapData } from '@codrag/ui'
+import type { AtlasStatus, ActivityHeatmapData, UserRole } from '@codrag/ui'
 import {
   // API
   useApiClient,
@@ -101,8 +101,14 @@ function App() {
   const [maxActiveProjects, setMaxActiveProjects] = useState<number | 'infinite'>('infinite')
   const [schedulerStatus, setSchedulerStatus] = useState<any>(null)
   const [computeNodes, setComputeNodes] = useState<any[]>([])
+  const [batchEstimate, setBatchEstimate] = useState<any>(null)
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout | null>(null)
   const [projectLimitBannerDismissed, setProjectLimitBannerDismissed] = useState(false)
+  const [devRoleOverride, setDevRoleOverride] = useState<UserRole | null>(() => {
+    const stored = localStorage.getItem('codrag_dev_role_override')
+    return stored ? stored as UserRole : null
+  })
+  const [globalConfig, setGlobalConfig] = useState<{ developer_debug_mode?: boolean }>({})
 
   // ── License (hook) ─────────────────────────────────────────
   const {
@@ -312,7 +318,7 @@ function App() {
   // ── LLM config (hook) ───────────────────────────────────────
   const {
     llmConfig, setLLMConfig,
-    availableModels, loadingModels, testingSlot, testResults,
+    availableModels, modelDetails, loadingModels, testingSlot, testResults,
     llmSlotsStatus,
     handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
     handleTestEndpoint, handleFetchModels, handleTestModel,
@@ -349,6 +355,32 @@ function App() {
     api.updateGlobalConfig({ max_active_projects: value }).catch(() => {})
   }, [api])
 
+  const handleDevRoleOverrideChange = useCallback((role: UserRole | null) => {
+    setDevRoleOverride(role)
+    if (role) localStorage.setItem('codrag_dev_role_override', role)
+    else localStorage.removeItem('codrag_dev_role_override')
+  }, [])
+
+  const handleGlobalConfigChange = useCallback((patch: Record<string, any>) => {
+    setGlobalConfig(prev => ({ ...prev, ...patch }))
+    api.updateGlobalConfig(patch as any).catch(() => {})
+  }, [api])
+
+  const handleDestroyAtlas = useCallback(async () => {
+    if (!selectedProjectId) return
+    try { await api.destroyAtlas(selectedProjectId) } catch (e) { console.error('destroyAtlas failed', e) }
+  }, [api, selectedProjectId])
+
+  const handleDestroyGroupReasoning = useCallback(async () => {
+    if (!selectedProjectId) return
+    try { await api.destroyGroupReasoning(selectedProjectId) } catch (e) { console.error('destroyGroupReasoning failed', e) }
+  }, [api, selectedProjectId])
+
+  const handleDestroyDeepEnrichment = useCallback(async () => {
+    if (!selectedProjectId) return
+    try { await api.destroyDeepEnrichment(selectedProjectId) } catch (e) { console.error('destroyDeepEnrichment failed', e) }
+  }, [api, selectedProjectId])
+
 
   // Poll scheduler status every 5s when connected
   useEffect(() => {
@@ -362,6 +394,17 @@ function App() {
     const interval = setInterval(poll, 5000)
     return () => clearInterval(interval)
   }, [isConnected, api])
+
+  // Fetch batch estimate on connect and when LLM config changes
+  const refreshBatchEstimate = useCallback(() => {
+    api.getBatchEstimate()
+      .then(setBatchEstimate)
+      .catch(() => {})
+  }, [api])
+
+  useEffect(() => {
+    if (isConnected) refreshBatchEstimate()
+  }, [isConnected, refreshBatchEstimate, llmConfig])
 
   // Load compute nodes on connect
   const refreshComputeNodes = useCallback(() => {
@@ -430,6 +473,9 @@ function App() {
           }
           if (globalCfg.module_layout?.version) {
             try { localStorage.setItem('codrag_dashboard_layout', JSON.stringify(globalCfg.module_layout)) } catch { /* storage full */ }
+          }
+          if (globalCfg.developer_debug_mode !== undefined) {
+            setGlobalConfig(prev => ({ ...prev, developer_debug_mode: globalCfg.developer_debug_mode }))
           }
         } catch { /* Global config not available — use defaults */ }
         void fetchLLMSlotsStatus()
@@ -533,7 +579,7 @@ function App() {
       llmConfig, llmSlotsStatus,
       handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
       handleTestEndpoint, handleFetchModels, handleTestModel, handleDownloadModel,
-      availableModels, loadingModels, testingSlot, testResults,
+      availableModels, modelDetails, loadingModels, testingSlot, testResults,
       maxActiveProjects, onMaxActiveProjectsChange: handleMaxActiveProjectsChange,
       schedulerStatus,
       computeNodes,
@@ -541,6 +587,7 @@ function App() {
       onComputeNodeUpdate: handleComputeNodeUpdate,
       onComputeNodeDelete: handleComputeNodeDelete,
       onEndpointNodeChange: handleEndpointNodeChange,
+      batchEstimate,
     },
     deepAnalysis: { deepAnalysisSchedule, setDeepAnalysisSchedule, budgetUsage },
     atlas: { atlasStatus },
@@ -624,10 +671,18 @@ function App() {
         onDeactivateLicense={handleDeactivateLicense}
         licenseLoading={licenseLoading}
         licenseError={licenseError}
+        projectName={selectedProject?.name}
         onDestroyGraph={handleDestroyGraph}
         onDestroyIndex={handleDestroyIndex}
+        onDestroyAtlas={handleDestroyAtlas}
+        onDestroyGroupReasoning={handleDestroyGroupReasoning}
+        onDestroyDeepEnrichment={handleDestroyDeepEnrichment}
+        globalConfig={globalConfig}
+        onGlobalConfigChange={handleGlobalConfigChange}
         devTierOverride={devTierOverride}
         onDevTierOverrideChange={handleDevTierOverrideChange}
+        devRoleOverride={devRoleOverride}
+        onDevRoleOverrideChange={handleDevRoleOverrideChange}
       />
       {/* Floating Settings trigger — always visible */}
       {!settingsOpen && (

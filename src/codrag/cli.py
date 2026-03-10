@@ -1240,6 +1240,19 @@ def sync_headless(
         console.print("[red]Error: Either --repo-url or --repo-path is required.[/red]")
         raise typer.Exit(1)
 
+    # EA-B4: Deprecation warnings for CLI secret flags
+    if s3_access_key or s3_secret_key:
+        console.print(
+            "[yellow]⚠ Deprecation warning: Passing S3 credentials via CLI flags is deprecated "
+            "and will be removed in a future version. Use environment variables instead: "
+            "CODRAG_S3_ACCESS_KEY, CODRAG_S3_SECRET_KEY[/yellow]"
+        )
+    if api_key:
+        console.print(
+            "[yellow]⚠ Deprecation warning: Passing --api-key via CLI flag is deprecated. "
+            "Use environment variables instead: OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY[/yellow]"
+        )
+
     # Build S3 config from flags + env vars (flags take priority)
     s3_cfg = S3Config.from_env()
     if s3_endpoint:

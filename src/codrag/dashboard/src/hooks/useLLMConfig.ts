@@ -30,6 +30,7 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     batch_mode: 'auto',
   })
   const [availableModels, setAvailableModels] = useState<Record<string, string[]>>({})
+  const [modelDetails, setModelDetails] = useState<Record<string, Array<{ name: string; context_window?: string; cost_tier?: string }>>>({})
   const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({})
   const [testingSlot, setTestingSlot] = useState<'embedding' | 'small' | 'large' | 'code' | null>(null)
   const [testResults, setTestResults] = useState<Record<string, EndpointTestResult>>({})
@@ -79,6 +80,9 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     if (Array.isArray(data.models)) {
       setAvailableModels((prev) => ({ ...prev, [endpoint.id]: data.models }))
     }
+    if (Array.isArray(data.model_details)) {
+      setModelDetails((prev) => ({ ...prev, [endpoint.id]: data.model_details }))
+    }
     return data as EndpointTestResult
   }, [])
 
@@ -97,6 +101,9 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
       const data = json?.data ?? json
       const models = Array.isArray(data.models) ? data.models : []
       setAvailableModels((prev) => ({ ...prev, [endpointId]: models }))
+      if (Array.isArray(data.model_details)) {
+        setModelDetails((prev) => ({ ...prev, [endpointId]: data.model_details }))
+      }
       return models
     } finally {
       setLoadingModels((prev) => ({ ...prev, [endpointId]: false }))
@@ -247,6 +254,7 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     llmConfig,
     setLLMConfig,
     availableModels,
+    modelDetails,
     loadingModels,
     testingSlot,
     testResults,

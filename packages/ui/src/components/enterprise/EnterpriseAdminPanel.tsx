@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { cn } from '../../lib/utils';
-import { Shield, Server, Activity, DollarSign, Cloud, RefreshCw, Clock, CheckCircle, AlertTriangle, XCircle, FileDown } from 'lucide-react';
+import { Shield, Server, Activity, DollarSign, Cloud, RefreshCw, Clock, CheckCircle, AlertTriangle, XCircle, FileDown, Lock, Settings2 } from 'lucide-react';
 import { Button } from '../primitives/Button';
 import { InfoTooltip } from '../primitives/InfoTooltip';
-import type { ComputeNode, SchedulerStatus } from '../../types';
+import type { ComputeNode, SchedulerStatus, AdminPolicy } from '../../types';
+import { AdminSection } from '../primitives/AdminSection';
 
-export type AdminTab = 'fleet' | 'sync' | 'usage' | 'security';
+export type AdminTab = 'fleet' | 'sync' | 'usage' | 'security' | 'policy';
 
 export interface SecurityHealthResult {
   score: number;
@@ -52,6 +53,8 @@ export interface EnterpriseAdminPanelProps {
   onExportSecurityReport?: () => void;
   /** EA-H8: Export audit log */
   onExportAuditLog?: () => void;
+  /** Admin policy from team_config.json */
+  adminPolicy?: AdminPolicy | null;
   /** Default tab to show */
   defaultTab?: AdminTab;
   className?: string;
@@ -93,6 +96,7 @@ export function EnterpriseAdminPanel({
   securityEvents = [],
   onExportSecurityReport,
   onExportAuditLog,
+  adminPolicy,
   defaultTab = 'fleet',
   className,
 }: EnterpriseAdminPanelProps) {
@@ -129,6 +133,7 @@ export function EnterpriseAdminPanel({
     { id: 'sync', label: 'Sync', icon: <Cloud className="w-3.5 h-3.5" /> },
     { id: 'usage', label: 'Usage', icon: <Activity className="w-3.5 h-3.5" /> },
     { id: 'security', label: 'Security', icon: <Shield className="w-3.5 h-3.5" /> },
+    { id: 'policy', label: 'Policy', icon: <Settings2 className="w-3.5 h-3.5" /> },
   ];
 
   return (
@@ -441,6 +446,161 @@ export function EnterpriseAdminPanel({
           {!securityHealth && securityEvents.length === 0 && (
             <div className="text-center py-8 text-sm text-text-muted">
               Security health data not yet available. Run a security check to see results.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Policy Tab — Admin Policy from team_config.json */}
+      {activeTab === 'policy' && (
+        <div className="space-y-4">
+          {adminPolicy ? (
+            <>
+              {/* Provider Restrictions */}
+              <AdminSection title="Provider Policy" enforcementMode={adminPolicy.enforcement_mode as 'suggest' | 'enforce'}>
+                <div className="space-y-2 text-xs">
+                  {adminPolicy.provider.allowed_providers.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <CheckCircle className="w-3.5 h-3.5 text-success shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-text">Allowed providers:</span>{' '}
+                        <span className="text-text-muted">{adminPolicy.provider.allowed_providers.join(', ')}</span>
+                      </div>
+                    </div>
+                  )}
+                  {adminPolicy.provider.blocked_providers.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <XCircle className="w-3.5 h-3.5 text-error shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-text">Blocked providers:</span>{' '}
+                        <span className="text-text-muted">{adminPolicy.provider.blocked_providers.join(', ')}</span>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    {adminPolicy.provider.allow_local_providers ? (
+                      <CheckCircle className="w-3.5 h-3.5 text-success" />
+                    ) : (
+                      <XCircle className="w-3.5 h-3.5 text-error" />
+                    )}
+                    <span className="text-text-muted">Local providers (Ollama, LM Studio): {adminPolicy.provider.allow_local_providers ? 'Allowed' : 'Blocked'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {adminPolicy.provider.allow_user_endpoints ? (
+                      <CheckCircle className="w-3.5 h-3.5 text-success" />
+                    ) : (
+                      <Lock className="w-3.5 h-3.5 text-amber-400" />
+                    )}
+                    <span className="text-text-muted">User-created endpoints: {adminPolicy.provider.allow_user_endpoints ? 'Allowed' : 'IT-managed only'}</span>
+                  </div>
+                  {adminPolicy.provider.locked_endpoints.length > 0 && (
+                    <div className="mt-2 p-2 rounded bg-amber-500/5 border border-amber-500/20">
+                      <div className="text-[10px] font-medium text-amber-400 mb-1 flex items-center gap-1">
+                        <Lock className="w-3 h-3" /> {adminPolicy.provider.locked_endpoints.length} IT-configured endpoint{adminPolicy.provider.locked_endpoints.length !== 1 ? 's' : ''}
+                      </div>
+                      {adminPolicy.provider.locked_endpoints.map((le, i) => (
+                        <div key={i} className="text-[10px] text-text-muted">{le.name || le.provider} — {le.url}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </AdminSection>
+
+              {/* Model Restrictions */}
+              <AdminSection title="Model Policy" enforcementMode={adminPolicy.enforcement_mode as 'suggest' | 'enforce'}>
+                <div className="space-y-2 text-xs">
+                  {adminPolicy.model.allowed_models.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <CheckCircle className="w-3.5 h-3.5 text-success shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-text">Allowed models:</span>{' '}
+                        <span className="text-text-muted">{adminPolicy.model.allowed_models.join(', ')}</span>
+                      </div>
+                    </div>
+                  )}
+                  {adminPolicy.model.blocked_models.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <XCircle className="w-3.5 h-3.5 text-error shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium text-text">Blocked models:</span>{' '}
+                        <span className="text-text-muted">{adminPolicy.model.blocked_models.join(', ')}</span>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    {adminPolicy.model.require_approved_models ? (
+                      <Lock className="w-3.5 h-3.5 text-amber-400" />
+                    ) : (
+                      <CheckCircle className="w-3.5 h-3.5 text-success" />
+                    )}
+                    <span className="text-text-muted">{adminPolicy.model.require_approved_models ? 'Only approved models allowed' : 'Any model allowed'}</span>
+                  </div>
+                </div>
+              </AdminSection>
+
+              {/* DLP / Data Policy */}
+              {(adminPolicy.data.never_send_globs.length > 0 || adminPolicy.data.block_unapproved_cloud) && (
+                <AdminSection title="Data Loss Prevention" enforcementMode={adminPolicy.enforcement_mode as 'suggest' | 'enforce'}>
+                  <div className="space-y-2 text-xs">
+                    {adminPolicy.data.never_send_globs.length > 0 && (
+                      <div className="flex items-start gap-2">
+                        <Shield className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-medium text-text">Never send to cloud:</span>{' '}
+                          <span className="text-text-muted font-mono">{adminPolicy.data.never_send_globs.join(', ')}</span>
+                        </div>
+                      </div>
+                    )}
+                    {adminPolicy.data.block_unapproved_cloud && (
+                      <div className="flex items-center gap-2">
+                        <Lock className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="text-text-muted">Unapproved cloud providers blocked</span>
+                        {adminPolicy.data.allowed_destinations.length > 0 && (
+                          <span className="text-text-muted"> (allowed: {adminPolicy.data.allowed_destinations.join(', ')})</span>
+                        )}
+                      </div>
+                    )}
+                    {adminPolicy.data.redact_patterns.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="text-text-muted">{adminPolicy.data.redact_patterns.length} secret redaction pattern{adminPolicy.data.redact_patterns.length !== 1 ? 's' : ''} active</span>
+                      </div>
+                    )}
+                  </div>
+                </AdminSection>
+              )}
+
+              {/* Budget Limits */}
+              {(adminPolicy.budgets.monthly_token_limit > 0 || adminPolicy.budgets.monthly_cost_limit_usd > 0) && (
+                <AdminSection title="Budget Limits" enforcementMode={adminPolicy.enforcement_mode as 'suggest' | 'enforce'}>
+                  <div className="space-y-2 text-xs">
+                    {adminPolicy.budgets.monthly_token_limit > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Activity className="w-3.5 h-3.5 text-primary" />
+                        <span className="text-text-muted">Monthly token limit: <strong className="text-text">{(adminPolicy.budgets.monthly_token_limit / 1000).toFixed(0)}K</strong></span>
+                      </div>
+                    )}
+                    {adminPolicy.budgets.monthly_cost_limit_usd > 0 && (
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="w-3.5 h-3.5 text-primary" />
+                        <span className="text-text-muted">Monthly cost limit: <strong className="text-text">${adminPolicy.budgets.monthly_cost_limit_usd.toFixed(2)}</strong></span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="text-text-muted">Alert at {Math.round(adminPolicy.budgets.alert_threshold_percent * 100)}% of limit</span>
+                    </div>
+                  </div>
+                </AdminSection>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-8">
+              <Settings2 className="w-8 h-8 text-text-muted mx-auto mb-2" />
+              <p className="text-sm text-text-muted">No admin policy configured.</p>
+              <p className="text-[10px] text-text-muted mt-1">
+                Add an <code className="text-primary">admin_policy</code> section to your <code className="text-primary">.codrag/team_config.json</code> to set provider locks, model restrictions, and DLP rules.
+              </p>
             </div>
           )}
         </div>

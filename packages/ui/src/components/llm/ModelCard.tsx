@@ -25,6 +25,7 @@ export interface ModelCardProps {
   
   // Model selection
   availableModels?: string[];
+  modelDetails?: Array<{ name: string; context_window?: string; cost_tier?: string; rate_limits?: { rpd?: number; rpm?: number }; batch_estimate?: { files_per_request: number; daily_file_capacity?: number } }>;
   onModelChange?: (model: string) => void;
   onRefreshModels?: () => void;
   loadingModels?: boolean;
@@ -69,6 +70,7 @@ export function ModelCard({
   endpoints,
   onEndpointChange,
   availableModels = [],
+  modelDetails,
   onModelChange,
   onRefreshModels,
   loadingModels = false,
@@ -201,7 +203,16 @@ export function ModelCard({
                       onChange={(e) => onModelChange?.(e.target.value)}
                       placeholder="Select model..."
                       disabled={disabled}
-                      options={availableModels.map((m) => ({ value: m, label: m }))}
+                      options={availableModels.map((m) => {
+                        const detail = modelDetails?.find(d => d.name === m);
+                        if (detail?.context_window || detail?.cost_tier) {
+                          const parts = [m];
+                          if (detail.context_window) parts.push(`${detail.context_window} ctx`);
+                          if (detail.cost_tier) parts.push(detail.cost_tier);
+                          return { value: m, label: parts.join(' · ') };
+                        }
+                        return { value: m, label: m };
+                      })}
                       className="w-full flex-1"
                     />
                     {onRefreshModels && (
@@ -216,6 +227,31 @@ export function ModelCard({
                       </Button>
                     )}
                   </div>
+                  {/* Model Info: rate limits + batch estimate */}
+                  {(() => {
+                    if (!model || !modelDetails) return null;
+                    const detail = modelDetails.find(d => d.name === model);
+                    if (!detail) return null;
+                    const rl = detail.rate_limits;
+                    const be = detail.batch_estimate;
+                    if (!rl && !be) return null;
+                    const parts: string[] = [];
+                    if (detail.context_window) parts.push(`Context: ${detail.context_window} tokens`);
+                    if (rl?.rpd) parts.push(`Free: ${rl.rpd} req/day`);
+                    if (be && be.files_per_request > 1) parts.push(`Auto-Batch: ~${be.files_per_request} files/request`);
+                    if (be?.daily_file_capacity) {
+                      const cap = be.daily_file_capacity;
+                      parts.push(`Estimated capacity: ~${cap >= 1000 ? `${Math.round(cap / 1000)}k` : cap} files/day on free tier`);
+                    }
+                    if (parts.length === 0) return null;
+                    return (
+                      <div className="mt-2 px-3 py-2 rounded bg-surface-raised/50 border border-border/50">
+                        <p className="text-[11px] text-text-muted leading-relaxed">
+                          {parts.join('  ·  ')}
+                        </p>
+                      </div>
+                    );
+                  })()}
                 </div>
                 
                 {/* Always On Toggle */}
