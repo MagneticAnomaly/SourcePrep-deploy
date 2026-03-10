@@ -205,6 +205,7 @@ export interface ApiClient {
   // License validation (LS-2)
   validateLicense(): Promise<any>;
   getSeatStatus(): Promise<any>;
+  provisionSeat(email: string): Promise<any>;
 
   // Scope Orchestrator (Phase 24 SM-8)
   getScopeStatus(projectId: string): Promise<any>;
@@ -430,6 +431,17 @@ export class CodragApiClient implements ApiClient {
   }
 
   // ── LLM ────────────────────────────────────────────────────
+
+  async getSeatStatus(): Promise<any> {
+    return this.requestEnvelope<any>('/license/seats');
+  }
+
+  async provisionSeat(email: string): Promise<any> {
+    return this.requestEnvelope<any>('/license/provision-seat', {
+      method: 'POST',
+      body: { email },
+    });
+  }
 
   async getLLMStatus(): Promise<LLMStatus> {
     return this.requestEnvelope<LLMStatus>('/llm/status');
@@ -1019,10 +1031,6 @@ export class CodragApiClient implements ApiClient {
 
   async validateLicense(): Promise<any> {
     return this.requestEnvelope<any>('/license/validate', { method: 'POST' });
-  }
-
-  async getSeatStatus(): Promise<any> {
-    return this.requestEnvelope<any>('/license/seats');
   }
 }
 

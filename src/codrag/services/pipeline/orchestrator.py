@@ -93,6 +93,12 @@ class PipelineOrchestrator:
         """Start the Deep Enrichment group (stages 6-10).  Returns False if already running."""
         return self._start_group(project_id, "deep_enrichment", DEEP_ENRICHMENT_STAGES)
 
+    def run_deepening_only(self, project_id: str) -> bool:
+        """Run ONLY the Continuous Deepening and Deep Knowledge stages. Useful for retriggers."""
+        from .stages import StageId
+        stages = [StageId.DEEPENING, StageId.DEEP_KNOWLEDGE]
+        return self._start_group(project_id, "deep_enrichment", stages)
+
     def run_all(self, project_id: str) -> bool:
         """Start Fast Sync, then chain Deep Enrichment after it completes."""
         # Start fast sync; deep enrichment will be chained via the listener
@@ -810,7 +816,7 @@ class PipelineOrchestrator:
         import threading
         def _retrigger():
             try:
-                started = self.run_deep_enrichment(project_id)
+                started = self.run_deepening_only(project_id)
                 logger.info("Deepening retrigger for %s: started=%s", project_id, started)
             except Exception as e:
                 logger.warning("Deepening retrigger failed for %s: %s", project_id, e)

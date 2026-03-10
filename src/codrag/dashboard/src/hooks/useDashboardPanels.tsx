@@ -23,6 +23,7 @@ import {
   AtlasStatusCard,
   ActivityHeatmap,
   AuditPanel,
+  EnterpriseAdminPanel,
   type ActivityHeatmapData,
   PANEL_REGISTRY,
   type SearchResult,
@@ -225,6 +226,10 @@ export interface DashboardPanelsProps {
   atlas: PanelAtlasProps
   audit: UseAuditSystemReturn
   activityData: ActivityHeatmapData | null
+  // Enterprise
+  adminPolicy?: import('@codrag/ui').AdminPolicy | null
+  seatStatus?: any | null
+  onProvisionSeat?: (email: string) => Promise<{ provisioned: boolean; message: string }>
 }
 
 /** Builds all dashboard panel content, detail views, and dynamic panel definitions from domain state. */
@@ -994,6 +999,19 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onToggleExclude={handleToggleExclude}
         initialTab="exclude"
       />
+    ),
+    'enterprise-admin': (
+      <div className="max-w-6xl mx-auto w-full p-6 space-y-8">
+        <EnterpriseAdminPanel
+          tier={p.isPro ? 'enterprise' : 'free'}
+          role="admin" // Hardcoded for now until role is wired up
+          computeNodes={p.computeNodes}
+          schedulerStatus={p.schedulerStatus}
+          adminPolicy={p.adminPolicy}
+          seatStatus={p.seatStatus}
+          onProvisionSeat={p.onProvisionSeat}
+        />
+      </div>
     ),
   }), [p, excludedPaths, handleToggleExclude])
 

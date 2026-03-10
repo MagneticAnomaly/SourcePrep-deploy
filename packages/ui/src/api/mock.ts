@@ -338,6 +338,10 @@ export class MockApiClient implements ApiClient {
     return { seats_used: 1, seats_total: 3, tier: 'pro', email: 'user@example.com', activations: [] };
   }
 
+  async provisionSeat(email: string): Promise<any> {
+    return { provisioned: true, email, message: `Seat invitation sent to ${email}`, status: 'invited' };
+  }
+
   async getBatchEstimate(): Promise<any> {
     return {
       batch_mode: 'auto',
@@ -350,7 +354,7 @@ export class MockApiClient implements ApiClient {
   async getAdminPolicy(): Promise<any> {
     return {
       provider: { allowed_providers: [], blocked_providers: [], allow_local_providers: true, allow_user_endpoints: true, allow_user_api_keys: true, locked_endpoints: [] },
-      model: { allowed_models: [], blocked_models: [], require_approved_models: false, allow_any_local_model: true },
+      model: { allowed_models: [], blocked_models: [], require_approved_models: false, allow_any_local_model: true, slot_overrides: {} },
       data: { never_send_globs: [], redact_patterns: [], block_unapproved_cloud: false, allowed_destinations: [] },
       sync: { require_s3_https: true, allowed_s3_endpoints: [] },
       network: { block_metadata_endpoints: true, allowed_ports: [] },

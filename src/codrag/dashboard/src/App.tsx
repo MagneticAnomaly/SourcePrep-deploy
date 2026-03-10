@@ -110,6 +110,9 @@ function App() {
   })
   const [globalConfig, setGlobalConfig] = useState<{ developer_debug_mode?: boolean }>({})
 
+  const [adminPolicy, setAdminPolicy] = useState<any>(null)
+  const [seatStatus, setSeatStatus] = useState<any>(null)
+
   // ── License (hook) ─────────────────────────────────────────
   const {
     licenseStatus, licenseKeyInput, setLicenseKeyInput,
@@ -412,8 +415,16 @@ function App() {
     const validate = () => {
       api.validateLicense().catch(() => {})
     }
+    const fetchAdminData = () => {
+      api.getAdminPolicy().then(setAdminPolicy).catch(() => {})
+      api.getSeatStatus().then(setSeatStatus).catch(() => {})
+    }
     validate() // Check on connect
-    const interval = setInterval(validate, 60 * 60 * 1000) // Every hour
+    fetchAdminData()
+    const interval = setInterval(() => {
+      validate()
+      fetchAdminData()
+    }, 60 * 60 * 1000) // Every hour
     return () => clearInterval(interval)
   }, [isConnected, api])
 
@@ -448,6 +459,14 @@ function App() {
     if (!ep) return
     handleEditEndpoint({ ...ep, compute_node_id: nodeId })
   }, [llmConfig.saved_endpoints, handleEditEndpoint])
+
+  const handleProvisionSeat = useCallback(async (email: string) => {
+    try {
+      return await api.provisionSeat(email)
+    } catch (e: any) {
+      throw new Error(e.message || 'Failed to provision seat')
+    }
+  }, [api])
 
   // ── Init: load projects + global config ─────────────────────
   useEffect(() => {
@@ -604,6 +623,9 @@ function App() {
     atlas: { atlasStatus },
     audit,
     activityData,
+    adminPolicy,
+    seatStatus,
+    onProvisionSeat: handleProvisionSeat,
   })
 
   // ── Loading state ──────────────────────────────────────────

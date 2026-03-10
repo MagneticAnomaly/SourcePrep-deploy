@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { cn } from '../../lib/utils';
-import { Shield, Server, Activity, DollarSign, Cloud, RefreshCw, Clock, CheckCircle, AlertTriangle, XCircle, FileDown, Lock, Settings2 } from 'lucide-react';
+import { Shield, Activity, AlertTriangle, CheckCircle, XCircle, Lock, Server, Cpu, Cloud, Settings2, Clock, RefreshCw, DollarSign, FileDown } from 'lucide-react';
 import { Button } from '../primitives/Button';
 import { InfoTooltip } from '../primitives/InfoTooltip';
 import type { ComputeNode, SchedulerStatus, AdminPolicy } from '../../types';
@@ -66,6 +66,8 @@ export interface EnterpriseAdminPanelProps {
     grace_days_remaining?: number | null;
     activations: Array<{ instance_id: string; machine: string; platform: string; activated_at?: number; is_current: boolean }>;
   } | null;
+  /** SEAT-4: Provision a seat to a team member by email */
+  onProvisionSeat?: (email: string) => Promise<{ provisioned: boolean; message: string }>;
   /** Default tab to show */
   defaultTab?: AdminTab;
   className?: string;
@@ -109,10 +111,30 @@ export function EnterpriseAdminPanel({
   onExportAuditLog,
   adminPolicy,
   seatStatus,
+  onProvisionSeat,
   defaultTab = 'fleet',
   className,
 }: EnterpriseAdminPanelProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>(defaultTab);
+  const [provisionEmail, setProvisionEmail] = useState('');
+  const [provisionLoading, setProvisionLoading] = useState(false);
+  const [provisionMessage, setProvisionMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
+
+  const handleProvisionSeat = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onProvisionSeat || !provisionEmail.trim()) return;
+    setProvisionLoading(true);
+    setProvisionMessage(null);
+    try {
+      const res = await onProvisionSeat(provisionEmail.trim());
+      setProvisionMessage({ text: res.message, type: res.provisioned ? 'success' : 'error' });
+      if (res.provisioned) setProvisionEmail('');
+    } catch (err: any) {
+      setProvisionMessage({ text: err.message || 'Failed to provision seat', type: 'error' });
+    } finally {
+      setProvisionLoading(false);
+    }
+  };
 
   // Gate: only visible to admin role on team/enterprise tiers
   if (role !== 'admin' || (tier !== 'team' && tier !== 'enterprise')) {
@@ -438,6 +460,28 @@ export function EnterpriseAdminPanel({
                   <a href="https://codrag.io/pricing" target="_blank" rel="noreferrer" className="underline hover:text-amber-300">codrag.io/pricing</a>.
                 </div>
               )}
+              {/* Provision Seat Form */}
+              <div className="pt-3 mt-3 border-t border-border">
+                <div className="text-[10px] text-text-muted uppercase tracking-wider mb-2">Provision Seat</div>
+                <form onSubmit={handleProvisionSeat} className="flex gap-2">
+                  <input
+                    type="email"
+                    placeholder="Team member email..."
+                    value={provisionEmail}
+                    onChange={(e) => setProvisionEmail(e.target.value)}
+                    className="flex-1 px-3 py-1.5 text-xs rounded border border-border bg-background text-text focus:outline-none focus:ring-1 focus:ring-primary"
+                    disabled={provisionLoading}
+                  />
+                  <Button type="submit" size="sm" disabled={!provisionEmail.trim() || provisionLoading || seatStatus.seats_used >= seatStatus.seats_total}>
+                    {provisionLoading ? 'Sending...' : 'Invite'}
+                  </Button>
+                </form>
+                {provisionMessage && (
+                  <div className={cn("mt-2 text-xs", provisionMessage.type === 'error' ? 'text-error' : 'text-success')}>
+                    {provisionMessage.text}
+                  </div>
+                )}
+              </div>
             </section>
           )}
 
@@ -680,6 +724,26 @@ export function EnterpriseAdminPanel({
                     )}
                     <span className="text-text-muted">Local model freedom: {adminPolicy.model.allow_any_local_model ? 'Any model on local endpoints' : 'Allowlist applies to local too'}</span>
                   </div>
+                  {adminPolicy.model.slot_overrides && Object.keys(adminPolicy.model.slot_overrides).length > 0 && (
+                    <div className="mt-2 p-2 rounded bg-surface-raised border border-border">
+                      <div className="text-[10px] font-medium text-text uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                        <Cpu className="w-3 h-3 text-primary" /> Per-Slot Overrides ({Object.keys(adminPolicy.model.slot_overrides).length})
+                      </div>
+                      <div className="space-y-2">
+                        {Object.entries(adminPolicy.model.slot_overrides).map(([slot, override]) => (
+                          <div key={slot} className="text-xs">
+                            <span className="text-text font-medium capitalize">{slot} slot:</span>
+                            {override.allowed_models && override.allowed_models.length > 0 && (
+                              <span className="text-text-muted ml-2">Allow: {override.allowed_models.join(', ')}</span>
+                            )}
+                            {override.require_approved_models && (
+                              <span className="text-amber-400 ml-2">(Strict)</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </AdminSection>
 

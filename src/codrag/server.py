@@ -51,16 +51,26 @@ async def startup_event():
     bus.set_loop(loop)
     
     # Attach log handler to capture root logs and broadcast via SSE.
-    # Root logger defaults to WARNING — lower it so INFO messages
-    # (build progress, model readiness, etc.) reach the handler.
+    # Guard: only attach once (hot-reload / test re-entry safety).
     root_logger = logging.getLogger()
-    if root_logger.level > logging.INFO:
-        root_logger.setLevel(logging.INFO)
-    handler = BroadcastLogHandler(bus)
-    handler.setLevel(logging.INFO)  # Don't broadcast DEBUG noise
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    handler.setFormatter(formatter)
-    root_logger.addHandler(handler)
+    if any(isinstance(h, BroadcastLogHandler) for h in root_logger.handlers):
+        logger.debug("BroadcastLogHandler already attached — skipping duplicate")
+    else:
+        handler = BroadcastLogHandler(bus)
+        handler.setLevel(logging.INFO)  # Don't broadcast DEBUG noise
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        handler.setFormatter(formatter)
+
+        # Root logger captures all codrag.* logs via propagation (default).
+        if root_logger.level > logging.INFO:
+            root_logger.setLevel(logging.INFO)
+        root_logger.addHandler(handler)
+
+        # Uvicorn sets propagate=False on its loggers, so root handler misses them.
+        # Attach to uvicorn.error (real server logs) but NOT uvicorn.access
+        # (every HTTP request would flood Process Logs with noise).
+        uv_error = logging.getLogger("uvicorn.error")
+        uv_error.addHandler(handler)
     
     # Initialize ProgressManager (ensure it's created)
     get_progress_manager()

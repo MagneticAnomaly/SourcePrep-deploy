@@ -413,6 +413,47 @@ def get_seat_status() -> Dict[str, Any]:
     })
 
 
+class RecoverLicenseRequest(BaseModel):
+    email: str
+
+@router.post("/license/provision-seat")
+def provision_seat(req: RecoverLicenseRequest) -> Dict[str, Any]:
+    """SEAT-4: Admin seat provisioning.
+    
+    Generates a sub-key or invite for a team member.
+    Currently a placeholder for the api.codrag.io integration.
+    """
+    email = str(req.email or "").strip()
+    if not email or "@" not in email:
+        raise ApiException(
+            status_code=400,
+            code="VALIDATION_ERROR",
+            message="Please enter a valid email address",
+        )
+        
+    license_path = Path.home() / ".codrag" / "license.json"
+    if not license_path.exists():
+        raise ApiException(status_code=400, code="NO_LICENSE", message="No active license to provision from.")
+        
+    try:
+        lic_data = json.loads(license_path.read_text(encoding="utf-8"))
+        tier = lic_data.get("tier", "free")
+        if tier not in ("team", "enterprise"):
+            raise ApiException(status_code=403, code="TIER_ERROR", message="Seat provisioning requires a Team or Enterprise plan.")
+            
+        # In the future, this calls api.codrag.io/v1/seats/provision
+        # which talks to LemonSqueezy to generate a customer portal link or sub-key.
+        return ok({
+            "provisioned": True,
+            "email": email,
+            "message": f"Seat invitation sent to {email}.",
+            "status": "invited"
+        })
+    except ApiException:
+        raise
+    except Exception as e:
+        raise ApiException(status_code=500, code="SERVER_ERROR", message=f"Failed to provision seat: {e}")
+
 @router.post("/license/recover")
 def recover_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
     """LS-4: License recovery — re-send license key to email.

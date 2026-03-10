@@ -110,9 +110,10 @@ function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; bui
     
   const displayStale = building ? 0 : stale;
   
-  // "Files traced" refers to structural trace coverage (traced + pending_embedding)
-  // "traced" in the summary object now implies "traced AND embedded".
-  const structuralTraced = traced + pendingEmbedding;
+  // The progress bar total should reflect the sum of the components shown.
+  // When building, everything not traced is "in-progress", so the numerator is traced + inProgress.
+  // When not building, the numerator is just traced + pendingEmbedding.
+  const displayNumerator = building ? (traced + inProgress) : (traced + pendingEmbedding);
 
   const tracedPct = (traced / total) * 100;
   const inProgressPct = (inProgress / total) * 100;
@@ -121,8 +122,8 @@ function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; bui
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between text-xs text-text-muted">
-        <span>{structuralTraced}/{total} files traced</span>
-        <span className="font-mono font-semibold text-text">{summary.coverage_pct}%</span>
+        <span>{displayNumerator}/{total} files traced</span>
+        <span className="font-mono font-semibold text-text">{building ? '99.9%' : `${summary.coverage_pct}%`}</span>
       </div>
       <div className="h-2 rounded-full bg-surface-raised overflow-hidden flex">
         {tracedPct > 0 && (

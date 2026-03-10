@@ -31,7 +31,7 @@ export interface AIModelsSettingsProps {
   onTestEndpoint: (endpoint: SavedEndpoint) => Promise<EndpointTestResult>;
   
   // Model operations
-  onFetchModels: (endpointId: string) => Promise<string[]>;
+  onFetchModels: (endpointId: string, slot?: string) => Promise<string[]>;
   onTestModel: (slotType: 'embedding' | 'small' | 'large' | 'code') => Promise<EndpointTestResult>;
   onClearTestResult?: (slot: string) => void;
   
@@ -509,7 +509,7 @@ export function AIModelsSettings({
       ...config,
       embedding: { ...config.embedding, endpoint_id: endpointId, model: undefined },
     });
-    const models = await onFetchModels(endpointId);
+    const models = await onFetchModels(endpointId, 'embedding');
     const suggested = findRecommended('embedding', models);
     if (suggested) {
       onConfigChange({
@@ -541,7 +541,7 @@ export function AIModelsSettings({
       small_model: { ...config.small_model, endpoint_id: endpointId, model: undefined, enabled: true },
     });
     // Fetch models for the dropdown but don't auto-select — user must choose
-    void onFetchModels(endpointId);
+    void onFetchModels(endpointId, 'small_model');
   };
   
   const handleSmallModelChange = (model: string) => {
@@ -580,7 +580,7 @@ export function AIModelsSettings({
       large_model: { ...config.large_model, endpoint_id: endpointId, model: undefined, enabled: true },
     });
     // Fetch models for the dropdown but don't auto-select — user must choose
-    void onFetchModels(endpointId);
+    void onFetchModels(endpointId, 'large_model');
   };
   
   const handleLargeModelChange = (model: string) => {
@@ -619,7 +619,7 @@ export function AIModelsSettings({
       code_model: { ...config.code_model, endpoint_id: endpointId, model: undefined, enabled: true },
     });
     // Fetch models for the dropdown but don't auto-select — user must choose
-    void onFetchModels(endpointId);
+    void onFetchModels(endpointId, 'code_model');
   };
   
   const handleCodeModelChange = (model: string) => {

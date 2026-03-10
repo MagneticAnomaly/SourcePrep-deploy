@@ -22,8 +22,8 @@
 - [x] **SEC-12** Add API key hygiene check (Google URL-param auth warning) — P2 ✅
 - [x] **SEC-13** Add MCP rate limit health check (rate status, recent 429s) — P2 ✅
 - [x] **SEC-GRP** Group checks into categories in API response (infrastructure, license, data, runtime) — P1 ✅
-- [ ] **SEC-UI** Update EnterpriseAdminPanel Security tab to show grouped/categorized checks — P1
-- [ ] **SEC-TIP** Add API key exposure tooltip to EndpointManager for Google provider — P2
+- [x] **SEC-UI** Update EnterpriseAdminPanel Security tab to show grouped/categorized checks — P1 ✅
+- [x] **SEC-TIP** Add API key exposure tooltip to EndpointManager for Google provider — P2 ✅
 - [ ] **SEC-TEST** Test all 13 checks pass on clean install — P1
 
 ### Also Completed (Security Pipeline Protection)
@@ -52,17 +52,17 @@
 - [x] **SEAT-1** Seat count tracking — ✅ Built (`GET /license/seats`)
 - [x] **SEAT-2** Seat management UI — ✅ Built (Enterprise Admin → Usage tab, active machines list)
 - [x] **SEAT-3** Seat overflow handling — ✅ Built (amber warning + purchase link)
-- [ ] **SEAT-4** Admin seat provisioning (generate per-user keys from admin panel) — P2
-- [ ] **SEAT-5** Onboarding flow (new team member receives key → activates → joins seat pool) — P2
-- [ ] **SEAT-6** Offboarding flow (admin deactivates seat → next validation downgrades to FREE) — P2
+- [x] **SEAT-4** Admin seat provisioning (generate per-user keys from admin panel) — P2 ✅
+- [x] **SEAT-5** Onboarding flow (new team member receives key → activates → joins seat pool) — P2 ✅
+- [x] **SEAT-6** Offboarding flow (admin deactivates seat → next validation downgrades to FREE) — P2 ✅
 
 ## SPRINT 4: AI Gateway Enhancements
 *Versatile access controls for IT admins who want flexible policies.*
 
 - [x] **GW-1** Per-user local model override — ✅ Built (`allow_any_local_model` in ModelPolicy + enforcement bypass)
 - [x] **GW-2** IT-managed API key injection — ✅ Built (`allow_user_api_keys` + masked UI)
-- [ ] **GW-3** Per-slot policy (different provider/model restrictions per model slot) — P2
-- [ ] **GW-4** Per-user cost limits (individual monthly budget caps) — P2
+- [x] **GW-3** Per-slot policy (different provider/model restrictions per model slot) — P2 ✅
+- [x] **GW-4** Per-user cost limits (individual monthly budget caps) — P2 ✅
 - [x] **GW-7** Policy change audit trail — ✅ Built (`_save_llm_config` logs to audit)
 - [x] **GW-8** Read-only AI Gateway — ✅ Built (`canAddEndpoints`, `canEditApiKeys` gates)
 
@@ -158,14 +158,14 @@
 |----------|-------|------|-----------|
 | Security Health Panel | 10 | **10** | 0 |
 | LemonSqueezy Integration | 8 | **5** | 3 (Eric tasks) |
-| Seat Management | 6 | **3** | 3 |
-| AI Gateway Enhancements | 6 | **4** | 2 |
+| Seat Management | 6 | **6** | 0 |
+| AI Gateway Enhancements | 6 | **6** | 0 |
 | Security Audit Fixes | 15 | **13** | 2 |
 | Pipeline Security (NEW) | 8 | **8** | 0 |
 | Auth & Identity | 4 | 0 | 4 |
 | Compliance & Documentation | 6 | 2 | 4 |
 | Deployment & Distribution | 4 | 0 | 4 |
-| **TOTAL** | **67** | **45** | **22** |
+| **TOTAL** | **67** | **50** | **17** |
 
 ### Priority Breakdown of Remaining
 
@@ -173,5 +173,5 @@
 |----------|-------|-------------|
 | **P0** | 3 | Ship blockers (Eric: LS products, Ed25519, webhook) |
 | **P1** | 1 | License recovery flow (LS-4) |
-| **P2** | 13 | 3-6 month roadmap |
+| **P2** | 8 | 3-6 month roadmap |
 | **P3** | 9 | 6-12 month roadmap |

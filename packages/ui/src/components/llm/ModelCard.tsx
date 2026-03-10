@@ -200,30 +200,32 @@ export function ModelCard({
                   <div className="flex gap-2">
                     <Select
                       value={model || ''}
-                      onChange={(e) => onModelChange?.(e.target.value)}
-                      placeholder="Select model..."
-                      disabled={disabled}
-                      options={availableModels.map((m) => {
-                        const detail = modelDetails?.find(d => d.name === m);
-                        if (detail?.context_window || detail?.cost_tier) {
-                          const parts = [m];
-                          if (detail.context_window) parts.push(`${detail.context_window} ctx`);
-                          if (detail.cost_tier) parts.push(detail.cost_tier);
-                          return { value: m, label: parts.join(' · ') };
-                        }
-                        return { value: m, label: m };
-                      })}
-                      className="w-full flex-1"
+                      onChange={(e) => onModelChange && onModelChange(e.target.value)}
+                      disabled={disabled || loadingModels}
+                      options={[
+                        { value: '', label: 'Select a model...' },
+                        ...availableModels.map(m => {
+                          const details = modelDetails?.find(d => d.name === m);
+                          const isBlocked = (details as any)?.blocked_by_policy;
+                          return {
+                            value: m,
+                            label: isBlocked ? `🚫 ${m} (Blocked by IT)` : m,
+                            disabled: isBlocked
+                          };
+                        })
+                      ]}
+                      className="flex-1"
                     />
                     {onRefreshModels && (
                       <Button
-                        onClick={onRefreshModels}
-                        disabled={loadingModels}
                         variant="outline"
-                        className="bg-surface-raised hover:bg-border border-border aspect-square p-0 w-[38px]"
-                        title="Refresh Models"
+                        size="icon"
+                        onClick={onRefreshModels}
+                        disabled={disabled || loadingModels}
+                        title="Refresh models"
+                        className="shrink-0"
                       >
-                        <RefreshCw className={cn("w-4 h-4", loadingModels && "animate-spin")} />
+                        <RefreshCw className={cn("w-4 h-4 text-text-muted", loadingModels && "animate-spin")} />
                       </Button>
                     )}
                   </div>

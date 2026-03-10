@@ -128,6 +128,7 @@ class LLMProxyRequest(BaseModel):
     provider: str = "ollama"
     url: str
     api_key: Optional[str] = None
+    slot: Optional[str] = None  # Model slot context for filtering (e.g. "code_model")
 
 
 class LLMModelTestRequest(BaseModel):
@@ -730,6 +731,28 @@ def proxy_models(req: LLMProxyRequest) -> Dict[str, Any]:
 
     except Exception as e:
         raise ApiException(status_code=500, code="CONNECTION_FAILED", message=str(e))
+
+    # GW-3: Filter models through admin policy if applicable
+    try:
+        from codrag.server import _load_ui_config
+        from codrag.core.team_config import parse_admin_policy, filter_models_by_policy
+        ui_cfg = _load_ui_config()
+        admin_policy_raw = ui_cfg.get("_admin_policy_cache")
+        if admin_policy_raw:
+            policy = parse_admin_policy({"admin_policy": admin_policy_raw})
+            # Only filter if we're actually returning models
+            if models:
+                filtered_models = filter_models_by_policy(
+                    models, policy, slot=req.slot
+                )
+                
+                # If a model was blocked, keep it in the list but mark it blocked in details
+                for detail in model_details:
+                    if detail["name"] not in filtered_models:
+                        detail["blocked_by_policy"] = True
+                        detail["cost_tier"] = "Blocked by IT Policy"
+    except Exception as e:
+        logger.warning(f"Failed to apply model policy filtering: {e}")
 
     return ok({"models": models, "model_details": model_details})
 

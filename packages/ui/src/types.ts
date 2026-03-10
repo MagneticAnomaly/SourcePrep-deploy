@@ -1211,6 +1211,11 @@ export interface ModelPolicy {
   blocked_models: string[];
   require_approved_models: boolean;
   allow_any_local_model: boolean;
+  slot_overrides?: Record<string, {
+    allowed_models?: string[];
+    blocked_models?: string[];
+    require_approved_models?: boolean;
+  }>;
 }
 
 export interface DataPolicy {

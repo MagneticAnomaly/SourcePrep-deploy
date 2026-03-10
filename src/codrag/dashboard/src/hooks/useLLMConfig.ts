@@ -94,7 +94,7 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     return data as EndpointTestResult
   }, [])
 
-  const handleFetchModels = useCallback(async (endpointId: string) => {
+  const handleFetchModels = useCallback(async (endpointId: string, slot?: string) => {
     const ep = llmConfig.saved_endpoints.find((e) => e.id === endpointId)
     if (!ep) return []
     setLoadingModels((prev) => ({ ...prev, [endpointId]: true }))
@@ -102,7 +102,7 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
       const r = await fetch('/api/llm/proxy/models', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: ep.provider, url: ep.url, api_key: ep.api_key }),
+        body: JSON.stringify({ provider: ep.provider, url: ep.url, api_key: ep.api_key, slot }),
       })
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
       const json = await r.json()

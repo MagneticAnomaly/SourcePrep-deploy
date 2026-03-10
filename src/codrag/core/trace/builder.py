@@ -334,9 +334,13 @@ class TraceBuilder:
         start = time.monotonic()
 
         if progress_callback:
+            # Emit a "running" state so the UI knows it hasn't stalled
             progress_callback("trace_scan", 0, 1)
 
         try:
+            # Note: _rust_engine.build_trace blocks until the build is complete.
+            # To get real-time progress we would need the rust engine to accept a callback,
+            # but for now we log that it is actively running.
             handle = _rust_engine.build_trace(
                 str(self.repo_root),
                 str(self.index_dir),

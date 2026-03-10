@@ -181,11 +181,14 @@ class ProviderPolicy:
 
 @dataclass(frozen=True)
 class ModelPolicy:
-    """Which models are allowed/blocked."""
+    """Model restrictions."""
     allowed_models: List[str] = field(default_factory=list)
     blocked_models: List[str] = field(default_factory=list)
     require_approved_models: bool = False
     allow_any_local_model: bool = True
+    # GW-3: Per-slot overrides
+    # e.g. {"code": {"allowed_models": ["qwen2.5-coder"], "blocked_models": [], "require_approved_models": True}}
+    slot_overrides: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -278,11 +281,22 @@ def parse_admin_policy(raw: Dict[str, Any]) -> AdminPolicy:
 
     # Model policy
     mod_raw = ap.get("model") or {}
+    slot_overrides = {}
+    if isinstance(mod_raw.get("slot_overrides"), dict):
+        for k, v in mod_raw["slot_overrides"].items():
+            if isinstance(v, dict):
+                slot_overrides[str(k)] = {
+                    "allowed_models": _str_list(v.get("allowed_models")),
+                    "blocked_models": _str_list(v.get("blocked_models")),
+                    "require_approved_models": bool(v.get("require_approved_models", False)),
+                }
+
     model = ModelPolicy(
         allowed_models=_str_list(mod_raw.get("allowed_models")),
         blocked_models=_str_list(mod_raw.get("blocked_models")),
         require_approved_models=bool(mod_raw.get("require_approved_models", False)),
         allow_any_local_model=bool(mod_raw.get("allow_any_local_model", True)),
+        slot_overrides=slot_overrides,
     )
 
     # Data policy (DLP)
@@ -364,6 +378,7 @@ def is_model_allowed(
     policy: AdminPolicy,
     *,
     provider: Optional[str] = None,
+    slot: Optional[str] = None,
 ) -> bool:
     """Check if a model name is allowed by the admin policy.
 
@@ -372,6 +387,9 @@ def is_model_allowed(
     GW-1: If allow_any_local_model is True and the provider is a local provider
     (ollama, lm-studio), all model restrictions are bypassed. This lets developers
     use any model on local hardware while IT still controls cloud model access.
+
+    GW-3: If slot is provided (e.g. "code", "large"), applies any slot_overrides
+    defined in the policy before checking the base model policy.
     """
     m = model.lower().strip()
 
@@ -379,15 +397,29 @@ def is_model_allowed(
     if provider and provider.lower() in _LOCAL_PROVIDERS and policy.model.allow_any_local_model:
         return True
 
+    # GW-3: Determine effective allowed/blocked lists based on slot overrides
+    allowed_models = policy.model.allowed_models
+    blocked_models = policy.model.blocked_models
+    require_approved = policy.model.require_approved_models
+
+    if slot and slot in policy.model.slot_overrides:
+        override = policy.model.slot_overrides[slot]
+        if "allowed_models" in override:
+            allowed_models = override["allowed_models"]
+        if "blocked_models" in override:
+            blocked_models = override["blocked_models"]
+        if "require_approved_models" in override:
+            require_approved = override["require_approved_models"]
+
     # Check blocklist (prefix matching)
-    for pattern in policy.model.blocked_models:
+    for pattern in blocked_models:
         pat = pattern.lower().strip()
         if pat in m or m.startswith(pat):
             return False
 
     # If allowlist is set and require_approved_models, model must be on it
-    if policy.model.require_approved_models and policy.model.allowed_models:
-        allowed_lower = [x.lower().strip() for x in policy.model.allowed_models]
+    if require_approved and allowed_models:
+        allowed_lower = [x.lower().strip() for x in allowed_models]
         # Check exact match or prefix match (e.g. "qwen3" matches "qwen3:8b")
         for allowed in allowed_lower:
             if m == allowed or m.startswith(allowed + ":"):
@@ -399,9 +431,14 @@ def is_model_allowed(
     return True
 
 
-def filter_models_by_policy(models: List[str], policy: AdminPolicy) -> List[str]:
+def filter_models_by_policy(
+    models: List[str],
+    policy: AdminPolicy,
+    *,
+    slot: Optional[str] = None,
+) -> List[str]:
     """Filter a list of model names through the admin policy."""
-    return [m for m in models if is_model_allowed(m, policy)]
+    return [m for m in models if is_model_allowed(m, policy, slot=slot)]
 
 
 def check_policy_violation(
