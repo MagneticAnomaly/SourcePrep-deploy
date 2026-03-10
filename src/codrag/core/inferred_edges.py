@@ -236,7 +236,8 @@ class InferredEdgesAnalyzer:
         if max_items:
             to_analyze = to_analyze[:max_items]
 
-        total = len(to_analyze)
+        total_work = len(to_analyze)
+        already_done = len(code_files) - total_work
         edges_found = 0
         edges_written = 0
         skipped_low = 0
@@ -265,7 +266,7 @@ class InferredEdgesAnalyzer:
             known_text = "\n".join(f"- {f}" for f in all_file_paths[:self.MAX_KNOWN_FILES])
             logger.info(
                 "BATCHED inferred edges: %d files, batch_size=%d (%s profile)",
-                total, batch_size, self._batch_profile.name.value,
+                total_work, batch_size, self._batch_profile.name.value,
             )
 
             schema = get_structured_schema("inferred_edges")
@@ -373,26 +374,26 @@ class InferredEdgesAnalyzer:
 
                     done_batches += 1
                     if progress_callback:
-                        progress_callback("Inferring edges", min(done_batches * batch_size, total), total)
+                        progress_callback("Inferring edges", min(done_batches * batch_size, total_work) + already_done, len(code_files))
 
         else:
             # Local model: sequential or concurrent
             concurrency = _get_llm_concurrency("code")
-            logger.info("Inferred edges: %d files, concurrency=%d", total, concurrency)
+            logger.info("Inferred edges: %d files, concurrency=%d", total_work, concurrency)
 
             if concurrency <= 1:
                 # Sequential: one file at a time
                 for i, (node, content_hash) in enumerate(to_analyze):
                     # Cooperative cancellation check
                     if cancel_token and cancel_token.is_cancelled:
-                        logger.info("Inferred edges paused/cancelled at %d/%d — flushing partial results", i, total)
+                        logger.info("Inferred edges paused/cancelled at %d/%d — flushing partial results", i, total_work)
                         self._write_edges(new_edges)
                         self._save_manifest(new_manifest)
                         cancel_token.raise_if_cancelled()
 
                     fp = node.get("file_path", "")
                     if progress_callback:
-                        progress_callback("Inferring edges", i, total)
+                        progress_callback("Inferring edges", already_done + i, len(code_files))
 
                     try:
                         file_edges = self._analyze_file(
@@ -453,7 +454,7 @@ class InferredEdgesAnalyzer:
                                     new_manifest[fp] = content_hash
                                 done_count += 1
                                 if progress_callback:
-                                    progress_callback("Inferring edges", done_count, total)
+                                    progress_callback("Inferring edges", already_done + done_count, len(code_files))
                         except Exception as e:
                             logger.warning("Inferred edges failed for %s: %s", fp, e)
                             with lock:

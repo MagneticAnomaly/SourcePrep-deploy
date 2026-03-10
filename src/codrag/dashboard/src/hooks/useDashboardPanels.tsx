@@ -745,6 +745,10 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           isPro={p.isPro}
           limitReached={p.limitReached}
           inactive={p.inactive}
+          staleCounts={{
+            total: p.traceCoverage.summary?.traced ?? 0,
+            stale: p.traceCoverage.summary?.stale ?? 0
+          }}
         />
       </div>
     ),

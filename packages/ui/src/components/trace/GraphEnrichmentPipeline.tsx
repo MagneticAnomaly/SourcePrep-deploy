@@ -268,8 +268,12 @@ function computeDeepeningState(
   if (!ep || !ep.enabled || ep.enriched_nodes === 0) return 'disabled';
   if (!mod || !mod.enabled || mod.module_count === 0) return 'disabled';
   if (!deep || deep.total_scored === 0) return 'not_built';
-  if (deep.settled_ratio >= 0.70) return 'complete';
-  if (deep.settled_ratio >= 0.40) return 'stale';
+  
+  // The deepening loop runs in batches (max 10 iterations × 20 nodes = 200 max per run).
+  // For large repos, hitting 90% is impossible in one pass.
+  // 50% is a reasonable "complete" state for a single pipeline pass.
+  if (deep.settled_ratio >= 0.50) return 'complete';
+  if (deep.settled_ratio >= 0.20) return 'stale';
   return 'warning';
 }
 

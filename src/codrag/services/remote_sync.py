@@ -27,8 +27,14 @@ from codrag.services.s3_storage import S3Config, S3StorageProvider, SyncManifest
 logger = logging.getLogger(__name__)
 
 # ── Team config schema ────────────────────────────────────────
+# ARCH-2: Import the canonical config filename from core/team_config
+# to avoid two modules defining the same constant independently.
+try:
+    from codrag.core.team_config import TEAM_CONFIG_REL_PATH as _TC_REL
+    TEAM_CONFIG_FILENAME = _TC_REL.name  # "team_config.json"
+except ImportError:
+    TEAM_CONFIG_FILENAME = "team_config.json"
 
-TEAM_CONFIG_FILENAME = "team_config.json"
 SECRETS_FILENAME = ".secrets"
 
 

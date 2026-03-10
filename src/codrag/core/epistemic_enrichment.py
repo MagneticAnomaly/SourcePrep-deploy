@@ -406,11 +406,24 @@ class EpistemicEnricher:
                     link_targets.append(fp)
         return file_refs, link_targets
 
+    def load_file_hashes(self) -> Dict[str, str]:
+        """Load file hashes from the trace manifest for staleness detection."""
+        manifest_path = self.index_dir / "trace_manifest.json"
+        if manifest_path.exists():
+            try:
+                with open(manifest_path, "r", encoding="utf-8") as f:
+                    manifest = json.load(f)
+                return manifest.get("file_hashes", {})
+            except Exception:
+                pass
+        return {}
+
     def _needs_enrichment(
         self,
         node: Dict[str, Any],
         existing: Dict[str, EpistemicEntry],
         augmentations: Dict[str, Dict[str, Any]],
+        file_hashes: Dict[str, str],
     ) -> bool:
         """Check if a file node needs (re-)enrichment."""
         node_id = node["id"]
@@ -420,7 +433,16 @@ class EpistemicEnricher:
         # Not yet enriched
         if node_id not in existing:
             return True
-        # Already enriched — skip for now (re-enrichment is Pass 4+)
+        # Check if source file changed since last enrichment
+        file_path = node.get("file_path", "")
+        if file_path:
+            current_hash = file_hashes.get(file_path)
+            # Find the file hash that was recorded during this node's original augmentation
+            # since EpistemicEntry doesn't store the hash directly.
+            aug_hash = augmentations[node_id].get("file_hash")
+            if current_hash and aug_hash and current_hash != aug_hash:
+                return True
+        # Already enriched and unchanged
         return False
 
     def enrich_node(
@@ -829,6 +851,7 @@ class EpistemicEnricher:
         edges = self.load_trace_edges()
         augmentations = self.load_augmentations()
         existing = self.load_existing()
+        file_hashes = self.load_file_hashes()
 
         if not nodes:
             logger.info("No trace nodes found, skipping epistemic enrichment")
@@ -847,7 +870,7 @@ class EpistemicEnricher:
                 file_nodes.append(n)
 
         # Filter to nodes needing enrichment
-        to_enrich = [n for n in file_nodes if self._needs_enrichment(n, existing, augmentations)]
+        to_enrich = [n for n in file_nodes if self._needs_enrichment(n, existing, augmentations, file_hashes)]
 
         if max_items:
             to_enrich = to_enrich[:max_items]

@@ -244,13 +244,87 @@ def _check_network() -> Dict[str, Any]:
     }
 
 
+def _check_daemon_auth() -> Dict[str, Any]:
+    """Check 8: Daemon authentication posture (FULL-4)."""
+    try:
+        from codrag.server import _config
+        # We need to see if the server is exposed and if it has a token.
+        # Since this runs in the daemon process, we can check env vars and config.
+        has_token = bool(os.environ.get("CODRAG_DAEMON_TOKEN"))
+        host = os.environ.get("CODRAG_HOST", "127.0.0.1")
+        
+        issues = []
+        status = "pass"
+        
+        if not has_token:
+            if host in ("localhost", "127.0.0.1"):
+                status = "warn"
+                issues.append("Daemon running without IPC token, but bound only to localhost")
+            else:
+                status = "fail"
+                issues.append(f"CRITICAL: Daemon exposed on {host} without authentication!")
+                
+        return {
+            "name": "Daemon Authentication",
+            "status": status,
+            "details": {"has_token": has_token, "host": host},
+            "issues": issues,
+        }
+    except Exception as e:
+        return {"name": "Daemon Authentication", "status": "fail", "issues": [str(e)], "details": {}}
+
+
+def _check_cors() -> Dict[str, Any]:
+    """Check 9: CORS Configuration (FULL-1)."""
+    try:
+        allow_all = bool(os.environ.get("CODRAG_CORS_ALLOW_ALL"))
+        
+        issues = []
+        status = "pass"
+        
+        if allow_all:
+            status = "fail"
+            issues.append("CODRAG_CORS_ALLOW_ALL is enabled. Any website can access the daemon!")
+            
+        return {
+            "name": "CORS Configuration",
+            "status": status,
+            "details": {"allow_all": allow_all},
+            "issues": issues,
+        }
+    except Exception as e:
+        return {"name": "CORS Configuration", "status": "fail", "issues": [str(e)], "details": {}}
+
+
+def _check_dev_mode() -> Dict[str, Any]:
+    """Check 10: Dev Mode Detection (CRIT-1 bypass)."""
+    try:
+        dev_mode = bool(os.environ.get("CODRAG_DEV_MODE"))
+        
+        issues = []
+        status = "pass"
+        
+        if dev_mode:
+            status = "warn"
+            issues.append("CODRAG_DEV_MODE is active. Security bypasses may be enabled.")
+            
+        return {
+            "name": "Dev Mode Detection",
+            "status": status,
+            "details": {"dev_mode": dev_mode},
+            "issues": issues,
+        }
+    except Exception as e:
+        return {"name": "Dev Mode Detection", "status": "fail", "issues": [str(e)], "details": {}}
+
+
 def run_security_checks(project_root: Optional[Path] = None) -> Dict[str, Any]:
-    """Run all 7 security checks and return aggregate results.
+    """Run all security health checks and compute an aggregate score.
 
     Returns:
         {
-            "score": 7,          # Number of passing checks (0-7)
-            "total": 7,          # Total number of checks
+            "score": 10,         # Number of passing checks (0-10)
+            "total": 10,         # Total number of checks
             "status": "healthy", # "healthy" | "warnings" | "critical"
             "checks": [...]      # Individual check results
         }
@@ -263,6 +337,9 @@ def run_security_checks(project_root: Optional[Path] = None) -> Dict[str, Any]:
         _check_dlp_compliance(project_root),
         _check_config_drift(project_root),
         _check_network(),
+        _check_daemon_auth(),
+        _check_cors(),
+        _check_dev_mode(),
     ]
 
     passing = sum(1 for c in checks if c["status"] == "pass")

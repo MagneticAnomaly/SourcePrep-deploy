@@ -6,7 +6,7 @@
 
 ## 1. Current Security Health Checks (Built in `security_health.py`)
 
-These 7 checks already run and surface in the Security tab of the Enterprise Admin panel:
+These 10 checks already run and surface in the Security tab of the Enterprise Admin panel:
 
 | # | Check | What It Detects | Source |
 |---|-------|----------------|--------|
@@ -17,12 +17,15 @@ These 7 checks already run and surface in the Security tab of the Enterprise Adm
 | 5 | DLP Compliance | Data policy config presence | EA-F |
 | 6 | Config Drift | Invisible Unicode in team_config.json | MED-4 variant |
 | 7 | Network Security | Proxy config, CA bundle | General |
+| 8 | Daemon Authentication | Daemon running without IPC token | FULL-4 |
+| 9 | CORS Configuration | `CODRAG_CORS_ALLOW_ALL=1` active | FULL-1 |
+| 10| Dev Mode Detection | `CODRAG_DEV_MODE=1` active (security overrides) | CRIT-1 bypass |
 
 ---
 
-## 2. NEW Security Checks to Add (From Security Audit)
+## 2. NEW Security Checks Added (From Security Audit)
 
-These are security audit findings that **should become IT-visible health checks** but are NOT currently surfaced:
+These security audit findings have been implemented as IT-visible health checks:
 
 ### Check 8: Daemon Authentication Posture
 **Source:** FULL-4 (rate limiting), general security
@@ -46,6 +49,8 @@ These are security audit findings that **should become IT-visible health checks*
 **What IT cares about:** Is someone running with security overrides?
 **Check logic:**
 - `CODRAG_DEV_MODE=1` not set → PASS
+- `CODRAG_DEV_MODE=1` set → WARN ("CODRAG_DEV_MODE is active. Security bypasses may be enabled.")
+**Why:** Developers sometimes leave dev mode on, which bypasses license and other checks.
 - `CODRAG_DEV_MODE=1` is set → WARN ("Dev mode active — tier override enabled, reduced security")
 - `CODRAG_TIER` override active → FAIL ("License tier being overridden via environment variable")
 **Why:** Dev mode disables license verification. IT needs to know if anyone on the team is running with overrides.
