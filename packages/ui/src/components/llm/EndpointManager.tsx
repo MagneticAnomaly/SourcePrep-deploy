@@ -127,6 +127,7 @@ export function EndpointManager({
   const filteredProviderOptions = PROVIDER_OPTIONS.filter(o => isProviderAllowed(o.value));
   const lockedEndpoints = adminPolicy?.provider.locked_endpoints ?? [];
   const canAddEndpoints = adminPolicy?.provider.allow_user_endpoints ?? true;
+  const canEditApiKeys = adminPolicy?.provider.allow_user_api_keys ?? true;
 
   const providerDefaultUrl = (provider: LLMProvider) =>
     PROVIDER_OPTIONS.find((o) => o.value === provider)?.hint ?? '';
@@ -252,13 +253,28 @@ export function EndpointManager({
                   {providerNeedsApiKey(formProvider) && (
                     <div>
                       <label className="block text-xs font-medium text-text-muted mb-1">API Key</label>
-                      <input
-                        placeholder="API Key"
-                        type="password"
-                        value={formApiKey}
-                        onChange={(e) => setFormApiKey(e.target.value)}
-                        className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
+                      {canEditApiKeys ? (
+                        <>
+                          <input
+                            placeholder="API Key"
+                            type="password"
+                            value={formApiKey}
+                            onChange={(e) => setFormApiKey(e.target.value)}
+                            className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                          />
+                          {formProvider === 'google' && (
+                            <p className="text-[10px] text-amber-400/80 mt-1.5 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3 shrink-0" />
+                              Google Gemini sends the API key as a URL parameter (visible in HTTP logs). For enterprise, consider Vertex AI.
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-2 px-3 py-2 rounded border border-amber-500/30 bg-amber-500/5 text-xs text-amber-400">
+                          <Lock className="w-3.5 h-3.5 shrink-0" />
+                          <span>API key managed by IT (from environment variable)</span>
+                        </div>
+                      )}
                     </div>
                   )}
                   <div className="flex gap-2 pt-2 justify-end">
@@ -406,13 +422,28 @@ export function EndpointManager({
           {providerNeedsApiKey(formProvider) && (
             <div>
               <label className="block text-xs font-medium text-text-muted mb-1">API Key</label>
-              <input
-                placeholder="sk-..."
-                type="password"
-                value={formApiKey}
-                onChange={(e) => setFormApiKey(e.target.value)}
-                className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
-              />
+              {canEditApiKeys ? (
+                <>
+                  <input
+                    placeholder="sk-..."
+                    type="password"
+                    value={formApiKey}
+                    onChange={(e) => setFormApiKey(e.target.value)}
+                    className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  {formProvider === 'google' && (
+                    <p className="text-[10px] text-amber-400/80 mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 shrink-0" />
+                      Google Gemini sends the API key as a URL parameter (visible in HTTP logs). For enterprise, consider Vertex AI.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-2 rounded border border-amber-500/30 bg-amber-500/5 text-xs text-amber-400">
+                  <Lock className="w-3.5 h-3.5 shrink-0" />
+                  <span>API key managed by IT (from environment variable)</span>
+                </div>
+              )}
             </div>
           )}
           <div className="flex gap-2 pt-2">

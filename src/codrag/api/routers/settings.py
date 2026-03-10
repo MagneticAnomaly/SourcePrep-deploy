@@ -421,9 +421,27 @@ def _get_llm_config() -> dict:
     return settings.get("llm_config") or {}
 
 
-def _save_llm_config(cfg: dict) -> None:
+def _save_llm_config(cfg: dict, change_source: str = "user") -> None:
+    """Save LLM config and log the change to the audit trail (GW-7)."""
     from codrag.services.settings_store import settings
     settings.set("llm_config", cfg)
+
+    # GW-7: Policy change audit trail
+    try:
+        from codrag.core.audit_log import get_audit_log
+        audit = get_audit_log()
+        audit.record(
+            event_type="llm_config_changed",
+            severity="info",
+            message=f"LLM configuration updated by {change_source}",
+            metadata={
+                "source": change_source,
+                "endpoints_count": len(cfg.get("saved_endpoints", [])),
+                "batch_mode": cfg.get("batch_mode"),
+            },
+        )
+    except Exception:
+        pass
 
 
 @router.get("/compute/nodes")

@@ -733,6 +733,16 @@ class LLMClient:
             payload["system_prompt"] = system
 
         resp = requests.post(url, json=payload, timeout=(30, self.timeout), stream=True)
+        if resp.status_code == 400:
+            # Log the full error body for debugging
+            try:
+                err_body = resp.text[:500]
+            except Exception:
+                err_body = "(could not read body)"
+            logger.error(
+                "LM Studio native API 400 for model=%s url=%s: %s",
+                self.model, url, err_body,
+            )
         resp.raise_for_status()
 
         # Parse SSE stream

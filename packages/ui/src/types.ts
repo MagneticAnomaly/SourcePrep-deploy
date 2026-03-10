@@ -1202,6 +1202,7 @@ export interface ProviderPolicy {
   blocked_providers: string[];
   allow_local_providers: boolean;
   allow_user_endpoints: boolean;
+  allow_user_api_keys: boolean;
   locked_endpoints: Array<Record<string, any>>;
 }
 
@@ -1209,6 +1210,7 @@ export interface ModelPolicy {
   allowed_models: string[];
   blocked_models: string[];
   require_approved_models: boolean;
+  allow_any_local_model: boolean;
 }
 
 export interface DataPolicy {

@@ -175,6 +175,7 @@ class ProviderPolicy:
     blocked_providers: List[str] = field(default_factory=list)
     allow_local_providers: bool = True
     allow_user_endpoints: bool = True
+    allow_user_api_keys: bool = True
     locked_endpoints: List[Dict[str, Any]] = field(default_factory=list)
 
 
@@ -184,6 +185,7 @@ class ModelPolicy:
     allowed_models: List[str] = field(default_factory=list)
     blocked_models: List[str] = field(default_factory=list)
     require_approved_models: bool = False
+    allow_any_local_model: bool = True
 
 
 @dataclass(frozen=True)
@@ -270,6 +272,7 @@ def parse_admin_policy(raw: Dict[str, Any]) -> AdminPolicy:
         blocked_providers=_str_list(prov_raw.get("blocked_providers")),
         allow_local_providers=bool(prov_raw.get("allow_local_providers", True)),
         allow_user_endpoints=bool(prov_raw.get("allow_user_endpoints", True)),
+        allow_user_api_keys=bool(prov_raw.get("allow_user_api_keys", True)),
         locked_endpoints=list(prov_raw.get("locked_endpoints", [])),
     )
 
@@ -279,6 +282,7 @@ def parse_admin_policy(raw: Dict[str, Any]) -> AdminPolicy:
         allowed_models=_str_list(mod_raw.get("allowed_models")),
         blocked_models=_str_list(mod_raw.get("blocked_models")),
         require_approved_models=bool(mod_raw.get("require_approved_models", False)),
+        allow_any_local_model=bool(mod_raw.get("allow_any_local_model", True)),
     )
 
     # Data policy (DLP)
@@ -355,12 +359,25 @@ def is_provider_allowed(provider: str, policy: AdminPolicy) -> bool:
     return True
 
 
-def is_model_allowed(model: str, policy: AdminPolicy) -> bool:
+def is_model_allowed(
+    model: str,
+    policy: AdminPolicy,
+    *,
+    provider: Optional[str] = None,
+) -> bool:
     """Check if a model name is allowed by the admin policy.
 
     Uses exact match for allowed_models and prefix/glob match for blocked_models.
+
+    GW-1: If allow_any_local_model is True and the provider is a local provider
+    (ollama, lm-studio), all model restrictions are bypassed. This lets developers
+    use any model on local hardware while IT still controls cloud model access.
     """
     m = model.lower().strip()
+
+    # GW-1: Local providers bypass model restrictions when allow_any_local_model is True
+    if provider and provider.lower() in _LOCAL_PROVIDERS and policy.model.allow_any_local_model:
+        return True
 
     # Check blocklist (prefix matching)
     for pattern in policy.model.blocked_models:

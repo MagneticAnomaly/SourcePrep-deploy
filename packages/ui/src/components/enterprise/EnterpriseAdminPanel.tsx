@@ -379,51 +379,106 @@ export function EnterpriseAdminPanel({
       {activeTab === 'security' && (
         <div className="space-y-4">
           {securityHealth && (
-            <section className="rounded-lg border border-border bg-surface p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-primary" />
-                  <h3 className="text-sm font-semibold text-text">Security Health</h3>
-                  <span className={cn(
-                    "text-xs font-mono px-2 py-0.5 rounded",
-                    securityHealth.status === 'healthy' ? 'bg-success/10 text-success' :
-                    securityHealth.status === 'warnings' ? 'bg-amber-500/10 text-amber-500' :
-                    'bg-error/10 text-error'
-                  )}>
-                    {securityHealth.score}/{securityHealth.total}
-                  </span>
-                </div>
-                {onExportSecurityReport && (
-                  <Button variant="outline" size="sm" onClick={onExportSecurityReport} className="text-xs">
-                    <FileDown className="w-3 h-3 mr-1" /> Export Report
-                  </Button>
-                )}
-              </div>
-              <div className="space-y-2">
-                {securityHealth.checks.map((check, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs">
-                    {check.status === 'pass' ? (
-                      <CheckCircle className="w-3.5 h-3.5 text-success shrink-0" />
-                    ) : check.status === 'warn' ? (
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                    ) : (
-                      <XCircle className="w-3.5 h-3.5 text-error shrink-0" />
-                    )}
-                    <span className="text-text">{check.name}</span>
-                    {check.issues.length > 0 && (
-                      <span className="text-text-muted truncate">{check.issues[0]}</span>
-                    )}
+            <>
+              {/* Overall Score */}
+              <section className="rounded-lg border border-border bg-surface p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Shield className="w-5 h-5 text-primary" />
+                    <div>
+                      <h3 className="text-sm font-semibold text-text">Security Health</h3>
+                      <p className="text-[10px] text-text-muted">13 automated checks across 4 categories</p>
+                    </div>
+                    <span className={cn(
+                      "text-lg font-mono font-bold px-3 py-1 rounded-lg",
+                      securityHealth.status === 'healthy' ? 'bg-success/10 text-success' :
+                      securityHealth.status === 'warnings' ? 'bg-amber-500/10 text-amber-500' :
+                      'bg-error/10 text-error'
+                    )}>
+                      {securityHealth.score}/{securityHealth.total}
+                    </span>
                   </div>
-                ))}
-              </div>
-            </section>
+                  {onExportSecurityReport && (
+                    <Button variant="outline" size="sm" onClick={onExportSecurityReport} className="text-xs">
+                      <FileDown className="w-3 h-3 mr-1" /> Export Report
+                    </Button>
+                  )}
+                </div>
+              </section>
+
+              {/* Grouped checks */}
+              {(() => {
+                const checks = securityHealth.checks;
+                const groups = [
+                  { label: 'Infrastructure', icon: <Server className="w-3.5 h-3.5" />, checks: checks.slice(0, 3) },
+                  { label: 'License & Compliance', icon: <Shield className="w-3.5 h-3.5" />, checks: checks.slice(3, 6) },
+                  { label: 'Data Protection', icon: <Lock className="w-3.5 h-3.5" />, checks: checks.slice(6, 10) },
+                  { label: 'Runtime', icon: <Activity className="w-3.5 h-3.5" />, checks: checks.slice(10, 13) },
+                ];
+                return (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    {groups.map((group) => {
+                      const groupPass = group.checks.every(c => c.status === 'pass');
+                      const groupFail = group.checks.some(c => c.status === 'fail');
+                      return (
+                        <section key={group.label} className={cn(
+                          "rounded-lg border p-3 space-y-2",
+                          groupFail ? "border-error/30 bg-error/5" :
+                          !groupPass ? "border-amber-500/30 bg-amber-500/5" :
+                          "border-border bg-surface"
+                        )}>
+                          <div className="flex items-center gap-2">
+                            <span className={cn(
+                              groupFail ? "text-error" : !groupPass ? "text-amber-500" : "text-success"
+                            )}>{group.icon}</span>
+                            <span className="text-xs font-semibold text-text">{group.label}</span>
+                            <span className={cn(
+                              "text-[10px] font-mono ml-auto px-1.5 py-0.5 rounded",
+                              groupFail ? "bg-error/10 text-error" :
+                              !groupPass ? "bg-amber-500/10 text-amber-500" :
+                              "bg-success/10 text-success"
+                            )}>
+                              {group.checks.filter(c => c.status === 'pass').length}/{group.checks.length}
+                            </span>
+                          </div>
+                          {group.checks.map((check, i) => (
+                            <div key={i} className="flex items-start gap-2 text-xs pl-1">
+                              {check.status === 'pass' ? (
+                                <CheckCircle className="w-3 h-3 text-success shrink-0 mt-0.5" />
+                              ) : check.status === 'warn' ? (
+                                <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0 mt-0.5" />
+                              ) : (
+                                <XCircle className="w-3 h-3 text-error shrink-0 mt-0.5" />
+                              )}
+                              <div className="min-w-0">
+                                <span className="text-text">{check.name}</span>
+                                {check.issues.length > 0 && (
+                                  <p className="text-[10px] text-text-muted mt-0.5 truncate">{check.issues[0]}</p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </section>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </>
           )}
 
           {securityEvents.length > 0 && (
             <section className="rounded-lg border border-border bg-surface p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-primary" />
-                <h3 className="text-sm font-semibold text-text">Recent Security Events</h3>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-text">Recent Security Events</h3>
+                </div>
+                {onExportAuditLog && (
+                  <Button variant="outline" size="sm" onClick={onExportAuditLog} className="text-xs">
+                    <FileDown className="w-3 h-3 mr-1" /> Export Log
+                  </Button>
+                )}
               </div>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {securityEvents.slice(0, 20).map((evt, i) => (
@@ -493,6 +548,14 @@ export function EnterpriseAdminPanel({
                     )}
                     <span className="text-text-muted">User-created endpoints: {adminPolicy.provider.allow_user_endpoints ? 'Allowed' : 'IT-managed only'}</span>
                   </div>
+                  <div className="flex items-center gap-2">
+                    {adminPolicy.provider.allow_user_api_keys ? (
+                      <CheckCircle className="w-3.5 h-3.5 text-success" />
+                    ) : (
+                      <Lock className="w-3.5 h-3.5 text-amber-400" />
+                    )}
+                    <span className="text-text-muted">User API keys: {adminPolicy.provider.allow_user_api_keys ? 'Allowed' : 'IT-managed via env vars'}</span>
+                  </div>
                   {adminPolicy.provider.locked_endpoints.length > 0 && (
                     <div className="mt-2 p-2 rounded bg-amber-500/5 border border-amber-500/20">
                       <div className="text-[10px] font-medium text-amber-400 mb-1 flex items-center gap-1">
@@ -534,6 +597,14 @@ export function EnterpriseAdminPanel({
                       <CheckCircle className="w-3.5 h-3.5 text-success" />
                     )}
                     <span className="text-text-muted">{adminPolicy.model.require_approved_models ? 'Only approved models allowed' : 'Any model allowed'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {adminPolicy.model.allow_any_local_model ? (
+                      <CheckCircle className="w-3.5 h-3.5 text-success" />
+                    ) : (
+                      <Lock className="w-3.5 h-3.5 text-amber-400" />
+                    )}
+                    <span className="text-text-muted">Local model freedom: {adminPolicy.model.allow_any_local_model ? 'Any model on local endpoints' : 'Allowlist applies to local too'}</span>
                   </div>
                 </div>
               </AdminSection>
