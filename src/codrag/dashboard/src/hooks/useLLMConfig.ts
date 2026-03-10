@@ -30,10 +30,18 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     batch_mode: 'auto',
   })
   const [availableModels, setAvailableModels] = useState<Record<string, string[]>>({})
-  const [modelDetails, setModelDetails] = useState<Record<string, Array<{ name: string; context_window?: string; cost_tier?: string }>>>({})
+  const [modelDetails, setModelDetails] = useState<Record<string, Array<{ name: string; context_window?: string; cost_tier?: string; rate_limits?: { rpd?: number; rpm?: number }; batch_estimate?: { files_per_request: number; daily_file_capacity?: number } }>>>({})
   const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({})
   const [testingSlot, setTestingSlot] = useState<'embedding' | 'small' | 'large' | 'code' | null>(null)
   const [testResults, setTestResults] = useState<Record<string, EndpointTestResult>>({})
+
+  const handleClearTestResult = useCallback((slot: string) => {
+    setTestResults((prev) => {
+      const next = { ...prev }
+      delete next[slot]
+      return next
+    })
+  }, [])
   const [llmSlotsStatus, setLlmSlotsStatus] = useState<LLMSlotsStatus | null>(null)
 
   // ── Handlers ────────────────────────────────────────────────
@@ -266,6 +274,7 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     handleTestEndpoint,
     handleFetchModels,
     handleTestModel,
+    handleClearTestResult,
     handleDownloadModel,
     fetchLLMSlotsStatus,
   }

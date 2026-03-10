@@ -321,7 +321,7 @@ function App() {
     availableModels, modelDetails, loadingModels, testingSlot, testResults,
     llmSlotsStatus,
     handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
-    handleTestEndpoint, handleFetchModels, handleTestModel,
+    handleTestEndpoint, handleFetchModels, handleTestModel, handleClearTestResult,
     handleDownloadModel,
     fetchLLMSlotsStatus,
   } = useLLMConfig({ onDirty: () => setConfigDirty(true) })
@@ -578,7 +578,7 @@ function App() {
     llm: {
       llmConfig, llmSlotsStatus,
       handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
-      handleTestEndpoint, handleFetchModels, handleTestModel, handleDownloadModel,
+      handleTestEndpoint, handleFetchModels, handleTestModel, handleClearTestResult, handleDownloadModel,
       availableModels, modelDetails, loadingModels, testingSlot, testResults,
       maxActiveProjects, onMaxActiveProjectsChange: handleMaxActiveProjectsChange,
       schedulerStatus,

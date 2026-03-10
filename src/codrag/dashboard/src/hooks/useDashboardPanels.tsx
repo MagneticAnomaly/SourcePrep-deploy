@@ -163,9 +163,10 @@ export interface PanelLLMProps {
   handleTestEndpoint: (ep: SavedEndpoint) => Promise<any>
   handleFetchModels: (endpointId: string) => Promise<any>
   handleTestModel: (slot: 'embedding' | 'small' | 'large' | 'code') => Promise<any>
+  handleClearTestResult: (slot: string) => void
   handleDownloadModel: (slot: 'embedding' | 'lingua') => Promise<void>
   availableModels: Record<string, string[]>
-  modelDetails: Record<string, Array<{ name: string; context_window?: string; cost_tier?: string }>>
+  modelDetails: Record<string, Array<{ name: string; context_window?: string; cost_tier?: string; rate_limits?: { rpd?: number; rpm?: number }; batch_estimate?: { files_per_request: number; daily_file_capacity?: number } }>>
   loadingModels: Record<string, boolean>
   testingSlot: 'small' | 'embedding' | 'large' | 'code' | null
   testResults: Record<string, EndpointTestResult>
@@ -880,6 +881,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           onTestEndpoint={p.handleTestEndpoint}
           onFetchModels={p.handleFetchModels}
           onTestModel={p.handleTestModel}
+          onClearTestResult={p.handleClearTestResult}
           onHFDownload={p.handleDownloadModel}
           availableModels={p.availableModels}
           modelDetails={p.modelDetails}
