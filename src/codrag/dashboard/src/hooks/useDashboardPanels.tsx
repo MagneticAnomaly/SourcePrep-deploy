@@ -23,6 +23,7 @@ import {
   AtlasStatusCard,
   ActivityHeatmap,
   AuditPanel,
+  SpaghettiFinderPanel,
   EnterpriseAdminPanel,
   type ActivityHeatmapData,
   PANEL_REGISTRY,
@@ -51,6 +52,7 @@ import {
 } from '@codrag/ui'
 import type { TraceStatus, TraceCoverage } from './useTraceSystem'
 import type { UseAuditSystemReturn } from './useAuditSystem'
+import type { UseSpaghettiSystemReturn } from './useSpaghettiSystem'
 
 const PINNED_PREFIX = 'pinned:'
 
@@ -125,6 +127,7 @@ export interface PanelTraceProps {
 }
 
 export interface PanelEnrichmentProps {
+  pipelineProvenance: import('@codrag/ui').PipelineProvenance | null
   inferredEdgesStatus: InferredEdgesStatus
   inferredEdgesRunning: boolean
   augmentationStatus: AugmentationStatus
@@ -182,8 +185,9 @@ export interface PanelLLMProps {
   onComputeNodeUpdate?: (nodeId: string, updates: Partial<import('@codrag/ui').ComputeNode>) => void
   onComputeNodeDelete?: (nodeId: string) => void
   onEndpointNodeChange?: (endpointId: string, nodeId: string | null) => void
-  // Batch estimate for cloud models
-  batchEstimate?: any
+  // Explicit save (P48-F26)
+  llmConfigDirty?: boolean
+  saveLLMConfig?: () => Promise<void>
 }
 
 export interface PanelDeepAnalysisProps {
@@ -226,6 +230,7 @@ export interface DashboardPanelsProps {
   deepAnalysis: PanelDeepAnalysisProps
   atlas: PanelAtlasProps
   audit: UseAuditSystemReturn
+  spaghetti: UseSpaghettiSystemReturn
   activityData: ActivityHeatmapData | null
   // Enterprise
   adminPolicy?: import('@codrag/ui').AdminPolicy | null
@@ -241,7 +246,7 @@ export interface DashboardPanelsProps {
 /** Builds all dashboard panel content, detail views, and dynamic panel definitions from domain state. */
 export function useDashboardPanels(props: DashboardPanelsProps) {
   // Flatten grouped sub-objects for backward-compatible p.xxx access internally
-  const { search, files, trace, enrichment, llm, deepAnalysis, atlas, audit: auditProps, ...core } = props
+  const { search, files, trace, enrichment, llm, deepAnalysis, atlas, audit: auditProps, spaghetti: spaghettiProps, ...core } = props
   const p = { ...core, ...search, ...files, ...trace, ...enrichment, ...llm, ...deepAnalysis }
 
   // Optimistic local state for excluded paths — updates INSTANTLY on click.
@@ -435,7 +440,6 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
             saved_endpoints: p.llmConfig.saved_endpoints?.map((ep: SavedEndpoint) => ({
               id: ep.id, name: ep.name, provider: ep.provider, url: ep.url,
             })),
-            batch_mode: p.llmConfig.batch_mode ?? 'auto',
           },
           llm_slots_status: p.llmSlotsStatus ?? null,
           deep_analysis_schedule: p.deepAnalysisSchedule ?? null,
@@ -744,7 +748,8 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           onTogglePause={p.handleTogglePause}
           onPausePipeline={p.handlePausePipeline}
           onResumePipeline={p.handleResumePipeline}
-          isPaused={p.deepPaused || p.fastPaused}
+          fastPaused={p.fastPaused}
+          deepPaused={p.deepPaused}
           autoConfig={p.enrichmentAutoConfig}
           onAutoConfigChange={p.handleEnrichmentAutoConfigChange}
           isPro={p.isPro}
@@ -754,6 +759,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
             total: p.traceCoverage.summary?.traced ?? 0,
             stale: p.traceCoverage.summary?.stale ?? 0
           }}
+          provenance={p.pipelineProvenance?.current_data}
         />
       </div>
     ),
@@ -844,6 +850,16 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         viewingReport={auditProps.viewingAuditReport}
       />
     ),
+    spaghetti: (
+      <SpaghettiFinderPanel
+        files={spaghettiProps.spaghettiFiles}
+        fileCount={spaghettiProps.spaghettiFileCount}
+        scoredCount={spaghettiProps.spaghettiScoredCount}
+        severityCounts={spaghettiProps.spaghettiSeverityCounts}
+        loading={spaghettiProps.spaghettiLoading}
+        onRefresh={spaghettiProps.handleSpaghettiRefresh}
+      />
+    ),
     'token-budget': (
       <TokenBudgetPanel
         data={p.deepAnalysisSchedule.budget_enabled ? (p.budgetUsage ?? {
@@ -905,6 +921,8 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           onComputeNodeUpdate={p.onComputeNodeUpdate}
           onComputeNodeDelete={p.onComputeNodeDelete}
           onEndpointNodeChange={p.onEndpointNodeChange}
+          configDirty={p.llmConfigDirty}
+          onSave={p.saveLLMConfig}
           onModeSwitch={p.handleModeSwitch}
           onAssignmentBlockAdd={() => {
             p.handleLLMConfigChange({
@@ -961,7 +979,6 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
             if (!ep) return { success: false, message: 'Endpoint not found' };
             return p.handleTestEndpoint(ep);
           }}
-          batchEstimate={p.batchEstimate}
         />
       </div>
     ),

@@ -365,7 +365,11 @@ def get_included_paths(project_id: str) -> Dict[str, Any]:
 
 
 def _persist_included_paths(proj, paths: List[str]):
-    """Persist included_paths to project config in SQLite."""
+    """Persist included_paths to project config in SQLite.
+
+    If a pipeline is running, triggers a hot scope reload so the new
+    include/exclude scope takes effect immediately.
+    """
     # Deduplicate and sort for deterministic storage
     normalized = sorted(set(str(p) for p in paths if p))
 
@@ -373,6 +377,14 @@ def _persist_included_paths(proj, paths: List[str]):
     new_config = dict(proj.config)
     new_config["included_paths"] = normalized
     updated = reg.update_project(proj.id, config=new_config)
+
+    # P48-F34: Hot scope reload if pipeline is running
+    try:
+        from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+        pipeline_orchestrator.hot_scope_reload(proj.id)
+    except Exception:
+        pass  # Non-fatal — patterns saved, will take effect on next run
+
     return updated
 
 

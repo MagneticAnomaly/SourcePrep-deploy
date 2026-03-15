@@ -1180,9 +1180,16 @@ class CodebaseAtlas:
         if not stats["file_count"]:
             stats["file_count"] = len(seen_files)
 
-        # Count edges and compute in-degree for hub detection
+        # Count edges, compute in-degree, edge kinds, dir deps, cycles
         edge_count = 0
         in_degree: Counter = Counter()
+        out_degree: Counter = Counter()
+        edge_kind_counter: Counter = Counter()
+        # OPP-S1: Track source_dir -> target_dir edges for inter-subsystem deps
+        dir_edge_pairs: set = set()  # (src_dir, tgt_dir)
+        # OPP-E4: Track file-level edges for cycle detection
+        file_edges: Dict[str, set] = defaultdict(set)
+
         for edge_file in ("trace_edges.jsonl", "trace_inferred_edges.jsonl"):
             edge_path = self.index_dir / edge_file
             if not edge_path.exists():
@@ -1196,15 +1203,112 @@ class CodebaseAtlas:
                         try:
                             d = json.loads(line)
                             edge_count += 1
+                            source = d.get("source", "")
                             target = d.get("target", "")
-                            if target.startswith("file:"):
-                                in_degree[target.replace("file:", "", 1)] += 1
+                            kind = d.get("kind", d.get("edge_kind", "unknown"))
+                            edge_kind_counter[kind] += 1
+
+                            src_path = source.replace("file:", "", 1) if source.startswith("file:") else source
+                            tgt_path = target.replace("file:", "", 1) if target.startswith("file:") else target
+
+                            if tgt_path:
+                                in_degree[tgt_path] += 1
+                            if src_path:
+                                out_degree[src_path] += 1
+
+                            # Dir-level dependency tracking (OPP-S1)
+                            src_dir = src_path.split("/")[0] if "/" in src_path else ""
+                            tgt_dir = tgt_path.split("/")[0] if "/" in tgt_path else ""
+                            if src_dir and tgt_dir and src_dir != tgt_dir:
+                                dir_edge_pairs.add((src_dir, tgt_dir))
+
+                            # File-level edges for cycle detection (OPP-E4)
+                            if src_path and tgt_path:
+                                file_edges[src_path].add(tgt_path)
                         except json.JSONDecodeError:
                             continue
             except OSError:
                 pass
         stats["edge_count"] = edge_count
         stats["node_degrees"] = dict(in_degree.most_common(50))
+        stats["edge_kinds"] = dict(edge_kind_counter.most_common(10))
+
+        # OPP-S1: Build dir_dependencies map {src_dir: [tgt_dir1, tgt_dir2, ...]}
+        dir_deps: Dict[str, List[str]] = defaultdict(list)
+        for src, tgt in dir_edge_pairs:
+            if tgt not in dir_deps[src]:
+                dir_deps[src].append(tgt)
+        stats["dir_dependencies"] = dict(dir_deps)
+
+        # OPP-S2: Entry point detection
+        _ENTRY_NAMES = {
+            "main.py", "app.py", "server.py", "cli.py", "__main__.py",
+            "index.ts", "index.js", "main.ts", "main.rs", "lib.rs",
+            "main.go", "cmd/main.go", "manage.py", "wsgi.py", "asgi.py",
+        }
+        entry_points: List[str] = []
+        # Files matching common entry point names
+        for fp in seen_files:
+            basename = fp.rsplit("/", 1)[-1] if "/" in fp else fp
+            if basename in _ENTRY_NAMES:
+                entry_points.append(fp)
+        # Files with 0 in-degree but high out-degree (they import but aren't imported)
+        if not entry_points:
+            zero_in = [fp for fp in seen_files if fp not in in_degree and out_degree.get(fp, 0) >= 3]
+            entry_points.extend(sorted(zero_in, key=lambda x: -out_degree.get(x, 0))[:3])
+        stats["entry_points"] = entry_points[:5]
+
+        # OPP-S4: Test directory detection
+        test_dir_counter: Counter = Counter()
+        _TEST_PATTERNS = {"tests", "test", "__tests__", "spec", "specs", "test_"}
+        for fp in seen_files:
+            parts = fp.split("/")
+            for part in parts:
+                if part.lower() in _TEST_PATTERNS or part.lower().startswith("test"):
+                    test_dir_counter[part] += 1
+                    break
+        stats["test_dirs"] = dict(test_dir_counter.most_common(5))
+
+        # OPP-E4: Simple cycle detection (file-level bidirectional edges)
+        cycles: List[Tuple[str, str]] = []
+        checked: set = set()
+        for src, targets in file_edges.items():
+            for tgt in targets:
+                pair = tuple(sorted([src, tgt]))
+                if pair not in checked and src in file_edges.get(tgt, set()):
+                    cycles.append((src, tgt))
+                    checked.add(pair)
+        stats["cycle_count"] = len(cycles)
+        stats["cycles"] = cycles[:5]
+
+        # OPP-W4: Call chain visualization -- find longest import paths via BFS
+        # Start from entry points or highest out-degree files
+        call_chains: List[List[str]] = []
+        chain_starts = entry_points[:3] if entry_points else [
+            fp for fp, _ in sorted(out_degree.items(), key=lambda x: -x[1])[:3]
+        ]
+        for start in chain_starts:
+            if start not in file_edges:
+                continue
+            # BFS to find longest non-cyclic path
+            best_chain: List[str] = [start]
+            queue: List[List[str]] = [[start]]
+            while queue:
+                path = queue.pop(0)
+                if len(path) > 8:  # cap depth
+                    break
+                current = path[-1]
+                for neighbor in file_edges.get(current, set()):
+                    if neighbor not in path:  # avoid cycles
+                        new_path = path + [neighbor]
+                        queue.append(new_path)
+                        if len(new_path) > len(best_chain):
+                            best_chain = new_path
+            if len(best_chain) >= 3:  # only interesting if 3+ hops
+                call_chains.append(best_chain)
+        # Deduplicate and keep top 5 by length
+        call_chains.sort(key=len, reverse=True)
+        stats["call_chains"] = call_chains[:5]
 
         # Use file_count from manifest; fall back to counting file: nodes
         if stats["file_count"] == 0:
@@ -1259,7 +1363,11 @@ class CodebaseAtlas:
         return ", ".join(parts)
 
     def _format_graph_stats(self, stats: Dict[str, Any]) -> str:
-        """Format graph statistics."""
+        """Format graph statistics for LLM atlas prompt.
+
+        Phase 50: Enhanced with edge kinds, entry points, test dirs,
+        cycle info, and dir dependencies for OPP-E1..E5.
+        """
         parts: List[str] = [
             f"Files: {stats.get('file_count', 0)}",
             f"Graph nodes: {stats.get('node_count', 0)}",
@@ -1270,6 +1378,36 @@ class CodebaseAtlas:
             lang_parts = [f"{ext}: {count}" for ext, count in
                          sorted(langs.items(), key=lambda x: -x[1])[:8]]
             parts.append(f"Languages: {', '.join(lang_parts)}")
+        # OPP-E3: Edge kind breakdown
+        edge_kinds = stats.get("edge_kinds", {})
+        if edge_kinds:
+            kind_parts = [f"{k}: {v}" for k, v in sorted(edge_kinds.items(), key=lambda x: -x[1])[:5]]
+            parts.append(f"Edge types: {', '.join(kind_parts)}")
+        # OPP-S2: Entry points
+        entry_points = stats.get("entry_points", [])
+        if entry_points:
+            parts.append(f"Entry points: {', '.join(entry_points[:5])}")
+        # OPP-S4: Test directories
+        test_dirs = stats.get("test_dirs", {})
+        if test_dirs:
+            td_parts = [f"{d}/ ({c} files)" for d, c in sorted(test_dirs.items(), key=lambda x: -x[1])[:3]]
+            parts.append(f"Test dirs: {', '.join(td_parts)}")
+        # OPP-E4: Cycles
+        cycle_count = stats.get("cycle_count", 0)
+        if cycle_count > 0:
+            parts.append(f"Import cycles: {cycle_count}")
+        # OPP-S1/E5: Dir-level dependencies
+        dir_deps = stats.get("dir_dependencies", {})
+        if dir_deps:
+            dep_parts = []
+            for src, targets in sorted(dir_deps.items())[:6]:
+                dep_parts.append(f"{src} -> {', '.join(targets[:3])}")
+            parts.append(f"Directory dependencies: {'; '.join(dep_parts)}")
+        # OPP-W4: Call chains
+        call_chains = stats.get("call_chains", [])
+        if call_chains:
+            chain_strs = [" -> ".join(c) for c in call_chains[:3]]
+            parts.append(f"Longest import chains: {'; '.join(chain_strs)}")
         return ". ".join(parts)
 
     def _format_hubs(self, hub_files: List[Tuple[str, int]]) -> str:
@@ -1288,50 +1426,152 @@ class CodebaseAtlas:
         epistemic: Dict[str, Any],
         hub_files: List[Tuple[str, int]],
     ) -> str:
-        """Build structural-only Atlas content (no LLM)."""
-        parts: List[str] = []
+        """Build structural-only Atlas content (no LLM).
 
-        # Language summary
-        langs = graph_stats.get("languages", {})
+        Uses the same section format as the LLM-generated atlas (IDENTITY,
+        STACK, SUBSYSTEMS, HUB FILES) so that when the LLM atlas replaces
+        this preliminary version, the AI sees richer content in the same
+        familiar structure.
+
+        Phase 50 OPP-S1..S4: Enhanced with inter-subsystem dependency
+        arrows, entry point detection, language percentages, and test
+        directory detection. See ATLAS_OPPORTUNITIES.md for research basis.
+        """
+        sections: List[str] = []
+
         file_count = graph_stats.get("file_count", 0)
-        if langs:
-            top_langs = sorted(langs.items(), key=lambda x: -x[1])[:5]
-            lang_str = ", ".join(f"{ext} ({count})" for ext, count in top_langs)
-            parts.append(f"Project: {file_count} files. Languages: {lang_str}.")
-        else:
-            parts.append(f"Project: {file_count} files.")
-
-        # Graph topology
         node_count = graph_stats.get("node_count", 0)
         edge_count = graph_stats.get("edge_count", 0)
-        parts.append(f"Graph: {node_count} nodes, {edge_count} edges.")
 
-        # Modules
+        # IDENTITY: Project name (from project_root dir name if available)
+        if self.project_root:
+            sections.append(f"IDENTITY: {self.project_root.name}")
+
+        # OPP-S3: STACK with language percentages instead of raw counts
+        langs = graph_stats.get("languages", {})
+        if langs:
+            top_langs = sorted(langs.items(), key=lambda x: -x[1])[:8]
+            total_files = sum(c for _, c in top_langs) or 1
+            lang_parts = []
+            for ext, count in top_langs:
+                pct = round(100 * count / total_files)
+                lang_parts.append(f"{ext} {pct}%")
+            sections.append(f"STACK: {', '.join(lang_parts)}")
+
+        # STRUCTURE: Graph topology
+        sections.append(f"STRUCTURE: {file_count} files, {node_count} nodes, {edge_count} edges")
+
+        # OPP-E3: Edge kind summary (available from Stage 1)
+        edge_kinds = graph_stats.get("edge_kinds", {})
+        if edge_kinds:
+            kind_parts = [f"{k}: {v}" for k, v in sorted(edge_kinds.items(), key=lambda x: -x[1])[:5]]
+            sections.append(f"EDGE TYPES: {', '.join(kind_parts)}")
+
+        # OPP-E4: Circular dependency warnings
+        cycle_count = graph_stats.get("cycle_count", 0)
+        if cycle_count > 0:
+            cycles = graph_stats.get("cycles", [])
+            if cycles:
+                cycle_str = "; ".join(f"{a} <-> {b}" for a, b in cycles[:3])
+                sections.append(f"CIRCULAR DEPS ({cycle_count}): {cycle_str}")
+            else:
+                sections.append(f"CIRCULAR DEPS: {cycle_count} import cycles detected")
+
+        # OPP-S2: Entry points (files with 0 in-degree that import many things,
+        # or files matching common entry point names)
+        entry_points = graph_stats.get("entry_points", [])
+        if entry_points:
+            ep_str = ", ".join(entry_points[:5])
+            sections.append(f"ENTRY POINTS: {ep_str}")
+
+        # SUBSYSTEMS: Directory-based segments (available from Stage 1 data)
+        # If modules exist (Stage 8+), use those. Otherwise fall back to
+        # compute_segments() which groups files by directory from trace_nodes.
+        subsystem_dirs: List[str] = []  # collected for OPP-S1
         if modules:
-            mod_names = [m.get("name", m.get("module_id", "?")) for m in
-                        sorted(modules, key=lambda x: -x.get("file_count", 0))[:8]]
-            parts.append(f"{len(modules)} modules detected: {', '.join(mod_names)}.")
+            mod_lines = []
+            for m in sorted(modules, key=lambda x: -x.get("file_count", 0))[:10]:
+                name = m.get("name", m.get("module_id", "?"))
+                fc = m.get("file_count", 0)
+                summary = m.get("summary", "")
+                tags = ", ".join(m.get("domain_tags", [])[:3])
+                line = f"  {name} ({fc} files)"
+                if summary:
+                    line += f" -- {summary[:80]}"
+                elif tags:
+                    line += f" -- {tags}"
+                mod_lines.append(line)
+                subsystem_dirs.append(name)
+            if mod_lines:
+                sections.append("SUBSYSTEMS:\n" + "\n".join(mod_lines))
+        else:
+            # No modules yet -- use directory-based segment detection
+            try:
+                segments = compute_segments(self.index_dir, self.project_root)
+                if segments:
+                    seg_lines = []
+                    for seg in segments[:10]:
+                        seg_lines.append(f"  {seg.dir_path}/ ({seg.file_count} files)")
+                        subsystem_dirs.append(seg.dir_path)
+                    sections.append("SUBSYSTEMS:\n" + "\n".join(seg_lines))
+            except Exception:
+                logger.debug("compute_segments failed in structural atlas (non-fatal)", exc_info=True)
 
-        # Architecture layers
+        # OPP-S1: Inter-subsystem dependency arrows from trace_edges.jsonl
+        dir_deps = graph_stats.get("dir_dependencies", {})
+        if dir_deps and subsystem_dirs:
+            dep_lines = []
+            for src_dir in subsystem_dirs[:8]:
+                targets = dir_deps.get(src_dir, [])
+                if targets:
+                    # Only show targets that are also known subsystems
+                    known = [t for t in targets if t in subsystem_dirs and t != src_dir]
+                    if known:
+                        dep_lines.append(f"  {src_dir} -> {', '.join(known[:4])}")
+            if dep_lines:
+                sections.append("DEPENDENCIES:\n" + "\n".join(dep_lines))
+
+        # OPP-S4: Test directory detection
+        test_dirs = graph_stats.get("test_dirs", {})
+        if test_dirs:
+            test_parts = [f"{d}/ ({c} files)" for d, c in
+                         sorted(test_dirs.items(), key=lambda x: -x[1])[:3]]
+            sections.append(f"TESTS: {', '.join(test_parts)}")
+
+        # Architecture layers (from epistemic data, Stage 6+)
         layers = epistemic.get("layers", {})
         if layers:
             top_layers = sorted(layers.items(), key=lambda x: -x[1])[:5]
-            layer_str = ", ".join(f"{layer} ({count})" for layer, count in top_layers)
-            parts.append(f"Architecture layers: {layer_str}.")
+            layer_str = ", ".join(f"{layer}: {count}" for layer, count in top_layers)
+            sections.append(f"LAYERS: {layer_str}")
 
-        # Hub files
+        # HUB FILES: Highest connectivity (available from Stage 1)
         if hub_files:
-            hub_str = ", ".join(f"{path} ({deg})" for path, deg in hub_files[:5])
-            parts.append(f"Hub files (highest connectivity): {hub_str}.")
+            hub_str = ", ".join(f"{path} ({deg} edges)" for path, deg in hub_files[:5])
+            sections.append(f"HUB FILES: {hub_str}")
 
-        # Domain tags
+        # OPP-W4: Call chain visualization (longest import paths)
+        call_chains = graph_stats.get("call_chains", [])
+        if call_chains:
+            chain_lines = []
+            for chain in call_chains[:3]:
+                chain_lines.append("  " + " -> ".join(chain))
+            sections.append("CALL CHAINS:\n" + "\n".join(chain_lines))
+
+        # OPP-E6: Confidence/quality indicators (from epistemic data, Stage 6+)
+        avg_conf = epistemic.get("avg_confidence", 0.0)
+        ep_count = epistemic.get("count", 0)
+        if avg_conf > 0 and ep_count > 0:
+            sections.append(f"CONFIDENCE: {avg_conf:.2f} avg across {ep_count} files")
+
+        # Domain tags (from epistemic data, Stage 6+)
         domains = epistemic.get("domains", {})
         if domains:
             top_domains = sorted(domains.items(), key=lambda x: -x[1])[:8]
-            domain_str = ", ".join(f"{tag} ({count})" for tag, count in top_domains)
-            parts.append(f"Domains: {domain_str}.")
+            domain_str = ", ".join(f"{tag}" for tag, _ in top_domains)
+            sections.append(f"DOMAINS: {domain_str}")
 
-        return " ".join(parts)
+        return "\n".join(sections)
 
     # ── Persistence ────────────────────────────────────────────
 

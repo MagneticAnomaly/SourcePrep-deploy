@@ -201,9 +201,9 @@ export function ModelCard({
                     <Select
                       value={model || ''}
                       onChange={(e) => onModelChange && onModelChange(e.target.value)}
-                      disabled={disabled || loadingModels}
+                      disabled={disabled}
                       options={[
-                        { value: '', label: 'Select a model...' },
+                        { value: '', label: loadingModels ? 'Loading models...' : 'Select a model...' },
                         ...availableModels.map(m => {
                           const details = modelDetails?.find(d => d.name === m);
                           const isBlocked = (details as any)?.blocked_by_policy;
@@ -252,10 +252,14 @@ export function ModelCard({
                     }
                     if (parts.length === 0) return null;
                     return (
-                      <div className="mt-2 px-3 py-2 rounded bg-surface-raised/50 border border-border/50">
-                        <p className="text-[11px] text-text-muted leading-relaxed">
-                          {parts.join('  ·  ')}
-                        </p>
+                      <div className="mt-2 px-2.5 py-1.5 rounded bg-surface-raised/50 border border-border/50">
+                        <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] text-text-muted leading-normal">
+                          {parts.map((p, i) => (
+                            <span key={i} className="whitespace-nowrap">
+                              {i > 0 && <span className="opacity-40 mr-1">·</span>}{p}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     );
                   })()}

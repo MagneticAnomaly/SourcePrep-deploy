@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { FileText, Settings, AlertCircle, AlertTriangle, X } from 'lucide-react'
-import type { AtlasStatus, ActivityHeatmapData, UserRole } from '@codrag/ui'
+import type { AtlasStatus, ActivityHeatmapData, UserRole, PipelineProvenance } from '@codrag/ui'
 import {
   // API
   useApiClient,
@@ -41,6 +41,7 @@ import { useFileSystem } from './hooks/useFileSystem'
 import { useProjectManager } from './hooks/useProjectManager'
 import { useDashboardPanels } from './hooks/useDashboardPanels'
 import { useAuditSystem } from './hooks/useAuditSystem'
+import { useSpaghettiSystem } from './hooks/useSpaghettiSystem'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
@@ -101,7 +102,6 @@ function App() {
   const [maxActiveProjects, setMaxActiveProjects] = useState<number | 'infinite'>('infinite')
   const [schedulerStatus, setSchedulerStatus] = useState<any>(null)
   const [computeNodes, setComputeNodes] = useState<any[]>([])
-  const [batchEstimate, setBatchEstimate] = useState<any>(null)
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout | null>(null)
   const [projectLimitBannerDismissed, setProjectLimitBannerDismissed] = useState(false)
   const [devRoleOverride, setDevRoleOverride] = useState<UserRole | null>(() => {
@@ -220,6 +220,9 @@ function App() {
   // ── Audit system (Phase 43) ────────────────────────────────
   const audit = useAuditSystem(selectedProjectId)
 
+  // ── Spaghetti Finder (Phase 52) ─────────────────────────────
+  const spaghetti = useSpaghettiSystem(selectedProjectId)
+
   // ── Event Stream ───────────────────────────────────────────
   const eventsUrl = import.meta.env.DEV
     ? `http://${window.location.hostname}:8400/events`
@@ -252,18 +255,21 @@ function App() {
     handleRunAugmentation, handleRunEpistemic, handleRunModuleSynthesis,
     handleRunDeepening, handleRunKnowledgeBuild,
     handleRunDeepEnrichment,
-    handlePausePipeline, handleResumePipeline,
+    handlePausePipeline, handleResumePipeline, handleSwapModel,
     fastPaused, deepPaused,
     resetAll: resetEnrichment,
   } = useEnrichment(selectedProjectId, {
     onError: (msg, variant) => showToast(msg, variant),
     pipelineEvents,
-    onDeepCompleted: () => void fetchAtlas(),
+    onDeepCompleted: () => { void fetchAtlas(); void fetchProvenance() },
   })
 
   // ── Atlas (Phase 29) ─────────────────────────────────────────
   const [atlasStatus, setAtlasStatus] = useState<AtlasStatus | null>(null)
   const [activityData, setActivityData] = useState<ActivityHeatmapData | null>(null)
+
+  // ── Pipeline Provenance (Phase 49) ──────────────────────────
+  const [pipelineProvenance, setPipelineProvenance] = useState<PipelineProvenance | null>(null)
 
   // ── Trace system (hook) ───────────────────────────────────────
   const {
@@ -305,6 +311,14 @@ function App() {
     } catch { /* Atlas not available yet */ }
   }, [api, selectedProjectId])
 
+  const fetchProvenance = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      const data = await api.getPipelineProvenance(selectedProjectId)
+      setPipelineProvenance(data)
+    } catch { /* Provenance not available yet */ }
+  }, [api, selectedProjectId])
+
   // ── Mode sync: keep panel switch ↔ settings dropdown in sync ──
   const handleSyncedEnrichmentAutoConfigChange = useCallback((newConfig: typeof enrichmentAutoConfig) => {
     handleEnrichmentAutoConfigChange(newConfig)
@@ -324,12 +338,21 @@ function App() {
   const {
     llmConfig, setLLMConfig,
     availableModels, modelDetails, loadingModels, testingSlot, testResults,
-    llmSlotsStatus,
+    llmSlotsStatus, llmConfigDirty,
     handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
     handleTestEndpoint, handleFetchModels, handleTestModel, handleClearTestResult,
     handleDownloadModel, handleModeSwitch,
+    saveLLMConfig: _rawSaveLLMConfig, markLLMConfigClean,
     fetchLLMSlotsStatus,
   } = useLLMConfig({ onDirty: () => setConfigDirty(true) })
+
+  // Wrap saveLLMConfig to also trigger model swap for running pipelines
+  const saveLLMConfig = useCallback(async () => {
+    await _rawSaveLLMConfig()
+    // After saving, trigger a model swap for any running pipeline group.
+    // The swap is a fast pause→resume cycle; silently no-ops if nothing is running.
+    handleSwapModel()
+  }, [_rawSaveLLMConfig, handleSwapModel])
 
   // ── Theme effect ───────────────────────────────────────────
   useEffect(() => {
@@ -399,17 +422,6 @@ function App() {
     const interval = setInterval(poll, 5000)
     return () => clearInterval(interval)
   }, [isConnected, api])
-
-  // Fetch batch estimate on connect and when LLM config changes
-  const refreshBatchEstimate = useCallback(() => {
-    api.getBatchEstimate()
-      .then(setBatchEstimate)
-      .catch(() => {})
-  }, [api])
-
-  useEffect(() => {
-    if (isConnected) refreshBatchEstimate()
-  }, [isConnected, refreshBatchEstimate, llmConfig])
 
   // LS-2: Periodic license re-validation (every hour, backend checks 7-day interval)
   useEffect(() => {
@@ -484,6 +496,8 @@ function App() {
           }
           if (globalCfg.llm_config) {
             setLLMConfig(globalCfg.llm_config)
+            // Mark as clean so the Save button doesn't show on initial load
+            setTimeout(() => markLLMConfigClean(), 100)
             // Fetch compression status to populate lingua_downloaded
             try {
               const compressionStatus = await api.getCompressionStatus()
@@ -547,15 +561,14 @@ function App() {
     void refreshWatchStatus(selectedProjectId)
     void fetchDeepAnalysisStatus()
     void fetchAtlas()
+    void fetchProvenance()
     api.getProjectActivity(selectedProjectId, 12).then(setActivityData).catch(() => {})
   }, [selectedProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Project limit ───────────────────────────────────────────
   // Free tier: hard cap of 1 total project.
   // Pro+ tiers: unlimited projects (maxActiveProjects only limits concurrent pipelines, not total count).
-  const projectLimit = effectiveTier === 'free'
-    ? 1
-    : (maxActiveProjects === 'infinite' ? Infinity : maxActiveProjects)
+  const projectLimit = effectiveTier === 'free' ? 1 : Infinity
   const isOverProjectLimit = project.projects.length > projectLimit
   const isAtProjectLimit = project.projects.length >= projectLimit
 
@@ -595,6 +608,7 @@ function App() {
       fetchTraceCoverage, handleRunFastSync, handleDestroyGraph,
     },
     enrichment: {
+      pipelineProvenance,
       inferredEdgesStatus, inferredEdgesRunning,
       augmentationStatus, augmenting, validating, handleRunAugmentation,
       epistemicStatus, epistemicRunning, handleRunEpistemic,
@@ -610,9 +624,10 @@ function App() {
       groupReasoningStatus,
     },
     llm: {
-      llmConfig, llmSlotsStatus,
+      llmConfig, llmSlotsStatus, llmConfigDirty,
       handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
       handleTestEndpoint, handleFetchModels, handleTestModel, handleClearTestResult, handleDownloadModel, handleModeSwitch,
+      saveLLMConfig,
       availableModels, modelDetails, loadingModels, testingSlot, testResults,
       maxActiveProjects, onMaxActiveProjectsChange: handleMaxActiveProjectsChange,
       schedulerStatus,
@@ -621,11 +636,11 @@ function App() {
       onComputeNodeUpdate: handleComputeNodeUpdate,
       onComputeNodeDelete: handleComputeNodeDelete,
       onEndpointNodeChange: handleEndpointNodeChange,
-      batchEstimate,
     },
     deepAnalysis: { deepAnalysisSchedule, setDeepAnalysisSchedule, budgetUsage },
     atlas: { atlasStatus },
     audit,
+    spaghetti,
     activityData,
     adminPolicy,
     seatStatus,
@@ -835,7 +850,10 @@ function App() {
       <AddProjectModal
         isOpen={addModalOpen}
         onClose={() => setAddModalOpen(false)}
-        onAdd={handleAddProject}
+        onAdd={async (...args) => {
+          await handleAddProject(...args)
+          setAddModalOpen(false)
+        }}
         limitReached={isAtProjectLimit}
         currentTierLabel={effectiveTier === 'free' ? 'Free' : effectiveTier === 'starter' ? 'Starter' : undefined}
         currentLimit={projectLimit === Infinity ? undefined : projectLimit}

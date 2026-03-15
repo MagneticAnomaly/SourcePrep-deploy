@@ -52,17 +52,18 @@ async def lifespan(app: FastAPI):
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     handler.setFormatter(formatter)
 
-    # Attach to root logger
+    # Attach to root logger ONLY — named loggers propagate up to root,
+    # so we do NOT attach to individual namespaces (that causes duplicates).
     root_logger = logging.getLogger()
     if root_logger.level > logging.INFO:
         root_logger.setLevel(logging.INFO)
     root_logger.addHandler(handler)
 
-    # Uvicorn and other libraries often have their own handlers and propagate=False.
-    # We must explicitly attach to key namespaces to guarantee visibility.
+    # Ensure key namespaces have propagate=True and correct level
+    # so their messages reach the root handler via propagation.
     for logger_name in ["codrag", "uvicorn", "uvicorn.error", "uvicorn.access"]:
         ns_logger = logging.getLogger(logger_name)
-        ns_logger.addHandler(handler)
+        ns_logger.propagate = True
         if ns_logger.level > logging.INFO:
             ns_logger.setLevel(logging.INFO)
 
@@ -356,11 +357,12 @@ def _get_llm_client_for_slot(slot: str):
     
     # Get slot config (e.g. small_model: { enabled: true, endpoint_id: "...", model: "..." })
     slot_cfg = llm_config.get(slot_key) or {}
-    if not slot_cfg.get("enabled"):
-        return None
-        
+
+    # A slot is functional when it has both endpoint_id and model configured.
+    # The explicit 'enabled' flag is a UI toggle that may be stale from
+    # migration or hydration race conditions — don't gate on it alone.
     endpoint_id = slot_cfg.get("endpoint_id")
-    if not endpoint_id:
+    if not endpoint_id or not slot_cfg.get("model"):
         return None
         
     # Resolve endpoint from saved_endpoints list
@@ -618,6 +620,10 @@ def configure(
     # Initialize pipeline journal + crash recovery (Phase 25)
     from codrag.services.pipeline_journal import journal as _journal
     _journal.init(db_path)
+
+    # Initialize pipeline run history (Phase 49: Process Info)
+    from codrag.services.pipeline_history import history as _history
+    _history.init(db_path)
 
     # Initialize observation store (Phase 39: Session Continuity)
     from codrag.services.observation_store import observation_store as _obs_store

@@ -34,7 +34,10 @@ IDENTITY: One sentence — what this project is and does.
 STACK: Languages, frameworks, build tools, runtime.
 ARCHITECTURE: How the major modules connect. Name the layers and their relationships. Reference file paths.
 SUBSYSTEMS: List each major subsystem with its entry-point files. Use "name: path1, path2" format, one per line.
+MODULE DEPENDENCIES: For each major module, list which other modules it depends on. Use "ModuleA -> ModuleB, ModuleC" format. Only include real dependencies from the data.
 FLOW: Describe the primary request/data flow through the system, naming concrete files at each step.
+API SURFACE: List the external interface — REST endpoints (from router/controller files), CLI commands, or exported entry points. Where do external consumers interact with this codebase? Only if evident from the data.
+DATA MODELS: List the core data types/entities and which files define them. Use "TypeName (path)" format. Only if model/schema/entity files are evident.
 PATTERNS: Cross-cutting concerns — shared dependencies, DI patterns, error handling approach. Only if evident from the data.
 RISKS: Tech debt or architectural risks. ONLY include items explicitly flagged in the module summaries. If none flagged, write "(none flagged)".
 

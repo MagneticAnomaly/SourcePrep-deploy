@@ -212,7 +212,25 @@ def update_trace_ignore(project_id: str, req: TraceIgnoreRequest) -> Dict[str, A
     reg = _get_registry()
     reg.update_project(proj.id, config=cfg)
 
-    return ok({"ignore_patterns": current_patterns})
+    # P48-F34: If a pipeline is running, trigger hot scope reload so the
+    # new patterns take effect immediately (pause → rebuild trace → resume).
+    reload_result = None
+    try:
+        from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+        reload_result = pipeline_orchestrator.hot_scope_reload(project_id)
+        if reload_result.get("reloaded"):
+            logger.info(
+                "Hot scope reload for %s: rebuilt trace with %d nodes (was at stage %s)",
+                project_id, reload_result.get("new_node_count", "?"),
+                reload_result.get("paused_stage", "?"),
+            )
+    except Exception:
+        logger.debug("Hot scope reload failed (non-fatal)", exc_info=True)
+
+    return ok({
+        "ignore_patterns": current_patterns,
+        "scope_reloaded": reload_result.get("reloaded", False) if reload_result else False,
+    })
 
 
 @router.get("/projects/{project_id}/trace/search")

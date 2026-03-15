@@ -109,6 +109,59 @@ STAGE_QUEUE_TYPE: Dict[StageId, QueueType] = {
 
 
 # Backward-compat alias — kept so any external code referencing this still works.
+# ── Manifest File Mapping (Phase 49) ─────────────────────────────
+# Which manifest file each stage writes to (in the project's index dir).
+# These enhanced manifests capture model provenance, timing, and quality.
+
+STAGE_MANIFEST_FILE: Dict[StageId, str] = {
+    StageId.STRUCTURAL:      "trace_manifest.json",
+    StageId.INFERRED_EDGES:  "trace_inferred_manifest.json",
+    StageId.CATALOGUE:       "trace_augment_manifest.json",
+    StageId.VALIDATION:      "validation_manifest.json",
+    StageId.KNOWLEDGE:       "knowledge_manifest.json",
+    StageId.ENRICHMENT:      "trace_epistemic_manifest.json",
+    StageId.GROUP_REASONING: "group_reasoning_manifest.json",
+    StageId.CLUSTERING:      "trace_modules_manifest.json",
+    StageId.ATLAS:           "atlas_manifest.json",
+    StageId.DEEPENING:       "deepening_manifest.json",
+    StageId.DEEP_KNOWLEDGE:  "deep_knowledge_manifest.json",
+}
+
+# ── Stage Output Files (Phase 49) ────────────────────────────────
+# Primary output file for each stage (used for quality metric aggregation).
+# None = no primary JSONL output (e.g., Rust stages, pass-through stages).
+
+STAGE_OUTPUT_FILE: Dict[StageId, Optional[str]] = {
+    StageId.STRUCTURAL:      "trace_nodes.jsonl",
+    StageId.INFERRED_EDGES:  "trace_inferred_edges.jsonl",
+    StageId.CATALOGUE:       "trace_augmented.jsonl",
+    StageId.VALIDATION:      None,
+    StageId.KNOWLEDGE:       None,
+    StageId.ENRICHMENT:      "trace_epistemic.jsonl",
+    StageId.GROUP_REASONING: "trace_group_reasoning.jsonl",
+    StageId.CLUSTERING:      "trace_modules.jsonl",
+    StageId.ATLAS:           None,
+    StageId.DEEPENING:       "trace_epistemic.jsonl",
+    StageId.DEEP_KNOWLEDGE:  None,
+}
+
+# ── Confidence Field per Stage (Phase 49) ────────────────────────
+# Which JSON field holds the confidence score in each stage's output.
+
+STAGE_CONFIDENCE_FIELD: Dict[StageId, Optional[str]] = {
+    StageId.STRUCTURAL:      None,
+    StageId.INFERRED_EDGES:  "confidence",
+    StageId.CATALOGUE:       "confidence",
+    StageId.VALIDATION:      None,
+    StageId.KNOWLEDGE:       None,
+    StageId.ENRICHMENT:      "epistemic_confidence",
+    StageId.GROUP_REASONING: None,
+    StageId.CLUSTERING:      None,
+    StageId.ATLAS:           None,
+    StageId.DEEPENING:       "epistemic_confidence",
+    StageId.DEEP_KNOWLEDGE:  None,
+}
+
 STAGE_MODEL_SLOT: Dict[StageId, Optional[str]] = {
     StageId.STRUCTURAL:     None,
     StageId.INFERRED_EDGES: "code",

@@ -29,13 +29,28 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     large_model: { enabled: false },
     code_model: { enabled: false },
     compression: { enabled: false, mode: 'auto', level: 'standard' },
-    batch_mode: 'auto',
   })
   const [availableModels, setAvailableModels] = useState<Record<string, string[]>>({})
   const [modelDetails, setModelDetails] = useState<Record<string, Array<{ name: string; context_window?: string; cost_tier?: string; rate_limits?: { rpd?: number; rpm?: number }; batch_estimate?: { files_per_request: number; daily_file_capacity?: number } }>>>({})
   const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({})
   const [testingSlot, setTestingSlot] = useState<'embedding' | 'small' | 'large' | 'code' | null>(null)
   const [testResults, setTestResults] = useState<Record<string, EndpointTestResult>>({})
+
+  /** Merge context_tokens from fetched model details into the persisted model_context_cache. */
+  const mergeContextCache = useCallback((details: Array<{ name: string; context_tokens?: number }>) => {
+    const updates: Record<string, number> = {}
+    for (const d of details) {
+      if (d.context_tokens && d.context_tokens > 0) {
+        updates[d.name] = d.context_tokens
+      }
+    }
+    if (Object.keys(updates).length === 0) return
+    setLLMConfig((prev) => ({
+      ...prev,
+      model_context_cache: { ...prev.model_context_cache, ...updates },
+    }))
+    onDirtyRef.current?.()
+  }, [])
 
   const handleClearTestResult = useCallback((slot: string) => {
     setTestResults((prev) => {
@@ -92,6 +107,7 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     }
     if (Array.isArray(data.model_details)) {
       setModelDetails((prev) => ({ ...prev, [endpoint.id]: data.model_details }))
+      mergeContextCache(data.model_details)
     }
     return data as EndpointTestResult
   }, [])
@@ -106,15 +122,23 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ provider: ep.provider, url: ep.url, api_key: ep.api_key, slot }),
       })
-      if (!r.ok) throw new Error(`HTTP ${r.status}`)
-      const json = await r.json()
+      const json = await r.json().catch(() => null)
+      if (!r.ok) {
+        const errMsg = json?.error?.message || json?.message || `HTTP ${r.status}`
+        console.warn(`[LLM] Failed to fetch models for ${ep.provider}: ${errMsg}`)
+        return []
+      }
       const data = json?.data ?? json
       const models = Array.isArray(data.models) ? data.models : []
       setAvailableModels((prev) => ({ ...prev, [endpointId]: models }))
       if (Array.isArray(data.model_details)) {
         setModelDetails((prev) => ({ ...prev, [endpointId]: data.model_details }))
+        mergeContextCache(data.model_details)
       }
       return models
+    } catch (e) {
+      console.warn('[LLM] Model fetch error:', e)
+      return []
     } finally {
       setLoadingModels((prev) => ({ ...prev, [endpointId]: false }))
     }
@@ -242,23 +266,38 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     }
   }, [api, fetchLLMSlotsStatus])
 
-  // ── Auto-save LLM config to backend ─────────────────────────
-  const llmConfigSkipRef = useRef(0) // skip initial + loaded-from-backend
+  // ── Explicit save (no auto-save) ────────────────────────────
+  // Model/endpoint changes update local state immediately but only
+  // persist to backend when the user clicks Save.  This prevents
+  // accidental swap_model triggers while the user is still editing.
+  const lastSavedRef = useRef<string>('')
+  const [llmConfigDirty, setLlmConfigDirty] = useState(false)
+
+  // Track dirtiness by comparing serialized config to last save
   useEffect(() => {
-    if (llmConfigSkipRef.current < 2) {
-      llmConfigSkipRef.current++
-      return
+    const serialized = JSON.stringify(llmConfig)
+    if (lastSavedRef.current && serialized !== lastSavedRef.current) {
+      setLlmConfigDirty(true)
     }
-    const timeout = setTimeout(() => {
-      api.updateGlobalConfig({ llm_config: llmConfig }).then(() => {
-        // Refresh slot status after saving so the widget picks up endpoint/model changes
-        void fetchLLMSlotsStatus()
-      }).catch(() => {
-        // Silent fail — config will be retried on next change
-      })
-    }, 500)
-    return () => clearTimeout(timeout)
-  }, [api, llmConfig])
+  }, [llmConfig])
+
+  const saveLLMConfig = useCallback(async () => {
+    try {
+      await api.updateGlobalConfig({ llm_config: llmConfig })
+      lastSavedRef.current = JSON.stringify(llmConfig)
+      setLlmConfigDirty(false)
+      // Refresh slot status after saving so the widget picks up endpoint/model changes
+      void fetchLLMSlotsStatus()
+    } catch {
+      // Silent fail — user can retry
+    }
+  }, [api, llmConfig, fetchLLMSlotsStatus])
+
+  // Mark config as "clean" when loaded from backend (initial load)
+  const markLLMConfigClean = useCallback(() => {
+    lastSavedRef.current = JSON.stringify(llmConfig)
+    setLlmConfigDirty(false)
+  }, [llmConfig])
 
   // ── Auto-fetch models for pre-configured endpoints ──────────
   useEffect(() => {
@@ -290,6 +329,7 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     testingSlot,
     testResults,
     llmSlotsStatus,
+    llmConfigDirty,
     handleLLMConfigChange,
     handleAddEndpoint,
     handleEditEndpoint,
@@ -300,6 +340,8 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     handleClearTestResult,
     handleDownloadModel,
     handleModeSwitch,
+    saveLLMConfig,
+    markLLMConfigClean,
     fetchLLMSlotsStatus,
   }
 }

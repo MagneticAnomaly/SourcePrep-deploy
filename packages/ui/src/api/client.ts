@@ -148,12 +148,16 @@ export interface ApiClient {
   cancelPipeline(projectId: string, group: string): Promise<{ cancelled: boolean; group: string }>;
   pausePipeline(projectId: string, group: string): Promise<{ paused: boolean; group: string }>;
   resumePipeline(projectId: string, group: string): Promise<{ resumed: boolean; group: string }>;
+  swapPipelineModel(projectId: string, group: string): Promise<{ swapped: boolean; paused_at_stage: string; resumed: boolean }>;
   getPipelineBudget(projectId: string): Promise<{ tokens_used: number; max_tokens: number; window_minutes: number; remaining: number; window_resets_in: number }>;
 
   // Pipeline Crash Protection (Phase 25)
   getCrashedRuns(projectId?: string): Promise<{ crashed_runs: CrashedPipelineRun[]; count: number }>;
   resumeCrashedRun(runId: string): Promise<{ resumed: boolean; run_id: string }>;
   discardCrashedRun(runId: string): Promise<{ discarded: boolean; run_id: string }>;
+
+  // Pipeline Provenance (Phase 49)
+  getPipelineProvenance(projectId: string): Promise<import('../types').PipelineProvenance>;
 
   // Codebase Atlas (Phase 29)
   getAtlas(projectId: string): Promise<import('../types').AtlasStatus>;
@@ -226,6 +230,9 @@ export interface ApiClient {
   getAuditFindings(projectId: string, opts?: { severity?: string; category?: string; limit?: number }): Promise<{ finding_count: number; total_finding_count: number; severity_counts: Record<string, number>; findings: import('../types').AuditFinding[] }>;
   getAuditReports(projectId: string): Promise<{ reports: import('../types').AuditReport[] }>;
   getAuditReport(projectId: string, reportName: string): Promise<{ name: string; content: string; size_bytes: number }>;
+
+  // Spaghetti Finder (Phase 52)
+  getSpaghettiScores(projectId: string, opts?: { tab?: string; limit?: number; refresh?: boolean }): Promise<import('../types').SpaghettiResult>;
 }
 
 export interface ApiClientConfig {
@@ -834,6 +841,13 @@ export class CodragApiClient implements ApiClient {
     });
   }
 
+  async swapPipelineModel(projectId: string, group: string): Promise<{ swapped: boolean; paused_at_stage: string; resumed: boolean }> {
+    return this.requestEnvelope<{ swapped: boolean; paused_at_stage: string; resumed: boolean }>(`/projects/${projectId}/pipeline/swap-model`, {
+      method: 'POST',
+      body: { group },
+    });
+  }
+
   async getPipelineBudget(projectId: string): Promise<{ tokens_used: number; max_tokens: number; window_minutes: number; remaining: number; window_resets_in: number }> {
     return this.requestEnvelope<{ tokens_used: number; max_tokens: number; window_minutes: number; remaining: number; window_resets_in: number }>(`/projects/${projectId}/pipeline/budget`);
   }
@@ -857,6 +871,12 @@ export class CodragApiClient implements ApiClient {
       method: 'POST',
       body: { run_id: runId },
     });
+  }
+
+  // ── Pipeline Provenance (Phase 49) ─────────────────────────────
+
+  async getPipelineProvenance(projectId: string): Promise<import('../types').PipelineProvenance> {
+    return this.requestEnvelope<import('../types').PipelineProvenance>(`/projects/${encodeURIComponent(projectId)}/pipeline/provenance`);
   }
 
   // ── Codebase Atlas (Phase 29) ──────────────────────────────────
@@ -999,6 +1019,17 @@ export class CodragApiClient implements ApiClient {
 
   async getAuditReport(projectId: string, reportName: string): Promise<{ name: string; content: string; size_bytes: number }> {
     return this.requestEnvelope(`/projects/${projectId}/audit/report/${encodeURIComponent(reportName)}`);
+  }
+
+  // ── Spaghetti Finder (Phase 52) ──────────────────────────────
+
+  async getSpaghettiScores(projectId: string, opts?: { tab?: string; limit?: number; refresh?: boolean }): Promise<import('../types').SpaghettiResult> {
+    const params = new URLSearchParams();
+    if (opts?.tab) params.set('tab', opts.tab);
+    if (opts?.limit) params.set('limit', String(opts.limit));
+    if (opts?.refresh) params.set('refresh', 'true');
+    const qs = params.toString();
+    return this.requestEnvelope(`/projects/${projectId}/audit/spaghetti${qs ? `?${qs}` : ''}`);
   }
 
   // ── Compute Nodes (Phase 45D) ─────────────────────────────────

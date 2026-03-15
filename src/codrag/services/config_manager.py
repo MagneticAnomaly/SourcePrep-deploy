@@ -259,7 +259,7 @@ def default_ui_config(config: Dict[str, Any]) -> Dict[str, Any]:
             "mode": "auto",
             "level": "standard",
         },
-        "batch_mode": "auto",
+        "model_context_cache": {},  # {model_name: context_tokens} — auto-populated when models are fetched
         "assignment_blocks": [],  # Phase 44: Mapped mode blocks
     }
 

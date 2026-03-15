@@ -63,6 +63,8 @@ export type {
   GraphEngineConfig,
   KnowledgeEmbeddingStatus,
   AtlasStatus,
+  StageProvenance,
+  PipelineProvenance,
   PipelineStatus,
   PipelineGroupRun,
   CrashedPipelineRun,
@@ -70,7 +72,6 @@ export type {
   SyncStatus,
   ServerStatus,
   ServerMode,
-  BatchMode,
   TeamConfig,
   TeamConfigStatus as TeamConfigStatusType,
 } from './types';
@@ -181,6 +182,11 @@ export type {
 export { AuditPanel } from './components/audit';
 export type { AuditPanelProps } from './components/audit';
 export type { AuditConfig, AuditFinding, AuditStatus, AuditReport, AuditSeverity, AuditCategory } from './types';
+
+// Components - Spaghetti Finder (Phase 52)
+export { SpaghettiFinderPanel } from './components/audit';
+export type { SpaghettiFinderPanelProps } from './components/audit';
+export type { SpaghettiFileScore, SpaghettiResult, SpaghettiTab } from './types';
 export type { SchedulerStatus, SchedulerNodeStatus, ComputeNode, ComputeHardwareProfile } from './types';
 
 // Components - Enterprise (Phase 06)

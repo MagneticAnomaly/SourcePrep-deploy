@@ -437,7 +437,6 @@ def _save_llm_config(cfg: dict, change_source: str = "user") -> None:
             metadata={
                 "source": change_source,
                 "endpoints_count": len(cfg.get("saved_endpoints", [])),
-                "batch_mode": cfg.get("batch_mode"),
             },
         )
     except Exception:
@@ -771,7 +770,7 @@ def get_batch_estimate() -> Dict[str, Any]:
     )
 
     cfg = _get_llm_config()
-    batch_mode_override = cfg.get("batch_mode")
+    context_cache = cfg.get("model_context_cache") or {}
     endpoints = {ep["id"]: ep for ep in cfg.get("saved_endpoints", [])}
 
     def _resolve_slot(slot_cfg: dict) -> Optional[Dict[str, Any]]:
@@ -783,7 +782,9 @@ def get_batch_estimate() -> Dict[str, Any]:
         if not ep:
             return None
         provider = ep.get("provider", "ollama")
-        profile = resolve_profile(provider, model, override=batch_mode_override)
+        ctx = context_cache.get(model)
+        context_tokens = int(ctx) if isinstance(ctx, (int, float)) and ctx > 0 else None
+        profile = resolve_profile(provider, model, context_tokens=context_tokens)
         is_local = profile.name.value == "off"
         return {
             "provider": provider,
@@ -837,7 +838,6 @@ def get_batch_estimate() -> Dict[str, Any]:
                 }
 
     return ok({
-        "batch_mode": batch_mode_override or "auto",
         "slots": slots,
         "file_count": file_count,
         "estimated_calls": estimates,

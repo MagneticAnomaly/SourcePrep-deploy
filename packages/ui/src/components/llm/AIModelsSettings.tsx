@@ -11,7 +11,6 @@ import type {
   SavedEndpoint,
   EndpointTestResult,
   ModelSource,
-  BatchMode,
   AssignmentMode,
   CodragTaskId,
   ComputeNode,
@@ -75,24 +74,9 @@ export interface AIModelsSettingsProps {
   // EA-C10: Admin policy for provider/model restrictions
   adminPolicy?: AdminPolicy | null;
 
-  // Batch estimate for cloud models
-  batchEstimate?: {
-    batch_mode: string;
-    slots: Record<string, {
-      provider: string;
-      model: string;
-      profile_name: string;
-      output_class: string;
-      is_local: boolean;
-      per_stage: Record<string, number>;
-    }>;
-    file_count: number;
-    estimated_calls: Record<string, {
-      batch_size: number;
-      estimated_calls: number;
-      file_count: number;
-    }>;
-  } | null;
+  // Explicit save (P48-F26): config changes are local until Save is clicked
+  configDirty?: boolean;
+  onSave?: () => void;
 }
 
 // Recommended models per slot.
@@ -384,7 +368,8 @@ export function AIModelsSettings({
   assignmentBlockTestResults = {},
   assignmentBlockTesting,
   adminPolicy,
-  batchEstimate,
+  configDirty,
+  onSave,
 }: AIModelsSettingsProps) {
   const savedMode: AssignmentMode = config.assignment_mode ?? 'structured';
   const [draftMode, setDraftMode] = useState<AssignmentMode>(savedMode);
@@ -720,11 +705,14 @@ export function AIModelsSettings({
                 </button>
               </div>
               <button
-                onClick={handleModeSave}
-                disabled={!isDraftDirty}
+                onClick={async () => {
+                  if (isDraftDirty) await handleModeSave();
+                  if (configDirty && onSave) onSave();
+                }}
+                disabled={!isDraftDirty && !configDirty}
                 className={cn(
                   'inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors w-[84px]',
-                  isDraftDirty
+                  (isDraftDirty || configDirty)
                     ? 'bg-primary text-surface hover:bg-primary/90 shadow-sm'
                     : 'bg-transparent text-text-muted cursor-not-allowed opacity-50'
                 )}
@@ -865,77 +853,6 @@ export function AIModelsSettings({
             </div>
           </div>
 
-          {/* Cloud Batch Processing */}
-          <div className="codrag-card rounded-lg border bg-surface border-border p-6 flex flex-col">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-surface-raised text-primary">
-                  <Cloud className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-semibold font-mono text-text">Cloud Processing</h3>
-                    <InfoTooltip content="When using a cloud model (BYOK), CoDRAG batches multiple files per API call for speed and cost savings." href="https://docs.codrag.io/guides/byok-batching" />
-                  </div>
-                  <p className="text-sm text-text-muted">Batch size for cloud API calls</p>
-                </div>
-              </div>
-            </div>
-            <div className="flex-grow space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-text-muted mb-1.5">Batch mode</label>
-                <Select value={config.batch_mode ?? 'standard'} onChange={(e) => onConfigChange({ ...config, batch_mode: e.target.value as BatchMode })} options={[{ value: 'large', label: 'Large — 50–100 items/call' }, { value: 'standard', label: 'Standard — 25–50 items/call' }, { value: 'compact', label: 'Compact — 10–20 items/call' }, { value: 'off', label: 'Off — one item per call' }]} className="w-full" />
-              </div>
-              {/* Batch Estimate Display */}
-              {(() => {
-                const primary = batchEstimate?.slots?.small_model || Object.values(batchEstimate?.slots ?? {})[0];
-                const est = batchEstimate?.estimated_calls;
-                const totalCalls = est ? Object.values(est).reduce((sum, e) => sum + e.estimated_calls, 0) : 0;
-                if (primary && !primary.is_local) {
-                  return (
-                    <div className="rounded border border-primary/20 bg-primary/5 p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-semibold text-primary">Auto-detected: {primary.profile_name.charAt(0).toUpperCase() + primary.profile_name.slice(1)}</p>
-                        <span className="text-[10px] text-text-muted">{primary.output_class}</span>
-                      </div>
-                      <p className="text-[10px] text-text-muted">
-                        Using <strong className="text-text">{primary.model}</strong> via {primary.provider}
-                      </p>
-                      {batchEstimate!.file_count > 0 && est && totalCalls > 0 && (
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-medium text-text-subtle">
-                            ~{totalCalls} API calls for {batchEstimate!.file_count} files across all stages:
-                          </p>
-                          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px] text-text-muted">
-                            {Object.entries(est).map(([stage, info]) => (
-                              <div key={stage} className="flex justify-between">
-                                <span>{stage.replace(/_/g, ' ')}</span>
-                                <span className="text-text-subtle font-mono">{info.estimated_calls} calls ({info.batch_size}/call)</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {batchEstimate!.file_count === 0 && (
-                        <p className="text-[10px] text-text-muted italic">Build a project index to see estimated API calls.</p>
-                      )}
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-
-              <div className="text-xs text-text-muted space-y-1.5">
-                <p className="font-medium text-text">Recommended models</p>
-                <ul className="list-disc pl-4 space-y-1">
-                  <li><strong>Budget:</strong> <code className="text-primary bg-primary-muted/20 px-1 rounded">gpt-4.1-nano</code> — $0.10/$0.40 per 1M tokens (use <em>Standard</em>)</li>
-                  <li><strong>Best value:</strong> <code className="text-primary bg-primary-muted/20 px-1 rounded">gpt-4.1-mini</code> — $0.40/$1.60, 1M context (use <em>Standard</em>)</li>
-                  <li><strong>Cheapest:</strong> <code className="text-primary bg-primary-muted/20 px-1 rounded">gemini-2.5-flash</code> — $0.15/$0.60 (use <em>Compact</em>)</li>
-                  <li><strong>Premium:</strong> <code className="text-primary bg-primary-muted/20 px-1 rounded">claude-sonnet-4.5</code> — $3/$15, 64K output (use <em>Large</em>)</li>
-                </ul>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* ══════ RIGHT COLUMN — conditional content ══════ */}

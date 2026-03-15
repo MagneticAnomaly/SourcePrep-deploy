@@ -501,29 +501,84 @@ def recover_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
 
 @router.post("/license/dev-override")
 def set_dev_tier_override(req: DevTierOverrideRequest) -> Dict[str, Any]:
-    """Set or clear a dev tier override via CODRAG_TIER env var.
+    """Set or clear a dev tier override by writing a real license file.
 
-    This is a development/testing tool — it overrides the effective tier
-    for the running process without modifying the license file on disk.
+    This writes an actual license.json to disk so that every call to
+    get_license() — and therefore every feature gate — works exactly
+    as if a real Pro/Team/Enterprise license were activated.
+    No env vars, no special code paths. It IS the real thing.
+
+    When setting: backs up any existing real license as license.json.real.
+    When clearing: restores the backed-up license (or removes the dev one).
     """
+    import time as _time
+    import shutil
+
+    license_path = Path.home() / ".codrag" / "license.json"
+    backup_path = Path.home() / ".codrag" / "license.json.real"
     allowed = {"free", "pro", "team", "enterprise"}
     tier = (req.tier or "").strip().lower()
 
     if not tier:
-        # Clear override — revert to real license
+        # ── Clear override — restore real license ─────────────────
+        if backup_path.exists():
+            shutil.copy2(str(backup_path), str(license_path))
+            backup_path.unlink()
+            logger.info("Restored real license from backup")
+        elif license_path.exists():
+            try:
+                data = json.loads(license_path.read_text(encoding="utf-8"))
+                if data.get("activation_method") == "dev_override":
+                    license_path.unlink()
+                    logger.info("Removed dev override license")
+            except Exception:
+                pass
+        # Clean up env vars if any were set by older code
         os.environ.pop("CODRAG_TIER", None)
         os.environ.pop("CODRAG_DEV_MODE", None)
+        clear_license_cache()
         logger.info("Cleared dev tier override")
-    else:
-        if tier not in allowed:
-            raise ApiException(
-                status_code=400,
-                code="VALIDATION_ERROR",
-                message=f"Invalid tier: {tier}. Must be one of: {', '.join(sorted(allowed))}",
-            )
-        os.environ["CODRAG_TIER"] = tier
-        os.environ["CODRAG_DEV_MODE"] = "1"
-        logger.info("Set dev tier override: %s", tier)
+        return get_license_status()
+
+    # ── Set override ──────────────────────────────────────────
+    if tier not in allowed:
+        raise ApiException(
+            status_code=400,
+            code="VALIDATION_ERROR",
+            message=f"Invalid tier: {tier}. Must be one of: {', '.join(sorted(allowed))}",
+        )
+
+    # Map user-facing tier to internal tier name
+    _TIER_MAP = {"pro": "perpetual", "starter": "monthly"}
+    internal_tier = _TIER_MAP.get(tier, tier)
+
+    # Back up any existing real license (only if not already a dev override)
+    if license_path.exists() and not backup_path.exists():
+        try:
+            existing = json.loads(license_path.read_text(encoding="utf-8"))
+            if existing.get("activation_method") != "dev_override":
+                shutil.copy2(str(license_path), str(backup_path))
+                logger.info("Backed up real license to %s", backup_path)
+        except Exception:
+            pass
+
+    # Write a real license file — get_license() reads this normally
+    lic_data = {
+        "tier": internal_tier,
+        "valid": True,
+        "seats": 999,
+        "features": [],
+        "activation_method": "dev_override",
+        "activated_at": _time.time(),
+    }
+    license_path.parent.mkdir(parents=True, exist_ok=True)
+    license_path.write_text(json.dumps(lic_data, indent=2), encoding="utf-8")
+
+    # Also set env vars as belt-and-suspenders for any code that
+    # checks os.environ before calling get_license()
+    os.environ["CODRAG_TIER"] = tier
+    os.environ["CODRAG_DEV_MODE"] = "1"
 
     clear_license_cache()
+    logger.info("DEV OVERRIDE: Wrote real license file with tier=%s (%s)", tier, internal_tier)
     return get_license_status()

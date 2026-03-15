@@ -73,6 +73,16 @@ from .atlas import (
     compute_atlas_budget, build_routing_descriptors, route_query,
     ROUTING_SEGMENT_BOOST,
 )
+from .rules_generator import write_rules_file, schedule_rules_regeneration, detect_and_regenerate
+from .stage_manifest import StageManifest, create_stage_manifest, save_stage_manifest, load_stage_manifest
+from .provenance import (
+    get_codrag_version, get_engine_version, get_engine_backend,
+    compute_file_hash, get_file_metadata,
+    aggregate_quality_metrics, aggregate_epistemic_quality,
+    aggregate_model_breakdown,
+    compute_throughput,
+    extract_model_info_from_llm_client, extract_embedding_model_info,
+)
 
 __all__ = [
     "ENGINE",
@@ -125,4 +135,19 @@ __all__ = [
     "create_batch_strategy",
     "detect_profile",
     "resolve_profile",
+    "StageManifest",
+    "create_stage_manifest",
+    "save_stage_manifest",
+    "load_stage_manifest",
+    "get_codrag_version",
+    "get_engine_version",
+    "get_engine_backend",
+    "compute_file_hash",
+    "get_file_metadata",
+    "aggregate_quality_metrics",
+    "aggregate_epistemic_quality",
+    "aggregate_model_breakdown",
+    "compute_throughput",
+    "extract_model_info_from_llm_client",
+    "extract_embedding_model_info",
 ]

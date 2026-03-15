@@ -8,6 +8,7 @@ Endpoints:
   POST /projects/{id}/audit          — Trigger a full audit (Tier 1 + optional Tier 2)
   GET  /projects/{id}/audit/status   — Check audit status / last run metadata
   GET  /projects/{id}/audit/findings — Get raw structured findings
+  GET  /projects/{id}/audit/spaghetti — Per-file refactor urgency scores (Phase 52)
   GET  /projects/{id}/audit/reports  — List generated report documents
   GET  /projects/{id}/audit/report/{name} — Read a specific report
 """
@@ -184,6 +185,66 @@ def get_audit_findings(
         "total_finding_count": result.finding_count,
         "severity_counts": result.severity_counts,
         "findings": [f.to_dict() for f in findings],
+    })
+
+
+@router.get("/projects/{project_id}/audit/spaghetti")
+def get_spaghetti_scores(
+    project_id: str,
+    tab: Optional[str] = Query(None, description="Sort tab: worst, long, coupling, debt"),
+    limit: int = Query(50, ge=1, le=500),
+    refresh: bool = Query(False, description="Force re-score instead of using cached results"),
+) -> Dict[str, Any]:
+    """Get per-file refactor urgency scores (Spaghetti Finder).
+
+    Each file is scored 0.0-1.0 combining static signals (line count,
+    coupling, symbol density) with LLM-derived signals (tech debt,
+    epistemic confidence). Only files above the info threshold (0.30)
+    are returned.
+
+    Tabs control sort order:
+      - worst (default): composite score descending
+      - long: estimated line count descending
+      - coupling: fan_in + fan_out descending
+      - debt: tech_debt_count descending, then low confidence
+    """
+    proj = _srv()._require_project(project_id)
+
+    from codrag.core.project_registry import project_index_dir
+    from codrag.core.audit import load_spaghetti, run_spaghetti_scan, save_spaghetti
+    index_dir = project_index_dir(proj)
+
+    result = None
+    if not refresh:
+        result = load_spaghetti(index_dir)
+
+    if result is None:
+        result = run_spaghetti_scan(index_dir, Path(proj.path))
+        try:
+            save_spaghetti(result, index_dir)
+        except Exception as e:
+            logger.warning("Failed to save spaghetti scores: %s", e)
+
+    files = list(result.files)
+
+    # Apply tab-specific sorting
+    if tab == "long":
+        files.sort(key=lambda f: -f.estimated_lines)
+    elif tab == "coupling":
+        files.sort(key=lambda f: -(f.fan_in + f.fan_out))
+    elif tab == "debt":
+        files.sort(key=lambda f: (-f.tech_debt_count, f.epistemic_confidence))
+    # else: default "worst" — already sorted by composite score
+
+    files = files[:limit]
+
+    return ok({
+        "file_count": result.file_count,
+        "scored_count": result.scored_count,
+        "severity_counts": result.severity_counts,
+        "duration_ms": round(result.duration_ms, 1),
+        "tab": tab or "worst",
+        "files": [f.to_dict() for f in files],
     })
 
 

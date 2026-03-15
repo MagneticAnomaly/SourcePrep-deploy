@@ -350,7 +350,6 @@ export class MockApiClient implements ApiClient {
 
   async getBatchEstimate(): Promise<any> {
     return {
-      batch_mode: 'auto',
       slots: {},
       file_count: 0,
       estimated_calls: {},
@@ -474,6 +473,10 @@ export class MockApiClient implements ApiClient {
     return { resumed: true, group: _group };
   }
 
+  async swapPipelineModel(_projectId: string, _group: string): Promise<{ swapped: boolean; paused_at_stage: string; resumed: boolean }> {
+    return { swapped: true, paused_at_stage: 'enrichment', resumed: true };
+  }
+
   async getPipelineBudget(): Promise<any> {
     return { tokens_used: 0, max_tokens: 0, window_minutes: 5, remaining: -1, window_resets_in: 0 };
   }
@@ -490,6 +493,21 @@ export class MockApiClient implements ApiClient {
 
   async discardCrashedRun(runId: string): Promise<{ discarded: boolean; run_id: string }> {
     return { discarded: true, run_id: runId };
+  }
+
+  // ── Pipeline Provenance (Phase 49) ─────────────────────────────
+
+  async getPipelineProvenance(_projectId: string): Promise<import('../types').PipelineProvenance> {
+    return {
+      current_data: {
+        'trace_nodes.jsonl': { stage_id: 'structural', generated_at: new Date(Date.now() - 86400000 * 3).toISOString(), age_days: 3, elapsed_seconds: 0.4, codrag_version: '0.9.0' },
+        'trace_augmented.jsonl': { stage_id: 'catalogue', model: 'qwen3:14b', provider: 'ollama', generated_at: new Date(Date.now() - 86400000 * 3).toISOString(), age_days: 3, elapsed_seconds: 151, codrag_version: '0.9.0', quality: { avg_confidence: 0.87, success_rate: 0.992, total_items: 247 } },
+        'trace_epistemic.jsonl': { stage_id: 'enrichment', model: 'qwen3.5-27b', provider: 'ollama', generated_at: new Date(Date.now() - 86400000 * 3).toISOString(), age_days: 3, elapsed_seconds: 248, codrag_version: '0.9.0', quality: { avg_confidence: 0.91, success_rate: 1.0, total_items: 247 } },
+        'trace_modules.jsonl': { stage_id: 'clustering', model: 'qwen3.5-27b', provider: 'ollama', generated_at: new Date(Date.now() - 86400000 * 3).toISOString(), age_days: 3, elapsed_seconds: 45, codrag_version: '0.9.0' },
+      },
+      oldest_data_age_days: 3,
+      staleness_warning: false,
+    };
   }
 
   // ── Codebase Atlas (Phase 29) ──────────────────────────────────

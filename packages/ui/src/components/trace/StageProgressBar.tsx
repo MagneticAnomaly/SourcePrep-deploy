@@ -14,11 +14,20 @@ export function StageProgressBar({
   rerun
 }: StageProgressBarProps) {
   if (rerun) {
+    // Rerun mode: green (unchanged/done) + orange (stale being reprocessed).
+    // The orange section fills the ENTIRE remaining space (not transparent).
+    // Transparent bg is only for the initial first-time build.
+    const donePct = Math.min(100, Math.max(0, rerun.donePercent));
+    const stalePct = Math.min(100 - donePct, Math.max(0, rerun.stalePercent));
+    // Within the orange section, show brighter portion for completed work
+    const staleCompletedPct = stalePct * (progress / 100);
+    const stalePendingPct = stalePct - staleCompletedPct;
     return (
       <div className={cn("w-full bg-surface-raised overflow-hidden rounded-full", className)}>
         <div className="h-full flex">
-          <div className="h-full bg-success/80 transition-all duration-300" style={{ width: `${rerun.donePercent}%` }} />
-          <div className="h-full bg-orange-500/80 transition-all duration-300" style={{ width: `${rerun.stalePercent * (progress / 100)}%` }} />
+          <div className="h-full bg-success/80 transition-all duration-300" style={{ width: `${donePct}%` }} />
+          <div className="h-full bg-orange-500 transition-all duration-300" style={{ width: `${staleCompletedPct}%` }} />
+          <div className="h-full bg-orange-500/40 transition-all duration-300" style={{ width: `${stalePendingPct}%` }} />
         </div>
       </div>
     );

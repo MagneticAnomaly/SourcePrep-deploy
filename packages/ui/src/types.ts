@@ -437,6 +437,45 @@ export interface AtlasStatus {
 }
 
 // ============================================================
+// Phase 49 - Process Metadata & Data Provenance
+// ============================================================
+
+/**
+ * Per-stage provenance metadata — which model produced this data, when, and how well.
+ */
+export interface StageProvenance {
+  stage_id: string;
+  model?: string;
+  provider?: string;
+  generated_at?: string;
+  age_days?: number;
+  elapsed_seconds?: number;
+  codrag_version?: string;
+  quality?: {
+    avg_confidence?: number;
+    success_rate?: number;
+    total_items?: number;
+  };
+  /** Present when multiple models contributed to this stage (mid-stage model swap) */
+  model_breakdown?: {
+    model: string;
+    count: number;
+    percentage: number;
+    avg_confidence?: number;
+  }[];
+}
+
+/**
+ * Full pipeline provenance response from GET /projects/{id}/pipeline/provenance
+ */
+export interface PipelineProvenance {
+  current_data: Record<string, StageProvenance>;
+  last_run?: Record<string, unknown>;
+  oldest_data_age_days?: number;
+  staleness_warning?: boolean;
+}
+
+// ============================================================
 // Phase 05 - MCP Types
 // ============================================================
 
@@ -663,12 +702,6 @@ export interface CompressionConfig {
 /**
  * Full LLM configuration
  */
-/**
- * Batch processing mode for BYOK cloud models.
- * 'auto' detects the model and picks the best profile.
- */
-export type BatchMode = 'auto' | 'large' | 'standard' | 'compact' | 'off';
-
 export interface LLMConfig {
   assignment_mode?: AssignmentMode;
   embedding: EmbeddingConfig;
@@ -678,8 +711,9 @@ export interface LLMConfig {
   compression: CompressionConfig;
   saved_endpoints: SavedEndpoint[];
   compute_nodes?: ComputeNode[];
-  batch_mode?: BatchMode;
   assignment_blocks?: LLMAssignmentBlock[];
+  /** Cached context window sizes keyed by model name, auto-populated when models are fetched. */
+  model_context_cache?: Record<string, number>;
 }
 
 /**
@@ -758,6 +792,7 @@ export interface LicenseInfo {
   seats_used?: number;
   seats_total?: number;
   features: string[];
+  activation_method?: string;
 }
 
 /**
@@ -1072,6 +1107,7 @@ export interface LicenseStatus {
     expires_at?: string;
     seats: number;
     features: string[];
+    activation_method?: string;
   };
   features: FeatureAvailability;
 }
@@ -1214,6 +1250,38 @@ export interface AuditReport {
   filename: string;
   size_bytes: number;
 }
+
+// ── Phase 52: Spaghetti Finder Types ─────────────────────────────────
+
+export interface SpaghettiFileScore {
+  file_path: string;
+  score: number;
+  severity: 'critical' | 'warning' | 'info';
+  estimated_lines: number;
+  fan_in: number;
+  fan_out: number;
+  symbol_count: number;
+  tech_debt_count: number;
+  tech_debt_items?: string[];
+  epistemic_confidence?: number;
+  in_circular?: boolean;
+  language: string;
+  role: string;
+  module_name: string;
+  summary?: string;
+  signals?: Record<string, number>;
+}
+
+export interface SpaghettiResult {
+  file_count: number;
+  scored_count: number;
+  severity_counts: Record<string, number>;
+  duration_ms: number;
+  tab: string;
+  files: SpaghettiFileScore[];
+}
+
+export type SpaghettiTab = 'worst' | 'long' | 'coupling' | 'debt';
 
 // ── EA-C1: Admin Policy Types ────────────────────────────────────────
 

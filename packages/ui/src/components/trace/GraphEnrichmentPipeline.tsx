@@ -7,7 +7,7 @@ import {
   GitBranch, Brain, ShieldCheck, Play, AlertTriangle, CheckCircle2,
   Circle, Clock, Loader2, Layers, Network, Database, Trash2, Code2, Map, Eye, Pause
 } from 'lucide-react';
-import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, InferredEdgesStatus, AtlasStatus } from '../../types';
+import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, InferredEdgesStatus, AtlasStatus, StageProvenance } from '../../types';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -65,8 +65,12 @@ export interface GraphEnrichmentPipelineProps {
   onPausePipeline?: (group: 'fast_sync' | 'deep_enrichment') => void;
   /** Resume a paused pipeline group */
   onResumePipeline?: (group: 'fast_sync' | 'deep_enrichment') => void;
-  /** True if the pipeline is in a paused state (error === 'Paused by user') */
+  /** @deprecated Use fastPaused/deepPaused instead */
   isPaused?: boolean;
+  /** True if the fast sync group is paused */
+  fastPaused?: boolean;
+  /** True if the deep enrichment group is paused */
+  deepPaused?: boolean;
   augmenting?: boolean;
   validating?: boolean;
   deepAnalyzing?: boolean;
@@ -91,6 +95,8 @@ export interface GraphEnrichmentPipelineProps {
   inactive?: boolean;
   /** Stale file counts for rerun visualization */
   staleCounts?: { total: number; stale: number };
+  /** Phase 49: per-stage provenance data keyed by output filename or stage_id */
+  provenance?: Record<string, StageProvenance>;
   className?: string;
 }
 
@@ -107,6 +113,100 @@ interface EnrichmentStage {
   duration?: string;
   /** For rerunning state: ratio of done vs stale files (0-100 each) */
   rerun?: { donePercent: number; stalePercent: number };
+  /** Phase 49: provenance metadata for this stage */
+  provenance?: StageProvenance;
+}
+
+// ── Phase 49: Provenance Helpers ─────────────────────────────────
+
+const STAGE_OUTPUT_KEY: Record<EnrichmentStageId, string | null> = {
+  structural:      'trace_nodes.jsonl',
+  inferred_edges:  'trace_inferred_edges.jsonl',
+  catalogue:       'trace_augmented.jsonl',
+  validation:      null,
+  knowledge:       null,
+  enrichment:      'trace_epistemic.jsonl',
+  group_reasoning: 'trace_group_reasoning.jsonl',
+  clustering:      'trace_modules.jsonl',
+  atlas:           null,
+  deepening:       'trace_epistemic.jsonl',
+  deep_knowledge:  null,
+};
+
+function lookupProvenance(
+  stageId: EnrichmentStageId,
+  data?: Record<string, StageProvenance>,
+): StageProvenance | undefined {
+  if (!data) return undefined;
+  // Primary: API keys by stage_id (e.g. "catalogue", "enrichment")
+  if (data[stageId]) return data[stageId];
+  // Fallback: try output file key (backward compat with older API responses)
+  const fileKey = STAGE_OUTPUT_KEY[stageId];
+  if (fileKey && data[fileKey]) return data[fileKey];
+  // Last resort: match by stage_id field inside any entry
+  for (const v of Object.values(data)) {
+    if (v.stage_id === stageId) return v;
+  }
+  return undefined;
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds < 1) return '<1s';
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return s > 0 ? `${m}m ${s}s` : `${m}m`;
+}
+
+function formatRelativeDate(iso: string): string {
+  const d = new Date(iso);
+  const now = Date.now();
+  const days = (now - d.getTime()) / 86400000;
+  if (days < 1) return 'today';
+  if (days < 2) return 'yesterday';
+  if (days < 7) return `${Math.round(days)}d ago`;
+  if (days < 30) return `${Math.round(days / 7)}w ago`;
+  if (days < 365) return `${Math.round(days / 30)}mo ago`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+const EMBEDDING_STAGES: Set<EnrichmentStageId> = new Set(['knowledge', 'deep_knowledge']);
+const RUST_STAGES: Set<EnrichmentStageId> = new Set(['structural', 'validation']);
+
+function formatProvenanceLine(p: StageProvenance): string {
+  const parts: string[] = [];
+  if (p.model_breakdown && p.model_breakdown.length > 1) {
+    // Multi-model: show split (e.g. "qwen3:14b (60%) + qwen3:8b (40%)")
+    const sorted = [...p.model_breakdown].sort((a, b) => b.count - a.count);
+    if (sorted.length === 2) {
+      parts.push(`${sorted[0].model} (${sorted[0].percentage}%) + ${sorted[1].model} (${sorted[1].percentage}%)`);
+    } else {
+      parts.push(`${sorted[0].model} (${sorted[0].percentage}%) + ${sorted[1].model} (${sorted[1].percentage}%) +${sorted.length - 2} more`);
+    }
+  } else if (p.model) {
+    parts.push(p.provider ? `${p.model} via ${p.provider}` : p.model);
+  } else {
+    // Pick the right label based on stage type
+    const sid = p.stage_id as EnrichmentStageId;
+    if (EMBEDDING_STAGES.has(sid)) {
+      parts.push('native embedder');
+    } else if (RUST_STAGES.has(sid)) {
+      parts.push('rust engine');
+    } else {
+      parts.push('built-in');
+    }
+  }
+  if (p.elapsed_seconds != null) parts.push(formatDuration(p.elapsed_seconds));
+  if (p.generated_at) parts.push(formatRelativeDate(p.generated_at));
+  if (p.codrag_version) parts.push(`v${p.codrag_version}`);
+  return parts.join(' \u00b7 ') || 'No run data';
+}
+
+function isStaleAge(ageDays?: number): 'none' | 'warn' | 'old' {
+  if (!ageDays) return 'none';
+  if (ageDays > 90) return 'old';
+  if (ageDays > 30) return 'warn';
+  return 'none';
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -181,6 +281,11 @@ function computeValidationState(
   
   // Validation runs after catalogue (augmentation)
   if (!aug || !aug.enabled || aug.augmented_nodes === 0) return 'disabled';
+  
+  // Catalogue must be substantially complete before validation can run.
+  // If less than 50% of nodes are augmented, catalogue is still in progress
+  // (possibly paused with partial checkpoint data).
+  if (aug.total_nodes > 0 && aug.augmented_nodes < aug.total_nodes * 0.5) return 'disabled';
   
   // Since the current Rust validation is a fast pass-through that runs immediately
   // after catalogue in the Fast Sync pipeline, if we are here (catalogue done),
@@ -366,12 +471,14 @@ function StageRow({
   stage, 
   isPaused,
   onPause,
-  onResume
+  onResume,
+  showDetails = false,
 }: { 
   stage: EnrichmentStage;
   isPaused: boolean;
   onPause?: (group: "fast_sync" | "deep_enrichment") => void;
   onResume?: (group: "fast_sync" | "deep_enrichment") => void;
+  showDetails?: boolean;
 }) {
   const s = STATE_STYLES[stage.state];
   const [hovered, setHovered] = useState(false);
@@ -471,6 +578,24 @@ function StageRow({
             </p>
           )
         )}
+
+        {/* Phase 49: Detail line — provenance metadata */}
+        {/* Only show for stages that have actually completed (not disabled/waiting/not_built/running) */}
+        {showDetails && stage.provenance && (stage.state === 'complete' || stage.state === 'stale' || stage.state === 'warning') && (
+          <p className={cn(
+            "text-[9px] truncate leading-tight mt-0.5",
+            isStaleAge(stage.provenance.age_days) === 'old' ? 'text-red-400/70' :
+            isStaleAge(stage.provenance.age_days) === 'warn' ? 'text-amber-400/70' :
+            'text-text-subtle'
+          )}>
+            {formatProvenanceLine(stage.provenance)}
+          </p>
+        )}
+        {showDetails && !stage.provenance && (stage.state === 'complete' || stage.state === 'stale' || stage.state === 'warning') && (
+          <p className="text-[9px] text-text-subtle/50 truncate leading-tight mt-0.5">
+            No run data
+          </p>
+        )}
       </div>
     </div>
   );
@@ -519,8 +644,25 @@ export function GraphEnrichmentPipeline({
   onPausePipeline,
   onResumePipeline,
   isPaused = false,
+  fastPaused: fastPausedProp,
+  deepPaused: deepPausedProp,
+  provenance,
   className,
 }: GraphEnrichmentPipelineProps) {
+  // Per-group paused flags (fall back to legacy isPaused for backward compat)
+  const fastPaused = fastPausedProp ?? isPaused;
+  const deepPaused = deepPausedProp ?? isPaused;
+
+  // ── Phase 49: Details toggle (persisted to localStorage) ──────
+  const [showDetails, setShowDetails] = useState(() => {
+    try { return localStorage.getItem('codrag_pipeline_details') === 'true'; }
+    catch { return false; }
+  });
+  const toggleDetails = () => {
+    const next = !showDetails;
+    setShowDetails(next);
+    try { localStorage.setItem('codrag_pipeline_details', String(next)); } catch {}
+  };
 
   // ── Fade-in when transitioning from hero/building → pipeline ──
   const [fadeIn, setFadeIn] = useState(false);
@@ -747,6 +889,11 @@ export function GraphEnrichmentPipeline({
     },
   ];
 
+  // ── Phase 49: inject provenance into each stage ─────────
+  for (const stage of [...fastStages, ...deepStages]) {
+    stage.provenance = lookupProvenance(stage.id, provenance);
+  }
+
   // ── Group running state ──────────────────────────────────
   const fastRunning = fastStages.some(s => s.state === 'running');
   const deepRunning = deepStages.some(s => s.state === 'running');
@@ -821,7 +968,7 @@ export function GraphEnrichmentPipeline({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {isPaused && onResumePipeline && !fastRunning && (
+          {fastPaused && onResumePipeline && !fastRunning && (
             <button
               onClick={() => onResumePipeline('fast_sync')}
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
@@ -831,7 +978,7 @@ export function GraphEnrichmentPipeline({
               Resume
             </button>
           )}
-          {!fastAuto && onRunFastSync && !isPaused && (
+          {!fastAuto && onRunFastSync && !fastPaused && (
             <button
               onClick={inactive ? undefined : onRunFastSync}
               disabled={fastRunning || limitReached || inactive}
@@ -859,14 +1006,21 @@ export function GraphEnrichmentPipeline({
         </div>
       </div>
       <div className="flex flex-col gap-0.5 ml-1">
-        {fastStages.map((stage) => (
-          <StageRow
-            key={stage.id}
-            stage={stage}
-            isPaused={isPaused}
-            onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
-          />
-        ))}
+        {fastStages.map((stage, idx) => {
+          // When paused, only the first non-complete stage is the paused one
+          const isStagePaused = !!(fastPaused && !fastRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
+            fastStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
+          return (
+            <StageRow
+              key={stage.id}
+              stage={stage}
+              isPaused={isStagePaused}
+              onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
+              onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('fast_sync') : undefined}
+              showDetails={showDetails}
+            />
+          );
+        })}
       </div>
 
       {/* Divider between groups */}
@@ -876,7 +1030,7 @@ export function GraphEnrichmentPipeline({
       <div className="flex items-center justify-between py-1.5 px-1">
         <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Deep Enrichment</span>
         <div className="flex items-center gap-2">
-          {isPaused && onResumePipeline && !deepRunning && (
+          {deepPaused && onResumePipeline && !deepRunning && (
             <button
               onClick={() => onResumePipeline('deep_enrichment')}
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
@@ -886,7 +1040,7 @@ export function GraphEnrichmentPipeline({
               Resume
             </button>
           )}
-          {deepMode === 'manual' && onRunDeepEnrichment && !(isPaused && !deepRunning) && (
+          {deepMode === 'manual' && onRunDeepEnrichment && !(deepPaused && !deepRunning) && (
             <button
               onClick={inactive ? undefined : onRunDeepEnrichment}
               disabled={deepRunning || limitReached || inactive}
@@ -902,7 +1056,7 @@ export function GraphEnrichmentPipeline({
               )}
             >
               <Play className="w-3.5 h-3.5" />
-              {deepRunning ? 'Running…' : isPaused ? 'Paused' : 'Run'}
+              {deepRunning ? 'Running…' : deepPaused ? 'Paused' : 'Run'}
             </button>
           )}
           {onOpenDeepSettings && deepMode === 'scheduled' && (
@@ -926,7 +1080,7 @@ export function GraphEnrichmentPipeline({
       <div className="flex flex-col gap-0.5 ml-1">
         {deepStages.map((stage, idx) => {
           // When paused, the paused stage is the first non-complete stage after completed ones
-          const isStagePaused = !!(isPaused && !deepRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
+          const isStagePaused = !!(deepPaused && !deepRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
             deepStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
           return (
             <StageRow
@@ -935,6 +1089,7 @@ export function GraphEnrichmentPipeline({
               onPause={onPausePipeline ? () => onPausePipeline('deep_enrichment') : undefined}
               onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('deep_enrichment') : undefined}
               isPaused={isStagePaused}
+              showDetails={showDetails}
             />
           );
         })}
@@ -944,7 +1099,20 @@ export function GraphEnrichmentPipeline({
       <div className="pt-3 border-t border-border">
         <div className="flex items-center justify-between text-[10px] text-text-muted">
           <span>Overall Health</span>
-          <span>{roundedProgress}% Complete ({completedStages}/{allStates.length} stages)</span>
+          <div className="flex items-center gap-2">
+            <span>{roundedProgress}% ({completedStages}/{allStates.length})</span>
+            <button
+              onClick={toggleDetails}
+              className={cn(
+                "text-[9px] px-1.5 py-0.5 rounded border transition-colors",
+                showDetails
+                  ? "bg-primary/10 border-primary/30 text-primary"
+                  : "bg-surface-raised border-border text-text-subtle hover:text-text"
+              )}
+            >
+              Details
+            </button>
+          </div>
         </div>
         <StageProgressBar 
           progress={roundedProgress} 

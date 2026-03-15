@@ -18,9 +18,23 @@ from codrag.services.build_orchestrator import (
     build_orchestrator,
 )
 
-from .stages import StageId, STAGE_TASK_ID, STAGE_MODEL_SLOT
+from .stages import (
+    StageId, STAGE_TASK_ID, STAGE_MODEL_SLOT,
+    STAGE_MANIFEST_FILE, STAGE_OUTPUT_FILE, STAGE_CONFIDENCE_FIELD,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _capture_model_info(llm_client) -> Dict[str, Any]:
+    """Extract model provenance info from an LLMClient for manifest writing."""
+    if llm_client is None:
+        return {}
+    try:
+        from codrag.core.provenance import extract_model_info_from_llm_client
+        return extract_model_info_from_llm_client(llm_client)
+    except Exception:
+        return {"model_name": getattr(llm_client, "model", "unknown")}
 
 
 class PipelineRunPhase(str, enum.Enum):
@@ -184,33 +198,31 @@ class WorkerFactory:
 
     @staticmethod
     def _get_batch_profile(llm_client):
-        """Detect the batch profile for an LLM client, respecting user override.
+        """Detect the batch profile for an LLM client.
 
         Resolution order:
-        1. Explicit user override (batch_mode in llm_config)
-        2. Context-window-based detection (from saved model_details)
-        3. Regex-based model name detection (fallback)
+        1. Context-window-based detection (from persisted model_context_cache)
+        2. Regex-based model name detection (fallback)
         """
         try:
             from codrag.core.batch_profiles import resolve_profile
             from codrag.server import _load_ui_config
             ui_cfg = _load_ui_config()
             llm_cfg = ui_cfg.get("llm_config") or {}
-            override = llm_cfg.get("batch_mode")
 
-            # Look up context_tokens from saved model_details cache
+            # Look up context_tokens from persisted model_context_cache
             context_tokens = None
             try:
-                model_details = llm_cfg.get("model_details") or {}
-                detail = model_details.get(llm_client.model)
-                if detail and isinstance(detail, dict):
-                    context_tokens = detail.get("context_tokens")
+                cache = llm_cfg.get("model_context_cache") or {}
+                ctx = cache.get(llm_client.model)
+                if isinstance(ctx, (int, float)) and ctx > 0:
+                    context_tokens = int(ctx)
             except Exception:
                 pass
 
             return resolve_profile(
                 llm_client.provider, llm_client.model,
-                override=override, context_tokens=context_tokens,
+                context_tokens=context_tokens,
             )
         except Exception:
             return None
@@ -254,6 +266,7 @@ class WorkerFactory:
             )
             log_cb = WorkerFactory._logged_progress("Structural", progress_cb, project.name)
             logger.info("[%s/Structural] Starting trace build", project.name)
+            _t0 = time.time()
             builder.build(progress_callback=log_cb)
 
             trace_idx = TraceIndex(idx_dir)
@@ -276,7 +289,11 @@ class WorkerFactory:
                 except Exception:
                     pass  # Non-fatal: frontend also sets this
 
-            return {"stage": "structural", "nodes": trace_idx.node_count()}
+            return {
+                "stage": "structural",
+                "nodes": trace_idx.node_count(),
+                "_stage_timing": {"started_at": _t0, "elapsed": time.time() - _t0},
+            }
         return worker
 
     @staticmethod
@@ -308,6 +325,7 @@ class WorkerFactory:
             if pfl and batch_profile:
                 pfl.log("inferred_edges", f"Batch profile: {batch_profile.name.value}")
 
+            _t0 = time.time()
             logger.info("[%s/Edge Discovery] Starting: model=%s", project.name, llm_client.model)
             log_cb = WorkerFactory._logged_progress("Edge Discovery", progress_cb, project.name)
             analyzer = InferredEdgesAnalyzer(
@@ -337,6 +355,8 @@ class WorkerFactory:
                 "stage": "inferred_edges",
                 "files_analyzed": result.files_analyzed,
                 "edges_written": result.edges_written,
+                "_model_info": _capture_model_info(llm_client),
+                "_stage_timing": {"started_at": _t0, "elapsed": time.time() - _t0},
             }
         return worker
 
@@ -347,8 +367,14 @@ class WorkerFactory:
             from codrag.core.project_registry import project_index_dir
 
             project, *_ = WorkerFactory._get_project_and_config(project_id)
-            llm_client = WorkerFactory._get_llm_client_for_task("catalogue")
             idx_dir = project_index_dir(project)
+
+            try:
+                llm_client = WorkerFactory._get_llm_client_for_task("catalogue")
+            except RuntimeError:
+                logger.info("[Fast Catalogue] No model available for catalogue task — skipping")
+                progress_cb("Skipped (no LLM configured)", 1, 1)
+                return {"stage": "catalogue", "skipped": True, "reason": "no_llm"}
 
             batch_profile = WorkerFactory._get_batch_profile(llm_client)
 
@@ -360,6 +386,7 @@ class WorkerFactory:
             except Exception:
                 pfl = None
 
+            _t0 = time.time()
             logger.info("[%s/Fast Catalogue] Starting: model=%s", project.name, llm_client.model)
             log_cb = WorkerFactory._logged_progress("Fast Catalogue", progress_cb, project.name)
             augmenter = TraceAugmenter(
@@ -384,7 +411,16 @@ class WorkerFactory:
                     "coverage_pct": round((result.augmented + result.synthetic) / result.total_nodes * 100, 1) if result.total_nodes else 0,
                     "duration_ms": result.duration_ms,
                 })
-            return {"stage": "catalogue", "augmented": result.augmented}
+            return {
+                "stage": "catalogue",
+                "augmented": result.augmented,
+                "total_nodes": result.total_nodes,
+                "failed": result.failed,
+                "skipped": result.skipped,
+                "synthetic": result.synthetic,
+                "_model_info": _capture_model_info(llm_client),
+                "_stage_timing": {"started_at": _t0, "elapsed": time.time() - _t0},
+            }
         return worker
 
     @staticmethod
@@ -398,11 +434,16 @@ class WorkerFactory:
             project, *_ = WorkerFactory._get_project_and_config(project_id)
             trace_idx = build_manager.get_project_trace_index(project)
 
+            _t0 = time.time()
             logger.info("[%s/Validation] Starting relationship validation", project.name)
             progress_cb("Validating relationships", 0, 1)
             progress_cb("Validation complete", 1, 1)
             logger.info("[%s/Validation] Complete — trace exists=%s", project.name, trace_idx.exists())
-            return {"stage": "validation", "exists": trace_idx.exists()}
+            return {
+                "stage": "validation",
+                "exists": trace_idx.exists(),
+                "_stage_timing": {"started_at": _t0, "elapsed": time.time() - _t0},
+            }
         return worker
 
     @staticmethod
@@ -411,12 +452,17 @@ class WorkerFactory:
             from codrag.services.build_manager import build_manager
 
             project, *_ = WorkerFactory._get_project_and_config(project_id)
+            _t0 = time.time()
             logger.info("[%s/Knowledge Embedding] Starting", project.name)
             log_cb = WorkerFactory._logged_progress("Knowledge Embedding", progress_cb, project.name)
             idx = build_manager.get_project_knowledge_index(project)
             result = idx.build(progress_callback=log_cb)
             logger.info("[%s/Knowledge Embedding] Complete", project.name)
-            return {"stage": "knowledge", **(result or {})}
+            return {
+                "stage": "knowledge",
+                **(result or {}),
+                "_stage_timing": {"started_at": _t0, "elapsed": time.time() - _t0},
+            }
         return worker
 
     @staticmethod
@@ -427,8 +473,14 @@ class WorkerFactory:
             from pathlib import Path
 
             project, *_ = WorkerFactory._get_project_and_config(project_id)
-            llm_client = WorkerFactory._get_llm_client_for_task("enrichment")
             idx_dir = project_index_dir(project)
+
+            try:
+                llm_client = WorkerFactory._get_llm_client_for_task("enrichment")
+            except RuntimeError:
+                logger.info("[Deep Reasoning] No model available for enrichment task — skipping")
+                progress_cb("Skipped (no LLM configured)", 1, 1)
+                return {"stage": "enrichment", "skipped": True, "reason": "no_llm"}
 
             # Verbose pipeline file logging
             try:
@@ -442,6 +494,7 @@ class WorkerFactory:
             if pfl and batch_profile:
                 pfl.log("enrichment", f"Batch profile: {batch_profile.name.value}")
 
+            _t0 = time.time()
             logger.info("[%s/Deep Reasoning] Starting: model=%s", project.name, llm_client.model)
             log_cb = WorkerFactory._logged_progress("Deep Reasoning", progress_cb, project.name)
             enricher = EpistemicEnricher(
@@ -475,7 +528,12 @@ class WorkerFactory:
                     f"Epistemic enrichment failed: 0 enriched, {failed} failed. "
                     "Check model availability, timeout settings, and num_predict."
                 )
-            return {"stage": "enrichment", **(result or {})}
+            return {
+                "stage": "enrichment",
+                **(result or {}),
+                "_model_info": _capture_model_info(llm_client),
+                "_stage_timing": {"started_at": _t0, "elapsed": time.time() - _t0},
+            }
         return worker
 
     @staticmethod
@@ -485,9 +543,16 @@ class WorkerFactory:
             from codrag.core.project_registry import project_index_dir
 
             project, *_ = WorkerFactory._get_project_and_config(project_id)
-            llm_client = WorkerFactory._get_llm_client_for_task("group_reasoning")
             idx_dir = project_index_dir(project)
 
+            try:
+                llm_client = WorkerFactory._get_llm_client_for_task("group_reasoning")
+            except RuntimeError:
+                logger.info("[Group Reasoning] No model available for group_reasoning task — skipping")
+                progress_cb("Skipped (no LLM configured)", 1, 1)
+                return {"stage": "group_reasoning", "skipped": True, "reason": "no_llm"}
+
+            _t0 = time.time()
             logger.info("[%s/Group Reasoning] Starting: model=%s", project.name, llm_client.model)
             log_cb = WorkerFactory._logged_progress("Group Reasoning", progress_cb, project.name)
             engine = GroupReasoningEngine(llm=llm_client, index_dir=idx_dir)
@@ -498,7 +563,12 @@ class WorkerFactory:
                 "[%s/Group Reasoning] Complete — %d analyzed, %d reused, %d failed",
                 project.name, analyzed, result.get("reused", 0), failed,
             )
-            return {"stage": "group_reasoning", **(result or {})}
+            return {
+                "stage": "group_reasoning",
+                **(result or {}),
+                "_model_info": _capture_model_info(llm_client),
+                "_stage_timing": {"started_at": _t0, "elapsed": time.time() - _t0},
+            }
         return worker
 
     @staticmethod
@@ -508,17 +578,29 @@ class WorkerFactory:
             from codrag.core.project_registry import project_index_dir
 
             project, *_ = WorkerFactory._get_project_and_config(project_id)
-            llm_client = WorkerFactory._get_llm_client_for_task("clustering")
             idx_dir = project_index_dir(project)
+
+            try:
+                llm_client = WorkerFactory._get_llm_client_for_task("clustering")
+            except RuntimeError:
+                logger.info("[Module Synthesis] No model available for clustering task — skipping")
+                progress_cb("Skipped (no LLM configured)", 1, 1)
+                return {"stage": "clustering", "skipped": True, "reason": "no_llm"}
 
             batch_profile = WorkerFactory._get_batch_profile(llm_client)
 
+            _t0 = time.time()
             logger.info("[%s/Module Synthesis] Starting: model=%s", project.name, llm_client.model)
             log_cb = WorkerFactory._logged_progress("Module Synthesis", progress_cb, project.name)
             synthesizer = ClusterSynthesizer(llm=llm_client, index_dir=idx_dir, batch_profile=batch_profile)
             result = synthesizer.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             logger.info("[%s/Module Synthesis] Complete", project.name)
-            return {"stage": "clustering", **(result or {})}
+            return {
+                "stage": "clustering",
+                **(result or {}),
+                "_model_info": _capture_model_info(llm_client),
+                "_stage_timing": {"started_at": _t0, "elapsed": time.time() - _t0},
+            }
         return worker
 
     @staticmethod
@@ -540,6 +622,7 @@ class WorkerFactory:
             except RuntimeError:
                 llm_client = None
 
+            _t0 = time.time()
             logger.info("[%s/Atlas] Starting atlas generation", project.name)
             log_cb = WorkerFactory._logged_progress("Atlas", progress_cb, project.name)
             atlas = CodebaseAtlas(idx_dir, llm=llm_client, project_root=Path(project.path))
@@ -580,6 +663,8 @@ class WorkerFactory:
                 logger.info("[Atlas] Routing generation skipped: %s", e)
                 result["routing_segments"] = 0
 
+            result["_model_info"] = _capture_model_info(llm_client) if llm_client else {}
+            result["_stage_timing"] = {"started_at": _t0, "elapsed": time.time() - _t0}
             return result
         return worker
 
@@ -591,14 +676,21 @@ class WorkerFactory:
             from pathlib import Path
 
             project, *_ = WorkerFactory._get_project_and_config(project_id)
-            llm_client = WorkerFactory._get_llm_client_for_task("deepening")
             idx_dir = project_index_dir(project)
+
+            try:
+                llm_client = WorkerFactory._get_llm_client_for_task("deepening")
+            except RuntimeError:
+                logger.info("[Deepening] No model available for deepening task — skipping")
+                progress_cb("Skipped (no LLM configured)", 1, 1)
+                return {"stage": "deepening", "skipped": True, "reason": "no_llm"}
 
             enricher = EpistemicEnricher(
                 llm=llm_client,
                 repo_root=Path(project.path),
                 index_dir=idx_dir,
             )
+            _t0 = time.time()
             logger.info("[%s/Deepening] Starting deepening loop: model=%s", project.name, llm_client.model)
             log_cb = WorkerFactory._logged_progress("Deepening", progress_cb, project.name)
             loop = DeepeningLoop(
@@ -616,6 +708,8 @@ class WorkerFactory:
                 "stage": "deepening",
                 "iterations": result.iterations,
                 "converged": bool(result.convergence),
+                "_model_info": _capture_model_info(llm_client),
+                "_stage_timing": {"started_at": _t0, "elapsed": time.time() - _t0},
             }
         return worker
 

@@ -116,6 +116,9 @@ class MCPServer:
         self._resolved_project_id: Optional[str] = None
         self._resolved_project_cwd: Optional[str] = None
         self._initialize_roots: List[str] = []
+        self._client_name: str = "unknown"      # Phase 50: set by handle_initialize
+        self._client_version: str = ""           # Phase 50: set by handle_initialize
+        self._codrag_called: bool = False        # Phase 50 Sprint 3: nudge tracker
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -350,7 +353,7 @@ class MCPServer:
 
         # No match — return actionable error with full project list
         msg = (
-            "PROJECT_SELECTION_AMBIGUOUS: Could not determine which project to use.\n"
+            "PROJECT_SELECTION_AMBIGUOUS: Could not automatically determine which project to use.\n"
             f"cwd: {cwd}\n"
         )
         if self._initialize_roots:
@@ -358,7 +361,9 @@ class MCPServer:
         msg += (
             "\nAvailable projects:\n"
             + _project_lines()
-            + "\n\nHint: Pass project_id in the tool call to target a specific project."
+            + "\n\nACTION REQUIRED: You must explicitly specify which project to use. "
+            "Look at the 'Available projects' list above, find the project whose path matches the codebase you are currently working in, "
+            "and call THIS EXACT SAME tool again, but this time include the 'project_id' parameter with the correct ID."
         )
         raise ProjectSelectionAmbiguousError(msg)
 
@@ -458,6 +463,7 @@ class MCPServer:
             raise InvalidParamsError("compression_level must be 'light', 'standard', or 'aggressive'")
 
         project_id = await self._resolve_project_id(override=project_override)
+        # OPP-W3: Request augmented summaries alongside source content
         payload: Dict[str, Any] = {
             "query": query,
             "k": k,
@@ -475,14 +481,49 @@ class MCPServer:
             payload["exclude_paths"] = list(exclude_paths)
 
         data = await self._api_post(f"/projects/{project_id}/context", payload)
-        return self._format_context_response(project_id, data)
+        result = self._format_context_response(project_id, data)
+
+        # Phase 50 Sprint 3: Markdown output for search results.
+        context_str = result.get("context", "")
+
+        # OPP-W2: Per-subsystem deep dive. If search results cluster in
+        # a specific directory, try to include a brief subsystem orientation.
+        subsystem_hint = ""
+        if isinstance(data, dict):
+            sources = data.get("sources", [])
+            if isinstance(sources, list) and sources:
+                # Detect dominant directory from source paths
+                dir_counts: Dict[str, int] = {}
+                for src in sources:
+                    path = src.get("file_path", "") if isinstance(src, dict) else ""
+                    if "/" in path:
+                        top_dir = path.split("/")[0]
+                        dir_counts[top_dir] = dir_counts.get(top_dir, 0) + 1
+                if dir_counts:
+                    top_dir, top_count = max(dir_counts.items(), key=lambda x: x[1])
+                    # If >60% of results are in one directory, add subsystem hint
+                    if top_count >= len(sources) * 0.6 and top_count >= 2:
+                        subsystem_hint = f"\n[Subsystem focus: {top_dir}/ -- {top_count}/{len(sources)} results in this area]\n"
+
+        if context_str:
+            result["_to_markdown"] = subsystem_hint + context_str if subsystem_hint else context_str
+        else:
+            result["_to_markdown"] = f"No results found for: {query}"
+
+        return result
 
     async def tool_context(
         self,
         max_chars: int = 12000,
         project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Ambient context assembly — no query needed."""
+        """Ambient context assembly — no query needed.
+
+        Phase 50 ISSUE-3: If the index hasn't been built yet, returns a
+        helpful onboarding response (isError=False) instead of an error.
+        This prevents the AI from learning to avoid CoDRAG after a failed
+        first attempt.
+        """
         try:
             max_chars = int(max_chars)
         except Exception:
@@ -493,17 +534,65 @@ class MCPServer:
             raise InvalidParamsError(f"max_chars too large (max {MAX_CONTEXT_CHARS})")
 
         project_id = await self._resolve_project_id(override=project_override)
+        # OPP-W1: Request extended atlas in tool response. The compact atlas
+        # is always-on in rules files (~300 tok). The extended atlas (~2-4K tok)
+        # is only included when the AI explicitly calls codrag, taking advantage
+        # of larger context windows (200K+ tokens in modern models).
         payload: Dict[str, Any] = {
             "query": "",
             "max_chars": max_chars,
+            "include_atlas": True,
         }
-        data = await self._api_post(f"/projects/{project_id}/context", payload)
+
+        try:
+            data = await self._api_post(f"/projects/{project_id}/context", payload)
+        except IndexNotReadyError:
+            # Phase 50 ISSUE-3: Graceful first-run response.
+            setup_md = (
+                "## CoDRAG (setup in progress)\n\n"
+                "The codebase index hasn't been built yet. "
+                "CoDRAG needs to scan your code before it can provide structural context.\n\n"
+                "To build the index:\n"
+                "1. Open the CoDRAG dashboard (http://localhost:8400)\n"
+                "2. Click 'Rebuild Knowledge Base'\n"
+                "-- OR run: codrag build\n\n"
+                "Once built, call `codrag` again for module structure, hub files, "
+                "and structural relationships.\n\n"
+                "For now, work with the code directly using read_file and grep_search."
+            )
+            return {
+                "project_id": project_id,
+                "setup_in_progress": True,
+                "_to_markdown": setup_md,
+            }
+
         result = self._format_context_response(project_id, data)
         # Add ambient-specific metadata
         if isinstance(data, dict):
             for key in ("ambient", "hub_files", "modules_in_scope", "neighbor_files"):
                 if key in data:
                     result[key] = data[key]
+
+        # Phase 50 Sprint 3: Build markdown version for AI consumption.
+        # The "context" field already contains formatted text blocks from
+        # the backend (_assemble_ambient_context). We wrap it with a
+        # header + health footer for better AI readability.
+        context_str = result.get("context", "")
+        hub_count = result.get("hub_files", 0)
+        mod_count = result.get("modules_in_scope", 0)
+        neighbor_count = result.get("neighbor_files", 0)
+        chunks = result.get("chunks_used", 0)
+        total_chars = result.get("total_chars", 0)
+
+        md_parts: List[str] = []
+        md_parts.append(f"## CoDRAG Context ({chunks} chunks, {total_chars} chars)")
+        if hub_count or mod_count:
+            md_parts.append(f"Hubs: {hub_count} | Modules: {mod_count} | Neighbors: {neighbor_count}")
+        md_parts.append("")
+        if context_str:
+            md_parts.append(context_str)
+
+        result["_to_markdown"] = "\n".join(md_parts)
         return result
 
     @staticmethod
@@ -561,11 +650,24 @@ class MCPServer:
                 "line": n.get("start_line", n.get("line")),
             })
 
+        # Phase 50 Sprint 3: Markdown for symbol search results
+        if formatted:
+            md_lines = [f"## Symbol search: {query} ({len(formatted)} results)\n"]
+            for n in formatted:
+                line = f"- `{n['name']}` ({n['kind']}) @ `{n['path']}`"
+                if n.get("line"):
+                    line += f":{n['line']}"
+                md_lines.append(line)
+            md_text = "\n".join(md_lines)
+        else:
+            md_text = f"No symbols found matching: {query}"
+
         return {
             "project_id": project_id,
             "query": query,
             "count": len(formatted),
             "nodes": formatted,
+            "_to_markdown": md_text,
         }
 
     async def tool_trace_neighbors(
@@ -698,12 +800,14 @@ class MCPServer:
         else:
             lines.append("No dependents found — this node has no reverse dependencies.")
 
+        summary = "\n".join(lines)
         return {
             "project_id": project_id,
-            "summary": "\n".join(lines),
+            "summary": summary,
             "target": target,
             "dependents": dependents,
             "total_dependents": len(dependents),
+            "_to_markdown": summary,
         }
 
     async def tool_save_observation(
@@ -927,12 +1031,14 @@ class MCPServer:
             lines.append("---\n\n## Relevant Code Context\n")
             lines.append(context_text)
 
+        content_md = "\n".join(lines)
         return {
             "project_id": project_id,
             "finding_count": len(selected),
             "finding_ids": [f.get("finding_id") for f in selected],
-            "content": "\n".join(lines),
+            "content": content_md,
             "affected_files": affected_files,
+            "_to_markdown": content_md,
         }
 
     async def tool_audit_check(
@@ -1626,15 +1732,38 @@ class MCPServer:
         if self._initialize_roots:
             logger.debug(f"Workspace roots from client: {self._initialize_roots}")
 
+        # Phase 50 (OPP-3): Extract client identity for host-aware behavior
+        client_info = params.get("clientInfo", {})
+        if isinstance(client_info, dict):
+            self._client_name = str(client_info.get("name", "unknown"))
+            self._client_version = str(client_info.get("version", ""))
+            logger.debug("MCP client: %s %s", self._client_name, self._client_version)
+
         return {
             "protocolVersion": MCP_PROTOCOL_VERSION,
             "capabilities": {
                 "tools": {"listChanged": False},
+                "resources": {"subscribe": False, "listChanged": False},
+                "prompts": {"listChanged": False},
             },
             "serverInfo": {
                 "name": "codrag",
-                "version": "0.1.0",
+                "version": "2.0.0",
             },
+            # Phase 50: MCP server instructions (spec 2025-06-18).
+            # Gemini CLI, Claude Code, Qwen Code append this to system prompt.
+            # Cursor/Windsurf may ignore it -- rules files cover those.
+            "instructions": (
+                "CoDRAG provides structural codebase intelligence -- "
+                "module architecture, dependency analysis, code graph navigation, "
+                "hub file identification, and codebase-wide structural context. "
+                "Search for CoDRAG tools when: understanding codebase structure, "
+                "analyzing dependencies before changes, finding connected files, "
+                "or needing an architectural overview. "
+                "Call `codrag` at the start of every task for module structure and hub files. "
+                "Use `codrag_search` for code queries with structural expansion. "
+                "Use `codrag_impact` before changes to understand the blast radius."
+            ),
         }
 
     @staticmethod
@@ -1653,6 +1782,348 @@ class MCPServer:
     async def handle_tools_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle tools/list request."""
         return {"tools": TOOLS}
+
+    # ── Phase 50 Sprint 4: MCP Resources ─────────────────────────────
+
+    async def handle_resources_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle resources/list request.
+
+        Returns lightweight resource descriptors. Each resource is <500 tokens
+        and serves as on-demand cached context the AI can pull without a
+        tool call (no approval needed).
+        """
+        try:
+            project_id = await self._resolve_project_id()
+        except Exception:
+            project_id = "default"
+
+        return {"resources": [
+            {
+                "uri": f"codrag://{project_id}/structure",
+                "name": "Codebase Structure",
+                "description": "Module summaries, hub files, and dependency map. ~500 tokens.",
+                "mimeType": "text/markdown",
+            },
+            {
+                "uri": f"codrag://{project_id}/atlas",
+                "name": "Codebase Atlas",
+                "description": "Architectural overview of the codebase. ~400 tokens.",
+                "mimeType": "text/markdown",
+            },
+            {
+                "uri": f"codrag://{project_id}/files",
+                "name": "Selected Files",
+                "description": "Knowledge base files selected by the user. ~300 tokens.",
+                "mimeType": "text/markdown",
+            },
+            {
+                "uri": f"codrag://{project_id}/health",
+                "name": "Index Health",
+                "description": "Index freshness, coverage, and build status. ~100 tokens.",
+                "mimeType": "text/markdown",
+            },
+        ]}
+
+    async def handle_resources_read(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle resources/read request.
+
+        Reads a specific resource by URI. Each resource generator is
+        lightweight (<50ms) -- reads pre-computed data from disk, no LLM.
+        """
+        uri = params.get("uri", "")
+        if not uri:
+            raise InvalidParamsError("uri is required")
+
+        # Parse URI: codrag://{project_id}/{resource_type}
+        if not uri.startswith("codrag://"):
+            raise InvalidParamsError(f"Unknown resource URI scheme: {uri}")
+
+        parts = uri[len("codrag://"):].split("/", 1)
+        if len(parts) != 2:
+            raise InvalidParamsError(f"Invalid resource URI: {uri}")
+
+        project_id_from_uri, resource_type = parts
+
+        # Resolve actual project (URI project_id is a hint, auto-detect if needed)
+        try:
+            project_id = await self._resolve_project_id(override=project_id_from_uri)
+        except Exception:
+            project_id = project_id_from_uri
+
+        content = ""
+        try:
+            if resource_type == "structure":
+                content = await self._resource_structure(project_id)
+            elif resource_type == "atlas":
+                content = await self._resource_atlas(project_id)
+            elif resource_type == "files":
+                content = await self._resource_files(project_id)
+            elif resource_type == "health":
+                content = await self._resource_health(project_id)
+            else:
+                raise InvalidParamsError(f"Unknown resource type: {resource_type}")
+        except InvalidParamsError:
+            raise
+        except Exception as e:
+            logger.debug("Resource read failed for %s: %s", uri, e)
+            content = f"(Resource unavailable: {e})"
+
+        return {
+            "contents": [
+                {
+                    "uri": uri,
+                    "mimeType": "text/markdown",
+                    "text": content,
+                }
+            ]
+        }
+
+    # ── Resource content generators ──────────────────────────────────
+
+    async def _resource_structure(self, project_id: str) -> str:
+        """Hub files + graph topology. ~300 tokens. Fast: 2 API calls, <30ms."""
+        data = await self._api_get(f"/projects/{project_id}/status")
+        if not isinstance(data, dict):
+            return "(No project data available)"
+
+        index = data.get("index", {}) or {}
+        trace = data.get("trace", {}) or {}
+        parts: List[str] = []
+
+        parts.append("## Codebase Structure\n")
+
+        # Graph topology
+        nodes = trace.get("total_nodes", 0)
+        edges = trace.get("total_edges", 0)
+        chunks = index.get("total_chunks", 0)
+        if nodes or chunks:
+            parts.append(f"Graph: {nodes} nodes, {edges} edges | Index: {chunks} chunks\n")
+
+        # Hub files (single fast API call)
+        try:
+            hub_data = await self._api_get(f"/projects/{project_id}/trace/hub_files?k=8")
+            hub_files = (hub_data or {}).get("hub_files", []) if isinstance(hub_data, dict) else []
+            if hub_files:
+                parts.append("### Hub Files (most connected)")
+                for h in hub_files[:8]:
+                    if isinstance(h, dict) and h.get("path"):
+                        parts.append(f"- `{h['path']}` ({h.get('in_degree', 0)} connections)")
+                parts.append("")
+        except Exception:
+            pass
+
+        if len(parts) <= 2:
+            return "(Structure data not yet available -- build the index first)"
+
+        parts.append("Call `codrag` for full module summaries and hub file content.")
+        return "\n".join(parts)
+
+    async def _resource_atlas(self, project_id: str) -> str:
+        """Codebase atlas text. ~400 tokens. Single API call."""
+        try:
+            # Request atlas via include_atlas=True. With empty query, the
+            # backend prepends the atlas to the context string.
+            ctx_data = await self._api_post(f"/projects/{project_id}/context", {
+                "query": "", "max_chars": 2500, "include_atlas": True,
+            })
+            if not isinstance(ctx_data, dict):
+                return "(Atlas not available)"
+
+            atlas_meta = ctx_data.get("atlas", {}) or {}
+            context = ctx_data.get("context", "") or ""
+
+            if atlas_meta.get("included") and context:
+                # The atlas is prepended to context. Return up to 2500 chars
+                # which covers the full atlas for all project sizes.
+                return context[:2500]
+
+            return "(Atlas not yet generated -- the pipeline will create it at Stage 9)"
+        except IndexNotReadyError:
+            return "(Index not built yet -- atlas will be available after the pipeline runs)"
+        except Exception as e:
+            return f"(Atlas unavailable: {e})"
+
+    async def _resource_files(self, project_id: str) -> str:
+        """Selected knowledge base files. ~300 tokens."""
+        try:
+            data = await self._api_get(f"/projects/{project_id}/included_paths")
+            paths = (data or {}).get("included_paths", []) if isinstance(data, dict) else []
+
+            if not paths:
+                return "(No files selected in knowledge base)"
+
+            parts = [f"## Selected Files ({len(paths)} paths)\n"]
+            for p in paths[:20]:
+                parts.append(f"- `{p}`")
+            if len(paths) > 20:
+                parts.append(f"- ... +{len(paths) - 20} more")
+            parts.append("\nCall `codrag` for detailed content from these areas.")
+            return "\n".join(parts)
+        except Exception as e:
+            return f"(File list unavailable: {e})"
+
+    async def _resource_health(self, project_id: str) -> str:
+        """Index health summary. ~100 tokens."""
+        try:
+            data = await self._api_get(f"/projects/{project_id}/status")
+            if not isinstance(data, dict):
+                return "(Health data unavailable)"
+
+            index = data.get("index", {}) or {}
+            trace = data.get("trace", {}) or {}
+            watch = data.get("watch", {}) or {}
+            building = data.get("building", False)
+            stale = data.get("stale", False)
+            stale_count = data.get("stale_count", 0)
+
+            parts = ["## Index Health\n"]
+
+            # Index status
+            if index.get("exists"):
+                built_at = index.get("last_build_at", "unknown")
+                parts.append(f"Index: loaded ({index.get('total_chunks', 0)} chunks, built {built_at})")
+            elif building:
+                parts.append("Index: building...")
+            else:
+                parts.append("Index: not built")
+
+            # Trace status
+            nodes = trace.get("total_nodes", 0)
+            if nodes:
+                parts.append(f"Trace: {nodes} nodes, {trace.get('total_edges', 0)} edges")
+
+            # Watch status
+            if watch.get("enabled"):
+                parts.append("Watch: active (auto-rebuild on file changes)")
+            else:
+                parts.append("Watch: inactive")
+
+            # Staleness
+            if stale:
+                parts.append(f"Stale: {stale_count} file(s) changed since last build")
+
+            return "\n".join(parts)
+        except Exception as e:
+            return f"(Health data unavailable: {e})"
+
+    # ── Phase 50 Sprint 5: MCP Prompts ─────────────────────────────
+
+    _PROMPTS = [
+        {
+            "name": "codrag-analyze",
+            "description": "Analyze the codebase architecture using CoDRAG's structural intelligence",
+            "arguments": [
+                {
+                    "name": "focus",
+                    "description": "Optional area to focus the analysis on (e.g., 'authentication', 'API layer')",
+                    "required": False,
+                },
+            ],
+        },
+        {
+            "name": "codrag-review",
+            "description": "Review the current file or selection for bugs, style issues, and structural problems",
+            "arguments": [
+                {
+                    "name": "scope",
+                    "description": "What to review: 'file' (current file), 'selection' (selected code), or a file path",
+                    "required": False,
+                },
+            ],
+        },
+        {
+            "name": "codrag-plan",
+            "description": "Plan a change with impact analysis -- understand what files are affected before editing",
+            "arguments": [
+                {
+                    "name": "change",
+                    "description": "Description of the change you want to make",
+                    "required": True,
+                },
+            ],
+        },
+    ]
+
+    async def handle_prompts_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle prompts/list request."""
+        return {"prompts": self._PROMPTS}
+
+    async def handle_prompts_get(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle prompts/get request.
+
+        Returns the prompt messages that the host injects into the conversation
+        when the user triggers the prompt (e.g., via a slash command).
+        """
+        name = params.get("name", "")
+        arguments = params.get("arguments", {})
+
+        if name == "codrag-analyze":
+            focus = arguments.get("focus", "")
+            focus_text = f" Focus on: {focus}." if focus else ""
+            return {
+                "description": "Analyze codebase architecture",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": {
+                            "type": "text",
+                            "text": (
+                                f"Analyze this codebase's architecture using CoDRAG.{focus_text}\n\n"
+                                "1. Call `codrag` first to get the structural overview (modules, hub files, connections).\n"
+                                "2. Identify architectural patterns, potential issues, and areas for improvement.\n"
+                                "3. Use `codrag_search` to examine specific areas in detail.\n"
+                                "4. Summarize your findings with concrete file references."
+                            ),
+                        },
+                    }
+                ],
+            }
+
+        elif name == "codrag-review":
+            scope = arguments.get("scope", "file")
+            return {
+                "description": "Review code with structural context",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": {
+                            "type": "text",
+                            "text": (
+                                f"Review this code (scope: {scope}) using CoDRAG's structural understanding.\n\n"
+                                "1. Call `codrag` for structural context -- understand where this code fits in the architecture.\n"
+                                "2. Call `codrag_impact` on the relevant file to understand its dependencies and dependents.\n"
+                                "3. Check for bugs, style issues, missing error handling, and structural problems.\n"
+                                "4. Consider how changes here would affect connected files."
+                            ),
+                        },
+                    }
+                ],
+            }
+
+        elif name == "codrag-plan":
+            change = arguments.get("change", "the proposed change")
+            return {
+                "description": "Plan a change with impact analysis",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": {
+                            "type": "text",
+                            "text": (
+                                f"Plan this change: {change}\n\n"
+                                "1. Call `codrag` for structural overview of the codebase.\n"
+                                "2. Call `codrag_impact` on files that will be modified to understand the blast radius.\n"
+                                "3. Call `codrag_search` to find related code that may need updates.\n"
+                                "4. Create a step-by-step implementation plan that accounts for all dependencies.\n"
+                                "5. List all files that need changes, in the order they should be modified."
+                            ),
+                        },
+                    }
+                ],
+            }
+
+        else:
+            raise MethodNotFoundError(f"Unknown prompt: {name}")
 
     # EA-B12: MCP rate limiting state
     _mcp_call_times: List[float] = []
@@ -1684,109 +2155,202 @@ class MCPServer:
             pass  # Audit logging is best-effort
 
     async def handle_tools_call(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle tools/call request."""
-        name = params.get("name", "")
+        """Handle tools/call request.
+
+        Phase 50: Consolidated dispatch with alias routing.
+        New tool names (codrag, codrag_search, codrag_impact, codrag_audit,
+        codrag_observe) are handled directly. Legacy tool names are
+        transparently routed via TOOL_ALIASES with parameter transforms.
+        """
+        from codrag.mcp_tools import TOOL_ALIASES
+
+        original_name = params.get("name", "")
         args = params.get("arguments", {})
 
         # EA-B12: Rate limit + audit log
         self._check_rate_limit()
-        self._audit_mcp_call(name, args)
+        self._audit_mcp_call(original_name, args)
 
-        # Extract project_id override (available on all project-scoped tools)
+        # Phase 50: Resolve legacy aliases to new tool names.
+        # Apply parameter transforms for consolidated tools.
+        name = original_name
+        if name in TOOL_ALIASES:
+            resolved = TOOL_ALIASES[name]
+            logger.debug("Alias dispatch: %s -> %s", name, resolved)
+
+            # Parameter transforms for legacy -> consolidated routing
+            if name == "codrag_trace_search":
+                args.setdefault("type", "symbol")
+                name = resolved
+            elif name == "codrag_trace_neighbors":
+                # Map neighbors params to impact params
+                args.setdefault("direction", "all")
+                if "node_id" in args:
+                    args.setdefault("symbol", args.pop("node_id"))
+                if "max_nodes" in args:
+                    args.setdefault("max_hops", 1)
+                name = resolved
+            elif name == "codrag_audit_refactor":
+                args.setdefault("action", "refactor")
+                name = resolved
+            elif name == "codrag_audit_check":
+                args.setdefault("action", "verify")
+                name = resolved
+            elif name == "codrag_audit_report":
+                args.setdefault("action", "report")
+                name = resolved
+            elif name == "codrag_save_observation":
+                args.setdefault("action", "save")
+                name = resolved
+            elif name == "codrag_get_observations":
+                args.setdefault("action", "get")
+                name = resolved
+            else:
+                name = resolved
+
         project_override = args.get("project_id")
 
         try:
-            if name == "codrag_status":
-                result = await self.tool_status(project_override=project_override)
-            elif name == "codrag_build":
-                result = await self.tool_build(full=args.get("full", False), project_override=project_override)
-            elif name == "codrag_search":
-                result = await self.tool_search(
-                    query=args.get("query", ""),
-                    k=args.get("k", 5),
-                    max_chars=args.get("max_chars", 12000),
-                    trace_expand=bool(args.get("trace_expand", True)),
-                    compression=args.get("compression", "none"),
-                    compression_level=args.get("compression_level", "standard"),
-                    compression_timeout_s=args.get("compression_timeout_s", 30.0),
-                    exclude_paths=args.get("exclude_paths") or None,
-                    project_override=project_override,
-                )
-            elif name in ("codrag", "codrag_context", "codrag_"):
+            # ── Primary tools (new consolidated set) ────────────────
+            if name in ("codrag", "codrag_context", "codrag_"):
+                self._codrag_called = True
                 result = await self.tool_context(
                     max_chars=args.get("max_chars", 12000),
                     project_override=project_override,
                 )
-            elif name == "codrag_trace_search":
-                result = await self.tool_trace_search(
-                    query=args.get("query", ""),
-                    kind=args.get("kind"),
-                    limit=args.get("limit", 20),
-                    project_override=project_override,
-                )
-            elif name == "codrag_trace_neighbors":
-                result = await self.tool_trace_neighbors(
-                    node_id=args.get("node_id", ""),
-                    direction=args.get("direction", "both"),
-                    edge_kinds=args.get("edge_kinds"),
-                    max_nodes=args.get("max_nodes", 25),
-                    project_override=project_override,
-                )
-            elif name == "codrag_trace_coverage":
-                result = await self.tool_trace_coverage(project_override=project_override)
+
+            elif name == "codrag_search":
+                search_type = args.get("type", "context")
+                if search_type == "symbol":
+                    result = await self.tool_trace_search(
+                        query=args.get("query", ""),
+                        kind=args.get("kind"),
+                        limit=args.get("limit", args.get("k", 20)),
+                        project_override=project_override,
+                    )
+                else:
+                    result = await self.tool_search(
+                        query=args.get("query", ""),
+                        k=args.get("k", 5),
+                        max_chars=args.get("max_chars", 12000),
+                        trace_expand=bool(args.get("trace_expand", True)),
+                        compression=args.get("compression", "none"),
+                        compression_level=args.get("compression_level", "standard"),
+                        compression_timeout_s=args.get("compression_timeout_s", 30.0),
+                        exclude_paths=args.get("exclude_paths") or None,
+                        project_override=project_override,
+                    )
+                # Phase 50 Sprint 3: Nudge if codrag hasn't been called yet
+                if not self._codrag_called and isinstance(result, dict):
+                    md = result.get("_to_markdown", "")
+                    if md:
+                        result["_to_markdown"] = (
+                            md + "\n\n---\n[tip: Call `codrag` (no args) for structural "
+                            "codebase overview -- modules, hub files, and architecture.]"
+                        )
+
             elif name == "codrag_impact":
-                result = await self.tool_impact(
-                    file_path=args.get("file_path"),
-                    symbol=args.get("symbol"),
-                    max_hops=args.get("max_hops", 2),
-                    project_override=project_override,
-                )
-            elif name == "codrag_save_observation":
-                result = await self.tool_save_observation(
-                    content=args.get("content", ""),
-                    file_path=args.get("file_path"),
-                    symbol=args.get("symbol"),
-                    category=args.get("category", "note"),
-                    project_override=project_override,
-                )
-            elif name == "codrag_get_observations":
-                result = await self.tool_get_observations(
-                    query=args.get("query"),
-                    file_path=args.get("file_path"),
-                    limit=args.get("limit", 10),
-                    include_stale=args.get("include_stale", True),
-                    project_override=project_override,
-                )
+                direction = args.get("direction", "dependents")
+                if direction == "all":
+                    # Full neighborhood -- use trace_neighbors backend
+                    node_id = args.get("symbol") or args.get("node_id", "")
+                    if not node_id and args.get("file_path"):
+                        node_id = f"file:{args['file_path']}"
+                    result = await self.tool_trace_neighbors(
+                        node_id=node_id,
+                        direction="both",
+                        edge_kinds=args.get("edge_kinds"),
+                        max_nodes=args.get("max_nodes", 25),
+                        project_override=project_override,
+                    )
+                elif direction == "dependencies":
+                    # What does X depend on? (outgoing edges)
+                    node_id = args.get("symbol") or ""
+                    if not node_id and args.get("file_path"):
+                        node_id = f"file:{args['file_path']}"
+                    result = await self.tool_trace_neighbors(
+                        node_id=node_id,
+                        direction="out",
+                        edge_kinds=args.get("edge_kinds"),
+                        max_nodes=args.get("max_nodes", 25),
+                        project_override=project_override,
+                    )
+                else:
+                    # Default: dependents (what breaks if I change X?)
+                    result = await self.tool_impact(
+                        file_path=args.get("file_path"),
+                        symbol=args.get("symbol"),
+                        max_hops=args.get("max_hops", 2),
+                        project_override=project_override,
+                    )
+
             elif name == "codrag_audit":
-                result = await self.tool_audit(
-                    synthesize=bool(args.get("synthesize", False)),
-                    category=args.get("category"),
+                action = args.get("action", "scan")
+                if action == "refactor":
+                    result = await self.tool_audit_refactor(
+                        finding_ids=args.get("finding_ids", []),
+                        instructions=args.get("instructions"),
+                        project_override=project_override,
+                    )
+                elif action == "verify":
+                    result = await self.tool_audit_check(
+                        analyzers=args.get("analyzers", []),
+                        project_override=project_override,
+                    )
+                elif action == "report":
+                    result = await self.tool_audit_report(
+                        report_name=args.get("report_name", ""),
+                        project_override=project_override,
+                    )
+                else:
+                    # Default: scan
+                    result = await self.tool_audit(
+                        synthesize=bool(args.get("synthesize", False)),
+                        category=args.get("category"),
+                        project_override=project_override,
+                    )
+
+            elif name == "codrag_observe":
+                action = args.get("action", "get")
+                if action == "save":
+                    result = await self.tool_save_observation(
+                        content=args.get("content", ""),
+                        file_path=args.get("file_path"),
+                        symbol=args.get("symbol"),
+                        category=args.get("category", "note"),
+                        project_override=project_override,
+                    )
+                else:
+                    # Default: get
+                    result = await self.tool_get_observations(
+                        query=args.get("query"),
+                        file_path=args.get("file_path"),
+                        limit=args.get("limit", 10),
+                        include_stale=args.get("include_stale", True),
+                        project_override=project_override,
+                    )
+
+            # ── Hidden admin tool (not listed, but dispatches) ──────
+            elif name == "codrag_build":
+                result = await self.tool_build(
+                    full=args.get("full", False),
                     project_override=project_override,
                 )
-            elif name == "codrag_audit_refactor":
-                result = await self.tool_audit_refactor(
-                    finding_ids=args.get("finding_ids", []),
-                    instructions=args.get("instructions"),
-                    project_override=project_override,
-                )
-            elif name == "codrag_audit_check":
-                result = await self.tool_audit_check(
-                    analyzers=args.get("analyzers", []),
-                    project_override=project_override,
-                )
-            elif name == "codrag_audit_report":
-                result = await self.tool_audit_report(
-                    report_name=args.get("report_name", ""),
-                    project_override=project_override,
-                )
-            elif name == "hi_codrag":
-                result = await self.tool_hi(project_override=project_override)
+
             else:
-                raise MethodNotFoundError(f"Unknown tool: {name}")
+                raise MethodNotFoundError(f"Unknown tool: {original_name}")
+
+            # Phase 50 Sprint 3: Prefer markdown text over JSON for AI consumption.
+            # Tool methods that set result["_to_markdown"] get clean text output.
+            # Others fall back to json.dumps for backward compatibility.
+            if isinstance(result, dict) and "_to_markdown" in result:
+                text = result.pop("_to_markdown")
+            else:
+                text = json.dumps(result, indent=2)
 
             return {
                 "content": [
-                    {"type": "text", "text": json.dumps(result, indent=2)}
+                    {"type": "text", "text": text}
                 ],
                 "isError": False,
             }
@@ -1818,6 +2382,14 @@ class MCPServer:
                 result = await self.handle_tools_list(params)
             elif method == "tools/call":
                 result = await self.handle_tools_call(params)
+            elif method == "resources/list":
+                result = await self.handle_resources_list(params)
+            elif method == "resources/read":
+                result = await self.handle_resources_read(params)
+            elif method == "prompts/list":
+                result = await self.handle_prompts_list(params)
+            elif method == "prompts/get":
+                result = await self.handle_prompts_get(params)
             elif method == "ping":
                 result = {}
             else:

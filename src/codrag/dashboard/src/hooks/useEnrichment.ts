@@ -165,19 +165,49 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     if (!selectedProjectId) return
     try {
       await api.pausePipeline(selectedProjectId, group)
+      // Optimistic UI update — don't wait for next poll cycle
+      dispatch({
+        type: 'SYNC_PAUSED',
+        fastPaused: group === 'fast_sync' ? true : state.fastPaused,
+        deepPaused: group === 'deep_enrichment' ? true : state.deepPaused,
+      })
     } catch (e) {
       onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t pause pipeline.', 'warning')
     }
-  }, [api, selectedProjectId])
+  }, [api, selectedProjectId, state.fastPaused, state.deepPaused])
 
   const handleResumePipeline = useCallback(async (group: 'fast_sync' | 'deep_enrichment') => {
     if (!selectedProjectId) return
     try {
       await api.resumePipeline(selectedProjectId, group)
+      // Optimistic UI update
+      dispatch({
+        type: 'SYNC_PAUSED',
+        fastPaused: group === 'fast_sync' ? false : state.fastPaused,
+        deepPaused: group === 'deep_enrichment' ? false : state.deepPaused,
+      })
     } catch (e) {
       onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t resume pipeline.', 'warning')
     }
-  }, [api, selectedProjectId])
+  }, [api, selectedProjectId, state.fastPaused, state.deepPaused])
+
+  const handleSwapModel = useCallback(async (group?: 'fast_sync' | 'deep_enrichment') => {
+    if (!selectedProjectId) return
+    // Determine which group(s) to swap based on what's running
+    const groups: ('fast_sync' | 'deep_enrichment')[] = group
+      ? [group]
+      : [
+          ...(state.augmenting || state.inferredEdgesRunning || state.fastKnowledgeBuilding ? ['fast_sync' as const] : []),
+          ...(state.epistemicRunning || state.groupReasoningRunning || state.clusterRunning || state.atlasRunning || state.deepeningRunning || state.deepKnowledgeBuilding ? ['deep_enrichment' as const] : []),
+        ]
+    for (const g of groups) {
+      try {
+        await api.swapPipelineModel(selectedProjectId, g)
+      } catch {
+        // Swap fails silently if group isn't running — that's fine
+      }
+    }
+  }, [api, selectedProjectId, state])
 
   // ── Reset (called by destroy handlers in useTraceSystem) ────
 
@@ -237,6 +267,12 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       if (ps.stages?.group_reasoning) {
         dispatch({ type: 'GROUP_REASONING_STATUS', payload: ps.stages.group_reasoning })
       }
+      // Hydrate paused flags on initial load
+      dispatch({
+        type: 'SYNC_PAUSED',
+        fastPaused: ps.fast_sync?.phase === 'paused' || (ps.fast_sync?.phase === 'failed' && (ps.fast_sync?.error || '').includes('Paused by user')),
+        deepPaused: ps.deep_enrichment?.phase === 'paused' || (ps.deep_enrichment?.phase === 'failed' && (ps.deep_enrichment?.error || '').includes('Paused by user')),
+      })
     }).catch(() => { /* silent — SSE will provide updates */ })
 
     return () => { cancelled = true }
@@ -273,11 +309,12 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     })
 
     // Sync paused flags — state machine uses proper 'paused' phase;
-    // also check legacy 'failed' + 'Paused by user' for backward compat
+    // also check legacy 'failed' + error containing 'Paused by user' for
+    // backward compat (the error may be wrapped in "Stage X failed: ...")
     dispatch({
       type: 'SYNC_PAUSED',
-      fastPaused: fast?.phase === 'paused' || (fast?.phase === 'failed' && fast?.error === 'Paused by user'),
-      deepPaused: deep?.phase === 'paused' || (deep?.phase === 'failed' && deep?.error === 'Paused by user'),
+      fastPaused: fast?.phase === 'paused' || (fast?.phase === 'failed' && (fast?.error || '').includes('Paused by user')),
+      deepPaused: deep?.phase === 'paused' || (deep?.phase === 'failed' && (deep?.error || '').includes('Paused by user')),
     })
 
     // ── Detect transitions for status refresh ──
@@ -393,6 +430,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     handleRunDeepEnrichment,
     handlePausePipeline,
     handleResumePipeline,
+    handleSwapModel,
     // Fetch (for external callers that need manual refresh)
     fetchAugmentationStatus,
     fetchEpistemicStatus,

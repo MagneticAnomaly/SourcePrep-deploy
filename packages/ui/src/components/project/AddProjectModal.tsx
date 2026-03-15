@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { cn } from '../../lib/utils';
 import type { ProjectMode } from '../../types';
-import { FolderPlus, X, Folder, Layout, HardDrive, Info, ChevronDown, ChevronUp, Lock, ArrowUpRight } from 'lucide-react';
+import { FolderPlus, X, Folder, Layout, HardDrive, Info, ChevronDown, ChevronUp, Zap, Check } from 'lucide-react';
 import { Button } from '../primitives/Button';
 import { PathInput } from '../primitives/PathInput';
 
@@ -120,30 +120,51 @@ export function AddProjectModal({
         </div>
         
         {limitReached ? (
-          <div className="p-6 space-y-4">
-            <div className="flex flex-col items-center gap-3 py-4 text-center">
-              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-amber-100/80 dark:bg-amber-900/30">
-                <Lock className="w-6 h-6 text-amber-600 dark:text-amber-400" />
-              </div>
-              <div>
-                <p className="font-semibold text-text">{currentTierLabel} plan limit reached</p>
-                <p className="text-sm text-text-muted mt-1">
-                  Your {currentTierLabel} plan supports up to {currentLimit} {currentLimit === 1 ? 'project' : 'projects'}.
-                  Upgrade to add more.
-                </p>
-              </div>
-              <div className="w-full rounded-md border border-border bg-surface-raised/50 p-3 text-left text-xs space-y-1.5">
-                <div className="flex items-center gap-1.5 text-text-muted">
-                  <span className="font-medium text-text">Pro</span> — unlimited projects, Live Sync, full features
-                </div>
+          <div className="p-6 flex flex-col items-center text-center">
+            <div className="relative mb-6 mt-2">
+              <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
+              <div className="relative flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-b from-surface to-surface-raised border border-border shadow-lg">
+                <Zap className="w-8 h-8 text-primary" />
               </div>
             </div>
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
+            
+            <h3 className="text-xl font-bold text-text mb-2">
+              Unlock Unlimited Projects
+            </h3>
+            
+            <p className="text-sm text-text-muted mb-6 max-w-[320px]">
+              Your {currentTierLabel} plan {currentLimit === 1 ? 'only supports a single project' : `supports up to ${currentLimit} projects`}. Upgrade to Pro for unlimited workspaces and advanced features.
+            </p>
+
+            <div className="w-full rounded-xl border border-primary/20 bg-primary-muted/5 p-4 text-left space-y-3 mb-8">
+              <div className="flex items-center gap-2.5">
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 border border-primary/20">
+                  <Check className="w-3.5 h-3.5 text-primary" strokeWidth={3} />
+                </div>
+                <span className="text-sm font-medium text-text">Unlimited active projects</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 border border-primary/20">
+                  <Check className="w-3.5 h-3.5 text-primary" strokeWidth={3} />
+                </div>
+                <span className="text-sm font-medium text-text">Live Sync file watcher</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 border border-primary/20">
+                  <Check className="w-3.5 h-3.5 text-primary" strokeWidth={3} />
+                </div>
+                <span className="text-sm font-medium text-text">Continuous Deepening</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3 w-full">
+              <Button variant="outline" onClick={onClose} className="flex-1">
+                Maybe Later
+              </Button>
               {onUpgrade && (
-                <Button onClick={() => { onUpgrade(); onClose(); }} className="flex-1 gap-1.5">
-                  <ArrowUpRight className="w-4 h-4" />
-                  Upgrade Plan
+                <Button onClick={() => { onUpgrade(); onClose(); }} className="flex-1 gap-1.5 shadow-primary/25 shadow-lg hover:shadow-primary/40 transition-shadow">
+                  <Zap className="w-4 h-4" />
+                  Upgrade to Pro
                 </Button>
               )}
             </div>

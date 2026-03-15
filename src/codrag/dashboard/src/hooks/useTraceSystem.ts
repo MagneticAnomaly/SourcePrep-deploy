@@ -332,34 +332,41 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     if (!selectedProjectId) return
 
     // When Fast Sync switches to Auto: start watcher + trigger immediate run
+    // BUT skip the run if the pipeline is already running (user just toggled
+    // the mode selector while an existing run is in progress).
     if (config.fastSync && !prevFastSync) {
       try {
         await startWatchRef.current?.()
         await refreshWatchStatusRef.current?.(selectedProjectId)
       } catch { /* watcher start may be feature-gated */ }
-      try {
-        // Ensure trace is enabled
-        if (!deps.projectConfig?.trace?.enabled) {
-          const newCfg = { ...deps.projectConfig, trace: { ...deps.projectConfig?.trace, enabled: true } }
-          deps.setProjectConfig(newCfg)
-          deps.setConfigDirty(true)
-          api.updateProject(selectedProjectId, { config: newCfg }).catch(() => {})
+      if (!traceStatus.building) {
+        try {
+          // Ensure trace is enabled
+          if (!deps.projectConfig?.trace?.enabled) {
+            const newCfg = { ...deps.projectConfig, trace: { ...deps.projectConfig?.trace, enabled: true } }
+            deps.setProjectConfig(newCfg)
+            deps.setConfigDirty(true)
+            api.updateProject(selectedProjectId, { config: newCfg }).catch(() => {})
+          }
+          setTraceStatus(prev => ({ ...prev, enabled: true, building: true }))
+          await api.runPipelineFast(selectedProjectId)
+        } catch {
+          setTraceStatus(prev => ({ ...prev, building: false }))
         }
-        setTraceStatus(prev => ({ ...prev, enabled: true, building: true }))
-        await api.runPipelineFast(selectedProjectId)
-      } catch {
-        setTraceStatus(prev => ({ ...prev, building: false }))
       }
     }
 
     // When Deep Enrichment switches to Auto: trigger immediate run
-    // if Fast Sync has completed (trace exists with nodes)
+    // if Fast Sync has completed (trace exists with nodes).
+    // Skip if anything is already running.
     if (config.deepEnrichment === 'auto' && prevDeep !== 'auto') {
-      try {
-        await api.runPipelineDeep(selectedProjectId)
-      } catch { /* silent — may already be running or fast sync not complete */ }
+      if (!traceStatus.building) {
+        try {
+          await api.runPipelineDeep(selectedProjectId)
+        } catch { /* silent — may already be running or fast sync not complete */ }
+      }
     }
-  }, [api, selectedProjectId, enrichmentAutoConfig.fastSync, enrichmentAutoConfig.deepEnrichment, deps.projectConfig, deps.setProjectConfig, deps.setConfigDirty])
+  }, [api, selectedProjectId, enrichmentAutoConfig.fastSync, enrichmentAutoConfig.deepEnrichment, traceStatus.building, deps.projectConfig, deps.setProjectConfig, deps.setConfigDirty])
 
   const handleIndexAutoRebuildChange = useCallback(async (auto: boolean) => {
     setIndexAutoRebuild(auto)

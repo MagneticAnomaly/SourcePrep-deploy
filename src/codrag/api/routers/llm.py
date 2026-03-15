@@ -816,7 +816,47 @@ def proxy_models(req: LLMProxyRequest) -> Dict[str, Any]:
                 data = r.json()
                 for m in data.get("models", []):
                     if isinstance(m, dict) and "name" in m:
-                        models.append(m["name"])
+                        name = m["name"]
+                        models.append(name)
+                        # Extract metadata from the tags response
+                        size_bytes = m.get("size", 0)
+                        size_label = f"{size_bytes / 1e9:.1f}GB" if size_bytes > 0 else ""
+                        param_size = (m.get("details") or {}).get("parameter_size", "")
+                        quant = (m.get("details") or {}).get("quantization_level", "")
+                        family = (m.get("details") or {}).get("family", "")
+                        parts: list = []
+                        if param_size:
+                            parts.append(param_size)
+                        if quant:
+                            parts.append(quant)
+                        if size_label:
+                            parts.append(size_label)
+                        detail: Dict[str, Any] = {
+                            "name": name,
+                            "cost_tier": " · ".join(parts) if parts else "Local",
+                        }
+                        if family:
+                            detail["family"] = family
+                        model_details.append(detail)
+
+                # Fetch context_length for each model via /api/show (batched, max 20)
+                for md in model_details[:20]:
+                    try:
+                        show_r = requests.post(f"{url}/api/show", json={"name": md["name"]}, timeout=3)
+                        if show_r.status_code == 200:
+                            show_data = show_r.json()
+                            # model_info has context_length, or parse from parameters
+                            model_info = show_data.get("model_info") or {}
+                            ctx = 0
+                            for k, v in model_info.items():
+                                if "context_length" in k and isinstance(v, (int, float)):
+                                    ctx = int(v)
+                                    break
+                            if ctx > 0:
+                                md["context_tokens"] = ctx
+                                md["context_window"] = f"{ctx // 1000}k" if ctx >= 1000 else str(ctx)
+                    except Exception:
+                        pass
         
         elif req.provider in ("openai", "openai-compatible", "lm-studio", "anthropic"):
             headers = {}
@@ -832,63 +872,86 @@ def proxy_models(req: LLMProxyRequest) -> Dict[str, Any]:
                 data = r.json()
                 for m in data.get("data", []):
                     if isinstance(m, dict) and "id" in m:
-                        models.append(m["id"])
+                        name = m["id"]
+                        models.append(name)
+                        # Extract metadata when available (OpenAI, LM Studio)
+                        detail: Dict[str, Any] = {"name": name}
+                        ctx = m.get("context_window") or m.get("context_length") or 0
+                        if isinstance(ctx, (int, float)) and ctx > 0:
+                            ctx = int(ctx)
+                            detail["context_tokens"] = ctx
+                            detail["context_window"] = f"{ctx // 1000}k" if ctx >= 1000 else str(ctx)
+                        # LM Studio includes architecture, quantization, size
+                        arch = m.get("architecture") or ""
+                        quant = m.get("quantization") or ""
+                        if arch or quant:
+                            parts = [p for p in [arch, quant] if p]
+                            detail["cost_tier"] = " · ".join(parts)
+                        elif req.provider == "openai":
+                            detail["cost_tier"] = "OpenAI"
+                        elif req.provider == "anthropic":
+                            detail["cost_tier"] = "Anthropic"
+                        model_details.append(detail)
 
         elif req.provider == "google":
-            params = {"key": req.api_key} if req.api_key else {}
+            if not req.api_key:
+                raise ApiException(status_code=400, code="MISSING_API_KEY", message="Google Gemini requires an API key. Get one at https://aistudio.google.com/apikey")
+            params = {"key": req.api_key}
             target = f"{url}/v1beta/models"
-            r = requests.get(target, params=params, timeout=5)
-            if r.status_code == 200:
-                data = r.json()
-                for m in data.get("models", []):
-                    if not isinstance(m, dict) or "name" not in m:
-                        continue
-                    # Only include models that support text generation
-                    methods = m.get("supportedGenerationMethods", [])
-                    if "generateContent" not in methods:
-                        continue
-                    # Filter out non-LLM models (image, audio, video, embedding)
-                    lower_name = m["name"].lower()
-                    if any(x in lower_name for x in [
-                        "embedding", "imagen", "veo", "audio", "vision",
-                        "aqa", "tts", "-image", "image-generation", "computer-use",
-                    ]):
-                        continue
-                    name = m["name"].replace("models/", "") if m["name"].startswith("models/") else m["name"]
-                    models.append(name)
+            r = requests.get(target, params=params, timeout=10)
+            if r.status_code != 200:
+                err_text = r.text[:200] if r.text else f"HTTP {r.status_code}"
+                raise ApiException(status_code=r.status_code, code="GOOGLE_API_ERROR", message=f"Google API error: {err_text}")
+            data = r.json()
+            for m in data.get("models", []):
+                if not isinstance(m, dict) or "name" not in m:
+                    continue
+                # Only include models that support text generation
+                methods = m.get("supportedGenerationMethods", [])
+                if "generateContent" not in methods:
+                    continue
+                # Filter out non-LLM models (image, audio, video, embedding)
+                lower_name = m["name"].lower()
+                if any(x in lower_name for x in [
+                    "embedding", "imagen", "veo", "audio", "vision",
+                    "aqa", "tts", "-image", "image-generation", "computer-use",
+                ]):
+                    continue
+                name = m["name"].replace("models/", "") if m["name"].startswith("models/") else m["name"]
+                models.append(name)
 
-                    # Rich metadata for UI
-                    ctx = m.get("inputTokenLimit", 0)
-                    ctx_label = f"{ctx // 1000}k" if ctx >= 1000 else str(ctx)
-                    output_limit = m.get("outputTokenLimit", 0)
+                # Rich metadata for UI
+                ctx = m.get("inputTokenLimit", 0)
+                ctx_label = f"{ctx // 1000}k" if ctx >= 1000 else str(ctx)
+                output_limit = m.get("outputTokenLimit", 0)
 
-                    # Free-tier heuristic (API doesn't expose this directly)
-                    free_patterns = ["gemma", "nano-banana", "flash-lite", "gemini-2.0-flash", "gemini-2.5-flash", "gemini-3-flash"]
-                    paid_patterns = ["pro", "ultra", "robotics"]
-                    is_free_tier = any(p in lower_name for p in free_patterns) and not any(p in lower_name for p in paid_patterns)
-                    cost_label = "Free Tier Available" if is_free_tier else "Paid/Quota"
+                # Free-tier heuristic (API doesn't expose this directly)
+                free_patterns = ["gemma", "nano-banana", "flash-lite", "gemini-2.0-flash", "gemini-2.5-flash", "gemini-3-flash"]
+                paid_patterns = ["pro", "ultra", "robotics"]
+                is_free_tier = any(p in lower_name for p in free_patterns) and not any(p in lower_name for p in paid_patterns)
+                cost_label = "Free Tier Available" if is_free_tier else "Paid/Quota"
 
-                    # Rate limits + batch estimation
-                    rl = _get_gemini_rate_limits(name)
-                    batch_est: Optional[Dict[str, Any]] = None
-                    if ctx > 0:
-                        fpr = max(1, ctx // _AVG_PROMPT_TOKENS)
-                        batch_est = {"files_per_request": fpr}
-                        if rl and rl.get("rpd"):
-                            batch_est["daily_file_capacity"] = fpr * rl["rpd"]
+                # Rate limits + batch estimation
+                rl = _get_gemini_rate_limits(name)
+                batch_est: Optional[Dict[str, Any]] = None
+                if ctx > 0:
+                    fpr = max(1, ctx // _AVG_PROMPT_TOKENS)
+                    batch_est = {"files_per_request": fpr}
+                    if rl and rl.get("rpd"):
+                        batch_est["daily_file_capacity"] = fpr * rl["rpd"]
 
-                    detail: Dict[str, Any] = {
-                        "name": name,
-                        "context_window": ctx_label,
-                        "context_tokens": ctx,
-                        "output_limit": output_limit,
-                        "cost_tier": cost_label,
-                    }
-                    if rl:
-                        detail["rate_limits"] = rl
-                    if batch_est:
-                        detail["batch_estimate"] = batch_est
-                    model_details.append(detail)
+                detail: Dict[str, Any] = {
+                    "name": name,
+                    "context_window": ctx_label,
+                    "context_tokens": ctx,
+                    "output_limit": output_limit,
+                    "cost_tier": cost_label,
+                }
+                if rl:
+                    detail["rate_limits"] = rl
+                if batch_est:
+                    detail["batch_estimate"] = batch_est
+                model_details.append(detail)
 
     except Exception as e:
         raise ApiException(status_code=500, code="CONNECTION_FAILED", message=str(e))

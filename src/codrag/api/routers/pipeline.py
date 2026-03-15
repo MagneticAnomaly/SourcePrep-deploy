@@ -49,6 +49,10 @@ class ResumeGroupRequest(BaseModel):
     group: str = "fast_sync"  # "fast_sync" or "deep_enrichment"
 
 
+class SwapModelRequest(BaseModel):
+    group: str = "deep_enrichment"  # "fast_sync" or "deep_enrichment"
+
+
 class ResumeRequest(BaseModel):
     run_id: str
 
@@ -396,6 +400,56 @@ def pipeline_resume_group(project_id: str, req: ResumeGroupRequest) -> Dict[str,
         )
 
     return ok({"resumed": True, "group": req.group})
+
+
+@router.post("/projects/{project_id}/pipeline/swap-model")
+def pipeline_swap_model(project_id: str, req: SwapModelRequest) -> Dict[str, Any]:
+    """Swap the LLM model mid-pipeline without losing progress.
+
+    Pauses the current stage (flushing partial results), then immediately
+    resumes.  The resumed stage re-reads LLM config, picking up any model
+    or endpoint changes the user just made.  Incremental workers skip
+    already-processed items, so no work is lost.
+    """
+    from codrag.server import _require_project
+    _require_project(project_id)
+
+    if req.group not in ("fast_sync", "deep_enrichment"):
+        raise ApiException(
+            status_code=400,
+            code="INVALID_GROUP",
+            message=f"Unknown group: {req.group}. Must be 'fast_sync' or 'deep_enrichment'.",
+        )
+
+    from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+    result = pipeline_orchestrator.swap_model(project_id, req.group)
+
+    if not result.get("swapped"):
+        reason = result.get("reason", "unknown")
+        raise ApiException(
+            status_code=409,
+            code="SWAP_FAILED",
+            message=f"Could not swap model for {req.group}: {reason}",
+        )
+
+    return ok(result)
+
+
+@router.post("/projects/{project_id}/pipeline/force-reset")
+def pipeline_force_reset(project_id: str) -> Dict[str, Any]:
+    """Force-reset any pipeline runs stuck in 'running' for >10 minutes.
+
+    This is a recovery mechanism for when a worker finishes but the
+    completion callback doesn't fire.  Safe to call anytime — no-ops
+    if nothing is stuck.
+    """
+    from codrag.server import _require_project
+    _require_project(project_id)
+
+    from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+    reset = pipeline_orchestrator.force_reset_stale_runs(project_id)
+
+    return ok({"reset_groups": reset, "count": len(reset)})
 
 
 # ── Phase 25: Crash Protection Endpoints ──────────────────────────────────

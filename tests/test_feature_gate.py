@@ -29,13 +29,20 @@ from codrag.core.feature_gate import (
 def _clear_cache():
     """Clear license cache before and after each test."""
     clear_license_cache()
-    old = os.environ.pop("CODRAG_TIER", None)
+    old_tier = os.environ.pop("CODRAG_TIER", None)
+    old_dev = os.environ.pop("CODRAG_DEV_MODE", None)
+    # Tests that set CODRAG_TIER also need CODRAG_DEV_MODE=1
+    os.environ["CODRAG_DEV_MODE"] = "1"
     yield
     clear_license_cache()
-    if old is not None:
-        os.environ["CODRAG_TIER"] = old
+    if old_tier is not None:
+        os.environ["CODRAG_TIER"] = old_tier
     else:
         os.environ.pop("CODRAG_TIER", None)
+    if old_dev is not None:
+        os.environ["CODRAG_DEV_MODE"] = old_dev
+    else:
+        os.environ.pop("CODRAG_DEV_MODE", None)
 
 
 class TestTierHierarchy:

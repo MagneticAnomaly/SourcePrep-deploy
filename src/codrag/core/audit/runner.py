@@ -5,6 +5,7 @@ Orchestrates all analyzers, collects findings, writes results to disk.
 """
 from __future__ import annotations
 import os
+import time
 import json
 import logging
 import hashlib

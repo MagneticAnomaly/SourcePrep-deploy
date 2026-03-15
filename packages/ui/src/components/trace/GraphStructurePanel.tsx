@@ -102,20 +102,23 @@ function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; bui
   
   if (total === 0) return null;
 
-  // When building, treat pending items as "in-progress"
-  // If we have specific pending_embedding count, include it.
+  // Phase 48: pending_embedding files are traced by the parser but NOT embedded
+  // by the knowledge index (docs, storybook artifacts, non-code files, etc.).
+  // These will never be embedded — don't show them as permanent "in-progress".
+  // When idle: count them as "traced" (they ARE traced, just not vector-embedded).
+  // When building: treat untraced + stale as in-progress (actively being worked on).
   const inProgress = building 
-    ? summary.untraced + stale + pendingEmbedding 
-    : pendingEmbedding; // Even if not building, pending embedding is "in-progress" semantically
+    ? summary.untraced + stale
+    : 0;
     
   const displayStale = building ? 0 : stale;
   
-  // The progress bar total should reflect the sum of the components shown.
-  // When building, everything not traced is "in-progress", so the numerator is traced + inProgress.
-  // When not building, the numerator is just traced + pendingEmbedding.
-  const displayNumerator = building ? (traced + inProgress) : (traced + pendingEmbedding);
+  // Numerator: traced + pending_embedding (both are successfully traced files)
+  const displayNumerator = traced + pendingEmbedding;
 
-  const tracedPct = (traced / total) * 100;
+  // Green bar includes traced + pendingEmbedding (both are successfully traced)
+  const allTracedCount = traced + pendingEmbedding;
+  const tracedPct = (allTracedCount / total) * 100;
   const inProgressPct = (inProgress / total) * 100;
   const stalePct = (displayStale / total) * 100;
   
@@ -130,7 +133,7 @@ function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; bui
           <div
             className="bg-success transition-all duration-500"
             style={{ width: `${tracedPct}%` }}
-            title={`${traced} traced & embedded`}
+            title={`${allTracedCount} traced & embedded`}
           />
         )}
         {inProgressPct > 0 && (
@@ -152,7 +155,7 @@ function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; bui
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-text-muted">
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-success" /> {traced} traced & embedded
+          <span className="w-2 h-2 rounded-full bg-success" /> {allTracedCount} traced & embedded
         </span>
         {inProgress > 0 ? (
           <span className="flex items-center gap-1 font-medium text-primary">

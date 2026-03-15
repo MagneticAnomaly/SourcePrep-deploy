@@ -274,7 +274,7 @@ class InferredEdgesAnalyzer:
 
             # Pre-build all batch payloads
             all_batches = []
-            for batch_start in range(0, total, batch_size):
+            for batch_start in range(0, total_work, batch_size):
                 batch = to_analyze[batch_start:batch_start + batch_size]
                 items = []
                 for node, content_hash in batch:
@@ -462,7 +462,7 @@ class InferredEdgesAnalyzer:
                                 done_count += 1
 
         if progress_callback:
-            progress_callback("Writing inferred edges", total, total)
+            progress_callback("Writing inferred edges", total_work, total_work)
 
         # Append new edges to the inferred edges file
         self._write_edges(new_edges)
@@ -473,12 +473,12 @@ class InferredEdgesAnalyzer:
         logger.info(
             "Inferred edges: analyzed=%d found=%d written=%d "
             "low_conf=%d dup=%d failed=%d (%dms)",
-            total, edges_found, edges_written,
+            total_work, edges_found, edges_written,
             skipped_low, skipped_dup, failed, duration_ms,
         )
 
         return InferredEdgesResult(
-            files_analyzed=total,
+            files_analyzed=total_work,
             edges_found=edges_found,
             edges_written=edges_written,
             skipped_low_confidence=skipped_low,

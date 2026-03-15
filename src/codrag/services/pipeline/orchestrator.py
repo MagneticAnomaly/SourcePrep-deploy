@@ -26,6 +26,9 @@ from .stages import (
     STAGE_MODEL_SLOT,
     QueueType,
     STAGE_QUEUE_TYPE,
+    STAGE_MANIFEST_FILE,
+    STAGE_OUTPUT_FILE,
+    STAGE_CONFIDENCE_FIELD,
 )
 from .scheduler import pipeline_scheduler
 from .workers import PipelineRunPhase, PipelineRun, WorkerFactory
@@ -67,6 +70,8 @@ class PipelineOrchestrator:
         self._orchestrator.add_listener(self._on_build_transition)
         # Phase 25: cached crashed runs discovered at startup
         self._crashed_runs: List[Any] = []
+        # Phase 49: per-run metadata objects
+        self._run_metadata: Dict[tuple[str, str], Any] = {}  # (project_id, group) → PipelineRunMetadata
 
     def _get_file_logger(self, project_id: str):
         """Get or create a PipelineFileLogger for a project."""
@@ -85,13 +90,42 @@ class PipelineOrchestrator:
 
     # ── Public API ─────────────────────────────────────────────
 
-    def run_fast_sync(self, project_id: str) -> bool:
-        """Start the Fast Sync group (stages 1-5).  Returns False if already running."""
-        return self._start_group(project_id, "fast_sync", FAST_SYNC_STAGES)
+    def run_fast_sync(self, project_id: str, force_from_start: bool = False) -> bool:
+        """Start the Fast Sync group (stages 1-5).
 
-    def run_deep_enrichment(self, project_id: str) -> bool:
-        """Start the Deep Enrichment group (stages 6-10).  Returns False if already running."""
-        return self._start_group(project_id, "deep_enrichment", DEEP_ENRICHMENT_STAGES)
+        By default, detects which stages already have output on disk and
+        resumes from the first incomplete stage.  Pass ``force_from_start=True``
+        to re-run all stages from scratch (e.g. after file changes that
+        invalidate the trace graph).
+        """
+        resume = 0 if force_from_start else self._detect_resume_point(project_id, FAST_SYNC_STAGES)
+        if resume >= len(FAST_SYNC_STAGES):
+            logger.info("All fast_sync stages already complete on disk for %s — skipping", project_id)
+            return False
+        if resume > 0:
+            logger.info(
+                "Resuming fast_sync for %s from stage %d/%d (%s) — stages 0-%d already on disk",
+                project_id, resume, len(FAST_SYNC_STAGES),
+                FAST_SYNC_STAGES[resume].value, resume - 1,
+            )
+        return self._start_group(project_id, "fast_sync", FAST_SYNC_STAGES, resume_from=resume)
+
+    def run_deep_enrichment(self, project_id: str, force_from_start: bool = False) -> bool:
+        """Start the Deep Enrichment group (stages 6-11).
+
+        Auto-detects resume point from disk state.
+        """
+        resume = 0 if force_from_start else self._detect_resume_point(project_id, DEEP_ENRICHMENT_STAGES)
+        if resume >= len(DEEP_ENRICHMENT_STAGES):
+            logger.info("All deep_enrichment stages already complete on disk for %s — skipping", project_id)
+            return False
+        if resume > 0:
+            logger.info(
+                "Resuming deep_enrichment for %s from stage %d/%d (%s)",
+                project_id, resume, len(DEEP_ENRICHMENT_STAGES),
+                DEEP_ENRICHMENT_STAGES[resume].value,
+            )
+        return self._start_group(project_id, "deep_enrichment", DEEP_ENRICHMENT_STAGES, resume_from=resume)
 
     def run_deepening_only(self, project_id: str) -> bool:
         """Run ONLY the Continuous Deepening and Deep Knowledge stages. Useful for retriggers."""
@@ -99,7 +133,118 @@ class PipelineOrchestrator:
         stages = [StageId.DEEPENING, StageId.DEEP_KNOWLEDGE]
         return self._start_group(project_id, "deep_enrichment", stages)
 
-    def run_all(self, project_id: str) -> bool:
+    def swap_model(self, project_id: str, group: str) -> Dict[str, Any]:
+        """Pause the running stage, then resume with fresh LLM config.
+
+        Workers call _get_llm_client_for_task() at stage start, so after
+        a pause-resume cycle the new model config is automatically picked up.
+        Incremental workers skip already-processed items, so no work is lost.
+
+        Returns dict with swap details, or raises if the group isn't running.
+        """
+        with self._lock:
+            key = (project_id, group)
+            run = self._runs.get(key)
+            if not run or not run.is_active:
+                return {"swapped": False, "reason": "not_running"}
+            paused_stage = run.current_stage
+
+        # Pause → flush partial results
+        paused = self._pause_group(project_id, group)
+        if not paused:
+            return {"swapped": False, "reason": "pause_failed"}
+
+        logger.info(
+            "Model swap for %s/%s: paused at stage %s, resuming with new config",
+            project_id, group, paused_stage,
+        )
+
+        # Resume from the same stage — worker re-reads LLM config at start
+        resumed = self.resume_paused(project_id, group)
+        return {
+            "swapped": resumed,
+            "paused_at_stage": paused_stage,
+            "resumed": resumed,
+        }
+
+    def hot_scope_reload(self, project_id: str) -> Dict[str, Any]:
+        """Pause the running pipeline, rebuild the trace graph with current
+        include/exclude patterns, then resume.
+
+        Called when the user changes Exclude Tree or Include Patterns while
+        a pipeline stage (typically Fast Catalogue) is running.  The flow:
+
+        1. Pause the running stage (checkpoint + flush)
+        2. Run Stage 1 (TraceBuilder) synchronously with current globs
+           — Rebuilds trace_nodes.jsonl with the new file set
+           — Fast: Rust parser, 5-30s even for large repos
+        3. Resume the paused stage
+           — Augmenter re-reads trace_nodes.jsonl (smaller list)
+           — Incremental logic skips already-augmented items
+           — Newly-excluded files are absent from the list
+
+        Returns dict with reload details.
+        """
+        # Find which group is running
+        with self._lock:
+            active_group = None
+            active_run = None
+            for key, run in self._runs.items():
+                if key[0] == project_id and run.is_active:
+                    active_group = key[1]
+                    active_run = run
+                    break
+
+        if not active_run or not active_group:
+            logger.info("hot_scope_reload: no active pipeline for %s — patterns saved for next run", project_id)
+            return {"reloaded": False, "reason": "not_running"}
+
+        paused_stage = active_run.current_stage
+        logger.info(
+            "Hot scope reload for %s: pausing %s at stage %s, rebuilding trace graph",
+            project_id, active_group, paused_stage,
+        )
+
+        # Step 1: Pause the running stage
+        paused = self._pause_group(project_id, active_group)
+        if not paused:
+            return {"reloaded": False, "reason": "pause_failed"}
+
+        # Step 2: Rebuild Stage 1 (structural trace) synchronously
+        # This re-reads the current include/exclude globs from project config
+        # and produces a new trace_nodes.jsonl with the updated file set.
+        try:
+            worker = WorkerFactory.create_worker(project_id, StageId.STRUCTURAL)
+            from codrag.services.build_orchestrator import BuildSlot
+            # Run the trace worker directly (not via BuildOrchestrator)
+            # to keep it synchronous and fast.
+            _dummy_slot = BuildSlot()
+            _dummy_slot.cancel_token = None
+            result = worker(_dummy_slot, lambda msg, cur, tot: logger.info(
+                "Hot scope rebuild: %s (%d/%d)", msg, cur, tot,
+            ))
+            new_nodes = result.get("nodes", 0)
+            logger.info(
+                "Hot scope reload: trace rebuilt with %d nodes (was processing %s)",
+                new_nodes, paused_stage,
+            )
+        except Exception as e:
+            logger.error("Hot scope reload: trace rebuild failed: %s — resuming with old data", e)
+            # Resume anyway — better to continue with stale data than stay paused
+            self.resume_paused(project_id, active_group)
+            return {"reloaded": False, "reason": f"rebuild_failed: {e}"}
+
+        # Step 3: Resume the paused stage
+        resumed = self.resume_paused(project_id, active_group)
+
+        return {
+            "reloaded": resumed,
+            "paused_stage": paused_stage,
+            "new_node_count": new_nodes,
+            "group": active_group,
+        }
+
+    def run_all(self, project_id: str, force_from_start: bool = False) -> bool:
         """Start Fast Sync, then chain Deep Enrichment after it completes."""
         # Start fast sync; deep enrichment will be chained via the listener
         with self._lock:
@@ -110,7 +255,7 @@ class PipelineOrchestrator:
             # Mark that deep should chain after fast
             self._chain_deep: Dict[str, bool] = getattr(self, "_chain_deep", {})
             self._chain_deep[project_id] = True
-        return self.run_fast_sync(project_id)
+        return self.run_fast_sync(project_id, force_from_start=force_from_start)
 
     def status(self, project_id: str) -> Dict[str, Any]:
         """Get pipeline status for a project."""
@@ -155,34 +300,88 @@ class PipelineOrchestrator:
     def resume_paused(self, project_id: str, group: str) -> bool:
         """Resume a paused pipeline group from the stage it was paused at.
 
-        Uses state machine: checks ``is_paused`` (proper PAUSED state)
-        instead of the old magic error string.  Because all LLM-heavy
-        stages write incremental results to disk, restarting the same
-        stage will skip already-processed items.
+        Transitions the existing PAUSED state machine to RUNNING via
+        Event.RESUME, preserving stage_results and progress.  The
+        resumed stage's worker will skip already-processed items
+        (incremental).
         """
         with self._lock:
             key = (project_id, group)
             run = self._runs.get(key)
             if not run or not run.is_paused:
                 return False
-            resume_from = run.current_stage_index
+
+            # Transition PAUSED → RUNNING on the existing state machine
+            if not run.transition(Event.RESUME):
+                logger.warning(
+                    "Resume transition rejected for %s/%s (state=%s)",
+                    project_id, group, run.state.value,
+                )
+                return False
 
         logger.info(
-            "Resuming paused run %s/%s from stage %d",
-            project_id, group, resume_from,
+            "Resuming paused run %s/%s from stage %d (%s)",
+            project_id, group,
+            run.current_stage_index,
+            run.current_stage or "?",
         )
 
-        if group == "fast_sync":
-            stages = FAST_SYNC_STAGES
-        elif group == "deep_enrichment":
-            stages = DEEP_ENRICHMENT_STAGES
-        else:
-            return False
+        # Re-start the current stage — worker will skip already-done items
+        self._advance_pipeline(run)
+        return True
 
-        return self._start_group(
-            project_id, group, stages,
-            resume_from=resume_from,
-        )
+    def force_reset_stale_runs(self, project_id: str, max_age_seconds: float = 600) -> List[str]:
+        """Force-reset pipeline runs whose current stage worker has crashed.
+
+        Returns list of groups that were reset.  This is a recovery mechanism
+        for when a worker finishes but the _on_build_transition callback
+        doesn't fire (e.g. due to a crash or race condition).
+
+        IMPORTANT: Only resets if the build slot for the current stage is
+        IDLE (worker finished/crashed but callback never fired).  If the
+        build slot is actively RUNNING, the pipeline is NOT stuck — the
+        worker is just slow.  A 10-hour augmentation pass is normal for
+        large repos.
+        """
+        import time as _time
+        reset_groups: List[str] = []
+        with self._lock:
+            for key, run in list(self._runs.items()):
+                if key[0] != project_id:
+                    continue
+                if not run.is_active:
+                    continue
+
+                # Check the ACTUAL build slot for the current stage.
+                # If the slot is actively running, the pipeline is NOT stuck.
+                current_str = run.current_stage
+                if current_str:
+                    try:
+                        current_stage = StageId(current_str)
+                        bt = STAGE_BUILD_TYPE[current_stage]
+                        slot = self._orchestrator.status(project_id, bt)
+                        if slot.phase in (BuildPhase.RUNNING, BuildPhase.QUEUED):
+                            # Worker is actively running — not stuck
+                            continue
+                    except Exception:
+                        pass
+
+                # Build slot is idle/completed/failed but SM thinks we're
+                # still running → callback was lost.  Check age.
+                elapsed = _time.time() - (run.started_at or 0)
+                if elapsed > max_age_seconds:
+                    group = key[1]
+                    stage = current_str or "?"
+                    logger.warning(
+                        "Force-resetting stale pipeline %s/%s (stuck at stage %s, "
+                        "build slot idle for %.0fs)",
+                        project_id, group, stage, elapsed,
+                    )
+                    # Transition to FAILED so it's a clean terminal state
+                    run.transition(Event.STAGE_FAILED,
+                                   detail=f"Force-reset: worker crashed (slot idle for {int(elapsed)}s)")
+                    reset_groups.append(group)
+        return reset_groups
 
     def clear_project(self, project_id: str) -> None:
         """Remove all pipeline state for a project."""
@@ -195,6 +394,80 @@ class PipelineOrchestrator:
         self._file_loggers.pop(project_id, None)
 
     # ── Internal ───────────────────────────────────────────────
+
+    @staticmethod
+    def _detect_resume_point(project_id: str, stages: List[StageId]) -> int:
+        """Detect the first incomplete stage by checking manifest files on disk.
+
+        A stage is considered "complete" if its **manifest file** exists.
+        Output files alone are not sufficient — the augmenter writes
+        checkpoint data to its output file periodically, but only writes
+        the manifest at the end of a successful ``run()``.
+
+        For the structural stage (stage 1), we check if trace_nodes.jsonl
+        exists since it doesn't have a separate manifest in the same
+        sense — trace_manifest.json is the output.
+
+        Returns the index of the first incomplete stage.  If all stages
+        are complete, returns ``len(stages)``.
+        """
+        from pathlib import Path
+        from .stages import STAGE_OUTPUT_FILE, STAGE_MANIFEST_FILE
+        try:
+            from codrag.services.project_helpers import require_project
+            from codrag.core.project_registry import project_index_dir
+            project = require_project(project_id)
+            idx_dir = Path(project_index_dir(project))
+        except Exception:
+            return 0  # Can't resolve project — start from scratch
+
+        # Get the structural manifest mtime as the "baseline" — any
+        # downstream stage whose manifest is OLDER than this needs to
+        # re-run because its input data (the trace graph) changed.
+        structural_manifest = idx_dir / "trace_manifest.json"
+        baseline_mtime = 0.0
+        if structural_manifest.exists():
+            baseline_mtime = structural_manifest.stat().st_mtime
+
+        for i, stage in enumerate(stages):
+            # The manifest file is the completion signal.
+            # Workers write output incrementally (checkpoints) but only
+            # write the manifest at the very end of a successful run.
+            manifest_file = STAGE_MANIFEST_FILE.get(stage)
+            if manifest_file:
+                mpath = idx_dir / manifest_file
+                if mpath.exists() and mpath.stat().st_size > 0:
+                    # Check staleness: is this manifest older than the
+                    # structural trace?  If so, the trace was rebuilt after
+                    # this stage ran — re-run needed.
+                    if stage != StageId.STRUCTURAL and baseline_mtime > 0:
+                        manifest_mtime = mpath.stat().st_mtime
+                        if manifest_mtime < baseline_mtime:
+                            logger.info(
+                                "Stage %s manifest is stale (%.0f < %.0f) — "
+                                "trace was rebuilt after this stage last ran",
+                                stage.value, manifest_mtime, baseline_mtime,
+                            )
+                            return i
+                    continue  # Stage completed and fresh — skip
+
+                # Manifest missing or empty — stage needs to run.
+                # (Output file may have partial checkpoint data — the
+                # worker's incremental logic will skip already-done items.)
+                return i
+
+            # Stage has no manifest mapping — check output file existence
+            output_file = STAGE_OUTPUT_FILE.get(stage)
+            if output_file:
+                opath = idx_dir / output_file
+                if opath.exists() and opath.stat().st_size > 0:
+                    continue
+                return i
+
+            # No manifest and no output file — assume needs to run
+            return i
+
+        return len(stages)  # All stages complete
 
     @staticmethod
     def _is_deep_enrichment_auto(project_id: str) -> bool:
@@ -281,6 +554,41 @@ class PipelineOrchestrator:
         except Exception:
             logger.debug("Journal write failed (non-fatal)", exc_info=True)
 
+        # Phase 49: create run metadata
+        try:
+            from codrag.services.pipeline_metadata import (
+                create_run_metadata, save_run_metadata,
+            )
+            from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
+            project = require_project(project_id)
+            idx_dir = project_index_dir(project)
+            run_meta = create_run_metadata(
+                run_id=sm.journal_run_id or f"run-{int(time.time())}",
+                project_id=project_id,
+                group=group,
+                stage_ids=[s.value for s in stages],
+            )
+            self._run_metadata[(project_id, group)] = run_meta
+            save_run_metadata(run_meta, idx_dir)
+        except Exception:
+            logger.debug("Run metadata creation failed (non-fatal)", exc_info=True)
+
+        # Phase 50: Detect new AI tools and regenerate missing rules files.
+        # Cheap (~1ms detection + ~5ms writes for missing files only).
+        # Catches tool switches (user installed Windsurf since last run).
+        try:
+            from codrag.core.rules_generator import detect_and_regenerate
+            from codrag.services.project_helpers import require_project
+            project = require_project(project_id)
+            detect_and_regenerate(
+                project_id=project_id,
+                project_path=Path(project.path),
+                project_name=project.name or project_id,
+            )
+        except Exception:
+            logger.debug("Phase 50: detect_and_regenerate failed at pipeline start (non-fatal)", exc_info=True)
+
         # Start the first (or resumed) stage
         self._advance_pipeline(sm)
         return True
@@ -302,6 +610,8 @@ class PipelineOrchestrator:
             self._release_group_models_via_sm(run)
             # Phase 25: journal — mark run completed + cleanup checkpoint
             self._journal_run_completed(run)
+            # Phase 49: finalize run metadata + record in history
+            self._finalize_run_metadata(run, "completed")
             # After deep enrichment completes, trigger CodeIndex build so
             # /context search works and file tree status badges update.
             # Note: fast_sync does NOT trigger CodeIndex — it only builds
@@ -486,11 +796,15 @@ class PipelineOrchestrator:
 
         stage: Optional[StageId] = None
         with self._lock:
-            # Find any active pipeline run for this project where the current
-            # stage matches this build type
+            # Find any active or paused pipeline run for this project where
+            # the current stage matches this build type.  We include PAUSED
+            # because a worker's FAILED callback may arrive after
+            # _pause_group() already moved the SM to PAUSED (race).
             matching_run: Optional[PipelineGroupStateMachine] = None
             for key, run in self._runs.items():
-                if run.project_id != project_id or not run.is_active:
+                if run.project_id != project_id:
+                    continue
+                if not (run.is_active or run.is_paused):
                     continue
                 current_str = run.current_stage
                 if current_str:
@@ -510,36 +824,80 @@ class PipelineOrchestrator:
                     "Pipeline %s/%s — stage %s completed",
                     project_id, matching_run.group, stage.value,
                 )
-                # Phase 44C: release model via state machine
-                completed_task = STAGE_TASK_ID.get(stage)
-                if completed_task:
-                    try:
-                        from codrag.core.model_awareness import model_awareness
-                        model_awareness.release(completed_task, unload=False)
-                    except Exception:
-                        logger.debug("ModelAwareness release failed for %s", completed_task, exc_info=True)
 
-                # Phase 45D: release scheduler slot and resume any queued pipeline
-                next_entry = pipeline_scheduler.release(project_id, stage)
-                if next_entry:
-                    self._resume_queued_pipeline(next_entry.project_id, next_entry.stage)
+                # --- Post-completion bookkeeping (non-fatal) --------
+                # Wrapped in try/except so that failures in logging,
+                # metadata, or manifest writing can NEVER prevent
+                # _advance_pipeline from being called below.
+                try:
+                    # Phase 44C: release model via state machine
+                    completed_task = STAGE_TASK_ID.get(stage)
+                    if completed_task:
+                        try:
+                            from codrag.core.model_awareness import model_awareness
+                            model_awareness.release(completed_task, unload=False)
+                        except Exception:
+                            logger.debug("ModelAwareness release failed for %s", completed_task, exc_info=True)
 
-                # Pipeline file logger
-                pfl = self._get_file_logger(project_id)
-                if pfl:
+                    # Phase 45D: release scheduler slot and resume any queued pipeline
+                    next_entry = pipeline_scheduler.release(project_id, stage)
+                    if next_entry:
+                        self._resume_queued_pipeline(next_entry.project_id, next_entry.stage)
+
+                    # Fetch build slot for file logger + manifest writer
                     slot = self._orchestrator.status(project_id, build_type)
-                    pfl.stage_end(stage.value, "completed", data={
-                        "result": slot.result,
-                        "duration": slot.duration_seconds,
-                    })
-                    pfl.transition(build_type.value, old_phase.value, new_phase.value,
-                                   f"Stage {stage.value} completed")
-                # Phase 25: journal — record stage completion
-                self._journal_stage_completed(matching_run, stage)
+
+                    # Pipeline file logger
+                    pfl = self._get_file_logger(project_id)
+                    if pfl:
+                        pfl.stage_end(stage.value, "completed", data={
+                            "result": slot.result,
+                            "duration": slot.duration_seconds,
+                        })
+                        pfl.transition(build_type.value, old_phase.value, new_phase.value,
+                                       f"Stage {stage.value} completed")
+                    # Phase 25: journal — record stage completion
+                    self._journal_stage_completed(matching_run, stage)
+                    # Phase 49: write stage manifest + update run metadata
+                    self._write_stage_manifest_and_update_run(
+                        matching_run, stage, slot,
+                    )
+                    # Phase 50: Generate preliminary atlas + rules file after Stage 1,
+                    # and regenerate rules with full LLM atlas after Stage 9.
+                    if stage == StageId.STRUCTURAL:
+                        self._generate_preliminary_atlas_and_rules(project_id)
+                    elif stage == StageId.ATLAS:
+                        self._regenerate_rules_with_full_atlas(project_id)
+                except Exception:
+                    logger.exception(
+                        "Post-completion bookkeeping failed for %s/%s stage %s "
+                        "(pipeline will still advance)",
+                        project_id, matching_run.group, stage.value,
+                    )
 
             elif new_phase == BuildPhase.FAILED:
                 slot = self._orchestrator.status(project_id, build_type)
                 error_msg = f"Stage {stage.value} failed: {slot.error}"
+
+                # If the state machine is in PAUSING, PAUSED, or QUEUED, this
+                # "failure" is actually the worker responding to the pause
+                # signal (PipelinePausedError).  Don't transition to FAILED.
+                # - PAUSED: race — _pause_group() already moved SM to PAUSED
+                # - QUEUED: race — swap_model() paused then resumed, and
+                #   _advance_pipeline re-enqueued the stage while the old
+                #   worker's PipelinePausedError is still in flight.
+                if matching_run.state in (PipelineState.PAUSING, PipelineState.PAUSED, PipelineState.QUEUED):
+                    logger.info(
+                        "Pipeline %s/%s — ignoring STAGE_FAILED during %s "
+                        "(worker stopped for pause/swap, not a real failure)",
+                        project_id, matching_run.group, matching_run.state.value,
+                    )
+                    # Release scheduler slot but don't advance or fail
+                    next_entry = pipeline_scheduler.release(project_id, stage)
+                    if next_entry:
+                        self._resume_queued_pipeline(next_entry.project_id, next_entry.stage)
+                    return
+
                 # State machine handles stage_results, phase, error, finished_at
                 matching_run.transition(Event.STAGE_FAILED, detail=error_msg)
                 logger.error(
@@ -829,6 +1187,159 @@ class PipelineOrchestrator:
         timer.daemon = True
         timer.start()
 
+    # ── Phase 50: Rules File Generation (post-stage hooks) ──────────
+
+    @staticmethod
+    def _read_graph_stats_from_manifest(idx_dir) -> Dict[str, Any]:
+        """Read node/edge counts from trace_manifest.json for rules file stats.
+
+        Returns a dict with node_count, edge_count, coverage_pct.
+        Non-fatal — returns zeros on any error.
+        """
+        import json as _json
+        stats: Dict[str, Any] = {"node_count": 0, "edge_count": 0, "coverage_pct": None}
+        try:
+            manifest_path = idx_dir / "trace_manifest.json"
+            if manifest_path.exists():
+                with open(manifest_path, "r", encoding="utf-8") as f:
+                    manifest = _json.load(f)
+                counts = manifest.get("counts", {})
+                stats["node_count"] = counts.get("nodes_total", 0) or counts.get("files_parsed", 0)
+                stats["edge_count"] = counts.get("edges_total", 0)
+        except Exception:
+            pass
+        return stats
+
+    def _generate_preliminary_atlas_and_rules(self, project_id: str) -> None:
+        """Generate a structural-only atlas and write/update IDE rules files.
+
+        Called after Stage 1 (STRUCTURAL / Rust trace) completes. Takes ~100ms
+        (no LLM). The atlas is replaced by the full LLM-generated version when
+        Stage 9 (ATLAS) completes.
+
+        Non-fatal — never blocks the pipeline.
+        """
+        try:
+            from pathlib import Path
+            from codrag.services.project_helpers import require_project
+            from codrag.core.project_registry import project_index_dir
+            from codrag.core.atlas import CodebaseAtlas
+            from codrag.core.rules_generator import write_rules_file
+
+            project = require_project(project_id)
+            idx_dir = project_index_dir(project)
+
+            # Defensive: verify trace files exist before reading
+            nodes_path = idx_dir / "trace_nodes.jsonl"
+            if not nodes_path.exists() or nodes_path.stat().st_size == 0:
+                logger.debug("trace_nodes.jsonl missing after Stage 1 — skipping preliminary atlas")
+                return
+
+            atlas = CodebaseAtlas(idx_dir, llm=None, project_root=Path(project.path))
+
+            # ISSUE-I guard: If a full LLM atlas already exists (from a previous
+            # pipeline run), do NOT overwrite it with a structural one.  Instead,
+            # use the existing atlas content for the rules file and just refresh
+            # the focus areas / stats.
+            existing_doc = atlas.load()
+            if existing_doc and existing_doc.mode == "llm" and existing_doc.content:
+                logger.info(
+                    "Phase 50: Existing LLM atlas found for %s — reusing for rules file (not downgrading)",
+                    project_id,
+                )
+                doc = existing_doc
+            else:
+                # No LLM atlas yet — generate structural (no LLM, ~100ms)
+                doc = atlas.generate_structural()
+
+            if not doc or not doc.content:
+                logger.debug("Structural atlas empty for %s — writing rules without atlas", project_id)
+
+            # Gather stats for the rules file header
+            stats = self._read_graph_stats_from_manifest(idx_dir)
+            if doc and doc.file_count:
+                stats.setdefault("node_count", doc.file_count)
+
+            # Get included_paths from project config
+            pcfg = project.config or {}
+            included_paths = pcfg.get("included_paths") or []
+
+            # If reusing an existing LLM atlas, this is not preliminary
+            is_prelim = not (existing_doc and existing_doc.mode == "llm")
+
+            write_rules_file(
+                project_path=Path(project.path),
+                project_name=project.name or project_id,
+                atlas_content=doc.content if doc else "",
+                included_paths=included_paths if included_paths else None,
+                is_preliminary=is_prelim,
+                stats=stats,
+                ide="auto",
+            )
+            logger.info(
+                "Phase 50: Preliminary atlas + rules file written for %s (%d chars)",
+                project_id, doc.char_count if doc else 0,
+            )
+        except Exception:
+            logger.debug(
+                "Phase 50: Preliminary atlas generation failed for %s (non-fatal)",
+                project_id, exc_info=True,
+            )
+
+    def _regenerate_rules_with_full_atlas(self, project_id: str) -> None:
+        """Regenerate IDE rules files with the full LLM-generated atlas.
+
+        Called after Stage 9 (ATLAS) completes. Reads the atlas.json that the
+        atlas worker just wrote and embeds it into the rules files, replacing
+        the preliminary structural atlas from Stage 1.
+
+        Non-fatal — never blocks the pipeline.
+        """
+        try:
+            from pathlib import Path
+            from codrag.services.project_helpers import require_project
+            from codrag.core.project_registry import project_index_dir
+            from codrag.core.atlas import CodebaseAtlas
+            from codrag.core.rules_generator import write_rules_file
+
+            project = require_project(project_id)
+            idx_dir = project_index_dir(project)
+
+            # Load the full atlas that Stage 9 just generated
+            atlas = CodebaseAtlas(idx_dir)
+            doc = atlas.load()
+
+            if not doc or not doc.content:
+                logger.debug("No atlas.json found after Stage 9 for %s — skipping rules regen", project_id)
+                return
+
+            # Gather stats
+            stats = self._read_graph_stats_from_manifest(idx_dir)
+            if doc.file_count:
+                stats.setdefault("node_count", doc.file_count)
+
+            pcfg = project.config or {}
+            included_paths = pcfg.get("included_paths") or []
+
+            write_rules_file(
+                project_path=Path(project.path),
+                project_name=project.name or project_id,
+                atlas_content=doc.content,
+                included_paths=included_paths if included_paths else None,
+                is_preliminary=False,
+                stats=stats,
+                ide="auto",
+            )
+            logger.info(
+                "Phase 50: Rules file updated with full LLM atlas for %s (%d chars, mode=%s)",
+                project_id, doc.char_count, doc.mode,
+            )
+        except Exception:
+            logger.debug(
+                "Phase 50: Rules file regen failed for %s (non-fatal)",
+                project_id, exc_info=True,
+            )
+
     # ── CodeIndex Build (post-pipeline) ─────────────────────────────
 
     def _trigger_code_index_build(self, project_id: str, pfl: Any = None) -> None:
@@ -988,10 +1499,18 @@ class PipelineOrchestrator:
     # ── Phase 25: Crash Recovery ──────────────────────────────────
 
     def startup_recovery(self) -> List[Any]:
-        """Called once on daemon startup.  Detects crashed runs.
+        """Called once on daemon startup.  Detects crashed runs and hydrates
+        PAUSED state machines for incomplete pipeline work.
+
+        After a server crash, ``_runs`` is empty (in-memory only).  This
+        method scans each project's disk state via ``_detect_resume_point()``
+        and creates PAUSED state machines for any group with incomplete
+        stages.  The user then sees "Paused" in the UI and can click Resume.
 
         Returns list of JournalEntry dicts for the UI to display.
         """
+        # Phase 1: Journal-based crash detection (existing)
+        journal_results: list = []
         try:
             from codrag.services.pipeline_journal import journal
             crashed = journal.recover_crashed_runs()
@@ -1000,7 +1519,6 @@ class PipelineOrchestrator:
                 logger.warning(
                     "Crash recovery: found %d crashed pipeline run(s)", len(crashed)
                 )
-                # Auto-heal: verify trace files for each crashed project
                 for entry in crashed:
                     try:
                         from codrag.services.pipeline_checkpoint import verify_trace_files, auto_heal
@@ -1018,10 +1536,83 @@ class PipelineOrchestrator:
                             logger.info("Auto-heal results for %s: %s", entry.project_id, results)
                     except Exception:
                         logger.debug("Auto-heal failed for %s", entry.project_id, exc_info=True)
-            return [e.to_dict() for e in crashed]
+            journal_results = [e.to_dict() for e in crashed]
         except Exception:
-            logger.debug("Startup recovery failed", exc_info=True)
-            return []
+            logger.debug("Journal crash recovery failed", exc_info=True)
+
+        # Phase 2: Disk-state hydration — create PAUSED state machines for
+        # projects with incomplete pipeline work so the UI shows the correct
+        # state and Resume works after a crash/restart.
+        try:
+            self._hydrate_paused_runs_from_disk()
+        except Exception:
+            logger.debug("Disk-state hydration failed", exc_info=True)
+
+        return journal_results
+
+    def _hydrate_paused_runs_from_disk(self) -> None:
+        """Scan all projects and create PAUSED state machines for incomplete work.
+
+        Called during startup_recovery.  For each project, checks fast_sync
+        and deep_enrichment stage completion via _detect_resume_point().
+        If a group has partially completed stages (resume_point > 0 but
+        < len(stages)), creates a PAUSED SM at the resume point so the
+        user can click Resume.
+        """
+        try:
+            from codrag.services.project_helpers import get_registry
+            registry = get_registry()
+            projects = registry.list_projects()
+        except Exception:
+            logger.debug("Cannot list projects for disk-state hydration", exc_info=True)
+            return
+
+        for project in projects:
+            pid = project.id
+            # Skip if we already have an active run for this project
+            # (shouldn't happen on fresh startup, but defensive)
+            with self._lock:
+                has_active = any(
+                    run.is_active or run.is_paused
+                    for key, run in self._runs.items()
+                    if key[0] == pid
+                )
+            if has_active:
+                continue
+
+            for group, stages in [
+                ("fast_sync", FAST_SYNC_STAGES),
+                ("deep_enrichment", DEEP_ENRICHMENT_STAGES),
+            ]:
+                resume = self._detect_resume_point(pid, stages)
+                if resume <= 0 or resume >= len(stages):
+                    continue  # Nothing started, or all complete
+
+                # Create a PAUSED state machine at the resume point
+                sm = PipelineGroupStateMachine(
+                    project_id=pid,
+                    group=group,
+                    stages=[s.value for s in stages],
+                )
+                sm.add_guard(self._default_guard)
+
+                # Transition: IDLE → RUNNING → PAUSING → PAUSED
+                sm.transition(Event.START)
+                sm.current_stage_index = resume
+                # Mark completed stages
+                for i in range(resume):
+                    sm.stage_results[stages[i].value] = "completed"
+                sm.transition(Event.PAUSE)
+                sm.transition(Event.STAGE_FLUSHED)
+
+                with self._lock:
+                    self._runs[(pid, group)] = sm
+
+                logger.info(
+                    "Hydrated PAUSED state for %s/%s at stage %d/%d (%s) "
+                    "— user can Resume to continue",
+                    pid, group, resume, len(stages), stages[resume].value,
+                )
 
     def get_crashed_runs(self, project_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get crashed runs (for UI display)."""
@@ -1079,6 +1670,176 @@ class PipelineOrchestrator:
             return journal.resolve_crashed_run(run_id, "discarded")
         except Exception:
             return False
+
+
+    # ── Phase 49: Process Metadata ─────────────────────────────────
+
+    def _write_stage_manifest_and_update_run(
+        self,
+        run: PipelineGroupStateMachine,
+        stage: StageId,
+        slot: Any,
+    ) -> None:
+        """Write an enhanced stage manifest and update the run metadata.
+
+        Called after each stage completes successfully.  Non-fatal — never
+        blocks the pipeline if metadata writing fails.
+        """
+        try:
+            from codrag.core.stage_manifest import (
+                create_stage_manifest, save_stage_manifest,
+            )
+            from codrag.core.provenance import (
+                aggregate_quality_metrics, get_file_metadata,
+                compute_throughput, aggregate_model_breakdown,
+            )
+            from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
+
+            project = require_project(run.project_id)
+            idx_dir = project_index_dir(project)
+
+            # Create manifest with provenance info
+            manifest = create_stage_manifest(
+                stage_id=stage.value,
+                run_id=run.journal_run_id,
+                project_id=run.project_id,
+            )
+
+            # Extract worker result from the build slot
+            worker_result = getattr(slot, "result", None) or {}
+            if isinstance(worker_result, dict):
+                # Timing from worker
+                timing = worker_result.get("_stage_timing", {})
+                if timing:
+                    from datetime import datetime, timezone
+                    started_epoch = timing.get("started_at", 0)
+                    if started_epoch:
+                        manifest.started_at = datetime.fromtimestamp(
+                            started_epoch, tz=timezone.utc
+                        ).isoformat()
+                    manifest.elapsed_seconds = timing.get("elapsed")
+                    from datetime import datetime as dt2
+                    manifest.finished_at = datetime.now(timezone.utc).isoformat()
+
+                # Model info from worker
+                model_info = worker_result.get("_model_info")
+                if model_info:
+                    task_id = STAGE_TASK_ID.get(stage)
+                    model_info["task_id"] = task_id
+                    manifest.model = model_info
+
+            # Quality metrics from output file
+            output_file = STAGE_OUTPUT_FILE.get(stage)
+            conf_field = STAGE_CONFIDENCE_FIELD.get(stage)
+            if output_file and conf_field:
+                output_path = idx_dir / output_file
+                if output_path.exists():
+                    quality = aggregate_quality_metrics(output_path, conf_field)
+                    if quality:
+                        manifest.quality = quality
+
+                    # Throughput
+                    total = quality.get("total_items", 0)
+                    elapsed = manifest.elapsed_seconds or 0
+                    if total > 0 and elapsed > 0:
+                        manifest.throughput = compute_throughput(total, elapsed)
+
+                    # Model breakdown (detects mid-stage model swaps)
+                    breakdown = aggregate_model_breakdown(
+                        output_path,
+                        model_field="model",
+                        confidence_field=conf_field,
+                    )
+                    if breakdown:
+                        quality["model_breakdown"] = breakdown
+
+                    # Output file metadata
+                    manifest.output_files = {
+                        output_file: get_file_metadata(output_path),
+                    }
+
+            # Save manifest
+            manifest_filename = STAGE_MANIFEST_FILE.get(stage, f"{stage.value}_manifest.json")
+            save_stage_manifest(manifest, idx_dir / manifest_filename)
+
+            # Update run metadata
+            self._update_run_metadata_for_stage(
+                run, stage, worker_result, manifest_filename,
+            )
+
+        except Exception:
+            logger.debug(
+                "Phase 49: stage manifest write failed for %s/%s (non-fatal)",
+                run.project_id, stage.value, exc_info=True,
+            )
+
+    def _update_run_metadata_for_stage(
+        self,
+        run: PipelineGroupStateMachine,
+        stage: StageId,
+        worker_result: Any,
+        manifest_filename: str,
+    ) -> None:
+        """Update the in-memory run metadata after a stage completes."""
+        try:
+            from codrag.services.pipeline_metadata import (
+                mark_stage_completed, save_run_metadata,
+            )
+            from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
+
+            key = (run.project_id, run.group)
+            run_meta = self._run_metadata.get(key)
+            if not run_meta:
+                return
+
+            mark_stage_completed(
+                run_meta,
+                stage.value,
+                worker_result=worker_result if isinstance(worker_result, dict) else None,
+                manifest_file=manifest_filename,
+            )
+
+            project = require_project(run.project_id)
+            idx_dir = project_index_dir(project)
+            save_run_metadata(run_meta, idx_dir)
+        except Exception:
+            logger.debug("Phase 49: run metadata update failed (non-fatal)", exc_info=True)
+
+    def _finalize_run_metadata(self, run: PipelineGroupStateMachine, status: str) -> None:
+        """Finalize run metadata on completion/failure and record in history."""
+        try:
+            from codrag.services.pipeline_metadata import (
+                finalize_run_metadata, save_run_metadata, METADATA_FILENAME,
+            )
+            from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
+
+            key = (run.project_id, run.group)
+            run_meta = self._run_metadata.get(key)
+            if not run_meta:
+                return
+
+            project = require_project(run.project_id)
+            idx_dir = project_index_dir(project)
+
+            finalize_run_metadata(run_meta, status=status, index_dir=idx_dir)
+            save_run_metadata(run_meta, idx_dir)
+
+            # Record in history DB
+            try:
+                from codrag.services.pipeline_history import history
+                metadata_file = str(idx_dir / METADATA_FILENAME)
+                history.record_run(run_meta, metadata_file=metadata_file)
+            except Exception:
+                logger.debug("History record failed (non-fatal)", exc_info=True)
+
+            # Clean up in-memory reference
+            self._run_metadata.pop(key, None)
+
+        except Exception:
+            logger.debug("Phase 49: run metadata finalize failed (non-fatal)", exc_info=True)
 
 
 # ── SSE Event Bridge ─────────────────────────────────────────────

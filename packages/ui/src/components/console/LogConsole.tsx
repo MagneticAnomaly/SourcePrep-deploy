@@ -15,7 +15,25 @@ export interface LogConsoleProps {
   diagnosticData?: Record<string, unknown>;
 }
 
-type LogLevel = 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';
+type FilterTag = 'PIPELINE' | 'INFO' | 'WARNING' | 'ERROR' | 'HTTP';
+
+const _isHttpLog = (log: LogEntry) =>
+  log.logger === 'uvicorn.access' ||
+  log.message.includes('/health') ||
+  log.message.includes('/trace/coverage') ||
+  log.message.includes('/augment/status') ||
+  log.message.includes('/pipeline/status') ||
+  log.message.includes('/knowledge/status');
+
+const _isPipelineLog = (log: LogEntry) =>
+  log.logger.startsWith('codrag.services.pipeline') ||
+  log.logger.startsWith('codrag.core.augmenter') ||
+  log.logger.startsWith('codrag.core.inferred_edges') ||
+  log.logger.startsWith('codrag.core.epistemic') ||
+  log.logger.startsWith('codrag.core.cluster') ||
+  log.logger.startsWith('codrag.core.atlas') ||
+  log.logger.startsWith('codrag.core.deepening') ||
+  log.logger.startsWith('codrag.core.group_reasoning');
 
 export function LogConsole({
   logs,
@@ -24,9 +42,20 @@ export function LogConsole({
   diagnosticData,
 }: LogConsoleProps) {
   const [autoScroll, setAutoScroll] = useState(true);
-  const [filterLevel, setFilterLevel] = useState<LogLevel | 'ALL'>('ALL');
+  // Multi-select: set of active filter tags. Empty set = show ALL.
+  const [activeFilters, setActiveFilters] = useState<Set<FilterTag>>(new Set());
   const [bugReportOpen, setBugReportOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const toggleFilter = (tag: FilterTag) => {
+    setActiveFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag); else next.add(tag);
+      return next;
+    });
+  };
+  const clearFilters = () => setActiveFilters(new Set());
+  const isAllActive = activeFilters.size === 0;
 
   // Auto-scroll effect
   useEffect(() => {
@@ -44,19 +73,22 @@ export function LogConsole({
   };
 
   const filteredLogs = useMemo(() => {
-    if (filterLevel === 'ALL') return logs;
-    // Simple severity check: ERROR includes CRITICAL, WARNING includes ERROR+, INFO includes all but DEBUG
-    if (filterLevel === 'ERROR') {
-      return logs.filter(l => ['ERROR', 'CRITICAL'].includes(l.level));
+    if (isAllActive) {
+      // Default: show everything EXCEPT HTTP polling noise
+      return logs.filter(l => !_isHttpLog(l));
     }
-    if (filterLevel === 'WARNING') {
-      return logs.filter(l => ['WARNING', 'ERROR', 'CRITICAL'].includes(l.level));
-    }
-    if (filterLevel === 'INFO') {
-      return logs.filter(l => l.level !== 'DEBUG');
-    }
-    return logs; // DEBUG matches everything passed to frontend (usually INFO+)
-  }, [logs, filterLevel]);
+    return logs.filter(l => {
+      // Each active tag is an OR filter — log matches if ANY tag matches
+      for (const tag of activeFilters) {
+        if (tag === 'HTTP' && _isHttpLog(l)) return true;
+        if (tag === 'PIPELINE' && _isPipelineLog(l)) return true;
+        if (tag === 'ERROR' && ['ERROR', 'CRITICAL'].includes(l.level)) return true;
+        if (tag === 'WARNING' && l.level === 'WARNING') return true;
+        if (tag === 'INFO' && l.level === 'INFO' && !_isHttpLog(l)) return true;
+      }
+      return false;
+    });
+  }, [logs, activeFilters, isAllActive]);
 
   const levelColor = (level: string) => {
     switch (level) {
@@ -76,18 +108,33 @@ export function LogConsole({
     <div className={cn('flex flex-col', className)}>
       {/* Toolbar */}
       <div className="flex items-center justify-between px-2 py-1 border-b border-border/50 bg-surface shrink-0">
-        {/* Left: filter buttons */}
+        {/* Left: multi-select filter buttons */}
         <div className="flex items-center gap-0.5">
-          {(['ALL', 'INFO', 'WARNING', 'ERROR'] as const).map((lvl) => (
+          <button
+            onClick={clearFilters}
+            className={cn(
+              "px-2 py-0.5 text-[10px] rounded hover:bg-surface-raised transition-colors",
+              isAllActive ? "bg-primary/10 text-primary font-medium" : "text-text-subtle"
+            )}
+          >
+            All
+          </button>
+          {(['PIPELINE', 'INFO', 'WARNING', 'ERROR', 'HTTP'] as FilterTag[]).map((tag) => (
             <button
-              key={lvl}
-              onClick={() => setFilterLevel(lvl)}
+              key={tag}
+              onClick={() => toggleFilter(tag)}
               className={cn(
                 "px-2 py-0.5 text-[10px] rounded hover:bg-surface-raised transition-colors",
-                filterLevel === lvl ? "bg-primary/10 text-primary font-medium" : "text-text-subtle"
+                activeFilters.has(tag) ? (
+                  tag === 'ERROR' ? "bg-error/15 text-error font-medium" :
+                  tag === 'WARNING' ? "bg-warning/15 text-warning font-medium" :
+                  tag === 'PIPELINE' ? "bg-blue-500/15 text-blue-400 font-medium" :
+                  tag === 'HTTP' ? "bg-text-subtle/15 text-text-muted font-medium" :
+                  "bg-primary/10 text-primary font-medium"
+                ) : "text-text-subtle"
               )}
             >
-              {lvl === 'ALL' ? 'All' : lvl}
+              {tag}
             </button>
           ))}
         </div>

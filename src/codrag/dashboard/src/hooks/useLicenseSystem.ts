@@ -1,6 +1,20 @@
 import { useState, useCallback } from 'react'
 import { useApiClient, type LicenseStatus, type LicenseTier } from '@codrag/ui'
 
+/**
+ * Derives the dev tier override from the backend license response.
+ * The backend writes a real license.json with activation_method="dev_override",
+ * so we detect it here rather than relying solely on localStorage.
+ */
+function detectDevOverrideFromBackend(status: LicenseStatus | null): LicenseTier | null {
+  const method = status?.license?.activation_method
+  if (method === 'dev_override' || method === 'dev_env') {
+    const tier = status?.license?.tier
+    return tier && tier !== 'free' ? tier as LicenseTier : null
+  }
+  return null
+}
+
 /** Manages license activation, deactivation, dev-tier override, and status polling. */
 export function useLicenseSystem() {
   const api = useApiClient()
@@ -16,13 +30,26 @@ export function useLicenseSystem() {
 
   const fetchLicense = useCallback(async () => {
     try {
-      // Sync any stored dev tier override to the backend on startup
+      // Sync any stored dev tier override to the backend on startup.
+      // The backend writes a real license.json so all feature gates work.
       const stored = localStorage.getItem('codrag_dev_tier_override')
       if (stored) {
         try { await api.setDevTierOverride(stored) } catch { /* ok */ }
       }
       const status = await api.getLicense()
       setLicenseStatus(status)
+
+      // Hydrate devTierOverride from backend response as source of truth.
+      // If backend says dev_override is active, reflect that in the dropdown
+      // even if localStorage was cleared or desynchronized.
+      const backendOverride = detectDevOverrideFromBackend(status)
+      if (backendOverride) {
+        setDevTierOverride(backendOverride)
+        localStorage.setItem('codrag_dev_tier_override', backendOverride)
+      } else if (!stored) {
+        // No localStorage AND no backend override — ensure clean state
+        setDevTierOverride(null)
+      }
     } catch {
       // Silent — license endpoint may not be available
     }
@@ -63,7 +90,8 @@ export function useLicenseSystem() {
     } else {
       localStorage.removeItem('codrag_dev_tier_override')
     }
-    // Propagate to backend so feature gates respect the override
+    // Propagate to backend — this writes a REAL license.json file
+    // so every feature gate works exactly like a real license.
     try {
       const status = await api.setDevTierOverride(tier)
       setLicenseStatus(status)

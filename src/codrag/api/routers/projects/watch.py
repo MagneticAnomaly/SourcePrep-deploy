@@ -111,10 +111,10 @@ def start_project_watch(
                 pc = _ss.get("pipeline_config") or {}
                 deep_mode = (pc.get("deep_enrichment") or {}).get("mode", "manual")
                 if deep_mode == "auto":
-                    started = pipeline_orchestrator.run_all(proj.id)
+                    started = pipeline_orchestrator.run_all(proj.id, force_from_start=True)
                     logger.info("Watcher: run_all for %s (fast+deep auto) — started=%s", proj.id, started)
                 else:
-                    started = pipeline_orchestrator.run_fast_sync(proj.id)
+                    started = pipeline_orchestrator.run_fast_sync(proj.id, force_from_start=True)
                     logger.info("Watcher: run_fast_sync for %s — started=%s", proj.id, started)
                 return started
             except Exception:
@@ -151,10 +151,13 @@ def start_project_watch(
                 if group.get("phase") == "running":
                     started_at = group.get("started_at")
                     if started_at and (_time.time() - started_at > 600):
-                        logger.warning(
-                            "Watcher: pipeline %s/%s stuck in 'running' for >10min — ignoring",
-                            proj.id, group_key,
-                        )
+                        # Force-reset stale runs so the watcher can proceed
+                        reset = _po.force_reset_stale_runs(proj.id)
+                        if reset:
+                            logger.info(
+                                "Watcher: force-reset stale pipeline %s groups: %s",
+                                proj.id, reset,
+                            )
                         continue
                     return True
         except Exception:

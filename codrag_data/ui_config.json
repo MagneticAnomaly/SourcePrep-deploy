@@ -135,22 +135,9 @@
     "saved_endpoints": [
       {
         "id": "default_ollama",
-        "name": "Local Ollama",
+        "name": "Default Ollama",
         "provider": "ollama",
         "url": "http://localhost:11434"
-      },
-      {
-        "name": "Local LM Studio",
-        "provider": "lm-studio",
-        "url": "http://192.168.86.22:1234",
-        "id": "ep_1772383175014_efdea339349a78"
-      },
-      {
-        "name": "Gemini",
-        "provider": "google",
-        "url": "https://generativelanguage.googleapis.com",
-        "api_key": "AIzaSyDY7u6iRhNnFkMIxI_TDyHwVzpgV-npJPc",
-        "id": "ep_1773104528594_b76deacadc9308"
       }
     ],
     "embedding": {
@@ -158,22 +145,22 @@
       "hf_repo_id": "nomic-ai/nomic-embed-text-v1.5",
       "hf_downloaded": true,
       "endpoint_id": "default_ollama",
-      "model": "nomic-embed-text-v2-moe:latest"
+      "model": "nomic-embed-text"
     },
     "small_model": {
-      "enabled": true,
-      "endpoint_id": "ep_1772383175014_efdea339349a78",
-      "model": "qwen3.5-35b-a3b",
+      "enabled": false,
+      "endpoint_id": "default_ollama",
+      "model": "qwen3.5:35b-a3b-q8_0",
       "always_on": false
     },
     "large_model": {
-      "enabled": true,
+      "enabled": false,
       "endpoint_id": "default_ollama",
       "model": "kimi-k2.5:cloud",
       "always_on": false
     },
     "code_model": {
-      "enabled": true,
+      "enabled": false,
       "endpoint_id": "default_ollama",
       "model": "qwen3-coder-next:cloud",
       "always_on": false
@@ -184,12 +171,32 @@
       "level": "standard",
       "lingua_downloaded": true
     },
-    "batch_mode": "off",
+    "model_context_cache": {
+      "qwen3-coder-next:cloud": 262144,
+      "qwen3.5:27b-q8_0": 262144,
+      "qwen3.5:35b-a3b-q8_0": 262144,
+      "qwen3.5:27b": 262144,
+      "qwen3.5:35b-a3b": 262144,
+      "qwen3-coder:30b": 262144,
+      "deepseek-r1:32b": 131072,
+      "deepseek-coder:6.7b": 16384,
+      "qwen3:8b": 40960,
+      "qwen3:4b-instruct": 262144,
+      "qwen3.5:122b-a10b": 262144,
+      "qwen3-vl:32b-instruct-bf16": 262144,
+      "nomic-embed-text:latest": 2048,
+      "jeffgreen311/eve-qwen3-8b-consciousness:latest": 32768,
+      "qwen3-vl:8b": 262144,
+      "llava:7b": 32768,
+      "qwen3:14b": 40960,
+      "qwen3:1.7b": 40960,
+      "tinyllama:latest": 2048
+    },
     "assignment_blocks": [
       {
         "id": "block-1772460953477",
-        "endpoint_id": "ep_1772383175014_efdea339349a78",
-        "model": "lmstudio-community/qwen3-coder-next-mlx",
+        "endpoint_id": "default_ollama",
+        "model": "qwen3-coder-next:cloud",
         "tasks": [
           "inferred_edges"
         ],
@@ -198,10 +205,9 @@
       },
       {
         "id": "block-1772465348966",
-        "endpoint_id": "ep_1772383175014_efdea339349a78",
-        "model": "qwen3.5-35b-a3b",
+        "endpoint_id": "ep_1773160342451_84ef55dd6b3b3",
+        "model": "",
         "tasks": [
-          "catalogue",
           "search_intent",
           "augmentation"
         ],
@@ -209,6 +215,7 @@
         "enable_reasoning": false
       }
     ],
+    "batch_mode": "auto",
     "clara": {
       "enabled": true,
       "source": "endpoint",
@@ -219,7 +226,7 @@
     "test_persist": true
   },
   "deep_analysis": {
-    "mode": "auto",
+    "mode": "manual",
     "threshold_percent": 20,
     "frequency": "daily",
     "day_of_week": 0,
@@ -242,10 +249,10 @@
   },
   "pipeline_config": {
     "fast_sync": {
-      "auto": true
+      "auto": false
     },
     "deep_enrichment": {
-      "mode": "auto",
+      "mode": "manual",
       "schedule": {
         "frequency": "daily",
         "day_of_week": 0,
@@ -277,8 +284,8 @@
       {
         "id": "file-tree",
         "visible": true,
-        "height": 13,
-        "collapsed": false,
+        "height": 20,
+        "collapsed": true,
         "x": 0,
         "y": 0,
         "w": 4
@@ -313,7 +320,7 @@
       {
         "id": "trace-pipeline",
         "visible": true,
-        "height": 18,
+        "height": 20,
         "collapsed": false,
         "x": 4,
         "y": 2,
@@ -325,7 +332,16 @@
         "height": 7,
         "collapsed": false,
         "x": 0,
-        "y": 13,
+        "y": 2,
+        "w": 4
+      },
+      {
+        "id": "llm-status",
+        "visible": true,
+        "height": 10,
+        "collapsed": false,
+        "x": 0,
+        "y": 9,
         "w": 4
       },
       {
@@ -338,12 +354,12 @@
         "w": 4
       },
       {
-        "id": "llm-status",
+        "id": "atlas",
         "visible": true,
-        "height": 11,
+        "height": 12,
         "collapsed": false,
         "x": 0,
-        "y": 20,
+        "y": 19,
         "w": 4
       },
       {
@@ -352,25 +368,7 @@
         "height": 13,
         "collapsed": false,
         "x": 4,
-        "y": 20,
-        "w": 8
-      },
-      {
-        "id": "atlas",
-        "visible": true,
-        "height": 12,
-        "collapsed": false,
-        "x": 0,
-        "y": 31,
-        "w": 4
-      },
-      {
-        "id": "audit",
-        "visible": true,
-        "height": 21,
-        "collapsed": false,
-        "x": 4,
-        "y": 33,
+        "y": 22,
         "w": 8
       },
       {
@@ -379,7 +377,7 @@
         "height": 7,
         "collapsed": true,
         "x": 0,
-        "y": 43,
+        "y": 31,
         "w": 4
       },
       {
@@ -388,8 +386,17 @@
         "height": 10,
         "collapsed": true,
         "x": 0,
-        "y": 45,
+        "y": 33,
         "w": 4
+      },
+      {
+        "id": "audit",
+        "visible": true,
+        "height": 21,
+        "collapsed": false,
+        "x": 4,
+        "y": 35,
+        "w": 8
       },
       {
         "id": "token-budget",
@@ -397,7 +404,7 @@
         "height": 6,
         "collapsed": true,
         "x": 4,
-        "y": 54,
+        "y": 56,
         "w": 4
       },
       {
@@ -406,7 +413,7 @@
         "height": 12,
         "collapsed": true,
         "x": 8,
-        "y": 54,
+        "y": 56,
         "w": 4
       },
       {
@@ -415,7 +422,7 @@
         "height": 8,
         "collapsed": true,
         "x": 4,
-        "y": 56,
+        "y": 58,
         "w": 4
       },
       {
@@ -424,7 +431,7 @@
         "height": 9,
         "collapsed": true,
         "x": 8,
-        "y": 56,
+        "y": 58,
         "w": 4
       },
       {
@@ -433,7 +440,7 @@
         "height": 8,
         "collapsed": false,
         "x": 4,
-        "y": 58,
+        "y": 60,
         "w": 8
       },
       {
@@ -458,7 +465,7 @@
   },
   "compute_nodes": [
     {
-      "id": "node_df740693",
+      "id": "node_4bf4ec33",
       "name": "Local Machine",
       "type": "local",
       "hardware_profile": "apple_silicon",

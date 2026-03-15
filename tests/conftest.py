@@ -25,6 +25,7 @@ if str(_SRC) not in sys.path:
 def _unlock_all_features(monkeypatch):
     """Set CODRAG_TIER=pro for all tests so feature gates don't block integration tests."""
     monkeypatch.setenv("CODRAG_TIER", "pro")
+    monkeypatch.setenv("CODRAG_DEV_MODE", "1")
     from codrag.core.feature_gate import clear_license_cache
     clear_license_cache()
     yield

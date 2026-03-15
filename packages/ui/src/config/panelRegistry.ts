@@ -1,4 +1,5 @@
 import { 
+  AlertTriangle,
   BookOpen,
   Brain,
   ClipboardCheck,
@@ -223,6 +224,18 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     closeable: true,
     resizable: true,
     docsUrl: 'https://docs.codrag.io/guides/codebase-audit',
+  },
+  {
+    id: 'spaghetti',
+    title: 'Spaghetti Finder',
+    description: 'Ranked list of files by refactor urgency. Combines line count, coupling, symbol density, tech debt, and epistemic confidence into a composite score.',
+    icon: AlertTriangle,
+    minHeight: 6,
+    defaultHeight: 10,
+    category: 'status',
+    closeable: true,
+    resizable: true,
+    docsUrl: 'https://docs.codrag.io/guides/spaghetti-finder',
   },
   {
     id: 'activity-heatmap',

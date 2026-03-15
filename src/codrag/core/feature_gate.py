@@ -74,6 +74,7 @@ class License:
     seats: int = 1
     features: list = field(default_factory=list)
     signature_verified: bool = False
+    activation_method: Optional[str] = None
 
     # Map internal billing tiers to user-facing product tiers.
     # MONTHLY and PERPETUAL are both "Pro" — the only difference is billing.
@@ -99,6 +100,7 @@ class License:
             "seats": self.seats,
             "features": self.features,
             "signature_verified": self.signature_verified,
+            "activation_method": self.activation_method,
         }
 
 
@@ -154,7 +156,7 @@ def get_license() -> License:
             env_tier = _ENV_TIER_MAP.get(env_tier, env_tier)
             try:
                 tier = Tier[env_tier.upper()]
-                _cached_license = License(tier=tier)
+                _cached_license = License(tier=tier, activation_method="dev_env")
                 logger.warning(
                     "DEV MODE: Using tier from CODRAG_TIER env: %s (NOT for production)",
                     tier.name,
@@ -225,6 +227,7 @@ def get_license() -> License:
                 seats=int(data.get("seats", 1)),
                 features=list(data.get("features", [])),
                 signature_verified=signature_verified,
+                activation_method=data.get("activation_method"),
             )
             logger.info(
                 "Loaded license: tier=%s valid=%s signed=%s",
