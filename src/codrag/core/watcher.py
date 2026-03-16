@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set
+
+logger = logging.getLogger(__name__)
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
@@ -13,6 +16,11 @@ from .repo_policy import ensure_repo_policy, load_repo_policy, policy_path_for_i
 
 
 class AutoRebuildWatcher:
+    # Phase 48-F8: Periodic coverage check interval (seconds).
+    # Fires independently of filesystem events to detect files that
+    # exist on disk but aren't in the trace graph.
+    _COVERAGE_CHECK_INTERVAL = 300.0  # 5 minutes
+
     def __init__(
         self,
         repo_root: Path,
@@ -21,26 +29,32 @@ class AutoRebuildWatcher:
         is_building: Callable[[], bool],
         debounce_ms: int = 5000,
         min_rebuild_gap_ms: int = 2000,
+        project_id: Optional[str] = None,
+        on_coverage_gap: Optional[Callable[[], None]] = None,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.index_dir = Path(index_dir).resolve()
         self.debounce_ms = int(debounce_ms)
         self.min_rebuild_gap_ms = int(min_rebuild_gap_ms)
+        self.project_id = project_id
 
         self._on_trigger_build = on_trigger_build
         self._is_building = is_building
+        self._on_coverage_gap = on_coverage_gap
 
         self._lock = threading.Lock()
         self._enabled = False
         self._state: str = "disabled"
         self._pending_paths: Set[str] = set()
         self._timer: Optional[threading.Timer] = None
+        self._coverage_timer: Optional[threading.Timer] = None
         self._observer: Optional[Observer] = None
         self._last_event_at: Optional[str] = None
         self._last_rebuild_at: Optional[str] = None
         self._last_trigger_at_epoch: Optional[float] = None
         self._next_rebuild_at: Optional[str] = None
         self._stale_since: Optional[str] = None  # ISO timestamp when index became stale
+        self._last_coverage_check_at: Optional[str] = None
 
         self._extra_exclude_globs: List[str] = [
             "**/.codrag",
@@ -82,6 +96,11 @@ class AutoRebuildWatcher:
 
             self._observer = observer
 
+        # Phase 48-F8: Start periodic coverage check timer.
+        # Runs independently of filesystem events to catch files
+        # that exist on disk but were never traced.
+        self._schedule_coverage_check()
+
     def stop(self) -> None:
         with self._lock:
             self._enabled = False
@@ -95,6 +114,13 @@ class AutoRebuildWatcher:
                 except Exception:
                     pass
                 self._timer = None
+
+            if self._coverage_timer is not None:
+                try:
+                    self._coverage_timer.cancel()
+                except Exception:
+                    pass
+                self._coverage_timer = None
 
             observer = self._observer
             self._observer = None
@@ -340,6 +366,93 @@ class AutoRebuildWatcher:
                 continue
 
         return False
+
+    # ── Phase 48-F8: Periodic Coverage Gap Detection ──────────
+
+    def _schedule_coverage_check(self) -> None:
+        """Schedule the next periodic coverage check."""
+        with self._lock:
+            if not self._enabled:
+                return
+            if self._coverage_timer is not None:
+                try:
+                    self._coverage_timer.cancel()
+                except Exception:
+                    pass
+            self._coverage_timer = threading.Timer(
+                self._COVERAGE_CHECK_INTERVAL,
+                self._on_coverage_check,
+            )
+            self._coverage_timer.daemon = True
+            self._coverage_timer.start()
+
+    def _on_coverage_check(self) -> None:
+        """Periodic check for untraced/stale files.
+
+        Runs independently of filesystem events.  If files exist on disk
+        that aren't in the trace graph, triggers a pipeline run.  This
+        catches:
+        - Files that existed before the watcher started
+        - Files missed by a failed Rust engine build
+        - Files added in bulk (e.g. git pull) that the watcher might miss
+        """
+        with self._lock:
+            if not self._enabled:
+                return
+
+        # Don't check while a build is in progress
+        if self._is_building():
+            logger.debug("Coverage check skipped — build in progress")
+            self._schedule_coverage_check()
+            return
+
+        # Don't check while there are pending debounced events
+        with self._lock:
+            if self._pending_paths:
+                logger.debug(
+                    "Coverage check skipped — %d pending paths",
+                    len(self._pending_paths),
+                )
+                self._schedule_coverage_check()
+                return
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        try:
+            if self._on_coverage_gap is not None:
+                # Preferred path: delegate to the caller's coverage gap
+                # handler (which calls PipelineOrchestrator.check_coverage_gap
+                # and triggers a pipeline run if needed).
+                self._on_coverage_gap()
+                self._last_coverage_check_at = now_iso
+            elif self.project_id:
+                # Fallback: use PipelineOrchestrator directly
+                from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+                gap = pipeline_orchestrator.check_coverage_gap(self.project_id)
+                self._last_coverage_check_at = now_iso
+
+                if gap.get("needs_rebuild"):
+                    logger.info(
+                        "Watcher coverage check for %s: %d untraced + %d stale "
+                        "files (%.1f%% coverage) — triggering rebuild",
+                        self.project_id,
+                        gap.get("untraced", 0),
+                        gap.get("stale", 0),
+                        gap.get("coverage_pct", 0),
+                    )
+                    # Trigger via the normal build path so all guards apply
+                    self._on_trigger_build(["__coverage_gap__"])
+                else:
+                    logger.debug(
+                        "Watcher coverage check for %s: %.1f%% coverage — OK",
+                        self.project_id,
+                        gap.get("coverage_pct", 0),
+                    )
+        except Exception:
+            logger.debug("Coverage check failed", exc_info=True)
+
+        # Schedule next check
+        self._schedule_coverage_check()
 
 
 class _AutoRebuildEventHandler(FileSystemEventHandler):

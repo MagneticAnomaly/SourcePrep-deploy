@@ -1,0 +1,54 @@
+
+
+<!-- codrag-managed-start -->
+## CoDRAG Integration
+
+Last updated: 2026-03-16T01:54:00Z
+
+You have access to CoDRAG, a structural code intelligence system.
+ALWAYS call `codrag` (no arguments) at the START of every task.
+This gives you module structure, hub files, and the user's selected focus areas.
+
+For specific code lookups, use `codrag_search` with a natural language query.
+Before making changes to a file, use `codrag_impact` to understand dependencies.
+CoDRAG understands structural relationships between files -- use it instead of
+grep when you need to understand how files connect to each other.
+
+For codebase health and tech debt, use `codrag_audit`.
+For cross-session memory, use `codrag_observe` to save/retrieve notes.
+All CoDRAG tools are read-only and safe to auto-approve.
+
+## Codebase Atlas
+
+IDENTITY: Codrag is a local-first AI coding assistant with RAG capabilities, featuring a VS Code extension, dashboard UI, and design system with Storybook documentation.
+
+STACK: TypeScript, Python, Rust, React, Next.js. Build tools include Storybook for component documentation. File distribution: .md 441, .ts 239, .py 236, .js 201, .tsx 175, .json 60, .css 38, .html 26. Graph: 5500 nodes, 20812 edges (calls 13208, contains 3546, imports 3452, configures 441, listens_to 77). 33 import cycles detected.
+
+WORKSPACE MAP:
+_root (797 files): marketing, mcp, ui, rag, local-first orchestration
+packages/ui (598 files): design-system, component-library, Storybook documentation
+src/codrag/dashboard (35 files): dashboard UI, auto-updater, api-client, licensing
+packages/vscode (20 files): VS Code extension, webview, security, RAG integration
+packages/vscode/webview-ui (14 files): React-based webview UI, build-tooling, code-navigation
+
+CROSS-CUTTING: Shared domains across segments: ui, rag, vscode-extension. Hub files concentrate connectivity in TEST2/website.clean: download/page.tsx (3294 edges), privacy/page.tsx (1176 edges), terms/page.tsx (1066 edges), HeroSection.tsx (957 edges), refund/page.tsx (949 edges). Entry points: engine/crates/codrag-walker/src/lib.rs, packages/ui/src/components/enterprise/index.ts, packages/ui/src/components/layout/index.ts, docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/index.ts, packages/ui/storybook-static/sb-manager/index.js. Directory dependencies: engine depends on extract_trait, extract_use, test_graph_remove_file; packages depends on computeAtlasState, ProjectTab, AssignedBlockCard; scripts depends on LinguaCompressorLocal._ensure_loaded, log_info, load_jsonl. Longest import chains span from Rust engine through TEST2 website components to Python backend config.
+
+## Focus Areas
+- docs/API.md
+- docs/Phase44_LLM-Mapping/AI_GATEWAY_PLAN.md
+- docs/Phase44_LLM-Mapping/MODEL_AWARENESS_STATE_MACHINE.md
+- docs/Phase44_LLM-Mapping/README.md
+- docs/Phase48_fix-pipeline/README.md
+- src/codrag/core/llm_client.py
+- src/codrag/core/model_awareness.py
+- src/codrag/core/model_readiness.py
+- src/codrag/core/scheduler.py
+- src/codrag/core/watcher.py
+Call `codrag` for detailed content from these areas.
+
+If `codrag` returns 'setup in progress', the index hasn't been built yet.
+Work normally with read_file/grep_search until the user builds the index.
+
+For long tasks (5+ tool calls), call `codrag` again to refresh your
+structural context.
+<!-- codrag-managed-end -->

@@ -486,6 +486,7 @@ function App() {
 
   // ── Init: load projects + global config ─────────────────────
   useEffect(() => {
+    if (!isConnected) return
     const init = async () => {
       try {
         await refreshProjects()
@@ -532,7 +533,7 @@ function App() {
     }
     void init()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshProjects])
+  }, [refreshProjects, isConnected])
 
   // ── Auto-save dashboard layout to backend ───────────────────
   const layoutSkipRef = useRef(0)

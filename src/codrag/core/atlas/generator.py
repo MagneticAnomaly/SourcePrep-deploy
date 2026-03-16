@@ -1281,8 +1281,10 @@ class CodebaseAtlas:
         stats["cycle_count"] = len(cycles)
         stats["cycles"] = cycles[:5]
 
-        # OPP-W4: Call chain visualization -- find longest import paths via BFS
-        # Start from entry points or highest out-degree files
+        # OPP-W4: Call chain visualization -- find longest import paths.
+        # Uses greedy DFS (always follow highest-out-degree neighbor) to
+        # avoid combinatorial explosion. O(depth * starts) worst case.
+        _MAX_CHAIN_DEPTH = 8
         call_chains: List[List[str]] = []
         chain_starts = entry_points[:3] if entry_points else [
             fp for fp, _ in sorted(out_degree.items(), key=lambda x: -x[1])[:3]
@@ -1290,23 +1292,21 @@ class CodebaseAtlas:
         for start in chain_starts:
             if start not in file_edges:
                 continue
-            # BFS to find longest non-cyclic path
-            best_chain: List[str] = [start]
-            queue: List[List[str]] = [[start]]
-            while queue:
-                path = queue.pop(0)
-                if len(path) > 8:  # cap depth
+            # Greedy DFS: at each step, follow the neighbor with highest out-degree
+            chain: List[str] = [start]
+            visited: set = {start}
+            current = start
+            for _ in range(_MAX_CHAIN_DEPTH):
+                neighbors = [n for n in file_edges.get(current, set()) if n not in visited]
+                if not neighbors:
                     break
-                current = path[-1]
-                for neighbor in file_edges.get(current, set()):
-                    if neighbor not in path:  # avoid cycles
-                        new_path = path + [neighbor]
-                        queue.append(new_path)
-                        if len(new_path) > len(best_chain):
-                            best_chain = new_path
-            if len(best_chain) >= 3:  # only interesting if 3+ hops
-                call_chains.append(best_chain)
-        # Deduplicate and keep top 5 by length
+                # Pick neighbor with highest out-degree (most likely to continue the chain)
+                nxt = max(neighbors, key=lambda n: out_degree.get(n, 0))
+                chain.append(nxt)
+                visited.add(nxt)
+                current = nxt
+            if len(chain) >= 3:
+                call_chains.append(chain)
         call_chains.sort(key=len, reverse=True)
         stats["call_chains"] = call_chains[:5]
 

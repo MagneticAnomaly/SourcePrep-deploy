@@ -38,14 +38,13 @@ _CORE_TOOLS = [
             "properties": {
                 "max_chars": {
                     "type": "integer",
-                    "description": "Maximum characters in assembled context. Default: 12000.",
-                    "default": 12000,
+                    "description": "(Advanced) Maximum characters in assembled context. Auto-sized for your AI tool if omitted.",
                 },
                 "project_id": _PROJECT_ID_PROP,
             },
             "required": [],
         },
-        "_meta": {"readOnly": True},
+        "annotations": {"readOnlyHint": True, "openWorldHint": True},
     },
     # ── 2. codrag_search (query-based retrieval) ────────────────────
     {
@@ -95,7 +94,7 @@ _CORE_TOOLS = [
             },
             "required": ["query"],
         },
-        "_meta": {"readOnly": True},
+        "annotations": {"readOnlyHint": True, "openWorldHint": True},
     },
     # ── 3. codrag_impact (blast radius + graph traversal) ───────────
     {
@@ -134,7 +133,7 @@ _CORE_TOOLS = [
             },
             "required": [],
         },
-        "_meta": {"readOnly": True},
+        "annotations": {"readOnlyHint": True, "openWorldHint": True},
     },
     # ── 4. codrag_audit (codebase health) ───────────────────────────
     {
@@ -189,7 +188,7 @@ _CORE_TOOLS = [
             },
             "required": [],
         },
-        "_meta": {"readOnly": True},
+        "annotations": {"readOnlyHint": True, "openWorldHint": True},
     },
     # ── 5. codrag_observe (session memory) ──────────────────────────
     {
@@ -245,7 +244,7 @@ _CORE_TOOLS = [
             },
             "required": [],
         },
-        "_meta": {"readOnly": False},
+        "annotations": {"readOnlyHint": False},
     },
 ]
 
@@ -269,7 +268,7 @@ _DEV_ALIAS_TOOL = {
         },
         "required": [],
     },
-    "_meta": {"readOnly": True},
+    "annotations": {"readOnlyHint": True, "openWorldHint": True},
 }
 
 # Build the final TOOLS list

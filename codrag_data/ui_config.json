@@ -148,9 +148,9 @@
       "model": "nomic-embed-text"
     },
     "small_model": {
-      "enabled": false,
+      "enabled": true,
       "endpoint_id": "default_ollama",
-      "model": "qwen3.5:35b-a3b-q8_0",
+      "model": "kimi-k2.5:cloud",
       "always_on": false
     },
     "large_model": {
@@ -228,14 +228,14 @@
   "deep_analysis": {
     "mode": "manual",
     "threshold_percent": 20,
-    "frequency": "daily",
+    "frequency": "weekly",
     "day_of_week": 0,
-    "hour": 3,
+    "hour": 2,
     "budget_max_tokens": 50000,
     "budget_max_minutes": 30,
     "budget_max_items": 100,
     "priority": "lowest_confidence",
-    "budget_enabled": false,
+    "budget_enabled": true,
     "schedule_threshold_enabled": true,
     "schedule_time_enabled": true
   },
@@ -254,9 +254,9 @@
     "deep_enrichment": {
       "mode": "manual",
       "schedule": {
-        "frequency": "daily",
+        "frequency": "weekly",
         "day_of_week": 0,
-        "hour": 3,
+        "hour": 2,
         "threshold_enabled": true,
         "time_enabled": true,
         "threshold_percent": 20
@@ -444,6 +444,15 @@
         "w": 8
       },
       {
+        "id": "spaghetti",
+        "visible": true,
+        "height": 8,
+        "collapsed": false,
+        "x": 0,
+        "y": 68,
+        "w": 12
+      },
+      {
         "id": "watch",
         "visible": false,
         "height": 4,
@@ -465,7 +474,7 @@
   },
   "compute_nodes": [
     {
-      "id": "node_4bf4ec33",
+      "id": "node_10f7c828",
       "name": "Local Machine",
       "type": "local",
       "hardware_profile": "apple_silicon",

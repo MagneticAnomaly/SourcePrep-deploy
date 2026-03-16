@@ -27,8 +27,11 @@ export function StartupScreen({ apiBaseUrl, onReady, timeoutMs = 30000 }: Startu
             headers: { Accept: 'application/json' } 
         })
         if (res.ok && mounted) {
-          onReadyRef.current()
-          return
+          const data = await res.json()
+          if (data && data.status === 'ok') {
+            onReadyRef.current()
+            return
+          }
         }
       } catch (e) {
         // ignore errors while polling

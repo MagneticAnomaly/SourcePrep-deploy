@@ -25,11 +25,14 @@ logger = logging.getLogger(__name__)
 _CURSOR_MARKER_START = "# --- CoDRAG-managed (auto-generated, do not edit above USER ADDITIONS) ---"
 _CURSOR_MARKER_END = "# --- USER ADDITIONS BELOW (preserved across updates) ---"
 
-_WINDSURF_MARKER_START = "<!-- codrag-managed-start -->"
-_WINDSURF_MARKER_END = "<!-- codrag-managed-end -->"
+_MANAGED_MARKER_START = "<!-- codrag-managed-start -->"
+_MANAGED_MARKER_END = "<!-- codrag-managed-end -->"
 
-_CLAUDE_MARKER_START = "<!-- codrag-managed-start -->"
-_CLAUDE_MARKER_END = "<!-- codrag-managed-end -->"
+# Backward compat aliases (used in detection of existing markers)
+_WINDSURF_MARKER_START = _MANAGED_MARKER_START
+_WINDSURF_MARKER_END = _MANAGED_MARKER_END
+_CLAUDE_MARKER_START = _MANAGED_MARKER_START
+_CLAUDE_MARKER_END = _MANAGED_MARKER_END
 
 # Debounce timer for rules file regeneration triggered by included_paths changes
 _regen_timers: Dict[str, threading.Timer] = {}
@@ -336,6 +339,12 @@ def _build_managed_content(
         "CoDRAG understands structural relationships between files -- use it instead of\n"
         "grep when you need to understand how files connect to each other."
     )
+    parts.append("")
+    parts.append(
+        "For codebase health and tech debt, use `codrag_audit`.\n"
+        "For cross-session memory, use `codrag_observe` to save/retrieve notes.\n"
+        "All CoDRAG tools are read-only and safe to auto-approve."
+    )
 
     # Atlas section (if available)
     if atlas_content and atlas_content.strip():
@@ -358,8 +367,7 @@ def _build_managed_content(
     parts.append("")
     parts.append(
         "If `codrag` returns 'setup in progress', the index hasn't been built yet.\n"
-        "Work normally with read_file/grep_search until the user builds the index.\n"
-        "If the index is stale and the user asks you to rebuild, call `codrag_build`."
+        "Work normally with read_file/grep_search until the user builds the index."
     )
 
     # Long-task refresh hint

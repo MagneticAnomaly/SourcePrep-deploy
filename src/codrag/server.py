@@ -701,7 +701,30 @@ def configure(
                 has_graph = trace_idx is not None and trace_idx.node_count() > 0
                 
                 needs_fast_sync = is_stale or not has_graph
-                
+
+                # Phase 48-F8: Even if we have a graph and it's not "stale"
+                # by mtime, check if there are untraced files on disk.
+                # This catches cases where the Rust engine failed (0 nodes)
+                # or files were added while the server was down.
+                if not needs_fast_sync and has_graph:
+                    try:
+                        gap = _po.check_coverage_gap(proj.id)
+                        if gap.get("needs_rebuild"):
+                            needs_fast_sync = True
+                            logger.info(
+                                "Startup auto-run: coverage gap for %s — "
+                                "%d untraced + %d stale (%.1f%% coverage)",
+                                proj.name,
+                                gap.get("untraced", 0),
+                                gap.get("stale", 0),
+                                gap.get("coverage_pct", 0),
+                            )
+                    except Exception:
+                        logger.debug(
+                            "Startup coverage gap check failed for %s",
+                            proj.name, exc_info=True,
+                        )
+
                 # Check if deep enrichment needs to run (has graph but incomplete)
                 needs_deep = False
                 if has_graph and not is_stale and deep_mode == "auto":

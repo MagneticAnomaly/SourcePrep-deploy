@@ -171,6 +171,7 @@ def start_project_watch(
         is_building=is_building,
         debounce_ms=debounce_ms,
         min_rebuild_gap_ms=min_gap_ms,
+        project_id=proj.id,
     )
     watcher.start()
     _srv()._project_watchers[proj.id] = watcher

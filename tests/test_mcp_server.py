@@ -129,10 +129,10 @@ class TestMCPProtocol:
         
         assert response["id"] == 2
         tools = response["result"]["tools"]
-        assert len(tools) == 16
+        assert len(tools) == 5  # Phase 50: consolidated from 16 to 5
         
         tool_names = {t["name"] for t in tools}
-        assert tool_names == {"codrag_status", "codrag_build", "codrag_search", "codrag", "codrag_context", "codrag_trace_search", "codrag_trace_neighbors", "codrag_trace_coverage", "hi_codrag", "codrag_save_observation", "codrag_get_observations", "codrag_impact", "codrag_audit", "codrag_audit_refactor", "codrag_audit_check", "codrag_audit_report"}
+        assert tool_names == {"codrag", "codrag_search", "codrag_impact", "codrag_audit", "codrag_observe"}
 
     @pytest.mark.asyncio
     async def test_ping(self, server):
@@ -330,7 +330,7 @@ class TestToolContext:
             assert result["hub_files"] == 1
             mock_post.assert_called_once_with(
                 f"/projects/{server.project_id}/context",
-                {"query": "", "max_chars": 12000},
+                {"query": "", "max_chars": 12000, "include_atlas": True},
             )
 
     @pytest.mark.asyncio
@@ -349,10 +349,19 @@ class TestToolsCall:
     """Test tools/call endpoint."""
 
     @pytest.mark.asyncio
-    async def test_call_status(self, server, mock_status_response):
-        """Test calling status tool via MCP protocol."""
-        with patch.object(server, "_api_get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_status_response
+    async def test_call_status_alias(self, server):
+        """Test calling legacy codrag_status routes to codrag (ambient context) via alias."""
+        ambient_response = {
+            "context": "test context",
+            "total_chars": 100,
+            "estimated_tokens": 25,
+            "ambient": True,
+            "hub_files": 0,
+            "modules_in_scope": 0,
+            "neighbor_files": 0,
+        }
+        with patch.object(server, "_api_post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = ambient_response
             
             request = {
                 "jsonrpc": "2.0",
@@ -371,11 +380,6 @@ class TestToolsCall:
             assert result["isError"] is False
             assert len(result["content"]) == 1
             assert result["content"][0]["type"] == "text"
-            
-            # Parse the JSON text content
-            data = json.loads(result["content"][0]["text"])
-            assert data["daemon"] == "running"
-            mock_get.assert_called_once_with(f"/projects/{server.project_id}/status")
 
     @pytest.mark.asyncio
     async def test_call_search(self, server, mock_context_response):
@@ -396,8 +400,10 @@ class TestToolsCall:
             response = await server.handle_request(request)
             
             assert response["result"]["isError"] is False
-            data = json.loads(response["result"]["content"][0]["text"])
-            assert "context" in data
+            # Phase 50: search results now return markdown via _to_markdown
+            text = response["result"]["content"][0]["text"]
+            assert isinstance(text, str)
+            assert len(text) > 0
             mock_post.assert_called_once_with(
                 f"/projects/{server.project_id}/context",
                 {
@@ -432,15 +438,15 @@ class TestToolsCall:
     @pytest.mark.asyncio
     async def test_call_daemon_error_returns_tool_error(self, server):
         """Test daemon error returns isError=True, not protocol error."""
-        with patch.object(server, "_api_get", new_callable=AsyncMock) as mock_get:
-            mock_get.side_effect = DaemonUnavailableError("Cannot connect")
+        with patch.object(server, "_api_post", new_callable=AsyncMock) as mock_post:
+            mock_post.side_effect = DaemonUnavailableError("Cannot connect")
             
             request = {
                 "jsonrpc": "2.0",
                 "id": 13,
                 "method": "tools/call",
                 "params": {
-                    "name": "codrag_status",
+                    "name": "codrag",
                     "arguments": {},
                 },
             }
@@ -513,28 +519,34 @@ class TestToolsCall:
     async def test_call_status_with_project_id_override(self):
         """Test that passing project_id in tool args bypasses auto-detect."""
         srv = MCPServer(daemon_url="http://127.0.0.1:8400", project_id=None)
-        with patch.object(srv, "_api_get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = {
-                "index": {"exists": True, "total_chunks": 42},
-                "building": False,
-                "watch": {"enabled": False},
-            }
+        ambient_response = {
+            "context": "test context",
+            "total_chars": 100,
+            "estimated_tokens": 25,
+            "ambient": True,
+            "hub_files": 0,
+            "modules_in_scope": 0,
+            "neighbor_files": 0,
+        }
+        with patch.object(srv, "_api_post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = ambient_response
 
             request = {
                 "jsonrpc": "2.0",
                 "id": 17,
                 "method": "tools/call",
                 "params": {
-                    "name": "codrag_status",
+                    "name": "codrag",
                     "arguments": {"project_id": "proj_override"},
                 },
             }
 
             response = await srv.handle_request(request)
             assert response["result"]["isError"] is False
-            data = json.loads(response["result"]["content"][0]["text"])
-            assert data["project_id"] == "proj_override"
-            mock_get.assert_any_call("/projects/proj_override/status")
+            # Verify the override project_id was used in the API call
+            mock_post.assert_called_once()
+            call_args = mock_post.call_args
+            assert "/projects/proj_override/context" in call_args[0][0]
 
 
 # =============================================================================
@@ -572,15 +584,21 @@ class TestToolSchemas:
         assert context_tool["inputSchema"]["required"] == []
         assert "query" not in context_tool["inputSchema"]["properties"]
 
-    def test_status_no_required_params(self):
-        """Test status tool has no required parameters."""
-        status_tool = next(t for t in TOOLS if t["name"] == "codrag_status")
-        assert status_tool["inputSchema"]["required"] == []
+    def test_audit_no_required_params(self):
+        """Test codrag_audit has no required parameters."""
+        audit_tool = next(t for t in TOOLS if t["name"] == "codrag_audit")
+        assert audit_tool["inputSchema"]["required"] == []
 
-    def test_build_no_required_params(self):
-        """Test build tool has no required parameters."""
-        build_tool = next(t for t in TOOLS if t["name"] == "codrag_build")
-        assert build_tool["inputSchema"]["required"] == []
+    def test_observe_no_required_params(self):
+        """Test codrag_observe has no required parameters."""
+        observe_tool = next(t for t in TOOLS if t["name"] == "codrag_observe")
+        assert observe_tool["inputSchema"]["required"] == []
+
+    def test_annotations_on_tools(self):
+        """Test all tools have annotations (MCP spec 2025-06-18)."""
+        for tool in TOOLS:
+            assert "annotations" in tool, f"Tool '{tool['name']}' missing annotations"
+            assert "readOnlyHint" in tool["annotations"]
 
 
 # =============================================================================

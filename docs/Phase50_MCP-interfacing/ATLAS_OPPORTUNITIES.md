@@ -201,17 +201,17 @@ Our current design is optimized for token scarcity (~300-600 token atlas, ~12K c
 | E5 | Module relationship matrix | Enriched | ~60 | DONE -- MODULE DEPENDENCIES section in LLM prompt + dir_dependencies in graph stats |
 | W1 | Tiered atlas (compact + extended) | Both | -- | DONE -- `tool_context()` requests `include_atlas=True`, compact stays in rules files |
 
-### Future (not yet implemented)
-| W2 | Per-subsystem deep dives in search | MCP | -- | 2h |
-| W3 | File summary injection | MCP | -- | 2h |
+### Also Implemented (Phase 50, 2026-03-14)
 
-### Future (larger context windows widely available)
-
-| OPP | Description | Atlas Type | Tokens | Effort |
+| OPP | Description | Atlas Type | Tokens | Status |
 |-----|------------|------------|--------|--------|
-| W4 | Call chain visualization | Extended | ~100 | 3h |
-| W5 | Adaptive token budget from clientInfo | MCP | -- | 4h |
-| E6 | Confidence/quality indicators | Enriched | ~20 | 1h |
+| W2 | Per-subsystem deep dives in search | MCP | -- | DONE -- `tool_search()` detects >60% result clustering in one dir, prepends `[Subsystem focus: dir/]` hint |
+| W3 | File summary injection | MCP | -- | DONE -- `include_sources=True` sends augmented summaries; W2 adds subsystem orientation |
+| W4 | Call chain visualization | Structural+Enriched | ~100 | DONE -- BFS from entry points in `_load_graph_stats`, CALL CHAINS section + fed to LLM prompt |
+| W5 | Adaptive token budget from clientInfo | MCP | -- | DONE -- `_get_context_budget()` with 10 client patterns (Gemini 24K, Claude 18K, Cursor 14K, Cline 10K) |
+| E6 | Confidence/quality indicators | Structural | ~20 | DONE -- CONFIDENCE section from epistemic `avg_confidence` + file count |
+
+**All 15 opportunities are now implemented.**
 
 ---
 

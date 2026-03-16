@@ -4,9 +4,11 @@ PipelineOrchestrator — sequences the 11-stage enrichment pipeline.
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from codrag.services.build_orchestrator import (
@@ -393,6 +395,138 @@ class PipelineOrchestrator:
         # Clear cached file logger so it doesn't reference stale paths
         self._file_loggers.pop(project_id, None)
 
+    # ── Coverage Gap Detection ─────────────────────────────────
+
+    _COVERAGE_RETRIGGER_DELAY = 15.0  # seconds after completion before re-checking
+
+    @staticmethod
+    def check_coverage_gap(project_id: str) -> Dict[str, Any]:
+        """Check if there are files that should be traced but aren't.
+
+        Uses ``compute_trace_coverage()`` to compare the filesystem against
+        the trace manifest.  Returns a lightweight summary — does NOT
+        return the full file lists to keep memory usage low.
+
+        Returns dict with:
+          - total: total eligible files on disk
+          - traced: files already traced and up-to-date
+          - untraced: files eligible for trace but not yet traced
+          - stale: files that were traced but content has changed
+          - needs_rebuild: True if untraced + stale > 0
+          - coverage_pct: percentage of files traced
+        """
+        try:
+            from codrag.services.project_helpers import require_project
+            from codrag.core.project_registry import project_index_dir
+            from codrag.core.trace.coverage import compute_trace_coverage
+
+            project = require_project(project_id)
+            idx_dir = Path(project_index_dir(project))
+            repo_root = Path(project.path)
+
+            pcfg = project.config or {}
+            include_globs = pcfg.get("include_globs") or None
+            exclude_globs = pcfg.get("exclude_globs") or None
+            max_file_bytes = int(pcfg.get("max_file_bytes") or 500_000)
+
+            coverage = compute_trace_coverage(
+                repo_root=repo_root,
+                index_dir=idx_dir,
+                include_globs=include_globs,
+                exclude_globs=exclude_globs,
+                max_file_bytes=max_file_bytes,
+            )
+            summary = coverage.get("summary", {})
+            untraced = summary.get("untraced", 0)
+            stale = summary.get("stale", 0)
+
+            return {
+                "total": summary.get("total", 0),
+                "traced": summary.get("traced", 0),
+                "untraced": untraced,
+                "stale": stale,
+                "needs_rebuild": (untraced + stale) > 0,
+                "coverage_pct": summary.get("coverage_pct", 0.0),
+            }
+        except Exception:
+            logger.debug(
+                "Coverage gap check failed for %s", project_id,
+                exc_info=True,
+            )
+            return {
+                "total": 0, "traced": 0, "untraced": 0, "stale": 0,
+                "needs_rebuild": False, "coverage_pct": 0.0,
+            }
+
+    def _maybe_retrigger_for_coverage(
+        self, project_id: str, group: str, pfl: Any = None,
+    ) -> None:
+        """After pipeline completion, check for untraced/stale files and
+        auto-retrigger if needed.
+
+        Phase 48-F8: This is the key mechanism that ensures the pipeline
+        catches files that exist on disk but were missed by a previous run
+        (e.g., Rust engine failure, glob change, new files added between
+        watcher events).
+
+        Runs in a delayed background thread to avoid blocking the
+        completion callback and to give the filesystem time to settle.
+        """
+        def _check_and_retrigger():
+            try:
+                time.sleep(self._COVERAGE_RETRIGGER_DELAY)
+
+                # Don't retrigger if another run has started in the meantime
+                with self._lock:
+                    for key, run in self._runs.items():
+                        if key[0] == project_id and run.is_active:
+                            logger.debug(
+                                "Coverage retrigger skipped for %s — "
+                                "pipeline already running",
+                                project_id,
+                            )
+                            return
+
+                gap = self.check_coverage_gap(project_id)
+                if not gap["needs_rebuild"]:
+                    logger.info(
+                        "Coverage check for %s: %d/%d files traced (%.1f%%) — "
+                        "no retrigger needed",
+                        project_id, gap["traced"], gap["total"],
+                        gap["coverage_pct"],
+                    )
+                    return
+
+                logger.info(
+                    "Coverage gap detected for %s: %d untraced + %d stale "
+                    "out of %d total files (%.1f%% coverage) — retriggering "
+                    "fast sync",
+                    project_id, gap["untraced"], gap["stale"],
+                    gap["total"], gap["coverage_pct"],
+                )
+                if pfl:
+                    pfl.log(
+                        "coverage_gap",
+                        f"Retriggering: {gap['untraced']} untraced + "
+                        f"{gap['stale']} stale files",
+                    )
+
+                started = self.run_fast_sync(
+                    project_id, force_from_start=True,
+                )
+                logger.info(
+                    "Coverage retrigger for %s: started=%s",
+                    project_id, started,
+                )
+            except Exception:
+                logger.debug(
+                    "Coverage retrigger failed for %s",
+                    project_id, exc_info=True,
+                )
+
+        t = threading.Thread(target=_check_and_retrigger, daemon=True)
+        t.start()
+
     # ── Internal ───────────────────────────────────────────────
 
     @staticmethod
@@ -437,6 +571,36 @@ class PipelineOrchestrator:
             if manifest_file:
                 mpath = idx_dir / manifest_file
                 if mpath.exists() and mpath.stat().st_size > 0:
+                    # Phase 48-F8: For the structural stage, verify the
+                    # manifest actually reports nodes.  A manifest with
+                    # 0 nodes means the Rust engine (or Python builder)
+                    # ran but produced nothing — treat as incomplete so
+                    # the stage re-runs instead of silently skipping it.
+                    if stage == StageId.STRUCTURAL:
+                        try:
+                            import json as _json
+                            with open(mpath, "r", encoding="utf-8") as _mf:
+                                _mdata = _json.load(_mf)
+                            _counts = _mdata.get("counts", {})
+                            _nodes = (
+                                _counts.get("nodes_total", 0)
+                                or _counts.get("nodes", 0)
+                                or _counts.get("files_parsed", 0)
+                            )
+                            if _nodes == 0:
+                                logger.warning(
+                                    "Structural manifest exists but reports 0 nodes "
+                                    "— treating as incomplete (needs rebuild)"
+                                )
+                                return i
+                        except Exception:
+                            logger.debug(
+                                "Could not read structural manifest — "
+                                "treating as incomplete",
+                                exc_info=True,
+                            )
+                            return i
+
                     # Check staleness: is this manifest older than the
                     # structural trace?  If so, the trace was rebuilt after
                     # this stage ran — re-run needed.
@@ -689,6 +853,14 @@ class PipelineOrchestrator:
                         "NOT chaining deep enrichment for %s (reason=%s)",
                         run.project_id, chain_reason,
                     )
+
+                # Phase 48-F8: After fast_sync completes, schedule a
+                # coverage gap check.  If there are still untraced or
+                # stale files (e.g. Rust engine missed them, or new files
+                # appeared during the run), auto-retrigger fast_sync.
+                self._maybe_retrigger_for_coverage(
+                    run.project_id, "fast_sync", pfl,
+                )
             return
 
         stage_str = run.stages[run.current_stage_index]
@@ -922,8 +1094,79 @@ class PipelineOrchestrator:
                 self._release_group_models_via_sm(matching_run)
                 return
 
+        # Phase 48-F8: Post-structural sanity check.
+        # If the structural stage completed but produced 0 nodes, check
+        # whether the project actually has files.  If files exist but 0
+        # nodes were produced, something is wrong (Rust engine failure,
+        # glob misconfiguration, etc.).  Fail the pipeline early instead
+        # of wasting time on 10 downstream stages with empty data.
+        _abort = False
+        if (
+            matching_run
+            and matching_run.is_active
+            and stage == StageId.STRUCTURAL
+            and new_phase == BuildPhase.COMPLETED
+        ):
+            try:
+                slot = self._orchestrator.status(project_id, build_type)
+                node_count = (slot.result or {}).get("nodes", -1)
+                if node_count == 0:
+                    # Quick check: does the project directory have relevant files?
+                    from codrag.services.project_helpers import require_project
+                    from codrag.core.project_registry import project_index_dir
+                    _proj = require_project(project_id)
+                    _repo = Path(_proj.path)
+                    if _repo.is_dir():
+                        # Count up to 5 files to confirm the repo isn't empty
+                        _found = 0
+                        _CODE_EXTS = {
+                            ".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs",
+                            ".java", ".c", ".cpp", ".h", ".hpp", ".swift",
+                            ".md", ".kt", ".cs", ".rb", ".php",
+                        }
+                        for _r, _ds, _fs in os.walk(_repo):
+                            _ds[:] = [
+                                d for d in _ds
+                                if not d.startswith(".") and d not in (
+                                    "node_modules", "__pycache__", ".git",
+                                    "target", "build", "dist", "vendor",
+                                )
+                            ]
+                            for _fn in _fs:
+                                if any(_fn.endswith(ext) for ext in _CODE_EXTS):
+                                    _found += 1
+                                    if _found >= 5:
+                                        break
+                            if _found >= 5:
+                                break
+
+                        if _found > 0:
+                            _abort = True
+                            _detail = (
+                                f"Structural stage produced 0 nodes but project "
+                                f"has files on disk ({_found}+ code files found). "
+                                f"Possible causes: Rust engine failure, glob "
+                                f"misconfiguration, or permissions issue."
+                            )
+                            logger.error(
+                                "Pipeline %s/%s — %s",
+                                project_id, matching_run.group, _detail,
+                            )
+                            pfl = self._get_file_logger(project_id)
+                            if pfl:
+                                pfl.log("structural", _detail)
+                                pfl.end_run("failed", error=_detail)
+                            matching_run.transition(
+                                Event.STAGE_FAILED, detail=_detail,
+                            )
+            except Exception:
+                logger.debug(
+                    "Post-structural sanity check failed (non-fatal)",
+                    exc_info=True,
+                )
+
         # Advance outside the lock
-        if matching_run and matching_run.is_active:
+        if matching_run and matching_run.is_active and not _abort:
             try:
                 self._advance_pipeline(matching_run)
             except Exception as exc:

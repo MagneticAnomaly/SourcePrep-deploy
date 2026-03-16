@@ -232,15 +232,15 @@ export function SpaghettiFinderPanel({
   if (!loading && files.length === 0) {
     return (
       <div className={cn('flex h-full flex-col', className)}>
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-          <AlertTriangle className="h-12 w-12 text-text-muted/30" />
-          <p className="text-sm font-medium text-text">No spaghetti detected</p>
-          <p className="text-xs text-text-muted max-w-xs">
-            Run the enrichment pipeline to build the trace graph, then refresh to scan for files that need refactoring.
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center max-w-sm mx-auto">
+          <AlertTriangle className="h-10 w-10 text-text-muted/25" />
+          <p className="text-sm font-medium text-text">Waiting for trace data</p>
+          <p className="text-xs text-text-muted leading-relaxed">
+            This panel scores files using the trace graph — it needs <strong className="text-text/80">trace_nodes</strong>, <strong className="text-text/80">trace_edges</strong>, and optionally <strong className="text-text/80">epistemic</strong> data to compute refactor urgency.
           </p>
-          <Button variant="default" size="sm" onClick={onRefresh} className="gap-1.5">
-            <RefreshCw className="h-3.5 w-3.5" /> Scan Files
-          </Button>
+          <p className="text-xs text-text-muted leading-relaxed">
+            Build your trace index first, then the scores will appear here automatically.
+          </p>
         </div>
       </div>
     );
