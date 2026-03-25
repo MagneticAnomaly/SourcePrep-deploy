@@ -465,6 +465,18 @@ class ModelAwareness:
             )
             return False
 
+        # Cloud models (Ollama :cloud suffix) run on remote GPUs — no local
+        # VRAM to warm up.  Preloading wastes a cloud concurrency slot
+        # (Free=1, Pro=3, Max=10) and causes 429 for the actual pipeline call.
+        if slot.is_cloud:
+            logger.debug(
+                "Skipping preload for cloud model %s — no local VRAM to warm",
+                slot.identity[1],
+            )
+            with self._lock:
+                slot.state = ModelState.READY
+            return True
+
         with self._lock:
             slot.state = ModelState.LOADING
 
@@ -491,6 +503,10 @@ class ModelAwareness:
     def _unload_model(self, slot: ModelSlot) -> bool:
         """Unload a model from VRAM. Provider-specific."""
         if slot.is_cloud or not slot.is_manageable:
+            return True
+        # Ollama cloud models (e.g. kimi-k2.5:cloud) run on remote GPUs —
+        # no local VRAM to free.  Sending keep_alive=0 wastes a cloud slot.
+        if ":cloud" in (slot.identity[1] or "").lower():
             return True
 
         if slot.provider == "lm-studio":
@@ -539,6 +555,11 @@ class ModelAwareness:
         evicted.sort(key=lambda s: s.last_used, reverse=True)
 
         for slot in evicted:
+            # Cloud models don't need restore — nothing local to reload
+            if slot.is_cloud:
+                slot.state = ModelState.READY
+                continue
+
             # Check if there's room (don't evict others to restore)
             loaded_local = [
                 s for s in self._slots.values()

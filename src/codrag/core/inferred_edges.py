@@ -34,7 +34,7 @@ from codrag.core.context_config import PipelineTask, compute_optimal_settings
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from .llm_client import _get_llm_concurrency, _parse_confidence
-from codrag.core.llm_client import TASK_MAX_CHARS
+from codrag.core.llm_client import TASK_MAX_CHARS, batched_max_chars
 
 logger = logging.getLogger(__name__)
 
@@ -270,7 +270,8 @@ class InferredEdgesAnalyzer:
             )
 
             schema = get_structured_schema("inferred_edges")
-            _BYOK_CONCURRENCY = 3  # Max concurrent batched API calls
+            from .batch_profiles import get_batch_concurrency
+            _concurrency = get_batch_concurrency(self.llm.provider)
 
             # Pre-build all batch payloads
             all_batches = []
@@ -313,7 +314,7 @@ class InferredEdgesAnalyzer:
                         prompt, system=BATCHED_INFERRED_EDGES_SYSTEM,
                         num_predict=num_predict, num_ctx=num_ctx,
                         response_schema=schema,
-                        max_chars=TASK_MAX_CHARS["augmentation"],
+                        max_chars=batched_max_chars("augmentation", len(items)),
                     )
                     return BatchedResponseParser.parse(text, expected_count=len(items))
                 except Exception as e:
@@ -322,7 +323,7 @@ class InferredEdgesAnalyzer:
 
             # Dispatch batches concurrently
             done_batches = 0
-            with ThreadPoolExecutor(max_workers=min(_BYOK_CONCURRENCY, len(all_batches) or 1)) as pool:
+            with ThreadPoolExecutor(max_workers=min(_concurrency, len(all_batches) or 1)) as pool:
                 future_to_items = {
                     pool.submit(_call_edge_batch, items): items
                     for items in all_batches
@@ -362,6 +363,7 @@ class InferredEdgesAnalyzer:
                                     kind=re_item.get("kind", "calls"),
                                     evidence=re_item.get("evidence", ""),
                                     confidence=conf,
+                                    model=self.llm.model,
                                 )
                                 new_edges.append(edge)
                                 edges_written += 1

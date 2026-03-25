@@ -235,7 +235,7 @@
     "budget_max_minutes": 30,
     "budget_max_items": 100,
     "priority": "lowest_confidence",
-    "budget_enabled": true,
+    "budget_enabled": false,
     "schedule_threshold_enabled": true,
     "schedule_time_enabled": true
   },
@@ -272,7 +272,7 @@
     "llm_concurrency_code": 1,
     "llm_concurrency": 1
   },
-  "developer_debug_mode": false,
+  "developer_debug_mode": true,
   "ui_preferences": {
     "mode": "dark",
     "theme": "a",
@@ -285,7 +285,7 @@
         "id": "file-tree",
         "visible": true,
         "height": 20,
-        "collapsed": true,
+        "collapsed": false,
         "x": 0,
         "y": 0,
         "w": 4
@@ -320,28 +320,10 @@
       {
         "id": "trace-pipeline",
         "visible": true,
-        "height": 20,
+        "height": 18,
         "collapsed": false,
         "x": 4,
         "y": 2,
-        "w": 4
-      },
-      {
-        "id": "status",
-        "visible": true,
-        "height": 7,
-        "collapsed": false,
-        "x": 0,
-        "y": 2,
-        "w": 4
-      },
-      {
-        "id": "llm-status",
-        "visible": true,
-        "height": 10,
-        "collapsed": false,
-        "x": 0,
-        "y": 9,
         "w": 4
       },
       {
@@ -354,39 +336,30 @@
         "w": 4
       },
       {
-        "id": "atlas",
+        "id": "status",
         "visible": true,
-        "height": 12,
+        "height": 8,
         "collapsed": false,
         "x": 0,
-        "y": 19,
+        "y": 20,
         "w": 4
       },
       {
         "id": "log-console",
         "visible": true,
-        "height": 13,
+        "height": 15,
         "collapsed": false,
         "x": 4,
-        "y": 22,
+        "y": 20,
         "w": 8
       },
       {
-        "id": "context-options",
-        "visible": true,
-        "height": 7,
-        "collapsed": true,
-        "x": 0,
-        "y": 31,
-        "w": 4
-      },
-      {
-        "id": "context-output",
+        "id": "llm-status",
         "visible": true,
         "height": 10,
-        "collapsed": true,
+        "collapsed": false,
         "x": 0,
-        "y": 33,
+        "y": 28,
         "w": 4
       },
       {
@@ -397,6 +370,33 @@
         "x": 4,
         "y": 35,
         "w": 8
+      },
+      {
+        "id": "atlas",
+        "visible": true,
+        "height": 12,
+        "collapsed": false,
+        "x": 0,
+        "y": 38,
+        "w": 4
+      },
+      {
+        "id": "context-options",
+        "visible": true,
+        "height": 7,
+        "collapsed": true,
+        "x": 0,
+        "y": 50,
+        "w": 4
+      },
+      {
+        "id": "context-output",
+        "visible": true,
+        "height": 10,
+        "collapsed": true,
+        "x": 0,
+        "y": 52,
+        "w": 4
       },
       {
         "id": "token-budget",
@@ -446,7 +446,7 @@
       {
         "id": "spaghetti",
         "visible": true,
-        "height": 8,
+        "height": 28,
         "collapsed": false,
         "x": 0,
         "y": 68,
@@ -474,7 +474,7 @@
   },
   "compute_nodes": [
     {
-      "id": "node_10f7c828",
+      "id": "node_5dc68449",
       "name": "Local Machine",
       "type": "local",
       "hardware_profile": "apple_silicon",

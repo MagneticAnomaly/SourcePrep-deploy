@@ -700,6 +700,10 @@ export class MockApiClient implements ApiClient {
   async getAuditReport(_projectId: string, _reportName: string): Promise<{ name: string; content: string; size_bytes: number }> {
     return { name: _reportName, content: '# No report generated yet', size_bytes: 0 };
   }
+
+  async getSpaghettiScores(_projectId: string, _opts?: { tab?: string; limit?: number; refresh?: boolean }): Promise<import('../types').SpaghettiResult> {
+    return { file_count: 0, scored_count: 0, severity_counts: {}, duration_ms: 0, tab: _opts?.tab ?? 'worst', files: [] };
+  }
 }
 
 export const createMockApiClient = (): ApiClient => new MockApiClient();

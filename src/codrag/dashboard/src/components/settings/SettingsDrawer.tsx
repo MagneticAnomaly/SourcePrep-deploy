@@ -100,8 +100,8 @@ export interface SettingsDrawerProps {
   onDestroyGroupReasoning?: () => void
   onDestroyDeepEnrichment?: () => void
   // Global config for debug mode
-  globalConfig?: { developer_debug_mode?: boolean }
-  onGlobalConfigChange?: (config: Partial<{ developer_debug_mode?: boolean }>) => void
+  globalConfig?: { developer_debug_mode?: boolean; exploratory_testing_mode?: boolean }
+  onGlobalConfigChange?: (config: Partial<{ developer_debug_mode?: boolean; exploratory_testing_mode?: boolean }>) => void
   // Developer tab
   devTierOverride: LicenseTier | null
   onDevTierOverrideChange: (tier: LicenseTier | null) => void
@@ -227,11 +227,10 @@ export function SettingsDrawer({
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
-            className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              activeTab === t.key
+            className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${activeTab === t.key
                 ? 'border-primary text-text'
                 : 'border-transparent text-text-muted hover:text-text'
-            }`}
+              }`}
           >
             {t.label}
           </button>
@@ -388,7 +387,7 @@ export function SettingsDrawer({
                     )}
                   </div>
                 )}
-                
+
                 {devTierOverride && (
                   <div className="text-xs text-warning bg-warning/10 px-2 py-1 rounded border border-warning/20">
                     Dev override active: <strong className="capitalize">{devTierOverride}</strong> tier
@@ -428,7 +427,7 @@ export function SettingsDrawer({
                 {licenseError && (
                   <p className="text-xs text-error">{licenseError}</p>
                 )}
-                
+
                 <p className="text-xs text-text-muted">
                   Purchase a license at <a href="https://codrag.io/pricing" target="_blank" rel="noreferrer" className="text-primary underline">codrag.io/pricing</a>.
                 </p>
@@ -453,10 +452,10 @@ export function SettingsDrawer({
           <>
             <section>
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-4 h-4 text-primary"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M17.47 9c1.93-.2 3.53-1.9 3.53-4"/></svg></div>
+                <div className="w-4 h-4 text-primary"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m8 2 1.88 1.88" /><path d="M14.12 3.88 16 2" /><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1" /><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6" /><path d="M12 20v-9" /><path d="M6.53 9C4.6 8.8 3 7.1 3 5" /><path d="M17.47 9c1.93-.2 3.53-1.9 3.53-4" /></svg></div>
                 <h3 className="text-sm font-semibold text-text">Debug Tools</h3>
               </div>
-              
+
               <div className="grid grid-cols-1 gap-3">
                 <div className="flex items-center justify-between p-3 rounded bg-bg-surface border border-border">
                   <div>
@@ -469,6 +468,21 @@ export function SettingsDrawer({
                     checked={globalConfig?.developer_debug_mode ?? false}
                     onChange={(val: boolean) => {
                       onGlobalConfigChange?.({ developer_debug_mode: val })
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded bg-bg-surface border border-border">
+                  <div>
+                    <h4 className="text-sm font-medium text-text">Cloud Exploratory Testing</h4>
+                    <p className="text-xs text-text-muted mt-1">
+                      Activates adaptive fallback batching engine to test LLM rate limits and parsing thresholds without halting. Logs to telemetry files.
+                    </p>
+                  </div>
+                  <Toggle
+                    checked={globalConfig?.exploratory_testing_mode ?? false}
+                    onChange={(val: boolean) => {
+                      onGlobalConfigChange?.({ exploratory_testing_mode: val })
                     }}
                   />
                 </div>
@@ -533,21 +547,21 @@ export function SettingsDrawer({
               </div>
               <div className="text-xs font-mono bg-background p-3 rounded border border-border space-y-1.5">
                 <div className="grid grid-cols-[80px_1fr] gap-x-2">
-                  <strong className="text-text">Tier:</strong> 
+                  <strong className="text-text">Tier:</strong>
                   <span className="text-text-muted capitalize">{licenseStatus?.license.tier ?? 'unknown'}</span>
-                  
-                  <strong className="text-text">Valid:</strong> 
+
+                  <strong className="text-text">Valid:</strong>
                   <span className="text-text-muted">{licenseStatus?.license.valid ? 'Yes' : 'No'}</span>
-                  
-                  <strong className="text-text">Override:</strong> 
+
+                  <strong className="text-text">Override:</strong>
                   <span className="text-text-muted">{devTierOverride ?? 'None'}</span>
-                  
-                  <strong className="text-text">Effective:</strong> 
+
+                  <strong className="text-text">Effective:</strong>
                   <span className="text-primary capitalize">{devTierOverride ?? licenseStatus?.license.tier ?? 'free'}</span>
-                  
+
                   {licenseStatus?.license.email && (
                     <>
-                      <strong className="text-text">Email:</strong> 
+                      <strong className="text-text">Email:</strong>
                       <span className="text-text-muted truncate">{licenseStatus.license.email}</span>
                     </>
                   )}
@@ -620,28 +634,28 @@ export function SettingsDrawer({
         onCancel={() => setConfirmAction(null)}
         title={
           confirmAction === 'graph' ? `Reset Graph for ${projectName || 'Project'}?`
-          : confirmAction === 'atlas' ? `Reset Atlas for ${projectName || 'Project'}?`
-          : confirmAction === 'group_reasoning' ? `Reset Group Reasoning for ${projectName || 'Project'}?`
-          : confirmAction === 'deep_enrichment' ? `Reset Deep Enrichment for ${projectName || 'Project'}?`
-          : `Full Reset for ${projectName || 'Project'}?`
+            : confirmAction === 'atlas' ? `Reset Atlas for ${projectName || 'Project'}?`
+              : confirmAction === 'group_reasoning' ? `Reset Group Reasoning for ${projectName || 'Project'}?`
+                : confirmAction === 'deep_enrichment' ? `Reset Deep Enrichment for ${projectName || 'Project'}?`
+                  : `Full Reset for ${projectName || 'Project'}?`
         }
         description={
           confirmAction === 'graph'
             ? 'This will permanently delete the trace graph, all augmentation, epistemic enrichment, and cluster data. Embeddings and search will remain intact.'
             : confirmAction === 'atlas'
-            ? 'This will permanently delete the atlas and routing data for this project. Other enrichment stages will remain intact.'
-            : confirmAction === 'group_reasoning'
-            ? 'This will permanently delete the group reasoning data for this project. Other enrichment stages will remain intact.'
-            : confirmAction === 'deep_enrichment'
-            ? 'This will permanently delete ALL deep enrichment data (epistemic, group reasoning, modules, atlas, deepening, knowledge embeddings). Fast Sync stages (graph, augmentation, inferred edges) will remain intact.'
-            : 'This will permanently delete ALL project data: embeddings, search index, trace graph, and all enrichment. You will need to rebuild everything from scratch.'
+              ? 'This will permanently delete the atlas and routing data for this project. Other enrichment stages will remain intact.'
+              : confirmAction === 'group_reasoning'
+                ? 'This will permanently delete the group reasoning data for this project. Other enrichment stages will remain intact.'
+                : confirmAction === 'deep_enrichment'
+                  ? 'This will permanently delete ALL deep enrichment data (epistemic, group reasoning, modules, atlas, deepening, knowledge embeddings). Fast Sync stages (graph, augmentation, inferred edges) will remain intact.'
+                  : 'This will permanently delete ALL project data: embeddings, search index, trace graph, and all enrichment. You will need to rebuild everything from scratch.'
         }
         confirmLabel={
           confirmAction === 'graph' ? 'Reset Graph'
-          : confirmAction === 'atlas' ? 'Reset Atlas'
-          : confirmAction === 'group_reasoning' ? 'Reset Group Reasoning'
-          : confirmAction === 'deep_enrichment' ? 'Reset Deep Enrichment'
-          : 'Reset Everything'
+            : confirmAction === 'atlas' ? 'Reset Atlas'
+              : confirmAction === 'group_reasoning' ? 'Reset Group Reasoning'
+                : confirmAction === 'deep_enrichment' ? 'Reset Deep Enrichment'
+                  : 'Reset Everything'
         }
       />
     </div>

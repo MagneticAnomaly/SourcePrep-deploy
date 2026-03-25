@@ -119,6 +119,8 @@ class MCPServer:
         self._client_name: str = "unknown"      # Phase 50: set by handle_initialize
         self._client_version: str = ""           # Phase 50: set by handle_initialize
         self._codrag_called: bool = False        # Phase 50 Sprint 3: nudge tracker
+        self._notification_callback = None       # OPP-2: set by transport for resource notifications
+        self._last_atlas_signal: Dict[str, float] = {}  # D1: per-project atlas signal mtime
 
     # OPP-W5: Adaptive token budget tiers based on detected MCP client.
     # Maps clientInfo.name patterns to max_chars defaults.
@@ -151,6 +153,125 @@ class MCPServer:
                 return budget
         return self._DEFAULT_BUDGET
 
+    def _project_has_rules_file(self, project_id: str) -> bool:
+        """Check if a CoDRAG rules file exists for the resolved project.
+
+        ISSUE-6: When a rules file exists, the atlas is already in the AI's
+        system prompt. The codrag tool response can skip the atlas and allocate
+        more budget to actual code content.
+
+        Checks for any of: .cursor/rules/codrag.mdc, .windsurf/rules/codrag.md,
+        AGENTS.md with CoDRAG markers, CLAUDE.md with CoDRAG markers.
+        Cached per project_id for the session lifetime (~0 cost after first check).
+        """
+        cache = getattr(self, "_rules_file_cache", None)
+        if cache is None:
+            self._rules_file_cache: Dict[str, bool] = {}
+            cache = self._rules_file_cache
+        if project_id in cache:
+            return cache[project_id]
+
+        found = False
+        try:
+            # Resolve project path from daemon (cached by _resolve_project_id)
+            # Use a sync approach: check the project path we got from initialize roots
+            # or fall back to a lightweight heuristic.
+            project_path = self._get_project_path_sync(project_id)
+            if project_path:
+                p = Path(project_path)
+                # Check the most common rules files
+                if (p / ".cursor" / "rules" / "codrag.mdc").exists():
+                    found = True
+                elif (p / ".windsurf" / "rules" / "codrag.md").exists():
+                    found = True
+                elif (p / "AGENTS.md").exists():
+                    try:
+                        content = (p / "AGENTS.md").read_text(encoding="utf-8")[:500]
+                        if "codrag-managed" in content or "CoDRAG" in content:
+                            found = True
+                    except Exception:
+                        pass
+                elif (p / "CLAUDE.md").exists():
+                    try:
+                        content = (p / "CLAUDE.md").read_text(encoding="utf-8")[:500]
+                        if "codrag-managed" in content or "CoDRAG" in content:
+                            found = True
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        cache[project_id] = found
+        return found
+
+    def _get_project_path_sync(self, project_id: str) -> Optional[str]:
+        """Get the filesystem path for a project without an async call.
+
+        Uses cached data from previous _resolve_project_id calls or
+        initialize roots. Returns None if path is unknown.
+        """
+        # If we have initialize roots, the first one is likely the project path
+        if self._initialize_roots:
+            return self._initialize_roots[0]
+        # Fall back to CWD (common in single-project setups)
+        try:
+            return str(Path.cwd().resolve())
+        except Exception:
+            return None
+
+    async def _check_atlas_signal(self, project_id: str) -> None:
+        """D1: Check if the pipeline wrote a new atlas since our last check.
+
+        Reads the atlas_updated.signal file from the project's index directory.
+        If it's newer than our last recorded mtime, invalidate the rules file
+        cache (rules were regenerated alongside the atlas) and send resource
+        notifications to the MCP host.
+
+        The signal file is written by PipelineOrchestrator._write_atlas_signal()
+        after Stage 1 (preliminary atlas) and Stage 9 (full LLM atlas).
+
+        Cost: one stat() call per tool_context() invocation (~0.1ms).
+        No HTTP calls -- uses local filesystem path from initialize roots / CWD.
+        """
+        try:
+            project_path = self._get_project_path_sync(project_id)
+            if not project_path:
+                return
+
+            # CoDRAG index lives at <project_path>/.codrag/ or the daemon's
+            # configured data dir. Check both common locations.
+            candidates = [
+                Path(project_path) / ".codrag" / "atlas_updated.signal",
+            ]
+            # Also check if project_path itself IS the index dir (daemon mode)
+            direct = Path(project_path) / "atlas_updated.signal"
+            if direct.exists():
+                candidates.insert(0, direct)
+
+            signal_path = None
+            for c in candidates:
+                if c.exists():
+                    signal_path = c
+                    break
+
+            if signal_path is None:
+                return
+
+            mtime = signal_path.stat().st_mtime
+            last = self._last_atlas_signal.get(project_id, 0.0)
+
+            if mtime > last:
+                self._last_atlas_signal[project_id] = mtime
+                # Invalidate rules file cache (rules were regenerated with new atlas)
+                if hasattr(self, "_rules_file_cache"):
+                    self._rules_file_cache.pop(project_id, None)
+                # Notify host that cached resources are stale
+                await self.notify_resource_changed(f"codrag://{project_id}/atlas")
+                await self.notify_resource_changed(f"codrag://{project_id}/structure")
+                logger.debug("D1: Atlas signal detected for %s (mtime %.0f > %.0f)", project_id, mtime, last)
+        except Exception:
+            pass  # Non-fatal -- worst case the AI gets slightly stale data
+
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
             self._client = httpx.AsyncClient(timeout=30.0)
@@ -160,6 +281,25 @@ class MCPServer:
         if self._client is not None:
             await self._client.aclose()
             self._client = None
+
+    async def notify_resource_changed(self, uri: str) -> None:
+        """OPP-2: Send resource-updated notification to the MCP host.
+
+        Tells the host that a cached resource is stale and should be re-read.
+        The transport layer must set ``_notification_callback`` for this to work.
+        Best-effort -- hosts that don't support subscriptions ignore this.
+        """
+        if self._notification_callback is None:
+            return
+        try:
+            notification = {
+                "jsonrpc": JSONRPC_VERSION,
+                "method": "notifications/resources/updated",
+                "params": {"uri": uri},
+            }
+            await self._notification_callback(notification)
+        except Exception:
+            logger.debug("Resource notification failed for %s (non-fatal)", uri, exc_info=True)
 
     def _unwrap_envelope(self, payload: Any) -> Any:
         if not isinstance(payload, dict):
@@ -566,14 +706,24 @@ class MCPServer:
             raise InvalidParamsError(f"max_chars too large (max {MAX_CONTEXT_CHARS})")
 
         project_id = await self._resolve_project_id(override=project_override)
-        # OPP-W1: Request extended atlas in tool response. The compact atlas
-        # is always-on in rules files (~300 tok). The extended atlas (~2-4K tok)
-        # is only included when the AI explicitly calls codrag, taking advantage
-        # of larger context windows (200K+ tokens in modern models).
+
+        # D1: Check atlas signal file for cross-process freshness detection.
+        # If the pipeline wrote a new atlas since our last check, invalidate
+        # the rules file cache (rules file was regenerated too) and notify
+        # the host that cached resources are stale.
+        await self._check_atlas_signal(project_id)
+
+        # ISSUE-6: Adaptive atlas inclusion.
+        # If a CoDRAG rules file exists, the atlas is already in the AI's
+        # system prompt (via alwaysApply/always_on). Skipping the atlas
+        # prepend saves ~500-2500 chars of budget that goes to actual code
+        # content instead. Without rules files, include the atlas so the AI
+        # gets structural orientation from the tool response.
+        has_rules = self._project_has_rules_file(project_id)
         payload: Dict[str, Any] = {
             "query": "",
             "max_chars": max_chars,
-            "include_atlas": True,
+            "include_atlas": not has_rules,
         }
 
         try:
@@ -850,7 +1000,12 @@ class MCPServer:
         category: str = "note",
         project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Save an observation about the codebase for cross-session memory."""
+        """Save an observation about the codebase for cross-session memory.
+
+        OPP-4: Write-through -- after saving, also fetches a lightweight
+        context refresh so the AI gets structural orientation alongside the
+        confirmation. This makes saves feel 'free' and encourages usage.
+        """
         project_id = await self._resolve_project_id(override=project_override)
         payload = {"content": content}
         if file_path:
@@ -862,12 +1017,33 @@ class MCPServer:
         data = await self._api_post(f"/projects/{project_id}/observations", payload)
         obs_id = (data or {}).get("id", "unknown") if isinstance(data, dict) else "unknown"
         msg = f"Observation saved (id={obs_id}). It will persist across sessions and be flagged stale if the linked file changes."
+
+        # OPP-4: Write-through -- append a lightweight context refresh.
+        # Use a small budget (4000 chars) so the save response stays fast.
+        context_snippet = ""
+        try:
+            has_rules = self._project_has_rules_file(project_id)
+            ctx_data = await self._api_post(f"/projects/{project_id}/context", {
+                "query": "",
+                "max_chars": 4000,
+                "include_atlas": not has_rules,
+            })
+            if isinstance(ctx_data, dict):
+                context_snippet = ctx_data.get("context", "") or ""
+        except Exception:
+            pass  # Non-fatal -- save already succeeded
+
+        md_parts = [msg]
+        if context_snippet:
+            md_parts.append("\n---\n## Updated Context\n")
+            md_parts.append(context_snippet)
+
         return {
             "saved": True,
             "id": obs_id,
             "project_id": project_id,
             "message": msg,
-            "_to_markdown": msg,
+            "_to_markdown": "\n".join(md_parts),
         }
 
     async def tool_get_observations(
@@ -1253,7 +1429,8 @@ class MCPServer:
         if isinstance(client_info, dict):
             self._client_name = str(client_info.get("name", "unknown"))
             self._client_version = str(client_info.get("version", ""))
-            logger.debug("MCP client: %s %s", self._client_name, self._client_version)
+            # T1: Log at INFO so it appears in log files for empirical validation
+            logger.info("MCP client detected: name=%s version=%s", self._client_name, self._client_version)
 
         return {
             "protocolVersion": MCP_PROTOCOL_VERSION,
@@ -1764,6 +1941,8 @@ class MCPServer:
                         )
 
             elif name == "codrag_impact":
+                if not args.get("file_path") and not args.get("symbol") and not args.get("node_id"):
+                    raise InvalidParamsError("codrag_impact requires file_path or symbol")
                 direction = args.get("direction", "dependents")
                 if direction == "all":
                     # Full neighborhood -- use trace_neighbors backend
@@ -1843,6 +2022,8 @@ class MCPServer:
             elif name == "codrag_observe":
                 action = args.get("action", "get")
                 if action == "save":
+                    if not args.get("content", "").strip():
+                        raise InvalidParamsError("codrag_observe action='save' requires non-empty content")
                     result = await self.tool_save_observation(
                         content=args.get("content", ""),
                         file_path=args.get("file_path"),

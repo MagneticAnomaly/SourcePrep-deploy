@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from codrag.core.context_config import PipelineTask, compute_optimal_settings
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
-from codrag.core.llm_client import TASK_MAX_CHARS
+from codrag.core.llm_client import TASK_MAX_CHARS, batched_max_chars
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +153,21 @@ class AugmentResult:
     tokens_used: int = 0
     duration_ms: float = 0.0
     errors: List[str] = field(default_factory=list)
+    
+    # Telemetry for batching and context sizes
+    batches_attempted: int = 0
+    batches_failed: int = 0
+    items_batched: int = 0
+    items_parsed: int = 0
+    max_prompt_tokens: int = 0
+    total_prompt_tokens: int = 0
+    model_ctx_size: int = 0
+    
+    # Telemetry for granular exploratory tracking
+    retry_telemetry: List[Dict[str, Any]] = field(default_factory=list)
+    
+    # Synthetic tracking
+    synthetic_reasons: Dict[str, List[str]] = field(default_factory=dict)
 
 
 # LLMClient class is now in llm_client.py (re-exported above)
@@ -259,6 +274,118 @@ class TraceAugmenter:
 
         self.augmented_path = self.index_dir / "trace_augmented.jsonl"
         self.augment_manifest_path = self.index_dir / "trace_augment_manifest.json"
+        
+        from codrag.services.settings_store import settings
+        self.is_exploratory = settings.get("exploratory_testing_mode", False)
+        
+        from codrag.core.batch_strategy import BatchRetryStrategy
+        mode = "exploratory" if self.is_exploratory else "production"
+        self.retry_strategy = BatchRetryStrategy(mode=mode)
+
+    def _process_with_exploratory_fallback(
+        self,
+        initial_items: List[Dict],
+        prompt_builder_fn: Callable,
+        system_msg: str,
+        schema: Any,
+        result: AugmentResult,
+        stage_name: str,
+    ) -> List[Optional[Dict]]:
+        """
+        Executes an LLM batch with an internal queue for fallback subdivision.
+        Returns a list of parsed dictionaries matching the order of initial_items,
+        where failed items are None.
+        """
+        from codrag.core.batch_strategy import BatchedResponseParser
+        import time
+        
+        queue = [initial_items]
+        final_results_by_id = {}
+        
+        while queue:
+            current_batch = queue.pop(0)
+            
+            prompt = prompt_builder_fn(current_batch)
+            prompt_tokens = len(prompt) // 4
+            num_predict, num_ctx, warnings = compute_optimal_settings(
+                task=PipelineTask.AUGMENT,
+                prompt_tokens=prompt_tokens,
+                model=self.llm.model,
+                think=False,
+            )
+            
+            # Telemetry tracking for this attempt
+            result.max_prompt_tokens = max(result.max_prompt_tokens, prompt_tokens)
+            result.total_prompt_tokens += prompt_tokens
+            result.model_ctx_size = max(result.model_ctx_size, num_ctx)
+            result.batches_attempted += 1
+            result.items_batched += len(current_batch)
+            
+            start_time = time.monotonic()
+            
+            try:
+                text, tokens = self.llm.generate(
+                    prompt, system=system_msg,
+                    num_predict=num_predict, num_ctx=num_ctx,
+                    response_schema=schema,
+                    max_chars=batched_max_chars("augmentation", len(current_batch)),
+                )
+                parsed_items = BatchedResponseParser.parse(text, expected_count=len(current_batch))
+                duration = (time.monotonic() - start_time) * 1000
+                
+                if len(parsed_items) == 0 and len(current_batch) > 0:
+                    raise ValueError(f"Batch parse returned 0 items from LLM text of length {len(text)}")
+                    
+                result.items_parsed += len(parsed_items)
+                
+                # Reorder results by 'id' field if present to map back to inputs
+                if parsed_items and all(isinstance(r.get("id"), (int, float)) for r in parsed_items):
+                    id_map = {int(r["id"]): r for r in parsed_items}
+                    for i, item in enumerate(current_batch):
+                        parsed = id_map.get(i + 1)
+                        if parsed:
+                            final_results_by_id[item["_node_id"]] = parsed
+                else:
+                    # Fallback zip order
+                    for idx, parsed in enumerate(parsed_items):
+                        if idx < len(current_batch):
+                            final_results_by_id[current_batch[idx]["_node_id"]] = parsed
+
+                result.retry_telemetry.append({
+                    "original_batch_size": len(initial_items),
+                    "attempted_batch_size": len(current_batch),
+                    "failure_type": "none",
+                    "success": True,
+                    "duration_ms": duration,
+                    "model": self.llm.model,
+                    "stage": stage_name
+                })
+                
+            except Exception as e:
+                duration = (time.monotonic() - start_time) * 1000
+                error_type = "parse_error" if "parse" in str(e).lower() else "server_error"
+                if "429" in str(e) or "rate limit" in str(e).lower():
+                    error_type = "rate_limit"
+                    
+                logger.warning("Batched %s augmentation failed for batch of %d: %s", stage_name, len(current_batch), e)
+                result.batches_failed += 1
+                
+                result.retry_telemetry.append({
+                    "original_batch_size": len(initial_items),
+                    "attempted_batch_size": len(current_batch),
+                    "failure_type": error_type,
+                    "success": False,
+                    "duration_ms": duration,
+                    "model": self.llm.model,
+                    "stage": stage_name
+                })
+                
+                # Use strategy to calculate subdivisions and prepend to queue
+                next_batches = self.retry_strategy.calculate_next_attempts(current_batch, error_type)
+                queue = next_batches + queue
+                
+        # Return mapped list matching order of initial_items
+        return [final_results_by_id.get(item["_node_id"]) for item in initial_items]
 
     def load_existing(self) -> Dict[str, AugmentationEntry]:
         """Load existing augmentations from disk."""
@@ -887,6 +1014,170 @@ class TraceAugmenter:
             doc_status=doc_status,
         )
 
+    def _augment_symbols_batched(
+        self,
+        symbol_nodes: List[Dict[str, Any]],
+        edges: List[Dict[str, Any]],
+        nodes_by_id: Dict[str, Dict[str, Any]],
+        file_hashes: Dict[str, str],
+        augmented: Dict[str, "AugmentationEntry"],
+        result: "AugmentResult",
+        done: int,
+        total_work: int,
+        progress_callback: Optional[Callable[[str, int, int], None]] = None,
+        cancel_token: Optional[Any] = None,
+    ) -> int:
+        """Process symbol nodes in batches using batched prompts.
+
+        Pre-filters symbols with empty source to synthetic entries.
+        Returns the updated 'done' counter.
+        """
+        from .batch_profiles import BatchStage
+        from .batch_prompts import (
+            BATCHED_SYMBOL_SYSTEM,
+            build_batched_symbol_prompt,
+            get_structured_schema,
+        )
+        from .batch_strategy import BatchedResponseParser
+
+        batch_size = self._batch_profile.batch_size(BatchStage.CATALOGUE_SYMBOL)
+        logger.info(
+            "Batched symbol augmentation: %d symbols, batch_size=%d (%s profile)",
+            len(symbol_nodes), batch_size, self._batch_profile.name.value,
+        )
+
+        symbol_schema = get_structured_schema("catalogue_symbol")
+
+        # Pre-filter: skip symbols with empty source (use synthetic directly)
+        batchable = []
+        for node in symbol_nodes:
+            file_path = node.get("file_path", "")
+            span = node.get("span")
+            # Use smaller snippet for batching (1200 chars vs 2000) to fit more per batch
+            source = self._read_source_snippet(file_path, span, max_chars=1200)
+            if not source:
+                entry = self._synthetic_entry(node, file_hashes, reason="empty_source")
+                augmented[entry.node_id] = entry
+                result.synthetic += 1
+                done += 1
+                if progress_callback:
+                    progress_callback("augment_symbols", done, total_work)
+                continue
+
+            imports = self._get_file_imports(file_path, edges, nodes_by_id)
+            symbol_type = node.get("metadata", {}).get("symbol_type", "function")
+            role_hint = "utility"
+            if "test" in file_path.lower() or "test" in node.get("name", "").lower():
+                role_hint = "test"
+
+            batchable.append({
+                "name": node.get("name", ""),
+                "symbol_type": symbol_type,
+                "file_path": file_path,
+                "start_line": span.get("start_line", 0) if span else 0,
+                "end_line": span.get("end_line", 0) if span else 0,
+                "source_code": source,
+                "imports": imports or "(none)",
+                "role_hint": role_hint,
+                "_node": node,
+                "_node_id": node["id"],
+            })
+
+        if not batchable:
+            return done
+
+        logger.info(
+            "Batched symbol augmentation: %d batchable symbols (%d pre-filtered to synthetic)",
+            len(batchable), len(symbol_nodes) - len(batchable),
+        )
+
+        # Build batch payloads
+        batches = []
+        for batch_start in range(0, len(batchable), batch_size):
+            batches.append(batchable[batch_start:batch_start + batch_size])
+
+        from .batch_profiles import get_batch_concurrency
+        _concurrency = get_batch_concurrency(self.llm.provider)
+
+        def _call_symbol_batch(items):
+            return self._process_with_exploratory_fallback(
+                initial_items=items,
+                prompt_builder_fn=build_batched_symbol_prompt,
+                system_msg=BATCHED_SYMBOL_SYSTEM,
+                schema=symbol_schema,
+                result=result,
+                stage_name="symbol",
+            )
+
+        # Dispatch batches concurrently
+        checkpoint_interval = _get_checkpoint_interval()
+
+        with ThreadPoolExecutor(max_workers=min(_concurrency, len(batches) or 1)) as pool:
+            future_to_items = {
+                pool.submit(_call_symbol_batch, items): items
+                for items in batches
+            }
+            for future in as_completed(future_to_items):
+                # Cooperative cancellation between batches
+                if cancel_token and cancel_token.is_cancelled:
+                    logger.info("Symbol batching paused/cancelled at %d/%d — flushing", done, total_work)
+                    self._write_augmentations(augmented)
+                    pool.shutdown(wait=False, cancel_futures=True)
+                    cancel_token.raise_if_cancelled()
+
+                items = future_to_items[future]
+                try:
+                    reordered = future.result()
+                except Exception as e:
+                    logger.warning("Symbol batch future failed: %s", e)
+                    reordered = [None] * len(items)
+
+                for idx, item in enumerate(items):
+                    node = item["_node"]
+                    nid = item["_node_id"]
+                    file_path = item["file_path"]
+                    parsed = reordered[idx] if idx < len(reordered) else None
+
+                    if parsed:
+                        role = parsed.get("role", "internal")
+                        if role not in VALID_ROLES:
+                            role = "internal"
+                        summary = str(parsed.get("summary", "")).strip()[:500]
+                        if not summary:
+                            name = node.get("name", os.path.basename(file_path))
+                            sym_type = node.get("metadata", {}).get("symbol_type", "symbol")
+                            summary = f"{sym_type.capitalize()} '{name}' in {file_path}"
+                        entry = AugmentationEntry(
+                            node_id=nid,
+                            summary=summary,
+                            role=role,
+                            confidence=_parse_confidence(parsed.get("confidence"), 0.7),
+                            augmented_at=datetime.now(timezone.utc).isoformat(),
+                            model=self.llm.model,
+                            file_hash=file_hashes.get(file_path),
+                        )
+                        augmented[nid] = entry
+                        result.augmented += 1
+                    else:
+                        entry = self._synthetic_entry(node, file_hashes, reason="batch_parse_failure")
+                        augmented[nid] = entry
+                        result.synthetic += 1
+                    done += 1
+
+                if progress_callback:
+                    progress_callback("augment_symbols", done, total_work)
+
+                # Checkpoint after each batch completes
+                if done % checkpoint_interval < len(items):
+                    self._write_augmentations(augmented)
+
+                logger.info(
+                    "Batched symbol augmentation: %d/%d done (batch of %d -> %d parsed)",
+                    done, total_work, len(items), len(results_list),
+                )
+
+        return done
+
     def _augment_files_batched(
         self,
         file_nodes: List[Dict[str, Any]],
@@ -907,11 +1198,14 @@ class TraceAugmenter:
         from .batch_prompts import (
             BATCHED_FILE_SYSTEM,
             BATCHED_DOC_SYSTEM,
+            BATCHED_NARRATIVE_SYSTEM,
             build_batched_file_prompt,
             build_batched_doc_prompt,
+            build_batched_narrative_prompt,
             get_structured_schema,
         )
         from .batch_strategy import BatchedResponseParser
+        from .content_class import ContentClass, classify_nodes
 
         batch_size = self._batch_profile.batch_size(BatchStage.CATALOGUE_FILE)
         logger.info(
@@ -921,21 +1215,17 @@ class TraceAugmenter:
 
         file_schema = get_structured_schema("catalogue_file")
         doc_schema = get_structured_schema("epistemic_doc") # doc aug matches epistemic doc shape closely enough
+        narrative_schema = get_structured_schema("catalogue_narrative")
 
-        # Split into code files and doc files
-        code_files = []
-        doc_files = []
-        for node in file_nodes:
-            fp = node.get("file_path", "")
-            lang = node.get("language", "")
-            is_md = lang == "markdown" or fp.endswith((".md", ".markdown"))
-            if is_md:
-                doc_files.append(node)
-            else:
-                code_files.append(node)
+        # Phase 53: 3-way content classification replaces binary is_md split
+        classified = classify_nodes(file_nodes)
+        code_files = classified.get(ContentClass.STRUCTURED_CODE, [])
+        doc_files = classified.get(ContentClass.STRUCTURED_DOCS, [])
+        narrative_files = classified.get(ContentClass.UNSTRUCTURED_NARRATIVE, [])
 
         # Process code files in batches (concurrent batch dispatch for cloud APIs)
-        _BYOK_CONCURRENCY = 3  # Max concurrent batched API calls
+        from .batch_profiles import get_batch_concurrency
+        _concurrency = get_batch_concurrency(self.llm.provider)
 
         # Pre-build all code batch payloads
         code_batches = []
@@ -965,28 +1255,17 @@ class TraceAugmenter:
             code_batches.append(items)
 
         def _call_code_batch(items):
-            prompt = build_batched_file_prompt(items)
-            prompt_tokens = len(prompt) // 4
-            num_predict, num_ctx, warnings = compute_optimal_settings(
-                task=PipelineTask.AUGMENT,
-                prompt_tokens=prompt_tokens,
-                model=self.llm.model,
-                think=False,
+            return self._process_with_exploratory_fallback(
+                initial_items=items,
+                prompt_builder_fn=build_batched_file_prompt,
+                system_msg=BATCHED_FILE_SYSTEM,
+                schema=file_schema,
+                result=result,
+                stage_name="code_file",
             )
-            try:
-                text, tokens = self.llm.generate(
-                    prompt, system=BATCHED_FILE_SYSTEM, 
-                    num_predict=num_predict, num_ctx=num_ctx,
-                    response_schema=file_schema,
-                    max_chars=TASK_MAX_CHARS["augmentation"],
-                )
-                return BatchedResponseParser.parse(text, expected_count=len(items))
-            except Exception as e:
-                logger.warning("Batched file augmentation failed for batch of %d: %s", len(items), e)
-                return []
 
         # Dispatch batches concurrently
-        with ThreadPoolExecutor(max_workers=min(_BYOK_CONCURRENCY, len(code_batches) or 1)) as pool:
+        with ThreadPoolExecutor(max_workers=min(_concurrency, len(code_batches) or 1)) as pool:
             future_to_items = {
                 pool.submit(_call_code_batch, items): items
                 for items in code_batches
@@ -997,7 +1276,7 @@ class TraceAugmenter:
                     results_list = future.result()
                 except Exception as e:
                     logger.warning("Code batch future failed: %s", e)
-                    results_list = []
+                    results_list = [None] * len(items)
 
                 for idx, item in enumerate(items):
                     node = item["_node"]
@@ -1019,12 +1298,9 @@ class TraceAugmenter:
                         augmented[nid] = entry
                         result.augmented += 1
                     else:
-                        entry = self._synthetic_entry(node, nodes_by_id, edges, file_hashes)
-                        if entry:
-                            augmented[nid] = entry
-                            result.synthetic += 1
-                        else:
-                            result.failed += 1
+                        entry = self._synthetic_entry(node, file_hashes, reason="batch_parse_failure")
+                        augmented[nid] = entry
+                        result.synthetic += 1
                     done += 1
 
                 if progress_callback:
@@ -1078,27 +1354,16 @@ class TraceAugmenter:
             doc_batches.append(items)
 
         def _call_doc_batch(items):
-            prompt = build_batched_doc_prompt(items)
-            prompt_tokens = len(prompt) // 4
-            num_predict, num_ctx, warnings = compute_optimal_settings(
-                task=PipelineTask.AUGMENT,
-                prompt_tokens=prompt_tokens,
-                model=self.llm.model,
-                think=False,
+            return self._process_with_exploratory_fallback(
+                initial_items=items,
+                prompt_builder_fn=build_batched_doc_prompt,
+                system_msg=BATCHED_DOC_SYSTEM,
+                schema=doc_schema,
+                result=result,
+                stage_name="doc_file",
             )
-            try:
-                text, tokens = self.llm.generate(
-                    prompt, system=BATCHED_DOC_SYSTEM, 
-                    num_predict=num_predict, num_ctx=num_ctx,
-                    response_schema=doc_schema,
-                    max_chars=TASK_MAX_CHARS["augmentation"],
-                )
-                return BatchedResponseParser.parse(text, expected_count=len(items))
-            except Exception as e:
-                logger.warning("Batched doc augmentation failed for batch of %d: %s", len(items), e)
-                return []
 
-        with ThreadPoolExecutor(max_workers=min(_BYOK_CONCURRENCY, len(doc_batches) or 1)) as pool:
+        with ThreadPoolExecutor(max_workers=min(_concurrency, len(doc_batches) or 1)) as pool:
             future_to_items = {
                 pool.submit(_call_doc_batch, items): items
                 for items in doc_batches
@@ -1109,7 +1374,7 @@ class TraceAugmenter:
                     results_list = future.result()
                 except Exception as e:
                     logger.warning("Doc batch future failed: %s", e)
-                    results_list = []
+                    results_list = [None] * len(items)
 
                 for idx, item in enumerate(items):
                     node = item["_node"]
@@ -1133,13 +1398,70 @@ class TraceAugmenter:
                         augmented[nid] = entry
                         result.augmented += 1
                     else:
-                        entry = self._synthetic_entry(node, nodes_by_id, edges, file_hashes)
-                        if entry:
-                            augmented[nid] = entry
-                            result.synthetic += 1
-                        else:
-                            result.failed += 1
+                        entry = self._synthetic_entry(node, file_hashes, reason="batch_parse_failure")
+                        augmented[nid] = entry
+                        result.synthetic += 1
                     done += 1
+
+                if progress_callback:
+                    progress_callback("augment_files", done, total_work)
+
+        # Phase 53: Process unstructured narrative files (simpler prompt, no batching)
+        if narrative_files:
+            logger.info(
+                "Narrative file augmentation: %d files (batch_size=1, simplified prompt)",
+                len(narrative_files),
+            )
+            narrative_items = []
+            for node in narrative_files:
+                fp = node.get("file_path", "")
+                nid = node["id"]
+                head = self._get_file_head(fp, max_lines=50)
+                narrative_items.append({
+                    "file_path": fp,
+                    "content_label": "First 50 lines",
+                    "head": head,
+                    "_node": node,
+                    "_node_id": nid,
+                })
+
+            def _call_narrative_batch(items):
+                return self._process_with_exploratory_fallback(
+                    initial_items=items,
+                    prompt_builder_fn=build_batched_narrative_prompt,
+                    system_msg=BATCHED_NARRATIVE_SYSTEM,
+                    schema=narrative_schema,
+                    result=result,
+                    stage_name="narrative_file",
+                )
+
+            # Process narrative files one at a time (batch_size=1)
+            for item in narrative_items:
+                results_list = _call_narrative_batch([item])
+                node = item["_node"]
+                nid = item["_node_id"]
+                fp = item["file_path"]
+                parsed = results_list[0] if results_list else None
+
+                if parsed:
+                    entry = AugmentationEntry(
+                        node_id=nid,
+                        summary=str(parsed.get("summary", ""))[:500],
+                        role="documentation",
+                        confidence=_parse_confidence(parsed.get("confidence"), 0.7),
+                        augmented_at=datetime.now(timezone.utc).isoformat(),
+                        model=self.llm.model,
+                        file_hash=file_hashes.get(fp),
+                        doc_type=parsed.get("doc_type"),
+                        doc_status=parsed.get("doc_status"),
+                    )
+                    augmented[nid] = entry
+                    result.augmented += 1
+                else:
+                    entry = self._synthetic_entry(node, file_hashes, reason="narrative_parse_failure")
+                    augmented[nid] = entry
+                    result.synthetic += 1
+                done += 1
 
                 if progress_callback:
                     progress_callback("augment_files", done, total_work)
@@ -1223,98 +1545,91 @@ class TraceAugmenter:
         done = 0
         pass_start = time.monotonic()
 
-        # Pass 1: Symbol augmentation
-        concurrency = _get_llm_concurrency("fast")
-        if to_augment_symbols:
-            logger.info("Pass 1: augmenting %d symbols (concurrency=%d)...", len(to_augment_symbols), concurrency)
-
-        if concurrency <= 1 or not to_augment_symbols:
-            # Sequential symbol augmentation
-            for node in to_augment_symbols:
-                # Cooperative cancellation check
-                if cancel_token and cancel_token.is_cancelled:
-                    logger.info("Augmentation paused/cancelled at %d/%d — flushing partial results", done, total_work)
-                    self._write_augmentations(augmented)
-                    cancel_token.raise_if_cancelled()
-
-                if progress_callback:
-                    progress_callback("augment_symbols", done, total_work)
-
-                item_start = time.monotonic()
-                entry = self.augment_symbol(node, edges, nodes_by_id, file_hashes)
-                item_elapsed = time.monotonic() - item_start
-                if entry:
-                    augmented[entry.node_id] = entry
-                    if entry.model.startswith("synthetic:"):
-                        result.synthetic += 1
-                    else:
-                        result.augmented += 1
-                else:
-                    result.failed += 1
-                done += 1
-
-                if done == 1:
-                    logger.info(
-                        "First LLM call %s (%.1fs) — node: %s",
-                        "succeeded" if entry else "FAILED", item_elapsed, node.get("id", "?"),
-                    )
-                elif done % 25 == 0:
-                    elapsed = time.monotonic() - pass_start
-                    avg = elapsed / done if done else 0
-                    eta = avg * (total_work - done)
-                    logger.info(
-                        "Augmentation progress: %d/%d (%.0f%%) — avg %.1fs/item, ETA %.0fs",
-                        done, total_work, done / total_work * 100, avg, eta,
-                    )
-
-                # Periodic checkpoint to avoid losing progress on crash
-                if done % checkpoint_interval == 0:
-                    self._write_augmentations(augmented)
-                    logger.info("Checkpoint saved at %d/%d items", done, total_work)
-        else:
-            # Concurrent symbol augmentation via thread pool
-            lock = threading.Lock()
-            with ThreadPoolExecutor(max_workers=concurrency) as pool:
-                futures = {
-                    pool.submit(self.augment_symbol, node, edges, nodes_by_id, file_hashes): node
-                    for node in to_augment_symbols
-                }
-                for future in as_completed(futures):
-                    try:
-                        entry = future.result()
-                    except Exception as e:
-                        logger.warning("Symbol augmentation thread failed: %s", e)
-                        entry = None
-                    with lock:
-                        if entry:
-                            augmented[entry.node_id] = entry
-                            if entry.model.startswith("synthetic:"):
-                                result.synthetic += 1
-                            else:
-                                result.augmented += 1
-                        else:
-                            result.failed += 1
-                        done += 1
-                        if progress_callback:
-                            progress_callback("augment_symbols", done, total_work)
-                        if done % checkpoint_interval == 0:
-                            self._write_augmentations(augmented)
-                            logger.info("Checkpoint saved at %d/%d items", done, total_work)
-                        if done % 25 == 0:
-                            elapsed = time.monotonic() - pass_start
-                            avg = elapsed / done if done else 0
-                            eta = avg * (total_work - done)
-                            logger.info(
-                                "Augmentation progress: %d/%d (%.0f%%) — avg %.1fs/item, ETA %.0fs",
-                                done, total_work, done / total_work * 100, avg, eta,
-                            )
-
-        # Pass 2: File augmentation
-        # Use batched path for BYOK models with batch_size > 1
+        # Determine batching mode (used by both Pass 1 and Pass 2)
         use_batching = (
             self._batch_profile is not None
             and self._batch_profile.name.value != "off"
         )
+
+        # Pass 1: Symbol augmentation
+        if use_batching and to_augment_symbols:
+            logger.info("Pass 1: BATCHED symbol augmentation (%d symbols, profile=%s)",
+                        len(to_augment_symbols), self._batch_profile.name.value)
+            done = self._augment_symbols_batched(
+                to_augment_symbols, edges, nodes_by_id, file_hashes,
+                augmented, result, done, total_work, progress_callback,
+                cancel_token,
+            )
+        elif to_augment_symbols:
+            concurrency = _get_llm_concurrency("fast")
+            logger.info("Pass 1: augmenting %d symbols (concurrency=%d)...", len(to_augment_symbols), concurrency)
+
+            if concurrency <= 1:
+                # Sequential symbol augmentation
+                for node in to_augment_symbols:
+                    # Cooperative cancellation check
+                    if cancel_token and cancel_token.is_cancelled:
+                        logger.info("Augmentation paused/cancelled at %d/%d — flushing partial results", done, total_work)
+                        self._write_augmentations(augmented)
+                        cancel_token.raise_if_cancelled()
+
+                    if progress_callback:
+                        progress_callback("augment_symbols", done, total_work)
+
+                    item_start = time.monotonic()
+                    entry = self.augment_symbol(node, edges, nodes_by_id, file_hashes)
+                    item_elapsed = time.monotonic() - item_start
+                    if entry:
+                        augmented[entry.node_id] = entry
+                        if entry.model.startswith("synthetic:"):
+                            result.synthetic += 1
+                        else:
+                            result.augmented += 1
+                    else:
+                        result.failed += 1
+                    done += 1
+
+                    if done == 1:
+                        logger.info(
+                            "First LLM call %s (%.1fs) — node: %s",
+                            "succeeded" if entry else "FAILED", item_elapsed, node.get("id", "?"),
+                        )
+
+                    # Periodic checkpoint to avoid losing progress on crash
+                    if done % checkpoint_interval == 0:
+                        self._write_augmentations(augmented)
+                        logger.info("Checkpoint saved at %d/%d items", done, total_work)
+            else:
+                # Concurrent symbol augmentation via thread pool
+                lock = threading.Lock()
+                with ThreadPoolExecutor(max_workers=concurrency) as pool:
+                    futures = {
+                        pool.submit(self.augment_symbol, node, edges, nodes_by_id, file_hashes): node
+                        for node in to_augment_symbols
+                    }
+                    for future in as_completed(futures):
+                        try:
+                            entry = future.result()
+                        except Exception as e:
+                            logger.warning("Symbol augmentation thread failed: %s", e)
+                            entry = None
+                        with lock:
+                            if entry:
+                                augmented[entry.node_id] = entry
+                                if entry.model.startswith("synthetic:"):
+                                    result.synthetic += 1
+                                else:
+                                    result.augmented += 1
+                            else:
+                                result.failed += 1
+                            done += 1
+                            if progress_callback:
+                                progress_callback("augment_symbols", done, total_work)
+                            if done % checkpoint_interval == 0:
+                                self._write_augmentations(augmented)
+                                logger.info("Checkpoint saved at %d/%d items", done, total_work)
+
+        # Pass 2: File augmentation
 
         if use_batching and to_augment_files:
             logger.info("Pass 2: BATCHED file augmentation (%d files, profile=%s)",
@@ -1353,15 +1668,6 @@ class TraceAugmenter:
                         result.failed += 1
                     done += 1
 
-                    if done % 25 == 0:
-                        elapsed = time.monotonic() - pass_start
-                        avg = elapsed / done if done else 0
-                        eta = avg * (total_work - done)
-                        logger.info(
-                            "Augmentation progress: %d/%d (%.0f%%) — avg %.1fs/item, ETA %.0fs",
-                            done, total_work, done / total_work * 100, avg, eta,
-                        )
-
                     # Periodic checkpoint to avoid losing progress on crash
                     if done % checkpoint_interval == 0:
                         self._write_augmentations(augmented)
@@ -1392,20 +1698,37 @@ class TraceAugmenter:
                             if done % checkpoint_interval == 0:
                                 self._write_augmentations(augmented)
                                 logger.info("Checkpoint saved at %d/%d items", done, total_work)
-                            if done % 25 == 0:
-                                elapsed = time.monotonic() - pass_start
-                                avg = elapsed / done if done else 0
-                                eta = avg * (total_work - done)
-                                logger.info(
-                                    "Augmentation progress: %d/%d (%.0f%%) — avg %.1fs/item, ETA %.0fs",
-                                    done, total_work, done / total_work * 100, avg, eta,
-                                )
+
+        # Collect unreadable file paths (synthetic entries)
+        for entry in augmented.values():
+            if entry.model.startswith("synthetic:"):
+                # e.g., 'synthetic:empty_source' -> 'empty_source'
+                reason = entry.model.split(":", 1)[1] if ":" in entry.model else "unknown"
+                # Extract path from node_id (e.g. 'file:src/app.py' or 'symbol:src/app.py:func')
+                parts = entry.node_id.split(":", 2)
+                file_path = parts[1] if len(parts) > 1 else entry.node_id
+                result.synthetic_reasons.setdefault(reason, []).append(file_path)
 
         result.skipped = result.total_nodes - total_work
 
         # Write atomically
         self._write_augmentations(augmented)
         self._write_manifest(result, augmented)
+        
+        # Write exploratory telemetry
+        if getattr(self, "is_exploratory", False) and result.retry_telemetry:
+            try:
+                # Store in .codrag/logs/ since index_dir is .codrag/index/proj_id
+                logs_dir = self.index_dir.parent.parent / "logs"
+                logs_dir.mkdir(parents=True, exist_ok=True)
+                log_file = logs_dir / "exploratory_retries.jsonl"
+                with open(log_file, "a", encoding="utf-8") as f:
+                    for t in result.retry_telemetry:
+                        # Add timestamp to each entry
+                        t["timestamp"] = datetime.now(timezone.utc).isoformat()
+                        f.write(json.dumps(t) + "\n")
+            except Exception as e:
+                logger.warning("Failed to write exploratory telemetry: %s", e)
 
         result.duration_ms = (time.monotonic() - start) * 1000
 
@@ -1570,7 +1893,14 @@ class TraceAugmenter:
             raise
 
     def status(self) -> Dict[str, Any]:
-        """Return augmentation status summary."""
+        """Return augmentation status summary.
+
+        Handles both v1 format (written by TraceAugmenter._write_manifest with
+        ``counts``/``stats`` keys) and v2 format (written by the pipeline
+        orchestrator's Phase 49 _write_stage_manifest_and_update_run with
+        ``quality``/``output_files`` keys).  The v2 manifest overwrites the v1
+        manifest after the catalogue stage completes in the pipeline.
+        """
         if not self.augment_manifest_path.exists():
             return {
                 "enabled": False,
@@ -1584,17 +1914,80 @@ class TraceAugmenter:
         try:
             with open(self.augment_manifest_path, "r", encoding="utf-8") as f:
                 manifest = json.load(f)
+
+            # ── v1 format: has "counts" / "stats" keys ──
             counts = manifest.get("counts", {})
             stats = manifest.get("stats", {})
+
+            if counts.get("total_nodes") or counts.get("augmented"):
+                # v1 manifest — original format written by _write_manifest()
+                return {
+                    "enabled": True,
+                    "total_nodes": counts.get("total_nodes", 0),
+                    "augmented_nodes": counts.get("augmented", 0),
+                    "validated_nodes": counts.get("validated", 0),
+                    "avg_confidence": stats.get("avg_confidence", 0.0),
+                    "low_confidence_count": counts.get("low_confidence", 0),
+                    "last_augment_at": manifest.get("built_at"),
+                    "model": manifest.get("model"),
+                }
+
+            # ── v2 format (Phase 49): has "quality" / "output_files" keys ──
+            quality = manifest.get("quality", {})
+            output_files = manifest.get("output_files", {})
+            model_info = manifest.get("model", {})
+
+            total_items = quality.get("total_items", 0)
+            if not total_items:
+                # Try output_files item_count as fallback
+                for finfo in output_files.values():
+                    if isinstance(finfo, dict):
+                        total_items = finfo.get("item_count", 0)
+                        if total_items:
+                            break
+
+            if total_items > 0:
+                # Derive augmented_nodes from processed count or total_items
+                augmented = quality.get("processed", total_items)
+                model_name = model_info.get("model_name") if isinstance(model_info, dict) else model_info
+                return {
+                    "enabled": True,
+                    "total_nodes": total_items,
+                    "augmented_nodes": augmented,
+                    "validated_nodes": 0,
+                    "avg_confidence": quality.get("avg_confidence", 0.0),
+                    "low_confidence_count": 0,
+                    "last_augment_at": manifest.get("finished_at"),
+                    "model": model_info if isinstance(model_info, dict) else {"model_name": model_name},
+                }
+
+            # ── Fallback: count trace_augmented.jsonl entries directly ──
+            if self.augmented_path.exists():
+                try:
+                    line_count = 0
+                    with open(self.augmented_path, "r", encoding="utf-8") as f:
+                        for line in f:
+                            if line.strip():
+                                line_count += 1
+                    if line_count > 0:
+                        return {
+                            "enabled": True,
+                            "total_nodes": line_count,
+                            "augmented_nodes": line_count,
+                            "validated_nodes": 0,
+                            "avg_confidence": 0.0,
+                            "low_confidence_count": 0,
+                        }
+                except Exception:
+                    pass
+
             return {
-                "enabled": True,
-                "total_nodes": counts.get("total_nodes", 0),
-                "augmented_nodes": counts.get("augmented", 0),
-                "validated_nodes": counts.get("validated", 0),
-                "avg_confidence": stats.get("avg_confidence", 0.0),
-                "low_confidence_count": counts.get("low_confidence", 0),
-                "last_augment_at": manifest.get("built_at"),
-                "model": manifest.get("model"),
+                "enabled": False,
+                "total_nodes": 0,
+                "augmented_nodes": 0,
+                "validated_nodes": 0,
+                "avg_confidence": 0.0,
+                "low_confidence_count": 0,
             }
         except Exception:
             return {

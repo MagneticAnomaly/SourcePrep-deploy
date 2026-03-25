@@ -281,6 +281,18 @@ def ollama_ensure_ready(
                  Forwarded to the preload request so the model is
                  loaded with the correct context window.
     """
+    # Cloud-proxied models (e.g. kimi-k2.5:cloud, qwen3-coder-next:cloud)
+    # run on Ollama's cloud GPUs — there is no local VRAM to warm up.
+    # Preloading sends an empty-prompt request that occupies a cloud
+    # concurrency slot (Free=1, Pro=3, Max=10) and blocks actual pipeline
+    # LLM calls with 429 Too Many Requests.  Skip preload entirely.
+    if ":cloud" in model.lower():
+        logger.debug("Skipping preload for cloud model %s — runs on remote GPUs", model)
+        return ModelReadinessResult(
+            status=ModelStatus.READY,
+            message=f"Cloud model '{model}' — no local preload needed",
+        )
+
     status = ollama_get_status(url, model)
 
     if status.status == ModelStatus.READY:

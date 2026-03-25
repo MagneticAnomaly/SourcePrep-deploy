@@ -42,6 +42,12 @@ async def run_stdio(server: "MCPServer") -> None:
     def read_line():
         return sys.stdin.readline()
 
+    # OPP-2: Wire notification callback so server can push resource updates
+    async def _stdio_notify(notification: dict) -> None:
+        sys.stdout.write(json.dumps(notification) + "\n")
+        sys.stdout.flush()
+    server._notification_callback = _stdio_notify
+
     try:
         while True:
             # Read line in a separate thread to avoid blocking the event loop
@@ -141,6 +147,11 @@ async def run_http(
             project_id=project_id,
             auto_detect=auto_detect
         )
+        # OPP-2: Wire notification callback for SSE transport
+        async def _sse_notify(notification: dict, q=queue) -> None:
+            await q.put(notification)
+        server._notification_callback = _sse_notify
+
         sessions[session_id] = {"queue": queue, "server": server}
         
         async def event_generator():

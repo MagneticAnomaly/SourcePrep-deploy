@@ -81,6 +81,7 @@ def write_rules_file(
         "cursor": _write_cursor_rules,
         "windsurf": _write_windsurf_rules,
         "claude": _write_claude_rules,
+        "claude_skill": _write_claude_skill,  # .claude/skills/codrag.md
         "gemini": _write_generic_md,     # GEMINI.md
         "copilot": _write_copilot_rules,  # .github/copilot-instructions.md
         "cline": _write_cline_rules,      # .clinerules
@@ -377,6 +378,13 @@ def _build_managed_content(
         "structural context."
     )
 
+    # OPP-1: Parallel tool call encouragement
+    parts.append("")
+    parts.append(
+        "You can call `codrag` and `codrag_search` in parallel on your first\n"
+        "prompt -- structural overview + targeted code lookup in one round-trip."
+    )
+
     return "\n".join(parts)
 
 
@@ -582,6 +590,57 @@ def _write_claude_rules(
     else:
         target.write_text(new_section + "\n", encoding="utf-8")
 
+    return True
+
+
+# ── Claude Code Skills (.claude/skills/codrag.md) ────────────────────
+
+
+def _write_claude_skill(
+    project_path: Path,
+    project_name: str,
+    atlas_content: str,
+    included_paths: Optional[List[str]],
+    is_preliminary: bool,
+    stats: Optional[Dict[str, Any]],
+) -> bool:
+    """Write .claude/skills/codrag.md for Claude Code slash command.
+
+    Creates a /codrag skill that Claude Code users can trigger as a slash
+    command. The skill instructs Claude to call CoDRAG tools in a
+    structured workflow. Only written if .claude/ directory already exists.
+    """
+    skills_dir = project_path / ".claude" / "skills"
+    skills_dir.mkdir(parents=True, exist_ok=True)
+    target = skills_dir / "codrag.md"
+
+    content = (
+        "---\n"
+        "description: Get structural codebase context from CoDRAG\n"
+        "tools:\n"
+        "  - mcp__codrag__codrag\n"
+        "  - mcp__codrag__codrag_search\n"
+        "  - mcp__codrag__codrag_impact\n"
+        "---\n"
+        "\n"
+        "Call `codrag` to get the structural overview of this codebase -- modules,\n"
+        "hub files, and knowledge base content. Use the structural context to\n"
+        "inform your approach before reading or editing files.\n"
+        "\n"
+        "If the user asked a specific question, also call `codrag_search` with\n"
+        "their question to find relevant code with structural trace expansion.\n"
+        "\n"
+        "Before making changes, call `codrag_impact` on the target file to\n"
+        "understand what depends on it.\n"
+    )
+
+    # Don't overwrite if user has customized the skill
+    if target.exists():
+        existing = target.read_text(encoding="utf-8")
+        if "codrag" in existing.lower() and "---" in existing:
+            return True  # Already has a CoDRAG skill, don't overwrite
+
+    target.write_text(content, encoding="utf-8")
     return True
 
 
@@ -795,11 +854,15 @@ def _write_roo_rules(
     is_preliminary: bool,
     stats: Optional[Dict[str, Any]],
 ) -> bool:
-    """Write .roo/rules/codrag.md for Roo Code.
+    """Write .roo/rules/codrag.md + mode-specific rules for Roo Code.
 
-    Roo Code reads .roo/rules/*.md files. It also supports mode-specific
-    directories (.roo/rules-architect/, .roo/rules-code/, etc.) but the
-    base .roo/rules/ applies to all modes.
+    Roo Code reads .roo/rules/*.md files (all modes) and mode-specific
+    directories (.roo/rules-architect/, .roo/rules-code/, etc.).
+
+    We write:
+    - .roo/rules/codrag.md -- base rules for all modes (full managed content)
+    - .roo/rules-architect/codrag.md -- architecture focus (codrag + codrag_audit)
+    - .roo/rules-code/codrag.md -- change focus (codrag_impact before edits)
     """
     managed = _build_managed_content(
         project_name, atlas_content, included_paths, is_preliminary, stats,
@@ -809,10 +872,34 @@ def _write_roo_rules(
         f"{managed}\n"
     )
 
+    # Base rules (all modes)
     rules_dir = project_path / ".roo" / "rules"
     rules_dir.mkdir(parents=True, exist_ok=True)
     target = rules_dir / "codrag.md"
     target.write_text(content, encoding="utf-8")
+
+    # Mode-specific: Architect -- emphasize structural overview + audit
+    arch_dir = project_path / ".roo" / "rules-architect"
+    arch_dir.mkdir(parents=True, exist_ok=True)
+    arch_content = (
+        "# CoDRAG -- Architect Mode\n\n"
+        "In Architect mode, always start with `codrag` for the structural overview.\n"
+        "Use `codrag_audit` to identify architecture issues, tech debt, and refactoring targets.\n"
+        "Use `codrag_search` to explore how modules and subsystems connect.\n"
+    )
+    (arch_dir / "codrag.md").write_text(arch_content, encoding="utf-8")
+
+    # Mode-specific: Code -- emphasize impact analysis before changes
+    code_dir = project_path / ".roo" / "rules-code"
+    code_dir.mkdir(parents=True, exist_ok=True)
+    code_content = (
+        "# CoDRAG -- Code Mode\n\n"
+        "Before editing files, call `codrag_impact` to understand the blast radius.\n"
+        "Use `codrag_search` to find related code that may need updates.\n"
+        "After finishing changes, use `codrag_observe` to record decisions and patterns.\n"
+    )
+    (code_dir / "codrag.md").write_text(code_content, encoding="utf-8")
+
     return True
 
 
@@ -826,7 +913,7 @@ def _detect_targets(project_path: Path, ide: str) -> List[str]:
     of IDE-specific directories or files.
     """
     all_targets = [
-        "agents_md", "cursor", "windsurf", "claude",
+        "agents_md", "cursor", "windsurf", "claude", "claude_skill",
         "gemini", "copilot", "cline", "roo_code",
     ]
     if ide == "all":
@@ -849,6 +936,10 @@ def _detect_targets(project_path: Path, ide: str) -> List[str]:
     # Claude Code: CLAUDE.md exists
     if (project_path / "CLAUDE.md").exists():
         targets.append("claude")
+
+    # Claude Code Skills: .claude/ directory exists
+    if (project_path / ".claude").exists():
+        targets.append("claude_skill")
 
     # Gemini CLI: GEMINI.md exists
     if (project_path / "GEMINI.md").exists():

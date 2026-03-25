@@ -24,13 +24,11 @@ The MCP protocol defines three server-side primitives:
 | **Resources** | The host application | Host (Cursor/Windsurf) reads resources and can inject them into context. AI does NOT control this. |
 | **Prompts** | The user | Pre-built templates the user explicitly triggers (like slash commands). |
 
-### What CoDRAG currently exposes: **Tools only.**
+### What CoDRAG currently exposes: **Tools + Resources + Prompts.**
 
-We have 15 tools (`codrag`, `codrag_search`, `codrag_status`, `codrag_build`, `codrag_trace_search`, `codrag_trace_neighbors`, `codrag_trace_coverage`, `codrag_impact`, `codrag_save_observation`, `codrag_get_observations`, `codrag_audit`, `codrag_audit_refactor`, `codrag_audit_check`, `codrag_audit_report`, `hi_codrag`).
+We have 5 consolidated tools (`codrag`, `codrag_search`, `codrag_impact`, `codrag_audit`, `codrag_observe`), 4 Resources (structure, atlas, files, health), and 3 Prompts (codrag-analyze, codrag-review, codrag-plan). Legacy tool names (16 total) are dispatched via aliases for backward compatibility.
 
-**We expose zero Resources. Zero Prompts.**
-
-This is the root cause. Tools are model-controlled -- the AI has to *decide* to call them. Resources are application-controlled -- the host can inject them automatically.
+**UPDATE (Phase 50 audit):** Resources and Prompts are now implemented. The primary always-on mechanism is the rules file (AGENTS.md + IDE-specific files), not Resources. Resources are on-demand cached data the AI can pull without approval.
 
 ---
 
@@ -51,10 +49,10 @@ Source: https://cursor.com/docs/context/mcp
 - Tool approval: Required by default. Can be set to auto-run (like terminal commands).
 - The AI model sees ALL available tool descriptions in its system prompt and decides which to invoke.
 
-### The "15 tools" problem
-Every tool description consumes system prompt tokens. With 15 CoDRAG tools plus Cursor's own built-in tools (read_file, grep_search, run_command, edit, etc.), the AI has 30+ tools to choose from. **CoDRAG tools are competing with native tools the AI already trusts and knows.**
+### The tool competition problem
+Every tool description consumes system prompt tokens. With 5 CoDRAG tools (~1,400 tokens) plus Cursor's own built-in tools (read_file, grep_search, run_command, edit, etc.), the AI has ~20 tools to choose from. CoDRAG's consolidated tool set (down from 16) minimizes this competition.
 
-The AI will prefer `read_file` (which it knows works) over `codrag_search` (which is an unknown MCP tool) unless the description is extremely compelling or the user explicitly requests it.
+The rules file (`alwaysApply: true`) tells the AI to call `codrag` FIRST, and tool descriptions use the Purpose + Guidelines pattern (arXiv:2602.14878) for maximum activation.
 
 ### Cursor Rules (.cursorrules / .cursor/rules)
 Cursor supports project-level rule files that get injected into the system prompt. This is a **critical** mechanism -- we can instruct the AI to always call `codrag` at the start of every conversation.
@@ -105,33 +103,26 @@ All tool responses are serialized as `json.dumps(result, indent=2)` wrapped in M
 
 ## 6. Gap Analysis: What's Missing
 
-### GAP-1: No MCP Resources
-**CORRECTED (from deeper research):** Resources are NOT auto-injected by the host. Per Cursor docs: *"The model determines when it needs additional context, then requests specific resources."* Resources are more like a cached read-only data API -- cheaper than a tool call (no approval needed) but the AI still has to decide to read them.
+### GAP-1: MCP Resources -- DONE
+Resources are NOT auto-injected by the host (corrected from initial research). They're on-demand cached data.
 
-This means Resources are a **secondary optimization**, not the primary always-on mechanism. The rules file (`alwaysApply: true`) is the real solution for always-on context.
+CoDRAG now exposes 4 Resources (<500 tokens each):
+- `codrag://{project_id}/structure` -- Module map + hub files + connectivity
+- `codrag://{project_id}/atlas` -- Architectural overview
+- `codrag://{project_id}/files` -- Selected KB file list
+- `codrag://{project_id}/health` -- Index freshness, coverage %, build status
 
-CoDRAG should expose lightweight Resources (<500 tokens each):
-- `codrag://structure` -- Module map + hub files + connectivity (~500 tok)
-- `codrag://atlas` -- Architectural overview (~400 tok)
-- `codrag://files` -- Selected KB file list + previews (~300 tok)
-- `codrag://health` -- Index freshness, coverage %, build status (~100 tok)
+### GAP-2: MCP Prompts -- DONE
+3 prompts implemented as slash commands:
+- `codrag-analyze` -- Analyze codebase architecture
+- `codrag-review` -- Review code with structural context
+- `codrag-plan` -- Plan a change with impact analysis
 
-See PLAN.md GAP-1 for full implementation strategy and risk assessment.
+### GAP-3: Tool description activation -- DONE
+Tool descriptions now use Purpose + Guidelines pattern. `codrag` says: "Call this FIRST at the start of every task." The MCP `instructions` field (appended to system prompt by Gemini CLI, Claude Code, Qwen Code) reinforces this. Rules files provide the strongest activation signal.
 
-### GAP-2: No MCP Prompts
-Prompts are user-triggered templates. We could expose:
-- `codrag://prompts/analyze` -- "Analyze this codebase using CoDRAG's trace graph"
-- `codrag://prompts/review` -- "Review this code using CoDRAG's structural understanding"
-
-These would appear as slash commands in the IDE.
-
-### GAP-3: Tool description doesn't say "call me always"
-The `codrag` tool description says: *"Get ambient codebase context -- the primary CoDRAG tool."* This is passive. It doesn't tell the AI: "You should call this tool at the beginning of every task to get structural understanding of the codebase."
-
-Compare with how Windsurf's own `code_search` tool is described in its system prompt: it tells the AI *"you should always use this tool to start your search."*
-
-### GAP-4: Too many tools dilute attention
-15 tools is too many. The AI's system prompt has finite space. Every CoDRAG tool description that's NOT `codrag` or `codrag_search` is stealing attention from those two primary tools.
+### GAP-4: Tool consolidation -- DONE
+16 tools consolidated to 5 (`codrag`, `codrag_search`, `codrag_impact`, `codrag_audit`, `codrag_observe`). ~1,400 tokens total (was ~3,700). All legacy names still dispatch via aliases.
 
 ### GAP-5: Knowledge base files aren't surfaced like "dragged files"
 When a user drags a file into Windsurf's Cascade window, the file content is injected directly into the conversation context. When a user selects files in CoDRAG's dashboard Knowledge Base panel, those files are only accessible if the AI calls `codrag` (ambient context), and even then they're mediated through the hub/neighbor LOD pipeline rather than passed as direct file content.
@@ -139,8 +130,8 @@ When a user drags a file into Windsurf's Cascade window, the file content is inj
 ### GAP-6: Response format is JSON, not optimized for AI consumption
 The MCP response is `json.dumps(result, indent=2)`. The AI has to parse a JSON blob to extract the context. If the response were clean markdown or a structured text block, the AI could use it more effectively.
 
-### GAP-7: No rules file auto-generation (.cursor/rules/, .windsurf/rules/, CLAUDE.md, etc.)
-We could generate a project-level rules file that instructs the AI to call CoDRAG automatically. This is the most reliable way to ensure CoDRAG gets called on every prompt.
+### GAP-7: Rules file auto-generation -- DONE
+Auto-generates rules files for 8 targets: AGENTS.md (universal, 22+ tools), .cursor/rules/codrag.mdc, .windsurf/rules/codrag.md, CLAUDE.md, GEMINI.md, .github/copilot-instructions.md, .clinerules, .roo/rules/codrag.md (+ mode-specific architect/code). Marker-based section management preserves user content. Debounced regeneration on config changes. Atlas embedded in rules files for always-on priming.
 
 ---
 
@@ -311,8 +302,11 @@ This is well within the "safe zone" identified in Phase 28 research (4K-16K satu
 
 | File | Role |
 |------|------|
-| `src/codrag/mcp_tools.py` | Tool definitions (15 tools) |
-| `src/codrag/mcp/server.py` | MCP server implementation (1853 lines) |
+| `src/codrag/mcp_tools.py` | Tool definitions (5 production + legacy aliases) |
+| `src/codrag/mcp/server.py` | MCP server implementation |
+| `src/codrag/mcp/tool_hi.py` | Project overview tool (extracted) |
+| `src/codrag/mcp/transport.py` | stdio + HTTP/SSE transports |
+| `src/codrag/core/rules_generator.py` | Auto-generates rules files for 8 IDE targets |
 | `src/codrag/api/routers/projects/search.py` | Context endpoint + ambient assembly |
 | `src/codrag/api/routers/projects/models.py` | ContextRequest model |
 | `public/codrag-mcp/README.md` | User-facing MCP setup docs |
@@ -330,10 +324,10 @@ Client (Cursor/Windsurf)          Server (CoDRAG)
         |--- tools/list --------------->|  (discover available tools)
         |<-- tool definitions ----------|
         |                               |
-        |--- resources/list ----------->|  (discover available resources)  [NOT IMPLEMENTED]
+        |--- resources/list ----------->|  (discover available resources)
         |<-- resource descriptors ------|
         |                               |
-        |--- resources/read ----------->|  (fetch resource content)        [NOT IMPLEMENTED]
+        |--- resources/read ----------->|  (fetch resource content)
         |<-- resource data -------------|
         |                               |
         |--- tools/call --------------->|  (AI decides to invoke a tool)
@@ -342,7 +336,7 @@ Client (Cursor/Windsurf)          Server (CoDRAG)
 
 ## Appendix B: Cursor Rules File Format
 
-Cursor supports `.cursor/rules/*.mdrule` files with YAML frontmatter:
+Cursor supports `.cursor/rules/*.mdc` files with YAML frontmatter:
 
 ```yaml
 ---

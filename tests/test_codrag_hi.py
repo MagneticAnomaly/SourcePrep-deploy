@@ -186,7 +186,7 @@ class TestToolHiDaemon:
         result = await server.tool_hi()
 
         assert "no index yet" in result["summary"]
-        assert "codrag_build" in result["summary"]
+        assert "dashboard" in result["summary"].lower() or "Build the index" in result["summary"]
         assert result["diagnostics"]["index_loaded"] is False
 
     @pytest.mark.asyncio
@@ -396,46 +396,63 @@ class TestToolHiDaemon:
 
     @pytest.mark.asyncio
     async def test_mcp_tools_call_dispatch(self, server):
-        """hi_codrag is properly dispatched via handle_tools_call."""
-        mock_get = await _mock_api_get_factory()
-        server._api_get = mock_get
+        """hi_codrag is dispatched via alias to codrag (tool_context)."""
+        ambient_response = {
+            "context": "test context",
+            "total_chars": 100,
+            "estimated_tokens": 25,
+            "ambient": True,
+            "hub_files": 0,
+            "modules_in_scope": 0,
+            "neighbor_files": 0,
+        }
+        with patch.object(server, "_api_post", new_callable=AsyncMock) as mock_post, \
+             patch.object(server, "_project_has_rules_file", return_value=False):
+            mock_post.return_value = ambient_response
 
-        response = await server.handle_tools_call({
-            "name": "hi_codrag",
-            "arguments": {},
-        })
+            response = await server.handle_tools_call({
+                "name": "hi_codrag",
+                "arguments": {},
+            })
 
-        assert response["isError"] is False
-        content = json.loads(response["content"][0]["text"])
-        assert "summary" in content
-        assert "diagnostics" in content
+            assert response["isError"] is False
+            # hi_codrag now routes to codrag (ambient context) via alias
+            assert len(response["content"][0]["text"]) > 0
 
     @pytest.mark.asyncio
     async def test_mcp_tools_call_with_project_override(self, server):
-        """hi_codrag accepts project_id override."""
-        mock_get = await _mock_api_get_factory()
-        server._api_get = mock_get
+        """hi_codrag alias accepts project_id override."""
+        ambient_response = {
+            "context": "test context",
+            "total_chars": 100,
+            "estimated_tokens": 25,
+        }
+        with patch.object(server, "_api_post", new_callable=AsyncMock) as mock_post, \
+             patch.object(server, "_project_has_rules_file", return_value=False):
+            mock_post.return_value = ambient_response
 
-        response = await server.handle_tools_call({
-            "name": "hi_codrag",
-            "arguments": {"project_id": "proj_test"},
-        })
+            response = await server.handle_tools_call({
+                "name": "hi_codrag",
+                "arguments": {"project_id": "proj_test"},
+            })
 
-        assert response["isError"] is False
+            assert response["isError"] is False
 
     @pytest.mark.asyncio
-    async def test_tool_listed_in_tools_list(self, server):
-        """hi_codrag appears in the tools/list response."""
+    async def test_codrag_listed_in_tools_list(self, server):
+        """codrag (primary tool) appears in tools/list. hi_codrag is an alias, not listed."""
         response = await server.handle_tools_list({})
         tool_names = [t["name"] for t in response["tools"]]
-        assert "hi_codrag" in tool_names
+        assert "codrag" in tool_names
+        # hi_codrag is a dispatch alias, not a listed tool
+        assert "hi_codrag" not in tool_names
 
     @pytest.mark.asyncio
-    async def test_tool_schema_no_required_params(self, server):
-        """hi_codrag tool schema has no required params."""
+    async def test_codrag_schema_no_required_params(self, server):
+        """codrag tool schema has no required params."""
         response = await server.handle_tools_list({})
-        hi_tool = next(t for t in response["tools"] if t["name"] == "hi_codrag")
-        assert hi_tool["inputSchema"]["required"] == []
+        codrag_tool = next(t for t in response["tools"] if t["name"] == "codrag")
+        assert codrag_tool["inputSchema"]["required"] == []
 
 
 # =============================================================================
@@ -447,7 +464,7 @@ class TestPromptGeneration:
 
     @pytest.mark.asyncio
     async def test_no_index_only_build_prompt(self, server):
-        """When no index exists, only suggest building."""
+        """When no index exists, only suggest building from dashboard."""
         mock_get = await _mock_api_get_factory(
             status=_make_status(index_exists=False, total_chunks=0, built_at=None)
         )
@@ -455,7 +472,7 @@ class TestPromptGeneration:
 
         result = await server.tool_hi()
 
-        assert "codrag_build" in result["summary"]
+        assert "dashboard" in result["summary"].lower() or "Build the index" in result["summary"]
 
     @pytest.mark.asyncio
     async def test_src_dir_triggers_code_prompt(self, server):
@@ -503,7 +520,7 @@ class TestPromptGeneration:
 
         result = await server.tool_hi()
 
-        assert "codrag_build" in result["summary"]
+        assert "rebuild" in result["summary"].lower() or "dashboard" in result["summary"].lower()
 
     @pytest.mark.asyncio
     async def test_min_three_prompts(self, server):

@@ -320,7 +320,8 @@ class TestToolContext:
             "modules_in_scope": 0,
             "neighbor_files": 0,
         }
-        with patch.object(server, "_api_post", new_callable=AsyncMock) as mock_post:
+        with patch.object(server, "_api_post", new_callable=AsyncMock) as mock_post, \
+             patch.object(server, "_project_has_rules_file", return_value=False):
             mock_post.return_value = ambient_response
 
             result = await server.tool_context()
@@ -328,6 +329,7 @@ class TestToolContext:
             assert "context" in result
             assert result["ambient"] is True
             assert result["hub_files"] == 1
+            # ISSUE-6: include_atlas=True when no rules file exists
             mock_post.assert_called_once_with(
                 f"/projects/{server.project_id}/context",
                 {"query": "", "max_chars": 12000, "include_atlas": True},

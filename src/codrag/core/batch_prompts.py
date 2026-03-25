@@ -131,6 +131,46 @@ def build_batched_doc_prompt(items: List[Dict[str, Any]]) -> str:
     return "\n".join(parts)
 
 
+# ── Catalogue: Narrative (Unstructured) ───────────────────────────
+
+BATCHED_NARRATIVE_SYSTEM = """You are a document summarizer. You produce brief, accurate summaries of documents.
+You MUST respond with a JSON object containing a "results" array. Each element corresponds to one input document, in order.
+No markdown, no explanation outside the JSON."""
+
+def build_batched_narrative_prompt(items: List[Dict[str, Any]]) -> str:
+    """Build a batched prompt for unstructured narrative documents.
+
+    Uses a simpler prompt than build_batched_doc_prompt to avoid parse
+    failures on marketing copy, changelogs, and simple READMEs.
+
+    Each item dict should contain: file_path, content_label, head.
+    """
+    parts = [
+        f"Summarize each of the following {len(items)} documents briefly. "
+        f"For EACH document, produce one JSON object with: summary, role, confidence.\n"
+        f"Return a JSON object: {{\"results\": [{{...}}, {{...}}, ...]}}\n"
+    ]
+
+    for i, item in enumerate(items, 1):
+        parts.append(f"\n=== DOC {i}: {item.get('file_path', '?')} ===")
+        label = item.get('content_label', 'Content')
+        # Truncate content to avoid overwhelming small models
+        head = (item.get('head', '') or '')[:2000]
+        parts.append(f"{label}:\n{head}")
+
+    parts.append(
+        '\nFor each document, respond with: '
+        '{"id": <doc_number>, "file": "<file_path>", '
+        '"summary": "1-2 sentence description", '
+        '"role": "documentation", '
+        '"confidence": 0.7, '
+        '"doc_type": "<overview|changelog|readme|plan|other>", '
+        '"doc_status": "<active|completed|draft|stale>"}'
+    )
+    parts.append('\nJSON response:')
+    return "\n".join(parts)
+
+
 # ── Inferred Edges ────────────────────────────────────────────────
 
 BATCHED_INFERRED_EDGES_SYSTEM = """You are a code analyst specializing in cross-file dependency detection.
@@ -459,6 +499,28 @@ def get_structured_schema(stage: str) -> Dict[str, Any]:
                             "tech_debt_summary": {"type": ["string", "null"]},
                         },
                         "required": ["id", "name", "summary"],
+                    },
+                },
+            },
+            "required": ["results"],
+        },
+        "catalogue_narrative": {
+            "type": "object",
+            "properties": {
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "integer"},
+                            "file": {"type": "string"},
+                            "summary": {"type": "string"},
+                            "role": {"type": "string"},
+                            "confidence": {"type": "number"},
+                            "doc_type": {"type": "string"},
+                            "doc_status": {"type": "string"},
+                        },
+                        "required": ["id", "file", "summary", "role", "confidence"],
                     },
                 },
             },

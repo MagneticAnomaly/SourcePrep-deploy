@@ -40,9 +40,10 @@ class BatchStage(str, enum.Enum):
 class BatchProfileName(str, enum.Enum):
     """Named batch profiles selectable by the user."""
     AUTO = "auto"
-    LARGE = "large"        # 64K output models (Claude 4.5, Gemini 2.5 Pro)
-    STANDARD = "standard"  # 32K output models (GPT-4.1, Claude 3)
-    COMPACT = "compact"    # 8K–16K output models (DeepSeek, GPT-4o)
+    LARGE = "large"        # 64K output (Claude Sonnet 4, Gemini 2.5 Pro)
+    STANDARD = "standard"  # 32K output (GPT-4.1, Claude Opus 4)
+    COMPACT = "compact"    # 16K output (GPT-4o, DeepSeek, Gemini Flash)
+    CLOUD_SMALL = "cloud_small"  # Ollama cloud (hard 16K limit, no override)
     OFF = "off"            # No batching (local model behavior)
 
 
@@ -60,9 +61,29 @@ class BatchProfile:
 
 # ── Built-in Profiles ────────────────────────────────────────────
 
+# ── Output Token Budget Reference (as of 2025-Q4) ────────────────
+#
+# Provider           Model                   Max Output Tokens
+# ────────────────   ──────────────────────   ─────────────────
+# Anthropic          Claude Sonnet 4          64,000
+# Google             Gemini 2.5 Pro           65,536
+# Anthropic          Claude Opus 4            32,000
+# OpenAI             GPT-4.1                  32,768
+# OpenAI             GPT-4o                   16,384
+# Ollama Cloud       kimi, qwen, etc.         16,384 (HARD, no override)
+#
+# Ollama Cloud is the most restrictive: the 16K limit is enforced
+# server-side and cannot be raised via num_predict.  Direct API
+# providers (OpenAI, Anthropic, Google) allow setting max_tokens.
+#
+# Each catalogue item produces ~300–500 output tokens.
+# Each inferred-edge item produces ~100–300 output tokens.
+# Batch sizes below are calibrated to stay within ~80% of the
+# output budget to leave headroom for JSON wrapper overhead.
+
 PROFILE_LARGE = BatchProfile(
     name=BatchProfileName.LARGE,
-    output_class="64K (Claude Sonnet 4.5+, Gemini 2.5 Pro)",
+    output_class="64K (Claude Sonnet 4, Gemini 2.5 Pro)",
     sizes={
         BatchStage.CATALOGUE_SYMBOL: 100,
         BatchStage.CATALOGUE_FILE: 100,
@@ -75,7 +96,7 @@ PROFILE_LARGE = BatchProfile(
 
 PROFILE_STANDARD = BatchProfile(
     name=BatchProfileName.STANDARD,
-    output_class="32K (GPT-4.1, GPT-5, Claude 3)",
+    output_class="32K (GPT-4.1, Claude Opus 4)",
     sizes={
         BatchStage.CATALOGUE_SYMBOL: 50,
         BatchStage.CATALOGUE_FILE: 50,
@@ -88,7 +109,7 @@ PROFILE_STANDARD = BatchProfile(
 
 PROFILE_COMPACT = BatchProfile(
     name=BatchProfileName.COMPACT,
-    output_class="8K–16K (DeepSeek, GPT-4o, Gemini Flash, Haiku 3.5)",
+    output_class="16K (GPT-4o, DeepSeek, Gemini Flash)",
     sizes={
         BatchStage.CATALOGUE_SYMBOL: 20,
         BatchStage.CATALOGUE_FILE: 20,
@@ -96,6 +117,22 @@ PROFILE_COMPACT = BatchProfile(
         BatchStage.EPISTEMIC_CODE: 10,
         BatchStage.EPISTEMIC_DOC: 5,
         BatchStage.CLUSTERING: 10,
+    },
+)
+
+# Ollama Cloud profile — hard 16K output limit that cannot be overridden.
+# Smaller than COMPACT because the limit is absolute (no max_tokens knob)
+# and thinking models (kimi) consume output budget on reasoning preamble.
+PROFILE_CLOUD_SMALL = BatchProfile(
+    name=BatchProfileName.CLOUD_SMALL,
+    output_class="16K hard limit (Ollama Cloud: kimi, qwen, gemini)",
+    sizes={
+        BatchStage.CATALOGUE_SYMBOL: 5,
+        BatchStage.CATALOGUE_FILE: 5,
+        BatchStage.INFERRED_EDGES: 8,
+        BatchStage.EPISTEMIC_CODE: 5,
+        BatchStage.EPISTEMIC_DOC: 3,
+        BatchStage.CLUSTERING: 5,
     },
 )
 
@@ -116,6 +153,7 @@ PROFILES: Dict[BatchProfileName, BatchProfile] = {
     BatchProfileName.LARGE: PROFILE_LARGE,
     BatchProfileName.STANDARD: PROFILE_STANDARD,
     BatchProfileName.COMPACT: PROFILE_COMPACT,
+    BatchProfileName.CLOUD_SMALL: PROFILE_CLOUD_SMALL,
     BatchProfileName.OFF: PROFILE_OFF,
 }
 
@@ -194,23 +232,90 @@ _MODEL_REGISTRY = [
 # ── Local provider set (never batched) ────────────────────────────
 _LOCAL_PROVIDERS = frozenset({"ollama", "lm-studio"})
 
+# ── Cloud model patterns served via Ollama ────────────────────────
+# These model families are always cloud-hosted even when accessed
+# through the Ollama API (via ollama-cloud-code proxy or :cloud suffix).
+_OLLAMA_CLOUD_PATTERNS = [
+    r"kimi",            # Moonshot Kimi — always cloud
+    r"gemini",          # Google Gemini — always cloud
+    r"gpt-[45]",        # OpenAI GPT-4/5 — always cloud
+    r"claude",          # Anthropic Claude — always cloud
+    r"mistral-large",   # Mistral Large — cloud-only
+    r"command-r",       # Cohere Command R — cloud-only
+]
 
-def detect_profile_from_context(context_tokens: int, provider: str) -> BatchProfile:
+
+def is_cloud_model_via_ollama(
+    provider: str, model: str, context_tokens: int = 0,
+) -> bool:
+    """Detect if an Ollama-served model is actually a cloud model.
+
+    Cloud models benefit from batching even though they're accessed
+    via the Ollama API (provider="ollama").
+
+    Detection signals (any one is sufficient):
+    1. Model name has `:cloud` suffix
+    2. Model name matches a known cloud-only family
+    3. Context window > 200K (no consumer-local model has this)
+    """
+    if provider.lower().strip() != "ollama":
+        return False
+
+    model_lower = model.lower().strip()
+
+    # Signal 1: Explicit :cloud suffix
+    if ":cloud" in model_lower:
+        return True
+
+    # Signal 2: Known cloud-only model families
+    for pattern in _OLLAMA_CLOUD_PATTERNS:
+        if re.search(pattern, model_lower):
+            return True
+
+    # Signal 3: Very large context window
+    if context_tokens > 200_000:
+        return True
+
+    return False
+
+
+def detect_profile_from_context(
+    context_tokens: int, provider: str, model: str = "",
+) -> BatchProfile:
     """Derive batch profile from the model's actual context window size.
 
     This is more accurate than regex matching because it uses the real
     capability reported by the provider API rather than guessing from
     the model name.
 
+    For Ollama providers, checks whether the model is actually a cloud
+    model (kimi, gemini, etc.) before defaulting to OFF.
+
     Args:
         context_tokens: Model context window in tokens (e.g. 128000, 1000000).
         provider: LLM provider identifier.
+        model: Model name (used for cloud-via-Ollama detection).
 
     Returns:
         The matching BatchProfile.
     """
-    if provider.lower().strip() in _LOCAL_PROVIDERS:
-        return PROFILE_OFF
+    provider_lower = provider.lower().strip()
+
+    if provider_lower in _LOCAL_PROVIDERS:
+        # Check if this is actually a cloud model served via Ollama
+        if not is_cloud_model_via_ollama(provider, model, context_tokens):
+            return PROFILE_OFF
+        # Cloud model via Ollama — use CLOUD_SMALL profile.
+        # Ollama Cloud has a hard 16K output token limit (server-enforced,
+        # cannot be raised via num_predict).  Thinking models (kimi) also
+        # consume output budget on reasoning preamble, leaving even less
+        # for actual JSON.  CLOUD_SMALL uses batch sizes of 5-8 items
+        # to fit reliably within this budget.
+        logger.info(
+            "Cloud model detected via Ollama: %s (context=%d) — using cloud_small profile (16K output limit)",
+            model, context_tokens,
+        )
+        return PROFILE_CLOUD_SMALL
 
     if context_tokens >= 200_000:     # 200K+ (Gemini 2.5 Pro 1M, Claude 4.5 200K)
         return PROFILE_LARGE
@@ -220,6 +325,19 @@ def detect_profile_from_context(context_tokens: int, provider: str) -> BatchProf
         return PROFILE_COMPACT
     else:                             # <32K — too small for safe batching
         return PROFILE_OFF
+
+
+def get_batch_concurrency(provider: str) -> int:
+    """Max concurrent batched API calls for a provider.
+
+    Ollama serializes requests per model — even cloud-proxied models
+    (kimi, gemini via Ollama) hit 429 Too Many Requests if we send
+    multiple concurrent batch calls. Use 1 for Ollama/LM Studio.
+    True cloud APIs (OpenAI, Anthropic, Google) handle concurrency fine.
+    """
+    if provider.lower().strip() in _LOCAL_PROVIDERS:
+        return 1
+    return 3
 
 
 def detect_profile(provider: str, model: str) -> BatchProfile:
@@ -237,6 +355,16 @@ def detect_profile(provider: str, model: str) -> BatchProfile:
     """
     provider_lower = provider.lower().strip()
     model_lower = model.lower().strip()
+
+    # Check for cloud models via Ollama BEFORE the registry catch-all.
+    # When context_tokens is unknown, use CLOUD_SMALL as a safe default.
+    # Ollama Cloud has a hard 16K output token limit — see reference above.
+    if is_cloud_model_via_ollama(provider, model):
+        logger.info(
+            "Cloud model detected via Ollama (no context info): %s — using cloud_small profile",
+            model,
+        )
+        return PROFILE_CLOUD_SMALL
 
     for reg_provider, pattern, profile_name in _MODEL_REGISTRY:
         if reg_provider == provider_lower:
@@ -285,7 +413,7 @@ def resolve_profile(
 
     # Prefer context-window-based detection when available
     if context_tokens and context_tokens > 0:
-        profile = detect_profile_from_context(context_tokens, provider)
+        profile = detect_profile_from_context(context_tokens, provider, model)
         logger.info(
             "Batch profile for %s/%s: %s (via %dK context window)",
             provider, model, profile.name.value, context_tokens // 1000,

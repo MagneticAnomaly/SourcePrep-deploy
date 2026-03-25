@@ -40,37 +40,119 @@ _DEFAULT_UI_CONFIG: Dict[str, Any] = {
     "working_roots": [],
     "include_globs": [
         # Documentation & Data
-        "**/*.md", "**/*.txt", "**/*.json", "**/*.yaml", "**/*.yml", "**/*.toml", "**/*.xml", "**/*.csv", "**/*.tsv",
-        "**/*.sql", "**/*.graphql", "**/*.gql", "**/*.proto",
-        
+        "**/*.md",
+        "**/*.txt",
+        "**/*.json",
+        "**/*.yaml",
+        "**/*.yml",
+        "**/*.toml",
+        "**/*.xml",
+        "**/*.csv",
+        "**/*.tsv",
+        "**/*.sql",
+        "**/*.graphql",
+        "**/*.gql",
+        "**/*.proto",
         # Web
-        "**/*.html", "**/*.css", "**/*.scss", "**/*.less", "**/*.sass",
-        "**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "**/*.mjs", "**/*.cjs", "**/*.vue", "**/*.svelte", "**/*.astro",
-        
+        "**/*.html",
+        "**/*.css",
+        "**/*.scss",
+        "**/*.less",
+        "**/*.sass",
+        "**/*.js",
+        "**/*.jsx",
+        "**/*.ts",
+        "**/*.tsx",
+        "**/*.mjs",
+        "**/*.cjs",
+        "**/*.vue",
+        "**/*.svelte",
+        "**/*.astro",
         # Systems & Low Level
-        "**/*.c", "**/*.h", "**/*.cpp", "**/*.hpp", "**/*.cc", "**/*.cxx", "**/*.hh", "**/*.hxx", "**/*.m", "**/*.mm",
-        "**/*.rs", "**/*.go", "**/*.swift", "**/*.java", "**/*.kt", "**/*.kts", "**/*.scala", "**/*.sc",
-        
+        "**/*.c",
+        "**/*.h",
+        "**/*.cpp",
+        "**/*.hpp",
+        "**/*.cc",
+        "**/*.cxx",
+        "**/*.hh",
+        "**/*.hxx",
+        "**/*.m",
+        "**/*.mm",
+        "**/*.rs",
+        "**/*.go",
+        "**/*.swift",
+        "**/*.java",
+        "**/*.kt",
+        "**/*.kts",
+        "**/*.scala",
+        "**/*.sc",
         # Scripting & Backend
-        "**/*.py", "**/*.pyi", "**/*.rb", "**/*.php", "**/*.pl", "**/*.pm", "**/*.lua", "**/*.tcl",
-        "**/*.sh", "**/*.bash", "**/*.zsh", "**/*.fish", "**/*.ps1", "**/*.bat", "**/*.cmd",
-        
+        "**/*.py",
+        "**/*.pyi",
+        "**/*.rb",
+        "**/*.php",
+        "**/*.pl",
+        "**/*.pm",
+        "**/*.lua",
+        "**/*.tcl",
+        "**/*.sh",
+        "**/*.bash",
+        "**/*.zsh",
+        "**/*.fish",
+        "**/*.ps1",
+        "**/*.bat",
+        "**/*.cmd",
         # .NET
-        "**/*.cs", "**/*.fs", "**/*.vb", "**/*.cshtml", "**/*.aspx",
-        
+        "**/*.cs",
+        "**/*.fs",
+        "**/*.vb",
+        "**/*.cshtml",
+        "**/*.aspx",
         # Functional
-        "**/*.hs", "**/*.lhs", "**/*.ex", "**/*.exs", "**/*.erl", "**/*.hrl", "**/*.clj", "**/*.cljs", "**/*.cljc", "**/*.edn", "**/*.lisp", "**/*.lsp", "**/*.scm", "**/*.ss", "**/*.rkt", "**/*.ml", "**/*.mli", "**/*.elm",
-        
+        "**/*.hs",
+        "**/*.lhs",
+        "**/*.ex",
+        "**/*.exs",
+        "**/*.erl",
+        "**/*.hrl",
+        "**/*.clj",
+        "**/*.cljs",
+        "**/*.cljc",
+        "**/*.edn",
+        "**/*.lisp",
+        "**/*.lsp",
+        "**/*.scm",
+        "**/*.ss",
+        "**/*.rkt",
+        "**/*.ml",
+        "**/*.mli",
+        "**/*.elm",
         # Mobile
         "**/*.dart",
-        
         # Data Science
-        "**/*.r", "**/*.R", "**/*.jl", "**/*.ipynb",
-        
+        "**/*.r",
+        "**/*.R",
+        "**/*.jl",
+        "**/*.ipynb",
         # Config & DevOps
-        "**/*.cfg", "**/*.ini", "**/*.conf", "**/*.properties", "**/*.env", "**/*.env.*",
-        "**/Dockerfile", "**/*.dockerfile", "**/Makefile", "**/*.mk", "**/CMakeLists.txt", "**/*.cmake",
-        "**/*.gradle", "**/*.tf", "**/*.tfvars", "**/*.hcl", "**/*.sol"
+        "**/*.cfg",
+        "**/*.ini",
+        "**/*.conf",
+        "**/*.properties",
+        "**/*.env",
+        "**/*.env.*",
+        "**/Dockerfile",
+        "**/*.dockerfile",
+        "**/Makefile",
+        "**/*.mk",
+        "**/CMakeLists.txt",
+        "**/*.cmake",
+        "**/*.gradle",
+        "**/*.tf",
+        "**/*.tfvars",
+        "**/*.hcl",
+        "**/*.sol",
     ],
     "exclude_globs": [
         "**/.*",  # Broadly exclude dotfiles and dot-directories
@@ -83,13 +165,21 @@ _DEFAULT_UI_CONFIG: Dict[str, Any] = {
         "**/DerivedData/**",
         "**/dist/**",
         "**/build/**",
+        "**/out/**",
         "**/.next/**",
+        "**/.nuxt/**",
+        "**/storybook-static/**",
+        "**/coverage/**",
+        "**/*.min.js",
+        "**/*.min.css",
+        "**/*.bundle.js",
+        "**/*.chunk.js",
         "**/*.map",
         "**/*.lock",
     ],
     "max_file_bytes": 500_000,  # Threshold for full indexing (above this = summary only)
     "hard_limit_bytes": 100_000_000,  # 100MB hard limit (above this = ignored)
-    "max_active_projects": "infinite", # Number or 'infinite'
+    "max_active_projects": "infinite",  # Number or 'infinite'
     "trace": {"enabled": False},
     "auto_rebuild": {"enabled": False, "debounce_ms": 5000},
     "llm_config": None,  # Will be populated with defaults if missing
@@ -105,12 +195,12 @@ _DEFAULT_UI_CONFIG: Dict[str, Any] = {
         "priority": "lowest_confidence",
     },
     "audit_config": {
-        "auto_run_after_deep": False,   # Auto-run Tier 1 after deep enrichment completes
-        "auto_synthesize": False,        # Also generate LLM reports when auto-running
-        "large_file_threshold_bytes": 80000,   # ~2000 lines → critical
-        "large_file_warning_bytes": 40000,     # ~1000 lines → warning
-        "hub_z_threshold": 2.0,          # Z-score for hub bottleneck detection
-        "similarity_threshold": 0.65,    # Jaccard threshold for duplicate logic detection
+        "auto_run_after_deep": False,  # Auto-run Tier 1 after deep enrichment completes
+        "auto_synthesize": False,  # Also generate LLM reports when auto-running
+        "large_file_threshold_bytes": 80000,  # ~2000 lines → critical
+        "large_file_warning_bytes": 40000,  # ~1000 lines → warning
+        "hub_z_threshold": 2.0,  # Z-score for hub bottleneck detection
+        "similarity_threshold": 0.65,  # Jaccard threshold for duplicate logic detection
     },
     "pipeline_config": {
         "fast_sync": {
@@ -136,27 +226,27 @@ _DEFAULT_UI_CONFIG: Dict[str, Any] = {
 
 # ── Config helpers ───────────────────────────────────────────────
 
+
 def ui_config_path(config: Dict[str, Any]) -> Path:
     """Resolve the path to ui_config.json from the server config."""
     index_dir = Path(config.get("index_dir", "./codrag_data"))
     return index_dir / "ui_config.json"
 
 
-
 def _ensure_compute_nodes(cfg: Dict[str, Any]) -> None:
     """Phase 45: Auto-migrate existing configs to Multi-GPU structure."""
     import uuid
-    
+
     if "compute_nodes" not in cfg:
         cfg["compute_nodes"] = []
-        
+
     if not cfg["compute_nodes"]:
         # We need to auto-create
-        
+
         # 1. Local Node
         hw_profile = cfg.get("hardware_profile", "apple_silicon")
         concurrency = cfg.get("llm_concurrency", 1)
-        
+
         local_node_id = f"node_{uuid.uuid4().hex[:8]}"
         local_node = {
             "id": local_node_id,
@@ -164,27 +254,28 @@ def _ensure_compute_nodes(cfg: Dict[str, Any]) -> None:
             "type": "local",
             "hardware_profile": hw_profile,
             "max_concurrent": concurrency,
-            "endpoint_ids": []
+            "endpoint_ids": [],
         }
-        
+
         endpoints = cfg.get("saved_endpoints", [])
-        
+
         # Associate local endpoints
         for ep in endpoints:
             url = ep.get("url", "")
             if "localhost" in url or "127.0.0.1" in url:
                 ep["compute_node_id"] = local_node_id
                 local_node["endpoint_ids"].append(ep["id"])
-                
+
         cfg["compute_nodes"].append(local_node)
-        
+
         # 2. Cloud Node (if applicable)
         cloud_endpoints = [
-            ep for ep in endpoints 
-            if ep.get("provider") in ["openai", "anthropic", "google"] 
+            ep
+            for ep in endpoints
+            if ep.get("provider") in ["openai", "anthropic", "google"]
             or ("localhost" not in ep.get("url", "") and "127.0.0.1" not in ep.get("url", ""))
         ]
-        
+
         if cloud_endpoints:
             cloud_node_id = f"node_{uuid.uuid4().hex[:8]}"
             cloud_node = {
@@ -193,18 +284,18 @@ def _ensure_compute_nodes(cfg: Dict[str, Any]) -> None:
                 "type": "cloud",
                 "hardware_profile": "cloud",
                 "max_concurrent": 100,
-                "endpoint_ids": []
+                "endpoint_ids": [],
             }
-            
+
             for ep in cloud_endpoints:
                 if not ep.get("compute_node_id"):
                     ep["compute_node_id"] = cloud_node_id
                     cloud_node["endpoint_ids"].append(ep["id"])
-                    
+
             cfg["compute_nodes"].append(cloud_node)
 
-def default_ui_config(config: Dict[str, Any]) -> Dict[str, Any]:
 
+def default_ui_config(config: Dict[str, Any]) -> Dict[str, Any]:
     """Build a default UI config dict from CLI/server config."""
     from codrag.core import NativeEmbedder
 
@@ -218,7 +309,7 @@ def default_ui_config(config: Dict[str, Any]) -> Dict[str, Any]:
     # Default LLM Config
     ollama_url = str(config.get("ollama_url") or "http://localhost:11434")
     model = str(config.get("model") or "nomic-embed-text")
-    
+
     cfg["llm_config"] = {
         "assignment_mode": "structured",  # Phase 44: 'structured' | 'mapped'
         "saved_endpoints": [
@@ -282,7 +373,7 @@ def load_ui_config(config: Dict[str, Any]) -> Dict[str, Any]:
     Phase 24: If the settings store is initialized, all global settings are
     merged with defaults.  If not (e.g. tests without server init), falls
     back to the original JSON file loading.
-    
+
     Args:
         config: The server ``_config`` dict (needs ``index_dir``, ``repo_root``, etc.).
     """
@@ -291,6 +382,7 @@ def load_ui_config(config: Dict[str, Any]) -> Dict[str, Any]:
     # Try SQLite store first (Phase 24)
     try:
         from codrag.services.settings_store import settings
+
         store_data = settings.get_all()
         if store_data:
             data = store_data
@@ -338,6 +430,7 @@ def _merge_config_data(cfg: Dict[str, Any], data: Dict[str, Any]) -> None:
         "auto_rebuild",
         "ui_preferences",
         "module_layout",
+        "developer_debug_mode",
     ]:
         if key in data:
             cfg[key] = data[key]
@@ -366,7 +459,7 @@ def save_ui_config(config: Dict[str, Any], cfg: Dict[str, Any]) -> None:
 
     Phase 24: Writes to the SQLite settings store AND the legacy JSON file.
     The JSON write ensures backward compatibility during the transition.
-    
+
     Args:
         config: The server ``_config`` dict (needs ``index_dir``).
         cfg: The UI config dict to save.
@@ -374,6 +467,7 @@ def save_ui_config(config: Dict[str, Any], cfg: Dict[str, Any]) -> None:
     # Write to SQLite store (Phase 24)
     try:
         from codrag.services.settings_store import settings
+
         settings.import_from_dict(cfg)
     except RuntimeError:
         pass  # Store not initialized — skip

@@ -790,7 +790,22 @@ for node in to_augment_symbols:
 
 **Recommendation:** Start with the per-item glob check (quick win, reduces wasted LLM calls immediately) and add the full pause-rebuild-resume as a follow-up.
 
-### Sprint 6: Robustness & Verification
+### Sprint 6: Cloud Batching & Thinking Models (see CLOUD_BATCHING_RESEARCH.md)
+
+**Research doc:** `docs/Phase48_fix-pipeline/CLOUD_BATCHING_RESEARCH.md`
+
+| ID | Task | Files | Status |
+|----|------|-------|--------|
+| P48-F40 | Thinking model output stripping (backward brace-matching in `_parse_json_response`) | `llm_client.py:255-338` | ✅ |
+| P48-F41 | Cloud model detection for Ollama (`is_cloud_model_via_ollama()` + `detect_profile_from_context` update) | `batch_profiles.py:197-283` | ✅ |
+| P48-F41b | Remove duplicate augmenter progress logging (4 instances of "Augmentation progress" removed) | `augmenter.py` | ✅ |
+| P48-F42 | Symbol batching (Pass 1) -- `_augment_symbols_batched()` with ID-based reordering | `augmenter.py:890-1062` | ✅ |
+| P48-F42b | Fix pre-existing `_synthetic_entry` wrong-args bug in file batching (would crash on partial batch results) | `augmenter.py` (2 call sites) | ✅ |
+| P48-F42c | Add thinking-model awareness to `BatchedResponseParser` (Strategy 1b: `_parse_json_response` for kimi-style preambles) | `batch_strategy.py:71-81` | ✅ |
+| P48-F43 | Empirical validation benchmark (batch sizes 1/10/25/50 across 4+ models) | `scripts/benchmark_batching.py` | ⬜ |
+| P48-F44 | Adaptive batch sizing based on model type + context window | `batch_profiles.py` | ⬜ |
+
+### Sprint 7: Robustness & Verification
 
 | ID | Description | Files | Status |
 |----|-------------|-------|--------|

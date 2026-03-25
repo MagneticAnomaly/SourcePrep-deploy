@@ -400,6 +400,19 @@ class AutoRebuildWatcher:
             if not self._enabled:
                 return
 
+        # Respect the pipeline mode: if fast_sync is set to Manual,
+        # don't proactively trigger builds via coverage checks.
+        try:
+            from codrag.services.settings_store import settings as _ss
+            pc = _ss.get("pipeline_config") or {}
+            fast_auto = (pc.get("fast_sync") or {}).get("auto", False)
+            if not fast_auto:
+                logger.debug("Coverage check skipped — pipeline in manual mode")
+                self._schedule_coverage_check()
+                return
+        except Exception:
+            pass  # Settings unavailable — proceed with check
+
         # Don't check while a build is in progress
         if self._is_building():
             logger.debug("Coverage check skipped — build in progress")

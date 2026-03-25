@@ -125,6 +125,21 @@ TASK_MAX_CHARS = {
 }
 
 
+def batched_max_chars(task: str, batch_size: int) -> int:
+    """Compute max_chars for a batched LLM response.
+
+    The base TASK_MAX_CHARS values are per-item limits.  Batched responses
+    contain N items in a JSON array, so the output scales roughly linearly.
+    We add a fixed overhead for the JSON wrapper and some headroom.
+
+    Returns 0 (unlimited) if the base task has no limit.
+    """
+    base = TASK_MAX_CHARS.get(task, 0)
+    if base == 0 or batch_size <= 1:
+        return base
+    return base * batch_size + 500  # +500 for JSON wrapper overhead
+
+
 def _parse_confidence(raw: Any, default: float = 0.5) -> float:
     """Safely parse a confidence value from LLM output.
 
@@ -255,8 +270,17 @@ def _repair_truncated_json(fragment: str) -> Optional[Dict[str, Any]]:
 def _parse_json_response(text: str) -> Optional[Dict[str, Any]]:
     """Best-effort JSON extraction from LLM response.
 
-    Handles think tags, markdown code fences, truncated JSON, and
-    various model output quirks across Qwen3, DeepSeek-R1, and others.
+    Handles think tags, markdown code fences, truncated JSON,
+    thinking-model preambles (kimi-k2.5, DeepSeek-R1), and various
+    model output quirks.
+
+    Strategy (most specific → most aggressive):
+    1. Strip XML think tags
+    2. Direct parse
+    3. Markdown code block extraction
+    4. First { ... last } substring
+    5. Backward brace-matching (for thinking models with { in preamble)
+    6. Truncated JSON repair
     """
     # Step 0: Strip think tags BEFORE any parsing attempts
     text = _strip_think_tags(text)
@@ -278,7 +302,7 @@ def _parse_json_response(text: str) -> Optional[Dict[str, Any]]:
                 return json.loads(block)
             except json.JSONDecodeError:
                 continue
-    # Try finding first { ... }
+    # Try finding first { ... last }
     start = text.find("{")
     end = text.rfind("}")
     if start >= 0 and end > start:
@@ -286,8 +310,41 @@ def _parse_json_response(text: str) -> Optional[Dict[str, Any]]:
             return json.loads(text[start : end + 1])
         except json.JSONDecodeError:
             pass
-    # Truncated JSON repair: we have '{' but no '}' (LLM output was cut off)
-    # Also try repair when } exists but parsing failed (} inside a string value)
+
+    # Step 5: Backward brace-matching — for thinking models (kimi-k2.5)
+    # that emit natural language containing { before the actual JSON.
+    # Walk backward from the last } to find the matching { via depth counting.
+    if end >= 0:
+        depth = 0
+        in_string = False
+        escape = False
+        for i in range(end, -1, -1):
+            ch = text[i]
+            if escape:
+                escape = False
+                continue
+            if ch == '\\':
+                escape = True
+                continue
+            if ch == '"' and not escape:
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if ch == '}':
+                depth += 1
+            elif ch == '{':
+                depth -= 1
+                if depth == 0:
+                    candidate = text[i : end + 1]
+                    try:
+                        return json.loads(candidate)
+                    except json.JSONDecodeError:
+                        # This { wasn't the right one, keep scanning backward
+                        depth = 1  # Reset to look for next outer {
+                        continue
+
+    # Step 6: Truncated JSON repair
     if start >= 0:
         fragment = text[start:]
         repaired = _repair_truncated_json(fragment)
@@ -301,6 +358,12 @@ class LLMClient:
     Minimal LLM client for augmentation calls.
     Supports: ollama, openai, openai-compatible, anthropic, google.
     """
+
+    # Ollama cloud queues requests beyond the concurrency limit (Free=1,
+    # Pro=3, Max=10).  429 means the queue is full — a short wait for the
+    # current request to finish is usually enough.  Two retries covers
+    # both paid (queue drains fast) and free (queue drains slower) tiers.
+    _MAX_429_RETRIES = 2
 
     def __init__(
         self,
@@ -486,7 +549,24 @@ class LLMClient:
             # the requests read-timeout fire if the model stalls (stream=False
             # holds the connection open with zero data until done, making
             # timeouts impossible).
-            resp = requests.post(url, json=payload, timeout=(30, self.timeout), stream=True)
+            #
+            # Retry on 429 (Too Many Requests) with exponential backoff.
+            # Cloud models via Ollama (:cloud suffix) proxy to upstream APIs
+            # that rate-limit; sequential batches can exhaust the limit.
+            _resp = None
+            for _attempt in range(self._MAX_429_RETRIES + 1):
+                _resp = requests.post(url, json=payload, timeout=(30, self.timeout), stream=True)
+                if _resp.status_code != 429:
+                    break
+                _resp.close()
+                if _attempt < self._MAX_429_RETRIES:
+                    _wait = 5 * (_attempt + 1)  # 5s, 10s
+                    logger.info(
+                        "429 rate-limited by %s — retry %d/%d in %ds",
+                        self.model, _attempt + 1, self._MAX_429_RETRIES, _wait,
+                    )
+                    time.sleep(_wait)
+            resp = _resp
             resp.raise_for_status()
             # Accumulate streamed NDJSON chunks into a single response,
             # with OutputMonitor guarding against repetition loops.
@@ -583,7 +663,16 @@ class LLMClient:
             base = self.endpoint_url if "v1" in self.endpoint_url else f"{self.endpoint_url}/v1"
             url = f"{base}/chat/completions"
             
-            resp = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
+            _resp = None
+            for _attempt in range(self._MAX_429_RETRIES + 1):
+                _resp = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
+                if _resp.status_code != 429:
+                    break
+                if _attempt < self._MAX_429_RETRIES:
+                    _wait = 5 * (_attempt + 1)
+                    logger.info("429 rate-limited by %s — retry %d/%d in %ds", self.model, _attempt + 1, self._MAX_429_RETRIES, _wait)
+                    time.sleep(_wait)
+            resp = _resp
             resp.raise_for_status()
             data = resp.json()
             
@@ -620,7 +709,16 @@ class LLMClient:
                 headers["x-api-key"] = self.api_key
 
             url = f"{self.endpoint_url}/v1/messages"
-            resp = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
+            _resp = None
+            for _attempt in range(self._MAX_429_RETRIES + 1):
+                _resp = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
+                if _resp.status_code != 429:
+                    break
+                if _attempt < self._MAX_429_RETRIES:
+                    _wait = 5 * (_attempt + 1)
+                    logger.info("429 rate-limited by %s — retry %d/%d in %ds", self.model, _attempt + 1, self._MAX_429_RETRIES, _wait)
+                    time.sleep(_wait)
+            resp = _resp
             resp.raise_for_status()
             data = resp.json()
 

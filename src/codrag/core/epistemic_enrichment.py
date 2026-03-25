@@ -29,7 +29,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 from .augmenter import AugmentationEntry
 from .llm_client import LLMClient, _get_llm_concurrency, _parse_confidence, _parse_json_response
 from .epistemic_score import EpistemicEntry, EpistemicScore, compute_epistemic_score
-from codrag.core.llm_client import TASK_MAX_CHARS
+from codrag.core.llm_client import TASK_MAX_CHARS, batched_max_chars
 
 logger = logging.getLogger(__name__)
 
@@ -533,6 +533,18 @@ class EpistemicEnricher:
     ) -> Optional[EpistemicEntry]:
         """Call the deep reasoning LLM and parse the response into an EpistemicEntry."""
         import time as _time
+
+        # Guard: skip files with absurdly large prompts (minified bundles, etc.)
+        # These crash Ollama (500 error) and waste time retrying every iteration.
+        _MAX_PROMPT_CHARS = 200_000
+        if len(prompt) > _MAX_PROMPT_CHARS:
+            logger.warning(
+                "[Epistemic] Skipping %s — prompt too large (%d chars > %d limit). "
+                "Likely a minified bundle; exclude it via exclude_globs.",
+                file_path, len(prompt), _MAX_PROMPT_CHARS,
+            )
+            return None
+
         _call_start = _time.monotonic()
         logger.info("[Epistemic] Sending LLM call for: %s (prompt=%d chars)", file_path, len(prompt))
         try:
@@ -604,6 +616,9 @@ class EpistemicEnricher:
         enriched: Dict[str, EpistemicEntry],
         code_batch_size: int,
         doc_batch_size: int,
+        progress_callback: Optional[Callable[[str, int, int], None]] = None,
+        current_progress: int = 0,
+        total_progress: int = 0,
     ) -> Tuple[int, int]:
         """Enrich a single tier of nodes using batched LLM calls.
 
@@ -627,19 +642,24 @@ class EpistemicEnricher:
         code_schema = get_structured_schema("epistemic_code")
         doc_schema = get_structured_schema("epistemic_doc")
 
-        # Split into code and doc nodes
-        code_nodes = []
-        doc_nodes = []
-        for node in tier_nodes:
-            fp = node.get("file_path", "")
-            lang = node.get("language", "")
-            is_md = lang == "markdown" or fp.endswith((".md", ".markdown"))
-            if is_md:
-                doc_nodes.append(node)
-            else:
-                code_nodes.append(node)
+        # Phase 53: 3-way classification replaces binary is_md split
+        from .content_class import ContentClass, classify_nodes
 
-        _BYOK_CONCURRENCY = 3  # Max concurrent batched API calls
+        classified = classify_nodes(tier_nodes)
+        code_nodes = classified.get(ContentClass.STRUCTURED_CODE, [])
+        # Both structured docs and narrative get doc enrichment path,
+        # but narrative gets reduced excerpt size (handled in payload build below)
+        doc_nodes = (
+            classified.get(ContentClass.STRUCTURED_DOCS, [])
+            + classified.get(ContentClass.UNSTRUCTURED_NARRATIVE, [])
+        )
+        # Track which nodes are narrative for excerpt size adjustment
+        _narrative_ids = {
+            n["id"] for n in classified.get(ContentClass.UNSTRUCTURED_NARRATIVE, [])
+        }
+
+        from .batch_profiles import get_batch_concurrency
+        _concurrency = get_batch_concurrency(self.llm.provider)
 
         # Pre-build all code batch payloads
         code_batches = []
@@ -681,7 +701,7 @@ class EpistemicEnricher:
                     prompt, system=BATCHED_EPISTEMIC_CODE_SYSTEM,
                     num_predict=num_predict, num_ctx=num_ctx,
                     response_schema=code_schema,
-                    max_chars=TASK_MAX_CHARS["epistemic"],
+                    max_chars=batched_max_chars("epistemic", len(items)),
                 )
                 return BatchedResponseParser.parse(text, expected_count=len(items))
             except Exception as e:
@@ -689,7 +709,7 @@ class EpistemicEnricher:
                 return []
 
         # Dispatch code batches concurrently
-        with ThreadPoolExecutor(max_workers=min(_BYOK_CONCURRENCY, len(code_batches) or 1)) as pool:
+        with ThreadPoolExecutor(max_workers=min(_concurrency, len(code_batches) or 1)) as pool:
             future_to_items = {
                 pool.submit(_call_code_batch, items): items
                 for items in code_batches
@@ -728,6 +748,8 @@ class EpistemicEnricher:
                         done += 1
                     else:
                         failed += 1
+                if progress_callback:
+                    progress_callback("epistemic_enrichment", current_progress + done + failed, total_progress)
 
         # Pre-build all doc batch payloads
         doc_batches = []
@@ -743,7 +765,9 @@ class EpistemicEnricher:
                 neighbor_ctx = self._get_neighbor_context(
                     nid, edges, nodes_by_id, augmentations, enriched
                 )
-                excerpt = self._get_file_excerpt(fp, max_lines=3000)
+                # Phase 53: narrative files get reduced excerpt to avoid LLM overload
+                _max_lines = 500 if nid in _narrative_ids else 3000
+                excerpt = self._get_file_excerpt(fp, max_lines=_max_lines)
                 items.append({
                     "file_path": fp,
                     "section_names": ", ".join(section_names[:20]) or "(none)",
@@ -774,7 +798,7 @@ class EpistemicEnricher:
                     prompt, system=BATCHED_EPISTEMIC_DOC_SYSTEM,
                     num_predict=num_predict, num_ctx=num_ctx,
                     response_schema=doc_schema,
-                    max_chars=TASK_MAX_CHARS["epistemic"],
+                    max_chars=batched_max_chars("epistemic", len(items)),
                 )
                 return BatchedResponseParser.parse(text, expected_count=len(items))
             except Exception as e:
@@ -782,7 +806,7 @@ class EpistemicEnricher:
                 return []
 
         # Dispatch doc batches concurrently
-        with ThreadPoolExecutor(max_workers=min(_BYOK_CONCURRENCY, len(doc_batches) or 1)) as pool:
+        with ThreadPoolExecutor(max_workers=min(_concurrency, len(doc_batches) or 1)) as pool:
             future_to_items = {
                 pool.submit(_call_doc_batch, items): items
                 for items in doc_batches
@@ -824,6 +848,8 @@ class EpistemicEnricher:
                         done += 1
                     else:
                         failed += 1
+                if progress_callback:
+                    progress_callback("epistemic_enrichment", current_progress + done + failed, total_progress)
 
         return done, failed
 
@@ -917,6 +943,9 @@ class EpistemicEnricher:
 
                 tier_done, tier_failed = self._enrich_tier_batched(
                     tier, edges, nodes_by_id, augmentations, enriched, code_batch_size, doc_batch_size,
+                    progress_callback=progress_callback,
+                    current_progress=existing_count + done + failed,
+                    total_progress=total_file_count,
                 )
                 done += tier_done
                 failed += tier_failed

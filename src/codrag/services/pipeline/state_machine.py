@@ -104,6 +104,15 @@ _TRANSITIONS: Dict[tuple, PipelineState] = {
     # that is currently full.  Park in QUEUED until slot frees.
     (PipelineState.RUNNING, Event.ENQUEUE): PipelineState.QUEUED,
 
+    # Phase 48-F8: Stage completion/failure while QUEUED.
+    # This happens when a build starts before the ENQUEUE transition
+    # completes, or when capacity becomes available without a formal
+    # CAPACITY_AVAILABLE event.  Without these, the pipeline freezes
+    # in QUEUED state forever after the stage finishes.
+    (PipelineState.QUEUED, Event.STAGE_COMPLETED): PipelineState.RUNNING,
+    (PipelineState.QUEUED, Event.ALL_STAGES_DONE): PipelineState.COMPLETED,
+    (PipelineState.QUEUED, Event.STAGE_FAILED): PipelineState.FAILED,
+
     # Pausing
     (PipelineState.RUNNING, Event.PAUSE): PipelineState.PAUSING,
     (PipelineState.PAUSING, Event.STAGE_FLUSHED): PipelineState.PAUSED,

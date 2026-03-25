@@ -410,7 +410,27 @@ class WorkerFactory:
                     "skipped": result.skipped,
                     "coverage_pct": round((result.augmented + result.synthetic) / result.total_nodes * 100, 1) if result.total_nodes else 0,
                     "duration_ms": result.duration_ms,
+                    "batches_attempted": result.batches_attempted,
+                    "batches_failed": result.batches_failed,
+                    "items_batched": result.items_batched,
+                    "items_parsed": result.items_parsed,
+                    "max_prompt_tokens": result.max_prompt_tokens,
                 })
+            
+            model_info = _capture_model_info(llm_client)
+            if hasattr(result, "batches_attempted") and result.batches_attempted > 0:
+                model_info["telemetry"] = {
+                    "batches_attempted": result.batches_attempted,
+                    "batches_failed": result.batches_failed,
+                    "items_batched": result.items_batched,
+                    "items_parsed": result.items_parsed,
+                    "max_prompt_tokens": result.max_prompt_tokens,
+                    "avg_prompt_tokens": round(result.total_prompt_tokens / result.batches_attempted) if result.batches_attempted else 0,
+                    "model_ctx_size": result.model_ctx_size,
+                    "parse_success_rate": round(result.items_parsed / result.items_batched * 100, 1) if result.items_batched else 0,
+                    "synthetic_reasons": getattr(result, "synthetic_reasons", {}),
+                }
+                
             return {
                 "stage": "catalogue",
                 "augmented": result.augmented,
@@ -418,7 +438,7 @@ class WorkerFactory:
                 "failed": result.failed,
                 "skipped": result.skipped,
                 "synthetic": result.synthetic,
-                "_model_info": _capture_model_info(llm_client),
+                "_model_info": model_info,
                 "_stage_timing": {"started_at": _t0, "elapsed": time.time() - _t0},
             }
         return worker
@@ -559,6 +579,15 @@ class WorkerFactory:
             result = engine.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             analyzed = result.get("analyzed", 0)
             failed = result.get("failed", 0)
+            
+            # If all attempts failed, abort so the pipeline pauses/reverts
+            # instead of skipping the stage silently.
+            if analyzed == 0 and failed > 0:
+                raise RuntimeError(
+                    f"Group reasoning failed: 0 analyzed, {failed} failed. "
+                    "Check model availability, timeout settings, and num_predict."
+                )
+                
             logger.info(
                 "[%s/Group Reasoning] Complete — %d analyzed, %d reused, %d failed",
                 project.name, analyzed, result.get("reused", 0), failed,
@@ -594,6 +623,17 @@ class WorkerFactory:
             log_cb = WorkerFactory._logged_progress("Module Synthesis", progress_cb, project.name)
             synthesizer = ClusterSynthesizer(llm=llm_client, index_dir=idx_dir, batch_profile=batch_profile)
             result = synthesizer.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
+            
+            synthesized = result.get("synthesized", 0)
+            failed = result.get("failed", 0)
+            
+            # If all attempts failed, abort so pipeline correctly pauses/reverts
+            if synthesized == 0 and failed > 0:
+                raise RuntimeError(
+                    f"Module synthesis failed: 0 synthesized, {failed} failed. "
+                    "Check model availability, timeout settings, and num_predict."
+                )
+                
             logger.info("[%s/Module Synthesis] Complete", project.name)
             return {
                 "stage": "clustering",

@@ -15,6 +15,8 @@ export interface UseEnrichmentDeps {
   pipelineEvents?: Record<string, PipelineStatus & { project_id: string }>
   /** Called when deep enrichment pipeline completes (e.g. to refresh atlas) */
   onDeepCompleted?: () => void
+  /** Called when fast sync pipeline completes (e.g. to refresh provenance) */
+  onFastCompleted?: () => void
 }
 
 // ── Hook ──────────────────────────────────────────────────────
@@ -32,6 +34,8 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
   onErrorRef.current = deps.onError
   const onDeepCompletedRef = useRef(deps.onDeepCompleted)
   onDeepCompletedRef.current = deps.onDeepCompleted
+  const onFastCompletedRef = useRef(deps.onFastCompleted)
+  onFastCompletedRef.current = deps.onFastCompleted
 
   // ── Fetch functions ─────────────────────────────────────────
 
@@ -197,9 +201,9 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     const groups: ('fast_sync' | 'deep_enrichment')[] = group
       ? [group]
       : [
-          ...(state.augmenting || state.inferredEdgesRunning || state.fastKnowledgeBuilding ? ['fast_sync' as const] : []),
-          ...(state.epistemicRunning || state.groupReasoningRunning || state.clusterRunning || state.atlasRunning || state.deepeningRunning || state.deepKnowledgeBuilding ? ['deep_enrichment' as const] : []),
-        ]
+        ...(state.augmenting || state.inferredEdgesRunning || state.fastKnowledgeBuilding ? ['fast_sync' as const] : []),
+        ...(state.epistemicRunning || state.groupReasoningRunning || state.clusterRunning || state.atlasRunning || state.deepeningRunning || state.deepKnowledgeBuilding ? ['deep_enrichment' as const] : []),
+      ]
     for (const g of groups) {
       try {
         await api.swapPipelineModel(selectedProjectId, g)
@@ -356,6 +360,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       void fetchAugmentationStatus()
       void fetchKnowledgeStatus()
       void refreshStageDataFromPipeline() // picks up final inferred_edges
+      onFastCompletedRef.current?.()
     }
     if (fast?.phase === 'failed' && prevFastPhase === 'running') {
       dispatch({ type: 'FAST_FAILED' })

@@ -120,17 +120,17 @@ interface EnrichmentStage {
 // ── Phase 49: Provenance Helpers ─────────────────────────────────
 
 const STAGE_OUTPUT_KEY: Record<EnrichmentStageId, string | null> = {
-  structural:      'trace_nodes.jsonl',
-  inferred_edges:  'trace_inferred_edges.jsonl',
-  catalogue:       'trace_augmented.jsonl',
-  validation:      null,
-  knowledge:       null,
-  enrichment:      'trace_epistemic.jsonl',
+  structural: 'trace_nodes.jsonl',
+  inferred_edges: 'trace_inferred_edges.jsonl',
+  catalogue: 'trace_augmented.jsonl',
+  validation: null,
+  knowledge: null,
+  enrichment: 'trace_epistemic.jsonl',
   group_reasoning: 'trace_group_reasoning.jsonl',
-  clustering:      'trace_modules.jsonl',
-  atlas:           null,
-  deepening:       'trace_epistemic.jsonl',
-  deep_knowledge:  null,
+  clustering: 'trace_modules.jsonl',
+  atlas: null,
+  deepening: 'trace_epistemic.jsonl',
+  deep_knowledge: null,
 };
 
 function lookupProvenance(
@@ -175,13 +175,27 @@ const RUST_STAGES: Set<EnrichmentStageId> = new Set(['structural', 'validation']
 
 function formatProvenanceLine(p: StageProvenance): string {
   const parts: string[] = [];
-  if (p.model_breakdown && p.model_breakdown.length > 1) {
-    // Multi-model: show split (e.g. "qwen3:14b (60%) + qwen3:8b (40%)")
-    const sorted = [...p.model_breakdown].sort((a, b) => b.count - a.count);
-    if (sorted.length === 2) {
-      parts.push(`${sorted[0].model} (${sorted[0].percentage}%) + ${sorted[1].model} (${sorted[1].percentage}%)`);
-    } else {
-      parts.push(`${sorted[0].model} (${sorted[0].percentage}%) + ${sorted[1].model} (${sorted[1].percentage}%) +${sorted.length - 2} more`);
+  if (p.model_breakdown && p.model_breakdown.length > 0) {
+    // Filter out synthetic entries (path-derived summaries for empty/binary files)
+    const realModels = p.model_breakdown.filter(m => !m.model.startsWith('synthetic:'));
+    const syntheticCount = p.model_breakdown
+      .filter(m => m.model.startsWith('synthetic:'))
+      .reduce((sum, m) => sum + m.count, 0);
+
+    if (realModels.length >= 2) {
+      // Multi-model: show split (e.g. "qwen3:14b (60%) + qwen3:8b (40%)")
+      const sorted = [...realModels].sort((a, b) => b.count - a.count);
+      parts.push(`${sorted[0].model} (${sorted[0].percentage}%) + ${sorted[1].model} (${sorted[1].percentage}%)${sorted.length > 2 ? ` +${sorted.length - 2} more` : ''}`);
+    } else if (realModels.length === 1) {
+      // Single real model (+ some synthetic) — show just the model name
+      parts.push(p.provider ? `${realModels[0].model} via ${p.provider}` : realModels[0].model);
+    } else if (p.model) {
+      // All synthetic but p.model exists
+      parts.push(p.provider ? `${p.model} via ${p.provider}` : p.model);
+    }
+
+    if (syntheticCount > 0) {
+      parts.push(`${syntheticCount} auto-filled`);
     }
   } else if (p.model) {
     parts.push(p.provider ? `${p.model} via ${p.provider}` : p.model);
@@ -189,7 +203,7 @@ function formatProvenanceLine(p: StageProvenance): string {
     // Pick the right label based on stage type
     const sid = p.stage_id as EnrichmentStageId;
     if (EMBEDDING_STAGES.has(sid)) {
-      parts.push('native embedder');
+      parts.push('embedder');
     } else if (RUST_STAGES.has(sid)) {
       parts.push('rust engine');
     } else {
@@ -199,7 +213,7 @@ function formatProvenanceLine(p: StageProvenance): string {
   if (p.elapsed_seconds != null) parts.push(formatDuration(p.elapsed_seconds));
   if (p.generated_at) parts.push(formatRelativeDate(p.generated_at));
   if (p.codrag_version) parts.push(`v${p.codrag_version}`);
-  return parts.join(' \u00b7 ') || 'No run data';
+  return parts.join(' · ') || 'No run data';
 }
 
 function isStaleAge(ageDays?: number): 'none' | 'warn' | 'old' {
@@ -209,7 +223,24 @@ function isStaleAge(ageDays?: number): 'none' | 'warn' | 'old' {
   return 'none';
 }
 
-// ── Helpers ──────────────────────────────────────────────────
+// ── Stage State Helpers ──────────────────────────────────────
+//
+// CONTRACT: Each compute*State function determines the visual state
+// (icon color + text) for one pipeline stage.
+//
+// The pipeline is SEQUENTIAL.  If a later stage's SSE running flag is
+// true, the earlier stage has definitely finished.  We return 'complete'
+// immediately in that case — do NOT gate on API data (node counts, etc.)
+// because the status API polls on intervals and may lag behind SSE.
+//
+// Gating on stale API data (e.g. trace.counts.nodes > 0) causes the
+// stage to show blue/running AFTER it has finished, which is worse
+// than briefly showing green before stats text updates.
+//
+// The stats text below each stage handles the brief period where the
+// stage is green but counts haven't loaded yet (shows "Completing...").
+//
+// See docs/Phase48_fix-pipeline/README.md for the full state diagram.
 
 function computeTraceState(
   trace: TraceStageInfo,
@@ -219,7 +250,8 @@ function computeTraceState(
   fastKnowledgeBuilding?: boolean
 ): StageState {
   if (!trace.enabled) return 'disabled';
-  // If any later fast stage is running, Structural is done
+  // Pipeline is sequential: if any later fast stage is running,
+  // Structural has definitely finished.  Show green immediately.
   if (inferredEdgesRunning || augmenting || validating || fastKnowledgeBuilding) return 'complete';
   if (trace.building) return 'running';
   if (!trace.exists) return 'not_built';
@@ -235,10 +267,11 @@ function computeInferredEdgesState(
   fastKnowledgeBuilding?: boolean
 ): StageState {
   if (!trace.enabled) return 'disabled';
-  // Running flags from SSE are always fresh — check them before stale trace.exists
+  // Pipeline is sequential: if a later stage is running, Edge Discovery finished.
   if (augmenting || validating || fastKnowledgeBuilding) return 'complete';
+  // SSE running flags are always fresh — check before stale API data.
   if (running || ie?.running) return 'running';
-  // Cold state: trace.exists may be stale during pipeline but is correct when idle
+  // Cold state: trace.exists may be stale during pipeline but correct when idle.
   if (!trace.exists) return 'disabled';
   if (!ie) return 'not_built';
   // ie.exists is false when 0 edges were discovered — but the stage still ran
@@ -256,6 +289,7 @@ function computeAugmentState(
 ): StageState {
   if (augmenting) return 'running';
   if (!trace.enabled || !trace.exists) return 'disabled';
+  // Pipeline is sequential: if a later stage is running, Catalogue finished.
   if (validating || fastKnowledgeBuilding) return 'complete';
   if (!aug || !aug.enabled) return 'not_built';
   if (aug.augmented_nodes === 0) return 'not_built';
@@ -272,24 +306,30 @@ function computeValidationState(
   fastKnowledgeBuilding?: boolean
 ): StageState {
   if (!trace.enabled) return 'disabled';
-  // If knowledge embedding is running (and it's the fast phase), validation is done
-  if (fastKnowledgeBuilding) return 'complete';
+
+  // A later stage is running → Validation must have finished.
+  // Validation is a fast Rust pass-through so data confirmation isn't critical,
+  // but guard against stale state anyway.
+  if (fastKnowledgeBuilding) {
+    return (aug && aug.augmented_nodes > 0) ? 'complete' : 'running';
+  }
+
   if (validating) return 'running';
   if (!trace.exists) return 'disabled';
-  // Catalogue must finish before validation can be considered
+  // Catalogue must finish before validation can be considered.
   if (augmenting) return 'disabled';
-  
-  // Validation runs after catalogue (augmentation)
+
+  // Validation runs after catalogue (augmentation).
   if (!aug || !aug.enabled || aug.augmented_nodes === 0) return 'disabled';
-  
+
   // Catalogue must be substantially complete before validation can run.
   // If less than 50% of nodes are augmented, catalogue is still in progress
   // (possibly paused with partial checkpoint data).
   if (aug.total_nodes > 0 && aug.augmented_nodes < aug.total_nodes * 0.5) return 'disabled';
-  
-  // Since the current Rust validation is a fast pass-through that runs immediately
-  // after catalogue in the Fast Sync pipeline, if we are here (catalogue done),
-  // validation is effectively complete.
+
+  // Rust validation is a fast pass-through that runs immediately after
+  // catalogue in the Fast Sync pipeline.  If catalogue is done (we passed
+  // all checks above), validation is effectively complete.
   return 'complete';
 }
 
@@ -373,7 +413,7 @@ function computeDeepeningState(
   if (!ep || !ep.enabled || ep.enriched_nodes === 0) return 'disabled';
   if (!mod || !mod.enabled || mod.module_count === 0) return 'disabled';
   if (!deep || deep.total_scored === 0) return 'not_built';
-  
+
   // The deepening loop runs in batches (max 10 iterations × 20 nodes = 200 max per run).
   // For large repos, hitting 90% is impossible in one pass.
   // 50% is a reasonable "complete" state for a single pipeline pass.
@@ -428,23 +468,23 @@ const DEFAULT_AUTO_CONFIG: EnrichmentAutoConfig = {
 // ── Components ───────────────────────────────────────────────
 
 const STATE_STYLES: Record<StageState, { bg: string; border: string; text: string; icon: string }> = {
-  disabled:  { bg: 'bg-surface-raised',     border: 'border-border',        text: 'text-text-subtle',  icon: 'text-text-subtle' },
-  not_built: { bg: 'bg-surface-raised',     border: 'border-border',        text: 'text-text-muted',   icon: 'text-text-muted' },
-  waiting:   { bg: 'bg-amber-500/10',       border: 'border-amber-500/30',  text: 'text-amber-400',    icon: 'text-amber-400' },
-  queued:    { bg: 'bg-purple-500/10',      border: 'border-purple-500/30', text: 'text-purple-400',   icon: 'text-purple-400' },
-  running:   { bg: 'bg-blue-500/10',        border: 'border-blue-500/30',   text: 'text-blue-400',     icon: 'text-blue-400' },
-  rerunning: { bg: 'bg-purple-500/10',      border: 'border-purple-500/30', text: 'text-purple-400',   icon: 'text-purple-400' },
-  stale:     { bg: 'bg-amber-500/10',       border: 'border-amber-500/30',  text: 'text-amber-400',    icon: 'text-amber-400' },
-  complete:  { bg: 'bg-success/10',         border: 'border-success/30',    text: 'text-success',      icon: 'text-success' },
-  warning:   { bg: 'bg-orange-500/10',      border: 'border-orange-500/30', text: 'text-orange-400',   icon: 'text-orange-400' },
-  error:     { bg: 'bg-red-500/10',         border: 'border-red-500/30',    text: 'text-red-400',      icon: 'text-red-400' },
-  idle:      { bg: 'bg-surface-raised',     border: 'border-border',        text: 'text-text-muted',   icon: 'text-text-muted' },
+  disabled: { bg: 'bg-surface-raised', border: 'border-border', text: 'text-text-subtle', icon: 'text-text-subtle' },
+  not_built: { bg: 'bg-surface-raised', border: 'border-border', text: 'text-text-muted', icon: 'text-text-muted' },
+  waiting: { bg: 'bg-amber-500/10', border: 'border-amber-500/30', text: 'text-amber-400', icon: 'text-amber-400' },
+  queued: { bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-400', icon: 'text-purple-400' },
+  running: { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-400', icon: 'text-blue-400' },
+  rerunning: { bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-400', icon: 'text-purple-400' },
+  stale: { bg: 'bg-amber-500/10', border: 'border-amber-500/30', text: 'text-amber-400', icon: 'text-amber-400' },
+  complete: { bg: 'bg-success/10', border: 'border-success/30', text: 'text-success', icon: 'text-success' },
+  warning: { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-400', icon: 'text-orange-400' },
+  error: { bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-400', icon: 'text-red-400' },
+  idle: { bg: 'bg-surface-raised', border: 'border-border', text: 'text-text-muted', icon: 'text-text-muted' },
 };
 
 function StateIcon({ state }: { state: StageState }) {
   const cls = 'w-3.5 h-3.5';
   switch (state) {
-    case 'disabled': 
+    case 'disabled':
     case 'idle':
     case 'not_built':
       return <Circle className={cls} />;
@@ -467,13 +507,13 @@ function StateIcon({ state }: { state: StageState }) {
 
 import { StageProgressBar } from './StageProgressBar';
 
-function StageRow({ 
-  stage, 
+function StageRow({
+  stage,
   isPaused,
   onPause,
   onResume,
   showDetails = false,
-}: { 
+}: {
   stage: EnrichmentStage;
   isPaused: boolean;
   onPause?: (group: "fast_sync" | "deep_enrichment") => void;
@@ -484,9 +524,9 @@ function StageRow({
   const [hovered, setHovered] = useState(false);
   const isRunning = stage.state === 'running' || stage.state === 'rerunning';
   const isRerunning = stage.state === 'rerunning';
-  
-  const group = ['structural', 'inferred_edges', 'catalogue', 'validation', 'knowledge'].includes(stage.id) 
-    ? 'fast_sync' 
+
+  const group = ['structural', 'inferred_edges', 'catalogue', 'validation', 'knowledge'].includes(stage.id)
+    ? 'fast_sync'
     : 'deep_enrichment';
 
   return (
@@ -497,7 +537,7 @@ function StageRow({
     >
       {/* Connector Line */}
       <div className="absolute left-[19px] top-7 bottom-[-4px] w-px bg-border group-last:hidden" />
-      
+
       {/* Icon Bubble */}
       <div className={cn(
         "w-8 h-8 rounded-full border flex items-center justify-center shrink-0 z-10 transition-colors",
@@ -552,12 +592,12 @@ function StageRow({
             </div>
           </div>
         </div>
-        
+
         {/* Stats Text OR Active Progress Bar */}
         {isRunning ? (
           <div className="h-[13px] flex items-center w-full pr-8">
-            <StageProgressBar 
-              progress={stage.progress} 
+            <StageProgressBar
+              progress={stage.progress}
               className="h-1.5 mt-0 w-full"
               color={isRerunning ? "bg-purple-500" : "bg-blue-500"}
               rerun={isRerunning && stage.rerun ? stage.rerun : undefined}
@@ -585,8 +625,8 @@ function StageRow({
           <p className={cn(
             "text-[9px] truncate leading-tight mt-0.5",
             isStaleAge(stage.provenance.age_days) === 'old' ? 'text-red-400/70' :
-            isStaleAge(stage.provenance.age_days) === 'warn' ? 'text-amber-400/70' :
-            'text-text-subtle'
+              isStaleAge(stage.provenance.age_days) === 'warn' ? 'text-amber-400/70' :
+                'text-text-subtle'
           )}>
             {formatProvenanceLine(stage.provenance)}
           </p>
@@ -661,7 +701,7 @@ export function GraphEnrichmentPipeline({
   const toggleDetails = () => {
     const next = !showDetails;
     setShowDetails(next);
-    try { localStorage.setItem('codrag_pipeline_details', String(next)); } catch {}
+    try { localStorage.setItem('codrag_pipeline_details', String(next)); } catch { }
   };
 
   // ── Fade-in when transitioning from hero/building → pipeline ──
@@ -684,9 +724,13 @@ export function GraphEnrichmentPipeline({
   const deepMode = isPro ? cfg.deepEnrichment : 'manual' as DeepEnrichmentMode;
 
   // ── Compute stage states ──────────────────────────────────
-  
+
   // 1. Structural Graph (Rust)
   const structuralState = computeTraceState(trace, inferredEdgesRunning, augmenting, validating, fastKnowledgeBuilding);
+  // structuralStats text matches the state from computeTraceState:
+  // - 'running' with counts=0: stage active OR API hasn't refreshed yet
+  // - 'running' with counts>0: actively building (shows live counts)
+  // - 'complete': API confirmed with real counts (always >0 here)
   const structuralStats = (() => {
     if (structuralState === 'not_built') return 'Not built yet';
     if (structuralState === 'disabled') return 'Disabled';
@@ -694,7 +738,7 @@ export function GraphEnrichmentPipeline({
       ? `${trace.counts.nodes.toLocaleString()} nodes · ${trace.counts.edges.toLocaleString()} edges`
       : 'Building...';
     // State is 'complete' — if counts are still 0 but a later stage is running,
-    // the counts are stale (API refresh hasn't returned yet).
+    // the API hasn't refreshed yet. Show "Completing..." briefly until it does.
     if (trace.counts.nodes === 0 && (inferredEdgesRunning || augmenting || validating || fastKnowledgeBuilding))
       return 'Completing...';
     return `${trace.counts.nodes.toLocaleString()} nodes · ${trace.counts.edges.toLocaleString()} edges`;
@@ -721,10 +765,10 @@ export function GraphEnrichmentPipeline({
     if (catalogueState === 'disabled') return 'Waiting for graph';
     if (catalogueState === 'not_built') return 'Ready to catalogue';
     if (!augmentation) return '';
-    const pct = augmentation.total_nodes > 0 
-      ? Math.round((augmentation.augmented_nodes / augmentation.total_nodes) * 100) 
+    const pct = augmentation.total_nodes > 0
+      ? Math.round((augmentation.augmented_nodes / augmentation.total_nodes) * 100)
       : 0;
-    const conf = augmentation.avg_confidence > 0 
+    const conf = augmentation.avg_confidence > 0
       ? `${Math.round(augmentation.avg_confidence * 100)}% conf`
       : '';
     return `${pct}% coverage · ${conf}`;
@@ -984,7 +1028,7 @@ export function GraphEnrichmentPipeline({
               disabled={fastRunning || limitReached || inactive}
               title={
                 inactive ? "Activate this project to run pipelines." :
-                limitReached ? "Project limit reached. Upgrade to resume syncing." : undefined
+                  limitReached ? "Project limit reached. Upgrade to resume syncing." : undefined
               }
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
@@ -1046,7 +1090,7 @@ export function GraphEnrichmentPipeline({
               disabled={deepRunning || limitReached || inactive}
               title={
                 inactive ? "Activate this project to run pipelines." :
-                limitReached ? "Project limit reached. Upgrade to resume syncing." : undefined
+                  limitReached ? "Project limit reached. Upgrade to resume syncing." : undefined
               }
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
@@ -1114,9 +1158,9 @@ export function GraphEnrichmentPipeline({
             </button>
           </div>
         </div>
-        <StageProgressBar 
-          progress={roundedProgress} 
-          rerun={{ donePercent: 50, stalePercent: 20 }} 
+        <StageProgressBar
+          progress={roundedProgress}
+          rerun={{ donePercent: 50, stalePercent: 20 }}
         />
       </div>
 

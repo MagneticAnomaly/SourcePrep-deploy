@@ -234,8 +234,8 @@ function App() {
   // pick up new builds instead of sticking on old completed entries.
   const findActiveTask = useCallback((type: 'index_build' | 'trace_build') => {
     if (!selectedProjectId) return undefined;
-    const matching = Object.values(tasks).filter(t => 
-      t.task_id.startsWith(`${type}:${selectedProjectId}`) && 
+    const matching = Object.values(tasks).filter(t =>
+      t.task_id.startsWith(`${type}:${selectedProjectId}`) &&
       (t.status === 'running' || t.status === 'completed')
     );
     return matching.find(t => t.status === 'running') ?? matching[matching.length - 1];
@@ -262,6 +262,7 @@ function App() {
     onError: (msg, variant) => showToast(msg, variant),
     pipelineEvents,
     onDeepCompleted: () => { void fetchAtlas(); void fetchProvenance() },
+    onFastCompleted: () => { void fetchProvenance() },
   })
 
   // ── Atlas (Phase 29) ─────────────────────────────────────────
@@ -373,14 +374,14 @@ function App() {
     const timeout = setTimeout(() => {
       api.updateGlobalConfig({
         ui_preferences: { mode: uiMode, theme: uiTheme, bg_image: bgImage },
-      }).catch(() => {})
+      }).catch(() => { })
     }, 500)
     return () => clearTimeout(timeout)
   }, [api, uiMode, uiTheme, bgImage])
 
   const handleMaxActiveProjectsChange = useCallback((value: number | 'infinite') => {
     setMaxActiveProjects(value)
-    api.updateGlobalConfig({ max_active_projects: value }).catch(() => {})
+    api.updateGlobalConfig({ max_active_projects: value }).catch(() => { })
   }, [api])
 
   const handleDevRoleOverrideChange = useCallback((role: UserRole | null) => {
@@ -391,7 +392,7 @@ function App() {
 
   const handleGlobalConfigChange = useCallback((patch: Record<string, any>) => {
     setGlobalConfig(prev => ({ ...prev, ...patch }))
-    api.updateGlobalConfig(patch as any).catch(() => {})
+    api.updateGlobalConfig(patch as any).catch(() => { })
   }, [api])
 
   const handleDestroyAtlas = useCallback(async () => {
@@ -416,7 +417,7 @@ function App() {
     const poll = () => {
       api.getSchedulerStatus()
         .then(setSchedulerStatus)
-        .catch(() => {})
+        .catch(() => { })
     }
     poll()
     const interval = setInterval(poll, 5000)
@@ -427,13 +428,13 @@ function App() {
   useEffect(() => {
     if (!isConnected) return
     const validate = () => {
-      api.validateLicense().catch(() => {})
+      api.validateLicense().catch(() => { })
     }
     const fetchAdminData = () => {
-      api.getAdminPolicy().then(setAdminPolicy).catch(() => {})
-      api.getSeatStatus().then(setSeatStatus).catch(() => {})
-      api.getSecurityHealth().then(setSecurityHealth).catch(() => {})
-      api.getSecurityEvents(30).then(setSecurityEvents).catch(() => {})
+      api.getAdminPolicy().then(setAdminPolicy).catch(() => { })
+      api.getSeatStatus().then(setSeatStatus).catch(() => { })
+      api.getSecurityHealth().then(setSecurityHealth).catch(() => { })
+      api.getSecurityEvents(30).then(setSecurityEvents).catch(() => { })
     }
     validate() // Check on connect
     fetchAdminData()
@@ -448,7 +449,7 @@ function App() {
   const refreshComputeNodes = useCallback(() => {
     api.getComputeNodes()
       .then((res) => setComputeNodes(res.nodes))
-      .catch(() => {})
+      .catch(() => { })
   }, [api])
 
   useEffect(() => {
@@ -492,6 +493,11 @@ function App() {
         await refreshProjects()
         try {
           const globalCfg = await api.getGlobalConfig()
+          // Read developer_debug_mode FIRST — before any operations that
+          // might throw and skip it via the catch block below.
+          if (globalCfg.developer_debug_mode !== undefined) {
+            setGlobalConfig(prev => ({ ...prev, developer_debug_mode: globalCfg.developer_debug_mode }))
+          }
           if (globalCfg.max_active_projects) {
             setMaxActiveProjects(globalCfg.max_active_projects)
           }
@@ -523,16 +529,13 @@ function App() {
           if (globalCfg.module_layout?.version) {
             try { localStorage.setItem('codrag_dashboard_layout', JSON.stringify(globalCfg.module_layout)) } catch { /* storage full */ }
           }
-          if (globalCfg.developer_debug_mode !== undefined) {
-            setGlobalConfig(prev => ({ ...prev, developer_debug_mode: globalCfg.developer_debug_mode }))
-          }
         } catch { /* Global config not available — use defaults */ }
         void fetchLLMSlotsStatus()
         void fetchLicense()
       } catch { /* Error already set */ } finally { setLoading(false) }
     }
     void init()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshProjects, isConnected])
 
   // ── Auto-save dashboard layout to backend ───────────────────
@@ -541,7 +544,7 @@ function App() {
     if (!dashboardLayout) return
     if (layoutSkipRef.current < 2) { layoutSkipRef.current++; return }
     const timeout = setTimeout(() => {
-      api.updateGlobalConfig({ module_layout: dashboardLayout }).catch(() => {})
+      api.updateGlobalConfig({ module_layout: dashboardLayout }).catch(() => { })
     }, 1000)
     return () => clearTimeout(timeout)
   }, [api, dashboardLayout])
@@ -563,8 +566,20 @@ function App() {
     void fetchDeepAnalysisStatus()
     void fetchAtlas()
     void fetchProvenance()
-    api.getProjectActivity(selectedProjectId, 12).then(setActivityData).catch(() => {})
+    api.getProjectActivity(selectedProjectId, 12).then(setActivityData).catch(() => { })
   }, [selectedProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Periodic provenance refresh while pipeline is running ───
+  // Refreshes every 10s so the UI updates as each stage completes.
+  const anyPipelineRunning = augmenting || validating || inferredEdgesRunning ||
+    epistemicRunning || groupReasoningRunning || clusterRunning ||
+    atlasRunning || deepeningRunning || fastKnowledgeBuilding || deepKnowledgeBuilding
+
+  useEffect(() => {
+    if (!selectedProjectId || !anyPipelineRunning) return
+    const interval = setInterval(() => { void fetchProvenance() }, 10_000)
+    return () => clearInterval(interval)
+  }, [selectedProjectId, anyPipelineRunning, fetchProvenance])
 
   // ── Project limit ───────────────────────────────────────────
   // Free tier: hard cap of 1 total project.
@@ -654,7 +669,7 @@ function App() {
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a'); a.href = url; a.download = 'codrag-security-report.json'; a.click()
         URL.revokeObjectURL(url)
-      }).catch(() => {})
+      }).catch(() => { })
     },
     onExportAuditLog: () => {
       api.exportAuditLog('csv').then((data: any) => {
@@ -663,7 +678,7 @@ function App() {
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a'); a.href = url; a.download = `codrag-audit-log.${data.format || 'json'}`; a.click()
         URL.revokeObjectURL(url)
-      }).catch(() => {})
+      }).catch(() => { })
     },
   })
 
@@ -709,9 +724,9 @@ function App() {
       )}
       {isDaemonUnhealthy && (
         <div className="fixed inset-x-0 top-0 z-[100] bg-error text-white px-4 py-2 text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
-        <AlertCircle className="w-4 h-4" />
-        Connection to CoDRAG daemon lost. Attempting to reconnect...
-      </div>
+          <AlertCircle className="w-4 h-4" />
+          Connection to CoDRAG daemon lost. Attempting to reconnect...
+        </div>
       )}
       <SettingsDrawer
         open={settingsOpen}

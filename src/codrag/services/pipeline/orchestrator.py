@@ -476,6 +476,21 @@ class PipelineOrchestrator:
             try:
                 time.sleep(self._COVERAGE_RETRIGGER_DELAY)
 
+                # Respect pipeline mode: don't retrigger if Manual
+                try:
+                    from codrag.services.settings_store import settings as _ss
+                    pc = _ss.get("pipeline_config") or {}
+                    fast_auto = (pc.get("fast_sync") or {}).get("auto", False)
+                    if not fast_auto:
+                        logger.debug(
+                            "Coverage retrigger skipped for %s — "
+                            "pipeline in manual mode",
+                            project_id,
+                        )
+                        return
+                except Exception:
+                    pass  # Settings unavailable — proceed
+
                 # Don't retrigger if another run has started in the meantime
                 with self._lock:
                     for key, run in self._runs.items():
@@ -577,27 +592,17 @@ class PipelineOrchestrator:
                     # ran but produced nothing — treat as incomplete so
                     # the stage re-runs instead of silently skipping it.
                     if stage == StageId.STRUCTURAL:
-                        try:
-                            import json as _json
-                            with open(mpath, "r", encoding="utf-8") as _mf:
-                                _mdata = _json.load(_mf)
-                            _counts = _mdata.get("counts", {})
-                            _nodes = (
-                                _counts.get("nodes_total", 0)
-                                or _counts.get("nodes", 0)
-                                or _counts.get("files_parsed", 0)
-                            )
-                            if _nodes == 0:
-                                logger.warning(
-                                    "Structural manifest exists but reports 0 nodes "
-                                    "— treating as incomplete (needs rebuild)"
-                                )
-                                return i
-                        except Exception:
-                            logger.debug(
-                                "Could not read structural manifest — "
-                                "treating as incomplete",
-                                exc_info=True,
+                        # The manifest itself doesn't store node counts
+                        # (it only has metadata like format_version,
+                        # stage_id, run_id).  Check trace_nodes.jsonl
+                        # for actual content — if it's empty the build
+                        # produced nothing and needs to re-run.
+                        nodes_path = idx_dir / "trace_nodes.jsonl"
+                        if not nodes_path.exists() or nodes_path.stat().st_size == 0:
+                            logger.warning(
+                                "Structural manifest exists but "
+                                "trace_nodes.jsonl is missing/empty "
+                                "— treating as incomplete (needs rebuild)"
                             )
                             return i
 
@@ -1070,12 +1075,23 @@ class PipelineOrchestrator:
                         self._resume_queued_pipeline(next_entry.project_id, next_entry.stage)
                     return
 
-                # State machine handles stage_results, phase, error, finished_at
-                matching_run.transition(Event.STAGE_FAILED, detail=error_msg)
-                logger.error(
-                    "Pipeline %s/%s — stage %s failed: %s",
-                    project_id, matching_run.group, stage.value, slot.error,
-                )
+                # Phase 55 fix: Instead of transitioning to a terminal FAILED state
+                # when an error occurs (like an LLM crash), auto-pause the pipeline
+                # so the user can see the error and click "Resume" after fixing it.
+                if matching_run.state == PipelineState.RUNNING:
+                    logger.error(
+                        "Pipeline %s/%s — stage %s failed: %s. Auto-pausing for recovery.",
+                        project_id, matching_run.group, stage.value, slot.error,
+                    )
+                    matching_run.transition(Event.PAUSE, detail=error_msg)
+                    matching_run.transition(Event.STAGE_FLUSHED, detail=error_msg)
+                    matching_run.stage_results[stage.value] = f"failed: {slot.error}"
+                else:
+                    matching_run.transition(Event.STAGE_FAILED, detail=error_msg)
+                    logger.error(
+                        "Pipeline %s/%s — stage %s failed: %s",
+                        project_id, matching_run.group, stage.value, slot.error,
+                    )
 
                 # Phase 45D: release scheduler slot on failure too
                 next_entry = pipeline_scheduler.release(project_id, stage)
@@ -1453,6 +1469,22 @@ class PipelineOrchestrator:
             pass
         return stats
 
+    @staticmethod
+    def _write_atlas_signal(idx_dir) -> None:
+        """D1: Write a timestamp signal file so the MCP server can detect atlas changes.
+
+        The MCP server (separate process) polls this file on each tool_context()
+        call. When the mtime is newer than last check, it invalidates its
+        _rules_file_cache and sends notifications/resources/updated to the host.
+        """
+        import time
+        from pathlib import Path as _Path
+        try:
+            signal_path = _Path(str(idx_dir)) / "atlas_updated.signal"
+            signal_path.write_text(str(time.time()), encoding="utf-8")
+        except Exception:
+            pass  # Non-fatal -- MCP server will still work, just won't get push freshness
+
     def _generate_preliminary_atlas_and_rules(self, project_id: str) -> None:
         """Generate a structural-only atlas and write/update IDE rules files.
 
@@ -1519,6 +1551,9 @@ class PipelineOrchestrator:
                 stats=stats,
                 ide="auto",
             )
+            # D1: Write signal file so MCP server detects atlas change
+            self._write_atlas_signal(idx_dir)
+
             logger.info(
                 "Phase 50: Preliminary atlas + rules file written for %s (%d chars)",
                 project_id, doc.char_count if doc else 0,
@@ -1573,6 +1608,9 @@ class PipelineOrchestrator:
                 stats=stats,
                 ide="auto",
             )
+            # D1: Write signal file so MCP server detects atlas change
+            self._write_atlas_signal(idx_dir)
+
             logger.info(
                 "Phase 50: Rules file updated with full LLM atlas for %s (%d chars, mode=%s)",
                 project_id, doc.char_count, doc.mode,
@@ -1971,6 +2009,20 @@ class PipelineOrchestrator:
                     task_id = STAGE_TASK_ID.get(stage)
                     model_info["task_id"] = task_id
                     manifest.model = model_info
+                elif stage in (StageId.KNOWLEDGE, StageId.DEEP_KNOWLEDGE):
+                    # Phase 55: Inject embedding model info manually
+                    # Embeddings don't use the LLM subsystem so they don't produce _model_info
+                    try:
+                        from codrag.server import _load_ui_config
+                        cfg = _load_ui_config()
+                        embed_cfg = cfg.get("embedding", {})
+                        manifest.model = {
+                            "provider": embed_cfg.get("provider", "ollama"),
+                            "model_name": embed_cfg.get("model", "nomic-embed-text"),
+                            "task_id": "knowledge_embedding"
+                        }
+                    except Exception as e:
+                        logger.warning("Failed to inject embedding model info: %s", e)
 
             # Quality metrics from output file
             output_file = STAGE_OUTPUT_FILE.get(stage)

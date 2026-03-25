@@ -85,11 +85,12 @@ def compute_trace_coverage(
             with open(manifest_path, "r", encoding="utf-8") as f:
                 manifest = json.load(f)
             manifest_hashes = manifest.get("file_hashes") or {}
-            manifest_built_at = manifest.get("built_at")
+            manifest_built_at = manifest.get("built_at") or manifest.get("finished_at")
 
-            # One-time backfill: Rust engine manifests lack file_hashes.
+            # One-time backfill: manifests may lack file_hashes (Rust engine
+            # builds, or Python builds with the v2.0 manifest format).
             # Recover them from trace_nodes.jsonl so coverage isn't lost.
-            if not manifest_hashes and manifest.get("counts", {}).get("nodes", 0) > 0 and nodes_path.exists():
+            if not manifest_hashes and nodes_path.exists() and nodes_path.stat().st_size > 0:
                 logger.info("Backfilling file_hashes from traced nodes (Rust manifest migration)")
                 try:
                     traced_paths: List[str] = []

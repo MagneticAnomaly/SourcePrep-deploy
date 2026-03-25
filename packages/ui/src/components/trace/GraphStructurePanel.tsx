@@ -128,10 +128,17 @@ function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; bui
         <span>{displayNumerator}/{total} files traced</span>
         <span className="font-mono font-semibold text-text">{building ? '99.9%' : `${summary.coverage_pct}%`}</span>
       </div>
+      {/* When building, the bar turns blue (primary) to indicate pipeline in progress.
+           When idle, it's green (success) to indicate everything is complete.
+           This prevents a misleading all-green bar during active pipeline runs
+           where all files are traced but Edge Discovery / Catalogue are still running. */}
       <div className="h-2 rounded-full bg-surface-raised overflow-hidden flex">
         {tracedPct > 0 && (
           <div
-            className="bg-success transition-all duration-500"
+            className={cn(
+              "transition-all duration-500",
+              building ? "bg-primary" : "bg-success"
+            )}
             style={{ width: `${tracedPct}%` }}
             title={`${allTracedCount} traced & embedded`}
           />
@@ -154,14 +161,27 @@ function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; bui
         )}
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-text-muted">
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-success" /> {allTracedCount} traced & embedded
-        </span>
-        {inProgress > 0 ? (
-          <span className="flex items-center gap-1 font-medium text-primary">
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" /> {inProgress} in-progress
-          </span>
-        ) : null}
+        {building ? (
+          <>
+            <span className="flex items-center gap-1 font-medium text-primary">
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" /> {allTracedCount} in-progress
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-success" /> 0 traced & embedded
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-success" /> {allTracedCount} traced & embedded
+            </span>
+            {inProgress > 0 ? (
+              <span className="flex items-center gap-1 font-medium text-primary">
+                <span className="w-2 h-2 rounded-full bg-primary animate-pulse" /> {inProgress} in-progress
+              </span>
+            ) : null}
+          </>
+        )}
         <span className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-warning" /> {displayStale} stale
         </span>
