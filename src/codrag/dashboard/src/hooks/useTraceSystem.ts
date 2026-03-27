@@ -92,6 +92,10 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   resetAtlasRef.current = deps.resetAtlas
 
   // ── State ───────────────────────────────────────────────────
+  /** True while the initial hydration API calls are in-flight after a project switch.
+   *  Used by the pipeline panel to show a loading state instead of the "Initialize" hero. */
+  const [projectLoading, setProjectLoading] = useState(false)
+
   const [indexAutoRebuild, setIndexAutoRebuild] = useState<boolean>(() => {
     try {
       const stored = localStorage.getItem('codrag_index_auto_rebuild')
@@ -144,7 +148,12 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   // Fetches trace status, coverage, and pipeline status when project changes.
   // This replaces the external hydration that was in App.tsx's project-change effect.
   useEffect(() => {
-    if (!selectedProjectId) return
+    // Reset trace state immediately to prevent cross-project contamination
+    setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
+    setTraceCoverage({ summary: null, untraced: [], stale: [], excluded: [], building: false, loading: false })
+    setProjectLoading(true)
+
+    if (!selectedProjectId) { setProjectLoading(false); return }
     let cancelled = false
 
     // Fetch trace status → then pipeline status (sequential so pipeline
@@ -162,6 +171,9 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
         counts: data.counts ?? { nodes: 0, edges: 0 },
         engine: data.engine,
       })
+      // Critical trace status is loaded — clear the loading gate so the
+      // pipeline panel can render the correct initial state.
+      setProjectLoading(false)
       // Fetch coverage directly (can't use fetchTraceCoverage — stale closure)
       if (enabled && selectedProjectId) {
         setTraceCoverage(prev => ({ ...prev, loading: true }))
@@ -190,7 +202,10 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       }
       setCrashedRuns(ps.crashed_runs ?? [])
     }).catch(() => {
-      if (!cancelled) setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
+      if (!cancelled) {
+        setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
+        setProjectLoading(false)
+      }
     })
 
     return () => { cancelled = true }
@@ -236,7 +251,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     if (!selectedProjectId) return
     api.buildTrace(selectedProjectId).then(() => {
       setTraceStatus(prev => ({ ...prev, building: true }))
-    }).catch(() => {})
+    }).catch(() => { })
   }, [api, selectedProjectId])
 
   const handleEnableTrace = useCallback(() => {
@@ -244,7 +259,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     const newConfig = { ...deps.projectConfig, trace: { ...deps.projectConfig.trace, enabled: true } }
     deps.setProjectConfig(newConfig)
     deps.setConfigDirty(true)
-    api.updateProject(selectedProjectId, { config: newConfig }).catch(() => {})
+    api.updateProject(selectedProjectId, { config: newConfig }).catch(() => { })
     setTraceStatus(prev => ({ ...prev, enabled: true }))
   }, [api, selectedProjectId, deps.projectConfig, deps.setProjectConfig, deps.setConfigDirty])
 
@@ -254,7 +269,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     const newConfig = { ...deps.projectConfig, trace: { ...deps.projectConfig.trace, paused: newPaused } }
     deps.setProjectConfig(newConfig)
     deps.setConfigDirty(true)
-    api.updateProject(selectedProjectId, { config: newConfig }).catch(() => {})
+    api.updateProject(selectedProjectId, { config: newConfig }).catch(() => { })
   }, [api, selectedProjectId, deps.projectConfig, deps.setProjectConfig, deps.setConfigDirty])
 
   const handleTraceAll = useCallback(() => {
@@ -262,7 +277,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     api.buildTrace(selectedProjectId).then(() => {
       setTraceStatus(prev => ({ ...prev, building: true }))
       setTraceCoverage(prev => ({ ...prev, building: true }))
-    }).catch(() => {})
+    }).catch(() => { })
   }, [api, selectedProjectId])
 
   const handleRetraceStale = useCallback(() => {
@@ -273,14 +288,14 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     if (!selectedProjectId) return
     api.updateTraceIgnore(selectedProjectId, 'add', [pattern]).then(() => {
       fetchTraceCoverage()
-    }).catch(() => {})
+    }).catch(() => { })
   }, [api, selectedProjectId, fetchTraceCoverage])
 
   const handleRemoveExcludePattern = useCallback((pattern: string) => {
     if (!selectedProjectId) return
     api.updateTraceIgnore(selectedProjectId, 'remove', [pattern]).then(() => {
       fetchTraceCoverage()
-    }).catch(() => {})
+    }).catch(() => { })
   }, [api, selectedProjectId, fetchTraceCoverage])
 
   // ── Pipeline handlers ──────────────────────────────────────
@@ -294,7 +309,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
         const newConfig = { ...deps.projectConfig, trace: { ...deps.projectConfig?.trace, enabled: true } }
         deps.setProjectConfig(newConfig)
         deps.setConfigDirty(true)
-        api.updateProject(selectedProjectId, { config: newConfig }).catch(() => {})
+        api.updateProject(selectedProjectId, { config: newConfig }).catch(() => { })
       }
       setTraceStatus(prev => ({ ...prev, enabled: true, building: true }))
       await api.runPipelineFast(selectedProjectId)
@@ -346,7 +361,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
             const newCfg = { ...deps.projectConfig, trace: { ...deps.projectConfig?.trace, enabled: true } }
             deps.setProjectConfig(newCfg)
             deps.setConfigDirty(true)
-            api.updateProject(selectedProjectId, { config: newCfg }).catch(() => {})
+            api.updateProject(selectedProjectId, { config: newCfg }).catch(() => { })
           }
           setTraceStatus(prev => ({ ...prev, enabled: true, building: true }))
           await api.runPipelineFast(selectedProjectId)
@@ -432,7 +447,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       setTimeout(() => {
         api.getTraceCoverage(selectedProjectId).then((data) => {
           setTraceCoverage({ summary: data.summary, untraced: data.untraced, stale: data.stale, excluded: data.excluded ?? [], building: false, loading: false })
-        }).catch(() => {})
+        }).catch(() => { })
       }, 300)
     } catch (e) {
       onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t destroy graph data.', 'error')
@@ -457,7 +472,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
         refreshFileTreeRef.current?.(selectedProjectId)
         api.getTraceCoverage(selectedProjectId).then((data) => {
           setTraceCoverage({ summary: data.summary, untraced: data.untraced, stale: data.stale, excluded: data.excluded ?? [], building: false, loading: false })
-        }).catch(() => {})
+        }).catch(() => { })
       }, 300)
     } catch (e) {
       onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t reset project data.', 'error')
@@ -484,7 +499,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
             counts: data.counts ?? { nodes: 0, edges: 0 },
             engine: data.engine,
           })
-        }).catch(() => {})
+        }).catch(() => { })
         setTimeout(() => fetchTraceCoverage(), 500)
       }
     }
@@ -521,14 +536,18 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     const fast = pipelineEvent.fast_sync
 
     // Update trace building flag from fast_sync phase
-    const fastRunning = fast?.phase === 'running'
+    // Broad "active" — pipeline is doing something (including waiting for
+    // compute slots between stages).  Keeps building=true during transient
+    // states so the UI doesn't momentarily show idle stage evaluations.
+    const ACTIVE_PHASES = new Set(['running', 'queued', 'pausing', 'recovering'])
+    const fastActive = ACTIVE_PHASES.has(fast?.phase ?? '')
     const prevFastPhase = prev?.fast_sync?.phase
 
-    // When fast sync transitions running→completed, don't clear building yet;
+    // When fast sync transitions to a terminal state, don't clear building yet;
     // the completion handler below will clear it after fetching the real status.
-    const fastJustCompleted = fast?.phase === 'completed' && prevFastPhase === 'running'
+    const fastJustCompleted = fast?.phase === 'completed' && (prevFastPhase === 'running' || prevFastPhase === 'queued' || prevFastPhase === 'pausing')
     if (!fastJustCompleted) {
-      setTraceStatus(p => ({ ...p, building: fastRunning }))
+      setTraceStatus(p => ({ ...p, building: fastActive }))
     }
 
     // Detect completion of structural stage to update coverage immediately
@@ -536,31 +555,33 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     const prevFastStage = prev?.fast_sync?.current_stage
 
     if (prevFastStage === 'structural' && currentFastStage && currentFastStage !== 'structural') {
-        // Structural stage just finished → refresh coverage now
-        // Retry a few times to handle filesystem latency (hashing backfill race)
-        const refresh = () => {
-            void fetchTraceCoverage()
-            if (selectedProjectId) {
-                api.getTraceStatus(selectedProjectId).then((data) => {
-                    setTraceStatus(prev => ({
-                        ...prev,
-                        enabled: data.enabled ?? false,
-                        exists: data.exists ?? false,
-                        counts: data.counts ?? { nodes: 0, edges: 0 },
-                        engine: data.engine,
-                    }))
-                }).catch(() => {})
-            }
+      // Structural stage just finished → refresh coverage now
+      // Retry a few times to handle filesystem latency (hashing backfill race)
+      const refresh = () => {
+        void fetchTraceCoverage()
+        if (selectedProjectId) {
+          api.getTraceStatus(selectedProjectId).then((data) => {
+            setTraceStatus(prev => ({
+              ...prev,
+              enabled: data.enabled ?? false,
+              exists: data.exists ?? false,
+              counts: data.counts ?? { nodes: 0, edges: 0 },
+              engine: data.engine,
+            }))
+          }).catch(() => { })
         }
-        refresh()
-        setTimeout(refresh, 1000)
-        setTimeout(refresh, 3000)
+      }
+      refresh()
+      setTimeout(refresh, 1000)
+      setTimeout(refresh, 3000)
     }
 
     // Fast sync completed → refresh trace status + coverage + file tree
     // Retry a few times to handle filesystem latency (files may not be
     // flushed to disk by the time the SSE event arrives).
-    if (fast?.phase === 'completed' && prevFastPhase === 'running') {
+    // State machine allows queued→completed transitions, so check broadly.
+    const prevFastWasActive = prevFastPhase === 'running' || prevFastPhase === 'queued' || prevFastPhase === 'pausing'
+    if (fast?.phase === 'completed' && prevFastWasActive) {
       const refreshTraceOnComplete = () => {
         void fetchTraceCoverage()
         api.getTraceStatus(selectedProjectId).then((data) => {
@@ -582,7 +603,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       setTimeout(() => refreshFileTreeRef.current?.(selectedProjectId), 2000)
     }
 
-    if (fast?.phase === 'failed' && prevFastPhase === 'running') {
+    if (fast?.phase === 'failed' && prevFastWasActive) {
       setTraceStatus(p => ({ ...p, building: false }))
     }
 
@@ -625,7 +646,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       }).catch(() => {
         // Status fetch failed — try starting anyway
         if (cancelled) return
-        startWatchRef.current?.().catch(() => {})
+        startWatchRef.current?.().catch(() => { })
       })
     }, 2000) // 2s delay for license sync to complete
 
@@ -643,6 +664,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
 
   return {
     // State (read-only — hook owns hydration, no external setters)
+    projectLoading,
     traceStatus,
     traceCoverage,
     indexAutoRebuild,

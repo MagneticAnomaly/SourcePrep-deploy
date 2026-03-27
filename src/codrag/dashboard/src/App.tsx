@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { FileText, Settings, AlertCircle, AlertTriangle, X } from 'lucide-react'
 import type { AtlasStatus, ActivityHeatmapData, UserRole, PipelineProvenance } from '@codrag/ui'
 import {
@@ -42,6 +42,7 @@ import { useProjectManager } from './hooks/useProjectManager'
 import { useDashboardPanels } from './hooks/useDashboardPanels'
 import { useAuditSystem } from './hooks/useAuditSystem'
 import { useSpaghettiSystem } from './hooks/useSpaghettiSystem'
+import { useGoalpostsSystem } from './hooks/useGoalpostsSystem'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
@@ -170,9 +171,24 @@ function App() {
     setSelectedProjectId, refreshProjects, refreshStatus,
     handleAddProject, handleDeleteProject, handleBuild,
     handleSaveConfig, handleProjectConfigChange, handleDetectStack,
-    handleToggleActive,
+    handleToggleActive, handleToggleStar, handleCyclePriority,
     setProjectConfig, setConfigDirty,
   } = project
+
+  // Derive which project (if any) holds exclusive priority
+  const exclusiveProjectId = useMemo(() => {
+    const exc = projectSummaries.find(p => p.priority_level === 'exclusive');
+    return exc?.id ?? null;
+  }, [projectSummaries]);
+
+  const sortedProjectSummaries = useMemo(() => {
+    const levelOrder = { exclusive: 0, boost: 1, none: 2 };
+    return [...projectSummaries].sort((a, b) => {
+      const al = levelOrder[a.priority_level ?? (a.is_starred ? 'boost' : 'none')];
+      const bl = levelOrder[b.priority_level ?? (b.is_starred ? 'boost' : 'none')];
+      return al - bl; // higher priority first
+    })
+  }, [projectSummaries])
 
   // ── Search + Context (hook) ─────────────────────────────────
   const {
@@ -215,6 +231,7 @@ function App() {
     setDeepAnalysisStatus,
     fetchDeepAnalysisStatus,
     budgetUsage,
+    tokenUsageData,
   } = useDeepAnalysis(selectedProjectId, { onError: (msg, variant) => showToast(msg, variant) })
 
   // ── Audit system (Phase 43) ────────────────────────────────
@@ -222,6 +239,9 @@ function App() {
 
   // ── Spaghetti Finder (Phase 52) ─────────────────────────────
   const spaghetti = useSpaghettiSystem(selectedProjectId)
+
+  // ── Goalposts (Phase 57) ────────────────────────────────────
+  const goalposts = useGoalpostsSystem(selectedProjectId)
 
   // ── Event Stream ───────────────────────────────────────────
   const eventsUrl = import.meta.env.DEV
@@ -274,6 +294,7 @@ function App() {
 
   // ── Trace system (hook) ───────────────────────────────────────
   const {
+    projectLoading,
     traceStatus,
     traceCoverage,
     indexAutoRebuild, enrichmentAutoConfig,
@@ -616,7 +637,7 @@ function App() {
       pinnedPaths, pinnedFiles, handlePinFile, handleUnpinFile, handleLoadFileContent,
     },
     trace: {
-      traceStatus, traceCoverage, indexAutoRebuild, handleIndexAutoRebuildChange,
+      traceStatus, traceCoverage, projectLoading, indexAutoRebuild, handleIndexAutoRebuildChange,
       enrichmentAutoConfig, handleEnrichmentAutoConfigChange: handleSyncedEnrichmentAutoConfigChange,
       handleSearchTrace, handleGetTraceNode, handleGetTraceNeighbors,
       handleBuildTrace, handleEnableTrace, handleTogglePause,
@@ -653,10 +674,11 @@ function App() {
       onComputeNodeDelete: handleComputeNodeDelete,
       onEndpointNodeChange: handleEndpointNodeChange,
     },
-    deepAnalysis: { deepAnalysisSchedule, setDeepAnalysisSchedule, budgetUsage },
+    deepAnalysis: { deepAnalysisSchedule, setDeepAnalysisSchedule, budgetUsage, tokenUsageData },
     atlas: { atlasStatus },
     audit,
     spaghetti,
+    goalposts,
     activityData,
     adminPolicy,
     seatStatus,
@@ -798,7 +820,7 @@ function App() {
           >
             {!sidebarCollapsed && (
               <ProjectList
-                projects={projectSummaries}
+                projects={sortedProjectSummaries}
                 selectedProjectId={selectedProjectId ?? undefined}
                 onProjectSelect={setSelectedProjectId}
                 onAddProject={() => setAddModalOpen(true)}
@@ -813,6 +835,9 @@ function App() {
                   }
                   handleToggleActive(projectId, active, touch)
                 }}
+                onToggleStar={handleToggleStar}
+                onCyclePriority={handleCyclePriority}
+                exclusiveProjectId={exclusiveProjectId}
                 isPro={isPro}
                 extraActions={
                   dashboardLayout && layoutApiRef.current ? (

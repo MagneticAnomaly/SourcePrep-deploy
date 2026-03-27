@@ -233,6 +233,16 @@ export interface ApiClient {
 
   // Spaghetti Finder (Phase 52)
   getSpaghettiScores(projectId: string, opts?: { tab?: string; limit?: number; refresh?: boolean }): Promise<import('../types').SpaghettiResult>;
+
+  // Token Telemetry (Phase 56)
+  getTokenUsage(projectId: string, since?: number): Promise<{ usage: Record<string, { prompt_tokens: number; completion_tokens: number; total_tokens: number }> }>;
+
+  // Goalposts (Phase 57)
+  getGoalposts(projectId: string): Promise<import('../types').GoalpostsResponse>;
+  triggerGoalpostsGenerate(projectId: string): Promise<{ status: string; message: string }>;
+  updateGoalpostsIntent(projectId: string, intent: string): Promise<{ product_intent: string }>;
+  updateGoalpostProposal(projectId: string, proposalId: string, state: 'approved' | 'dismissed'): Promise<{ id: string; state: string }>;
+  answerGoalpostQuestion(projectId: string, questionId: string, answer: string): Promise<{ id: string; answered: boolean }>;
 }
 
 export interface ApiClientConfig {
@@ -852,6 +862,13 @@ export class CodragApiClient implements ApiClient {
     return this.requestEnvelope<{ tokens_used: number; max_tokens: number; window_minutes: number; remaining: number; window_resets_in: number }>(`/projects/${projectId}/pipeline/budget`);
   }
 
+  async getTokenUsage(projectId: string, since?: number): Promise<{ usage: Record<string, { prompt_tokens: number; completion_tokens: number; total_tokens: number }> }> {
+    return this.requestEnvelope<{ usage: Record<string, { prompt_tokens: number; completion_tokens: number; total_tokens: number }> }>(
+      `/projects/${projectId}/token-usage`,
+      { query: since !== undefined ? { since } : undefined }
+    );
+  }
+
   // ── Pipeline Crash Protection (Phase 25) ───────────────────────
 
   async getCrashedRuns(projectId?: string): Promise<{ crashed_runs: CrashedPipelineRun[]; count: number }> {
@@ -1103,6 +1120,39 @@ export class CodragApiClient implements ApiClient {
 
   async exportAuditLog(format: 'json' | 'csv' = 'json'): Promise<any> {
     return this.requestEnvelope<any>(`/admin/audit-log/export?format=${format}`);
+  }
+
+  // ── Goalposts (Phase 57) ──────────────────────────────────────
+
+  async getGoalposts(projectId: string): Promise<import('../types').GoalpostsResponse> {
+    return this.requestEnvelope<import('../types').GoalpostsResponse>(`/projects/${projectId}/goalposts`);
+  }
+
+  async triggerGoalpostsGenerate(projectId: string): Promise<{ status: string; message: string }> {
+    return this.requestEnvelope<{ status: string; message: string }>(`/projects/${projectId}/goalposts/generate`, {
+      method: 'POST',
+    });
+  }
+
+  async updateGoalpostsIntent(projectId: string, intent: string): Promise<{ product_intent: string }> {
+    return this.requestEnvelope<{ product_intent: string }>(`/projects/${projectId}/goalposts/intent`, {
+      method: 'PUT',
+      body: { product_intent: intent },
+    });
+  }
+
+  async updateGoalpostProposal(projectId: string, proposalId: string, state: 'approved' | 'dismissed'): Promise<{ id: string; state: string }> {
+    return this.requestEnvelope<{ id: string; state: string }>(`/projects/${projectId}/goalposts/proposals/${encodeURIComponent(proposalId)}`, {
+      method: 'PATCH',
+      body: { state },
+    });
+  }
+
+  async answerGoalpostQuestion(projectId: string, questionId: string, answer: string): Promise<{ id: string; answered: boolean }> {
+    return this.requestEnvelope<{ id: string; answered: boolean }>(`/projects/${projectId}/goalposts/questions/${encodeURIComponent(questionId)}/answer`, {
+      method: 'POST',
+      body: { answer },
+    });
   }
 }
 

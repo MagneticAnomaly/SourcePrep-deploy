@@ -619,6 +619,7 @@ class EpistemicEnricher:
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
         current_progress: int = 0,
         total_progress: int = 0,
+        cancel_token: Optional[Any] = None,
     ) -> Tuple[int, int]:
         """Enrich a single tier of nodes using batched LLM calls.
 
@@ -659,7 +660,7 @@ class EpistemicEnricher:
         }
 
         from .batch_profiles import get_batch_concurrency
-        _concurrency = get_batch_concurrency(self.llm.provider)
+        _concurrency = get_batch_concurrency(self.llm.provider, model=self.llm.model)
 
         # Pre-build all code batch payloads
         code_batches = []
@@ -697,6 +698,11 @@ class EpistemicEnricher:
                     think=False,
                 )
 
+                if len(items) > 1:
+                    num_predict = num_predict * len(items) + 500
+                    from codrag.core.context_config import compute_num_ctx
+                    num_ctx = compute_num_ctx(prompt_tokens, num_predict, self.llm.model)
+
                 text, tokens = self.llm.generate(
                     prompt, system=BATCHED_EPISTEMIC_CODE_SYSTEM,
                     num_predict=num_predict, num_ctx=num_ctx,
@@ -709,6 +715,7 @@ class EpistemicEnricher:
                 return []
 
         # Dispatch code batches concurrently
+        _cancelled = False
         with ThreadPoolExecutor(max_workers=min(_concurrency, len(code_batches) or 1)) as pool:
             future_to_items = {
                 pool.submit(_call_code_batch, items): items
@@ -750,6 +757,18 @@ class EpistemicEnricher:
                         failed += 1
                 if progress_callback:
                     progress_callback("epistemic_enrichment", current_progress + done + failed, total_progress)
+
+                # Cooperative cancel check after each completed batch
+                if cancel_token and cancel_token.is_cancelled:
+                    logger.info("Epistemic code batch cancelled after %d done, %d failed — returning early", done, failed)
+                    _cancelled = True
+                    # Cancel remaining queued futures
+                    for f in future_to_items:
+                        f.cancel()
+                    break
+
+        if _cancelled:
+            return done, failed
 
         # Pre-build all doc batch payloads
         doc_batches = []
@@ -794,10 +813,16 @@ class EpistemicEnricher:
                     think=False,
                 )
 
+                if len(items) > 1:
+                    num_predict = num_predict * len(items) + 500
+                    from codrag.core.context_config import compute_num_ctx
+                    num_ctx = compute_num_ctx(prompt_tokens, num_predict, self.llm.model)
+
                 text, tokens = self.llm.generate(
                     prompt, system=BATCHED_EPISTEMIC_DOC_SYSTEM,
                     num_predict=num_predict, num_ctx=num_ctx,
                     response_schema=doc_schema,
+                    think=False,
                     max_chars=batched_max_chars("epistemic", len(items)),
                 )
                 return BatchedResponseParser.parse(text, expected_count=len(items))
@@ -850,6 +875,13 @@ class EpistemicEnricher:
                         failed += 1
                 if progress_callback:
                     progress_callback("epistemic_enrichment", current_progress + done + failed, total_progress)
+
+                # Cooperative cancel check after each completed batch
+                if cancel_token and cancel_token.is_cancelled:
+                    logger.info("Epistemic doc batch cancelled after %d done, %d failed — returning early", done, failed)
+                    for f in future_to_items:
+                        f.cancel()
+                    break
 
         return done, failed
 
@@ -946,6 +978,7 @@ class EpistemicEnricher:
                     progress_callback=progress_callback,
                     current_progress=existing_count + done + failed,
                     total_progress=total_file_count,
+                    cancel_token=cancel_token,
                 )
                 done += tier_done
                 failed += tier_failed

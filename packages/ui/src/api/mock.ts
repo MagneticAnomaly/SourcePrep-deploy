@@ -704,6 +704,10 @@ export class MockApiClient implements ApiClient {
   async getSpaghettiScores(_projectId: string, _opts?: { tab?: string; limit?: number; refresh?: boolean }): Promise<import('../types').SpaghettiResult> {
     return { file_count: 0, scored_count: 0, severity_counts: {}, duration_ms: 0, tab: _opts?.tab ?? 'worst', files: [] };
   }
+
+  async getTokenUsage(_projectId: string, _since?: number): Promise<{ usage: Record<string, { prompt_tokens: number; completion_tokens: number; total_tokens: number }> }> {
+    return { usage: {} };
+  }
 }
 
 export const createMockApiClient = (): ApiClient => new MockApiClient();

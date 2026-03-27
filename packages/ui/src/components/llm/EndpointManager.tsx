@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { cn } from '../../lib/utils';
 import type { SavedEndpoint, LLMProvider, EndpointTestResult, ComputeNode, AdminPolicy } from '../../types';
-import { Plus, Trash2, Edit2, Play, CheckCircle, AlertCircle, Server, Lock, Wand2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, Play, CheckCircle, AlertCircle, Server, Lock, Wand2, Zap } from 'lucide-react';
 import { Button } from '../primitives/Button';
 import { Select } from '../primitives/Select';
 import { InfoTooltip } from '../primitives/InfoTooltip';
@@ -46,17 +46,20 @@ export function EndpointManager({
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, EndpointTestResult>>({});
   
-  // Form state
   const [formName, setFormName] = useState('');
   const [formProvider, setFormProvider] = useState<LLMProvider>('ollama');
   const [formUrl, setFormUrl] = useState('');
   const [formApiKey, setFormApiKey] = useState('');
+  const [formLocalConcurrency, setFormLocalConcurrency] = useState(1);
+  const [formCloudConcurrency, setFormCloudConcurrency] = useState(1);
 
   const resetForm = () => {
     setFormName('');
     setFormProvider('ollama');
     setFormUrl('');
     setFormApiKey('');
+    setFormLocalConcurrency(1);
+    setFormCloudConcurrency(1);
     setShowAddForm(false);
     setEditingId(null);
   };
@@ -68,6 +71,8 @@ export function EndpointManager({
       provider: formProvider,
       url: formUrl.trim(),
       api_key: formApiKey.trim() || undefined,
+      local_concurrency: formLocalConcurrency,
+      cloud_concurrency: formCloudConcurrency,
     });
     resetForm();
   };
@@ -78,6 +83,8 @@ export function EndpointManager({
     setFormProvider(ep.provider);
     setFormUrl(ep.url);
     setFormApiKey(ep.api_key || '');
+    setFormLocalConcurrency(ep.local_concurrency ?? 1);
+    setFormCloudConcurrency(ep.cloud_concurrency ?? 1);
     setShowAddForm(false);
   };
 
@@ -89,6 +96,8 @@ export function EndpointManager({
       provider: formProvider,
       url: formUrl.trim(),
       api_key: formApiKey.trim() || undefined,
+      local_concurrency: formLocalConcurrency,
+      cloud_concurrency: formCloudConcurrency,
     });
     resetForm();
   };
@@ -277,20 +286,82 @@ export function EndpointManager({
                       )}
                     </div>
                   )}
-                  <div className="flex gap-2 pt-2 justify-end">
-                    <Button 
-                      onClick={resetForm}
-                      variant="outline"
-                      size="sm"
-                    >
-                      Cancel
-                    </Button>
-                    <Button 
-                      onClick={handleSaveEdit}
-                      size="sm"
-                    >
-                      Save Changes
-                    </Button>
+                  {/* Phase 56: Concurrency settings */}
+                  <div className="pt-2 border-t border-border/50 mt-1">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Zap className="w-3.5 h-3.5 text-primary" />
+                      <label className="text-xs font-medium text-text-muted">Concurrency</label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {!LOCAL_PROVIDERS.has(formProvider) ? (
+                        /* Cloud provider: single concurrency control */
+                        <div className="col-span-2">
+                          <label className="block text-[10px] text-text-subtle mb-1">Concurrent API Requests</label>
+                          <Select
+                            size="sm"
+                            value={String(formCloudConcurrency)}
+                            onChange={(e) => setFormCloudConcurrency(Number(e.target.value))}
+                            options={[1,2,3,4,5,6,8,10].map(n => ({ value: String(n), label: String(n) }))}
+                            className="w-full"
+                          />
+                          <p className="text-[9px] text-text-subtle mt-0.5">Max parallel API calls across all pipeline stages</p>
+                        </div>
+                      ) : (
+                        /* Ollama / LM Studio: local + cloud concurrency */
+                        <>
+                          <div>
+                            <label className="block text-[10px] text-text-subtle mb-1">Local GPU</label>
+                            <Select
+                              size="sm"
+                              value={String(formLocalConcurrency)}
+                              onChange={(e) => setFormLocalConcurrency(Number(e.target.value))}
+                              options={[1,2,3,4].map(n => ({ value: String(n), label: String(n) }))}
+                              className="w-full"
+                            />
+                            <p className="text-[9px] text-text-subtle mt-0.5">Models in VRAM</p>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-text-subtle mb-1">Cloud Models</label>
+                            <Select
+                              size="sm"
+                              value={String(formCloudConcurrency)}
+                              onChange={(e) => setFormCloudConcurrency(Number(e.target.value))}
+                              options={[0,1,2,3,4,5,6,8,10].map(n => ({ value: String(n), label: n === 0 ? 'Off' : String(n) }))}
+                              className="w-full"
+                            />
+                            <p className="text-[9px] text-text-subtle mt-0.5">Proxied (kimi, gemini…)</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    {formProvider === 'ollama' && (formLocalConcurrency > 1 || formCloudConcurrency > 1) && (
+                      <div className="mt-4 p-2.5 rounded bg-amber-500/10 border border-amber-500/20 flex gap-2 items-start text-amber-500/90 leading-tight">
+                        <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                        <div className="text-[11px]">
+                          <strong>Ollama requires manual startup configuration to run concurrently.</strong> Ensure you started your Ollama server with <code className="bg-amber-500/20 px-1 py-0.5 rounded font-mono mx-0.5 text-[10px]">OLLAMA_NUM_PARALLEL={Math.max(formLocalConcurrency, formCloudConcurrency)}</code>. Otherwise, requests will queue sequentially.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-end gap-1 pt-2">
+                    <div className="flex gap-2 justify-end w-full">
+                      <Button 
+                        onClick={resetForm}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={handleSaveEdit}
+                        size="sm"
+                      >
+                        Update
+                      </Button>
+                    </div>
+                    <span className="text-[10px] text-text-subtle mr-1">
+                      (Remember to click "Save Settings" below)
+                    </span>
                   </div>
                 </div>
               ) : (
@@ -446,6 +517,53 @@ export function EndpointManager({
               )}
             </div>
           )}
+          {/* Phase 56: Concurrency settings */}
+          <div className="pt-2 border-t border-border/50 mt-1">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Zap className="w-3.5 h-3.5 text-primary" />
+              <label className="text-xs font-medium text-text-muted">Concurrency</label>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {!LOCAL_PROVIDERS.has(formProvider) ? (
+                <div className="col-span-2">
+                  <label className="block text-[10px] text-text-subtle mb-1">Concurrent API Requests</label>
+                  <Select
+                    size="sm"
+                    value={String(formCloudConcurrency)}
+                    onChange={(e) => setFormCloudConcurrency(Number(e.target.value))}
+                    options={[1,2,3,4,5,6,8,10].map(n => ({ value: String(n), label: String(n) }))}
+                    className="w-full"
+                  />
+                  <p className="text-[9px] text-text-subtle mt-0.5">Max parallel API calls across all pipeline stages</p>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-[10px] text-text-subtle mb-1">Local GPU</label>
+                    <Select
+                      size="sm"
+                      value={String(formLocalConcurrency)}
+                      onChange={(e) => setFormLocalConcurrency(Number(e.target.value))}
+                      options={[1,2,3,4].map(n => ({ value: String(n), label: String(n) }))}
+                      className="w-full"
+                    />
+                    <p className="text-[9px] text-text-subtle mt-0.5">Models in VRAM</p>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-text-subtle mb-1">Cloud Models</label>
+                    <Select
+                      size="sm"
+                      value={String(formCloudConcurrency)}
+                      onChange={(e) => setFormCloudConcurrency(Number(e.target.value))}
+                      options={[0,1,2,3,4,5,6,8,10].map(n => ({ value: String(n), label: n === 0 ? 'Off' : String(n) }))}
+                      className="w-full"
+                    />
+                    <p className="text-[9px] text-text-subtle mt-0.5">Proxied (kimi, gemini…)</p>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
           <div className="flex gap-2 pt-2">
             <Button 
               onClick={handleAdd}

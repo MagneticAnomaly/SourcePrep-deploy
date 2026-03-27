@@ -71,6 +71,10 @@ export interface GraphEnrichmentPipelineProps {
   fastPaused?: boolean;
   /** True if the deep enrichment group is paused */
   deepPaused?: boolean;
+  /** Explicit stage ID where fast sync was paused (from backend) */
+  fastPausedStage?: string;
+  /** Explicit stage ID where deep enrichment was paused (from backend) */
+  deepPausedStage?: string;
   augmenting?: boolean;
   validating?: boolean;
   deepAnalyzing?: boolean;
@@ -97,6 +101,8 @@ export interface GraphEnrichmentPipelineProps {
   staleCounts?: { total: number; stale: number };
   /** Phase 49: per-stage provenance data keyed by output filename or stage_id */
   provenance?: Record<string, StageProvenance>;
+  /** True while the project is switching and initial data hasn't loaded yet */
+  projectLoading?: boolean;
   className?: string;
 }
 
@@ -182,17 +188,25 @@ function formatProvenanceLine(p: StageProvenance): string {
       .filter(m => m.model.startsWith('synthetic:'))
       .reduce((sum, m) => sum + m.count, 0);
 
-    if (realModels.length >= 2) {
-      // Multi-model: show split (e.g. "qwen3:14b (60%) + qwen3:8b (40%)")
+    // Phase 53: If p.model matches a model in the breakdown, prefer showing
+    // just p.model. Multi-model breakdowns from incremental runs are misleading
+    // because old entries from previous runs inflate the stale model's percentage.
+    const latestModelInBreakdown = p.model && realModels.some(m => m.model === p.model);
+
+    if (realModels.length >= 2 && !latestModelInBreakdown) {
+      // Multi-model within the same run: show split
       const sorted = [...realModels].sort((a, b) => b.count - a.count);
       parts.push(`${sorted[0].model} (${sorted[0].percentage}%) + ${sorted[1].model} (${sorted[1].percentage}%)${sorted.length > 2 ? ` +${sorted.length - 2} more` : ''}`);
-    } else if (realModels.length === 1) {
-      // Single real model (+ some synthetic) — show just the model name
-      parts.push(p.provider ? `${realModels[0].model} via ${p.provider}` : realModels[0].model);
     } else if (p.model) {
-      // All synthetic but p.model exists
+      // Latest run model is known — show it as the primary label
       parts.push(p.provider ? `${p.model} via ${p.provider}` : p.model);
+    } else if (realModels.length === 1) {
+      parts.push(p.provider ? `${realModels[0].model} via ${p.provider}` : realModels[0].model);
     }
+
+    // Show total augmented count from breakdown
+    const totalItems = p.model_breakdown.reduce((sum, m) => sum + m.count, 0);
+    if (totalItems > 0) parts.push(`${totalItems} aug.`);
 
     if (syntheticCount > 0) {
       parts.push(`${syntheticCount} auto-filled`);
@@ -686,7 +700,10 @@ export function GraphEnrichmentPipeline({
   isPaused = false,
   fastPaused: fastPausedProp,
   deepPaused: deepPausedProp,
+  fastPausedStage,
+  deepPausedStage,
   provenance,
+  projectLoading,
   className,
 }: GraphEnrichmentPipelineProps) {
   // Per-group paused flags (fall back to legacy isPaused for backward compat)
@@ -872,7 +889,7 @@ export function GraphEnrichmentPipeline({
       id: 'inferred_edges', label: 'Edge Discovery', icon: Code2, modelTag: 'Code',
       state: inferredEdgesState, stats: inferredEdgesStats,
       progress: inferredEdgesState === 'running' && inferredEdges?.slot_progress?.total
-        ? Math.round((inferredEdges.slot_progress.current / inferredEdges.slot_progress.total) * 100)
+        ? Math.min(100, Math.round((inferredEdges.slot_progress.current / inferredEdges.slot_progress.total) * 100))
         : undefined,
     },
     { id: 'catalogue', label: 'Fast Catalogue', icon: Database, modelTag: 'Fast', state: catalogueState, stats: catalogueStats, progress: catalogueProgress },
@@ -881,7 +898,7 @@ export function GraphEnrichmentPipeline({
       id: 'knowledge', label: 'Knowledge Embedding', icon: Database,
       state: fastKnowledgeState, stats: fastKnowledgeStats,
       progress: fastKnowledgeState === 'running'
-        ? (knowledge?.progress_total ? Math.round((knowledge.progress_current ?? 0) / knowledge.progress_total * 100) : 0)
+        ? (knowledge?.progress_total ? Math.min(100, Math.round((knowledge.progress_current ?? 0) / knowledge.progress_total * 100)) : 0)
         : undefined,
     },
   ];
@@ -891,7 +908,7 @@ export function GraphEnrichmentPipeline({
       id: 'enrichment', label: 'Deep Reasoning', icon: Brain, modelTag: 'Thinking',
       state: enrichmentState, stats: enrichmentStats,
       progress: (epistemicRunning || epistemic?.running) && epistemic?.progress_total
-        ? Math.round((epistemic.progress_current ?? 0) / epistemic.progress_total * 100)
+        ? Math.min(100, Math.round((epistemic.progress_current ?? 0) / epistemic.progress_total * 100))
         : (enrichmentState === 'running' ? 0 : undefined),
     },
     {
@@ -912,14 +929,14 @@ export function GraphEnrichmentPipeline({
         return 'Analyzed';
       })(),
       progress: (groupReasoningRunning || groupReasoning?.slot_phase === 'running' || groupReasoning?.running) && groupReasoning?.progress_total
-        ? Math.round((groupReasoning.progress_current ?? 0) / groupReasoning.progress_total * 100)
+        ? Math.min(100, Math.round((groupReasoning.progress_current ?? 0) / groupReasoning.progress_total * 100))
         : undefined,
     },
     {
       id: 'clustering', label: 'Module Synthesis', icon: Layers, modelTag: 'Thinking',
       state: clusteringState, stats: clusteringStats,
       progress: (clusterRunning || modules?.running) && modules?.progress_total
-        ? Math.round((modules.progress_current ?? 0) / modules.progress_total * 100)
+        ? Math.min(100, Math.round((modules.progress_current ?? 0) / modules.progress_total * 100))
         : (clusteringState === 'running' ? 0 : undefined),
     },
     { id: 'atlas', label: 'Atlas Building', icon: Map, modelTag: 'Thinking', state: atlasState, stats: atlasStats },
@@ -928,7 +945,7 @@ export function GraphEnrichmentPipeline({
       id: 'deep_knowledge', label: 'Deep Knowledge Embedding', icon: Database,
       state: deepKnowledgeState, stats: deepKnowledgeStats,
       progress: deepKnowledgeState === 'running'
-        ? (knowledge?.progress_total ? Math.round((knowledge.progress_current ?? 0) / knowledge.progress_total * 100) : 0)
+        ? (knowledge?.progress_total ? Math.min(100, Math.round((knowledge.progress_current ?? 0) / knowledge.progress_total * 100)) : 0)
         : undefined,
     },
   ];
@@ -962,6 +979,16 @@ export function GraphEnrichmentPipeline({
 
   // ── Hero state: trace not yet built ──────────────────────────
   const traceNotBuilt = !trace.exists && !trace.building;
+
+  // ── Loading gate: project is switching, don't show hero or stale data ──
+  if (projectLoading) {
+    return (
+      <div className={cn("flex flex-col items-center justify-center gap-3 py-12 px-4", className)}>
+        <Loader2 className="w-8 h-8 text-text-muted/40 animate-spin" />
+        <p className="text-xs text-text-muted">Loading project...</p>
+      </div>
+    );
+  }
 
   if (traceNotBuilt) {
     return (
@@ -1012,7 +1039,7 @@ export function GraphEnrichmentPipeline({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {fastPaused && onResumePipeline && !fastRunning && (
+          {!fastAuto && fastPaused && onResumePipeline && !fastRunning && (
             <button
               onClick={() => onResumePipeline('fast_sync')}
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
@@ -1051,9 +1078,11 @@ export function GraphEnrichmentPipeline({
       </div>
       <div className="flex flex-col gap-0.5 ml-1">
         {fastStages.map((stage, idx) => {
-          // When paused, only the first non-complete stage is the paused one
-          const isStagePaused = !!(fastPaused && !fastRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
-            fastStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
+          // Use explicit backend stage ID if available; fall back to heuristic
+          const isStagePaused = fastPausedStage
+            ? !!(fastPaused && !fastRunning && stage.id === fastPausedStage)
+            : !!(fastPaused && !fastRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
+              fastStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
           return (
             <StageRow
               key={stage.id}
@@ -1074,7 +1103,7 @@ export function GraphEnrichmentPipeline({
       <div className="flex items-center justify-between py-1.5 px-1">
         <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Deep Enrichment</span>
         <div className="flex items-center gap-2">
-          {deepPaused && onResumePipeline && !deepRunning && (
+          {deepMode === 'manual' && deepPaused && onResumePipeline && !deepRunning && (
             <button
               onClick={() => onResumePipeline('deep_enrichment')}
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
@@ -1123,9 +1152,11 @@ export function GraphEnrichmentPipeline({
       </div>
       <div className="flex flex-col gap-0.5 ml-1">
         {deepStages.map((stage, idx) => {
-          // When paused, the paused stage is the first non-complete stage after completed ones
-          const isStagePaused = !!(deepPaused && !deepRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
-            deepStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
+          // Use explicit backend stage ID if available; fall back to heuristic
+          const isStagePaused = deepPausedStage
+            ? !!(deepPaused && !deepRunning && stage.id === deepPausedStage)
+            : !!(deepPaused && !deepRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
+              deepStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
           return (
             <StageRow
               key={stage.id}

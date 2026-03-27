@@ -75,8 +75,8 @@ def pipeline_run_fast(project_id: str) -> Dict[str, Any]:
     if not started:
         raise ApiException(
             status_code=409,
-            code="PIPELINE_ALREADY_RUNNING",
-            message="Fast Sync is already running for this project",
+            code="PIPELINE_UP_TO_DATE",
+            message="Fast Sync is already up-to-date (no stale or new files detected) or is already running",
         )
 
     return ok({"started": True, "group": "fast_sync"})
@@ -94,8 +94,8 @@ def pipeline_run_deep(project_id: str) -> Dict[str, Any]:
     if not started:
         raise ApiException(
             status_code=409,
-            code="PIPELINE_ALREADY_RUNNING",
-            message="Deep Enrichment is already running for this project",
+            code="PIPELINE_UP_TO_DATE",
+            message="Deep Enrichment is already up-to-date or is already running",
         )
 
     return ok({"started": True, "group": "deep_enrichment"})

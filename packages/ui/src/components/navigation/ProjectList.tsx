@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react';
-import type { ProjectSummary } from '../../types';
+import type { ProjectSummary, PriorityLevel } from '../../types';
 import { StatusBadge } from '../status/StatusBadge';
 import { cn } from '../../lib/utils';
-import { FolderPlus, X, Lock, Snowflake } from 'lucide-react';
+import { FolderPlus, X, Lock, Snowflake, Star } from 'lucide-react';
 import { Button } from '../primitives/Button';
 import { Toggle } from '../primitives/Toggle';
 
@@ -13,6 +13,11 @@ export interface ProjectListProps {
   onAddProject: () => void;
   onDeleteProject?: (projectId: string, purge?: boolean) => void;
   onToggleActive?: (projectId: string, active: boolean, touch?: boolean) => void;
+  onToggleStar?: (projectId: string, isStarred: boolean) => void;
+  /** Called when user clicks the star to cycle priority. */
+  onCyclePriority?: (projectId: string) => void;
+  /** ID of the project that currently holds exclusive priority (for red star state). */
+  exclusiveProjectId?: string | null;
   isPro?: boolean;
   extraActions?: ReactNode;
   className?: string;
@@ -25,12 +30,16 @@ export interface ProjectListItemProps {
   onClick: () => void;
   onDelete?: (purge?: boolean) => void;
   onToggleActive?: (active: boolean) => void;
+  onToggleStar?: (isStarred: boolean) => void;
+  onCyclePriority?: () => void;
+  /** Whether another project holds exclusive priority (shows red deprioritized star). */
+  isDeprioritized?: boolean;
 }
 
 /**
  * ProjectListItem - Single project row in the sidebar
  */
-function ProjectListItem({ project, selected, isPro, onClick, onDelete, onToggleActive }: ProjectListItemProps) {
+function ProjectListItem({ project, selected, isPro, onClick, onDelete, onToggleActive, onToggleStar, onCyclePriority, isDeprioritized }: ProjectListItemProps) {
   const [confirming, setConfirming] = useState(false);
   const rawStatus = project.activity_status ?? 'active';
   // In Pro tier, there are no locked/frozen projects — only active/inactive.
@@ -90,6 +99,54 @@ function ProjectListItem({ project, selected, isPro, onClick, onDelete, onToggle
         <>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 min-w-0">
+              {(onCyclePriority || onToggleStar) && (() => {
+                // Resolve priority level from new field or legacy is_starred
+                const level: PriorityLevel = project.priority_level
+                  ?? (project.is_starred ? 'boost' : 'none');
+                const isNone = level === 'none';
+                const isBoost = level === 'boost';
+                const isExclusive = level === 'exclusive';
+
+                // Visual states for the star icon
+                const starClass = cn(
+                  'w-4 h-4 transition-all duration-200',
+                  isDeprioritized && isNone
+                    ? 'text-destructive opacity-60'  // Red outline — deprioritized
+                    : isExclusive
+                      ? 'fill-primary text-primary drop-shadow-[0_0_4px_var(--color-primary)]'  // Gold with glow
+                      : isBoost
+                        ? 'fill-primary text-primary'  // Filled gold
+                        : 'text-text-muted group-hover/star:text-primary opacity-20 group-hover/star:opacity-100'  // Muted outline
+                );
+
+                const tooltip = isDeprioritized && isNone
+                  ? 'Queued — another project has exclusive priority'
+                  : isExclusive
+                    ? 'Exclusive priority (click to remove)'
+                    : isBoost
+                      ? 'Boosted (click for exclusive priority)'
+                      : 'Click to boost priority';
+
+                return (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onCyclePriority) {
+                        onCyclePriority();
+                      } else if (onToggleStar) {
+                        onToggleStar(!project.is_starred);
+                      }
+                    }}
+                    className={cn(
+                      'flex-shrink-0 group/star p-0.5 -ml-1 hover:bg-surface-raised rounded transition-colors',
+                      isExclusive && 'ring-1 ring-primary/40 rounded-full',
+                    )}
+                    title={tooltip}
+                  >
+                    <Star className={starClass} />
+                  </button>
+                );
+              })()}
               {isLocked && <span title="Locked — upgrade to Pro"><Lock className="w-3 h-3 text-text-muted shrink-0" /></span>}
               {isFrozen && <span title="Frozen — read-only (Free tier)"><Snowflake className="w-3 h-3 text-blue-400 shrink-0" /></span>}
               <span className={cn("font-medium truncate text-sm", selected ? "text-primary" : "text-text", isLocked && "text-text-muted")}>
@@ -139,6 +196,9 @@ export function ProjectList({
   onAddProject,
   onDeleteProject,
   onToggleActive,
+  onToggleStar,
+  onCyclePriority,
+  exclusiveProjectId,
   isPro = false,
   extraActions,
   className,
@@ -163,6 +223,9 @@ export function ProjectList({
               onClick={() => onProjectSelect(project.id)}
               onDelete={onDeleteProject ? (purge) => onDeleteProject(project.id, purge) : undefined}
               onToggleActive={onToggleActive ? (active) => onToggleActive(project.id, active, !isPro) : undefined}
+              onToggleStar={onToggleStar ? (isStarred) => onToggleStar(project.id, isStarred) : undefined}
+              onCyclePriority={onCyclePriority ? () => onCyclePriority(project.id) : undefined}
+              isDeprioritized={!!exclusiveProjectId && exclusiveProjectId !== project.id}
             />
           ))
         )}

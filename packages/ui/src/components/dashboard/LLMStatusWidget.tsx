@@ -21,6 +21,7 @@ export interface LLMStatusWidgetProps {
   assignmentMode?: 'structured' | 'mapped';
   runningTaskId?: CodragTaskId | null;
   fileCount?: number;
+  tokenUsageData?: Record<string, { prompt_tokens: number; completion_tokens: number; total_tokens: number }>;
   className?: string;
   bare?: boolean;
 }
@@ -106,11 +107,13 @@ function AssignedBlockCard({
   endpoints,
   runningTaskId,
   fileCount,
+  tokenUsageData,
 }: {
   block: LLMAssignmentBlock;
   endpoints: SavedEndpoint[];
   runningTaskId?: CodragTaskId | null;
   fileCount: number;
+  tokenUsageData?: Record<string, { prompt_tokens: number; completion_tokens: number; total_tokens: number }>;
 }) {
   const ep = endpoints.find(e => e.id === block.endpoint_id);
   const isConfigured = !!block.endpoint_id && !!block.model;
@@ -171,6 +174,7 @@ function AssignedBlockCard({
         <div className="ml-11 space-y-1">
           {block.tasks.map(taskId => {
             const isTaskRunning = taskId === runningTaskId;
+            const actualUsage = tokenUsageData?.[taskId];
             const volume = getTaskTokenVolume(taskId);
             const tokenDesc = fileCount > 0 ? getTaskTokenDescription(taskId, fileCount) : null;
 
@@ -187,10 +191,21 @@ function AssignedBlockCard({
                 </span>
                 {isCloud && (
                   <span
-                    className="text-[10px] text-info/70 px-1 py-0.5 rounded bg-info/5 border border-info/10 shrink-0"
-                    title={tokenDesc ?? `${volume} volume`}
+                    className={cn(
+                      "text-[10px] px-1 py-0.5 rounded border shrink-0",
+                      actualUsage
+                        ? "text-success/80 bg-success/5 border-success/10 font-medium cursor-help"
+                        : "text-info/70 bg-info/5 border-info/10"
+                    )}
+                    title={
+                      actualUsage
+                        ? `Physical tokens used:\nPrompt: ${actualUsage.prompt_tokens.toLocaleString()}\nCompletion: ${actualUsage.completion_tokens.toLocaleString()}\nTotal: ${actualUsage.total_tokens.toLocaleString()}`
+                        : tokenDesc ?? `${volume} volume estimation`
+                    }
                   >
-                    {volume}
+                    {actualUsage
+                      ? `${actualUsage.total_tokens >= 1000 ? (actualUsage.total_tokens / 1000).toFixed(1) + 'k' : actualUsage.total_tokens} tokens`
+                      : volume}
                   </span>
                 )}
               </div>
@@ -201,7 +216,6 @@ function AssignedBlockCard({
     </div>
   );
 }
-
 export function LLMStatusWidget({
   services,
   assignedBlocks,
@@ -209,6 +223,7 @@ export function LLMStatusWidget({
   assignmentMode = 'structured',
   runningTaskId,
   fileCount = 0,
+  tokenUsageData,
   className,
   bare = false,
 }: LLMStatusWidgetProps) {
@@ -246,6 +261,7 @@ export function LLMStatusWidget({
                 endpoints={assignedEndpoints}
                 runningTaskId={runningTaskId}
                 fileCount={fileCount}
+                tokenUsageData={tokenUsageData}
               />
             ))}
           </>

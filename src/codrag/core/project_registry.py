@@ -58,6 +58,34 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def write_active_project_signal(project_id: str) -> None:
+    """Write the ID of the last user-activated project to a global signal file."""
+    signal_file = codrag_data_dir() / "active_project.json"
+    signal_file.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        data = {
+            "id": project_id,
+            "switched_at": _now_iso()
+        }
+        signal_file.write_text(json.dumps(data), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def read_active_project_signal() -> Optional[Dict[str, Any]]:
+    """Read the global active project signal file."""
+    signal_file = codrag_data_dir() / "active_project.json"
+    if not signal_file.is_file():
+        return None
+    try:
+        content = signal_file.read_text(encoding="utf-8").strip()
+        if content:
+            return json.loads(content)
+    except Exception:
+        pass
+    return None
+
+
 class ProjectRegistry:
     def __init__(self, db_path: Optional[Path | str] = None):
         self.db_path = Path(db_path) if db_path is not None else default_registry_db_path()
@@ -156,7 +184,7 @@ class ProjectRegistry:
         except sqlite3.IntegrityError as e:
             raise ProjectAlreadyExists(abs_path) from e
 
-        return Project(
+        proj = Project(
             id=project_id,
             name=final_name,
             path=abs_path,
@@ -165,6 +193,13 @@ class ProjectRegistry:
             created_at=now,
             updated_at=now,
         )
+
+        # Create .codrag/project.json pointer in the project root.
+        # This allows MCP servers to instantly identify the project
+        # without querying the daemon.
+        ensure_codrag_pointer(proj)
+
+        return proj
 
     def get_project(self, project_id: str) -> Optional[Project]:
         with self._connect() as conn:
@@ -245,3 +280,73 @@ class ProjectRegistry:
                     conn.execute("DELETE FROM projects WHERE id = ?", (proj.id,))
                 removed.append(proj)
         return removed
+
+
+# =============================================================================
+# .codrag/project.json pointer
+# =============================================================================
+
+_POINTER_FILENAME = "project.json"
+
+
+def ensure_codrag_pointer(
+    proj: Project,
+    daemon_url: str = "http://127.0.0.1:8400",
+) -> None:
+    """Create or update .codrag/project.json in the project root.
+
+    This pointer file allows MCP servers and tooling to instantly identify
+    which CoDRAG project a workspace belongs to, without querying the daemon.
+
+    The file is intentionally minimal — just enough for routing:
+      {
+        "id": "<uuid>",
+        "mode": "standalone",
+        "daemon": "http://127.0.0.1:8400"
+      }
+
+    Safe to call multiple times — overwrites with current values.
+    """
+    try:
+        project_root = Path(proj.path).expanduser().resolve()
+        if not project_root.is_dir():
+            return  # Project root doesn't exist (yet); skip silently
+
+        codrag_dir = project_root / ".codrag"
+        codrag_dir.mkdir(parents=False, exist_ok=True)
+
+        pointer = {
+            "id": proj.id,
+            "mode": proj.mode,
+            "daemon": daemon_url,
+        }
+
+        pointer_path = codrag_dir / _POINTER_FILENAME
+        pointer_path.write_text(json.dumps(pointer, indent=2) + "\n")
+    except Exception:
+        # Non-fatal — the pointer is a convenience, not a requirement.
+        # Could fail on read-only filesystems or permission issues.
+        pass
+
+
+def read_codrag_pointer(directory: str | Path) -> Optional[Dict[str, str]]:
+    """Read .codrag/project.json from a directory, if it exists.
+
+    Returns a dict with 'id', 'mode', and 'daemon' keys, or None
+    if the pointer doesn't exist or is malformed.
+    """
+    try:
+        pointer_path = Path(directory).expanduser().resolve() / ".codrag" / _POINTER_FILENAME
+        if not pointer_path.is_file():
+            return None
+        data = json.loads(pointer_path.read_text())
+        if isinstance(data, dict) and data.get("id"):
+            return {
+                "id": str(data["id"]),
+                "mode": str(data.get("mode", "standalone")),
+                "daemon": str(data.get("daemon", "http://127.0.0.1:8400")),
+            }
+    except Exception:
+        pass
+    return None
+

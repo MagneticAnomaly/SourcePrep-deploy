@@ -7,6 +7,7 @@ CoDRAG's MCP tools for structural codebase context. Embeds the atlas
 
 Phase 50: MCP Interfacing.
 """
+
 from __future__ import annotations
 
 import logging
@@ -73,8 +74,7 @@ def write_rules_file(
 
     targets = _detect_targets(project_path, ide)
 
-    _args = (project_path, project_name, atlas_content,
-             included_paths, is_preliminary, stats)
+    _args = (project_path, project_name, atlas_content, included_paths, is_preliminary, stats)
 
     _writers = {
         "agents_md": _write_agents_md,
@@ -82,10 +82,10 @@ def write_rules_file(
         "windsurf": _write_windsurf_rules,
         "claude": _write_claude_rules,
         "claude_skill": _write_claude_skill,  # .claude/skills/codrag.md
-        "gemini": _write_generic_md,     # GEMINI.md
+        "gemini": _write_generic_md,  # GEMINI.md
         "copilot": _write_copilot_rules,  # .github/copilot-instructions.md
-        "cline": _write_cline_rules,      # .clinerules
-        "roo_code": _write_roo_rules,     # .roo/rules/codrag.md
+        "cline": _write_cline_rules,  # .clinerules
+        "roo_code": _write_roo_rules,  # .roo/rules/codrag.md
     }
 
     for target_ide in targets:
@@ -95,9 +95,14 @@ def write_rules_file(
         try:
             if target_ide == "gemini":
                 results["gemini"] = writer(
-                    project_path, project_name, atlas_content,
-                    included_paths, is_preliminary, stats,
-                    filename="GEMINI.md", heading="# CoDRAG Integration",
+                    project_path,
+                    project_name,
+                    atlas_content,
+                    included_paths,
+                    is_preliminary,
+                    stats,
+                    filename="GEMINI.md",
+                    heading="# CoDRAG Integration",
                 )
             else:
                 results[target_ide] = writer(*_args)
@@ -199,7 +204,9 @@ def detect_and_regenerate(
         if written:
             logger.info(
                 "detect_and_regenerate: wrote %d rules files for %s: %s",
-                len(written), project_name, ", ".join(written),
+                len(written),
+                project_name,
+                ", ".join(written),
             )
 
     return results
@@ -208,10 +215,11 @@ def detect_and_regenerate(
 def _get_current_atlas_content(project_id: str) -> str:
     """Load the current atlas text from disk. Returns empty string if unavailable."""
     try:
-        from codrag.services.project_helpers import require_project
-        from codrag.core.project_registry import project_index_dir
-        from pathlib import Path as _Path
         import json as _json
+        from pathlib import Path as _Path
+
+        from codrag.core.project_registry import project_index_dir
+        from codrag.services.project_helpers import require_project
 
         project = require_project(project_id)
         idx_dir = _Path(project_index_dir(project))
@@ -229,6 +237,7 @@ def _get_current_included_paths(project_id: str) -> Optional[List[str]]:
     """Load current included_paths from project config."""
     try:
         from codrag.services.project_helpers import require_project
+
         project = require_project(project_id)
         paths = (project.config or {}).get("included_paths") or []
         return paths if paths else None
@@ -239,10 +248,11 @@ def _get_current_included_paths(project_id: str) -> Optional[List[str]]:
 def _get_current_stats(project_id: str) -> Optional[Dict[str, Any]]:
     """Load current graph stats from trace manifest."""
     try:
-        from codrag.services.project_helpers import require_project
-        from codrag.core.project_registry import project_index_dir
-        from pathlib import Path as _Path
         import json as _json
+        from pathlib import Path as _Path
+
+        from codrag.core.project_registry import project_index_dir
+        from codrag.services.project_helpers import require_project
 
         project = require_project(project_id)
         idx_dir = _Path(project_index_dir(project))
@@ -327,6 +337,26 @@ def _build_managed_content(
     parts.append(" | ".join(stat_parts))
     parts.append("")
 
+    # CRITICAL: Tool calling instructions (front-loaded for immediate visibility)
+    parts.append("## 🚨 CRITICAL: Tool Calling Instructions")
+    parts.append("")
+    parts.append('When user types "codrag" → IMMEDIATELY call the `codrag` tool.')
+    parts.append("When user mentions code search → IMMEDIATELY call `codrag_search`.")
+    parts.append("When user asks about project structure → IMMEDIATELY call `codrag`.")
+    parts.append("No announcements. No 'I will'. Just call the tool.")
+    parts.append("")
+
+    # Quick Reference Table
+    parts.append("### Quick Reference")
+    parts.append("| User Says | You Do |")
+    parts.append("|-----------|--------|")
+    parts.append('| "codrag" | Call `codrag()` immediately |')
+    parts.append('| "search for X" | Call `codrag_search(query="X")` |')
+    parts.append('| "find where X is defined" | Call `codrag_search(query="X")` |')
+    parts.append('| "how does this project work" | Call `codrag()` for overview |')
+    parts.append('| "codrag context" | Call `codrag()` for ambient context |')
+    parts.append("")
+
     # Tool instructions
     parts.append(
         "You have access to CoDRAG, a structural code intelligence system.\n"
@@ -374,8 +404,7 @@ def _build_managed_content(
     # Long-task refresh hint
     parts.append("")
     parts.append(
-        "For long tasks (5+ tool calls), call `codrag` again to refresh your\n"
-        "structural context."
+        "For long tasks (5+ tool calls), call `codrag` again to refresh your\nstructural context."
     )
 
     # OPP-1: Parallel tool call encouragement
@@ -383,6 +412,20 @@ def _build_managed_content(
     parts.append(
         "You can call `codrag` and `codrag_search` in parallel on your first\n"
         "prompt -- structural overview + targeted code lookup in one round-trip."
+    )
+
+    # Tool Calling Rules (reinforcement)
+    parts.append("")
+    parts.append("### Tool Calling Rules")
+    parts.append("1. **Never announce** 'I will now call...' - just call the tool")
+    parts.append("2. **No permission needed** - simple keywords = immediate invocation")
+    parts.append("3. **Single word triggers** - 'codrag' alone is enough to call the tool")
+    parts.append(
+        "4. **Context is cheap** - prefer calling codrag to using grep for structural understanding"
+    )
+    parts.append("")
+    parts.append(
+        '**Remember: The word "codrag" anywhere in user input is a tool invocation signal. Call immediately without asking permission.**'
     )
 
     return "\n".join(parts)
@@ -400,7 +443,11 @@ def generate_cursor_rules(
 ) -> str:
     """Generate .cursor/rules/codrag.mdc content with YAML frontmatter."""
     managed = _build_managed_content(
-        project_name, atlas_content, included_paths, is_preliminary, stats,
+        project_name,
+        atlas_content,
+        included_paths,
+        is_preliminary,
+        stats,
     )
 
     return (
@@ -430,14 +477,18 @@ def _write_cursor_rules(
     target = rules_dir / "codrag.mdc"
 
     new_content = generate_cursor_rules(
-        project_name, atlas_content, included_paths, is_preliminary, stats,
+        project_name,
+        atlas_content,
+        included_paths,
+        is_preliminary,
+        stats,
     )
 
     if target.exists():
         existing = target.read_text(encoding="utf-8")
         # Preserve user content below the end marker
         if _CURSOR_MARKER_END in existing:
-            user_section = existing[existing.index(_CURSOR_MARKER_END) + len(_CURSOR_MARKER_END):]
+            user_section = existing[existing.index(_CURSOR_MARKER_END) + len(_CURSOR_MARKER_END) :]
             # Replace managed section, keep user section
             new_content = new_content.rstrip("\n") + user_section
         elif _CURSOR_MARKER_START not in existing:
@@ -466,7 +517,11 @@ def generate_windsurf_rules(
 ) -> str:
     """Generate .windsurf/rules/codrag.md content with YAML frontmatter."""
     managed = _build_managed_content(
-        project_name, atlas_content, included_paths, is_preliminary, stats,
+        project_name,
+        atlas_content,
+        included_paths,
+        is_preliminary,
+        stats,
     )
 
     return (
@@ -493,7 +548,11 @@ def _write_windsurf_rules(
 ) -> bool:
     """Write .windsurf/rules/codrag.md (new path) or update legacy .windsurfrules."""
     new_content = generate_windsurf_rules(
-        project_name, atlas_content, included_paths, is_preliminary, stats,
+        project_name,
+        atlas_content,
+        included_paths,
+        is_preliminary,
+        stats,
     )
 
     # Prefer new path: .windsurf/rules/codrag.md
@@ -511,9 +570,9 @@ def _write_windsurf_rules(
     if legacy_target.exists():
         existing = legacy_target.read_text(encoding="utf-8")
         if _WINDSURF_MARKER_START in existing:
-            before = existing[:existing.index(_WINDSURF_MARKER_START)]
+            before = existing[: existing.index(_WINDSURF_MARKER_START)]
             end_idx = existing.find(_WINDSURF_MARKER_END)
-            after = existing[end_idx + len(_WINDSURF_MARKER_END):] if end_idx >= 0 else ""
+            after = existing[end_idx + len(_WINDSURF_MARKER_END) :] if end_idx >= 0 else ""
             legacy_target.write_text(
                 before.rstrip("\n") + "\n\n" + new_content + after,
                 encoding="utf-8",
@@ -543,16 +602,14 @@ def generate_claude_rules(
 ) -> str:
     """Generate CoDRAG section for CLAUDE.md."""
     managed = _build_managed_content(
-        project_name, atlas_content, included_paths, is_preliminary, stats,
+        project_name,
+        atlas_content,
+        included_paths,
+        is_preliminary,
+        stats,
     )
 
-    return (
-        f"{_CLAUDE_MARKER_START}\n"
-        f"# CoDRAG Integration\n"
-        "\n"
-        f"{managed}\n"
-        f"{_CLAUDE_MARKER_END}"
-    )
+    return f"{_CLAUDE_MARKER_START}\n# CoDRAG Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
 
 
 def _write_claude_rules(
@@ -567,16 +624,20 @@ def _write_claude_rules(
     target = project_path / "CLAUDE.md"
 
     new_section = generate_claude_rules(
-        project_name, atlas_content, included_paths, is_preliminary, stats,
+        project_name,
+        atlas_content,
+        included_paths,
+        is_preliminary,
+        stats,
     )
 
     if target.exists():
         existing = target.read_text(encoding="utf-8")
         if _CLAUDE_MARKER_START in existing:
             # Replace existing CoDRAG section
-            before = existing[:existing.index(_CLAUDE_MARKER_START)]
+            before = existing[: existing.index(_CLAUDE_MARKER_START)]
             end_idx = existing.find(_CLAUDE_MARKER_END)
-            after = existing[end_idx + len(_CLAUDE_MARKER_END):] if end_idx >= 0 else ""
+            after = existing[end_idx + len(_CLAUDE_MARKER_END) :] if end_idx >= 0 else ""
             target.write_text(
                 before.rstrip("\n") + "\n\n" + new_section + after,
                 encoding="utf-8",
@@ -662,23 +723,23 @@ def _write_agents_md(
     Stewarded by the Agentic AI Foundation under the Linux Foundation.
     """
     managed = _build_managed_content(
-        project_name, atlas_content, included_paths, is_preliminary, stats,
+        project_name,
+        atlas_content,
+        included_paths,
+        is_preliminary,
+        stats,
     )
     new_section = (
-        f"{_CLAUDE_MARKER_START}\n"
-        f"## CoDRAG Integration\n"
-        "\n"
-        f"{managed}\n"
-        f"{_CLAUDE_MARKER_END}"
+        f"{_CLAUDE_MARKER_START}\n## CoDRAG Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
     )
 
     target = project_path / "AGENTS.md"
     if target.exists():
         existing = target.read_text(encoding="utf-8")
         if _CLAUDE_MARKER_START in existing:
-            before = existing[:existing.index(_CLAUDE_MARKER_START)]
+            before = existing[: existing.index(_CLAUDE_MARKER_START)]
             end_idx = existing.find(_CLAUDE_MARKER_END)
-            after = existing[end_idx + len(_CLAUDE_MARKER_END):] if end_idx >= 0 else ""
+            after = existing[end_idx + len(_CLAUDE_MARKER_END) :] if end_idx >= 0 else ""
             target.write_text(
                 before.rstrip("\n") + "\n\n" + new_section + after,
                 encoding="utf-8",
@@ -711,23 +772,21 @@ def _write_generic_md(
     Used for GEMINI.md and similar files that use marker-based sections.
     """
     managed = _build_managed_content(
-        project_name, atlas_content, included_paths, is_preliminary, stats,
+        project_name,
+        atlas_content,
+        included_paths,
+        is_preliminary,
+        stats,
     )
-    new_section = (
-        f"{_CLAUDE_MARKER_START}\n"
-        f"{heading}\n"
-        "\n"
-        f"{managed}\n"
-        f"{_CLAUDE_MARKER_END}"
-    )
+    new_section = f"{_CLAUDE_MARKER_START}\n{heading}\n\n{managed}\n{_CLAUDE_MARKER_END}"
 
     target = project_path / filename
     if target.exists():
         existing = target.read_text(encoding="utf-8")
         if _CLAUDE_MARKER_START in existing:
-            before = existing[:existing.index(_CLAUDE_MARKER_START)]
+            before = existing[: existing.index(_CLAUDE_MARKER_START)]
             end_idx = existing.find(_CLAUDE_MARKER_END)
-            after = existing[end_idx + len(_CLAUDE_MARKER_END):] if end_idx >= 0 else ""
+            after = existing[end_idx + len(_CLAUDE_MARKER_END) :] if end_idx >= 0 else ""
             target.write_text(
                 before.rstrip("\n") + "\n\n" + new_section + after,
                 encoding="utf-8",
@@ -755,14 +814,14 @@ def _write_copilot_rules(
 ) -> bool:
     """Write or update .github/copilot-instructions.md with CoDRAG section."""
     managed = _build_managed_content(
-        project_name, atlas_content, included_paths, is_preliminary, stats,
+        project_name,
+        atlas_content,
+        included_paths,
+        is_preliminary,
+        stats,
     )
     new_section = (
-        f"{_CLAUDE_MARKER_START}\n"
-        f"## CoDRAG Integration\n"
-        "\n"
-        f"{managed}\n"
-        f"{_CLAUDE_MARKER_END}"
+        f"{_CLAUDE_MARKER_START}\n## CoDRAG Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
     )
 
     github_dir = project_path / ".github"
@@ -771,9 +830,9 @@ def _write_copilot_rules(
     if target.exists():
         existing = target.read_text(encoding="utf-8")
         if _CLAUDE_MARKER_START in existing:
-            before = existing[:existing.index(_CLAUDE_MARKER_START)]
+            before = existing[: existing.index(_CLAUDE_MARKER_START)]
             end_idx = existing.find(_CLAUDE_MARKER_END)
-            after = existing[end_idx + len(_CLAUDE_MARKER_END):] if end_idx >= 0 else ""
+            after = existing[end_idx + len(_CLAUDE_MARKER_END) :] if end_idx >= 0 else ""
             target.write_text(
                 before.rstrip("\n") + "\n\n" + new_section + after,
                 encoding="utf-8",
@@ -806,7 +865,11 @@ def _write_cline_rules(
     matching a .clinerules entry, it activates the corresponding MCP server.
     """
     managed = _build_managed_content(
-        project_name, atlas_content, included_paths, is_preliminary, stats,
+        project_name,
+        atlas_content,
+        included_paths,
+        is_preliminary,
+        stats,
     )
     # Cline-specific: keyword triggers at the top for MCP activation
     trigger_block = (
@@ -826,9 +889,9 @@ def _write_cline_rules(
     if target.exists():
         existing = target.read_text(encoding="utf-8")
         if _CLAUDE_MARKER_START in existing:
-            before = existing[:existing.index(_CLAUDE_MARKER_START)]
+            before = existing[: existing.index(_CLAUDE_MARKER_START)]
             end_idx = existing.find(_CLAUDE_MARKER_END)
-            after = existing[end_idx + len(_CLAUDE_MARKER_END):] if end_idx >= 0 else ""
+            after = existing[end_idx + len(_CLAUDE_MARKER_END) :] if end_idx >= 0 else ""
             target.write_text(
                 before.rstrip("\n") + "\n\n" + new_section + after,
                 encoding="utf-8",
@@ -865,12 +928,13 @@ def _write_roo_rules(
     - .roo/rules-code/codrag.md -- change focus (codrag_impact before edits)
     """
     managed = _build_managed_content(
-        project_name, atlas_content, included_paths, is_preliminary, stats,
+        project_name,
+        atlas_content,
+        included_paths,
+        is_preliminary,
+        stats,
     )
-    content = (
-        f"# CoDRAG Integration\n\n"
-        f"{managed}\n"
-    )
+    content = f"# CoDRAG Integration\n\n{managed}\n"
 
     # Base rules (all modes)
     rules_dir = project_path / ".roo" / "rules"
@@ -913,8 +977,15 @@ def _detect_targets(project_path: Path, ide: str) -> List[str]:
     of IDE-specific directories or files.
     """
     all_targets = [
-        "agents_md", "cursor", "windsurf", "claude", "claude_skill",
-        "gemini", "copilot", "cline", "roo_code",
+        "agents_md",
+        "cursor",
+        "windsurf",
+        "claude",
+        "claude_skill",
+        "gemini",
+        "copilot",
+        "cline",
+        "roo_code",
     ]
     if ide == "all":
         return all_targets
@@ -946,8 +1017,9 @@ def _detect_targets(project_path: Path, ide: str) -> List[str]:
         targets.append("gemini")
 
     # GitHub Copilot: detect by Copilot-specific files, NOT .github/ (too broad)
-    if (project_path / ".github" / "copilot-instructions.md").exists() or \
-       (project_path / ".vscode" / "mcp.json").exists():
+    if (project_path / ".github" / "copilot-instructions.md").exists() or (
+        project_path / ".vscode" / "mcp.json"
+    ).exists():
         targets.append("copilot")
 
     # Cline: .clinerules exists

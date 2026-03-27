@@ -64,34 +64,43 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
   // ── Handlers ────────────────────────────────────────────────
 
   const handleLLMConfigChange = useCallback((cfg: LLMConfig) => {
-    setLLMConfig(cfg)
+    setLLMConfig((prev) => {
+      // Auto-save embedding changes immediately (separated from model scheme button)
+      if (JSON.stringify(prev.embedding) !== JSON.stringify(cfg.embedding)) {
+        void api.updateGlobalConfig({ llm_config: { embedding: cfg.embedding } as unknown as LLMConfig })
+      }
+      return cfg
+    })
     onDirtyRef.current?.()
-  }, [])
+  }, [api])
 
   const handleAddEndpoint = useCallback((endpoint: Omit<SavedEndpoint, 'id'>) => {
     const id = `ep_${Date.now()}_${Math.random().toString(16).slice(2)}`
-    setLLMConfig((prev) => ({
-      ...prev,
-      saved_endpoints: [...prev.saved_endpoints, { ...endpoint, id }],
-    }))
+    setLLMConfig((prev) => {
+      const saved_endpoints = [...prev.saved_endpoints, { ...endpoint, id }]
+      void api.updateGlobalConfig({ llm_config: { saved_endpoints } as unknown as LLMConfig })
+      return { ...prev, saved_endpoints }
+    })
     onDirtyRef.current?.()
-  }, [])
+  }, [api])
 
   const handleEditEndpoint = useCallback((endpoint: SavedEndpoint) => {
-    setLLMConfig((prev) => ({
-      ...prev,
-      saved_endpoints: prev.saved_endpoints.map((e) => (e.id === endpoint.id ? endpoint : e)),
-    }))
+    setLLMConfig((prev) => {
+      const saved_endpoints = prev.saved_endpoints.map((e) => (e.id === endpoint.id ? endpoint : e))
+      void api.updateGlobalConfig({ llm_config: { saved_endpoints } as unknown as LLMConfig })
+      return { ...prev, saved_endpoints }
+    })
     onDirtyRef.current?.()
-  }, [])
+  }, [api])
 
   const handleDeleteEndpoint = useCallback((id: string) => {
-    setLLMConfig((prev) => ({
-      ...prev,
-      saved_endpoints: prev.saved_endpoints.filter((e) => e.id !== id),
-    }))
+    setLLMConfig((prev) => {
+      const saved_endpoints = prev.saved_endpoints.filter((e) => e.id !== id)
+      void api.updateGlobalConfig({ llm_config: { saved_endpoints } as unknown as LLMConfig })
+      return { ...prev, saved_endpoints }
+    })
     onDirtyRef.current?.()
-  }, [])
+  }, [api])
 
   const handleTestEndpoint = useCallback(async (endpoint: SavedEndpoint) => {
     const r = await fetch('/api/llm/proxy/test', {
@@ -274,10 +283,26 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
   const [llmConfigDirty, setLlmConfigDirty] = useState(false)
 
   // Track dirtiness by comparing serialized config to last save
+  // We only track the "model scheme" fields for the Save button (small_model, large_model, code_model, etc),
+  // because endpoints and embeddings now auto-save immediately.
   useEffect(() => {
-    const serialized = JSON.stringify(llmConfig)
-    if (lastSavedRef.current && serialized !== lastSavedRef.current) {
-      setLlmConfigDirty(true)
+    const getSchemeState = (cfg: LLMConfig) => JSON.stringify({
+      small: cfg.small_model,
+      large: cfg.large_model,
+      code: cfg.code_model,
+      mode: cfg.assignment_mode,
+      blocks: cfg.assignment_blocks,
+      compression: cfg.compression,
+    })
+    
+    if (lastSavedRef.current) {
+      try {
+        const oldScheme = getSchemeState(JSON.parse(lastSavedRef.current))
+        const newScheme = getSchemeState(llmConfig)
+        setLlmConfigDirty(oldScheme !== newScheme)
+      } catch {
+        setLlmConfigDirty(true)
+      }
     }
   }, [llmConfig])
 

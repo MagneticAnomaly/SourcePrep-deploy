@@ -204,3 +204,219 @@ class TestSchedulerStatus:
         assert len(node["active"]) == 2
         assert len(node["queued"]) == 1
         assert node["queued"][0]["project_id"] == "proj-c"
+
+
+# ── Phase 56: Endpoint-aware node resolution ─────────────────────
+
+from codrag.services.pipeline.scheduler import CLOUD_PROVIDERS
+
+
+class TestResolveNodeForModel:
+    """Test the stage → slot → endpoint → node resolution chain."""
+
+    def test_local_ollama_model(self):
+        sched = PipelineScheduler()
+        node = sched.resolve_node_for_model("ollama", "qwen3:4b", "ep-1")
+        assert node == "local:ep-1"
+
+    def test_cloud_via_ollama_kimi(self):
+        sched = PipelineScheduler()
+        node = sched.resolve_node_for_model("ollama", "kimi-k2.5", "ep-1")
+        assert node == "cloud:ep-1"
+
+    def test_cloud_via_ollama_gemini(self):
+        sched = PipelineScheduler()
+        node = sched.resolve_node_for_model("ollama", "gemini-2.5-pro", "ep-1")
+        assert node == "cloud:ep-1"
+
+    def test_direct_cloud_openai(self):
+        sched = PipelineScheduler()
+        node = sched.resolve_node_for_model("openai", "gpt-4.1", "ep-2")
+        assert node == "cloud:ep-2"
+
+    def test_direct_cloud_anthropic(self):
+        sched = PipelineScheduler()
+        node = sched.resolve_node_for_model("anthropic", "claude-sonnet-4-5", "ep-3")
+        assert node == "cloud:ep-3"
+
+    def test_lm_studio_local(self):
+        sched = PipelineScheduler()
+        node = sched.resolve_node_for_model("lm-studio", "qwen3:14b", "ep-4")
+        assert node == "local:ep-4"
+
+
+class TestEndpointAwareConcurrency:
+    """Test multi-project concurrency with local/cloud nodes."""
+
+    def test_local_serializes(self):
+        """Two projects on local:ep-1 (max=1) — second blocks."""
+        sched = PipelineScheduler()
+        sched.configure_node("local:ep-1", 1)
+
+        assert sched.acquire("proj-a", StageId.CATALOGUE, "local:ep-1")
+        assert not sched.can_start("proj-b", StageId.CATALOGUE, "local:ep-1")
+
+        sched.release("proj-a", StageId.CATALOGUE, "local:ep-1")
+        assert sched.can_start("proj-b", StageId.CATALOGUE, "local:ep-1")
+
+    def test_cloud_concurrent_three(self):
+        """Three projects on cloud:ep-1 (max=3) run concurrently."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 3)
+
+        assert sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        assert sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+        assert sched.acquire("proj-c", StageId.ENRICHMENT, "cloud:ep-1")
+        assert not sched.can_start("proj-d", StageId.ENRICHMENT, "cloud:ep-1")
+
+    def test_cloud_concurrent_ten(self):
+        """Ollama Max plan: 10 concurrent cloud requests."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+
+        for i in range(10):
+            assert sched.acquire(f"proj-{i}", StageId.ENRICHMENT, "cloud:ep-1")
+        assert not sched.can_start("proj-10", StageId.ENRICHMENT, "cloud:ep-1")
+
+    def test_mixed_local_and_cloud_independent(self):
+        """Local and cloud slots on the same endpoint don't contend."""
+        sched = PipelineScheduler()
+        sched.configure_node("local:ep-1", 1)
+        sched.configure_node("cloud:ep-1", 3)
+
+        assert sched.acquire("proj-a", StageId.CATALOGUE, "local:ep-1")
+        assert sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+
+        assert sched._slots["local:ep-1"].current_load == 1
+        assert sched._slots["cloud:ep-1"].current_load == 1
+
+    def test_queue_fifo_across_nodes(self):
+        """Releasing a local slot dequeues the next project on that node."""
+        sched = PipelineScheduler()
+        sched.configure_node("local:ep-1", 1)
+
+        sched.acquire("proj-a", StageId.CATALOGUE, "local:ep-1")
+        sched.enqueue("proj-b", StageId.CATALOGUE, "local:ep-1")
+        sched.enqueue("proj-c", StageId.CATALOGUE, "local:ep-1")
+
+        entry = sched.release("proj-a", StageId.CATALOGUE, "local:ep-1")
+        assert entry is not None
+        assert entry.project_id == "proj-b"
+
+
+# ── Phase 56B: Adaptive batch concurrency ────────────────────────
+
+class TestAvailableBatchWorkers:
+    """Test dynamic batch worker allocation based on node load."""
+
+    def test_single_project_gets_full_budget(self):
+        """One project on cloud:ep-1 (max=3) gets 3 batch workers."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 3)
+        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+
+        assert sched.available_batch_workers("cloud:ep-1") == 3
+
+    def test_two_projects_split_budget(self):
+        """Two projects on cloud:ep-1 (max=3) get 1 worker each (3//2)."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 3)
+        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+
+        assert sched.available_batch_workers("cloud:ep-1") == 1
+
+    def test_single_project_ten_slots(self):
+        """One project on cloud:ep-1 (max=10) gets 10 batch workers."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+
+        assert sched.available_batch_workers("cloud:ep-1") == 10
+
+    def test_unknown_node_returns_one(self):
+        """Unknown node returns 1 (safe default)."""
+        sched = PipelineScheduler()
+        assert sched.available_batch_workers("nonexistent:node") == 1
+
+
+# ── Phase 56C: Priority star ─────────────────────────────────────
+
+class TestPriorityStar:
+    """Test global priority project queue ordering."""
+
+    def test_priority_dequeues_first(self):
+        """Starred project jumps to front of queue."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 1)
+        sched.set_priority("proj-c")
+
+        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.enqueue("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.enqueue("proj-c", StageId.ENRICHMENT, "cloud:ep-1")  # ⭐ priority
+
+        # Release → should dequeue proj-c (priority) not proj-b (FIFO)
+        entry = sched.release("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        assert entry is not None
+        assert entry.project_id == "proj-c"
+
+    def test_no_priority_uses_fifo(self):
+        """Without priority star, normal FIFO ordering."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 1)
+
+        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.enqueue("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.enqueue("proj-c", StageId.ENRICHMENT, "cloud:ep-1")
+
+        entry = sched.release("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        assert entry.project_id == "proj-b"
+
+
+# ── Phase 56B fix: Auto-discovery ────────────────────────────────
+
+class TestAutoDiscoveryBatchWorkers:
+    """Test available_batch_workers_for_provider() auto-discovery."""
+
+    def test_cloud_provider_finds_cloud_node(self):
+        """Cloud provider auto-discovers cloud:* nodes."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 3)
+        sched.acquire("proj-a", StageId.CATALOGUE, "cloud:ep-1")
+
+        result = sched.available_batch_workers_for_provider("openai")
+        assert result == 3  # Single project gets full budget
+
+    def test_cloud_provider_with_two_projects(self):
+        """Cloud provider with 2 active projects splits budget."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 3)
+        sched.acquire("proj-a", StageId.CATALOGUE, "cloud:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+
+        result = sched.available_batch_workers_for_provider("openai")
+        assert result == 1  # 3 // 2 = 1
+
+    def test_local_provider_finds_local_node(self):
+        """Local Ollama provider auto-discovers local:* nodes."""
+        sched = PipelineScheduler()
+        sched.configure_node("local:ep-1", 1)
+        sched.configure_node("cloud:ep-1", 3)
+        sched.acquire("proj-a", StageId.CATALOGUE, "local:ep-1")
+
+        result = sched.available_batch_workers_for_provider("ollama")
+        assert result == 1  # Local node max_concurrent=1
+
+    def test_empty_scheduler_returns_none(self):
+        """No nodes configured returns None."""
+        sched = PipelineScheduler()
+        result = sched.available_batch_workers_for_provider("openai")
+        assert result is None
+
+    def test_inactive_node_returns_full_capacity(self):
+        """Node exists but no projects active → returns full capacity."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 5)
+
+        result = sched.available_batch_workers_for_provider("anthropic")
+        assert result == 5

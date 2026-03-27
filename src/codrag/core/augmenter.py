@@ -313,10 +313,18 @@ class TraceAugmenter:
                 model=self.llm.model,
                 think=False,
             )
-            
             # Telemetry tracking for this attempt
             result.max_prompt_tokens = max(result.max_prompt_tokens, prompt_tokens)
             result.total_prompt_tokens += prompt_tokens
+            
+            # Phase 53: Scale num_predict by batch size to prevent token starvation 
+            # for logic models that ignore think=False and output <think> logs anyway.
+            # A batch of 5 needs ~5x the output tokens to emit 5 separate parsed blocks.
+            if len(current_batch) > 1:
+                num_predict = num_predict * len(current_batch) + 500
+                from codrag.core.context_config import compute_num_ctx
+                num_ctx = compute_num_ctx(prompt_tokens, num_predict, self.llm.model)
+            
             result.model_ctx_size = max(result.model_ctx_size, num_ctx)
             result.batches_attempted += 1
             result.items_batched += len(current_batch)
@@ -328,6 +336,7 @@ class TraceAugmenter:
                     prompt, system=system_msg,
                     num_predict=num_predict, num_ctx=num_ctx,
                     response_schema=schema,
+                    think=False,
                     max_chars=batched_max_chars("augmentation", len(current_batch)),
                 )
                 parsed_items = BatchedResponseParser.parse(text, expected_count=len(current_batch))
@@ -637,13 +646,18 @@ class TraceAugmenter:
         else:
             summary = f"{lang_label} {role} file at {file_path}"
 
+        model_label = f"synthetic:{reason}"
+        logger.debug(
+            "File fell back to synthetic mode '%s' (no extractable text or LLM skipped): %s",
+            model_label, file_path
+        )
         return AugmentationEntry(
             node_id=node["id"],
             summary=summary,
             role=role,
             confidence=0.1,  # low confidence signals synthetic origin
             augmented_at=datetime.now(timezone.utc).isoformat(),
-            model=f"synthetic:{reason}",
+            model=model_label,
             file_hash=file_hashes.get(file_path),
         )
 
@@ -1097,7 +1111,7 @@ class TraceAugmenter:
             batches.append(batchable[batch_start:batch_start + batch_size])
 
         from .batch_profiles import get_batch_concurrency
-        _concurrency = get_batch_concurrency(self.llm.provider)
+        _concurrency = get_batch_concurrency(self.llm.provider, model=self.llm.model)
 
         def _call_symbol_batch(items):
             return self._process_with_exploratory_fallback(
@@ -1173,7 +1187,7 @@ class TraceAugmenter:
 
                 logger.info(
                     "Batched symbol augmentation: %d/%d done (batch of %d -> %d parsed)",
-                    done, total_work, len(items), len(results_list),
+                    done, total_work, len(items), len(reordered),
                 )
 
         return done
@@ -1189,6 +1203,7 @@ class TraceAugmenter:
         done: int,
         total_work: int,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
+        cancel_token: Optional[Any] = None,
     ) -> int:
         """Process file nodes in batches using batched prompts.
 
@@ -1225,7 +1240,7 @@ class TraceAugmenter:
 
         # Process code files in batches (concurrent batch dispatch for cloud APIs)
         from .batch_profiles import get_batch_concurrency
-        _concurrency = get_batch_concurrency(self.llm.provider)
+        _concurrency = get_batch_concurrency(self.llm.provider, model=self.llm.model)
 
         # Pre-build all code batch payloads
         code_batches = []
@@ -1310,6 +1325,13 @@ class TraceAugmenter:
                     "Batched file augmentation: %d/%d done (batch of %d → %d parsed)",
                     done, total_work, len(items), len(results_list),
                 )
+
+                # Cooperative cancel check between batches
+                if cancel_token and cancel_token.is_cancelled:
+                    logger.info("File batching paused/cancelled at %d/%d — flushing", done, total_work)
+                    self._write_augmentations(augmented)
+                    pool.shutdown(wait=False, cancel_futures=True)
+                    cancel_token.raise_if_cancelled()
 
         # Process doc files in batches (smaller batch size, concurrent dispatch)
         doc_batch_size = max(1, batch_size // 5)  # Docs are bigger
@@ -1405,6 +1427,13 @@ class TraceAugmenter:
 
                 if progress_callback:
                     progress_callback("augment_files", done, total_work)
+
+                # Cooperative cancel check between doc batches
+                if cancel_token and cancel_token.is_cancelled:
+                    logger.info("Doc batching paused/cancelled at %d/%d — flushing", done, total_work)
+                    self._write_augmentations(augmented)
+                    pool.shutdown(wait=False, cancel_futures=True)
+                    cancel_token.raise_if_cancelled()
 
         # Phase 53: Process unstructured narrative files (simpler prompt, no batching)
         if narrative_files:
@@ -1540,6 +1569,18 @@ class TraceAugmenter:
         # Read checkpoint interval from global settings (once per run)
         checkpoint_interval = _get_checkpoint_interval()
 
+        # Wrap progress_callback so incremental runs report true overall
+        # position (e.g. 56%→100%) instead of resetting to 0%.
+        # The offset is the number of nodes that already have valid
+        # augmentations and will be skipped this run.
+        _skip_offset = result.total_nodes - total_work  # already-done nodes
+        if progress_callback and _skip_offset > 0:
+            _inner_cb = progress_callback
+            _total_for_bar = result.total_nodes
+
+            def progress_callback(msg: str, current: int, total: int) -> None:
+                _inner_cb(msg, current + _skip_offset, _total_for_bar)
+
         # Start with existing entries (will be updated/overwritten)
         augmented = dict(existing)
         done = 0
@@ -1637,6 +1678,7 @@ class TraceAugmenter:
             done = self._augment_files_batched(
                 to_augment_files, edges, nodes_by_id, file_hashes,
                 augmented, result, done, total_work, progress_callback,
+                cancel_token=cancel_token,
             )
         elif to_augment_files:
             # Individual file augmentation (local models / batching off)

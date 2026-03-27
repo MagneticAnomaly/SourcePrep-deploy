@@ -33,6 +33,7 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError }: U
   const [deepAnalysisStatus, setDeepAnalysisStatus] = useState<DeepAnalysisRunStatus>({})
   const [deepAnalysisRunning, setDeepAnalysisRunning] = useState(false)
   const [budgetUsage, setBudgetUsage] = useState<TokenBudgetData | null>(null)
+  const [tokenUsageData, setTokenUsageData] = useState<Record<string, { prompt_tokens: number; completion_tokens: number; total_tokens: number }> | null>(null)
 
   // ── Load saved settings from backend on init ─────────────────
   useEffect(() => {
@@ -72,6 +73,15 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError }: U
       setBudgetUsage(usage)
     } catch {
       // Silent — budget endpoint may not exist yet
+    }
+    // Fetch physical token telemetry
+    try {
+      const res = await api.getTokenUsage(selectedProjectId)
+      if (res && res.usage) {
+        setTokenUsageData(res.usage)
+      }
+    } catch {
+      // Silent
     }
   }, [api, selectedProjectId])
 
@@ -143,6 +153,7 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError }: U
     setDeepAnalysisStatus,
     deepAnalysisRunning,
     budgetUsage,
+    tokenUsageData,
     fetchDeepAnalysisStatus,
     handleRunDeepAnalysis,
     handleCancelDeepAnalysis,

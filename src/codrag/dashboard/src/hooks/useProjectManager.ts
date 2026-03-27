@@ -7,6 +7,7 @@ import {
   type ProjectStatus,
   type StatusState,
   type ProjectMode,
+  type PriorityLevel,
 } from '@codrag/ui'
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -30,6 +31,9 @@ function toProjectSummary(p: ProjectListItem, ps: ProjectStatus | null, building
     chunk_count: ps?.index.total_chunks,
     last_build_at: ps?.index.last_build_at ?? undefined,
     activity_status: p.activity_status,
+    is_starred: p.config?.is_starred,
+    priority_level: (p.config?.priority_level as PriorityLevel | undefined)
+      ?? (p.config?.is_starred ? 'boost' : 'none'),
   }
 }
 
@@ -40,6 +44,8 @@ const DEFAULT_CONFIG: ProjectConfig = {
   use_gitignore: true,
   trace: { enabled: false },
   auto_rebuild: { enabled: false, debounce_ms: 5000 },
+  is_starred: false,
+  priority_level: 'none' as PriorityLevel,
 }
 
 // ── Dependencies ─────────────────────────────────────────────
@@ -326,6 +332,87 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     }
   }, [api, refreshProjects]);
 
+  const handleToggleStar = useCallback(async (projectId: string, isStarred: boolean) => {
+    setProjects(prev => prev.map(p => {
+      if (p.id === projectId) {
+        return {
+          ...p,
+          config: { ...p.config, is_starred: isStarred } as ProjectConfig
+        };
+      }
+      return p;
+    }));
+
+    try {
+      const { project } = await api.getProject(projectId);
+      await api.updateProject(projectId, {
+        config: {
+          ...(project.config || {}),
+          is_starred: isStarred,
+        },
+        touch: false, // Don't bump updated_at just for starring
+      });
+      refreshProjects();
+    } catch (e) {
+      refreshProjects();
+      onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t update starred status. Please try again.', 'warning');
+    }
+  }, [api, refreshProjects]);
+
+  /** Cycle priority: none → boost → exclusive → none. */
+  const handleCyclePriority = useCallback(async (projectId: string) => {
+    // Read current level from local state
+    const currentProject = projects.find((p: ProjectListItem) => p.id === projectId);
+    const currentConfig = currentProject?.config;
+    const currentLevel: PriorityLevel = (currentConfig?.priority_level as PriorityLevel | undefined)
+      ?? (currentConfig?.is_starred ? 'boost' : 'none');
+    const next: PriorityLevel = currentLevel === 'none' ? 'boost'
+      : currentLevel === 'boost' ? 'exclusive'
+      : 'none';
+
+    // Optimistic: update local state immediately
+    setProjects(prev => prev.map(p => {
+      if (p.id === projectId) {
+        return {
+          ...p,
+          config: {
+            ...p.config,
+            is_starred: next !== 'none',
+            priority_level: next,
+          } as ProjectConfig
+        };
+      }
+      // If setting exclusive, clear any other project's exclusive status
+      if (next === 'exclusive' && (p.config?.priority_level as PriorityLevel) === 'exclusive') {
+        return {
+          ...p,
+          config: {
+            ...p.config,
+            is_starred: false,
+            priority_level: 'none' as PriorityLevel,
+          } as ProjectConfig
+        };
+      }
+      return p;
+    }));
+
+    try {
+      const { project } = await api.getProject(projectId);
+      await api.updateProject(projectId, {
+        config: {
+          ...(project.config || {}),
+          is_starred: next !== 'none',
+          priority_level: next,
+        },
+        touch: false,
+      });
+      refreshProjects();
+    } catch (e) {
+      refreshProjects();
+      onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t update priority. Please try again.', 'warning');
+    }
+  }, [api, projects, refreshProjects]);
+
   // ── Derived ──────────────────────────────────────────────────
 
   const selectedProject = useMemo(
@@ -366,6 +453,8 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     handleProjectConfigChange,
     handleDetectStack,
     handleToggleActive,
+    handleToggleStar,
+    handleCyclePriority,
     // Internal setters needed by other hooks (e.g. useTraceSystem needs setProjectConfig)
     setProjectConfig,
     setConfigDirty,

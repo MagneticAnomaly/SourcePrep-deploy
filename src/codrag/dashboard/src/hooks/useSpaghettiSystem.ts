@@ -30,20 +30,25 @@ export function useSpaghettiSystem(selectedProjectId: string | null): UseSpaghet
         setSeverityCounts(r.severity_counts || {})
       })
       .catch(() => {
-        // Silently fail — panel will show empty state
+        // Clear state on error so stale data from a previous project isn't shown
+        setFiles([])
+        setFileCount(0)
+        setScoredCount(0)
+        setSeverityCounts({})
       })
       .finally(() => setLoading(false))
   }, [api])
 
   // Hydrate on project change
   useEffect(() => {
-    if (!selectedProjectId) {
-      setFiles([])
-      setFileCount(0)
-      setScoredCount(0)
-      setSeverityCounts({})
-      return
-    }
+    // Always clear previous project's data immediately to prevent cross-contamination
+    setFiles([])
+    setFileCount(0)
+    setScoredCount(0)
+    setSeverityCounts({})
+
+    if (!selectedProjectId) return
+
     fetchScores(selectedProjectId)
   }, [selectedProjectId, fetchScores])
 

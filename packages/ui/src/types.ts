@@ -57,6 +57,8 @@ export interface CodeChunk {
  */
 export type ActivityStatus = 'active' | 'inactive' | 'frozen' | 'locked';
 
+export type PriorityLevel = 'none' | 'boost' | 'exclusive';
+
 export interface ProjectSummary {
   id: string;
   name: string;
@@ -66,6 +68,9 @@ export interface ProjectSummary {
   chunk_count?: number;
   last_build_at?: string;
   activity_status?: ActivityStatus;
+  /** @deprecated Use priority_level instead */
+  is_starred?: boolean;
+  priority_level?: PriorityLevel;
 }
 
 // ============================================================
@@ -659,6 +664,10 @@ export interface SavedEndpoint {
   url: string;
   api_key?: string;
   compute_node_id?: string | null;
+  /** Max concurrent local model requests (VRAM-bound). Default: 1. */
+  local_concurrency?: number;
+  /** Max concurrent cloud-proxied model requests (rate-limit-bound). Default: 1. */
+  cloud_concurrency?: number;
 }
 
 /**
@@ -803,6 +812,9 @@ export interface ProjectConfig {
   exclude_globs: string[];
   max_file_bytes: number;
   active?: boolean;  // Pro tier: explicit active/inactive toggle (default true)
+  /** @deprecated Use priority_level instead */
+  is_starred?: boolean;
+  priority_level?: PriorityLevel;
   hard_limit_bytes?: number;
   use_gitignore: boolean;
   trace: { enabled: boolean; paused?: boolean };
@@ -1337,4 +1349,55 @@ export interface AdminPolicy {
   network: NetworkPolicy;
   budgets: BudgetPolicy;
   enforcement_mode: 'suggest' | 'enforce';
+}
+
+// ── Phase 57: Goalposts Types ────────────────────────────────────────
+
+export type GoalpostCategory = 'architecture' | 'security' | 'feature' | 'tech_debt' | 'research';
+export type GoalpostState = 'proposed' | 'approved' | 'dismissed' | 'refined';
+
+export interface GoalpostTask {
+  description: string;
+  file_paths: string[];
+  effort: 'small' | 'medium' | 'large';
+}
+
+export interface GoalpostProposal {
+  id: string;
+  title: string;
+  rationale: string;
+  category: GoalpostCategory;
+  state: GoalpostState;
+  tasks: GoalpostTask[];
+  priority: string;
+  created_at: string;
+  decided_at: string;
+}
+
+export interface GoalpostQuestion {
+  id: string;
+  question: string;
+  context: string;
+  category: GoalpostCategory;
+  answered: boolean;
+  answer: string;
+  created_at: string;
+}
+
+export interface GoalpostsResponse {
+  generating: boolean;
+  error: string | null;
+  ready: boolean;
+  has_atlas: boolean;
+  has_audit: boolean;
+  has_intent: boolean;
+  missing: string[];
+  product_intent: string;
+  proposals: GoalpostProposal[];
+  questions: GoalpostQuestion[];
+  last_generated_at: string;
+  model_used: string;
+  generation_tokens: number;
+  generation_duration_ms: number;
+  version: number;
 }

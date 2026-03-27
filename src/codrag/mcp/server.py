@@ -2,28 +2,29 @@
 MCPServer — the main MCP server class with tool implementations,
 project resolution, and protocol handling.
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
 import os
-from logging.handlers import RotatingFileHandler
 import sys
 import uuid
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import httpx
 
 from .errors import (
+    BuildInProgressError,
+    DaemonError,
+    DaemonUnavailableError,
+    IndexNotReadyError,
+    InvalidParamsError,
     MCPError,
     MethodNotFoundError,
-    InvalidParamsError,
-    DaemonUnavailableError,
-    DaemonError,
-    IndexNotReadyError,
-    BuildInProgressError,
     ProjectNotFoundError,
     ProjectSelectionAmbiguousError,
 )
@@ -48,9 +49,7 @@ def configure_logging(*, debug: bool = False, log_file: Optional[str] = None) ->
         else:
             fh = RotatingFileHandler(str(path), maxBytes=1_000_000, backupCount=3)
             fh.setLevel(logging.DEBUG)
-            fh.setFormatter(
-                logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
-            )
+            fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
             root.addHandler(fh)
 
     root.setLevel(logging.DEBUG if (debug or log_file) else logging.WARNING)
@@ -61,7 +60,7 @@ def configure_logging(*, debug: bool = False, log_file: Optional[str] = None) ->
 # MCP Protocol Constants (spec 2025-11-25)
 # =============================================================================
 
-MCP_PROTOCOL_VERSION = "2025-11-25"
+MCP_PROTOCOL_VERSION = "2024-11-05"
 JSONRPC_VERSION = "2.0"
 
 # Error codes
@@ -96,10 +95,11 @@ from codrag.mcp_tools import TOOLS
 # MCP Server Implementation
 # =============================================================================
 
+
 class MCPServer:
     """
     CoDRAG MCP Server.
-    
+
     Communicates with the CoDRAG daemon via HTTP API.
     """
 
@@ -116,26 +116,26 @@ class MCPServer:
         self._resolved_project_id: Optional[str] = None
         self._resolved_project_cwd: Optional[str] = None
         self._initialize_roots: List[str] = []
-        self._client_name: str = "unknown"      # Phase 50: set by handle_initialize
-        self._client_version: str = ""           # Phase 50: set by handle_initialize
-        self._codrag_called: bool = False        # Phase 50 Sprint 3: nudge tracker
-        self._notification_callback = None       # OPP-2: set by transport for resource notifications
+        self._client_name: str = "unknown"  # Phase 50: set by handle_initialize
+        self._client_version: str = ""  # Phase 50: set by handle_initialize
+        self._codrag_called: bool = False  # Phase 50 Sprint 3: nudge tracker
+        self._notification_callback = None  # OPP-2: set by transport for resource notifications
         self._last_atlas_signal: Dict[str, float] = {}  # D1: per-project atlas signal mtime
 
     # OPP-W5: Adaptive token budget tiers based on detected MCP client.
     # Maps clientInfo.name patterns to max_chars defaults.
     # Larger context windows -> more generous budgets.
     _CLIENT_BUDGETS: Dict[str, int] = {
-        "gemini":    24000,   # Gemini CLI: 1M tokens, be generous
-        "claude":    18000,   # Claude Code: 200K tokens
-        "cursor":    14000,   # Cursor: 200K tokens (Claude Sonnet)
-        "windsurf":  14000,   # Windsurf: 200K tokens
-        "cascade":   14000,   # Windsurf Cascade
-        "copilot":   14000,   # GitHub Copilot: 128K tokens (GPT-4o)
-        "cline":     10000,   # Cline: variable (may use local LLMs)
-        "roo":       10000,   # Roo Code: variable
-        "continue":  10000,   # Continue: variable
-        "qwen":      18000,   # Qwen Code: large context
+        "gemini": 24000,  # Gemini CLI: 1M tokens, be generous
+        "claude": 18000,  # Claude Code: 200K tokens
+        "cursor": 14000,  # Cursor: 200K tokens (Claude Sonnet)
+        "windsurf": 14000,  # Windsurf: 200K tokens
+        "cascade": 14000,  # Windsurf Cascade
+        "copilot": 14000,  # GitHub Copilot: 128K tokens (GPT-4o)
+        "cline": 10000,  # Cline: variable (may use local LLMs)
+        "roo": 10000,  # Roo Code: variable
+        "continue": 10000,  # Continue: variable
+        "qwen": 18000,  # Qwen Code: large context
     }
     _DEFAULT_BUDGET = 12000
 
@@ -268,7 +268,9 @@ class MCPServer:
                 # Notify host that cached resources are stale
                 await self.notify_resource_changed(f"codrag://{project_id}/atlas")
                 await self.notify_resource_changed(f"codrag://{project_id}/structure")
-                logger.debug("D1: Atlas signal detected for %s (mtime %.0f > %.0f)", project_id, mtime, last)
+                logger.debug(
+                    "D1: Atlas signal detected for %s (mtime %.0f > %.0f)", project_id, mtime, last
+                )
         except Exception:
             pass  # Non-fatal -- worst case the AI gets slightly stale data
 
@@ -332,13 +334,13 @@ class MCPServer:
             path = "/" + path
         url = f"{self.daemon_url}{path}"
         logger.debug(f"GET {url}")
-        
+
         # SECURITY: Include IPC token if daemon requires authentication
         headers: Dict[str, str] = {}
         ipc_token = os.environ.get("CODRAG_DAEMON_TOKEN")
         if ipc_token:
             headers["Authorization"] = f"Bearer {ipc_token}"
-        
+
         try:
             resp = await client.get(url, headers=headers)
             resp.raise_for_status()
@@ -366,13 +368,13 @@ class MCPServer:
             path = "/" + path
         url = f"{self.daemon_url}{path}"
         logger.debug(f"POST {url} payload_keys={list(payload.keys())}")
-        
+
         # SECURITY: Include IPC token if daemon requires authentication
         headers: Dict[str, str] = {}
         ipc_token = os.environ.get("CODRAG_DAEMON_TOKEN")
         if ipc_token:
             headers["Authorization"] = f"Bearer {ipc_token}"
-        
+
         try:
             resp = await client.post(url, json=payload, headers=headers)
             resp.raise_for_status()
@@ -396,10 +398,17 @@ class MCPServer:
     def _best_project_match(
         self, projects: List[Dict[str, Any]], paths: List[str]
     ) -> Optional[str]:
-        """Return the project_id whose root is the longest prefix of any path, or None.
+        """Return the project_id whose root best matches any of the given paths.
 
-        Returns None if zero matches or if multiple projects tie at the same
-        prefix length (ambiguous).
+        Only uses filesystem path matching. The caller is responsible for
+        filtering to active projects (via activity_status) before calling.
+
+        Returns None if zero matches or if multiple projects tie (ambiguous).
+
+        Scoring:
+          - Exact match:                    10000 + len(path)
+          - Check path is subfolder of proj: 1000 + len(project_path)
+          - Project is subfolder of check:   len(check_path)
         """
         best_id: Optional[str] = None
         best_len = -1
@@ -412,22 +421,16 @@ class MCPServer:
                 continue
             for check_path in paths:
                 check = check_path.rstrip("/")
-                if not check:
-                    check = "/"
-                    
+                if not check or check == "/":
+                    continue  # Root FS is not a useful signal
+
                 score = -1
                 if check == p_path:
-                    # Exact match gets highest priority
                     score = 10000 + len(p_path)
                 elif check.startswith(p_path + "/"):
-                    # Check path is a subfolder of the project
                     score = 1000 + len(p_path)
                 elif p_path.startswith(check + "/"):
-                    # Project is a subfolder of the check path
                     score = len(check)
-                elif check == "/" and p_path:
-                    # If check is root, all projects technically match as children
-                    score = 1
 
                 if score > -1:
                     if score > best_len:
@@ -441,15 +444,68 @@ class MCPServer:
             return None
         return best_id
 
+    async def _auto_register_codrag_folders(
+        self, paths: List[str], existing_projects: List[Dict[str, Any]]
+    ) -> Optional[str]:
+        """Auto-register projects with .codrag/ folders that aren't in the daemon yet.
+
+        When a workspace root or CWD contains a .codrag/ directory (created by
+        ``codrag init``), the project should be usable immediately without
+        manual ``codrag add``. This checks each path for .codrag/ and registers
+        any unregistered ones as embedded-mode projects.
+
+        Returns the project_id of the first newly-registered project, or None.
+        """
+        existing_paths = {
+            str(p.get("path", "")).rstrip("/") for p in existing_projects if p.get("path")
+        }
+
+        for path in paths:
+            clean = path.rstrip("/")
+            if not clean or clean == "/":
+                continue
+
+            codrag_dir = Path(clean) / ".codrag"
+            if not codrag_dir.is_dir():
+                continue
+
+            # Already registered?
+            if clean in existing_paths:
+                continue
+
+            # Auto-register as embedded project
+            try:
+                result = await self._api_post(
+                    "/projects",
+                    {
+                        "path": clean,
+                        "name": Path(clean).name,
+                        "mode": "embedded",
+                    },
+                )
+                new_id = None
+                if isinstance(result, dict):
+                    new_id = str(result.get("id") or result.get("project", {}).get("id", ""))
+                if new_id:
+                    logger.info(f"Auto-registered project from .codrag folder: {clean} -> {new_id}")
+                    return new_id
+            except Exception as e:
+                logger.debug(f"Auto-register failed for {clean}: {e}")
+
+        return None
+
     async def _resolve_project_id(self, override: Optional[str] = None) -> str:
         """Resolve which project to target.
 
         Priority:
           1. Explicit override (from tool call ``project_id`` param)
           2. Pinned project (from CLI ``--project`` flag)
+          2b. .codrag/project.json pointer (workspace root or CWD)
           3. MCP initialize roots (workspace URIs sent by the IDE)
           4. CWD auto-detect (process working directory)
+          4b. CODRAG_PROJECT env var
           5. Single-project shortcut
+          5b. Most-recently-active heuristic
         """
         # 1. Tool-call override
         if override and override.strip():
@@ -459,27 +515,89 @@ class MCPServer:
         if self.project_id:
             return self.project_id
 
-        # 3-4. Cache hit (roots + CWD haven't changed)
+        # 3. Pointer check — Instant routing via .codrag/project.json
+        #    Runs before everything to guarantee local workspace priority
+        from codrag.core.project_registry import read_codrag_pointer
+
         cwd = str(Path.cwd().resolve())
-        cache_key = (tuple(self._initialize_roots), cwd)
-        if self._resolved_project_id and getattr(self, "_cache_key", None) == cache_key:
-            return self._resolved_project_id
+        pointer_paths = list(self._initialize_roots)
+        if cwd != "/" and cwd not in pointer_paths:
+            pointer_paths.append(cwd)
 
-        # Fetch all projects from daemon
-        data = await self._api_get("/projects")
-        all_projects: List[Dict[str, Any]] = []
-        if isinstance(data, dict):
-            raw = data.get("projects")
-            if isinstance(raw, list):
-                all_projects = [p for p in raw if isinstance(p, dict)]
+        for pp in pointer_paths:
+            pointer = read_codrag_pointer(pp)
+            if pointer and pointer.get("id"):
+                pid = pointer["id"]
+                self._resolved_project_id = pid
+                logger.debug(
+                    f"Resolved project from .codrag/project.json pointer: {pid} (path={pp})"
+                )
+                return pid
 
-        # Filter out locked/frozen projects — MCP only serves active projects.
-        # On paid tiers all projects are "active" (unless manually deactivated).
-        # On Free tier only the most recent project is "active".
-        projects = [
-            p for p in all_projects
-            if p.get("activity_status", "active") in ("active", "inactive")
-        ]
+        # 4. Check global active project signal (from dashboard clicks)
+        from codrag.core.project_registry import read_active_project_signal
+
+        active_signal = read_active_project_signal()
+        if active_signal and active_signal.get("id"):
+            # Fetch all projects from daemon first so we can validate it
+            data = await self._api_get("/projects")
+            all_projects: List[Dict[str, Any]] = []
+            if isinstance(data, dict):
+                raw = data.get("projects")
+                if isinstance(raw, list):
+                    all_projects = [p for p in raw if isinstance(p, dict)]
+
+            projects = [
+                p
+                for p in all_projects
+                if p.get("activity_status", "active") in ("active", "inactive")
+            ]
+
+            signal_id = active_signal["id"]
+            # Verify the signaled project actually exists and is active
+            if any(str(p.get("id")) == signal_id for p in projects):
+                self._resolved_project_id = signal_id
+                logger.debug(f"Resolved project from active_project_signal: {signal_id}")
+                return signal_id
+        else:
+            # Fetch all projects from daemon if signal check didn't do it
+            data = await self._api_get("/projects")
+            all_projects: List[Dict[str, Any]] = []
+            if isinstance(data, dict):
+                raw = data.get("projects")
+                if isinstance(raw, list):
+                    all_projects = [p for p in raw if isinstance(p, dict)]
+
+            projects = [
+                p
+                for p in all_projects
+                if p.get("activity_status", "active") in ("active", "inactive")
+            ]
+
+        # 2c. Auto-register any workspace roots / CWD with .codrag/ folders
+        #     that aren't yet in the daemon. This makes setup truly zero-config:
+        #     `codrag init` creates .codrag/, future MCP connections auto-detect.
+        auto_paths = list(self._initialize_roots)
+        if cwd != "/" and cwd not in auto_paths:
+            auto_paths.append(cwd)
+        if auto_paths:
+            new_pid = await self._auto_register_codrag_folders(auto_paths, all_projects)
+            if new_pid:
+                # Re-fetch projects since we just added one
+                data = await self._api_get("/projects")
+                all_projects = []
+                if isinstance(data, dict):
+                    raw = data.get("projects")
+                    if isinstance(raw, list):
+                        all_projects = [p for p in raw if isinstance(p, dict)]
+                projects = [
+                    p
+                    for p in all_projects
+                    if p.get("activity_status", "active") in ("active", "inactive")
+                ]
+                # Use the newly registered project directly
+                self._resolved_project_id = new_pid
+                return new_pid
 
         if not projects:
             raise ProjectNotFoundError(
@@ -498,29 +616,78 @@ class MCPServer:
                 lines.append(f"  - {pid}: {name} ({path})")
             return "\n".join(lines)
 
-        # 3. Try initialize roots (workspace URIs from the IDE)
+        # 5. Try initialize roots (workspace URIs from the IDE)
         if self._initialize_roots:
             pid = self._best_project_match(projects, self._initialize_roots)
             if pid:
                 self._resolved_project_id = pid
-                self._cache_key = cache_key
                 logger.debug(f"Resolved project from initialize roots: {pid}")
                 return pid
 
-        # 4. CWD auto-detect (always attempted, not gated on --auto)
+        # 6. CWD auto-detect
+        #    _best_project_match skips cwd="/" internally, so this is safe
+        #    for MCP hosts that launch with cwd=/
         pid = self._best_project_match(projects, [cwd])
         if pid:
             self._resolved_project_id = pid
-            self._cache_key = cache_key
             logger.debug(f"Auto-detected project from CWD: {pid} cwd={cwd}")
             return pid
 
-        # 5. Single-project shortcut
+        # 7. CODRAG_PROJECT env var — lets MCP configs pin a default project
+        #     by ID or by name (case-insensitive match)
+        env_project = os.environ.get("CODRAG_PROJECT", "").strip()
+        if env_project:
+            for p in projects:
+                if (
+                    str(p.get("id", "")) == env_project
+                    or str(p.get("name", "")).strip().lower() == env_project.lower()
+                ):
+                    pid = str(p["id"])
+                    self._resolved_project_id = pid
+                    logger.debug(f"Resolved project from CODRAG_PROJECT env: {pid}")
+                    return pid
+
+        # 8. Single-project shortcut
         if len(projects) == 1 and projects[0].get("id"):
             pid = str(projects[0]["id"])
             self._resolved_project_id = pid
-            self._cache_key = cache_key
             return pid
+
+        # 9. Most-recently-active heuristic — when multiple projects exist
+        #     and no other signal is available, pick the one with the most
+        #     recent activity (updated_at or last_build_at). This prevents
+        #     the ambiguity error in setups where a single project is
+        #     actively being worked on.
+        if len(projects) > 1:
+
+            def _activity_time(p: Dict[str, Any]) -> float:
+                for key in ("updated_at", "last_build_at", "created_at"):
+                    val = p.get(key)
+                    if val:
+                        try:
+                            from datetime import datetime
+
+                            if isinstance(val, str):
+                                # ISO format with or without timezone
+                                dt = datetime.fromisoformat(val.replace("Z", "+00:00"))
+                                return dt.timestamp()
+                            elif isinstance(val, (int, float)):
+                                return float(val)
+                        except Exception:
+                            continue
+                return 0.0
+
+            sorted_projects = sorted(projects, key=_activity_time, reverse=True)
+            top = sorted_projects[0]
+            if top.get("id") and _activity_time(top) > 0:
+                pid = str(top["id"])
+                self._resolved_project_id = pid
+                logger.info(
+                    f"Auto-selected most-recently-active project: {pid} "
+                    f"({top.get('name', '')}). Set CODRAG_PROJECT env var "
+                    f"or use --project flag to override."
+                )
+                return pid
 
         # No match — return actionable error with full project list
         msg = (
@@ -556,9 +723,15 @@ class MCPServer:
             "total_documents": int(index.get("total_chunks") or 0),
             "model": index.get("embedding_model", "unknown"),
             "built_at": index.get("last_build_at"),
-            "building": bool((data or {}).get("building", False) if isinstance(data, dict) else False),
+            "building": bool(
+                (data or {}).get("building", False) if isinstance(data, dict) else False
+            ),
             "watch_enabled": bool(
-                (((data or {}).get("watch") or {}).get("enabled", False) if isinstance(data, dict) else False)
+                (
+                    ((data or {}).get("watch") or {}).get("enabled", False)
+                    if isinstance(data, dict)
+                    else False
+                )
             ),
         }
 
@@ -570,7 +743,9 @@ class MCPServer:
                 plist = []
                 for p in (pdata or {}).get("projects", []) if isinstance(pdata, dict) else []:
                     if isinstance(p, dict) and p.get("id"):
-                        plist.append({"id": p["id"], "name": p.get("name", ""), "path": p.get("path", "")})
+                        plist.append(
+                            {"id": p["id"], "name": p.get("name", ""), "path": p.get("path", "")}
+                        )
                 if len(plist) > 1:
                     result["available_projects"] = plist
             except Exception:
@@ -578,7 +753,9 @@ class MCPServer:
 
         return result
 
-    async def tool_build(self, full: bool = False, project_override: Optional[str] = None) -> Dict[str, Any]:
+    async def tool_build(
+        self, full: bool = False, project_override: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Trigger index build."""
         project_id = await self._resolve_project_id(override=project_override)
         path = f"/projects/{project_id}/build"
@@ -591,7 +768,11 @@ class MCPServer:
             return {"status": "already_building", "message": "A build is already in progress."}
 
         if isinstance(data, dict) and data.get("started"):
-            return {"project_id": project_id, "status": "started", "message": "Index build started. Use codrag_status to check progress."}
+            return {
+                "project_id": project_id,
+                "status": "started",
+                "message": "Index build started. Use codrag_status to check progress.",
+            }
         return {"project_id": project_id, "status": "unknown", "data": data}
 
     async def tool_search(
@@ -631,7 +812,9 @@ class MCPServer:
         if compression not in ("none", "lingua", "auto"):
             raise InvalidParamsError("compression must be 'none', 'lingua', or 'auto'")
         if compression_level not in ("light", "standard", "aggressive"):
-            raise InvalidParamsError("compression_level must be 'light', 'standard', or 'aggressive'")
+            raise InvalidParamsError(
+                "compression_level must be 'light', 'standard', or 'aggressive'"
+            )
 
         project_id = await self._resolve_project_id(override=project_override)
         # OPP-W3: Request augmented summaries alongside source content
@@ -769,7 +952,9 @@ class MCPServer:
         md_parts: List[str] = []
         md_parts.append(f"## CoDRAG Context ({chunks} chunks, {total_chars} chars)")
         if hub_count or mod_count:
-            md_parts.append(f"Hubs: {hub_count} | Modules: {mod_count} | Neighbors: {neighbor_count}")
+            md_parts.append(
+                f"Hubs: {hub_count} | Modules: {mod_count} | Neighbors: {neighbor_count}"
+            )
         md_parts.append("")
         if context_str:
             md_parts.append(context_str)
@@ -787,7 +972,9 @@ class MCPServer:
             "context": (data or {}).get("context", "") if isinstance(data, dict) else "",
             "chunks_used": chunks_used,
             "total_chars": (data or {}).get("total_chars", 0) if isinstance(data, dict) else 0,
-            "estimated_tokens": (data or {}).get("estimated_tokens", 0) if isinstance(data, dict) else 0,
+            "estimated_tokens": (data or {}).get("estimated_tokens", 0)
+            if isinstance(data, dict)
+            else 0,
         }
         comp_meta = (data or {}).get("compression") if isinstance(data, dict) else None
         if comp_meta:
@@ -824,13 +1011,15 @@ class MCPServer:
         nodes = (data or {}).get("nodes", []) if isinstance(data, dict) else []
         formatted = []
         for n in nodes:
-            formatted.append({
-                "id": n.get("id", ""),
-                "name": n.get("name", ""),
-                "kind": n.get("kind", ""),
-                "path": n.get("file_path", n.get("path", "")),
-                "line": n.get("start_line", n.get("line")),
-            })
+            formatted.append(
+                {
+                    "id": n.get("id", ""),
+                    "name": n.get("name", ""),
+                    "kind": n.get("kind", ""),
+                    "path": n.get("file_path", n.get("path", "")),
+                    "line": n.get("start_line", n.get("line")),
+                }
+            )
 
         # Phase 50 Sprint 3: Markdown for symbol search results
         if formatted:
@@ -877,14 +1066,16 @@ class MCPServer:
             raise InvalidParamsError("max_nodes too large (max 100)")
 
         project_id = await self._resolve_project_id(override=project_override)
-        
+
         # Build query params
         params = [f"direction={direction}", f"max_nodes={max_nodes}"]
         if edge_kinds:
             params.append(f"edge_kinds={','.join(edge_kinds)}")
         query_string = "&".join(params)
-        
-        data = await self._api_get(f"/projects/{project_id}/trace/neighbors/{node_id}?{query_string}")
+
+        data = await self._api_get(
+            f"/projects/{project_id}/trace/neighbors/{node_id}?{query_string}"
+        )
 
         # Format response
         center = (data or {}).get("center") if isinstance(data, dict) else None
@@ -909,12 +1100,18 @@ class MCPServer:
         return {
             "project_id": project_id,
             "traced_count": (data or {}).get("traced_count", 0) if isinstance(data, dict) else 0,
-            "untraced_count": (data or {}).get("untraced_count", 0) if isinstance(data, dict) else 0,
+            "untraced_count": (data or {}).get("untraced_count", 0)
+            if isinstance(data, dict)
+            else 0,
             "stale_count": (data or {}).get("stale_count", 0) if isinstance(data, dict) else 0,
-            "excluded_count": (data or {}).get("excluded_count", 0) if isinstance(data, dict) else 0,
+            "excluded_count": (data or {}).get("excluded_count", 0)
+            if isinstance(data, dict)
+            else 0,
             "total_nodes": (data or {}).get("total_nodes", 0) if isinstance(data, dict) else 0,
             "total_edges": (data or {}).get("total_edges", 0) if isinstance(data, dict) else 0,
-            "building": bool((data or {}).get("building", False)) if isinstance(data, dict) else False,
+            "building": bool((data or {}).get("building", False))
+            if isinstance(data, dict)
+            else False,
         }
 
     async def tool_impact(
@@ -1023,11 +1220,14 @@ class MCPServer:
         context_snippet = ""
         try:
             has_rules = self._project_has_rules_file(project_id)
-            ctx_data = await self._api_post(f"/projects/{project_id}/context", {
-                "query": "",
-                "max_chars": 4000,
-                "include_atlas": not has_rules,
-            })
+            ctx_data = await self._api_post(
+                f"/projects/{project_id}/context",
+                {
+                    "query": "",
+                    "max_chars": 4000,
+                    "include_atlas": not has_rules,
+                },
+            )
             if isinstance(ctx_data, dict):
                 context_snippet = ctx_data.get("context", "") or ""
         except Exception:
@@ -1128,6 +1328,7 @@ class MCPServer:
 
                 # Poll for completion (max 30s for Tier 1, should be <2s)
                 import asyncio
+
                 for _ in range(30):
                     await asyncio.sleep(1)
                     status = await self._api_get(f"/projects/{project_id}/audit/status")
@@ -1232,7 +1433,7 @@ class MCPServer:
             "CRITICAL SYSTEM INSTRUCTIONS FOR AI:",
             "1. Focus strictly on resolving the findings listed below.",
             "2. If 'Relevant Code Context' is truncated (stops abruptly), focus on the first few findings, then use `codrag_search` to gather the rest.",
-            "3. When you finish implementing these fixes, you MUST call `codrag_audit` with `action='verify'` and the relevant analyzers to verify your work before telling the user you are done.\n"
+            "3. When you finish implementing these fixes, you MUST call `codrag_audit` with `action='verify'` and the relevant analyzers to verify your work before telling the user you are done.\n",
         ]
         for f in selected:
             fid = f.get("finding_id", "")
@@ -1258,14 +1459,17 @@ class MCPServer:
         if affected_files:
             try:
                 query = " ".join(affected_files[:5])
-                ctx_data = await self._api_post(f"/projects/{project_id}/context", {
-                    "query": query,
-                    "k": 10,
-                    "max_chars": 8000,
-                    "include_sources": True,
-                    "structured": False,
-                    "trace_expand": True,
-                })
+                ctx_data = await self._api_post(
+                    f"/projects/{project_id}/context",
+                    {
+                        "query": query,
+                        "k": 10,
+                        "max_chars": 8000,
+                        "include_sources": True,
+                        "structured": False,
+                        "trace_expand": True,
+                    },
+                )
                 context_text = ctx_data.get("context", "") if isinstance(ctx_data, dict) else ""
             except Exception:
                 pass
@@ -1297,12 +1501,16 @@ class MCPServer:
 
         # Trigger audit with category filter
         try:
-            await self._api_post(f"/projects/{project_id}/audit", {
-                "synthesize": False,
-            })
+            await self._api_post(
+                f"/projects/{project_id}/audit",
+                {
+                    "synthesize": False,
+                },
+            )
 
             # Poll for completion
             import asyncio
+
             for _ in range(30):
                 await asyncio.sleep(1)
                 status = await self._api_get(f"/projects/{project_id}/audit/status")
@@ -1343,7 +1551,9 @@ class MCPServer:
             }
             md = [f"## Verify: {len(matched)} finding(s) remain\n"]
             for f in matched[:15]:
-                md.append(f"- **[{f.get('severity', '')}] {f.get('title', '')}** -- {f.get('suggested_action', '')}")
+                md.append(
+                    f"- **[{f.get('severity', '')}] {f.get('title', '')}** -- {f.get('suggested_action', '')}"
+                )
             check_result["_to_markdown"] = "\n".join(md)
             return check_result
         except Exception as e:
@@ -1367,7 +1577,8 @@ class MCPServer:
             "project_id": project_id,
             "report": report_name,
             "content": content,
-            "_to_markdown": content or f"(Report '{report_name}' not found. Run `codrag_audit action='scan' synthesize=true` first.)",
+            "_to_markdown": content
+            or f"(Report '{report_name}' not found. Run `codrag_audit action='scan' synthesize=true` first.)",
         }
 
     async def tool_hi(self, project_override: Optional[str] = None) -> Dict[str, Any]:
@@ -1376,6 +1587,7 @@ class MCPServer:
         Delegates to mcp.tool_hi module (extracted Phase 50 audit).
         """
         from codrag.mcp.tool_hi import tool_hi as _tool_hi
+
         return await _tool_hi(self, project_override=project_override)
 
     # -------------------------------------------------------------------------
@@ -1430,7 +1642,9 @@ class MCPServer:
             self._client_name = str(client_info.get("name", "unknown"))
             self._client_version = str(client_info.get("version", ""))
             # T1: Log at INFO so it appears in log files for empirical validation
-            logger.info("MCP client detected: name=%s version=%s", self._client_name, self._client_version)
+            logger.info(
+                "MCP client detected: name=%s version=%s", self._client_name, self._client_version
+            )
 
         return {
             "protocolVersion": MCP_PROTOCOL_VERSION,
@@ -1488,32 +1702,34 @@ class MCPServer:
         except Exception:
             project_id = "default"
 
-        return {"resources": [
-            {
-                "uri": f"codrag://{project_id}/structure",
-                "name": "Codebase Structure",
-                "description": "Module summaries, hub files, and dependency map. ~500 tokens.",
-                "mimeType": "text/markdown",
-            },
-            {
-                "uri": f"codrag://{project_id}/atlas",
-                "name": "Codebase Atlas",
-                "description": "Architectural overview of the codebase. ~400 tokens.",
-                "mimeType": "text/markdown",
-            },
-            {
-                "uri": f"codrag://{project_id}/files",
-                "name": "Selected Files",
-                "description": "Knowledge base files selected by the user. ~300 tokens.",
-                "mimeType": "text/markdown",
-            },
-            {
-                "uri": f"codrag://{project_id}/health",
-                "name": "Index Health",
-                "description": "Index freshness, coverage, and build status. ~100 tokens.",
-                "mimeType": "text/markdown",
-            },
-        ]}
+        return {
+            "resources": [
+                {
+                    "uri": f"codrag://{project_id}/structure",
+                    "name": "Codebase Structure",
+                    "description": "Module summaries, hub files, and dependency map. ~500 tokens.",
+                    "mimeType": "text/markdown",
+                },
+                {
+                    "uri": f"codrag://{project_id}/atlas",
+                    "name": "Codebase Atlas",
+                    "description": "Architectural overview of the codebase. ~400 tokens.",
+                    "mimeType": "text/markdown",
+                },
+                {
+                    "uri": f"codrag://{project_id}/files",
+                    "name": "Selected Files",
+                    "description": "Knowledge base files selected by the user. ~300 tokens.",
+                    "mimeType": "text/markdown",
+                },
+                {
+                    "uri": f"codrag://{project_id}/health",
+                    "name": "Index Health",
+                    "description": "Index freshness, coverage, and build status. ~100 tokens.",
+                    "mimeType": "text/markdown",
+                },
+            ]
+        }
 
     async def handle_resources_read(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle resources/read request.
@@ -1529,7 +1745,7 @@ class MCPServer:
         if not uri.startswith("codrag://"):
             raise InvalidParamsError(f"Unknown resource URI scheme: {uri}")
 
-        parts = uri[len("codrag://"):].split("/", 1)
+        parts = uri[len("codrag://") :].split("/", 1)
         if len(parts) != 2:
             raise InvalidParamsError(f"Invalid resource URI: {uri}")
 
@@ -1614,9 +1830,14 @@ class MCPServer:
         try:
             # Request atlas via include_atlas=True. With empty query, the
             # backend prepends the atlas to the context string.
-            ctx_data = await self._api_post(f"/projects/{project_id}/context", {
-                "query": "", "max_chars": 2500, "include_atlas": True,
-            })
+            ctx_data = await self._api_post(
+                f"/projects/{project_id}/context",
+                {
+                    "query": "",
+                    "max_chars": 2500,
+                    "include_atlas": True,
+                },
+            )
             if not isinstance(ctx_data, dict):
                 return "(Atlas not available)"
 
@@ -1672,7 +1893,9 @@ class MCPServer:
             # Index status
             if index.get("exists"):
                 built_at = index.get("last_build_at", "unknown")
-                parts.append(f"Index: loaded ({index.get('total_chunks', 0)} chunks, built {built_at})")
+                parts.append(
+                    f"Index: loaded ({index.get('total_chunks', 0)} chunks, built {built_at})"
+                )
             elif building:
                 parts.append("Index: building...")
             else:
@@ -1818,23 +2041,28 @@ class MCPServer:
 
     # EA-B12: MCP rate limiting state
     _mcp_call_times: List[float] = []
-    _MCP_RATE_LIMIT = 120       # max calls
-    _MCP_RATE_WINDOW = 60.0     # per N seconds
+    _MCP_RATE_LIMIT = 120  # max calls
+    _MCP_RATE_WINDOW = 60.0  # per N seconds
 
     def _check_rate_limit(self) -> None:
         """EA-B12: Enforce rate limit on MCP tool calls (120 calls/60s)."""
         import time
+
         now = time.monotonic()
         # Prune old entries
         self._mcp_call_times = [t for t in self._mcp_call_times if now - t < self._MCP_RATE_WINDOW]
         if len(self._mcp_call_times) >= self._MCP_RATE_LIMIT:
-            raise MCPError(-32000, f"Rate limit exceeded: {self._MCP_RATE_LIMIT} calls per {int(self._MCP_RATE_WINDOW)}s")
+            raise MCPError(
+                -32000,
+                f"Rate limit exceeded: {self._MCP_RATE_LIMIT} calls per {int(self._MCP_RATE_WINDOW)}s",
+            )
         self._mcp_call_times.append(now)
 
     def _audit_mcp_call(self, tool_name: str, args: Dict[str, Any]) -> None:
         """EA-B12: Record MCP tool call to audit log."""
         try:
             from codrag.core.audit_log import get_audit_log
+
             audit = get_audit_log()
             audit.record(
                 event_type="mcp_tool_call",
@@ -2023,7 +2251,9 @@ class MCPServer:
                 action = args.get("action", "get")
                 if action == "save":
                     if not args.get("content", "").strip():
-                        raise InvalidParamsError("codrag_observe action='save' requires non-empty content")
+                        raise InvalidParamsError(
+                            "codrag_observe action='save' requires non-empty content"
+                        )
                     result = await self.tool_save_observation(
                         content=args.get("content", ""),
                         file_path=args.get("file_path"),
@@ -2060,17 +2290,13 @@ class MCPServer:
                 text = json.dumps(result, indent=2)
 
             return {
-                "content": [
-                    {"type": "text", "text": text}
-                ],
+                "content": [{"type": "text", "text": text}],
                 "isError": False,
             }
 
         except (DaemonUnavailableError, DaemonError, InvalidParamsError) as e:
             return {
-                "content": [
-                    {"type": "text", "text": str(e)}
-                ],
+                "content": [{"type": "text", "text": str(e)}],
                 "isError": True,
             }
 
@@ -2130,4 +2356,3 @@ class MCPServer:
 # =============================================================================
 # Errors
 # =============================================================================
-

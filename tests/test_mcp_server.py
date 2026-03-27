@@ -607,6 +607,13 @@ class TestToolSchemas:
 # Multi-Project Routing Tests
 # =============================================================================
 
+@pytest.fixture(autouse=True)
+def mock_pointer_and_signal():
+    """Mock the pointer and signal checks by default to not interfere with any routing tests."""
+    with patch("codrag.core.project_registry.read_codrag_pointer", return_value=None), \
+         patch("codrag.core.project_registry.read_active_project_signal", return_value=None):
+        yield
+
 class TestProjectRouting:
     """Test multi-project routing mechanisms."""
 

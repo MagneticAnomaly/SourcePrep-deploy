@@ -253,6 +253,32 @@ def update_project(project_id: str, req: UpdateProjectRequest) -> Dict[str, Any]
         # ACTIVATED: start watcher if auto mode is configured
         _activate_project(updated)
 
+        # Write the active project signal so MCP instances re-route here
+        try:
+            from codrag.core.project_registry import write_active_project_signal
+            write_active_project_signal(project_id)
+            logger.info(f"Wrote active project signal for {project_id}")
+        except Exception as e:
+            logger.warning(f"Failed to write active project signal: {e}")
+
+    # ── React to priority change ───────────────────────────────────
+    if req.config and ("priority_level" in req.config or "is_starred" in req.config):
+        old_cfg = old_proj.config or {}
+        old_level = old_cfg.get("priority_level", "boost" if old_cfg.get("is_starred") else "none")
+        new_level = (req.config.get("priority_level")
+                     or ("boost" if req.config.get("is_starred") else None)
+                     or old_level)
+        if new_level != old_level:
+            try:
+                from codrag.services.pipeline.scheduler import pipeline_scheduler
+                if new_level == "none":
+                    pipeline_scheduler.set_priority(None, "none")
+                else:
+                    pipeline_scheduler.set_priority(project_id, new_level)
+                logger.info("Priority for %s changed: %s → %s", project_id, old_level, new_level)
+            except Exception as exc:
+                logger.warning("Failed to update scheduler priority: %s", exc)
+
     return ok({"project": _srv()._project_to_dict(updated)})
 
 

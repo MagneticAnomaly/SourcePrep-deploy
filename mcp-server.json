@@ -11,13 +11,8 @@
     }
   ],
   "version": "0.1.0",
-  "protocol_version": "2025-11-25",
-  "categories": [
-    "development",
-    "search",
-    "code-analysis",
-    "rag"
-  ],
+  "protocol_version": "2024-11-05",
+  "categories": ["development", "search", "code-analysis", "rag"],
   "tags": [
     "semantic-search",
     "code-search",

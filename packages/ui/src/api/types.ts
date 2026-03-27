@@ -97,6 +97,8 @@ export interface UpdateProjectRequest {
     hard_limit_bytes?: number;
     use_gitignore?: boolean;
     active?: boolean;
+    is_starred?: boolean;
+    priority_level?: 'none' | 'boost' | 'exclusive';
     trace: { enabled: boolean; paused?: boolean };
     auto_rebuild: { enabled: boolean; debounce_ms?: number };
     graph_engine?: any;

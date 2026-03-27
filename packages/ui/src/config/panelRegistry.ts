@@ -15,6 +15,7 @@ import {
   FileText,
   SlidersHorizontal,
   List,
+  Target,
   Terminal,
 } from 'lucide-react';
 import type { PanelDefinition } from '../types/layout';
@@ -248,6 +249,18 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     closeable: true,
     resizable: true,
     docsUrl: 'https://docs.codrag.io/dashboard#activity',
+  },
+  {
+    id: 'goalposts',
+    title: 'Goalposts',
+    description: 'AI-generated project milestones: forward-looking proposals based on codebase analysis, audit findings, and product intent.',
+    icon: Target,
+    minHeight: 6,
+    defaultHeight: 10,
+    category: 'status',
+    closeable: true,
+    resizable: true,
+    docsUrl: 'https://docs.codrag.io/guides/goalposts',
   },
 ];
 

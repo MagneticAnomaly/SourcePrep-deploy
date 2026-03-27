@@ -9,27 +9,103 @@
 
 ## Universal Prerequisites
 
-1. CoDRAG daemon running (`codrag daemon start` or via dashboard)
-2. CoDRAG index built for the project (`codrag build` or dashboard)
-3. MCP server binary available in PATH (`codrag mcp`)
+1. CoDRAG daemon running (`codrag serve` or via Tauri app)
+2. CoDRAG index built for the project (`codrag build` or dashboard "Rebuild Knowledge Base")
+3. CoDRAG binary path known (see below)
+
+### CRITICAL: Absolute Path Required
+
+MCP configs spawn a child process. The child process does **NOT** inherit your
+shell PATH, nvm, pyenv, or conda environment. You **must** use the absolute
+path to the `codrag` binary in all MCP configs.
+
+**Find your path:**
+```bash
+which codrag                          # if installed system-wide
+ls /path/to/CoDRAG/.venv/bin/codrag   # if using venv (dev setup)
+```
+
+**Dev setup example:** `/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag`
+
+For ready-to-copy configs with your absolute path pre-filled, see:
+**[MCP_CONFIGS.md](MCP_CONFIGS.md)** -- one JSON block per tool, copy-paste into the right file.
+
+### Ollama Concurrency Requirement
+
+If you are using **Ollama** as your local provider and you want the CoDRAG pipeline to run models in parallel, you **must set the `OLLAMA_NUM_PARALLEL` environment variable** before starting the Ollama server.
+
+By default, Ollama queues all requests sequentially (one at a time), which will bottleneck CoDRAG's concurrent pipeline execution even if Cloud Concurrency is set > 1 in the UI.
+
+**macOS/Linux:**
+```bash
+export OLLAMA_NUM_PARALLEL=4
+ollama serve
+```
+
+**macOS App (Launchd):**
+```bash
+launchctl setenv OLLAMA_NUM_PARALLEL 4
+```
+
+**Systemd (Linux / WSL):**
+Add `Environment="OLLAMA_NUM_PARALLEL=4"` to `/etc/systemd/system/ollama.service`.
+
+### Multi-Project Routing
+
+CoDRAG automatically detects which project to target for each MCP tool call.
+In most cases, **zero configuration is needed** -- the MCP server resolves the
+correct project from your IDE's workspace context.
+
+**How auto-detection works (priority order):**
+
+1. **`project_id` parameter** — explicitly passed per tool call (rarely needed)
+2. **CLI `--project` flag** — `codrag mcp --project <id>` pins a project for the session
+3. **Workspace roots** — your IDE sends workspace folder URIs during the MCP handshake; CoDRAG matches these against registered project paths
+4. **CWD** — if launched from within a project directory, that project is used
+5. **`CODRAG_PROJECT` env var** — match by project name or ID
+6. **Single-project shortcut** — if only one project exists, it's used automatically
+7. **Most-recently-active** — falls back to the project with the most recent build/update
+
+**`.codrag` auto-registration:** If your workspace root or CWD contains a `.codrag/`
+folder (created by `codrag init`), the MCP server will automatically register it
+as an embedded project — no manual `codrag add` needed.
+
+**Pinning a specific project** (for users with multiple active projects):
+
+```json
+{
+  "mcpServers": {
+    "codrag": {
+      "command": "/path/to/.venv/bin/codrag",
+      "args": ["mcp"],
+      "env": {
+        "CODRAG_PROJECT": "MyProjectName"
+      }
+    }
+  }
+}
+```
+
+For the full routing architecture, see [PROJECT_ROUTING.md](PROJECT_ROUTING.md).
 
 ---
 
 ## 1. Cursor (VS Code Fork)
 
 ### MCP Server Config
-Location: `.cursor/mcp.json` (project) or user settings
+Location: `.cursor/mcp.json` (project root) or user settings
 
 ```json
 {
   "mcpServers": {
     "codrag": {
-      "command": "codrag",
+      "command": "/path/to/.venv/bin/codrag",
       "args": ["mcp"]
     }
   }
 }
 ```
+Replace `/path/to/.venv/bin/codrag` with your absolute path (see Prerequisites).
 
 ### Auto-Approve
 **WARNING: YOLO mode does NOT auto-approve MCP tools.**
@@ -80,18 +156,20 @@ Last indexed: [timestamp] | [node_count] nodes, [edge_count] edges
 ## 2. Windsurf / Cascade
 
 ### MCP Server Config
-Location: `~/.codeium/windsurf/mcp_config.json`
+Location: `~/.codeium/windsurf/mcp_config.json` (global, applies to all projects)
 
 ```json
 {
   "mcpServers": {
     "codrag": {
-      "command": "codrag",
-      "args": ["mcp"]
+      "command": "/path/to/.venv/bin/codrag",
+      "args": ["mcp"],
+      "disabled": false
     }
   }
 }
 ```
+Replace `/path/to/.venv/bin/codrag` with your absolute path.
 
 ### Auto-Approve
 1. Click MCPs icon in Cascade panel top-right
@@ -142,20 +220,25 @@ YAML frontmatter. Windsurf has a **100-tool limit** across all MCP servers.
 ## 3. Claude Code (CLI)
 
 ### MCP Server Config
-Location: `~/.claude/settings.json` or project `.claude/settings.json`
+Location: `~/.claude/settings.json` (user) or `.claude/settings.json` (project)
 
 ```json
 {
   "mcpServers": {
     "codrag": {
-      "command": "codrag",
+      "command": "/path/to/.venv/bin/codrag",
       "args": ["mcp"]
     }
+  },
+  "permissions": {
+    "allow": ["mcp__codrag"]
   }
 }
 ```
 
-Or add via CLI: `claude mcp add codrag -- codrag mcp`
+The `permissions.allow` line auto-approves ALL CoDRAG tools.
+
+Or add via CLI: `claude mcp add codrag -- /path/to/.venv/bin/codrag mcp`
 
 ### Auto-Approve
 **Single rule auto-approves ALL CoDRAG tools:**
@@ -241,14 +324,12 @@ Location: `.vscode/mcp.json` (workspace)
 {
   "servers": {
     "codrag": {
-      "command": "codrag",
+      "command": "/path/to/.venv/bin/codrag",
       "args": ["mcp"]
     }
   }
 }
-```
-
-Or via CLI: `code --add-mcp "{\"name\":\"codrag\",\"command\":\"codrag\",\"args\":[\"mcp\"]}"`
+````
 
 ### Auto-Approve
 
@@ -319,7 +400,7 @@ Location: `~/.gemini/settings.json`
 {
   "mcpServers": {
     "codrag": {
-      "command": "codrag",
+      "command": "/path/to/.venv/bin/codrag",
       "args": ["mcp"],
       "trust": true
     }
@@ -327,7 +408,7 @@ Location: `~/.gemini/settings.json`
 }
 ```
 
-**`trust: true`** bypasses all confirmation dialogs. Safe for CoDRAG (read-only).
+`trust: true` bypasses all confirmation dialogs. Safe for CoDRAG (read-only).
 
 ### Auto-Approve
 Setting `"trust": true` in config handles this. No separate step needed.
@@ -381,7 +462,7 @@ CoDRAG should implement:
 {
   "mcpServers": {
     "codrag": {
-      "command": "codrag",
+      "command": "/path/to/.venv/bin/codrag",
       "args": ["mcp"]
     }
   }
@@ -435,7 +516,7 @@ Via VS Code settings or `mcp_settings.json`:
 {
   "mcpServers": {
     "codrag": {
-      "command": "codrag",
+      "command": "/path/to/.venv/bin/codrag",
       "args": ["mcp"]
     }
   }
@@ -499,7 +580,7 @@ Mirrors Gemini CLI format. In `~/.qwen/settings.json` (or equivalent):
 {
   "mcpServers": {
     "codrag": {
-      "command": "codrag",
+      "command": "/path/to/.venv/bin/codrag",
       "args": ["mcp"],
       "trust": true
     }
@@ -509,6 +590,30 @@ Mirrors Gemini CLI format. In `~/.qwen/settings.json` (or equivalent):
 
 ### Rules File
 Use `AGENTS.md` (universal). Qwen Code reads AGENTS.md natively.
+
+---
+
+## 8b. Zed
+
+### MCP Server Config
+Location: `~/.config/zed/settings.json` or project `.zed/settings.json`
+
+**NOTE: Uses `context_servers` key (different from other tools)**
+
+```json
+{
+  "context_servers": {
+    "codrag": {
+      "command": "/path/to/.venv/bin/codrag",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+Replace `/path/to/.venv/bin/codrag` with your absolute path. Zed uses flat `command`/`args` keys (not nested).
+
+### Rules File
+Zed reads AGENTS.md and `.rules` files automatically.
 
 ---
 

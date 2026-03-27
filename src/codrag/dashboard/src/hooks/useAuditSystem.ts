@@ -23,12 +23,15 @@ export function useAuditSystem(selectedProjectId: string | null): UseAuditSystem
 
   // Hydrate audit data on project change
   useEffect(() => {
-    if (!selectedProjectId) {
-      setAuditStatus(null)
-      setAuditFindings([])
-      setAuditReports([])
-      return
-    }
+    // Always clear previous project's data immediately to prevent cross-contamination
+    setAuditStatus(null)
+    setAuditFindings([])
+    setAuditReports([])
+    setAuditReportContent(null)
+    setViewingAuditReport(null)
+
+    if (!selectedProjectId) return
+
     api.getAuditStatus(selectedProjectId)
       .then((s) => {
         setAuditStatus(s)

@@ -15,7 +15,7 @@ import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from codrag.core import CodeIndex, OllamaEmbedder, FakeEmbedder, TraceIndex, Embedder
+from codrag.core import CodeIndex, Embedder, FakeEmbedder, OllamaEmbedder, TraceIndex
 from codrag.mcp_tools import TOOLS
 
 # Configure logging to stderr (stdout reserved for MCP JSON-RPC)
@@ -27,7 +27,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Constants
-MCP_PROTOCOL_VERSION = "2025-11-25"
+MCP_PROTOCOL_VERSION = "2024-11-05"
 JSONRPC_VERSION = "2.0"
 
 # Error codes
@@ -53,7 +53,7 @@ class InvalidParamsError(MCPError):
 class DirectMCPServer:
     """
     Direct Mode MCP Server.
-    
+
     Holds the CodeIndex in memory and runs operations in thread pool
     to avoid blocking the asyncio event loop (stdio transport).
     """
@@ -67,29 +67,29 @@ class DirectMCPServer:
         embedder: Optional[Embedder] = None,
     ):
         self.repo_root = Path(repo_root).resolve()
-        
+
         # Default index location: .codrag/index inside repo, or ./codrag_data
         if index_dir:
             self.index_dir = Path(index_dir).resolve()
         else:
             self.index_dir = self.repo_root / ".codrag" / "index"
-            
+
         self.ollama_url = ollama_url
         self.model = model
         self._injected_embedder = embedder  # For testing without Ollama
-        
+
         self._index: Optional[CodeIndex] = None
         self._trace_index: Optional[TraceIndex] = None
         self._build_lock = asyncio.Lock()
         self._building = False
-        
+
         # Ensure we don't block the event loop with heavy init
         self._init_done = False
 
     async def _ensure_init(self):
         if self._init_done:
             return
-            
+
         # Lazy load index in thread
         await asyncio.to_thread(self._load_index)
         self._init_done = True
@@ -97,14 +97,16 @@ class DirectMCPServer:
     def _load_index(self):
         """Synchronous load of index components."""
         try:
-            embedder = self._injected_embedder or OllamaEmbedder(model=self.model, base_url=self.ollama_url)
+            embedder = self._injected_embedder or OllamaEmbedder(
+                model=self.model, base_url=self.ollama_url
+            )
             self._index = CodeIndex(index_dir=self.index_dir, embedder=embedder)
-            
+
             # Trace index shares the same dir usually
             self._trace_index = TraceIndex(index_dir=self.index_dir)
             if self._trace_index.exists():
                 self._trace_index.load()
-                
+
             logger.info(f"Loaded index from {self.index_dir}")
         except Exception as e:
             logger.error(f"Failed to load index: {e}")
@@ -115,14 +117,14 @@ class DirectMCPServer:
 
     async def tool_status(self) -> Dict[str, Any]:
         await self._ensure_init()
-        
+
         stats = {
             "loaded": False,
             "total_documents": 0,
             "model": self.model,
             "built_at": None,
         }
-        
+
         if self._index:
             try:
                 # CodeIndex.stats() is fast/in-memory usually, but let's be safe
@@ -145,10 +147,13 @@ class DirectMCPServer:
     async def tool_build(self, full: bool = False) -> Dict[str, Any]:
         if self._building:
             return {"status": "already_building", "message": "Build already in progress"}
-            
+
         # Fire and forget build task
         asyncio.create_task(self._run_build(full))
-        return {"status": "started", "message": "Build started in background. Check status for progress."}
+        return {
+            "status": "started",
+            "message": "Build started in background. Check status for progress.",
+        }
 
     async def _run_build(self, full: bool):
         async with self._build_lock:
@@ -159,12 +164,12 @@ class DirectMCPServer:
                     return
 
                 logger.info(f"Starting build (full={full})...")
-                
+
                 # Progress callback for build visibility
                 def on_progress(file_path: str, current: int, total: int) -> None:
                     if current == 1 or current == total or current % 50 == 0:
                         logger.info(f"Build progress: {current}/{total} files ({file_path})")
-                
+
                 # Run the blocking build in a thread
                 await asyncio.to_thread(
                     self._index.build,
@@ -173,7 +178,7 @@ class DirectMCPServer:
                     exclude_globs=None,
                     progress_callback=on_progress,
                 )
-                
+
                 logger.info("Build completed")
             except Exception as e:
                 logger.error(f"Build failed: {e}")
@@ -188,33 +193,30 @@ class DirectMCPServer:
     ) -> Dict[str, Any]:
         if not query.strip():
             raise InvalidParamsError("query is required")
-            
+
         await self._ensure_init()
         if not self._index or not self._index.is_loaded():
-             return {
+            return {
                 "query": query,
                 "count": 0,
                 "results": [],
-                "error": "Index not loaded. Run codrag_build first."
+                "error": "Index not loaded. Run codrag_build first.",
             }
 
         # Run blocking search in thread
-        results = await asyncio.to_thread(
-            self._index.search,
-            query=query,
-            k=k,
-            min_score=min_score
-        )
-        
+        results = await asyncio.to_thread(self._index.search, query=query, k=k, min_score=min_score)
+
         formatted = []
         for r in results:
             doc = r.doc
-            formatted.append({
-                "path": doc.get("source_path", ""),
-                "section": doc.get("section", ""),
-                "score": round(r.score, 3),
-                "content": doc.get("content", "")[:500],
-            })
+            formatted.append(
+                {
+                    "path": doc.get("source_path", ""),
+                    "section": doc.get("section", ""),
+                    "score": round(r.score, 3),
+                    "content": doc.get("content", "")[:500],
+                }
+            )
 
         return {
             "query": query,
@@ -233,10 +235,7 @@ class DirectMCPServer:
 
         await self._ensure_init()
         if not self._index or not self._index.is_loaded():
-             return {
-                "context": "",
-                "error": "Index not loaded. Run codrag_build first."
-            }
+            return {"context": "", "error": "Index not loaded. Run codrag_build first."}
 
         # Run blocking context assembly in thread
         data = await asyncio.to_thread(
@@ -280,8 +279,12 @@ class DirectMCPServer:
         if self._trace_index and self._trace_index.exists():
             trace_enabled = True
             try:
-                total_nodes = len(self._trace_index.nodes()) if hasattr(self._trace_index, "nodes") else 0
-                total_edges = len(self._trace_index.edges()) if hasattr(self._trace_index, "edges") else 0
+                total_nodes = (
+                    len(self._trace_index.nodes()) if hasattr(self._trace_index, "nodes") else 0
+                )
+                total_edges = (
+                    len(self._trace_index.edges()) if hasattr(self._trace_index, "edges") else 0
+                )
             except Exception:
                 pass
 
@@ -292,12 +295,18 @@ class DirectMCPServer:
         if self._building:
             lines.append(f"I'm setting up **{project_name}** — the index is building right now.")
         elif index_exists:
-            lines.append(f"I'm looking at **{project_name}** — {total_chunks} chunks indexed across the project.")
+            lines.append(
+                f"I'm looking at **{project_name}** — {total_chunks} chunks indexed across the project."
+            )
         else:
-            lines.append(f"I see **{project_name}** but there's no index yet. I'll need one before I can help with code questions.")
+            lines.append(
+                f"I see **{project_name}** but there's no index yet. I'll need one before I can help with code questions."
+            )
 
         if trace_enabled and total_nodes > 0:
-            lines.append(f"I can also follow the code graph ({total_nodes} nodes, {total_edges} edges) to trace imports, calls, and structural relationships.")
+            lines.append(
+                f"I can also follow the code graph ({total_nodes} nodes, {total_edges} edges) to trace imports, calls, and structural relationships."
+            )
 
         lines.append("")
 
@@ -409,17 +418,13 @@ class DirectMCPServer:
                 raise MethodNotFoundError(f"Unknown tool: {name}")
 
             return {
-                "content": [
-                    {"type": "text", "text": json.dumps(result, indent=2)}
-                ],
+                "content": [{"type": "text", "text": json.dumps(result, indent=2)}],
                 "isError": False,
             }
 
         except Exception as e:
             return {
-                "content": [
-                    {"type": "text", "text": str(e)}
-                ],
+                "content": [{"type": "text", "text": str(e)}],
                 "isError": True,
             }
 

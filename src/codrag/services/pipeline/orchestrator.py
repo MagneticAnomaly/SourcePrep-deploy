@@ -99,11 +99,33 @@ class PipelineOrchestrator:
         resumes from the first incomplete stage.  Pass ``force_from_start=True``
         to re-run all stages from scratch (e.g. after file changes that
         invalidate the trace graph).
+
+        Phase 53: When all stages are "complete" on disk, checks for stale
+        or untraced files via check_coverage_gap().  If changes are detected,
+        re-runs from Stage 1 (structural) so the trace graph picks up the
+        new/changed files and cascades invalidation to downstream stages.
         """
         resume = 0 if force_from_start else self._detect_resume_point(project_id, FAST_SYNC_STAGES)
         if resume >= len(FAST_SYNC_STAGES):
-            logger.info("All fast_sync stages already complete on disk for %s — skipping", project_id)
-            return False
+            # Phase 53: All manifests exist — but are there stale files?
+            try:
+                gap = self.check_coverage_gap(project_id)
+                if gap["needs_rebuild"]:
+                    logger.info(
+                        "All fast_sync stages complete but %d stale + %d untraced "
+                        "files for %s — re-running from structural for incremental update",
+                        gap.get("stale", 0), gap.get("untraced", 0), project_id,
+                    )
+                    resume = 0  # Start from Stage 1 to rebuild trace graph
+                else:
+                    logger.info(
+                        "All fast_sync stages complete and no stale files for %s — up to date",
+                        project_id,
+                    )
+                    return False
+            except Exception:
+                logger.info("All fast_sync stages already complete on disk for %s — skipping", project_id)
+                return False
         if resume > 0:
             logger.info(
                 "Resuming fast_sync for %s from stage %d/%d (%s) — stages 0-%d already on disk",
@@ -116,11 +138,50 @@ class PipelineOrchestrator:
         """Start the Deep Enrichment group (stages 6-11).
 
         Auto-detects resume point from disk state.
+
+        Phase 53: When all deep stages are complete, checks if the
+        catalogue manifest (fast sync output) is newer than any deep
+        manifest — meaning fast sync re-ran for stale files and deep
+        stages need to re-process the updated data.
         """
         resume = 0 if force_from_start else self._detect_resume_point(project_id, DEEP_ENRICHMENT_STAGES)
         if resume >= len(DEEP_ENRICHMENT_STAGES):
-            logger.info("All deep_enrichment stages already complete on disk for %s — skipping", project_id)
-            return False
+            # Phase 53: Check if fast sync output is newer than deep manifests
+            try:
+                from pathlib import Path
+                from codrag.services.project_helpers import require_project
+                from codrag.core.project_registry import project_index_dir
+                project = require_project(project_id)
+                idx_dir = Path(project_index_dir(project))
+                catalogue_manifest = idx_dir / "trace_augment_manifest.json"
+                if catalogue_manifest.exists():
+                    cat_mtime = catalogue_manifest.stat().st_mtime
+                    # Check if any deep manifest is older than catalogue
+                    for stage in DEEP_ENRICHMENT_STAGES:
+                        mf = STAGE_MANIFEST_FILE.get(stage)
+                        if mf:
+                            mp = idx_dir / mf
+                            if mp.exists() and mp.stat().st_mtime < cat_mtime:
+                                logger.info(
+                                    "Deep stage %s manifest is stale (catalogue was re-run) "
+                                    "for %s — re-running deep enrichment from %s",
+                                    stage.value, project_id, stage.value,
+                                )
+                                # Delete stale deep manifests so they re-run
+                                for ds in DEEP_ENRICHMENT_STAGES:
+                                    dmf = STAGE_MANIFEST_FILE.get(ds)
+                                    if dmf:
+                                        dmp = idx_dir / dmf
+                                        if dmp.exists() and dmp.stat().st_mtime < cat_mtime:
+                                            dmp.unlink(missing_ok=True)
+                                            logger.info("Deleted stale deep manifest: %s", dmf)
+                                resume = 0
+                                break
+            except Exception:
+                pass
+            if resume >= len(DEEP_ENRICHMENT_STAGES):
+                logger.info("All deep_enrichment stages already complete on disk for %s — skipping", project_id)
+                return False
         if resume > 0:
             logger.info(
                 "Resuming deep_enrichment for %s from stage %d/%d (%s)",
@@ -542,6 +603,48 @@ class PipelineOrchestrator:
         t = threading.Thread(target=_check_and_retrigger, daemon=True)
         t.start()
 
+    # ── Node resolution (Phase 56) ─────────────────────────────────
+
+    def _resolve_node_for_stage(
+        self, project_id: str, stage: StageId,
+    ) -> Optional[str]:
+        """Resolve which compute node handles this stage's model.
+
+        Walks the chain:  stage → model slot → endpoint → provider + model → node_id.
+        Returns None for non-LLM stages (Rust, Embedding).
+        """
+        slot_name = STAGE_MODEL_SLOT.get(stage)
+        if not slot_name:
+            return None  # Rust / Embedding — no LLM node
+
+        try:
+            from codrag.services.settings_store import settings
+            llm_config = settings.get("llm_config") or {}
+        except Exception:
+            return None
+
+        # Read the slot config (e.g. llm_config["small_model"])
+        slot_key = f"{slot_name}_model"
+        slot_config = llm_config.get(slot_key, {})
+        endpoint_id = slot_config.get("endpoint_id")
+        model = slot_config.get("model", "")
+
+        if not endpoint_id:
+            return None  # No endpoint configured — fall back to default node
+
+        # Find the provider for this endpoint
+        provider = "ollama"
+        for ep in llm_config.get("saved_endpoints", []):
+            if ep.get("id") == endpoint_id:
+                provider = ep.get("provider", "ollama")
+                break
+
+        return pipeline_scheduler.resolve_node_for_model(provider, model, endpoint_id)
+
+    def _is_cloud_node(self, node_id: Optional[str]) -> bool:
+        """Check if a node ID refers to a cloud compute node."""
+        return node_id is not None and node_id.startswith("cloud:")
+
     # ── Internal ───────────────────────────────────────────────
 
     @staticmethod
@@ -875,25 +978,32 @@ class PipelineOrchestrator:
 
         # Phase 45D: Check scheduler capacity before starting the stage.
         # If the compute node is full, park the pipeline in QUEUED state.
-        if not pipeline_scheduler.can_start(run.project_id, stage):
-            pipeline_scheduler.enqueue(run.project_id, stage)
+        # Phase 56: resolve which compute node this stage's model runs on.
+        node_id = self._resolve_node_for_stage(run.project_id, stage)
+
+        # Atomic acquire: acquire() checks capacity and grabs the slot
+        # in one locked operation, avoiding the TOCTOU race that existed
+        # when can_start() and acquire() were called separately.
+        if not pipeline_scheduler.acquire(run.project_id, stage, node_id):
+            pipeline_scheduler.enqueue(run.project_id, stage, node_id)
             if run.can_transition(Event.ENQUEUE):
                 run.transition(Event.ENQUEUE, detail=f"waiting for compute slot ({stage.value})")
             logger.info(
-                "Pipeline %s/%s — stage %s queued (compute node full)",
-                run.project_id, run.group, stage.value,
+                "Pipeline %s/%s — stage %s queued (compute node %s full)",
+                run.project_id, run.group, stage.value, node_id or "__local__",
             )
             if pfl:
-                pfl.log(stage.value, "Queued — waiting for compute capacity")
+                pfl.log(stage.value, f"Queued — waiting for compute capacity on {node_id or '__local__'}")
             return
 
-        # Acquire a scheduler slot for this stage
-        pipeline_scheduler.acquire(run.project_id, stage)
+        # Stash node_id so _on_build_transition can release on the correct node
+        run._current_node_id = node_id  # type: ignore[attr-defined]
 
-        # VRAM lifecycle: only LLM stages need model acquire/unload.
+        # VRAM lifecycle: only LOCAL LLM stages need model acquire/unload.
+        # Cloud endpoints are always ready — no VRAM contention.
         # Embedding stages use NativeEmbedder (ONNX/CoreML/CUDA) — independent.
         # Rust stages are CPU-only — no GPU contention.
-        if queue_type == QueueType.LLM:
+        if queue_type == QueueType.LLM and not self._is_cloud_node(node_id):
             task_id = STAGE_TASK_ID.get(stage)
             if task_id:
                 try:
@@ -914,6 +1024,11 @@ class PipelineOrchestrator:
                     self._maybe_unload_previous_model(run, stage)
             else:
                 self._maybe_unload_previous_model(run, stage)
+        elif queue_type == QueueType.LLM and self._is_cloud_node(node_id):
+            logger.debug(
+                "Stage %s uses cloud node %s — skipping VRAM lifecycle",
+                stage.value, node_id,
+            )
         else:
             logger.debug(
                 "Stage %s uses %s queue — skipping VRAM lifecycle",
@@ -1016,8 +1131,9 @@ class PipelineOrchestrator:
                         except Exception:
                             logger.debug("ModelAwareness release failed for %s", completed_task, exc_info=True)
 
-                    # Phase 45D: release scheduler slot and resume any queued pipeline
-                    next_entry = pipeline_scheduler.release(project_id, stage)
+                    # Phase 45D / 56: release scheduler slot on the correct node
+                    _release_node = getattr(matching_run, '_current_node_id', None)
+                    next_entry = pipeline_scheduler.release(project_id, stage, _release_node)
                     if next_entry:
                         self._resume_queued_pipeline(next_entry.project_id, next_entry.stage)
 
@@ -1070,7 +1186,8 @@ class PipelineOrchestrator:
                         project_id, matching_run.group, matching_run.state.value,
                     )
                     # Release scheduler slot but don't advance or fail
-                    next_entry = pipeline_scheduler.release(project_id, stage)
+                    _release_node = getattr(matching_run, '_current_node_id', None)
+                    next_entry = pipeline_scheduler.release(project_id, stage, _release_node)
                     if next_entry:
                         self._resume_queued_pipeline(next_entry.project_id, next_entry.stage)
                     return
@@ -1093,8 +1210,9 @@ class PipelineOrchestrator:
                         project_id, matching_run.group, stage.value, slot.error,
                     )
 
-                # Phase 45D: release scheduler slot on failure too
-                next_entry = pipeline_scheduler.release(project_id, stage)
+                # Phase 45D / 56: release scheduler slot on failure too
+                _release_node = getattr(matching_run, '_current_node_id', None)
+                next_entry = pipeline_scheduler.release(project_id, stage, _release_node)
                 if next_entry:
                     self._resume_queued_pipeline(next_entry.project_id, next_entry.stage)
 
@@ -1240,6 +1358,10 @@ class PipelineOrchestrator:
         The current stage's worker cooperatively flushes partial results
         before stopping.  ``resume_paused()`` restarts from the paused
         stage — incremental workers skip already-done items.
+
+        **Important**: We wait for the worker to actually finish flushing
+        before transitioning to PAUSED.  Without this, the checkpoint
+        captures pre-stage files and the worker's flush never completes.
         """
         with self._lock:
             key = (project_id, group)
@@ -1254,11 +1376,30 @@ class PipelineOrchestrator:
                 return False
 
         # Signal the worker to pause (not cancel)
+        slot = None
         if current_str:
             stage = StageId(current_str)
             bt = STAGE_BUILD_TYPE[stage]
             self._orchestrator.pause(project_id, bt)
-            # Create a file-level checkpoint before stopping
+
+            # Wait for worker to cooperatively stop (bounded).
+            # The worker checks cancel_token between batches, flushes
+            # partial results, and raises PipelinePausedError which
+            # transitions the slot to inactive.
+            import time as _time
+            slot = self._orchestrator._slots.get((project_id, bt))
+            if slot:
+                _deadline = _time.monotonic() + 30  # 30s max wait
+                while slot.is_active and _time.monotonic() < _deadline:
+                    _time.sleep(0.5)
+                if slot.is_active:
+                    logger.warning(
+                        "Pause timeout: worker for %s/%s still active after 30s "
+                        "— forcing PAUSED transition (data may be partially flushed)",
+                        project_id, group,
+                    )
+
+            # Create a file-level checkpoint AFTER worker has flushed
             self._create_checkpoint_if_needed(run, stage)
 
         # PAUSING → PAUSED

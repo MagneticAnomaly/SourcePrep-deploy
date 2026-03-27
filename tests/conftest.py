@@ -31,6 +31,20 @@ def _unlock_all_features(monkeypatch):
     yield
     clear_license_cache()
 
+@pytest.fixture(autouse=True)
+def _init_global_stores(tmp_path: Path):
+    """Automatically initialize required background SQLite stores for all tests."""
+    from codrag.services.settings_store import settings
+    from codrag.services.token_telemetry import telemetry
+    
+    db_path = tmp_path / "global_test_db.sqlite"
+    settings.init(db_path)
+    telemetry.init(db_path)
+    
+    yield
+    
+    settings.close()
+    telemetry.close()
 
 @pytest.fixture
 def mini_repo(tmp_path: Path) -> Path:

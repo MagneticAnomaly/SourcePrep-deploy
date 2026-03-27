@@ -48,9 +48,7 @@ export interface ModelCardProps {
   alwaysOn?: boolean;
   onAlwaysOnChange?: (alwaysOn: boolean) => void;
 
-  // Per-model concurrency (advanced, local endpoints only)
-  concurrency?: number;
-  onConcurrencyChange?: (concurrency: number) => void;
+
   
   hideModelSelector?: boolean;
 
@@ -86,8 +84,7 @@ export function ModelCard({
   testingConnection = false,
   alwaysOn = false,
   onAlwaysOnChange,
-  concurrency = 1,
-  onConcurrencyChange,
+
   hideModelSelector = false,
   className,
   disabled = false,
@@ -282,26 +279,7 @@ export function ModelCard({
                   </label>
                 )}
 
-                {/* Per-model Concurrency (advanced, local only) */}
-                {onConcurrencyChange && (
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-text-muted whitespace-nowrap">Concurrency</label>
-                    <Select
-                      size="sm"
-                      value={String(concurrency)}
-                      onChange={(e) => onConcurrencyChange(parseInt(e.target.value))}
-                      disabled={disabled}
-                      options={[
-                        { value: '1', label: '1 (Standard)' },
-                        { value: '2', label: '2 (High VRAM)' },
-                      ]}
-                      className="w-[140px]"
-                    />
-                    <InfoTooltip
-                      content="How many simultaneous requests this model handles. 1 is recommended for all setups. Only set to 2 if your GPU has 8+ GB free VRAM after loading the model. Apple Silicon: always use 1. Embeddings are unaffected (run via ONNX)."
-                    />
-                  </div>
-                )}
+
               </div>
             )}
           </div>

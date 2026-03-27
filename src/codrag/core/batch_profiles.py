@@ -327,15 +327,62 @@ def detect_profile_from_context(
         return PROFILE_OFF
 
 
-def get_batch_concurrency(provider: str) -> int:
+def get_batch_concurrency(provider: str, node_id: str | None = None, model: str | None = None) -> int:
     """Max concurrent batched API calls for a provider.
 
+    Phase 56B: Queries the scheduler's ``available_batch_workers()`` to
+    dynamically divide the concurrency budget across active projects.
+    A single project running alone gets the full ``cloud_concurrency``
+    budget; multiple projects share it fairly.
+
+    When ``node_id`` is explicitly provided, queries that exact node.
+    Otherwise, **auto-discovers** the matching node from the scheduler's
+    active slots by provider prefix (``cloud:*`` or ``local:*``).
+
     Ollama serializes requests per model — even cloud-proxied models
-    (kimi, gemini via Ollama) hit 429 Too Many Requests if we send
-    multiple concurrent batch calls. Use 1 for Ollama/LM Studio.
+    (kimi, gemini via Ollama) hit 429 if we send multiple concurrent
+    batch calls.  For local Ollama nodes this still returns 1.
     True cloud APIs (OpenAI, Anthropic, Google) handle concurrency fine.
     """
-    if provider.lower().strip() in _LOCAL_PROVIDERS:
+    provider_lower = provider.lower().strip()
+
+    # Read the calling project's ID from the telemetry context so the
+    # scheduler can give the priority ⭐ project the full cloud budget.
+    calling_project_id: str | None = None
+    try:
+        from codrag.services.token_telemetry import _telemetry_ctx, _fallback_ctx, _fallback_lock
+        ctx = _telemetry_ctx.get()
+        if not ctx:
+            with _fallback_lock:
+                ctx = _fallback_ctx
+        if ctx:
+            calling_project_id = ctx.get("project_id")
+    except ImportError:
+        pass
+
+    # Phase 56B: try the scheduler for adaptive concurrency
+    try:
+        from codrag.services.pipeline.scheduler import pipeline_scheduler
+
+        if node_id is not None:
+            return pipeline_scheduler.available_batch_workers(
+                node_id, project_id=calling_project_id,
+            )
+
+        # Auto-discover: find the best matching node in the scheduler
+        workers = pipeline_scheduler.available_batch_workers_for_provider(
+            provider_lower, model, project_id=calling_project_id,
+        )
+        if workers is not None:
+            return workers
+    except ImportError:
+        pass
+
+    # Fallback: hardcoded defaults (pre-Phase 56B behavior)
+    is_cloud_model = provider_lower not in _LOCAL_PROVIDERS
+    if not is_cloud_model and model:
+        is_cloud_model = is_cloud_model_via_ollama(provider_lower, model)
+    if not is_cloud_model:
         return 1
     return 3
 

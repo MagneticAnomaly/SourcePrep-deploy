@@ -14,6 +14,7 @@ export type {
   ProjectSummary, 
   ProjectConfig,
   ActivityStatus,
+  PriorityLevel,
   ProjectAdvancedConfig,
   AdvancedConfig,
   ProjectMode,
@@ -188,6 +189,11 @@ export { SpaghettiFinderPanel } from './components/audit';
 export type { SpaghettiFinderPanelProps } from './components/audit';
 export type { SpaghettiFileScore, SpaghettiResult, SpaghettiTab } from './types';
 export type { SchedulerStatus, SchedulerNodeStatus, ComputeNode, ComputeHardwareProfile } from './types';
+
+// Components - Goalposts (Phase 57)
+export { GoalpostsPanel } from './components/goalposts';
+export type { GoalpostsPanelProps } from './components/goalposts';
+export type { GoalpostCategory, GoalpostState, GoalpostTask, GoalpostProposal, GoalpostQuestion, GoalpostsResponse } from './types';
 
 // Components - Enterprise (Phase 06)
 export { EnterpriseAdminPanel } from './components/enterprise';

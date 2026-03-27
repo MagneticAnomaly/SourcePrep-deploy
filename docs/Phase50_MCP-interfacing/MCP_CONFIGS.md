@@ -1,0 +1,328 @@
+# CoDRAG MCP Configuration: Copy-Paste Reference
+
+> Ready-to-use MCP config JSON for every supported AI coding tool.
+> Each config is self-contained -- copy the entire block into the correct file.
+
+**Your CoDRAG binary:** `/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag`
+
+**IMPORTANT:** MCP configs spawn a child process. The child process does NOT
+inherit your shell's PATH, nvm, pyenv, or conda. You MUST use the absolute
+path to the `codrag` binary. If you install CoDRAG system-wide later, you
+can simplify to just `"command": "codrag"`.
+
+---
+
+## Quick Fix: Your Windsurf Config
+
+Your current `~/.codeium/windsurf/mcp_config.json` points to a mock script.
+Replace its contents with:
+
+```json
+{
+  "mcpServers": {
+    "codrag": {
+      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+      "args": ["mcp"],
+      "disabled": false
+    }
+  }
+}
+```
+
+---
+
+## 1. Cursor
+
+**File:** `.cursor/mcp.json` (in your project root)
+
+```json
+{
+  "mcpServers": {
+    "codrag": {
+      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+**Auto-approve:** Settings > Features > MCP > enable auto-run for codrag.
+(YOLO mode does NOT cover MCP tools.)
+
+---
+
+## 2. Windsurf / Cascade
+
+**File:** `~/.codeium/windsurf/mcp_config.json` (global, applies to all projects)
+
+```json
+{
+  "mcpServers": {
+    "codrag": {
+      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+      "args": ["mcp"],
+      "disabled": false
+    }
+  }
+}
+```
+
+**Auto-approve:** Click MCPs icon in Cascade panel > click codrag > enable auto-run.
+
+---
+
+## 3. Claude Code (CLI)
+
+**File:** `~/.claude/settings.json`
+
+```json
+{
+  "mcpServers": {
+    "codrag": {
+      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+      "args": ["mcp"]
+    }
+  },
+  "permissions": {
+    "allow": ["mcp__codrag"]
+  }
+}
+```
+
+The `permissions.allow` line auto-approves ALL CoDRAG tools with a single rule.
+
+**Alternative (CLI):** `claude mcp add codrag -- /Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag mcp`
+
+---
+
+## 4. GitHub Copilot (VS Code Agent Mode)
+
+**File:** `.vscode/mcp.json` (in your project root)
+
+**NOTE: Uses `servers` key, NOT `mcpServers`!**
+
+```json
+{
+  "servers": {
+    "codrag": {
+      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+**Auto-approve (macOS/Linux only -- sandbox mode):**
+
+```json
+{
+  "servers": {
+    "codrag": {
+      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+      "args": ["mcp"],
+      "sandboxEnabled": true,
+      "sandbox": {
+        "filesystem": { "allowWrite": [] },
+        "network": { "allowedDomains": ["localhost"] }
+      }
+    }
+  }
+}
+```
+
+---
+
+## 5. Gemini CLI / Antigravity
+
+Gemini CLI and Antigravity use the same MCP format but **different config file paths**.
+
+### Gemini CLI
+
+**File:** `~/.gemini/settings.json`
+
+```json
+{
+  "mcpServers": {
+    "codrag": {
+      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+      "args": ["mcp"],
+      "trust": true
+    }
+  }
+}
+```
+
+### Antigravity
+
+**File:** `~/.gemini/antigravity/mcp_config.json`
+
+```json
+{
+  "mcpServers": {
+    "codrag": {
+      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+      "args": ["mcp"],
+      "trust": true
+    }
+  }
+}
+```
+
+`trust: true` auto-approves all tool calls. Safe for CoDRAG (read-only).
+
+### Troubleshooting: "server name codrag not found"
+
+This means the stdio process launched but the MCP handshake failed. Check:
+1. **CoDRAG daemon must be running** on port 8400: `curl http://127.0.0.1:8400/health`
+2. **Test the MCP server directly:**
+   ```bash
+   echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","clientInfo":{"name":"test"}}}' | /Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag mcp
+   ```
+   You should see a JSON response with `"serverInfo":{"name":"codrag"}`. If you get a Python error or nothing, the binary isn't working.
+3. **Check stderr output:** The MCP server prints startup info to stderr. Run manually to see errors:
+   ```bash
+   /Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag mcp --debug 2>&1 | head -5
+   ```
+
+---
+
+## 6. Zed
+
+**File:** Zed settings (`~/.config/zed/settings.json` or project `.zed/settings.json`)
+
+```json
+{
+  "context_servers": {
+    "codrag": {
+      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Zed uses `context_servers` with flat `command`/`args` keys (not `mcpServers`, not nested `command.path`). Reads AGENTS.md automatically.
+
+---
+
+## 7. Cline (VS Code Extension)
+
+**File:** Open Cline sidebar > MCP Servers > Configure > `cline_mcp_settings.json`
+
+```json
+{
+  "mcpServers": {
+    "codrag": {
+      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+**Auto-approve:** Toggle per-tool auto-approve in Cline's UI when prompted.
+
+---
+
+## 8. Roo Code (VS Code Extension)
+
+**File:** `mcp_settings.json` (via Roo Code settings)
+
+```json
+{
+  "mcpServers": {
+    "codrag": {
+      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+---
+
+## 9. Amp (Sourcegraph)
+
+Amp reads AGENTS.md. For explicit MCP config, use the standard format:
+
+```json
+{
+  "mcpServers": {
+    "codrag": {
+      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+---
+
+## 10. OpenAI Codex (CLI)
+
+Codex reads AGENTS.md natively. For explicit MCP:
+
+```json
+{
+  "mcpServers": {
+    "codrag": {
+      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+---
+
+## Config Key Cheat Sheet
+
+| Tool | Config File | Server Key | Special |
+|------|------------|------------|---------|
+| Cursor | `.cursor/mcp.json` | `mcpServers` | |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` | `mcpServers` | `disabled` field |
+| Claude Code | `~/.claude/settings.json` | `mcpServers` | + `permissions` block |
+| Copilot | `.vscode/mcp.json` | **`servers`** | Different key! |
+| Gemini CLI | `~/.gemini/settings.json` | `mcpServers` | + `trust` field |
+| Antigravity | `~/.gemini/antigravity/mcp_config.json` | `mcpServers` | + `trust` field |
+| Zed | `~/.config/zed/settings.json` | **`context_servers`** | Flat `command`/`args` |
+| Cline | `cline_mcp_settings.json` | `mcpServers` | |
+| Roo Code | `mcp_settings.json` | `mcpServers` | |
+
+---
+
+## Troubleshooting
+
+### "command not found" or server won't start
+The MCP host spawns `codrag` as a child process. It does NOT use your shell
+PATH. Use the absolute path: `/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag`
+
+### For system-wide install (future)
+Once CoDRAG is installed via pip/brew/binary, you can simplify all configs to:
+```json
+"command": "codrag",
+"args": ["mcp"]
+```
+
+### CoDRAG daemon must be running
+The MCP server (stdio mode) connects to the CoDRAG daemon at `http://127.0.0.1:8400`.
+Start it first:
+```bash
+cd /Volumes/4TB-BAD/HumanAI/CoDRAG
+.venv/bin/python -m codrag serve
+```
+
+### Verify MCP is working
+Enable logging to see what the MCP server receives:
+```json
+"args": ["mcp", "--log-file", "~/.codrag/mcp.log", "--debug"]
+```
+Then check: `tail -f ~/.codrag/mcp.log`
+
+### Multiple projects
+CoDRAG auto-detects which project you're working on from the workspace root.
+If it can't determine the project, it returns an actionable error with the
+project list. You can pin a project with:
+```json
+"args": ["mcp", "--project", "YOUR_PROJECT_ID"]
+```

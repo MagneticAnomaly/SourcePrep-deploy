@@ -174,6 +174,10 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
         type: 'SYNC_PAUSED',
         fastPaused: group === 'fast_sync' ? true : state.fastPaused,
         deepPaused: group === 'deep_enrichment' ? true : state.deepPaused,
+        // We don't know the exact stage client-side at pause time;
+        // the SSE event will fill it in when the backend confirms.
+        fastPausedStage: group === 'fast_sync' ? undefined : state.fastPausedStage,
+        deepPausedStage: group === 'deep_enrichment' ? undefined : state.deepPausedStage,
       })
     } catch (e) {
       onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t pause pipeline.', 'warning')
@@ -189,6 +193,8 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
         type: 'SYNC_PAUSED',
         fastPaused: group === 'fast_sync' ? false : state.fastPaused,
         deepPaused: group === 'deep_enrichment' ? false : state.deepPaused,
+        fastPausedStage: group === 'fast_sync' ? undefined : state.fastPausedStage,
+        deepPausedStage: group === 'deep_enrichment' ? undefined : state.deepPausedStage,
       })
     } catch (e) {
       onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t resume pipeline.', 'warning')
@@ -222,6 +228,9 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
   // ── Hydration: fetch all statuses + pipeline flags on project change ──
 
   useEffect(() => {
+    // Reset all enrichment state immediately to prevent cross-project contamination
+    dispatch({ type: 'DESTROYED' })
+
     if (!selectedProjectId) return
     let cancelled = false
 
@@ -244,20 +253,26 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     // Hydrate running flags + stage data from pipeline status
     api.getPipelineStatus(selectedProjectId).then((ps: PipelineStatus) => {
       if (cancelled) return
-      const fastRunning = ps.fast_sync?.phase === 'running'
-      const deepRunning = ps.deep_enrichment?.phase === 'running'
+      // "Active" includes transient states (queued between stages, pausing,
+      // recovering).  During these phases the pipeline is still "doing
+      // something" — dropping all running flags would cause the UI to
+      // erroneously evaluate idle-state logic and show 0-item stages as
+      // "complete".
+      const ACTIVE_PHASES = new Set(['running', 'queued', 'pausing', 'recovering'])
+      const fastActive = ACTIVE_PHASES.has(ps.fast_sync?.phase ?? '')
+      const deepActive = ACTIVE_PHASES.has(ps.deep_enrichment?.phase ?? '')
       dispatch({
         type: 'SYNC_RUNNING',
-        inferredEdgesRunning: fastRunning && (ps.fast_sync?.current_stage === 'inferred_edges' || false),
-        augmenting: fastRunning && (ps.fast_sync?.current_stage === 'catalogue' || ps.fast_sync?.current_stage === 'augment' || false),
-        validating: fastRunning && (ps.fast_sync?.current_stage === 'validation' || false),
-        epistemicRunning: deepRunning && (ps.deep_enrichment?.current_stage === 'enrichment' || false),
-        groupReasoningRunning: deepRunning && (ps.deep_enrichment?.current_stage === 'group_reasoning' || false),
-        clusterRunning: deepRunning && (ps.deep_enrichment?.current_stage === 'clustering' || false),
-        atlasRunning: deepRunning && (ps.deep_enrichment?.current_stage === 'atlas' || false),
-        deepeningRunning: deepRunning && (ps.deep_enrichment?.current_stage === 'deepening' || false),
-        fastKnowledgeBuilding: fastRunning && (ps.fast_sync?.current_stage === 'knowledge' || false),
-        deepKnowledgeBuilding: deepRunning && (ps.deep_enrichment?.current_stage === 'deep_knowledge' || false),
+        inferredEdgesRunning: fastActive && (ps.fast_sync?.current_stage === 'inferred_edges' || false),
+        augmenting: fastActive && (ps.fast_sync?.current_stage === 'catalogue' || ps.fast_sync?.current_stage === 'augment' || false),
+        validating: fastActive && (ps.fast_sync?.current_stage === 'validation' || false),
+        epistemicRunning: deepActive && (ps.deep_enrichment?.current_stage === 'enrichment' || false),
+        groupReasoningRunning: deepActive && (ps.deep_enrichment?.current_stage === 'group_reasoning' || false),
+        clusterRunning: deepActive && (ps.deep_enrichment?.current_stage === 'clustering' || false),
+        atlasRunning: deepActive && (ps.deep_enrichment?.current_stage === 'atlas' || false),
+        deepeningRunning: deepActive && (ps.deep_enrichment?.current_stage === 'deepening' || false),
+        fastKnowledgeBuilding: fastActive && (ps.fast_sync?.current_stage === 'knowledge' || false),
+        deepKnowledgeBuilding: deepActive && (ps.deep_enrichment?.current_stage === 'deep_knowledge' || false),
       })
       // Hydrate inferred_edges (no dedicated API endpoint — only in pipeline status)
       if (ps.stages?.inferred_edges) {
@@ -276,6 +291,10 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
         type: 'SYNC_PAUSED',
         fastPaused: ps.fast_sync?.phase === 'paused' || (ps.fast_sync?.phase === 'failed' && (ps.fast_sync?.error || '').includes('Paused by user')),
         deepPaused: ps.deep_enrichment?.phase === 'paused' || (ps.deep_enrichment?.phase === 'failed' && (ps.deep_enrichment?.error || '').includes('Paused by user')),
+        fastPausedStage: (ps.fast_sync?.phase === 'paused' || (ps.fast_sync?.phase === 'failed' && (ps.fast_sync?.error || '').includes('Paused by user')))
+          ? ps.fast_sync?.current_stage ?? undefined : undefined,
+        deepPausedStage: (ps.deep_enrichment?.phase === 'paused' || (ps.deep_enrichment?.phase === 'failed' && (ps.deep_enrichment?.error || '').includes('Paused by user')))
+          ? ps.deep_enrichment?.current_stage ?? undefined : undefined,
       })
     }).catch(() => { /* silent — SSE will provide updates */ })
 
@@ -294,22 +313,26 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
 
     const fast = pipelineEvent.fast_sync
     const deep = pipelineEvent.deep_enrichment
-    const fastRunning = fast?.phase === 'running'
-    const deepRunning = deep?.phase === 'running'
+    // Broad "active" for SYNC_RUNNING — keeps UI flags alive during
+    // transient states so compute*State functions don't erroneously
+    // evaluate idle-state logic (showing 0-item stages as "complete").
+    const ACTIVE_PHASES = new Set(['running', 'queued', 'pausing', 'recovering'])
+    const fastActive = ACTIVE_PHASES.has(fast?.phase ?? '')
+    const deepActive = ACTIVE_PHASES.has(deep?.phase ?? '')
 
     // Sync running flags from current pipeline state
     dispatch({
       type: 'SYNC_RUNNING',
-      inferredEdgesRunning: fastRunning && (fast?.current_stage === 'inferred_edges' || false),
-      augmenting: fastRunning && (fast?.current_stage === 'augment' || fast?.current_stage === 'catalogue' || false),
-      validating: fastRunning && (fast?.current_stage === 'validation' || false),
-      epistemicRunning: deepRunning && (deep?.current_stage === 'enrichment' || false),
-      groupReasoningRunning: deepRunning && (deep?.current_stage === 'group_reasoning' || false),
-      clusterRunning: deepRunning && (deep?.current_stage === 'clustering' || false),
-      atlasRunning: deepRunning && (deep?.current_stage === 'atlas' || false),
-      deepeningRunning: deepRunning && (deep?.current_stage === 'deepening' || false),
-      fastKnowledgeBuilding: fastRunning && (fast?.current_stage === 'knowledge' || false),
-      deepKnowledgeBuilding: deepRunning && (deep?.current_stage === 'deep_knowledge' || false),
+      inferredEdgesRunning: fastActive && (fast?.current_stage === 'inferred_edges' || false),
+      augmenting: fastActive && (fast?.current_stage === 'augment' || fast?.current_stage === 'catalogue' || false),
+      validating: fastActive && (fast?.current_stage === 'validation' || false),
+      epistemicRunning: deepActive && (deep?.current_stage === 'enrichment' || false),
+      groupReasoningRunning: deepActive && (deep?.current_stage === 'group_reasoning' || false),
+      clusterRunning: deepActive && (deep?.current_stage === 'clustering' || false),
+      atlasRunning: deepActive && (deep?.current_stage === 'atlas' || false),
+      deepeningRunning: deepActive && (deep?.current_stage === 'deepening' || false),
+      fastKnowledgeBuilding: fastActive && (fast?.current_stage === 'knowledge' || false),
+      deepKnowledgeBuilding: deepActive && (deep?.current_stage === 'deep_knowledge' || false),
     })
 
     // Sync paused flags — state machine uses proper 'paused' phase;
@@ -319,6 +342,10 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       type: 'SYNC_PAUSED',
       fastPaused: fast?.phase === 'paused' || (fast?.phase === 'failed' && (fast?.error || '').includes('Paused by user')),
       deepPaused: deep?.phase === 'paused' || (deep?.phase === 'failed' && (deep?.error || '').includes('Paused by user')),
+      fastPausedStage: (fast?.phase === 'paused' || (fast?.phase === 'failed' && (fast?.error || '').includes('Paused by user')))
+        ? fast?.current_stage ?? undefined : undefined,
+      deepPausedStage: (deep?.phase === 'paused' || (deep?.phase === 'failed' && (deep?.error || '').includes('Paused by user')))
+        ? deep?.current_stage ?? undefined : undefined,
     })
 
     // ── Detect transitions for status refresh ──
@@ -331,7 +358,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     // ── Per-stage transition refreshes (deep enrichment) ──
     // When pipeline moves past a stage, refresh that stage's status.
     // Stage order: enrichment → group_reasoning → clustering → atlas → deepening → deep_knowledge
-    if (deepRunning && prevDeepStage && currentDeepStage !== prevDeepStage) {
+    if (deepActive && prevDeepStage && currentDeepStage !== prevDeepStage) {
       // enrichment → group_reasoning: flush epistemic status
       if (prevDeepStage === 'enrichment') void fetchEpistemicStatus()
       // group_reasoning → clustering: refresh group reasoning via pipeline status
@@ -347,7 +374,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     // ── Per-stage transition refreshes (fast sync) ──
     const prevFastStage = prev?.fast_sync?.current_stage
     const currentFastStage = fast?.current_stage
-    if (fastRunning && prevFastStage && currentFastStage !== prevFastStage) {
+    if (fastActive && prevFastStage && currentFastStage !== prevFastStage) {
       // inferred_edges → catalogue: refresh inferred edges from pipeline status
       if (prevFastStage === 'inferred_edges') void refreshStageDataFromPipeline()
       // catalogue → validation: flush augmentation status
@@ -355,19 +382,23 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     }
 
     // Fast sync completed → refresh fast-stage statuses
-    if (fast?.phase === 'completed' && prevFastPhase === 'running') {
+    // State machine allows queued→completed and queued→failed transitions,
+    // so check for those in addition to running→completed/failed.
+    const prevFastWasActive = prevFastPhase === 'running' || prevFastPhase === 'queued' || prevFastPhase === 'pausing'
+    if (fast?.phase === 'completed' && prevFastWasActive) {
       dispatch({ type: 'FAST_COMPLETED' })
       void fetchAugmentationStatus()
       void fetchKnowledgeStatus()
       void refreshStageDataFromPipeline() // picks up final inferred_edges
       onFastCompletedRef.current?.()
     }
-    if (fast?.phase === 'failed' && prevFastPhase === 'running') {
+    if (fast?.phase === 'failed' && prevFastWasActive) {
       dispatch({ type: 'FAST_FAILED' })
     }
 
     // Deep enrichment completed → refresh deep-stage statuses
-    if (deep?.phase === 'completed' && prevDeepPhase === 'running') {
+    const prevDeepWasActive = prevDeepPhase === 'running' || prevDeepPhase === 'queued' || prevDeepPhase === 'pausing'
+    if (deep?.phase === 'completed' && prevDeepWasActive) {
       dispatch({ type: 'DEEP_COMPLETED' })
       void fetchEpistemicStatus()
       void fetchModuleStatus()
@@ -376,7 +407,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       void refreshStageDataFromPipeline() // picks up final atlas + group_reasoning status
       onDeepCompletedRef.current?.()
     }
-    if (deep?.phase === 'failed' && prevDeepPhase === 'running') {
+    if (deep?.phase === 'failed' && prevDeepWasActive) {
       dispatch({ type: 'DEEP_FAILED' })
     }
   }, [pipelineEvent, selectedProjectId,
@@ -420,6 +451,8 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     fetchKnowledgeStatus,
     refreshStageDataFromPipeline,
   ])
+
+
 
   // ── Return ──────────────────────────────────────────────────
 

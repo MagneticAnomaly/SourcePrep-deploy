@@ -83,7 +83,7 @@ def start_project_watch(
         from codrag.services.project_helpers import get_project_activity_status
         status = get_project_activity_status(proj.id)
         if status in ("frozen", "locked", "inactive"):
-            logger.info("Auto-rebuild skipped for %s — project is %s", proj.id, status)
+            logger.debug("Auto-rebuild skipped for %s — project is %s", proj.id, status)
             return False
 
         include_globs, exclude_globs = _get_project_globs(proj, use_defaults=False)
@@ -109,6 +109,12 @@ def start_project_watch(
                 # deep enrichment chains automatically after fast sync.
                 from codrag.services.settings_store import settings as _ss
                 pc = _ss.get("pipeline_config") or {}
+                
+                fast_auto = (pc.get("fast_sync") or {}).get("auto", False)
+                if not fast_auto:
+                    logger.debug("Watcher: skipped pipeline trigger for %s — fast_sync auto is disabled", proj.id)
+                    return False
+                    
                 deep_mode = (pc.get("deep_enrichment") or {}).get("mode", "manual")
                 if deep_mode == "auto":
                     started = pipeline_orchestrator.run_all(proj.id, force_from_start=True)
@@ -116,7 +122,7 @@ def start_project_watch(
                 else:
                     started = pipeline_orchestrator.run_fast_sync(proj.id, force_from_start=True)
                     logger.info("Watcher: run_fast_sync for %s — started=%s", proj.id, started)
-                return started
+                return True
             except Exception:
                 logger.warning("Pipeline trigger failed for %s, falling back to legacy", proj.id, exc_info=True)
                 _srv()._start_project_trace_build(proj, include_globs, exclude_globs, max_file_bytes=max_file_bytes, hard_limit_bytes=hard_limit_bytes)
@@ -148,9 +154,9 @@ def start_project_watch(
             po_status = _po.status(proj.id)
             for group_key in ("fast_sync", "deep_enrichment"):
                 group = po_status.get(group_key) or {}
-                if group.get("phase") == "running":
+                if group.get("is_active"):
                     started_at = group.get("started_at")
-                    if started_at and (_time.time() - started_at > 600):
+                    if started_at and (_time.time() - started_at > 600) and group.get("phase") == "running":
                         # Force-reset stale runs so the watcher can proceed
                         reset = _po.force_reset_stale_runs(proj.id)
                         if reset:

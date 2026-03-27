@@ -271,7 +271,7 @@ class InferredEdgesAnalyzer:
 
             schema = get_structured_schema("inferred_edges")
             from .batch_profiles import get_batch_concurrency
-            _concurrency = get_batch_concurrency(self.llm.provider)
+            _concurrency = get_batch_concurrency(self.llm.provider, model=self.llm.model)
 
             # Pre-build all batch payloads
             all_batches = []

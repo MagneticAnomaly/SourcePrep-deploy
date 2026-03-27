@@ -137,7 +137,9 @@
         "id": "default_ollama",
         "name": "Default Ollama",
         "provider": "ollama",
-        "url": "http://localhost:11434"
+        "url": "http://localhost:11434",
+        "local_concurrency": 1,
+        "cloud_concurrency": 3
       }
     ],
     "embedding": {
@@ -249,7 +251,7 @@
   },
   "pipeline_config": {
     "fast_sync": {
-      "auto": false
+      "auto": true
     },
     "deep_enrichment": {
       "mode": "manual",
@@ -284,8 +286,8 @@
       {
         "id": "file-tree",
         "visible": true,
-        "height": 20,
-        "collapsed": false,
+        "height": 14,
+        "collapsed": true,
         "x": 0,
         "y": 0,
         "w": 4
@@ -311,7 +313,7 @@
       {
         "id": "graph-structure",
         "visible": true,
-        "height": 16,
+        "height": 18,
         "collapsed": false,
         "x": 8,
         "y": 2,
@@ -320,38 +322,20 @@
       {
         "id": "trace-pipeline",
         "visible": true,
-        "height": 18,
+        "height": 20,
         "collapsed": false,
         "x": 4,
         "y": 2,
         "w": 4
       },
       {
-        "id": "index-health",
-        "visible": true,
-        "height": 8,
-        "collapsed": true,
-        "x": 8,
-        "y": 18,
-        "w": 4
-      },
-      {
         "id": "status",
         "visible": true,
         "height": 8,
-        "collapsed": false,
+        "collapsed": true,
         "x": 0,
-        "y": 20,
+        "y": 2,
         "w": 4
-      },
-      {
-        "id": "log-console",
-        "visible": true,
-        "height": 15,
-        "collapsed": false,
-        "x": 4,
-        "y": 20,
-        "w": 8
       },
       {
         "id": "llm-status",
@@ -359,8 +343,53 @@
         "height": 10,
         "collapsed": false,
         "x": 0,
-        "y": 28,
+        "y": 4,
         "w": 4
+      },
+      {
+        "id": "atlas",
+        "visible": true,
+        "height": 12,
+        "collapsed": true,
+        "x": 0,
+        "y": 14,
+        "w": 4
+      },
+      {
+        "id": "context-options",
+        "visible": true,
+        "height": 7,
+        "collapsed": true,
+        "x": 0,
+        "y": 16,
+        "w": 4
+      },
+      {
+        "id": "context-output",
+        "visible": true,
+        "height": 10,
+        "collapsed": true,
+        "x": 0,
+        "y": 18,
+        "w": 4
+      },
+      {
+        "id": "index-health",
+        "visible": true,
+        "height": 10,
+        "collapsed": true,
+        "x": 8,
+        "y": 20,
+        "w": 4
+      },
+      {
+        "id": "log-console",
+        "visible": true,
+        "height": 13,
+        "collapsed": false,
+        "x": 4,
+        "y": 22,
+        "w": 8
       },
       {
         "id": "audit",
@@ -370,33 +399,6 @@
         "x": 4,
         "y": 35,
         "w": 8
-      },
-      {
-        "id": "atlas",
-        "visible": true,
-        "height": 12,
-        "collapsed": false,
-        "x": 0,
-        "y": 38,
-        "w": 4
-      },
-      {
-        "id": "context-options",
-        "visible": true,
-        "height": 7,
-        "collapsed": true,
-        "x": 0,
-        "y": 50,
-        "w": 4
-      },
-      {
-        "id": "context-output",
-        "visible": true,
-        "height": 10,
-        "collapsed": true,
-        "x": 0,
-        "y": 52,
-        "w": 4
       },
       {
         "id": "token-budget",
@@ -417,20 +419,20 @@
         "w": 4
       },
       {
-        "id": "search",
-        "visible": true,
-        "height": 8,
-        "collapsed": true,
-        "x": 4,
-        "y": 58,
-        "w": 4
-      },
-      {
         "id": "results",
         "visible": true,
         "height": 9,
         "collapsed": true,
         "x": 8,
+        "y": 58,
+        "w": 4
+      },
+      {
+        "id": "search",
+        "visible": true,
+        "height": 8,
+        "collapsed": true,
+        "x": 4,
         "y": 58,
         "w": 4
       },
@@ -447,7 +449,7 @@
         "id": "spaghetti",
         "visible": true,
         "height": 28,
-        "collapsed": false,
+        "collapsed": true,
         "x": 0,
         "y": 68,
         "w": 12
@@ -474,7 +476,7 @@
   },
   "compute_nodes": [
     {
-      "id": "node_5dc68449",
+      "id": "node_c712298d",
       "name": "Local Machine",
       "type": "local",
       "hardware_profile": "apple_silicon",

@@ -383,6 +383,27 @@ class LLMClient:
         self.always_on = always_on
         self.debug_mode = debug_mode
 
+    def _record_telemetry(self, prompt_tokens: int, completion_tokens: int, total_tokens: int) -> None:
+        """Record token usage if a telemetry context is active.
+        
+        Caches the store reference after first successful import to avoid
+        repeated module lookups on every LLM call.
+        """
+        try:
+            store = getattr(self, '_telemetry_store', None)
+            if store is None:
+                from codrag.services.token_telemetry import telemetry
+                store = self._telemetry_store = telemetry
+            store.record_usage(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+                model=self.model,
+                provider=self.provider,
+            )
+        except Exception as e:
+            logger.debug("Failed to record token telemetry: %s", e)
+
     def generate(
         self,
         prompt: str,
@@ -592,7 +613,10 @@ class LLMClient:
                         logger.warning("OutputMonitor aborted: %s", reason)
                         break
                 if chunk.get("done"):
-                    tokens = chunk.get("eval_count", 0) + chunk.get("prompt_eval_count", 0)
+                    eval_count = chunk.get("eval_count", 0)
+                    prompt_eval_count = chunk.get("prompt_eval_count", 0)
+                    tokens = eval_count + prompt_eval_count
+                    self._record_telemetry(prompt_eval_count, eval_count, tokens)
                     break
             resp.close()
             text = "".join(text_parts)
@@ -679,7 +703,11 @@ class LLMClient:
             choice = data.get("choices", [{}])[0]
             text = choice.get("message", {}).get("content", "")
             usage = data.get("usage", {})
-            tokens = usage.get("total_tokens", 0)
+            prompt_toks = usage.get("prompt_tokens", 0)
+            comp_toks = usage.get("completion_tokens", 0)
+            tokens = prompt_toks + comp_toks
+            self._record_telemetry(prompt_toks, comp_toks, tokens)
+            
             # CORE: validate output
             try:
                 from codrag.core.content_sanitizer import validate_llm_output
@@ -726,7 +754,11 @@ class LLMClient:
             content_blocks = data.get("content", [])
             text = "".join(b.get("text", "") for b in content_blocks if b.get("type") == "text")
             usage = data.get("usage", {})
-            tokens = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+            input_toks = usage.get("input_tokens", 0)
+            output_toks = usage.get("output_tokens", 0)
+            tokens = input_toks + output_toks
+            self._record_telemetry(input_toks, output_toks, tokens)
+            
             # CORE: validate output
             try:
                 from codrag.core.content_sanitizer import validate_llm_output
@@ -772,7 +804,11 @@ class LLMClient:
             choice = data.get("choices", [{}])[0]
             text = choice.get("message", {}).get("content", "")
             usage = data.get("usage", {})
-            tokens = usage.get("total_tokens", 0)
+            prompt_toks = usage.get("prompt_tokens", 0)
+            comp_toks = usage.get("completion_tokens", 0)
+            tokens = prompt_toks + comp_toks
+            self._record_telemetry(prompt_toks, comp_toks, tokens)
+            
             # CORE: validate output
             try:
                 from codrag.core.content_sanitizer import validate_llm_output
@@ -813,7 +849,10 @@ class LLMClient:
             parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
             text = "".join(p.get("text", "") for p in parts)
             usage = data.get("usageMetadata", {})
-            tokens = usage.get("totalTokenCount", 0)
+            prompt_toks = usage.get("promptTokenCount", 0)
+            comp_toks = usage.get("candidatesTokenCount", 0)
+            tokens = prompt_toks + comp_toks
+            self._record_telemetry(prompt_toks, comp_toks, tokens)
             # CORE: validate output
             try:
                 from codrag.core.content_sanitizer import validate_llm_output
@@ -900,6 +939,8 @@ class LLMClient:
         text_parts: list = []
         thinking_parts: list = []
         tokens = 0
+        prompt_toks = 0
+        comp_toks = 0
         aborted = False
         abort_reason = ""
 
@@ -937,7 +978,9 @@ class LLMClient:
             elif event_type == "chat.end":
                 result = event.get("result", {})
                 stats = result.get("stats", {})
-                tokens = stats.get("input_tokens", 0) + stats.get("total_output_tokens", 0)
+                prompt_toks = stats.get("input_tokens", 0)
+                comp_toks = stats.get("total_output_tokens", 0)
+                tokens = prompt_toks + comp_toks
                 # If we didn't get streaming deltas, extract from final result
                 if not text_parts:
                     for item in result.get("output", []):
@@ -969,6 +1012,10 @@ class LLMClient:
             text = thinking
         elif thinking and text:
             text = f"<think>{thinking}</think>{text}"
+
+        # Record LM Studio token usage
+        if tokens > 0:
+            self._record_telemetry(prompt_toks, comp_toks, tokens)
 
         return text, tokens
 

@@ -112,27 +112,34 @@ class WorkerFactory:
         """
 
         if stage == StageId.STRUCTURAL:
-            return WorkerFactory._trace_worker(project_id)
+            base_worker = WorkerFactory._trace_worker(project_id)
         elif stage == StageId.INFERRED_EDGES:
-            return WorkerFactory._inferred_edges_worker(project_id)
+            base_worker = WorkerFactory._inferred_edges_worker(project_id)
         elif stage == StageId.CATALOGUE:
-            return WorkerFactory._augment_worker(project_id)
+            base_worker = WorkerFactory._augment_worker(project_id)
         elif stage == StageId.VALIDATION:
-            return WorkerFactory._validate_worker(project_id)
+            base_worker = WorkerFactory._validate_worker(project_id)
         elif stage in (StageId.KNOWLEDGE, StageId.DEEP_KNOWLEDGE):
-            return WorkerFactory._knowledge_worker(project_id)
+            base_worker = WorkerFactory._knowledge_worker(project_id)
         elif stage == StageId.ENRICHMENT:
-            return WorkerFactory._epistemic_worker(project_id)
+            base_worker = WorkerFactory._epistemic_worker(project_id)
         elif stage == StageId.GROUP_REASONING:
-            return WorkerFactory._group_reasoning_worker(project_id)
+            base_worker = WorkerFactory._group_reasoning_worker(project_id)
         elif stage == StageId.CLUSTERING:
-            return WorkerFactory._cluster_worker(project_id)
+            base_worker = WorkerFactory._cluster_worker(project_id)
         elif stage == StageId.ATLAS:
-            return WorkerFactory._atlas_worker(project_id)
+            base_worker = WorkerFactory._atlas_worker(project_id)
         elif stage == StageId.DEEPENING:
-            return WorkerFactory._deepening_worker(project_id)
+            base_worker = WorkerFactory._deepening_worker(project_id)
         else:
             raise ValueError(f"Unknown stage: {stage}")
+
+        def wrapped_worker(slot: BuildSlot, progress_cb: Callable) -> Dict[str, Any]:
+            from codrag.services.token_telemetry import set_telemetry_context
+            with set_telemetry_context(project_id, stage.value):
+                return base_worker(slot, progress_cb)
+
+        return wrapped_worker
 
     # ── Helpers ─────────────────────────────────────────────────
 

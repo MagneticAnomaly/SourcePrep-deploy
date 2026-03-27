@@ -1,4 +1,5 @@
 import { useMemo, useState, useCallback, useEffect } from 'react'
+import type { UseGoalpostsSystemReturn } from './useGoalpostsSystem'
 import { FileText } from 'lucide-react'
 import {
   IndexStatusCard,
@@ -49,6 +50,7 @@ import {
   type ScopeStatus,
   type TokenBudgetData,
   type AtlasStatus,
+  GoalpostsPanel,
 } from '@codrag/ui'
 import type { TraceStatus, TraceCoverage } from './useTraceSystem'
 import type { UseAuditSystemReturn } from './useAuditSystem'
@@ -107,6 +109,7 @@ export interface PanelFileSystemProps {
 export interface PanelTraceProps {
   traceStatus: TraceStatus
   traceCoverage: TraceCoverage
+  projectLoading: boolean
   indexAutoRebuild: boolean
   handleIndexAutoRebuildChange: (auto: boolean) => void
   enrichmentAutoConfig: EnrichmentAutoConfig
@@ -154,6 +157,10 @@ export interface PanelEnrichmentProps {
   handleResumePipeline: (group: 'fast_sync' | 'deep_enrichment') => void
   fastPaused: boolean
   deepPaused: boolean
+  /** Explicit stage ID where fast sync was paused (from backend SSE) */
+  fastPausedStage?: string
+  /** Explicit stage ID where deep enrichment was paused (from backend SSE) */
+  deepPausedStage?: string
   groupReasoningStatus: { enabled: boolean; group_count: number; analyzed: number; running?: boolean; slot_phase?: string; progress_current?: number; progress_total?: number }
 }
 
@@ -194,6 +201,7 @@ export interface PanelDeepAnalysisProps {
   deepAnalysisSchedule: DeepAnalysisSchedule
   setDeepAnalysisSchedule: (s: DeepAnalysisSchedule | ((prev: DeepAnalysisSchedule) => DeepAnalysisSchedule)) => void
   budgetUsage: TokenBudgetData | null
+  tokenUsageData: Record<string, { prompt_tokens: number; completion_tokens: number; total_tokens: number }> | null
 }
 
 export interface PanelAtlasProps {
@@ -231,6 +239,7 @@ export interface DashboardPanelsProps {
   atlas: PanelAtlasProps
   audit: UseAuditSystemReturn
   spaghetti: UseSpaghettiSystemReturn
+  goalposts: UseGoalpostsSystemReturn
   activityData: ActivityHeatmapData | null
   // Enterprise
   adminPolicy?: import('@codrag/ui').AdminPolicy | null
@@ -246,7 +255,7 @@ export interface DashboardPanelsProps {
 /** Builds all dashboard panel content, detail views, and dynamic panel definitions from domain state. */
 export function useDashboardPanels(props: DashboardPanelsProps) {
   // Flatten grouped sub-objects for backward-compatible p.xxx access internally
-  const { search, files, trace, enrichment, llm, deepAnalysis, atlas, audit: auditProps, spaghetti: spaghettiProps, ...core } = props
+  const { search, files, trace, enrichment, llm, deepAnalysis, atlas, audit: auditProps, spaghetti: spaghettiProps, goalposts: goalpostsProps, ...core } = props
   const p = { ...core, ...search, ...files, ...trace, ...enrichment, ...llm, ...deepAnalysis }
 
   // Optimistic local state for excluded paths — updates INSTANTLY on click.
@@ -575,6 +584,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           assignedEndpoints={p.llmConfig.saved_endpoints}
           runningTaskId={p.llmSlotsStatus?.running_task_id ?? null}
           fileCount={p.projectStatus?.index?.total_chunks ?? 0}
+          tokenUsageData={p.tokenUsageData ?? undefined}
           bare
         />
       </div>
@@ -706,6 +716,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
     'trace-pipeline': (
       <div className="h-full overflow-y-auto">
         <GraphEnrichmentPipeline
+          projectLoading={p.projectLoading}
           trace={{
             enabled: p.traceStatus.enabled,
             exists: p.traceStatus.exists,
@@ -750,6 +761,8 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           onResumePipeline={p.handleResumePipeline}
           fastPaused={p.fastPaused}
           deepPaused={p.deepPaused}
+          fastPausedStage={p.fastPausedStage}
+          deepPausedStage={p.deepPausedStage}
           autoConfig={p.enrichmentAutoConfig}
           onAutoConfigChange={p.handleEnrichmentAutoConfigChange}
           isPro={p.isPro}
@@ -858,6 +871,45 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         severityCounts={spaghettiProps.spaghettiSeverityCounts}
         loading={spaghettiProps.spaghettiLoading}
         onRefresh={spaghettiProps.handleSpaghettiRefresh}
+      />
+    ),
+    goalposts: goalpostsProps.state ? (
+      <GoalpostsPanel
+        productIntent={goalpostsProps.state.product_intent}
+        proposals={goalpostsProps.state.proposals}
+        questions={goalpostsProps.state.questions}
+        generating={goalpostsProps.state.generating}
+        error={goalpostsProps.state.error}
+        ready={goalpostsProps.state.ready}
+        hasAudit={goalpostsProps.state.has_audit}
+        hasIntent={goalpostsProps.state.has_intent}
+        missing={goalpostsProps.state.missing}
+        lastGeneratedAt={goalpostsProps.state.last_generated_at}
+        modelUsed={goalpostsProps.state.model_used}
+        onGenerate={goalpostsProps.handleGenerate}
+        onUpdateIntent={goalpostsProps.handleUpdateIntent}
+        onApprove={goalpostsProps.handleApprove}
+        onDismiss={goalpostsProps.handleDismiss}
+        onAnswerQuestion={goalpostsProps.handleAnswerQuestion}
+      />
+    ) : (
+      <GoalpostsPanel
+        productIntent=""
+        proposals={[]}
+        questions={[]}
+        generating={false}
+        error={null}
+        ready={false}
+        hasAudit={false}
+        hasIntent={false}
+        missing={['Loading...']}
+        lastGeneratedAt=""
+        modelUsed=""
+        onGenerate={() => {}}
+        onUpdateIntent={() => {}}
+        onApprove={() => {}}
+        onDismiss={() => {}}
+        onAnswerQuestion={() => {}}
       />
     ),
     'token-budget': (

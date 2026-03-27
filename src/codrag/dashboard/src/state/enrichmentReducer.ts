@@ -32,6 +32,9 @@ export interface EnrichmentState {
   /** Pipeline group is paused (error === 'Paused by user') */
   fastPaused: boolean
   deepPaused: boolean
+  /** Explicit stage ID where the pipeline was paused (from backend current_stage) */
+  fastPausedStage: string | undefined
+  deepPausedStage: string | undefined
 }
 
 export const initialEnrichmentState: EnrichmentState = {
@@ -58,6 +61,8 @@ export const initialEnrichmentState: EnrichmentState = {
   groupReasoningStatus: { enabled: false, group_count: 0, analyzed: 0 },
   fastPaused: false,
   deepPaused: false,
+  fastPausedStage: undefined,
+  deepPausedStage: undefined,
 }
 
 // ── Actions ───────────────────────────────────────────────────
@@ -77,7 +82,7 @@ export type EnrichmentAction =
   // Sync all running flags at once (from SSE or initial hydration)
   | { type: 'SYNC_RUNNING'; inferredEdgesRunning: boolean; augmenting: boolean; validating: boolean; epistemicRunning: boolean; groupReasoningRunning: boolean; clusterRunning: boolean; atlasRunning: boolean; deepeningRunning: boolean; fastKnowledgeBuilding: boolean; deepKnowledgeBuilding: boolean }
   // Sync paused flags (derived from pipeline error === 'Paused by user')
-  | { type: 'SYNC_PAUSED'; fastPaused: boolean; deepPaused: boolean }
+  | { type: 'SYNC_PAUSED'; fastPaused: boolean; deepPaused: boolean; fastPausedStage?: string; deepPausedStage?: string }
   // Manual stage start (optimistic UI feedback)
   | { type: 'STAGE_STARTED'; stage: StageName }
   // Manual stage failure (revert optimistic flag)
@@ -133,6 +138,8 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
         ...state,
         fastPaused: action.fastPaused,
         deepPaused: action.deepPaused,
+        fastPausedStage: action.fastPausedStage,
+        deepPausedStage: action.deepPausedStage,
       }
 
     // ── Optimistic stage start ──
@@ -162,11 +169,11 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
     // ── Group completions (atomic multi-flag clear) ──
     case 'FAST_COMPLETED':
     case 'FAST_FAILED':
-      return { ...state, inferredEdgesRunning: false, augmenting: false, validating: false, fastKnowledgeBuilding: false }
+      return { ...state, inferredEdgesRunning: false, augmenting: false, validating: false, fastKnowledgeBuilding: false, fastPausedStage: undefined }
 
     case 'DEEP_COMPLETED':
     case 'DEEP_FAILED':
-      return { ...state, epistemicRunning: false, groupReasoningRunning: false, clusterRunning: false, atlasRunning: false, deepeningRunning: false, deepKnowledgeBuilding: false, deepPaused: false }
+      return { ...state, epistemicRunning: false, groupReasoningRunning: false, clusterRunning: false, atlasRunning: false, deepeningRunning: false, deepKnowledgeBuilding: false, deepPaused: false, deepPausedStage: undefined }
 
     // ── Full reset ──
     case 'DESTROYED':

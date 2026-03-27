@@ -199,8 +199,12 @@ async def get_data_provenance(
 
             # Model info
             if manifest.model:
-                entry["model"] = manifest.model.get("model_name", "unknown")
-                entry["provider"] = manifest.model.get("provider", "unknown")
+                if isinstance(manifest.model, dict):
+                    entry["model"] = manifest.model.get("model_name", "unknown")
+                    entry["provider"] = manifest.model.get("provider", "unknown")
+                else:
+                    entry["model"] = str(manifest.model)
+                    entry["provider"] = "unknown"
 
             # Quality
             if manifest.quality:

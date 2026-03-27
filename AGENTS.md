@@ -3,7 +3,23 @@
 <!-- codrag-managed-start -->
 ## CoDRAG Integration
 
-Last updated: 2026-03-25T00:48:38Z
+Last updated: 2026-03-27T01:39:47Z
+
+## 🚨 CRITICAL: Tool Calling Instructions
+
+When user types "codrag" → IMMEDIATELY call the `codrag` tool.
+When user mentions code search → IMMEDIATELY call `codrag_search`.
+When user asks about project structure → IMMEDIATELY call `codrag`.
+No announcements. No 'I will'. Just call the tool.
+
+### Quick Reference
+| User Says | You Do |
+|-----------|--------|
+| "codrag" | Call `codrag()` immediately |
+| "search for X" | Call `codrag_search(query="X")` |
+| "find where X is defined" | Call `codrag_search(query="X")` |
+| "how does this project work" | Call `codrag()` for overview |
+| "codrag context" | Call `codrag()` for ambient context |
 
 You have access to CoDRAG, a structural code intelligence system.
 ALWAYS call `codrag` (no arguments) at the START of every task.
@@ -20,24 +36,17 @@ All CoDRAG tools are read-only and safe to auto-approve.
 
 ## Codebase Atlas
 
-IDENTITY: Codrag is a local-first AI coding assistant with MCP integration, RAG capabilities, and a VSCode extension, featuring a shared UI component library and marketing website.
+IDENTITY: Codrag is a local-first AI coding assistant with MCP integration, RAG capabilities, and a multi-interface architecture spanning VSCode extension, Tauri dashboard, and design system components.
 
-STACK: TypeScript, React, Python, Rust. Next.js, Storybook. Build tooling spans dashboard and webview-ui segments.
+STACK: Rust (engine/crates/codrag-graph), TypeScript/React (packages/ui, dashboard, webview-ui), Python (239 files), Tauri (src-tauri/src/main.rs), Storybook, CSS modules. Build tooling includes standard TS/React toolchain with custom graph analysis pipeline.
 
-WORKSPACE MAP:
-_root (800 files): MCP, marketing, UI foundation, local-first architecture, RAG engine
-ui (packages/ui, 598 files): Design system, Storybook, component library, documentation
-dashboard (src/codrag/dashboard, 35 files): Dashboard UI frontend with build-system tooling
-vscode (packages/vscode, 20 files): VSCode extension with embeddings, RAG, webview integration
-webview-ui (packages/vscode/webview-ui, 14 files): React-based VSCode webview with code-navigation and build-tooling
+WORKSPACE MAP: Project Root (_root, 809 files): MCP orchestration, local-first sync, marketing site foundation; Ui (packages/ui, 224 files): design-system, component-library, Storybook documentation; Dashboard (src/codrag/dashboard, 35 files): Tauri-based stateful UI with React hooks and security layer; Vscode (packages/vscode, 20 files): extension host, daemon integration, embeddings pipeline, RAG services; Webview Ui (packages/vscode/webview-ui, 14 files): VSCode-embedded React UI with code-navigation features.
 
-CROSS-CUTTING: Shared domains across segments: ui, rag, build-tooling, vscode-extension. Hub files concentrate connectivity in TEST2/website.clean marketing pages (download, privacy, terms, refund) and HeroSection component. Entry points bridge packages/ui components to engine Rust parser. Import cycles: 36. Directory dependencies show symbol-level coupling between docs, engine, packages, and scripts segments. Longest import chains route through marketing website pages into shared layout and section components.
+CROSS-CUTTING: Five entry points anchor the graph: codrag-graph Rust engine, navigation and trace component indices, Tauri main.rs, and marketing index. Shared domains ui, rag, dashboard, and vscode-extension create horizontal coupling. Hub files concentrate connectivity in TEST2/website.clean marketing pages (download, privacy, terms, refund) and HeroSection component. Directory dependencies show engine, packages, and docs as symbolic targets. 61 import cycles detected. Longest chains reveal TEST2/website.clean as deep dependency sink across all entry points.
 
 ## Focus Areas
-- docs/API.md
-- docs/Phase44_LLM-Mapping/AI_GATEWAY_PLAN.md
-- docs/Phase44_LLM-Mapping/MODEL_AWARENESS_STATE_MACHINE.md
-- docs/Phase44_LLM-Mapping/README.md
+- docs/Phase24_StateMachine/README.md
+- docs/Phase41_Managing-Mulitiple-Projects/README.md
 - docs/Phase48_fix-pipeline/README.md
 - src/codrag/core/llm_client.py
 - src/codrag/core/model_awareness.py
@@ -54,4 +63,12 @@ structural context.
 
 You can call `codrag` and `codrag_search` in parallel on your first
 prompt -- structural overview + targeted code lookup in one round-trip.
+
+### Tool Calling Rules
+1. **Never announce** 'I will now call...' - just call the tool
+2. **No permission needed** - simple keywords = immediate invocation
+3. **Single word triggers** - 'codrag' alone is enough to call the tool
+4. **Context is cheap** - prefer calling codrag to using grep for structural understanding
+
+**Remember: The word "codrag" anywhere in user input is a tool invocation signal. Call immediately without asking permission.**
 <!-- codrag-managed-end -->

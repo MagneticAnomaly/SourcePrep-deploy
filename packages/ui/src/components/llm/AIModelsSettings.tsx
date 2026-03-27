@@ -544,12 +544,7 @@ export function AIModelsSettings({
     });
   };
 
-  const handleSmallConcurrencyChange = (concurrency: number) => {
-    onConfigChange({
-      ...config,
-      small_model: { ...config.small_model, concurrency },
-    });
-  };
+
   
   const handleLargeModelEndpointChange = async (endpointId: string) => {
     onClearTestResult?.('large');
@@ -583,12 +578,7 @@ export function AIModelsSettings({
     });
   };
 
-  const handleLargeConcurrencyChange = (concurrency: number) => {
-    onConfigChange({
-      ...config,
-      large_model: { ...config.large_model, concurrency },
-    });
-  };
+
   
   const handleCodeModelEndpointChange = async (endpointId: string) => {
     onClearTestResult?.('code');
@@ -622,12 +612,7 @@ export function AIModelsSettings({
     });
   };
 
-  const handleCodeConcurrencyChange = (concurrency: number) => {
-    onConfigChange({
-      ...config,
-      code_model: { ...config.code_model, concurrency },
-    });
-  };
+
   
 
   // Determine status for each slot
@@ -711,14 +696,14 @@ export function AIModelsSettings({
                 }}
                 disabled={!isDraftDirty && !configDirty}
                 className={cn(
-                  'inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors w-[84px]',
+                  'inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
                   (isDraftDirty || configDirty)
                     ? 'bg-primary text-surface hover:bg-primary/90 shadow-sm'
                     : 'bg-transparent text-text-muted cursor-not-allowed opacity-50'
                 )}
               >
                 <Save className="w-3.5 h-3.5" />
-                Save
+                Set model scheme
               </button>
             </div>
           </div>
@@ -874,8 +859,7 @@ export function AIModelsSettings({
                 model={config.small_model.model}
                 alwaysOn={config.small_model.always_on}
                 onAlwaysOnChange={handleSmallAlwaysOnChange}
-                concurrency={config.small_model.concurrency ?? 1}
-                onConcurrencyChange={handleSmallConcurrencyChange}
+
                 endpoints={config.saved_endpoints}
                 onEndpointChange={handleSmallModelEndpointChange}
                 availableModels={availableModels[config.small_model.endpoint_id || ''] || []}
@@ -904,8 +888,7 @@ export function AIModelsSettings({
                 model={config.code_model?.model}
                 alwaysOn={config.code_model?.always_on}
                 onAlwaysOnChange={handleCodeAlwaysOnChange}
-                concurrency={config.code_model?.concurrency ?? 1}
-                onConcurrencyChange={handleCodeConcurrencyChange}
+
                 endpoints={config.saved_endpoints}
                 onEndpointChange={handleCodeModelEndpointChange}
                 availableModels={availableModels[config.code_model?.endpoint_id || ''] || []}
@@ -933,8 +916,7 @@ export function AIModelsSettings({
                 model={config.large_model.model}
                 alwaysOn={config.large_model.always_on}
                 onAlwaysOnChange={handleLargeAlwaysOnChange}
-                concurrency={config.large_model.concurrency ?? 1}
-                onConcurrencyChange={handleLargeConcurrencyChange}
+
                 endpoints={config.saved_endpoints}
                 onEndpointChange={handleLargeModelEndpointChange}
                 availableModels={availableModels[config.large_model.endpoint_id || ''] || []}
@@ -1006,8 +988,8 @@ export function AIModelsSettings({
         adminPolicy={adminPolicy}
       />
 
-      {/* Compute Profile */}
-      {onMaxActiveProjectsChange && (
+      {/* Compute Profile — Enterprise/Team only */}
+      {onMaxActiveProjectsChange && adminPolicy && (
         <div className="rounded-lg border border-border bg-surface p-4 space-y-4">
           <div className="flex items-center gap-2">
             <svg className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" /><rect x="9" y="9" width="6" height="6" /><line x1="9" y1="1" x2="9" y2="4" /><line x1="15" y1="1" x2="15" y2="4" /><line x1="9" y1="20" x2="9" y2="23" /><line x1="15" y1="20" x2="15" y2="23" /><line x1="20" y1="9" x2="23" y2="9" /><line x1="20" y1="14" x2="23" y2="14" /><line x1="1" y1="9" x2="4" y2="9" /><line x1="1" y1="14" x2="4" y2="14" /></svg>
@@ -1048,52 +1030,52 @@ export function AIModelsSettings({
             onUpdate={onComputeNodeUpdate}
             onDelete={onComputeNodeDelete}
           />
-
-          {/* Pipeline Queue Status */}
-          {schedulerStatus && (() => {
-            const nodeEntries = Object.entries(schedulerStatus.nodes);
-            const hasActivity = nodeEntries.some(([, n]) => n.current_load > 0 || n.queued.length > 0);
-            if (!hasActivity) return null;
-            return (
-              <div className="space-y-2 pt-2 border-t border-border">
-                <label className="text-xs font-medium text-text-subtle">Pipeline Activity</label>
-                {nodeEntries.map(([nodeId, node]) => {
-                  if (node.current_load === 0 && node.queued.length === 0) return null;
-                  const activeEntries = Object.entries(node.active);
-                  return (
-                    <div key={nodeId} className="space-y-1.5">
-                      {activeEntries.length > 0 && (
-                        <div className="space-y-1">
-                          {activeEntries.map(([projId, stageId]) => (
-                            <div key={projId} className="flex items-center gap-2 text-[10px] px-2 py-1 rounded bg-primary/5 border border-primary/20">
-                              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shrink-0" />
-                              <span className="text-text-muted truncate">{projId.slice(0, 12)}</span>
-                              <span className="text-primary font-medium">{stageId}</span>
-                              <span className="ml-auto text-text-muted">{node.current_load}/{node.max_concurrent}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {node.queued.length > 0 && (
-                        <div className="space-y-1">
-                          {node.queued.map((q, i) => (
-                            <div key={i} className="flex items-center gap-2 text-[10px] px-2 py-1 rounded bg-amber-500/5 border border-amber-500/20">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                              <span className="text-text-muted truncate">{q.project_id.slice(0, 12)}</span>
-                              <span className="text-amber-500 font-medium">queued: {q.stage}</span>
-                              <span className="ml-auto text-text-muted">{Math.round(q.waiting_seconds)}s</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
         </div>
       )}
+
+      {/* Pipeline Activity — visible to all users */}
+      {schedulerStatus && (() => {
+        const nodeEntries = Object.entries(schedulerStatus.nodes);
+        const hasActivity = nodeEntries.some(([, n]) => n.current_load > 0 || n.queued.length > 0);
+        if (!hasActivity) return null;
+        return (
+          <div className="rounded-lg border border-border bg-surface p-4 space-y-2">
+            <label className="text-xs font-medium text-text-subtle">Pipeline Activity</label>
+            {nodeEntries.map(([nodeId, node]) => {
+              if (node.current_load === 0 && node.queued.length === 0) return null;
+              const activeEntries = Object.entries(node.active);
+              return (
+                <div key={nodeId} className="space-y-1.5">
+                  {activeEntries.length > 0 && (
+                    <div className="space-y-1">
+                      {activeEntries.map(([projId, stageId]) => (
+                        <div key={projId} className="flex items-center gap-2 text-[10px] px-2 py-1 rounded bg-primary/5 border border-primary/20">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shrink-0" />
+                          <span className="text-text-muted truncate">{projId.slice(0, 12)}</span>
+                          <span className="text-primary font-medium">{stageId}</span>
+                          <span className="ml-auto text-text-muted">{node.current_load}/{node.max_concurrent}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {node.queued.length > 0 && (
+                    <div className="space-y-1">
+                      {node.queued.map((q, i) => (
+                        <div key={i} className="flex items-center gap-2 text-[10px] px-2 py-1 rounded bg-amber-500/5 border border-amber-500/20">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                          <span className="text-text-muted truncate">{q.project_id.slice(0, 12)}</span>
+                          <span className="text-amber-500 font-medium">queued: {q.stage}</span>
+                          <span className="ml-auto text-text-muted">{Math.round(q.waiting_seconds)}s</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Info Card */}
       <div className="rounded-lg bg-surface-raised border border-border p-4 flex gap-3">

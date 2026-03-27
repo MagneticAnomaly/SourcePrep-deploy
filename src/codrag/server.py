@@ -406,6 +406,7 @@ TASK_TO_SLOT: Dict[str, str] = {
     "deepening":       "large",
     "search_intent":   "small",
     "audit":           "large",
+    "goalposts":       "large",
     "augmentation":    "small",
 }
 
@@ -413,7 +414,7 @@ TASK_TO_SLOT: Dict[str, str] = {
 _SLOT_FALLBACK_TO_SMALL = {"code", "large"}
 
 # Tasks whose mapped-mode blocks should use the long (600s) timeout
-_LONG_TIMEOUT_TASKS = {"enrichment", "clustering", "atlas", "deepening", "audit"}
+_LONG_TIMEOUT_TASKS = {"enrichment", "clustering", "atlas", "deepening", "audit", "goalposts"}
 
 
 def _get_llm_client_for_task(task_id: str):
@@ -555,6 +556,7 @@ from codrag.api.routers.scope import router as scope_router
 from codrag.api.routers.observations import router as observations_router
 from codrag.api.routers.audit import router as audit_router
 from codrag.api.routers.compute import router as compute_router
+from codrag.api.routers.goalposts import router as goalposts_router
 app.include_router(system_router)
 app.include_router(license_router)
 app.include_router(trace_router)
@@ -567,6 +569,7 @@ app.include_router(scope_router)
 app.include_router(observations_router)
 app.include_router(audit_router)
 app.include_router(compute_router)
+app.include_router(goalposts_router)
 
 
 # =============================================================================
@@ -624,6 +627,10 @@ def configure(
     # Initialize pipeline run history (Phase 49: Process Info)
     from codrag.services.pipeline_history import history as _history
     _history.init(db_path)
+
+    # Initialize token telemetry (Phase 56: AI Gateway Phase 2)
+    from codrag.services.token_telemetry import telemetry as _telemetry
+    _telemetry.init(db_path)
 
     # Initialize observation store (Phase 39: Session Continuity)
     from codrag.services.observation_store import observation_store as _obs_store
