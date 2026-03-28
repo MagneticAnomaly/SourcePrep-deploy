@@ -125,6 +125,15 @@ interface EnrichmentStage {
 
 // ── Phase 49: Provenance Helpers ─────────────────────────────────
 
+/** Compute rerun bar segments from progress_baseline/total.
+ *  Returns undefined when baseline is 0 (initial build). */
+function computeRerun(baseline: number | undefined, total: number | undefined): { donePercent: number; stalePercent: number } | undefined {
+  if (!baseline || !total || baseline <= 0 || total <= 0) return undefined;
+  const donePct = Math.round((baseline / total) * 100);
+  const stalePct = 100 - donePct;
+  return { donePercent: donePct, stalePercent: stalePct };
+}
+
 const STAGE_OUTPUT_KEY: Record<EnrichmentStageId, string | null> = {
   structural: 'trace_nodes.jsonl',
   inferred_edges: 'trace_inferred_edges.jsonl',
@@ -322,28 +331,31 @@ function computeValidationState(
   if (!trace.enabled) return 'disabled';
 
   // A later stage is running → Validation must have finished.
-  // Validation is a fast Rust pass-through so data confirmation isn't critical,
-  // but guard against stale state anyway.
   if (fastKnowledgeBuilding) {
     return (aug && aug.augmented_nodes > 0) ? 'complete' : 'running';
   }
 
   if (validating) return 'running';
   if (!trace.exists) return 'disabled';
-  // Catalogue must finish before validation can be considered.
-  if (augmenting) return 'disabled';
+
+  // During an incremental catalogue run, keep validation green if it
+  // was previously complete (augmented_nodes is substantial).
+  if (augmenting) {
+    if (aug && aug.augmented_nodes > 0 && aug.total_nodes > 0 &&
+        aug.augmented_nodes >= aug.total_nodes * 0.5) {
+      return 'complete';  // Was complete before, stay green during incremental add
+    }
+    return 'disabled';  // Initial build — validation hasn't run yet
+  }
 
   // Validation runs after catalogue (augmentation).
   if (!aug || !aug.enabled || aug.augmented_nodes === 0) return 'disabled';
 
   // Catalogue must be substantially complete before validation can run.
-  // If less than 50% of nodes are augmented, catalogue is still in progress
-  // (possibly paused with partial checkpoint data).
   if (aug.total_nodes > 0 && aug.augmented_nodes < aug.total_nodes * 0.5) return 'disabled';
 
   // Rust validation is a fast pass-through that runs immediately after
-  // catalogue in the Fast Sync pipeline.  If catalogue is done (we passed
-  // all checks above), validation is effectively complete.
+  // catalogue in the Fast Sync pipeline.
   return 'complete';
 }
 
@@ -444,8 +456,14 @@ function computeFastKnowledgeState(
   augmenting?: boolean
 ): StageState {
   if (!trace.enabled || !trace.exists) return 'disabled';
-  // Catalogue and validation must finish before knowledge embedding
-  if (augmenting) return 'disabled';
+  // During incremental catalogue run, keep knowledge green if it was
+  // previously complete (has embedded chunks already).
+  if (augmenting) {
+    if (know && know.chunks_embedded > 0) {
+      return 'complete';  // Was complete before, stay green during incremental add
+    }
+    return 'disabled';  // Initial build — knowledge hasn't run yet
+  }
   if (!aug || !aug.enabled || aug.augmented_nodes === 0) return 'disabled';
   if (building) return 'running';
   // Don't show as running just because know?.running is true — that could be the deep build
@@ -614,7 +632,7 @@ function StageRow({
               progress={stage.progress}
               className="h-1.5 mt-0 w-full"
               color={isRerunning ? "bg-purple-500" : "bg-blue-500"}
-              rerun={isRerunning && stage.rerun ? stage.rerun : undefined}
+              rerun={stage.rerun ? stage.rerun : undefined}
             />
           </div>
         ) : isPaused ? (
@@ -891,8 +909,9 @@ export function GraphEnrichmentPipeline({
       progress: inferredEdgesState === 'running' && inferredEdges?.slot_progress?.total
         ? Math.min(100, Math.round((inferredEdges.slot_progress.current / inferredEdges.slot_progress.total) * 100))
         : undefined,
+      rerun: inferredEdgesState === 'running' ? computeRerun(inferredEdges?.slot_progress?.baseline, inferredEdges?.slot_progress?.total) : undefined,
     },
-    { id: 'catalogue', label: 'Fast Catalogue', icon: Database, modelTag: 'Fast', state: catalogueState, stats: catalogueStats, progress: catalogueProgress },
+    { id: 'catalogue', label: 'Fast Catalogue', icon: Database, modelTag: 'Fast', state: catalogueState, stats: catalogueStats, progress: catalogueProgress, rerun: catalogueState === 'running' ? computeRerun(augmentation?.progress_baseline, augmentation?.progress_total) : undefined },
     { id: 'validation', label: 'Relationship Validation', icon: ShieldCheck, modelTag: 'Rust', state: validationState, stats: validationStats },
     {
       id: 'knowledge', label: 'Knowledge Embedding', icon: Database,
@@ -910,6 +929,7 @@ export function GraphEnrichmentPipeline({
       progress: (epistemicRunning || epistemic?.running) && epistemic?.progress_total
         ? Math.min(100, Math.round((epistemic.progress_current ?? 0) / epistemic.progress_total * 100))
         : (enrichmentState === 'running' ? 0 : undefined),
+      rerun: enrichmentState === 'running' ? computeRerun(epistemic?.progress_baseline, epistemic?.progress_total) : undefined,
     },
     {
       id: 'group_reasoning', label: 'Group Reasoning', icon: Network, modelTag: 'Thinking',

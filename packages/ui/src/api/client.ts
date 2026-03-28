@@ -243,6 +243,22 @@ export interface ApiClient {
   updateGoalpostsIntent(projectId: string, intent: string): Promise<{ product_intent: string }>;
   updateGoalpostProposal(projectId: string, proposalId: string, state: 'approved' | 'dismissed'): Promise<{ id: string; state: string }>;
   answerGoalpostQuestion(projectId: string, questionId: string, answer: string): Promise<{ id: string; answered: boolean }>;
+
+  // Roadmap (Phase 59)
+  getRoadmap(projectId: string): Promise<import('../types').RoadmapResponse>;
+  createRoadmapNode(projectId: string, node: { title: string; description?: string; tier?: string; category?: string; priority?: string }): Promise<{ id: string; tier: string; position: number }>;
+  updateRoadmapNode(projectId: string, nodeId: string, updates: Partial<import('../types').RoadmapNode>): Promise<{ id: string; tier: string; state: string }>;
+  deleteRoadmapNode(projectId: string, nodeId: string): Promise<{ deleted: string }>;
+  generateRoadmapProposals(projectId: string): Promise<{ status: string; message: string }>;
+  updateRoadmapEthos(projectId: string, ethos: string): Promise<{ app_ethos: string }>;
+  reorderRoadmapNodes(projectId: string, tier: string, nodeIds: string[]): Promise<{ tier: string; count: number }>;
+  scanRoadmapTodos(projectId: string): Promise<{ status: string; message: string }>;
+  answerRoadmapQuestion(projectId: string, questionId: string, answer: string): Promise<{ id: string; answered: boolean }>;
+
+  // Roadmap GitHub + Mining (Phase 59D)
+  syncGitHub(projectId: string): Promise<{ status: string; message: string }>;
+  getGitHubStatus(projectId: string): Promise<import('../types').GitHubStatus>;
+  mineRoadmap(projectId: string): Promise<{ status: string; message: string }>;
 }
 
 export interface ApiClientConfig {
@@ -1152,6 +1168,83 @@ export class CodragApiClient implements ApiClient {
     return this.requestEnvelope<{ id: string; answered: boolean }>(`/projects/${projectId}/goalposts/questions/${encodeURIComponent(questionId)}/answer`, {
       method: 'POST',
       body: { answer },
+    });
+  }
+
+  // ── Roadmap (Phase 59) ──────────────────────────────────────────
+
+  async getRoadmap(projectId: string): Promise<import('../types').RoadmapResponse> {
+    return this.requestEnvelope<import('../types').RoadmapResponse>(`/projects/${projectId}/roadmap`);
+  }
+
+  async createRoadmapNode(projectId: string, node: { title: string; description?: string; tier?: string; category?: string; priority?: string }): Promise<{ id: string; tier: string; position: number }> {
+    return this.requestEnvelope<{ id: string; tier: string; position: number }>(`/projects/${projectId}/roadmap/nodes`, {
+      method: 'POST',
+      body: node,
+    });
+  }
+
+  async updateRoadmapNode(projectId: string, nodeId: string, updates: Partial<import('../types').RoadmapNode>): Promise<{ id: string; tier: string; state: string }> {
+    return this.requestEnvelope<{ id: string; tier: string; state: string }>(`/projects/${projectId}/roadmap/nodes/${encodeURIComponent(nodeId)}`, {
+      method: 'PATCH',
+      body: updates,
+    });
+  }
+
+  async deleteRoadmapNode(projectId: string, nodeId: string): Promise<{ deleted: string }> {
+    return this.requestEnvelope<{ deleted: string }>(`/projects/${projectId}/roadmap/nodes/${encodeURIComponent(nodeId)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async generateRoadmapProposals(projectId: string): Promise<{ status: string; message: string }> {
+    return this.requestEnvelope<{ status: string; message: string }>(`/projects/${projectId}/roadmap/generate`, {
+      method: 'POST',
+    });
+  }
+
+  async updateRoadmapEthos(projectId: string, ethos: string): Promise<{ app_ethos: string }> {
+    return this.requestEnvelope<{ app_ethos: string }>(`/projects/${projectId}/roadmap/ethos`, {
+      method: 'PUT',
+      body: { app_ethos: ethos },
+    });
+  }
+
+  async reorderRoadmapNodes(projectId: string, tier: string, nodeIds: string[]): Promise<{ tier: string; count: number }> {
+    return this.requestEnvelope<{ tier: string; count: number }>(`/projects/${projectId}/roadmap/reorder`, {
+      method: 'POST',
+      body: { tier, node_ids: nodeIds },
+    });
+  }
+
+  async scanRoadmapTodos(projectId: string): Promise<{ status: string; message: string }> {
+    return this.requestEnvelope<{ status: string; message: string }>(`/projects/${projectId}/roadmap/scan-todos`, {
+      method: 'POST',
+    });
+  }
+
+  async answerRoadmapQuestion(projectId: string, questionId: string, answer: string): Promise<{ id: string; answered: boolean }> {
+    return this.requestEnvelope<{ id: string; answered: boolean }>(`/projects/${projectId}/roadmap/questions/${encodeURIComponent(questionId)}/answer`, {
+      method: 'POST',
+      body: { answer },
+    });
+  }
+
+  // ── Roadmap GitHub + Mining (Phase 59D) ────────────────────────
+
+  async syncGitHub(projectId: string): Promise<{ status: string; message: string }> {
+    return this.requestEnvelope<{ status: string; message: string }>(`/projects/${projectId}/roadmap/sync-github`, {
+      method: 'POST',
+    });
+  }
+
+  async getGitHubStatus(projectId: string): Promise<import('../types').GitHubStatus> {
+    return this.requestEnvelope<import('../types').GitHubStatus>(`/projects/${projectId}/roadmap/github-status`);
+  }
+
+  async mineRoadmap(projectId: string): Promise<{ status: string; message: string }> {
+    return this.requestEnvelope<{ status: string; message: string }>(`/projects/${projectId}/roadmap/mine`, {
+      method: 'POST',
     });
   }
 }

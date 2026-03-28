@@ -726,6 +726,22 @@ class PipelineOrchestrator:
                 # Manifest missing or empty — stage needs to run.
                 # (Output file may have partial checkpoint data — the
                 # worker's incremental logic will skip already-done items.)
+
+                # Atlas crash-loop guard: if atlas_manifest.json is
+                # missing but atlas.json exists, the worker completed
+                # but the process died before the orchestrator wrote
+                # the manifest.  Skip the atlas stage to break the
+                # infinite crash loop.
+                if stage == StageId.ATLAS:
+                    atlas_json = idx_dir / "atlas.json"
+                    if atlas_json.exists() and atlas_json.stat().st_size > 10:
+                        logger.warning(
+                            "Atlas manifest missing but atlas.json exists (%d bytes) "
+                            "— treating atlas as complete (crash recovery)",
+                            atlas_json.stat().st_size,
+                        )
+                        continue
+
                 return i
 
             # Stage has no manifest mapping — check output file existence

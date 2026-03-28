@@ -557,6 +557,7 @@ from codrag.api.routers.observations import router as observations_router
 from codrag.api.routers.audit import router as audit_router
 from codrag.api.routers.compute import router as compute_router
 from codrag.api.routers.goalposts import router as goalposts_router
+from codrag.api.routers.roadmap import router as roadmap_router
 app.include_router(system_router)
 app.include_router(license_router)
 app.include_router(trace_router)
@@ -570,6 +571,7 @@ app.include_router(observations_router)
 app.include_router(audit_router)
 app.include_router(compute_router)
 app.include_router(goalposts_router)
+app.include_router(roadmap_router)
 
 
 # =============================================================================

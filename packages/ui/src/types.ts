@@ -361,7 +361,7 @@ export interface InferredEdgesStatus {
   exists: boolean;
   edge_count: number;
   running?: boolean;
-  slot_progress?: { message: string; current: number; total: number };
+  slot_progress?: { message: string; current: number; total: number; baseline?: number };
   slot_phase?: string;
 }
 
@@ -378,6 +378,9 @@ export interface AugmentationStatus {
   last_augment_at?: string;
   last_validate_at?: string;
   model?: string;
+  progress_current?: number;
+  progress_total?: number;
+  progress_baseline?: number;
 }
 
 /**
@@ -393,6 +396,7 @@ export interface EpistemicStatus {
   pipeline_running?: boolean;
   progress_current?: number;
   progress_total?: number;
+  progress_baseline?: number;
 }
 
 /**
@@ -1401,3 +1405,80 @@ export interface GoalpostsResponse {
   generation_duration_ms: number;
   version: number;
 }
+
+// ── Phase 59: Roadmap Types ──────────────────────────────────────
+
+export type RoadmapTier = 'completed' | 'active' | 'planned' | 'proposed';
+export type RoadmapNodeSource = 'manual' | 'ai_proposed' | 'todo_scan' | 'github';
+export type RoadmapNodeState = 'proposed' | 'accepted' | 'active' | 'completed' | 'dismissed';
+
+export interface RoadmapTask {
+  description: string;
+  file_paths: string[];
+  effort: 'small' | 'medium' | 'large';
+}
+
+export interface RoadmapNode {
+  id: string;
+  title: string;
+  description: string;
+  tier: RoadmapTier;
+  position: number;
+  source: RoadmapNodeSource;
+  source_ref: string | null;
+  category: string;
+  priority: string;
+  tasks: RoadmapTask[];
+  state: RoadmapNodeState;
+  parent_id: string | null;
+  fork_label: string | null;
+  created_at: string;
+  decided_at: string | null;
+  completed_at: string | null;
+  ethos_alignment: string;
+  business_impact: string;
+}
+
+export interface RoadmapNorthStar {
+  id: string;
+  title: string;
+  priority: string;
+}
+
+export interface RoadmapResponse {
+  generating: boolean;
+  scanning: boolean;
+  error: string | null;
+  north_star: RoadmapNorthStar | null;
+  version: number;
+  app_ethos: string;
+  nodes: RoadmapNode[];
+  questions: GoalpostQuestion[];
+  last_generated_at: string;
+  model_used: string;
+  generation_tokens: number;
+  generation_duration_ms: number;
+  github_sync: GitHubSyncState | null;
+}
+
+/** GitHub sync metadata (Phase 59D) */
+export interface GitHubSyncState {
+  last_synced_at: string;
+  issues_imported: number;
+  owner: string;
+  repo: string;
+  project_id: string;
+  error: string;
+}
+
+/** GitHub connection status response */
+export interface GitHubStatus {
+  configured: boolean;
+  owner: string;
+  repo: string;
+  has_project_id: boolean;
+  syncing: boolean;
+  error: string | null;
+  last_sync: GitHubSyncState | null;
+}
+

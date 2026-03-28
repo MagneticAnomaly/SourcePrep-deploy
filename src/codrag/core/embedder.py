@@ -416,13 +416,39 @@ def _detect_onnx_providers() -> list:
     return providers
 
 
-# Batch size by provider — GPU can handle much larger batches
+# Batch size by provider — GPU can handle much larger batches.
+# Scaled by system memory to prevent peak-memory spikes on small machines.
 _PROVIDER_BATCH_SIZES = {
     "CoreMLExecutionProvider": 128,
     "CUDAExecutionProvider": 128,
     "DmlExecutionProvider": 64,
     "CPUExecutionProvider": 32,
 }
+
+
+def _memory_scaled_batch_size(provider: str) -> int:
+    """Return a batch size for *provider* scaled by available system RAM.
+
+    On machines with ≤ 16 GB RAM the default 128-item GPU batch can
+    create ~200 MB of transient numpy arrays during ``_embed_texts()``.
+    Halving the batch size approximately halves that peak.
+
+    Falls back to the static defaults if memory detection fails.
+    """
+    try:
+        from codrag.core.context_config import detect_system_memory_gb
+        mem_gb = detect_system_memory_gb()
+    except Exception:
+        mem_gb = 0.0
+
+    base = _PROVIDER_BATCH_SIZES.get(provider, 32)
+    if mem_gb <= 0:
+        return base  # detection failed, use defaults
+    if mem_gb <= 16:
+        return max(8, base // 2)   # 64 for GPU, 16 for CPU
+    if mem_gb <= 64:
+        return max(16, base * 3 // 4)  # 96 for GPU, 24 for CPU
+    return base  # 65 GB+ — full defaults
 
 
 class NativeEmbedder(Embedder):
@@ -550,7 +576,7 @@ class NativeEmbedder(Embedder):
 
         # Auto-detect batch size based on active provider
         if self._requested_batch_size <= 0:
-            self.batch_size = _PROVIDER_BATCH_SIZES.get(self.active_provider, 32)
+            self.batch_size = _memory_scaled_batch_size(self.active_provider)
 
         logger.info(
             "Native embedding model loaded (%s, dim=%d, provider=%s, batch_size=%d)",

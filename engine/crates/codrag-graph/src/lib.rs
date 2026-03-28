@@ -3,6 +3,8 @@
 //! Provides a compact, arena-friendly graph that stores trace nodes and edges
 //! with efficient lookup by ID, name search, and neighbor traversal.
 
+pub mod lod;
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 

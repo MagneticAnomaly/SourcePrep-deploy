@@ -119,6 +119,54 @@ def detect_available_vram_gb() -> float:
     return 0.0
 
 
+def detect_system_memory_gb() -> float:
+    """Detect total system RAM in GB (raw, not GPU-adjusted).
+
+    Unlike ``detect_available_vram_gb()`` which returns the GPU-usable
+    portion, this returns the physical RAM installed.  Used by the
+    embedding scheduler to decide concurrency limits.
+
+    Returns 0.0 on detection failure.
+    """
+    system = platform.system()
+
+    if system == "Darwin":
+        try:
+            out = subprocess.check_output(
+                ["sysctl", "-n", "hw.memsize"], text=True, timeout=5,
+            ).strip()
+            return int(out) / (1024 ** 3)
+        except Exception:
+            pass
+
+    elif system == "Linux":
+        try:
+            with open("/proc/meminfo", "r") as f:
+                for line in f:
+                    if line.startswith("MemTotal:"):
+                        # Format: "MemTotal:       16384000 kB"
+                        kb = int(line.split()[1])
+                        return kb / (1024 ** 2)
+        except Exception:
+            pass
+
+    elif system == "Windows":
+        try:
+            out = subprocess.check_output(
+                ["wmic", "ComputerSystem", "get", "TotalPhysicalMemory"],
+                text=True, timeout=5,
+            ).strip()
+            # Output has a header line, then the value in bytes
+            for line in out.splitlines():
+                line = line.strip()
+                if line.isdigit():
+                    return int(line) / (1024 ** 3)
+        except Exception:
+            pass
+
+    return 0.0
+
+
 # ── Core sizing functions ─────────────────────────────────────────────
 
 def compute_num_predict(

@@ -293,6 +293,7 @@ def pipeline_status(project_id: str) -> Dict[str, Any]:
                 # Flatten into top-level keys so the UI can read progress_current/progress_total directly
                 stage_data[stage_key]["progress_current"] = slot_progress.get("current", 0)
                 stage_data[stage_key]["progress_total"] = slot_progress.get("total", 0)
+                stage_data[stage_key]["progress_baseline"] = slot_progress.get("baseline", 0)
             if slot_info.get("phase"):
                 stage_data[stage_key]["slot_phase"] = slot_info["phase"]
 

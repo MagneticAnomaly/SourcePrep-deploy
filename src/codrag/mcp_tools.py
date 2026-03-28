@@ -144,15 +144,16 @@ _CORE_TOOLS = [
             "'scan' (default) to run the audit, "
             "'refactor' to get findings with code context for implementation (pass finding_ids), "
             "'verify' to re-check specific analyzers after fixes (pass analyzers), "
-            "'report' to retrieve a full report document (pass report_name)."
+            "'report' to retrieve a full report document (pass report_name), "
+            "'advise' to get forward-looking design proposals and TODO detection."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "action": {
                     "type": "string",
-                    "description": "Operation: 'scan', 'refactor', 'verify', or 'report'. Default: 'scan'.",
-                    "enum": ["scan", "refactor", "verify", "report"],
+                    "description": "Operation: 'scan', 'refactor', 'verify', 'report', or 'advise'. Default: 'scan'.",
+                    "enum": ["scan", "refactor", "verify", "report", "advise"],
                     "default": "scan",
                 },
                 "synthesize": {

@@ -302,3 +302,159 @@ def _atomic_write_json(path: Path, data: Any) -> None:
         except OSError:
             pass
         raise
+
+
+# ── Health Scanner (unified audit + spaghetti) ──────────────────
+
+def run_health_scan(
+    index_dir: Path,
+    project_root: Optional[Path] = None,
+    categories: Optional[List[str]] = None,
+    include_spaghetti: bool = True,
+    progress_callback: Optional[Callable[[str, int, int], None]] = None,
+) -> List["ActionItem"]:
+    """Run a unified health scan: audit analyzers + spaghetti scoring.
+
+    Returns a list of ActionItems sorted by priority then severity.
+    This is the Phase 57B unified entry point that merges audit and
+    spaghetti into a single scan flow.
+
+    Loads AuditContext ONCE and shares it between both phases.
+
+    Args:
+        index_dir: Path to the project's index directory.
+        project_root: Path to the project root.
+        categories: Optional filter for audit categories.
+        include_spaghetti: Whether to include spaghetti file scoring.
+        progress_callback: Optional (phase, current, total) reporter.
+
+    Returns:
+        List of ActionItems from both audit findings and spaghetti scores.
+    """
+    import time as _time
+
+    from .action_item import (
+        ActionItem,
+        finding_to_action_item,
+        file_score_to_action_item,
+    )
+    from .spaghetti_scorer import score_files
+
+    start = _time.monotonic()
+    items: List[ActionItem] = []
+
+    # Load context ONCE — shared by both audit and spaghetti
+    if progress_callback:
+        progress_callback("health_loading", 0, 1)
+
+    ctx = load_audit_context(index_dir, project_root)
+
+    if not ctx.nodes:
+        logger.warning("No trace graph data found — cannot run health scan.")
+        return items
+
+    logger.info(
+        "Health scan context loaded: %d nodes, %d edges",
+        len(ctx.nodes), len(ctx.edges),
+    )
+
+    # Phase 1: Run audit analyzers on the shared context
+    audit_cfg = _load_audit_config()
+    analyzers = _default_analyzers(audit_cfg)
+    if categories:
+        cat_set = set(categories)
+        analyzers = [a for a in analyzers if a.category in cat_set]
+
+    findings: List[Finding] = []
+    total = len(analyzers)
+    for i, analyzer in enumerate(analyzers):
+        if progress_callback:
+            progress_callback("health_analyzing", i, total)
+        try:
+            findings.extend(analyzer.analyze(ctx))
+        except Exception as e:
+            logger.warning("Analyzer %s failed: %s", analyzer.name, e)
+
+    if progress_callback:
+        progress_callback("health_analyzing", total, total)
+
+    # Assign stable IDs and priority before converting
+    _assign_ids_and_priority(findings)
+
+    # Convert findings to ActionItems
+    for finding in findings:
+        items.append(finding_to_action_item(finding))
+
+    # Phase 2: Run spaghetti scoring on the SAME context (no reload)
+    spaghetti_count = 0
+    if include_spaghetti:
+        if progress_callback:
+            progress_callback("spaghetti_scoring", 0, 1)
+
+        try:
+            spaghetti_result = score_files(ctx)
+            for file_score in spaghetti_result.files:
+                items.append(file_score_to_action_item(file_score))
+            spaghetti_count = len(spaghetti_result.files)
+        except Exception as e:
+            logger.warning("Spaghetti scoring failed: %s", e)
+
+        if progress_callback:
+            progress_callback("spaghetti_scoring", 1, 1)
+
+    # Sort: P0 first, then P1, etc. Within same priority, critical > warning > info
+    _PRIO_ORDER = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
+    _SEV_ORDER = {"critical": 0, "warning": 1, "info": 2, "suggestion": 3}
+    items.sort(key=lambda i: (
+        _PRIO_ORDER.get(i.priority, 9),
+        _SEV_ORDER.get(i.severity, 9),
+    ))
+
+    elapsed = (_time.monotonic() - start) * 1000
+    logger.info(
+        "Health scan complete: %d items (%d findings + %d files) in %.1fms",
+        len(items), len(findings), spaghetti_count, elapsed,
+    )
+
+    return items
+
+
+def save_action_items(items: List["ActionItem"], index_dir: Path) -> Path:
+    """Persist unified action items to disk.
+
+    Writes {index_dir}/audit/action_items.json.
+    """
+    from .action_item import ActionItem
+
+    audit_dir = Path(index_dir) / "audit"
+    audit_dir.mkdir(parents=True, exist_ok=True)
+    out_path = audit_dir / "action_items.json"
+
+    data = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "item_count": len(items),
+        "items": [item.to_dict() for item in items],
+    }
+    _atomic_write_json(out_path, data)
+
+    logger.info("Saved %d action items to %s", len(items), out_path)
+    return out_path
+
+
+def load_action_items(index_dir: Path) -> Optional[List["ActionItem"]]:
+    """Load previously saved action items from disk."""
+    from .action_item import ActionItem
+
+    path = Path(index_dir) / "audit" / "action_items.json"
+    if not path.exists():
+        return None
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        return [ActionItem.from_dict(d) for d in data.get("items", [])]
+    except Exception as e:
+        logger.warning("Failed to load action items: %s", e)
+        return None
+

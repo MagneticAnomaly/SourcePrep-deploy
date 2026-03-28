@@ -92,6 +92,9 @@ export type EnrichmentAction =
   | { type: 'FAST_FAILED' }
   | { type: 'DEEP_COMPLETED' }
   | { type: 'DEEP_FAILED' }
+  // Merge slot_progress (with baseline) from pipeline status polling
+  | { type: 'AUGMENTATION_PROGRESS'; payload: { progress_current: number; progress_total: number; progress_baseline: number } }
+  | { type: 'EPISTEMIC_PROGRESS'; payload: { progress_current: number; progress_total: number; progress_baseline: number } }
   // Full reset (destroy graph/index)
   | { type: 'DESTROYED' }
 
@@ -116,6 +119,10 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
       return { ...state, atlasStatus: action.payload }
     case 'GROUP_REASONING_STATUS':
       return { ...state, groupReasoningStatus: action.payload }
+    case 'AUGMENTATION_PROGRESS':
+      return { ...state, augmentationStatus: { ...state.augmentationStatus, ...action.payload } }
+    case 'EPISTEMIC_PROGRESS':
+      return { ...state, epistemicStatus: { ...state.epistemicStatus, ...action.payload } }
 
     // ── Running flag sync (SSE / hydration) ──
     case 'SYNC_RUNNING':

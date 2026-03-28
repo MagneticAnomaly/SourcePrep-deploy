@@ -708,6 +708,79 @@ export class MockApiClient implements ApiClient {
   async getTokenUsage(_projectId: string, _since?: number): Promise<{ usage: Record<string, { prompt_tokens: number; completion_tokens: number; total_tokens: number }> }> {
     return { usage: {} };
   }
+
+  // Goalposts (Phase 57)
+  async getGoalposts(_projectId: string): Promise<import('../types').GoalpostsResponse> {
+    return { product_intent: '', proposals: [], questions: [] } as any;
+  }
+  async triggerGoalpostsGenerate(_projectId: string): Promise<{ status: string; message: string }> {
+    return { status: 'ok', message: 'Mock' };
+  }
+  async updateGoalpostsIntent(_projectId: string, intent: string): Promise<{ product_intent: string }> {
+    return { product_intent: intent };
+  }
+  async updateGoalpostProposal(_projectId: string, proposalId: string, state: 'approved' | 'dismissed'): Promise<{ id: string; state: string }> {
+    return { id: proposalId, state };
+  }
+  async answerGoalpostQuestion(_projectId: string, questionId: string, _answer: string): Promise<{ id: string; answered: boolean }> {
+    return { id: questionId, answered: true };
+  }
+
+  // Roadmap (Phase 59)
+  async getRoadmap(_projectId: string): Promise<import('../types').RoadmapResponse> {
+    return {
+      generating: false, scanning: false, error: null, north_star: null,
+      version: 1, app_ethos: '', nodes: [], questions: [],
+      last_generated_at: '', model_used: '', generation_tokens: 0, generation_duration_ms: 0,
+      github_sync: null,
+    };
+  }
+  async createRoadmapNode(_projectId: string, _node: any): Promise<{ id: string; tier: string; position: number }> {
+    return { id: `RM-mock${Date.now()}`, tier: 'planned', position: 0 };
+  }
+  async updateRoadmapNode(_projectId: string, nodeId: string, _updates: any): Promise<{ id: string; tier: string; state: string }> {
+    return { id: nodeId, tier: 'active', state: 'accepted' };
+  }
+  async deleteRoadmapNode(_projectId: string, nodeId: string): Promise<{ deleted: string }> {
+    return { deleted: nodeId };
+  }
+  async generateRoadmapProposals(_projectId: string): Promise<{ status: string; message: string }> {
+    return { status: 'started', message: 'Mock generation started' };
+  }
+  async updateRoadmapEthos(_projectId: string, ethos: string): Promise<{ app_ethos: string }> {
+    return { app_ethos: ethos };
+  }
+  async reorderRoadmapNodes(_projectId: string, tier: string, nodeIds: string[]): Promise<{ tier: string; count: number }> {
+    return { tier, count: nodeIds.length };
+  }
+  async scanRoadmapTodos(_projectId: string): Promise<{ status: string; message: string }> {
+    return { status: 'started', message: 'Mock TODO scan started' };
+  }
+  async answerRoadmapQuestion(_projectId: string, questionId: string, _answer: string): Promise<{ id: string; answered: boolean }> {
+    return { id: questionId, answered: true };
+  }
+
+  // ── Roadmap GitHub + Mining (Phase 59D) ────────────────────────
+
+  async syncGitHub(_projectId: string): Promise<{ status: string; message: string }> {
+    return { status: 'started', message: 'Mock GitHub sync started' };
+  }
+
+  async getGitHubStatus(_projectId: string): Promise<import('../types').GitHubStatus> {
+    return {
+      configured: false,
+      owner: '',
+      repo: '',
+      has_project_id: false,
+      syncing: false,
+      error: null,
+      last_sync: null,
+    };
+  }
+
+  async mineRoadmap(_projectId: string): Promise<{ status: string; message: string }> {
+    return { status: 'started', message: 'Mock roadmap mining started' };
+  }
 }
 
 export const createMockApiClient = (): ApiClient => new MockApiClient();

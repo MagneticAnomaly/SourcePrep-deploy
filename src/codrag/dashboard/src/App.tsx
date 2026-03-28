@@ -43,6 +43,7 @@ import { useDashboardPanels } from './hooks/useDashboardPanels'
 import { useAuditSystem } from './hooks/useAuditSystem'
 import { useSpaghettiSystem } from './hooks/useSpaghettiSystem'
 import { useGoalpostsSystem } from './hooks/useGoalpostsSystem'
+import { useRoadmapSystem } from './hooks/useRoadmapSystem'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
@@ -242,6 +243,9 @@ function App() {
 
   // ── Goalposts (Phase 57) ────────────────────────────────────
   const goalposts = useGoalpostsSystem(selectedProjectId)
+
+  // ── Roadmap (Phase 59) ──────────────────────────────────────
+  const roadmap = useRoadmapSystem(selectedProjectId)
 
   // ── Event Stream ───────────────────────────────────────────
   const eventsUrl = import.meta.env.DEV
@@ -679,6 +683,7 @@ function App() {
     audit,
     spaghetti,
     goalposts,
+    roadmap,
     activityData,
     adminPolicy,
     seatStatus,

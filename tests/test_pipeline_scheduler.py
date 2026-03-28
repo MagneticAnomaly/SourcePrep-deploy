@@ -66,11 +66,13 @@ class TestSchedulerBasic:
         assert sched.can_start("proj-b", StageId.STRUCTURAL) is True
         assert sched.can_start("proj-b", StageId.VALIDATION) is True
 
-    def test_embedding_stages_bypass_by_default(self):
+    def test_embedding_stages_use_separate_slot(self):
         sched = PipelineScheduler()
         sched.set_default_concurrency(1)
+        sched.configure_embedding_concurrency(1)
         sched.acquire("proj-a", StageId.CATALOGUE)
-        # NativeEmbedder: embedding should bypass
+        # NativeEmbedder: embedding uses dedicated __embedding__ slot,
+        # not the LLM slot — so it can start even when LLM is full
         assert sched.can_start("proj-b", StageId.KNOWLEDGE) is True
         assert sched.can_start("proj-b", StageId.DEEP_KNOWLEDGE) is True
 
@@ -420,3 +422,113 @@ class TestAutoDiscoveryBatchWorkers:
 
         result = sched.available_batch_workers_for_provider("anthropic")
         assert result == 5
+
+
+# ── Embedding slot tests ─────────────────────────────────────────
+
+class TestEmbeddingSlot:
+    """Test dedicated embedding concurrency gate."""
+
+    def test_embedding_stages_use_embedding_slot(self):
+        """KNOWLEDGE and DEEP_KNOWLEDGE acquire from __embedding__, not __local__."""
+        sched = PipelineScheduler()
+        sched.set_default_concurrency(1)
+        sched.configure_embedding_concurrency(1)
+
+        # Fill the LLM slot
+        sched.acquire("proj-a", StageId.CATALOGUE)
+        # Embedding should still start (different slot)
+        assert sched.can_start("proj-b", StageId.KNOWLEDGE) is True
+        assert sched.acquire("proj-b", StageId.KNOWLEDGE) is True
+
+        # But a second embedding should block (embedding slot full)
+        assert sched.can_start("proj-c", StageId.KNOWLEDGE) is False
+
+    def test_embedding_slot_independent_from_llm(self):
+        """Filling embedding slot doesn't block LLM; filling LLM doesn't block embedding."""
+        sched = PipelineScheduler()
+        sched.set_default_concurrency(1)
+        sched.configure_embedding_concurrency(1)
+
+        # Fill embedding
+        assert sched.acquire("proj-a", StageId.KNOWLEDGE) is True
+        # LLM should still work
+        assert sched.can_start("proj-b", StageId.ENRICHMENT) is True
+        assert sched.acquire("proj-b", StageId.ENRICHMENT) is True
+
+        # Both slots now full — second embedding blocked, second LLM blocked
+        assert sched.can_start("proj-c", StageId.DEEP_KNOWLEDGE) is False
+        assert sched.can_start("proj-c", StageId.CATALOGUE) is False
+
+    def test_embedding_queue_fifo(self):
+        """Second embedding project queues and dequeues after first finishes."""
+        sched = PipelineScheduler()
+        sched.configure_embedding_concurrency(1)
+
+        assert sched.acquire("proj-a", StageId.KNOWLEDGE) is True
+        assert sched.can_start("proj-b", StageId.KNOWLEDGE) is False
+        sched.enqueue("proj-b", StageId.KNOWLEDGE)
+        sched.enqueue("proj-c", StageId.DEEP_KNOWLEDGE)
+
+        # Release proj-a → dequeue proj-b
+        entry = sched.release("proj-a", StageId.KNOWLEDGE)
+        assert entry is not None
+        assert entry.project_id == "proj-b"
+
+    def test_embedding_concurrency_two(self):
+        """When set to 2, two embedding stages can run concurrently."""
+        sched = PipelineScheduler()
+        sched.configure_embedding_concurrency(2)
+
+        assert sched.acquire("proj-a", StageId.KNOWLEDGE) is True
+        assert sched.acquire("proj-b", StageId.DEEP_KNOWLEDGE) is True
+        assert sched.can_start("proj-c", StageId.KNOWLEDGE) is False
+
+    def test_ollama_embedder_routes_to_llm_slot(self):
+        """When OllamaEmbedder is active, embedding stages use the LLM slot."""
+        sched = PipelineScheduler()
+        sched.set_default_concurrency(1)
+        sched.set_embedding_uses_llm(True)
+
+        # Fill the LLM slot
+        sched.acquire("proj-a", StageId.CATALOGUE)
+        # Embedding now competes for the same slot → blocked
+        assert sched.can_start("proj-b", StageId.KNOWLEDGE) is False
+
+    def test_cancel_removes_from_embedding_queue(self):
+        """Cancelling a project removes it from the embedding queue."""
+        sched = PipelineScheduler()
+        sched.configure_embedding_concurrency(1)
+
+        sched.acquire("proj-a", StageId.KNOWLEDGE)
+        sched.enqueue("proj-b", StageId.KNOWLEDGE)
+        sched.enqueue("proj-c", StageId.KNOWLEDGE)
+
+        sched.cancel("proj-b")
+        entry = sched.release("proj-a", StageId.KNOWLEDGE)
+        assert entry is not None
+        assert entry.project_id == "proj-c"
+
+    def test_status_includes_embedding_slot(self):
+        """status() reports the embedding slot state."""
+        sched = PipelineScheduler()
+        sched.configure_embedding_concurrency(1)
+        sched.acquire("proj-a", StageId.KNOWLEDGE)
+
+        status = sched.status()
+        emb_node = status["nodes"].get("__embedding__")
+        assert emb_node is not None
+        assert emb_node["max_concurrent"] == 1
+        assert emb_node["current_load"] == 1
+
+    def test_rust_stages_still_bypass(self):
+        """Rust stages remain slot-free even with embedding gate active."""
+        sched = PipelineScheduler()
+        sched.set_default_concurrency(1)
+        sched.configure_embedding_concurrency(1)
+        sched.acquire("proj-a", StageId.CATALOGUE)
+        sched.acquire("proj-b", StageId.KNOWLEDGE)
+
+        assert sched.can_start("proj-c", StageId.STRUCTURAL) is True
+        assert sched.can_start("proj-c", StageId.VALIDATION) is True
+

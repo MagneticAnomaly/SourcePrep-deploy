@@ -19,3 +19,5 @@ log = { workspace = true }
 codrag-walker = { path = "../codrag-walker" }
 codrag-parser = { path = "../codrag-parser" }
 codrag-graph = { path = "../codrag-graph" }
+codrag-sanitize = { path = "../codrag-sanitize" }
+codrag-chunking = { path = "../codrag-chunking" }

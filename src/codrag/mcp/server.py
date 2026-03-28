@@ -497,15 +497,17 @@ class MCPServer:
     async def _resolve_project_id(self, override: Optional[str] = None) -> str:
         """Resolve which project to target.
 
-        Priority:
+        Priority (workspace-specific signals first, global fallbacks last):
           1. Explicit override (from tool call ``project_id`` param)
           2. Pinned project (from CLI ``--project`` flag)
           2b. .codrag/project.json pointer (workspace root or CWD)
-          3. MCP initialize roots (workspace URIs sent by the IDE)
-          4. CWD auto-detect (process working directory)
-          4b. CODRAG_PROJECT env var
-          5. Single-project shortcut
-          5b. Most-recently-active heuristic
+          3. Auto-register .codrag/ folders not yet in daemon
+          4. Initialize roots (workspace URIs sent by the IDE)
+          5. CWD auto-detect (process working directory)
+          6. CODRAG_PROJECT env var
+          7. Dashboard active-project signal (global fallback)
+          8. Single-project shortcut
+          9. Most-recently-active heuristic
         """
         # 1. Tool-call override
         if override and override.strip():
@@ -534,56 +536,28 @@ class MCPServer:
                 )
                 return pid
 
-        # 4. Check global active project signal (from dashboard clicks)
-        from codrag.core.project_registry import read_active_project_signal
+        # --- Steps 3-8 require the full project list from the daemon ---
+        data = await self._api_get("/projects")
+        all_projects: List[Dict[str, Any]] = []
+        if isinstance(data, dict):
+            raw = data.get("projects")
+            if isinstance(raw, list):
+                all_projects = [p for p in raw if isinstance(p, dict)]
 
-        active_signal = read_active_project_signal()
-        if active_signal and active_signal.get("id"):
-            # Fetch all projects from daemon first so we can validate it
-            data = await self._api_get("/projects")
-            all_projects: List[Dict[str, Any]] = []
-            if isinstance(data, dict):
-                raw = data.get("projects")
-                if isinstance(raw, list):
-                    all_projects = [p for p in raw if isinstance(p, dict)]
+        # Filter to active/inactive only (frozen/locked excluded)
+        projects = [
+            p for p in all_projects
+            if p.get("activity_status", "active") in ("active", "inactive")
+        ]
 
-            projects = [
-                p
-                for p in all_projects
-                if p.get("activity_status", "active") in ("active", "inactive")
-            ]
-
-            signal_id = active_signal["id"]
-            # Verify the signaled project actually exists and is active
-            if any(str(p.get("id")) == signal_id for p in projects):
-                self._resolved_project_id = signal_id
-                logger.debug(f"Resolved project from active_project_signal: {signal_id}")
-                return signal_id
-        else:
-            # Fetch all projects from daemon if signal check didn't do it
-            data = await self._api_get("/projects")
-            all_projects: List[Dict[str, Any]] = []
-            if isinstance(data, dict):
-                raw = data.get("projects")
-                if isinstance(raw, list):
-                    all_projects = [p for p in raw if isinstance(p, dict)]
-
-            projects = [
-                p
-                for p in all_projects
-                if p.get("activity_status", "active") in ("active", "inactive")
-            ]
-
-        # 2c. Auto-register any workspace roots / CWD with .codrag/ folders
-        #     that aren't yet in the daemon. This makes setup truly zero-config:
-        #     `codrag init` creates .codrag/, future MCP connections auto-detect.
+        # 3. Auto-register workspace roots / CWD with .codrag/ folders
+        #    that aren't yet in the daemon (zero-config).
         auto_paths = list(self._initialize_roots)
         if cwd != "/" and cwd not in auto_paths:
             auto_paths.append(cwd)
         if auto_paths:
             new_pid = await self._auto_register_codrag_folders(auto_paths, all_projects)
             if new_pid:
-                # Re-fetch projects since we just added one
                 data = await self._api_get("/projects")
                 all_projects = []
                 if isinstance(data, dict):
@@ -591,11 +565,9 @@ class MCPServer:
                     if isinstance(raw, list):
                         all_projects = [p for p in raw if isinstance(p, dict)]
                 projects = [
-                    p
-                    for p in all_projects
+                    p for p in all_projects
                     if p.get("activity_status", "active") in ("active", "inactive")
                 ]
-                # Use the newly registered project directly
                 self._resolved_project_id = new_pid
                 return new_pid
 
@@ -616,7 +588,7 @@ class MCPServer:
                 lines.append(f"  - {pid}: {name} ({path})")
             return "\n".join(lines)
 
-        # 5. Try initialize roots (workspace URIs from the IDE)
+        # 4. Try initialize roots (workspace URIs from the IDE)
         if self._initialize_roots:
             pid = self._best_project_match(projects, self._initialize_roots)
             if pid:
@@ -624,17 +596,15 @@ class MCPServer:
                 logger.debug(f"Resolved project from initialize roots: {pid}")
                 return pid
 
-        # 6. CWD auto-detect
-        #    _best_project_match skips cwd="/" internally, so this is safe
-        #    for MCP hosts that launch with cwd=/
+        # 5. CWD auto-detect
+        #    _best_project_match skips cwd="/" internally
         pid = self._best_project_match(projects, [cwd])
         if pid:
             self._resolved_project_id = pid
             logger.debug(f"Auto-detected project from CWD: {pid} cwd={cwd}")
             return pid
 
-        # 7. CODRAG_PROJECT env var — lets MCP configs pin a default project
-        #     by ID or by name (case-insensitive match)
+        # 6. CODRAG_PROJECT env var
         env_project = os.environ.get("CODRAG_PROJECT", "").strip()
         if env_project:
             for p in projects:
@@ -647,17 +617,27 @@ class MCPServer:
                     logger.debug(f"Resolved project from CODRAG_PROJECT env: {pid}")
                     return pid
 
+        # 7. Active project signal (set by dashboard clicks).
+        #    This is a FALLBACK — it should only win when no workspace-specific
+        #    signal is available (e.g. Antigravity with cwd=/ and no roots).
+        #    It must NOT override workspace root matching (steps 4-5).
+        from codrag.core.project_registry import read_active_project_signal
+
+        active_signal = read_active_project_signal()
+        if active_signal and active_signal.get("id"):
+            signal_id = str(active_signal["id"])
+            if any(str(p.get("id")) == signal_id for p in projects):
+                self._resolved_project_id = signal_id
+                logger.debug(f"Resolved project from active_project_signal (fallback): {signal_id}")
+                return signal_id
+
         # 8. Single-project shortcut
         if len(projects) == 1 and projects[0].get("id"):
             pid = str(projects[0]["id"])
             self._resolved_project_id = pid
             return pid
 
-        # 9. Most-recently-active heuristic — when multiple projects exist
-        #     and no other signal is available, pick the one with the most
-        #     recent activity (updated_at or last_build_at). This prevents
-        #     the ambiguity error in setups where a single project is
-        #     actively being worked on.
+        # 9. Most-recently-active heuristic
         if len(projects) > 1:
 
             def _activity_time(p: Dict[str, Any]) -> float:
@@ -668,7 +648,6 @@ class MCPServer:
                             from datetime import datetime
 
                             if isinstance(val, str):
-                                # ISO format with or without timezone
                                 dt = datetime.fromisoformat(val.replace("Z", "+00:00"))
                                 return dt.timestamp()
                             elif isinstance(val, (int, float)):
@@ -1581,6 +1560,166 @@ class MCPServer:
             or f"(Report '{report_name}' not found. Run `codrag_audit action='scan' synthesize=true` first.)",
         }
 
+    async def tool_advise(
+        self,
+        project_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Return forward-looking design proposals (Advisor).
+
+        Reads goalposts state and converts proposals to ActionItems.
+        Returns approved milestones + open proposals as markdown.
+        """
+        from codrag.core.audit.action_item import goalpost_to_action_item
+
+        project_id = await self._resolve_project_id(override=project_override)
+
+        try:
+            data = await self._api_get(f"/projects/{project_id}/goalposts")
+        except Exception:
+            return {
+                "project_id": project_id,
+                "status": "no_data",
+                "_to_markdown": (
+                    "No Advisor data available yet. "
+                    "Open the dashboard Advisor panel and click 'Generate' "
+                    "to get forward-looking design proposals."
+                ),
+            }
+
+        proposals = data.get("proposals", []) if isinstance(data, dict) else []
+        questions = data.get("questions", []) if isinstance(data, dict) else []
+
+        # Convert to ActionItems
+        items = [goalpost_to_action_item(p) for p in proposals]
+
+        # Build markdown
+        approved = [i for i in items if i.state == "approved"]
+        proposed = [i for i in items if i.state == "proposed"]
+
+        parts: list = []
+        if approved:
+            parts.append(f"## Approved Milestones ({len(approved)})\n")
+            for a in approved:
+                tasks_str = ""
+                if a.tasks:
+                    tasks_str = "\n".join(f"  - {t.description}" for t in a.tasks)
+                    tasks_str = f"\n{tasks_str}"
+                parts.append(
+                    f"### ✅ {a.title}\n"
+                    f"**{a.priority}** · {a.category} · {a.effort}\n\n"
+                    f"{a.description}{tasks_str}\n"
+                )
+
+        if proposed:
+            parts.append(f"## Open Proposals ({len(proposed)})\n")
+            for p in proposed:
+                files = ", ".join(p.affected_files[:5]) if p.affected_files else "—"
+                parts.append(
+                    f"### 💡 [{p.id}] {p.title}\n"
+                    f"**{p.priority}** · {p.category} · {p.effort}\n\n"
+                    f"{p.description}\n\n"
+                    f"Files: {files}\n"
+                )
+
+        unanswered = [q for q in questions if not q.get("answer")]
+        if unanswered:
+            parts.append(f"## Open Questions ({len(unanswered)})\n")
+            for q in unanswered:
+                parts.append(f"- {q.get('question', '?')}\n")
+
+        md = "\n".join(parts) if parts else "No proposals yet. Generate from the dashboard Advisor panel."
+
+        return {
+            "project_id": project_id,
+            "approved_count": len(approved),
+            "proposed_count": len(proposed),
+            "items": [i.to_dict() for i in items],
+            "_to_markdown": f"# Advisor — {project_id}\n\n{md}",
+        }
+
+    async def tool_roadmap(
+        self,
+        tier: Optional[str] = None,
+        project_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Return roadmap state as structured markdown.
+
+        Reads the roadmap REST API and formats tiers with nodes.
+        Optional tier filter to show only one tier.
+        """
+        from codrag.core.audit.action_item import roadmap_node_to_action_item
+
+        project_id = await self._resolve_project_id(override=project_override)
+
+        try:
+            data = await self._api_get(f"/projects/{project_id}/roadmap")
+        except Exception:
+            return {
+                "project_id": project_id,
+                "status": "no_data",
+                "_to_markdown": (
+                    "No Roadmap data available yet. "
+                    "Open the dashboard Roadmap panel to get started."
+                ),
+            }
+
+        nodes = data.get("nodes", []) if isinstance(data, dict) else []
+        north_star = data.get("north_star") if isinstance(data, dict) else None
+        app_ethos = data.get("app_ethos", "") if isinstance(data, dict) else ""
+
+        # Group by tier
+        tiers_order = ["completed", "active", "planned", "proposed"]
+        by_tier: dict = {t: [] for t in tiers_order}
+        for n in nodes:
+            t = n.get("tier", "proposed")
+            if tier and t != tier:
+                continue
+            by_tier.setdefault(t, []).append(n)
+
+        # Build markdown
+        parts: list = []
+
+        if north_star:
+            parts.append(
+                f"> **🌟 North Star:** {north_star['title']} "
+                f"({north_star['priority']})\n"
+            )
+
+        if app_ethos:
+            parts.append(f"*App Ethos: {app_ethos[:200]}*\n")
+
+        tier_emoji = {
+            "completed": "✅",
+            "active": "🔥",
+            "planned": "📋",
+            "proposed": "💡",
+        }
+
+        total = 0
+        for t in tiers_order:
+            t_nodes = by_tier.get(t, [])
+            if not t_nodes:
+                continue
+            emoji = tier_emoji.get(t, "")
+            parts.append(f"## {emoji} {t.title()} ({len(t_nodes)})\n")
+            for n in sorted(t_nodes, key=lambda x: x.get("position", 0)):
+                src = f" · {n.get('source', 'manual')}" if n.get("source") != "manual" else ""
+                parts.append(
+                    f"### [{n.get('id', '?')}] {n.get('title', 'Untitled')}\n"
+                    f"**{n.get('priority', 'P2')}** · {n.get('category', 'feature')}{src}\n\n"
+                    f"{n.get('description', '')}\n"
+                )
+                total += 1
+
+        md = "\n".join(parts) if parts else "Roadmap is empty. Add nodes or generate proposals."
+
+        return {
+            "project_id": project_id,
+            "total_nodes": total,
+            "north_star": north_star,
+            "_to_markdown": f"# Roadmap — {project_id}\n\n{md}",
+        }
+
     async def tool_hi(self, project_override: Optional[str] = None) -> Dict[str, Any]:
         """Project overview and context discovery tool.
 
@@ -2229,6 +2368,15 @@ class MCPServer:
                 elif action == "report":
                     result = await self.tool_audit_report(
                         report_name=args.get("report_name", ""),
+                        project_override=project_override,
+                    )
+                elif action == "advise":
+                    result = await self.tool_advise(
+                        project_override=project_override,
+                    )
+                elif action == "roadmap":
+                    result = await self.tool_roadmap(
+                        tier=args.get("tier"),
                         project_override=project_override,
                     )
                 else:

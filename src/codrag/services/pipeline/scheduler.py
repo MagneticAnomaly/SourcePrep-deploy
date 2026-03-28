@@ -88,6 +88,9 @@ class PipelineScheduler:
     Thread-safe. Uses a simple FIFO queue per compute node.
     """
 
+    # Dedicated embedding slot — separate from LLM nodes
+    _EMBEDDING_NODE_ID = "__embedding__"
+
     def __init__(self) -> None:
         self._lock = threading.Lock()
         # node_id -> ComputeSlot
@@ -99,6 +102,9 @@ class PipelineScheduler:
         self._default_max_concurrent = 1
         # Track which embedder is active (for OllamaEmbedder detection)
         self._embedding_uses_llm = False
+        # Dedicated embedding concurrency (default: 1 = sequential)
+        self._embedding_max_concurrent = 1
+        self._init_embedding_slot()
         # Three-tier priority: none → boost → exclusive
         self._priority_project_id: Optional[str] = None
         self._priority_level: PriorityLevel = "none"
@@ -135,6 +141,31 @@ class PipelineScheduler:
     def set_embedding_uses_llm(self, uses_llm: bool) -> None:
         """Set whether embedding stages compete for LLM slots (OllamaEmbedder)."""
         self._embedding_uses_llm = uses_llm
+
+    def _init_embedding_slot(self) -> None:
+        """Create the dedicated embedding slot."""
+        self._slots[self._EMBEDDING_NODE_ID] = ComputeSlot(
+            node_id=self._EMBEDDING_NODE_ID,
+            max_concurrent=self._embedding_max_concurrent,
+        )
+        self._queues[self._EMBEDDING_NODE_ID] = deque()
+
+    def configure_embedding_concurrency(self, max_concurrent: int) -> None:
+        """Set how many embedding stages can run simultaneously.
+
+        Called automatically by ``load_from_settings()`` based on
+        detected system memory.  Default is 1 (safe for all machines).
+        """
+        with self._lock:
+            self._embedding_max_concurrent = max(1, max_concurrent)
+            if self._EMBEDDING_NODE_ID in self._slots:
+                self._slots[self._EMBEDDING_NODE_ID].max_concurrent = self._embedding_max_concurrent
+            else:
+                self._init_embedding_slot()
+        logger.info(
+            "Scheduler: embedding concurrency set to %d",
+            self._embedding_max_concurrent,
+        )
 
     def set_priority(
         self,
@@ -198,9 +229,23 @@ class PipelineScheduler:
         queue_type = STAGE_QUEUE_TYPE.get(stage, QueueType.LLM)
         if queue_type == QueueType.RUST:
             return False
-        if queue_type == QueueType.EMBEDDING:
-            return self._embedding_uses_llm
-        return True  # LLM
+        # Embedding stages always need the embedding slot.
+        # If OllamaEmbedder is active, they ALSO need an LLM slot
+        # (handled by _resolve_node_for_stage).
+        return True  # LLM or EMBEDDING
+
+    def _resolve_node_for_stage(
+        self, stage: StageId, node_id: Optional[str] = None,
+    ) -> str:
+        """Determine the correct compute node for a stage.
+
+        Embedding stages use the dedicated ``__embedding__`` node.
+        LLM/Rust stages use the caller-supplied or default node.
+        """
+        queue_type = STAGE_QUEUE_TYPE.get(stage, QueueType.LLM)
+        if queue_type == QueueType.EMBEDDING and not self._embedding_uses_llm:
+            return self._EMBEDDING_NODE_ID
+        return node_id or self._default_node_id
 
     # ── Public API ────────────────────────────────────────────────
 
@@ -213,15 +258,16 @@ class PipelineScheduler:
         """Check if a stage can start given current compute load.
 
         Returns True if:
-          - Stage doesn't need a slot (Rust, or NativeEmbedder)
+          - Stage doesn't need a slot (Rust)
           - The compute node has available capacity
           - No exclusive project is occupying the node (unless we ARE
             the exclusive project)
         """
         if not self._needs_slot(stage):
             return True
+        resolved = self._resolve_node_for_stage(stage, node_id)
         with self._lock:
-            slot = self._get_slot(node_id)
+            slot = self._get_slot(resolved)
             if not slot.has_capacity:
                 return False
             # Exclusive gate: if another project holds exclusive priority
@@ -249,8 +295,9 @@ class PipelineScheduler:
         """
         if not self._needs_slot(stage):
             return True  # No slot needed
+        resolved = self._resolve_node_for_stage(stage, node_id)
         with self._lock:
-            slot = self._get_slot(node_id)
+            slot = self._get_slot(resolved)
             # Exclusive gate: if another project holds exclusive priority
             # and is active on this node, block.
             if (
@@ -282,8 +329,9 @@ class PipelineScheduler:
         """
         if not self._needs_slot(stage):
             return None  # Nothing to release
+        resolved = self._resolve_node_for_stage(stage, node_id)
         with self._lock:
-            slot = self._get_slot(node_id)
+            slot = self._get_slot(resolved)
             released = slot.release(project_id)
             if released:
                 logger.info(
@@ -292,7 +340,7 @@ class PipelineScheduler:
                     slot.current_load, slot.max_concurrent,
                 )
             # Check if there's a queued pipeline waiting for this node
-            queue = self._get_queue(node_id)
+            queue = self._get_queue(resolved)
             if queue and slot.has_capacity:
                 entry = queue.popleft()
                 logger.info(
@@ -310,14 +358,15 @@ class PipelineScheduler:
         node_id: Optional[str] = None,
     ) -> None:
         """Add a pipeline to the wait queue for a compute node."""
+        resolved = self._resolve_node_for_stage(stage, node_id)
         with self._lock:
-            queue = self._get_queue(node_id)
+            queue = self._get_queue(resolved)
             # Don't double-enqueue
             for entry in queue:
                 if entry.project_id == project_id:
                     logger.debug(
                         "Scheduler: %s already queued on %s",
-                        project_id, node_id or self._default_node_id,
+                        project_id, resolved,
                     )
                     return
             entry = QueueEntry(project_id=project_id, stage=stage)
@@ -327,13 +376,13 @@ class PipelineScheduler:
                 logger.info(
                     "Scheduler: ⭐ %s (%s) priority-queued on %s for %s (position 1)",
                     project_id, self._priority_level,
-                    node_id or self._default_node_id, stage.value,
+                    resolved, stage.value,
                 )
             else:
                 queue.append(entry)
                 logger.info(
                     "Scheduler: %s queued on %s for %s (position %d)",
-                    project_id, node_id or self._default_node_id,
+                    project_id, resolved,
                     stage.value, len(queue),
                 )
 
@@ -563,6 +612,23 @@ class PipelineScheduler:
                     pipeline_cfg.get("llm_concurrency", 1))
                 ))
                 self.set_default_concurrency(concurrency)
+
+            # ── Auto-detect embedding concurrency from system memory ──
+            try:
+                from codrag.core.context_config import detect_system_memory_gb
+                mem_gb = detect_system_memory_gb()
+                if mem_gb >= 65:
+                    embed_concurrent = 2
+                else:
+                    embed_concurrent = 1  # Safe for all machines
+                self.configure_embedding_concurrency(embed_concurrent)
+                logger.info(
+                    "Scheduler: detected %.0f GB RAM → embedding concurrency = %d",
+                    mem_gb, embed_concurrent,
+                )
+            except Exception:
+                self.configure_embedding_concurrency(1)
+                logger.debug("Scheduler: memory detection failed, embedding concurrency = 1")
 
             # ── Restore saved priority from project configs ───────────
             # Runs after ALL paths above so priority is always restored.

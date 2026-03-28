@@ -620,6 +620,7 @@ class EpistemicEnricher:
         current_progress: int = 0,
         total_progress: int = 0,
         cancel_token: Optional[Any] = None,
+        progress_baseline: int = 0,
     ) -> Tuple[int, int]:
         """Enrich a single tier of nodes using batched LLM calls.
 
@@ -756,7 +757,7 @@ class EpistemicEnricher:
                     else:
                         failed += 1
                 if progress_callback:
-                    progress_callback("epistemic_enrichment", current_progress + done + failed, total_progress)
+                    progress_callback("epistemic_enrichment", current_progress + done + failed, total_progress, progress_baseline)
 
                 # Cooperative cancel check after each completed batch
                 if cancel_token and cancel_token.is_cancelled:
@@ -947,7 +948,7 @@ class EpistemicEnricher:
         failed = 0
 
         if progress_callback:
-            progress_callback("epistemic_enrichment", existing_count, total_file_count)
+            progress_callback("epistemic_enrichment", existing_count, total_file_count, existing_count)
 
         # Decide: batched (BYOK) or sequential (local)
         use_batching = (
@@ -979,6 +980,7 @@ class EpistemicEnricher:
                     current_progress=existing_count + done + failed,
                     total_progress=total_file_count,
                     cancel_token=cancel_token,
+                    progress_baseline=existing_count,
                 )
                 done += tier_done
                 failed += tier_failed
@@ -989,7 +991,7 @@ class EpistemicEnricher:
                     tier_idx + 1, len(tiers), tier_done, tier_failed, len(tier),
                 )
                 if progress_callback:
-                    progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count)
+                    progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count, existing_count)
         else:
             concurrency = _get_llm_concurrency("deep")
 
@@ -1015,7 +1017,7 @@ class EpistemicEnricher:
                         failed += 1
 
                     if progress_callback:
-                        progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count)
+                        progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count, existing_count)
 
                     # Periodic checkpoint to avoid losing progress on crash
                     if done > 0 and done % 25 == 0:
@@ -1066,7 +1068,7 @@ class EpistemicEnricher:
                     self._write_epistemic(enriched)
                     logger.info("Epistemic checkpoint saved after tier %d/%d (%d items so far)", tier_idx + 1, len(tiers), done)
                     if progress_callback:
-                        progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count)
+                        progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count, existing_count)
 
         # Write atomically
         self._write_epistemic(enriched)

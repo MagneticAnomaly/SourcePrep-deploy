@@ -94,6 +94,24 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       if (ps.stages?.group_reasoning) {
         dispatch({ type: 'GROUP_REASONING_STATUS', payload: ps.stages.group_reasoning })
       }
+      // Merge catalogue slot_progress (with baseline) into augmentation status
+      const cat = ps.stages?.catalogue as Record<string, any> | undefined
+      if (cat && (cat.progress_current != null || cat.progress_baseline != null)) {
+        dispatch({ type: 'AUGMENTATION_PROGRESS', payload: {
+          progress_current: cat.progress_current ?? 0,
+          progress_total: cat.progress_total ?? 0,
+          progress_baseline: cat.progress_baseline ?? 0,
+        }})
+      }
+      // Merge enrichment slot_progress (with baseline) into epistemic status
+      const enr = ps.stages?.enrichment as Record<string, any> | undefined
+      if (enr && (enr.progress_current != null || enr.progress_baseline != null)) {
+        dispatch({ type: 'EPISTEMIC_PROGRESS', payload: {
+          progress_current: enr.progress_current ?? 0,
+          progress_total: enr.progress_total ?? 0,
+          progress_baseline: enr.progress_baseline ?? 0,
+        }})
+      }
     } catch { /* silent */ }
   }, [api, selectedProjectId])
 
@@ -424,7 +442,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     if (!anyRunning) return
 
     const interval = setInterval(() => {
-      if (state.inferredEdgesRunning || state.atlasRunning || state.groupReasoningRunning) void refreshStageDataFromPipeline()
+      if (state.inferredEdgesRunning || state.atlasRunning || state.groupReasoningRunning || state.augmenting || state.epistemicRunning) void refreshStageDataFromPipeline()
       if (state.augmenting) void fetchAugmentationStatus()
       if (state.epistemicRunning || state.clusterRunning || state.deepeningRunning) void fetchEpistemicStatus()
       if (state.clusterRunning) void fetchModuleStatus()

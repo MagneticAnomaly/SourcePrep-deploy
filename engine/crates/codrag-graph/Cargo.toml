@@ -13,6 +13,8 @@ thiserror = { workspace = true }
 log = { workspace = true }
 blake3 = { workspace = true }
 rayon = { workspace = true }
+regex = { workspace = true }
+once_cell = { workspace = true }
 
 codrag-walker = { path = "../codrag-walker" }
 codrag-parser = { path = "../codrag-parser" }

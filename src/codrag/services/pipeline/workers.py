@@ -238,8 +238,8 @@ class WorkerFactory:
     def _logged_progress(stage_name: str, progress_cb: Callable, project_name: str = "") -> Callable:
         """Wrap a progress callback to also emit logger.info for Process Logs."""
         tag = f"{project_name}/{stage_name}" if project_name else stage_name
-        def _wrapper(message: str, current: int, total: int) -> None:
-            progress_cb(message, current, total)
+        def _wrapper(message: str, current: int, total: int, baseline: int = 0) -> None:
+            progress_cb(message, current, total, baseline)
             if total > 0:
                 pct = round(current / total * 100)
                 logger.info("[%s] %s (%d/%d — %d%%)", tag, message, current, total, pct)

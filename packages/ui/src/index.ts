@@ -190,10 +190,25 @@ export type { SpaghettiFinderPanelProps } from './components/audit';
 export type { SpaghettiFileScore, SpaghettiResult, SpaghettiTab } from './types';
 export type { SchedulerStatus, SchedulerNodeStatus, ComputeNode, ComputeHardwareProfile } from './types';
 
+// Components - Health Scanner (Phase 57B consolidated)
+export { HealthScannerPanel } from './components/audit';
+export type { HealthScannerPanelProps } from './components/audit';
+
 // Components - Goalposts (Phase 57)
 export { GoalpostsPanel } from './components/goalposts';
 export type { GoalpostsPanelProps } from './components/goalposts';
 export type { GoalpostCategory, GoalpostState, GoalpostTask, GoalpostProposal, GoalpostQuestion, GoalpostsResponse } from './types';
+
+// Components - Advisor (Phase 57B consolidated)
+export { AdvisorPanel } from './components/goalposts';
+export type { AdvisorPanelProps } from './components/goalposts';
+
+// Components - Roadmap (Phase 59)
+export { RoadmapPanel } from './components/goalposts';
+export type { RoadmapPanelProps } from './components/goalposts';
+export { RoadmapTimeline } from './components/goalposts';
+export type { RoadmapTimelineProps } from './components/goalposts';
+export type { RoadmapTier, RoadmapNodeSource, RoadmapNodeState, RoadmapTask, RoadmapNode, RoadmapNorthStar, RoadmapResponse, GitHubSyncState, GitHubStatus } from './types';
 
 // Components - Enterprise (Phase 06)
 export { EnterpriseAdminPanel } from './components/enterprise';

@@ -1578,8 +1578,8 @@ class TraceAugmenter:
             _inner_cb = progress_callback
             _total_for_bar = result.total_nodes
 
-            def progress_callback(msg: str, current: int, total: int) -> None:
-                _inner_cb(msg, current + _skip_offset, _total_for_bar)
+            def progress_callback(msg: str, current: int, total: int, baseline: int = 0) -> None:
+                _inner_cb(msg, current + _skip_offset, _total_for_bar, _skip_offset)
 
         # Start with existing entries (will be updated/overwritten)
         augmented = dict(existing)

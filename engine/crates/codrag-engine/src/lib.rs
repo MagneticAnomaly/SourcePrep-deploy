@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
+use pyo3::IntoPyObjectExt;
 
 // --- Version ---
 
@@ -610,6 +611,229 @@ struct PyNeighborResult {
 
 // --- Module definition ---
 
+// ── Sanitizer bindings ───────────────────────────────────────────────────────
+
+#[pyfunction]
+fn sanitize_code_fences(content: &str) -> String {
+    codrag_sanitize::sanitize_code_fences(content)
+}
+
+#[pyfunction]
+fn strip_invisible_unicode(text: &str) -> String {
+    codrag_sanitize::strip_invisible_unicode(text)
+}
+
+#[pyfunction]
+fn has_invisible_unicode(text: &str) -> bool {
+    codrag_sanitize::has_invisible_unicode(text)
+}
+
+#[pyfunction]
+fn normalize_nfkc(text: &str) -> String {
+    codrag_sanitize::normalize_nfkc(text)
+}
+
+#[pyfunction]
+fn detect_secrets(content: &str) -> Vec<String> {
+    codrag_sanitize::detect_secrets(content)
+}
+
+// ── Chunking bindings ────────────────────────────────────────────────────────
+
+#[pyclass]
+struct PyChunk {
+    #[pyo3(get)]
+    chunk_id: String,
+    #[pyo3(get)]
+    content: String,
+    #[pyo3(get)]
+    metadata: PyObject,
+}
+
+#[pymethods]
+impl PyChunk {
+    fn __repr__(&self) -> String {
+        format!("Chunk(id='{}', len={})", self.chunk_id, self.content.len())
+    }
+}
+
+fn chunk_to_pychunk(py: Python<'_>, chunk: codrag_chunking::Chunk) -> PyResult<PyChunk> {
+    let meta_json = serde_json::to_string(&chunk.metadata)
+        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    let json_mod = py.import("json")?;
+    let meta_obj = json_mod.call_method1("loads", (meta_json,))?;
+    Ok(PyChunk {
+        chunk_id: chunk.chunk_id,
+        content: chunk.content,
+        metadata: meta_obj.into_py_any(py)?,
+    })
+}
+
+#[pyfunction]
+#[pyo3(signature = (text, source_path, xref_id=None, name=None, max_chars=1800, min_chars=350))]
+fn chunk_markdown(
+    py: Python<'_>,
+    text: &str,
+    source_path: &str,
+    xref_id: Option<&str>,
+    name: Option<&str>,
+    max_chars: usize,
+    min_chars: usize,
+) -> PyResult<Vec<PyChunk>> {
+    let chunks = codrag_chunking::chunk_markdown(text, source_path, xref_id, name, max_chars, min_chars);
+    chunks
+        .into_iter()
+        .map(|c| chunk_to_pychunk(py, c))
+        .collect()
+}
+
+#[pyfunction]
+#[pyo3(signature = (text, source_path, max_chars=2000, overlap_chars=200))]
+fn chunk_code(
+    py: Python<'_>,
+    text: &str,
+    source_path: &str,
+    max_chars: usize,
+    overlap_chars: usize,
+) -> PyResult<Vec<PyChunk>> {
+    let chunks = codrag_chunking::chunk_code(text, source_path, max_chars, overlap_chars);
+    chunks
+        .into_iter()
+        .map(|c| chunk_to_pychunk(py, c))
+        .collect()
+}
+
+// ── LOD bindings ─────────────────────────────────────────────────────────────
+
+#[pyclass]
+#[derive(Clone)]
+struct PyLODResult {
+    #[pyo3(get)]
+    content: String,
+    #[pyo3(get)]
+    lod: u8,
+    #[pyo3(get)]
+    input_chars: usize,
+    #[pyo3(get)]
+    output_chars: usize,
+    #[pyo3(get)]
+    compression_ratio: f64,
+    #[pyo3(get)]
+    fallback: bool,
+    #[pyo3(get)]
+    error: Option<String>,
+}
+
+#[pymethods]
+impl PyLODResult {
+    fn __repr__(&self) -> String {
+        format!("LODResult(lod={}, ratio={:.1}x)", self.lod, self.compression_ratio)
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
+struct PySymbolInfo {
+    #[pyo3(get)]
+    name: String,
+    #[pyo3(get)]
+    kind: String,
+    #[pyo3(get)]
+    qualname: String,
+    #[pyo3(get)]
+    start_line: usize,
+    #[pyo3(get)]
+    end_line: usize,
+    #[pyo3(get)]
+    docstring: Option<String>,
+    #[pyo3(get)]
+    is_public: bool,
+}
+
+#[pymethods]
+impl PySymbolInfo {
+    #[new]
+    #[pyo3(signature = (name, kind, qualname, start_line, end_line, docstring=None, is_public=true))]
+    fn new(
+        name: String,
+        kind: String,
+        qualname: String,
+        start_line: usize,
+        end_line: usize,
+        docstring: Option<String>,
+        is_public: bool,
+    ) -> Self {
+        PySymbolInfo {
+            name,
+            kind,
+            qualname,
+            start_line,
+            end_line,
+            docstring,
+            is_public,
+        }
+    }
+}
+
+#[pyfunction]
+#[pyo3(signature = (file_path, lod, symbols, repo_root, augmented_summary=None, augmented_role=None))]
+fn extract_lod(
+    file_path: &str,
+    lod: u8,
+    symbols: Vec<PySymbolInfo>,
+    repo_root: &str,
+    augmented_summary: Option<&str>,
+    augmented_role: Option<&str>,
+) -> PyLODResult {
+    let sym_infos: Vec<codrag_graph::lod::SymbolInfo> = symbols
+        .iter()
+        .map(|s| codrag_graph::lod::SymbolInfo {
+            name: s.name.clone(),
+            kind: s.kind.clone(),
+            qualname: s.qualname.clone(),
+            start_line: s.start_line,
+            end_line: s.end_line,
+            docstring: s.docstring.clone(),
+            is_public: s.is_public,
+        })
+        .collect();
+
+    let augmented = if augmented_summary.is_some() || augmented_role.is_some() {
+        Some(codrag_graph::lod::AugmentedInfo {
+            summary: augmented_summary.map(|s| s.to_string()),
+            role: augmented_role.map(|s| s.to_string()),
+        })
+    } else {
+        None
+    };
+
+    let result = codrag_graph::lod::extract_lod(
+        file_path,
+        lod,
+        &sym_infos,
+        &std::path::PathBuf::from(repo_root),
+        augmented.as_ref(),
+    );
+
+    let compression_ratio = result.compression_ratio();
+
+    PyLODResult {
+        content: result.content,
+        lod: result.lod,
+        input_chars: result.input_chars,
+        output_chars: result.output_chars,
+        compression_ratio,
+        fallback: result.fallback,
+        error: result.error,
+    }
+}
+
+#[pyfunction]
+#[pyo3(signature = (score, is_trace_expanded=false))]
+fn assign_lod(score: f64, is_trace_expanded: bool) -> u8 {
+    codrag_graph::lod::assign_lod(score, is_trace_expanded)
+}
+
 #[pymodule]
 fn codrag_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(version, m)?)?;
@@ -628,5 +852,22 @@ fn codrag_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyParseError>()?;
     m.add_class::<TraceHandle>()?;
     m.add_class::<PyNeighborResult>()?;
+
+    // ── Phase 58: Rust-accelerated functions ──
+    // Sanitizer
+    m.add_function(wrap_pyfunction!(sanitize_code_fences, m)?)?;
+    m.add_function(wrap_pyfunction!(strip_invisible_unicode, m)?)?;
+    m.add_function(wrap_pyfunction!(has_invisible_unicode, m)?)?;
+    m.add_function(wrap_pyfunction!(normalize_nfkc, m)?)?;
+    m.add_function(wrap_pyfunction!(detect_secrets, m)?)?;
+    // Chunking
+    m.add_function(wrap_pyfunction!(chunk_markdown, m)?)?;
+    m.add_function(wrap_pyfunction!(chunk_code, m)?)?;
+    m.add_class::<PyChunk>()?;
+    // LOD
+    m.add_function(wrap_pyfunction!(extract_lod, m)?)?;
+    m.add_function(wrap_pyfunction!(assign_lod, m)?)?;
+    m.add_class::<PyLODResult>()?;
+    m.add_class::<PySymbolInfo>()?;
     Ok(())
 }

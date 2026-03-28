@@ -376,7 +376,7 @@ class InferredEdgesAnalyzer:
 
                     done_batches += 1
                     if progress_callback:
-                        progress_callback("Inferring edges", min(done_batches * batch_size, total_work) + already_done, len(code_files))
+                        progress_callback("Inferring edges", min(done_batches * batch_size, total_work) + already_done, len(code_files), already_done)
 
         else:
             # Local model: sequential or concurrent
@@ -395,7 +395,7 @@ class InferredEdgesAnalyzer:
 
                     fp = node.get("file_path", "")
                     if progress_callback:
-                        progress_callback("Inferring edges", already_done + i, len(code_files))
+                        progress_callback("Inferring edges", already_done + i, len(code_files), already_done)
 
                     try:
                         file_edges = self._analyze_file(
@@ -456,7 +456,7 @@ class InferredEdgesAnalyzer:
                                     new_manifest[fp] = content_hash
                                 done_count += 1
                                 if progress_callback:
-                                    progress_callback("Inferring edges", already_done + done_count, len(code_files))
+                                    progress_callback("Inferring edges", already_done + done_count, len(code_files), already_done)
                         except Exception as e:
                             logger.warning("Inferred edges failed for %s: %s", fp, e)
                             with lock:

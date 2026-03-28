@@ -107,6 +107,7 @@ class BuildSlot:
     progress_message: Optional[str] = None
     progress_current: int = 0
     progress_total: int = 0
+    progress_baseline: int = 0  # Items already complete from previous runs
     cancel_token: CancellationToken = field(default_factory=CancellationToken)
 
     @property
@@ -138,6 +139,7 @@ class BuildSlot:
                 "message": self.progress_message,
                 "current": self.progress_current,
                 "total": self.progress_total,
+                "baseline": self.progress_baseline,
             }
         return d
 
@@ -344,10 +346,12 @@ class BuildOrchestrator:
         project_id = slot.project_id
         build_type = slot.build_type
 
-        def progress_cb(message: str, current: int, total: int) -> None:
+        def progress_cb(message: str, current: int, total: int, baseline: int = 0) -> None:
             slot.progress_message = message
             slot.progress_current = current
             slot.progress_total = total
+            if baseline > 0:
+                slot.progress_baseline = baseline
 
         try:
             result = worker(slot, progress_cb)

@@ -1,21 +1,28 @@
 """
-Goalposts data models for CoDRAG (Phase 57).
+Goalposts & Roadmap data models for CoDRAG (Phase 57 + Phase 59).
 
-Core data structures for the forward-looking AI planning system.
-Goalposts analyzes the existing codebase epistemology and proposes
-actionable milestones, surfaces design questions, and tracks user decisions.
+Phase 57: Forward-looking AI planning (GoalpostProposal, GoalpostsState).
+Phase 59: Visual roadmap timeline (RoadmapNode, RoadmapState) — evolves
+          Goalposts into a D3 vertical timeline with tiered progression.
+
+The Roadmap replaces the old Goalposts panel in the dashboard.
+GoalpostProposal is retained for backward compat during migration.
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
+logger = logging.getLogger(__name__)
 
-# ── Proposal categories ──────────────────────────────────────────────
+
+# ── Shared categories ────────────────────────────────────────────────
 
 VALID_CATEGORIES = frozenset({
     "architecture",   # Structural improvements (decompose, refactor)
@@ -23,9 +30,28 @@ VALID_CATEGORIES = frozenset({
     "feature",        # New user-facing functionality
     "tech_debt",      # Known debt, stale code, fixup
     "research",       # Ambiguity that needs investigation before acting
+    "product",        # UX patterns, feature gaps, API surface (Phase 59)
+    "market",         # Competitive positioning, integrations (Phase 59)
 })
 
 VALID_STATES = frozenset({"proposed", "approved", "dismissed", "refined"})
+
+# ── Roadmap constants (Phase 59) ─────────────────────────────────────
+
+ROADMAP_TIERS = ("completed", "active", "planned", "proposed")
+
+ROADMAP_SOURCES = ("manual", "ai_proposed", "todo_scan", "github")
+
+ROADMAP_NODE_STATES = (
+    "proposed",    # AI-suggested or discovered, not yet reviewed
+    "accepted",    # User reviewed and added to roadmap
+    "active",      # Currently being worked on
+    "completed",   # Done
+    "dismissed",   # User rejected
+)
+
+# Priority rank for sorting (lower = higher priority)
+PRIORITY_RANK = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
 
 
 # ── Core models ──────────────────────────────────────────────────────
@@ -216,3 +242,323 @@ def save_goalposts(state: GoalpostsState, index_dir: Path) -> None:
         json.dumps(state.to_dict(), indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Phase 59: Roadmap Models
+# ══════════════════════════════════════════════════════════════════════
+
+
+@dataclass
+class RoadmapTask:
+    """A concrete sub-task within a roadmap node."""
+    description: str
+    file_paths: List[str] = field(default_factory=list)
+    effort: str = "small"  # small | medium | large
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "description": self.description,
+            "file_paths": self.file_paths,
+            "effort": self.effort,
+        }
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "RoadmapTask":
+        return cls(
+            description=d.get("description", ""),
+            file_paths=d.get("file_paths", []),
+            effort=d.get("effort", "small"),
+        )
+
+
+@dataclass
+class RoadmapNode:
+    """A node on the project roadmap timeline.
+
+    Each node represents a goalpost — a milestone, feature, or improvement
+    that moves along the timeline from proposed → planned → active → completed.
+    """
+    id: str = ""
+    title: str = ""
+    description: str = ""
+
+    # Position on timeline
+    tier: str = "proposed"         # completed | active | planned | proposed
+    position: int = 0              # Order within tier (0 = top/highest)
+
+    # Source tracking
+    source: str = "manual"         # manual | ai_proposed | todo_scan | github
+    source_ref: Optional[str] = None  # File path, GitHub issue URL, etc.
+
+    # Classification
+    category: str = "feature"      # architecture | product | market | security | etc.
+    priority: str = "P2"           # P0-P3
+
+    # Tasks (breakdown)
+    tasks: List[RoadmapTask] = field(default_factory=list)
+
+    # User state
+    state: str = "proposed"        # proposed | accepted | active | completed | dismissed
+
+    # Fork support (Phase 59C)
+    parent_id: Optional[str] = None     # If this node is a fork option
+    fork_label: Optional[str] = None    # "Option A: Plugin Architecture"
+
+    # Timestamps
+    created_at: str = ""
+    decided_at: Optional[str] = None
+    completed_at: Optional[str] = None
+
+    # App Ethos alignment (stub — defaults blank)
+    ethos_alignment: str = ""
+
+    # Business impact (from prompt research)
+    business_impact: str = ""
+
+    def __post_init__(self):
+        if not self.id:
+            # Deterministic ID based on title + source for dedup
+            seed = f"{self.title}:{self.source}:{self.source_ref or ''}"
+            h = hashlib.sha256(seed.encode()).hexdigest()[:8]
+            self.id = f"RM-{h}"
+        if not self.created_at:
+            self.created_at = datetime.now(timezone.utc).isoformat()
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "tier": self.tier,
+            "position": self.position,
+            "source": self.source,
+            "source_ref": self.source_ref,
+            "category": self.category,
+            "priority": self.priority,
+            "tasks": [t.to_dict() for t in self.tasks],
+            "state": self.state,
+            "parent_id": self.parent_id,
+            "fork_label": self.fork_label,
+            "created_at": self.created_at,
+            "decided_at": self.decided_at,
+            "completed_at": self.completed_at,
+            "ethos_alignment": self.ethos_alignment,
+            "business_impact": self.business_impact,
+        }
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "RoadmapNode":
+        return cls(
+            id=d.get("id", ""),
+            title=d.get("title", ""),
+            description=d.get("description", ""),
+            tier=d.get("tier", "proposed"),
+            position=d.get("position", 0),
+            source=d.get("source", "manual"),
+            source_ref=d.get("source_ref"),
+            category=d.get("category", "feature"),
+            priority=d.get("priority", "P2"),
+            tasks=[RoadmapTask.from_dict(t) for t in d.get("tasks", [])],
+            state=d.get("state", "proposed"),
+            parent_id=d.get("parent_id"),
+            fork_label=d.get("fork_label"),
+            created_at=d.get("created_at", ""),
+            decided_at=d.get("decided_at"),
+            completed_at=d.get("completed_at"),
+            ethos_alignment=d.get("ethos_alignment", ""),
+            business_impact=d.get("business_impact", ""),
+        )
+
+
+@dataclass
+class RoadmapState:
+    """Complete persisted state for a project's roadmap.
+
+    Replaces GoalpostsState for the dashboard Roadmap panel.
+    """
+    nodes: List[RoadmapNode] = field(default_factory=list)
+    questions: List[GoalpostQuestion] = field(default_factory=list)
+    app_ethos: str = ""                  # Simple text field (defaults blank)
+    last_generated_at: str = ""
+    model_used: str = ""
+    generation_tokens: int = 0
+    generation_duration_ms: float = 0.0
+    github_sync: Optional[Dict[str, Any]] = None  # GitHubSyncState.to_dict()
+    version: int = 1
+
+    # ── Tier filters ─────────────────────────────────────────────
+
+    @property
+    def completed_nodes(self) -> List[RoadmapNode]:
+        return [n for n in self.nodes if n.tier == "completed"]
+
+    @property
+    def active_nodes(self) -> List[RoadmapNode]:
+        return [n for n in self.nodes if n.tier == "active"]
+
+    @property
+    def planned_nodes(self) -> List[RoadmapNode]:
+        return [n for n in self.nodes if n.tier == "planned"]
+
+    @property
+    def proposed_nodes(self) -> List[RoadmapNode]:
+        return [n for n in self.nodes if n.tier == "proposed"]
+
+    @property
+    def north_star(self) -> Optional[RoadmapNode]:
+        """The highest-priority active node — the current goalpost."""
+        active = self.active_nodes
+        if not active:
+            return None
+        return min(active, key=lambda n: (PRIORITY_RANK.get(n.priority, 9), n.position))
+
+    @property
+    def unanswered_questions(self) -> List[GoalpostQuestion]:
+        return [q for q in self.questions if not q.answered]
+
+    def node_by_id(self, node_id: str) -> Optional[RoadmapNode]:
+        """Look up a node by ID."""
+        for n in self.nodes:
+            if n.id == node_id:
+                return n
+        return None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "version": self.version,
+            "app_ethos": self.app_ethos,
+            "nodes": [n.to_dict() for n in self.nodes],
+            "questions": [q.to_dict() for q in self.questions],
+            "last_generated_at": self.last_generated_at,
+            "model_used": self.model_used,
+            "generation_tokens": self.generation_tokens,
+            "generation_duration_ms": round(self.generation_duration_ms, 1),
+            "github_sync": self.github_sync,
+        }
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "RoadmapState":
+        return cls(
+            nodes=[RoadmapNode.from_dict(n) for n in d.get("nodes", [])],
+            questions=[GoalpostQuestion.from_dict(q) for q in d.get("questions", [])],
+            app_ethos=d.get("app_ethos", ""),
+            last_generated_at=d.get("last_generated_at", ""),
+            model_used=d.get("model_used", ""),
+            generation_tokens=d.get("generation_tokens", 0),
+            generation_duration_ms=d.get("generation_duration_ms", 0.0),
+            github_sync=d.get("github_sync"),
+            version=d.get("version", 1),
+        )
+
+
+# ── Roadmap Persistence ──────────────────────────────────────────────
+
+ROADMAP_FILENAME = "roadmap.json"
+
+
+def load_roadmap(index_dir: Path) -> RoadmapState:
+    """Load roadmap state from the index directory."""
+    path = Path(index_dir) / ROADMAP_FILENAME
+    if not path.exists():
+        return RoadmapState()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return RoadmapState.from_dict(data)
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return RoadmapState()
+
+
+def save_roadmap(state: RoadmapState, index_dir: Path) -> None:
+    """Write roadmap state to the index directory."""
+    path = Path(index_dir) / ROADMAP_FILENAME
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(state.to_dict(), indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+
+# ── Migration ────────────────────────────────────────────────────────
+
+def migrate_goalposts_to_roadmap(index_dir: Path) -> RoadmapState:
+    """Convert existing goalposts.json into roadmap.json.
+
+    Maps GoalpostProposal states to roadmap tiers:
+      approved → tier="active"
+      refined  → tier="planned"
+      proposed → tier="proposed"
+      dismissed → skipped
+
+    Copies product_intent → app_ethos.
+    Preserves questions.
+    Does NOT delete goalposts.json (kept as backup).
+
+    Returns the new RoadmapState (also persisted).
+    """
+    goalposts = load_goalposts(index_dir)
+
+    # Check if roadmap already exists — don't overwrite
+    roadmap_path = Path(index_dir) / ROADMAP_FILENAME
+    if roadmap_path.exists():
+        logger.info("Roadmap already exists at %s — skipping migration", roadmap_path)
+        return load_roadmap(index_dir)
+
+    nodes: List[RoadmapNode] = []
+    pos_by_tier: Dict[str, int] = {}
+
+    for p in goalposts.proposals:
+        if p.state == "dismissed":
+            continue
+
+        # Map state → tier
+        if p.state == "approved":
+            tier = "active"
+        elif p.state == "refined":
+            tier = "planned"
+        else:
+            tier = "proposed"
+
+        pos = pos_by_tier.get(tier, 0)
+        pos_by_tier[tier] = pos + 1
+
+        nodes.append(RoadmapNode(
+            id=p.id.replace("GP-", "RM-"),    # Re-prefix
+            title=p.title,
+            description=p.rationale,
+            tier=tier,
+            position=pos,
+            source="ai_proposed",
+            category=p.category,
+            priority=p.priority,
+            tasks=[
+                RoadmapTask(
+                    description=t.description,
+                    file_paths=t.file_paths,
+                    effort=t.effort,
+                )
+                for t in p.tasks
+            ],
+            state="accepted" if p.state in ("approved", "refined") else "proposed",
+            created_at=p.created_at,
+            decided_at=p.decided_at or None,
+        ))
+
+    roadmap = RoadmapState(
+        nodes=nodes,
+        questions=goalposts.questions,  # Keep questions as-is
+        app_ethos=goalposts.product_intent,
+        last_generated_at=goalposts.last_generated_at,
+        model_used=goalposts.model_used,
+        generation_tokens=goalposts.generation_tokens,
+        generation_duration_ms=goalposts.generation_duration_ms,
+    )
+
+    save_roadmap(roadmap, index_dir)
+    logger.info(
+        "Migrated %d goalposts → %d roadmap nodes (app_ethos=%d chars)",
+        len(goalposts.proposals), len(nodes), len(roadmap.app_ethos),
+    )
+
+    return roadmap
+

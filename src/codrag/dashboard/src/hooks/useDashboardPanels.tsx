@@ -1,5 +1,6 @@
 import { useMemo, useState, useCallback, useEffect } from 'react'
 import type { UseGoalpostsSystemReturn } from './useGoalpostsSystem'
+import type { UseRoadmapSystemReturn } from './useRoadmapSystem'
 import { FileText } from 'lucide-react'
 import {
   IndexStatusCard,
@@ -25,6 +26,7 @@ import {
   ActivityHeatmap,
   AuditPanel,
   SpaghettiFinderPanel,
+  HealthScannerPanel,
   EnterpriseAdminPanel,
   type ActivityHeatmapData,
   PANEL_REGISTRY,
@@ -51,6 +53,8 @@ import {
   type TokenBudgetData,
   type AtlasStatus,
   GoalpostsPanel,
+  AdvisorPanel,
+  RoadmapPanel,
 } from '@codrag/ui'
 import type { TraceStatus, TraceCoverage } from './useTraceSystem'
 import type { UseAuditSystemReturn } from './useAuditSystem'
@@ -240,6 +244,7 @@ export interface DashboardPanelsProps {
   audit: UseAuditSystemReturn
   spaghetti: UseSpaghettiSystemReturn
   goalposts: UseGoalpostsSystemReturn
+  roadmap: UseRoadmapSystemReturn
   activityData: ActivityHeatmapData | null
   // Enterprise
   adminPolicy?: import('@codrag/ui').AdminPolicy | null
@@ -255,7 +260,7 @@ export interface DashboardPanelsProps {
 /** Builds all dashboard panel content, detail views, and dynamic panel definitions from domain state. */
 export function useDashboardPanels(props: DashboardPanelsProps) {
   // Flatten grouped sub-objects for backward-compatible p.xxx access internally
-  const { search, files, trace, enrichment, llm, deepAnalysis, atlas, audit: auditProps, spaghetti: spaghettiProps, goalposts: goalpostsProps, ...core } = props
+  const { search, files, trace, enrichment, llm, deepAnalysis, atlas, audit: auditProps, spaghetti: spaghettiProps, goalposts: goalpostsProps, roadmap: roadmapProps, ...core } = props
   const p = { ...core, ...search, ...files, ...trace, ...enrichment, ...llm, ...deepAnalysis }
 
   // Optimistic local state for excluded paths — updates INSTANTLY on click.
@@ -863,6 +868,23 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         viewingReport={auditProps.viewingAuditReport}
       />
     ),
+    health_scanner: (
+      <HealthScannerPanel
+        status={auditProps.auditStatus}
+        findings={auditProps.auditFindings}
+        reports={auditProps.auditReports}
+        onRunAudit={auditProps.handleRunAudit}
+        onViewReport={auditProps.handleViewAuditReport}
+        reportContent={auditProps.auditReportContent}
+        viewingReport={auditProps.viewingAuditReport}
+        files={spaghettiProps.spaghettiFiles}
+        fileCount={spaghettiProps.spaghettiFileCount}
+        scoredCount={spaghettiProps.spaghettiScoredCount}
+        severityCounts={spaghettiProps.spaghettiSeverityCounts}
+        spaghettiLoading={spaghettiProps.spaghettiLoading}
+        onRefreshSpaghetti={spaghettiProps.handleSpaghettiRefresh}
+      />
+    ),
     spaghetti: (
       <SpaghettiFinderPanel
         files={spaghettiProps.spaghettiFiles}
@@ -910,6 +932,92 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onApprove={() => {}}
         onDismiss={() => {}}
         onAnswerQuestion={() => {}}
+      />
+    ),
+    advisor: goalpostsProps.state ? (
+      <AdvisorPanel
+        productIntent={goalpostsProps.state.product_intent}
+        proposals={goalpostsProps.state.proposals}
+        questions={goalpostsProps.state.questions}
+        generating={goalpostsProps.state.generating}
+        error={goalpostsProps.state.error}
+        ready={goalpostsProps.state.ready}
+        hasAudit={goalpostsProps.state.has_audit}
+        hasIntent={goalpostsProps.state.has_intent}
+        missing={goalpostsProps.state.missing}
+        lastGeneratedAt={goalpostsProps.state.last_generated_at}
+        modelUsed={goalpostsProps.state.model_used}
+        onGenerate={goalpostsProps.handleGenerate}
+        onUpdateIntent={goalpostsProps.handleUpdateIntent}
+        onApprove={goalpostsProps.handleApprove}
+        onDismiss={goalpostsProps.handleDismiss}
+        onAnswerQuestion={goalpostsProps.handleAnswerQuestion}
+      />
+    ) : (
+      <AdvisorPanel
+        productIntent=""
+        proposals={[]}
+        questions={[]}
+        generating={false}
+        error={null}
+        ready={false}
+        hasAudit={false}
+        hasIntent={false}
+        missing={['Loading...']}
+        lastGeneratedAt=""
+        modelUsed=""
+        onGenerate={() => {}}
+        onUpdateIntent={() => {}}
+        onApprove={() => {}}
+        onDismiss={() => {}}
+        onAnswerQuestion={() => {}}
+      />
+    ),
+    roadmap: roadmapProps.state ? (
+      <RoadmapPanel
+        nodes={roadmapProps.state.nodes}
+        questions={roadmapProps.state.questions}
+        northStar={roadmapProps.state.north_star}
+        appEthos={roadmapProps.state.app_ethos}
+        generating={roadmapProps.state.generating}
+        scanning={roadmapProps.state.scanning}
+        error={roadmapProps.state.error}
+        ready={true}
+        lastGeneratedAt={roadmapProps.state.last_generated_at}
+        modelUsed={roadmapProps.state.model_used}
+        onGenerate={roadmapProps.handleGenerate}
+        onScanTodos={roadmapProps.handleScanTodos}
+        onUpdateEthos={roadmapProps.handleUpdateEthos}
+        onPromoteNode={roadmapProps.handlePromoteNode}
+        onDismissNode={roadmapProps.handleDismissNode}
+        onDeleteNode={roadmapProps.handleDeleteNode}
+        onCreateNode={roadmapProps.handleCreateNode}
+        onAnswerQuestion={roadmapProps.handleAnswerQuestion}
+        onSyncGitHub={roadmapProps.handleSyncGitHub}
+        onMineRoadmap={roadmapProps.handleMineRoadmap}
+      />
+    ) : (
+      <RoadmapPanel
+        nodes={[]}
+        questions={[]}
+        northStar={null}
+        appEthos=""
+        generating={false}
+        scanning={false}
+        error={null}
+        ready={false}
+        lastGeneratedAt=""
+        modelUsed=""
+        onGenerate={() => {}}
+        onScanTodos={() => {}}
+        onUpdateEthos={() => {}}
+        onPromoteNode={() => {}}
+        onDismissNode={() => {}}
+        onDeleteNode={() => {}}
+        onCreateNode={() => {}}
+        onAnswerQuestion={() => {}}
+        onSyncGitHub={() => {}}
+        onMineRoadmap={() => {}}
       />
     ),
     'token-budget': (
