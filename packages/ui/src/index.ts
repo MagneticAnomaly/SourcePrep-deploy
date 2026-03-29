@@ -208,7 +208,7 @@ export { RoadmapPanel } from './components/goalposts';
 export type { RoadmapPanelProps } from './components/goalposts';
 export { RoadmapTimeline } from './components/goalposts';
 export type { RoadmapTimelineProps } from './components/goalposts';
-export type { RoadmapTier, RoadmapNodeSource, RoadmapNodeState, RoadmapTask, RoadmapNode, RoadmapNorthStar, RoadmapResponse, GitHubSyncState, GitHubStatus } from './types';
+export type { RoadmapTier, RoadmapNodeSource, RoadmapNodeState, RoadmapTask, RoadmapNode, RoadmapNorthStar, RoadmapResponse, GitHubSyncState, GitHubStatus, VelocitySnapshot, BurndownPoint, VelocityResponse, SprintSuggestion, PushGitHubResult, WebhookResult } from './types';
 
 // Components - Enterprise (Phase 06)
 export { EnterpriseAdminPanel } from './components/enterprise';

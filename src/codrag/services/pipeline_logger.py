@@ -171,6 +171,35 @@ class PipelineFileLogger:
             "detail": detail,
         })
 
+    def decision(
+        self,
+        decision_type: str,
+        choice: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Log a pipeline decision point.
+
+        These are the most valuable events for diagnosing pipeline
+        restart / incremental / UI issues.  Every time the orchestrator
+        chooses between "restart from scratch", "incremental update",
+        "resume from stage N", or "skip (up to date)", a decision event
+        is logged with the full reasoning context.
+
+        Decision types:
+          - trigger_source: Who triggered this pipeline run (watcher, coverage, manual, retrigger)
+          - resume_point: Which stage to start from (with per-stage justification)
+          - mode_selection: Initial vs incremental vs force_from_start
+          - coverage_gap: Coverage check result (stale/untraced counts)
+          - deep_chain: Whether deep enrichment chains after fast sync
+          - stage_skip: Why a specific stage was skipped
+          - stage_invalidated: Why a specific stage was invalidated (mtime cascade, etc.)
+        """
+        self._write_event("decision", data={
+            "decision_type": decision_type,
+            "choice": choice,
+            **(context or {}),
+        })
+
     def _write_event(
         self,
         event: str,

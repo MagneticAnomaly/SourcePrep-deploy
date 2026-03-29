@@ -156,12 +156,18 @@ Gemini CLI and Antigravity use the same MCP format but **different config file p
 
 **File:** `~/.gemini/antigravity/mcp_config.json`
 
+> **IMPORTANT:** Antigravity does not send workspace roots and launches with `cwd=/`.
+> You MUST set `CODRAG_WORKSPACE` to the project root for correct routing.
+
 ```json
 {
   "mcpServers": {
     "codrag": {
       "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
       "args": ["mcp"],
+      "env": {
+        "CODRAG_WORKSPACE": "/path/to/your/project"
+      },
       "trust": true
     }
   }

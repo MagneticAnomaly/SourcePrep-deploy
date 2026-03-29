@@ -40,6 +40,7 @@ export interface PanelDefinition {
   closeable?: boolean;  // Can be hidden (default true)
   resizable?: boolean;
   docsUrl?: string;
+  fullWidth?: boolean;  // Span all columns
   /** Remove default p-4 body padding (e.g. for flush panels like LogConsole) */
   noPadding?: boolean;
 }
@@ -241,7 +242,12 @@ export function toGridLayout(layout: DashboardLayout, definitions?: PanelDefinit
       const defaultPanel = defaultById.get(panel.id);
       const def = definitions?.find((d) => d.id === panel.id);
       const x = typeof panel.x === 'number' ? panel.x : (defaultPanel?.x ?? 0);
-      const w = typeof panel.w === 'number' ? panel.w : (defaultPanel?.w ?? 12);
+      let w = typeof panel.w === 'number' ? panel.w : (defaultPanel?.w ?? 12);
+      
+      if (def?.fullWidth) {
+        w = BASE_COLS;
+      }
+
       const y = typeof panel.y === 'number' ? panel.y : nextY;
       const h = panel.collapsed ? 2 : Math.max(2, panel.height);
       const minH = panel.collapsed ? 2 : Math.max(2, def?.minHeight ?? 2);
@@ -249,7 +255,7 @@ export function toGridLayout(layout: DashboardLayout, definitions?: PanelDefinit
 
       result.push({
         i: panel.id,
-        x,
+        x: def?.fullWidth ? 0 : x, // Force x=0 for full logic
         y,
         w,
         h,

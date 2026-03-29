@@ -113,8 +113,6 @@ class MCPServer:
         self.project_id = project_id
         self.auto_detect = auto_detect
         self._client: Optional[httpx.AsyncClient] = None
-        self._resolved_project_id: Optional[str] = None
-        self._resolved_project_cwd: Optional[str] = None
         self._initialize_roots: List[str] = []
         self._client_name: str = "unknown"  # Phase 50: set by handle_initialize
         self._client_version: str = ""  # Phase 50: set by handle_initialize
@@ -494,20 +492,40 @@ class MCPServer:
 
         return None
 
+    async def _get_project_name(self, project_id: str) -> Optional[str]:
+        """Get the display name for a project from the daemon API.
+
+        Returns the project name, or None if lookup fails.
+        The /projects/{id} API returns {"project": {"name": ...}}.
+        """
+        try:
+            data = await self._api_get(f"/projects/{project_id}")
+            if isinstance(data, dict):
+                # Handle nested response: {"project": {"name": ...}}
+                proj = data.get("project", data)
+                name = proj.get("name") if isinstance(proj, dict) else None
+                if name and str(name).strip():
+                    return str(name).strip()
+        except Exception:
+            pass
+        return None
+
     async def _resolve_project_id(self, override: Optional[str] = None) -> str:
         """Resolve which project to target.
+
+        Runs fresh on every tool call (no caching) to prevent stale routing
+        when the user switches workspaces.
 
         Priority (workspace-specific signals first, global fallbacks last):
           1. Explicit override (from tool call ``project_id`` param)
           2. Pinned project (from CLI ``--project`` flag)
-          2b. .codrag/project.json pointer (workspace root or CWD)
-          3. Auto-register .codrag/ folders not yet in daemon
-          4. Initialize roots (workspace URIs sent by the IDE)
-          5. CWD auto-detect (process working directory)
-          6. CODRAG_PROJECT env var
-          7. Dashboard active-project signal (global fallback)
-          8. Single-project shortcut
-          9. Most-recently-active heuristic
+          3. .codrag/project.json pointer (workspace roots, CWD, CODRAG_WORKSPACE)
+          4. Auto-register .codrag/ folders not yet in daemon
+          5. Initialize roots (workspace URIs sent by the IDE)
+          6. CWD auto-detect (process working directory)
+          7. CODRAG_PROJECT env var (pin by name or ID)
+          8. Single-project shortcut (only 1 project registered)
+          9. Actionable error with project list
         """
         # 1. Tool-call override
         if override and override.strip():
@@ -517,8 +535,9 @@ class MCPServer:
         if self.project_id:
             return self.project_id
 
-        # 3. Pointer check — Instant routing via .codrag/project.json
-        #    Runs before everything to guarantee local workspace priority
+        # 3. Pointer check — instant routing via .codrag/project.json
+        #    Checks: IDE workspace roots → CWD → CODRAG_WORKSPACE env var
+        #    This works without the daemon, making it the fastest path.
         from codrag.core.project_registry import read_codrag_pointer
 
         cwd = str(Path.cwd().resolve())
@@ -526,17 +545,24 @@ class MCPServer:
         if cwd != "/" and cwd not in pointer_paths:
             pointer_paths.append(cwd)
 
+        # CODRAG_WORKSPACE env var — guaranteed routing for IDEs that don't
+        # send workspace roots in MCP initialize (e.g. Antigravity).
+        # Set per-workspace in the MCP config's "env" block.
+        env_workspace = os.environ.get("CODRAG_WORKSPACE", "").strip()
+        if env_workspace and env_workspace not in pointer_paths:
+            pointer_paths.append(env_workspace)
+
         for pp in pointer_paths:
             pointer = read_codrag_pointer(pp)
             if pointer and pointer.get("id"):
                 pid = pointer["id"]
-                self._resolved_project_id = pid
                 logger.debug(
-                    f"Resolved project from .codrag/project.json pointer: {pid} (path={pp})"
+                    f"Resolved project from .codrag/project.json pointer: "
+                    f"{pid} (path={pp})"
                 )
                 return pid
 
-        # --- Steps 3-8 require the full project list from the daemon ---
+        # --- Steps 4-8 require the full project list from the daemon ---
         data = await self._api_get("/projects")
         all_projects: List[Dict[str, Any]] = []
         if isinstance(data, dict):
@@ -550,7 +576,7 @@ class MCPServer:
             if p.get("activity_status", "active") in ("active", "inactive")
         ]
 
-        # 3. Auto-register workspace roots / CWD with .codrag/ folders
+        # 4. Auto-register workspace roots / CWD with .codrag/ folders
         #    that aren't yet in the daemon (zero-config).
         auto_paths = list(self._initialize_roots)
         if cwd != "/" and cwd not in auto_paths:
@@ -558,17 +584,6 @@ class MCPServer:
         if auto_paths:
             new_pid = await self._auto_register_codrag_folders(auto_paths, all_projects)
             if new_pid:
-                data = await self._api_get("/projects")
-                all_projects = []
-                if isinstance(data, dict):
-                    raw = data.get("projects")
-                    if isinstance(raw, list):
-                        all_projects = [p for p in raw if isinstance(p, dict)]
-                projects = [
-                    p for p in all_projects
-                    if p.get("activity_status", "active") in ("active", "inactive")
-                ]
-                self._resolved_project_id = new_pid
                 return new_pid
 
         if not projects:
@@ -588,23 +603,21 @@ class MCPServer:
                 lines.append(f"  - {pid}: {name} ({path})")
             return "\n".join(lines)
 
-        # 4. Try initialize roots (workspace URIs from the IDE)
+        # 5. Try initialize roots (workspace URIs from the IDE)
         if self._initialize_roots:
             pid = self._best_project_match(projects, self._initialize_roots)
             if pid:
-                self._resolved_project_id = pid
                 logger.debug(f"Resolved project from initialize roots: {pid}")
                 return pid
 
-        # 5. CWD auto-detect
+        # 6. CWD auto-detect
         #    _best_project_match skips cwd="/" internally
         pid = self._best_project_match(projects, [cwd])
         if pid:
-            self._resolved_project_id = pid
             logger.debug(f"Auto-detected project from CWD: {pid} cwd={cwd}")
             return pid
 
-        # 6. CODRAG_PROJECT env var
+        # 7. CODRAG_PROJECT env var — pin by name or ID
         env_project = os.environ.get("CODRAG_PROJECT", "").strip()
         if env_project:
             for p in projects:
@@ -613,62 +626,16 @@ class MCPServer:
                     or str(p.get("name", "")).strip().lower() == env_project.lower()
                 ):
                     pid = str(p["id"])
-                    self._resolved_project_id = pid
                     logger.debug(f"Resolved project from CODRAG_PROJECT env: {pid}")
                     return pid
-
-        # 7. Active project signal (set by dashboard clicks).
-        #    This is a FALLBACK — it should only win when no workspace-specific
-        #    signal is available (e.g. Antigravity with cwd=/ and no roots).
-        #    It must NOT override workspace root matching (steps 4-5).
-        from codrag.core.project_registry import read_active_project_signal
-
-        active_signal = read_active_project_signal()
-        if active_signal and active_signal.get("id"):
-            signal_id = str(active_signal["id"])
-            if any(str(p.get("id")) == signal_id for p in projects):
-                self._resolved_project_id = signal_id
-                logger.debug(f"Resolved project from active_project_signal (fallback): {signal_id}")
-                return signal_id
 
         # 8. Single-project shortcut
         if len(projects) == 1 and projects[0].get("id"):
             pid = str(projects[0]["id"])
-            self._resolved_project_id = pid
+            logger.debug(f"Single project shortcut: {pid}")
             return pid
 
-        # 9. Most-recently-active heuristic
-        if len(projects) > 1:
-
-            def _activity_time(p: Dict[str, Any]) -> float:
-                for key in ("updated_at", "last_build_at", "created_at"):
-                    val = p.get(key)
-                    if val:
-                        try:
-                            from datetime import datetime
-
-                            if isinstance(val, str):
-                                dt = datetime.fromisoformat(val.replace("Z", "+00:00"))
-                                return dt.timestamp()
-                            elif isinstance(val, (int, float)):
-                                return float(val)
-                        except Exception:
-                            continue
-                return 0.0
-
-            sorted_projects = sorted(projects, key=_activity_time, reverse=True)
-            top = sorted_projects[0]
-            if top.get("id") and _activity_time(top) > 0:
-                pid = str(top["id"])
-                self._resolved_project_id = pid
-                logger.info(
-                    f"Auto-selected most-recently-active project: {pid} "
-                    f"({top.get('name', '')}). Set CODRAG_PROJECT env var "
-                    f"or use --project flag to override."
-                )
-                return pid
-
-        # No match — return actionable error with full project list
+        # 9. No match — return actionable error with full project list
         msg = (
             "PROJECT_SELECTION_AMBIGUOUS: Could not automatically determine which project to use.\n"
             f"cwd: {cwd}\n"
@@ -2429,12 +2396,31 @@ class MCPServer:
             else:
                 raise MethodNotFoundError(f"Unknown tool: {original_name}")
 
-            # Phase 50 Sprint 3: Prefer markdown text over JSON for AI consumption.
-            # Tool methods that set result["_to_markdown"] get clean text output.
-            # Others fall back to json.dumps for backward compatibility.
+            # Phase 55: Inject resolved project metadata into every response.
+            # This helps LLMs detect misrouted requests (e.g. DebateHaus
+            # workspace getting HomeColab data).
+            resolved_pid = project_override
+            if not resolved_pid:
+                try:
+                    resolved_pid = await self._resolve_project_id()
+                except Exception:
+                    resolved_pid = None
+
+            project_label = ""
+            if resolved_pid:
+                pname = await self._get_project_name(resolved_pid)
+                if pname and pname != resolved_pid:
+                    project_label = f"[project: {pname}]"
+                else:
+                    project_label = f"[project: {resolved_pid[:8]}…]"
+
             if isinstance(result, dict) and "_to_markdown" in result:
                 text = result.pop("_to_markdown")
+                if project_label:
+                    text = f"{project_label}\n{text}"
             else:
+                if isinstance(result, dict) and resolved_pid:
+                    result["_project"] = resolved_pid
                 text = json.dumps(result, indent=2)
 
             return {

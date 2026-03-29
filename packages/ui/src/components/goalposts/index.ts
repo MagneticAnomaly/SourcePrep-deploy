@@ -1,8 +1,9 @@
-export { GoalpostsPanel } from './GoalpostsPanel';
-export type { GoalpostsPanelProps } from './GoalpostsPanel';
-export { AdvisorPanel } from './AdvisorPanel';
-export type { AdvisorPanelProps } from './AdvisorPanel';
-export { RoadmapPanel } from './RoadmapPanel';
-export type { RoadmapPanelProps } from './RoadmapPanel';
-export { RoadmapTimeline } from './RoadmapTimeline';
-export type { RoadmapTimelineProps } from './RoadmapTimeline';
+export { GoalpostsPanel, type GoalpostsPanelProps } from './GoalpostsPanel';
+export { AdvisorPanel, type AdvisorPanelProps } from './AdvisorPanel';
+export { RoadmapPanel, type RoadmapPanelProps } from './RoadmapPanel';
+export { RoadmapTimeline, type RoadmapTimelineProps } from './RoadmapTimeline';
+export { NodeDetailView, type NodeDetailViewProps } from './NodeDetailView';
+export { VelocityBar, type VelocityBarProps } from './VelocityBar';
+export { SprintCard, type SprintCardProps } from './SprintCard';
+export { BurndownChart, type BurndownChartProps } from './BurndownChart';
+export { GitHubStatusBadge, type GitHubStatusBadgeProps } from './GitHubStatusBadge';

@@ -781,6 +781,39 @@ export class MockApiClient implements ApiClient {
   async mineRoadmap(_projectId: string): Promise<{ status: string; message: string }> {
     return { status: 'started', message: 'Mock roadmap mining started' };
   }
+
+  // ── Roadmap Push + Sprint (Phase 59D-2/3/4) ───────────────────
+
+  async pushToGitHub(_projectId: string, nodeIds: string[]): Promise<import('../types').PushGitHubResult> {
+    return {
+      pushed: nodeIds.length,
+      errors: 0,
+      results: nodeIds.map(id => ({ node_id: id, issue_number: Math.floor(Math.random() * 100) + 1, url: '', html_url: '' })),
+    };
+  }
+
+  async getVelocity(_projectId: string): Promise<import('../types').VelocityResponse> {
+    return {
+      average_velocity: 3.5,
+      snapshots: [],
+      burndown: [],
+      total_completed: 0,
+      total_active: 0,
+      total_planned: 0,
+      total_proposed: 0,
+    };
+  }
+
+  async suggestSprint(_projectId: string): Promise<import('../types').SprintSuggestion> {
+    return {
+      sprint_label: 'Sprint 1',
+      capacity: 3,
+      suggested_nodes: [],
+      rationale: 'Mock sprint suggestion — no velocity data available.',
+      confidence: 0.0,
+      node_details: [],
+    };
+  }
 }
 
 export const createMockApiClient = (): ApiClient => new MockApiClient();

@@ -1,9 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useApiClient } from '@codrag/ui'
-import type { RoadmapResponse, RoadmapTier } from '@codrag/ui'
+import type { RoadmapResponse, RoadmapTier, VelocityResponse, SprintSuggestion } from '@codrag/ui'
 
 export interface UseRoadmapSystemReturn {
   state: RoadmapResponse | null
+  velocityData: VelocityResponse | null
+  sprintSuggestion: SprintSuggestion | null
+  loadingSprint: boolean
   handleGenerate: () => void
   handleScanTodos: () => void
   handleUpdateEthos: (ethos: string) => void
@@ -14,6 +17,8 @@ export interface UseRoadmapSystemReturn {
   handleAnswerQuestion: (questionId: string, answer: string) => void
   handleSyncGitHub: () => void
   handleMineRoadmap: () => void
+  handlePushNodeToGitHub: (nodeId: string) => void
+  handleSuggestSprint: () => void
 }
 
 export function useRoadmapSystem(selectedProjectId: string | null): UseRoadmapSystemReturn {
@@ -102,6 +107,12 @@ export function useRoadmapSystem(selectedProjectId: string | null): UseRoadmapSy
     })
 
     api.updateRoadmapNode(selectedProjectId, nodeId, { tier: targetTier, state: targetTier === 'completed' ? 'completed' : 'accepted' })
+      .then(() => {
+        // Refresh velocity when tier changes (especially promote to completed)
+        if (targetTier === 'completed') {
+          api.getVelocity(selectedProjectId).then(setVelocityData).catch(() => {})
+        }
+      })
       .catch(() => {
         api.getRoadmap(selectedProjectId).then(setState).catch(() => {})
       })
@@ -190,8 +201,49 @@ export function useRoadmapSystem(selectedProjectId: string | null): UseRoadmapSy
       .catch(() => setState((prev) => prev ? { ...prev, error: 'Failed to start pipeline mining' } : null))
   }, [selectedProjectId, api, startPolling])
 
+
+  const [velocityData, setVelocityData] = useState<VelocityResponse | null>(null)
+  const [sprintSuggestion, setSprintSuggestion] = useState<SprintSuggestion | null>(null)
+  const [loadingSprint, setLoadingSprint] = useState(false)
+
+  // Fetch velocity whenever project changes
+  useEffect(() => {
+    setVelocityData(null)
+    setSprintSuggestion(null)
+    if (!selectedProjectId) return
+
+    api.getVelocity(selectedProjectId)
+      .then(setVelocityData)
+      .catch(() => {
+        // Velocity endpoint may not exist on older servers — degrade gracefully
+      })
+  }, [selectedProjectId, api])
+
+  const handleSuggestSprint = useCallback(() => {
+    if (!selectedProjectId) return
+    setLoadingSprint(true)
+    api.suggestSprint(selectedProjectId)
+      .then(setSprintSuggestion)
+      .catch(() => {})
+      .finally(() => setLoadingSprint(false))
+  }, [selectedProjectId, api])
+
+  const handlePushNodeToGitHub = useCallback((nodeId: string) => {
+    if (!selectedProjectId) return
+    api.pushToGitHub(selectedProjectId, [nodeId])
+      .then(() => {
+        // Refresh roadmap to get updated source_ref, and velocity (new completion may affect it)
+        api.getRoadmap(selectedProjectId).then(setState).catch(() => {})
+        api.getVelocity(selectedProjectId).then(setVelocityData).catch(() => {})
+      })
+      .catch(() => setState((prev) => prev ? { ...prev, error: 'Failed to push node to GitHub' } : null))
+  }, [selectedProjectId, api])
+
   return {
     state,
+    velocityData,
+    sprintSuggestion,
+    loadingSprint,
     handleGenerate,
     handleScanTodos,
     handleUpdateEthos,
@@ -202,5 +254,7 @@ export function useRoadmapSystem(selectedProjectId: string | null): UseRoadmapSy
     handleAnswerQuestion,
     handleSyncGitHub,
     handleMineRoadmap,
+    handlePushNodeToGitHub,
+    handleSuggestSprint,
   }
 }

@@ -437,3 +437,21 @@ def delete_project(project_id: str, purge: bool = False) -> Dict[str, Any]:
         _srv()._project_trace_build_threads.pop(project_id, None)
 
     return ok({"removed": True, "purged": bool(purge)})
+
+
+@router.post("/projects/validate-pointers")
+def validate_pointers() -> Dict[str, Any]:
+    """Validate and heal .codrag/project.json pointers for all projects.
+
+    Checks every registered project and ensures its pointer file
+    exists with the correct project ID. Heals mismatches automatically.
+
+    Returns:
+        - healed: projects whose pointers were created/fixed
+        - stale: projects whose paths no longer exist on disk
+        - ok: projects that were already correct
+    """
+    reg = _srv()._get_registry()
+    report = reg.validate_and_heal_pointers()
+    return ok(report)
+

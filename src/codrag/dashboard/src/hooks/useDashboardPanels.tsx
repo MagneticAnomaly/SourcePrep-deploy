@@ -811,7 +811,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
       <IndexHealthPanel
         data={p.projectStatus ? {
           total_chunks: p.projectStatus.index.total_chunks || p.knowledgeStatus.chunks_embedded || 0,
-          total_files: p.traceStatus.counts?.nodes ?? 0,
+          total_files: p.traceCoverage.summary?.traced ?? p.traceStatus.counts?.nodes ?? 0,
           stale_count: p.projectStatus.stale_count ?? 0,
           error_count: p.projectStatus.index.last_error ? 1 : 0,
           last_build_at: p.projectStatus.index.last_build_at ?? p.knowledgeStatus.last_run_at ?? null,
@@ -985,6 +985,9 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         ready={true}
         lastGeneratedAt={roadmapProps.state.last_generated_at}
         modelUsed={roadmapProps.state.model_used}
+        velocityData={roadmapProps.velocityData}
+        sprintSuggestion={roadmapProps.sprintSuggestion}
+        loadingSprint={roadmapProps.loadingSprint}
         onGenerate={roadmapProps.handleGenerate}
         onScanTodos={roadmapProps.handleScanTodos}
         onUpdateEthos={roadmapProps.handleUpdateEthos}
@@ -995,6 +998,15 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onAnswerQuestion={roadmapProps.handleAnswerQuestion}
         onSyncGitHub={roadmapProps.handleSyncGitHub}
         onMineRoadmap={roadmapProps.handleMineRoadmap}
+        onPushToGitHub={roadmapProps.handlePushNodeToGitHub}
+        onSuggestSprint={roadmapProps.handleSuggestSprint}
+        githubStatus={roadmapProps.state?.github_sync ? {
+          configured: true,
+          owner: roadmapProps.state.github_sync.owner,
+          repo: roadmapProps.state.github_sync.repo,
+          error: roadmapProps.state.github_sync.error || null,
+          last_sync: roadmapProps.state.github_sync.last_synced_at || null,
+        } : { configured: false }}
       />
     ) : (
       <RoadmapPanel

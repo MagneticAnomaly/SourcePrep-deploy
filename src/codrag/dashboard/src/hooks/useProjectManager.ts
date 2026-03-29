@@ -209,10 +209,12 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
       await api.deleteProject(projectId, purge)
       setProjects((prev) => prev.filter((p) => p.id !== projectId))
       setSelectedProjectId((prev) => prev === projectId ? null : prev)
+      // Re-fetch to ensure list is synchronized with backend
+      await refreshProjects()
     } catch (e) {
       onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t delete project.', 'error')
     }
-  }, [api])
+  }, [api, refreshProjects])
 
   const handleBuild = useCallback(async () => {
     if (!selectedProjectId) return

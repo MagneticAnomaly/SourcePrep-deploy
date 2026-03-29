@@ -134,6 +134,25 @@ function computeRerun(baseline: number | undefined, total: number | undefined): 
   return { donePercent: donePct, stalePercent: stalePct };
 }
 
+/** Compute rerun for a stage using slot_progress.baseline if available,
+ *  otherwise fall back to staleCounts for a generic incremental signal.
+ *  Returns undefined for initial (non-incremental) builds. */
+function computeStageRerun(
+  slotBaseline: number | undefined,
+  slotTotal: number | undefined,
+  staleCounts?: { total: number; stale: number },
+): { donePercent: number; stalePercent: number } | undefined {
+  // Prefer per-stage slot baseline (most accurate)
+  const fromSlot = computeRerun(slotBaseline, slotTotal);
+  if (fromSlot) return fromSlot;
+  // Fallback: if there are stale files at the project level, show a generic ratio
+  if (staleCounts && staleCounts.stale > 0 && staleCounts.total > 0) {
+    const donePct = Math.round(((staleCounts.total - staleCounts.stale) / staleCounts.total) * 100);
+    return { donePercent: donePct, stalePercent: 100 - donePct };
+  }
+  return undefined;
+}
+
 const STAGE_OUTPUT_KEY: Record<EnrichmentStageId, string | null> = {
   structural: 'trace_nodes.jsonl',
   inferred_edges: 'trace_inferred_edges.jsonl',
@@ -722,6 +741,7 @@ export function GraphEnrichmentPipeline({
   deepPausedStage,
   provenance,
   projectLoading,
+  staleCounts,
   className,
 }: GraphEnrichmentPipelineProps) {
   // Per-group paused flags (fall back to legacy isPaused for backward compat)
@@ -808,9 +828,18 @@ export function GraphEnrichmentPipeline({
       : '';
     return `${pct}% coverage · ${conf}`;
   })();
-  const catalogueProgress = (catalogueState === 'running' && augmentation && augmentation.total_nodes > 0)
-    ? Math.round((augmentation.augmented_nodes / augmentation.total_nodes) * 100)
-    : undefined;
+  const catalogueProgress = (() => {
+    if (catalogueState !== 'running' || !augmentation) return undefined;
+    // Prefer pipeline slot progress (accurate during incremental runs)
+    if (augmentation.progress_total && augmentation.progress_total > 0) {
+      return Math.min(100, Math.round(((augmentation.progress_current ?? 0) / augmentation.progress_total) * 100));
+    }
+    // Fallback to disk-based node counts
+    if (augmentation.total_nodes > 0) {
+      return Math.min(100, Math.round((augmentation.augmented_nodes / augmentation.total_nodes) * 100));
+    }
+    return undefined;
+  })();
 
   // 3. Relationship Validation (Rust)
   const validationState = computeValidationState(trace, augmentation, augmenting, validating, fastKnowledgeBuilding);
@@ -909,9 +938,13 @@ export function GraphEnrichmentPipeline({
       progress: inferredEdgesState === 'running' && inferredEdges?.slot_progress?.total
         ? Math.min(100, Math.round((inferredEdges.slot_progress.current / inferredEdges.slot_progress.total) * 100))
         : undefined,
-      rerun: inferredEdgesState === 'running' ? computeRerun(inferredEdges?.slot_progress?.baseline, inferredEdges?.slot_progress?.total) : undefined,
+      rerun: inferredEdgesState === 'running' ? computeStageRerun(inferredEdges?.slot_progress?.baseline, inferredEdges?.slot_progress?.total, staleCounts) : undefined,
     },
-    { id: 'catalogue', label: 'Fast Catalogue', icon: Database, modelTag: 'Fast', state: catalogueState, stats: catalogueStats, progress: catalogueProgress, rerun: catalogueState === 'running' ? computeRerun(augmentation?.progress_baseline, augmentation?.progress_total) : undefined },
+    {
+      id: 'catalogue', label: 'Fast Catalogue', icon: Database, modelTag: 'Fast',
+      state: catalogueState, stats: catalogueStats, progress: catalogueProgress,
+      rerun: catalogueState === 'running' ? computeStageRerun(augmentation?.progress_baseline, augmentation?.progress_total, staleCounts) : undefined,
+    },
     { id: 'validation', label: 'Relationship Validation', icon: ShieldCheck, modelTag: 'Rust', state: validationState, stats: validationStats },
     {
       id: 'knowledge', label: 'Knowledge Embedding', icon: Database,
@@ -919,6 +952,7 @@ export function GraphEnrichmentPipeline({
       progress: fastKnowledgeState === 'running'
         ? (knowledge?.progress_total ? Math.min(100, Math.round((knowledge.progress_current ?? 0) / knowledge.progress_total * 100)) : 0)
         : undefined,
+      rerun: fastKnowledgeState === 'running' ? computeStageRerun((knowledge as any)?.progress_baseline, knowledge?.progress_total, staleCounts) : undefined,
     },
   ];
 
@@ -929,7 +963,7 @@ export function GraphEnrichmentPipeline({
       progress: (epistemicRunning || epistemic?.running) && epistemic?.progress_total
         ? Math.min(100, Math.round((epistemic.progress_current ?? 0) / epistemic.progress_total * 100))
         : (enrichmentState === 'running' ? 0 : undefined),
-      rerun: enrichmentState === 'running' ? computeRerun(epistemic?.progress_baseline, epistemic?.progress_total) : undefined,
+      rerun: enrichmentState === 'running' ? computeStageRerun(epistemic?.progress_baseline, epistemic?.progress_total, staleCounts) : undefined,
     },
     {
       id: 'group_reasoning', label: 'Group Reasoning', icon: Network, modelTag: 'Thinking',
@@ -951,6 +985,8 @@ export function GraphEnrichmentPipeline({
       progress: (groupReasoningRunning || groupReasoning?.slot_phase === 'running' || groupReasoning?.running) && groupReasoning?.progress_total
         ? Math.min(100, Math.round((groupReasoning.progress_current ?? 0) / groupReasoning.progress_total * 100))
         : undefined,
+      rerun: (groupReasoningRunning || groupReasoning?.slot_phase === 'running' || groupReasoning?.running)
+        ? computeStageRerun(undefined, undefined, staleCounts) : undefined,
     },
     {
       id: 'clustering', label: 'Module Synthesis', icon: Layers, modelTag: 'Thinking',
@@ -958,9 +994,10 @@ export function GraphEnrichmentPipeline({
       progress: (clusterRunning || modules?.running) && modules?.progress_total
         ? Math.min(100, Math.round((modules.progress_current ?? 0) / modules.progress_total * 100))
         : (clusteringState === 'running' ? 0 : undefined),
+      rerun: clusteringState === 'running' ? computeStageRerun(undefined, undefined, staleCounts) : undefined,
     },
-    { id: 'atlas', label: 'Atlas Building', icon: Map, modelTag: 'Thinking', state: atlasState, stats: atlasStats },
-    { id: 'deepening', label: 'Continuous Deepening', icon: Network, state: deepeningState, stats: deepeningStats, progress: deepeningState === 'running' ? (deepeningProgress ?? 0) : undefined },
+    { id: 'atlas', label: 'Atlas Building', icon: Map, modelTag: 'Thinking', state: atlasState, stats: atlasStats, rerun: atlasState === 'running' ? computeStageRerun(undefined, undefined, staleCounts) : undefined },
+    { id: 'deepening', label: 'Continuous Deepening', icon: Network, state: deepeningState, stats: deepeningStats, progress: deepeningState === 'running' ? (deepeningProgress ?? 0) : undefined, rerun: deepeningState === 'running' ? computeStageRerun(undefined, undefined, staleCounts) : undefined },
     {
       id: 'deep_knowledge', label: 'Deep Knowledge Embedding', icon: Database,
       state: deepKnowledgeState, stats: deepKnowledgeStats,

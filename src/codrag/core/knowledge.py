@@ -15,6 +15,7 @@ literal code implementation.
 import hashlib
 import json
 import logging
+import re
 import time
 import shutil
 import uuid
@@ -58,6 +59,42 @@ class KnowledgeIndex:
             or getattr(self.embedder, "model_name", None)
             or "unknown"
         )
+
+    @staticmethod
+    def _normalize_model_name(raw: str) -> str:
+        """Extract a canonical model family from a raw model string.
+
+        Handles:
+        - 'nomic-embed-text' (Ollama)
+        - 'native:nomic-embed-text-v1.5' (NativeEmbedder)
+        - 'nomic-embed-text:latest' (Ollama with tag)
+        - Corrupted dict strings from previous manifest bug
+          e.g. "{'provider': 'ollama', 'model_name': 'nomic-embed-text', ...}"
+        """
+        s = raw.strip()
+        # Handle corrupted dict-string manifests
+        if s.startswith("{") and "model_name" in s:
+            # Extract model_name value from dict-like string
+            m = re.search(r"'model_name'\s*:\s*'([^']+)'", s)
+            if m:
+                s = m.group(1)
+        # Strip provider prefix: "native:nomic-embed-text-v1.5" → "nomic-embed-text-v1.5"
+        if ":" in s and not s.startswith("nomic"):
+            s = s.split(":", 1)[1]
+        # Strip tag: "nomic-embed-text:latest" → "nomic-embed-text"
+        if ":" in s:
+            s = s.split(":")[0]
+        # Strip version suffix: "nomic-embed-text-v1.5" → "nomic-embed-text"
+        # Keep the base family name
+        s = re.sub(r"-v\d+(\.\d+)*$", "", s)
+        return s.lower()
+
+    @classmethod
+    def _models_compatible(cls, a: str, b: str) -> bool:
+        """Check if two model strings refer to the same embedding space."""
+        if a == b:
+            return True
+        return cls._normalize_model_name(a) == cls._normalize_model_name(b)
 
     def _load(self) -> None:
         if not self.docs_path.exists() or not self.emb_path.exists():
@@ -162,11 +199,22 @@ class KnowledgeIndex:
 
         Returns empty dict if no previous index exists or model changed.
         """
-        prev_model = str(self._manifest.get("model") or "")
+        # Extract previous model from manifest, handling both formats:
+        # - v1 (KnowledgeIndex): {"model": "native:nomic-embed-text-v1.5", ...}
+        # - v2 (StageManifest):  {"model": {"provider": "...", "model_name": "..."}, ...}
+        #                    or  {"embedding_model": {"provider": "...", "model_name": "..."}, ...}
+        raw_model = self._manifest.get("model") or self._manifest.get("embedding_model") or ""
+        if isinstance(raw_model, dict):
+            # v2 StageManifest format — extract model_name from the dict
+            prev_model = raw_model.get("model_name", "")
+        else:
+            prev_model = str(raw_model)
         cur_model = self._embedder_model()
 
-        # Can't reuse if model changed (different embedding space)
-        if prev_model and prev_model != cur_model:
+        # Can't reuse if model changed (different embedding space).
+        # Normalize first: Ollama 'nomic-embed-text' and Native
+        # 'native:nomic-embed-text-v1.5' produce identical 768-dim vectors.
+        if prev_model and not self._models_compatible(prev_model, cur_model):
             logger.info(
                 "Knowledge model changed (%s → %s), full re-embed required",
                 prev_model, cur_model,

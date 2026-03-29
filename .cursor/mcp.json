@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "codrag": {
+      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/codrag-mcp-wrapper.sh",
+      "args": ["--mode", "direct"]
+    }
+  }
+}

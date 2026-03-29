@@ -1,6 +1,7 @@
 """Large file analyzer — flags files exceeding size thresholds."""
 from __future__ import annotations
 
+import os
 from typing import List
 
 from ..models import AuditContext, Finding
@@ -10,6 +11,25 @@ from . import BaseAnalyzer
 # Thresholds (lines estimated from metadata.size / avg 40 bytes per line)
 CRITICAL_BYTES = 80_000   # ~2000 lines
 WARNING_BYTES = 40_000    # ~1000 lines
+
+# Lock/generated files that are always large and never actionable.
+# These are managed by package managers, not by developers.
+EXPECTED_LARGE_BASENAMES = frozenset({
+    "package-lock.json",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "npm-shrinkwrap.json",
+    "Gemfile.lock",
+    "Cargo.lock",
+    "poetry.lock",
+    "composer.lock",
+    "Podfile.lock",
+    "go.sum",
+    "Pipfile.lock",
+    "flake.lock",
+    "packages.lock.json",  # NuGet
+    "pubspec.lock",        # Dart/Flutter
+})
 
 
 class LargeFileAnalyzer(BaseAnalyzer):
@@ -33,6 +53,12 @@ class LargeFileAnalyzer(BaseAnalyzer):
                 continue
 
             file_path = node.get("file_path", "")
+
+            # Skip expected-large lock/generated files
+            basename = os.path.basename(file_path)
+            if basename in EXPECTED_LARGE_BASENAMES:
+                continue
+
             lang = node.get("language", "unknown")
             est_lines = size // 40
 

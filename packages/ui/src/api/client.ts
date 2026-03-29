@@ -259,6 +259,11 @@ export interface ApiClient {
   syncGitHub(projectId: string): Promise<{ status: string; message: string }>;
   getGitHubStatus(projectId: string): Promise<import('../types').GitHubStatus>;
   mineRoadmap(projectId: string): Promise<{ status: string; message: string }>;
+
+  // Roadmap Webhook + Push + Sprint (Phase 59D-2/3/4)
+  pushToGitHub(projectId: string, nodeIds: string[]): Promise<import('../types').PushGitHubResult>;
+  getVelocity(projectId: string): Promise<import('../types').VelocityResponse>;
+  suggestSprint(projectId: string): Promise<import('../types').SprintSuggestion>;
 }
 
 export interface ApiClientConfig {
@@ -1244,6 +1249,25 @@ export class CodragApiClient implements ApiClient {
 
   async mineRoadmap(projectId: string): Promise<{ status: string; message: string }> {
     return this.requestEnvelope<{ status: string; message: string }>(`/projects/${projectId}/roadmap/mine`, {
+      method: 'POST',
+    });
+  }
+
+  // ── Roadmap Push + Sprint (Phase 59D-2/3/4) ───────────────────
+
+  async pushToGitHub(projectId: string, nodeIds: string[]): Promise<import('../types').PushGitHubResult> {
+    return this.requestEnvelope<import('../types').PushGitHubResult>(`/projects/${projectId}/roadmap/push-github`, {
+      method: 'POST',
+      body: JSON.stringify({ node_ids: nodeIds }),
+    });
+  }
+
+  async getVelocity(projectId: string): Promise<import('../types').VelocityResponse> {
+    return this.requestEnvelope<import('../types').VelocityResponse>(`/projects/${projectId}/roadmap/velocity`);
+  }
+
+  async suggestSprint(projectId: string): Promise<import('../types').SprintSuggestion> {
+    return this.requestEnvelope<import('../types').SprintSuggestion>(`/projects/${projectId}/roadmap/suggest-sprint`, {
       method: 'POST',
     });
   }

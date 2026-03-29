@@ -51,6 +51,7 @@ def write_rules_file(
     is_preliminary: bool = False,
     stats: Optional[Dict[str, Any]] = None,
     ide: str = "auto",
+    project_id: Optional[str] = None,
 ) -> Dict[str, bool]:
     """Write rules files for detected IDEs.
 
@@ -65,6 +66,7 @@ def write_rules_file(
         is_preliminary: If True, adds "Full analysis in progress" note.
         stats: Optional dict with node_count, edge_count, coverage_pct, last_indexed.
         ide: "auto" (detect all), "cursor", "windsurf", "claude", or "all".
+        project_id: CoDRAG project UUID. Embedded in rules for LLM-based routing.
 
     Returns:
         Dict mapping IDE name to whether the file was written.
@@ -72,9 +74,16 @@ def write_rules_file(
     project_path = Path(project_path)
     results: Dict[str, bool] = {}
 
+    # Auto-detect project_id from .codrag/project.json if not provided
+    if not project_id:
+        from codrag.core.project_registry import read_codrag_pointer
+        pointer = read_codrag_pointer(project_path)
+        if pointer:
+            project_id = pointer.get("id")
+
     targets = _detect_targets(project_path, ide)
 
-    _args = (project_path, project_name, atlas_content, included_paths, is_preliminary, stats)
+    _args = (project_path, project_name, atlas_content, included_paths, is_preliminary, stats, project_id)
 
     _writers = {
         "agents_md": _write_agents_md,
@@ -101,6 +110,7 @@ def write_rules_file(
                     included_paths,
                     is_preliminary,
                     stats,
+                    project_id=project_id,
                     filename="GEMINI.md",
                     heading="# CoDRAG Integration",
                 )
@@ -193,6 +203,7 @@ def detect_and_regenerate(
                 included_paths=included_paths,
                 stats=stats,
                 ide=target,
+                project_id=project_id,
             )
             results.update(sub_results)
         except Exception as e:
@@ -301,6 +312,7 @@ def schedule_rules_regeneration(
             is_preliminary=False,
             stats=stats,
             ide="auto",
+            project_id=project_id,
         )
 
     timer = threading.Timer(_REGEN_DEBOUNCE_S, _do_regen)
@@ -318,6 +330,7 @@ def _build_managed_content(
     included_paths: Optional[List[str]],
     is_preliminary: bool,
     stats: Optional[Dict[str, Any]],
+    project_id: Optional[str] = None,
 ) -> str:
     """Build the CoDRAG-managed content block shared across all IDEs."""
     parts: List[str] = []
@@ -340,6 +353,21 @@ def _build_managed_content(
     # CRITICAL: Tool calling instructions (front-loaded for immediate visibility)
     parts.append("## 🚨 CRITICAL: Tool Calling Instructions")
     parts.append("")
+
+    # Project ID routing — the primary multi-project routing mechanism.
+    # The LLM reads this and passes project_id in every tool call,
+    # guaranteeing correct routing even when the IDE/MCP client sends
+    # no workspace roots.
+    if project_id:
+        parts.append(f"codrag_project_id: {project_id}")
+        parts.append("")
+        parts.append(
+            f"**ROUTING: When calling ANY CoDRAG tool, ALWAYS include "
+            f"`project_id: \"{project_id}\"` in the arguments.**\n"
+            f"This ensures your calls reach the correct project index."
+        )
+        parts.append("")
+
     parts.append('When user types "codrag" → IMMEDIATELY call the `codrag` tool.')
     parts.append("When user mentions code search → IMMEDIATELY call `codrag_search`.")
     parts.append("When user asks about project structure → IMMEDIATELY call `codrag`.")
@@ -350,11 +378,19 @@ def _build_managed_content(
     parts.append("### Quick Reference")
     parts.append("| User Says | You Do |")
     parts.append("|-----------|--------|")
-    parts.append('| "codrag" | Call `codrag()` immediately |')
-    parts.append('| "search for X" | Call `codrag_search(query="X")` |')
-    parts.append('| "find where X is defined" | Call `codrag_search(query="X")` |')
-    parts.append('| "how does this project work" | Call `codrag()` for overview |')
-    parts.append('| "codrag context" | Call `codrag()` for ambient context |')
+    if project_id:
+        pid_short = project_id[:12] + "..."
+        parts.append(f'| "codrag" | Call `codrag(project_id="{pid_short}")` immediately |')
+        parts.append(f'| "search for X" | Call `codrag_search(query="X", project_id="{pid_short}")` |')
+        parts.append(f'| "find where X is defined" | Call `codrag_search(query="X")` |')
+        parts.append(f'| "how does this project work" | Call `codrag()` for overview |')
+        parts.append(f'| "codrag context" | Call `codrag()` for ambient context |')
+    else:
+        parts.append('| "codrag" | Call `codrag()` immediately |')
+        parts.append('| "search for X" | Call `codrag_search(query="X")` |')
+        parts.append('| "find where X is defined" | Call `codrag_search(query="X")` |')
+        parts.append('| "how does this project work" | Call `codrag()` for overview |')
+        parts.append('| "codrag context" | Call `codrag()` for ambient context |')
     parts.append("")
 
     # Tool instructions
@@ -440,6 +476,7 @@ def generate_cursor_rules(
     included_paths: Optional[List[str]] = None,
     is_preliminary: bool = False,
     stats: Optional[Dict[str, Any]] = None,
+    project_id: Optional[str] = None,
 ) -> str:
     """Generate .cursor/rules/codrag.mdc content with YAML frontmatter."""
     managed = _build_managed_content(
@@ -448,6 +485,7 @@ def generate_cursor_rules(
         included_paths,
         is_preliminary,
         stats,
+        project_id=project_id,
     )
 
     return (
@@ -471,6 +509,7 @@ def _write_cursor_rules(
     included_paths: Optional[List[str]],
     is_preliminary: bool,
     stats: Optional[Dict[str, Any]],
+    project_id: Optional[str] = None,
 ) -> bool:
     """Write or update .cursor/rules/codrag.mdc."""
     rules_dir = project_path / ".cursor" / "rules"
@@ -482,6 +521,7 @@ def _write_cursor_rules(
         included_paths,
         is_preliminary,
         stats,
+        project_id=project_id,
     )
 
     if target.exists():
@@ -514,6 +554,7 @@ def generate_windsurf_rules(
     included_paths: Optional[List[str]] = None,
     is_preliminary: bool = False,
     stats: Optional[Dict[str, Any]] = None,
+    project_id: Optional[str] = None,
 ) -> str:
     """Generate .windsurf/rules/codrag.md content with YAML frontmatter."""
     managed = _build_managed_content(
@@ -522,6 +563,7 @@ def generate_windsurf_rules(
         included_paths,
         is_preliminary,
         stats,
+        project_id=project_id,
     )
 
     return (
@@ -545,6 +587,7 @@ def _write_windsurf_rules(
     included_paths: Optional[List[str]],
     is_preliminary: bool,
     stats: Optional[Dict[str, Any]],
+    project_id: Optional[str] = None,
 ) -> bool:
     """Write .windsurf/rules/codrag.md (new path) or update legacy .windsurfrules."""
     new_content = generate_windsurf_rules(
@@ -553,6 +596,7 @@ def _write_windsurf_rules(
         included_paths,
         is_preliminary,
         stats,
+        project_id=project_id,
     )
 
     # Prefer new path: .windsurf/rules/codrag.md
@@ -599,6 +643,7 @@ def generate_claude_rules(
     included_paths: Optional[List[str]] = None,
     is_preliminary: bool = False,
     stats: Optional[Dict[str, Any]] = None,
+    project_id: Optional[str] = None,
 ) -> str:
     """Generate CoDRAG section for CLAUDE.md."""
     managed = _build_managed_content(
@@ -607,6 +652,7 @@ def generate_claude_rules(
         included_paths,
         is_preliminary,
         stats,
+        project_id=project_id,
     )
 
     return f"{_CLAUDE_MARKER_START}\n# CoDRAG Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
@@ -619,6 +665,7 @@ def _write_claude_rules(
     included_paths: Optional[List[str]],
     is_preliminary: bool,
     stats: Optional[Dict[str, Any]],
+    project_id: Optional[str] = None,
 ) -> bool:
     """Write or update CLAUDE.md with marker-based section management."""
     target = project_path / "CLAUDE.md"
@@ -629,6 +676,7 @@ def _write_claude_rules(
         included_paths,
         is_preliminary,
         stats,
+        project_id=project_id,
     )
 
     if target.exists():
@@ -664,6 +712,7 @@ def _write_claude_skill(
     included_paths: Optional[List[str]],
     is_preliminary: bool,
     stats: Optional[Dict[str, Any]],
+    project_id: Optional[str] = None,
 ) -> bool:
     """Write .claude/skills/codrag.md for Claude Code slash command.
 
@@ -715,6 +764,7 @@ def _write_agents_md(
     included_paths: Optional[List[str]],
     is_preliminary: bool,
     stats: Optional[Dict[str, Any]],
+    project_id: Optional[str] = None,
 ) -> bool:
     """Write or update AGENTS.md with CoDRAG section.
 
@@ -728,6 +778,7 @@ def _write_agents_md(
         included_paths,
         is_preliminary,
         stats,
+        project_id=project_id,
     )
     new_section = (
         f"{_CLAUDE_MARKER_START}\n## CoDRAG Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
@@ -764,6 +815,7 @@ def _write_generic_md(
     included_paths: Optional[List[str]],
     is_preliminary: bool,
     stats: Optional[Dict[str, Any]],
+    project_id: Optional[str] = None,
     filename: str = "GEMINI.md",
     heading: str = "# CoDRAG Integration",
 ) -> bool:
@@ -777,6 +829,7 @@ def _write_generic_md(
         included_paths,
         is_preliminary,
         stats,
+        project_id=project_id,
     )
     new_section = f"{_CLAUDE_MARKER_START}\n{heading}\n\n{managed}\n{_CLAUDE_MARKER_END}"
 
@@ -811,6 +864,7 @@ def _write_copilot_rules(
     included_paths: Optional[List[str]],
     is_preliminary: bool,
     stats: Optional[Dict[str, Any]],
+    project_id: Optional[str] = None,
 ) -> bool:
     """Write or update .github/copilot-instructions.md with CoDRAG section."""
     managed = _build_managed_content(
@@ -819,6 +873,7 @@ def _write_copilot_rules(
         included_paths,
         is_preliminary,
         stats,
+        project_id=project_id,
     )
     new_section = (
         f"{_CLAUDE_MARKER_START}\n## CoDRAG Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
@@ -858,6 +913,7 @@ def _write_cline_rules(
     included_paths: Optional[List[str]],
     is_preliminary: bool,
     stats: Optional[Dict[str, Any]],
+    project_id: Optional[str] = None,
 ) -> bool:
     """Write or update .clinerules with CoDRAG keyword triggers.
 
@@ -870,6 +926,7 @@ def _write_cline_rules(
         included_paths,
         is_preliminary,
         stats,
+        project_id=project_id,
     )
     # Cline-specific: keyword triggers at the top for MCP activation
     trigger_block = (
@@ -916,6 +973,7 @@ def _write_roo_rules(
     included_paths: Optional[List[str]],
     is_preliminary: bool,
     stats: Optional[Dict[str, Any]],
+    project_id: Optional[str] = None,
 ) -> bool:
     """Write .roo/rules/codrag.md + mode-specific rules for Roo Code.
 
@@ -933,6 +991,7 @@ def _write_roo_rules(
         included_paths,
         is_preliminary,
         stats,
+        project_id=project_id,
     )
     content = f"# CoDRAG Integration\n\n{managed}\n"
 

@@ -92,7 +92,43 @@ def load_audit_context(
         except Exception as e:
             logger.warning("Failed to load manifest: %s", e)
 
+    # Load repo_policy exclude globs so file_nodes filters out
+    # vendor/Pods/node_modules/etc. files that may be in old trace data.
+    exclude_globs = _load_exclude_globs(index_dir)
+    if exclude_globs:
+        ctx.set_exclude_globs(exclude_globs)
+        logger.debug("Applied %d exclude globs to audit context", len(exclude_globs))
+
     return ctx
+
+
+def _load_exclude_globs(index_dir: Path) -> List[str]:
+    """Load exclude globs from repo_policy.json, with fallback to defaults.
+
+    This ensures audit analyzers never surface findings for files in
+    vendor dirs, Pods, node_modules, etc.  Even if trace_nodes.jsonl
+    contains old entries from before the exclude list was refined.
+    """
+    # Try loading from the project's repo_policy.json
+    policy_path = index_dir / "repo_policy.json"
+    if policy_path.exists():
+        try:
+            with open(policy_path, "r", encoding="utf-8") as f:
+                policy = json.load(f)
+            globs = policy.get("exclude_globs")
+            if isinstance(globs, list) and globs:
+                return globs
+        except Exception as e:
+            logger.debug("Could not load repo_policy for excludes: %s", e)
+
+    # Fallback: derive from centralized defaults
+    try:
+        from codrag.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
+        globs = [f"**/{d}/**" for d in sorted(DEFAULT_EXCLUDE_DIR_NAMES)]
+        globs.append("**/.*")
+        return globs
+    except ImportError:
+        return []
 
 
 def _load_jsonl_dict(path: Path, key: str) -> Dict[str, Dict[str, Any]]:

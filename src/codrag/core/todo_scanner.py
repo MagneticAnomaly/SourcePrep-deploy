@@ -42,11 +42,17 @@ _PATTERN_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Directories to always skip
-_SKIP_DIRS = {
-    "node_modules", ".git", "__pycache__", ".codrag", "dist",
-    "build", ".next", "target", "venv", ".venv", ".tox",
-}
+# Directories to always skip — use centralized list from repo_profile
+try:
+    from codrag.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
+    _SKIP_DIRS = DEFAULT_EXCLUDE_DIR_NAMES
+except ImportError:
+    _SKIP_DIRS = {
+        "node_modules", ".git", "__pycache__", ".codrag", "dist",
+        "build", ".next", "target", "venv", ".venv", ".tox",
+        "Pods", "Carthage", "DerivedData", "vendor", "bundle",
+        "bower_components",
+    }
 
 # File extensions to scan
 _SCAN_EXTENSIONS = {
@@ -142,6 +148,14 @@ def _scan_with_ripgrep(
 ) -> Optional[List[Tuple[str, int, str, str]]]:
     """Use ripgrep for fast scanning. Returns None if rg is not available."""
     pattern = r"(?://|#|/\*|\*)\s*(?:TODO|FIXME|HACK|XXX|OPTIMIZE|PERF|BUG)[\s:(]"
+
+    # Build --glob exclusion flags for vendor/dependency directories
+    glob_flags: list[str] = []
+    for d in sorted(_SKIP_DIRS):
+        glob_flags.extend(["--glob", f"!{d}/**"])
+    # Also exclude dotdirs not already covered
+    glob_flags.extend(["--glob", "!.*/**"])
+
     try:
         result = subprocess.run(
             [
@@ -157,6 +171,7 @@ def _scan_with_ripgrep(
                 "--type-add", "code:*.rs",
                 "--type-add", "code:*.go",
                 "-i",  # case insensitive
+                *glob_flags,
                 pattern,
                 str(project_root),
             ],

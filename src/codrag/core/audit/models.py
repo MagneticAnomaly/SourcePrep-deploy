@@ -9,7 +9,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 
 @dataclass
@@ -80,6 +80,11 @@ class AuditContext:
     project_root: Optional[Path] = None
     index_dir: Optional[Path] = None
 
+    # Exclude globs loaded from repo_policy — applied to file_nodes
+    _exclude_globs: Optional[List[str]] = field(
+        default=None, repr=False, compare=False
+    )
+
     # Derived indexes built lazily
     _edges_by_source: Optional[Dict[str, List[Dict[str, Any]]]] = field(
         default=None, repr=False, compare=False
@@ -112,13 +117,31 @@ class AuditContext:
             self._edges_by_target = idx
         return self._edges_by_target
 
+    def set_exclude_globs(self, globs: List[str]) -> None:
+        """Set exclude globs from repo_policy. Resets cached file_nodes."""
+        self._exclude_globs = globs
+        self._file_nodes = None  # Reset cache so next access re-filters
+
     @property
     def file_nodes(self) -> Dict[str, Dict[str, Any]]:
         if self._file_nodes is None:
-            self._file_nodes = {
+            from codrag.core.glob_utils import matches_any_glob
+
+            raw = {
                 nid: n for nid, n in self.nodes.items()
                 if n.get("kind") == "file"
             }
+            excludes = self._exclude_globs
+            if excludes:
+                filtered: Dict[str, Dict[str, Any]] = {}
+                for nid, n in raw.items():
+                    fp = n.get("file_path", "")
+                    if fp and matches_any_glob(fp, excludes):
+                        continue  # Excluded by repo_policy
+                    filtered[nid] = n
+                self._file_nodes = filtered
+            else:
+                self._file_nodes = raw
         return self._file_nodes
 
     @property

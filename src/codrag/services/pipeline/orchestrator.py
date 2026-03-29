@@ -74,6 +74,8 @@ class PipelineOrchestrator:
         self._crashed_runs: List[Any] = []
         # Phase 49: per-run metadata objects
         self._run_metadata: Dict[tuple[str, str], Any] = {}  # (project_id, group) → PipelineRunMetadata
+        # Phase 53: track which projects are in incremental mode
+        self._incremental_runs: set[str] = set()
 
     def _get_file_logger(self, project_id: str):
         """Get or create a PipelineFileLogger for a project."""
@@ -103,25 +105,71 @@ class PipelineOrchestrator:
         Phase 53: When all stages are "complete" on disk, checks for stale
         or untraced files via check_coverage_gap().  If changes are detected,
         re-runs from Stage 1 (structural) so the trace graph picks up the
-        new/changed files and cascades invalidation to downstream stages.
+        new/changed files.  Uses "incremental" mode which prevents
+        manifest-timestamp-based cascade invalidation of downstream stages
+        — their workers already handle incrementality internally.
         """
+        incremental = False
         resume = 0 if force_from_start else self._detect_resume_point(project_id, FAST_SYNC_STAGES)
+
+        # Phase 60A: Log the trigger decision to pipeline file logger
+        pfl = self._get_file_logger(project_id)
+
+        if force_from_start and pfl:
+            pfl.decision("mode_selection", "force_from_start", {
+                "group": "fast_sync",
+                "reason": "Caller requested force_from_start=True",
+                "resume_point": 0,
+            })
+
         if resume >= len(FAST_SYNC_STAGES):
             # Phase 53: All manifests exist — but are there stale files?
             try:
                 gap = self.check_coverage_gap(project_id)
+
+                if pfl:
+                    pfl.decision("coverage_gap", "checked", {
+                        "group": "fast_sync",
+                        "needs_rebuild": gap.get("needs_rebuild", False),
+                        "stale": gap.get("stale", 0),
+                        "untraced": gap.get("untraced", 0),
+                        "coverage_pct": gap.get("coverage_pct", 0),
+                        "total_nodes": gap.get("total_nodes", 0),
+                    })
+
                 if gap["needs_rebuild"]:
+                    stale = gap.get("stale", 0)
+                    untraced = gap.get("untraced", 0)
                     logger.info(
                         "All fast_sync stages complete but %d stale + %d untraced "
                         "files for %s — re-running from structural for incremental update",
-                        gap.get("stale", 0), gap.get("untraced", 0), project_id,
+                        stale, untraced, project_id,
                     )
                     resume = 0  # Start from Stage 1 to rebuild trace graph
+                    # Mark as incremental: all stages already have data,
+                    # workers will skip already-processed items, we should
+                    # NOT cascade-invalidate downstream via manifest mtimes.
+                    incremental = True
+
+                    if pfl:
+                        pfl.decision("mode_selection", "incremental", {
+                            "group": "fast_sync",
+                            "reason": f"All stages complete, {stale} stale + {untraced} untraced files",
+                            "stale_files": stale,
+                            "untraced_files": untraced,
+                            "resume_point": 0,
+                        })
                 else:
                     logger.info(
                         "All fast_sync stages complete and no stale files for %s — up to date",
                         project_id,
                     )
+                    if pfl:
+                        pfl.decision("mode_selection", "skip_up_to_date", {
+                            "group": "fast_sync",
+                            "reason": "All stages complete, no stale/untraced files",
+                            "coverage_pct": gap.get("coverage_pct", 0),
+                        })
                     return False
             except Exception:
                 logger.info("All fast_sync stages already complete on disk for %s — skipping", project_id)
@@ -131,6 +179,30 @@ class PipelineOrchestrator:
                 "Resuming fast_sync for %s from stage %d/%d (%s) — stages 0-%d already on disk",
                 project_id, resume, len(FAST_SYNC_STAGES),
                 FAST_SYNC_STAGES[resume].value, resume - 1,
+            )
+            if pfl:
+                pfl.decision("mode_selection", "resume", {
+                    "group": "fast_sync",
+                    "reason": f"Stages 0-{resume-1} complete on disk, resuming from {FAST_SYNC_STAGES[resume].value}",
+                    "resume_point": resume,
+                    "resume_stage": FAST_SYNC_STAGES[resume].value,
+                })
+        elif not incremental:
+            if pfl:
+                pfl.decision("mode_selection", "initial_full_run", {
+                    "group": "fast_sync",
+                    "reason": "No stages complete on disk, starting from scratch",
+                    "resume_point": 0,
+                })
+        if incremental:
+            # Track that this is an incremental run so that:
+            # 1. _detect_resume_point skips mtime cascade for deep_enrichment
+            # 2. run_deep_enrichment doesn't delete deep manifests
+            self._incremental_runs.add(project_id)
+            logger.info(
+                "[%s] Running fast_sync in INCREMENTAL mode — downstream stages "
+                "will add new/stale files without full rebuild",
+                project_id,
             )
         return self._start_group(project_id, "fast_sync", FAST_SYNC_STAGES, resume_from=resume)
 
@@ -143,42 +215,57 @@ class PipelineOrchestrator:
         catalogue manifest (fast sync output) is newer than any deep
         manifest — meaning fast sync re-ran for stale files and deep
         stages need to re-process the updated data.
+
+        Note: If the preceding fast_sync was incremental (small coverage
+        gap), we skip the "delete stale deep manifests" logic.  The deep
+        workers already handle incrementality internally — they'll pick
+        up new/changed nodes without needing a full restart.
         """
-        resume = 0 if force_from_start else self._detect_resume_point(project_id, DEEP_ENRICHMENT_STAGES)
+        # Check if the preceding fast_sync was incremental
+        is_incremental = project_id in self._incremental_runs
+        self._incremental_runs.discard(project_id)
+
+        resume = 0 if force_from_start else self._detect_resume_point(
+            project_id, DEEP_ENRICHMENT_STAGES, skip_mtime_cascade=is_incremental,
+        )
         if resume >= len(DEEP_ENRICHMENT_STAGES):
-            # Phase 53: Check if fast sync output is newer than deep manifests
-            try:
-                from pathlib import Path
-                from codrag.services.project_helpers import require_project
-                from codrag.core.project_registry import project_index_dir
-                project = require_project(project_id)
-                idx_dir = Path(project_index_dir(project))
-                catalogue_manifest = idx_dir / "trace_augment_manifest.json"
-                if catalogue_manifest.exists():
-                    cat_mtime = catalogue_manifest.stat().st_mtime
-                    # Check if any deep manifest is older than catalogue
-                    for stage in DEEP_ENRICHMENT_STAGES:
-                        mf = STAGE_MANIFEST_FILE.get(stage)
-                        if mf:
-                            mp = idx_dir / mf
-                            if mp.exists() and mp.stat().st_mtime < cat_mtime:
-                                logger.info(
-                                    "Deep stage %s manifest is stale (catalogue was re-run) "
-                                    "for %s — re-running deep enrichment from %s",
-                                    stage.value, project_id, stage.value,
-                                )
-                                # Delete stale deep manifests so they re-run
-                                for ds in DEEP_ENRICHMENT_STAGES:
-                                    dmf = STAGE_MANIFEST_FILE.get(ds)
-                                    if dmf:
-                                        dmp = idx_dir / dmf
-                                        if dmp.exists() and dmp.stat().st_mtime < cat_mtime:
-                                            dmp.unlink(missing_ok=True)
-                                            logger.info("Deleted stale deep manifest: %s", dmf)
-                                resume = 0
-                                break
-            except Exception:
-                pass
+            if is_incremental:
+                # After incremental fast_sync, deep stages already have data.
+                # Don't cascade-invalidate — workers will pick up the delta.
+                logger.info(
+                    "All deep_enrichment stages complete and fast_sync was incremental "
+                    "for %s — running deep stages in incremental mode",
+                    project_id,
+                )
+                resume = 0  # Run all stages, but workers skip existing data
+            else:
+                # Phase 53: Check if fast sync output is newer than deep manifests.
+                # Instead of deleting stale manifests (which forces a full rebuild),
+                # just restart from stage 0 and let workers handle incrementality.
+                # Workers internally skip already-processed items.
+                try:
+                    from codrag.services.project_helpers import require_project
+                    from codrag.core.project_registry import project_index_dir
+                    project = require_project(project_id)
+                    idx_dir = Path(project_index_dir(project))
+                    catalogue_manifest = idx_dir / "trace_augment_manifest.json"
+                    if catalogue_manifest.exists():
+                        cat_mtime = catalogue_manifest.stat().st_mtime
+                        # Check if any deep manifest is older than catalogue
+                        for stage in DEEP_ENRICHMENT_STAGES:
+                            mf = STAGE_MANIFEST_FILE.get(stage)
+                            if mf:
+                                mp = idx_dir / mf
+                                if mp.exists() and mp.stat().st_mtime < cat_mtime:
+                                    logger.info(
+                                        "Deep stage %s manifest is stale (catalogue was re-run) "
+                                        "for %s — re-running deep enrichment incrementally",
+                                        stage.value, project_id,
+                                    )
+                                    resume = 0
+                                    break
+                except Exception:
+                    pass
             if resume >= len(DEEP_ENRICHMENT_STAGES):
                 logger.info("All deep_enrichment stages already complete on disk for %s — skipping", project_id)
                 return False
@@ -341,6 +428,7 @@ class PipelineOrchestrator:
                 (fast_run.is_active if fast_run else False) or
                 (deep_run.is_active if deep_run else False)
             ),
+            "run_mode": "incremental" if project_id in self._incremental_runs else None,
         }
 
     def cancel_fast_sync(self, project_id: str) -> bool:
@@ -588,7 +676,7 @@ class PipelineOrchestrator:
                     )
 
                 started = self.run_fast_sync(
-                    project_id, force_from_start=True,
+                    project_id,
                 )
                 logger.info(
                     "Coverage retrigger for %s: started=%s",
@@ -648,7 +736,11 @@ class PipelineOrchestrator:
     # ── Internal ───────────────────────────────────────────────
 
     @staticmethod
-    def _detect_resume_point(project_id: str, stages: List[StageId]) -> int:
+    def _detect_resume_point(
+        project_id: str,
+        stages: List[StageId],
+        skip_mtime_cascade: bool = False,
+    ) -> int:
         """Detect the first incomplete stage by checking manifest files on disk.
 
         A stage is considered "complete" if its **manifest file** exists.
@@ -659,6 +751,13 @@ class PipelineOrchestrator:
         For the structural stage (stage 1), we check if trace_nodes.jsonl
         exists since it doesn't have a separate manifest in the same
         sense — trace_manifest.json is the output.
+
+        Args:
+            skip_mtime_cascade: If True, don't invalidate downstream stages
+                based on manifest timestamps.  Used for incremental runs
+                where the structural trace was rebuilt for a small coverage
+                gap — the downstream stages already have data and their
+                workers handle incrementality internally.
 
         Returns the index of the first incomplete stage.  If all stages
         are complete, returns ``len(stages)``.
@@ -678,8 +777,11 @@ class PipelineOrchestrator:
         # re-run because its input data (the trace graph) changed.
         structural_manifest = idx_dir / "trace_manifest.json"
         baseline_mtime = 0.0
-        if structural_manifest.exists():
+        if not skip_mtime_cascade and structural_manifest.exists():
             baseline_mtime = structural_manifest.stat().st_mtime
+
+        # Phase 60A: Collect per-stage decisions for logging
+        stage_decisions: list[dict] = []
 
         for i, stage in enumerate(stages):
             # The manifest file is the completion signal.
@@ -690,16 +792,8 @@ class PipelineOrchestrator:
                 mpath = idx_dir / manifest_file
                 if mpath.exists() and mpath.stat().st_size > 0:
                     # Phase 48-F8: For the structural stage, verify the
-                    # manifest actually reports nodes.  A manifest with
-                    # 0 nodes means the Rust engine (or Python builder)
-                    # ran but produced nothing — treat as incomplete so
-                    # the stage re-runs instead of silently skipping it.
+                    # manifest actually reports nodes.
                     if stage == StageId.STRUCTURAL:
-                        # The manifest itself doesn't store node counts
-                        # (it only has metadata like format_version,
-                        # stage_id, run_id).  Check trace_nodes.jsonl
-                        # for actual content — if it's empty the build
-                        # produced nothing and needs to re-run.
                         nodes_path = idx_dir / "trace_nodes.jsonl"
                         if not nodes_path.exists() or nodes_path.stat().st_size == 0:
                             logger.warning(
@@ -707,12 +801,18 @@ class PipelineOrchestrator:
                                 "trace_nodes.jsonl is missing/empty "
                                 "— treating as incomplete (needs rebuild)"
                             )
+                            stage_decisions.append({
+                                "stage": stage.value, "decision": "INCOMPLETE",
+                                "reason": "Manifest exists but trace_nodes.jsonl missing/empty",
+                            })
+                            self._log_resume_decisions(project_id, stages, i, stage_decisions, skip_mtime_cascade)
                             return i
 
                     # Check staleness: is this manifest older than the
-                    # structural trace?  If so, the trace was rebuilt after
-                    # this stage ran — re-run needed.
-                    if stage != StageId.STRUCTURAL and baseline_mtime > 0:
+                    # structural trace?
+                    if (not skip_mtime_cascade
+                            and stage != StageId.STRUCTURAL
+                            and baseline_mtime > 0):
                         manifest_mtime = mpath.stat().st_mtime
                         if manifest_mtime < baseline_mtime:
                             logger.info(
@@ -720,18 +820,23 @@ class PipelineOrchestrator:
                                 "trace was rebuilt after this stage last ran",
                                 stage.value, manifest_mtime, baseline_mtime,
                             )
+                            stage_decisions.append({
+                                "stage": stage.value, "decision": "STALE_MTIME",
+                                "reason": f"Manifest mtime {manifest_mtime:.0f} < structural mtime {baseline_mtime:.0f}",
+                                "age_gap_seconds": round(baseline_mtime - manifest_mtime, 1),
+                            })
+                            self._log_resume_decisions(project_id, stages, i, stage_decisions, skip_mtime_cascade)
                             return i
+
+                    stage_decisions.append({
+                        "stage": stage.value, "decision": "COMPLETE",
+                        "manifest_size": mpath.stat().st_size,
+                    })
                     continue  # Stage completed and fresh — skip
 
                 # Manifest missing or empty — stage needs to run.
-                # (Output file may have partial checkpoint data — the
-                # worker's incremental logic will skip already-done items.)
 
-                # Atlas crash-loop guard: if atlas_manifest.json is
-                # missing but atlas.json exists, the worker completed
-                # but the process died before the orchestrator wrote
-                # the manifest.  Skip the atlas stage to break the
-                # infinite crash loop.
+                # Atlas crash-loop guard
                 if stage == StageId.ATLAS:
                     atlas_json = idx_dir / "atlas.json"
                     if atlas_json.exists() and atlas_json.stat().st_size > 10:
@@ -740,8 +845,17 @@ class PipelineOrchestrator:
                             "— treating atlas as complete (crash recovery)",
                             atlas_json.stat().st_size,
                         )
+                        stage_decisions.append({
+                            "stage": stage.value, "decision": "CRASH_RECOVERY",
+                            "reason": f"Atlas manifest missing but atlas.json exists ({atlas_json.stat().st_size} bytes)",
+                        })
                         continue
 
+                stage_decisions.append({
+                    "stage": stage.value, "decision": "MISSING_MANIFEST",
+                    "reason": f"{manifest_file} missing or empty",
+                })
+                self._log_resume_decisions(project_id, stages, i, stage_decisions, skip_mtime_cascade)
                 return i
 
             # Stage has no manifest mapping — check output file existence
@@ -749,13 +863,65 @@ class PipelineOrchestrator:
             if output_file:
                 opath = idx_dir / output_file
                 if opath.exists() and opath.stat().st_size > 0:
+                    stage_decisions.append({
+                        "stage": stage.value, "decision": "COMPLETE",
+                        "output_size": opath.stat().st_size,
+                    })
                     continue
+                stage_decisions.append({
+                    "stage": stage.value, "decision": "MISSING_OUTPUT",
+                    "reason": f"{output_file} missing or empty",
+                })
+                self._log_resume_decisions(project_id, stages, i, stage_decisions, skip_mtime_cascade)
                 return i
 
             # No manifest and no output file — assume needs to run
+            stage_decisions.append({
+                "stage": stage.value, "decision": "NO_OUTPUT_FILE",
+                "reason": "No manifest or output file configured",
+            })
+            self._log_resume_decisions(project_id, stages, i, stage_decisions, skip_mtime_cascade)
             return i
 
-        return len(stages)  # All stages complete
+        # All stages complete
+        self._log_resume_decisions(project_id, stages, len(stages), stage_decisions, skip_mtime_cascade)
+        return len(stages)
+
+    def _log_resume_decisions(
+        self,
+        project_id: str,
+        stages: list,
+        resume_index: int,
+        stage_decisions: list[dict],
+        skip_mtime_cascade: bool,
+    ) -> None:
+        """Log the per-stage resume point decision audit trail.
+
+        Called at the end of _detect_resume_point to write a structured
+        decision event showing WHY each stage was skipped or selected
+        as the resume point.  This is the single most important log
+        for diagnosing 'pipeline restarted from scratch' issues.
+        """
+        try:
+            pfl = self._get_file_logger(project_id)
+            if not pfl:
+                return
+
+            all_complete = resume_index >= len(stages)
+            resume_stage = None if all_complete else stages[resume_index].value
+
+            pfl.decision("resume_point", resume_stage or "all_complete", {
+                "resume_index": resume_index,
+                "total_stages": len(stages),
+                "all_complete": all_complete,
+                "skip_mtime_cascade": skip_mtime_cascade,
+                "per_stage": stage_decisions,
+            })
+        except Exception:
+            logger.debug(
+                "Failed to log resume decisions (non-fatal)",
+                exc_info=True,
+            )
 
     @staticmethod
     def _is_deep_enrichment_auto(project_id: str) -> bool:
@@ -1070,6 +1236,9 @@ class PipelineOrchestrator:
         # Phase 25: checkpoint — backup trace files before destructive stages
         self._create_checkpoint_if_needed(run, stage)
 
+        # Phase 60A: integrity guard — snapshot data files before stage runs
+        self._integrity_snapshot_before_stage(run, stage)
+
         worker = WorkerFactory.create_worker(run.project_id, stage)
         started = self._orchestrator.start(run.project_id, build_type, worker)
 
@@ -1177,6 +1346,9 @@ class PipelineOrchestrator:
                         self._generate_preliminary_atlas_and_rules(project_id)
                     elif stage == StageId.ATLAS:
                         self._regenerate_rules_with_full_atlas(project_id)
+
+                    # Phase 60A: integrity guard — compare post-flight vs pre-flight
+                    self._integrity_check_after_stage(matching_run, stage, pfl)
                 except Exception:
                     logger.exception(
                         "Post-completion bookkeeping failed for %s/%s stage %s "
@@ -1707,6 +1879,7 @@ class PipelineOrchestrator:
                 is_preliminary=is_prelim,
                 stats=stats,
                 ide="auto",
+                project_id=project_id,
             )
             # D1: Write signal file so MCP server detects atlas change
             self._write_atlas_signal(idx_dir)
@@ -1764,6 +1937,7 @@ class PipelineOrchestrator:
                 is_preliminary=False,
                 stats=stats,
                 ide="auto",
+                project_id=project_id,
             )
             # D1: Write signal file so MCP server detects atlas change
             self._write_atlas_signal(idx_dir)
@@ -1933,6 +2107,100 @@ class PipelineOrchestrator:
                 journal.set_checkpoint(run.journal_run_id, cp_path)
         except Exception:
             logger.debug("Checkpoint creation failed (non-fatal)", exc_info=True)
+
+    # ── Phase 60A: Integrity Guard ────────────────────────────────
+
+    def _integrity_snapshot_before_stage(
+        self, run: PipelineGroupStateMachine, stage: StageId,
+    ) -> None:
+        """Take a pre-flight snapshot of the stage's output files.
+
+        Non-fatal: logged at DEBUG/INFO, never blocks the pipeline.
+        """
+        try:
+            from codrag.services.pipeline_integrity import integrity_guard
+            from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
+            project = require_project(run.project_id)
+            idx_dir = Path(project_index_dir(project))
+
+            is_incremental = run.project_id in self._incremental_runs
+
+            snapshot = integrity_guard.snapshot_before_stage(
+                run.project_id, stage.value, idx_dir,
+                is_incremental=is_incremental,
+            )
+
+            # Log to pipeline file logger for verbose telemetry
+            pfl = self._get_file_logger(run.project_id)
+            if pfl:
+                file_info = {}
+                for fname, fs in snapshot.files.items():
+                    if fs.exists:
+                        file_info[fname] = f"{fs.record_count} records, {fs.size_bytes} bytes"
+                    else:
+                        file_info[fname] = "absent"
+                pfl.log(
+                    stage.value,
+                    f"Integrity PRE-FLIGHT: {file_info}"
+                    + (f" [INCREMENTAL]" if is_incremental else " [INITIAL]"),
+                )
+        except Exception:
+            logger.debug(
+                "Integrity guard pre-flight failed (non-fatal) for %s/%s",
+                run.project_id, stage.value, exc_info=True,
+            )
+
+    def _integrity_check_after_stage(
+        self,
+        run: PipelineGroupStateMachine,
+        stage: StageId,
+        pfl: Any = None,
+    ) -> None:
+        """Compare post-flight state against the pre-flight snapshot.
+
+        Non-fatal: logged at INFO/WARNING, never blocks the pipeline.
+        Writes detailed verdict to the pipeline file logger for post-hoc
+        debugging of data loss issues.
+        """
+        try:
+            from codrag.services.pipeline_integrity import integrity_guard
+            from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
+            project = require_project(run.project_id)
+            idx_dir = Path(project_index_dir(project))
+
+            verdict = integrity_guard.check_after_stage(
+                run.project_id, stage.value, idx_dir,
+            )
+
+            # Always log to pipeline file logger (verbose telemetry)
+            if pfl:
+                # Build a readable summary of per-file changes
+                summaries = []
+                for fname, fv in verdict.file_verdicts.items():
+                    summary = fv.get("summary", f"{fname}: {fv.get('direction', '?')}")
+                    summaries.append(summary)
+
+                level_tag = verdict.level.upper()
+                pfl.log(
+                    stage.value,
+                    f"Integrity POST-FLIGHT [{level_tag}]: "
+                    + " | ".join(summaries),
+                )
+
+                # Extra detail for critical/warning verdicts
+                if verdict.level in ("critical", "warning"):
+                    import json
+                    pfl.log(
+                        stage.value,
+                        f"Integrity DETAIL: {json.dumps(verdict.to_log_dict(), indent=2)}",
+                    )
+        except Exception:
+            logger.debug(
+                "Integrity guard post-flight failed (non-fatal) for %s/%s",
+                run.project_id, stage.value, exc_info=True,
+            )
 
     # ── Phase 25: Crash Recovery ──────────────────────────────────
 
@@ -2168,16 +2436,43 @@ class PipelineOrchestrator:
                     manifest.model = model_info
                 elif stage in (StageId.KNOWLEDGE, StageId.DEEP_KNOWLEDGE):
                     # Phase 55: Inject embedding model info manually
-                    # Embeddings don't use the LLM subsystem so they don't produce _model_info
+                    # Embeddings don't use the LLM subsystem so they don't produce _model_info.
+                    # Use embedding_model (not model) to avoid overwriting KnowledgeIndex's
+                    # own manifest.model string that it uses for incremental reuse detection.
                     try:
                         from codrag.server import _load_ui_config
                         cfg = _load_ui_config()
-                        embed_cfg = cfg.get("embedding", {})
-                        manifest.model = {
-                            "provider": embed_cfg.get("provider", "ollama"),
-                            "model_name": embed_cfg.get("model", "nomic-embed-text"),
-                            "task_id": "knowledge_embedding"
-                        }
+                        llm_cfg = cfg.get("llm_config") or {}
+                        embed_cfg = llm_cfg.get("embedding") or {}
+                        source = embed_cfg.get("source", "")
+                        if source == "huggingface":
+                            manifest.embedding_model = {
+                                "provider": "native",
+                                "model_name": "nomic-embed-text-v1.5",
+                                "task_id": "knowledge_embedding",
+                            }
+                        elif source == "endpoint":
+                            manifest.embedding_model = {
+                                "provider": "ollama",
+                                "model_name": embed_cfg.get("model", "nomic-embed-text"),
+                                "task_id": "knowledge_embedding",
+                            }
+                        else:
+                            # Auto-detect: check if NativeEmbedder is available
+                            from codrag.core import NativeEmbedder
+                            native = NativeEmbedder()
+                            if native.is_available():
+                                manifest.embedding_model = {
+                                    "provider": "native",
+                                    "model_name": "nomic-embed-text-v1.5",
+                                    "task_id": "knowledge_embedding",
+                                }
+                            else:
+                                manifest.embedding_model = {
+                                    "provider": "ollama",
+                                    "model_name": "nomic-embed-text",
+                                    "task_id": "knowledge_embedding",
+                                }
                     except Exception as e:
                         logger.warning("Failed to inject embedding model info: %s", e)
 

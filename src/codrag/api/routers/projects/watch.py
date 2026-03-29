@@ -114,13 +114,30 @@ def start_project_watch(
                 if not fast_auto:
                     logger.debug("Watcher: skipped pipeline trigger for %s — fast_sync auto is disabled", proj.id)
                     return False
+
+                # Phase 60A: Log trigger source to pipeline file logger
+                is_coverage = paths == ["__coverage_gap__"]
+                trigger_source = "coverage_check" if is_coverage else "watcher_file_change"
+                try:
+                    from codrag.services.pipeline_logger import get_pipeline_logger
+                    from codrag.core.project_registry import project_index_dir
+                    pfl = get_pipeline_logger(project_index_dir(proj))
+                    pfl.decision("trigger_source", trigger_source, {
+                        "project_id": proj.id,
+                        "changed_paths_count": len(paths),
+                        "changed_paths_sample": paths[:5] if not is_coverage else [],
+                        "fast_auto": fast_auto,
+                        "deep_mode": (pc.get("deep_enrichment") or {}).get("mode", "manual"),
+                    })
+                except Exception:
+                    pass  # Decision logging is non-fatal
                     
                 deep_mode = (pc.get("deep_enrichment") or {}).get("mode", "manual")
                 if deep_mode == "auto":
-                    started = pipeline_orchestrator.run_all(proj.id, force_from_start=True)
+                    started = pipeline_orchestrator.run_all(proj.id)
                     logger.info("Watcher: run_all for %s (fast+deep auto) — started=%s", proj.id, started)
                 else:
-                    started = pipeline_orchestrator.run_fast_sync(proj.id, force_from_start=True)
+                    started = pipeline_orchestrator.run_fast_sync(proj.id)
                     logger.info("Watcher: run_fast_sync for %s — started=%s", proj.id, started)
                 return True
             except Exception:

@@ -622,6 +622,20 @@ def configure(
     except Exception:
         logger.debug("Orphan pruning failed (non-fatal)", exc_info=True)
 
+    # Phase 55: Validate and heal .codrag/project.json pointers
+    # Ensures every project has a pointer with the correct ID,
+    # preventing MCP routing failures for pre-existing projects.
+    try:
+        report = reg.validate_and_heal_pointers()
+        if report.get("healed"):
+            logger.info("Healed %d project pointer(s): %s",
+                        len(report["healed"]), ", ".join(report["healed"]))
+        if report.get("stale"):
+            logger.warning("Stale project path(s) (disk missing): %s",
+                           ", ".join(report["stale"]))
+    except Exception:
+        logger.debug("Pointer validation failed (non-fatal)", exc_info=True)
+
     # Initialize pipeline journal + crash recovery (Phase 25)
     from codrag.services.pipeline_journal import journal as _journal
     _journal.init(db_path)

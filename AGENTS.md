@@ -3,9 +3,14 @@
 <!-- codrag-managed-start -->
 ## CoDRAG Integration
 
-Last updated: 2026-03-28T01:29:15Z
+Last updated: 2026-03-28T19:25:10Z
 
 ## 🚨 CRITICAL: Tool Calling Instructions
+
+codrag_project_id: 1d6f0b35-45cb-427b-ae9d-aac3c6371a4b
+
+**ROUTING: When calling ANY CoDRAG tool, ALWAYS include `project_id: "1d6f0b35-45cb-427b-ae9d-aac3c6371a4b"` in the arguments.**
+This ensures your calls reach the correct project index.
 
 When user types "codrag" → IMMEDIATELY call the `codrag` tool.
 When user mentions code search → IMMEDIATELY call `codrag_search`.
@@ -15,8 +20,8 @@ No announcements. No 'I will'. Just call the tool.
 ### Quick Reference
 | User Says | You Do |
 |-----------|--------|
-| "codrag" | Call `codrag()` immediately |
-| "search for X" | Call `codrag_search(query="X")` |
+| "codrag" | Call `codrag(project_id="1d6f0b35-45c...")` immediately |
+| "search for X" | Call `codrag_search(query="X", project_id="1d6f0b35-45c...")` |
 | "find where X is defined" | Call `codrag_search(query="X")` |
 | "how does this project work" | Call `codrag()` for overview |
 | "codrag context" | Call `codrag()` for ambient context |
@@ -36,18 +41,25 @@ All CoDRAG tools are read-only and safe to auto-approve.
 
 ## Codebase Atlas
 
-IDENTITY: Codrag is a local-first AI coding assistant with MCP integration, RAG capabilities, and a multi-interface architecture spanning VSCode extension, Tauri dashboard, and design system components.
+IDENTITY: A local-first AI coding assistant with MCP integration, featuring a VS Code extension, React dashboard, and shared UI component library.
 
-STACK: Rust (engine/crates/codrag-graph), TypeScript/React (packages/ui, dashboard, webview-ui), Python (239 files), Tauri (src-tauri/src/main.rs), Storybook, CSS modules. Build tooling includes standard TS/React toolchain with custom graph analysis pipeline.
+STACK: TypeScript, React, Python, Rust, Tauri. Build tools include Storybook for design system documentation and standard tooling for VS Code extension packaging. 1143 files across 5085 graph nodes with 21767 edges. Primary languages: Markdown (468), Python (249), TSX (180), TypeScript (77), JSON (57), CSS (35), HTML (24), Rust (16).
 
-WORKSPACE MAP: Project Root (_root, 809 files): MCP orchestration, local-first sync, marketing site foundation; Ui (packages/ui, 224 files): design-system, component-library, Storybook documentation; Dashboard (src/codrag/dashboard, 35 files): Tauri-based stateful UI with React hooks and security layer; Vscode (packages/vscode, 20 files): extension host, daemon integration, embeddings pipeline, RAG services; Webview Ui (packages/vscode/webview-ui, 14 files): VSCode-embedded React UI with code-navigation features.
+WORKSPACE MAP:
+_root (842 files): MCP, marketing, UI foundations, local-first architecture, security
+packages/ui (230 files): UI component library, Storybook design system, dashboard primitives
+src/codrag/dashboard (37 files): Dashboard application with React hooks and state management
+packages/vscode (20 files): VS Code extension with daemon integration, embeddings, and RAG
+packages/vscode/webview-ui (14 files): VS Code webview React UI with build tooling and code navigation
 
-CROSS-CUTTING: Five entry points anchor the graph: codrag-graph Rust engine, navigation and trace component indices, Tauri main.rs, and marketing index. Shared domains ui, rag, dashboard, and vscode-extension create horizontal coupling. Hub files concentrate connectivity in TEST2/website.clean marketing pages (download, privacy, terms, refund) and HeroSection component. Directory dependencies show engine, packages, and docs as symbolic targets. 61 import cycles detected. Longest chains reveal TEST2/website.clean as deep dependency sink across all entry points.
+CROSS-CUTTING: Shared domains are ui, dashboard, and vscode-extension. Five hub files in TEST2/website.clean drive cross-segment connectivity: download/page.tsx (3294 edges), privacy/page.tsx (1176 edges), terms/page.tsx (1066 edges), HeroSection.tsx (957 edges), and refund/page.tsx (949 edges). Entry points include packages/ui/src/index.ts, packages/ui/src/components/search/index.ts, src/codrag/cli.py, src/codrag/dashboard/src-tauri/src/main.rs, and packages/ui/src/types/index.ts. 113 import cycles present. Longest import chains span from core UI exports through TEST2 website components, with packages/ui/src/index.ts and packages/ui/src/components/search/index.ts as primary upstream sources. Directory dependencies show engine, packages, public, and scripts segments consuming symbols from across the workspace.
 
 ## Focus Areas
 - docs/Phase24_StateMachine/README.md
 - docs/Phase41_Managing-Mulitiple-Projects/README.md
 - docs/Phase48_fix-pipeline/README.md
+- docs/Phase57_Goalposts/01_Goalposts_Vision.md
+- docs/Phase59_Roadmap
 - src/codrag/core/llm_client.py
 - src/codrag/core/model_awareness.py
 - src/codrag/core/model_readiness.py

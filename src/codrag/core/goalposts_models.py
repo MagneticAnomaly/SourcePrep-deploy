@@ -385,6 +385,8 @@ class RoadmapState:
     generation_tokens: int = 0
     generation_duration_ms: float = 0.0
     github_sync: Optional[Dict[str, Any]] = None  # GitHubSyncState.to_dict()
+    last_mined_at: str = ""                         # ISO timestamp of last mining run
+    mining_stats: Optional[Dict[str, int]] = None   # {"audit": 5, "hotspots": 3, "keywords": 12, ...}
     version: int = 1
 
     # ── Tier filters ─────────────────────────────────────────────
@@ -435,6 +437,8 @@ class RoadmapState:
             "generation_tokens": self.generation_tokens,
             "generation_duration_ms": round(self.generation_duration_ms, 1),
             "github_sync": self.github_sync,
+            "last_mined_at": self.last_mined_at,
+            "mining_stats": self.mining_stats,
         }
 
     @classmethod
@@ -448,6 +452,8 @@ class RoadmapState:
             generation_tokens=d.get("generation_tokens", 0),
             generation_duration_ms=d.get("generation_duration_ms", 0.0),
             github_sync=d.get("github_sync"),
+            last_mined_at=d.get("last_mined_at", ""),
+            mining_stats=d.get("mining_stats"),
             version=d.get("version", 1),
         )
 

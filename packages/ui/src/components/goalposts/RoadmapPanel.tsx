@@ -23,17 +23,23 @@ import {
   MessageSquare,
   Copy,
   Bot,
-  GitBranch,
   Database,
 } from 'lucide-react';
 import { Button } from '../primitives/Button';
 import { cn } from '../../lib/utils';
 import { RoadmapTimeline } from './RoadmapTimeline';
+import { NodeDetailView } from './NodeDetailView';
+import { VelocityBar } from './VelocityBar';
+import { SprintCard } from './SprintCard';
+import { BurndownChart } from './BurndownChart';
+import { GitHubStatusBadge } from './GitHubStatusBadge';
 import type {
   RoadmapNode,
   RoadmapTier,
   RoadmapNorthStar,
   GoalpostQuestion,
+  VelocityResponse,
+  SprintSuggestion,
 } from '../../types';
 
 // ── Props ──────────────────────────────────────────────────────
@@ -59,6 +65,14 @@ export interface RoadmapPanelProps {
   lastGeneratedAt: string;
   /** Model used */
   modelUsed: string;
+  
+  /** Velocity data for tracking */
+  velocityData?: VelocityResponse | null;
+  /** Sprint suggestions */
+  sprintSuggestion?: SprintSuggestion | null;
+  /** Whether sprint suggestion is generating */
+  loadingSprint?: boolean;
+
   /** Callbacks */
   onGenerate: () => void;
   onScanTodos: () => void;
@@ -68,10 +82,16 @@ export interface RoadmapPanelProps {
   onDeleteNode: (nodeId: string) => void;
   onCreateNode: (node: { title: string; description?: string; tier?: string; category?: string; priority?: string }) => void;
   onAnswerQuestion: (questionId: string, answer: string) => void;
+  
   /** Phase 59D: GitHub sync */
   onSyncGitHub?: () => void;
-  /** Phase 59D: Pipeline mining */
+  onPushToGitHub?: (nodeId: string) => void;
+  /** GitHub status for badge */
+  githubStatus?: { configured: boolean; owner?: string; repo?: string; syncing?: boolean; error?: string | null; last_sync?: string | null } | null;
+  
+  /** Phase 59D: Pipeline mining & AI Sprint */
   onMineRoadmap?: () => void;
+  onSuggestSprint?: () => void;
   className?: string;
 }
 
@@ -232,9 +252,12 @@ export function RoadmapPanel({
   nodes, questions, northStar, appEthos,
   generating, scanning, error, ready,
   lastGeneratedAt, modelUsed,
+  velocityData, sprintSuggestion, loadingSprint,
   onGenerate, onScanTodos, onUpdateEthos,
   onPromoteNode, onDismissNode, onDeleteNode: _onDeleteNode, onCreateNode,
   onAnswerQuestion, onSyncGitHub, onMineRoadmap,
+  onSuggestSprint, onPushToGitHub,
+  githubStatus,
   className,
 }: RoadmapPanelProps) {
   const [showAddForm, setShowAddForm] = useState(false);
@@ -243,6 +266,8 @@ export function RoadmapPanel({
   const unanswered = useMemo(() => questions.filter(q => !q.answered), [questions]);
   const answered = useMemo(() => questions.filter(q => q.answered), [questions]);
   const hasContent = nodes.length > 0 || questions.length > 0;
+  
+  const selectedNode = useMemo(() => nodes.find(n => n.id === selectedNodeId) || null, [nodes, selectedNodeId]);
 
   const tierCounts = useMemo(() => ({
     completed: nodes.filter(n => n.tier === 'completed').length,
@@ -298,11 +323,11 @@ export function RoadmapPanel({
     );
   }
 
-  // ── Main content ────────────────────────────────────────────
+  // ── Main content (Split Layout) ──────────────────────────────
   return (
-    <div className={cn('flex h-full flex-col', className)}>
+    <div className={cn('flex h-full flex-col min-h-0', className)}>
       {/* Header bar */}
-      <div className="flex flex-wrap items-center justify-between border-b border-border bg-surface px-3 py-2 gap-y-2">
+      <div className="flex flex-wrap items-center justify-between border-b border-border bg-surface px-3 py-2 gap-y-2 shrink-0">
         <div className="flex items-center gap-3">
           <span className="text-xs font-semibold text-text flex items-center gap-1.5">
             <Map className="h-3.5 w-3.5" />
@@ -311,7 +336,7 @@ export function RoadmapPanel({
           <div className="flex items-center gap-1 text-[10px] text-text-muted">
             {(['completed', 'active', 'planned', 'proposed'] as const).map(t => (
               <span key={t} className={cn(
-                'px-1.5 py-0.5 rounded',
+                'px-1.5 py-0.5 rounded flex items-center gap-1',
                 tierCounts[t] > 0 ? 'bg-surface-raised' : 'opacity-50',
               )}>
                 {t === 'completed' ? '✅' : t === 'active' ? '🔥' : t === 'planned' ? '📋' : '💡'}
@@ -329,11 +354,17 @@ export function RoadmapPanel({
               <Database className="h-3 w-3" /> Mine
             </Button>
           )}
-          {onSyncGitHub && (
-            <Button variant="ghost" size="sm" onClick={onSyncGitHub} className="gap-1 h-7 text-xs">
-              <GitBranch className="h-3 w-3" /> GitHub
-            </Button>
-          )}
+          {onSyncGitHub ? (
+            <GitHubStatusBadge
+              configured={githubStatus?.configured ?? false}
+              owner={githubStatus?.owner}
+              repo={githubStatus?.repo}
+              syncing={githubStatus?.syncing}
+              error={githubStatus?.error}
+              lastSync={githubStatus?.last_sync}
+              onSync={onSyncGitHub}
+            />
+          ) : null}
           <Button variant="ghost" size="sm" onClick={onScanTodos} disabled={scanning} className="gap-1 h-7 text-xs">
             {scanning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
             TODOs
@@ -347,83 +378,132 @@ export function RoadmapPanel({
 
       {/* Error bar */}
       {error && (
-        <div className="border-b border-red-500/30 bg-red-500/10 px-4 py-2 flex items-center gap-2">
+        <div className="border-b border-red-500/30 bg-red-500/10 px-4 py-2 flex items-center gap-2 shrink-0">
           <AlertCircle className="h-3.5 w-3.5 text-red-400 shrink-0" />
           <p className="text-xs text-red-400">{error}</p>
         </div>
       )}
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto">
-        {/* Ethos */}
-        <div className="p-4 border-b border-border/30">
-          <EthosEditor ethos={appEthos} onUpdate={onUpdateEthos} />
-        </div>
-
-        {/* Add form */}
-        {showAddForm && (
-          <div className="p-4 border-b border-border/30">
-            <AddNodeForm
-              onSubmit={(node) => { onCreateNode(node); setShowAddForm(false); }}
-              onCancel={() => setShowAddForm(false)}
-            />
-          </div>
-        )}
-
-        {/* Questions */}
-        {unanswered.length > 0 && (
-          <div className="p-4 border-b border-border/30">
-            <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-3 flex items-center gap-1.5">
-              <MessageSquare className="h-3.5 w-3.5" />
-              Questions for You ({unanswered.length})
-            </h3>
-            <div className="space-y-2">
-              {unanswered.map(q => (
-                <QuestionCard key={q.id} question={q} onAnswer={a => onAnswerQuestion(q.id, a)} />
-              ))}
+      {/* Split Content Area */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
+        
+        {/* Left Column: Timeline (40%) */}
+        <div className="w-full lg:w-[45%] h-full flex flex-col overflow-y-auto border-r border-border/50">
+          
+          {/* Add form */}
+          {showAddForm && (
+            <div className="p-4 border-b border-border/30 shrink-0">
+              <AddNodeForm
+                onSubmit={(node) => { onCreateNode(node); setShowAddForm(false); }}
+                onCancel={() => setShowAddForm(false)}
+              />
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Timeline */}
-        <div className="p-4">
-          <RoadmapTimeline
-            nodes={nodes}
-            northStar={northStar}
-            selectedNodeId={selectedNodeId}
-            onNodeClick={setSelectedNodeId}
-            onPromoteNode={onPromoteNode}
-            onDismissNode={onDismissNode}
-          />
-        </div>
-
-        {/* Answered questions (collapsible) */}
-        {answered.length > 0 && (
-          <div className="px-4 pb-4">
-            <details className="group">
-              <summary className="text-[10px] font-semibold text-text-muted uppercase tracking-wide cursor-pointer hover:text-text transition-colors">
-                Answered Questions ({answered.length})
-              </summary>
-              <div className="mt-2 space-y-2">
-                {answered.map(q => (
-                  <QuestionCard key={q.id} question={q} onAnswer={() => {}} />
+          {/* Unanswered Questions */}
+          {unanswered.length > 0 && (
+            <div className="p-4 border-b border-border/30 shrink-0">
+              <h3 className="text-[10px] font-semibold text-text-muted uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                <MessageSquare className="h-3.5 w-3.5" />
+                Questions for You ({unanswered.length})
+              </h3>
+              <div className="space-y-2">
+                {unanswered.map(q => (
+                  <QuestionCard key={q.id} question={q} onAnswer={a => onAnswerQuestion(q.id, a)} />
                 ))}
               </div>
-            </details>
-          </div>
-        )}
+            </div>
+          )}
 
-        {/* MCP reference */}
-        <div className="px-4 pb-4">
-          <div className="flex items-center gap-2">
-            <CopyBtn text="codrag_audit action='roadmap'" label="Copy MCP command" />
+          {/* Timeline */}
+          <div className="p-4 flex-1">
+            <RoadmapTimeline
+              nodes={nodes}
+              northStar={northStar}
+              selectedNodeId={selectedNodeId}
+              onNodeClick={setSelectedNodeId}
+            />
           </div>
+          
+          {/* Velocity Bar at bottom of Left Column */}
+          {velocityData && (
+            <div className="p-4 pt-0 shrink-0">
+               <VelocityBar velocityData={velocityData} />
+            </div>
+          )}
+          
+          {/* Answered questions (collapsible) */}
+          {answered.length > 0 && (
+            <div className="px-4 pb-4 shrink-0">
+              <details className="group">
+                <summary className="text-[10px] font-semibold text-text-muted uppercase tracking-wide cursor-pointer hover:text-text transition-colors">
+                  Answered Questions ({answered.length})
+                </summary>
+                <div className="mt-2 space-y-2">
+                  {answered.map(q => (
+                    <QuestionCard key={q.id} question={q} onAnswer={() => {}} />
+                  ))}
+                </div>
+              </details>
+            </div>
+          )}
+
+        </div>
+
+        {/* Right Column: Node Details or Strategic Context (55%) */}
+        <div className="w-full lg:w-[55%] h-full flex flex-col overflow-y-auto bg-surface/30">
+          
+          {selectedNode ? (
+            <NodeDetailView 
+              node={selectedNode}
+              isNorthStar={northStar?.id === selectedNode.id}
+              onPromote={onPromoteNode ? (tier) => onPromoteNode(selectedNode.id, tier) : undefined}
+              onDismiss={onDismissNode ? () => onDismissNode(selectedNode.id) : undefined}
+              onPushToGitHub={onPushToGitHub ? () => onPushToGitHub(selectedNode.id) : undefined}
+              onDelete={_onDeleteNode ? () => { _onDeleteNode(selectedNode.id); setSelectedNodeId(null); } : undefined}
+              onCopyForAI={() => { navigator.clipboard.writeText(JSON.stringify(selectedNode, null, 2)); }}
+            />
+          ) : (
+             <div className="flex-1 p-6 space-y-6 max-w-2xl">
+                <div>
+                   <h2 className="text-xl font-bold text-text mb-4">Strategic Overview</h2>
+                   <div className="shadow-sm">
+                     <EthosEditor ethos={appEthos} onUpdate={onUpdateEthos} />
+                   </div>
+                </div>
+
+                {onSuggestSprint && (
+                  <div>
+                    <h3 className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-3">
+                      Sprint Intelligence
+                    </h3>
+                    <SprintCard 
+                      suggestion={sprintSuggestion || null} 
+                      loading={loadingSprint || false} 
+                      onRefresh={onSuggestSprint} 
+                    />
+                  </div>
+                )}
+
+                {/* Burndown Chart */}
+                {velocityData?.burndown && velocityData.burndown.length >= 2 && (
+                  <div>
+                    <BurndownChart data={velocityData.burndown} />
+                  </div>
+                )}
+                
+                <div className="pt-4 flex items-center gap-2">
+                  <CopyBtn text="codrag_audit action='roadmap'" label="Copy MCP command" />
+                </div>
+             </div>
+          )}
+
         </div>
       </div>
 
       {/* Footer */}
       {lastGeneratedAt && (
-        <div className="border-t border-border/50 px-4 py-2 flex items-center justify-between text-[10px] text-text-muted">
+        <div className="border-t border-border/50 px-4 py-2 flex items-center justify-between text-[10px] text-text-muted shrink-0">
           <span>Last generated: {new Date(lastGeneratedAt).toLocaleString()}</span>
           {modelUsed && <span className="font-mono">{modelUsed}</span>}
         </div>

@@ -380,14 +380,39 @@ def check_index_staleness(project: Project, idx: CodeIndex) -> Dict[str, Any]:
             if now < expires_at:
                 return {"is_stale": is_stale, "stale_since": stale_since, "stale_count": stale_count}
 
-    # Get built_at from index stats
-    st = idx.stats()
-    built_at_str = st.get("built_at")
-    if not built_at_str or not st.get("loaded"):
-        result = {"is_stale": False, "stale_since": None, "stale_count": 0}
-        with _stale_cache_lock:
-            _stale_cache[project.id] = (now + _STALE_CACHE_TTL, False, None, 0)
-        return result
+    # Get built_at based on whether trace pipeline is enabled
+    cfg = project.config or {}
+    trace_cfg = cfg.get("trace") if isinstance(cfg.get("trace"), dict) else {}
+    trace_enabled = bool(trace_cfg.get("enabled", False))
+
+    built_at_str = None
+    if trace_enabled:
+        from codrag.core.project_registry import project_index_dir
+        idx_dir = project_index_dir(project)
+        mani = idx_dir / "trace_manifest.json"
+        
+        if mani.exists():
+            try:
+                import json
+                with open(mani, "r", encoding="utf-8") as f:
+                    built_at_str = json.load(f).get("built_at")
+            except Exception:
+                pass
+                
+        if not built_at_str:
+            result = {"is_stale": False, "stale_since": None, "stale_count": 0}
+            with _stale_cache_lock:
+                _stale_cache[project.id] = (now + _STALE_CACHE_TTL, False, None, 0)
+            return result
+    else:
+        # Get built_at from legacy index stats
+        st = idx.stats()
+        built_at_str = st.get("built_at")
+        if not built_at_str or not st.get("loaded"):
+            result = {"is_stale": False, "stale_since": None, "stale_count": 0}
+            with _stale_cache_lock:
+                _stale_cache[project.id] = (now + _STALE_CACHE_TTL, False, None, 0)
+            return result
 
     # Parse built_at to epoch
     try:

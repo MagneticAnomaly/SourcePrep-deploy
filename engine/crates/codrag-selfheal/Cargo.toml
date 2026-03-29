@@ -1,0 +1,14 @@
+[package]
+name = "codrag-selfheal"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+codrag-walker = { path = "../codrag-walker" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+log = { workspace = true }
+ignore = { workspace = true }
+
+[lints.clippy]
+all = "warn"

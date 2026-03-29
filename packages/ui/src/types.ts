@@ -1459,6 +1459,8 @@ export interface RoadmapResponse {
   generation_tokens: number;
   generation_duration_ms: number;
   github_sync: GitHubSyncState | null;
+  last_mined_at?: string;
+  mining_stats?: Record<string, number> | null;
 }
 
 /** GitHub sync metadata (Phase 59D) */
@@ -1482,3 +1484,72 @@ export interface GitHubStatus {
   last_sync: GitHubSyncState | null;
 }
 
+/** Velocity snapshot for a sprint window (Phase 59D-4) */
+export interface VelocitySnapshot {
+  window_start: string;
+  window_end: string;
+  window_label: string;
+  duration_days: number;
+  completed_count: number;
+  completed_nodes: string[];
+  added_count: number;
+  p0_completed: number;
+  p1_completed: number;
+  categories: Record<string, number>;
+}
+
+/** Burndown data point (Phase 59D-4) */
+export interface BurndownPoint {
+  date: string;
+  remaining: number;
+  completed: number;
+}
+
+/** Velocity response from GET /roadmap/velocity */
+export interface VelocityResponse {
+  average_velocity: number;
+  snapshots: VelocitySnapshot[];
+  burndown: BurndownPoint[];
+  total_completed: number;
+  total_active: number;
+  total_planned: number;
+  total_proposed: number;
+}
+
+/** Sprint suggestion from POST /roadmap/suggest-sprint */
+export interface SprintSuggestion {
+  sprint_label: string;
+  capacity: number;
+  suggested_nodes: string[];
+  rationale: string;
+  confidence: number;
+  node_details: Array<{
+    id: string;
+    title: string;
+    priority: string;
+    category: string;
+    tier: string;
+  }>;
+}
+
+/** Push to GitHub result */
+export interface PushGitHubResult {
+  pushed: number;
+  errors: number;
+  results: Array<{
+    node_id: string;
+    issue_number?: number;
+    url?: string;
+    html_url?: string;
+    error?: string;
+  }>;
+}
+
+/** Webhook event result */
+export interface WebhookResult {
+  action: string;
+  node_id: string;
+  old_tier: string;
+  new_tier: string;
+  created: boolean;
+}

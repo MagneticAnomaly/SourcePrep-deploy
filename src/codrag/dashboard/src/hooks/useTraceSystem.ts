@@ -272,18 +272,6 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     api.updateProject(selectedProjectId, { config: newConfig }).catch(() => { })
   }, [api, selectedProjectId, deps.projectConfig, deps.setProjectConfig, deps.setConfigDirty])
 
-  const handleTraceAll = useCallback(() => {
-    if (!selectedProjectId) return
-    api.buildTrace(selectedProjectId).then(() => {
-      setTraceStatus(prev => ({ ...prev, building: true }))
-      setTraceCoverage(prev => ({ ...prev, building: true }))
-    }).catch(() => { })
-  }, [api, selectedProjectId])
-
-  const handleRetraceStale = useCallback(() => {
-    handleTraceAll()
-  }, [handleTraceAll])
-
   const handleAddExcludePattern = useCallback((pattern: string) => {
     if (!selectedProjectId) return
     api.updateTraceIgnore(selectedProjectId, 'add', [pattern]).then(() => {
@@ -330,6 +318,22 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     }
   }, [api, selectedProjectId])
 
+  // handleTraceAll / handleRetraceStale — MUST be declared after
+  // handleRunFastSync since they delegate to the pipeline orchestrator.
+  const handleTraceAll = useCallback(() => {
+    // Use the pipeline orchestrator (Fast Sync) instead of the legacy
+    // buildTrace endpoint.  The legacy endpoint only runs Stage 1
+    // (Rust parser) and never chains to stages 2-5 (edge discovery,
+    // catalogue, validation, knowledge embedding).
+    handleRunFastSync()
+  }, [handleRunFastSync])
+
+  const handleRetraceStale = useCallback(() => {
+    // Same as handleTraceAll — pipeline orchestrator detects stale files
+    // via check_coverage_gap() and runs them through all stages incrementally.
+    handleRunFastSync()
+  }, [handleRunFastSync])
+
   // ── Config persistence handlers ─────────────────────────────
 
   const handleEnrichmentAutoConfigChange = useCallback(async (config: EnrichmentAutoConfig) => {
@@ -343,6 +347,12 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     }).catch(() => { /* silent */ })
     // Keep localStorage as fallback
     localStorage.setItem('codrag_enrichment_auto_config', JSON.stringify(config))
+    // Sync the legacy indexAutoRebuild flag so the watcher hydration
+    // effect (which checks both flags) works correctly on page reload.
+    if (config.fastSync !== indexAutoRebuild) {
+      setIndexAutoRebuild(config.fastSync)
+      localStorage.setItem('codrag_index_auto_rebuild', String(config.fastSync))
+    }
 
     if (!selectedProjectId) return
 
@@ -621,13 +631,19 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
 
   // ── Ensure watcher is running when Auto is on (hydration) ────
   // The watcher runs in-memory on the backend.  If the daemon restarts,
-  // the watcher is lost but localStorage still says "auto=true".  This
+  // the watcher is lost but the frontend still knows "auto=true".  This
   // effect checks the backend watcher status on project change and
   // re-starts it if needed.  A short delay avoids racing with the
   // license sync (dev-tier override must reach the backend before the
   // require_feature("auto_rebuild") gate passes).
+  //
+  // Two separate toggles can enable auto mode:
+  //   1. indexAutoRebuild (legacy localStorage toggle from IndexStatusCard)
+  //   2. enrichmentAutoConfig.fastSync (pipeline config toggle)
+  // Either one being true should ensure the watcher is running.
+  const shouldAutoWatch = indexAutoRebuild || enrichmentAutoConfig.fastSync
   useEffect(() => {
-    if (!selectedProjectId || !indexAutoRebuild) return
+    if (!selectedProjectId || !shouldAutoWatch) return
     let cancelled = false
 
     const timer = setTimeout(() => {
@@ -651,7 +667,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     }, 2000) // 2s delay for license sync to complete
 
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [api, selectedProjectId, indexAutoRebuild])
+  }, [api, selectedProjectId, shouldAutoWatch])
 
   // ── Polling: trace coverage during build ─────────────────────
   useEffect(() => {

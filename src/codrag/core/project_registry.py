@@ -281,6 +281,50 @@ class ProjectRegistry:
                 removed.append(proj)
         return removed
 
+    def validate_and_heal_pointers(self) -> Dict[str, List[str]]:
+        """Validate and heal .codrag/project.json pointers for all projects.
+
+        Checks every registered project:
+        1. Does the project path still exist?
+        2. Does .codrag/project.json exist with the correct project ID?
+        3. Does the pointer ID match our registry?
+
+        Returns a report dict:
+            healed: list of project names where pointer was created/fixed
+            stale: list of project names where path no longer exists
+            ok: list of project names that were already correct
+        """
+        import logging as _logging
+        _logger = _logging.getLogger(__name__)
+
+        report: Dict[str, List[str]] = {"healed": [], "stale": [], "ok": []}
+
+        for proj in self.list_projects():
+            label = proj.name or proj.id[:8]
+            project_root = Path(proj.path).expanduser().resolve()
+
+            if not project_root.is_dir():
+                report["stale"].append(label)
+                _logger.debug(
+                    "validate_pointers: %s — path missing: %s", label, proj.path
+                )
+                continue
+
+            # Check .codrag/project.json
+            pointer = read_codrag_pointer(project_root)
+            if pointer and pointer.get("id") == proj.id:
+                report["ok"].append(label)
+            else:
+                # Pointer missing or wrong ID — heal it
+                ensure_codrag_pointer(proj)
+                _logger.info(
+                    "validate_pointers: healed pointer for %s (id=%s) at %s",
+                    label, proj.id[:12], proj.path,
+                )
+                report["healed"].append(label)
+
+        return report
+
 
 # =============================================================================
 # .codrag/project.json pointer

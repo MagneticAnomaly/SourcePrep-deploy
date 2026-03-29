@@ -5,15 +5,22 @@ CoDRAG Roadmap Router — Phase 59
 REST endpoints for the visual roadmap timeline.
 
 Endpoints:
-  GET    /projects/{id}/roadmap                    — Get full roadmap state
-  POST   /projects/{id}/roadmap/nodes              — Create a manual node
-  PATCH  /projects/{id}/roadmap/nodes/{nid}        — Update node tier/position/state
-  DELETE /projects/{id}/roadmap/nodes/{nid}         — Delete a node
-  POST   /projects/{id}/roadmap/generate           — Trigger LLM-based proposal generation
-  PUT    /projects/{id}/roadmap/ethos              — Save/update app ethos text
-  POST   /projects/{id}/roadmap/reorder            — Batch reorder nodes within a tier
-  POST   /projects/{id}/roadmap/scan-todos         — Trigger TODO/FIXME annotation scan
+  GET    /projects/{id}/roadmap                        — Get full roadmap state
+  POST   /projects/{id}/roadmap/nodes                  — Create a manual node
+  PATCH  /projects/{id}/roadmap/nodes/{nid}            — Update node tier/position/state
+  DELETE /projects/{id}/roadmap/nodes/{nid}             — Delete a node
+  POST   /projects/{id}/roadmap/generate               — Trigger LLM-based proposal generation
+  PUT    /projects/{id}/roadmap/ethos                  — Save/update app ethos text
+  POST   /projects/{id}/roadmap/reorder                — Batch reorder nodes within a tier
+  POST   /projects/{id}/roadmap/scan-todos             — Trigger TODO/FIXME annotation scan
   POST   /projects/{id}/roadmap/questions/{qid}/answer — Answer a design question
+  POST   /projects/{id}/roadmap/sync-github            — Import GitHub issues/projects (Phase 59D)
+  GET    /projects/{id}/roadmap/github-status           — GitHub connection status (Phase 59D)
+  POST   /projects/{id}/roadmap/mine                   — Mine pipeline data for contenders (Phase 59D)
+  POST   /projects/{id}/roadmap/webhook                — Receive GitHub webhook events (Phase 59D-2)
+  POST   /projects/{id}/roadmap/push-github            — Push nodes to GitHub as issues (Phase 59D-3)
+  GET    /projects/{id}/roadmap/velocity               — Sprint velocity data (Phase 59D-4)
+  POST   /projects/{id}/roadmap/suggest-sprint         — AI sprint suggestion (Phase 59D-4)
 """
 from __future__ import annotations
 
@@ -23,7 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from codrag.api.envelope import ApiException, ok
@@ -75,12 +82,16 @@ class QuestionAnswer(BaseModel):
     answer: str
 
 
-# ── Background thread tracking ──────────────────────────────────────
+# ── Background thread tracking ──────────────────────────────────────────
 
 _generate_threads: Dict[str, threading.Thread] = {}
 _generate_errors: Dict[str, str] = {}
 _scan_threads: Dict[str, threading.Thread] = {}
 _scan_errors: Dict[str, str] = {}
+_github_sync_threads: Dict[str, threading.Thread] = {}
+_github_sync_errors: Dict[str, str] = {}
+_mine_threads: Dict[str, threading.Thread] = {}
+_mine_errors: Dict[str, str] = {}
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -119,8 +130,16 @@ def get_roadmap(project_id: str) -> Dict[str, Any]:
     s = _scan_threads.get(proj.id)
     scanning = s is not None and s.is_alive()
 
+    # Also check github-sync and mining threads (Phase 59D)
+    gh = _github_sync_threads.get(proj.id)
+    mining = _mine_threads.get(proj.id)
+    syncing_github = gh is not None and gh.is_alive()
+    is_mining = mining is not None and mining.is_alive()
+
     gen_error = _generate_errors.get(proj.id)
     scan_error = _scan_errors.get(proj.id)
+    gh_error = _github_sync_errors.get(proj.id)
+    mine_error = _mine_errors.get(proj.id)
 
     # North star summary
     ns = state.north_star
@@ -131,9 +150,9 @@ def get_roadmap(project_id: str) -> Dict[str, Any]:
     } if ns else None
 
     return ok({
-        "generating": generating,
+        "generating": generating or syncing_github or is_mining,
         "scanning": scanning,
-        "error": gen_error or scan_error,
+        "error": gen_error or scan_error or gh_error or mine_error,
         "north_star": north_star,
         **state.to_dict(),
     })
@@ -192,6 +211,8 @@ def update_node(project_id: str, node_id: str, req: NodeUpdate) -> Dict[str, Any
             message=f"Roadmap node '{node_id}' not found.",
         )
 
+    old_tier = node.tier  # Capture before mutation
+
     # Apply updates (only non-None fields)
     if req.title is not None:
         node.title = req.title
@@ -218,6 +239,23 @@ def update_node(project_id: str, node_id: str, req: NodeUpdate) -> Dict[str, Any
         node.business_impact = req.business_impact
 
     save_roadmap(state, index_dir)
+
+    # Bidirectional GitHub sync: push tier changes back to GitHub (Phase 59D-3)
+    if node.tier != old_tier and node.source_ref and "github.com" in (node.source_ref or ""):
+        try:
+            from codrag.core.github_sync import get_github_config
+            from codrag.core.github_push import sync_tier_change_to_github
+            gh_config = get_github_config(proj.config)
+            if gh_config:
+                threading.Thread(
+                    target=sync_tier_change_to_github,
+                    args=(node, gh_config["token"], gh_config["owner"], gh_config["repo"]),
+                    daemon=True,
+                    name=f"gh-sync-{node.id}",
+                ).start()
+        except Exception as e:
+            logger.warning("GitHub tier sync skipped for %s: %s", node.id, e)
+
     return ok({"id": node_id, "tier": node.tier, "state": node.state})
 
 
@@ -289,6 +327,9 @@ def trigger_generate(project_id: str) -> Dict[str, Any]:
             for p in goalposts_state.proposals:
                 if p.state != "proposed":
                     continue
+                # Extract P-4/P-5 fields stashed by enhanced planner
+                business_impact = getattr(p, '_business_impact', '')
+                ethos_alignment = getattr(p, '_ethos_alignment', '')
                 node = RoadmapNode(
                     title=p.title,
                     description=p.rationale,
@@ -306,6 +347,8 @@ def trigger_generate(project_id: str) -> Dict[str, Any]:
                         for t in p.tasks
                     ],
                     state="proposed",
+                    business_impact=business_impact,
+                    ethos_alignment=ethos_alignment,
                 )
                 if node.id not in existing_ids:
                     state.nodes.append(node)
@@ -449,9 +492,6 @@ def answer_question(project_id: str, question_id: str, req: QuestionAnswer) -> D
 
 # ── GitHub Sync (Phase 59D) ──────────────────────────────────────────
 
-_github_sync_threads: Dict[str, threading.Thread] = {}
-_github_sync_errors: Dict[str, str] = {}
-
 
 @router.post("/projects/{project_id}/roadmap/sync-github")
 def trigger_sync_github(project_id: str) -> Dict[str, Any]:
@@ -552,8 +592,9 @@ def trigger_sync_github(project_id: str) -> Dict[str, Any]:
 def get_github_status(project_id: str) -> Dict[str, Any]:
     """Get GitHub sync connection status."""
     from codrag.core.github_sync import get_github_config
+    from codrag.services.project_helpers import require_project_writable
 
-    proj = _srv()._require_project(project_id)
+    proj = require_project_writable(project_id)
     gh_config = get_github_config(proj.config)
 
     t = _github_sync_threads.get(proj.id)
@@ -578,9 +619,6 @@ def get_github_status(project_id: str) -> Dict[str, Any]:
 
 
 # ── Pipeline Mining (Phase 59D) ──────────────────────────────────────
-
-_mine_threads: Dict[str, threading.Thread] = {}
-_mine_errors: Dict[str, str] = {}
 
 
 @router.post("/projects/{project_id}/roadmap/mine")
@@ -622,6 +660,15 @@ def trigger_mine(project_id: str) -> Dict[str, Any]:
                 node.position = proposed_max + 1 + i
 
             state.nodes.extend(new_nodes)
+
+            # Persist mining metadata (Track 5-3)
+            state.last_mined_at = datetime.now(timezone.utc).isoformat()
+            mining_counts: Dict[str, int] = {}
+            for n in new_nodes:
+                ref = (n.source_ref or "").split(":")[0]  # "audit", "module", "file", etc.
+                mining_counts[ref] = mining_counts.get(ref, 0) + 1
+            state.mining_stats = mining_counts
+
             save_roadmap(state, index_dir)
 
             logger.info("Roadmap mining complete for %s: %d new contenders", proj.id, len(new_nodes))
@@ -636,3 +683,209 @@ def trigger_mine(project_id: str) -> Dict[str, Any]:
 
     return ok({"status": "started", "message": "Pipeline mining started. Poll GET /roadmap to check progress."})
 
+
+# ── Webhook (Phase 59D-2) ────────────────────────────────────────────
+
+class WebhookPayload(BaseModel):
+    """Raw webhook payload (we pass through to handler)."""
+    class Config:
+        extra = "allow"
+
+
+@router.post("/projects/{project_id}/roadmap/webhook")
+async def receive_webhook(project_id: str, request: Request) -> Dict[str, Any]:
+    """Receive GitHub webhook events and auto-promote/demote nodes.
+
+    Reads event type and signature from HTTP headers (standard GitHub webhook
+    delivery format), not from payload fields.
+
+    Headers:
+        X-GitHub-Event: event type (issues, pull_request, projects_v2_item, ping)
+        X-Hub-Signature-256: HMAC-SHA256 signature (validated if webhook_secret configured)
+    """
+    from codrag.core.project_registry import project_index_dir
+    from codrag.core.goalposts_models import load_roadmap, save_roadmap
+    from codrag.core.github_webhook import process_webhook_event, verify_webhook_signature
+    from codrag.core.github_sync import get_github_config
+
+    proj = _srv()._require_project(project_id)
+    index_dir = project_index_dir(proj)
+
+    # Read headers
+    event_type = request.headers.get("x-github-event", "ping")
+    signature = request.headers.get("x-hub-signature-256", "")
+
+    # Read raw body for signature verification
+    body = await request.body()
+
+    # Verify HMAC signature if webhook_secret is configured
+    gh_config = get_github_config(proj.config)
+    webhook_secret = gh_config.get("webhook_secret") if gh_config else None
+    if webhook_secret and signature:
+        if not verify_webhook_signature(body, signature, webhook_secret):
+            raise ApiException(
+                status_code=401,
+                code="INVALID_SIGNATURE",
+                message="Webhook signature verification failed.",
+            )
+
+    # Parse body as JSON
+    import json as _json
+    try:
+        payload = _json.loads(body)
+    except _json.JSONDecodeError:
+        raise ApiException(
+            status_code=400,
+            code="INVALID_PAYLOAD",
+            message="Could not parse webhook payload as JSON.",
+        )
+
+    state = load_roadmap(index_dir)
+    result = process_webhook_event(event_type, payload, state)
+
+    if result.action not in ("ignored", "pong"):
+        save_roadmap(state, index_dir)
+        logger.info(
+            "Webhook %s for %s: %s node %s (%s → %s)",
+            event_type, proj.id, result.action, result.node_id,
+            result.old_tier, result.new_tier,
+        )
+
+    return ok(result.to_dict())
+
+
+# ── Push to GitHub (Phase 59D-3) ─────────────────────────────────────
+
+class PushRequest(BaseModel):
+    node_ids: List[str]  # Which nodes to push to GitHub
+
+
+@router.post("/projects/{project_id}/roadmap/push-github")
+def push_to_github(project_id: str, req: PushRequest) -> Dict[str, Any]:
+    """Push accepted roadmap nodes to GitHub as issues."""
+    from codrag.services.project_helpers import require_project_writable
+    from codrag.core.project_registry import project_index_dir
+    from codrag.core.goalposts_models import load_roadmap, save_roadmap
+    from codrag.core.github_sync import get_github_config
+    from codrag.core.github_push import push_nodes_to_github
+
+    proj = require_project_writable(project_id)
+    gh_config = get_github_config(proj.config)
+
+    if not gh_config:
+        raise ApiException(
+            status_code=400,
+            code="GITHUB_NOT_CONFIGURED",
+            message="GitHub is not configured for this project. Set github_token, github_owner, github_repo in project settings.",
+        )
+
+    index_dir = project_index_dir(proj)
+    state = load_roadmap(index_dir)
+
+    # Find requested nodes
+    nodes_to_push = [n for n in state.nodes if n.id in req.node_ids]
+    if not nodes_to_push:
+        raise ApiException(
+            status_code=404,
+            code="NODES_NOT_FOUND",
+            message="No matching nodes found to push.",
+        )
+
+    results = push_nodes_to_github(
+        nodes=nodes_to_push,
+        token=gh_config["token"],
+        owner=gh_config["owner"],
+        repo=gh_config["repo"],
+    )
+
+    # Save updated source_refs
+    save_roadmap(state, index_dir)
+
+    return ok({
+        "pushed": len([r for r in results if "error" not in r]),
+        "errors": len([r for r in results if "error" in r]),
+        "results": results,
+    })
+
+
+# ── Sprint Intelligence (Phase 59D-4) ───────────────────────────────
+
+@router.get("/projects/{project_id}/roadmap/velocity")
+def get_velocity(project_id: str) -> Dict[str, Any]:
+    """Get sprint velocity data for the roadmap."""
+    from codrag.core.project_registry import project_index_dir
+    from codrag.core.goalposts_models import load_roadmap
+    from codrag.core.sprint_intelligence import VelocityTracker
+
+    proj = _srv()._require_project(project_id)
+    index_dir = project_index_dir(proj)
+    state = load_roadmap(index_dir)
+
+    tracker = VelocityTracker(state)
+    snapshots = tracker.calculate_velocity(window_days=14, num_windows=6)
+    avg = tracker.average_velocity(window_days=14, num_windows=4)
+    burndown = tracker.burndown_data()
+
+    return ok({
+        "average_velocity": round(avg, 1),
+        "snapshots": [s.to_dict() for s in snapshots],
+        "burndown": burndown,
+        "total_completed": len(state.completed_nodes),
+        "total_active": len(state.active_nodes),
+        "total_planned": len(state.planned_nodes),
+        "total_proposed": len(state.proposed_nodes),
+    })
+
+
+@router.post("/projects/{project_id}/roadmap/suggest-sprint")
+def suggest_sprint(project_id: str, use_ai: bool = True) -> Dict[str, Any]:
+    """Get AI-powered sprint suggestion based on velocity and backlog.
+
+    Args:
+        use_ai: If True, use LLM-enhanced planning (falls back to heuristic).
+                If False, always use heuristic-based planning.
+    """
+    from codrag.services.project_helpers import require_project_writable
+    from codrag.core.project_registry import project_index_dir
+    from codrag.core.goalposts_models import load_roadmap
+    from codrag.core.sprint_intelligence import VelocityTracker, SprintPlanner
+
+    proj = require_project_writable(project_id)
+    index_dir = project_index_dir(proj)
+    state = load_roadmap(index_dir)
+
+    if use_ai:
+        try:
+            from codrag.core.sprint_intelligence import generate_ai_sprint_plan
+            import codrag.server as _s
+            llm = _s._get_llm_client_for_task("goalposts")
+            if llm is None:
+                raise RuntimeError("No LLM configured for goalposts task")
+            suggestion = generate_ai_sprint_plan(state, llm, window_days=14)
+        except Exception as e:
+            logger.warning("AI sprint planning unavailable, using heuristic: %s", e)
+            tracker = VelocityTracker(state)
+            planner = SprintPlanner(state, tracker)
+            suggestion = planner.suggest_sprint(window_days=14)
+    else:
+        tracker = VelocityTracker(state)
+        planner = SprintPlanner(state, tracker)
+        suggestion = planner.suggest_sprint(window_days=14)
+
+    # Resolve node details for the suggestion
+    node_details = []
+    for nid in suggestion.suggested_nodes:
+        node = state.node_by_id(nid)
+        if node:
+            node_details.append({
+                "id": node.id,
+                "title": node.title,
+                "priority": node.priority,
+                "category": node.category,
+                "tier": node.tier,
+            })
+
+    return ok({
+        **suggestion.to_dict(),
+        "node_details": node_details,
+    })

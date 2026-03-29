@@ -30,17 +30,27 @@ logger = logging.getLogger(__name__)
 
 # ── LLM prompt templates ─────────────────────────────────────────────
 
+# P-1: North Star context + P-2: CoT scaffolding
 GOALPOSTS_SYSTEM = """\
 You are a Staff Engineer and product strategist analyzing a codebase.
-Your job is to propose actionable milestones ("goalposts") based on:
-1. What the codebase currently is (Atlas identity document).
-2. What technical debt or gaps exist (audit findings).
-3. Where the user wants to go (product intent).
+Your job is to propose actionable milestones ("goalposts") that drive
+the project toward its NORTH STAR goal.
 
-Always ground proposals in specific files and components from the Atlas.
+You must think through THREE LENSES before proposing:
+1. 🏗️ Architecture: structural health, decomposition, performance
+2. 🎯 Product/UX: user experience, feature gaps, API surface
+3. 🛡️ Risk: security, market positioning, research needs
+
+For EACH proposal you must:
+  a) Ground it in specific files/components from the Atlas
+  b) Explain how it moves toward the North Star
+  c) Assess business impact (revenue, user retention, reliability)
+  d) Rate ethos alignment (how well it fits the product vision)
+
 Be concrete — "add rate limiting to the API layer" not "improve security".
 Produce valid JSON only. No markdown, no commentary outside the JSON."""
 
+# P-3: Three-lens coverage + P-4: business_impact + P-5: ethos_alignment
 GOALPOSTS_PROMPT = """\
 # Codebase Identity (Atlas)
 
@@ -50,9 +60,17 @@ GOALPOSTS_PROMPT = """\
 
 {tech_debt_summary}
 
-# Product Intent
+# Product Ethos (Vision & Values)
 
 {product_intent}
+
+# North Star Goal
+
+{north_star_context}
+
+# Sprint Velocity History
+
+{velocity_context}
 
 # Previously Approved Goalposts (do not re-propose)
 
@@ -64,24 +82,39 @@ GOALPOSTS_PROMPT = """\
 
 ---
 
-Analyze this codebase and produce a JSON object with two arrays:
+STEP 1 — THINK (internal reasoning, included in JSON as "_reasoning"):
+- Which of the three lenses (architecture, product, risk) has the biggest gap?
+- What would move the North Star goal forward most efficiently?
+- What does the velocity history suggest about capacity?
 
-1. "proposals": Array of 3–7 goalpost proposals, each with:
+STEP 2 — PROPOSE:
+
+Produce a JSON object with:
+
+1. "_reasoning": string (2-3 sentences: your chain of thought from Step 1)
+
+2. "proposals": Array of 3–7 goalpost proposals, each with:
    - "title": string (concise milestone name)
    - "rationale": string (1-2 sentences: why this matters NOW)
-   - "category": one of "architecture", "security", "feature", "tech_debt", "research"
+   - "category": one of "architecture", "security", "feature", "tech_debt", "research", "product", "market"
    - "priority": one of "P0", "P1", "P2", "P3"
+   - "business_impact": string (1 sentence: revenue/reliability/user impact)
+   - "ethos_alignment": string (1 sentence: how this fits the product vision)
    - "tasks": array of 1-4 sub-tasks, each with:
      - "description": string
      - "file_paths": array of relevant file paths from the Atlas
      - "effort": one of "small", "medium", "large"
 
-2. "questions": Array of 0-3 design questions where you need user input:
+3. "questions": Array of 0-3 design questions where you need user input:
    - "question": string (the question)
    - "context": string (why you're asking — what ambiguity you detected)
-   - "category": one of "architecture", "security", "feature", "tech_debt", "research"
+   - "category": one of "architecture", "security", "feature", "tech_debt", "research", "product", "market"
 
-Order proposals by priority (P0 first). Only include questions when genuine ambiguity exists.
+CONSTRAINTS:
+- Proposals MUST span at least 2 of the 3 lenses (architecture, product/UX, risk/security)
+- At least one proposal should directly advance the North Star
+- Order by priority (P0 first)
+- Every proposal must include business_impact and ethos_alignment
 
 Respond with ONLY the JSON object."""
 
@@ -144,6 +177,8 @@ class GoalpostsPlanner:
         tech_debt = self._load_tech_debt_summary()
         approved = self._format_approved(state)
         answered = self._format_answered_questions(state)
+        north_star_ctx = self._load_north_star_context()
+        velocity_ctx = self._load_velocity_context()
 
         if not atlas_content:
             logger.warning("No Atlas found — generating goalposts without codebase identity")
@@ -154,6 +189,8 @@ class GoalpostsPlanner:
             atlas_content=atlas_content[:6000],  # Cap at ~6K chars
             tech_debt_summary=tech_debt[:3000],  # Cap at ~3K chars
             product_intent=state.product_intent[:1000],
+            north_star_context=north_star_ctx or "(No North Star set — propose the most impactful direction.)",
+            velocity_context=velocity_ctx or "(No velocity data yet.)",
             approved_summary=approved or "(none)",
             answered_questions=answered or "(none)",
         )
@@ -311,6 +348,43 @@ class GoalpostsPlanner:
             lines.append("")
         return "\n".join(lines)
 
+    def _load_north_star_context(self) -> str:
+        """Load North Star from roadmap state for P-1 prompt context."""
+        try:
+            from codrag.core.goalposts_models import load_roadmap
+            roadmap = load_roadmap(self.index_dir)
+            ns = roadmap.north_star
+            if ns:
+                return (
+                    f"Current North Star: {ns.title} ({ns.priority})\n"
+                    f"Ethos: {roadmap.app_ethos[:500]}" if roadmap.app_ethos else
+                    f"Current North Star: {ns.title} ({ns.priority})"
+                )
+        except Exception as e:
+            logger.debug("Could not load North Star: %s", e)
+        return ""
+
+    def _load_velocity_context(self) -> str:
+        """Load sprint velocity data for context-aware capacity suggestions."""
+        try:
+            from codrag.core.goalposts_models import load_roadmap
+            from codrag.core.sprint_intelligence import VelocityTracker
+            roadmap = load_roadmap(self.index_dir)
+            tracker = VelocityTracker(roadmap)
+            avg = tracker.average_velocity(window_days=14, num_windows=4)
+            snapshots = tracker.calculate_velocity(window_days=14, num_windows=3)
+
+            lines = [f"Average velocity: {avg:.1f} items per 2-week sprint"]
+            for s in snapshots:
+                lines.append(
+                    f"  {s.window.label}: {s.completed_count} completed, "
+                    f"{s.added_count} added"
+                )
+            return "\n".join(lines)
+        except Exception as e:
+            logger.debug("Could not load velocity data: %s", e)
+        return ""
+
     # ── Response parsing ─────────────────────────────────────────────
 
     def _parse_response(
@@ -335,13 +409,29 @@ class GoalpostsPlanner:
                         effort=rt.get("effort", "small"),
                     ))
 
+                # P-4/P-5: Capture business_impact and ethos_alignment
+                # Append to rationale for GoalpostProposal (legacy model)
+                # The roadmap router will extract these into RoadmapNode fields
+                rationale = raw.get("rationale", "")
+                business_impact = raw.get("business_impact", "")
+                ethos_alignment = raw.get("ethos_alignment", "")
+
+                # Store P-4/P-5 data as tagged appendix in rationale
+                if business_impact:
+                    rationale += f" [IMPACT: {business_impact}]"
+                if ethos_alignment:
+                    rationale += f" [ETHOS: {ethos_alignment}]"
+
                 proposal = GoalpostProposal(
                     title=raw.get("title", "Untitled"),
-                    rationale=raw.get("rationale", ""),
+                    rationale=rationale,
                     category=raw.get("category", "feature"),
                     priority=raw.get("priority", "P2"),
                     tasks=tasks,
                 )
+                # Stash raw P-4/P-5 for downstream extraction
+                proposal._business_impact = business_impact  # type: ignore
+                proposal._ethos_alignment = ethos_alignment  # type: ignore
                 proposals.append(proposal)
             except Exception as e:
                 logger.warning("Failed to parse proposal: %s", e)

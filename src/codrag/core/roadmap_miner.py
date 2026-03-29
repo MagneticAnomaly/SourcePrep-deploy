@@ -229,12 +229,27 @@ def _mine_roadmap_keywords(
     if not search_dirs:
         return nodes
 
+    # Build --glob exclusion flags for vendor/dependency directories
+    try:
+        from codrag.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
+        skip_dirs = DEFAULT_EXCLUDE_DIR_NAMES
+    except ImportError:
+        skip_dirs = {
+            "node_modules", "vendor", "Pods", "bundle", "bower_components",
+            ".git", ".codrag", "DerivedData", "Carthage",
+        }
+    glob_flags: list[str] = []
+    for d in sorted(skip_dirs):
+        glob_flags.extend(["--glob", f"!{d}/**"])
+    glob_flags.extend(["--glob", "!.*/**"])
+
     # Try ripgrep first
     try:
         cmd = [
             "rg", "--ignore-case", "--no-heading", "--line-number",
             "--type", "md",  # Only markdown files
             "--max-count", "1",  # One match per file (we just need to identify the file)
+            *glob_flags,
             "-e", pattern,
         ] + search_dirs
 

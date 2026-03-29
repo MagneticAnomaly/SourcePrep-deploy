@@ -106,9 +106,20 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
     case 'INFERRED_EDGES_STATUS':
       return { ...state, inferredEdgesStatus: action.payload }
     case 'AUGMENTATION_STATUS':
-      return { ...state, augmentationStatus: action.payload }
+      return { ...state, augmentationStatus: {
+        ...action.payload,
+        // Preserve pipeline slot progress that AUGMENTATION_PROGRESS set
+        progress_current: action.payload.progress_current ?? state.augmentationStatus.progress_current,
+        progress_total: action.payload.progress_total ?? state.augmentationStatus.progress_total,
+        progress_baseline: action.payload.progress_baseline ?? state.augmentationStatus.progress_baseline,
+      }}
     case 'EPISTEMIC_STATUS':
-      return { ...state, epistemicStatus: action.payload }
+      return { ...state, epistemicStatus: {
+        ...action.payload,
+        progress_current: action.payload.progress_current ?? state.epistemicStatus.progress_current,
+        progress_total: action.payload.progress_total ?? state.epistemicStatus.progress_total,
+        progress_baseline: action.payload.progress_baseline ?? state.epistemicStatus.progress_baseline,
+      }}
     case 'MODULE_STATUS':
       return { ...state, moduleStatus: action.payload }
     case 'DEEPENING_STATUS':
@@ -176,11 +187,20 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
     // ── Group completions (atomic multi-flag clear) ──
     case 'FAST_COMPLETED':
     case 'FAST_FAILED':
-      return { ...state, inferredEdgesRunning: false, augmenting: false, validating: false, fastKnowledgeBuilding: false, fastPausedStage: undefined }
+      return {
+        ...state,
+        inferredEdgesRunning: false, augmenting: false, validating: false, fastKnowledgeBuilding: false, fastPausedStage: undefined,
+        // Clear pipeline slot progress so it doesn't bleed into next run
+        augmentationStatus: { ...state.augmentationStatus, progress_current: undefined, progress_total: undefined, progress_baseline: undefined },
+      }
 
     case 'DEEP_COMPLETED':
     case 'DEEP_FAILED':
-      return { ...state, epistemicRunning: false, groupReasoningRunning: false, clusterRunning: false, atlasRunning: false, deepeningRunning: false, deepKnowledgeBuilding: false, deepPaused: false, deepPausedStage: undefined }
+      return {
+        ...state,
+        epistemicRunning: false, groupReasoningRunning: false, clusterRunning: false, atlasRunning: false, deepeningRunning: false, deepKnowledgeBuilding: false, deepPaused: false, deepPausedStage: undefined,
+        epistemicStatus: { ...state.epistemicStatus, progress_current: undefined, progress_total: undefined, progress_baseline: undefined },
+      }
 
     // ── Full reset ──
     case 'DESTROYED':

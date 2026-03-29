@@ -21,6 +21,15 @@ class AutoRebuildWatcher:
     # exist on disk but aren't in the trace graph.
     _COVERAGE_CHECK_INTERVAL = 300.0  # 5 minutes
 
+    # Coverage gap thresholds: don't trigger rebuild if the project
+    # is "close enough" — the remaining untraced files are likely
+    # binary, generated, or intentionally excluded.
+    _COVERAGE_GAP_OK_PCT = 95.0       # ≥95% traced → "close enough"
+    _COVERAGE_GAP_OK_MAX_FILES = 20   # ≤20 untraced → "close enough"
+    # After triggering a coverage-gap rebuild, suppress re-triggers
+    # for this many seconds to prevent the every-5-minute loop.
+    _COVERAGE_COOLDOWN_SECONDS = 1800  # 30 minutes
+
     def __init__(
         self,
         repo_root: Path,
@@ -55,6 +64,7 @@ class AutoRebuildWatcher:
         self._next_rebuild_at: Optional[str] = None
         self._stale_since: Optional[str] = None  # ISO timestamp when index became stale
         self._last_coverage_check_at: Optional[str] = None
+        self._last_coverage_trigger_at: float = 0.0  # epoch when we last triggered a coverage rebuild
 
         self._extra_exclude_globs: List[str] = [
             "**/.codrag",
@@ -395,6 +405,12 @@ class AutoRebuildWatcher:
         - Files that existed before the watcher started
         - Files missed by a failed Rust engine build
         - Files added in bulk (e.g. git pull) that the watcher might miss
+
+        Guards against spurious retriggering:
+        - Manual mode → skip
+        - Pipeline already running → skip
+        - Coverage ≥95% with ≤20 untraced → skip (close enough)
+        - Recently triggered → cooldown
         """
         with self._lock:
             if not self._enabled:
@@ -413,9 +429,36 @@ class AutoRebuildWatcher:
         except Exception:
             pass  # Settings unavailable — proceed with check
 
-        # Don't check while a build is in progress
+        # Don't check while a build is in progress (legacy BuildManager)
         if self._is_building():
             logger.debug("Coverage check skipped — build in progress")
+            self._schedule_coverage_check()
+            return
+
+        # Don't check while the PipelineOrchestrator has an active run
+        if self.project_id:
+            try:
+                from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+                po_status = pipeline_orchestrator.status(self.project_id)
+                if po_status.get("any_running"):
+                    logger.debug(
+                        "Coverage check skipped — pipeline active for %s",
+                        self.project_id,
+                    )
+                    self._schedule_coverage_check()
+                    return
+            except Exception:
+                pass
+
+        # Cooldown: don't retrigger within _COVERAGE_COOLDOWN_SECONDS
+        # of the last coverage-gap trigger. Prevents the loop where
+        # the same N untraced files trigger rebuilds every 5 minutes.
+        elapsed_since_trigger = time.time() - self._last_coverage_trigger_at
+        if elapsed_since_trigger < self._COVERAGE_COOLDOWN_SECONDS:
+            logger.debug(
+                "Coverage check skipped — cooldown (%.0fs remaining)",
+                self._COVERAGE_COOLDOWN_SECONDS - elapsed_since_trigger,
+            )
             self._schedule_coverage_check()
             return
 
@@ -444,22 +487,36 @@ class AutoRebuildWatcher:
                 gap = pipeline_orchestrator.check_coverage_gap(self.project_id)
                 self._last_coverage_check_at = now_iso
 
+                untraced = gap.get("untraced", 0)
+                stale = gap.get("stale", 0)
+                coverage_pct = gap.get("coverage_pct", 0.0)
+
                 if gap.get("needs_rebuild"):
-                    logger.info(
-                        "Watcher coverage check for %s: %d untraced + %d stale "
-                        "files (%.1f%% coverage) — triggering rebuild",
-                        self.project_id,
-                        gap.get("untraced", 0),
-                        gap.get("stale", 0),
-                        gap.get("coverage_pct", 0),
-                    )
-                    # Trigger via the normal build path so all guards apply
-                    self._on_trigger_build(["__coverage_gap__"])
+                    # "Close enough" check: if coverage is very high and
+                    # only a handful of files are untraced, don't bother.
+                    # Those files are likely binary, generated, or excluded.
+                    if (stale == 0
+                            and coverage_pct >= self._COVERAGE_GAP_OK_PCT
+                            and untraced <= self._COVERAGE_GAP_OK_MAX_FILES):
+                        logger.info(
+                            "Watcher coverage check for %s: %d untraced + %d stale "
+                            "files (%.1f%% coverage) — close enough, skipping",
+                            self.project_id, untraced, stale, coverage_pct,
+                        )
+                    else:
+                        logger.info(
+                            "Watcher coverage check for %s: %d untraced + %d stale "
+                            "files (%.1f%% coverage) — triggering rebuild",
+                            self.project_id, untraced, stale, coverage_pct,
+                        )
+                        self._last_coverage_trigger_at = time.time()
+                        # Trigger via the normal build path so all guards apply
+                        self._on_trigger_build(["__coverage_gap__"])
                 else:
                     logger.debug(
                         "Watcher coverage check for %s: %.1f%% coverage — OK",
                         self.project_id,
-                        gap.get("coverage_pct", 0),
+                        coverage_pct,
                     )
         except Exception:
             logger.debug("Coverage check failed", exc_info=True)

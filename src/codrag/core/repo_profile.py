@@ -31,6 +31,11 @@ DEFAULT_EXCLUDE_DIR_NAMES: Set[str] = {
     "Carthage",
     ".gradle",
     "DerivedData",
+    # Cross-ecosystem vendor/dependency dirs
+    "vendor",
+    "bundle",
+    ".bundle",
+    "bower_components",
 }
 
 DOC_DIR_NAMES: Set[str] = {
