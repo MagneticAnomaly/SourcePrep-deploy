@@ -1324,6 +1324,143 @@ def sync_headless(
         raise typer.Exit(1)
 
 
+@app.command()
+def opportunities(
+    project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID (optional if inside project dir)"),
+    refresh: bool = typer.Option(False, "--refresh", "-r", help="Run a fresh scan before displaying"),
+    format: str = typer.Option("table", "--format", "-f", help="Output format: table, json, sarif, csv, md, ai_prompt"),
+    priority: Optional[str] = typer.Option(None, "--priority", help="Min priority filter: P0, P1, P2, P3"),
+    category: Optional[str] = typer.Option(None, "--category", "-c", help="Filter by category"),
+    source: Optional[str] = typer.Option(None, "--source", "-s", help="Filter by source"),
+    include_dismissed: bool = typer.Option(False, "--dismissed", help="Include dismissed items"),
+    limit: int = typer.Option(50, "--limit", "-k", help="Max items to show"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
+    port: int = typer.Option(8400, "--port", help="Server port"),
+) -> None:
+    """
+    Show codebase improvement opportunities.
+
+    CoDRAG discovers actionable opportunities across your codebase:
+    architecture issues, tech debt, naming inconsistencies, and more.
+
+    \b
+    Quick Start:
+      codrag opportunities                         # Show existing findings
+      codrag opportunities --refresh               # Fresh scan + display
+      codrag opportunities --format sarif > out.sarif  # SARIF export
+      codrag opportunities --format ai_prompt      # Paste into AI agent
+      codrag opportunities --priority P0           # Critical only
+    """
+    base = _base_url(host, port)
+
+    # If format is a direct export, use the export endpoint
+    if format in ("json", "sarif", "csv", "md", "ai_prompt"):
+        pid = _resolve_project(base, project_id)
+        if refresh:
+            console.print("[cyan]Running fresh scan...[/cyan]", highlight=False)
+            _post_json(f"{base}/projects/{pid}/opportunities/refresh", {})
+
+        # Build query params
+        params = [f"format={format}"]
+        if priority:
+            params.append(f"min_priority={priority}")
+        if category:
+            params.append(f"category={category}")
+        if source:
+            params.append(f"source={source}")
+        qs = "&".join(params)
+
+        try:
+            r = requests.get(f"{base}/projects/{pid}/opportunities/export?{qs}", timeout=60)
+            r.raise_for_status()
+            print(r.text)
+        except requests.exceptions.HTTPError as e:
+            console.print(f"[red]Export error: {e}[/red]")
+            raise typer.Exit(1)
+        except requests.exceptions.ConnectionError:
+            console.print(f"[red]Cannot connect to CoDRAG daemon at {base}[/red]")
+            raise typer.Exit(1)
+        return
+
+    # Table format: rich table display
+    pid = _resolve_project(base, project_id)
+
+    if refresh:
+        console.print("[cyan]Running fresh scan...[/cyan]", highlight=False)
+        data = _post_json(f"{base}/projects/{pid}/opportunities/refresh", {})
+        items = data.get("items", [])
+        summary = data.get("summary", {})
+    else:
+        # Build query params
+        params_list = [f"limit={limit}"]
+        if priority:
+            params_list.append(f"min_priority={priority}")
+        if category:
+            params_list.append(f"category={category}")
+        if source:
+            params_list.append(f"source={source}")
+        if include_dismissed:
+            params_list.append("include_dismissed=true")
+        qs = "&".join(params_list)
+
+        data = _get_json(f"{base}/projects/{pid}/opportunities?{qs}")
+        items = data.get("items", [])
+
+        # Also get summary
+        summary = _get_json(f"{base}/projects/{pid}/opportunities/summary")
+
+    if not items:
+        console.print("[yellow]No opportunities found.[/yellow]")
+        if not refresh:
+            console.print("[dim]Run 'codrag opportunities --refresh' to scan for new findings.[/dim]")
+        return
+
+    # Summary panel
+    total = summary.get("total", len(items))
+    critical = summary.get("critical", 0)
+    warning = summary.get("warning", 0)
+    info = summary.get("info", 0)
+    dismissed = summary.get("dismissed", 0)
+    last_refresh = summary.get("last_refresh", "never")
+
+    console.print(Panel(
+        f"[bold]{total}[/bold] opportunities | "
+        f"[red]{critical}[/red] critical | "
+        f"[yellow]{warning}[/yellow] warnings | "
+        f"[blue]{info}[/blue] info | "
+        f"[dim]{dismissed} dismissed[/dim]\n"
+        f"[dim]Last refresh: {last_refresh}[/dim]",
+        title="CoDRAG Opportunities",
+        expand=False,
+    ))
+
+    # Items table
+    table = Table()
+    table.add_column("ID", style="cyan", no_wrap=True)
+    table.add_column("P", style="bold", width=3)
+    table.add_column("Title", style="green")
+    table.add_column("Cat")
+    table.add_column("Effort")
+    table.add_column("Files", justify="right")
+
+    prio_styles = {"P0": "[red]P0[/red]", "P1": "[yellow]P1[/yellow]", "P2": "[blue]P2[/blue]", "P3": "[dim]P3[/dim]"}
+
+    for item in items[:limit]:
+        file_count = len(item.get("affected_files", []))
+        table.add_row(
+            item.get("id", "?"),
+            prio_styles.get(item.get("priority", "P2"), item.get("priority", "?")),
+            item.get("title", "")[:60],
+            item.get("category", ""),
+            item.get("effort", ""),
+            str(file_count) if file_count else "-",
+        )
+
+    console.print(table)
+    console.print()
+    console.print("[dim]Export: codrag opportunities --format sarif | json | csv | md | ai_prompt[/dim]")
+
+
 def main() -> None:
     """Entry point for the CLI."""
     app()

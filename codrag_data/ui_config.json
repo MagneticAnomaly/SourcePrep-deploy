@@ -286,7 +286,7 @@
       {
         "id": "file-tree",
         "visible": true,
-        "height": 16,
+        "height": 27,
         "collapsed": false,
         "x": 0,
         "y": 0,
@@ -329,39 +329,12 @@
         "w": 4
       },
       {
-        "id": "status",
-        "visible": true,
-        "height": 8,
-        "collapsed": false,
-        "x": 0,
-        "y": 16,
-        "w": 4
-      },
-      {
         "id": "index-health",
         "visible": true,
         "height": 13,
         "collapsed": true,
         "x": 8,
         "y": 23,
-        "w": 4
-      },
-      {
-        "id": "llm-status",
-        "visible": true,
-        "height": 10,
-        "collapsed": true,
-        "x": 0,
-        "y": 24,
-        "w": 4
-      },
-      {
-        "id": "atlas",
-        "visible": true,
-        "height": 16,
-        "collapsed": false,
-        "x": 0,
-        "y": 26,
         "w": 4
       },
       {
@@ -372,6 +345,33 @@
         "x": 4,
         "y": 26,
         "w": 8
+      },
+      {
+        "id": "status",
+        "visible": true,
+        "height": 8,
+        "collapsed": false,
+        "x": 0,
+        "y": 27,
+        "w": 4
+      },
+      {
+        "id": "llm-status",
+        "visible": true,
+        "height": 10,
+        "collapsed": true,
+        "x": 0,
+        "y": 35,
+        "w": 4
+      },
+      {
+        "id": "atlas",
+        "visible": true,
+        "height": 16,
+        "collapsed": false,
+        "x": 0,
+        "y": 37,
+        "w": 4
       },
       {
         "id": "token-budget",
@@ -410,15 +410,6 @@
         "w": 4
       },
       {
-        "id": "context-options",
-        "visible": true,
-        "height": 7,
-        "collapsed": true,
-        "x": 0,
-        "y": 42,
-        "w": 4
-      },
-      {
         "id": "activity-heatmap",
         "visible": true,
         "height": 8,
@@ -428,15 +419,6 @@
         "w": 8
       },
       {
-        "id": "context-output",
-        "visible": true,
-        "height": 10,
-        "collapsed": true,
-        "x": 0,
-        "y": 44,
-        "w": 4
-      },
-      {
         "id": "audit",
         "visible": true,
         "height": 21,
@@ -444,6 +426,24 @@
         "x": 4,
         "y": 51,
         "w": 8
+      },
+      {
+        "id": "context-options",
+        "visible": true,
+        "height": 7,
+        "collapsed": true,
+        "x": 0,
+        "y": 53,
+        "w": 4
+      },
+      {
+        "id": "context-output",
+        "visible": true,
+        "height": 10,
+        "collapsed": true,
+        "x": 0,
+        "y": 55,
+        "w": 4
       },
       {
         "id": "spaghetti",
@@ -512,7 +512,7 @@
   },
   "compute_nodes": [
     {
-      "id": "node_62d1337e",
+      "id": "node_1da367c4",
       "name": "Local Machine",
       "type": "local",
       "hardware_profile": "apple_silicon",

@@ -1,10 +1,12 @@
 """
-AutoAudit — Autonomous Codebase Analysis for CoDRAG (Phase 43).
+AutoAudit — Autonomous Codebase Analysis for CoDRAG (Phase 43/63).
 
 Three tiers:
   Tier 1: Analyzers (pure graph queries, no LLM)
   Tier 2: Synthesizer (LLM-generated markdown reports)
   Tier 3: Continuous monitoring (deepening loop integration)
+
+Phase 63: OpportunityManager unifies all sources into a single stream.
 """
 from .models import (
     AuditContext,
@@ -39,6 +41,12 @@ from .action_item import (
     goalpost_to_action_item,
     roadmap_node_to_action_item,
 )
+from .opportunity_manager import OpportunityManager
+from .sarif_exporter import (
+    action_items_to_sarif,
+    write_sarif_file,
+    sarif_to_json_string,
+)
 
 __all__ = [
     "ActionItem",
@@ -49,22 +57,27 @@ __all__ = [
     "AuditSynthesizer",
     "FileScore",
     "Finding",
+    "OpportunityManager",
     "SpaghettiResult",
     "SubTask",
+    "action_items_to_sarif",
     "file_score_to_action_item",
     "finding_to_action_item",
     "goalpost_to_action_item",
-    "roadmap_node_to_action_item",
     "load_action_items",
     "load_audit_context",
     "load_findings",
     "load_spaghetti",
+    "roadmap_node_to_action_item",
     "run_audit",
     "run_health_scan",
     "run_spaghetti_scan",
+    "sarif_to_json_string",
     "save_action_items",
     "save_documents",
     "save_findings",
     "save_spaghetti",
     "score_files",
+    "write_sarif_file",
 ]
+

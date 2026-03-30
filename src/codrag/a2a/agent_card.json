@@ -1,0 +1,66 @@
+{
+  "name": "CoDRAG",
+  "description": "Codebase intelligence engine. Discovers structural patterns, architectural issues, and improvement opportunities via graph-based code analysis. Provides context-aware code search, impact analysis, and actionable findings.",
+  "url": "http://localhost:8400",
+  "version": "2026.1",
+  "provider": {
+    "organization": "CoDRAG",
+    "url": "https://codrag.dev"
+  },
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": false,
+    "stateTransitionHistory": true
+  },
+  "authentication": {
+    "schemes": ["none"]
+  },
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain", "application/json"],
+  "skills": [
+    {
+      "id": "codebase-context",
+      "name": "Codebase Context Assembly",
+      "description": "Assembles focused, compressed context for a code query using semantic search, structural trace expansion, and LOD (Level of Detail) compression. Returns dependency-aware code snippets optimized for LLM consumption.",
+      "tags": ["code", "search", "context", "RAG", "semantic-search"],
+      "examples": [
+        "Assemble context about the authentication module",
+        "Find all code related to database connection pooling",
+        "What does the UserService class do?"
+      ]
+    },
+    {
+      "id": "opportunity-discovery",
+      "name": "Opportunity Discovery",
+      "description": "Scans the codebase for architectural issues, tech debt, security concerns, and improvement opportunities using 11+ graph-based analyzers. Returns structured ActionItems with priority, effort, affected files, and sub-tasks.",
+      "tags": ["audit", "health", "tech-debt", "opportunities", "code-quality"],
+      "examples": [
+        "Find all opportunities for improvement in this codebase",
+        "What are the critical architectural issues?",
+        "Show me all tech debt items sorted by urgency"
+      ]
+    },
+    {
+      "id": "impact-analysis",
+      "name": "Impact Analysis",
+      "description": "Analyzes what connects to a file or symbol — dependencies, dependents, or both. Use before making changes to understand blast radius. Supports multi-hop traversal for transitive impact.",
+      "tags": ["dependencies", "impact", "blast-radius", "refactoring"],
+      "examples": [
+        "What breaks if I change auth/login.py?",
+        "What does the router module depend on?",
+        "Show me the full dependency tree of utils.py"
+      ]
+    },
+    {
+      "id": "structural-overview",
+      "name": "Structural Overview",
+      "description": "Returns module structure, hub files, focus areas, and architectural patterns. Provides a comprehensive map of the codebase including cross-cutting concerns, import cycles, and entry points.",
+      "tags": ["architecture", "modules", "structure", "overview"],
+      "examples": [
+        "Give me an overview of this codebase",
+        "What are the hub files?",
+        "How is this project structured?"
+      ]
+    }
+  ]
+}
