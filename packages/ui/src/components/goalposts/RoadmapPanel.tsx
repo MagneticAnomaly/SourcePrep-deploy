@@ -92,6 +92,8 @@ export interface RoadmapPanelProps {
   /** Phase 59D: Pipeline mining & AI Sprint */
   onMineRoadmap?: () => void;
   onSuggestSprint?: () => void;
+  /** Phase 59E: LLM execution */
+  onExecuteNode?: (nodeId: string) => Promise<{ guidance: string; model: string } | null>;
   className?: string;
 }
 
@@ -191,6 +193,9 @@ function QuestionCard({ question, onAnswer }: { question: GoalpostQuestion; onAn
               <Send className="h-3.5 w-3.5" />
             </button>
           </div>
+          <p className="text-[10px] text-text-muted/60 mt-1.5 italic">
+            ✨ Your answer will shape the next AI Propose cycle
+          </p>
         </div>
       </div>
     </div>
@@ -257,6 +262,7 @@ export function RoadmapPanel({
   onPromoteNode, onDismissNode, onDeleteNode: _onDeleteNode, onCreateNode,
   onAnswerQuestion, onSyncGitHub, onMineRoadmap,
   onSuggestSprint, onPushToGitHub,
+  onExecuteNode,
   githubStatus,
   className,
 }: RoadmapPanelProps) {
@@ -350,8 +356,8 @@ export function RoadmapPanel({
             <Plus className="h-3 w-3" /> Add
           </Button>
           {onMineRoadmap && (
-            <Button variant="ghost" size="sm" onClick={onMineRoadmap} className="gap-1 h-7 text-xs">
-              <Database className="h-3 w-3" /> Mine
+            <Button variant="ghost" size="sm" onClick={onMineRoadmap} className="gap-1 h-7 text-xs" title="Mine audit findings, hotspots, and orphan modules for roadmap candidates">
+              <Database className="h-3 w-3" /> Scan Pipeline
             </Button>
           )}
           {onSyncGitHub ? (
@@ -365,13 +371,13 @@ export function RoadmapPanel({
               onSync={onSyncGitHub}
             />
           ) : null}
-          <Button variant="ghost" size="sm" onClick={onScanTodos} disabled={scanning} className="gap-1 h-7 text-xs">
+          <Button variant="ghost" size="sm" onClick={onScanTodos} disabled={scanning} className="gap-1 h-7 text-xs" title="Scan source code for TODO/FIXME/HACK comments and add as roadmap candidates">
             {scanning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
             TODOs
           </Button>
           <Button variant="default" size="sm" onClick={onGenerate} disabled={generating || !ready} className="gap-1 h-7 text-xs">
             {generating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-            {generating ? 'Generating…' : 'Generate'}
+            {generating ? 'Proposing…' : 'AI Propose'}
           </Button>
         </div>
       </div>
@@ -411,6 +417,21 @@ export function RoadmapPanel({
                 {unanswered.map(q => (
                   <QuestionCard key={q.id} question={q} onAnswer={a => onAnswerQuestion(q.id, a)} />
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* All questions answered banner */}
+          {unanswered.length === 0 && answered.length > 0 && (
+            <div className="px-4 pb-2 shrink-0">
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                <p className="text-xs text-text-muted">
+                  All questions answered! Click <strong>AI Propose</strong> to get improved proposals based on your input.
+                </p>
+                <Button variant="default" size="sm" onClick={onGenerate} disabled={generating || !ready} className="gap-1 h-6 text-[10px] ml-auto shrink-0">
+                  <Sparkles className="h-3 w-3" /> AI Propose
+                </Button>
               </div>
             </div>
           )}
@@ -461,7 +482,7 @@ export function RoadmapPanel({
               onDismiss={onDismissNode ? () => onDismissNode(selectedNode.id) : undefined}
               onPushToGitHub={onPushToGitHub ? () => onPushToGitHub(selectedNode.id) : undefined}
               onDelete={_onDeleteNode ? () => { _onDeleteNode(selectedNode.id); setSelectedNodeId(null); } : undefined}
-              onCopyForAI={() => { navigator.clipboard.writeText(JSON.stringify(selectedNode, null, 2)); }}
+              onExecuteWithLLM={onExecuteNode ? () => onExecuteNode(selectedNode.id) : undefined}
             />
           ) : (
              <div className="flex-1 p-6 space-y-6 max-w-2xl">

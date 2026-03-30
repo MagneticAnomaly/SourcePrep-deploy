@@ -814,6 +814,15 @@ export class MockApiClient implements ApiClient {
       node_details: [],
     };
   }
+
+  async executeNode(_projectId: string, nodeId: string): Promise<{ node_id: string; guidance: string; tokens_used: number; model: string }> {
+    return {
+      node_id: nodeId,
+      guidance: '## Implementation Strategy\n\nThis is a mock response. Connect a real LLM in Settings to get actual implementation guidance.',
+      tokens_used: 0,
+      model: 'mock',
+    };
+  }
 }
 
 export const createMockApiClient = (): ApiClient => new MockApiClient();

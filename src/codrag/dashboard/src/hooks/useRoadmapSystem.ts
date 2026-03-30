@@ -19,6 +19,7 @@ export interface UseRoadmapSystemReturn {
   handleMineRoadmap: () => void
   handlePushNodeToGitHub: (nodeId: string) => void
   handleSuggestSprint: () => void
+  handleExecuteNode: (nodeId: string) => Promise<{ guidance: string; model: string } | null>
 }
 
 export function useRoadmapSystem(selectedProjectId: string | null): UseRoadmapSystemReturn {
@@ -113,7 +114,12 @@ export function useRoadmapSystem(selectedProjectId: string | null): UseRoadmapSy
           api.getVelocity(selectedProjectId).then(setVelocityData).catch(() => {})
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        // Surface the error instead of silently reverting
+        const msg = err?.message || 'Failed to update node'
+        console.error('[Roadmap] Promote failed:', msg)
+        setState((prev) => prev ? { ...prev, error: `Promote failed: ${msg}` } : null)
+        // Also re-fetch to get actual persisted state
         api.getRoadmap(selectedProjectId).then(setState).catch(() => {})
       })
   }, [selectedProjectId, api])
@@ -239,6 +245,19 @@ export function useRoadmapSystem(selectedProjectId: string | null): UseRoadmapSy
       .catch(() => setState((prev) => prev ? { ...prev, error: 'Failed to push node to GitHub' } : null))
   }, [selectedProjectId, api])
 
+  const handleExecuteNode = useCallback(async (nodeId: string): Promise<{ guidance: string; model: string } | null> => {
+    if (!selectedProjectId) return null
+    try {
+      const result = await api.executeNode(selectedProjectId, nodeId)
+      return { guidance: result.guidance, model: result.model }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[Roadmap] Execute failed:', msg)
+      setState((prev) => prev ? { ...prev, error: `LLM execution failed: ${msg}` } : null)
+      throw err
+    }
+  }, [selectedProjectId, api])
+
   return {
     state,
     velocityData,
@@ -256,5 +275,6 @@ export function useRoadmapSystem(selectedProjectId: string | null): UseRoadmapSy
     handleMineRoadmap,
     handlePushNodeToGitHub,
     handleSuggestSprint,
+    handleExecuteNode,
   }
 }

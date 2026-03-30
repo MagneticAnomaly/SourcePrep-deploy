@@ -21,6 +21,7 @@ Endpoints:
   POST   /projects/{id}/roadmap/push-github            — Push nodes to GitHub as issues (Phase 59D-3)
   GET    /projects/{id}/roadmap/velocity               — Sprint velocity data (Phase 59D-4)
   POST   /projects/{id}/roadmap/suggest-sprint         — AI sprint suggestion (Phase 59D-4)
+  POST   /projects/{id}/roadmap/nodes/{nid}/execute    — Execute node with LLM (Phase 59E)
 """
 from __future__ import annotations
 
@@ -92,6 +93,18 @@ _github_sync_threads: Dict[str, threading.Thread] = {}
 _github_sync_errors: Dict[str, str] = {}
 _mine_threads: Dict[str, threading.Thread] = {}
 _mine_errors: Dict[str, str] = {}
+
+# Per-project locks to prevent concurrent load/modify/save races.
+# Without this, a background generate/mine thread can overwrite
+# a user's promote/dismiss change.
+_roadmap_locks: Dict[str, threading.Lock] = {}
+
+
+def _get_roadmap_lock(project_id: str) -> threading.Lock:
+    """Get or create a per-project lock for roadmap state access."""
+    if project_id not in _roadmap_locks:
+        _roadmap_locks[project_id] = threading.Lock()
+    return _roadmap_locks[project_id]
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -201,46 +214,50 @@ def update_node(project_id: str, node_id: str, req: NodeUpdate) -> Dict[str, Any
 
     proj = require_project_writable(project_id)
     index_dir = project_index_dir(proj)
-    state = load_roadmap(index_dir)
 
-    node = state.node_by_id(node_id)
-    if not node:
-        raise ApiException(
-            status_code=404,
-            code="NODE_NOT_FOUND",
-            message=f"Roadmap node '{node_id}' not found.",
-        )
+    lock = _get_roadmap_lock(proj.id)
+    with lock:
+        state = load_roadmap(index_dir)
 
-    old_tier = node.tier  # Capture before mutation
+        node = state.node_by_id(node_id)
+        if not node:
+            raise ApiException(
+                status_code=404,
+                code="NODE_NOT_FOUND",
+                message=f"Roadmap node '{node_id}' not found.",
+            )
 
-    # Apply updates (only non-None fields)
-    if req.title is not None:
-        node.title = req.title
-    if req.description is not None:
-        node.description = req.description
-    if req.tier is not None:
-        node.tier = req.tier
-    if req.position is not None:
-        node.position = req.position
-    if req.state is not None:
-        node.state = req.state
-        if req.state == "completed":
-            node.completed_at = datetime.now(timezone.utc).isoformat()
-            node.tier = "completed"
-        elif req.state in ("accepted", "active"):
-            node.decided_at = datetime.now(timezone.utc).isoformat()
-    if req.category is not None:
-        node.category = req.category
-    if req.priority is not None:
-        node.priority = req.priority
-    if req.ethos_alignment is not None:
-        node.ethos_alignment = req.ethos_alignment
-    if req.business_impact is not None:
-        node.business_impact = req.business_impact
+        old_tier = node.tier  # Capture before mutation
 
-    save_roadmap(state, index_dir)
+        # Apply updates (only non-None fields)
+        if req.title is not None:
+            node.title = req.title
+        if req.description is not None:
+            node.description = req.description
+        if req.tier is not None:
+            node.tier = req.tier
+        if req.position is not None:
+            node.position = req.position
+        if req.state is not None:
+            node.state = req.state
+            if req.state == "completed":
+                node.completed_at = datetime.now(timezone.utc).isoformat()
+                node.tier = "completed"
+            elif req.state in ("accepted", "active"):
+                node.decided_at = datetime.now(timezone.utc).isoformat()
+        if req.category is not None:
+            node.category = req.category
+        if req.priority is not None:
+            node.priority = req.priority
+        if req.ethos_alignment is not None:
+            node.ethos_alignment = req.ethos_alignment
+        if req.business_impact is not None:
+            node.business_impact = req.business_impact
+
+        save_roadmap(state, index_dir)
 
     # Bidirectional GitHub sync: push tier changes back to GitHub (Phase 59D-3)
+    # (outside lock — fire-and-forget network call)
     if node.tier != old_tier and node.source_ref and "github.com" in (node.source_ref or ""):
         try:
             from codrag.core.github_sync import get_github_config
@@ -310,59 +327,66 @@ def trigger_generate(project_id: str) -> Dict[str, Any]:
                 _generate_errors[proj.id] = "No LLM configured for planning. Configure a large model in Settings."
                 return
 
-            state = load_roadmap(index_dir)
+            # Lock to prevent overwriting user changes (e.g. promote)
+            lock = _get_roadmap_lock(proj.id)
 
-            # Use GoalpostsPlanner but output RoadmapNodes
+            # LLM call outside lock (slow operation)
+            from codrag.core.goalposts_models import load_roadmap as _lr
+            _pre_state = _lr(index_dir)
             planner = GoalpostsPlanner(
                 index_dir=index_dir,
                 llm_client=llm_client,
                 project_root=Path(proj.path),
             )
-            goalposts_state = planner.generate(product_intent=state.app_ethos)
+            goalposts_state = planner.generate(product_intent=_pre_state.app_ethos)
 
-            # Convert new proposals to RoadmapNodes
-            existing_ids = {n.id for n in state.nodes}
-            position = max((n.position for n in state.proposed_nodes), default=-1) + 1
+            # Merge results under lock (fast operation)
+            with lock:
+                state = load_roadmap(index_dir)
 
-            for p in goalposts_state.proposals:
-                if p.state != "proposed":
-                    continue
-                # Extract P-4/P-5 fields stashed by enhanced planner
-                business_impact = getattr(p, '_business_impact', '')
-                ethos_alignment = getattr(p, '_ethos_alignment', '')
-                node = RoadmapNode(
-                    title=p.title,
-                    description=p.rationale,
-                    tier="proposed",
-                    position=position,
-                    source="ai_proposed",
-                    category=p.category,
-                    priority=p.priority,
-                    tasks=[
-                        RoadmapTask(
-                            description=t.description,
-                            file_paths=t.file_paths,
-                            effort=t.effort,
-                        )
-                        for t in p.tasks
-                    ],
-                    state="proposed",
-                    business_impact=business_impact,
-                    ethos_alignment=ethos_alignment,
-                )
-                if node.id not in existing_ids:
-                    state.nodes.append(node)
-                    existing_ids.add(node.id)
-                    position += 1
+                # Convert new proposals to RoadmapNodes
+                existing_ids = {n.id for n in state.nodes}
+                position = max((n.position for n in state.proposed_nodes), default=-1) + 1
 
-            # Preserve questions
-            state.questions.extend(goalposts_state.questions)
-            state.last_generated_at = goalposts_state.last_generated_at
-            state.model_used = goalposts_state.model_used
-            state.generation_tokens = goalposts_state.generation_tokens
-            state.generation_duration_ms = goalposts_state.generation_duration_ms
+                for p in goalposts_state.proposals:
+                    if p.state != "proposed":
+                        continue
+                    # Extract P-4/P-5 fields stashed by enhanced planner
+                    business_impact = getattr(p, '_business_impact', '')
+                    ethos_alignment = getattr(p, '_ethos_alignment', '')
+                    node = RoadmapNode(
+                        title=p.title,
+                        description=p.rationale,
+                        tier="proposed",
+                        position=position,
+                        source="ai_proposed",
+                        category=p.category,
+                        priority=p.priority,
+                        tasks=[
+                            RoadmapTask(
+                                description=t.description,
+                                file_paths=t.file_paths,
+                                effort=t.effort,
+                            )
+                            for t in p.tasks
+                        ],
+                        state="proposed",
+                        business_impact=business_impact,
+                        ethos_alignment=ethos_alignment,
+                    )
+                    if node.id not in existing_ids:
+                        state.nodes.append(node)
+                        existing_ids.add(node.id)
+                        position += 1
 
-            save_roadmap(state, index_dir)
+                # Preserve questions
+                state.questions.extend(goalposts_state.questions)
+                state.last_generated_at = goalposts_state.last_generated_at
+                state.model_used = goalposts_state.model_used
+                state.generation_tokens = goalposts_state.generation_tokens
+                state.generation_duration_ms = goalposts_state.generation_duration_ms
+
+                save_roadmap(state, index_dir)
             logger.info("Roadmap proposals generated for %s", proj.id)
 
         except Exception as e:
@@ -641,35 +665,45 @@ def trigger_mine(project_id: str) -> Dict[str, Any]:
             from codrag.core.roadmap_miner import mine_roadmap_contenders
             from codrag.core.goalposts_models import load_roadmap, save_roadmap
 
-            state = load_roadmap(index_dir)
-            existing_ids = {n.id for n in state.nodes}
+            # Mine outside lock (slow I/O operation)
+            _pre_state = load_roadmap(index_dir)
+            pre_ids = {n.id for n in _pre_state.nodes}
 
             new_nodes = mine_roadmap_contenders(
                 index_dir=index_dir,
                 project_root=Path(proj.path),
-                existing_ids=existing_ids,
+                existing_ids=pre_ids,
                 max_results=30,
             )
 
-            # Assign positions
-            proposed_max = max(
-                (n.position for n in state.nodes if n.tier == "proposed"),
-                default=-1,
-            )
-            for i, node in enumerate(new_nodes):
-                node.position = proposed_max + 1 + i
+            # Merge under lock (fast operation)
+            lock = _get_roadmap_lock(proj.id)
+            with lock:
+                state = load_roadmap(index_dir)
+                existing_ids = {n.id for n in state.nodes}
 
-            state.nodes.extend(new_nodes)
+                # Filter out any nodes already added since pre-read
+                new_nodes = [n for n in new_nodes if n.id not in existing_ids]
 
-            # Persist mining metadata (Track 5-3)
-            state.last_mined_at = datetime.now(timezone.utc).isoformat()
-            mining_counts: Dict[str, int] = {}
-            for n in new_nodes:
-                ref = (n.source_ref or "").split(":")[0]  # "audit", "module", "file", etc.
-                mining_counts[ref] = mining_counts.get(ref, 0) + 1
-            state.mining_stats = mining_counts
+                # Assign positions
+                proposed_max = max(
+                    (n.position for n in state.nodes if n.tier == "proposed"),
+                    default=-1,
+                )
+                for i, node in enumerate(new_nodes):
+                    node.position = proposed_max + 1 + i
 
-            save_roadmap(state, index_dir)
+                state.nodes.extend(new_nodes)
+
+                # Persist mining metadata (Track 5-3)
+                state.last_mined_at = datetime.now(timezone.utc).isoformat()
+                mining_counts: Dict[str, int] = {}
+                for n in new_nodes:
+                    ref = (n.source_ref or "").split(":")[0]  # "audit", "module", "file", etc.
+                    mining_counts[ref] = mining_counts.get(ref, 0) + 1
+                state.mining_stats = mining_counts
+
+                save_roadmap(state, index_dir)
 
             logger.info("Roadmap mining complete for %s: %d new contenders", proj.id, len(new_nodes))
 
@@ -889,3 +923,95 @@ def suggest_sprint(project_id: str, use_ai: bool = True) -> Dict[str, Any]:
         **suggestion.to_dict(),
         "node_details": node_details,
     })
+
+
+# ── Node LLM Execution (Phase 59E) ──────────────────────────────────
+
+@router.post("/projects/{project_id}/roadmap/nodes/{node_id}/execute")
+def execute_node(project_id: str, node_id: str) -> Dict[str, Any]:
+    """Execute a roadmap node with the project's configured LLM.
+
+    Generates implementation guidance, action steps, and code-level
+    suggestions for the given node.
+    """
+    from codrag.services.project_helpers import require_project_writable
+    from codrag.core.goalposts_models import load_roadmap
+    from codrag.core.project_registry import project_index_dir
+
+    proj = require_project_writable(project_id)
+    index_dir = project_index_dir(proj)
+    state = load_roadmap(index_dir)
+
+    node = state.node_by_id(node_id)
+    if not node:
+        raise ApiException(
+            status_code=404,
+            code="NODE_NOT_FOUND",
+            message=f"Roadmap node '{node_id}' not found.",
+        )
+
+    import codrag.server as _s
+    llm = _s._get_llm_client_for_task("goalposts")
+    if not llm:
+        raise ApiException(
+            status_code=503,
+            code="NO_LLM_CONFIGURED",
+            message="No LLM configured for the goalposts task. Configure a large model in Settings.",
+        )
+
+    # Format node context for the LLM
+    tasks_text = "\n".join(
+        f"  - {t.description} (effort: {t.effort})"
+        for t in node.tasks
+    ) if node.tasks else "  (no tasks defined)"
+
+    prompt = f"""You are a senior software engineer. Analyze this roadmap item and provide concrete implementation guidance.
+
+## Roadmap Item: {node.title}
+**Priority:** {node.priority} | **Category:** {node.category} | **Tier:** {node.tier}
+
+### Description
+{node.description or '(no description)'}
+
+### Tasks
+{tasks_text}
+
+### Business Impact
+{node.business_impact or '(not specified)'}
+
+### Ethos Alignment
+{node.ethos_alignment or '(not specified)'}
+
+---
+
+Please provide:
+1. **Implementation Strategy** — High-level approach and architecture decisions
+2. **Action Steps** — Ordered list of concrete steps to implement this
+3. **Code Changes** — Which files/modules likely need modification
+4. **Risks & Considerations** — Potential pitfalls or dependencies
+5. **Estimated Effort** — Time estimate and complexity assessment
+"""
+
+    system = "You are a senior software engineer analyzing a roadmap item for implementation. Be concise, specific, and actionable. Focus on practical guidance."
+
+    try:
+        text, tokens = llm.generate(
+            prompt=prompt,
+            system=system,
+            json_mode=False,
+            temperature=0.3,
+            num_predict=4096,
+        )
+        return ok({
+            "node_id": node_id,
+            "guidance": text,
+            "tokens_used": tokens,
+            "model": llm.model,
+        })
+    except Exception as e:
+        logger.error("LLM execution failed for node %s: %s", node_id, e)
+        raise ApiException(
+            status_code=500,
+            code="LLM_EXECUTION_FAILED",
+            message=f"LLM execution failed: {e}",
+        )

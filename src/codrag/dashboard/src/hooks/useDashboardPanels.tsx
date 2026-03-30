@@ -1000,6 +1000,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onMineRoadmap={roadmapProps.handleMineRoadmap}
         onPushToGitHub={roadmapProps.handlePushNodeToGitHub}
         onSuggestSprint={roadmapProps.handleSuggestSprint}
+        onExecuteNode={roadmapProps.handleExecuteNode}
         githubStatus={roadmapProps.state?.github_sync ? {
           configured: true,
           owner: roadmapProps.state.github_sync.owner,

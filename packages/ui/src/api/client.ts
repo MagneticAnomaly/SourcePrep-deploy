@@ -264,6 +264,9 @@ export interface ApiClient {
   pushToGitHub(projectId: string, nodeIds: string[]): Promise<import('../types').PushGitHubResult>;
   getVelocity(projectId: string): Promise<import('../types').VelocityResponse>;
   suggestSprint(projectId: string): Promise<import('../types').SprintSuggestion>;
+
+  // Roadmap Node Execution (Phase 59E)
+  executeNode(projectId: string, nodeId: string): Promise<{ node_id: string; guidance: string; tokens_used: number; model: string }>;
 }
 
 export interface ApiClientConfig {
@@ -1268,6 +1271,12 @@ export class CodragApiClient implements ApiClient {
 
   async suggestSprint(projectId: string): Promise<import('../types').SprintSuggestion> {
     return this.requestEnvelope<import('../types').SprintSuggestion>(`/projects/${projectId}/roadmap/suggest-sprint`, {
+      method: 'POST',
+    });
+  }
+
+  async executeNode(projectId: string, nodeId: string): Promise<{ node_id: string; guidance: string; tokens_used: number; model: string }> {
+    return this.requestEnvelope<{ node_id: string; guidance: string; tokens_used: number; model: string }>(`/projects/${projectId}/roadmap/nodes/${encodeURIComponent(nodeId)}/execute`, {
       method: 'POST',
     });
   }
