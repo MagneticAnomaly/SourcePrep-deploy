@@ -44,6 +44,7 @@ import { useAuditSystem } from './hooks/useAuditSystem'
 import { useSpaghettiSystem } from './hooks/useSpaghettiSystem'
 import { useGoalpostsSystem } from './hooks/useGoalpostsSystem'
 import { useRoadmapSystem } from './hooks/useRoadmapSystem'
+import { useOpportunitiesSystem } from './hooks/useOpportunitiesSystem'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
@@ -246,6 +247,9 @@ function App() {
 
   // ── Roadmap (Phase 59) ──────────────────────────────────────
   const roadmap = useRoadmapSystem(selectedProjectId)
+
+  // ── Opportunities (Phase 63) ───────────────────────────────
+  const opportunities = useOpportunitiesSystem(selectedProjectId)
 
   // ── Event Stream ───────────────────────────────────────────
   const eventsUrl = import.meta.env.DEV
@@ -684,6 +688,7 @@ function App() {
     spaghetti,
     goalposts,
     roadmap,
+    opportunities,
     activityData,
     adminPolicy,
     seatStatus,

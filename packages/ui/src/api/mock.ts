@@ -823,6 +823,32 @@ export class MockApiClient implements ApiClient {
       model: 'mock',
     };
   }
+
+  // ── Opportunities (Phase 63) ─────────────────────────────────
+
+  async getOpportunities(_projectId: string, _opts?: any): Promise<{ item_count: number; items: any[] }> {
+    return { item_count: 0, items: [] };
+  }
+
+  async refreshOpportunities(_projectId: string): Promise<{ item_count: number; summary: any; items: any[] }> {
+    return { item_count: 0, summary: { total: 0, dismissed: 0, critical: 0, warning: 0, info: 0, last_refresh: null, by_priority: {}, by_category: {}, by_source: {} }, items: [] };
+  }
+
+  async getOpportunitiesSummary(_projectId: string): Promise<any> {
+    return { total: 0, dismissed: 0, critical: 0, warning: 0, info: 0, last_refresh: null, by_priority: {}, by_category: {}, by_source: {} };
+  }
+
+  async dismissOpportunity(_projectId: string, itemId: string): Promise<{ dismissed: string }> {
+    return { dismissed: itemId };
+  }
+
+  async restoreOpportunity(_projectId: string, itemId: string): Promise<{ restored: string }> {
+    return { restored: itemId };
+  }
+
+  async exportOpportunities(_projectId: string, _format: string, _opts?: any): Promise<string> {
+    return '[]';
+  }
 }
 
 export const createMockApiClient = (): ApiClient => new MockApiClient();

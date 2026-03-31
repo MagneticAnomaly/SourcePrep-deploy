@@ -1705,3 +1705,26 @@ class CodebaseAtlas:
         """Check if segmented atlases exist."""
         manifest_path = self.index_dir / "atlas_segments_manifest.json"
         return manifest_path.exists() and self.segments_dir.exists()
+
+    def get_role_atlas(self, role: str) -> str:
+        """Return a role-filtered sub-atlas.
+
+        Resolves the role string to a RoleVector, then projects the
+        existing epistemic data through a role-specific lens.  No LLM
+        calls — pure Python scoring + assembly.
+
+        Args:
+            role: Free-form role name (e.g. "CEO", "design engineer",
+                  "Senior QA Lead", "security").
+
+        Returns:
+            A role-appropriate sub-atlas string, compressed to the
+            role's character budget.
+        """
+        from .role_resolver import resolve_role
+        from .role_projection import project_atlas_for_role
+
+        role_vector = resolve_role(role)
+        doc = self.load()
+        base_content = doc.content if doc else ""
+        return project_atlas_for_role(role_vector, self.index_dir, base_content)

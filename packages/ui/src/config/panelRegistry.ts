@@ -10,6 +10,7 @@ import {
   FolderTree,
   GitBranch,
   HeartPulse,
+  Lightbulb,
   Map,
   Search, 
   Settings2, 
@@ -299,6 +300,18 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     resizable: true,
     fullWidth: true,
     docsUrl: 'https://docs.codrag.io/guides/roadmap',
+  },
+  {
+    id: 'opportunities',
+    title: 'Opportunities',
+    description: 'Unified codebase improvement opportunities: architecture issues, tech debt, naming problems, and AI-driven recommendations. Export as SARIF, JSON, CSV, or paste-ready AI prompts.',
+    icon: Lightbulb,
+    minHeight: 6,
+    defaultHeight: 10,
+    category: 'status',
+    closeable: true,
+    resizable: true,
+    docsUrl: 'https://docs.codrag.io/guides/opportunities',
   },
 ];
 

@@ -193,6 +193,8 @@ export type { SchedulerStatus, SchedulerNodeStatus, ComputeNode, ComputeHardware
 // Components - Health Scanner (Phase 57B consolidated)
 export { HealthScannerPanel } from './components/audit';
 export type { HealthScannerPanelProps } from './components/audit';
+export { OpportunitiesPanel } from './components/audit';
+export type { OpportunitiesPanelProps } from './components/audit';
 
 // Components - Goalposts (Phase 57)
 export { GoalpostsPanel } from './components/goalposts';

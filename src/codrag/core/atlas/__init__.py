@@ -40,6 +40,9 @@ from .routing import (
     route_query,
 )
 from .generator import CodebaseAtlas
+from .role_vectors import RoleVector, BUILT_IN_ROLES, SYNONYM_CLUSTERS
+from .role_resolver import resolve_role
+from .role_projection import project_atlas_for_role
 
 __all__ = [
     "AtlasDocument",
@@ -57,4 +60,11 @@ __all__ = [
     "MIN_MODULES_FOR_ROUTING",
     "ROUTING_MIN_SCORE",
     "ROUTING_MAX_SEGMENTS",
+    # Role Composition Engine (Phase 64A)
+    "RoleVector",
+    "BUILT_IN_ROLES",
+    "SYNONYM_CLUSTERS",
+    "resolve_role",
+    "project_atlas_for_role",
 ]
+

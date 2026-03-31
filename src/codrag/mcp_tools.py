@@ -40,6 +40,14 @@ _CORE_TOOLS = [
                     "type": "integer",
                     "description": "(Advanced) Maximum characters in assembled context. Auto-sized for your AI tool if omitted.",
                 },
+                "role": {
+                    "type": "string",
+                    "description": (
+                        "Optional role to filter context for a specific audience "
+                        "(e.g. 'ceo', 'design engineer', 'security', 'intern'). "
+                        "Returns a role-appropriate codebase view with matched detail level."
+                    ),
+                },
                 "project_id": _PROJECT_ID_PROP,
             },
             "required": [],

@@ -1,0 +1,307 @@
+"""
+Role Resolver for CoDRAG Role Composition Engine (Phase 64A).
+
+Maps arbitrary role strings to RoleVector instances using three strategies:
+  A. Exact match against built-in roles
+  B. Keyword decomposition + vector blending for compound roles
+  C. (Future) LLM-resolved vectors — not in Phase 64A
+
+Examples:
+  "CEO"              → exact match → CEO_VECTOR
+  "design engineer"  → keyword decomposition → blend(design=0.4, engineering=0.6)
+  "Senior QA Lead"   → keywords [qa] + modifiers [senior, lead]
+  "xyzzy"            → fallback → engineering vector
+"""
+from __future__ import annotations
+
+import logging
+import re
+from copy import deepcopy
+from typing import Dict, List, Optional, Tuple
+
+from .role_vectors import BUILT_IN_ROLES, RoleVector
+
+logger = logging.getLogger(__name__)
+
+
+# ── Keyword → base role mapping ──────────────────────────────────────
+
+KEYWORD_TO_BASE: Dict[str, str] = {
+    # Engineering
+    "engineer": "engineering",
+    "developer": "engineering",
+    "dev": "engineering",
+    "programmer": "engineering",
+    "coder": "engineering",
+    "swe": "engineering",
+    "backend": "engineering",
+    "frontend": "full_stack",
+    "fullstack": "full_stack",
+    "full-stack": "full_stack",
+    "full_stack": "full_stack",
+    # Design
+    "design": "design",
+    "designer": "design",
+    "ux": "design",
+    "ui": "design",
+    # Security
+    "security": "security",
+    "sec": "security",
+    "infosec": "security",
+    "appsec": "security",
+    # QA
+    "qa": "qa",
+    "test": "qa",
+    "tester": "qa",
+    "quality": "qa",
+    "sdet": "qa",
+    # DevOps
+    "ops": "devops",
+    "devops": "devops",
+    "sre": "devops",
+    "infra": "devops",
+    "platform": "devops",
+    "cloud": "devops",
+    # Product
+    "product": "product",
+    "pm": "product",
+    "manager": "product",
+    # Data
+    "data": "data_engineer",
+    "ml": "data_engineer",
+    "ai": "data_engineer",
+    "analytics": "data_engineer",
+    # Architecture
+    "architect": "architect",
+    "architecture": "architect",
+    # Writing
+    "writer": "writer",
+    "docs": "writer",
+    "documentation": "writer",
+    "technical": "writer",
+    # Executive
+    "ceo": "ceo",
+    "cto": "cto",
+    "cfo": "ceo",
+    "coo": "ceo",
+    "vp": "cto",
+    "director": "cto",
+    "exec": "ceo",
+    "executive": "ceo",
+    "chief": "ceo",
+    "board": "ceo",
+    # Onboarding
+    "intern": "intern",
+    "junior": "intern",
+    "new": "intern",
+    "onboarding": "intern",
+}
+
+# Modifiers that adjust the vector instead of selecting a base role
+MODIFIER_TERMS = frozenset({
+    "senior", "sr", "staff", "principal", "distinguished",
+    "junior", "jr", "intern", "associate",
+    "lead", "head", "manager", "director",
+})
+
+# Which modifiers map to which modifier category
+_SENIORITY_UP = frozenset({"senior", "sr", "staff", "principal", "distinguished"})
+_SENIORITY_DOWN = frozenset({"junior", "jr", "intern", "associate"})
+_LEADERSHIP = frozenset({"lead", "head", "manager", "director"})
+
+
+# ── Core resolver ────────────────────────────────────────────────────
+
+def resolve_role(role_string: str) -> RoleVector:
+    """Resolve an arbitrary role string to a RoleVector.
+
+    Strategy A: Exact match against BUILT_IN_ROLES.
+    Strategy B: Keyword decomposition + vector blending.
+    Fallback:   engineering vector.
+
+    Args:
+        role_string: Free-form role name (e.g., "CEO", "Design Engineer",
+                     "Senior QA Lead", "DevSecOps").
+
+    Returns:
+        A RoleVector appropriate for the given role.
+    """
+    if not role_string or not role_string.strip():
+        return BUILT_IN_ROLES["engineering"].copy()
+
+    # Normalize: lowercase, strip, replace separators
+    normalized = role_string.strip().lower()
+    normalized = normalized.replace("-", " ").replace("_", " ")
+    normalized = re.sub(r"\s+", " ", normalized)  # collapse whitespace
+
+    # ── Strategy A: Exact match ────────────────────────────────────
+    # Try the full normalized string against built-in role IDs and display names
+    if normalized in BUILT_IN_ROLES:
+        return BUILT_IN_ROLES[normalized].copy()
+
+    # Also try with underscores (e.g., "design engineer" → "design_engineer")
+    underscore_key = normalized.replace(" ", "_")
+    if underscore_key in BUILT_IN_ROLES:
+        return BUILT_IN_ROLES[underscore_key].copy()
+
+    # Also match by display name (case-insensitive)
+    for role_id, rv in BUILT_IN_ROLES.items():
+        if rv.display_name.lower() == normalized:
+            return rv.copy()
+
+    # ── Strategy B: Keyword decomposition ──────────────────────────
+    tokens = normalized.split()
+
+    base_roles: List[str] = []
+    modifiers: List[str] = []
+
+    for token in tokens:
+        if token in MODIFIER_TERMS:
+            modifiers.append(token)
+        elif token in KEYWORD_TO_BASE:
+            base_id = KEYWORD_TO_BASE[token]
+            if base_id not in base_roles:
+                base_roles.append(base_id)
+        # else: ignored token (e.g., "of", "and", "the")
+
+    if not base_roles:
+        # No recognizable keywords — fall back to engineering
+        logger.debug("Role '%s' did not match any keywords, defaulting to engineering", role_string)
+        vector = BUILT_IN_ROLES["engineering"].copy()
+    elif len(base_roles) == 1:
+        vector = BUILT_IN_ROLES[base_roles[0]].copy()
+    else:
+        # Blend multiple base roles with equal weights
+        weighted = [
+            (BUILT_IN_ROLES[rid], 1.0 / len(base_roles))
+            for rid in base_roles
+        ]
+        vector = blend_vectors(weighted, role_id=underscore_key, display_name=role_string.strip())
+
+    # Apply modifiers
+    for mod in modifiers:
+        vector = apply_modifier(vector, mod)
+
+    return vector
+
+
+# ── Vector blending ──────────────────────────────────────────────────
+
+def blend_vectors(
+    weighted_roles: List[Tuple[RoleVector, float]],
+    role_id: str = "blended",
+    display_name: str = "Blended Role",
+) -> RoleVector:
+    """Blend multiple RoleVectors with weights.
+
+    Each role contributes proportionally to the blended vector.
+    Layer weights, centrality, detail_level, and max_chars are all
+    blended via weighted average.  Domain affinity keywords are unioned
+    (deduplicated, order preserved).
+
+    Args:
+        weighted_roles: List of (RoleVector, weight) tuples.
+        role_id:        ID for the blended result.
+        display_name:   Display name for the blended result.
+
+    Returns:
+        A new RoleVector with blended values.
+    """
+    if not weighted_roles:
+        return BUILT_IN_ROLES["engineering"].copy()
+
+    if len(weighted_roles) == 1:
+        rv = weighted_roles[0][0].copy()
+        rv.role_id = role_id
+        rv.display_name = display_name
+        return rv
+
+    # Normalize weights to sum to 1.0
+    total = sum(w for _, w in weighted_roles)
+    if total <= 0:
+        total = 1.0
+    normed = [(v, w / total) for v, w in weighted_roles]
+
+    # Blend layer weights
+    all_layers = set()
+    for v, _ in normed:
+        all_layers.update(v.layer_weights.keys())
+
+    blended_layers: Dict[str, float] = {}
+    for layer in all_layers:
+        blended_layers[layer] = round(
+            sum(v.layer_weights.get(layer, 0.0) * w for v, w in normed), 3
+        )
+
+    # Union domain affinity (deduplicated, order preserved)
+    seen_kw: set = set()
+    domain: List[str] = []
+    for v, _ in normed:
+        for kw in v.domain_affinity:
+            if kw not in seen_kw:
+                domain.append(kw)
+                seen_kw.add(kw)
+
+    # Blend scalars
+    centrality = round(sum(v.centrality_weight * w for v, w in normed), 3)
+    detail = round(sum(v.detail_level * w for v, w in normed), 3)
+    budget = int(sum(v.max_chars * w for v, w in normed))
+
+    return RoleVector(
+        role_id=role_id,
+        display_name=display_name,
+        layer_weights=blended_layers,
+        domain_affinity=domain,
+        centrality_weight=centrality,
+        detail_level=detail,
+        max_chars=budget,
+    )
+
+
+# ── Modifier application ────────────────────────────────────────────
+
+def apply_modifier(vector: RoleVector, modifier: str) -> RoleVector:
+    """Apply a seniority/leadership modifier to a RoleVector.
+
+    Modifiers adjust the vector without changing its base role identity:
+      - senior/staff:    less detail, more strategic (higher centrality)
+      - junior/intern:   more detail, more docs, bigger budget
+      - lead/manager:    higher centrality, + testing visibility
+
+    Args:
+        vector: The base RoleVector to modify (will be copied).
+        modifier: One of the MODIFIER_TERMS.
+
+    Returns:
+        A new modified RoleVector.
+    """
+    v = vector.copy()
+
+    if modifier in _SENIORITY_UP:
+        # Senior: less hand-holding, more strategic awareness
+        v.detail_level = max(0.1, v.detail_level - 0.15)
+        v.centrality_weight = min(1.0, v.centrality_weight + 0.1)
+        v.max_chars = max(1000, v.max_chars - 300)
+
+    elif modifier in _SENIORITY_DOWN:
+        # Junior/intern: more detail, more docs, bigger budget
+        v.detail_level = min(1.0, v.detail_level + 0.2)
+        v.max_chars = int(v.max_chars * 1.3)
+        v.layer_weights = dict(v.layer_weights)  # defensive copy
+        v.layer_weights["documentation"] = min(
+            1.0, v.layer_weights.get("documentation", 0.3) + 0.3
+        )
+        v.layer_weights["testing"] = min(
+            1.0, v.layer_weights.get("testing", 0.2) + 0.15
+        )
+
+    elif modifier in _LEADERSHIP:
+        # Lead: more strategic, quality-aware
+        v.centrality_weight = min(1.0, v.centrality_weight + 0.2)
+        v.detail_level = max(0.1, v.detail_level - 0.1)
+        v.layer_weights = dict(v.layer_weights)
+        v.layer_weights["testing"] = min(
+            1.0, v.layer_weights.get("testing", 0.3) + 0.2
+        )
+
+    return v

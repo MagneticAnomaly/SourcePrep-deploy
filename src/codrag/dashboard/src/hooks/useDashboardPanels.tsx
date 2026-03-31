@@ -55,10 +55,12 @@ import {
   GoalpostsPanel,
   AdvisorPanel,
   RoadmapPanel,
+  OpportunitiesPanel,
 } from '@codrag/ui'
 import type { TraceStatus, TraceCoverage } from './useTraceSystem'
 import type { UseAuditSystemReturn } from './useAuditSystem'
 import type { UseSpaghettiSystemReturn } from './useSpaghettiSystem'
+import type { UseOpportunitiesSystemReturn } from './useOpportunitiesSystem'
 
 const PINNED_PREFIX = 'pinned:'
 
@@ -245,6 +247,7 @@ export interface DashboardPanelsProps {
   spaghetti: UseSpaghettiSystemReturn
   goalposts: UseGoalpostsSystemReturn
   roadmap: UseRoadmapSystemReturn
+  opportunities: UseOpportunitiesSystemReturn
   activityData: ActivityHeatmapData | null
   // Enterprise
   adminPolicy?: import('@codrag/ui').AdminPolicy | null
@@ -260,7 +263,7 @@ export interface DashboardPanelsProps {
 /** Builds all dashboard panel content, detail views, and dynamic panel definitions from domain state. */
 export function useDashboardPanels(props: DashboardPanelsProps) {
   // Flatten grouped sub-objects for backward-compatible p.xxx access internally
-  const { search, files, trace, enrichment, llm, deepAnalysis, atlas, audit: auditProps, spaghetti: spaghettiProps, goalposts: goalpostsProps, roadmap: roadmapProps, ...core } = props
+  const { search, files, trace, enrichment, llm, deepAnalysis, atlas, audit: auditProps, spaghetti: spaghettiProps, goalposts: goalpostsProps, roadmap: roadmapProps, opportunities: opportunitiesProps, ...core } = props
   const p = { ...core, ...search, ...files, ...trace, ...enrichment, ...llm, ...deepAnalysis }
 
   // Optimistic local state for excluded paths — updates INSTANTLY on click.
@@ -1043,6 +1046,27 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           window_resets_in: 0,
         }) : null}
         deepMode={p.enrichmentAutoConfig?.deepEnrichment ?? 'manual'}
+      />
+    ),
+    opportunities: (
+      <OpportunitiesPanel
+        items={opportunitiesProps.items}
+        summary={opportunitiesProps.summary}
+        loading={opportunitiesProps.loading}
+        refreshing={opportunitiesProps.refreshing}
+        error={opportunitiesProps.error}
+        onRefresh={opportunitiesProps.handleRefresh}
+        onDismiss={opportunitiesProps.handleDismiss}
+        onRestore={opportunitiesProps.handleRestore}
+        onExport={opportunitiesProps.handleExport}
+        categoryFilter={opportunitiesProps.categoryFilter}
+        onCategoryFilterChange={opportunitiesProps.setCategoryFilter}
+        priorityFilter={opportunitiesProps.priorityFilter}
+        onPriorityFilterChange={opportunitiesProps.setPriorityFilter}
+        sourceFilter={opportunitiesProps.sourceFilter}
+        onSourceFilterChange={opportunitiesProps.setSourceFilter}
+        showDismissed={opportunitiesProps.showDismissed}
+        onShowDismissedChange={opportunitiesProps.setShowDismissed}
       />
     ),
   }), [p, excludedPaths, handleToggleExclude])

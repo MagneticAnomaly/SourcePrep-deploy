@@ -267,6 +267,14 @@ export interface ApiClient {
 
   // Roadmap Node Execution (Phase 59E)
   executeNode(projectId: string, nodeId: string): Promise<{ node_id: string; guidance: string; tokens_used: number; model: string }>;
+
+  // Opportunities (Phase 63)
+  getOpportunities(projectId: string, opts?: { category?: string; min_priority?: string; source?: string; include_dismissed?: boolean; limit?: number }): Promise<{ item_count: number; items: any[] }>;
+  refreshOpportunities(projectId: string): Promise<{ item_count: number; summary: any; items: any[] }>;
+  getOpportunitiesSummary(projectId: string): Promise<{ total: number; dismissed: number; critical: number; warning: number; info: number; last_refresh: string | null; by_priority: Record<string, number>; by_category: Record<string, number>; by_source: Record<string, number> }>;
+  dismissOpportunity(projectId: string, itemId: string): Promise<{ dismissed: string }>;
+  restoreOpportunity(projectId: string, itemId: string): Promise<{ restored: string }>;
+  exportOpportunities(projectId: string, format: string, opts?: { category?: string; min_priority?: string; source?: string }): Promise<string>;
 }
 
 export interface ApiClientConfig {
@@ -1274,11 +1282,55 @@ export class CodragApiClient implements ApiClient {
       method: 'POST',
     });
   }
-
   async executeNode(projectId: string, nodeId: string): Promise<{ node_id: string; guidance: string; tokens_used: number; model: string }> {
     return this.requestEnvelope<{ node_id: string; guidance: string; tokens_used: number; model: string }>(`/projects/${projectId}/roadmap/nodes/${encodeURIComponent(nodeId)}/execute`, {
       method: 'POST',
     });
+  }
+
+  // ── Opportunities (Phase 63) ─────────────────────────────────
+
+  async getOpportunities(projectId: string, opts?: { category?: string; min_priority?: string; source?: string; include_dismissed?: boolean; limit?: number }): Promise<{ item_count: number; items: any[] }> {
+    const query: Record<string, string | number | boolean | undefined> = {};
+    if (opts?.category) query.category = opts.category;
+    if (opts?.min_priority) query.min_priority = opts.min_priority;
+    if (opts?.source) query.source = opts.source;
+    if (opts?.include_dismissed) query.include_dismissed = true;
+    if (opts?.limit) query.limit = opts.limit;
+    return this.requestEnvelope<{ item_count: number; items: any[] }>(`/projects/${projectId}/opportunities`, { query });
+  }
+
+  async refreshOpportunities(projectId: string): Promise<{ item_count: number; summary: any; items: any[] }> {
+    return this.requestEnvelope<{ item_count: number; summary: any; items: any[] }>(`/projects/${projectId}/opportunities/refresh`, {
+      method: 'POST',
+    });
+  }
+
+  async getOpportunitiesSummary(projectId: string): Promise<{ total: number; dismissed: number; critical: number; warning: number; info: number; last_refresh: string | null; by_priority: Record<string, number>; by_category: Record<string, number>; by_source: Record<string, number> }> {
+    return this.requestEnvelope(`/projects/${projectId}/opportunities/summary`);
+  }
+
+  async dismissOpportunity(projectId: string, itemId: string): Promise<{ dismissed: string }> {
+    return this.requestEnvelope<{ dismissed: string }>(`/projects/${projectId}/opportunities/${encodeURIComponent(itemId)}/dismiss`, {
+      method: 'POST',
+    });
+  }
+
+  async restoreOpportunity(projectId: string, itemId: string): Promise<{ restored: string }> {
+    return this.requestEnvelope<{ restored: string }>(`/projects/${projectId}/opportunities/${encodeURIComponent(itemId)}/restore`, {
+      method: 'POST',
+    });
+  }
+
+  async exportOpportunities(projectId: string, format: string, opts?: { category?: string; min_priority?: string; source?: string }): Promise<string> {
+    const params = new URLSearchParams({ format });
+    if (opts?.category) params.set('category', opts.category);
+    if (opts?.min_priority) params.set('min_priority', opts.min_priority);
+    if (opts?.source) params.set('source', opts.source);
+    const res = await this.fetchImpl(`${this.baseUrl}/projects/${projectId}/opportunities/export?${params}`, {
+      headers: this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {},
+    });
+    return res.text();
   }
 }
 
