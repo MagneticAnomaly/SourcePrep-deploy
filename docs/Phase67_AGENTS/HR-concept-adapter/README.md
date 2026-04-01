@@ -38,6 +38,8 @@ The **HR Agent Adapter** is a CoDRAG subsystem that generates, manages, and evol
 | 03 | [Integration Reference](03_Integration_Reference.md) | How it connects to CoDRAG internals and Paperclip's API |
 | 04 | [Orchestrator Adapters](04_Orchestrator_Adapters.md) | Universal adapter pattern: Paperclip (primary), CrewAI, AutoGen (future) |
 | 05 | [Edge Cases & Generation Modes](05_Edge_Cases_and_Modes.md) | The three generation modes, insufficient data handling, first-run UX, dashboard design |
+| 06 | [Context Pipeline & KNOWLEDGE.md](06_Context_Pipeline_and_Knowledge.md) | How all CoDRAG tools + embeddings + scopes + KNOWLEDGE.md work together — the complete context delivery pipeline |
+| 07 | [Primary vs. Agent Alignment](07_Primary_vs_Agent_Alignment.md) | Architecture audit ensuring HR work doesn't compromise the primary MCP use case, plus feature opportunities that benefit both |
 
 ---
 
