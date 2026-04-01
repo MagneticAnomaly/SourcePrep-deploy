@@ -1,5 +1,6 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useApiClient } from '@codrag/ui'
+import type { AgentStatus as AgentStatusType } from '@codrag/ui'
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -52,6 +53,8 @@ export interface UseOpportunitiesSystemReturn {
   setSourceFilter: (s: string | null) => void
   showDismissed: boolean
   setShowDismissed: (b: boolean) => void
+  /** Phase 66: Pi agent status from pipeline status API */
+  agentStatus: AgentStatusType | null
 }
 
 // ── Hook ──────────────────────────────────────────────────────
@@ -70,6 +73,10 @@ export function useOpportunitiesSystem(selectedProjectId: string | null): UseOpp
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null)
   const [sourceFilter, setSourceFilter] = useState<string | null>(null)
   const [showDismissed, setShowDismissed] = useState(false)
+
+  // Phase 66: Pi agent status from pipeline status API
+  const [agentStatus, setAgentStatus] = useState<AgentStatusType | null>(null)
+  const agentPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Hydrate on project change
   useEffect(() => {
@@ -99,6 +106,32 @@ export function useOpportunitiesSystem(selectedProjectId: string | null): UseOpp
         console.warn('[Opportunities] Failed to load:', e.message)
       })
       .finally(() => setLoading(false))
+  }, [selectedProjectId, api])
+
+  // Phase 66: Poll pipeline status for agent data
+  useEffect(() => {
+    if (!selectedProjectId) {
+      setAgentStatus(null)
+      return
+    }
+
+    const fetchAgent = () => {
+      api.getPipelineStatus(selectedProjectId)
+        .then((ps) => {
+          setAgentStatus((ps as any)?.agent ?? null)
+        })
+        .catch(() => { /* pipeline status may not be available */ })
+    }
+
+    // Initial fetch
+    fetchAgent()
+
+    // Poll every 30s (agent runs are async, user wants to see updates)
+    agentPollRef.current = setInterval(fetchAgent, 30_000)
+
+    return () => {
+      if (agentPollRef.current) clearInterval(agentPollRef.current)
+    }
   }, [selectedProjectId, api])
 
   // Refresh: run fresh scan
@@ -205,5 +238,6 @@ export function useOpportunitiesSystem(selectedProjectId: string | null): UseOpp
     setSourceFilter,
     showDismissed,
     setShowDismissed,
+    agentStatus,
   }
 }

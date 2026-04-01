@@ -176,6 +176,13 @@ export const codragFeatures: Feature[] = [
     highlight: true,
   },
   {
+    icon: <Users className="w-8 h-8" />,
+    title: 'Role-Aware Context — The right view for every agent',
+    description: 'Different agents need different slices of your codebase. A security reviewer should see authentication code and data boundaries. A UI agent should see components and design tokens. CoDRAG automatically shapes each context delivery around the role of the agent asking — so every worker gets a focused, high-signal view without wading through irrelevant code. Works with any agentic framework, zero configuration.',
+    badge: 'New',
+    highlight: true,
+  },
+  {
     icon: <Zap className="w-8 h-8" />,
     title: 'Instant Context Assembly',
     description: 'One call assembles citation-rich context for any LLM. Budget-aware chunking fits the right code into your prompt window — even for massive codebases and sprawling doc trees.',
@@ -239,6 +246,6 @@ export const marketingFeatures: Feature[] = [
   {
     icon: <TrendingUp className="w-8 h-8" />,
     title: 'The Result: AI That Understands Your Architecture',
-    description: 'More relevant suggestions, fewer corrections, faster iteration — even on the largest codebases and doc trees. Built-in embeddings, structural code graph, deep reasoning with understanding scores, codebase atlas routing, path weights, and smart context compression work together so your AI finally sees the whole picture.',
+    description: 'More relevant suggestions, fewer corrections, faster iteration — even on the largest codebases and doc trees. Built-in embeddings, structural code graph, deep reasoning with understanding scores, codebase atlas routing, role-aware context shaping, path weights, and smart context compression work together so every AI agent — from a solo assistant to a full agentic pipeline — sees exactly the right picture.',
   },
 ];

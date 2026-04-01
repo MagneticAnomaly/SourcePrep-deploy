@@ -1,10 +1,117 @@
 "use client";
 
+import { useState } from 'react';
 import { Button } from '@codrag/ui';
 
 const RELEASES_URL =
   process.env.NEXT_PUBLIC_CODRAG_RELEASES_URL ??
   'https://github.com/MagneticAnomaly/CoDRAG-MCP/releases';
+
+const MCP_CONFIGS = [
+  {
+    name: 'Claude Code',
+    file: '.claude/mcp.json (project root)',
+    config: `{
+  "servers": {
+    "codrag": {
+      "command": "codrag",
+      "args": ["mcp"]
+    }
+  }
+}`,
+  },
+  {
+    name: 'Cursor',
+    file: '.cursor/mcp.json (project root)',
+    config: `{
+  "mcpServers": {
+    "codrag": {
+      "command": "codrag",
+      "args": ["mcp"]
+    }
+  }
+}`,
+  },
+  {
+    name: 'Windsurf',
+    file: '~/.codeium/windsurf/mcp_config.json',
+    config: `{
+  "mcpServers": {
+    "codrag": {
+      "command": "codrag",
+      "args": ["mcp"],
+      "disabled": false
+    }
+  }
+}`,
+  },
+  {
+    name: 'Copilot',
+    file: '.vscode/mcp.json (project root)',
+    config: `{
+  "servers": {
+    "codrag": {
+      "command": "codrag",
+      "args": ["mcp"]
+    }
+  }
+}`,
+  },
+  {
+    name: 'Gemini CLI',
+    file: '~/.gemini/settings.json',
+    config: `{
+  "mcpServers": {
+    "codrag": {
+      "command": "codrag",
+      "args": ["mcp"],
+      "trust": true
+    }
+  }
+}`,
+  },
+  {
+    name: 'Zed',
+    file: '~/.config/zed/settings.json',
+    config: `{
+  "context_servers": {
+    "codrag": {
+      "command": "codrag",
+      "args": ["mcp"]
+    }
+  }
+}`,
+  },
+];
+
+function MCPConfigs() {
+  const [active, setActive] = useState(0);
+  return (
+    <div className="bg-background border border-border rounded-xl overflow-hidden">
+      <div className="flex flex-wrap border-b border-border">
+        {MCP_CONFIGS.map((tool, i) => (
+          <button
+            key={tool.name}
+            onClick={() => setActive(i)}
+            className={`px-4 py-2.5 text-sm font-medium transition-colors ${
+              i === active
+                ? 'bg-primary text-background'
+                : 'text-text-muted hover:text-text hover:bg-surface'
+            }`}
+          >
+            {tool.name}
+          </button>
+        ))}
+      </div>
+      <div className="p-4">
+        <div className="text-xs text-text-subtle mb-2 font-mono">{MCP_CONFIGS[active].file}</div>
+        <pre className="text-sm font-mono text-text-muted whitespace-pre overflow-x-auto">
+          {MCP_CONFIGS[active].config}
+        </pre>
+      </div>
+    </div>
+  );
+}
 
 export default function Page() {
   return (
@@ -78,16 +185,14 @@ export default function Page() {
               </div>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-6 md:items-center">
+            <div className="flex flex-col md:flex-row gap-6 md:items-start">
               <div className="flex-shrink-0 w-12 h-12 bg-surface-raised border border-border text-text-muted rounded-full flex items-center justify-center text-xl font-bold">3</div>
               <div className="flex-1">
                 <div className="text-xl font-semibold mb-2">Connect your AI editor via MCP</div>
-                <p className="text-text-muted">
-                  Add CoDRAG to your Cursor or Windsurf MCP config. Your AI assistant now has structural code intelligence.
+                <p className="text-text-muted mb-4">
+                  Add CoDRAG to your editor&apos;s MCP config. Your AI assistant gets structural code intelligence, semantic search, and dependency analysis.
                 </p>
-                <code className="block mt-3 bg-background border border-border rounded-xl px-6 py-4 text-sm font-mono text-text-muted overflow-x-auto">
-                  {`{ "codrag": { "command": "codrag", "args": ["mcp"] } }`}
-                </code>
+                <MCPConfigs />
               </div>
             </div>
           </div>
@@ -99,7 +204,10 @@ export default function Page() {
           <p className="text-lg text-text-muted leading-relaxed mb-6">
             We sign every release. You can verify the integrity of your download using the SHA-256 checksums available on the releases page.
           </p>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
+            <a href="/setup" className="text-primary font-bold hover:underline underline-offset-4 text-lg">
+              Full MCP Setup Guide →
+            </a>
             <a href="https://docs.codrag.io" className="text-primary font-bold hover:underline underline-offset-4 text-lg">
               Read Documentation →
             </a>

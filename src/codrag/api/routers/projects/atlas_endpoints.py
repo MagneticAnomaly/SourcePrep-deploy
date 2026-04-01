@@ -4,9 +4,9 @@ Atlas-related project endpoints — get atlas, regenerate atlas.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from codrag.api.envelope import ApiException, ok
 from codrag.core.project_registry import project_index_dir
@@ -19,7 +19,10 @@ router = APIRouter(tags=["projects"])
 
 
 @router.get("/projects/{project_id}/atlas")
-def get_atlas(project_id: str) -> Dict[str, Any]:
+def get_atlas(
+    project_id: str,
+    role: Optional[str] = Query(None, description="Role for filtered sub-atlas (e.g. 'ceo', 'design engineer')"),
+) -> Dict[str, Any]:
     """Get the cached Codebase Atlas for a project."""
     from codrag.core.atlas import CodebaseAtlas
     from codrag.core.project_registry import project_index_dir
@@ -39,7 +42,7 @@ def get_atlas(project_id: str) -> Dict[str, Any]:
     # For dashboard: concatenate root + all segments into one display string
     display_content, display_chars = atlas.get_display_content()
 
-    return ok({
+    result: Dict[str, Any] = {
         "exists": True,
         "content": display_content or doc.content,
         "mode": doc.mode,
@@ -50,7 +53,20 @@ def get_atlas(project_id: str) -> Dict[str, Any]:
         "char_count": display_chars or doc.char_count,
         "stale": atlas.is_stale(),
         "segmented": atlas.has_segments(),
-    })
+    }
+
+    # Phase 64A: Role-based atlas projection
+    if role:
+        try:
+            role_atlas = atlas.get_role_atlas(role)
+            result["role_atlas"] = role_atlas
+            result["role"] = role
+            result["role_atlas_chars"] = len(role_atlas)
+        except Exception as e:
+            logger.warning("Role projection failed for role=%s: %s", role, e)
+            result["role_atlas_error"] = str(e)
+
+    return ok(result)
 
 
 @router.post("/projects/{project_id}/atlas/regenerate")

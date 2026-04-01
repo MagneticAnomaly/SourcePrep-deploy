@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # ── Keyword → base role mapping ──────────────────────────────────────
 
 KEYWORD_TO_BASE: Dict[str, str] = {
-    # Engineering
+    # ── Engineering ──────────────────────────────────────────────
     "engineer": "engineering",
     "developer": "engineering",
     "dev": "engineering",
@@ -39,63 +39,161 @@ KEYWORD_TO_BASE: Dict[str, str] = {
     "fullstack": "full_stack",
     "full-stack": "full_stack",
     "full_stack": "full_stack",
-    # Design
+    "mobile": "full_stack",
+    "ios": "full_stack",
+    "android": "full_stack",
+    "embedded": "engineering",
+    "firmware": "engineering",
+    "systems": "engineering",
+    # ── Design / Creative ────────────────────────────────────────
     "design": "design",
     "designer": "design",
     "ux": "design",
     "ui": "design",
-    # Security
+    "creative": "design",
+    "art": "design",
+    "visual": "design",
+    "interaction": "design",
+    "motion": "design",
+    "brand": "design",
+    "researcher": "design",          # UX Researcher → design
+    # ── Security ─────────────────────────────────────────────────
     "security": "security",
     "sec": "security",
     "infosec": "security",
     "appsec": "security",
-    # QA
+    "penetration": "security",
+    "pentest": "security",
+    "vulnerability": "security",
+    "threat": "security",
+    "soc": "security",
+    "compliance": "security",
+    # ── QA / Testing ─────────────────────────────────────────────
     "qa": "qa",
     "test": "qa",
     "tester": "qa",
+    "testing": "qa",
     "quality": "qa",
     "sdet": "qa",
-    # DevOps
+    "automation": "qa",
+    "performance": "qa",
+    # ── DevOps / Infrastructure ──────────────────────────────────
     "ops": "devops",
     "devops": "devops",
     "sre": "devops",
     "infra": "devops",
+    "infrastructure": "devops",
     "platform": "devops",
     "cloud": "devops",
-    # Product
+    "reliability": "devops",
+    "release": "devops",
+    "build": "devops",
+    "network": "devops",
+    "database": "devops",
+    "dba": "devops",
+    "administrator": "devops",
+    # ── Product / Project ────────────────────────────────────────
     "product": "product",
     "pm": "product",
-    "manager": "product",
-    # Data
+    "program": "product",
+    "project": "product",
+    "scrum": "product",
+    "agile": "product",
+    "owner": "product",
+    "analyst": "product",
+    "business": "product",
+    "strategist": "product",
+    "growth": "product",
+    # ── Marketing / Content ──────────────────────────────────────
+    "marketing": "writer",
+    "cmo": "writer",
+    "content": "writer",
+    "copywriter": "writer",
+    "seo": "writer",
+    "social": "writer",
+    "media": "writer",
+    "digital": "writer",
+    "communications": "writer",
+    "editorial": "writer",
+    "producer": "writer",
+    # ── Data / AI / ML ───────────────────────────────────────────
     "data": "data_engineer",
     "ml": "data_engineer",
     "ai": "data_engineer",
     "analytics": "data_engineer",
-    # Architecture
+    "scientist": "data_engineer",
+    "machine": "data_engineer",
+    "learning": "data_engineer",
+    "intelligence": "data_engineer",
+    "bi": "data_engineer",
+    "nlp": "data_engineer",
+    "deep": "data_engineer",
+    # ── Architecture ─────────────────────────────────────────────
     "architect": "architect",
     "architecture": "architect",
-    # Writing
+    "solutions": "architect",
+    # ── Writing / Documentation ──────────────────────────────────
     "writer": "writer",
     "docs": "writer",
     "documentation": "writer",
     "technical": "writer",
-    # Executive
+    # ── Executive / Leadership ───────────────────────────────────
     "ceo": "ceo",
     "cto": "cto",
     "cfo": "ceo",
     "coo": "ceo",
+    "cio": "cto",               # Tech-leaning exec
+    "ciso": "security",         # Security exec
+    "cpo": "product",           # Chief Product Officer
     "vp": "cto",
     "director": "cto",
     "exec": "ceo",
     "executive": "ceo",
     "chief": "ceo",
     "board": "ceo",
-    # Onboarding
+    "president": "ceo",
+    "founder": "ceo",
+    "managing": "ceo",
+    "partner": "ceo",
+    # ── Sales / Business Development ─────────────────────────────
+    "sales": "product",
+    "account": "product",
+    "customer": "product",
+    "success": "product",
+    "consultant": "product",
+    # ── Finance / Legal / HR ─────────────────────────────────────
+    "finance": "ceo",           # Finance → executive view
+    "financial": "ceo",
+    "accountant": "ceo",
+    "accounting": "ceo",
+    "controller": "ceo",
+    "treasurer": "ceo",
+    "legal": "security",        # Legal → security/compliance view
+    "counsel": "security",
+    "attorney": "security",
+    "paralegal": "security",
+    "regulatory": "security",
+    "hr": "product",            # HR → product/people ops view
+    "human": "product",
+    "talent": "product",
+    "recruiter": "product",
+    "recruiting": "product",
+    "people": "product",
+    "compensation": "product",
+    # ── Support / DevRel ─────────────────────────────────────────
+    "support": "qa",            # Support → QA/user-facing view
+    "advocate": "writer",       # DevRel → content view
+    "relations": "writer",
+    "community": "writer",
+    "training": "writer",
+    "enablement": "writer",
+    # ── Onboarding ───────────────────────────────────────────────
     "intern": "intern",
     "junior": "intern",
     "new": "intern",
     "onboarding": "intern",
 }
+
 
 # Modifiers that adjust the vector instead of selecting a base role
 MODIFIER_TERMS = frozenset({
@@ -130,9 +228,14 @@ def resolve_role(role_string: str) -> RoleVector:
         return BUILT_IN_ROLES["engineering"].copy()
 
     # Normalize: lowercase, strip, replace separators
-    normalized = role_string.strip().lower()
+    # Also split CamelCase/PascalCase (e.g., "QADevOpsLead" → "QA Dev Ops Lead")
+    raw = role_string.strip()
+    # Insert space before uppercase runs: "QADevOpsLead" → "QA Dev Ops Lead"
+    raw = re.sub(r"([a-z])([A-Z])", r"\1 \2", raw)      # camelCase
+    raw = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1 \2", raw) # ACRONYMWord
+    normalized = raw.lower()
     normalized = normalized.replace("-", " ").replace("_", " ")
-    normalized = re.sub(r"\s+", " ", normalized)  # collapse whitespace
+    normalized = re.sub(r"\s+", " ", normalized).strip()  # collapse whitespace
 
     # ── Strategy A: Exact match ────────────────────────────────────
     # Try the full normalized string against built-in role IDs and display names

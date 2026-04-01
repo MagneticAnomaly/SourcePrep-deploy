@@ -834,6 +834,56 @@ fn assign_lod(score: f64, is_trace_expanded: bool) -> u8 {
     codrag_graph::lod::assign_lod(score, is_trace_expanded)
 }
 
+// ── Phase 64D: Rust role projection scoring ──────────────────────────────────
+
+/// Score all files in a project index against a role vector.
+///
+/// This is the Rust fast path for role projection. It replaces the Python
+/// JSONL loading + scoring loop with in-memory Rust scoring.
+///
+/// Args:
+///     index_dir: Path to the project's index directory (containing trace_epistemic.jsonl
+///                and trace_edges.jsonl).
+///     role_json: JSON-serialized RoleVector (from Python's `role.to_dict()`).
+///
+/// Returns:
+///     List of dicts with keys: file_path, score, architecture_layer,
+///     domain_tags, epistemic_confidence, extended_summary.
+///     Sorted by relevance score descending.
+#[pyfunction]
+fn score_files_for_role(
+    py: Python<'_>,
+    index_dir: &str,
+    role_json: &str,
+) -> PyResult<PyObject> {
+    // Deserialize the role vector from JSON
+    let role: codrag_graph::role_projection::RoleVector =
+        serde_json::from_str(role_json).map_err(|e| {
+            PyRuntimeError::new_err(format!("Failed to parse role JSON: {}", e))
+        })?;
+
+    // Run the Rust scoring engine
+    let scored = codrag_graph::role_projection::score_files_for_role(
+        &std::path::PathBuf::from(index_dir),
+        &role,
+    );
+
+    // Convert results to Python list of dicts
+    let results = pyo3::types::PyList::empty(py);
+    for sf in &scored {
+        let dict = PyDict::new(py);
+        dict.set_item("file_path", &sf.file_path)?;
+        dict.set_item("score", sf.score)?;
+        dict.set_item("architecture_layer", &sf.architecture_layer)?;
+        dict.set_item("domain_tags", &sf.domain_tags)?;
+        dict.set_item("epistemic_confidence", sf.epistemic_confidence)?;
+        dict.set_item("extended_summary", &sf.extended_summary)?;
+        results.append(dict)?;
+    }
+
+    Ok(results.into_py_any(py)?)
+}
+
 #[pymodule]
 fn codrag_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(version, m)?)?;
@@ -869,5 +919,9 @@ fn codrag_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(assign_lod, m)?)?;
     m.add_class::<PyLODResult>()?;
     m.add_class::<PySymbolInfo>()?;
+
+    // ── Phase 64D: Role projection ──
+    m.add_function(wrap_pyfunction!(score_files_for_role, m)?)?;
+
     Ok(())
 }

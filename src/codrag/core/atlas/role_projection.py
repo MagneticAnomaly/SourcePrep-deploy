@@ -27,12 +27,266 @@ from .role_vectors import RoleVector, max_tag_affinity
 logger = logging.getLogger(__name__)
 
 
+# ── Path-based heuristic tables (structural fallback) ────────────────
+# When trace_epistemic.jsonl doesn't exist yet (Fast Path, only Stage 1),
+# we infer architecture_layer and domain_tags from file paths and extensions.
+
+PATH_LAYER_RULES: List[Tuple[Tuple[str, ...], str]] = [
+    # Each rule: (tuple-of-path-keywords, architecture_layer)
+    # Matched against path directory segments. Checked in order; first match wins.
+    # Testing first — test directories are unambiguous and may contain files
+    # with names like "test_api.py" that would otherwise match "api".
+    (("test", "tests", "spec", "fixture", "__test__", "__tests__", "e2e"), "testing"),
+    (("api", "routes", "endpoint", "handler", "views", "controller"), "presentation"),
+    (("ui", "component", "page", "layout", "widget", "screen"), "presentation"),
+    (("core", "engine", "service", "logic", "domain", "usecase"), "business_logic"),
+    (("db", "model", "schema", "migration", "orm", "repository"), "data_access"),
+    (("auth", "security", "permission", "rbac", "crypto", "token"), "security"),
+    (("deploy", "docker", "k8s", "infra", "ci", "terraform", "helm"), "infrastructure"),
+    (("config", "settings", "env", "dotenv"), "configuration"),
+    (("util", "helper", "lib", "shared", "common"), "utility"),
+    (("cli", "cmd", "command"), "presentation"),
+    (("plugin", "extension", "addon", "middleware"), "integration"),
+    (("doc", "docs", "readme", "guide"), "documentation"),
+]
+
+EXT_TAG_RULES: Dict[str, List[str]] = {
+    ".tsx": ["ui", "frontend", "react"],
+    ".jsx": ["ui", "frontend", "react"],
+    ".vue": ["ui", "frontend", "vue"],
+    ".svelte": ["ui", "frontend", "svelte"],
+    ".css": ["ui", "styling"],
+    ".scss": ["ui", "styling"],
+    ".html": ["ui", "frontend"],
+    ".py": ["backend", "python"],
+    ".rs": ["backend", "systems"],
+    ".go": ["backend", "go"],
+    ".java": ["backend", "java"],
+    ".kt": ["backend", "kotlin"],
+    ".rb": ["backend", "ruby"],
+    ".ts": ["backend", "typescript"],
+    ".js": ["backend", "javascript"],
+    ".sql": ["database", "query"],
+    ".prisma": ["database", "orm"],
+    ".proto": ["api", "grpc"],
+    ".graphql": ["api", "graphql"],
+    ".yaml": ["config", "infrastructure"],
+    ".yml": ["config", "infrastructure"],
+    ".toml": ["config"],
+    ".json": ["config", "data"],
+    ".tf": ["infrastructure", "terraform"],
+    ".dockerfile": ["infrastructure", "docker"],
+    ".md": ["documentation"],
+    ".test.py": ["test", "backend"],
+    ".test.ts": ["test", "frontend"],
+    ".test.tsx": ["test", "frontend"],
+    ".spec.ts": ["test", "frontend"],
+    ".spec.tsx": ["test", "frontend"],
+}
+
+
+def _infer_layer_from_path(file_path: str) -> str:
+    """Infer architecture_layer from file path using directory segment matching.
+
+    Used as a fallback when trace_epistemic.jsonl doesn't exist yet.
+    Matches keywords against path directory segments (not substrings) to
+    avoid false positives like "test_api.py" matching "api".
+    Returns "unknown" if no rule matches.
+    """
+    # Split into directory segments (exclude filename)
+    parts = file_path.lower().replace("\\", "/").split("/")
+    # Include directory segments (everything except the last part which is the filename)
+    dir_segments = set(parts[:-1]) if len(parts) > 1 else set()
+    for keywords, layer in PATH_LAYER_RULES:
+        for kw in keywords:
+            if kw in dir_segments:
+                return layer
+    return "unknown"
+
+
+def _infer_tags_from_path(file_path: str) -> List[str]:
+    """Infer domain_tags from file path and extension.
+
+    Used as a fallback when trace_epistemic.jsonl doesn't exist yet.
+    Combines extension-based tags with path-keyword tags.
+    """
+    tags: List[str] = []
+
+    # Extension-based tags (check longer suffixes first for .test.py etc.)
+    lower = file_path.lower()
+    matched_ext = False
+    for ext in sorted(EXT_TAG_RULES.keys(), key=len, reverse=True):
+        if lower.endswith(ext):
+            tags.extend(EXT_TAG_RULES[ext])
+            matched_ext = True
+            break
+
+    # Path-keyword tags (add unique tags from path segments)
+    parts = lower.replace("\\", "/").split("/")
+    path_keywords = {
+        "api": "api", "rest": "api", "graphql": "graphql",
+        "auth": "auth", "security": "security",
+        "test": "test", "tests": "test", "__tests__": "test",
+        "deploy": "deploy", "infra": "infrastructure",
+        "docker": "docker", "ci": "ci-cd",
+        "config": "config", "settings": "config",
+        "ui": "ui", "frontend": "frontend", "components": "ui",
+        "core": "core", "engine": "engine",
+        "db": "database", "models": "database",
+        "migration": "database", "seed": "database",
+        "docs": "documentation", "scripts": "tooling",
+        "cli": "cli",
+    }
+    for part in parts:
+        if part in path_keywords:
+            tag = path_keywords[part]
+            if tag not in tags:
+                tags.append(tag)
+
+    return tags[:5]  # Cap at 5 tags
+
+
+def _load_trace_nodes(index_dir: Path) -> Dict[str, Dict[str, Any]]:
+    """Load file entries from trace_nodes.jsonl as synthetic epistemic entries.
+
+    Used as a fallback when trace_epistemic.jsonl doesn't exist.
+    Infers architecture_layer and domain_tags from file paths.
+    """
+    path = index_dir / "trace_nodes.jsonl"
+    entries: Dict[str, Dict[str, Any]] = {}
+    if not path.exists():
+        return entries
+
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                d = json.loads(line)
+                node_id = d.get("node_id", "")
+                if not node_id.startswith("file:"):
+                    continue
+                file_path = node_id[5:]
+                entries[node_id] = {
+                    "node_id": node_id,
+                    "file_path": file_path,
+                    "architecture_layer": _infer_layer_from_path(file_path),
+                    "domain_tags": _infer_tags_from_path(file_path),
+                    "epistemic_confidence": 0.5,  # Neutral — no real enrichment
+                    "extended_summary": d.get("summary", ""),
+                }
+            except (json.JSONDecodeError, KeyError):
+                continue
+    return entries
+
+
+# ── Tag-to-audience heuristics (role affinity shortcut) ───────────────
+# Maps common domain_tag values to the role IDs that "own" or heavily
+# consume files with those tags.  Provides a small scoring bonus when a
+# file's tags indicate it falls under the requesting role's domain.
+# This bridges the gap between generic tag affinity and explicit ownership.
+
+TAG_TO_AUDIENCE: Dict[str, List[str]] = {
+    # Frontend / Design
+    "ui": ["design", "design_engineer", "full_stack", "intern"],
+    "frontend": ["design", "design_engineer", "full_stack"],
+    "react": ["full_stack", "design", "design_engineer"],
+    "vue": ["full_stack", "design", "design_engineer"],
+    "svelte": ["full_stack", "design", "design_engineer"],
+    "styling": ["design", "design_engineer"],
+    "component": ["design", "design_engineer", "full_stack"],
+    "design-system": ["design", "design_engineer"],
+    "a11y": ["design", "design_engineer", "qa"],
+    "animation": ["design", "design_engineer"],
+    # Backend / Engineering
+    "backend": ["engineering"],
+    "core": ["engineering", "architect"],
+    "engine": ["engineering", "architect"],
+    "python": ["engineering"],
+    "typescript": ["engineering", "full_stack"],
+    "systems": ["engineering", "devops"],
+    # API
+    "api": ["engineering", "full_stack", "architect"],
+    "graphql": ["engineering", "full_stack"],
+    "grpc": ["engineering", "devops"],
+    "rest": ["engineering", "full_stack"],
+    # Data
+    "database": ["data_engineer", "engineering"],
+    "data": ["data_engineer"],
+    "orm": ["data_engineer", "engineering"],
+    "query": ["data_engineer"],
+    "data-persistence": ["data_engineer", "engineering"],
+    "schema": ["data_engineer", "engineering"],
+    "analytics": ["data_engineer", "product"],
+    # Security / Auth
+    "auth": ["security", "devsecops", "engineering"],
+    "security": ["security", "devsecops"],
+    "token": ["security", "devsecops", "engineering"],
+    "permission": ["security", "devsecops"],
+    "encryption": ["security", "devsecops"],
+    "compliance": ["security", "devsecops", "ceo"],
+    # DevOps / Infra
+    "infrastructure": ["devops", "devsecops"],
+    "deploy": ["devops", "devsecops"],
+    "docker": ["devops", "devsecops"],
+    "ci-cd": ["devops", "devsecops"],
+    "terraform": ["devops", "devsecops"],
+    "config": ["devops", "engineering"],
+    "monitoring": ["devops", "devsecops", "qa"],
+    "pipeline": ["devops", "data_engineer"],
+    # Testing / QA
+    "test": ["qa", "engineering"],
+    "testing": ["qa"],
+    "coverage": ["qa"],
+    "e2e": ["qa"],
+    # Product / Business
+    "monetization": ["product", "ceo"],
+    "billing": ["product", "ceo"],
+    "user-facing": ["product", "design"],
+    "onboarding": ["product", "intern"],
+    "feature-flag": ["product", "engineering"],
+    # Documentation / Writing
+    "documentation": ["writer", "intern"],
+    "readme": ["writer", "intern"],
+    "guide": ["writer", "intern"],
+    # Architecture
+    "architecture": ["architect", "cto", "ceo"],
+    "integration": ["architect", "engineering"],
+    "strategy": ["cto", "ceo", "product"],
+    # CLI / Tooling
+    "cli": ["engineering", "devops"],
+    "tooling": ["engineering", "devops"],
+}
+
+
+def _compute_audience_bonus(
+    domain_tags: List[str],
+    role_id: str,
+) -> float:
+    """Compute a bonus score when file tags match the requesting role's domain.
+
+    Returns 0.0-1.0 based on what fraction of the file's tags list this
+    role as an audience member.
+    """
+    if not domain_tags:
+        return 0.0
+    matches = 0
+    for tag in domain_tags:
+        tag_lower = tag.lower().replace("_", "-")
+        audience = TAG_TO_AUDIENCE.get(tag_lower, [])
+        if role_id in audience:
+            matches += 1
+    return min(1.0, matches / max(1, len(domain_tags)))
+
+
 # ── Scoring weights ──────────────────────────────────────────────────
 
 # How much each scoring component contributes to the final relevance score.
 SCORING_WEIGHTS = {
-    "layer_match": 0.30,
-    "tag_affinity": 0.35,
+    "layer_match": 0.25,
+    "tag_affinity": 0.30,
+    "audience_bonus": 0.10,
     "centrality": 0.20,
     "confidence": 0.15,
 }
@@ -75,7 +329,10 @@ def compute_role_relevance(
     # 2. Tag affinity
     tag_score = max_tag_affinity(domain_tags, role.domain_affinity)
 
-    # 3. Centrality
+    # 3. Audience bonus (does this file's domain "belong" to this role?)
+    audience_score = _compute_audience_bonus(domain_tags, role.role_id)
+
+    # 4. Centrality
     if max_degree > 0:
         # Normalize: top 30th percentile maps to 1.0
         norm = min(1.0, in_degree / max(1, max_degree * 0.3))
@@ -83,13 +340,14 @@ def compute_role_relevance(
         norm = 0.0
     centrality_score = norm * role.centrality_weight
 
-    # 4. Confidence
+    # 5. Confidence
     confidence_score = max(0.0, min(1.0, epistemic_confidence))
 
     # Weighted composite
     relevance = (
         SCORING_WEIGHTS["layer_match"] * layer_score
         + SCORING_WEIGHTS["tag_affinity"] * tag_score
+        + SCORING_WEIGHTS["audience_bonus"] * audience_score
         + SCORING_WEIGHTS["centrality"] * centrality_score
         + SCORING_WEIGHTS["confidence"] * confidence_score
     )
@@ -178,38 +436,72 @@ def _extract_stack(atlas_content: str) -> str:
             return stripped
     return ""
 
+# ── Scoring implementations ──────────────────────────────────────────
 
-# ── Main projection function ─────────────────────────────────────────
 
-def project_atlas_for_role(
+def _try_rust_scoring(
     role: RoleVector,
     index_dir: Path,
-    atlas_content: str = "",
-) -> str:
-    """Project the codebase atlas through a role-specific lens.
+) -> Optional[List[Tuple[str, Dict[str, Any], float]]]:
+    """Try scoring via the Rust FFI bridge (Phase 64D).
 
-    Loads epistemic enrichments, scores every file against the role,
-    and assembles a context string at the appropriate detail level
-    within the role's char budget.
-
-    Args:
-        role: The resolved RoleVector.
-        index_dir: Path to the project's index directory.
-        atlas_content: The full atlas content (for identity/stack extraction).
-
-    Returns:
-        A role-filtered sub-atlas string.
+    Returns scored list in the standard (file_path, entry_dict, score) format,
+    or None if the Rust engine is unavailable or fails.
     """
-    # Load data
+    try:
+        from codrag_engine import score_files_for_role  # type: ignore[import-not-found]
+    except ImportError:
+        return None
+
+    try:
+        scored_raw = score_files_for_role(str(index_dir), role.to_json())
+    except Exception as e:
+        logger.warning("Rust role projection failed, falling back to Python: %s", e)
+        return None
+
+    if not scored_raw:
+        return None
+
+    # Convert Rust results back to the standard tuple format
+    scored: List[Tuple[str, Dict[str, Any], float]] = []
+    for item in scored_raw:
+        entry = {
+            "architecture_layer": item["architecture_layer"],
+            "domain_tags": item["domain_tags"],
+            "epistemic_confidence": item["epistemic_confidence"],
+            "extended_summary": item["extended_summary"],
+        }
+        scored.append((item["file_path"], entry, item["score"]))
+
+    logger.debug(
+        "Role projection: Rust engine scored %d files for role '%s'",
+        len(scored),
+        role.role_id,
+    )
+    return scored
+
+
+def _python_scoring(
+    role: RoleVector,
+    index_dir: Path,
+) -> Optional[List[Tuple[str, Dict[str, Any], float]]]:
+    """Pure Python scoring fallback.
+
+    Loads epistemic JSONL, computes in-degrees, and scores all files.
+    Returns scored list or None if no data is available.
+    """
     epistemic = _load_epistemic_entries(index_dir)
-    modules = _load_modules(index_dir)
     in_degrees = _compute_in_degrees(index_dir)
 
     if not epistemic:
-        # No epistemic data — return the full atlas with a role note
-        if atlas_content:
-            return f"[Role: {role.display_name}]\n\n{atlas_content}"
-        return f"[Role: {role.display_name}] No codebase data available."
+        # Try structural fallback from trace_nodes.jsonl
+        epistemic = _load_trace_nodes(index_dir)
+        if not epistemic:
+            return None
+        logger.debug(
+            "Role projection: using structural fallback (%d files from trace_nodes)",
+            len(epistemic),
+        )
 
     # Score every file
     max_degree = max(in_degrees.values()) if in_degrees else 0
@@ -233,6 +525,48 @@ def project_atlas_for_role(
 
     # Sort by relevance (descending)
     scored.sort(key=lambda x: -x[2])
+    return scored
+
+
+# ── Main projection function ─────────────────────────────────────────
+
+def project_atlas_for_role(
+    role: RoleVector,
+    index_dir: Path,
+    atlas_content: str = "",
+) -> str:
+    """Project the codebase atlas through a role-specific lens.
+
+    Loads epistemic enrichments, scores every file against the role,
+    and assembles a context string at the appropriate detail level
+    within the role's char budget.
+
+    Uses the Rust scoring engine (Phase 64D) when available for ~40x
+    faster JSONL parsing + scoring.  Falls back to pure Python on
+    ImportError or any Rust-side failure.
+
+    Args:
+        role: The resolved RoleVector.
+        index_dir: Path to the project's index directory.
+        atlas_content: The full atlas content (for identity/stack extraction).
+
+    Returns:
+        A role-filtered sub-atlas string.
+    """
+    modules = _load_modules(index_dir)
+
+    # ── Try Rust fast path (Phase 64D) ───────────────────────────────
+    scored = _try_rust_scoring(role, index_dir)
+
+    # ── Python fallback ──────────────────────────────────────────────
+    if scored is None:
+        scored = _python_scoring(role, index_dir)
+
+    if scored is None:
+        # No data at all — return the full atlas with a role note
+        if atlas_content:
+            return f"[Role: {role.display_name}]\n\n{atlas_content}"
+        return f"[Role: {role.display_name}] No codebase data available."
 
     # Extract identity/stack from atlas
     identity = _extract_identity(atlas_content)

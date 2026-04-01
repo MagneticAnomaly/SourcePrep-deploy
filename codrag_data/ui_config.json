@@ -286,7 +286,7 @@
       {
         "id": "file-tree",
         "visible": true,
-        "height": 27,
+        "height": 14,
         "collapsed": false,
         "x": 0,
         "y": 0,
@@ -329,12 +329,39 @@
         "w": 4
       },
       {
+        "id": "status",
+        "visible": true,
+        "height": 8,
+        "collapsed": false,
+        "x": 0,
+        "y": 14,
+        "w": 4
+      },
+      {
+        "id": "llm-status",
+        "visible": true,
+        "height": 10,
+        "collapsed": true,
+        "x": 0,
+        "y": 22,
+        "w": 4
+      },
+      {
         "id": "index-health",
         "visible": true,
         "height": 13,
         "collapsed": true,
         "x": 8,
         "y": 23,
+        "w": 4
+      },
+      {
+        "id": "atlas",
+        "visible": true,
+        "height": 16,
+        "collapsed": false,
+        "x": 0,
+        "y": 24,
         "w": 4
       },
       {
@@ -345,33 +372,6 @@
         "x": 4,
         "y": 26,
         "w": 8
-      },
-      {
-        "id": "status",
-        "visible": true,
-        "height": 8,
-        "collapsed": false,
-        "x": 0,
-        "y": 27,
-        "w": 4
-      },
-      {
-        "id": "llm-status",
-        "visible": true,
-        "height": 10,
-        "collapsed": true,
-        "x": 0,
-        "y": 35,
-        "w": 4
-      },
-      {
-        "id": "atlas",
-        "visible": true,
-        "height": 16,
-        "collapsed": false,
-        "x": 0,
-        "y": 37,
-        "w": 4
       },
       {
         "id": "token-budget",
@@ -389,6 +389,15 @@
         "collapsed": true,
         "x": 8,
         "y": 39,
+        "w": 4
+      },
+      {
+        "id": "context-options",
+        "visible": true,
+        "height": 7,
+        "collapsed": true,
+        "x": 0,
+        "y": 40,
         "w": 4
       },
       {
@@ -410,6 +419,15 @@
         "w": 4
       },
       {
+        "id": "context-output",
+        "visible": true,
+        "height": 10,
+        "collapsed": true,
+        "x": 0,
+        "y": 42,
+        "w": 4
+      },
+      {
         "id": "activity-heatmap",
         "visible": true,
         "height": 8,
@@ -428,66 +446,57 @@
         "w": 8
       },
       {
-        "id": "context-options",
+        "id": "opportunities",
         "visible": true,
-        "height": 7,
-        "collapsed": true,
-        "x": 0,
-        "y": 53,
-        "w": 4
-      },
-      {
-        "id": "context-output",
-        "visible": true,
-        "height": 10,
-        "collapsed": true,
-        "x": 0,
-        "y": 55,
-        "w": 4
-      },
-      {
-        "id": "spaghetti",
-        "visible": true,
-        "height": 28,
+        "height": 30,
         "collapsed": false,
         "x": 0,
         "y": 72,
         "w": 12
       },
       {
+        "id": "goalposts",
+        "visible": true,
+        "height": 22,
+        "collapsed": true,
+        "x": 0,
+        "y": 102,
+        "w": 12
+      },
+      {
+        "id": "spaghetti",
+        "visible": true,
+        "height": 28,
+        "collapsed": true,
+        "x": 0,
+        "y": 104,
+        "w": 12
+      },
+      {
         "id": "health_scanner",
         "visible": true,
         "height": 16,
-        "collapsed": false,
+        "collapsed": true,
         "x": 0,
-        "y": 100,
+        "y": 106,
         "w": 12
       },
       {
         "id": "roadmap",
         "visible": true,
         "height": 19,
-        "collapsed": false,
+        "collapsed": true,
         "x": 0,
-        "y": 116,
+        "y": 108,
         "w": 12
       },
       {
         "id": "advisor",
         "visible": true,
         "height": 12,
-        "collapsed": false,
-        "x": 0,
-        "y": 135,
-        "w": 12
-      },
-      {
-        "id": "goalposts",
-        "visible": false,
-        "height": 22,
         "collapsed": true,
         "x": 0,
-        "y": 59,
+        "y": 110,
         "w": 12
       },
       {
@@ -512,7 +521,7 @@
   },
   "compute_nodes": [
     {
-      "id": "node_1da367c4",
+      "id": "node_62a88c3f",
       "name": "Local Machine",
       "type": "local",
       "hardware_profile": "apple_silicon",

@@ -192,6 +192,43 @@ class ActionItem:
             cmd += f' instructions="{escaped}"'
         return cmd
 
+    # ── Phase 65: CoDRAG Address Protocol ─────────────────────────
+
+    def codrag_address(self, project_id: str = "") -> str:
+        """Stable CoDRAG address for cross-system reference.
+
+        Format: codrag://project_id/ITEM_ID  (with project)
+                codrag://ITEM_ID              (without project)
+
+        This address is embedded in PM tool issues so agents can
+        call back to CoDRAG for live context at work-time.
+        """
+        if project_id:
+            return f"codrag://{project_id}/{self.id}"
+        return f"codrag://{self.id}"
+
+    def to_pm_export(self, project_id: str = "") -> Dict[str, Any]:
+        """Export optimized for PM tool consumption (Phase 65).
+
+        Returns a dict that the PM push adapter converts into the
+        target system's issue format. Includes CoDRAG address and
+        MCP command for agent context retrieval.
+        """
+        return {
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "category": self.category,
+            "priority": self.priority,
+            "effort": self.effort,
+            "source": self.source,
+            "codrag_address": self.codrag_address(project_id),
+            "mcp_command": self.mcp_command(),
+            "affected_files": self.affected_files,
+            "suggested_action": self.suggested_action,
+            "tasks": [t.to_dict() for t in self.tasks],
+        }
+
     # ── Phase 63: Universal export methods ────────────────────────
 
     def to_export_json(self) -> Dict[str, Any]:
@@ -319,6 +356,11 @@ class ActionItem:
         """Mark this item as dismissed."""
         self.state = "dismissed"
         self.dismissed_at = datetime.now(timezone.utc).isoformat()
+
+    def restore(self) -> None:
+        """Restore a dismissed item to active state."""
+        self.state = "active"
+        self.dismissed_at = ""
 
 
 # ── Converters ───────────────────────────────────────────────────────

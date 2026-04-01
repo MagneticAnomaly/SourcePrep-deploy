@@ -308,6 +308,20 @@ def pipeline_status(project_id: str) -> Dict[str, Any]:
     except Exception:
         pass
 
+    # Phase 66: Pi agent status
+    agent_data = None
+    try:
+        from codrag.services.pi_agent import get_pi_agent
+        from codrag.services.agent_gate import get_agent_gate
+        pi = get_pi_agent()
+        gate = get_agent_gate()
+        agent_data = {
+            **(pi.status() if pi else {"enabled": False}),
+            "gate": gate.status(),
+        }
+    except Exception:
+        pass
+
     return ok({
         "fast_sync": pipeline_state.get("fast_sync"),
         "deep_enrichment": pipeline_state.get("deep_enrichment"),
@@ -315,6 +329,7 @@ def pipeline_status(project_id: str) -> Dict[str, Any]:
         "any_running": pipeline_state.get("any_running", False),
         "crashed_runs": crashed_runs,
         "scheduler": scheduler_data,
+        "agent": agent_data,
     })
 
 

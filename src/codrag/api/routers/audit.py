@@ -68,6 +68,16 @@ def trigger_audit(project_id: str, req: Optional[AuditRequest] = None) -> Dict[s
     from codrag.core.project_registry import project_index_dir
     index_dir = project_index_dir(proj)
 
+    # Phase 65: Load user Exclude Tree patterns so the audit respects
+    # the same exclusions as the trace pipeline.
+    cfg = proj.config or {}
+    trace_cfg = cfg.get("trace") if isinstance(cfg, dict) else None
+    trace_ignore = (trace_cfg or {}).get("ignore_patterns", [])
+    extra_excludes = [str(p) for p in trace_ignore] if isinstance(trace_ignore, list) else []
+    project_excludes = cfg.get("exclude_globs") if isinstance(cfg, dict) else None
+    if isinstance(project_excludes, list):
+        extra_excludes.extend(str(g) for g in project_excludes if g)
+
     def _run():
         try:
             from codrag.core.audit import run_audit, save_findings, save_documents
@@ -78,6 +88,7 @@ def trigger_audit(project_id: str, req: Optional[AuditRequest] = None) -> Dict[s
                 index_dir=index_dir,
                 project_root=Path(proj.path),
                 categories=categories,
+                extra_exclude_globs=extra_excludes or None,
             )
             save_findings(result, index_dir)
 
@@ -85,7 +96,7 @@ def trigger_audit(project_id: str, req: Optional[AuditRequest] = None) -> Dict[s
                 from codrag.server import _get_llm_client_for_task
                 llm_client = _get_llm_client_for_task("audit")
                 if llm_client:
-                    ctx = load_audit_context(index_dir, Path(proj.path))
+                    ctx = load_audit_context(index_dir, Path(proj.path), extra_exclude_globs=extra_excludes or None)
                     synth = AuditSynthesizer(
                         llm_client=llm_client,
                         project_name=proj.name or proj.id,

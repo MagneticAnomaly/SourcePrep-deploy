@@ -14,6 +14,8 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
+import pathspec
+
 from codrag.core.ids import stable_file_hash
 from codrag.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
 
@@ -54,6 +56,15 @@ def compute_trace_coverage(
     if embedded_paths is None:
         embedded_paths = set()
 
+    # Load .gitignore to ensure coverage aligns identically with TraceBuilder
+    gitignore_spec = None
+    gitignore_path = repo_root / ".gitignore"
+    if gitignore_path.exists():
+        try:
+            with open(gitignore_path, "r", encoding="utf-8") as f:
+                gitignore_spec = pathspec.PathSpec.from_lines("gitwildmatch", f)
+        except Exception as e:
+            logger.warning("Failed to parse .gitignore during coverage check: %s", e)
 
     if include_globs is None:
         include_globs = [
@@ -160,6 +171,10 @@ def compute_trace_coverage(
                 continue
 
             rel_path = _to_posix(str(file_path.relative_to(repo_root)))
+
+            # Phase 67: Ignore files matching .gitignore identically to TraceBuilder
+            if gitignore_spec and gitignore_spec.match_file(rel_path):
+                continue
 
             # Check if file matches include globs at all (only code files)
             base = os.path.basename(rel_path)

@@ -1709,9 +1709,9 @@ class CodebaseAtlas:
     def get_role_atlas(self, role: str) -> str:
         """Return a role-filtered sub-atlas.
 
-        Resolves the role string to a RoleVector, then projects the
-        existing epistemic data through a role-specific lens.  No LLM
-        calls — pure Python scoring + assembly.
+        Checks the cache first (atlas_roles/{role_id}.txt), then falls
+        back to live generation.  No LLM calls — pure Python scoring
+        + assembly.
 
         Args:
             role: Free-form role name (e.g. "CEO", "design engineer",
@@ -1721,6 +1721,12 @@ class CodebaseAtlas:
             A role-appropriate sub-atlas string, compressed to the
             role's character budget.
         """
+        # Try cached version first
+        cached = self.load_cached_role_atlas(role)
+        if cached:
+            return cached
+
+        # Live generation fallback
         from .role_resolver import resolve_role
         from .role_projection import project_atlas_for_role
 
@@ -1728,3 +1734,101 @@ class CodebaseAtlas:
         doc = self.load()
         base_content = doc.content if doc else ""
         return project_atlas_for_role(role_vector, self.index_dir, base_content)
+
+    def cache_role_atlases(self) -> Dict[str, int]:
+        """Pre-generate and cache role sub-atlases for all built-in roles.
+
+        Writes to index_dir/atlas_roles/{role_id}.txt.
+        Called after atlas generation (Stage 9) and after structural
+        atlas generation (Stage 1) for the fast-path fallback.
+
+        Returns:
+            Mapping of role_id → char_count for each cached atlas.
+        """
+        from .role_resolver import resolve_role
+        from .role_projection import project_atlas_for_role
+        from .role_vectors import BUILT_IN_ROLES
+
+        roles_dir = self.index_dir / "atlas_roles"
+        roles_dir.mkdir(parents=True, exist_ok=True)
+
+        doc = self.load()
+        base_content = doc.content if doc else ""
+
+        results: Dict[str, int] = {}
+        for role_id in BUILT_IN_ROLES:
+            try:
+                role_vector = resolve_role(role_id)
+                content = project_atlas_for_role(
+                    role_vector, self.index_dir, base_content,
+                )
+                # Write atomically
+                role_path = roles_dir / f"{role_id}.txt"
+                tmp_path = role_path.with_suffix(".tmp")
+                with open(tmp_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+                tmp_path.replace(role_path)
+                results[role_id] = len(content)
+            except Exception as e:
+                logger.debug("Failed to cache role atlas for %s: %s", role_id, e)
+
+        logger.info(
+            "Cached %d role sub-atlases in %s",
+            len(results), roles_dir,
+        )
+        return results
+
+    def load_cached_role_atlas(self, role: str) -> Optional[str]:
+        """Load a cached role sub-atlas from disk.
+
+        Args:
+            role: Free-form role name (resolved to find cache key).
+
+        Returns:
+            Cached atlas content, or None if not cached or stale.
+        """
+        from .role_resolver import resolve_role
+
+        role_vector = resolve_role(role)
+        role_id = role_vector.role_id
+
+        role_path = self.index_dir / "atlas_roles" / f"{role_id}.txt"
+        if not role_path.exists():
+            return None
+
+        # Staleness check: if the base atlas is newer than this cache,
+        # the cache is stale.
+        if self.atlas_path.exists():
+            atlas_mtime = self.atlas_path.stat().st_mtime
+            cache_mtime = role_path.stat().st_mtime
+            if atlas_mtime > cache_mtime:
+                logger.debug(
+                    "Role atlas cache stale for %s (atlas: %.0f > cache: %.0f)",
+                    role_id, atlas_mtime, cache_mtime,
+                )
+                return None
+
+        try:
+            return role_path.read_text(encoding="utf-8")
+        except OSError:
+            return None
+
+    def clear_role_cache(self) -> int:
+        """Remove all cached role sub-atlases.
+
+        Returns:
+            Number of cache files removed.
+        """
+        roles_dir = self.index_dir / "atlas_roles"
+        if not roles_dir.exists():
+            return 0
+
+        removed = 0
+        for f in roles_dir.glob("*.txt"):
+            try:
+                f.unlink()
+                removed += 1
+            except OSError:
+                pass
+        return removed
+

@@ -130,8 +130,13 @@ main() {
 
     # Start Websites (turbo dev runs all apps)
     log_info "Starting websites (marketing, docs, support, payments)..."
-    (source ~/.nvm/nvm.sh && nvm use 20 >/dev/null && cd "$PROJECT_ROOT/websites" && npm run dev) &
-    WEBSITES_PID=$!
+    if [ -f "$PROJECT_ROOT/websites/package.json" ]; then
+        (source ~/.nvm/nvm.sh && nvm use 20 >/dev/null && cd "$PROJECT_ROOT/websites" && npm run dev) &
+        WEBSITES_PID=$!
+    else
+        log_warn "No websites/package.json found — skipping website dev servers"
+        WEBSITES_PID=""
+    fi
     echo ""
 
     # Wait a moment for services to initialize

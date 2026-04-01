@@ -135,6 +135,10 @@ class RoleVector:
     def copy(self) -> "RoleVector":
         return deepcopy(self)
 
+    def to_json(self) -> str:
+        """Serialize to JSON for passing to Rust FFI bridge."""
+        import json
+        return json.dumps(self.to_dict())
 
 # ── Built-in role vectors ────────────────────────────────────────────
 

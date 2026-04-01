@@ -5,4 +5,4 @@ export type { SpaghettiFinderPanelProps } from './SpaghettiFinderPanel';
 export { HealthScannerPanel } from './HealthScannerPanel';
 export type { HealthScannerPanelProps } from './HealthScannerPanel';
 export { OpportunitiesPanel } from './OpportunitiesPanel';
-export type { OpportunitiesPanelProps } from './OpportunitiesPanel';
+export type { OpportunitiesPanelProps, AgentStatusData } from './OpportunitiesPanel';

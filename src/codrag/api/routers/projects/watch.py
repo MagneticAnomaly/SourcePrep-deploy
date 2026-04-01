@@ -198,7 +198,20 @@ def start_project_watch(
     )
     watcher.start()
     _srv()._project_watchers[proj.id] = watcher
-    
+
+    # Phase 66: Initialize Pi agent alongside the watcher.
+    # Pi uses the same project context as the watcher.
+    # Non-fatal: if Pi init fails, the watcher still works.
+    try:
+        from codrag.services.pi_agent import init_pi_agent
+        init_pi_agent(
+            project_id=proj.id,
+            index_dir=project_index_dir(proj),
+            project_root=Path(proj.path),
+        )
+    except Exception:
+        logger.debug("Pi agent initialization failed (non-fatal)", exc_info=True)
+
     return ok({"enabled": True, "state": watcher.status()["state"]})
 
 

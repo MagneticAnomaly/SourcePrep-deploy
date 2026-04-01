@@ -66,10 +66,22 @@ def refresh_opportunities(
     index_dir = project_index_dir(proj)
     mgr = OpportunityManager(index_dir)
 
+    # Phase 65: Load user Exclude Tree patterns so the health scanner
+    # respects the same exclusions as the trace pipeline.
+    cfg = proj.config or {}
+    trace_cfg = cfg.get("trace") if isinstance(cfg, dict) else None
+    trace_ignore = (trace_cfg or {}).get("ignore_patterns", [])
+    extra_excludes = [str(p) for p in trace_ignore] if isinstance(trace_ignore, list) else []
+    # Also merge project-level exclude_globs (from project settings)
+    project_excludes = cfg.get("exclude_globs") if isinstance(cfg, dict) else None
+    if isinstance(project_excludes, list):
+        extra_excludes.extend(str(g) for g in project_excludes if g)
+
     categories = req.categories if req else None
     items = mgr.refresh(
         project_root=Path(proj.path),
         categories=categories,
+        extra_exclude_globs=extra_excludes or None,
     )
 
     return ok({
@@ -224,6 +236,84 @@ def export_opportunities(
             "Content-Disposition": f'inline; filename="codrag-opportunities.{format}"',
         },
     )
+
+
+# ── CoDRAG Address Resolution (Phase 65) ──────────────────────────
+
+@router.get("/projects/{project_id}/opportunities/{item_id}/context")
+def resolve_codrag_address(
+    project_id: str,
+    item_id: str,
+) -> Dict[str, Any]:
+    """Resolve a CoDRAG address to live context.
+
+    This is the endpoint Paperclip agents call when they pick up an
+    issue with a codrag:// address. Returns:
+    - Current item status (still active? or resolved?)
+    - Full item details with code context
+    - Impact analysis (what files are affected, what depends on them)
+    - Ready-to-use MCP command for deeper investigation
+
+    This ensures agents work with FRESH context, not stale push-time data.
+    """
+    proj = _srv()._require_project(project_id)
+
+    from codrag.core.project_registry import project_index_dir
+    from codrag.core.audit.opportunity_manager import OpportunityManager
+
+    index_dir = project_index_dir(proj)
+    mgr = OpportunityManager(index_dir)
+
+    # Search all items (including dismissed) to give accurate status
+    all_items = mgr.get_opportunities(include_dismissed=True)
+    target = None
+    for item in all_items:
+        if item.id == item_id:
+            target = item
+            break
+
+    if target is None:
+        # Item not found — may have been resolved
+        return ok({
+            "status": "resolved",
+            "message": f"Item {item_id} is no longer in the findings list. It may have been fixed.",
+            "codrag_address": f"codrag://{project_id}/{item_id}",
+        })
+
+    # Build rich context
+    context: Dict[str, Any] = {
+        "status": target.state,
+        "codrag_address": target.codrag_address(project_id),
+        "item": target.to_pm_export(project_id),
+        "is_active": target.state != "dismissed",
+    }
+
+    # Try to get impact analysis for the primary affected file
+    if target.affected_files:
+        try:
+            from codrag.core.project_registry import load_project_graph
+            graph = load_project_graph(proj)
+            if graph:
+                primary_file = target.affected_files[0]
+                dependents = []
+                dependencies = []
+                for node_id, node_data in graph.get("nodes", {}).items():
+                    if not isinstance(node_data, dict):
+                        continue
+                    label = node_data.get("label", "")
+                    if label == primary_file or node_id == primary_file:
+                        imports = node_data.get("imports", [])
+                        dependencies = imports[:10]
+                        break
+                context["impact"] = {
+                    "primary_file": primary_file,
+                    "total_affected_files": len(target.affected_files),
+                    "dependencies_sample": dependencies,
+                }
+        except Exception:
+            pass  # Impact analysis is best-effort
+
+    return ok(context)
 
 
 # ── A2A Protocol endpoints ─────────────────────────────────────────

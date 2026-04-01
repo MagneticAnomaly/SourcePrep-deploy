@@ -19,6 +19,7 @@ export default defineConfig({
     host: '0.0.0.0',
     cors: true,
     port: 5174,
+    strictPort: true,
     fs: {
       allow: [repoRootPath],
     },

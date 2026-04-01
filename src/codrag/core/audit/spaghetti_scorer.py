@@ -38,7 +38,7 @@ W_LOW_CONFIDENCE = 0.10
 # Severity thresholds
 CRITICAL_THRESHOLD = 0.75
 WARNING_THRESHOLD = 0.50
-INFO_THRESHOLD = 0.30
+INFO_THRESHOLD = 0.45
 
 # Minimum file size to even consider (skip tiny files)
 MIN_BYTES = 2_000  # ~50 lines
@@ -225,16 +225,21 @@ def score_files(
 
     # Pre-compute symbols per file
     symbols_per_file: Dict[str, int] = defaultdict(int)
+    # Phase 65: Use file_nodes (which respects exclude globs) for the
+    # parent-file lookup. Iterate all nodes for symbols since symbol
+    # nodes don't have a 'kind' == 'file', but only count symbols that
+    # belong to non-excluded files.
+    file_path_to_nid: Dict[str, str] = {}
+    for fnid, fnode in ctx.file_nodes.items():
+        fp = fnode.get("file_path", "")
+        if fp:
+            file_path_to_nid[fp] = fnid
+
     for nid, node in ctx.nodes.items():
         if node.get("kind") == "symbol":
-            # Find parent file via 'contains' edges or file_path
             fp = node.get("file_path", "")
-            if fp:
-                # Map back to file node ID
-                for fnid, fnode in ctx.file_nodes.items():
-                    if fnode.get("file_path") == fp:
-                        symbols_per_file[fnid] += 1
-                        break
+            if fp and fp in file_path_to_nid:
+                symbols_per_file[file_path_to_nid[fp]] += 1
 
     # Collect raw values for each file
     raw_data: List[Tuple[str, Dict[str, Any]]] = []

@@ -69,6 +69,8 @@ export type {
   PipelineStatus,
   PipelineGroupRun,
   CrashedPipelineRun,
+  AgentStatus,
+  AgentGateStatus,
   ScopeStatus,
   SyncStatus,
   ServerStatus,
@@ -140,6 +142,10 @@ export { useAdminPolicy } from './hooks/useAdminPolicy';
 export { FolderTree, sampleFileTree, ProjectSettingsPanel, FolderTreePanel, PinnedTextFilesPanel, AddProjectModal, FilePreviewPane, FileExplorerDetail, CodeViewer } from './components/project';
 export type { FolderTreeProps, TreeNode, FileStatus, ProjectSettingsPanelProps, FolderTreePanelProps, PinnedTextFilesPanelProps, PinnedTextFile, AddProjectModalProps, FilePreviewPaneProps, FileExplorerDetailProps, FileExplorerTab, CodeViewerProps } from './components/project';
 
+// Components - Agent Scopes (Phase 67)
+export { AgentScopePanel } from './components/agents';
+export type { AgentScopePanelProps } from './components/agents';
+
 // Components - Watch (Phase 03)
 export { WatchStatusIndicator, WatchControlPanel } from './components/watch';
 export type { WatchStatusIndicatorProps, WatchControlPanelProps } from './components/watch';
@@ -194,7 +200,7 @@ export type { SchedulerStatus, SchedulerNodeStatus, ComputeNode, ComputeHardware
 export { HealthScannerPanel } from './components/audit';
 export type { HealthScannerPanelProps } from './components/audit';
 export { OpportunitiesPanel } from './components/audit';
-export type { OpportunitiesPanelProps } from './components/audit';
+export type { OpportunitiesPanelProps, AgentStatusData } from './components/audit';
 
 // Components - Goalposts (Phase 57)
 export { GoalpostsPanel } from './components/goalposts';

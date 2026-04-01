@@ -98,6 +98,14 @@ _CORE_TOOLS = [
                     "description": "(Advanced, symbol mode only) Filter by node kind.",
                     "enum": ["function", "class", "module", "method", "variable", "import"],
                 },
+                "role": {
+                    "type": "string",
+                    "description": (
+                        "Optional agent role for scoped search. When set, results are "
+                        "filtered to only include files in the agent's configured "
+                        "Knowledge Scope (e.g. 'ceo', 'ux_designer', 'devops')."
+                    ),
+                },
                 "project_id": _PROJECT_ID_PROP,
             },
             "required": ["query"],

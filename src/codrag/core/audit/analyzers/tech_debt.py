@@ -21,7 +21,10 @@ class TechDebtAnalyzer(BaseAnalyzer):
             debts = entry.get("tech_debt") or []
             if not debts:
                 continue
-            node = ctx.nodes.get(nid, {})
+            # Phase 65: Use file_nodes to respect exclude globs
+            node = ctx.file_nodes.get(nid)
+            if not node:
+                continue
             file_path = node.get("file_path", "")
             if not file_path:
                 continue

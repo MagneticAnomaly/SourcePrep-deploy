@@ -660,6 +660,12 @@ class WorkerFactory:
             project, *_ = WorkerFactory._get_project_and_config(project_id)
             idx_dir = project_index_dir(project)
 
+            try:
+                from codrag.services.pipeline_logger import get_pipeline_logger
+                pfl = get_pipeline_logger(idx_dir)
+            except Exception:
+                pfl = None
+
             # Use task-assigned LLM if available; fall back to structural atlas
             try:
                 llm_client = WorkerFactory._get_llm_client_for_task("atlas")
@@ -709,6 +715,20 @@ class WorkerFactory:
             except Exception as e:
                 logger.info("[Atlas] Routing generation skipped: %s", e)
                 result["routing_segments"] = 0
+
+            # Phase 64A: Pre-cache role sub-atlases for all built-in roles.
+            # Uses existing epistemic + module data — no LLM calls (~30ms).
+            try:
+                role_cache = atlas.cache_role_atlases()
+                result["role_atlases_cached"] = len(role_cache)
+                logger.info("[Atlas] Role atlases cached — %d roles", len(role_cache))
+                if pfl:
+                    pfl.log("atlas", f"Role atlases cached for {len(role_cache)} agents")
+            except Exception as e:
+                logger.info("[Atlas] Role atlas caching skipped: %s", e)
+                result["role_atlases_cached"] = 0
+                if pfl:
+                    pfl.log("atlas", f"Role atlas caching skipped: {e}")
 
             result["_model_info"] = _capture_model_info(llm_client) if llm_client else {}
             result["_stage_timing"] = {"started_at": _t0, "elapsed": time.time() - _t0}

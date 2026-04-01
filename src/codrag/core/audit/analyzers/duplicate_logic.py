@@ -27,8 +27,10 @@ class DuplicateLogicAnalyzer(BaseAnalyzer):
         # Collect file-level augmentations with summaries
         file_summaries: List[Tuple[str, str, Set[str]]] = []
         for nid, aug in ctx.augmentations.items():
-            node = ctx.nodes.get(nid, {})
-            if node.get("kind") != "file":
+            # Phase 65: Use file_nodes to respect exclude globs —
+            # skip nodes not in file_nodes (they're excluded).
+            node = ctx.file_nodes.get(nid)
+            if not node:
                 continue
             summary = aug.get("summary", "")
             if not summary or len(summary) < 20:

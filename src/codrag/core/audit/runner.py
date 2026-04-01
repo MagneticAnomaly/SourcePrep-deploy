@@ -82,6 +82,7 @@ def run_audit(
     project_root: Optional[Path] = None,
     categories: Optional[List[str]] = None,
     progress_callback: Optional[Callable[[str, int, int], None]] = None,
+    extra_exclude_globs: Optional[List[str]] = None,
 ) -> AuditResult:
     """Run all audit analyzers and return findings.
 
@@ -92,6 +93,7 @@ def run_audit(
         project_root: Path to the project root (needed for staleness checks).
         categories: Optional filter — only run analyzers matching these categories.
         progress_callback: Optional (phase, current, total) progress reporter.
+        extra_exclude_globs: Additional exclude globs (e.g., from Exclude Tree).
 
     Returns:
         AuditResult with all findings.
@@ -103,7 +105,7 @@ def run_audit(
     if progress_callback:
         progress_callback("audit_loading", 0, 1)
 
-    ctx = load_audit_context(index_dir, project_root)
+    ctx = load_audit_context(index_dir, project_root, extra_exclude_globs=extra_exclude_globs)
 
     if not ctx.nodes:
         result.errors.append("No trace graph data found. Run the enrichment pipeline first.")
@@ -312,6 +314,7 @@ def run_health_scan(
     categories: Optional[List[str]] = None,
     include_spaghetti: bool = True,
     progress_callback: Optional[Callable[[str, int, int], None]] = None,
+    extra_exclude_globs: Optional[List[str]] = None,
 ) -> List["ActionItem"]:
     """Run a unified health scan: audit analyzers + spaghetti scoring.
 
@@ -327,6 +330,7 @@ def run_health_scan(
         categories: Optional filter for audit categories.
         include_spaghetti: Whether to include spaghetti file scoring.
         progress_callback: Optional (phase, current, total) reporter.
+        extra_exclude_globs: Additional exclude globs (e.g., from Exclude Tree).
 
     Returns:
         List of ActionItems from both audit findings and spaghetti scores.
@@ -347,7 +351,7 @@ def run_health_scan(
     if progress_callback:
         progress_callback("health_loading", 0, 1)
 
-    ctx = load_audit_context(index_dir, project_root)
+    ctx = load_audit_context(index_dir, project_root, extra_exclude_globs=extra_exclude_globs)
 
     if not ctx.nodes:
         logger.warning("No trace graph data found — cannot run health scan.")
@@ -409,6 +413,65 @@ def run_health_scan(
         _PRIO_ORDER.get(i.priority, 9),
         _SEV_ORDER.get(i.severity, 9),
     ))
+
+    # Phase 65: Collapse groups with >10 identical (analyzer, severity) items
+    # into a single summary ActionItem to reduce noise in the UI.
+    _COLLAPSE_THRESHOLD = 10
+    collapsed: List[ActionItem] = []
+    groups: Dict[str, List[ActionItem]] = {}
+    for item in items:
+        key = f"{item.analyzer}:{item.severity}"
+        groups.setdefault(key, []).append(item)
+
+    for key, group in groups.items():
+        if len(group) <= _COLLAPSE_THRESHOLD:
+            collapsed.extend(group)
+        else:
+            # Keep critical/warning items individually (never collapse high-severity)
+            if group[0].severity in ("critical", "warning"):
+                collapsed.extend(group)
+                continue
+
+            # Collapse info/suggestion groups into a summary item
+            all_files = []
+            for item in group:
+                all_files.extend(item.affected_files)
+            # Deduplicate files
+            seen_files: set = set()
+            unique_files = []
+            for f in all_files:
+                if f not in seen_files:
+                    seen_files.add(f)
+                    unique_files.append(f)
+
+            sample = group[0]
+            summary_item = ActionItem(
+                id=f"{sample.id}-group",
+                title=f"{len(group)} {sample.analyzer.replace('_', ' ')} items ({sample.severity})",
+                description=(
+                    f"Collapsed {len(group)} {sample.severity}-level {sample.analyzer} "
+                    f"findings affecting {len(unique_files)} files. "
+                    f"Expand or export for full details."
+                ),
+                category=sample.category,
+                priority=sample.priority,
+                severity=sample.severity,
+                effort=sample.effort,
+                source=sample.source,
+                analyzer=sample.analyzer,
+                affected_files=unique_files[:50],  # Cap at 50 for JSON size
+                suggested_action=sample.suggested_action,
+                evidence=f"Group of {len(group)} items. Top files: {', '.join(unique_files[:5])}",
+                mcp_command=sample.mcp_command,
+            )
+            collapsed.append(summary_item)
+
+    # Re-sort collapsed list
+    collapsed.sort(key=lambda i: (
+        _PRIO_ORDER.get(i.priority, 9),
+        _SEV_ORDER.get(i.severity, 9),
+    ))
+    items = collapsed
 
     elapsed = (_time.monotonic() - start) * 1000
     logger.info(

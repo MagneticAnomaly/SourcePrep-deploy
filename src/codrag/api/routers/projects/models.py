@@ -38,6 +38,7 @@ class SearchRequest(BaseModel):
     score_drop_ratio: float = 0.4
     mmr_lambda: float = 0.7
     exclude_paths: List[str] = []
+    role: Optional[str] = None  # Phase 67: agent role for scoped search
 
 
 class ContextRequest(BaseModel):
@@ -58,6 +59,7 @@ class ContextRequest(BaseModel):
     compression_target_chars: Optional[int] = None
     compression_timeout_s: float = 30.0
     include_atlas: bool = False  # Explicit opt-in: prepend atlas text to context. Routing (Phase 29B) handles segment selection automatically; atlas text is primarily accessed via the codrag_atlas tool.
+    role: Optional[str] = None  # Phase 67: agent role for scoped search filtering
 
 
 class ChunkRequest(BaseModel):

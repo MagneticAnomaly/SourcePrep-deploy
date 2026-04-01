@@ -968,6 +968,33 @@ export interface PipelineGroupRun {
  *   Fast Sync:       structural → inferred_edges → catalogue → validation → knowledge
  *   Deep Enrichment: enrichment → group_reasoning → clustering → atlas → deepening → deep_knowledge
  */
+/**
+ * Phase 66: Pi Agent gate status
+ */
+export interface AgentGateStatus {
+  agent_active: boolean;
+  active_task: string | null;
+  held_for_s: number | null;
+}
+
+/**
+ * Phase 66: Pi Agent status from pipeline status API
+ */
+export interface AgentStatus {
+  enabled: boolean;
+  auto_scan?: boolean;
+  cooldown_seconds?: number;
+  running_task: string | null;
+  last_scan_at: string | null;
+  last_scan_delta?: {
+    new_findings: Array<{ title: string; severity: string }>;
+    resolved_findings: Array<{ title: string; severity: string }>;
+    unchanged_count: number;
+    is_first_scan?: boolean;
+  } | null;
+  gate?: AgentGateStatus;
+}
+
 export interface PipelineStatus {
   fast_sync: PipelineGroupRun | null;
   deep_enrichment: PipelineGroupRun | null;
@@ -989,6 +1016,8 @@ export interface PipelineStatus {
   crashed_runs?: CrashedPipelineRun[];
   /** Phase 45D: scheduler status — compute node loads and queues */
   scheduler?: SchedulerStatus | null;
+  /** Phase 66: Pi agent status and gate state */
+  agent?: AgentStatus | null;
 }
 
 /**

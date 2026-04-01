@@ -13,6 +13,7 @@ AI assistants are only as good as the context they receive. Most tools send frag
 - **Semantic search** — find code by intent, not just keywords. Results are ranked by relevance across every file in the project.
 - **Code Graph** — a structural code graph (symbols, imports, call chains) so agents can reason about *how* code connects, not just *where* it lives.
 - **Context assembly** — returns bounded, LLM-ready chunks with source attribution. No more "which file was that from?"
+- **Role-aware context** — each AI agent gets a context view shaped for its job. A security agent sees auth and data boundaries. A UI agent sees components and design tokens. Works with any agentic framework, zero configuration.
 - **MCP for AI tools** — plug into Cursor, Windsurf, Claude Code, VS Code, Gemini CLI, Qwen Code, GitHub Copilot, or JetBrains via Model Context Protocol. The agent gets the same index you do.
 - **Local-first** — your code never leaves your machine. Indexes are built and queried locally; nothing is uploaded.
 
@@ -91,6 +92,7 @@ CoDRAG is a **local-first, team-ready** application that provides:
 | "Juggling multiple ports/processes per project" | One port (8400), project tabs in UI |
 | "Finding relevant code takes 20+ minutes for new devs" | Pre-indexed codebase with instant semantic search |
 | "AI assistants forget codebase context between sessions" | Persistent trace index + structural memory |
+| "Running multiple AI agents — they all get the same noisy context" | Role-aware context shaping — each agent sees only what's relevant to its job |
 
 ---
 
@@ -174,6 +176,7 @@ Generate [AGENTS.md](https://agents.md/) documentation from trace index:
 - Detected entry points and key modules
 - Discovered build/test commands from common files
 - API endpoints extracted from route definitions
+- **Role-aware context on demand** — any agent in any agentic pipeline can call `codrag(role="security")` or `codrag(role="design engineer")` to get a context view filtered to what matters for their specific job. No re-indexing, no extra pipeline steps.
 
 ---
 

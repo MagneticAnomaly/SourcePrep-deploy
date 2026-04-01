@@ -42,7 +42,14 @@ def generate_mcp_configs(
 
     configs: Dict[str, Any] = {}
 
-    if ide in ("all", "claude"):
+    if ide in ("all", "claude-code"):
+        configs["claude-code"] = {
+            "file": ".claude/mcp.json",
+            "path_hint": "Project root (project-scoped) or ~/.claude/ (global)",
+            "config": {"servers": {"codrag": base_config}},
+        }
+
+    if ide in ("all", "claude", "claude-desktop"):
         configs["claude"] = {
             "file": "claude_desktop_config.json",
             "path_hint": "~/Library/Application Support/Claude/ (macOS) or %APPDATA%/Claude/ (Windows)",
@@ -83,6 +90,20 @@ def generate_mcp_configs(
             "file": ".windsurf/mcp.json",
             "path_hint": "Project root",
             "config": {"mcpServers": {"codrag": base_config}},
+        }
+
+    if ide in ("all", "gemini"):
+        configs["gemini"] = {
+            "file": "settings.json",
+            "path_hint": "~/.gemini/",
+            "config": {"mcpServers": {"codrag": {**base_config, "trust": True}}},
+        }
+
+    if ide in ("all", "zed"):
+        configs["zed"] = {
+            "file": "settings.json",
+            "path_hint": "~/.config/zed/ or project .zed/",
+            "config": {"context_servers": {"codrag": base_config}},
         }
 
     if not configs:

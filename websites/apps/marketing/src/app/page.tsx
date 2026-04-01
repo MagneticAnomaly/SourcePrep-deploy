@@ -244,6 +244,10 @@ export default function Page() {
                 q: "Does the AI remember what it learned across sessions?",
                 a: "Yes. CoDRAG maintains a Persistent Agent Memory \u2014 observations about your code (decisions, bugs, patterns) linked to specific files. When those files change, linked observations are automatically flagged [STALE]. The AI gets both the updated code and a signal that its prior assumptions need re-evaluation. No other context tool does this.",
               },
+              {
+                q: "Does it work with multi-agent and agentic pipelines?",
+                a: "Yes \u2014 and this is where CoDRAG adds the most leverage. When you run multiple AI workers in parallel (security review, UI generation, API scaffolding, etc.), each agent automatically receives a context view shaped for its job. A security agent sees auth and data access code. A UI agent sees components and design tokens. Same codebase index \u2014 no extra setup, no repeated context pasting, no agents reading each other's noise.",
+              },
             ].map(({ q, a }) => (
               <div key={q} className="rounded-xl border border-border bg-surface p-8">
                 <div className="flex items-start gap-3 mb-4">
@@ -286,8 +290,8 @@ export default function Page() {
               <div className="text-sm text-text-muted mt-1">Smart compression for code &amp; docs</div>
             </div>
             <div>
-              <div className="text-3xl font-bold text-primary">Pro</div>
-              <div className="text-sm text-text-muted mt-1">Own it forever</div>
+              <div className="text-3xl font-bold text-primary">Role-aware</div>
+              <div className="text-sm text-text-muted mt-1">Each agent gets its own context view</div>
             </div>
           </div>
           <div className="pt-4">

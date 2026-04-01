@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 def load_audit_context(
     index_dir: Path,
     project_root: Optional[Path] = None,
+    extra_exclude_globs: Optional[List[str]] = None,
 ) -> AuditContext:
     """Load all graph data from disk into an AuditContext.
 
@@ -95,6 +96,20 @@ def load_audit_context(
     # Load repo_policy exclude globs so file_nodes filters out
     # vendor/Pods/node_modules/etc. files that may be in old trace data.
     exclude_globs = _load_exclude_globs(index_dir)
+
+    # Phase 65: Merge user Exclude Tree patterns (trace.ignore_patterns)
+    # so health scanner respects the same exclusions as the trace pipeline.
+    if extra_exclude_globs:
+        merged = set(exclude_globs or [])
+        for g in extra_exclude_globs:
+            g = g.strip()
+            if g:
+                merged.add(g)
+                # Ensure directory patterns also match nested content
+                if not g.endswith("/**") and not g.endswith("/*") and "*" not in g:
+                    merged.add(f"{g}/**")
+        exclude_globs = sorted(merged)
+
     if exclude_globs:
         ctx.set_exclude_globs(exclude_globs)
         logger.debug("Applied %d exclude globs to audit context", len(exclude_globs))

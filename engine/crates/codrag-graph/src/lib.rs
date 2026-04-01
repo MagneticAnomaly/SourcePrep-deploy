@@ -4,6 +4,7 @@
 //! with efficient lookup by ID, name search, and neighbor traversal.
 
 pub mod lod;
+pub mod role_projection;
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

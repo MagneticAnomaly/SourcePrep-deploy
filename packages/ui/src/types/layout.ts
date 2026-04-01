@@ -43,6 +43,8 @@ export interface PanelDefinition {
   fullWidth?: boolean;  // Span all columns
   /** Remove default p-4 body padding (e.g. for flush panels like LogConsole) */
   noPadding?: boolean;
+  /** Phase 65: Hidden panels are still functional but not shown in the panel picker. */
+  hidden?: boolean;
 }
 
 /**

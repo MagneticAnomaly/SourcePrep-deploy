@@ -26,6 +26,7 @@ import {
   FileText,
   Filter,
   ChevronDown,
+  Cpu,
 } from 'lucide-react';
 import { Button } from '../primitives/Button';
 import { cn } from '../../lib/utils';
@@ -57,10 +58,32 @@ export interface OpportunitiesSummary {
   critical: number;
   warning: number;
   info: number;
+  actionable_count: number;
   last_refresh: string | null;
   by_priority: Record<string, number>;
   by_category: Record<string, number>;
   by_source: Record<string, number>;
+  by_analyzer: Record<string, number>;
+  by_severity: Record<string, number>;
+  top_analyzers: { analyzer: string; count: number }[];
+}
+
+export interface AgentStatusData {
+  enabled: boolean;
+  auto_scan?: boolean;
+  cooldown_seconds?: number;
+  running_task: string | null;
+  last_scan_at: string | null;
+  last_scan_delta?: {
+    new_findings: Array<{ title: string; severity: string }>;
+    resolved_findings: Array<{ title: string; severity: string }>;
+    unchanged_count: number;
+    is_first_scan?: boolean;
+  } | null;
+  gate?: {
+    agent_active: boolean;
+    active_task: string | null;
+  };
 }
 
 export interface OpportunitiesPanelProps {
@@ -81,6 +104,8 @@ export interface OpportunitiesPanelProps {
   onSourceFilterChange: (s: string | null) => void;
   showDismissed: boolean;
   onShowDismissedChange: (b: boolean) => void;
+  /** Phase 66: Pi agent status from pipeline status API */
+  agentStatus?: AgentStatusData | null;
   className?: string;
 }
 
@@ -156,6 +181,70 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
   );
 }
 
+// ── Phase 66: Agent Status Banner ──────────────────────────────
+
+function AgentStatusBanner({ agent }: { agent: AgentStatusData }) {
+  if (!agent.enabled) return null;
+
+  const isRunning = !!agent.running_task;
+  const delta = agent.last_scan_delta;
+  const newCount = delta?.new_findings?.length ?? 0;
+  const resolvedCount = delta?.resolved_findings?.length ?? 0;
+  const hasDelta = newCount > 0 || resolvedCount > 0;
+
+  // Time ago helper
+  const timeAgo = (iso: string | null): string => {
+    if (!iso) return 'never';
+    const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (seconds < 60) return 'just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
+  };
+
+  return (
+    <div className="flex items-center gap-2 px-4 py-2 border-b border-border/30 bg-violet-500/5">
+      <Cpu className={cn('h-3.5 w-3.5 text-violet-400', isRunning && 'animate-spin')} />
+      <span className="text-[10px] font-semibold text-violet-400 uppercase tracking-wide">Pi Agent</span>
+
+      {isRunning ? (
+        <span className="text-[10px] text-text-muted flex items-center gap-1">
+          <Loader2 className="h-2.5 w-2.5 animate-spin" />
+          Running: {agent.running_task}
+        </span>
+      ) : (
+        <span className="text-[10px] text-text-muted">
+          Last scan: {timeAgo(agent.last_scan_at)}
+        </span>
+      )}
+
+      {hasDelta && !isRunning && (
+        <div className="flex items-center gap-1.5 ml-auto">
+          {newCount > 0 && (
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-red-400">
+              +{newCount} new
+            </span>
+          )}
+          {resolvedCount > 0 && (
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-400">
+              −{resolvedCount} resolved
+            </span>
+          )}
+          {delta && delta.unchanged_count > 0 && (
+            <span className="text-[9px] text-text-muted/50">
+              {delta.unchanged_count} unchanged
+            </span>
+          )}
+        </div>
+      )}
+
+      {delta?.is_first_scan && !isRunning && (
+        <span className="text-[9px] text-text-muted/50 ml-auto">Initial baseline scan</span>
+      )}
+    </div>
+  );
+}
+
 function SummaryBar({ summary }: { summary: OpportunitiesSummary }) {
   const total = summary.total;
   if (total === 0) return null;
@@ -167,26 +256,47 @@ function SummaryBar({ summary }: { summary: OpportunitiesSummary }) {
   ].filter(s => s.count > 0);
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <div className="flex h-1.5 overflow-hidden rounded-full bg-surface-raised">
         {segs.map(({ key, count, color }) => (
           <div key={key} className={cn('h-full', color)} style={{ width: `${(count / total) * 100}%` }} />
         ))}
       </div>
-      <div className="flex gap-3 text-[10px] text-text-muted">
-        {segs.map(({ key, count, color }) => (
-          <span key={key} className="flex items-center gap-1">
-            <span className={cn('inline-block h-1.5 w-1.5 rounded-full', color)} />
-            {count} {key}
+      <div className="flex items-center gap-3">
+        <div className="flex gap-3 text-[10px] text-text-muted">
+          {segs.map(({ key, count, color }) => (
+            <span key={key} className="flex items-center gap-1">
+              <span className={cn('inline-block h-1.5 w-1.5 rounded-full', color)} />
+              {count} {key}
+            </span>
+          ))}
+        </div>
+        {summary.actionable_count > 0 && (
+          <span className="text-[10px] font-semibold text-amber-400">
+            {summary.actionable_count} actionable
           </span>
-        ))}
+        )}
         {summary.dismissed > 0 && (
-          <span className="flex items-center gap-1 opacity-50">
+          <span className="flex items-center gap-1 opacity-50 text-[10px] text-text-muted">
             <EyeOff className="h-2.5 w-2.5" />
             {summary.dismissed} dismissed
           </span>
         )}
       </div>
+      {/* Analyzer breakdown */}
+      {summary.top_analyzers && summary.top_analyzers.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {summary.top_analyzers.map(({ analyzer, count }) => (
+            <span
+              key={analyzer}
+              className="inline-flex items-center gap-1 rounded-full bg-surface-raised/80 px-2 py-0.5 text-[9px] text-text-muted font-medium"
+            >
+              {analyzer.replace(/_/g, ' ')}
+              <span className="font-semibold text-text-muted/70">{count}</span>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -305,6 +415,73 @@ function OpportunityCard({
   );
 }
 
+// ── Analyzer Group (collapsible) ───────────────────────────────
+
+function AnalyzerGroup({
+  analyzer,
+  items,
+  onDismiss,
+  onRestore,
+}: {
+  analyzer: string;
+  items: OpportunityItem[];
+  onDismiss: (id: string) => void;
+  onRestore: (id: string) => void;
+}) {
+  // Default: expand critical/warning groups, collapse info/suggestion
+  const hasHighSeverity = items.some(i => i.severity === 'critical' || i.severity === 'warning');
+  const [expanded, setExpanded] = useState(hasHighSeverity);
+
+  // Severity counts for the header
+  const sevCounts: Record<string, number> = {};
+  for (const i of items) sevCounts[i.severity] = (sevCounts[i.severity] || 0) + 1;
+
+  return (
+    <div className="border-b border-border/50">
+      <button
+        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-surface-raised/30 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-2.5">
+          <ChevronDown
+            className={cn(
+              'h-3.5 w-3.5 text-text-muted transition-transform',
+              !expanded && '-rotate-90',
+            )}
+          />
+          <span className="text-xs font-semibold text-text capitalize">
+            {analyzer.replace(/_/g, ' ')}
+          </span>
+          <span className="text-[10px] text-text-muted bg-surface-raised rounded-full px-2 py-0.5 font-medium">
+            {items.length}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          {Object.entries(sevCounts).map(([sev, count]) => (
+            <Badge
+              key={sev}
+              text={`${count} ${sev}`}
+              colorClass={SEVERITY_COLORS[sev] || SEVERITY_COLORS.info}
+            />
+          ))}
+        </div>
+      </button>
+      {expanded && (
+        <div>
+          {items.map(item => (
+            <OpportunityCard
+              key={item.id}
+              item={item}
+              onDismiss={onDismiss}
+              onRestore={onRestore}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Filter dropdown ────────────────────────────────────────────
 
 function FilterDropdown({
@@ -385,9 +562,11 @@ export function OpportunitiesPanel({
   onSourceFilterChange,
   showDismissed,
   onShowDismissedChange,
+  agentStatus,
   className,
 }: OpportunitiesPanelProps) {
   const [exportOpen, setExportOpen] = useState(false);
+  const [groupByAnalyzer, setGroupByAnalyzer] = useState(false);
 
   // Apply client-side filters
   const filteredItems = useMemo(() => {
@@ -417,6 +596,23 @@ export function OpportunitiesPanel({
 
     return result;
   }, [items, showDismissed, categoryFilter, priorityFilter, sourceFilter]);
+
+  // Group items by analyzer for the grouped view
+  const groupedItems = useMemo(() => {
+    if (!groupByAnalyzer) return null;
+    const groups: Record<string, OpportunityItem[]> = {};
+    for (const item of filteredItems) {
+      const key = item.analyzer || 'unknown';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(item);
+    }
+    // Sort groups by highest-severity item in each group
+    return Object.entries(groups).sort(([, a], [, b]) => {
+      const sa = Math.min(...a.map(i => SEV_RANK[i.severity] ?? 9));
+      const sb = Math.min(...b.map(i => SEV_RANK[i.severity] ?? 9));
+      return sa - sb;
+    });
+  }, [filteredItems, groupByAnalyzer]);
 
   // Build filter options from data
   const categoryOptions = useMemo(() => {
@@ -530,6 +726,20 @@ export function OpportunitiesPanel({
             {summary?.dismissed || 0}
           </button>
 
+          {/* Group by analyzer toggle */}
+          <button
+            className={cn(
+              'flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-md transition-colors border',
+              groupByAnalyzer
+                ? 'border-primary/50 bg-primary/10 text-primary'
+                : 'border-border/50 bg-surface-raised/60 text-text-muted hover:text-text',
+            )}
+            onClick={() => setGroupByAnalyzer(!groupByAnalyzer)}
+            title="Group items by analyzer"
+          >
+            Group
+          </button>
+
           {/* Export dropdown */}
           <div className="relative">
             <Button
@@ -584,6 +794,9 @@ export function OpportunitiesPanel({
         </div>
       )}
 
+      {/* ── Phase 66: Agent status banner ─────────────────── */}
+      {agentStatus && <AgentStatusBanner agent={agentStatus} />}
+
       {/* ── Error bar ────────────────────────────────────────── */}
       {error && (
         <div className="px-4 py-2 bg-red-500/10 text-red-400 text-xs border-b border-red-500/20">
@@ -602,14 +815,28 @@ export function OpportunitiesPanel({
       {/* ── Item list ────────────────────────────────────────── */}
       {filteredItems.length > 0 && (
         <div className="flex-1 overflow-auto">
-          {filteredItems.map(item => (
-            <OpportunityCard
-              key={item.id}
-              item={item}
-              onDismiss={onDismiss}
-              onRestore={onRestore}
-            />
-          ))}
+          {groupByAnalyzer && groupedItems ? (
+            // Grouped view
+            groupedItems.map(([analyzer, groupItems]) => (
+              <AnalyzerGroup
+                key={analyzer}
+                analyzer={analyzer}
+                items={groupItems}
+                onDismiss={onDismiss}
+                onRestore={onRestore}
+              />
+            ))
+          ) : (
+            // Flat view
+            filteredItems.map(item => (
+              <OpportunityCard
+                key={item.id}
+                item={item}
+                onDismiss={onDismiss}
+                onRestore={onRestore}
+              />
+            ))
+          )}
         </div>
       )}
 

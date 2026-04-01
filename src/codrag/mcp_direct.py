@@ -100,6 +100,19 @@ class DirectMCPServer:
             embedder = self._injected_embedder or OllamaEmbedder(
                 model=self.model, base_url=self.ollama_url
             )
+        except Exception as e:
+            err_str = str(e).lower()
+            if "connect" in err_str or "refused" in err_str or "timeout" in err_str:
+                logger.error(
+                    f"Cannot connect to Ollama at {self.ollama_url}. "
+                    "Direct mode requires Ollama for embeddings.\n"
+                    "  Install: https://ollama.ai/download\n"
+                    "  Start:   ollama serve\n"
+                    "  Then retry your query."
+                )
+            raise
+
+        try:
             self._index = CodeIndex(index_dir=self.index_dir, embedder=embedder)
 
             # Trace index shares the same dir usually
@@ -200,7 +213,11 @@ class DirectMCPServer:
                 "query": query,
                 "count": 0,
                 "results": [],
-                "error": "Index not loaded. Run codrag_build first.",
+                "error": (
+                    "Index not loaded. Build it from your terminal:\n"
+                    f"  codrag build\n\n"
+                    "This runs the full indexing pipeline on your codebase."
+                ),
             }
 
         # Run blocking search in thread
@@ -412,6 +429,20 @@ class DirectMCPServer:
                     k=args.get("k", 5),
                     max_chars=args.get("max_chars", 6000),
                 )
+                # Phase 64A: Role-based atlas projection
+                role = args.get("role")
+                if role:
+                    try:
+                        from codrag.core.atlas import CodebaseAtlas
+                        atlas = CodebaseAtlas(self.index_dir)
+                        role_atlas = atlas.get_role_atlas(role)
+                        if role_atlas:
+                            ctx = result.get("context", "")
+                            result["context"] = ctx + "\n---\n" + role_atlas if ctx else role_atlas
+                            result["role"] = role
+                            result["role_atlas_chars"] = len(role_atlas)
+                    except Exception:
+                        pass  # Direct mode: silent fallback
             elif name == "hi_codrag":
                 result = await self.tool_hi()
             else:

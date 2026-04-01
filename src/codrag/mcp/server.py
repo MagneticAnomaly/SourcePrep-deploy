@@ -343,7 +343,11 @@ class MCPServer:
             resp = await client.get(url, headers=headers)
             resp.raise_for_status()
         except httpx.ConnectError:
-            raise DaemonUnavailableError(f"Cannot connect to CoDRAG daemon at {self.daemon_url}")
+            raise DaemonUnavailableError(
+                f"Cannot connect to CoDRAG daemon at {self.daemon_url}\n\n"
+                f"Start the daemon in a terminal:\n"
+                f"  codrag serve"
+            )
         except httpx.HTTPStatusError as e:
             try:
                 self._unwrap_envelope(e.response.json())
@@ -377,7 +381,11 @@ class MCPServer:
             resp = await client.post(url, json=payload, headers=headers)
             resp.raise_for_status()
         except httpx.ConnectError:
-            raise DaemonUnavailableError(f"Cannot connect to CoDRAG daemon at {self.daemon_url}")
+            raise DaemonUnavailableError(
+                f"Cannot connect to CoDRAG daemon at {self.daemon_url}\n\n"
+                f"Start the daemon in a terminal:\n"
+                f"  codrag serve"
+            )
         except httpx.HTTPStatusError as e:
             try:
                 self._unwrap_envelope(e.response.json())
@@ -731,6 +739,7 @@ class MCPServer:
         compression_level: str = "standard",
         compression_timeout_s: float = 30.0,
         exclude_paths: Optional[List[str]] = None,
+        role: Optional[str] = None,  # Phase 67: agent scope filtering
         project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Query-based context retrieval with trace expansion and routing."""
@@ -779,6 +788,9 @@ class MCPServer:
             payload["compression_timeout_s"] = float(compression_timeout_s)
         if exclude_paths:
             payload["exclude_paths"] = list(exclude_paths)
+        # Phase 67: Agent scope filtering
+        if role:
+            payload["role"] = role
 
         data = await self._api_post(f"/projects/{project_id}/context", payload)
         result = self._format_context_response(project_id, data)
@@ -815,6 +827,7 @@ class MCPServer:
     async def tool_context(
         self,
         max_chars: int = 0,  # 0 = use adaptive budget from OPP-W5
+        role: Optional[str] = None,
         project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Ambient context assembly — no query needed.
@@ -904,6 +917,22 @@ class MCPServer:
         md_parts.append("")
         if context_str:
             md_parts.append(context_str)
+
+        # Phase 64A: Role-based atlas projection
+        if role:
+            try:
+                atlas_data = await self._api_get(
+                    f"/projects/{project_id}/atlas?role={role}"
+                )
+                if isinstance(atlas_data, dict):
+                    role_content = atlas_data.get("role_atlas", "")
+                    if role_content:
+                        md_parts.append("\n---\n")
+                        md_parts.append(role_content)
+                        result["role"] = role
+                        result["role_atlas_chars"] = len(role_content)
+            except Exception as e:
+                logger.debug("Role projection failed for role=%s: %s", role, e)
 
         result["_to_markdown"] = "\n".join(md_parts)
         return result
@@ -2241,6 +2270,7 @@ class MCPServer:
                 self._codrag_called = True
                 result = await self.tool_context(
                     max_chars=args.get("max_chars", 0),  # 0 = adaptive budget (OPP-W5)
+                    role=args.get("role"),  # Phase 64A: role-based atlas projection
                     project_override=project_override,
                 )
 
@@ -2263,6 +2293,7 @@ class MCPServer:
                         compression_level=args.get("compression_level", "standard"),
                         compression_timeout_s=args.get("compression_timeout_s", 30.0),
                         exclude_paths=args.get("exclude_paths") or None,
+                        role=args.get("role"),  # Phase 67: agent scope filtering
                         project_override=project_override,
                     )
                 # Phase 50 Sprint 3: Nudge if codrag hasn't been called yet

@@ -583,6 +583,7 @@ def context(
     project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID (optional if inside project dir)"),
     k: int = typer.Option(5, "--limit", "-k", help="Number of chunks to include"),
     max_chars: int = typer.Option(8000, "--max-chars", "-c", help="Maximum characters in context"),
+    role: Optional[str] = typer.Option(None, "--role", help="Role filter for atlas (e.g. 'ceo', 'design engineer', 'security')"),
     raw: bool = typer.Option(False, "--raw", "-r", help="Output only the raw context string (for piping)"),
     host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
     port: int = typer.Option(8400, "--port", help="Server port"),
@@ -592,6 +593,8 @@ def context(
 
     Retrieves relevant chunks and formats them into a single context string
     optimized for LLM consumption (with source headers).
+
+    Use --role to get a role-filtered codebase view appended to the context.
     """
     base = _base_url(host, port)
     pid = _resolve_project(base, project_id)
@@ -608,9 +611,21 @@ def context(
     chunks = data.get("chunks", [])
     total_chars = data.get("total_chars", 0)
     est_tokens = data.get("estimated_tokens", 0)
+
+    # Phase 64A: Append role-filtered atlas if requested
+    role_atlas = ""
+    if role:
+        try:
+            atlas_data = _get_json(f"{base}/projects/{pid}/atlas?role={role}")
+            role_atlas = atlas_data.get("role_atlas", "")
+        except Exception:
+            pass
     
     if raw:
         print(ctx)
+        if role_atlas:
+            print("\n---\n")
+            print(role_atlas)
         return
         
     console.print(Panel(
@@ -620,6 +635,15 @@ def context(
     ))
     console.print()
     console.print(ctx)
+
+    if role_atlas:
+        console.print()
+        console.print(Panel(
+            f"Role: {role} | Chars: {len(role_atlas)}",
+            title="Role-Filtered Atlas",
+            expand=False,
+        ))
+        console.print(role_atlas)
 
 
 @app.command("models")

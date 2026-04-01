@@ -808,6 +808,23 @@ class PipelineOrchestrator:
                             self._log_resume_decisions(project_id, stages, i, stage_decisions, skip_mtime_cascade)
                             return i
 
+                    # Phase 67: Ensure Sub-Atlas generation is continuous.
+                    # If the pipeline crashed generating segment or role atlases, 
+                    # the main atlas manifest might exist, but segments are missing.
+                    elif stage == StageId.ATLAS:
+                        segments_path = idx_dir / "atlas_segments_manifest.json"
+                        if not segments_path.exists() or segments_path.stat().st_size == 0:
+                            logger.warning(
+                                "Atlas manifest exists but atlas_segments_manifest.json "
+                                "is missing/empty — treating as incomplete (needs rebuild)"
+                            )
+                            stage_decisions.append({
+                                "stage": stage.value, "decision": "INCOMPLETE",
+                                "reason": "Manifest exists but atlas_segments_manifest.json missing",
+                            })
+                            self._log_resume_decisions(project_id, stages, i, stage_decisions, skip_mtime_cascade)
+                            return i
+
                     # Check staleness: is this manifest older than the
                     # structural trace?
                     if (not skip_mtime_cascade
@@ -1066,6 +1083,17 @@ class PipelineOrchestrator:
             self._journal_run_completed(run)
             # Phase 49: finalize run metadata + record in history
             self._finalize_run_metadata(run, "completed")
+            # Phase 66: Notify Pi agent that a pipeline group completed.
+            # Pi decides whether to run Watchdog/Dispatcher based on its
+            # own config and cooldown timers.  Runs in a background thread
+            # so it never blocks the pipeline.  Non-fatal.
+            try:
+                from codrag.services.pi_agent import get_pi_agent
+                pi = get_pi_agent()
+                if pi is not None:
+                    pi.on_pipeline_complete(run.group)
+            except Exception:
+                logger.debug("Pi agent notification failed (non-fatal)", exc_info=True)
             # After deep enrichment completes, trigger CodeIndex build so
             # /context search works and file tree status badges update.
             # Note: fast_sync does NOT trigger CodeIndex — it only builds
@@ -1883,6 +1911,21 @@ class PipelineOrchestrator:
             )
             # D1: Write signal file so MCP server detects atlas change
             self._write_atlas_signal(idx_dir)
+
+            # Phase 64A: Cache rudimentary role sub-atlases from structural data.
+            # Uses path-based heuristics (no epistemic yet) — lower fidelity,
+            # but agents can immediately get role-filtered context.
+            try:
+                role_cache = atlas.cache_role_atlases()
+                logger.info(
+                    "Phase 64A: Preliminary role atlases cached — %d roles",
+                    len(role_cache),
+                )
+            except Exception:
+                logger.debug(
+                    "Phase 64A: Preliminary role atlas caching failed (non-fatal)",
+                    exc_info=True,
+                )
 
             logger.info(
                 "Phase 50: Preliminary atlas + rules file written for %s (%d chars)",

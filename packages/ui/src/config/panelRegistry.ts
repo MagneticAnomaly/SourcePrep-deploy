@@ -19,6 +19,7 @@ import {
   List,
   Target,
   Terminal,
+  Users,
 } from 'lucide-react';
 import type { PanelDefinition } from '../types/layout';
 
@@ -229,6 +230,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     docsUrl: 'https://docs.codrag.io/guides/codebase-audit',
   },
   {
+    // Phase 65: Sunset — functionality merged into Opportunities panel
     id: 'spaghetti',
     title: 'Spaghetti Finder',
     description: 'Ranked list of files by refactor urgency. Combines line count, coupling, symbol density, tech debt, and epistemic confidence into a composite score.',
@@ -239,6 +241,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     closeable: true,
     resizable: true,
     docsUrl: 'https://docs.codrag.io/guides/spaghetti-finder',
+    hidden: true,
   },
   {
     id: 'activity-heatmap',
@@ -253,6 +256,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     docsUrl: 'https://docs.codrag.io/dashboard#activity',
   },
   {
+    // Phase 65: Sunset — future revisit with roadmap_layout_concept.png
     id: 'goalposts',
     title: 'Goalposts',
     description: 'AI-generated project milestones: forward-looking proposals based on codebase analysis, audit findings, and product intent.',
@@ -263,8 +267,10 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     closeable: true,
     resizable: true,
     docsUrl: 'https://docs.codrag.io/guides/goalposts',
+    hidden: true,
   },
   {
+    // Phase 65: Sunset — functionality merged into Opportunities panel
     id: 'health_scanner',
     title: 'Health Scanner',
     description: 'Unified codebase diagnostics: audit findings, file refactoring scores, architecture issues, and tech debt — all in one view with AI handoff.',
@@ -275,8 +281,10 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     closeable: true,
     resizable: true,
     docsUrl: 'https://docs.codrag.io/guides/health-scanner',
+    hidden: true,
   },
   {
+    // Phase 65: Sunset — functionality merged into Opportunities panel
     id: 'advisor',
     title: 'Advisor',
     description: 'AI-powered design proposals: proactive architecture, feature, and tech debt recommendations with Copy-for-AI handoff.',
@@ -287,6 +295,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     closeable: true,
     resizable: true,
     docsUrl: 'https://docs.codrag.io/guides/advisor',
+    hidden: true,
   },
   {
     id: 'roadmap',
@@ -313,6 +322,17 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     resizable: true,
     docsUrl: 'https://docs.codrag.io/guides/opportunities',
   },
+  {
+    id: 'agent-scope',
+    title: 'Agent Knowledge Scopes',
+    description: 'Per-agent file tree selection. Each Paperclip agent gets their own curated Knowledge Scope, ensuring focused, hallucination-free context retrieval.',
+    icon: Users,
+    minHeight: 6,
+    defaultHeight: 10,
+    category: 'search',
+    closeable: true,
+    resizable: true,
+  },
 ];
 
 /**
@@ -328,6 +348,8 @@ export function getPanelDefinition(id: string): PanelDefinition | undefined {
 export function getPanelsByCategory(): Record<string, PanelDefinition[]> {
   const grouped: Record<string, PanelDefinition[]> = {};
   for (const panel of PANEL_REGISTRY) {
+    // Phase 65: Don't show hidden (sunset) panels in picker
+    if (panel.hidden) continue;
     if (!grouped[panel.category]) {
       grouped[panel.category] = [];
     }

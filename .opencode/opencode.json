@@ -1,0 +1,22 @@
+{
+  "$schema": "https://opencode.ai/config.schema.json",
+  "mcp": {
+    "codrag": {
+      "type": "local",
+      "command": ["codrag", "mcp"],
+      "description": "CoDRAG code intelligence — structural analysis, semantic search, impact analysis, and codebase auditing"
+    }
+  },
+  "agents": {
+    "reviewer": {
+      "model": "qwen3-coder-next:cloud",
+      "prompt": "{file:./.opencode/prompts/reviewer.txt}",
+      "description": "Code review agent that uses CoDRAG for blast radius analysis",
+      "permissions": {
+        "write": "deny",
+        "edit": "deny",
+        "bash": "ask"
+      }
+    }
+  }
+}

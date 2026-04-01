@@ -17,6 +17,7 @@ import {
   GraphEnrichmentPipeline,
   GraphStructurePanel,
   FolderTreePanel,
+  AgentScopePanel,
   FileExplorerDetail,
   CopyButton,
   LogConsole,
@@ -672,6 +673,45 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         bare
       />
     ),
+    'agent-scope': (
+      <AgentScopePanel
+        projectId={p.selectedProjectId}
+        data={p.fileTree}
+        onFetchScopes={async (projectId: string) => {
+          const res = await fetch(`/projects/${projectId}/agent-scope`)
+          const json = await res.json()
+          return json.data ?? { roles: [], scopes: {} }
+        }}
+        onSetScope={async (projectId: string, role: string, paths: string[]) => {
+          await fetch(`/projects/${projectId}/agent-scope/${role}/set`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paths }),
+          })
+        }}
+        onAddPaths={async (projectId: string, role: string, paths: string[]) => {
+          await fetch(`/projects/${projectId}/agent-scope/${role}/add`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paths }),
+          })
+        }}
+        onRemovePaths={async (projectId: string, role: string, paths: string[]) => {
+          await fetch(`/projects/${projectId}/agent-scope/${role}/remove`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paths }),
+          })
+        }}
+        onDeleteScope={async (projectId: string, role: string) => {
+          await fetch(`/projects/${projectId}/agent-scope/${role}`, {
+            method: 'DELETE',
+          })
+        }}
+        onLoadChildren={p.handleLoadChildren}
+        bare
+      />
+    ),
     ...Object.fromEntries(
       [...p.pinnedPaths].map((path) => {
         const file = p.pinnedFiles.find((f) => f.path === path)
@@ -1067,6 +1107,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onSourceFilterChange={opportunitiesProps.setSourceFilter}
         showDismissed={opportunitiesProps.showDismissed}
         onShowDismissedChange={opportunitiesProps.setShowDismissed}
+        agentStatus={opportunitiesProps.agentStatus}
       />
     ),
   }), [p, excludedPaths, handleToggleExclude])

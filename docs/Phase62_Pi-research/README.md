@@ -16,6 +16,7 @@
 | **8** | [**08_Dual_Agent_Architecture.md**](./08_Dual_Agent_Architecture.md) | **⭐ Pi + Claude Code dual-agent architecture with Paperclip** |
 | **9** | [**09_Dashboard_Design_Strategy.md**](./09_Dashboard_Design_Strategy.md) | **⭐ Dashboard redesign: Opportunities panel + export-first UX** |
 | **10** | [**10_Universal_Adapter_Architecture.md**](./10_Universal_Adapter_Architecture.md) | **⭐ CS research, A2A protocol, hexagonal architecture, SARIF** |
+| **11** | [**11_Autonomous_Agent_Scenarios.md**](./11_Autonomous_Agent_Scenarios.md) | **⭐ 8 autonomous scenarios, time/cost analysis, Pi + OpenCode coexistence, concurrency safety** |
 
 ## TL;DR
 

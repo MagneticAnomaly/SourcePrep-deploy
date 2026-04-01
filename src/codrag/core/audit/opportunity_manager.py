@@ -70,6 +70,7 @@ class OpportunityManager:
         project_root: Optional[Path] = None,
         categories: Optional[List[str]] = None,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
+        extra_exclude_globs: Optional[List[str]] = None,
     ) -> List[ActionItem]:
         """Run all scanners and merge results into the opportunity list.
 
@@ -83,6 +84,12 @@ class OpportunityManager:
 
         Deduplication: Hash-based on ActionItem.id to prevent duplicates.
         Dismiss state is preserved across refreshes.
+
+        Args:
+            project_root: Path to the project root.
+            categories: Optional filter for audit categories.
+            progress_callback: Optional (phase, current, total) reporter.
+            extra_exclude_globs: Additional exclude globs from Exclude Tree.
 
         Returns:
             Merged, deduplicated, sorted list of all active ActionItems.
@@ -99,6 +106,7 @@ class OpportunityManager:
                 categories=categories,
                 include_spaghetti=True,
                 progress_callback=progress_callback,
+                extra_exclude_globs=extra_exclude_globs,
             )
             new_items.extend(health_items)
             logger.info("Health scan produced %d items", len(health_items))
@@ -196,11 +204,21 @@ class OpportunityManager:
         by_priority: Dict[str, int] = {}
         by_category: Dict[str, int] = {}
         by_source: Dict[str, int] = {}
+        by_analyzer: Dict[str, int] = {}
+        by_severity: Dict[str, int] = {}
 
         for item in active:
             by_priority[item.priority] = by_priority.get(item.priority, 0) + 1
             by_category[item.category] = by_category.get(item.category, 0) + 1
             by_source[item.source] = by_source.get(item.source, 0) + 1
+            by_analyzer[item.analyzer] = by_analyzer.get(item.analyzer, 0) + 1
+            by_severity[item.severity] = by_severity.get(item.severity, 0) + 1
+
+        # Phase 65: Actionable = critical + warning only (not info/suggestion)
+        actionable_count = by_severity.get("critical", 0) + by_severity.get("warning", 0)
+
+        # Top 5 analyzer groups by count
+        top_analyzers = sorted(by_analyzer.items(), key=lambda x: x[1], reverse=True)[:5]
 
         return {
             "total": len(active),
@@ -208,9 +226,13 @@ class OpportunityManager:
             "by_priority": by_priority,
             "by_category": by_category,
             "by_source": by_source,
-            "critical": by_priority.get("P0", 0),
-            "warning": by_priority.get("P1", 0),
-            "info": by_priority.get("P2", 0) + by_priority.get("P3", 0),
+            "by_analyzer": by_analyzer,
+            "by_severity": by_severity,
+            "top_analyzers": [{"analyzer": a, "count": c} for a, c in top_analyzers],
+            "actionable_count": actionable_count,
+            "critical": by_severity.get("critical", 0),
+            "warning": by_severity.get("warning", 0),
+            "info": by_severity.get("info", 0) + by_severity.get("suggestion", 0),
             "last_refresh": self._last_refresh,
         }
 
@@ -238,8 +260,7 @@ class OpportunityManager:
         """
         for item in self._opportunities:
             if item.id == item_id:
-                item.state = "active"
-                item.dismissed_at = ""
+                item.restore()
                 self._dismissed_ids.discard(item_id)
                 self._save_state()
                 logger.info("Restored opportunity: %s", item_id)

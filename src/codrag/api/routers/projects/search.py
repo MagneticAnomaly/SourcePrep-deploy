@@ -47,9 +47,25 @@ def search_project(project_id: str, req: SearchRequest) -> Dict[str, Any]:
         score_drop_ratio=req.score_drop_ratio, mmr_lambda=req.mmr_lambda,
         exclude_paths=req.exclude_paths or None,
     )
+
+    # ── Phase 67: Agent scope filtering ──────────────────────────
+    _agent_mask = None
+    if req.role:
+        try:
+            from codrag.core.agent_scope_manager import agent_scope_manager, _path_matches_scope
+            _agent_mask = agent_scope_manager.get_agent_mask(project_id, req.role)
+        except Exception:
+            logger.debug("Agent scope filtering unavailable", exc_info=True)
+
     out: List[Dict[str, Any]] = []
     for r in results:
         d = r.doc
+        source_path = str(d.get("source_path") or "")
+
+        # Phase 67: Skip results outside agent's scope
+        if _agent_mask is not None and source_path and not _path_matches_scope(source_path, _agent_mask):
+            continue
+
         content = str(d.get("content") or "")
         span = d.get("span")
         if not isinstance(span, dict) or "start_line" not in span or "end_line" not in span:
@@ -57,13 +73,13 @@ def search_project(project_id: str, req: SearchRequest) -> Dict[str, Any]:
         out.append(
             {
                 "chunk_id": str(d.get("id") or ""),
-                "source_path": str(d.get("source_path") or ""),
+                "source_path": source_path,
                 "span": span,
                 "preview": content[:200],
                 "score": float(r.score),
             }
         )
-    return ok({"results": out})
+    return ok({"results": out, **({"agent_scope": req.role} if req.role else {})})
 
 
 # ── Phase 39: Observation injection ──────────────────────────────
@@ -806,6 +822,52 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
                     }
     except Exception as e:
         logger.debug("Knowledge routing unavailable: %s", e)
+
+    # ── Phase 67: Agent scope filtering ──────────────────────────
+    # If a role is specified and has a configured agent scope, restrict
+    # _segment_file_paths to only files within the agent's tree.
+    _agent_scope_applied = False
+    if req.role:
+        try:
+            from codrag.core.agent_scope_manager import agent_scope_manager
+            _agent_mask = agent_scope_manager.get_agent_mask(project_id, req.role)
+            if _agent_mask is not None:
+                # Expand directory entries in the mask against indexed documents
+                _expanded_mask: Set[str] = set()
+                _indexed_paths = set()
+                for d in (getattr(idx, '_documents', None) or []):
+                    sp = d.get("source_path")
+                    if sp:
+                        _indexed_paths.add(str(sp))
+                for mp in _agent_mask:
+                    mp_str = str(mp)
+                    if mp_str in _indexed_paths:
+                        _expanded_mask.add(mp_str)
+                    else:
+                        prefix = mp_str.rstrip("/") + "/"
+                        for idxp in _indexed_paths:
+                            if idxp.startswith(prefix):
+                                _expanded_mask.add(idxp)
+
+                if _expanded_mask:
+                    if _segment_file_paths is not None:
+                        # Intersect: only boost files that are BOTH routed AND in scope
+                        _segment_file_paths = _segment_file_paths & _expanded_mask
+                    else:
+                        # No routing — use agent mask as the boost set directly
+                        _segment_file_paths = _expanded_mask
+                    _agent_scope_applied = True
+                    _sr6_segment_boost = max(_sr6_segment_boost, 0.25)  # Ensure strong boost for scoped agents
+                    logger.debug(
+                        "Agent scope applied: role=%s files=%d",
+                        req.role, len(_segment_file_paths),
+                    )
+                    if _routing_meta is None:
+                        _routing_meta = {}
+                    _routing_meta["agent_scope"] = req.role
+                    _routing_meta["agent_scope_files"] = len(_expanded_mask)
+        except Exception:
+            logger.debug("Agent scope filtering unavailable", exc_info=True)
 
     # Update boosted_files to total pool size after both routing tiers
     if _routing_meta is not None and _segment_file_paths:
