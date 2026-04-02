@@ -198,21 +198,20 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 
 | # | Task | File | Status |
 |---|------|------|--------|
-| 3.1 | Create `agents/custodian/` subpackage | `agents/custodian/__init__.py` | ☐ |
-| 3.2 | Implement dead code detection | `agents/custodian/engine.py` | ☐ |
-| | — Query trace graph for nodes with 0 dependents | | |
-| 3.3 | Implement safety verification | `agents/custodian/engine.py` | ☐ |
+| 3.1 | Create `agents/custodian/` subpackage | `agents/custodian/__init__.py` | ☑ |
+| 3.2 | Implement dead code detection | `agents/custodian/engine.py` | ☑ |
+| | — Filter audit findings by dead_code/orphan/deprecated categories | | |
+| 3.3 | Implement safety verification | `agents/custodian/engine.py` | ☑ |
 | | — LLM reviews each candidate: dynamic imports? reflection? config refs? public API? | | |
 | | — Classify: SAFE_TO_DELETE / NEEDS_REVIEW / KEEP | | |
-| 3.4 | Implement git branch operations | `agents/custodian/git_ops.py` | ☐ |
-| | — Create cleanup branch, create/update archive branch | | |
-| | — Archive files before deletion, commit with CoDRAG finding IDs | | |
-| 3.5 | Implement archive manifest | `agents/custodian/engine.py` | ☐ |
-| | — `.custodian_manifest.json` with restore instructions per entry | | |
-| 3.6 | Implement cleanup push to Paperclip | `agents/custodian/engine.py` | ☐ |
-| | — "Cleanup Report" project with per-file issues | | |
-| 3.7 | Create LLM prompts | `agents/custodian/prompts/` | ☐ |
-| | — `dead_code_analysis.txt`, `cleanup_plan.txt`, `archive_summary.txt` | | |
+| 3.4 | Implement git branch operations | `agents/shared/git_client.py` | ☑ |
+| | — Already in Phase 0: create/switch branch, copy_to_branch, commit, delete | | |
+| 3.5 | Implement archive manifest | `agents/custodian/manifest.py` | ☑ |
+| | — `.custodian_manifest.json` with ManifestEntry per archived item | | |
+| 3.6 | Implement cleanup push to Paperclip | `agents/custodian/engine.py` | ☑ |
+| | — "Cleanup Report" project with per-file PMIssue instances | | |
+| 3.7 | Create LLM prompts | `agents/custodian/prompts.py` | ☑ |
+| | — `render_safety_verification_prompt`, `render_archive_readme` | | |
 | 3.8 | Native Paperclip adapter | `agents/custodian/adapters/paperclip.py` | ☐ |
 | 3.9 | Wire to Pi Agent loop | `services/pi_agent.py` | ☐ |
 | | — New scenario "J: Custodian" triggered after Researcher | | |
