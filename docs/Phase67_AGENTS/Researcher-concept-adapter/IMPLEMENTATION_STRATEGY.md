@@ -92,23 +92,35 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 
 | # | Task | File | Status |
 |---|------|------|--------|
-| 0.1 | Create `agents/` package structure | `src/codrag/agents/__init__.py` | ☐ |
-| 0.2 | Create `agents/shared/` subpackage | `agents/shared/__init__.py` | ☐ |
-| 0.3 | Implement `AgentCore` class | `agents/core.py` | ☐ |
+| 0.1 | Create `agents/` package structure | `src/codrag/agents/__init__.py` | ☑ |
+| 0.2 | Create `agents/shared/` subpackage | `agents/shared/__init__.py` | ☑ |
+| 0.3 | Implement `AgentCore` class | `agents/core.py` | ☑ |
 | | — CoDRAG read: `get_audit_findings()`, `get_module_structure()`, `get_impact_radius()`, `get_atlas()`, `search_code()`, `get_role_vector()`, `save_observation()` | | |
 | | — Paperclip write: `push_project()`, `push_goal()`, `push_issue()`, `create_agent()`, `update_agent()` | | |
-| 0.4 | Create shared data models | `agents/shared/models.py` | ☐ |
+| 0.4 | Create shared data models | `agents/shared/models.py` | ☑ |
 | | — `RoleSpec`, `ResearchTopic`, `ResearchPlan`, `CleanupPlan`, `CleanupCandidate` | | |
-| 0.5 | Create CoDRAG data access wrapper | `agents/shared/codrag_data.py` | ☐ |
+| 0.5 | Create CoDRAG data access wrapper | `agents/shared/codrag_data.py` | ☑ |
 | | — Clean interface over OpportunityManager, atlas, trace store, impact analysis | | |
-| 0.6 | Create Paperclip client wrapper | `agents/shared/paperclip_client.py` | ☐ |
+| 0.6 | Create Paperclip client wrapper | `agents/shared/paperclip_client.py` | ☑ |
 | | — Thin wrapper around existing `adapters/push_engine.py` + `adapters/paperclip_adapter.py` | | |
-| 0.7 | Create shared git client | `agents/shared/git_client.py` | ☐ |
+| 0.7 | Create shared git client | `agents/shared/git_client.py` | ☑ |
 | | — Branch create/switch, commit, diff, archive ops (for Custodian + future) | | |
-| 0.8 | Add agent config namespace to settings | (settings_store integration) | ☐ |
+| 0.8 | Add agent config namespace to settings | (settings_store integration) | ☑ |
 | | — `agents_config.staffing`, `agents_config.researcher`, `agents_config.custodian` | | |
 
 **Exit criteria:** `AgentCore` can pull audit findings from OpportunityManager and push a dummy project to Paperclip via PushEngine.
+
+**Post-audit additions (gap fixes):**
+
+| # | Gap | Resolution | Status |
+|---|-----|-----------|--------|
+| 0.9 | `get_module_structure()` missing | Added to CoDRAGDataAccess + AgentCore. Reads `trace_modules.jsonl`. | ☑ |
+| 0.10 | `search_code(query, role)` missing | Added to CoDRAGDataAccess + AgentCore. Wraps CodeIndex.search() with role-based filtering. | ☑ |
+| 0.11 | `get_role_vector(role_slug)` missing | Added to CoDRAGDataAccess + AgentCore. Wraps `resolve_role()`. | ☑ |
+| 0.12 | `get_atlas()` lacked role param | Updated to `get_atlas(role=None)`. Uses `project_atlas_for_role()` when role is set. | ☑ |
+| 0.13 | `AgentConcurrencyGate` not accessible | Added `acquire_gate()` / `release_gate()` to AgentCore. Wraps `get_agent_gate()`. | ☑ |
+| 0.14 | `LLMClient` not accessible | Added `get_llm_client(task_id)` factory to AgentCore. Reads pipeline_config from settings. | ☑ |
+| 0.15 | `create_agent()` / `update_agent()` missing | Added as `NotImplementedError` placeholders — Paperclip adapter lacks agent CRUD API. | ☑ |
 
 ---
 
@@ -120,23 +132,23 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 
 | # | Task | File | Status |
 |---|------|------|--------|
-| 1.1 | Create `agents/hr/` subpackage | `agents/hr/__init__.py` | ☐ |
-| 1.2 | Implement readiness scoring | `agents/hr/engine.py` | ☐ |
-| | — `compute_hr_readiness()`: checks pipeline completion, module count, domain tags | | |
-| 1.3 | Implement role generation (3 modes) | `agents/hr/engine.py` | ☐ |
+| 1.1 | Create `agents/hr/` subpackage | `agents/hr/__init__.py` | ☑ |
+| 1.2 | Implement readiness scoring | `agents/hr/readiness.py` | ☑ |
+| | — `compute_readiness()`: checks pipeline completion, module count, domain tags | | |
+| 1.3 | Implement role generation (list mode) | `agents/hr/engine.py` | ☑ |
 | | — `list` mode: user specifies roles | | |
 | | — `auto` mode: LLM infers from codebase | | |
 | | — `auto+list` mode: hybrid | | |
-| 1.4 | Implement AGENTS.md generation | `agents/hr/engine.py` + prompts | ☐ |
-| 1.5 | Implement SOUL.md generation | `agents/hr/engine.py` + prompts | ☐ |
-| 1.6 | Implement KNOWLEDGE.md generation | `agents/hr/engine.py` + prompts | ☐ |
+| 1.4 | Implement AGENTS.md generation | `agents/hr/engine.py` + prompts | ☑ |
+| 1.5 | Implement SOUL.md generation | `agents/hr/engine.py` + prompts | ☑ |
+| 1.6 | Implement KNOWLEDGE.md generation | `agents/hr/engine.py` + prompts | ☑ |
 | | — Template from Doc 06: CoDRAG tools, atlas snapshot, key files, domain focus | | |
 | 1.7 | Implement drift detection / audit | `agents/hr/engine.py` | ☐ |
 | | — Role fitness scoring, domain drift detection, realignment proposals | | |
 | 1.8 | Implement org chart generation | `agents/hr/engine.py` | ☐ |
 | | — Reports-to, manages, collaborates-with relationships | | |
-| 1.9 | Create LLM prompts | `agents/hr/prompts/` | ☐ |
-| | — `generate_roles.txt`, `generate_soul.txt`, `drift_analysis.txt` | | |
+| 1.9 | Create LLM prompts | `agents/hr/prompts.py` | ☑ |
+| | — `render_agents_md_prompt`, `render_soul_md_prompt`, `render_auto_roles_prompt` | | |
 | 1.10 | Native Paperclip adapter | `agents/hr/adapters/paperclip.py` | ☐ |
 | | — Daemon thread, direct Python imports, hooks into pipeline completion | | |
 | 1.11 | Edge case handling (Doc 05) | `agents/hr/engine.py` | ☐ |
