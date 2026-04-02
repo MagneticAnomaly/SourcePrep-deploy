@@ -1,0 +1,24 @@
+{
+  "name": "@codrag/paperclip-plugin",
+  "version": "0.1.0",
+  "description": "CoDRAG codebase intelligence plugin for Paperclip",
+  "license": "MIT",
+  "type": "module",
+  "paperclipPlugin": {
+    "manifest": "dist/manifest.js",
+    "worker": "dist/worker.js",
+    "ui": "dist/ui/"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@paperclipai/plugin-sdk": "^0.1.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0"
+  }
+}
