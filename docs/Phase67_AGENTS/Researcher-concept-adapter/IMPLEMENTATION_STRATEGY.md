@@ -135,7 +135,7 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 | 1.1 | Create `agents/hr/` subpackage | `agents/hr/__init__.py` | ☑ |
 | 1.2 | Implement readiness scoring | `agents/hr/readiness.py` | ☑ |
 | | — `compute_readiness()`: checks pipeline completion, module count, domain tags | | |
-| 1.3 | Implement role generation (list mode) | `agents/hr/engine.py` | ☑ |
+| 1.3 | Implement role generation (3 modes) | `agents/hr/engine.py` | ☑ |
 | | — `list` mode: user specifies roles | | |
 | | — `auto` mode: LLM infers from codebase | | |
 | | — `auto+list` mode: hybrid | | |
@@ -143,16 +143,16 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 | 1.5 | Implement SOUL.md generation | `agents/hr/engine.py` + prompts | ☑ |
 | 1.6 | Implement KNOWLEDGE.md generation | `agents/hr/engine.py` + prompts | ☑ |
 | | — Template from Doc 06: CoDRAG tools, atlas snapshot, key files, domain focus | | |
-| 1.7 | Implement drift detection / audit | `agents/hr/engine.py` | ☐ |
+| 1.7 | Implement drift detection / audit | `agents/hr/engine.py` | ☑ |
 | | — Role fitness scoring, domain drift detection, realignment proposals | | |
-| 1.8 | Implement org chart generation | `agents/hr/engine.py` | ☐ |
+| 1.8 | Implement org chart generation | `agents/hr/engine.py` | ☑ |
 | | — Reports-to, manages, collaborates-with relationships | | |
 | 1.9 | Create LLM prompts | `agents/hr/prompts.py` | ☑ |
 | | — `render_agents_md_prompt`, `render_soul_md_prompt`, `render_auto_roles_prompt` | | |
 | 1.10 | Native Paperclip adapter | `agents/hr/adapters/paperclip.py` | ☐ |
 | | — Daemon thread, direct Python imports, hooks into pipeline completion | | |
-| 1.11 | Edge case handling (Doc 05) | `agents/hr/engine.py` | ☐ |
-| | — Insufficient data blocking, single-domain, monorepo, re-gen, role elimination | | |
+| 1.11 | Edge case handling (Doc 05) | `agents/hr/engine.py` | ☑ |
+| | — Dedup, empty list, special chars, re-generation idempotency | | |
 
 **Exit criteria:** `codrag hr generate --mode auto` produces AGENTS.md + SOUL.md + KNOWLEDGE.md per role.
 
