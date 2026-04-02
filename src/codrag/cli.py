@@ -1485,6 +1485,240 @@ def opportunities(
     console.print("[dim]Export: codrag opportunities --format sarif | json | csv | md | ai_prompt[/dim]")
 
 
+# ── Agent Commands (Phase 67) ──────────────────────────────────────
+
+@app.command("hr-readiness")
+def hr_readiness(
+    project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
+    port: int = typer.Option(8400, "--port", help="Server port"),
+) -> None:
+    """Check codebase readiness for HR role generation."""
+    base = _base_url(host, port)
+    pid = _resolve_project(base, project_id)
+    data = _get_json(f"{base}/projects/{pid}/agents/hr/readiness")
+    score = data.get("score", 0)
+    color = "green" if score >= 0.7 else "yellow" if score >= 0.4 else "red"
+    console.print(f"Readiness score: [{color}]{score:.2f}[/{color}]")
+    console.print(f"  List mode: {'Ready' if data.get('ready_for_list') else 'Not ready'}")
+    console.print(f"  Auto mode: {'Ready' if data.get('ready_for_auto') else 'Not ready'}")
+    missing = data.get("missing", [])
+    if missing:
+        console.print("\n[yellow]Missing:[/yellow]")
+        for m in missing:
+            console.print(f"  - {m}")
+
+
+@app.command("hr-generate")
+def hr_generate(
+    role_names: Optional[List[str]] = typer.Argument(None, help="Role names (for list/hybrid mode)"),
+    mode: str = typer.Option("list", "--mode", "-m", help="Generation mode: list, auto, hybrid"),
+    project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
+    port: int = typer.Option(8400, "--port", help="Server port"),
+) -> None:
+    """Generate AI agent role definitions.
+
+    \b
+    Examples:
+      codrag hr-generate "Backend Dev" "API Engineer" --mode list
+      codrag hr-generate --mode auto
+      codrag hr-generate "CTO" --mode hybrid
+    """
+    base = _base_url(host, port)
+    pid = _resolve_project(base, project_id)
+    payload = {"mode": mode, "role_names": role_names or []}
+    console.print(f"[cyan]Generating roles ({mode} mode)...[/cyan]")
+    data = _post_json(f"{base}/projects/{pid}/agents/hr/generate", payload)
+    count = data.get("roles_generated", 0)
+    slugs = data.get("slugs", [])
+    console.print(f"[green]Generated {count} role(s):[/green]")
+    for s in slugs:
+        console.print(f"  - {s}")
+
+
+@app.command("hr-roster")
+def hr_roster(
+    project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
+    port: int = typer.Option(8400, "--port", help="Server port"),
+) -> None:
+    """List all generated agent roles."""
+    base = _base_url(host, port)
+    pid = _resolve_project(base, project_id)
+    data = _get_json(f"{base}/projects/{pid}/agents/hr/roster")
+    roles = data.get("roles", [])
+    if not roles:
+        console.print("[dim]No roles generated yet. Run: codrag hr-generate[/dim]")
+        return
+    table = Table(title="Agent Roster")
+    table.add_column("Slug")
+    table.add_column("Display Name")
+    table.add_column("AGENTS.md")
+    table.add_column("SOUL.md")
+    table.add_column("KNOWLEDGE.md")
+    for r in roles:
+        table.add_row(
+            r["slug"], r["display_name"],
+            "yes" if r.get("has_agents_md") else "-",
+            "yes" if r.get("has_soul_md") else "-",
+            "yes" if r.get("has_knowledge_md") else "-",
+        )
+    console.print(table)
+
+
+@app.command("hr-audit")
+def hr_audit(
+    project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
+    port: int = typer.Option(8400, "--port", help="Server port"),
+) -> None:
+    """Run drift detection on the current agent roster."""
+    base = _base_url(host, port)
+    pid = _resolve_project(base, project_id)
+    data = _post_json(f"{base}/projects/{pid}/agents/hr/audit", {})
+    fitness = data.get("role_fitness", [])
+    if not fitness:
+        console.print("[dim]No roles to audit.[/dim]")
+        return
+    table = Table(title="Role Drift Report")
+    table.add_column("Slug")
+    table.add_column("Fitness")
+    table.add_column("Status")
+    for rf in fitness:
+        score = rf["fitness_score"]
+        color = "green" if score > 0.8 else "yellow" if score > 0.6 else "red"
+        table.add_row(rf["slug"], f"[{color}]{score:.2f}[/{color}]", rf["recommendation"])
+    console.print(table)
+    gaps = data.get("coverage_gaps", [])
+    if gaps:
+        console.print(f"\n[yellow]Coverage gaps:[/yellow] {', '.join(gaps)}")
+
+
+@app.command("research-run")
+def research_run(
+    max_topics: int = typer.Option(3, "--max-topics", "-n", help="Max topics to research"),
+    project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
+    port: int = typer.Option(8400, "--port", help="Server port"),
+) -> None:
+    """Run the researcher agent: select topics, research, formulate plans."""
+    base = _base_url(host, port)
+    pid = _resolve_project(base, project_id)
+    console.print(f"[cyan]Running researcher (max {max_topics} topics)...[/cyan]")
+    data = _post_json(f"{base}/projects/{pid}/agents/researcher/run", {"max_topics": max_topics})
+    plans = data.get("plans", [])
+    console.print(f"[green]Produced {len(plans)} research plan(s):[/green]")
+    for p in plans:
+        console.print(f"  - [{p.get('effort', '?')}] {p.get('title', 'Untitled')}")
+        if p.get("fix_steps"):
+            for i, step in enumerate(p["fix_steps"][:3], 1):
+                console.print(f"      {i}. {step}")
+
+
+@app.command("research-history")
+def research_history(
+    project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
+    port: int = typer.Option(8400, "--port", help="Server port"),
+) -> None:
+    """Show research run history."""
+    base = _base_url(host, port)
+    pid = _resolve_project(base, project_id)
+    data = _get_json(f"{base}/projects/{pid}/agents/researcher/history")
+    runs = data.get("runs", [])
+    if not runs:
+        console.print("[dim]No research runs yet. Run: codrag research-run[/dim]")
+        return
+    table = Table(title="Research History")
+    table.add_column("Run ID")
+    table.add_column("Timestamp")
+    table.add_column("Topics")
+    table.add_column("Plans")
+    for r in runs:
+        table.add_row(r["run_id"], r["timestamp"][:19], str(r["topic_count"]), str(r["plan_count"]))
+    console.print(table)
+
+
+@app.command("custodian-run")
+def custodian_run(
+    dry_run: bool = typer.Option(True, "--dry-run/--live", help="Preview mode (default) or live mode"),
+    max_files: int = typer.Option(20, "--max-files", "-n", help="Max files per cleanup"),
+    project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
+    port: int = typer.Option(8400, "--port", help="Server port"),
+) -> None:
+    """Run the custodian agent: detect dead code, plan cleanup.
+
+    Dry-run by default — shows what would be cleaned without modifying git.
+    """
+    base = _base_url(host, port)
+    pid = _resolve_project(base, project_id)
+    mode = "dry-run" if dry_run else "LIVE"
+    console.print(f"[cyan]Running custodian ({mode}, max {max_files} files)...[/cyan]")
+    data = _post_json(f"{base}/projects/{pid}/agents/custodian/run", {
+        "dry_run": dry_run, "max_files": max_files,
+    })
+    candidates = data.get("candidates", [])
+    console.print(f"[green]{len(candidates)} file(s) identified for cleanup:[/green]")
+    for c in candidates:
+        console.print(f"  - {c.get('file_path', '?')} [{c.get('classification', '?')}]")
+    if dry_run and candidates:
+        console.print("\n[dim]This was a dry run. Use --live to execute.[/dim]")
+
+
+@app.command("custodian-manifest")
+def custodian_manifest(
+    project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
+    port: int = typer.Option(8400, "--port", help="Server port"),
+) -> None:
+    """Show the custodian archive manifest."""
+    base = _base_url(host, port)
+    pid = _resolve_project(base, project_id)
+    data = _get_json(f"{base}/projects/{pid}/agents/custodian/manifest")
+    entries = data.get("entries", [])
+    if not entries:
+        console.print("[dim]No archived items yet.[/dim]")
+        return
+    table = Table(title="Archive Manifest")
+    table.add_column("ID")
+    table.add_column("Files")
+    table.add_column("Reason")
+    table.add_column("Archived At")
+    for e in entries:
+        table.add_row(
+            e["entry_id"],
+            str(len(e.get("original_paths", []))),
+            e.get("reason", "")[:50],
+            e.get("archived_at", "")[:19],
+        )
+    console.print(table)
+
+
+@app.command("agents-status")
+def agents_status(
+    project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
+    port: int = typer.Option(8400, "--port", help="Server port"),
+) -> None:
+    """Show aggregate status of all three agents."""
+    base = _base_url(host, port)
+    pid = _resolve_project(base, project_id)
+    data = _get_json(f"{base}/projects/{pid}/agents/status")
+    hr = data.get("hr", {})
+    res = data.get("researcher", {})
+    cust = data.get("custodian", {})
+    latest = res.get("latest_run", "")
+    latest_str = f" (latest: {latest[:19]})" if latest else ""
+    console.print(Panel(
+        f"[bold]HR Agent[/bold]: {hr.get('role_count', 0)} roles\n"
+        f"[bold]Researcher[/bold]: {res.get('run_count', 0)} runs{latest_str}\n"
+        f"[bold]Custodian[/bold]: {cust.get('archive_count', 0)} archived items",
+        title="Agent Operations",
+    ))
+
+
 def main() -> None:
     """Entry point for the CLI."""
     app()

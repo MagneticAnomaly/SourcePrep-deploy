@@ -229,17 +229,17 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 
 | # | Task | File | Status |
 |---|------|------|--------|
-| 4.1 | `codrag hr` subcommand group | `cli.py` | ☐ |
-| | — `generate`, `adopt`, `audit`, `sync` | | |
-| 4.2 | `codrag research` subcommand group | `cli.py` | ☐ |
-| | — `run`, `topics`, `history` | | |
-| 4.3 | `codrag custodian` subcommand group | `cli.py` | ☐ |
-| | — `run`, `archive`, `restore` | | |
+| 4.1 | `codrag hr-*` commands | `cli.py` | ☑ |
+| | — `hr-readiness`, `hr-generate`, `hr-roster`, `hr-audit` | | |
+| 4.2 | `codrag research-*` commands | `cli.py` | ☑ |
+| | — `research-run`, `research-history` | | |
+| 4.3 | `codrag custodian-*` commands | `cli.py` | ☑ |
+| | — `custodian-run`, `custodian-manifest` | | |
 | 4.4 | `--adapter` flag support | `cli.py` | ☐ |
-| | — `native` (default), `langgraph`, `crewai` — with import error if extras not installed | | |
-| 4.5 | `--dry-run` flag for all agents | `cli.py` | ☐ |
+| | — Deferred to Phase 6-7 (LangGraph/CrewAI adapters) | | |
+| 4.5 | `--dry-run` flag for custodian | `cli.py` | ☑ |
 
-**Exit criteria:** All CLI commands from §6.1 of the implementation plan work end-to-end.
+**Exit criteria:** All CLI commands work end-to-end via daemon API.
 
 ---
 
@@ -249,17 +249,17 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 
 | # | Task | File | Status |
 |---|------|------|--------|
-| 5.1 | HR Agent endpoints | `api/routers/agents_hr.py` | ☐ |
-| | — POST generate, POST audit, POST sync, GET readiness, GET roster | | |
-| 5.2 | Researcher Agent endpoints | `api/routers/agents_researcher.py` | ☐ |
-| | — POST run, GET topics, GET history | | |
-| 5.3 | Custodian Agent endpoints | `api/routers/agents_custodian.py` | ☐ |
-| | — POST run, GET archive, POST restore | | |
-| 5.4 | Agent status aggregate endpoint | `api/routers/agents.py` | ☐ |
-| | — GET /agents/status — returns all 3 agents' status for dashboard | | |
-| 5.5 | Register routers in server.py | `server.py` | ☐ |
+| 5.1 | HR Agent endpoints | `api/routers/agents.py` | ☑ |
+| | — POST generate, POST audit, GET readiness, GET roster | | |
+| 5.2 | Researcher Agent endpoints | `api/routers/agents.py` | ☑ |
+| | — POST run, GET history | | |
+| 5.3 | Custodian Agent endpoints | `api/routers/agents.py` | ☑ |
+| | — POST run, GET manifest | | |
+| 5.4 | Agent status aggregate endpoint | `api/routers/agents.py` | ☑ |
+| | — GET /projects/{id}/agents/status | | |
+| 5.5 | Register routers in server.py | `server.py` | ☑ |
 
-**Exit criteria:** All endpoints from §6.2 of the implementation plan respond correctly.
+**Exit criteria:** All endpoints respond correctly. 9 routes registered.
 
 ---
 
