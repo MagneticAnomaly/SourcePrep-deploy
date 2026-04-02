@@ -100,12 +100,110 @@ class CoDRAGDataAccess:
 
     # ── Atlas ────────────────────────────────────────────────────
 
-    def get_atlas(self) -> str:
-        """Return the cached atlas document content, or ``""`` if unavailable."""
+    def get_atlas(self, role: Optional[str] = None) -> str:
+        """Return the cached atlas document content, or ``""`` if unavailable.
+
+        If *role* is provided, returns a role-projected sub-atlas filtered
+        through the role's lens (layer weights, domain affinity, detail level).
+        """
         doc = self._atlas.load()
         if doc is None:
             return ""
-        return doc.content or ""
+        full_content = doc.content or ""
+
+        if role and full_content:
+            try:
+                from codrag.core.atlas.role_resolver import resolve_role
+                from codrag.core.atlas.role_projection import project_atlas_for_role
+
+                role_vector = resolve_role(role)
+                return project_atlas_for_role(
+                    role_vector, self._index_dir, atlas_content=full_content
+                )
+            except Exception as exc:
+                logger.debug("Role projection failed for %r: %s", role, exc)
+
+        return full_content
+
+    # ── Module Structure ──────────────────────────────────────────
+
+    def get_module_structure(self) -> List[Dict[str, Any]]:
+        """Get the current module cluster map with domain tags and layers.
+
+        Returns list of module dicts with keys: name, summary, file_count,
+        member_files, dependencies, domain_tags, component_status.
+        Returns empty list if no module data exists.
+        """
+        modules_path = self._index_dir / "trace_modules.jsonl"
+        if not modules_path.exists():
+            return []
+        import json
+
+        modules: List[Dict[str, Any]] = []
+        for line in modules_path.read_text().strip().splitlines():
+            if line.strip():
+                try:
+                    modules.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+        return modules
+
+    # ── Code Search ─────────────────────────────────────────────
+
+    def search_code(
+        self,
+        query: str,
+        k: int = 5,
+        role: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Semantic code search with optional role scoping.
+
+        Returns list of dicts with ``"doc"`` and ``"score"`` keys.
+        Returns empty list if no index is available.
+        """
+        try:
+            from codrag.core.index import CodeIndex
+
+            idx = CodeIndex(self._index_dir)
+            if not idx.is_ready():
+                return []
+
+            if role:
+                try:
+                    from codrag.core.agent_scope_manager import agent_scope_manager
+
+                    mask = agent_scope_manager.get_agent_mask(self._project_id, role)
+                    if mask:
+                        results = idx.search(query, k=k * 2)
+                        filtered = [
+                            {"doc": r.doc, "score": r.score}
+                            for r in results
+                            if r.doc.get("source_path", "") in mask
+                        ]
+                        return filtered[:k]
+                except Exception:
+                    pass  # Fall through to unscoped search
+
+            results = idx.search(query, k=k)
+            return [{"doc": r.doc, "score": r.score} for r in results]
+        except Exception as exc:
+            logger.debug("CodeIndex search unavailable: %s", exc)
+            return []
+
+    # ── Role Vectors ────────────────────────────────────────────
+
+    def get_role_vector(self, role_slug: str) -> Any:
+        """Get or generate a RoleVector for scoring file relevance.
+
+        Returns a RoleVector instance, or ``None`` if resolution fails.
+        """
+        try:
+            from codrag.core.atlas.role_resolver import resolve_role
+
+            return resolve_role(role_slug)
+        except Exception as exc:
+            logger.debug("Role resolution failed for %r: %s", role_slug, exc)
+            return None
 
     # ── Impact / Trace ───────────────────────────────────────────
 

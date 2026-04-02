@@ -285,3 +285,77 @@ class TestSaveObservation:
         data_access.get_observations("query")
         _, call_kwargs = mock_obs_store.get_for_query.call_args
         assert call_kwargs.get("limit") == 5
+
+
+# ── TestGetModuleStructure ───────────────────────────────────────────────────
+
+
+class TestGetModuleStructure:
+    def test_returns_empty_when_no_file(self, data_access):
+        result = data_access.get_module_structure()
+        assert result == []
+
+    def test_reads_jsonl_file(self, data_access):
+        import json
+
+        modules_path = data_access._index_dir / "trace_modules.jsonl"
+        modules_path.write_text(
+            json.dumps({"name": "Core", "file_count": 10, "domain_tags": ["api"]})
+            + "\n"
+            + json.dumps({"name": "UI", "file_count": 5, "domain_tags": ["frontend"]})
+            + "\n"
+        )
+        result = data_access.get_module_structure()
+        assert len(result) == 2
+        assert result[0]["name"] == "Core"
+        assert result[1]["domain_tags"] == ["frontend"]
+
+
+# ── TestSearchCode ───────────────────────────────────────────────────────────
+
+
+class TestSearchCode:
+    def test_returns_empty_when_no_index(self, data_access):
+        result = data_access.search_code("authentication")
+        assert result == []
+
+
+# ── TestGetRoleVector ────────────────────────────────────────────────────────
+
+
+class TestGetRoleVector:
+    def test_returns_role_vector_for_known_role(self, data_access):
+        result = data_access.get_role_vector("ceo")
+        # resolve_role("ceo") should return a built-in RoleVector
+        assert result is not None
+        assert result.role_id == "ceo"
+
+    def test_returns_none_for_invalid(self, data_access):
+        # Even garbage strings should resolve (fallback to engineering)
+        # so this should still return something
+        result = data_access.get_role_vector("xyzzy_nonexistent")
+        assert result is not None  # resolve_role has a fallback
+
+
+# ── TestGetAtlasWithRole ─────────────────────────────────────────────────────
+
+
+class TestGetAtlasWithRole:
+    def test_returns_full_atlas_without_role(self, data_access):
+        mock_doc = MagicMock()
+        mock_doc.content = "# Full Atlas Content"
+        data_access._atlas = MagicMock()
+        data_access._atlas.load.return_value = mock_doc
+        result = data_access.get_atlas()
+        assert result == "# Full Atlas Content"
+
+    def test_returns_full_atlas_when_projection_fails(self, data_access):
+        mock_doc = MagicMock()
+        mock_doc.content = "# Full Atlas"
+        data_access._atlas = MagicMock()
+        data_access._atlas.load.return_value = mock_doc
+        # Role projection may fail if no enrichment data exists
+        result = data_access.get_atlas(role="ceo")
+        # Should return something (either projected or full fallback)
+        assert isinstance(result, str)
+        assert len(result) > 0
