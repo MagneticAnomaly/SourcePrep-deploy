@@ -180,3 +180,41 @@ class TestFullPipeline:
         engine.run(findings=_sample_findings(), llm_fn=_fake_llm, max_topics=1)
         engine.run(findings=_sample_findings(), llm_fn=_fake_llm, max_topics=1)
         assert len(engine.history.list_runs()) == 2
+
+
+from codrag.adapters.pm_models import PMProject, PMGoal, PMIssue
+
+
+class TestPushPackaging:
+    def test_package_plans_returns_pm_models(self, engine: ResearcherEngine) -> None:
+        plans = engine.run(findings=_sample_findings(), llm_fn=_fake_llm, max_topics=2)
+        project, goals, issues = engine.package_for_push(plans)
+        assert isinstance(project, PMProject)
+        assert len(issues) >= 1
+
+    def test_project_has_research_title(self, engine: ResearcherEngine) -> None:
+        plans = [ResearchPlan(
+            topic_id="f1", title="Fix circular deps",
+            root_cause="Cycle", fix_steps=["Step 1"],
+            effort="medium", risk="low",
+        )]
+        project, _, _ = engine.package_for_push(plans)
+        assert "Research" in project.name
+
+    def test_issues_have_plan_details(self, engine: ResearcherEngine) -> None:
+        plans = [ResearchPlan(
+            topic_id="f1", title="Fix it",
+            root_cause="Bad design",
+            fix_steps=["Step A", "Step B"],
+            effort="large", risk="high",
+            testing_strategy="Integration tests",
+        )]
+        _, _, issues = engine.package_for_push(plans)
+        assert len(issues) == 1
+        assert "Fix it" in issues[0].title
+        assert "Bad design" in issues[0].description
+
+    def test_empty_plans_returns_empty(self, engine: ResearcherEngine) -> None:
+        project, goals, issues = engine.package_for_push([])
+        assert project.name
+        assert issues == []

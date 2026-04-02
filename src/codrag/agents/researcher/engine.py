@@ -20,6 +20,7 @@ from codrag.agents.researcher.prompts import (
     render_research_prompt,
     render_topic_selection_prompt,
 )
+from codrag.adapters.pm_models import PMGoal, PMIssue, PMProject
 from codrag.agents.shared.models import ResearchPlan, ResearchTopic
 
 logger = logging.getLogger(__name__)
@@ -215,6 +216,69 @@ class ResearcherEngine:
 
         self._history.save_run(topics=topics, plans=plans)
         return plans
+
+    def package_for_push(
+        self,
+        plans: List[ResearchPlan],
+    ) -> Tuple[PMProject, List[PMGoal], List[PMIssue]]:
+        """Convert research plans into Paperclip-ready PM models.
+
+        Args:
+            plans: Research plans to package.
+
+        Returns:
+            Tuple of (PMProject, goals, issues).
+        """
+        project = PMProject(
+            name=f"Research Findings — {self._project_id}",
+            description=(
+                f"Auto-generated research plans from {len(plans)} topics. "
+                f"Each issue contains root cause analysis, fix steps, "
+                f"effort/risk estimates, and testing strategy."
+            ),
+        )
+
+        goals: List[PMGoal] = []
+        issues: List[PMIssue] = []
+
+        for plan in plans:
+            description_parts = [
+                f"**Root Cause:** {plan.root_cause}",
+                "",
+                "**Fix Steps:**",
+            ]
+            for i, step in enumerate(plan.fix_steps, 1):
+                description_parts.append(f"{i}. {step}")
+            description_parts.extend([
+                "",
+                f"**Effort:** {plan.effort}",
+                f"**Risk:** {plan.risk}",
+            ])
+            if plan.testing_strategy:
+                description_parts.append(f"**Testing:** {plan.testing_strategy}")
+
+            issue = PMIssue(
+                title=f"Research: {plan.title}",
+                description="\n".join(description_parts),
+                priority=self._finding_priority(plan),
+                category="research",
+                effort=plan.effort,
+                codrag_address=f"codrag://{self._project_id}/research/{plan.topic_id}",
+            )
+            issues.append(issue)
+
+        return project, goals, issues
+
+    @staticmethod
+    def _finding_priority(plan: ResearchPlan) -> str:
+        """Map effort/risk to a PM priority."""
+        if plan.risk == "high":
+            return "P1"
+        if plan.effort == "large":
+            return "P1"
+        if plan.effort == "small":
+            return "P3"
+        return "P2"
 
     # -- History Access --
 
