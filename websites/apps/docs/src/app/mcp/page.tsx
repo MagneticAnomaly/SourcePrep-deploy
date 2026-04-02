@@ -35,6 +35,16 @@ export default function Page() {
               Connect command-line workflows like Claude Code and Gemini CLI directly to your local CoDRAG index.
             </p>
           </a>
+
+          <a href="/mcp/paperclip" className="group block space-y-3 rounded-2xl border border-primary/30 bg-primary/5 p-6 hover:border-primary transition-colors sm:col-span-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-semibold group-hover:text-primary">Paperclip Plugin</h3>
+              <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs font-medium text-primary">New</span>
+            </div>
+            <p className="text-text-muted">
+              Give every Paperclip agent structural codebase intelligence. 5 tools, dashboard widgets, and event-driven context — installed as a native Paperclip plugin.
+            </p>
+          </a>
         </div>
 
         <div className="mt-16 prose  max-w-none">

@@ -71,6 +71,7 @@ export const docsSidebar: DocNode[] = [
       { title: 'MCP Server', href: '/mcp' },
       { title: 'Cursor', href: '/mcp/cursor' },
       { title: 'Windsurf', href: '/mcp/windsurf' },
+      { title: 'Paperclip Plugin', href: '/mcp/paperclip' },
     ],
   },
   {
