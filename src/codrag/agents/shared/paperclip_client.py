@@ -92,6 +92,56 @@ class PaperclipClient:
             dry_run=dry_run,
         )
 
+    # ── Agent CRUD (Phase 67) ───────────────────────────────────────
+
+    def create_agent(
+        self,
+        name: str,
+        role: str,
+        title: str = "",
+        adapter_config: Optional[dict] = None,
+        capabilities: Optional[List[str]] = None,
+        reports_to: Optional[str] = None,
+    ) -> str:
+        """Create a Paperclip agent. Returns the agent ID."""
+        result = self._adapter.create_agent(
+            name=name,
+            role=role,
+            title=title,
+            adapter_config=adapter_config,
+            capabilities=capabilities,
+            reports_to=reports_to,
+        )
+        return result.get("id", "")
+
+    def update_agent(
+        self,
+        agent_id: str,
+        adapter_config: Optional[dict] = None,
+    ) -> None:
+        """Update an existing Paperclip agent's config."""
+        self._adapter.update_agent(agent_id, adapter_config=adapter_config)
+
+    def list_agents(self) -> list:
+        """List all agents in the company."""
+        return self._adapter.list_agents()
+
+    def get_agent(self, agent_id: str) -> dict:
+        """Get agent details."""
+        return self._adapter.get_agent(agent_id)
+
+    def find_agent_by_role(self, role: str) -> Optional[dict]:
+        """Find an agent by role slug."""
+        return self._adapter.find_agent_by_role(role)
+
+    def pause_agent(self, agent_id: str) -> None:
+        """Pause an agent."""
+        self._adapter.pause_agent(agent_id)
+
+    def resume_agent(self, agent_id: str) -> None:
+        """Resume a paused agent."""
+        self._adapter.resume_agent(agent_id)
+
     # ── Health ───────────────────────────────────────────────────────
 
     def is_healthy(self) -> bool:

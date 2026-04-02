@@ -351,14 +351,26 @@ class TestConcurrencyGate:
             mock_gate.release.assert_called_once()
 
 
-# ── TestAgentCRUDPlaceholders ────────────────────────────────────────────────
+# ── TestAgentCRUD ────────────────────────────────────────────────────────────
 
 
-class TestAgentCRUDPlaceholders:
-    def test_create_agent_not_implemented(self, core):
-        with pytest.raises(NotImplementedError, match="not yet supported"):
-            core.create_agent(MagicMock())
+class TestAgentCRUD:
+    def test_create_agent_delegates_to_paperclip(self, core, mock_paperclip):
+        """create_agent calls through to PaperclipClient."""
+        mock_paperclip.create_agent.return_value = "agent-123"
+        role = MagicMock()
+        role.display_name = "Backend Dev"
+        role.slug = "backend_dev"
+        role.soul_md = "Identity text"
+        role.agents_md = "Instructions"
+        role.recommended_files = []
+        result = core.create_agent(role)
+        assert result == "agent-123"
+        mock_paperclip.create_agent.assert_called_once()
 
-    def test_update_agent_not_implemented(self, core):
-        with pytest.raises(NotImplementedError, match="not yet supported"):
-            core.update_agent("agent-1", MagicMock())
+    def test_update_agent_delegates_to_paperclip(self, core, mock_paperclip):
+        """update_agent calls through to PaperclipClient."""
+        role = MagicMock()
+        role.agents_md = "Updated instructions"
+        core.update_agent("agent-123", role)
+        mock_paperclip.update_agent.assert_called_once()

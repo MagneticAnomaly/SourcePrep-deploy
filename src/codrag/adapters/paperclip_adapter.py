@@ -327,3 +327,86 @@ class PaperclipAdapter(PMAdapter):
             lines.append(f"```")
 
         return "\n".join(lines)
+
+    # ── Agent CRUD (Phase 67) ───────────────────────────────────
+
+    def list_agents(self) -> List[Dict[str, Any]]:
+        """List all agents in the company."""
+        resp = self._get(f"/api/companies/{self.company_id}/agents")
+        return resp.get("agents", resp) if isinstance(resp, dict) else resp
+
+    def get_agent(self, agent_id: str) -> Dict[str, Any]:
+        """Get agent details by ID."""
+        return self._get(f"/api/agents/{agent_id}")
+
+    def create_agent(
+        self,
+        name: str,
+        role: str,
+        title: str = "",
+        adapter_type: str = "process",
+        adapter_config: Optional[Dict[str, Any]] = None,
+        capabilities: Optional[List[str]] = None,
+        reports_to: Optional[str] = None,
+        budget_monthly_cents: int = 0,
+    ) -> Dict[str, Any]:
+        """Create a new agent in Paperclip.
+
+        Returns the created agent dict (includes 'id').
+        """
+        payload: Dict[str, Any] = {
+            "name": name,
+            "role": role,
+        }
+        if title:
+            payload["title"] = title
+        if adapter_type:
+            payload["adapterType"] = adapter_type
+        if adapter_config:
+            payload["adapterConfig"] = adapter_config
+        if capabilities:
+            payload["capabilities"] = capabilities
+        if reports_to:
+            payload["reportsTo"] = reports_to
+        if budget_monthly_cents:
+            payload["budgetMonthlyCents"] = budget_monthly_cents
+
+        return self._post(f"/api/companies/{self.company_id}/agents", payload)
+
+    def update_agent(
+        self,
+        agent_id: str,
+        adapter_config: Optional[Dict[str, Any]] = None,
+        budget_monthly_cents: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Update an existing agent's config or budget."""
+        payload: Dict[str, Any] = {}
+        if adapter_config is not None:
+            payload["adapterConfig"] = adapter_config
+        if budget_monthly_cents is not None:
+            payload["budgetMonthlyCents"] = budget_monthly_cents
+        return self._patch(f"/api/agents/{agent_id}", payload)
+
+    def terminate_agent(self, agent_id: str) -> Dict[str, Any]:
+        """Permanently deactivate an agent. Irreversible."""
+        return self._post(f"/api/agents/{agent_id}/terminate", {})
+
+    def pause_agent(self, agent_id: str) -> Dict[str, Any]:
+        """Pause an agent's heartbeat execution."""
+        return self._post(f"/api/agents/{agent_id}/pause", {})
+
+    def resume_agent(self, agent_id: str) -> Dict[str, Any]:
+        """Resume a paused agent."""
+        return self._post(f"/api/agents/{agent_id}/resume", {})
+
+    def get_org_chart(self) -> Dict[str, Any]:
+        """Get the company org chart."""
+        return self._get(f"/api/companies/{self.company_id}/org")
+
+    def find_agent_by_role(self, role: str) -> Optional[Dict[str, Any]]:
+        """Find an agent by role slug. Returns None if not found."""
+        agents = self.list_agents()
+        for agent in agents:
+            if agent.get("role", "").lower() == role.lower():
+                return agent
+        return None

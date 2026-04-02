@@ -196,21 +196,60 @@ class AgentCore:
         gate = get_agent_gate()
         gate.release()
 
-    # ── Agent CRUD Placeholders ─────────────────────────────────────────
+    # ── Agent CRUD ──────────────────────────────────────────────────────
 
     def create_agent(self, role_spec: Any) -> str:
-        """Create a new Paperclip agent. Not yet implemented in Paperclip adapter."""
-        raise NotImplementedError(
-            "Paperclip agent creation is not yet supported. "
-            "The Staffing Agent will write role files locally until "
-            "Paperclip's agent management API is available."
+        """Create a Paperclip agent from a RoleSpec.
+
+        Args:
+            role_spec: RoleSpec instance with slug, display_name, agents_md, etc.
+
+        Returns:
+            The Paperclip agent ID.
+
+        Raises:
+            RuntimeError: If Paperclip is not configured.
+        """
+        client = self._require_paperclip()
+        return client.create_agent(
+            name=role_spec.display_name,
+            role=role_spec.slug,
+            title=role_spec.soul_md[:200] if role_spec.soul_md else "",
+            adapter_config={"instructions": role_spec.agents_md},
+            capabilities=role_spec.recommended_files or [],
         )
 
     def update_agent(self, agent_id: str, role_spec: Any) -> None:
-        """Update a Paperclip agent. Not yet implemented in Paperclip adapter."""
-        raise NotImplementedError(
-            "Paperclip agent update is not yet supported."
+        """Update a Paperclip agent's config from an updated RoleSpec.
+
+        Args:
+            agent_id: Paperclip agent ID.
+            role_spec: Updated RoleSpec instance.
+
+        Raises:
+            RuntimeError: If Paperclip is not configured.
+        """
+        client = self._require_paperclip()
+        client.update_agent(
+            agent_id=agent_id,
+            adapter_config={"instructions": role_spec.agents_md},
         )
+
+    def list_agents(self) -> list:
+        """List all Paperclip agents in the company.
+
+        Raises:
+            RuntimeError: If Paperclip is not configured.
+        """
+        return self._require_paperclip().list_agents()
+
+    def find_agent_by_role(self, role: str) -> Optional[Dict[str, Any]]:
+        """Find a Paperclip agent by role slug.
+
+        Raises:
+            RuntimeError: If Paperclip is not configured.
+        """
+        return self._require_paperclip().find_agent_by_role(role)
 
     # ── Paperclip Write Methods ──────────────────────────────────────────
 
