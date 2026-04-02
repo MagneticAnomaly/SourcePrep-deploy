@@ -538,6 +538,69 @@ class StaffingEngine:
 
         return "\n".join(lines)
 
+    # -- Paperclip Sync --
+
+    def push_to_paperclip(
+        self,
+        roles: Optional[List[RoleSpec]] = None,
+    ) -> Dict[str, str]:
+        """Push roles to Paperclip as managed agents.
+
+        For each role, creates or updates the corresponding Paperclip agent.
+        Stores the Paperclip agent ID back in the roster for future syncs.
+
+        Args:
+            roles: Specific roles to push. If None, pushes all roles in roster.
+
+        Returns:
+            Dict mapping role slug → Paperclip agent ID.
+
+        Raises:
+            RuntimeError: If AgentCore has no Paperclip client configured.
+        """
+        if self._core is None:
+            raise RuntimeError(
+                "push_to_paperclip requires an AgentCore instance with Paperclip configured."
+            )
+
+        if roles is None:
+            roles = [
+                self._roster.get_role(slug)
+                for slug in self._roster.list_roles()
+                if self._roster.get_role(slug) is not None
+            ]
+
+        result: Dict[str, str] = {}
+        for role in roles:
+            # Check if agent already exists in Paperclip
+            if role.paperclip_agent_id:
+                # Update existing
+                self._core.update_agent(role.paperclip_agent_id, role)
+                result[role.slug] = role.paperclip_agent_id
+                logger.info("Updated Paperclip agent %s for role %s",
+                           role.paperclip_agent_id, role.slug)
+            else:
+                # Try to find by role slug
+                existing = self._core.find_agent_by_role(role.slug)
+                if existing:
+                    agent_id = existing.get("id", "")
+                    self._core.update_agent(agent_id, role)
+                    role.paperclip_agent_id = agent_id
+                    self._roster.save_role(role)
+                    result[role.slug] = agent_id
+                    logger.info("Found and updated existing agent %s for role %s",
+                               agent_id, role.slug)
+                else:
+                    # Create new
+                    agent_id = self._core.create_agent(role)
+                    role.paperclip_agent_id = agent_id
+                    self._roster.save_role(role)
+                    result[role.slug] = agent_id
+                    logger.info("Created Paperclip agent %s for role %s",
+                               agent_id, role.slug)
+
+        return result
+
     # -- Roster Access --
 
     @property

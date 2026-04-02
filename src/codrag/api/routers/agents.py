@@ -114,6 +114,40 @@ def hr_generate(project_id: str, req: HRGenerateRequest) -> Dict[str, Any]:
     })
 
 
+@router.post("/projects/{project_id}/agents/hr/sync")
+def hr_sync(project_id: str) -> Dict[str, Any]:
+    """Sync generated roles to Paperclip as managed agents.
+
+    Requires Paperclip to be configured in settings (paperclip_url, company_id, api_key).
+    """
+    idx_dir, project_root, pid = _get_engine_context(project_id)
+
+    # Build AgentCore with Paperclip config
+    from codrag.services.settings_store import settings
+    pm_raw = settings.get("pm_push") or {}
+    if not pm_raw.get("enabled"):
+        raise ApiException(
+            400, "PAPERCLIP_NOT_CONFIGURED",
+            "Paperclip push is not enabled. Configure it in Settings first.",
+        )
+
+    from codrag.adapters.pm_models import PMPushConfig
+    pm_config = PMPushConfig(**pm_raw)
+
+    from codrag.agents.core import AgentCore
+    core = AgentCore(
+        project_id=pid,
+        index_dir=idx_dir,
+        project_root=project_root,
+        pm_config=pm_config,
+    )
+
+    from codrag.agents.hr.engine import StaffingEngine
+    engine = StaffingEngine(core=core)
+    synced = engine.push_to_paperclip()
+    return ok({"synced": synced, "count": len(synced)})
+
+
 @router.post("/projects/{project_id}/agents/hr/audit")
 def hr_audit(project_id: str) -> Dict[str, Any]:
     """Run drift detection on the current roster."""

@@ -1595,6 +1595,26 @@ def hr_audit(
         console.print(f"\n[yellow]Coverage gaps:[/yellow] {', '.join(gaps)}")
 
 
+@app.command("hr-sync")
+def hr_sync(
+    project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
+    port: int = typer.Option(8400, "--port", help="Server port"),
+) -> None:
+    """Sync generated roles to Paperclip as managed agents."""
+    base = _base_url(host, port)
+    pid = _resolve_project(base, project_id)
+    console.print("[cyan]Syncing roster to Paperclip...[/cyan]")
+    data = _post_json(f"{base}/projects/{pid}/agents/hr/sync", {})
+    synced = data.get("synced", {})
+    if not synced:
+        console.print("[dim]No roles to sync. Generate roles first: codrag hr-generate[/dim]")
+        return
+    console.print(f"[green]Synced {len(synced)} role(s) to Paperclip:[/green]")
+    for slug, agent_id in synced.items():
+        console.print(f"  - {slug} -> {agent_id}")
+
+
 @app.command("research-run")
 def research_run(
     max_topics: int = typer.Option(3, "--max-topics", "-n", help="Max topics to research"),
