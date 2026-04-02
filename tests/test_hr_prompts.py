@@ -64,14 +64,11 @@ class TestKnowledgeMd:
             role_name="Backend Developer",
             role_slug="backend_dev",
             atlas_snapshot="# Atlas\nPython backend",
-            recommended_files=[("src/main.py", 0.95), ("src/config.py", 0.82)],
             domain_focus=["backend", "database"],
             project_id="proj_123",
         )
         assert "codrag" in result
         assert "backend_dev" in result
-        assert "src/main.py" in result
-        assert "0.95" in result or "95" in result
         assert "proj_123" in result
 
     def test_no_llm_needed(self) -> None:
@@ -80,7 +77,6 @@ class TestKnowledgeMd:
             role_name="Dev",
             role_slug="dev",
             atlas_snapshot="atlas",
-            recommended_files=[],
             domain_focus=[],
             project_id="p",
         )

@@ -363,6 +363,7 @@ class TestAgentCRUD:
         role.slug = "backend_dev"
         role.soul_md = "Identity text"
         role.agents_md = "Instructions"
+        role.knowledge_md = "Knowledge"
         role.recommended_files = []
         result = core.create_agent(role)
         assert result == "agent-123"
@@ -371,6 +372,8 @@ class TestAgentCRUD:
     def test_update_agent_delegates_to_paperclip(self, core, mock_paperclip):
         """update_agent calls through to PaperclipClient."""
         role = MagicMock()
+        role.soul_md = "Soul"
         role.agents_md = "Updated instructions"
+        role.knowledge_md = "Knowledge"
         core.update_agent("agent-123", role)
         mock_paperclip.update_agent.assert_called_once()
