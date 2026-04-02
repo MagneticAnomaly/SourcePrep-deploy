@@ -16,23 +16,23 @@ export default function Page() {
         </p>
 
         <div className="mt-12 grid gap-6 sm:grid-cols-2">
-          <a href="/mcp/cursor" className="group block space-y-3 rounded-2xl border border-border bg-surface p-6 hover:border-primary transition-colors">
+          <a href="/mcp/ides" className="group block space-y-3 rounded-2xl border border-border bg-surface p-6 hover:border-primary transition-colors">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-semibold group-hover:text-primary">Cursor</h3>
+              <h3 className="text-xl font-semibold group-hover:text-primary">Agentic IDEs</h3>
               <span className="text-text-muted">→</span>
             </div>
             <p className="text-text-muted">
-              Use CoDRAG as a custom MCP server in Cursor&apos;s Agent mode. Replaces generic search with structural code intelligence.
+              Give Cursor, Windsurf, Copilot, and Zed deep structural codebase awareness and graph-based trace intelligence.
             </p>
           </a>
 
-          <a href="/mcp/windsurf" className="group block space-y-3 rounded-2xl border border-border bg-surface p-6 hover:border-primary transition-colors">
+          <a href="/mcp/terminal" className="group block space-y-3 rounded-2xl border border-border bg-surface p-6 hover:border-primary transition-colors">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-semibold group-hover:text-primary">Windsurf</h3>
+              <h3 className="text-xl font-semibold group-hover:text-primary">Terminal Agents</h3>
               <span className="text-text-muted">→</span>
             </div>
             <p className="text-text-muted">
-              Give Cascade superpowers. Enable CoDRAG to provide deep context, call graphs, and compressed summaries.
+              Connect command-line workflows like Claude Code and Gemini CLI directly to your local CoDRAG index.
             </p>
           </a>
         </div>
@@ -48,11 +48,11 @@ export default function Page() {
             When you connect an editor like Cursor or Windsurf, their internal AI agents gain the ability to:
           </p>
           <ul className="list-disc pl-6 space-y-2">
-            <li><span className="font-semibold text-text">Get Oriented:</span> Use <code>hi_codrag</code> to see exactly which files you&apos;ve selected — with doc previews, topic detection (&quot;authentication&quot;, &quot;UI components&quot;), hub file identification, import relationships, and tailored next-step suggestions.</li>
-            <li><span className="font-semibold text-text">Search Semantically:</span> Find code by meaning (&quot;auth logic&quot;) rather than just keywords, automatically scoped to your selected files.</li>
-            <li><span className="font-semibold text-text">Code Graph:</span> Follow import paths and function calls (Rust-powered graph). <code>hi_codrag</code> shows file connections and the most-imported files at a glance.</li>
-            <li><span className="font-semibold text-text">Compress Context:</span> Smart compression fits more files into the same token budget &mdash; structural for code, language-aware for docs. No sidecar needed.</li>
-            <li><span className="font-semibold text-text">Audit Codebase:</span> Use <code>codrag_audit</code> to get a health report with architecture findings, tech debt, dead code, and test coverage gaps. Use <code>codrag_audit_report</code> to read full generated reports. <a href="/guides/codebase-audit" className="text-primary hover:underline">Learn more →</a></li>
+            <li><span className="font-semibold text-text">Get Oriented:</span> Call <code>codrag</code> with no arguments to get ambient context — module structures, hub files, and your selected focus areas formatted perfectly for internal understanding.</li>
+            <li><span className="font-semibold text-text">Search Semantically:</span> Use <code>codrag_search</code> to find code by meaning ("auth logic") rather than just keywords, expanding structurally to provide required imports automatically.</li>
+            <li><span className="font-semibold text-text">Code Graph:</span> Follow import paths and function calls (Rust-powered graph) defensively. Use <code>codrag_impact</code> to see exact blast radiuses before modifying a file.</li>
+            <li><span className="font-semibold text-text">Persistent Memory:</span> Use <code>codrag_observe</code> to write cross-session notes that get automatically flagged as `[STALE]` when the underlying files are modified.</li>
+            <li><span className="font-semibold text-text">Audit Codebase:</span> Use <code>codrag_audit</code> to get a health report with architecture findings, tech debt, dead code, and test coverage gaps. <a href="/guides/codebase-audit" className="text-primary hover:underline">Learn more →</a></li>
           </ul>
 
           <AnchorHeading id="tools-reference" level="h2">Tools Reference</AnchorHeading>
@@ -67,64 +67,24 @@ export default function Page() {
               </thead>
               <tbody className="text-text-muted">
                 <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">hi_codrag</td>
-                  <td className="py-2 text-xs">Project overview — health, selected files, topics, hub files, suggested prompts</td>
+                  <td className="py-2 pr-4 font-mono text-xs">codrag</td>
+                  <td className="py-2 text-xs">Ambient context — hub files, module summaries, focus areas (no arguments needed)</td>
                 </tr>
                 <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono text-xs">codrag_search</td>
                   <td className="py-2 text-xs">Semantic search with trace expansion, atlas routing, LOD compression</td>
                 </tr>
                 <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag</td>
-                  <td className="py-2 text-xs">Ambient context — hub files, module summaries, LOD neighbors (no query needed)</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag_status</td>
-                  <td className="py-2 text-xs">Index status, build state, daemon health</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag_build</td>
-                  <td className="py-2 text-xs">Trigger index build (async)</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag_trace_search</td>
-                  <td className="py-2 text-xs">Search the code graph for symbols by name</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag_trace_neighbors</td>
-                  <td className="py-2 text-xs">Get neighbors for a trace node (imports, callers, etc.)</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag_trace_coverage</td>
-                  <td className="py-2 text-xs">Trace coverage statistics (traced/untraced/stale files)</td>
-                </tr>
-                <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono text-xs">codrag_impact</td>
                   <td className="py-2 text-xs">Blast radius analysis — what depends on a file or symbol</td>
                 </tr>
                 <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag_save_observation</td>
-                  <td className="py-2 text-xs">Save a cross-session note about the codebase</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag_get_observations</td>
-                  <td className="py-2 text-xs">Retrieve previous observations (with stale flags)</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag_audit</td>
-                  <td className="py-2 text-xs">Run or retrieve codebase health audit (11 analyzers)</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag_audit_refactor</td>
-                  <td className="py-2 text-xs">Get trace context + action plan for specific findings (e.g. ARCH-1)</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag_audit_check</td>
-                  <td className="py-2 text-xs">Re-run specific analyzers to verify fixes resolved findings</td>
+                  <td className="py-2 pr-4 font-mono text-xs">codrag_observe</td>
+                  <td className="py-2 text-xs">Save or retrieve cross-session notes about the codebase (with stale flags)</td>
                 </tr>
                 <tr>
-                  <td className="py-2 pr-4 font-mono text-xs">codrag_audit_report</td>
-                  <td className="py-2 text-xs">Read a specific generated audit report by name</td>
+                  <td className="py-2 pr-4 font-mono text-xs">codrag_audit</td>
+                  <td className="py-2 text-xs">Run or retrieve codebase health audits (action = scan, refactor, verify, report)</td>
                 </tr>
               </tbody>
             </table>

@@ -75,6 +75,9 @@ class CodragDaemonClient {
 
 // ── Plugin Definition ─────────────────────────────────────────
 
+// Module-level state so onHealth/onValidateConfig can access the daemon URL
+let activeDaemonUrl = 'http://127.0.0.1:8400';
+
 const plugin = definePlugin({
   async setup(ctx: PluginContext) {
     const rawConfig = await ctx.config.get();
@@ -83,6 +86,7 @@ const plugin = definePlugin({
       project_id: (rawConfig as Record<string, unknown>).project_id as string ?? '',
       auto_context: (rawConfig as Record<string, unknown>).auto_context as boolean ?? true,
     };
+    activeDaemonUrl = config.daemon_url;
     const client = new CodragDaemonClient(config.daemon_url);
 
     ctx.logger.info('CoDRAG plugin initializing', { daemon: config.daemon_url });
@@ -326,15 +330,14 @@ const plugin = definePlugin({
   },
 
   async onHealth(): Promise<PluginHealthDiagnostics> {
-    // Quick health check: can we reach the CoDRAG daemon?
     try {
-      const res = await fetch('http://127.0.0.1:8400/health', { signal: AbortSignal.timeout(3000) });
+      const res = await fetch(`${activeDaemonUrl}/health`, { signal: AbortSignal.timeout(3000) });
       if (res.ok) {
-        return { status: 'ok', message: 'CoDRAG daemon is reachable' };
+        return { status: 'ok', message: `CoDRAG daemon reachable at ${activeDaemonUrl}` };
       }
       return { status: 'degraded', message: `CoDRAG daemon returned ${res.status}` };
     } catch {
-      return { status: 'error', message: 'Cannot reach CoDRAG daemon at localhost:8400' };
+      return { status: 'error', message: `Cannot reach CoDRAG daemon at ${activeDaemonUrl}` };
     }
   },
 

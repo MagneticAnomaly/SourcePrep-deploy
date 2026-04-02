@@ -521,6 +521,58 @@ class AutoRebuildWatcher:
         except Exception:
             logger.debug("Coverage check failed", exc_info=True)
 
+        # Phase 61B: Heartbeat watchdog — check for stuck pipelines.
+        # Piggybacks on the existing coverage check timer (every 5 minutes)
+        # so we don't need a separate thread.
+        if self.project_id:
+            try:
+                from codrag.services.pipeline_metadata import check_heartbeat_stale, reset_stale_metadata
+                from codrag.core.project_registry import project_index_dir
+                from codrag.services.project_helpers import require_project
+                project = require_project(self.project_id)
+                idx_dir = project_index_dir(project)
+
+                stale_info = check_heartbeat_stale(idx_dir)
+                if stale_info:
+                    logger.warning(
+                        "Phase 61B watchdog: Detected %s pipeline for %s "
+                        "(heartbeat_age=%.0fs) — resetting and re-triggering",
+                        stale_info["status"], self.project_id,
+                        stale_info.get("heartbeat_age_seconds", 0),
+                    )
+                    # Log to pipeline file logger
+                    try:
+                        from codrag.services.pipeline_logger import get_pipeline_logger
+                        pfl = get_pipeline_logger(idx_dir)
+                        pfl.selfheal("heartbeat_stale", f"Watchdog detected {stale_info['status']} pipeline", stale_info)
+                    except Exception:
+                        pass
+
+                    # Reset the stale metadata
+                    reset_stale_metadata(idx_dir, reason="watchdog_heartbeat_stale")
+
+                    # Cancel any stuck in-memory state
+                    try:
+                        from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+                        reset = pipeline_orchestrator.force_reset_stale_runs(self.project_id)
+                        if reset:
+                            logger.info("Phase 61B watchdog: force-reset stale runs: %s", reset)
+                    except Exception:
+                        pass
+
+                    # Re-trigger the pipeline
+                    try:
+                        self._on_trigger_build(["__selfheal_watchdog__"])
+                    except Exception:
+                        pass
+                else:
+                    logger.debug(
+                        "Phase 61B watchdog: Pipeline heartbeat OK for %s",
+                        self.project_id,
+                    )
+            except Exception:
+                logger.debug("Phase 61B watchdog check failed", exc_info=True)
+
         # Schedule next check
         self._schedule_coverage_check()
 

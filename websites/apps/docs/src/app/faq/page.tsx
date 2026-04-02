@@ -26,7 +26,7 @@ export default function Page() {
           <div>
             <AnchorHeading id="editor-support" level="h2" className="text-xl font-semibold text-text">Does it work with any editor?</AnchorHeading>
             <p className="mt-2 text-text-muted leading-relaxed">
-              CoDRAG works best with editors that support the <span className="font-semibold text-text">Model Context Protocol (MCP)</span>, such as Cursor, Windsurf, and Claude Desktop. 
+              CoDRAG works best with editors that support the <span className="font-semibold text-text">Model Context Protocol (MCP)</span>, such as Cursor, Windsurf, and Claude Code. 
               There is also a VS Code extension in development. For other editors, you can copy-paste context from the Dashboard or CLI.
             </p>
           </div>

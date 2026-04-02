@@ -395,7 +395,12 @@ class PipelineOrchestrator:
         }
 
     def run_all(self, project_id: str, force_from_start: bool = False) -> bool:
-        """Start Fast Sync, then chain Deep Enrichment after it completes."""
+        """Start Fast Sync, then chain Deep Enrichment after it completes.
+
+        Phase 61B: If fast_sync is already up-to-date (returns False),
+        directly calls run_deep_enrichment() instead of relying on the
+        completion-handler chain — which never fires if fast_sync didn't run.
+        """
         # Start fast sync; deep enrichment will be chained via the listener
         with self._lock:
             key = (project_id, "fast_sync")
@@ -405,7 +410,20 @@ class PipelineOrchestrator:
             # Mark that deep should chain after fast
             self._chain_deep: Dict[str, bool] = getattr(self, "_chain_deep", {})
             self._chain_deep[project_id] = True
-        return self.run_fast_sync(project_id, force_from_start=force_from_start)
+        fast_started = self.run_fast_sync(project_id, force_from_start=force_from_start)
+        if fast_started:
+            return True  # Deep will chain via completion handler
+
+        # Phase 61B: Fast sync is already up-to-date — chain deep directly.
+        # Without this, the completion handler never fires and deep enrichment
+        # is orphaned with _chain_deep set but never consumed.
+        logger.info(
+            "Phase 61B: Fast sync up-to-date for %s — directly calling run_deep_enrichment",
+            project_id,
+        )
+        # Clean up the chain_deep flag since we're handling it directly
+        self._chain_deep.pop(project_id, None)
+        return self.run_deep_enrichment(project_id, force_from_start=force_from_start)
 
     def status(self, project_id: str) -> Dict[str, Any]:
         """Get pipeline status for a project."""
@@ -735,8 +753,8 @@ class PipelineOrchestrator:
 
     # ── Internal ───────────────────────────────────────────────
 
-    @staticmethod
     def _detect_resume_point(
+        self,
         project_id: str,
         stages: List[StageId],
         skip_mtime_cascade: bool = False,
@@ -1077,6 +1095,8 @@ class PipelineOrchestrator:
             )
             if pfl:
                 pfl.end_run("completed")
+            # Phase 61B: Stop heartbeat timer — run is complete
+            self._stop_heartbeat_timer(run)
             # VRAM lifecycle: release group models via state machine (falls back to legacy)
             self._release_group_models_via_sm(run)
             # Phase 25: journal — mark run completed + cleanup checkpoint
@@ -1257,6 +1277,11 @@ class PipelineOrchestrator:
                 "total_stages": len(run.stages),
                 "group": run.group,
             })
+
+        # Phase 61B: Start heartbeat timer for this stage.
+        # Writes to pipeline_run_metadata.json every 60s so the watchdog
+        # can distinguish a genuinely running stage from a dead process.
+        self._start_heartbeat_timer(run)
 
         # Phase 25: journal — record stage start
         self._journal_stage_started(run, stage)
@@ -1440,6 +1465,8 @@ class PipelineOrchestrator:
                     pfl.end_run("failed", error=slot.error)
                 # Phase 25: journal — record stage failure
                 self._journal_stage_failed(matching_run, stage, slot.error or "Unknown error")
+                # Phase 61B: Stop heartbeat timer on failure
+                self._stop_heartbeat_timer(matching_run)
                 # VRAM lifecycle: release all group models
                 self._release_group_models_via_sm(matching_run)
                 return
@@ -1728,6 +1755,63 @@ class PipelineOrchestrator:
                     client.unload()
             except Exception as e:
                 logger.warning("VRAM lifecycle: failed to unload model for task %s after group: %s", task_id, e)
+
+    # ── Phase 61B: Heartbeat Timer ─────────────────────────────────
+
+    _HEARTBEAT_INTERVAL = 60.0  # seconds between heartbeat writes
+
+    def _start_heartbeat_timer(self, run: PipelineGroupStateMachine) -> None:
+        """Start a heartbeat timer that writes periodically to metadata.
+
+        Self-cancels when the run is no longer active.  Stashed on the
+        state machine so _stop_heartbeat_timer can cancel it.
+        """
+        # Cancel any existing heartbeat for this run
+        self._stop_heartbeat_timer(run)
+
+        import threading
+
+        def _tick():
+            if not run.is_active:
+                return  # Run completed/failed/paused — stop
+            try:
+                from codrag.core.project_registry import project_index_dir
+                from codrag.services.project_helpers import require_project
+                from codrag.services.pipeline_metadata import update_heartbeat
+                project = require_project(run.project_id)
+                idx_dir = project_index_dir(project)
+                update_heartbeat(idx_dir)
+                logger.debug(
+                    "Phase 61B: heartbeat for %s/%s stage %s",
+                    run.project_id, run.group,
+                    run.current_stage or "?",
+                )
+            except Exception:
+                logger.debug("Phase 61B: heartbeat write failed", exc_info=True)
+
+            # Schedule next tick if still active
+            if run.is_active:
+                timer = threading.Timer(self._HEARTBEAT_INTERVAL, _tick)
+                timer.daemon = True
+                timer.start()
+                run._heartbeat_timer = timer  # type: ignore[attr-defined]
+
+        # First heartbeat immediately, then every _HEARTBEAT_INTERVAL
+        timer = threading.Timer(self._HEARTBEAT_INTERVAL, _tick)
+        timer.daemon = True
+        timer.start()
+        run._heartbeat_timer = timer  # type: ignore[attr-defined]
+
+    @staticmethod
+    def _stop_heartbeat_timer(run: PipelineGroupStateMachine) -> None:
+        """Cancel the heartbeat timer for a run."""
+        timer = getattr(run, '_heartbeat_timer', None)
+        if timer is not None:
+            try:
+                timer.cancel()
+            except Exception:
+                pass
+            run._heartbeat_timer = None  # type: ignore[attr-defined]
 
     # ── Phase 48: Continuous Deepening Re-trigger ──────────────────
 
@@ -2297,6 +2381,13 @@ class PipelineOrchestrator:
         except Exception:
             logger.debug("Disk-state hydration failed", exc_info=True)
 
+        # Phase 61B: Active self-heal — detect stale/zombie metadata and
+        # auto-trigger recovery if deep_enrichment auto mode is enabled.
+        try:
+            self._auto_recover_stale_pipelines()
+        except Exception:
+            logger.debug("Phase 61B auto-recovery failed", exc_info=True)
+
         return journal_results
 
     def _hydrate_paused_runs_from_disk(self) -> None:
@@ -2362,6 +2453,235 @@ class PipelineOrchestrator:
                     "— user can Resume to continue",
                     pid, group, resume, len(stages), stages[resume].value,
                 )
+
+    def _auto_recover_stale_pipelines(self) -> None:
+        """Phase 61B: Scan all projects for stale pipeline state and auto-recover.
+
+        Called during startup_recovery AFTER hydrate_paused_runs_from_disk.
+        For each project:
+        1. Check pipeline_run_metadata.json — reset if zombie/stale
+        2. Log manifest age summary for diagnostics
+        3. If deep_enrichment auto mode is on and deep manifests are stale,
+           auto-trigger run_deep_enrichment after a short delay
+        """
+        try:
+            from codrag.services.project_helpers import get_registry
+            registry = get_registry()
+            projects = registry.list_projects()
+        except Exception:
+            logger.debug("Cannot list projects for Phase 61B auto-recovery", exc_info=True)
+            return
+
+        for project in projects:
+            pid = project.id
+            try:
+                from codrag.core.project_registry import project_index_dir
+                idx_dir = Path(project_index_dir(project))
+            except Exception:
+                continue
+
+            # Get pipeline file logger for this project
+            pfl = self._get_file_logger(pid)
+
+            # Step 1: Check for stale/zombie metadata and reset
+            try:
+                from codrag.services.pipeline_metadata import (
+                    check_heartbeat_stale, reset_stale_metadata,
+                    load_run_metadata,
+                )
+                stale_info = check_heartbeat_stale(idx_dir)
+                if stale_info:
+                    logger.warning(
+                        "Phase 61B: Detected %s pipeline metadata for %s "
+                        "(run_id=%s, group=%s, age=%.0fs, heartbeat_age=%.0fs)",
+                        stale_info["status"], pid,
+                        stale_info.get("run_id"), stale_info.get("group"),
+                        stale_info.get("age_seconds", 0),
+                        stale_info.get("heartbeat_age_seconds", 0),
+                    )
+                    if pfl:
+                        pfl.selfheal("stale_detected", f"{stale_info['status']} metadata found", stale_info)
+
+                    reset_stale_metadata(idx_dir, reason="startup_recovery")
+                    if pfl:
+                        pfl.selfheal("metadata_reset", "Reset stale metadata to 'interrupted'", {
+                            "project_id": pid,
+                            "previous_status": stale_info["status"],
+                        })
+            except Exception:
+                logger.debug("Phase 61B: stale check failed for %s", pid, exc_info=True)
+
+            # Step 2: Log manifest age summary for diagnostics
+            try:
+                self._log_manifest_age_summary(pid, idx_dir, pfl)
+            except Exception:
+                logger.debug("Phase 61B: manifest age summary failed for %s", pid, exc_info=True)
+
+            # Step 3: Auto-trigger deep enrichment if manifests are stale
+            try:
+                if not self._is_deep_enrichment_auto(pid):
+                    if pfl:
+                        pfl.selfheal("auto_recover", "Skipped — deep_enrichment auto mode is OFF", {
+                            "project_id": pid,
+                        })
+                    continue
+
+                # Check if deep manifests are stale vs structural trace
+                structural_manifest = idx_dir / "trace_manifest.json"
+                if not structural_manifest.exists():
+                    continue
+
+                structural_mtime = structural_manifest.stat().st_mtime
+                deep_stale = False
+
+                from .stages import STAGE_MANIFEST_FILE
+                for stage in DEEP_ENRICHMENT_STAGES:
+                    mf = STAGE_MANIFEST_FILE.get(stage)
+                    if mf:
+                        mp = idx_dir / mf
+                        if not mp.exists():
+                            deep_stale = True
+                            break
+                        if mp.stat().st_mtime < structural_mtime:
+                            deep_stale = True
+                            break
+
+                if deep_stale:
+                    # Skip if we already have an ACTIVE run (actually running)
+                    # But if we have a PAUSED run (from hydration), clear it —
+                    # auto mode means we should auto-resume, not wait for user.
+                    with self._lock:
+                        has_active = False
+                        paused_keys = []
+                        for key, run in self._runs.items():
+                            if key[0] != pid:
+                                continue
+                            if run.is_active:
+                                has_active = True
+                                break
+                            if run.is_paused:
+                                paused_keys.append(key)
+
+                    if has_active:
+                        logger.info(
+                            "Phase 61B: Deep manifests stale for %s but run already "
+                            "active — skipping auto-recover",
+                            pid,
+                        )
+                        continue
+
+                    # Clear hydrated PAUSED runs so _start_group doesn't block
+                    if paused_keys:
+                        with self._lock:
+                            for key in paused_keys:
+                                del self._runs[key]
+                        logger.info(
+                            "Phase 61B: Cleared %d PAUSED hydrated runs for %s "
+                            "— auto mode replaces manual Resume",
+                            len(paused_keys), pid,
+                        )
+                        if pfl:
+                            pfl.selfheal("auto_recover", "Cleared PAUSED runs for auto mode", {
+                                "project_id": pid,
+                                "cleared_keys": [str(k) for k in paused_keys],
+                            })
+
+                    logger.info(
+                        "Phase 61B: Auto-recovering deep enrichment for %s "
+                        "(deep manifests stale vs structural trace)",
+                        pid,
+                    )
+                    if pfl:
+                        pfl.selfheal("auto_recover", "Triggering deep enrichment — manifests stale", {
+                            "project_id": pid,
+                            "reason": "deep_manifests_stale_vs_structural",
+                        })
+
+                    # Delay to let the server fully initialize
+                    import threading
+                    _orch = self  # Capture reference for thread closure
+
+                    def _delayed_recover(_pid=pid, _pfl=pfl, _orch=_orch):
+                        try:
+                            time.sleep(10)  # Wait for full server warmup
+                            started = _orch.run_deep_enrichment(_pid)
+                            logger.info("Phase 61B: Auto-recovery deep enrichment for %s: started=%s", _pid, started)
+                            if _pfl:
+                                _pfl.selfheal("auto_recover", f"run_deep_enrichment returned {started}", {
+                                    "project_id": _pid,
+                                    "started": started,
+                                })
+                            if not started:
+                                # If deep enrichment didn't start, try run_all as fallback
+                                logger.info("Phase 61B: run_deep_enrichment returned False, trying run_all for %s", _pid)
+                                started2 = _orch.run_all(_pid)
+                                logger.info("Phase 61B: Fallback run_all for %s: started=%s", _pid, started2)
+                                if _pfl:
+                                    _pfl.selfheal("auto_recover", f"Fallback run_all returned {started2}", {
+                                        "project_id": _pid,
+                                        "started": started2,
+                                    })
+                        except Exception as e:
+                            logger.warning("Phase 61B: Auto-recovery failed for %s: %s", _pid, e, exc_info=True)
+                            if _pfl:
+                                _pfl.selfheal("auto_recover", f"Recovery FAILED: {e}", {
+                                    "project_id": _pid,
+                                    "error": str(e),
+                                })
+
+                    t = threading.Thread(target=_delayed_recover, daemon=True)
+                    t.start()
+                else:
+                    if pfl:
+                        pfl.selfheal("auto_recover", "No recovery needed — deep manifests up to date", {
+                            "project_id": pid,
+                        })
+
+            except Exception:
+                logger.debug("Phase 61B: auto-trigger check failed for %s", pid, exc_info=True)
+
+    def _log_manifest_age_summary(self, project_id: str, idx_dir: Path, pfl: Any = None) -> None:
+        """Log the age of all stage manifests for diagnostic purposes.
+
+        This creates a comprehensive selfheal event showing exactly when
+        each stage last completed — the first thing to check when the
+        pipeline seems stuck.
+        """
+        from .stages import STAGE_MANIFEST_FILE, StageId
+        from datetime import datetime, timezone
+
+        now = time.time()
+        manifest_ages: Dict[str, Any] = {}
+
+        for stage in list(FAST_SYNC_STAGES) + list(DEEP_ENRICHMENT_STAGES):
+            mf = STAGE_MANIFEST_FILE.get(stage)
+            if not mf:
+                manifest_ages[stage.value] = {"status": "no_manifest_mapping"}
+                continue
+            mp = idx_dir / mf
+            if not mp.exists():
+                manifest_ages[stage.value] = {"status": "missing"}
+                continue
+            mtime = mp.stat().st_mtime
+            age_hours = round((now - mtime) / 3600, 1)
+            manifest_ages[stage.value] = {
+                "status": "present",
+                "age_hours": age_hours,
+                "last_modified": datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat(),
+            }
+
+        if pfl:
+            pfl.selfheal("manifest_age", f"Pipeline checkpoint age summary for {project_id}", {
+                "project_id": project_id,
+                "manifests": manifest_ages,
+            })
+
+        # Also log a one-line summary to the standard logger
+        ages_str = ", ".join(
+            f"{k}={v.get('age_hours', '?')}h" if v.get("status") == "present" else f"{k}=MISSING"
+            for k, v in manifest_ages.items()
+        )
+        logger.info("Phase 61B manifest ages for %s: %s", project_id, ages_str)
 
     def get_crashed_runs(self, project_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get crashed runs (for UI display)."""

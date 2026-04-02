@@ -93,7 +93,7 @@ export default function Page() {
           <AnchorHeading id="mcp-config" level="h2" className="mt-8">codrag mcp-config</AnchorHeading>
           <pre className="overflow-x-auto text-sm"><code>codrag mcp-config [--ide &lt;ide&gt;] [--mode &lt;mode&gt;]</code></pre>
           <p className="text-sm text-text-muted">
-            Generates configuration JSON for connecting various editors (Cursor, Windsurf, Claude Desktop) to CoDRAG.
+            Generates configuration JSON for connecting various editors (Cursor, Windsurf, Claude Code) to CoDRAG.
           </p>
           <ul className="list-disc pl-5 text-sm text-text-muted">
             <li><code>--ide</code>: Target editor (<code>cursor</code>, <code>windsurf</code>, <code>vscode</code>, <code>claude</code>, or <code>all</code>).</li>

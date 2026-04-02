@@ -57,17 +57,43 @@ function App() {
   const [isConnected, setIsConnected] = useState(false)
   const [isDaemonUnhealthy, setIsDaemonUnhealthy] = useState(false)
 
-  // Initial connection & health polling
+  // Health polling: visibility-aware with grace period to prevent
+  // flicker when Chrome throttles background tabs.
   useEffect(() => {
     let interval: NodeJS.Timeout
+    let failCount = 0
+    const FAIL_THRESHOLD = 3  // Require 3 consecutive failures before showing banner
 
     const checkHealth = async () => {
+      // Skip health checks while tab is hidden — Chrome throttles
+      // background timers, causing fetch timeouts that trigger
+      // the "daemon lost" banner.
+      if (document.hidden) return
+
       try {
         await api.getHealth()
         if (!isConnected) setIsConnected(true)
+        failCount = 0
         setIsDaemonUnhealthy(false)
       } catch {
-        if (isConnected) setIsDaemonUnhealthy(true)
+        failCount++
+        // Only show unhealthy banner after FAIL_THRESHOLD consecutive failures
+        // to prevent single-tick flicker from background tab throttling
+        if (isConnected && failCount >= FAIL_THRESHOLD) {
+          setIsDaemonUnhealthy(true)
+        }
+      }
+    }
+
+    // When tab becomes visible again, immediately re-check health
+    // instead of waiting for the next interval tick
+    const onVisibilityChange = () => {
+      if (!document.hidden && isConnected) {
+        // Reset fail count on tab switch — the previous failures
+        // were likely from throttled background timers, not real outages
+        failCount = 0
+        setIsDaemonUnhealthy(false)
+        void checkHealth()
       }
     }
 
@@ -75,9 +101,13 @@ function App() {
     if (isConnected) {
       interval = setInterval(checkHealth, 2000)
       checkHealth()
+      document.addEventListener('visibilitychange', onVisibilityChange)
     }
 
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
   }, [api, isConnected])
 
   // ── Global state ───────────────────────────────────────────

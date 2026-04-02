@@ -130,11 +130,11 @@ main() {
 
     # Start Websites (turbo dev runs all apps)
     log_info "Starting websites (marketing, docs, support, payments)..."
-    if [ -f "$PROJECT_ROOT/websites/package.json" ]; then
-        (source ~/.nvm/nvm.sh && nvm use 20 >/dev/null && cd "$PROJECT_ROOT/websites" && npm run dev) &
+    if [ -d "$PROJECT_ROOT/websites/apps" ]; then
+        (source ~/.nvm/nvm.sh && nvm use 20 >/dev/null && cd "$PROJECT_ROOT" && npx turbo run dev --filter="./websites/apps/*") &
         WEBSITES_PID=$!
     else
-        log_warn "No websites/package.json found — skipping website dev servers"
+        log_warn "No websites/apps directory found — skipping website dev servers"
         WEBSITES_PID=""
     fi
     echo ""

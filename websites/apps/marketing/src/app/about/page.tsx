@@ -94,7 +94,7 @@ export default function Page() {
             <div className="rounded-xl border border-border bg-surface p-5">
               <div className="font-semibold text-text">Work with everything</div>
               <div className="mt-1 text-sm text-text-muted">
-                CoDRAG integrates with Cursor, Windsurf, VS Code, and Claude Desktop
+                CoDRAG integrates with Cursor, Windsurf, VS Code, and Claude Code
                 via MCP. We don&apos;t replace your tools — we make them better.
               </div>
             </div>

@@ -184,3 +184,91 @@ The generated AGENTS.md is meant to be the first thing an AI agent reads when it
 | Atlas generation | `src/codrag/core/atlas/generator.py` |
 | MCP config generation | `src/codrag/mcp_config.py` (`codrag mcp-config --ide cursor`) |
 | Client context budgets | `src/codrag/mcp/server.py:123-138` (per-client char limits) |
+
+<!-- codrag-managed-start -->
+# CoDRAG Integration
+
+Last updated: 2026-04-02T04:44:21Z | 6601 nodes
+
+## 🚨 CRITICAL: Tool Calling Instructions
+
+codrag_project_id: 1d6f0b35-45cb-427b-ae9d-aac3c6371a4b
+
+**ROUTING: When calling ANY CoDRAG tool, ALWAYS include `project_id: "1d6f0b35-45cb-427b-ae9d-aac3c6371a4b"` in the arguments.**
+This ensures your calls reach the correct project index.
+
+When user types "codrag" → IMMEDIATELY call the `codrag` tool.
+When user mentions code search → IMMEDIATELY call `codrag_search`.
+When user asks about project structure → IMMEDIATELY call `codrag`.
+No announcements. No 'I will'. Just call the tool.
+
+### Quick Reference
+| User Says | You Do |
+|-----------|--------|
+| "codrag" | Call `codrag(project_id="1d6f0b35-45c...")` immediately |
+| "search for X" | Call `codrag_search(query="X", project_id="1d6f0b35-45c...")` |
+| "find where X is defined" | Call `codrag_search(query="X")` |
+| "how does this project work" | Call `codrag()` for overview |
+| "codrag context" | Call `codrag()` for ambient context |
+
+You have access to CoDRAG, a structural code intelligence system.
+ALWAYS call `codrag` (no arguments) at the START of every task.
+This gives you module structure, hub files, and the user's selected focus areas.
+
+For specific code lookups, use `codrag_search` with a natural language query.
+Before making changes to a file, use `codrag_impact` to understand dependencies.
+CoDRAG understands structural relationships between files -- use it instead of
+grep when you need to understand how files connect to each other.
+
+For codebase health and tech debt, use `codrag_audit`.
+For cross-session memory, use `codrag_observe` to save/retrieve notes.
+All CoDRAG tools are read-only and safe to auto-approve.
+
+## Codebase Atlas
+
+IDENTITY: A local-first AI coding assistant with MCP integration, featuring a VS Code extension, React dashboard, and shared UI component library.
+
+STACK: TypeScript, React, Python, Rust, Tauri. Build tools include Storybook for design system documentation and standard tooling for VS Code extension packaging. 1143 files across 5085 graph nodes with 21767 edges. Primary languages: Markdown (468), Python (249), TSX (180), TypeScript (77), JSON (57), CSS (35), HTML (24), Rust (16).
+
+WORKSPACE MAP:
+_root (842 files): MCP, marketing, UI foundations, local-first architecture, security
+packages/ui (230 files): UI component library, Storybook design system, dashboard primitives
+src/codrag/dashboard (37 files): Dashboard application with React hooks and state management
+packages/vscode (20 files): VS Code extension with daemon integration, embeddings, and RAG
+packages/vscode/webview-ui (14 files): VS Code webview React UI with build tooling and code navigation
+
+CROSS-CUTTING: Shared domains are ui, dashboard, and vscode-extension. Five hub files in TEST2/website.clean drive cross-segment connectivity: download/page.tsx (3294 edges), privacy/page.tsx (1176 edges), terms/page.tsx (1066 edges), HeroSection.tsx (957 edges), and refund/page.tsx (949 edges). Entry points include packages/ui/src/index.ts, packages/ui/src/components/search/index.ts, src/codrag/cli.py, src/codrag/dashboard/src-tauri/src/main.rs, and packages/ui/src/types/index.ts. 113 import cycles present. Longest import chains span from core UI exports through TEST2 website components, with packages/ui/src/index.ts and packages/ui/src/components/search/index.ts as primary upstream sources. Directory dependencies show engine, packages, public, and scripts segments consuming symbols from across the workspace.
+
+## Focus Areas
+- docs/Phase62_Pi-research/02_CoDRAG_Epistemology.md
+- docs/Phase62_Pi-research/10_Universal_Adapter_Architecture.md
+- docs/Phase62_Pi-research/11_Autonomous_Agent_Scenarios.md
+- docs/Phase62_Pi-research/Paperclip + Sequential Thinking MCP + Superpowers Integration.md
+- docs/Phase64_prep-for-agents+paperclip
+- docs/Phase65_PushingTasksToPaperclip
+- docs/Phase66_Pi-Agent
+- docs/Phase67_AGENTS
+- src/codrag/core/llm_client.py
+- src/codrag/core/model_awareness.py
+- src/codrag/core/model_readiness.py
+- src/codrag/core/scheduler.py
+- src/codrag/core/watcher.py
+Call `codrag` for detailed content from these areas.
+
+If `codrag` returns 'setup in progress', the index hasn't been built yet.
+Work normally with read_file/grep_search until the user builds the index.
+
+For long tasks (5+ tool calls), call `codrag` again to refresh your
+structural context.
+
+You can call `codrag` and `codrag_search` in parallel on your first
+prompt -- structural overview + targeted code lookup in one round-trip.
+
+### Tool Calling Rules
+1. **Never announce** 'I will now call...' - just call the tool
+2. **No permission needed** - simple keywords = immediate invocation
+3. **Single word triggers** - 'codrag' alone is enough to call the tool
+4. **Context is cheap** - prefer calling codrag to using grep for structural understanding
+
+**Remember: The word "codrag" anywhere in user input is a tool invocation signal. Call immediately without asking permission.**
+<!-- codrag-managed-end -->

@@ -178,6 +178,10 @@ class StaffingEngine:
             return []
 
         report = self.check_readiness()
+        logger.info(
+            "[HR] Readiness check: score=%.2f, list_ready=%s, auto_ready=%s",
+            report.score, report.ready_for_list, report.ready_for_auto,
+        )
         if report.score < min_readiness:
             missing_str = "; ".join(report.missing[:3]) if report.missing else "insufficient data"
             raise ValueError(
@@ -194,6 +198,11 @@ class StaffingEngine:
         for m in modules:
             all_tags.extend(m.get("domain_tags", []))
 
+        logger.info(
+            "[HR] Context loaded: %d modules, atlas=%d chars, %d domain tags",
+            len(modules), len(atlas), len(set(all_tags)),
+        )
+
         # Deduplicate by slug
         seen_slugs: set = set()
         unique_names: List[str] = []
@@ -204,8 +213,9 @@ class StaffingEngine:
                 unique_names.append(name)
 
         roles: List[RoleSpec] = []
-        for name in unique_names:
+        for i, name in enumerate(unique_names, 1):
             slug = _normalize_slug(name)
+            logger.info("[HR] Generating role %d/%d: %s (slug=%s)", i, len(unique_names), name, slug)
             role = self._generate_single_role(
                 display_name=name,
                 slug=slug,
@@ -216,7 +226,9 @@ class StaffingEngine:
             )
             self._roster.save_role(role)
             roles.append(role)
+            logger.info("[HR] Role '%s' saved to roster and disk", slug)
 
+        logger.info("[HR] Generation complete: %d role(s) created", len(roles))
         return roles
 
     def _generate_single_role(
@@ -228,28 +240,53 @@ class StaffingEngine:
         domain_tags: List[str],
         llm_fn: LLMFn,
     ) -> RoleSpec:
-        """Generate all three files for a single role."""
+        """Generate all three files for a single role.
+
+        If existing files are found in ``.agents/<slug>/``, their content is
+        passed to the LLM as ``previous_content`` so human edits (e.g. the user
+        adding "manages the storybook") are preserved and expanded upon.
+        """
         atlas_excerpt = atlas[:2000] if atlas else "(no atlas available)"
 
+        # ── Load previous content from disk (edit-aware regeneration) ──
+        prev_agents, prev_soul = self._load_existing_files(slug)
+        if prev_agents:
+            logger.info(
+                "[HR/%s] Found existing AGENTS.md (%d chars) — edits will be preserved",
+                slug, len(prev_agents),
+            )
+        if prev_soul:
+            logger.info(
+                "[HR/%s] Found existing SOUL.md (%d chars) — edits will be preserved",
+                slug, len(prev_soul),
+            )
+
         # 1. Generate AGENTS.md via LLM
+        logger.info("[HR/%s] Generating AGENTS.md ...", slug)
         agents_prompt = render_agents_md_prompt(
             role_name=display_name,
             role_slug=slug,
             atlas_excerpt=atlas_excerpt,
             modules_summary=modules_summary,
             recommended_files=[],
+            previous_content=prev_agents,
         )
-        agents_md, _ = llm_fn(agents_prompt, system=AGENTS_MD_SYSTEM)
+        agents_md, agents_tokens = llm_fn(agents_prompt, system=AGENTS_MD_SYSTEM)
+        logger.info("[HR/%s] AGENTS.md generated (%d chars, %d tokens)", slug, len(agents_md), agents_tokens)
 
         # 2. Generate SOUL.md via LLM
+        logger.info("[HR/%s] Generating SOUL.md ...", slug)
         soul_prompt = render_soul_md_prompt(
             role_name=display_name,
             role_slug=slug,
             atlas_excerpt=atlas_excerpt,
+            previous_content=prev_soul,
         )
-        soul_md, _ = llm_fn(soul_prompt, system=SOUL_MD_SYSTEM)
+        soul_md, soul_tokens = llm_fn(soul_prompt, system=SOUL_MD_SYSTEM)
+        logger.info("[HR/%s] SOUL.md generated (%d chars, %d tokens)", slug, len(soul_md), soul_tokens)
 
         # 3. Generate KNOWLEDGE.md via template (no LLM)
+        logger.info("[HR/%s] Rendering KNOWLEDGE.md template ...", slug)
         knowledge_md = render_knowledge_md(
             role_name=display_name,
             role_slug=slug,
@@ -259,13 +296,75 @@ class StaffingEngine:
             project_id=self._project_id,
         )
 
-        return RoleSpec(
+        role = RoleSpec(
             slug=slug,
             display_name=display_name,
             agents_md=agents_md,
             soul_md=soul_md,
             knowledge_md=knowledge_md,
         )
+
+        # 4. Write files to disk
+        written = self.write_role_files(role)
+        for fp in written:
+            logger.info("[HR/%s] Wrote: %s", slug, fp)
+
+        return role
+
+    # -- Disk I/O for role files -----------------------------------------
+
+    def _agents_dir(self) -> Path:
+        """Return the ``.agents/`` directory in the project root (or index dir)."""
+        if self._core is not None and self._core._data._project_root:
+            return self._core._data._project_root / ".agents"
+        return self._index_dir / ".agents"
+
+    def _load_existing_files(self, slug: str) -> Tuple[str, str]:
+        """Load existing AGENTS.md and SOUL.md from disk for edit-aware regeneration.
+
+        Returns (agents_md_content, soul_md_content). Empty strings if missing.
+        """
+        role_dir = self._agents_dir() / slug
+        agents_md = ""
+        soul_md = ""
+        if role_dir.exists():
+            agents_path = role_dir / "AGENTS.md"
+            soul_path = role_dir / "SOUL.md"
+            if agents_path.exists():
+                try:
+                    agents_md = agents_path.read_text(encoding="utf-8")
+                except Exception as exc:
+                    logger.warning("[HR/%s] Failed to read existing AGENTS.md: %s", slug, exc)
+            if soul_path.exists():
+                try:
+                    soul_md = soul_path.read_text(encoding="utf-8")
+                except Exception as exc:
+                    logger.warning("[HR/%s] Failed to read existing SOUL.md: %s", slug, exc)
+        return agents_md, soul_md
+
+    def write_role_files(self, role: RoleSpec) -> List[Path]:
+        """Write AGENTS.md, SOUL.md, and KNOWLEDGE.md to ``.agents/<slug>/``.
+
+        Creates the directory if it doesn't exist. Returns list of written paths.
+        """
+        role_dir = self._agents_dir() / role.slug
+        role_dir.mkdir(parents=True, exist_ok=True)
+
+        written: List[Path] = []
+        for filename, content in [
+            ("AGENTS.md", role.agents_md),
+            ("SOUL.md", role.soul_md),
+            ("KNOWLEDGE.md", role.knowledge_md),
+        ]:
+            if content:
+                path = role_dir / filename
+                try:
+                    path.write_text(content, encoding="utf-8")
+                    written.append(path)
+                except Exception as exc:
+                    logger.error("[HR/%s] Failed to write %s: %s", role.slug, filename, exc)
+
+        return written
 
     # -- Auto / Hybrid Mode Generation --
 
@@ -380,7 +479,19 @@ class StaffingEngine:
         response, _ = llm_fn(prompt, system=AUTO_ROLES_SYSTEM, json_mode=True)
 
         try:
-            roles = json.loads(response)
+            # Strip markdown fences if present
+            clean_response = response.strip()
+            if clean_response.startswith("```json"):
+                clean_response = clean_response.split("```json", 1)[-1]
+                if "```" in clean_response:
+                    clean_response = clean_response.rsplit("```", 1)[0]
+            elif clean_response.startswith("```"):
+                clean_response = clean_response.split("```", 1)[-1]
+                if "```" in clean_response:
+                    clean_response = clean_response.rsplit("```", 1)[0]
+            clean_response = clean_response.strip()
+
+            roles = json.loads(clean_response)
             if not isinstance(roles, list):
                 roles = [roles]
             # Validate each role has required fields

@@ -94,8 +94,11 @@ class PipelineRunMetadata:
     finished_at: Optional[str] = None
     elapsed_seconds: Optional[float] = None
 
+    # Phase 61B: Heartbeat — active stages update this periodically
+    heartbeat_at: Optional[str] = None
+
     # Status
-    status: str = "running"  # running | completed | failed | cancelled
+    status: str = "running"  # running | completed | failed | cancelled | interrupted
 
     # Stages
     stages: List[StageRecord] = field(default_factory=list)
@@ -127,6 +130,8 @@ class PipelineRunMetadata:
             d["finished_at"] = self.finished_at
         if self.elapsed_seconds is not None:
             d["elapsed_seconds"] = round(self.elapsed_seconds, 2)
+        if self.heartbeat_at:
+            d["heartbeat_at"] = self.heartbeat_at
         d["stages"] = [s.to_dict() for s in self.stages]
         if self.models_used:
             d["models_used"] = self.models_used
@@ -148,6 +153,7 @@ class PipelineRunMetadata:
             started_at=d.get("started_at"),
             finished_at=d.get("finished_at"),
             elapsed_seconds=d.get("elapsed_seconds"),
+            heartbeat_at=d.get("heartbeat_at"),
             status=d.get("status", "running"),
             stages=[StageRecord.from_dict(s) for s in d.get("stages", [])],
             models_used=d.get("models_used", {}),
@@ -283,6 +289,107 @@ def save_run_metadata(meta: PipelineRunMetadata, index_dir: Path) -> None:
             json.dump(meta.to_dict(), f, indent=2, ensure_ascii=False)
     except Exception as e:
         logger.debug("Failed to save run metadata: %s", e)
+
+
+# ── Phase 61B: Heartbeat + Staleness Detection ────────────────────
+
+_HEARTBEAT_STALE_SECONDS = 300.0  # 5 minutes without heartbeat = stuck
+_STARTUP_STALE_SECONDS = 3600.0   # 1 hour old "running" metadata on startup = zombie
+
+
+def update_heartbeat(index_dir: Path) -> None:
+    """Write a fresh heartbeat timestamp to pipeline_run_metadata.json.
+
+    Called periodically by active pipeline stages (~60s intervals) so
+    the watchdog can distinguish a genuinely running pipeline from a
+    zombie left behind by a crashed process.
+    """
+    meta = load_run_metadata(index_dir)
+    if meta is None or meta.status != "running":
+        return
+    meta.heartbeat_at = datetime.now(timezone.utc).isoformat()
+    save_run_metadata(meta, index_dir)
+
+
+def check_heartbeat_stale(index_dir: Path) -> Optional[Dict[str, Any]]:
+    """Check if pipeline_run_metadata.json has a stale heartbeat.
+
+    Returns None if healthy, or a diagnostic dict if stale/zombie:
+    {
+        "status": "zombie" | "stale_heartbeat",
+        "started_at": "...",
+        "heartbeat_at": "...",
+        "age_seconds": 12345,
+        "heartbeat_age_seconds": 600,
+        "group": "deep_enrichment",
+        "run_id": "run-...",
+    }
+    """
+    meta = load_run_metadata(index_dir)
+    if meta is None or meta.status != "running":
+        return None  # No active run or already completed/failed
+
+    now = datetime.now(timezone.utc)
+    age_seconds = 0.0
+    heartbeat_age_seconds = 0.0
+
+    if meta.started_at:
+        try:
+            started = datetime.fromisoformat(meta.started_at)
+            age_seconds = (now - started).total_seconds()
+        except Exception:
+            pass
+
+    if meta.heartbeat_at:
+        try:
+            hb = datetime.fromisoformat(meta.heartbeat_at)
+            heartbeat_age_seconds = (now - hb).total_seconds()
+        except Exception:
+            pass
+    else:
+        # No heartbeat ever written — use started_at age as heartbeat age
+        heartbeat_age_seconds = age_seconds
+
+    result: Dict[str, Any] = {
+        "run_id": meta.run_id,
+        "group": meta.group,
+        "started_at": meta.started_at,
+        "heartbeat_at": meta.heartbeat_at,
+        "age_seconds": round(age_seconds, 1),
+        "heartbeat_age_seconds": round(heartbeat_age_seconds, 1),
+    }
+
+    # Zombie: "running" for over 1 hour with no heartbeat
+    if age_seconds > _STARTUP_STALE_SECONDS and not meta.heartbeat_at:
+        result["status"] = "zombie"
+        return result
+
+    # Stale heartbeat: last heartbeat was over 5 minutes ago
+    if heartbeat_age_seconds > _HEARTBEAT_STALE_SECONDS:
+        result["status"] = "stale_heartbeat"
+        return result
+
+    return None  # Healthy
+
+
+def reset_stale_metadata(index_dir: Path, reason: str = "startup_recovery") -> bool:
+    """Reset stale 'running' metadata to 'interrupted'.
+
+    Returns True if the metadata was reset, False if already clean.
+    """
+    meta = load_run_metadata(index_dir)
+    if meta is None or meta.status != "running":
+        return False
+    meta.status = "interrupted"
+    meta.finished_at = datetime.now(timezone.utc).isoformat()
+    logger.info(
+        "Phase 61B: Reset stale pipeline_run_metadata.json for %s/%s "
+        "(run_id=%s, started=%s, reason=%s)",
+        meta.project_id, meta.group, meta.run_id,
+        meta.started_at, reason,
+    )
+    save_run_metadata(meta, index_dir)
+    return True
 
 
 def load_run_metadata(index_dir: Path) -> Optional[PipelineRunMetadata]:

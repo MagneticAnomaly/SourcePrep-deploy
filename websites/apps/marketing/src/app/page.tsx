@@ -1,6 +1,6 @@
 "use client";
 
-import { MarketingHero, FeatureBlocks, codragFeatures, marketingFeatures, CompetitorMatrix } from '@codrag/ui';
+import { MarketingHero, FeatureBlocks, codragFeatures, marketingFeatures, CompetitorMatrix, AnimatedIDE, ideDemoScript } from '@codrag/ui';
 import { Terminal, ArrowRight, HelpCircle, Lightbulb, Check, Minus } from 'lucide-react';
 import Link from 'next/link';
 import { DevMarketingHero } from './DevMarketingHero';
@@ -23,7 +23,7 @@ export default function Page() {
           <p className="text-text-muted">
             CoDRAG is a local codebase indexing and context assembly engine designed for AI-assisted development. 
             It creates a structural code graph using Rust and tree-sitter to map imports, call chains, and symbol hierarchies. 
-            By integrating directly via the Model Context Protocol (MCP) into tools like Cursor, Windsurf, and Claude Desktop, 
+            By integrating directly via the Model Context Protocol (MCP) into tools like Cursor, Windsurf, and Claude Code, 
             CoDRAG provides highly compressed, structurally-aware context to AI models. Your code index stays perfectly secure on your machine, while you freely connect your choice of cloud APIs or local models for reasoning.
           </p>
         </section>
@@ -95,6 +95,22 @@ export default function Page() {
           </div>
         </section>
 
+        {/* Live IDE Demonstration */}
+        <section className="mb-16">
+          <div className="text-center mb-16">
+            <p className="text-sm font-semibold uppercase tracking-widest text-primary mb-3">Live IDE Demo</p>
+            <h2 className="text-3xl font-medium tracking-tight text-text sm:text-4xl">
+              See autonomous editing in action
+            </h2>
+            <p className="mt-4 text-lg text-text-muted max-w-2xl mx-auto">
+              This isn't just theory. Connect the CoDRAG MCP server to modern agentic IDEs, and let your AI securely traverse your codebase and edit files directly.
+            </p>
+          </div>
+          <div className="w-full max-w-5xl mx-auto shadow-2xl">
+            <AnimatedIDE script={ideDemoScript} className="w-full border-border rounded-xl" />
+          </div>
+        </section>
+
         {/* How It Works — The Three Tools */}
         <section className="rounded-2xl border border-border bg-surface p-8 md:p-12">
           <div className="text-center mb-12">
@@ -103,7 +119,7 @@ export default function Page() {
               Three tools. Zero configuration.
             </h2>
             <p className="mt-4 text-lg text-text-muted max-w-2xl mx-auto">
-              CoDRAG runs locally as an MCP server. Connect it once to Cursor, Windsurf, Antigravity, or Claude Desktop &mdash; and your AI gets ambient codebase awareness, project orientation, and architectural audits automatically.
+              CoDRAG runs locally as an MCP server. Connect it once to Cursor, Windsurf, Antigravity, or Claude Code &mdash; and your AI gets ambient codebase awareness, project orientation, and architectural audits automatically.
             </p>
           </div>
 
@@ -135,31 +151,29 @@ export default function Page() {
               <p className="text-[11px] text-text-muted italic mt-3">Hub files, module summaries, graph neighbors &mdash; delivered before the AI writes a single line.</p>
             </div>
 
-            {/* Tool 2: hi_codrag — Project Orientation */}
+            {/* Tool 2: codrag_impact — Blast Radius Assessment */}
             <div className="rounded-xl border border-border bg-background p-5 flex flex-col">
-              <h3 className="font-mono font-bold text-lg text-text mb-1">hi_codrag</h3>
-              <p className="text-sm text-text-muted mb-4">Say <code className="bg-primary/10 text-primary px-1 rounded text-xs">hi_codrag</code> and see what the AI knows &mdash; project health, selected files, and suggested next steps.</p>
+              <h3 className="font-mono font-bold text-lg text-text mb-1">codrag_impact</h3>
+              <p className="text-sm text-text-muted mb-4">Calculate the blast radius of a file or symbol before you change it. Know precisely what will break downstream.</p>
 
               {/* Chat-style panel */}
               <div className="flex-1 rounded-lg border border-border-subtle bg-[#0a0f1c] overflow-hidden">
                 {/* User message */}
                 <div className="px-3 py-2.5 border-b border-border-subtle">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted">You</span>
-                  <p className="text-sm text-text mt-0.5">hi_codrag</p>
+                  <p className="text-sm text-text mt-0.5">What breaks if I modify UserSchema?</p>
                 </div>
                 {/* Tool call bar */}
                 <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border-subtle bg-surface/30">
                   <Terminal className="w-3 h-3 text-primary" />
-                  <span className="font-mono text-[11px] text-primary">hi_codrag</span>
+                  <span className="font-mono text-[11px] text-primary">codrag_impact</span>
                 </div>
                 {/* AI response */}
-                <div className="px-3 py-2.5 text-xs text-text-muted space-y-1.5">
-                  <div>I can see <span className="text-text font-medium">3 code files</span> and <span className="text-text font-medium">2 design docs</span>.</div>
-                  <div>Graph health: <span className="text-success font-medium">92%</span> understanding.</div>
-                  <div className="pt-1.5 mt-1.5 border-t border-border-subtle text-text-muted">
-                    <div className="mb-1">Try next:</div>
-                    <div>1. &quot;Walk me through this code&quot;</div>
-                    <div>2. &quot;What should I work on?&quot;</div>
+                <div className="px-3 py-2.5 font-mono text-xs text-text-muted space-y-1.5">
+                  <div>Direct dependents: <span className="text-text font-medium">3 files</span></div>
+                  <div>Transitive dependents: <span className="text-warning font-medium">7 files</span></div>
+                  <div className="pt-1.5 mt-1.5 border-t border-border-subtle text-[11px]">
+                    <span className="text-primary">&#9656;</span> <span className="text-text">api/login.ts</span> and <span className="text-text">db/migrations.ts</span> will require updates.
                   </div>
                 </div>
               </div>
@@ -215,7 +229,7 @@ export default function Page() {
           </div>
           
           <div className="text-center mt-10">
-             <a href="https://docs.codrag.io/mcp" className="text-sm text-primary hover:underline">View full integration guides for Cursor, Windsurf, & Antigravity →</a>
+             <a href="https://docs.codrag.io/mcp" className="text-sm text-primary hover:underline">View full integration guides for Agentic IDEs (Cursor/Windsurf) & Terminal CLIs (Claude Code) →</a>
           </div>
         </section>
 

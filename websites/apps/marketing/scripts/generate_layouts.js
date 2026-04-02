@@ -3,7 +3,7 @@ const path = require('path');
 
 const pages = {
   pricing: { title: 'Pricing', description: 'Transparent pricing for CoDRAG. Free tier available, or get a Pro perpetual license with zero cloud token markup.', path: '/pricing' },
-  download: { title: 'Download', description: 'Download the CoDRAG desktop app for macOS, Windows, and Linux. Plug it into Cursor, Windsurf, or Claude Desktop via MCP.', path: '/download' },
+  download: { title: 'Download', description: 'Download the CoDRAG desktop app for macOS, Windows, and Linux. Plug it into Cursor, Windsurf, or Claude Code via MCP.', path: '/download' },
   security: { title: 'Security & Privacy', description: 'CoDRAG is local-first by default. Your codebase stays on your machine. Learn about our zero-telemetry architecture.', path: '/security' },
   faq: { title: 'FAQ', description: 'Frequently asked questions about CoDRAG, local RAG, token budgets, and MCP integration.', path: '/faq' },
   about: { title: 'About', description: 'The mission behind CoDRAG: bringing determinism and structural understanding back to AI coding tools.', path: '/about' },

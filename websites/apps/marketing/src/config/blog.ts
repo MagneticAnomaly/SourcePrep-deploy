@@ -32,7 +32,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: 'mcp-the-universal-connector',
     title: 'MCP: The Universal Connector',
     excerpt:
-      'How the Model Context Protocol lets CoDRAG integrate with Cursor, Windsurf, VS Code, and Claude Desktop.',
+      'How the Model Context Protocol lets CoDRAG integrate with Cursor, Windsurf, VS Code, and Claude Code.',
     date: 'Feb 01, 2026',
     author: 'Integration',
     tags: ['Ecosystem'],

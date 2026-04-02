@@ -69,13 +69,13 @@ export default function Page() {
           </p>
           
           <div className="grid sm:grid-cols-2 gap-4 not-prose my-6">
-            <a href="/mcp/cursor" className="block p-4 border border-border rounded-lg hover:border-primary transition-colors">
-              <div className="font-bold">Cursor</div>
-              <div className="text-sm text-text-muted">Settings &gt; Features &gt; MCP</div>
+            <a href="/mcp/ides" className="block p-4 border border-border rounded-lg hover:border-primary transition-colors">
+              <div className="font-bold">Agentic IDEs</div>
+              <div className="text-sm text-text-muted">Cursor, Windsurf, Copilot, Zed</div>
             </a>
-            <a href="/mcp/windsurf" className="block p-4 border border-border rounded-lg hover:border-primary transition-colors">
-              <div className="font-bold">Windsurf</div>
-              <div className="text-sm text-text-muted">~/.codeium/windsurf/mcp_config.json</div>
+            <a href="/mcp/terminal" className="block p-4 border border-border rounded-lg hover:border-primary transition-colors">
+              <div className="font-bold">Terminal CLIs</div>
+              <div className="text-sm text-text-muted">Claude Code, Gemini CLI, Codex</div>
             </a>
           </div>
 
@@ -88,22 +88,22 @@ export default function Page() {
 
           <AnchorHeading id="verify" level="h2">5. Verify</AnchorHeading>
           <p>
-            Open your editor&apos;s AI chat (e.g. Cursor Agent or Windsurf Cascade) and type:
+            Open your editor&apos;s AI chat (e.g. Cursor Agent or Windsurf Cascade) and call:
           </p>
           <blockquote className="border-l-4 border-primary pl-4 italic text-text-muted my-4">
-            &quot;hi_codrag&quot;
+            &quot;codrag&quot;
           </blockquote>
           <p>
-            The <code>hi_codrag</code> tool returns a project overview: index status, trace coverage, your selected files, health notes, and suggested prompts tailored to your codebase. It&apos;s the best first step after connecting.
+            The <code>codrag</code> tool returns an ambient project baseline: index status, trace coverage, your selected focus areas, and hub files tailored to your codebase. It&apos;s the best first step after connecting.
           </p>
           <p className="text-sm text-text-muted mt-2">
-            Then try a deeper query:
+            Then try a deeper explicit query:
           </p>
           <blockquote className="border-l-4 border-border pl-4 italic text-text-muted my-4">
             &quot;Graph the callers of [Function X] and find where it&apos;s used.&quot;
           </blockquote>
           <p>
-            You should see the agent call <code>codrag</code> with <code>trace_expand=true</code> and return a structural graph analysis.
+            You should see the agent call <code>codrag_search</code> with structural tracing and return an expanded graph analysis.
           </p>
           <p className="text-sm text-text-muted mt-2 bg-surface border border-border rounded-lg p-3">
             <span className="font-semibold text-text">Free tier note:</span> Graph expansion requires a trace build. On the Free tier, trigger this manually from the dashboard (Graph Status → Build) before trying the graph query above. Paid tiers build the trace automatically on file save.
@@ -120,7 +120,7 @@ export default function Page() {
             The <code>codrag_audit</code> tool analyzes your trace graph for architectural issues, tech debt, test coverage gaps, and more &mdash; using 11 built-in analyzers. No LLM required. Results include severity-tagged findings like <code>ARCH-1</code>, <code>QUAL-3</code>, etc.
           </p>
           <p className="text-sm text-text-muted mt-2">
-            To fix a finding, just say <strong>&quot;fix ARCH-1&quot;</strong> &mdash; the AI will call <code>codrag_audit_refactor</code> to get trace context and an action plan for the affected files.
+            To fix a finding, just say <strong>&quot;fix ARCH-1&quot;</strong> &mdash; the AI will call <code>codrag_audit</code> with <code>action=&quot;refactor&quot;</code> to get trace context and an action plan for the affected files.
           </p>
           <p className="text-sm text-text-muted mt-2">
             See the full <a href="/guides/codebase-audit" className="text-primary hover:underline">Codebase Audit Guide</a> for details on all analyzers and the refactor workflow.

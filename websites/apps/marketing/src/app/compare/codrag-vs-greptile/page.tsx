@@ -1,4 +1,7 @@
+"use client";
+
 import { ArrowRight, Check, X } from 'lucide-react';
+import { AnimatedCLI, codragSearchDemo } from '@codrag/ui';
 
 export default function CompareGreptilePage() {
   return (
@@ -94,17 +97,27 @@ export default function CompareGreptilePage() {
               Instead of forcing you into a proprietary web dashboard or a clunky VS Code extension, CoDRAG embraces the open Model Context Protocol (MCP). 
             </p>
             <p className="text-text-muted leading-relaxed">
-              Once the CoDRAG daemon is running, any MCP-compatible client—like Cursor, Windsurf, or the Claude Desktop App—can instantly query your codebase. It feels like magic: you just ask Claude a question about your code, and Claude automatically invokes the local CoDRAG tool to fetch the exact AST-aware context it needs.
+              Once the CoDRAG daemon is running, any MCP-compatible client—like Cursor, Windsurf, or the Claude Code App—can instantly query your codebase. It feels like magic: you just ask Claude a question about your code, and Claude automatically invokes the local CoDRAG tool to fetch the exact AST-aware context it needs.
             </p>
           </section>
 
           <section>
             <h3 className="text-2xl font-bold mb-4">3. Cost and BYOK</h3>
             <p className="text-text-muted leading-relaxed">
-              Cloud indexers often charge steep per-seat monthly fees and mark up token costs. CoDRAG offers a one-time perpetual license option and fully supports Bring Your Own Key (BYOK). The core index runs locally for free. For reasoning, use Anthropic Claude 3.5 Sonnet or OpenAI o3-mini and pay exactly what the API costs—not a penny more. Or, connect local models via Ollama for entirely free inference.
+              {/* MAINTENANCE: To prevent drift, refer to model families (e.g. 'Claude Sonnet' or 'OpenAI reasoning models') rather than specific versions (e.g. '3.5', 'o3') */}
+              Cloud indexers often charge steep per-seat monthly fees and mark up token costs. CoDRAG offers a one-time perpetual license option and fully supports Bring Your Own Key (BYOK). The core index runs locally for free. For reasoning, use Anthropic Claude Sonnet or OpenAI reasoning models and pay exactly what the API costs—not a penny more. Or, connect local models via Ollama for entirely free inference.
             </p>
           </section>
         </div>
+
+        {/* Live Demo */}
+        <section className="mt-16 mb-16">
+          <h2 className="text-2xl font-bold mb-2 text-center">See it in action</h2>
+          <p className="text-text-muted text-center mb-8">
+            CoDRAG delivers structural context to your AI agent in real time — right inside your terminal.
+          </p>
+          <AnimatedCLI script={codragSearchDemo} theme="dark" className="max-w-3xl mx-auto" />
+        </section>
 
         <div className="mt-16 text-center bg-surface-raised border border-border p-12 rounded-2xl">
           <h2 className="text-3xl font-bold mb-6">Ready to secure your AI context?</h2>

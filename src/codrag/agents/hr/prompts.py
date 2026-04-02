@@ -14,9 +14,32 @@ def render_agents_md_prompt(
     atlas_excerpt: str,
     modules_summary: str,
     recommended_files: List[str],
+    previous_content: str = "",
 ) -> str:
-    """Render the LLM prompt for generating an AGENTS.md file."""
+    """Render the LLM prompt for generating an AGENTS.md file.
+
+    If ``previous_content`` is provided (from an existing AGENTS.md on disk),
+    the prompt instructs the LLM to preserve and expand upon human edits
+    rather than generating from scratch.
+    """
     files_block = "\n".join(f"- `{f}`" for f in recommended_files) if recommended_files else "(none)"
+
+    # Edit-aware section: if the user has manually edited the file, tell
+    # the LLM to treat those edits as authoritative additions.
+    edit_aware = ""
+    if previous_content:
+        edit_aware = f"""\n## Previous Version (IMPORTANT — PRESERVE EDITS)
+
+The following is the current AGENTS.md for this role. The user may have
+manually added responsibilities, priorities, or behavioral guidelines.
+**You MUST preserve and incorporate ALL existing content.** Treat any
+human-authored additions as authoritative. Expand and refine them with
+updated codebase context, but NEVER remove or ignore user additions.
+
+```markdown
+{previous_content}
+```
+"""
     return f"""Generate an AGENTS.md instruction file for the **{role_name}** role (slug: `{role_slug}`).
 
 ## Codebase Context
@@ -30,7 +53,7 @@ def render_agents_md_prompt(
 ## Key Files for This Role
 
 {files_block}
-
+{edit_aware}
 ## Requirements
 
 Write a markdown document (~1500 tokens) that includes:
@@ -48,6 +71,8 @@ Ground every instruction in specific modules, files, or architectural patterns f
 
 AGENTS_MD_SYSTEM = """You are an expert at writing AI agent instruction files (AGENTS.md).
 You produce clear, specific, actionable markdown instructions grounded in codebase evidence.
+When given a previous version, you PRESERVE all user-authored additions and integrate them
+with updated codebase context. Never discard human edits.
 Output ONLY the markdown content — no preamble, no code fences wrapping the whole output."""
 
 
@@ -55,14 +80,31 @@ def render_soul_md_prompt(
     role_name: str,
     role_slug: str,
     atlas_excerpt: str,
+    previous_content: str = "",
 ) -> str:
-    """Render the LLM prompt for generating a SOUL.md identity file."""
+    """Render the LLM prompt for generating a SOUL.md identity file.
+
+    If ``previous_content`` is provided, the LLM preserves user edits.
+    """
+    edit_aware = ""
+    if previous_content:
+        edit_aware = f"""\n## Previous Version (IMPORTANT — PRESERVE EDITS)
+
+The following is the current SOUL.md for this role. The user may have
+customized the identity, values, or guardrails. **You MUST preserve and
+incorporate ALL existing content.** Refine with updated codebase context
+but NEVER remove user additions.
+
+```markdown
+{previous_content}
+```
+"""
     return f"""Generate a SOUL.md identity file for the **{role_name}** role (slug: `{role_slug}`).
 
 ## Codebase Context
 
 {atlas_excerpt}
-
+{edit_aware}
 ## Requirements
 
 Write a markdown document (~600 tokens) that includes:
@@ -77,6 +119,8 @@ Derive everything from the codebase context. A CTO of a React dashboard app has 
 
 SOUL_MD_SYSTEM = """You are an expert at writing AI agent identity files (SOUL.md).
 You produce concise, personality-defining markdown that gives an AI agent a coherent identity.
+When given a previous version, you PRESERVE all user-authored identity traits and integrate them
+with updated codebase context. Never discard human customizations.
 Output ONLY the markdown content — no preamble, no code fences wrapping the whole output."""
 
 

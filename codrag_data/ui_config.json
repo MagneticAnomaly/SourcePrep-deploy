@@ -295,7 +295,7 @@
       {
         "id": "usage-guide",
         "visible": true,
-        "height": 20,
+        "height": 18,
         "collapsed": true,
         "x": 4,
         "y": 0,
@@ -340,8 +340,8 @@
       {
         "id": "llm-status",
         "visible": true,
-        "height": 10,
-        "collapsed": true,
+        "height": 9,
+        "collapsed": false,
         "x": 0,
         "y": 22,
         "w": 4
@@ -350,7 +350,7 @@
         "id": "index-health",
         "visible": true,
         "height": 13,
-        "collapsed": true,
+        "collapsed": false,
         "x": 8,
         "y": 23,
         "w": 4
@@ -361,35 +361,26 @@
         "height": 16,
         "collapsed": false,
         "x": 0,
-        "y": 24,
+        "y": 31,
+        "w": 4
+      },
+      {
+        "id": "results",
+        "visible": true,
+        "height": 9,
+        "collapsed": false,
+        "x": 8,
+        "y": 36,
         "w": 4
       },
       {
         "id": "log-console",
         "visible": true,
-        "height": 13,
+        "height": 14,
         "collapsed": false,
         "x": 4,
-        "y": 26,
+        "y": 45,
         "w": 8
-      },
-      {
-        "id": "token-budget",
-        "visible": true,
-        "height": 6,
-        "collapsed": true,
-        "x": 4,
-        "y": 39,
-        "w": 4
-      },
-      {
-        "id": "deep-analysis",
-        "visible": true,
-        "height": 12,
-        "collapsed": true,
-        "x": 8,
-        "y": 39,
-        "w": 4
       },
       {
         "id": "context-options",
@@ -397,25 +388,7 @@
         "height": 7,
         "collapsed": true,
         "x": 0,
-        "y": 40,
-        "w": 4
-      },
-      {
-        "id": "results",
-        "visible": true,
-        "height": 9,
-        "collapsed": true,
-        "x": 8,
-        "y": 41,
-        "w": 4
-      },
-      {
-        "id": "search",
-        "visible": true,
-        "height": 8,
-        "collapsed": true,
-        "x": 4,
-        "y": 41,
+        "y": 47,
         "w": 4
       },
       {
@@ -424,7 +397,52 @@
         "height": 10,
         "collapsed": true,
         "x": 0,
-        "y": 42,
+        "y": 49,
+        "w": 4
+      },
+      {
+        "id": "agent-scope",
+        "visible": true,
+        "height": 11,
+        "collapsed": false,
+        "x": 0,
+        "y": 51,
+        "w": 4
+      },
+      {
+        "id": "token-budget",
+        "visible": true,
+        "height": 6,
+        "collapsed": true,
+        "x": 4,
+        "y": 59,
+        "w": 4
+      },
+      {
+        "id": "deep-analysis",
+        "visible": true,
+        "height": 12,
+        "collapsed": true,
+        "x": 8,
+        "y": 59,
+        "w": 4
+      },
+      {
+        "id": "search",
+        "visible": true,
+        "height": 8,
+        "collapsed": true,
+        "x": 4,
+        "y": 61,
+        "w": 4
+      },
+      {
+        "id": "agent-ops",
+        "visible": true,
+        "height": 9,
+        "collapsed": false,
+        "x": 0,
+        "y": 62,
         "w": 4
       },
       {
@@ -433,7 +451,7 @@
         "height": 8,
         "collapsed": false,
         "x": 4,
-        "y": 43,
+        "y": 63,
         "w": 8
       },
       {
@@ -442,16 +460,16 @@
         "height": 21,
         "collapsed": false,
         "x": 4,
-        "y": 51,
+        "y": 71,
         "w": 8
       },
       {
         "id": "opportunities",
         "visible": true,
         "height": 30,
-        "collapsed": false,
+        "collapsed": true,
         "x": 0,
-        "y": 72,
+        "y": 92,
         "w": 12
       },
       {
@@ -460,7 +478,7 @@
         "height": 22,
         "collapsed": true,
         "x": 0,
-        "y": 102,
+        "y": 94,
         "w": 12
       },
       {
@@ -469,7 +487,7 @@
         "height": 28,
         "collapsed": true,
         "x": 0,
-        "y": 104,
+        "y": 96,
         "w": 12
       },
       {
@@ -478,7 +496,7 @@
         "height": 16,
         "collapsed": true,
         "x": 0,
-        "y": 106,
+        "y": 98,
         "w": 12
       },
       {
@@ -487,7 +505,7 @@
         "height": 19,
         "collapsed": true,
         "x": 0,
-        "y": 108,
+        "y": 100,
         "w": 12
       },
       {
@@ -496,7 +514,7 @@
         "height": 12,
         "collapsed": true,
         "x": 0,
-        "y": 110,
+        "y": 102,
         "w": 12
       },
       {
@@ -521,7 +539,7 @@
   },
   "compute_nodes": [
     {
-      "id": "node_b1f86a91",
+      "id": "node_d019a209",
       "name": "Local Machine",
       "type": "local",
       "hardware_profile": "apple_silicon",

@@ -20,7 +20,7 @@ const POSTS = [
   {
     slug: 'mcp-the-universal-connector',
     title: 'MCP: The Universal Connector',
-    excerpt: 'How the Model Context Protocol lets CoDRAG integrate with Cursor, Windsurf, VS Code, and Claude Desktop.',
+    excerpt: 'How the Model Context Protocol lets CoDRAG integrate with Cursor, Windsurf, VS Code, and Claude Code.',
     date: '2026-02-01',
     author: 'Integration',
   },

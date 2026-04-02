@@ -94,7 +94,7 @@ const faqs: FAQItem[] = [
   },
   {
     id: "already-indexed",
-    q: "Doesn't my AI tool (Cursor, Windsurf, Claude Code) already index my codebase?",
+    q: "Doesn't my Agentic IDE (Cursor, Windsurf, Antigravity) or Terminal (Claude Code) already index my codebase?",
     a: (
       <div className="space-y-6">
         <p><strong>Yes — and CoDRAG doesn&apos;t replace that.</strong> All three tools solve the basic problem of &quot;find relevant code and inject it.&quot; CoDRAG uses the same foundational technique (embed → cosine similarity → top-K) for core retrieval. <strong>We are not reinventing that wheel.</strong></p>
@@ -105,29 +105,27 @@ const faqs: FAQItem[] = [
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left py-2 pr-6 text-text font-semibold">Capability</th>
-                  <th className="text-center py-2 px-3 text-text font-semibold">Cursor</th>
-                  <th className="text-center py-2 px-3 text-text font-semibold">Windsurf</th>
+                  <th className="text-center py-2 px-3 text-text font-semibold">Agentic IDEs</th>
                   <th className="text-center py-2 px-3 text-text font-semibold">Claude Code</th>
                   <th className="text-center py-2 px-3 text-primary font-semibold">CoDRAG</th>
                 </tr>
               </thead>
               <tbody className="text-text-muted">
                 {[
-                  ["Trace graph (imports, calls, inheritance)", "No", "No", "No", "Yes"],
-                  ['Structural expansion (\u201cwhat calls this?\u201d)', "No", "No", "No", "Yes"],
-                  ["Role weights (code vs docs vs tests)", "No", "No", "No", "Yes"],
-                  ["Path weights (per-directory relevance)", "No", "No", "No", "Yes"],
-                  ["Intent detection (query → weight adjustment)", "No", "No", "No", "Yes"],
-                  ["Smart compression (code + docs)", "No", "No", "No", "Yes"],
-                  ["Transparency (scores, chunks, what was sent)", "No", "No", "Partial", "Yes"],
-                  ["Works across all tools (MCP standard)", "\u2014", "\u2014", "\u2014", "Yes"],
-                  ["Persistent agent memory (cross-session)", "No", "No", "No", "Yes"],
-                  ["Editor portability (Cursor, Windsurf, Claude, VS Code)", "No", "No", "No", "Yes"],
-                ].map(([cap, cursor, windsurf, claude, codrag]) => (
+                  ["Trace graph (imports, calls, inheritance)", "No", "No", "Yes"],
+                  ['Structural expansion (\u201cwhat calls this?\u201d)', "No", "No", "Yes"],
+                  ["Role weights (code vs docs vs tests)", "No", "No", "Yes"],
+                  ["Path weights (per-directory relevance)", "No", "No", "Yes"],
+                  ["Intent detection (query → weight adjustment)", "No", "No", "Yes"],
+                  ["Smart compression (code + docs)", "No", "No", "Yes"],
+                  ["Transparency (scores, chunks, what was sent)", "No", "Partial", "Yes"],
+                  ["Works across all tools (MCP standard)", "\u2014", "\u2014", "Yes"],
+                  ["Persistent agent memory (cross-session)", "No", "No", "Yes"],
+                  ["Editor portability (Cursor, Antigravity, Windsurf)", "No", "No", "Yes"],
+                ].map(([cap, ides, claude, codrag]) => (
                   <tr key={cap as string} className="border-b border-border-subtle">
                     <td className="py-2 pr-6">{cap}</td>
-                    <td className="text-center py-2 px-3">{cursor}</td>
-                    <td className="text-center py-2 px-3">{windsurf}</td>
+                    <td className="text-center py-2 px-3">{ides}</td>
                     <td className="text-center py-2 px-3">{claude}</td>
                     <td className="text-center py-2 px-3 text-primary font-semibold">{codrag}</td>
                   </tr>
@@ -284,7 +282,8 @@ const faqs: FAQItem[] = [
     q: "Should I use a local model or a cloud API for reasoning?",
     a: (
       <div className="space-y-4">
-        <p>For the absolute best results, we recommend bringing your own API key (BYOK) for frontier cloud models like Anthropic Claude 3.5 Sonnet, OpenAI o3-mini, or Google Gemini 1.5 Pro. These models have massive context windows and superior reasoning capabilities for complex codebase analysis.</p>
+        {/* MAINTENANCE: To prevent drift, refer to model families (e.g. 'Claude Sonnet', 'Gemini Pro') rather than specific versions (e.g. '3.5', '1.5') */}
+        <p>For the absolute best results, we recommend bringing your own API key (BYOK) for frontier cloud models like Anthropic Claude Sonnet, OpenAI reasoning models, or Google Gemini Pro. These models have massive context windows and superior reasoning capabilities for complex codebase analysis.</p>
         <p>However, if strict data privacy is required (e.g., enterprise compliance, air-gapped environments), you can easily connect local models via Ollama. CoDRAG is designed to support both seamlessly. The code <em>index</em> itself always remains 100% local on your machine.</p>
       </div>
     ),
@@ -316,7 +315,7 @@ const faqs: FAQItem[] = [
     q: "Which editors does it work with?",
     a: (
       <div className="space-y-4">
-        <p>CoDRAG is a standalone daemon and an <strong>MCP (Model Context Protocol) server</strong>. It is not locked to any IDE. Today it works with <strong>Cursor</strong>, <strong>Windsurf</strong>, <strong>Claude Desktop</strong>, and <strong>Claude Code</strong> (terminal). A VS Code extension is in development.</p>
+        <p>CoDRAG is a standalone daemon and an <strong>MCP (Model Context Protocol) server</strong>. It is not locked to any IDE. Today it works with <strong>Cursor</strong>, <strong>Windsurf</strong>, <strong>Claude Code</strong>, and <strong>Claude Code</strong> (terminal). A VS Code extension is in development.</p>
         <p>Because CoDRAG uses the open MCP standard, any future editor or agent that supports MCP will work automatically &mdash; no integration work on our end. Your index, weights, observations, and full project configuration are stored locally and editor-independent. Switch tools without losing anything.</p>
       </div>
     ),

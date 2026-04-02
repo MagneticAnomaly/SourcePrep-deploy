@@ -79,3 +79,7 @@ export { TableOfContents, type TableOfContentsProps, type TocItem } from './docs
 // Data Visualization Components (Phase 16)
 export { ActivityHeatmap, generateSampleActivityData } from './viz/ActivityHeatmap';
 export type { ActivityHeatmapProps, ActivityHeatmapData, ActivityDay } from './viz/ActivityHeatmap';
+
+// Animated CLI Components (Phase 69)
+export { AnimatedCLI, TerminalFrame, codragSearchDemo, codragImpactDemo, codragOverviewDemo } from './console';
+export type { AnimatedCLIProps, TerminalFrameProps, CliEvent, CliScript, TerminalTheme } from './console';

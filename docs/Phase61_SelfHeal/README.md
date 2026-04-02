@@ -1,13 +1,23 @@
-# Phase 61 — Self-Heal: Uncategorized File Checker
+# Phase 61 — Self-Heal: Pipeline Integrity & Auto-Recovery
 
-## Rationale
-CoDRAG processes files through an 11-stage deep enrichment pipeline. As the codebase evolves, files are added, moved, and modified. While features like Continuous Deepening and the AutoRebuildWatcher handle most incremental processing and self-healing, there is a need for a fast, read-only diagnostic tool to verify the integrity of the pipeline data against the current filesystem state.
+## Overview
 
-The existing Python-based `coverage.py` script is slow on large repositories and only checks the initial structural trace (Stage 1). The goal of Phase 61 is to build a high-performance Rust CLI tool that cross-references the filesystem with all major pipeline checkpoints.
+Phase 61 provides a comprehensive self-healing system for the CoDRAG pipeline. It ensures the 11-stage enrichment pipeline maintains integrity, recovers from crashes and stalls, and proactively detects broken or stale database states.
 
-## Architecture: `codrag-selfheal`
+The system has two layers:
 
-`codrag-selfheal` is a standalone Rust binary integrated into the `codrag-engine` workspace. It leverages the lightning-fast `codrag-walker` crate to scan the filesystem and compares the discovered files against the pipeline's JSONL data files.
+| Layer | Name | Type | Status |
+|-------|------|------|--------|
+| **Phase 61A** | `codrag-selfheal` | Read-only Rust diagnostic CLI | ✅ Implemented |
+| **Phase 61B** | Active Self-Heal | Python startup recovery + heartbeat watchdog | ✅ Implemented |
+
+---
+
+## Phase 61A: Diagnostic CLI (`codrag-selfheal`)
+
+**Location:** `engine/crates/codrag-selfheal/src/main.rs`
+
+A standalone Rust binary that cross-references the filesystem against pipeline checkpoint files to identify coverage gaps. Designed for fast, read-only analysis.
 
 ### Checkpoints Monitored
 
@@ -18,41 +28,117 @@ The existing Python-based `coverage.py` script is slow on large repositories and
 
 ### Execution Flow
 
-1. **Policy Loading**: Reads `.codrag/repo_policy.json` to respect the project's custom include/exclude globs.
-2. **Filesystem Walk**: Uses `codrag-walker` to find all eligible code files on disk (typically takes <100ms).
-3. **Pipeline Data Loading**: Parses the `file_path` fields from the respective JSONL files in the `.codrag` index directory.
-4. **Diff Analysis**: Computes the set subtraction (`filesystem_files - pipeline_files`) for each checkpoint.
-5. **Reporting**: Outputs a JSON diagnostic report detailing coverage percentages and exactly which files are missing at each stage.
+1. **Policy Loading**: Reads `.codrag/repo_policy.json` for include/exclude globs.
+2. **Filesystem Walk**: Uses `codrag-walker` for sub-100ms scanning.
+3. **Pipeline Data Loading**: Parses file paths from JSONL checkpoints.
+4. **Diff Analysis**: `filesystem_files - pipeline_files` per checkpoint.
+5. **Reporting**: JSON output with coverage percentages and missing files.
 
-## Usage
+### Usage
 
 ```bash
-# General usage
 cargo run -p codrag-selfheal -- /path/to/repo /path/to/repo/.codrag
-
-# Example output
-{
-  "repo_root": "/path/to/repo",
-  "index_dir": "/path/to/repo/.codrag",
-  "scanned_at": "2026-03-29T10:00:00Z",
-  "disk_files": 1143,
-  "checkpoints": {
-    "traced": {
-      "covered": 1143,
-      "missing": []
-    },
-    "augmented": {
-      "covered": 1140,
-      "missing": ["src/new_feature.ts"]
-    }
-  },
-  "summary": {
-    "fully_healed": false,
-    "worst_gap": "augmented",
-    "worst_gap_pct": 99.7,
-    "rogue_files": 3
-  }
-}
 ```
 
-This read-only tool is safe to run at any time and provides the necessary telemetry to ensure the AI pipeline maintains complete visibility over the codebase.
+---
+
+## Phase 61B: Active Self-Heal System
+
+Phase 61B transforms passive diagnostics into an active recovery system that operates at three critical points in the pipeline lifecycle:
+
+### 1. Server Startup Recovery
+
+**File:** `src/codrag/services/pipeline/orchestrator.py` → `_auto_recover_stale_pipelines()`
+
+On every server startup, the orchestrator:
+
+1. **Detects zombie metadata**: Scans `pipeline_run_metadata.json` for all projects. If `status == "running"` but the process no longer exists (heartbeat stale or started_at > 1 hour ago), resets to `"interrupted"`.
+
+2. **Logs manifest age summary**: Writes a comprehensive `selfheal.manifest_age` event showing exactly when each of the 11 stages last completed. This is the single most valuable diagnostic for "why is the pipeline stuck?"
+
+3. **Auto-triggers recovery**: If `deep_enrichment` auto mode is enabled and deep manifests are older than the structural trace manifest, auto-queues `run_deep_enrichment()` after a 10s warmup delay.
+
+### 2. Heartbeat System
+
+**File:** `src/codrag/services/pipeline_metadata.py`
+
+Active pipeline stages write a `heartbeat_at` timestamp to `pipeline_run_metadata.json` every 60 seconds. This allows the watchdog to distinguish:
+
+- **Genuinely running**: heartbeat < 5 minutes old
+- **Stuck/zombie**: heartbeat > 5 minutes old or absent
+
+Key functions:
+- `update_heartbeat(index_dir)` — called by the heartbeat timer
+- `check_heartbeat_stale(index_dir)` — returns `None` (healthy) or `{"status": "zombie"|"stale_heartbeat", ...}`
+- `reset_stale_metadata(index_dir, reason)` — resets stale metadata to `"interrupted"`
+
+### 3. Heartbeat Watchdog
+
+**File:** `src/codrag/core/watcher.py` → `_on_coverage_check()`
+
+Piggybacks on the existing 5-minute coverage check timer. Every coverage check cycle also:
+
+1. Calls `check_heartbeat_stale()` for the project
+2. If stale: logs `selfheal.heartbeat_stale` event, resets metadata, force-resets in-memory state, re-triggers pipeline
+3. If healthy: logs `selfheal.heartbeat_ok` at DEBUG level
+
+---
+
+## Diagnostic Logging
+
+Phase 61B introduces `selfheal` events in the pipeline file logger (`pipeline_logger.py`). These are structured JSON events written to `.codrag/logs/pipeline_*.log`:
+
+```json
+{"ts": "...", "event": "selfheal", "data": {"action": "stale_detected", "detail": "zombie metadata found", ...}}
+{"ts": "...", "event": "selfheal", "data": {"action": "metadata_reset", "detail": "Reset stale metadata", ...}}
+{"ts": "...", "event": "selfheal", "data": {"action": "manifest_age", "detail": "...", "manifests": {...}}}
+{"ts": "...", "event": "selfheal", "data": {"action": "auto_recover", "detail": "Triggering deep enrichment", ...}}
+{"ts": "...", "event": "selfheal", "data": {"action": "heartbeat_stale", "detail": "Watchdog detected zombie", ...}}
+```
+
+### Self-Heal Actions
+
+| Action | When | What it means |
+|--------|------|---------------|
+| `startup_scan` | Server startup | Scanning projects for stale state |
+| `stale_detected` | Server startup | Found zombie/stale pipeline_run_metadata.json |
+| `metadata_reset` | Startup/watchdog | Reset stale metadata to "interrupted" |
+| `auto_recover` | After metadata reset | Auto-triggering pipeline to recover |
+| `heartbeat_ok` | Every 5min (watchdog) | Pipeline heartbeat is fresh |
+| `heartbeat_stale` | Watchdog detection | Pipeline heartbeat expired |
+| `heartbeat_write` | Every 60s (active) | Active stage wrote heartbeat |
+| `manifest_age` | Startup | Per-stage manifest age summary |
+| `coverage_gap` | Coverage check | Files missing at checkpoints |
+
+---
+
+## Problem This Solves
+
+### The Zombie Pipeline Bug
+
+The CoDRAG pipeline lifecycle depends on `pipeline_run_metadata.json` to track running state. When the dev server crashes or restarts:
+
+1. The in-memory `PipelineGroupStateMachine` instances are lost
+2. `pipeline_run_metadata.json` still says `"status": "running"`
+3. The watcher triggers fast_sync on file changes, but deep enrichment never chains because the old manifests appear "complete"
+4. The pipeline gets stuck with stale data indefinitely
+
+Phase 61B breaks this deadlock by:
+- Detecting on startup that the metadata is a zombie
+- Resetting it to allow fresh pipeline runs
+- Auto-triggering deep enrichment when manifests are stale
+- Running a continuous watchdog to prevent future zombies
+
+### The Silent Stall
+
+Even when the server doesn't restart, a pipeline stage can stall silently (LLM timeout, deadlock, OOM). The heartbeat system detects this: if a stage hasn't heartbeated in 5 minutes, the watchdog intervenes.
+
+---
+
+## Future Enhancements
+
+- [ ] **Dashboard health indicator**: Expose `/api/pipeline/health` with per-stage freshness
+- [ ] **Integrate Rust selfheal CLI**: Call from Python after fast_sync completion
+- [ ] **Auto-prune old logs**: Rotate `.codrag/logs/` after N days or N MB
+- [ ] **Sub-atlas freshness check**: Verify segment/role atlases are complete
+- [ ] **Coverage gap autofix**: When codrag-selfheal finds gaps, trigger specific stages

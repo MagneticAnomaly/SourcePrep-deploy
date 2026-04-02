@@ -200,6 +200,37 @@ class PipelineFileLogger:
             **(context or {}),
         })
 
+    # ── Phase 61B: Self-Heal Diagnostic Events ─────────────────────
+
+    def selfheal(
+        self,
+        action: str,
+        detail: str,
+        data: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Log a self-heal diagnostic event.
+
+        These events form the audit trail for pipeline recovery and
+        health monitoring.  They're the first place to look when
+        diagnosing "why didn't the pipeline restart?"
+
+        Actions:
+          - startup_scan: Startup recovery is scanning projects
+          - stale_detected: Found stale/zombie pipeline_run_metadata.json
+          - metadata_reset: Reset stale metadata to 'interrupted'
+          - auto_recover: Auto-triggering a pipeline run to recover
+          - heartbeat_ok: Heartbeat check passed (healthy)
+          - heartbeat_stale: Heartbeat watchdog detected stuck pipeline
+          - heartbeat_write: Active stage wrote a heartbeat
+          - coverage_gap: Coverage check found missing files at checkpoints
+          - manifest_age: Per-stage manifest staleness summary
+        """
+        self._write_event("selfheal", data={
+            "action": action,
+            "detail": detail,
+            **(data or {}),
+        })
+
     def _write_event(
         self,
         event: str,
@@ -209,7 +240,7 @@ class PipelineFileLogger:
         """Write a single structured JSON line to the log file."""
         entry = {
             "ts": datetime.now(timezone.utc).isoformat(),
-            "elapsed": round(time.time() - self._start_time, 3) if self._start_time else 0,
+            "elapsed": round(time.time() - self._start_time, 0) if self._start_time else 0,
             "event": event,
         }
         if stage:

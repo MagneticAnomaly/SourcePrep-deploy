@@ -2,6 +2,9 @@
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@codrag/ui'],
+  pageExtensions: ['js', 'jsx', 'mdx', 'ts', 'tsx'],
 };
 
-module.exports = nextConfig;
+const withMDX = require('@next/mdx')()
+
+module.exports = withMDX(nextConfig)

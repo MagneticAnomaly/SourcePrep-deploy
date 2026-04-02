@@ -53,11 +53,13 @@ export default function Page() {
                 Configure your editor (Cursor/Windsurf) to use the local server.
               </p>
               <div className="ml-8 grid grid-cols-2 gap-4">
-                <a href="/mcp/cursor" className="block p-3 border border-border rounded hover:border-primary">
-                  <span className="font-semibold text-text">Cursor Guide →</span>
+                <a href="/mcp/ides" className="block p-3 border border-border rounded hover:border-primary">
+                  <span className="font-semibold text-text">Agentic IDEs Guide →</span>
+                  <div className="text-xs text-text-muted mt-1">Cursor, Windsurf, Copilot, Zed</div>
                 </a>
-                <a href="/mcp/windsurf" className="block p-3 border border-border rounded hover:border-primary">
-                  <span className="font-semibold text-text">Windsurf Guide →</span>
+                <a href="/mcp/terminal" className="block p-3 border border-border rounded hover:border-primary">
+                  <span className="font-semibold text-text">Terminal CLI Guide →</span>
+                  <div className="text-xs text-text-muted mt-1">Claude Code, Gemini CLI, etc.</div>
                 </a>
               </div>
             </div>
@@ -65,32 +67,24 @@ export default function Page() {
             <div>
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs">4</span>
-                Select Files &amp; Say Hi
+                Select Files &amp; Get Ambient Context
               </h3>
               <p className="text-sm text-text-muted mb-2 ml-8">
-                In the CoDRAG dashboard, use the <span className="font-semibold text-text">Knowledge Sources</span> tree to select the files and folders you want to work with. Then in your editor&apos;s AI chat, type:
+                In the CoDRAG dashboard, use the <span className="font-semibold text-text">Knowledge Sources</span> tree to select the files and folders you want to work with. Then in your editor&apos;s AI chat, simply call:
               </p>
               <blockquote className="ml-8 border-l-2 border-primary pl-4 py-1 italic text-text-muted">
-                &quot;hi_codrag&quot;
+                &quot;codrag&quot;
               </blockquote>
               <p className="text-sm text-text-muted mt-2 ml-8">
-                CoDRAG will tell your AI exactly which files you selected &mdash; your design docs, code files, tests &mdash; and suggest relevant next steps. For example:
+                CoDRAG will feed the AI its ambient project baseline: your hub files, module structures, and focus areas. The AI immediately understands the architecture before you ask your first prompt.
               </p>
               <div className="ml-8 mt-3 bg-surface border border-border p-4 rounded-lg text-sm space-y-3">
                 <p className="text-text-muted">
-                  <span className="font-semibold text-text">AI:</span> I&apos;m looking at your project &mdash; you&apos;ve selected 8 design docs and 18 React components in <code>src/components/</code>.
+                  <span className="font-semibold text-text">AI:</span> I&apos;ve analyzed the requested context — you&apos;ve selected 8 design docs and 18 React components. The most connected central hubs are <code>EnhancedHero.tsx</code> and <code>ParallaxController.tsx</code>. Ready when you are.
                 </p>
-                <p className="text-text-muted text-xs">
-                  Your design docs cover: &quot;Overall Upgrade Plan&quot; (phased site redesign), &quot;Hero Section Design&quot; (parallax layout). It looks like you&apos;re working on <span className="font-semibold text-text">animation &amp; visuals</span> and <span className="font-semibold text-text">UI components</span>. The most connected are <code>EnhancedHero.tsx</code> (6 imports) and <code>ParallaxController.tsx</code> (4 imports).
-                </p>
-                <ol className="list-decimal pl-5 text-text-muted space-y-1">
-                  <li>What UI components are here and how do they connect?</li>
-                  <li>Compare the design docs to the implementation &mdash; anything out of sync?</li>
-                  <li>Summarize the design docs and identify next steps</li>
-                </ol>
               </div>
               <p className="text-sm text-text-muted mt-3 ml-8">
-                Pick a number, or ask your own question &mdash; the AI already knows your context:
+                Now ask your first question &mdash; the AI already knows your architectural context:
               </p>
               <blockquote className="ml-8 border-l-2 border-border pl-4 py-1 italic text-text-muted mt-2">
                 &quot;How does the authentication middleware interact with the user service? Trace the calls.&quot;
@@ -102,19 +96,13 @@ export default function Page() {
                 Audit Your Codebase
               </h3>
               <p className="text-sm text-text-muted mb-2 ml-8">
-                Once your index is built, run a structural audit to find architectural issues, tech debt, and quality gaps &mdash; no LLM required:
+                Once orienting your agent, safely run a structural audit to find architectural issues, tech debt, and quality gaps &mdash; no LLM required:
               </p>
               <blockquote className="ml-8 border-l-2 border-primary pl-4 py-1 italic text-text-muted">
                 &quot;Audit my codebase&quot;
               </blockquote>
               <p className="text-sm text-text-muted mt-2 ml-8">
-                The AI calls <code>codrag_audit</code>, which runs 11 analyzers against your trace graph. You&apos;ll get severity-tagged findings like <code>ARCH-1</code> (circular dependency) or <code>QUAL-3</code> (oversized files). To act on a finding:
-              </p>
-              <blockquote className="ml-8 border-l-2 border-border pl-4 py-1 italic text-text-muted mt-2">
-                &quot;Fix ARCH-1&quot;
-              </blockquote>
-              <p className="text-xs text-text-muted ml-8 mt-2">
-                The AI calls <code>codrag_audit_refactor</code> to get trace context and an action plan for the affected files. See the <a href="/guides/codebase-audit" className="text-primary hover:underline">Codebase Audit Guide</a> for details.
+                The agent will call <code>codrag_audit</code>, executing 11 deterministic analyzers against the trace graph. You&apos;ll get severity-tagged findings like <code>ARCH-1</code> (circular dependency). To act on a finding, you can ask the agent to fix it, and it will use <code>action=&quot;refactor&quot;</code> to generate a plan. See the <a href="/guides/codebase-audit" className="text-primary hover:underline">Codebase Audit Guide</a> for details.
               </p>
             </div>
           </div>

@@ -51,10 +51,15 @@ class CustodianRunRequest(BaseModel):
 @router.get("/projects/{project_id}/agents/hr/readiness")
 def hr_readiness(project_id: str) -> Dict[str, Any]:
     """Check codebase readiness for HR role generation."""
-    idx_dir, _, pid = _get_engine_context(project_id)
+    idx_dir, project_root, pid = _get_engine_context(project_id)
+
+    from codrag.agents.core import AgentCore
+    core = AgentCore(project_id=pid, index_dir=idx_dir, project_root=project_root)
+
     from codrag.agents.hr.engine import StaffingEngine
-    engine = StaffingEngine(index_dir=idx_dir, project_id=pid)
+    engine = StaffingEngine(core=core)
     report = engine.check_readiness()
+    logger.info("[HR API] Readiness: score=%.2f, list=%s, auto=%s", report.score, report.ready_for_list, report.ready_for_auto)
     return ok({
         "score": report.score,
         "ready_for_list": report.ready_for_list,
@@ -90,12 +95,22 @@ def hr_generate(project_id: str, req: HRGenerateRequest) -> Dict[str, Any]:
 
     Requires a running LLM. Mode: 'list' (specify role_names),
     'auto' (LLM infers), or 'hybrid' (both).
+
+    Files are written to ``.agents/<slug>/AGENTS.md``, ``SOUL.md``, ``KNOWLEDGE.md``.
+    If files already exist, previous content is passed to the LLM so user edits
+    are preserved and expanded upon (edit-aware regeneration).
     """
-    idx_dir, _, pid = _get_engine_context(project_id)
+    idx_dir, project_root, pid = _get_engine_context(project_id)
+    logger.info("[HR API] Generate request: mode=%s, role_names=%s, project=%s", req.mode, req.role_names, pid)
+
+    from codrag.agents.core import AgentCore
+    core = AgentCore(project_id=pid, index_dir=idx_dir, project_root=project_root)
+
     from codrag.agents.hr.engine import StaffingEngine
-    engine = StaffingEngine(index_dir=idx_dir, project_id=pid)
+    engine = StaffingEngine(core=core)
 
     llm_fn = _get_llm_fn(pid)
+    logger.info("[HR API] LLM function resolved, starting generation ...")
 
     if req.mode == "list":
         if not req.role_names:
@@ -108,9 +123,24 @@ def hr_generate(project_id: str, req: HRGenerateRequest) -> Dict[str, Any]:
     else:
         raise ApiException(400, "INVALID_MODE", f"Unknown mode: {req.mode}")
 
+    # Collect written file paths
+    file_paths: Dict[str, List[str]] = {}
+    for role in roles:
+        role_dir = engine._agents_dir() / role.slug
+        written = []
+        for fn in ("AGENTS.md", "SOUL.md", "KNOWLEDGE.md"):
+            fp = role_dir / fn
+            if fp.exists():
+                written.append(str(fp))
+        file_paths[role.slug] = written
+
+    logger.info("[HR API] Generation complete: %d role(s), files written to %s", len(roles), engine._agents_dir())
+
     return ok({
         "roles_generated": len(roles),
         "slugs": [r.slug for r in roles],
+        "files": file_paths,
+        "agents_dir": str(engine._agents_dir()),
     })
 
 
@@ -281,37 +311,62 @@ def _get_audit_findings(idx_dir: Path) -> list:
 
 
 def _get_llm_fn(project_id: str):
-    """Get an LLM function from pipeline config settings."""
-    from codrag.services.settings_store import settings
+    """Get an LLM function for agent generation.
 
-    config = settings.get("pipeline_config") or {}
-    model = config.get("model_thinking", "")
-    if not model:
-        raise ApiException(
-            400, "NO_LLM_CONFIGURED",
-            "No LLM model configured. Set up a model in the AI Gateway first.",
-            hint="Configure a model via the dashboard AI Gateway panel or settings.",
+    Uses the server's unified task resolver. Falls back to the large model
+    (model_thinking) since agent generation needs good prose quality.
+    """
+    from codrag.server import _get_llm_client_for_task
+
+    # Try agent-specific task first, fall back to large model slot
+    client = _get_llm_client_for_task("agent")
+    if client is None:
+        client = _get_llm_client_for_task("enrichment")  # maps to large slot
+    if client is None:
+        # Last resort: direct pipeline_config lookup (backward compat)
+        from codrag.services.settings_store import settings
+
+        config = settings.get("pipeline_config") or {}
+        model = config.get("model_thinking", "")
+        if not model:
+            raise ApiException(
+                400, "NO_LLM_CONFIGURED",
+                "No LLM model configured. Set up a model in the AI Gateway first.",
+                hint="Configure a model via the dashboard AI Gateway panel or settings.",
+            )
+
+        provider = config.get("llm_provider", "ollama")
+        endpoint_url = config.get("ollama_url", "http://localhost:11434")
+        api_key = config.get("anthropic_api_key") or config.get("openai_api_key")
+
+        if provider == "anthropic":
+            endpoint_url = "https://api.anthropic.com"
+        elif provider == "openai":
+            endpoint_url = config.get("openai_url", "https://api.openai.com")
+
+        from codrag.core.llm_client import LLMClient
+        client = LLMClient(
+            endpoint_url=endpoint_url,
+            model=model,
+            provider=provider,
+            api_key=api_key,
+            timeout=120.0,
         )
 
-    provider = config.get("llm_provider", "ollama")
-    endpoint_url = config.get("ollama_url", "http://localhost:11434")
-    api_key = config.get("anthropic_api_key") or config.get("openai_api_key")
-
-    if provider == "anthropic":
-        endpoint_url = "https://api.anthropic.com"
-    elif provider == "openai":
-        endpoint_url = config.get("openai_url", "https://api.openai.com")
-
-    from codrag.core.llm_client import LLMClient
-    client = LLMClient(
-        endpoint_url=endpoint_url,
-        model=model,
-        provider=provider,
-        api_key=api_key,
-        timeout=120.0,
-    )
+    logger.info("[Agent LLM] Using model=%s, provider=%s", client.model, client.provider)
 
     def llm_fn(prompt: str, system: str | None = None, **kwargs):
-        return client.generate(prompt, system=system, **kwargs)
+        # Allow callers to override these defaults
+        j_mode = kwargs.pop("json_mode", False)
+        temp = kwargs.pop("temperature", 0.3)
+        n_pred = kwargs.pop("num_predict", 4096)
+        return client.generate(
+            prompt,
+            system=system,
+            json_mode=j_mode,
+            temperature=temp,
+            num_predict=n_pred,
+            **kwargs
+        )
 
     return llm_fn

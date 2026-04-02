@@ -116,7 +116,7 @@ const TOOLS: {
   },
   {
     id: 'claude-desktop',
-    name: 'Claude Desktop',
+    name: 'Claude Code',
     file: 'claude_desktop_config.json',
     fileHint:
       '~/Library/Application Support/Claude/ (macOS) or %APPDATA%/Claude/ (Windows)',

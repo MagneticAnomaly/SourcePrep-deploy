@@ -1532,9 +1532,16 @@ def hr_generate(
     data = _post_json(f"{base}/projects/{pid}/agents/hr/generate", payload)
     count = data.get("roles_generated", 0)
     slugs = data.get("slugs", [])
+    agents_dir = data.get("agents_dir", "")
+    file_paths = data.get("files", {})
     console.print(f"[green]Generated {count} role(s):[/green]")
     for s in slugs:
-        console.print(f"  - {s}")
+        console.print(f"  [bold]{s}[/bold]")
+        for fp in file_paths.get(s, []):
+            console.print(f"    → {fp}")
+    if agents_dir:
+        console.print(f"\n[dim]Files written to: {agents_dir}[/dim]")
+        console.print("[dim]Edit any file manually — changes will be preserved on re-generation.[/dim]")
 
 
 @app.command("hr-roster")

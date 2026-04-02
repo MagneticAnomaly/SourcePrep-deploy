@@ -84,8 +84,8 @@ export { StatusBadge, StatusCard, BuildProgress, ProgressIndicator } from './com
 export type { StatusBadgeProps, StatusCardProps, BuildProgressProps, ProgressIndicatorProps } from './components/status';
 
 // Components - Console
-export { LogConsole } from './components/console';
-export type { LogConsoleProps } from './components/console';
+export { LogConsole, AnimatedCLI, TerminalFrame, AnimatedIDE, codragSearchDemo, codragImpactDemo, codragOverviewDemo, ideDemoScript } from './components/console';
+export type { LogConsoleProps, AnimatedCLIProps, TerminalFrameProps, AnimatedIDEProps, CliEvent, CliScript, TerminalTheme } from './components/console';
 
 // Components - Navigation
 export { Sidebar, ProjectList, ProjectTabs, AppShell } from './components/navigation';
