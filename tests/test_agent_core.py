@@ -281,3 +281,84 @@ class TestGitAccess:
 
     def test_project_id_stored(self, core):
         assert core.project_id == "test-proj"
+
+
+# ── TestNewCoDRAGMethods ─────────────────────────────────────────────────────
+
+
+class TestNewCoDRAGMethods:
+    def test_get_module_structure_delegates(self, core, mock_data_access):
+        mock_data_access.get_module_structure.return_value = [{"name": "Core"}]
+        result = core.get_module_structure()
+        assert result == [{"name": "Core"}]
+
+    def test_search_code_delegates(self, core, mock_data_access):
+        mock_data_access.search_code.return_value = [{"doc": {}, "score": 0.9}]
+        result = core.search_code("auth", k=3)
+        assert len(result) == 1
+        mock_data_access.search_code.assert_called_once_with("auth", k=3, role=None)
+
+    def test_get_role_vector_delegates(self, core, mock_data_access):
+        mock_data_access.get_role_vector.return_value = "mock_vector"
+        result = core.get_role_vector("ceo")
+        assert result == "mock_vector"
+
+    def test_get_atlas_with_role(self, core, mock_data_access):
+        mock_data_access.get_atlas.return_value = "# CEO Atlas"
+        result = core.get_atlas(role="ceo")
+        mock_data_access.get_atlas.assert_called_once_with(role="ceo")
+
+
+# ── TestLLMAccess ────────────────────────────────────────────────────────────
+
+
+class TestLLMAccess:
+    def test_get_llm_client_returns_none_when_no_config(self, core):
+        with patch("codrag.agents.core.settings") as mock_settings:
+            mock_settings.get.return_value = None
+            result = core.get_llm_client()
+            assert result is None
+
+    def test_get_llm_client_returns_client_when_configured(self, core):
+        with patch("codrag.agents.core.settings") as mock_settings, \
+             patch("codrag.core.llm_client.LLMClient") as MockLLM:
+            mock_settings.get.return_value = {
+                "model_thinking": "deepseek-r1:32b",
+                "llm_provider": "ollama",
+                "ollama_url": "http://localhost:11434",
+            }
+            result = core.get_llm_client("researcher")
+            assert result is not None
+
+
+# ── TestConcurrencyGate ──────────────────────────────────────────────────────
+
+
+class TestConcurrencyGate:
+    def test_acquire_gate_delegates(self, core):
+        with patch("codrag.services.agent_gate.get_agent_gate") as mock_gate_fn:
+            mock_gate = MagicMock()
+            mock_gate.can_run.return_value = True
+            mock_gate_fn.return_value = mock_gate
+            assert core.acquire_gate("researcher") is True
+            mock_gate.can_run.assert_called_once_with("test-proj", "researcher")
+
+    def test_release_gate_delegates(self, core):
+        with patch("codrag.services.agent_gate.get_agent_gate") as mock_gate_fn:
+            mock_gate = MagicMock()
+            mock_gate_fn.return_value = mock_gate
+            core.release_gate()
+            mock_gate.release.assert_called_once()
+
+
+# ── TestAgentCRUDPlaceholders ────────────────────────────────────────────────
+
+
+class TestAgentCRUDPlaceholders:
+    def test_create_agent_not_implemented(self, core):
+        with pytest.raises(NotImplementedError, match="not yet supported"):
+            core.create_agent(MagicMock())
+
+    def test_update_agent_not_implemented(self, core):
+        with pytest.raises(NotImplementedError, match="not yet supported"):
+            core.update_agent("agent-1", MagicMock())

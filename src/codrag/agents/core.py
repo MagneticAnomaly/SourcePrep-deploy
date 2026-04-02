@@ -79,9 +79,9 @@ class AgentCore:
         """
         return self._data.refresh_audit(categories=categories)
 
-    def get_atlas(self) -> str:
-        """Return the cached atlas document content, or ``""`` if unavailable."""
-        return self._data.get_atlas()
+    def get_atlas(self, role: Optional[str] = None) -> str:
+        """Get a structural overview, optionally filtered by role."""
+        return self._data.get_atlas(role=role)
 
     def get_impact_radius(self, file_path: str) -> Dict[str, Any]:
         """Return the reverse-dependency impact graph for a file.
@@ -124,6 +124,93 @@ class AgentCore:
             List of :class:`~codrag.services.observation_store.Observation` instances.
         """
         return self._data.get_observations(query, limit=limit)
+
+    def get_module_structure(self) -> List[Dict[str, Any]]:
+        """Get the current module cluster map with domain tags and layers."""
+        return self._data.get_module_structure()
+
+    def search_code(self, query: str, k: int = 5, role: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Semantic code search with optional role scoping."""
+        return self._data.search_code(query, k=k, role=role)
+
+    def get_role_vector(self, role_slug: str) -> Any:
+        """Get or generate a RoleVector for scoring file relevance."""
+        return self._data.get_role_vector(role_slug)
+
+    # ── LLM Access ──────────────────────────────────────────────────────
+
+    def get_llm_client(self, task_id: str = "agent") -> Any:
+        """Get an LLM client configured from the AI Gateway settings.
+
+        Reads the model assignment for the given task from pipeline_config.
+        Falls back to the 'large' model slot if no agent-specific model is set.
+
+        Returns an LLMClient instance, or None if no LLM is configured.
+        """
+        from codrag.core.llm_client import LLMClient
+
+        config = settings.get("pipeline_config") or {}
+
+        # Try agent-specific model first, fall back to large model
+        model = config.get(f"agent_model_{task_id}", config.get("model_thinking", ""))
+        if not model:
+            return None
+
+        provider = config.get("llm_provider", "ollama")
+        endpoint_url = config.get("ollama_url", "http://localhost:11434")
+        api_key = config.get("anthropic_api_key") or config.get("openai_api_key")
+
+        # Cloud providers use different base URLs
+        if provider == "anthropic":
+            endpoint_url = "https://api.anthropic.com"
+        elif provider == "openai":
+            endpoint_url = config.get("openai_url", "https://api.openai.com")
+        elif provider == "openai-compatible":
+            endpoint_url = config.get("openai_url", endpoint_url)
+
+        return LLMClient(
+            endpoint_url=endpoint_url,
+            model=model,
+            provider=provider,
+            api_key=api_key,
+            timeout=120.0,
+        )
+
+    # ── Concurrency Gate ────────────────────────────────────────────────
+
+    def acquire_gate(self, task_name: str = "agent") -> bool:
+        """Acquire the agent concurrency gate. Returns True if acquired.
+
+        Must call release_gate() when done (use try/finally).
+        Returns False if pipeline is busy or another agent is running.
+        """
+        from codrag.services.agent_gate import get_agent_gate
+
+        gate = get_agent_gate()
+        return gate.can_run(self.project_id, task_name)
+
+    def release_gate(self) -> None:
+        """Release the agent concurrency gate."""
+        from codrag.services.agent_gate import get_agent_gate
+
+        gate = get_agent_gate()
+        gate.release()
+
+    # ── Agent CRUD Placeholders ─────────────────────────────────────────
+
+    def create_agent(self, role_spec: Any) -> str:
+        """Create a new Paperclip agent. Not yet implemented in Paperclip adapter."""
+        raise NotImplementedError(
+            "Paperclip agent creation is not yet supported. "
+            "The Staffing Agent will write role files locally until "
+            "Paperclip's agent management API is available."
+        )
+
+    def update_agent(self, agent_id: str, role_spec: Any) -> None:
+        """Update a Paperclip agent. Not yet implemented in Paperclip adapter."""
+        raise NotImplementedError(
+            "Paperclip agent update is not yet supported."
+        )
 
     # ── Paperclip Write Methods ──────────────────────────────────────────
 
