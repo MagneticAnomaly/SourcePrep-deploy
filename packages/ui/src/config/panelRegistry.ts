@@ -20,6 +20,7 @@ import {
   Target,
   Terminal,
   Users,
+  Bot,
 } from 'lucide-react';
 import type { PanelDefinition } from '../types/layout';
 
@@ -330,6 +331,17 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     minHeight: 6,
     defaultHeight: 10,
     category: 'search',
+    closeable: true,
+    resizable: true,
+  },
+  {
+    id: 'agent-ops',
+    title: 'Agent Operations',
+    description: 'Manage the three CoDRAG agents: HR (role generation), Researcher (plan formulation), and Digital Custodian (dead code cleanup).',
+    icon: Bot,
+    minHeight: 4,
+    defaultHeight: 6,
+    category: 'config',
     closeable: true,
     resizable: true,
   },

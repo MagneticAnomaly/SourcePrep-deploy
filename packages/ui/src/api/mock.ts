@@ -849,6 +849,35 @@ export class MockApiClient implements ApiClient {
   async exportOpportunities(_projectId: string, _format: string, _opts?: any): Promise<string> {
     return '[]';
   }
+
+  // Agent Operations (Phase 67)
+  async getAgentsStatus(_projectId: string) {
+    return { hr: { role_count: 0, roles: [] }, researcher: { run_count: 0, latest_run: null }, custodian: { archive_count: 0 } };
+  }
+  async getHRReadiness(_projectId: string) {
+    return { score: 0, ready_for_list: false, ready_for_auto: false, dimensions: {}, missing: ['Run the pipeline first'] };
+  }
+  async getHRRoster(_projectId: string) {
+    return { roles: [] };
+  }
+  async generateHRRoles(_projectId: string, _mode: string, _roleNames: string[]) {
+    return { roles_generated: 0, slugs: [] };
+  }
+  async auditHRRoles(_projectId: string) {
+    return { role_fitness: [], coverage_gaps: [] };
+  }
+  async runResearcher(_projectId: string, _maxTopics: number) {
+    return { plans: [], count: 0 };
+  }
+  async getResearchHistory(_projectId: string) {
+    return { runs: [] };
+  }
+  async runCustodian(_projectId: string, _dryRun: boolean, _maxFiles: number) {
+    return { dry_run: true, branch_name: '', candidate_count: 0, candidates: [] };
+  }
+  async getCustodianManifest(_projectId: string) {
+    return { entries: [] };
+  }
 }
 
 export const createMockApiClient = (): ApiClient => new MockApiClient();

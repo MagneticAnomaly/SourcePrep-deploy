@@ -312,15 +312,15 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 
 | # | Task | File | Status |
 |---|------|------|--------|
-| 8.1 | Register "Agent Operations" in panelRegistry | `packages/ui/src/config/panelRegistry.ts` | ☐ |
-| 8.2 | Create AgentOpsPanel (modular panel) | `packages/ui/src/components/agents/AgentOpsPanel.tsx` | ☐ |
+| 8.1 | Register "Agent Operations" in panelRegistry | `packages/ui/src/config/panelRegistry.ts` | ☑ |
+| 8.2 | Create AgentOpsPanel (modular panel) | `packages/ui/src/components/agents/AgentOpsPanel.tsx` | ☑ |
 | | — 3 compact AgentCard components (Staffing, Researcher, Custodian) | | |
-| 8.3 | Create AgentCard component | `packages/ui/src/components/agents/AgentCard.tsx` | ☐ |
+| 8.3 | Create AgentCard component | `packages/ui/src/components/agents/AgentCard.tsx` | ☑ |
 | | — Status badge, key metric, last run time | | |
-| 8.4 | Create EmployeeBadges component | `packages/ui/src/components/agents/EmployeeBadges.tsx` | ☐ |
+| 8.4 | Create EmployeeBadges component | `packages/ui/src/components/agents/EmployeeBadges.tsx` | ☑ |
 | | — Compact role badges with health indicators for Paperclip-managed employees | | |
-| 8.5 | Create useAgentOps hook | `src/codrag/dashboard/src/hooks/useAgentOps.ts` | ☐ |
-| | — Polls /agents/status, provides agent state to components | | |
+| 8.5 | Create useAgentOps hook | `src/codrag/dashboard/src/hooks/useAgentOps.ts` | ☑ |
+| | — Fetches /agents/status + roster + readiness + history | | |
 
 **Exit criteria:** Dashboard shows Agent Operations panel with 3 compact cards + managed employee badges.
 
@@ -333,20 +333,22 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 
 | # | Task | File | Status |
 |---|------|------|--------|
-| 9.1 | Create AgentOpsDetail overlay | `packages/ui/src/components/agents/AgentOpsDetail.tsx` | ☐ |
-| | — Reuses DetailOverlay pattern from ModularDashboard | | |
-| 9.2 | Create SystemAgentsTab | `packages/ui/src/components/agents/SystemAgentsTab.tsx` | ☐ |
-| | — Per-agent config sections, model read-only display + AI Gateway deep-link | | |
-| 9.3 | Create ManagedEmployeesTab | `packages/ui/src/components/agents/ManagedEmployeesTab.tsx` | ☐ |
-| | — Roster table, per-employee detail drawer (AGENTS.md, SOUL.md, RoleVector bars) | | |
+| 9.1 | Create AgentOpsDetail overlay | `packages/ui/src/components/agents/AgentOpsDetail.tsx` | ☑ |
+| | — Tab-based detail view (System Agents + Managed Employees) | | |
+| 9.2 | Create SystemAgentsTab | `packages/ui/src/components/agents/SystemAgentsTab.tsx` | ☑ |
+| | — Per-agent config sections with readiness, metrics, action buttons | | |
+| 9.3 | Create ManagedEmployeesTab | `packages/ui/src/components/agents/ManagedEmployeesTab.tsx` | ☑ |
+| | — Roster table with per-role completion status + empty state | | |
 | 9.4 | Add Agent Models to AI Gateway Assigned tab | `AssignedModelsPanel.tsx` (or equivalent) | ☐ |
-| | — 3 new ModelSlotRow components: Staffing, Researcher, Custodian | | |
+| | — Deferred: requires AI Gateway panel changes | | |
 | 9.5 | Create CleanupPreview component | `packages/ui/src/components/agents/CleanupPreview.tsx` | ☐ |
+| | — Deferred: needs custodian run data | | |
 | 9.6 | Create ResearchTopicList component | `packages/ui/src/components/agents/ResearchTopicList.tsx` | ☐ |
+| | — Deferred: needs researcher run data | | |
 | 9.7 | Create GenerateWizard component | `packages/ui/src/components/agents/GenerateWizard.tsx` | ☐ |
-| | — 3-mode selector for Staffing Agent (list/auto/auto+list) | | |
+| | — Deferred: needs more UX design | | |
 
-**Exit criteria:** Full detail overlay with 2 tabs. AI Gateway Assigned tab shows agent model slots.
+**Exit criteria:** Detail overlay with 2 tabs working. AI Gateway integration deferred.
 
 ---
 

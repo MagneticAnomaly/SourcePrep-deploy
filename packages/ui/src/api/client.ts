@@ -275,6 +275,17 @@ export interface ApiClient {
   dismissOpportunity(projectId: string, itemId: string): Promise<{ dismissed: string }>;
   restoreOpportunity(projectId: string, itemId: string): Promise<{ restored: string }>;
   exportOpportunities(projectId: string, format: string, opts?: { category?: string; min_priority?: string; source?: string }): Promise<string>;
+
+  // Agent Operations (Phase 67)
+  getAgentsStatus(projectId: string): Promise<{ hr: { role_count: number; roles: string[] }; researcher: { run_count: number; latest_run: string | null }; custodian: { archive_count: number } }>;
+  getHRReadiness(projectId: string): Promise<{ score: number; ready_for_list: boolean; ready_for_auto: boolean; dimensions: Record<string, number>; missing: string[] }>;
+  getHRRoster(projectId: string): Promise<{ roles: Array<{ slug: string; display_name: string; has_agents_md: boolean; has_soul_md: boolean; has_knowledge_md: boolean }> }>;
+  generateHRRoles(projectId: string, mode: string, roleNames: string[]): Promise<{ roles_generated: number; slugs: string[] }>;
+  auditHRRoles(projectId: string): Promise<{ role_fitness: Array<{ slug: string; display_name: string; fitness_score: number; recommendation: string }>; coverage_gaps: string[] }>;
+  runResearcher(projectId: string, maxTopics: number): Promise<{ plans: any[]; count: number }>;
+  getResearchHistory(projectId: string): Promise<{ runs: Array<{ run_id: string; timestamp: string; topic_count: number; plan_count: number }> }>;
+  runCustodian(projectId: string, dryRun: boolean, maxFiles: number): Promise<{ dry_run: boolean; branch_name: string; candidate_count: number; candidates: any[] }>;
+  getCustodianManifest(projectId: string): Promise<{ entries: any[] }>;
 }
 
 export interface ApiClientConfig {
@@ -1331,6 +1342,55 @@ export class CodragApiClient implements ApiClient {
       headers: this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {},
     });
     return res.text();
+  }
+
+  // ── Agent Operations (Phase 67) ────────────────────────────
+
+  async getAgentsStatus(projectId: string) {
+    return this.requestEnvelope<{ hr: { role_count: number; roles: string[] }; researcher: { run_count: number; latest_run: string | null }; custodian: { archive_count: number } }>(`/projects/${projectId}/agents/status`);
+  }
+
+  async getHRReadiness(projectId: string) {
+    return this.requestEnvelope<{ score: number; ready_for_list: boolean; ready_for_auto: boolean; dimensions: Record<string, number>; missing: string[] }>(`/projects/${projectId}/agents/hr/readiness`);
+  }
+
+  async getHRRoster(projectId: string) {
+    return this.requestEnvelope<{ roles: Array<{ slug: string; display_name: string; has_agents_md: boolean; has_soul_md: boolean; has_knowledge_md: boolean }> }>(`/projects/${projectId}/agents/hr/roster`);
+  }
+
+  async generateHRRoles(projectId: string, mode: string, roleNames: string[]) {
+    return this.requestEnvelope<{ roles_generated: number; slugs: string[] }>(`/projects/${projectId}/agents/hr/generate`, {
+      method: 'POST',
+      body: JSON.stringify({ mode, role_names: roleNames }),
+    });
+  }
+
+  async auditHRRoles(projectId: string) {
+    return this.requestEnvelope<{ role_fitness: Array<{ slug: string; display_name: string; fitness_score: number; recommendation: string }>; coverage_gaps: string[] }>(`/projects/${projectId}/agents/hr/audit`, {
+      method: 'POST',
+    });
+  }
+
+  async runResearcher(projectId: string, maxTopics: number) {
+    return this.requestEnvelope<{ plans: any[]; count: number }>(`/projects/${projectId}/agents/researcher/run`, {
+      method: 'POST',
+      body: JSON.stringify({ max_topics: maxTopics }),
+    });
+  }
+
+  async getResearchHistory(projectId: string) {
+    return this.requestEnvelope<{ runs: Array<{ run_id: string; timestamp: string; topic_count: number; plan_count: number }> }>(`/projects/${projectId}/agents/researcher/history`);
+  }
+
+  async runCustodian(projectId: string, dryRun: boolean, maxFiles: number) {
+    return this.requestEnvelope<{ dry_run: boolean; branch_name: string; candidate_count: number; candidates: any[] }>(`/projects/${projectId}/agents/custodian/run`, {
+      method: 'POST',
+      body: JSON.stringify({ dry_run: dryRun, max_files: maxFiles }),
+    });
+  }
+
+  async getCustodianManifest(projectId: string) {
+    return this.requestEnvelope<{ entries: any[] }>(`/projects/${projectId}/agents/custodian/manifest`);
   }
 }
 
