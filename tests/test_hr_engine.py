@@ -1,0 +1,113 @@
+"""Tests for StaffingEngine."""
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Tuple
+from unittest.mock import MagicMock
+
+import pytest
+
+from codrag.agents.hr.engine import StaffingEngine
+from codrag.agents.hr.readiness import ReadinessReport
+from codrag.agents.hr.roster import Roster
+from codrag.agents.shared.models import RoleSpec
+
+
+def _fake_llm(prompt: str, system: str | None = None, **kwargs) -> Tuple[str, int]:
+    """Fake LLM that returns deterministic content based on the prompt."""
+    if "AGENTS.md" in prompt:
+        return "# Agent Instructions\n\nYou are the role.", 50
+    if "SOUL.md" in prompt:
+        return "# Soul\n\nI am the role.", 30
+    if "Analyze this codebase" in prompt:
+        import json
+        return json.dumps([
+            {"slug": "backend_dev", "display_name": "Backend Developer",
+             "justification": "Core module has 30 files",
+             "primary_modules": ["core"], "domain_focus": ["backend"]},
+        ]), 80
+    return "Unknown prompt", 10
+
+
+@pytest.fixture
+def engine_dir(tmp_path: Path) -> Path:
+    """Create a minimal index directory with module data."""
+    import json
+    modules = [
+        {"name": "core", "member_files": [f"core/{i}.py" for i in range(15)],
+         "domain_tags": ["backend", "database"], "architecture_layer": "core",
+         "summary": "Core business logic"},
+        {"name": "api", "member_files": [f"api/{i}.py" for i in range(10)],
+         "domain_tags": ["api", "rest"], "architecture_layer": "api",
+         "summary": "REST API layer"},
+    ]
+    (tmp_path / "trace_modules.jsonl").write_text(
+        "\n".join(json.dumps(m) for m in modules)
+    )
+    (tmp_path / "codebase_atlas.md").write_text("# Test Project\nPython backend with REST API")
+    return tmp_path
+
+
+@pytest.fixture
+def engine(engine_dir: Path) -> StaffingEngine:
+    return StaffingEngine(index_dir=engine_dir, project_id="test_proj")
+
+
+class TestReadiness:
+    def test_check_readiness_returns_report(self, engine: StaffingEngine) -> None:
+        report = engine.check_readiness()
+        assert isinstance(report, ReadinessReport)
+        assert report.score > 0
+
+    def test_readiness_uses_module_data(self, engine: StaffingEngine) -> None:
+        report = engine.check_readiness()
+        assert report.dimensions["module_count"] > 0
+
+
+class TestListMode:
+    def test_generate_roles_returns_specs(self, engine: StaffingEngine) -> None:
+        roles = engine.generate_roles(
+            role_names=["Backend Developer", "API Specialist"],
+            llm_fn=_fake_llm,
+        )
+        assert len(roles) == 2
+        assert all(isinstance(r, RoleSpec) for r in roles)
+        assert roles[0].slug == "backend_developer"
+        assert roles[1].slug == "api_specialist"
+
+    def test_generate_roles_populates_agents_md(self, engine: StaffingEngine) -> None:
+        roles = engine.generate_roles(
+            role_names=["Dev"],
+            llm_fn=_fake_llm,
+        )
+        assert "Agent Instructions" in roles[0].agents_md
+
+    def test_generate_roles_populates_soul_md(self, engine: StaffingEngine) -> None:
+        roles = engine.generate_roles(
+            role_names=["Dev"],
+            llm_fn=_fake_llm,
+        )
+        assert "Soul" in roles[0].soul_md
+
+    def test_generate_roles_populates_knowledge_md(self, engine: StaffingEngine) -> None:
+        roles = engine.generate_roles(
+            role_names=["Dev"],
+            llm_fn=_fake_llm,
+        )
+        assert "codrag" in roles[0].knowledge_md
+        assert "test_proj" in roles[0].knowledge_md
+
+    def test_generate_roles_saves_to_roster(self, engine: StaffingEngine) -> None:
+        engine.generate_roles(
+            role_names=["Backend Developer"],
+            llm_fn=_fake_llm,
+        )
+        roster = Roster(engine._index_dir)
+        assert roster.get_role("backend_developer") is not None
+
+    def test_generate_with_insufficient_readiness_raises(
+        self, tmp_path: Path
+    ) -> None:
+        engine = StaffingEngine(index_dir=tmp_path, project_id="empty")
+        with pytest.raises(ValueError, match="readiness"):
+            engine.generate_roles(role_names=["Dev"], llm_fn=_fake_llm)
