@@ -139,3 +139,28 @@ class TestAutoMode:
         engine = StaffingEngine(index_dir=tmp_path, project_id="empty")
         with pytest.raises(ValueError, match="readiness"):
             engine.auto_generate_roles(llm_fn=_fake_llm)
+
+
+class TestOrgChart:
+    def test_org_chart_returns_dict(self, engine: StaffingEngine) -> None:
+        engine.generate_roles(role_names=["CTO", "Backend Dev"], llm_fn=_fake_llm)
+        chart = engine.generate_org_chart()
+        assert isinstance(chart, dict)
+        assert "roles" in chart
+
+    def test_org_chart_includes_all_roles(self, engine: StaffingEngine) -> None:
+        engine.generate_roles(role_names=["CTO", "Backend Dev"], llm_fn=_fake_llm)
+        chart = engine.generate_org_chart()
+        slugs = {r["slug"] for r in chart["roles"]}
+        assert "cto" in slugs
+        assert "backend_dev" in slugs
+
+    def test_org_chart_empty_roster(self, engine: StaffingEngine) -> None:
+        chart = engine.generate_org_chart()
+        assert chart["roles"] == []
+
+    def test_org_chart_as_markdown(self, engine: StaffingEngine) -> None:
+        engine.generate_roles(role_names=["CTO", "Backend Dev"], llm_fn=_fake_llm)
+        md = engine.generate_org_chart_md()
+        assert "CTO" in md or "cto" in md.lower()
+        assert "Backend Dev" in md or "backend_dev" in md.lower()

@@ -441,6 +441,77 @@ class StaffingEngine:
 
         return round(module_score * 0.5 + tag_score * 0.3 + content_score * 0.2, 3)
 
+    # -- Org Chart --
+
+    def generate_org_chart(self) -> Dict[str, Any]:
+        """Generate an org chart from the current roster.
+
+        Returns a dict with structure:
+        {
+            "roles": [
+                {"slug": "...", "display_name": "...", "collaborates_with": [...], "modules": [...]},
+            ]
+        }
+
+        Collaboration relationships are inferred from shared module/domain references.
+        """
+        slugs = self._roster.list_roles()
+        if not slugs:
+            return {"roles": []}
+
+        roles_data: List[Dict[str, Any]] = []
+        role_modules: Dict[str, set] = {}
+
+        modules = self._load_modules()
+        module_names = {m.get("name", "").lower() for m in modules}
+
+        for slug in slugs:
+            role = self._roster.get_role(slug)
+            if role is None:
+                continue
+            content = (role.agents_md + " " + role.knowledge_md).lower()
+            referenced = {mn for mn in module_names if mn and mn in content}
+            role_modules[slug] = referenced
+
+        for slug in slugs:
+            role = self._roster.get_role(slug)
+            if role is None:
+                continue
+            collaborators = []
+            my_modules = role_modules.get(slug, set())
+            for other_slug in slugs:
+                if other_slug == slug:
+                    continue
+                other_modules = role_modules.get(other_slug, set())
+                if my_modules & other_modules:
+                    collaborators.append(other_slug)
+
+            roles_data.append({
+                "slug": slug,
+                "display_name": role.display_name,
+                "collaborates_with": collaborators,
+                "modules": sorted(my_modules),
+            })
+
+        return {"roles": roles_data}
+
+    def generate_org_chart_md(self) -> str:
+        """Generate a markdown representation of the org chart."""
+        chart = self.generate_org_chart()
+        if not chart["roles"]:
+            return "# Org Chart\n\n(No roles defined yet.)\n"
+
+        lines = ["# Org Chart\n"]
+        for r in chart["roles"]:
+            lines.append(f"## {r['display_name']} (`{r['slug']}`)")
+            if r["modules"]:
+                lines.append(f"- **Modules:** {', '.join(r['modules'])}")
+            if r["collaborates_with"]:
+                lines.append(f"- **Collaborates with:** {', '.join(r['collaborates_with'])}")
+            lines.append("")
+
+        return "\n".join(lines)
+
     # -- Roster Access --
 
     @property
