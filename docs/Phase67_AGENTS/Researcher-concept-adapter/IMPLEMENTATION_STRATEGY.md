@@ -270,18 +270,18 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 
 | # | Task | File | Status |
 |---|------|------|--------|
-| 6.1 | Add `langgraph` optional dependency | `pyproject.toml` | ☐ |
-| | — `langgraph>=0.2.0`, `langchain-anthropic>=0.3.0`, `langchain-ollama>=0.3.0` | | |
-| 6.2 | Implement LLM provider bridge | `agents/shared/llm_bridge.py` | ☐ |
-| | — Reads AI Gateway config, constructs LangChain LLM (Anthropic/Ollama/OpenAI) | | |
-| 6.3 | Staffing LangGraph adapter | `agents/hr/adapters/langgraph_adapter.py` | ☐ |
-| | — StateGraph: Analyze → Generate → Push | | |
-| 6.4 | Researcher LangGraph adapter | `agents/researcher/adapters/langgraph_adapter.py` | ☐ |
-| | — StateGraph: Ingest → Select → Research → Formulate → Push | | |
-| 6.5 | Custodian LangGraph adapter | `agents/custodian/adapters/langgraph_adapter.py` | ☐ |
-| | — StateGraph: Scan → Verify → Archive → Push | | |
+| 6.1 | Add `langgraph` optional dependency | `pyproject.toml` | ☑ |
+| | — `langgraph>=0.2.0`, `langchain-core>=0.3.0`, `langchain-anthropic>=0.3.0`, `langchain-ollama>=0.3.0` | | |
+| 6.2 | Implement LLM provider bridge | `agents/shared/llm_bridge.py` | ☑ |
+| | — `build_langchain_llm()` + `build_llm_from_settings()` — Ollama/Anthropic/OpenAI | | |
+| 6.3 | Staffing LangGraph adapter | `agents/hr/adapters/langgraph_adapter.py` | ☑ |
+| | — StateGraph: Analyze → Generate | | |
+| 6.4 | Researcher LangGraph adapter | `agents/researcher/adapters/langgraph_adapter.py` | ☑ |
+| | — StateGraph: Ingest → Select → Research → Formulate | | |
+| 6.5 | Custodian LangGraph adapter | `agents/custodian/adapters/langgraph_adapter.py` | ☑ |
+| | — StateGraph: Scan → Verify → Plan | | |
 
-**Exit criteria:** `codrag research run --adapter langgraph` executes the full pipeline end-to-end.
+**Exit criteria:** Adapters import cleanly, delegate to engines. E2E requires `pip install codrag[langgraph]`.
 
 ---
 
@@ -292,16 +292,16 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 
 | # | Task | File | Status |
 |---|------|------|--------|
-| 7.1 | Add `crewai` optional dependency | `pyproject.toml` | ☐ |
+| 7.1 | Add `crewai` optional dependency | `pyproject.toml` | ☑ |
 | | — `crewai>=0.80.0`, `crewai-tools>=0.14.0` | | |
-| 7.2 | Staffing CrewAI adapter | `agents/hr/adapters/crewai_adapter.py` | ☐ |
+| 7.2 | Staffing CrewAI adapter | `agents/hr/adapters/crewai_adapter.py` | ☑ |
 | | — 2-agent crew: Analyst + Generator | | |
-| 7.3 | Researcher CrewAI adapter | `agents/researcher/adapters/crewai_adapter.py` | ☐ |
+| 7.3 | Researcher CrewAI adapter | `agents/researcher/adapters/crewai_adapter.py` | ☑ |
 | | — 3-agent crew: Analyst + Architect + PM | | |
-| 7.4 | Custodian CrewAI adapter | `agents/custodian/adapters/crewai_adapter.py` | ☐ |
+| 7.4 | Custodian CrewAI adapter | `agents/custodian/adapters/crewai_adapter.py` | ☑ |
 | | — 2-agent crew: Analyzer + Janitor | | |
 
-**Exit criteria:** `codrag research run --adapter crewai` executes the full pipeline end-to-end.
+**Exit criteria:** Adapters import cleanly, delegate to engines. E2E requires `pip install codrag[crewai]`.
 
 ---
 

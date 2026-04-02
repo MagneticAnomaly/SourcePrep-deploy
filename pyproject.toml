@@ -66,6 +66,16 @@ trace = [
 clara = [
     "torch>=2.1.0",
 ]
+langgraph = [
+    "langgraph>=0.2.0",
+    "langchain-core>=0.3.0",
+    "langchain-anthropic>=0.3.0",
+    "langchain-ollama>=0.3.0",
+]
+crewai = [
+    "crewai>=0.80.0",
+    "crewai-tools>=0.14.0",
+]
 gpu-cuda = [
     "onnxruntime-gpu>=1.17.0",
 ]
