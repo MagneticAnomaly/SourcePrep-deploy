@@ -166,17 +166,17 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 
 | # | Task | File | Status |
 |---|------|------|--------|
-| 2.1 | Create `agents/researcher/` subpackage | `agents/researcher/__init__.py` | ☐ |
-| 2.2 | Implement topic selection | `agents/researcher/engine.py` | ☐ |
+| 2.1 | Create `agents/researcher/` subpackage | `agents/researcher/__init__.py` | ☑ |
+| 2.2 | Implement topic selection | `agents/researcher/engine.py` | ☑ |
 | | — LLM picks top N findings from audit, ranked by impact | | |
-| 2.3 | Implement research synthesis | `agents/researcher/engine.py` | ☐ |
-| | — LLM researches solutions per topic, optionally with web search | | |
-| 2.4 | Implement plan formulation | `agents/researcher/engine.py` | ☐ |
-| | — Structures research into PMProject schema (root cause, fix steps, effort, risk) | | |
-| 2.5 | Implement push packaging | `agents/researcher/engine.py` | ☐ |
+| 2.3 | Implement research synthesis | `agents/researcher/engine.py` | ☑ |
+| | — LLM researches solutions per topic, with CoDRAG code search | | |
+| 2.4 | Implement plan formulation | `agents/researcher/engine.py` | ☑ |
+| | — Structures research into ResearchPlan (root cause, fix steps, effort, risk) | | |
+| 2.5 | Implement push packaging | `agents/researcher/engine.py` | ☑ |
 | | — Converts plans to Phase 65 PMProject/PMGoal/PMIssue | | |
-| 2.6 | Create LLM prompts | `agents/researcher/prompts/` | ☐ |
-| | — `topic_selection.txt`, `research_synthesis.txt`, `plan_formulation.txt` | | |
+| 2.6 | Create LLM prompts | `agents/researcher/prompts.py` | ☑ |
+| | — `render_topic_selection_prompt`, `render_research_prompt`, `render_plan_formulation_prompt` | | |
 | 2.7 | Native Paperclip adapter | `agents/researcher/adapters/paperclip.py` | ☐ |
 | | — Daemon thread, hooks into Pi Watchdog delta | | |
 | 2.8 | Wire to Pi Agent loop | `services/pi_agent.py` | ☐ |
