@@ -111,3 +111,31 @@ class TestListMode:
         engine = StaffingEngine(index_dir=tmp_path, project_id="empty")
         with pytest.raises(ValueError, match="readiness"):
             engine.generate_roles(role_names=["Dev"], llm_fn=_fake_llm)
+
+
+class TestAutoMode:
+    def test_auto_generate_returns_roles(self, engine: StaffingEngine) -> None:
+        roles = engine.auto_generate_roles(llm_fn=_fake_llm)
+        assert len(roles) >= 1
+        assert all(isinstance(r, RoleSpec) for r in roles)
+
+    def test_auto_generate_uses_llm_for_role_inference(
+        self, engine: StaffingEngine
+    ) -> None:
+        calls: list = []
+        def tracking_llm(prompt: str, system: str | None = None, **kw) -> Tuple[str, int]:
+            calls.append(prompt)
+            return _fake_llm(prompt, system=system, **kw)
+
+        engine.auto_generate_roles(llm_fn=tracking_llm)
+        assert any("Analyze this codebase" in c for c in calls)
+
+    def test_auto_generate_saves_to_roster(self, engine: StaffingEngine) -> None:
+        engine.auto_generate_roles(llm_fn=_fake_llm)
+        roster = Roster(engine._index_dir)
+        assert len(roster.list_roles()) >= 1
+
+    def test_auto_mode_requires_higher_readiness(self, tmp_path: Path) -> None:
+        engine = StaffingEngine(index_dir=tmp_path, project_id="empty")
+        with pytest.raises(ValueError, match="readiness"):
+            engine.auto_generate_roles(llm_fn=_fake_llm)

@@ -12,8 +12,10 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from codrag.agents.hr.prompts import (
     AGENTS_MD_SYSTEM,
+    AUTO_ROLES_SYSTEM,
     SOUL_MD_SYSTEM,
     render_agents_md_prompt,
+    render_auto_roles_prompt,
     render_knowledge_md,
     render_soul_md_prompt,
 )
@@ -217,6 +219,123 @@ class StaffingEngine:
             soul_md=soul_md,
             knowledge_md=knowledge_md,
         )
+
+    # -- Auto / Hybrid Mode Generation --
+
+    def auto_generate_roles(
+        self,
+        llm_fn: LLMFn,
+        min_readiness: float = 0.5,
+    ) -> List[RoleSpec]:
+        """Auto-infer roles from codebase analysis, then generate files (auto mode).
+
+        Args:
+            llm_fn: Callable with signature (prompt, system=, **kwargs) -> (text, tokens).
+            min_readiness: Minimum readiness score. Default 0.5 for auto mode.
+
+        Returns:
+            List of generated RoleSpec instances.
+
+        Raises:
+            ValueError: If readiness score is below threshold.
+        """
+        report = self.check_readiness()
+        if report.score < min_readiness:
+            missing_str = "; ".join(report.missing[:3]) if report.missing else "insufficient data"
+            raise ValueError(
+                f"Codebase readiness too low for auto generation "
+                f"(score={report.score:.2f}, need>={min_readiness}). "
+                f"Missing: {missing_str}"
+            )
+
+        modules = self._load_modules()
+        atlas = self._load_atlas()
+
+        inferred = self._infer_roles(modules, atlas, llm_fn)
+
+        return self.generate_roles(
+            role_names=[r["display_name"] for r in inferred],
+            llm_fn=llm_fn,
+            min_readiness=0.0,  # already checked above
+        )
+
+    def hybrid_generate_roles(
+        self,
+        required_names: List[str],
+        llm_fn: LLMFn,
+        min_readiness: float = 0.5,
+    ) -> List[RoleSpec]:
+        """Auto-infer roles but guarantee required_names are included (auto+list mode).
+
+        Args:
+            required_names: Role names that must be included.
+            llm_fn: Callable LLM function.
+            min_readiness: Minimum readiness score.
+
+        Returns:
+            List of generated RoleSpec instances.
+        """
+        report = self.check_readiness()
+        if report.score < min_readiness:
+            missing_str = "; ".join(report.missing[:3]) if report.missing else "insufficient data"
+            raise ValueError(
+                f"Codebase readiness too low for hybrid generation "
+                f"(score={report.score:.2f}, need>={min_readiness}). "
+                f"Missing: {missing_str}"
+            )
+
+        modules = self._load_modules()
+        atlas = self._load_atlas()
+
+        inferred = self._infer_roles(modules, atlas, llm_fn)
+        inferred_names = [r["display_name"] for r in inferred]
+
+        required_slugs = {_normalize_slug(n) for n in required_names}
+        merged = list(required_names)
+        for name in inferred_names:
+            if _normalize_slug(name) not in required_slugs:
+                merged.append(name)
+
+        return self.generate_roles(
+            role_names=merged,
+            llm_fn=llm_fn,
+            min_readiness=0.0,
+        )
+
+    def _infer_roles(
+        self,
+        modules: List[Dict[str, Any]],
+        atlas: str,
+        llm_fn: LLMFn,
+    ) -> List[Dict[str, Any]]:
+        """Use LLM to infer optimal roles from codebase analysis."""
+        all_tags: List[str] = []
+        layer_dist: Dict[str, int] = {}
+        for m in modules:
+            all_tags.extend(m.get("domain_tags", []))
+            layer = m.get("architecture_layer", "unknown")
+            layer_dist[layer] = layer_dist.get(layer, 0) + len(m.get("member_files", []))
+
+        file_count = sum(len(m.get("member_files", [])) for m in modules)
+        prompt = render_auto_roles_prompt(
+            file_count=file_count,
+            module_count=len(modules),
+            modules_summary=self._modules_summary(modules),
+            atlas_excerpt=atlas[:2000] if atlas else "",
+            domain_tags=sorted(set(all_tags)),
+            layer_distribution=layer_dist,
+        )
+
+        response, _ = llm_fn(prompt, system=AUTO_ROLES_SYSTEM, json_mode=True)
+
+        try:
+            roles = json.loads(response)
+            if not isinstance(roles, list):
+                roles = [roles]
+            return roles
+        except (json.JSONDecodeError, TypeError) as exc:
+            logger.warning("Failed to parse auto-roles LLM response: %s", exc)
+            return [{"slug": "engineer", "display_name": "Engineer"}]
 
     # -- Roster Access --
 
