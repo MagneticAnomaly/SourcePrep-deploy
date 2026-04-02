@@ -78,3 +78,33 @@ class TestDriftDetection:
         engine = StaffingEngine(index_dir=tmp_path, project_id="test")
         report = engine.audit_roles()
         assert len(report.role_fitness) == 0
+
+    def test_coverage_gaps_detected(self, tmp_path: Path) -> None:
+        """Modules not mentioned by any role show up as coverage gaps."""
+        modules = [
+            {"name": "core", "member_files": ["a.py"] * 10,
+             "domain_tags": ["backend"], "architecture_layer": "core"},
+            {"name": "api", "member_files": ["b.py"] * 10,
+             "domain_tags": ["api"], "architecture_layer": "api"},
+            {"name": "workers", "member_files": ["c.py"] * 10,
+             "domain_tags": ["async"], "architecture_layer": "services"},
+        ]
+        (tmp_path / "trace_modules.jsonl").write_text(
+            "\n".join(json.dumps(m) for m in modules)
+        )
+        (tmp_path / "codebase_atlas.md").write_text("# Atlas")
+        engine = StaffingEngine(index_dir=tmp_path, project_id="test")
+
+        # Only one role covering "core", nothing for "api" or "workers"
+        roster = Roster(tmp_path)
+        roster.save_role(RoleSpec(
+            slug="core_dev", display_name="Core Dev",
+            agents_md="# Core Dev\nManages core module",
+            soul_md="# Soul", knowledge_md="# Knowledge",
+        ))
+        engine._roster = Roster(tmp_path)
+
+        report = engine.audit_roles()
+        assert "api" in report.coverage_gaps
+        assert "workers" in report.coverage_gaps
+        assert "core" not in report.coverage_gaps

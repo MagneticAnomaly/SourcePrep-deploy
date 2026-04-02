@@ -166,6 +166,47 @@ class TestOrgChart:
         assert "Backend Dev" in md or "backend_dev" in md.lower()
 
 
+class TestHybridMode:
+    def test_hybrid_includes_required_and_inferred(self, engine: StaffingEngine) -> None:
+        roles = engine.hybrid_generate_roles(
+            required_names=["QA Engineer"],
+            llm_fn=_fake_llm,
+        )
+        slugs = {r.slug for r in roles}
+        # Required role must be present
+        assert "qa_engineer" in slugs
+        # Inferred role (from _fake_llm) should also be present
+        assert "backend_developer" in slugs
+
+    def test_hybrid_deduplicates_overlap(self, engine: StaffingEngine) -> None:
+        roles = engine.hybrid_generate_roles(
+            required_names=["Backend Developer"],  # same as what LLM infers
+            llm_fn=_fake_llm,
+        )
+        slugs = [r.slug for r in roles]
+        assert slugs.count("backend_developer") == 1
+
+    def test_hybrid_requires_readiness(self, tmp_path: Path) -> None:
+        engine = StaffingEngine(index_dir=tmp_path, project_id="empty")
+        with pytest.raises(ValueError, match="readiness"):
+            engine.hybrid_generate_roles(required_names=["Dev"], llm_fn=_fake_llm)
+
+
+class TestAutoModeFailure:
+    def test_auto_raises_on_bad_llm_json(self, engine: StaffingEngine) -> None:
+        def bad_llm(prompt: str, system: str | None = None, **kw) -> Tuple[str, int]:
+            if "AGENTS.md" in prompt:
+                return "# Agent", 10
+            if "SOUL.md" in prompt:
+                return "# Soul", 10
+            if "Analyze this codebase" in prompt:
+                return "not valid json {{{{", 10
+            return "ok", 10
+
+        with pytest.raises(ValueError, match="unparseable"):
+            engine.auto_generate_roles(llm_fn=bad_llm)
+
+
 class TestEdgeCases:
     def test_regenerate_overwrites_existing(self, engine: StaffingEngine) -> None:
         engine.generate_roles(role_names=["Dev"], llm_fn=_fake_llm)

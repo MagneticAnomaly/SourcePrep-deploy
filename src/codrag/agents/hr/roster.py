@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -50,7 +51,6 @@ class Roster:
             dir=self._path.parent, suffix=".tmp", prefix=".hr_roster_"
         )
         try:
-            import os
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
             Path(tmp).replace(self._path)

@@ -1,7 +1,7 @@
 """Staffing Agent Engine — generates AI agent role definitions from codebase analysis.
 
 Orchestrates readiness scoring, role generation (list/auto/hybrid modes),
-and roster persistence. Uses AgentCore for CoDRAG data access and LLM calls.
+and roster persistence. Uses AgentCore for CoDRAG data access when available.
 """
 from __future__ import annotations
 
@@ -63,26 +63,43 @@ class DriftReport:
 class StaffingEngine:
     """Generates and manages AI agent role definitions.
 
+    Accepts either an ``AgentCore`` instance (preferred — provides data access
+    through the Phase 0 facade) or raw ``index_dir`` + ``project_id`` for
+    lightweight / test usage.
+
     Args:
-        index_dir: Path to the CoDRAG index directory.
-        project_id: CoDRAG project identifier.
-        project_root: Optional path to the project source root.
+        core: AgentCore instance. When provided, ``index_dir`` and ``project_id``
+            are derived from it.
+        index_dir: Path to the CoDRAG index directory. Used when ``core`` is None.
+        project_id: CoDRAG project identifier. Used when ``core`` is None.
     """
 
     def __init__(
         self,
-        index_dir: Path,
-        project_id: str,
-        project_root: Optional[Path] = None,
+        core: Optional[Any] = None,
+        *,
+        index_dir: Optional[Path] = None,
+        project_id: str = "",
     ) -> None:
-        self._index_dir = Path(index_dir)
-        self._project_id = project_id
-        self._project_root = project_root
+        if core is not None:
+            self._core = core
+            self._index_dir = core._data._index_dir
+            self._project_id = core.project_id
+        elif index_dir is not None:
+            self._core = None
+            self._index_dir = Path(index_dir)
+            self._project_id = project_id
+        else:
+            raise ValueError("Provide either 'core' (AgentCore) or 'index_dir'")
+
         self._roster = Roster(self._index_dir)
 
-    # -- Data Access Helpers --
+    # -- Data Access (delegates to AgentCore when available) --
 
     def _load_modules(self) -> List[Dict[str, Any]]:
+        if self._core is not None:
+            return self._core.get_module_structure()
+        # Fallback for lightweight / test usage
         modules_path = self._index_dir / "trace_modules.jsonl"
         if not modules_path.exists():
             return []
@@ -96,14 +113,13 @@ class StaffingEngine:
         return modules
 
     def _load_atlas(self) -> str:
+        if self._core is not None:
+            return self._core.get_atlas()
+        # Fallback for lightweight / test usage
         atlas_path = self._index_dir / "codebase_atlas.md"
         if atlas_path.exists():
             return atlas_path.read_text(encoding="utf-8")
         return ""
-
-    def _count_indexed_files(self) -> int:
-        modules = self._load_modules()
-        return sum(len(m.get("member_files", [])) for m in modules)
 
     def _modules_summary(self, modules: List[Dict[str, Any]]) -> str:
         parts = []
@@ -268,7 +284,7 @@ class StaffingEngine:
             List of generated RoleSpec instances.
 
         Raises:
-            ValueError: If readiness score is below threshold.
+            ValueError: If readiness score is below threshold or LLM inference fails.
         """
         report = self.check_readiness()
         if report.score < min_readiness:
@@ -339,7 +355,11 @@ class StaffingEngine:
         atlas: str,
         llm_fn: LLMFn,
     ) -> List[Dict[str, Any]]:
-        """Use LLM to infer optimal roles from codebase analysis."""
+        """Use LLM to infer optimal roles from codebase analysis.
+
+        Raises:
+            ValueError: If the LLM response cannot be parsed as valid JSON.
+        """
         all_tags: List[str] = []
         layer_dist: Dict[str, int] = {}
         for m in modules:
@@ -363,10 +383,16 @@ class StaffingEngine:
             roles = json.loads(response)
             if not isinstance(roles, list):
                 roles = [roles]
+            # Validate each role has required fields
+            for r in roles:
+                if "display_name" not in r:
+                    raise ValueError(f"Role missing 'display_name': {r}")
             return roles
         except (json.JSONDecodeError, TypeError) as exc:
-            logger.warning("Failed to parse auto-roles LLM response: %s", exc)
-            return [{"slug": "engineer", "display_name": "Engineer"}]
+            raise ValueError(
+                f"Auto role inference failed: LLM returned unparseable response. "
+                f"Parse error: {exc}"
+            ) from exc
 
     # -- Drift Detection --
 
@@ -385,7 +411,7 @@ class StaffingEngine:
 
         modules = self._load_modules()
         module_names = {m.get("name", "").lower() for m in modules}
-        all_tags = set()
+        all_tags: set = set()
         for m in modules:
             all_tags.update(t.lower() for t in m.get("domain_tags", []))
 
@@ -418,7 +444,7 @@ class StaffingEngine:
 
     def _compute_role_fitness(
         self,
-        role: "RoleSpec",
+        role: RoleSpec,
         module_names: set,
         domain_tags: set,
     ) -> float:
