@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -27,6 +28,36 @@ logger = logging.getLogger(__name__)
 
 # Type alias for injectable LLM function
 LLMFn = Callable[..., Tuple[str, int]]
+
+
+@dataclass
+class RoleFitness:
+    """Fitness assessment for a single role."""
+
+    slug: str
+    display_name: str
+    fitness_score: float  # 0.0-1.0
+    recommendation: str  # healthy | minor_drift | significant_drift | critical
+    details: str = ""
+
+    @staticmethod
+    def classify(score: float) -> str:
+        if score > 0.8:
+            return "healthy"
+        if score > 0.6:
+            return "minor_drift"
+        if score > 0.4:
+            return "significant_drift"
+        return "critical"
+
+
+@dataclass
+class DriftReport:
+    """Result of roster drift analysis."""
+
+    role_fitness: List[RoleFitness] = field(default_factory=list)
+    coverage_gaps: List[str] = field(default_factory=list)
+    overlap_warnings: List[str] = field(default_factory=list)
 
 
 class StaffingEngine:
@@ -336,6 +367,79 @@ class StaffingEngine:
         except (json.JSONDecodeError, TypeError) as exc:
             logger.warning("Failed to parse auto-roles LLM response: %s", exc)
             return [{"slug": "engineer", "display_name": "Engineer"}]
+
+    # -- Drift Detection --
+
+    def audit_roles(self) -> DriftReport:
+        """Analyze drift between existing roles and current codebase state.
+
+        Computes a fitness score per role by checking whether the modules
+        and domain tags referenced in the role's AGENTS.md still exist.
+
+        Returns:
+            DriftReport with per-role fitness and cross-role analysis.
+        """
+        roles = self._roster.list_roles()
+        if not roles:
+            return DriftReport()
+
+        modules = self._load_modules()
+        module_names = {m.get("name", "").lower() for m in modules}
+        all_tags = set()
+        for m in modules:
+            all_tags.update(t.lower() for t in m.get("domain_tags", []))
+
+        fitness_list: List[RoleFitness] = []
+        covered_modules: set = set()
+
+        for slug in roles:
+            role = self._roster.get_role(slug)
+            if role is None:
+                continue
+
+            score = self._compute_role_fitness(role, module_names, all_tags)
+            fitness_list.append(RoleFitness(
+                slug=role.slug,
+                display_name=role.display_name,
+                fitness_score=score,
+                recommendation=RoleFitness.classify(score),
+            ))
+
+            for mn in module_names:
+                if mn in role.agents_md.lower():
+                    covered_modules.add(mn)
+
+        gaps = [mn for mn in module_names if mn not in covered_modules and mn]
+
+        return DriftReport(
+            role_fitness=fitness_list,
+            coverage_gaps=gaps,
+        )
+
+    def _compute_role_fitness(
+        self,
+        role: "RoleSpec",
+        module_names: set,
+        domain_tags: set,
+    ) -> float:
+        """Score how well a role's definition matches current codebase.
+
+        Checks:
+        - Do modules referenced in AGENTS.md still exist? (weight: 0.5)
+        - Do domain tags in KNOWLEDGE.md still exist? (weight: 0.3)
+        - Is the role's content non-empty? (weight: 0.2)
+        """
+        content = (role.agents_md + " " + role.knowledge_md).lower()
+
+        referenced = sum(1 for mn in module_names if mn and mn in content)
+        module_score = min(1.0, referenced / max(1, len(module_names) * 0.3))
+
+        tag_hits = sum(1 for t in domain_tags if t and t in content)
+        tag_score = min(1.0, tag_hits / max(1, len(domain_tags) * 0.3))
+
+        content_score = 1.0 if len(role.agents_md) > 50 and len(role.soul_md) > 20 else 0.5
+
+        return round(module_score * 0.5 + tag_score * 0.3 + content_score * 0.2, 3)
 
     # -- Roster Access --
 
