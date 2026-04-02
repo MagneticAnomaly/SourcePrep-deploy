@@ -164,3 +164,37 @@ class TestOrgChart:
         md = engine.generate_org_chart_md()
         assert "CTO" in md or "cto" in md.lower()
         assert "Backend Dev" in md or "backend_dev" in md.lower()
+
+
+class TestEdgeCases:
+    def test_regenerate_overwrites_existing(self, engine: StaffingEngine) -> None:
+        engine.generate_roles(role_names=["Dev"], llm_fn=_fake_llm)
+        v1 = engine.roster.get_role("dev")
+        assert v1 is not None
+
+        # Re-generate same role
+        engine.generate_roles(role_names=["Dev"], llm_fn=_fake_llm)
+        v2 = engine.roster.get_role("dev")
+        assert v2 is not None
+        # Should still exist (overwritten, not duplicated)
+        assert len(engine.roster.list_roles()) == 1
+
+    def test_duplicate_slugs_in_list(self, engine: StaffingEngine) -> None:
+        roles = engine.generate_roles(
+            role_names=["Backend Dev", "Backend Dev"],
+            llm_fn=_fake_llm,
+        )
+        # Should deduplicate
+        assert len(roles) == 1
+
+    def test_empty_role_names_list(self, engine: StaffingEngine) -> None:
+        roles = engine.generate_roles(role_names=[], llm_fn=_fake_llm)
+        assert roles == []
+
+    def test_special_chars_in_role_name(self, engine: StaffingEngine) -> None:
+        roles = engine.generate_roles(
+            role_names=["C++ Backend (Senior)"],
+            llm_fn=_fake_llm,
+        )
+        assert len(roles) == 1
+        assert roles[0].slug == "c_backend_senior"
