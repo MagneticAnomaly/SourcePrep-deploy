@@ -660,7 +660,7 @@ export class CodragApiClient implements ApiClient {
 
     // Request timeout: abort if daemon doesn't respond within the limit.
     // Uses AbortSignal.any() to combine caller-provided signal with timeout.
-    const timeoutMs = opts?.timeoutMs ?? 5_000
+    const timeoutMs = opts?.timeoutMs ?? 8_000
     const timeoutController = new AbortController()
     const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs)
     const signals = [timeoutController.signal]
@@ -681,10 +681,10 @@ export class CodragApiClient implements ApiClient {
     } catch (err) {
       clearTimeout(timeoutId)
       if (timeoutController.signal.aborted) {
-        throw new ApiClientError(`Request timed out after ${timeoutMs}ms`, { url: url.toString() });
+        throw new ApiClientError(`Request timed out after ${timeoutMs}ms`, { url: url.toString(), aborted: true });
       }
       if (opts?.signal?.aborted) {
-        throw new ApiClientError('Request aborted', { url: url.toString() });
+        throw new ApiClientError('Request aborted', { url: url.toString(), aborted: true });
       }
       console.error('[ApiClient] Network Error Details:', {
         url: url.toString(),

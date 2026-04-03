@@ -9,7 +9,10 @@ export interface HydrationController {
   isHydrating: boolean
 }
 
-const DEBOUNCE_MS = 100
+// 250ms debounce prevents rapid project clicks from flooding the daemon
+// with requests that pile up in its thread pool (each click fires ~20 API
+// calls, and aborted requests still process server-side)
+const DEBOUNCE_MS = 250
 
 export function useHydrationController(rawProjectId: string | null): HydrationController {
   const [hydratedProjectId, setHydratedProjectId] = useState<string | null>(rawProjectId)
