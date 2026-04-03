@@ -161,57 +161,66 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     const signal = deps.signal
     let unmounted = false
 
-    // Fetch trace status → then pipeline status (sequential so pipeline
-    // always has the last word on the `building` flag).
-    // The trace status API only knows about legacy trace builds, not pipeline
-    // runs, so getPipelineStatus must resolve AFTER getTraceStatus to avoid
-    // overwriting `building: true` with `false`.
-    api.getTraceStatus(selectedProjectId).then((data) => {
-      if (signal?.aborted || unmounted) return
-      const enabled = data.enabled ?? false
-      setTraceStatus({
-        enabled,
-        exists: data.exists ?? false,
-        building: data.building ?? false,
-        counts: data.counts ?? { nodes: 0, edges: 0 },
-        engine: data.engine,
-      })
-      // Critical trace status is loaded — clear the loading gate so the
-      // pipeline panel can render the correct initial state.
-      setProjectLoading(false)
-      // Fetch coverage directly (can't use fetchTraceCoverage — stale closure)
-      if (enabled && selectedProjectId) {
-        setTraceCoverage(prev => ({ ...prev, loading: true }))
-        api.getTraceCoverage(selectedProjectId).then((cov) => {
+    // Hydrate trace status with retry — daemon may be busy with pipeline work.
+    const hydrateTrace = async (pid: string) => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (signal?.aborted || unmounted) return
+        try {
+          const data = await api.getTraceStatus(pid)
           if (signal?.aborted || unmounted) return
-          setTraceCoverage({
-            summary: cov.summary,
-            untraced: cov.untraced,
-            stale: cov.stale,
-            excluded: cov.excluded ?? (cov as any).ignored ?? [],
-            building: cov.building,
-            loading: false,
+          const enabled = data.enabled ?? false
+          setTraceStatus({
+            enabled,
+            exists: data.exists ?? false,
+            building: data.building ?? false,
+            counts: data.counts ?? { nodes: 0, edges: 0 },
+            engine: data.engine,
           })
-        }).catch(() => {
-          if (!signal?.aborted && !unmounted) setTraceCoverage(prev => ({ ...prev, loading: false }))
-        })
+          setProjectLoading(false)
+          // Fetch coverage if trace is enabled
+          if (enabled && pid) {
+            setTraceCoverage(prev => ({ ...prev, loading: true }))
+            api.getTraceCoverage(pid).then((cov) => {
+              if (signal?.aborted || unmounted) return
+              setTraceCoverage({
+                summary: cov.summary,
+                untraced: cov.untraced,
+                stale: cov.stale,
+                excluded: cov.excluded ?? (cov as any).ignored ?? [],
+                building: cov.building,
+                loading: false,
+              })
+            }).catch(() => {
+              if (!signal?.aborted && !unmounted) setTraceCoverage(prev => ({ ...prev, loading: false }))
+            })
+          }
+          // Pipeline status — runs AFTER trace status so its `building`
+          // flag takes precedence (Phase 24 + Phase 25 crash recovery).
+          try {
+            const ps = await api.getPipelineStatus(pid)
+            if (signal?.aborted || unmounted) return
+            const fastRunning = ps.fast_sync?.phase === 'running'
+            if (fastRunning) {
+              setTraceStatus(p => ({ ...p, building: true }))
+            }
+            setCrashedRuns(ps.crashed_runs ?? [])
+          } catch { /* pipeline status is supplementary — don't retry */ }
+          return // success
+        } catch {
+          if (attempt === 0 && !signal?.aborted && !unmounted) {
+            // Wait 3s before retry
+            await new Promise(r => setTimeout(r, 3000))
+          }
+        }
       }
-      // Now load pipeline status — runs AFTER trace status so its `building`
-      // flag takes precedence (Phase 24 + Phase 25 crash recovery).
-      return api.getPipelineStatus(selectedProjectId)
-    }).then((ps: PipelineStatus | void) => {
-      if (signal?.aborted || unmounted || !ps) return
-      const fastRunning = ps.fast_sync?.phase === 'running'
-      if (fastRunning) {
-        setTraceStatus(p => ({ ...p, building: true }))
-      }
-      setCrashedRuns(ps.crashed_runs ?? [])
-    }).catch(() => {
+      // Both attempts failed — reset to clean state
       if (!signal?.aborted && !unmounted) {
         setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
         setProjectLoading(false)
       }
-    })
+    }
+
+    void hydrateTrace(selectedProjectId)
 
     return () => { unmounted = true }
   }, [api, selectedProjectId])

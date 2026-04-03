@@ -139,9 +139,31 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
 
   useEffect(() => {
     if (!selectedProjectId) return
-    void refreshStatus(selectedProjectId)
-    // Load project config
+    // Hydrate project status with retry — the daemon may be busy with pipeline
+    // work and time out on the first attempt. refreshStatus swallows errors
+    // (correct for polling), so we call the API directly for hydration.
     const signal = signalRef.current
+    const hydrateStatus = async (pid: string) => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (signal?.aborted) return
+        try {
+          const status = await api.getProjectStatus(pid)
+          if (signal?.aborted) return
+          setProjectStatuses((prev) => ({ ...prev, [pid]: status }))
+          if (!status.building) {
+            setBuildingProjects((prev) => { const next = new Set(prev); next.delete(pid); return next })
+          }
+          return // success
+        } catch {
+          if (attempt === 0) {
+            // Wait 3s before retry
+            await new Promise(r => setTimeout(r, 3000))
+          }
+        }
+      }
+    }
+    void hydrateStatus(selectedProjectId)
+    // Load project config
     api.getProject(selectedProjectId).then((data) => {
       if (signal?.aborted) return
       const cfg = data.project.config
