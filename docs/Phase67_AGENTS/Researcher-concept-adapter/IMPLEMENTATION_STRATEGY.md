@@ -341,14 +341,14 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 | | — Roster table with per-role completion status + empty state | | |
 | 9.4 | Add Agent Models to AI Gateway Assigned tab | `AssignedModelsPanel.tsx` (or equivalent) | ☐ |
 | | — Deferred: requires AI Gateway panel changes | | |
-| 9.5 | Create CleanupPreview component | `packages/ui/src/components/agents/CleanupPreview.tsx` | ☐ |
-| | — Deferred: needs custodian run data | | |
-| 9.6 | Create ResearchTopicList component | `packages/ui/src/components/agents/ResearchTopicList.tsx` | ☐ |
-| | — Deferred: needs researcher run data | | |
-| 9.7 | Create GenerateWizard component | `packages/ui/src/components/agents/GenerateWizard.tsx` | ☐ |
-| | — Deferred: needs more UX design | | |
+| 9.5 | Create CleanupPreview component | `packages/ui/src/components/agents/CleanupPreview.tsx` | ☑ |
+| | — Scan results table + dry-run/live buttons | | |
+| 9.6 | Create ResearchTopicList component | `packages/ui/src/components/agents/ResearchTopicList.tsx` | ☑ |
+| | — Run history table + topic selector + trigger button | | |
+| 9.7 | Create GenerateWizard component | `packages/ui/src/components/agents/GenerateWizard.tsx` | ☑ |
+| | — 3-mode selector (auto/list/hybrid) + role name input | | |
 
-**Exit criteria:** Detail overlay with 2 tabs working. AI Gateway integration deferred.
+**Exit criteria:** Detail overlay with 3 tabs (Actions, System Agents, Managed Employees). Wired into dashboard panelDetails.
 
 ---
 
