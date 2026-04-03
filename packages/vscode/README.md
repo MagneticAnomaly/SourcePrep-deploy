@@ -1,15 +1,15 @@
 # CoDRAG for VS Code
 
-**Local-first semantic code search, context assembly, and structural trace for AI workflows.**
+**Epistemic semantic code search, trace-aware context assembly, and structural reasoning for AI workflows.**
 
-CoDRAG is a local context engine that indexes your codebase to provide fast, verifiable retrieval for LLMs. It works with your existing AI workflows (Copilot, Cursor, Windsurf) via the Model Context Protocol (MCP) or directly within VS Code.
+CoDRAG is an epistemic context engine that traces your codebase to provide fast, verifiable retrieval for LLMs. It works with your existing AI workflows (Copilot, Cursor, Windsurf) via the Model Context Protocol (MCP) or directly within VS Code.
 
 ## Features
 
 ### 🔍 Semantic Search
 Search your codebase using natural language. CoDRAG finds relevant code chunks based on meaning, not just keywords.
-- **Local-first**: Your code never leaves your machine.
-- **Fast**: Retrieval happens locally on your device.
+- **Sovereign Context**: Your index architecture never leaks.
+- **Fast**: Epistemic routing happens instantly on your device.
 
 ### 🧠 Context Assembly
 Assemble prompt-ready context for your LLM.
@@ -44,7 +44,7 @@ Understand code structure with graph-based analysis.
    Open the CoDRAG sidebar icon and click **Add Project** (or use `CoDRAG: Add Project` from the command palette). Select your repository folder.
 
 4. **Build Index**
-   Click the "Build" icon or run `CoDRAG: Build Index`. CoDRAG will analyze your code (using local embeddings).
+   Click the "Build" icon or run `CoDRAG: Build Index`. CoDRAG will trace your code structurally.
 
 5. **Search & Chat**
    Run `CoDRAG: Search` to find code, or `CoDRAG: Assemble Context` to prepare a prompt.

@@ -2,13 +2,13 @@
 
 ## Tactical Fixes (Current Sprint)
 
-- [ ] **Task 1:** Create `useHydrationController` hook (AbortController + debounce)
-- [ ] **Task 2:** Wire controller into App.tsx
-- [ ] **Task 3:** Thread AbortSignal into simple hooks (audit, spaghetti, goalposts)
-- [ ] **Task 4:** Thread AbortSignal into remaining secondary hooks (roadmap, opportunities, agentOps)
-- [ ] **Task 5:** Thread AbortSignal into critical hooks (projectManager, fileSystem, trace, enrichment)
-- [ ] **Task 6:** Guard all polling effects with `isHydrating` flag
-- [ ] **Task 7:** Move App.tsx direct hydration effects behind the controller
+- [x] **Task 1:** Create `useHydrationController` hook (AbortController + debounce)
+- [x] **Task 2:** Wire controller into App.tsx
+- [x] **Task 3:** Thread AbortSignal into simple hooks (audit, spaghetti, goalposts)
+- [x] **Task 4:** Thread AbortSignal into remaining secondary hooks (roadmap, opportunities, agentOps)
+- [x] **Task 5:** Thread AbortSignal into critical hooks (projectManager, fileSystem, trace, enrichment)
+- [x] **Task 6:** Guard all polling effects with `isHydrating` flag
+- [x] **Task 7:** Move App.tsx direct hydration effects behind the controller
 - [ ] **Manual test:** Verify project switching no longer freezes
 
 ## Re-evaluation Checkpoint

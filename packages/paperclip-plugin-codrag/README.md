@@ -75,7 +75,7 @@ CoDRAG Plugin (JSON-RPC worker)
     ↓ proxies to HTTP API
 CoDRAG Daemon (localhost:8400)
     ↓ queries
-Local Index (embeddings + graph + atlas)
+Sovereign Index (embeddings + graph + atlas)
 ```
 
 The plugin runs as an **out-of-process worker** communicating via JSON-RPC over stdio. It has no direct database access — all data flows through the CoDRAG daemon's HTTP API. Worker failure is isolated and doesn't affect other plugins or Paperclip core.

@@ -286,25 +286,31 @@ def epistemic_status_project(project_id: str) -> Dict[str, Any]:
     proj = _require_project(project_id)
     idx_dir = project_index_dir(proj)
     epistemic_path = idx_dir / "trace_epistemic.jsonl"
+    manifest_path = idx_dir / "trace_epistemic_manifest.json"
 
-    # Count file nodes from trace_nodes.jsonl — epistemic only enriches
-    # file nodes, so total_file_nodes is the correct denominator (not total nodes).
-    total_file_nodes = 0
-    nodes_path = idx_dir / "trace_nodes.jsonl"
-    if nodes_path.exists():
+    def _fast_count(path: Path, pattern: str = None) -> int:
+        if not path.exists(): return 0
         try:
-            with open(nodes_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        try:
-                            nd = json.loads(line)
-                            if nd.get("kind") == "file":
-                                total_file_nodes += 1
-                        except Exception:
-                            pass
-        except Exception:
-            pass
+            if pattern is None:
+                with open(path, "rb") as f:
+                    return sum(1 for _ in f)
+            else:
+                pat_bytes = pattern.encode("utf-8")
+                with open(path, "rb") as f:
+                    return sum(1 for line in f if pat_bytes in line)
+        except Exception: return 0
+
+    total_file_nodes = 0
+    nodes_manifest = idx_dir / "trace_nodes_manifest.json"
+    if nodes_manifest.exists():
+        try:
+            with open(nodes_manifest, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                total_file_nodes = data.get("quality", {}).get("total_items", 0)
+        except Exception: pass
+    
+    if total_file_nodes == 0:
+        total_file_nodes = _fast_count(idx_dir / "trace_nodes.jsonl", '"kind":"file"')
 
     if not epistemic_path.exists():
         result: Dict[str, Any] = {
@@ -314,30 +320,26 @@ def epistemic_status_project(project_id: str) -> Dict[str, Any]:
             "avg_confidence": 0.0,
         }
     else:
-        seen_nodes = set()
-        total_conf = 0.0
-        with open(epistemic_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    try:
-                        d = json.loads(line)
-                        node_id = d.get("node_id")
-                        if node_id and node_id not in seen_nodes:
-                            seen_nodes.add(node_id)
-                            total_conf += float(d.get("epistemic_confidence", 0.0))
-                    except Exception:
-                        pass
-        count = len(seen_nodes)
+        display_count = 0
+        avg_conf = 0.0
+        if manifest_path.exists():
+            try:
+                with open(manifest_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    quality = data.get("quality", {})
+                    display_count = quality.get("processed", 0)
+                    avg_conf = quality.get("avg_confidence", 0.0)
+            except Exception: pass
         
-        # Ensure we don't exceed 100% due to legacy data
-        display_count = min(count, total_file_nodes) if total_file_nodes > 0 else count
-        
+        if display_count == 0:
+            count = _fast_count(epistemic_path)
+            display_count = min(count, total_file_nodes) if total_file_nodes > 0 else count
+
         result = {
             "enabled": True,
             "enriched_nodes": display_count,
             "total_file_nodes": total_file_nodes,
-            "avg_confidence": round(total_conf / count, 3) if count > 0 else 0.0,
+            "avg_confidence": round(avg_conf, 3),
         }
 
     # Inject live running state — check legacy threads first
@@ -465,23 +467,23 @@ def modules_status_project(project_id: str) -> Dict[str, Any]:
     if not modules_path.exists():
         result: Dict[str, Any] = {"enabled": False, "module_count": 0, "total_files_clustered": 0, "last_run_at": None}
     else:
+        manifest_path = idx_dir / "trace_modules_manifest.json"
         count = 0
         total_files = 0
         last_run = None
-        with open(modules_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    try:
-                        d = json.loads(line)
-                        count += 1
-                        total_files += int(d.get("file_count", 0))
-                        syn_at = d.get("synthesized_at")
-                        if syn_at and (not last_run or syn_at > last_run):
-                            last_run = syn_at
-                    except Exception:
-                        pass
-        result = {"enabled": True, "module_count": count, "total_files_clustered": total_files, "last_run_at": last_run}
+        if manifest_path.exists():
+            try:
+                with open(manifest_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    last_run = data.get("finished_at")
+                    # Modules manifest might not have internal stats, so we fast-count
+            except Exception: pass
+            
+        try:
+            with open(modules_path, "rb") as f:
+                count = sum(1 for _ in f)
+        except Exception: pass
+        result = {"enabled": True, "module_count": count, "total_files_clustered": count, "last_run_at": last_run}
 
     state = _cluster_state.get(project_id)
     if state and state.get("thread") and state["thread"].is_alive():
@@ -570,28 +572,24 @@ def deepening_status_project(project_id: str) -> Dict[str, Any]:
     modules_path = idx_dir / "trace_modules.jsonl"
     modules_exist = modules_path.exists() and modules_path.stat().st_size > 0
     try:
-        from codrag.core import EpistemicEnricher, LLMClient
-        enricher = EpistemicEnricher(
-            llm=LLMClient("http://localhost:11434", "none"),
-            repo_root=Path(proj.path),
-            index_dir=idx_dir,
-        )
-        scores = enricher.compute_all_scores() if modules_exist else {}
-        if scores:
-            composites = [s.composite for s in scores.values()]
-            # Must match DeepeningLoop.settled_threshold (0.60)
-            settled = sum(1 for c in composites if c >= 0.60)
-            result["total_scored"] = len(composites)
-            result["settled_count"] = settled
-            result["settled_ratio"] = round(settled / len(composites), 3) if composites else 0.0
-            result["avg_score"] = round(sum(composites) / len(composites), 3)
-            result["min_score"] = round(min(composites), 3)
-            result["max_score"] = round(max(composites), 3)
+        manifest_path = idx_dir / "trace_deepening_manifest.json"
+        if modules_exist and manifest_path.exists():
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                quality = data.get("quality", {})
+                result["total_scored"] = quality.get("total_items", 0)
+                result["settled_count"] = quality.get("processed", 0)
+                result["settled_ratio"] = quality.get("success_rate", 0.0)
+                result["avg_score"] = quality.get("avg_confidence", 0.0)
+                result["min_score"] = quality.get("min_confidence", 0.0)
+                result["max_score"] = quality.get("max_confidence", 0.0)
         else:
             result["total_scored"] = 0
             result["settled_count"] = 0
             result["settled_ratio"] = 0.0
             result["avg_score"] = 0.0
+            result["min_score"] = 0.0
+            result["max_score"] = 0.0
     except Exception:
         result["total_scored"] = 0
 

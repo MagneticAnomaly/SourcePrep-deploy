@@ -143,6 +143,21 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/compute': {
+        target: 'http://127.0.0.1:8400',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/pipeline': {
+        target: 'http://127.0.0.1:8400',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/admin': {
+        target: 'http://127.0.0.1:8400',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
 })

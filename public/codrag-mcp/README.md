@@ -8,11 +8,11 @@
 
 [![License](https://img.shields.io/badge/license-Commercial-blue.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-green.svg)](https://modelcontextprotocol.io)
-[![Local First](https://img.shields.io/badge/Local-First-purple.svg)](https://codrag.io)
+[![Sovereign Context](https://img.shields.io/badge/Sovereign-Context-purple.svg)](https://codrag.io)
 
 </div>
 
-**Code Documentation and RAG** — Local-first codebase intelligence for developers and AI coding agents.
+**Code Documentation and RAG** — Epistemic trace intelligence for autonomous agents and codebase orchestration.
 
 AI assistants are only as good as the context they receive. Most tools send fragments — a single file, a keyword match — and the model fills in the gaps with hallucinations. CoDRAG fixes this by building a **persistent, semantic index** of your entire codebase (or multiple repos) and serving bounded, source-cited context on demand.
 
@@ -24,7 +24,7 @@ AI assistants are only as good as the context they receive. Most tools send frag
 - **Trace Index** — a structural code graph (symbols, imports, call chains) so agents can reason about *how* code connects, not just *where* it lives.
 - **Context assembly** — returns bounded, LLM-ready chunks with source attribution. No more "which file was that from?"
 - **MCP for AI tools** — plug into Cursor, Windsurf, Claude Code, VS Code, Gemini CLI, Qwen Code, GitHub Copilot, or JetBrains via Model Context Protocol. The agent gets the same index you do.
-- **Local-first** — your code never leaves your machine. Indexes are built and queried locally; nothing is uploaded.
+- **Sovereign Context** — your code never leaves your machine. The epistemic trace graph is stored securely offline.
 
 ---
 
@@ -39,7 +39,7 @@ AI tools are evolving fast. The context they need shouldn't be locked inside one
 | **"AI hallucinations"** | AI guesses when it lacks context or gets condused with too much context. CoDRAG provides **grounded, guided, source-cited context** from targeted parts of your codebase. |
 | **"Fragmented Context"** | Each tool (Cursor, VS Code, CLI) has its own partial index. CoDRAG is a **unified context server** for *all* your tools. |
 | **"Dumb Search"** | grep/regex misses concepts. CoDRAG uses **Trace Indexing** (Who calls this? What implements this interface?) + Semantic Search. |
-| **"Privacy Risks"** | Most tools upload code to index it. CoDRAG is **100% Local-First**. Your code never leaves your machine. |
+| **"Privacy Risks"** | Most tools upload code to index it. CoDRAG guarantees **Sovereign Context**. Your code never leaves your machine. |
 | **"Context Window Limits"** | Pasting huge files wastes tokens. CoDRAG uses **Structural Compression** (LOD) to pack 3–20× more files into the same window — no GPU or sidecar needed. |
 | **"Managing separate RAG indexes for 5+ repos is tedious"** | Single daemon manages all projects. |
 | **"Each IDE tool spins up its own Ollama connection"** | Shared LLM connection pool. |
@@ -236,7 +236,7 @@ CoDRAG is the universal model. Bring your own view.
 
 ## Vision
 
-CoDRAG is a **local-first, team-ready** application that provides:
+CoDRAG is an **epistemic, team-ready** application that provides:
 
 - **Semantic code search** across multiple codebases simultaneously
 - **Trace indexing** for structural understanding (symbols, imports, call graphs)

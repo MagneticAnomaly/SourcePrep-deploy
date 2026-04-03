@@ -762,7 +762,9 @@ def configure(
                 if has_graph and not is_stale and deep_mode == "auto":
                     from codrag.core.epistemic_enrichment import EpistemicEnricher
                     from codrag.core.project_registry import project_index_dir
-                    enricher = EpistemicEnricher(project_index_dir(proj), proj.path, None)
+                    llm = _get_llm_client_for_task("enrichment")
+                    idx_dir = project_index_dir(proj)
+                    enricher = EpistemicEnricher(llm=llm, repo_root=Path(proj.path), index_dir=idx_dir)
                     pending = enricher.get_pending_nodes(trace_idx)
                     if pending:
                         needs_deep = True

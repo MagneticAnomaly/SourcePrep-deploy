@@ -4,7 +4,7 @@
 
 <h2 align="center"><em>The bridge between how you think about code and how AI reads it.</em></h2>
 
-**Code Documentation and RAG** — Local-first codebase intelligence for developers and AI coding agents.
+**Code Documentation and RAG** — Epistemic trace intelligence for autonomous agents and codebase orchestration.
 
 AI assistants are only as good as the context they receive. Most tools send fragments — a single file, a keyword match — and the model fills in the gaps with hallucinations. CoDRAG fixes this by building a **persistent, semantic index** of your entire codebase (or multiple repos) and serving bounded, source-cited context on demand.
 
@@ -15,7 +15,7 @@ AI assistants are only as good as the context they receive. Most tools send frag
 - **Context assembly** — returns bounded, LLM-ready chunks with source attribution. No more "which file was that from?"
 - **Role-aware context** — each AI agent gets a context view shaped for its job. A security agent sees auth and data boundaries. A UI agent sees components and design tokens. Works with any agentic framework, zero configuration.
 - **MCP for AI tools** — plug into Cursor, Windsurf, Claude Code, VS Code, Gemini CLI, Qwen Code, GitHub Copilot, or JetBrains via Model Context Protocol. The agent gets the same index you do.
-- **Local-first** — your code never leaves your machine. Indexes are built and queried locally; nothing is uploaded.
+- **Sovereign Context** — your code never leaves your machine. The epistemic trace graph is stored securely offline.
 
 ---
 
@@ -75,7 +75,7 @@ codrag ui
 
 ## Vision
 
-CoDRAG is a **local-first, team-ready** application that provides:
+CoDRAG is an **epistemic, team-ready** application that provides:
 
 - **Semantic code search** across multiple codebases simultaneously
 - **Trace indexing** for structural understanding (symbols, imports, call graphs)
