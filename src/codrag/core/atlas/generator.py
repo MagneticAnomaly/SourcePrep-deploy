@@ -201,6 +201,7 @@ class CodebaseAtlas:
             char_count=len(content),
             mode="llm",
             hub_file_hashes=hub_hashes,
+            segment_ids=self._current_segment_ids(),
         )
 
         self._save(doc)
@@ -258,6 +259,7 @@ class CodebaseAtlas:
             char_count=len(content),
             mode="structural",
             hub_file_hashes=hub_hashes,
+            segment_ids=self._current_segment_ids(),
         )
 
         self._save(doc)
@@ -440,6 +442,7 @@ class CodebaseAtlas:
             char_count=len(content),
             mode="llm" if self.llm else "structural",
             hub_file_hashes=hub_hashes,
+            segment_ids=self._current_segment_ids(),
         )
 
         self._save(doc)
@@ -1018,7 +1021,31 @@ class CodebaseAtlas:
                 )
                 return True
 
+        # 4. Segment drift check — new directories appeared or disappeared
+        if cached.segment_ids:
+            current_ids = sorted(self._current_segment_ids())
+            cached_ids = sorted(cached.segment_ids)
+            if current_ids != cached_ids:
+                new_segments = set(current_ids) - set(cached_ids)
+                removed_segments = set(cached_ids) - set(current_ids)
+                logger.debug(
+                    "Atlas stale: segment drift detected. New: %s, Removed: %s",
+                    new_segments or "none", removed_segments or "none",
+                )
+                return True
+
         return False
+
+    def _current_segment_ids(self) -> List[str]:
+        """Compute current segment IDs from the trace graph."""
+        try:
+            segments = compute_segments(
+                self.index_dir,
+                project_root=Path(self.project_root) if self.project_root else None,
+            )
+            return [s.id for s in segments]
+        except Exception:
+            return []
 
     def exists(self) -> bool:
         """Check if a cached Atlas exists on disk."""

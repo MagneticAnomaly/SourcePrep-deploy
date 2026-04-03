@@ -21,6 +21,7 @@ class AtlasDocument:
     char_count: int
     mode: str  # "llm" or "structural"
     hub_file_hashes: Dict[str, str] = field(default_factory=dict)
+    segment_ids: List[str] = field(default_factory=list)  # Phase 70B: tracked for drift detection
     version: int = 1
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +35,7 @@ class AtlasDocument:
             "char_count": self.char_count,
             "mode": self.mode,
             "hub_file_hashes": self.hub_file_hashes,
+            "segment_ids": self.segment_ids,
             "version": self.version,
         }
 
@@ -49,6 +51,7 @@ class AtlasDocument:
             char_count=int(d.get("char_count", 0)),
             mode=d.get("mode", "structural"),
             hub_file_hashes=d.get("hub_file_hashes") or {},
+            segment_ids=d.get("segment_ids") or [],
             version=int(d.get("version", 1)),
         )
 
