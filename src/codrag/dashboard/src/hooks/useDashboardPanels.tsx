@@ -18,6 +18,8 @@ import {
   GraphStructurePanel,
   FolderTreePanel,
   AgentScopePanel,
+  AgentOpsPanel,
+  type AgentOpsData,
   FileExplorerDetail,
   CopyButton,
   LogConsole,
@@ -266,6 +268,21 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
   // Flatten grouped sub-objects for backward-compatible p.xxx access internally
   const { search, files, trace, enrichment, llm, deepAnalysis, atlas, audit: auditProps, spaghetti: spaghettiProps, goalposts: goalpostsProps, roadmap: roadmapProps, opportunities: opportunitiesProps, ...core } = props
   const p = { ...core, ...search, ...files, ...trace, ...enrichment, ...llm, ...deepAnalysis }
+
+  // Agent ops state — fetched when project changes
+  const [agentOpsData, setAgentOpsData] = useState<AgentOpsData | null>(null)
+  const [agentOpsLoading, setAgentOpsLoading] = useState(false)
+
+  useEffect(() => {
+    setAgentOpsData(null)
+    if (!p.selectedProjectId) return
+    setAgentOpsLoading(true)
+    fetch(`/projects/${p.selectedProjectId}/agents/status`)
+      .then(r => r.json())
+      .then(json => setAgentOpsData(json.data ?? json))
+      .catch(() => {})
+      .finally(() => setAgentOpsLoading(false))
+  }, [p.selectedProjectId])
 
   // Optimistic local state for excluded paths — updates INSTANTLY on click.
   // Seeded from trace coverage when it arrives, but local clicks are immediate.
@@ -671,6 +688,13 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onLoadChildren={p.handleLoadChildren}
         title="Knowledge Sources"
         bare
+      />
+    ),
+    'agent-ops': (
+      <AgentOpsPanel
+        data={agentOpsData}
+        loading={agentOpsLoading}
+        className="h-full"
       />
     ),
     'agent-scope': (
