@@ -1723,28 +1723,166 @@ def custodian_manifest(
     console.print(table)
 
 
-@app.command("agents-status")
-def agents_status(
+@app.command("agents")
+def agents_overview(
     project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID"),
     host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
     port: int = typer.Option(8400, "--port", help="Server port"),
 ) -> None:
-    """Show aggregate status of all three agents."""
+    """Agent Operations — status overview and command reference.
+
+    \b
+    Shows the current state of all three CoDRAG agents and lists
+    available commands for each.
+    """
     base = _base_url(host, port)
     pid = _resolve_project(base, project_id)
+
+    # Fetch status
     data = _get_json(f"{base}/projects/{pid}/agents/status")
     hr = data.get("hr", {})
     res = data.get("researcher", {})
     cust = data.get("custodian", {})
     latest = res.get("latest_run", "")
-    latest_str = f" (latest: {latest[:19]})" if latest else ""
-    console.print(Panel(
-        f"[bold]HR Agent[/bold]: {hr.get('role_count', 0)} roles\n"
-        f"[bold]Researcher[/bold]: {res.get('run_count', 0)} runs{latest_str}\n"
-        f"[bold]Custodian[/bold]: {cust.get('archive_count', 0)} archived items",
-        title="Agent Operations",
-    ))
 
+    # Status section
+    console.print()
+    console.print("[bold]Agent Operations[/bold]")
+    console.print()
+
+    status_table = Table(show_header=False, box=None, padding=(0, 2))
+    status_table.add_column("Agent", style="bold")
+    status_table.add_column("Status")
+    status_table.add_column("Metric")
+
+    hr_count = hr.get("role_count", 0)
+    hr_status = "[green]Active[/green]" if hr_count > 0 else "[dim]No roles[/dim]"
+    status_table.add_row("HR Agent", hr_status, f"{hr_count} roles")
+
+    res_count = res.get("run_count", 0)
+    res_status = "[green]Active[/green]" if res_count > 0 else "[dim]No runs[/dim]"
+    res_metric = f"{res_count} runs"
+    if latest:
+        res_metric += f" (latest: {latest[:10]})"
+    status_table.add_row("Researcher", res_status, res_metric)
+
+    cust_count = cust.get("archive_count", 0)
+    cust_status = "[green]Active[/green]" if cust_count > 0 else "[dim]No scans[/dim]"
+    status_table.add_row("Custodian", cust_status, f"{cust_count} archived")
+
+    console.print(status_table)
+
+    # Commands section
+    console.print()
+    console.print("[bold]Commands[/bold]")
+    console.print()
+
+    cmd_table = Table(show_header=False, box=None, padding=(0, 2))
+    cmd_table.add_column("Command", style="cyan")
+    cmd_table.add_column("Description", style="dim")
+
+    cmd_table.add_row("codrag hr-readiness", "Check codebase readiness for role generation")
+    cmd_table.add_row('codrag hr-generate "Role Name"', "Generate role definitions (list mode)")
+    cmd_table.add_row("codrag hr-generate --mode auto", "Auto-infer roles from codebase")
+    cmd_table.add_row("codrag hr-roster", "List generated roles")
+    cmd_table.add_row("codrag hr-audit", "Run drift detection on roles")
+    cmd_table.add_row("codrag hr-sync", "Sync roles to Paperclip")
+    cmd_table.add_row("", "")
+    cmd_table.add_row("codrag research-run", "Mine audit findings, formulate plans")
+    cmd_table.add_row("codrag research-history", "Show research run history")
+    cmd_table.add_row("", "")
+    cmd_table.add_row("codrag custodian-run", "Scan for dead code (dry-run default)")
+    cmd_table.add_row("codrag custodian-run --live", "Execute cleanup (creates branch)")
+    cmd_table.add_row("codrag custodian-manifest", "Show archive manifest")
+
+    console.print(cmd_table)
+
+    # Quick start hint if nothing is set up
+    if hr_count == 0 and res_count == 0 and cust_count == 0:
+        console.print()
+        console.print("[yellow]Get started:[/yellow]")
+        console.print("  1. Ensure an LLM is configured: [cyan]codrag config[/cyan]")
+        console.print("  2. Check readiness: [cyan]codrag hr-readiness[/cyan]")
+        console.print("  3. Generate roles: [cyan]codrag hr-generate --mode auto[/cyan]")
+
+
+@app.command("agents-discover")
+def agents_discover(
+    url: Optional[str] = typer.Option(None, "--url", help="Paperclip URL to probe (overrides config)"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
+    port: int = typer.Option(8400, "--port", help="Server port"),
+) -> None:
+    """Discover Paperclip connection status.
+
+    Probes for a running Paperclip instance and reports connection details.
+    """
+    base = _base_url(host, port)
+    if url:
+        data = _post_json(f"{base}/agents/discovery/probe", {"url": url})
+    else:
+        data = _get_json(f"{base}/agents/discovery")
+
+    connected = data.get("connected", False)
+    configured = data.get("configured", False)
+
+    if not configured:
+        console.print("[dim]Paperclip is not configured. Enable pm_push in Settings.[/dim]")
+        return
+
+    if connected:
+        console.print(f"[green]✓ Paperclip connected[/green] at {data.get('url', '?')}")
+        if data.get("company_name"):
+            console.print(f"  Company: {data['company_name']}")
+        if data.get("agent_count"):
+            console.print(f"  Agents: {data['agent_count']}")
+        if data.get("plugin_detected"):
+            console.print("  [green]CoDRAG plugin detected ✓[/green]")
+        else:
+            console.print("  [yellow]CoDRAG plugin not detected[/yellow]")
+        if data.get("version"):
+            console.print(f"  Version: {data['version']}")
+    else:
+        reason = data.get("reason", "Unknown")
+        console.print(f"[red]✗ Paperclip not reachable[/red]")
+        console.print(f"  {reason}")
+
+
+@app.command("research-push")
+def research_push(
+    project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
+    port: int = typer.Option(8400, "--port", help="Server port"),
+) -> None:
+    """Push latest research plans to Paperclip."""
+    base = _base_url(host, port)
+    pid = _resolve_project(base, project_id)
+    console.print("[cyan]Pushing research plans to Paperclip...[/cyan]")
+    data = _post_json(f"{base}/projects/{pid}/agents/researcher/push", {})
+    if data.get("pushed"):
+        console.print(f"[green]Pushed {data.get('issues_pushed', 0)} issue(s) to Paperclip[/green]")
+        for iss in data.get("issues", []):
+            console.print(f"  - {iss.get('title', '?')} → {iss.get('id', '?')}")
+    else:
+        console.print(f"[dim]{data.get('reason', 'Nothing to push')}[/dim]")
+
+
+@app.command("custodian-push")
+def custodian_push(
+    project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
+    port: int = typer.Option(8400, "--port", help="Server port"),
+) -> None:
+    """Push cleanup plan to Paperclip."""
+    base = _base_url(host, port)
+    pid = _resolve_project(base, project_id)
+    console.print("[cyan]Pushing cleanup plan to Paperclip...[/cyan]")
+    data = _post_json(f"{base}/projects/{pid}/agents/custodian/push", {})
+    if data.get("pushed"):
+        console.print(f"[green]Pushed {data.get('issues_pushed', 0)} cleanup item(s) to Paperclip[/green]")
+        for iss in data.get("issues", []):
+            console.print(f"  - {iss.get('title', '?')} → {iss.get('id', '?')}")
+    else:
+        console.print(f"[dim]{data.get('reason', 'Nothing to push')}[/dim]")
 
 def main() -> None:
     """Entry point for the CLI."""
