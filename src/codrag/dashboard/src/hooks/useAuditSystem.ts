@@ -12,7 +12,10 @@ export interface UseAuditSystemReturn {
   handleViewAuditReport: (reportName: string) => void
 }
 
-export function useAuditSystem(selectedProjectId: string | null): UseAuditSystemReturn {
+export function useAuditSystem(
+  selectedProjectId: string | null,
+  options?: { signal?: AbortSignal; isHydrating?: boolean }
+): UseAuditSystemReturn {
   const api = useApiClient()
 
   const [auditStatus, setAuditStatus] = useState<AuditStatus | null>(null)
@@ -32,15 +35,18 @@ export function useAuditSystem(selectedProjectId: string | null): UseAuditSystem
 
     if (!selectedProjectId) return
 
+    const signal = options?.signal
+
     api.getAuditStatus(selectedProjectId)
       .then((s) => {
+        if (signal?.aborted) return
         setAuditStatus(s)
         if (s.has_results) {
           api.getAuditFindings(selectedProjectId, { limit: 200 })
-            .then((r) => setAuditFindings(r.findings || []))
+            .then((r) => { if (!signal?.aborted) setAuditFindings(r.findings || []) })
             .catch(() => {})
           api.getAuditReports(selectedProjectId)
-            .then((r) => setAuditReports(r.reports || []))
+            .then((r) => { if (!signal?.aborted) setAuditReports(r.reports || []) })
             .catch(() => {})
         }
       })

@@ -273,13 +273,13 @@ function App() {
   } = useDeepAnalysis(selectedProjectId, { onError: (msg, variant) => showToast(msg, variant) })
 
   // ── Audit system (Phase 43) ────────────────────────────────
-  const audit = useAuditSystem(selectedProjectId)
+  const audit = useAuditSystem(hydration.hydratedProjectId, { signal: hydration.signal, isHydrating: hydration.isHydrating })
 
   // ── Spaghetti Finder (Phase 52) ─────────────────────────────
-  const spaghetti = useSpaghettiSystem(selectedProjectId)
+  const spaghetti = useSpaghettiSystem(hydration.hydratedProjectId, { signal: hydration.signal })
 
   // ── Goalposts (Phase 57) ────────────────────────────────────
-  const goalposts = useGoalpostsSystem(selectedProjectId)
+  const goalposts = useGoalpostsSystem(hydration.hydratedProjectId, { signal: hydration.signal, isHydrating: hydration.isHydrating })
 
   // ── Roadmap (Phase 59) ──────────────────────────────────────
   const roadmap = useRoadmapSystem(selectedProjectId)

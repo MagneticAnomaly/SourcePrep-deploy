@@ -11,7 +11,10 @@ export interface UseGoalpostsSystemReturn {
   handleAnswerQuestion: (questionId: string, answer: string) => void
 }
 
-export function useGoalpostsSystem(selectedProjectId: string | null): UseGoalpostsSystemReturn {
+export function useGoalpostsSystem(
+  selectedProjectId: string | null,
+  options?: { signal?: AbortSignal; isHydrating?: boolean }
+): UseGoalpostsSystemReturn {
   const api = useApiClient()
 
   const [state, setState] = useState<GoalpostsResponse | null>(null)
@@ -32,8 +35,9 @@ export function useGoalpostsSystem(selectedProjectId: string | null): UseGoalpos
     setState(null)
     if (!selectedProjectId) return
 
+    const signal = options?.signal
     api.getGoalposts(selectedProjectId)
-      .then((s) => setState(s))
+      .then((s) => { if (!signal?.aborted) setState(s) })
       .catch(() => {})
   }, [selectedProjectId, api])
 

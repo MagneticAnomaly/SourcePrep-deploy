@@ -11,7 +11,10 @@ export interface UseSpaghettiSystemReturn {
   handleSpaghettiRefresh: () => void
 }
 
-export function useSpaghettiSystem(selectedProjectId: string | null): UseSpaghettiSystemReturn {
+export function useSpaghettiSystem(
+  selectedProjectId: string | null,
+  options?: { signal?: AbortSignal }
+): UseSpaghettiSystemReturn {
   const api = useApiClient()
 
   const [files, setFiles] = useState<SpaghettiFileScore[]>([])
@@ -20,23 +23,24 @@ export function useSpaghettiSystem(selectedProjectId: string | null): UseSpaghet
   const [severityCounts, setSeverityCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(false)
 
-  const fetchScores = useCallback((projectId: string, refresh = false) => {
+  const fetchScores = useCallback((projectId: string, refresh = false, signal?: AbortSignal) => {
     setLoading(true)
     api.getSpaghettiScores(projectId, { limit: 100, refresh })
       .then((r) => {
+        if (signal?.aborted) return
         setFiles(r.files || [])
         setFileCount(r.file_count || 0)
         setScoredCount(r.scored_count || 0)
         setSeverityCounts(r.severity_counts || {})
       })
       .catch(() => {
-        // Clear state on error so stale data from a previous project isn't shown
+        if (signal?.aborted) return
         setFiles([])
         setFileCount(0)
         setScoredCount(0)
         setSeverityCounts({})
       })
-      .finally(() => setLoading(false))
+      .finally(() => { if (!signal?.aborted) setLoading(false) })
   }, [api])
 
   // Hydrate on project change
@@ -49,7 +53,7 @@ export function useSpaghettiSystem(selectedProjectId: string | null): UseSpaghet
 
     if (!selectedProjectId) return
 
-    fetchScores(selectedProjectId)
+    fetchScores(selectedProjectId, false, options?.signal)
   }, [selectedProjectId, fetchScores])
 
   const handleSpaghettiRefresh = useCallback(() => {
