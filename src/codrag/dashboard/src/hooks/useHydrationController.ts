@@ -16,14 +16,19 @@ export function useHydrationController(rawProjectId: string | null): HydrationCo
   const [isHydrating, setIsHydrating] = useState(false)
   const abortRef = useRef<AbortController>(new AbortController())
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
+  const prevProjectRef = useRef<string | null>(rawProjectId)
 
-  // On rawProjectId change: abort previous, debounce new
-  useEffect(() => {
-    // Abort all in-flight requests from previous project
+  // Abort + replace synchronously during render so that hooks called
+  // AFTER this one in the same render cycle get the NEW signal, not
+  // the one that's about to be aborted.
+  if (prevProjectRef.current !== rawProjectId) {
     abortRef.current.abort()
     abortRef.current = new AbortController()
+    prevProjectRef.current = rawProjectId
+  }
 
-    // Clear any pending debounce
+  // Handle debounce and isHydrating state transitions in an effect
+  useEffect(() => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current)
     }
@@ -40,8 +45,6 @@ export function useHydrationController(rawProjectId: string | null): HydrationCo
     // Debounce the actual project ID propagation
     debounceRef.current = setTimeout(() => {
       setHydratedProjectId(rawProjectId)
-      // Debounce complete — hooks will now fire their hydration effects.
-      // Reset isHydrating so polls can resume once those effects settle.
       setIsHydrating(false)
     }, DEBOUNCE_MS)
 
