@@ -1,4 +1,5 @@
 import { AnchorHeading } from '../../../components/AnchorHeading';
+import { StoryEmbed } from '../../../components/StoryEmbed';
 
 export default function Page() {
   return (
@@ -163,6 +164,15 @@ export default function Page() {
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <div className="not-prose my-8">
+            <StoryEmbed
+              storyId="agents-agentopspanel--active"
+              height={400}
+              title="Agent Operations Panel"
+              caption="Live preview: The three CoDRAG agents (HR, Researcher, Custodian) with managed employee badges."
+            />
           </div>
 
           <AnchorHeading id="ui" level="h2">Dashboard Extensions</AnchorHeading>

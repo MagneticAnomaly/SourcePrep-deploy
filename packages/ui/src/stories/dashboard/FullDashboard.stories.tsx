@@ -24,6 +24,13 @@ import { UsageGuidePanel } from '../../components/dashboard/UsageGuidePanel';
 import { DeepAnalysisSettings } from '../../components/llm/DeepAnalysisSettings';
 import { LogConsole } from '../../components/console/LogConsole';
 import { ActivityHeatmap, generateSampleActivityData } from '../../components/viz/ActivityHeatmap';
+import { AgentOpsPanel } from '../../components/agents/AgentOpsPanel';
+import { AgentScopePanel } from '../../components/agents/AgentScopePanel';
+import { AuditPanel } from '../../components/audit/AuditPanel';
+import { OpportunitiesPanel } from '../../components/audit/OpportunitiesPanel';
+import { RoadmapPanel } from '../../components/goalposts/RoadmapPanel';
+
+const noop = () => {};
 
 const meta: Meta = {
   title: 'Dashboard/Layouts/FullDashboard',
@@ -431,6 +438,78 @@ export const FullDashboard: StoryObj = {
           showLegend={true}
           showLabels={true}
           className="h-full border-none shadow-none bg-transparent"
+        />
+      ),
+      'agent-ops': (
+        <AgentOpsPanel 
+          data={{ hr: { role_count: 5, roles: ['CEO'] }, researcher: { run_count: 3, latest_run: null }, custodian: { archive_count: 12 }, roster: [] }}
+          loading={false} 
+        />
+      ),
+      'agent-scope': (
+        <AgentScopePanel 
+          projectId="mock-project"
+          data={[]}
+          onFetchScopes={async () => ({ roles: ['ceo'], scopes: { ceo: ['src'] } })}
+          onSetScope={async () => {}}
+          onAddPaths={async () => {}}
+          onRemovePaths={async () => {}}
+          onDeleteScope={async () => {}}
+          onAutoPopulate={async () => ({}) as any}
+        />
+      ),
+      'audit': (
+        <AuditPanel 
+          status={{ running: false, error: null, has_results: true, finding_count: 5, severity_counts: { critical: 1, warning: 2, info: 2, suggestion: 0 }, last_run: { generated_at: new Date().toISOString(), graph_node_count: 1000, graph_edge_count: 2000, finding_count: 5, document_count: 0, analyzers_run: [], documents: [] } }} 
+          findings={[]} 
+          reports={[]} 
+          onRunAudit={noop} 
+          onViewReport={noop} 
+        />
+      ),
+      'opportunities': (
+        <OpportunitiesPanel 
+          items={[]}
+          summary={null}
+          loading={false}
+          refreshing={false}
+          error={null}
+          onRefresh={noop}
+          onDismiss={noop}
+          onRestore={noop}
+          onExport={noop}
+          categoryFilter={null}
+          onCategoryFilterChange={noop}
+          priorityFilter={null}
+          onPriorityFilterChange={noop}
+          sourceFilter={null}
+          onSourceFilterChange={noop}
+          showDismissed={false}
+          onShowDismissedChange={noop}
+        />
+      ),
+      'roadmap': (
+        <RoadmapPanel 
+          nodes={[]} 
+          questions={[]} 
+          northStar={null} 
+          appEthos="CoDRAG Ethos" 
+          generating={false} 
+          scanning={false} 
+          error={null} 
+          ready={true} 
+          lastGeneratedAt="" 
+          modelUsed=""
+          onGenerate={noop}
+          onScanTodos={noop}
+          onUpdateEthos={noop}
+          onPromoteNode={noop}
+          onDismissNode={noop}
+          onDeleteNode={noop}
+          onCreateNode={noop}
+          onAnswerQuestion={noop}
+          onSuggestSprint={noop}
+          onMineRoadmap={noop}
         />
       ),
     }), [building, query, searchK, minScore, searchLoading, results, selectedChunk, contextK, maxChars, includeSources, includeScores, structured, context, symbolQuery, selectedTraceNode, includedPaths, pinnedFiles, handleToggleInclude, pathWeights, handleWeightChange]);

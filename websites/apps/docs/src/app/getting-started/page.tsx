@@ -1,5 +1,6 @@
 import { Image as ImageIcon } from 'lucide-react';
 import { AnchorHeading } from '../../components/AnchorHeading';
+import { StoryEmbed } from '../../components/StoryEmbed';
 
 export default function Page() {
   return (
@@ -41,12 +42,13 @@ export default function Page() {
           <p>
             Open CoDRAG from your Applications folder (macOS) or Start Menu (Windows). The app automatically starts the background daemon that manages the Rust indexer and MCP server.
           </p>
-          <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface flex flex-col items-center justify-center text-text-muted gap-2">
-            <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
-              <ImageIcon className="w-6 h-6" />
-            </div>
-            <p className="font-medium text-text">Screenshot: CoDRAG Dashboard</p>
-            <p className="text-sm text-center">Show the CoDRAG dashboard with a green &apos;Connected&apos; status indicator.</p>
+          <div className="not-prose my-6">
+            <StoryEmbed
+              storyId="console-animatedcli--project-overview"
+              height={350}
+              title="CoDRAG Dashboard Preview"
+              caption="Live preview: The CoDRAG daemon processing a project with structural trace and semantic indexing."
+            />
           </div>
           <p className="text-sm text-text-muted">
             <em>Alternatively, power users can run <code>codrag serve</code> from a terminal.</em>

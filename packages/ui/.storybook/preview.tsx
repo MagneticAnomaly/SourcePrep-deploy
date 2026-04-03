@@ -58,11 +58,24 @@ const preview: Preview = {
         showName: true,
       },
     },
+    docsMode: {
+      name: 'Docs Mode',
+      description: 'Hides dev-only controls (bg upload, etc.) for embedded previews',
+      defaultValue: 'false',
+      toolbar: {
+        icon: 'eye',
+        items: [
+          { value: 'false', title: 'Dev Mode (show controls)' },
+          { value: 'true', title: 'Docs Mode (clean)' },
+        ],
+      },
+    },
   },
   decorators: [
     (Story, context) => {
       const mode = context.globals.theme;
       const codragTheme = context.globals.codragTheme;
+      const isDocsMode = context.globals.docsMode === 'true';
 
       const [bgImage, setBgImage] = React.useState<string | null>(null);
       const bgKey = 'codrag_storybook_bg_image';
@@ -124,24 +137,27 @@ const preview: Preview = {
               : undefined
           }
         >
-          <div className="pointer-events-none fixed right-3 top-3 z-50">
-            <div className="pointer-events-auto rounded-md border border-border bg-background/90 p-2 text-xs shadow-sm">
-              <div className="flex items-center gap-2">
-                <label className="cursor-pointer rounded border border-border px-2 py-1">
-                  Upload BG
-                  <input className="hidden" type="file" accept="image/*" onChange={onPickBg} />
-                </label>
-                <button
-                  type="button"
-                  className="rounded border border-border px-2 py-1"
-                  onClick={() => setBgImage(null)}
-                  disabled={!bgImage}
-                >
-                  Clear
-                </button>
+          {/* Dev-only background upload toolbar — hidden in docsMode */}
+          {!isDocsMode && (
+            <div className="pointer-events-none fixed right-3 top-3 z-50">
+              <div className="pointer-events-auto rounded-md border border-border bg-background/90 p-2 text-xs shadow-sm">
+                <div className="flex items-center gap-2">
+                  <label className="cursor-pointer rounded border border-border px-2 py-1">
+                    Upload BG
+                    <input className="hidden" type="file" accept="image/*" onChange={onPickBg} />
+                  </label>
+                  <button
+                    type="button"
+                    className="rounded border border-border px-2 py-1"
+                    onClick={() => setBgImage(null)}
+                    disabled={!bgImage}
+                  >
+                    Clear
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
           <Story />
         </div>
       );

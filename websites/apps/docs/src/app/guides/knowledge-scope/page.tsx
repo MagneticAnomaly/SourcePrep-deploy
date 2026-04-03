@@ -1,5 +1,6 @@
 import { Image as ImageIcon } from 'lucide-react';
 import { AnchorHeading } from '../../../components/AnchorHeading';
+import { StoryEmbed } from '../../../components/StoryEmbed';
 
 export default function Page() {
   return (
@@ -82,12 +83,13 @@ export default function Page() {
             has a checkbox. Checked items are in scope; unchecked items are excluded.
           </p>
 
-          <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface flex flex-col items-center justify-center text-text-muted gap-2">
-            <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
-              <ImageIcon className="w-6 h-6" />
-            </div>
-            <p className="font-medium text-text">Screenshot: Knowledge Scope Selection</p>
-            <p className="text-sm text-center">Show the FolderTree panel with some files/folders checked and others unchecked.</p>
+          <div className="not-prose my-6">
+            <StoryEmbed
+              storyId="agents-agentscopepanel--with-scopes"
+              height={500}
+              title="Agent Knowledge Scopes"
+              caption="Live preview: Per-agent file tree selection with AI auto-populate and role presets."
+            />
           </div>
 
           <ul className="mt-4 space-y-2 text-sm text-text-muted list-disc pl-5">

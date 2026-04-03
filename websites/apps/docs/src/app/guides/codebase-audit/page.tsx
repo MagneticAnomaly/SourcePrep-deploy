@@ -1,6 +1,7 @@
 'use client';
 
 import { AnchorHeading } from '../../../components/AnchorHeading';
+import { StoryEmbed } from '../../../components/StoryEmbed';
 
 export default function Page() {
   return (
@@ -32,6 +33,15 @@ export default function Page() {
           <p className="mt-4">
             <strong>AutoAudit V2</strong> transforms CoDRAG from a "passive observer" into an "active taskmaster". Findings are categorized into flat tabs (Architecture, Quality, Coverage, Tech Debt), prioritized, and include concrete actionable items. You can select findings and click <strong>"Copy AI Command"</strong> to instantly hand off the context assembly to your AI via MCP.
           </p>
+
+          <div className="not-prose my-8">
+            <StoryEmbed
+              storyId="audit-auditpanel--with-findings"
+              height={600}
+              title="Codebase Audit — Findings View"
+              caption="Live preview: AutoAudit findings organized by severity and category with AI handoff."
+            />
+          </div>
 
           <div className="not-prose my-8 rounded-xl border border-border bg-surface p-6">
             <h3 className="text-lg font-semibold">Two Tiers</h3>
@@ -287,6 +297,15 @@ codrag audit --category architecture`}</code></pre>
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <div className="not-prose my-8">
+            <StoryEmbed
+              storyId="audit-opportunitiespanel--with-opportunities"
+              height={600}
+              title="Opportunities Panel — Unified View"
+              caption="Live preview: Opportunities panel consolidating all improvement items with filters and Pi Agent status."
+            />
           </div>
 
           <AnchorHeading id="pipeline-connection" level="h2">Pipeline Connection</AnchorHeading>

@@ -1,4 +1,5 @@
 import { AnchorHeading } from '../../../components/AnchorHeading';
+import { StoryEmbed } from '../../../components/StoryEmbed';
 
 export const metadata = {
   title: 'Team Sync Guide — CoDRAG Docs',
@@ -38,6 +39,15 @@ export default function Page() {
           <li><strong>Sync locally:</strong> Each developer&apos;s CoDRAG client checks the bucket on startup and downloads the latest index in seconds.</li>
           <li><strong>Delta only:</strong> When a developer edits files locally, CoDRAG enriches only those files using their local LLM or BYOK API key. The rest of the graph comes from the shared index.</li>
         </ol>
+
+        <div className="not-prose my-8">
+          <StoryEmbed
+            storyId="team-syncstatuscard--up-to-date"
+            height={200}
+            title="Team Sync Status"
+            caption="Live preview: The Sync Status Card showing a synced team index with commit hash and last-synced timestamp."
+          />
+        </div>
 
         <p className="mt-4 text-text-muted">Two Docker image variants are available:</p>
 

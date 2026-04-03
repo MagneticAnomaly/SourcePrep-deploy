@@ -1,5 +1,6 @@
 import { Image as ImageIcon } from 'lucide-react';
 import { AnchorHeading } from '../../components/AnchorHeading';
+import { StoryEmbed } from '../../components/StoryEmbed';
 
 export default function Page() {
   return (
@@ -28,13 +29,11 @@ export default function Page() {
             This layout streamlines the workflow: you define the scope, and the AI engine handles the heavy lifting of tracing, indexing, and enriching your codebase.
           </p>
 
-          <div className="my-8 p-12 border-2 border-dashed border-border rounded-lg bg-surface flex flex-col items-center justify-center text-text-muted gap-2">
-            <div className="w-16 h-16 rounded-full bg-surface border border-border flex items-center justify-center mb-2">
-              <ImageIcon className="w-8 h-8" />
-            </div>
-            <p className="font-medium text-text">Screenshot: Two-Pane Dashboard</p>
-            <p className="text-sm max-w-md text-center">Capture the unified dashboard showing the Scope (left) and Engine (right) panels.</p>
-          </div>
+          <StoryEmbed
+            storyId="dashboard-layouts-fulldashboard--full-dashboard"
+            height={600}
+            caption="The CoDRAG modular dashboard — drag, resize, and arrange panels to your workflow"
+          />
 
           <hr className="my-12 border-border" />
 
@@ -73,13 +72,11 @@ export default function Page() {
             <li><span className="font-semibold text-text">Un-ignore:</span> Select files to remove them from the blocklist and add them to the Queue.</li>
           </ul>
 
-          <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface flex flex-col items-center justify-center text-text-muted gap-2">
-            <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
-              <ImageIcon className="w-6 h-6" />
-            </div>
-            <p className="font-medium text-text">Screenshot: Graph Scope Panel</p>
-            <p className="text-sm">Show the Scope panel with the Queue tab active.</p>
-          </div>
+          <StoryEmbed
+            storyId="dashboard-widgets-trace-coveragepanel--default"
+            height={350}
+            caption="Graph Scope panel — file coverage and queue management"
+          />
 
           <hr className="my-12 border-border" />
 
@@ -135,13 +132,11 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface flex flex-col items-center justify-center text-text-muted gap-2">
-            <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
-              <ImageIcon className="w-6 h-6" />
-            </div>
-            <p className="font-medium text-text">Screenshot: Knowledge Pipeline</p>
-            <p className="text-sm">Show the vertical pipeline list with status indicators.</p>
-          </div>
+          <StoryEmbed
+            storyId="dashboard-widgets-trace-graphenrichmentpipeline--full-pipeline-running"
+            height={450}
+            caption="Knowledge Pipeline in action — all 9 stages visualized with live progress"
+          />
 
           <hr className="my-12 border-border" />
 
@@ -159,13 +154,11 @@ export default function Page() {
           <p>
             (Legacy View) The search interface remains available for direct queries against the graph.
           </p>
-          <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface flex flex-col items-center justify-center text-text-muted gap-2">
-            <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
-              <ImageIcon className="w-6 h-6" />
-            </div>
-            <p className="font-medium text-text">Screenshot: Search Panel</p>
-            <p className="text-sm">Show the search input field.</p>
-          </div>
+          <StoryEmbed
+            storyId="dashboard-widgets-searchpanel--full-search-demo"
+            height={350}
+            caption="Semantic search — find code by meaning with context assembly"
+          />
 
         </div>
       </div>

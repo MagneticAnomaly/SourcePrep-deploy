@@ -1,4 +1,5 @@
 import { AnchorHeading } from '../../../components/AnchorHeading';
+import { StoryEmbed } from '../../../components/StoryEmbed';
 
 export default function Page() {
   return (
@@ -61,6 +62,15 @@ export default function Page() {
             <li><span className="font-semibold text-text">Neighborhood View:</span> Click any file to see its immediate dependencies (upstream) and consumers (downstream).</li>
             <li><span className="font-semibold text-text">List View:</span> Toggle to a detailed list to see exact import counts and symbol references.</li>
           </ul>
+
+          <div className="not-prose my-8">
+            <StoryEmbed
+              storyId="trace-tracegraph--default"
+              height={450}
+              title="Interactive Code Graph"
+              caption="Live preview: An interactive visualization of file-level dependencies and import relationships."
+            />
+          </div>
 
           <AnchorHeading id="usage" level="h2">Usage</AnchorHeading>
           <p>

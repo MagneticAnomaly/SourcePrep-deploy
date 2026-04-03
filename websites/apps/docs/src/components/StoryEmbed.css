@@ -1,0 +1,118 @@
+/* ─── StoryEmbed — Sandboxed Storybook iframe styles ──────────────── */
+
+.story-embed {
+  margin: 1.5rem 0;
+}
+
+.story-embed__frame {
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  overflow: hidden;
+  background: var(--color-surface, #0d0d14);
+}
+
+/* ── Iframe ── */
+.story-embed__iframe {
+  display: block;
+  width: 100%;
+  border: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.story-embed__iframe--loaded {
+  opacity: 1;
+}
+
+/* ── Loading skeleton ── */
+.story-embed__skeleton {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--color-surface, #0d0d14);
+  z-index: 1;
+}
+
+.story-embed__skeleton-shimmer {
+  width: 60%;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-primary, #6c63ff) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: story-embed-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes story-embed-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.story-embed__skeleton-label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #666);
+  font-family: var(--font-mono, monospace);
+}
+
+/* ── Error fallback ── */
+.story-embed__error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--color-surface, #0d0d14);
+  z-index: 1;
+}
+
+.story-embed__error-icon {
+  font-size: 1.5rem;
+  opacity: 0.5;
+}
+
+.story-embed__error span {
+  font-size: 0.875rem;
+  color: var(--color-text-muted, #666);
+}
+
+.story-embed__error-link {
+  font-size: 0.75rem;
+  color: var(--color-primary, #6c63ff);
+  text-decoration: none;
+}
+
+.story-embed__error-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Caption ── */
+.story-embed__caption {
+  margin-top: 0.5rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #666);
+  font-style: italic;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .story-embed__frame {
+    border-radius: 8px;
+  }
+}

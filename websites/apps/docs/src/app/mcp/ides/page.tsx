@@ -1,5 +1,6 @@
 import { MCP_TOOLS } from '../../../config/mcp-setup';
 import { AnchorHeading } from '../../../components/AnchorHeading';
+import { StoryEmbed } from '../../../components/StoryEmbed';
 
 export default function IdeIntegrationsPage() {
   const ideTools = MCP_TOOLS.filter((t) => t.category === 'ide');
@@ -24,6 +25,15 @@ export default function IdeIntegrationsPage() {
           <p>
             When an editor supports the Model Context Protocol (MCP), it means the AI can defer complex codebase searches to a specialized indexer like CoDRAG. The AI agent explicitly calls CoDRAG's tools (like <code>codrag</code>, <code>codrag_search</code>, or <code>codrag_impact</code>) behind the scenes, reading the results before composing an answer for you.
           </p>
+
+          <div className="not-prose my-8">
+            <StoryEmbed
+              storyId="console-animatedide--default"
+              height={500}
+              title="CoDRAG in an Agentic IDE"
+              caption="Live demo: An AI agent using CoDRAG MCP tools inside a split-pane IDE."
+            />
+          </div>
 
           <AnchorHeading id="setup" level="h2">Integration Setup</AnchorHeading>
           <p>

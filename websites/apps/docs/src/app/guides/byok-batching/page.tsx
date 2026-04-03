@@ -1,4 +1,5 @@
 import { AnchorHeading } from '../../../components/AnchorHeading';
+import { StoryEmbed } from '../../../components/StoryEmbed';
 
 export default function Page() {
   return (
@@ -122,6 +123,15 @@ export default function Page() {
             The profile is selected automatically when you configure a model. You can override
             it in <span className="font-semibold text-text">Settings &gt; AI Models</span> if needed.
           </p>
+
+          <div className="not-prose my-8">
+            <StoryEmbed
+              storyId="llm-endpointmanager--default"
+              height={400}
+              title="Endpoint Manager"
+              caption="Live preview: Configure BYOK endpoints for OpenAI, Anthropic, Google, and custom providers."
+            />
+          </div>
 
           <AnchorHeading id="benefits" level="h2">Benefits</AnchorHeading>
           <ul className="list-disc pl-6 space-y-2">

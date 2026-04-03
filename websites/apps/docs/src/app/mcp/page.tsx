@@ -1,4 +1,5 @@
 import { AnchorHeading } from '../../components/AnchorHeading';
+import { StoryEmbed } from '../../components/StoryEmbed';
 
 export default function Page() {
   return (
@@ -98,6 +99,24 @@ export default function Page() {
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <AnchorHeading id="live-preview" level="h2">Live Dashboard Preview</AnchorHeading>
+          <p className="mt-2 mb-4">
+            These are live, interactive previews of the CoDRAG dashboard panels your agents interact with.
+          </p>
+
+          <div className="grid gap-6 mt-6">
+            <StoryEmbed
+              storyId="dashboard-widgets-searchpanel--default"
+              height={280}
+              caption="Semantic Search Panel — find code by meaning, not keywords"
+            />
+            <StoryEmbed
+              storyId="dashboard-widgets-indexstatuscard--loaded"
+              height={220}
+              caption="Index Status Card — real-time view of your codebase index"
+            />
           </div>
         </div>
       </div>

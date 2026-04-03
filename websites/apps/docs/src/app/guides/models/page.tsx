@@ -1,5 +1,6 @@
 import { Image as ImageIcon } from 'lucide-react';
 import { AnchorHeading } from '../../../components/AnchorHeading';
+import { StoryEmbed } from '../../../components/StoryEmbed';
 
 export default function Page() {
   return (
@@ -92,12 +93,13 @@ export default function Page() {
             CoDRAG defines four &quot;slots&quot; for AI models. You can configure these in the <span className="font-semibold text-text">Settings &gt; AI Models</span> tab of the dashboard.<br/> <br/> 
           </p>
           
-          <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface flex flex-col items-center justify-center text-text-muted gap-2">
-            <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
-              <ImageIcon className="w-6 h-6" />
-            </div>
-            <p className="font-medium text-text">Screenshot: AI Models Settings</p>
-            <p className="text-sm text-center">Show the dashboard settings tab with the 4 model slots (Embedding, Small, Large, Compression) visible.</p>
+          <div className="not-prose my-6">
+            <StoryEmbed
+              storyId="llm-aimodelssettings--default"
+              height={500}
+              title="AI Models Settings Panel"
+              caption="Live preview: Configure the 4 model slots (Embedding, Small, Large, Compression) in the dashboard."
+            />
           </div>
 
           <div className="space-y-6">
