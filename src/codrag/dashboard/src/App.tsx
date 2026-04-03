@@ -282,10 +282,10 @@ function App() {
   const goalposts = useGoalpostsSystem(hydration.hydratedProjectId, { signal: hydration.signal, isHydrating: hydration.isHydrating })
 
   // ── Roadmap (Phase 59) ──────────────────────────────────────
-  const roadmap = useRoadmapSystem(selectedProjectId)
+  const roadmap = useRoadmapSystem(hydration.hydratedProjectId, { signal: hydration.signal, isHydrating: hydration.isHydrating })
 
   // ── Opportunities (Phase 63) ───────────────────────────────
-  const opportunities = useOpportunitiesSystem(selectedProjectId)
+  const opportunities = useOpportunitiesSystem(hydration.hydratedProjectId, { signal: hydration.signal, isHydrating: hydration.isHydrating })
 
   // ── Event Stream ───────────────────────────────────────────
   const eventsUrl = import.meta.env.DEV

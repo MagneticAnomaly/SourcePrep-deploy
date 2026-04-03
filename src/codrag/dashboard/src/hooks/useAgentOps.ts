@@ -14,7 +14,10 @@ export interface UseAgentOpsReturn {
   refreshAgentStatus: () => void
 }
 
-export function useAgentOps(selectedProjectId: string | null): UseAgentOpsReturn {
+export function useAgentOps(
+  selectedProjectId: string | null,
+  options?: { signal?: AbortSignal }
+): UseAgentOpsReturn {
   const api = useApiClient()
 
   const [agentStatus, setAgentStatus] = useState<AgentOpsData | null>(null)
@@ -34,6 +37,7 @@ export function useAgentOps(selectedProjectId: string | null): UseAgentOpsReturn
       api.getResearchHistory(selectedProjectId),
     ])
       .then(([status, rosterData, readinessData, historyData]) => {
+        if (options?.signal?.aborted) return
         setAgentStatus(status as AgentOpsData)
         setRoster(
           (rosterData.roles || []).map((r: any) => ({
@@ -48,7 +52,7 @@ export function useAgentOps(selectedProjectId: string | null): UseAgentOpsReturn
         setResearchHistory(historyData.runs || [])
       })
       .catch(() => {})
-      .finally(() => setAgentLoading(false))
+      .finally(() => { if (!options?.signal?.aborted) setAgentLoading(false) })
   }, [selectedProjectId, api])
 
   // Hydrate on project change

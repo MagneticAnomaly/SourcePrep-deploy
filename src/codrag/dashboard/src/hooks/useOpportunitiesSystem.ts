@@ -59,7 +59,10 @@ export interface UseOpportunitiesSystemReturn {
 
 // ── Hook ──────────────────────────────────────────────────────
 
-export function useOpportunitiesSystem(selectedProjectId: string | null): UseOpportunitiesSystemReturn {
+export function useOpportunitiesSystem(
+  selectedProjectId: string | null,
+  options?: { signal?: AbortSignal; isHydrating?: boolean }
+): UseOpportunitiesSystemReturn {
   const api = useApiClient()
 
   const [items, setItems] = useState<OpportunityItem[]>([])
@@ -93,19 +96,22 @@ export function useOpportunitiesSystem(selectedProjectId: string | null): UseOpp
     if (!selectedProjectId) return
 
     setLoading(true)
+    const signal = options?.signal
     Promise.all([
       api.getOpportunities(selectedProjectId, { limit: 200 }),
       api.getOpportunitiesSummary(selectedProjectId),
     ])
       .then(([opps, sum]) => {
+        if (signal?.aborted) return
         setItems(opps.items || [])
         setSummary(sum)
       })
       .catch((e) => {
+        if (signal?.aborted) return
         // Not a hard error — endpoint might not exist on older daemons
         console.warn('[Opportunities] Failed to load:', e.message)
       })
-      .finally(() => setLoading(false))
+      .finally(() => { if (!signal?.aborted) setLoading(false) })
   }, [selectedProjectId, api])
 
   // Phase 66: Poll pipeline status for agent data
@@ -115,9 +121,12 @@ export function useOpportunitiesSystem(selectedProjectId: string | null): UseOpp
       return
     }
 
+    const signal = options?.signal
     const fetchAgent = () => {
+      if (signal?.aborted) return
       api.getPipelineStatus(selectedProjectId)
         .then((ps) => {
+          if (signal?.aborted) return
           setAgentStatus((ps as any)?.agent ?? null)
         })
         .catch(() => { /* pipeline status may not be available */ })

@@ -22,7 +22,10 @@ export interface UseRoadmapSystemReturn {
   handleExecuteNode: (nodeId: string) => Promise<{ guidance: string; model: string } | null>
 }
 
-export function useRoadmapSystem(selectedProjectId: string | null): UseRoadmapSystemReturn {
+export function useRoadmapSystem(
+  selectedProjectId: string | null,
+  options?: { signal?: AbortSignal; isHydrating?: boolean }
+): UseRoadmapSystemReturn {
   const api = useApiClient()
 
   const [state, setState] = useState<RoadmapResponse | null>(null)
@@ -43,8 +46,9 @@ export function useRoadmapSystem(selectedProjectId: string | null): UseRoadmapSy
     setState(null)
     if (!selectedProjectId) return
 
+    const signal = options?.signal
     api.getRoadmap(selectedProjectId)
-      .then((s) => setState(s))
+      .then((s) => { if (!signal?.aborted) setState(s) })
       .catch(() => {})
   }, [selectedProjectId, api])
 
@@ -218,8 +222,9 @@ export function useRoadmapSystem(selectedProjectId: string | null): UseRoadmapSy
     setSprintSuggestion(null)
     if (!selectedProjectId) return
 
+    const signal = options?.signal
     api.getVelocity(selectedProjectId)
-      .then(setVelocityData)
+      .then((v) => { if (!signal?.aborted) setVelocityData(v) })
       .catch(() => {
         // Velocity endpoint may not exist on older servers — degrade gracefully
       })
