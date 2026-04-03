@@ -629,23 +629,28 @@ function App() {
 
   // ── Refresh project status when scope orchestrator signals a build ──
   useEffect(() => {
-    if (!selectedProjectId) return
-    const se = scopeEvents[selectedProjectId]
+    const pid = hydration.hydratedProjectId
+    if (!pid) return
+    const se = scopeEvents[pid]
     if (se?.state === 'building' || se?.state === 'idle') {
-      void refreshStatus(selectedProjectId)
+      void refreshStatus(pid)
     }
-  }, [scopeEvents, selectedProjectId, refreshStatus])
+  }, [scopeEvents, hydration.hydratedProjectId, refreshStatus])
 
   // ── Refresh watch + deep analysis on project change ─────────
   // NOTE: Project status, config, trace — all self-hydrate in their own hooks now.
   useEffect(() => {
-    if (!selectedProjectId) return
-    void refreshWatchStatus(selectedProjectId)
+    const pid = hydration.hydratedProjectId
+    if (!pid) return
+    const signal = hydration.signal
+    void refreshWatchStatus(pid)
     void fetchDeepAnalysisStatus()
     void fetchAtlas()
     void fetchProvenance()
-    api.getProjectActivity(selectedProjectId, 12).then(setActivityData).catch(() => { })
-  }, [selectedProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
+    api.getProjectActivity(pid, 12)
+      .then((data) => { if (!signal.aborted) setActivityData(data) })
+      .catch(() => { })
+  }, [hydration.hydratedProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Periodic provenance refresh while pipeline is running ───
   // Refreshes every 10s so the UI updates as each stage completes.
