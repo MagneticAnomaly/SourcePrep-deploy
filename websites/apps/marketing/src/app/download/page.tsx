@@ -123,7 +123,7 @@ export default function Page() {
             Download CoDRAG.
           </h1>
           <p className="text-2xl md:text-3xl text-text-muted leading-normal mb-12 max-w-3xl">
-            Focused code indexing, trace graphs, and MCP integration running locally.
+            Epistemic codebase indexing, trace graphs, and MCP integration, with Private by Design architecture.
           </p>
         </div>
 

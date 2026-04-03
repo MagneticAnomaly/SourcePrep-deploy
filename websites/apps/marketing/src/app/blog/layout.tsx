@@ -2,7 +2,7 @@ import { constructMetadata } from '../metadata-helper';
 
 export const metadata = constructMetadata({
   title: 'Blog',
-  description: 'Articles, tutorials, and deep-dives on local RAG, context windows, and AI-assisted engineering.',
+  description: 'Articles, tutorials, and deep-dives on epistemic codebase tracing, agentic networks, and AI-assisted engineering.',
   path: '/blog',
 });
 

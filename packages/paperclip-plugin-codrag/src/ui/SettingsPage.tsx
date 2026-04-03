@@ -48,7 +48,7 @@ export function SettingsPage() {
       </div>
 
       <div style={{ fontSize: 12, color: '#666', marginTop: 32 }}>
-        CoDRAG v0.1.0 — <a href="https://codrag.dev" target="_blank" rel="noopener">codrag.dev</a>
+        CoDRAG v0.1.0 — <a href="https://codrag.io" target="_blank" rel="noopener">codrag.io</a>
       </div>
     </div>
   );

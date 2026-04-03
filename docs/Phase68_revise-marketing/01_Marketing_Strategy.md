@@ -16,12 +16,12 @@ The recent introduction of Agent Knowledge Scopes, Auto-Populating Context, Rust
 ### 1. Developer Communities (Reddit & HackerNews)
 Previously, we marketed to developers who wanted a nice chat interface for their code. Now, we market to **Agent Builders** who are frustrated by context bloat.
 *   **r/LocalLLaMA & r/LangChain:** Focus on the "Pluggable Adapters" and "Auto-Populating Context Teams". "Stop feeding your entire codebase to your agents."
-*   **r/MachineLearning / HN:** Focus on the architectural innovation (Rust Projection Engine, Shared Global Index with Siloed Role Matrix).
+*   **r/MachineLearning / HN:** Focus on the architectural innovation (Epistemic Trace Engine, Sovereign Context with Siloed Role Matrix).
 
 ### 2. Technical Blogs
 Need a multi-part series:
 *   *Part 1: Why your CrewAI agents are hallucinating.* (Focus on context bloat).
-*   *Part 2: The CoDRAG Solution: Role-Scoping with Sub-Atlases.*
+*   *Part 2: The CoDRAG Solution: Epistemic Role-Scoping with Sub-Atlases.*
 *   *Part 3: Automating the Automators: Auto-populating agent knowledge.*
 
 ### 3. Case Studies

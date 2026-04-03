@@ -310,10 +310,15 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
           // If we are making it active, just say active. If we are turning it off, it's inactive.
           // Note: free tier projects can't be toggled, so this only runs on Pro tier projects anyway.
           activity_status: active ? 'active' : 'inactive',
+          config: { ...(p.config || {}), active } as ProjectConfig
         };
       }
       return p;
     }));
+
+    if (projectId === selectedProject?.id) {
+      setProjectConfig(prev => ({ ...prev, active }));
+    }
 
     try {
       // Get the existing project config first since we need to preserve other settings
@@ -344,6 +349,10 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
       }
       return p;
     }));
+
+    if (projectId === selectedProject?.id) {
+      setProjectConfig(prev => ({ ...prev, is_starred: isStarred }));
+    }
 
     try {
       const { project } = await api.getProject(projectId);
@@ -397,6 +406,13 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
       }
       return p;
     }));
+
+    if (projectId === selectedProject?.id) {
+      setProjectConfig(prev => ({ ...prev, is_starred: next !== 'none', priority_level: next }));
+    } else if (next === 'exclusive' && selectedProject?.config?.priority_level === 'exclusive') {
+      // We just took exclusive lock from the currently selected project
+      setProjectConfig(prev => ({ ...prev, is_starred: false, priority_level: 'none' }));
+    }
 
     try {
       const { project } = await api.getProject(projectId);

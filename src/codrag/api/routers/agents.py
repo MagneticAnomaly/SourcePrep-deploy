@@ -158,7 +158,13 @@ def hr_sync(project_id: str) -> Dict[str, Any]:
     if not pm_raw.get("enabled"):
         raise ApiException(
             400, "PAPERCLIP_NOT_CONFIGURED",
-            "Paperclip push is not enabled. Configure it in Settings first.",
+            "Paperclip push is not enabled.",
+            hint=(
+                "Via CLI: codrag config pm_push.enabled true && "
+                "codrag config pm_push.paperclip_url http://localhost:3100 && "
+                "codrag config pm_push.paperclip_company_id <your-company-id>. "
+                "Or configure in the dashboard Settings panel."
+            ),
         )
 
     from codrag.adapters.pm_models import PMPushConfig
@@ -200,9 +206,13 @@ def hr_audit(project_id: str) -> Dict[str, Any]:
 @router.post("/projects/{project_id}/agents/researcher/run")
 def researcher_run(project_id: str, req: ResearchRunRequest) -> Dict[str, Any]:
     """Run the research pipeline: select topics, research, formulate plans."""
-    idx_dir, _, pid = _get_engine_context(project_id)
+    idx_dir, project_root, pid = _get_engine_context(project_id)
+
+    from codrag.agents.core import AgentCore
+    core = AgentCore(project_id=pid, index_dir=idx_dir, project_root=project_root)
+
     from codrag.agents.researcher.engine import ResearcherEngine
-    engine = ResearcherEngine(index_dir=idx_dir, project_id=pid)
+    engine = ResearcherEngine(core=core)
 
     findings = _get_audit_findings(idx_dir)
     llm_fn = _get_llm_fn(pid)
@@ -236,9 +246,13 @@ def researcher_history(project_id: str) -> Dict[str, Any]:
 @router.post("/projects/{project_id}/agents/custodian/run")
 def custodian_run(project_id: str, req: CustodianRunRequest) -> Dict[str, Any]:
     """Run the custodian cleanup pipeline."""
-    idx_dir, _, pid = _get_engine_context(project_id)
+    idx_dir, project_root, pid = _get_engine_context(project_id)
+
+    from codrag.agents.core import AgentCore
+    core = AgentCore(project_id=pid, index_dir=idx_dir, project_root=project_root)
+
     from codrag.agents.custodian.engine import CustodianEngine
-    engine = CustodianEngine(index_dir=idx_dir, project_id=pid)
+    engine = CustodianEngine(core=core)
 
     findings = _get_audit_findings(idx_dir)
     llm_fn = _get_llm_fn(pid)
@@ -296,6 +310,247 @@ def agents_status(project_id: str) -> Dict[str, Any]:
     })
 
 
+# ── Researcher Push ─────────────────────────────────────────
+
+@router.post("/projects/{project_id}/agents/researcher/push")
+def researcher_push(project_id: str) -> Dict[str, Any]:
+    """Push latest research plans to Paperclip as projects/issues."""
+    idx_dir, project_root, pid = _get_engine_context(project_id)
+
+    from codrag.services.settings_store import settings
+    pm_raw = settings.get("pm_push") or {}
+    if not pm_raw.get("enabled"):
+        raise ApiException(
+            400, "PAPERCLIP_NOT_CONFIGURED",
+            "Paperclip push is not enabled.",
+            hint=(
+                "Via CLI: codrag config pm_push.enabled true && "
+                "codrag config pm_push.paperclip_url http://localhost:3100 && "
+                "codrag config pm_push.paperclip_company_id <your-company-id>. "
+                "Or configure in the dashboard Settings panel."
+            ),
+        )
+
+    from codrag.adapters.pm_models import PMPushConfig
+    pm_config = PMPushConfig(**pm_raw)
+
+    from codrag.agents.core import AgentCore
+    core = AgentCore(
+        project_id=pid, index_dir=idx_dir,
+        project_root=project_root, pm_config=pm_config,
+    )
+
+    from codrag.agents.researcher.engine import ResearcherEngine
+    engine = ResearcherEngine(core=core)
+
+    # Get latest research run
+    runs = engine.history.list_runs()
+    if not runs:
+        raise ApiException(400, "NO_RESEARCH_RUNS", "No research runs found. Run the researcher first.")
+
+    latest = runs[-1]
+    plans = []
+    from codrag.agents.shared.models import ResearchPlan
+    for p in latest.get("plans", []):
+        plans.append(ResearchPlan.from_dict(p))
+
+    if not plans:
+        return ok({"pushed": False, "reason": "No plans in latest run"})
+
+    project, goals, issues = engine.package_for_push(plans)
+    project_id_pc = core.push_project(project)
+    pushed_issues = []
+    for issue in issues:
+        issue.project_id = project_id_pc
+        issue_id = core.push_issue(issue)
+        pushed_issues.append({"title": issue.title, "id": issue_id})
+
+    return ok({
+        "pushed": True,
+        "project_id": project_id_pc,
+        "issues_pushed": len(pushed_issues),
+        "issues": pushed_issues,
+    })
+
+
+# ── Custodian Push ──────────────────────────────────────────
+
+@router.post("/projects/{project_id}/agents/custodian/push")
+def custodian_push(project_id: str) -> Dict[str, Any]:
+    """Push latest cleanup plan to Paperclip as a project with issues."""
+    idx_dir, project_root, pid = _get_engine_context(project_id)
+
+    from codrag.services.settings_store import settings
+    pm_raw = settings.get("pm_push") or {}
+    if not pm_raw.get("enabled"):
+        raise ApiException(
+            400, "PAPERCLIP_NOT_CONFIGURED",
+            "Paperclip push is not enabled.",
+            hint=(
+                "Via CLI: codrag config pm_push.enabled true && "
+                "codrag config pm_push.paperclip_url http://localhost:3100 && "
+                "codrag config pm_push.paperclip_company_id <your-company-id>. "
+                "Or configure in the dashboard Settings panel."
+            ),
+        )
+
+    from codrag.adapters.pm_models import PMPushConfig
+    pm_config = PMPushConfig(**pm_raw)
+
+    from codrag.agents.core import AgentCore
+    core = AgentCore(
+        project_id=pid, index_dir=idx_dir,
+        project_root=project_root, pm_config=pm_config,
+    )
+
+    from codrag.agents.custodian.engine import CustodianEngine
+    engine = CustodianEngine(core=core)
+
+    # Run a dry-run to get the current plan
+    findings = _get_audit_findings(idx_dir)
+    llm_fn = _get_llm_fn(pid)
+    plan = engine.run(findings, llm_fn, dry_run=True)
+
+    if not plan.candidates:
+        return ok({"pushed": False, "reason": "No cleanup candidates found"})
+
+    project, goals, issues = engine.package_for_push(plan)
+    project_id_pc = core.push_project(project)
+    pushed_issues = []
+    for issue in issues:
+        issue.project_id = project_id_pc
+        issue_id = core.push_issue(issue)
+        pushed_issues.append({"title": issue.title, "id": issue_id})
+
+    return ok({
+        "pushed": True,
+        "project_id": project_id_pc,
+        "issues_pushed": len(pushed_issues),
+        "issues": pushed_issues,
+    })
+
+
+# ── Paperclip Discovery ─────────────────────────────────────
+
+class DiscoveryProbeRequest(BaseModel):
+    url: str = "http://localhost:3100"
+
+
+@router.get("/agents/discovery")
+def agents_discovery() -> Dict[str, Any]:
+    """Discover Paperclip connection status.
+
+    Reads pm_push config and probes the configured Paperclip URL.
+    Returns connection status, company info, and agent count.
+    """
+    from codrag.services.settings_store import settings
+    pm_raw = settings.get("pm_push") or {}
+
+    if not pm_raw.get("enabled"):
+        return ok({
+            "connected": False,
+            "configured": False,
+            "url": "",
+            "reason": "Paperclip push is not enabled in settings.",
+        })
+
+    from codrag.adapters.pm_models import PMPushConfig
+    if isinstance(pm_raw, dict):
+        pm_config = PMPushConfig.from_dict(pm_raw) if "paperclip" in pm_raw else PMPushConfig(**pm_raw)
+    else:
+        pm_config = PMPushConfig()
+
+    return ok(_probe_paperclip(pm_config.paperclip_url, pm_config.paperclip_company_id))
+
+
+@router.post("/agents/discovery/probe")
+def agents_discovery_probe(req: DiscoveryProbeRequest) -> Dict[str, Any]:
+    """Actively probe a specific Paperclip URL for connectivity."""
+    return ok(_probe_paperclip(req.url))
+
+
+def _probe_paperclip(url: str, company_id: str = "") -> Dict[str, Any]:
+    """Probe a Paperclip instance and return connection details."""
+    import urllib.request
+    import urllib.error
+    import json as _json
+
+    result: Dict[str, Any] = {
+        "connected": False,
+        "configured": True,
+        "url": url,
+        "company_id": company_id,
+        "company_name": "",
+        "agent_count": 0,
+        "plugin_detected": False,
+        "version": "",
+    }
+
+    # Step 1: Health check
+    try:
+        req = urllib.request.Request(
+            f"{url.rstrip('/')}/api/health",
+            headers={"Accept": "application/json"},
+            method="GET",
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            body = _json.loads(resp.read().decode("utf-8"))
+            result["connected"] = body.get("status") == "ok"
+            result["version"] = body.get("version", "")
+    except (urllib.error.URLError, urllib.error.HTTPError, Exception) as exc:
+        result["reason"] = f"Cannot reach Paperclip at {url}: {exc}"
+        return result
+
+    # Step 2: Company info (if company_id is known)
+    if company_id:
+        try:
+            req = urllib.request.Request(
+                f"{url.rstrip('/')}/api/companies/{company_id}",
+                headers={"Accept": "application/json"},
+                method="GET",
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                company = _json.loads(resp.read().decode("utf-8"))
+                result["company_name"] = company.get("name", "")
+        except Exception:
+            pass
+
+        # Step 3: Agent count
+        try:
+            req = urllib.request.Request(
+                f"{url.rstrip('/')}/api/companies/{company_id}/agents",
+                headers={"Accept": "application/json"},
+                method="GET",
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                agents = _json.loads(resp.read().decode("utf-8"))
+                if isinstance(agents, list):
+                    result["agent_count"] = len(agents)
+                elif isinstance(agents, dict):
+                    result["agent_count"] = len(agents.get("agents", agents.get("data", [])))
+        except Exception:
+            pass
+
+        # Step 4: Check for CoDRAG plugin
+        try:
+            req = urllib.request.Request(
+                f"{url.rstrip('/')}/api/companies/{company_id}/plugins",
+                headers={"Accept": "application/json"},
+                method="GET",
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                plugins = _json.loads(resp.read().decode("utf-8"))
+                plugin_list = plugins if isinstance(plugins, list) else plugins.get("plugins", [])
+                for p in plugin_list:
+                    if "codrag" in str(p.get("name", "")).lower() or "codrag" in str(p.get("id", "")).lower():
+                        result["plugin_detected"] = True
+                        break
+        except Exception:
+            pass
+
+    return result
+
+
 # ── Helpers ─────────────────────────────────────────────────
 
 def _get_audit_findings(idx_dir: Path) -> list:
@@ -331,8 +586,12 @@ def _get_llm_fn(project_id: str):
         if not model:
             raise ApiException(
                 400, "NO_LLM_CONFIGURED",
-                "No LLM model configured. Set up a model in the AI Gateway first.",
-                hint="Configure a model via the dashboard AI Gateway panel or settings.",
+                "No LLM model configured. Agent operations require an LLM.",
+                hint=(
+                    "Via CLI: codrag config pipeline_config.model_thinking <model> && "
+                    "codrag config pipeline_config.llm_provider <ollama|anthropic|openai>. "
+                    "Or use the dashboard AI Gateway panel."
+                ),
             )
 
         provider = config.get("llm_provider", "ollama")

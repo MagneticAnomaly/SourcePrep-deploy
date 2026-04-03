@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="codrag-github-header.png" alt="CoDRAG" width="100%">
+</p>
+
 # @codrag/paperclip-plugin
 
 > Give every Paperclip agent deep structural codebase knowledge.
@@ -33,7 +37,7 @@ This is **epistemic-first agent orchestration** — instead of agents discoverin
 
 ### Prerequisites
 
-1. **CoDRAG Desktop App** — Download from [codrag.dev](https://codrag.dev). The daemon must be running.
+1. **CoDRAG Desktop App** — Download from [codrag.io](https://codrag.io). The daemon must be running. 
 2. **A CoDRAG project** — `codrag add /path/to/your/repo`
 3. **A Paperclip instance** — Running locally or deployed
 
@@ -112,7 +116,7 @@ npm run typecheck
 
 ```bash
 # Install from local path
-pnpm paperclipai plugin install ./packages/paperclip-plugin
+pnpm paperclipai plugin install ./packages/paperclip-plugin-codrag
 
 # Or use the dev server (hot reload)
 npx paperclip-plugin-dev-server
@@ -120,7 +124,7 @@ npx paperclip-plugin-dev-server
 
 ## Documentation
 
-Full documentation at [docs.codrag.dev/mcp/paperclip](https://docs.codrag.dev/mcp/paperclip).
+Full documentation at [docs.codrag.io/mcp/paperclip](https://docs.codrag.io/mcp/paperclip).
 
 ## License
 

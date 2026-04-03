@@ -21,10 +21,10 @@ export default function Page() {
         <section className="sr-only sm:not-sr-only sm:max-w-4xl sm:mx-auto sm:text-center sm:mb-8">
           <h2 className="text-xl font-semibold text-text mb-2">What is CoDRAG?</h2>
           <p className="text-text-muted">
-            CoDRAG is a local codebase indexing and context assembly engine designed for AI-assisted development. 
-            It creates a structural code graph using Rust and tree-sitter to map imports, call chains, and symbol hierarchies. 
-            By integrating directly via the Model Context Protocol (MCP) into tools like Cursor, Windsurf, and Claude Code, 
-            CoDRAG provides highly compressed, structurally-aware context to AI models. Your code index stays perfectly secure on your machine, while you freely connect your choice of cloud APIs or local models for reasoning.
+            CoDRAG is an epistemic codebase intelligence engine designed for autonomous agents and AI-assisted development. 
+            It creates a structural code graph using Rust and tree-sitter to map the what, why, when, and how of your architecture. 
+            By integrating directly via the Model Context Protocol (MCP) into tools like Paperclip, Cursor, and Windsurf, 
+            CoDRAG provides deep, structurally-aware context to AI models. Your index stays yours, allowing you to freely connect privacy-first endpoints like Ollama Cloud or your choice of local and frontier APIs.
           </p>
         </section>
 
@@ -66,7 +66,7 @@ export default function Page() {
             />
           </div>
 
-          <FeatureBlocks features={codragFeatures.filter((_, i) => [0, 1, 2, 4, 6, 7, 10].includes(i))} variant="cards" />
+          <FeatureBlocks features={codragFeatures.filter((feature: any, i: number) => [0, 1, 2, 3, 4, 7, 10].includes(i))} variant="cards" />
         </section>
 
         {/* Comparison Grid */}
@@ -116,10 +116,10 @@ export default function Page() {
           <div className="text-center mb-12">
             <p className="text-sm font-semibold uppercase tracking-widest text-primary mb-3">How Developers Use It</p>
             <h2 className="text-3xl font-medium tracking-tight text-text sm:text-4xl">
-              Three tools. Zero configuration.
+              Three tools. Instant Orientation.
             </h2>
             <p className="mt-4 text-lg text-text-muted max-w-2xl mx-auto">
-              CoDRAG runs locally as an MCP server. Connect it once to Cursor, Windsurf, Antigravity, or Claude Code &mdash; and your AI gets ambient codebase awareness, project orientation, and architectural audits automatically.
+              CoDRAG runs as a sophisticated MCP server. Connect it once to Paperclip, Cursor, Windsurf, or Antigravity &mdash; and your AI gets ambient epistemic awareness, project orientation, and architectural audits automatically.
             </p>
           </div>
 
@@ -212,9 +212,9 @@ export default function Page() {
           {/* Setup snippet */}
           <div className="max-w-2xl mx-auto">
             <div className="rounded-xl border border-border bg-background p-5">
-              <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center gap-3 mb-3">
                 <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">&#x2713;</div>
-                <h3 className="font-mono font-medium text-sm text-text">One-time setup &mdash; 30 seconds</h3>
+                <h3 className="font-mono font-medium text-sm text-text">Connect instantly via MCP</h3>
               </div>
               <div className="font-mono text-sm space-y-3">
                 <div className="bg-surface p-2 rounded border border-border-subtle text-success text-xs">
@@ -296,8 +296,8 @@ export default function Page() {
               <div className="text-sm text-text-muted mt-1">Search latency</div>
             </div>
             <div>
-              <div className="text-3xl font-bold text-primary">Local-first</div>
-              <div className="text-sm text-text-muted mt-1">Your code stays on your machine</div>
+              <div className="text-3xl font-bold text-primary">Private by Design</div>
+              <div className="text-sm text-text-muted mt-1">Connect to Ollama Cloud or local APIs</div>
             </div>
             <div>
               <div className="text-3xl font-bold text-primary">3&ndash;20&times;</div>

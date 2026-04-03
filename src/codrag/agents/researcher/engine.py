@@ -108,10 +108,11 @@ class ResearcherEngine:
         response, _ = llm_fn(prompt, system=TOPIC_SELECTION_SYSTEM, json_mode=True)
 
         try:
-            selected = json.loads(response)
+            from codrag.agents.shared.json_utils import extract_json
+            selected = extract_json(response)
             if not isinstance(selected, list):
                 selected = [selected]
-        except (json.JSONDecodeError, TypeError) as exc:
+        except (json.JSONDecodeError, TypeError, ValueError) as exc:
             raise ValueError(
                 f"Failed to parse topic selection response: {exc}"
             ) from exc
@@ -179,8 +180,9 @@ class ResearcherEngine:
         response, _ = llm_fn(prompt, system=PLAN_FORMULATION_SYSTEM, json_mode=True)
 
         try:
-            plan_data = json.loads(response)
-        except (json.JSONDecodeError, TypeError) as exc:
+            from codrag.agents.shared.json_utils import extract_json
+            plan_data = extract_json(response)
+        except (json.JSONDecodeError, TypeError, ValueError) as exc:
             raise ValueError(
                 f"Failed to parse plan formulation response: {exc}"
             ) from exc

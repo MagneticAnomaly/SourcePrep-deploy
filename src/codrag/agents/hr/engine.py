@@ -479,19 +479,9 @@ class StaffingEngine:
         response, _ = llm_fn(prompt, system=AUTO_ROLES_SYSTEM, json_mode=True)
 
         try:
-            # Strip markdown fences if present
-            clean_response = response.strip()
-            if clean_response.startswith("```json"):
-                clean_response = clean_response.split("```json", 1)[-1]
-                if "```" in clean_response:
-                    clean_response = clean_response.rsplit("```", 1)[0]
-            elif clean_response.startswith("```"):
-                clean_response = clean_response.split("```", 1)[-1]
-                if "```" in clean_response:
-                    clean_response = clean_response.rsplit("```", 1)[0]
-            clean_response = clean_response.strip()
+            from codrag.agents.shared.json_utils import extract_json
 
-            roles = json.loads(clean_response)
+            roles = extract_json(response)
             if not isinstance(roles, list):
                 roles = [roles]
             # Validate each role has required fields
@@ -499,7 +489,7 @@ class StaffingEngine:
                 if "display_name" not in r:
                     raise ValueError(f"Role missing 'display_name': {r}")
             return roles
-        except (json.JSONDecodeError, TypeError) as exc:
+        except (json.JSONDecodeError, TypeError, ValueError) as exc:
             raise ValueError(
                 f"Auto role inference failed: LLM returned unparseable response. "
                 f"Parse error: {exc}"

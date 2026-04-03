@@ -111,8 +111,9 @@ class CustodianEngine:
         response, _ = llm_fn(prompt, system=SAFETY_VERIFICATION_SYSTEM, json_mode=True)
 
         try:
-            result = json.loads(response)
-        except (json.JSONDecodeError, TypeError) as exc:
+            from codrag.agents.shared.json_utils import extract_json
+            result = extract_json(response)
+        except (json.JSONDecodeError, TypeError, ValueError) as exc:
             raise ValueError(
                 f"Failed to parse safety verification response: {exc}"
             ) from exc

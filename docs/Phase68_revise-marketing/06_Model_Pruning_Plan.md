@@ -13,7 +13,7 @@ The goal is to replace specific, hardcoded model strings with generic, future-pr
 *   **Action:** 
     *   Change specific BYOK strings (e.g., `Claude 3.5 Sonnet`, `o3-mini`, `Gemini 1.5 Pro`) to generic descriptors: "frontier cloud models from Anthropic and OpenAI" or "leading reasoning APIs."
     >> this is a little too much, We can saely talk about Claude Sonnet and Claude Opus, and Gemini Pro, just avoid numbers -- we can identify specific places for the specific reccommendations but in the marketing site we want to discuss models, but not THAT specific. This requare far less maintience
-    *   Change specific local strings (e.g., `Qwen2.5-72B`) to "leading small local models via Ollama."
+    *   Change specific local strings (e.g., `Qwen2.5-72B`) to "leading small models via Ollama Cloud or local inference."
     >>> same here we cn use Qwen and Kimi, etc. these later on will be reccommended so we can technically expose "kimi-k2.5:cloud" in marketing (like on animated demos etc) but keep track of these this is what w can make into a variable
 *   **Specific Files to Target:** 
     *   `compare/codrag-vs-greptile/page.tsx`

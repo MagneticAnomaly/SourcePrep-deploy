@@ -61,7 +61,7 @@ export default function Page() {
             Simple, honest pricing
           </h1>
           <p className="mt-6 text-xl text-text-muted leading-relaxed">
-            Local-first means your code stays yours. CoDRAG ships with built-in ONNX embeddings —
+            Private by design. Sovereign context. CoDRAG ships with built-in ONNX embeddings —
             semantic search works out of the box, no LLM required. Subscribe monthly or pay once and own it forever.
           </p>
         </div>
@@ -355,8 +355,8 @@ export default function Page() {
         <div className="mt-16 text-center space-y-4">
           <h2 className="text-xl font-semibold">Every plan includes</h2>
           <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-text-muted">
-            <span>Local-first — your code stays on your machine</span>
-            <span>Built-in local embeddings — connect frontier cloud APIs or local models for advanced reasoning</span>
+            <span>Private by Design — your context index is yours to control</span>
+            <span>Built-in embeddings — connect to Ollama Cloud or frontier cloud APIs for advanced reasoning</span>
             <span>macOS & Windows</span>
             <span>MCP integration</span>
           </div>

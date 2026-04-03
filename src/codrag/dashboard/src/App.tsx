@@ -865,14 +865,7 @@ function App() {
                 onProjectSelect={setSelectedProjectId}
                 onAddProject={() => setAddModalOpen(true)}
                 onDeleteProject={handleDeleteProject}
-                onToggleActive={async (projectId: string, active: boolean, touch?: boolean) => {
-                  if (!active) {
-                    // Auto-pause any running pipelines before deactivating
-                    await Promise.allSettled([
-                      handlePausePipeline('fast_sync'),
-                      handlePausePipeline('deep_enrichment'),
-                    ])
-                  }
+                onToggleActive={(projectId: string, active: boolean, touch?: boolean) => {
                   handleToggleActive(projectId, active, touch)
                 }}
                 onToggleStar={handleToggleStar}

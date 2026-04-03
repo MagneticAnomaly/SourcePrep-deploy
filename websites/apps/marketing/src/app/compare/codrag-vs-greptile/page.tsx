@@ -19,7 +19,7 @@ export default function CompareGreptilePage() {
             CoDRAG vs. Greptile
           </h1>
           <p className="text-xl text-text-muted leading-relaxed">
-            Greptile paved the way for codebase RAG by offering a powerful cloud-based API. But for engineering teams working on proprietary or sensitive codebases, uploading entire repos to a third-party cloud is a non-starter. CoDRAG is built to deliver superior context intelligence without ever letting your code leave your machine.
+            Greptile paved the way for codebase RAG by offering a powerful cloud-based API. But basic vector search fails to give autonomous agents the structural awareness they need to succeed. CoDRAG is built to deliver deep epistemic tracing and superior context intelligence—giving your AI the "what, why, when, and how" without ever letting your codebase leave your control.
           </p>
         </header>
 
@@ -27,7 +27,7 @@ export default function CompareGreptilePage() {
         <section className="bg-surface border border-border p-8 rounded-xl mb-16 shadow-sm">
           <h2 className="text-xl font-bold mb-4">What is the difference between CoDRAG and Greptile?</h2>
           <p className="text-text-muted leading-relaxed">
-            The primary difference is architecture and security. <strong>Greptile is a cloud-based service</strong> that requires you to upload your entire codebase to their servers to generate embeddings and answer queries. <strong>CoDRAG is a local-first engine</strong> that runs on your own machine. CoDRAG uses a local Rust daemon to parse your code into a structural trace graph, generates ONNX embeddings locally, and integrates directly with your IDE (like Cursor or Windsurf) via the Model Context Protocol (MCP). With CoDRAG, you get zero-latency context assembly and absolute privacy—your source code is never transmitted to a third party.
+            The primary difference is architecture and epistemic depth. <strong>Greptile relies on naive cloud search</strong>, requiring you to upload your entire codebase to their servers. <strong>CoDRAG is an epistemic context engine</strong> with Private by Design architecture. CoDRAG uses a Rust daemon to parse your code into a meticulous structural trace graph. It integrates natively with your agentic tools (like Paperclip or Cursor) via the Model Context Protocol (MCP). With CoDRAG, you get zero-latency context assembly, role-aware routing, and Sovereign Context—your source code is never unknowingly transmitted.
           </p>
         </section>
 
@@ -46,7 +46,7 @@ export default function CompareGreptilePage() {
               <tbody className="divide-y divide-border">
                 <tr className="hover:bg-surface/50 transition-colors">
                   <td className="py-4 px-4 font-medium">Architecture</td>
-                  <td className="py-4 px-4 bg-primary/5">Local-first (Runs on your machine)</td>
+                  <td className="py-4 px-4 bg-primary/5">Private by Design (Sovereign Context)</td>
                   <td className="py-4 px-4 text-text-muted">Cloud-hosted API</td>
                 </tr>
                 <tr className="hover:bg-surface/50 transition-colors">
@@ -56,7 +56,7 @@ export default function CompareGreptilePage() {
                 </tr>
                 <tr className="hover:bg-surface/50 transition-colors">
                   <td className="py-4 px-4 font-medium">Indexing Method</td>
-                  <td className="py-4 px-4 bg-primary/5">Vector + Rust Structural Code Graph</td>
+                  <td className="py-4 px-4 bg-primary/5">Vector + Traced Epistemic Graph</td>
                   <td className="py-4 px-4 text-text-muted">Vector + Cloud parsing</td>
                 </tr>
                 <tr className="hover:bg-surface/50 transition-colors">
@@ -82,12 +82,12 @@ export default function CompareGreptilePage() {
         {/* Deep Dives */}
         <div className="space-y-12">
           <section>
-            <h3 className="text-2xl font-bold mb-4">1. The Security Paradigm: Cloud vs. Local</h3>
+            <h3 className="text-2xl font-bold mb-4">1. The Security Paradigm: Sovereign Context</h3>
             <p className="text-text-muted leading-relaxed mb-4">
               Greptile provides excellent answers, but it requires syncing your GitHub repositories to their cloud infrastructure. For many regulated industries (finance, healthcare, defense) or core IP companies, this violates SOC2 and ISO27001 policies.
             </p>
             <p className="text-text-muted leading-relaxed">
-              CoDRAG runs entirely on your local machine. It downloads open-weight ONNX embedding models and runs tree-sitter parsing in a local Rust daemon. Your code remains exactly where it belongs: on your SSD.
+              CoDRAG provides Sovereign Context. It uses locally-run Rust to build the epistemic graph and open-weight ONNX models to embed it. Your code remains exactly where it belongs: under your complete control.
             </p>
           </section>
 
@@ -97,7 +97,7 @@ export default function CompareGreptilePage() {
               Instead of forcing you into a proprietary web dashboard or a clunky VS Code extension, CoDRAG embraces the open Model Context Protocol (MCP). 
             </p>
             <p className="text-text-muted leading-relaxed">
-              Once the CoDRAG daemon is running, any MCP-compatible client—like Cursor, Windsurf, or the Claude Code App—can instantly query your codebase. It feels like magic: you just ask Claude a question about your code, and Claude automatically invokes the local CoDRAG tool to fetch the exact AST-aware context it needs.
+              Once the CoDRAG engine is running, any MCP-compatible client—like Paperclip, Cursor, or the Claude Code App—can instantly extract structural knowledge. Your agents automatically invoke CoDRAG to fetch the exact epistemic context they need to execute tasks flawlessly.
             </p>
           </section>
 
@@ -105,7 +105,7 @@ export default function CompareGreptilePage() {
             <h3 className="text-2xl font-bold mb-4">3. Cost and BYOK</h3>
             <p className="text-text-muted leading-relaxed">
               {/* MAINTENANCE: To prevent drift, refer to model families (e.g. 'Claude Sonnet' or 'OpenAI reasoning models') rather than specific versions (e.g. '3.5', 'o3') */}
-              Cloud indexers often charge steep per-seat monthly fees and mark up token costs. CoDRAG offers a one-time perpetual license option and fully supports Bring Your Own Key (BYOK). The core index runs locally for free. For reasoning, use Anthropic Claude Sonnet or OpenAI reasoning models and pay exactly what the API costs—not a penny more. Or, connect local models via Ollama for entirely free inference.
+              Cloud indexers often charge steep per-seat monthly fees and mark up token costs. CoDRAG offers a perpetual license option and fully supports Bring Your Own Key (BYOK) for inference. Connect Ollama Cloud for high-tier privacy, or use Anthropic Claude Sonnet and pay exactly what the API costs.
             </p>
           </section>
         </div>
@@ -120,7 +120,7 @@ export default function CompareGreptilePage() {
         </section>
 
         <div className="mt-16 text-center bg-surface-raised border border-border p-12 rounded-2xl">
-          <h2 className="text-3xl font-bold mb-6">Ready to secure your AI context?</h2>
+          <h2 className="text-3xl font-bold mb-6">Ready to upgrade your AI context?</h2>
           <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request%20-%20Greptile%20Alternative" className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium font-heading transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-background hover:bg-primary/90 active:bg-primary/80 h-11 rounded-md px-8 shadow-lg shadow-primary/25">
             Request Beta Access
           </a>

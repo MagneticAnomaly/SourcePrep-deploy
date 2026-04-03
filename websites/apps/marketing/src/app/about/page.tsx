@@ -17,9 +17,9 @@ export default function Page() {
               About CoDRAG
             </h1>
             <p className="text-xl text-text-muted leading-relaxed mb-12">
-              CoDRAG gives your AI coding tools better context. It indexes your codebase locally
+              CoDRAG gives your AI coding tools epistemic context. It traces your codebase deeply
               using semantic search, a Rust-powered structural code graph, and multi-pass enrichment — then
-              delivers precisely the right context to Cursor, Windsurf, or any MCP-compatible editor.
+              delivers precisely the right context to Paperclip, Cursor, or any MCP-compatible editor.
             </p>
 
             {/* Mission */}
@@ -34,7 +34,7 @@ export default function Page() {
                 </p>
                 <p className="text-lg text-text-muted leading-relaxed mt-4">
                   The result: more relevant suggestions, fewer corrections, and faster iteration —
-                  delivered in under 100&thinsp;ms, running locally on your machine with optional
+                  delivered in under 100&thinsp;ms, with Private by Design architecture and optional
                   cloud enrichment via BYOK.
                 </p>
               </div>
@@ -48,7 +48,7 @@ export default function Page() {
               <h2 className="text-xl font-semibold mb-4">The Team</h2>
               <p className="text-text-muted leading-relaxed mb-6">
                 CoDRAG is built by a small team of engineers who believe developer tools
-                should be fast, local, and honest about what they do. We&apos;re based remotely
+                should be sophisticated, secure, and honest about what they do. We&apos;re based remotely
                 and ship daily.
               </p>
               <div className="flex flex-col gap-3">
@@ -73,7 +73,7 @@ export default function Page() {
             <div className="rounded-xl border border-border bg-surface p-5">
               <div className="font-semibold text-text">Your code is yours</div>
               <div className="mt-1 text-sm text-text-muted">
-                CoDRAG is local-first. Your source code and indexes stay on your machine.
+                CoDRAG provides Sovereign Context. Your source code and indexes stay on your machine.
                 No telemetry, no phone-home. Add a cloud LLM provider via BYOK if you choose — you&apos;re in control.
               </div>
             </div>

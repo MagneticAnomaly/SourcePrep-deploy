@@ -18,7 +18,7 @@ const docFeatures = [
   {
     icon: <Terminal className="w-8 h-8" />,
     title: 'CLI Reference',
-    description: 'Commands and flags for local-first workflows.',
+    description: 'Commands and flags for extracting structural context.',
     href: '/cli',
   },
   {
@@ -54,7 +54,7 @@ export default function Page() {
       <div>
         <h1 className="text-4xl font-bold tracking-tight mb-4">CoDRAG Documentation</h1>
         <p className="text-xl text-text-muted">
-          Everything you need to index your codebase, connect your AI tools, and get better output from every prompt.
+          Everything you need to build your epistemic graph, connect your AI tools, and get better output from every prompt.
         </p>
       </div>
 

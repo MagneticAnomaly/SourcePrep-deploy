@@ -3,6 +3,7 @@ PipelineOrchestrator — sequences the 11-stage enrichment pipeline.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import threading
@@ -76,6 +77,8 @@ class PipelineOrchestrator:
         self._run_metadata: Dict[tuple[str, str], Any] = {}  # (project_id, group) → PipelineRunMetadata
         # Phase 53: track which projects are in incremental mode
         self._incremental_runs: set[str] = set()
+        # Explicit chain flag: run_all() sets this so deep_enrichment chains after fast_sync
+        self._chain_deep: Dict[str, bool] = {}
 
     def _get_file_logger(self, project_id: str):
         """Get or create a PipelineFileLogger for a project."""
@@ -91,6 +94,145 @@ class PipelineOrchestrator:
                 logger.debug("Could not create pipeline file logger for %s", project_id, exc_info=True)
                 self._file_loggers[project_id] = None
         return self._file_loggers.get(project_id)
+
+    @staticmethod
+    def _persist_incremental_flag(project_id: str, is_incremental: bool) -> None:
+        """Persist the incremental run flag to disk so it survives daemon restart."""
+        try:
+            from codrag.services.project_helpers import require_project
+            from codrag.core.project_registry import project_index_dir
+            project = require_project(project_id)
+            idx_dir = Path(project_index_dir(project))
+            state_path = idx_dir / "pipeline_state.json"
+            state: Dict[str, Any] = {}
+            if state_path.exists():
+                try:
+                    state = json.loads(state_path.read_text())
+                except Exception:
+                    state = {}
+            state["incremental_pending"] = is_incremental
+            state["incremental_set_at"] = time.time()
+            state_path.write_text(json.dumps(state, indent=2))
+        except Exception:
+            logger.debug("Failed to persist incremental flag for %s", project_id, exc_info=True)
+
+    @staticmethod
+    def _read_and_clear_incremental_flag(project_id: str) -> bool:
+        """Read the persisted incremental flag and clear it atomically."""
+        try:
+            from codrag.services.project_helpers import require_project
+            from codrag.core.project_registry import project_index_dir
+            project = require_project(project_id)
+            idx_dir = Path(project_index_dir(project))
+            state_path = idx_dir / "pipeline_state.json"
+            if not state_path.exists():
+                return False
+            state = json.loads(state_path.read_text())
+            was_incremental = state.get("incremental_pending", False)
+            state["incremental_pending"] = False
+            state["incremental_cleared_at"] = time.time()
+            state_path.write_text(json.dumps(state, indent=2))
+            return was_incremental
+        except Exception:
+            logger.debug("Failed to read incremental flag for %s", project_id, exc_info=True)
+            return False
+
+    @staticmethod
+    def _prune_stale_derivative_files(project_id: str, pfl: Any = None) -> None:
+        """Prune derivative files that reference nodes no longer in the trace graph.
+
+        Called after the STRUCTURAL stage completes.  Removes edges from
+        trace_inferred_edges.jsonl whose source or target file paths are
+        not present in the current trace_nodes.jsonl.
+        """
+        try:
+            from codrag.services.project_helpers import require_project
+            from codrag.core.project_registry import project_index_dir
+
+            project = require_project(project_id)
+            idx_dir = Path(project_index_dir(project))
+
+            nodes_path = idx_dir / "trace_nodes.jsonl"
+            inferred_path = idx_dir / "trace_inferred_edges.jsonl"
+
+            if not inferred_path.exists() or not nodes_path.exists():
+                return
+
+            # Build set of valid file paths from current trace graph
+            valid_paths: set[str] = set()
+            with open(nodes_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        node = json.loads(line)
+                        fp = node.get("file_path", "")
+                        if fp:
+                            valid_paths.add(fp)
+                    except json.JSONDecodeError:
+                        continue
+
+            if not valid_paths:
+                return  # Empty graph — don't prune (safety)
+
+            # Read existing inferred edges and keep only those with valid refs
+            kept = []
+            pruned = 0
+            with open(inferred_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        edge = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    src = edge.get("source", "").replace("file:", "", 1)
+                    tgt = edge.get("target", "").replace("file:", "", 1)
+                    if src in valid_paths and tgt in valid_paths:
+                        kept.append(line)
+                    else:
+                        pruned += 1
+
+            if pruned == 0:
+                logger.debug("No stale inferred edges to prune for %s", project_id)
+                return
+
+            # Rewrite the file with only valid edges
+            with open(inferred_path, "w") as f:
+                for line in kept:
+                    f.write(line + "\n")
+
+            logger.info(
+                "Pruned %d stale inferred edges for %s (%d kept)",
+                pruned, project_id, len(kept),
+            )
+            if pfl:
+                pfl.log("structural", f"Pruned {pruned} stale inferred edges ({len(kept)} kept)")
+
+            # Also prune the inferred manifest's file hash entries
+            inferred_manifest = idx_dir / "trace_inferred_manifest.json"
+            if inferred_manifest.exists():
+                try:
+                    manifest = json.loads(inferred_manifest.read_text())
+                    file_hashes = manifest.get("file_hashes", {})
+                    if file_hashes:
+                        pruned_hashes = {
+                            k: v for k, v in file_hashes.items()
+                            if k in valid_paths
+                        }
+                        if len(pruned_hashes) < len(file_hashes):
+                            manifest["file_hashes"] = pruned_hashes
+                            inferred_manifest.write_text(json.dumps(manifest, indent=2))
+                except Exception:
+                    logger.debug("Failed to prune inferred manifest (non-fatal)", exc_info=True)
+
+        except Exception:
+            logger.debug(
+                "Failed to prune stale derivative files for %s (non-fatal)",
+                project_id, exc_info=True,
+            )
 
     # ── Public API ─────────────────────────────────────────────
 
@@ -172,8 +314,13 @@ class PipelineOrchestrator:
                         })
                     return False
             except Exception:
-                logger.info("All fast_sync stages already complete on disk for %s — skipping", project_id)
-                return False
+                logger.warning(
+                    "Coverage gap check failed for %s — triggering rebuild as safety fallback",
+                    project_id, exc_info=True,
+                )
+                # Safe default: rebuild rather than silently skip
+                resume = 0
+                incremental = True
         if resume > 0:
             logger.info(
                 "Resuming fast_sync for %s from stage %d/%d (%s) — stages 0-%d already on disk",
@@ -199,6 +346,7 @@ class PipelineOrchestrator:
             # 1. _detect_resume_point skips mtime cascade for deep_enrichment
             # 2. run_deep_enrichment doesn't delete deep manifests
             self._incremental_runs.add(project_id)
+            self._persist_incremental_flag(project_id, True)
             logger.info(
                 "[%s] Running fast_sync in INCREMENTAL mode — downstream stages "
                 "will add new/stale files without full rebuild",
@@ -221,9 +369,19 @@ class PipelineOrchestrator:
         workers already handle incrementality internally — they'll pick
         up new/changed nodes without needing a full restart.
         """
-        # Check if the preceding fast_sync was incremental
+        # Check if the preceding fast_sync was incremental.
+        # Try in-memory first (same process), then fall back to disk
+        # (survives daemon restart between fast_sync and deep_enrichment).
         is_incremental = project_id in self._incremental_runs
         self._incremental_runs.discard(project_id)
+        if not is_incremental:
+            is_incremental = self._read_and_clear_incremental_flag(project_id)
+            if is_incremental:
+                logger.info(
+                    "[%s] Recovered incremental flag from disk — "
+                    "preceding fast_sync was incremental",
+                    project_id,
+                )
 
         resume = 0 if force_from_start else self._detect_resume_point(
             project_id, DEEP_ENRICHMENT_STAGES, skip_mtime_cascade=is_incremental,
@@ -408,7 +566,6 @@ class PipelineOrchestrator:
             if run and run.is_active:
                 return False
             # Mark that deep should chain after fast
-            self._chain_deep: Dict[str, bool] = getattr(self, "_chain_deep", {})
             self._chain_deep[project_id] = True
         fast_started = self.run_fast_sync(project_id, force_from_start=force_from_start)
         if fast_started:
@@ -616,13 +773,13 @@ class PipelineOrchestrator:
                 "coverage_pct": summary.get("coverage_pct", 0.0),
             }
         except Exception:
-            logger.debug(
-                "Coverage gap check failed for %s", project_id,
-                exc_info=True,
+            logger.warning(
+                "Coverage gap check failed for %s — defaulting to needs_rebuild=True",
+                project_id, exc_info=True,
             )
             return {
                 "total": 0, "traced": 0, "untraced": 0, "stale": 0,
-                "needs_rebuild": False, "coverage_pct": 0.0,
+                "needs_rebuild": True, "coverage_pct": 0.0,
             }
 
     def _maybe_retrigger_for_coverage(
@@ -1132,7 +1289,7 @@ class PipelineOrchestrator:
                 should_chain = False
                 chain_reason = "none"
                 # 1. Explicit chain from run_all()
-                chain_deep = getattr(self, "_chain_deep", {})
+                chain_deep = self._chain_deep
                 if chain_deep.pop(run.project_id, False):
                     should_chain = True
                     chain_reason = "explicit_run_all"
@@ -1397,6 +1554,7 @@ class PipelineOrchestrator:
                     # and regenerate rules with full LLM atlas after Stage 9.
                     if stage == StageId.STRUCTURAL:
                         self._generate_preliminary_atlas_and_rules(project_id)
+                        self._prune_stale_derivative_files(project_id, pfl)
                     elif stage == StageId.ATLAS:
                         self._regenerate_rules_with_full_atlas(project_id)
 

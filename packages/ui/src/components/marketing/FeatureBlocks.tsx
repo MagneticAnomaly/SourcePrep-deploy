@@ -1,6 +1,6 @@
 import { Badge, Card, Text } from '@tremor/react';
 import { 
-  Search, GitBranch, Zap, Lock, RefreshCw, Plug, 
+  Search, GitBranch, RefreshCw, Plug, 
   AlertTriangle, Lightbulb, TrendingUp, SlidersHorizontal, Shrink, Brain, Shield, Waypoints, Users, Activity
 } from 'lucide-react';
 
@@ -139,92 +139,85 @@ function BentoGrid({ features }: { features: Feature[] }) {
 }
 
 export const codragFeatures: Feature[] = [
-  {
-    icon: <Activity className="w-8 h-8" />,
-    title: 'AutoAudit V2 — Autonomous Codebase Health',
-    description: 'Transform your codebase intelligence into an active taskmaster. Run zero-config audits that map architecture bottlenecks and tech debt. Select a finding, click "Copy AI Command", and instantly hand off the context assembly to Cursor or Windsurf for a perfect refactor.',
-    badge: 'New',
-    highlight: true,
-  },
-  {
-    icon: <Search className="w-8 h-8" />,
-    title: 'Semantic + Structural Search',
-    description: 'Ask "where is the auth middleware?" and get ranked results in under 100 ms. Fast, privacy-first ONNX embeddings run locally out of the box — or connect your preferred cloud AI provider (BYOK) if you want alternative embedding models.',
-    badge: 'Built-in',
-    highlight: true,
-  },
+  // Tier 1: Epistemic Understanding
   {
     icon: <GitBranch className="w-8 h-8" />,
     title: 'Structural Code Graph',
-    description: 'Goes beyond vector search. A Rust-powered engine maps imports, call graphs, and symbol hierarchies across your entire monorepo — so your AI sees how 100k files connect.',
+    description: 'Goes beyond vector search. A Rust engine meticulously traces your DB and codebase to map imports, call graphs, and symbol hierarchies — giving agents the what, why, when, and how.',
     badge: 'Built-in',
     highlight: true,
   },
   {
     icon: <Brain className="w-8 h-8" />,
     title: 'Graph Enrichment',
-    description: 'A 9-stage pipeline that deepens understanding over time. Rust builds the structural skeleton, a Fast model catalogues every file, then a Thinking model reasons about each node in graph context — adding domain tags, architecture layers, and doc↔code cross-references. An understanding score (0.0–1.0) tracks how well the system comprehends each file, decaying when code changes and rising as knowledge crystallizes.',
+    description: 'A 9-stage pipeline that deepens understanding over time. A Fast model catalogues every file, then a Thinking model reasons about each node in graph context — crystallizing knowledge as your architecture evolves.',
     badge: 'Pro',
     href: 'https://docs.codrag.io/concepts/graph-enrichment',
     external: true,
   },
   {
-    icon: <Waypoints className="w-8 h-8" />,
-    title: 'Smarter Retrieval — The Atlas Routes Every Query',
-    description: 'CoDRAG maps your codebase into subsystem segments at build time. When your AI asks for context, the Atlas routes the query to the right subsystem first — so the trace graph search is scoped before it starts. Better results. No extra tokens.',
+    icon: <Activity className="w-8 h-8" />,
+    title: 'AutoAudit V2 — Autonomous Codebase Health',
+    description: 'Transform static codebase intelligence into an active taskmaster. Run audits that map architecture bottlenecks and tech debt, then instantly hand off the context assembly to agentic tools for a perfect refactor.',
     badge: 'New',
     highlight: true,
   },
+
+  // Tier 2: Agentic Leverage
   {
     icon: <Users className="w-8 h-8" />,
     title: 'Role-Aware Context — The right view for every agent',
-    description: 'Different agents need different slices of your codebase. A security reviewer should see authentication code and data boundaries. A UI agent should see components and design tokens. CoDRAG automatically shapes each context delivery around the role of the agent asking — so every worker gets a focused, high-signal view without wading through irrelevant code. Works with any agentic framework, zero configuration.',
+    description: 'Different agents need different slices of your codebase. A security reviewer sees auth boundaries; a UI agent sees design tokens. CoDRAG automatically shapes context delivery around the role of the agent asking.',
     badge: 'New',
     highlight: true,
   },
   {
-    icon: <Zap className="w-8 h-8" />,
-    title: 'Instant Context Assembly',
-    description: 'One call assembles citation-rich context for any LLM. Budget-aware chunking fits the right code into your prompt window — even for massive codebases and sprawling doc trees.',
+    icon: <Waypoints className="w-8 h-8" />,
+    title: 'Smarter Retrieval — Atlas Routing',
+    description: 'CoDRAG maps your codebase into subsystem segments at build time. When your AI asks for context, the Atlas routes the query to the correct architectural neighborhood before the search even starts.',
+    badge: 'New',
+    highlight: true,
   },
   {
     icon: <SlidersHorizontal className="w-8 h-8" />,
-    title: 'Path Weights — You Steer the Signal',
-    description: 'Boost docs/style-guide.md to 1.5× so your design rules always surface first. Dial down src/components/ui/ to 0.5× to lower the volume on generic components. Hierarchical, instant, no rebuild required.',
+    title: 'Path Weights — Sophisticated Signal Steering',
+    description: 'Elegant signal steering for power users. Boost your style-guide to 1.5× or dial down vendor directories to 0.5×. You control the priority of the structural context.',
     badge: 'New',
     highlight: true,
   },
   {
+    icon: <Search className="w-8 h-8" />,
+    title: 'Instant Context Assembly',
+    description: 'One call assembles citation-rich, graph-backed context for any LLM. Budget-aware chunking fits the exact right code into your prompt window — even for sprawling repositories.',
+  },
+
+  // Tier 3: The Enablers
+  {
     icon: <Shrink className="w-8 h-8" />,
     title: 'Smart Context Compression',
-    description: 'Two built-in engines work together: code files are structurally compressed (3–20×) — keeping full source for top results, signatures for mid-relevance, and names for the rest. Documentation is compressed with a lightweight language model that preserves meaning while removing filler. No GPU required.',
+    description: 'Intelligently shrinks the payload without losing structural integrity. Code files are compressed keeping full source for top results and signatures for mid-relevance, delivering significantly higher signal per token.',
     badge: 'Built-in',
   },
   {
-    icon: <Lock className="w-8 h-8" />,
-    title: 'Runs on Your Machine',
-    description: 'Your code index stays strictly on localhost. The entire structural trace graph and embedding index are built offline. When it\'s time for AI reasoning, you\'re in control: use local models for zero network traffic, or securely connect a frontier cloud provider (BYOK) for maximum intelligence.',
+    icon: <Shield className="w-8 h-8" />,
+    title: 'Privacy by Design — Sovereign Context',
+    description: 'Your codebase index is built and managed completely locally. When it\'s time for AI reasoning, you control the network: route context securely to Ollama Cloud (recommended), or bring your own frontier APIs.',
   },
   {
     icon: <RefreshCw className="w-8 h-8" />,
     title: 'Always-Fresh Index',
-    description: 'A real-time file watcher detects edits and rebuilds incrementally in Rust — so your search results and AI context are never stale, even across thousands of files.',
+    description: 'A real-time file watcher detects edits and rebuilds incrementally in Rust — so your search results and AI context are never stale.',
   },
   {
     icon: <Plug className="w-8 h-8" />,
-    title: 'Works With Every AI Tool',
-    description: 'Native MCP integration means CoDRAG plugs directly into Cursor, Windsurf, VS Code, and Claude Desktop — no config gymnastics.',
+    title: 'Native MCP Integration',
+    description: 'Plug-and-play connectivity. CoDRAG natively connects to Paperclip, Cursor, Windsurf, VS Code, and Claude Desktop to supercharge any agentic workflow.',
     badge: 'MCP',
-  },
-  {
-    icon: <Shield className="w-8 h-8" />,
-    title: 'Privacy-First & Cloud-Ready',
-    description: 'Run 100% locally with zero network traffic, or seamlessly plug in your preferred cloud AI provider (BYOK). Every embedding, search, and compression step is configurable and auditable.',
   },
   {
     icon: <Users className="w-8 h-8" />,
     title: 'Team Sync — Build Once, Share Instantly',
-    description: 'A headless Docker image runs the full enrichment pipeline in your CI/CD on every push. The enriched trace graph is uploaded to S3-compatible storage. Every developer downloads it instantly — only their uncommitted changes are re-enriched locally.',
+    description: 'A headless Docker image runs the full enrichment pipeline in CI/CD. The epistemic graph is uploaded to S3-compatible storage, letting every developer download instant context syncs.',
     badge: 'Team',
     href: 'https://docs.codrag.io/guides/team-sync',
     external: true,
@@ -234,18 +227,18 @@ export const codragFeatures: Feature[] = [
 export const marketingFeatures: Feature[] = [
   {
     icon: <AlertTriangle className="w-8 h-8" />,
-    title: 'The Problem: Large Codebases Break AI Context',
-    description: 'Monorepos with 100k files. Thousands of markdown docs. AI tools grab random files without understanding how code connects — and their context windows overflow with noise. You waste time re-explaining architecture and pasting missing context.',
+    title: 'The Problem: Naive Search Fails Agents',
+    description: 'Monorepos with 100k files. Thousands of markdown docs. Basic vector search grabs random files without understanding how code connects, flooding your agent\'s context window with noise and causing hallucinations.',
     highlight: true,
   },
   {
     icon: <Lightbulb className="w-8 h-8" />,
-    title: 'The Fix: Index Everything, Control What Surfaces',
-    description: 'CoDRAG\'s Rust engine indexes your entire codebase — semantics, symbols, and call graphs — then you steer what matters with path weights. Boost core modules, suppress vendor noise, and smart compression fits 3–20× more signal into every prompt. Every query gets exactly the right context, automatically.',
+    title: 'The Fix: Deep Epistemic Tracing',
+    description: 'CoDRAG\'s engine traces your entire database and codebase — mapping semantics, symbols, and call hierarchies. It delivers a graph of structurally aware context, precisely scoped for the agent\'s specific role.',
   },
   {
     icon: <TrendingUp className="w-8 h-8" />,
-    title: 'The Result: AI That Understands Your Architecture',
-    description: 'More relevant suggestions, fewer corrections, faster iteration — even on the largest codebases and doc trees. Built-in embeddings, structural code graph, deep reasoning with understanding scores, codebase atlas routing, role-aware context shaping, path weights, and smart context compression work together so every AI agent — from a solo assistant to a full agentic pipeline — sees exactly the right picture.',
+    title: 'The Result: Agents With A Brain',
+    description: 'Connect your autonomous tools to Paperclip and watch them instantly understand their tasks. By providing the "what, why, when, and how", CoDRAG gives your agents the sophisticated awareness they need to actually do the work.',
   },
 ];

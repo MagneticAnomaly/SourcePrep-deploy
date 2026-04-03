@@ -19,7 +19,7 @@ export function YaleHero({ isBetaMode }: { isBetaMode: boolean }) {
               className="font-heading text-5xl md:text-6xl font-medium text-text pt-[0.25em] md:pt-0 leading-[1.05] md:leading-tight tracking-tight mb-8"
               style={{ fontFamily: "var(--font-heading, 'IBM Plex Sans', system-ui, Helvetica, Arial, sans-serif)" }}
             >
-              This is the bridge between how you think about code and how your AI reads it.
+              Give your AI access to the epistemic context it needs to understand your codebase.
             </h1>
           </div>
           <div className="col-span-12 md:col-span-3 flex flex-col justify-end items-start md:items-end">
@@ -32,8 +32,7 @@ export function YaleHero({ isBetaMode }: { isBetaMode: boolean }) {
           {/* Column 1: Description */} 
           <div className="col-span-12 md:col-span-3 md:col-start-4">
             <p className="font-sans text-base text-text leading-relaxed mb-6" >
-              CoDRAG's Rust-powered engine indexes your codebase locally—semantics, symbols, and call graphs—with built-in
-              ONNX embeddings, path weights for precision control, and smart compression for code and documentation. 
+              A Rust-powered local index that pairs perfectly with privacy-first inference like Ollama Cloud, delivering structural knowledge to any agentic tool.
             </p>
             <a href="#" className="font-sans font-medium text-primary hover:underline underline-offset-4 decoration-2 flex items-center gap-1">
               Documentation <ArrowRight className="w-3 h-3" />

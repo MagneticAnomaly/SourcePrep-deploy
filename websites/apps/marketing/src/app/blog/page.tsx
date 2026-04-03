@@ -29,7 +29,7 @@ export default function Page() {
             <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-primary/10 blur-3xl -z-10"></div>
             <p className="font-mono text-sm md:text-base leading-relaxed text-text-muted max-w-md border-l-2 border-primary pl-6 py-2">
               Notes on the intersection of human creativity and machine intelligence.
-              Engineering deep dives, product philosophy, and the future of local-first software.
+              Engineering deep dives, product philosophy, and the future of agentic workflows and epistemic search.
             </p>
           </div>
         </div>

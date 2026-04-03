@@ -11,7 +11,7 @@ const manifest: PaperclipPluginManifestV1 = {
   description:
     'Gives every Paperclip agent structural codebase knowledge — module maps, ' +
     'dependency graphs, semantic search, and health analysis powered by CoDRAG.',
-  author: 'CoDRAG <hello@codrag.dev>',
+  author: 'CoDRAG <hello@codrag.io>',
   categories: ['connector'],
 
   capabilities: [

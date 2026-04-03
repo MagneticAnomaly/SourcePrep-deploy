@@ -79,7 +79,7 @@ export default function Page() {
           <div className="lg:col-span-4 flex flex-col justify-end pb-2">
             <p className="text-xl md:text-2xl font-medium leading-tight text-text-muted">
               We&apos;re building the structural layer for AI code intelligence. 
-              Local-first. Fast. Honest.
+              Epistemic. Sophisticated. Honest.
             </p>
           </div>
         </div>

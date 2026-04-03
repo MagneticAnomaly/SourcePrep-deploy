@@ -23,7 +23,7 @@ const productSchema = {
   "name": "CoDRAG",
   "operatingSystem": "macOS, Windows, Linux",
   "applicationCategory": "DeveloperApplication",
-  "description": "Local-first codebase indexing and context assembly engine designed for AI-assisted development. It creates a structural code graph using Rust to map imports, call chains, and symbol hierarchies for perfect context.",
+  "description": "Epistemic codebase intelligence engine designed for autonomous agents and AI-assisted development. It creates a structural code graph using Rust to map imports, call chains, and symbol hierarchies for sophisticated context.",
   "offers": {
     "@type": "Offer",
     "price": "0",
@@ -33,13 +33,13 @@ const productSchema = {
 export const metadata: Metadata = {
   metadataBase: new URL('https://codrag.io'),
   title: {
-    default: 'CoDRAG - Local-first Code Context',
+    default: 'CoDRAG - Epistemic Code Context',
     template: '%s | CoDRAG'
   },
-  description: 'Semantic search and trace-aware context for your codebase. Local-first, no cloud required.',
+  description: 'Deep structural codebase tracing and epistemic context for autonomous agents and intelligent workflows.',
   openGraph: {
-    title: 'CoDRAG - Local-first Code Context',
-    description: 'Semantic search and trace-aware context for your codebase. Local-first, no cloud required.',
+    title: 'CoDRAG - Epistemic Code Context',
+    description: 'Deep structural codebase tracing and epistemic context for autonomous agents and intelligent workflows.',
     url: 'https://codrag.io',
     siteName: 'CoDRAG',
     images: [
@@ -55,8 +55,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'CoDRAG - Local-first Code Context',
-    description: 'Semantic search and trace-aware context for your codebase. Local-first, no cloud required.',
+    title: 'CoDRAG - Epistemic Code Context',
+    description: 'Deep structural codebase tracing and epistemic context for autonomous agents and intelligent workflows.',
     images: ['/images/og-image.png'],
   },
   icons: {
