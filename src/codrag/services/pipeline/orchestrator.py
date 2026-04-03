@@ -1445,6 +1445,10 @@ class PipelineOrchestrator:
         # can distinguish a genuinely running stage from a dead process.
         self._start_heartbeat_timer(run)
 
+        # Phase 70B: Freshness check — skip if outputs already current
+        if self._should_skip_stage_freshness(run, stage, pfl):
+            return  # stage is already current, don't run it
+
         # Phase 25: journal — record stage start
         self._journal_stage_started(run, stage)
 
@@ -2411,6 +2415,58 @@ class PipelineOrchestrator:
                 journal.set_checkpoint(run.journal_run_id, cp_path)
         except Exception:
             logger.debug("Checkpoint creation failed (non-fatal)", exc_info=True)
+
+    # ── Phase 70B: Freshness Check + Write Guard ─────────────────
+
+    def _should_skip_stage_freshness(
+        self,
+        run: PipelineGroupStateMachine,
+        stage: StageId,
+        pfl: Any = None,
+    ) -> bool:
+        """Check if a stage's outputs are already newer than its inputs.
+
+        Returns True if the stage should be skipped (already current).
+        Marks the stage as 'skipped' in the run and advances to the next.
+        """
+        try:
+            from codrag.services.pipeline_integrity import (
+                integrity_guard, STAGE_DATA_FILES,
+            )
+            from codrag.services.pipeline.stages import STAGE_INPUT_FILES
+            from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
+
+            project = require_project(run.project_id)
+            idx_dir = Path(project_index_dir(project))
+            input_files = STAGE_INPUT_FILES.get(stage, [])
+            output_files = STAGE_DATA_FILES.get(stage.value, [])
+
+            if not input_files:
+                return False  # structural has no pipeline inputs
+
+            should_skip, reason = integrity_guard.check_stage_freshness(
+                idx_dir, input_files, output_files,
+            )
+
+            if should_skip:
+                logger.info(
+                    "Stage %s skipped for %s: %s",
+                    stage.value, run.project_id, reason,
+                )
+                if pfl:
+                    pfl.log(stage.value, f"SKIPPED (freshness): {reason}")
+                run.stage_results[stage.value] = "skipped"
+                # Advance to next stage
+                with self._lock:
+                    run.advance()
+                return True
+        except Exception:
+            logger.debug(
+                "Freshness check failed (non-fatal) for %s/%s",
+                run.project_id, stage.value, exc_info=True,
+            )
+        return False
 
     # ── Phase 70B: Write Guard ────────────────────────────────────
 

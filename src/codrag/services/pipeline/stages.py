@@ -57,6 +57,40 @@ DEEP_ENRICHMENT_STAGES: List[StageId] = [
 ]
 
 
+# ── Stage Input/Output Files (Phase 70B) ───────────────────────────
+# Which output files each stage depends on (its inputs).
+# Used by the freshness check to skip already-current stages.
+
+STAGE_INPUT_FILES: Dict[StageId, List[str]] = {
+    StageId.STRUCTURAL:      [],  # depends on source files, not pipeline files
+    StageId.INFERRED_EDGES:  ["trace_augmented.jsonl"],
+    StageId.CATALOGUE:       ["trace_nodes.jsonl"],
+    StageId.VALIDATION:      ["trace_edges.jsonl", "trace_inferred_edges.jsonl"],
+    StageId.KNOWLEDGE:       ["trace_augmented.jsonl"],
+    StageId.ENRICHMENT:      ["trace_augmented.jsonl"],
+    StageId.GROUP_REASONING: ["trace_epistemic.jsonl"],
+    StageId.CLUSTERING:      ["trace_epistemic.jsonl"],
+    StageId.ATLAS:           ["trace_modules.jsonl"],
+    StageId.DEEPENING:       ["trace_epistemic.jsonl", "trace_modules.jsonl"],
+    StageId.DEEP_KNOWLEDGE:  ["trace_epistemic.jsonl", "trace_modules.jsonl"],
+}
+
+# Which stages are deterministic / cheap to re-run (Rust/embedding only)
+STAGE_IS_DETERMINISTIC: Dict[StageId, bool] = {
+    StageId.STRUCTURAL:      True,   # Rust engine — seconds
+    StageId.INFERRED_EDGES:  False,  # LLM
+    StageId.CATALOGUE:       False,  # LLM
+    StageId.VALIDATION:      True,   # Rust engine
+    StageId.KNOWLEDGE:       True,   # Embedding only
+    StageId.ENRICHMENT:      False,  # LLM
+    StageId.GROUP_REASONING: False,  # LLM
+    StageId.CLUSTERING:      False,  # LLM
+    StageId.ATLAS:           False,  # LLM
+    StageId.DEEPENING:       False,  # LLM
+    StageId.DEEP_KNOWLEDGE:  True,   # Embedding only
+}
+
+
 # ── Task ID Mapping (Phase 44) ──────────────────────────────────────
 # Which CodragTaskId each stage uses.  None = no LLM needed.
 # Used by the VRAM lifecycle manager and the unified LLM resolver.

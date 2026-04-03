@@ -305,6 +305,41 @@ class IntegrityGuard:
 
         return False, "ok"
 
+    # ── Phase 70B: Input freshness check ───────────────────────────
+
+    def check_stage_freshness(
+        self,
+        index_dir: Path,
+        input_files: list[str],
+        output_files: list[str],
+    ) -> tuple[bool, str]:
+        """Check if a stage's outputs are already up-to-date.
+
+        Compares modification times of input files vs output files.
+        If ALL output files exist and are NEWER than ALL input files,
+        the stage is already current and can be skipped.
+
+        Returns (should_skip, reason).
+        """
+        if not input_files:
+            return False, "no pipeline inputs — stage must run"
+
+        newest_input_mtime = 0.0
+        for fname in input_files:
+            fpath = index_dir / fname
+            if not fpath.exists():
+                return False, f"input {fname} missing — stage must run"
+            newest_input_mtime = max(newest_input_mtime, fpath.stat().st_mtime)
+
+        for fname in output_files:
+            fpath = index_dir / fname
+            if not fpath.exists():
+                return False, f"output {fname} missing — stage must run"
+            if fpath.stat().st_mtime < newest_input_mtime:
+                return False, f"output {fname} is older than inputs — stage must run"
+
+        return True, "all outputs are newer than inputs — already current"
+
     # ── Internal helpers ─────────────────────────────────────────
 
     @staticmethod
