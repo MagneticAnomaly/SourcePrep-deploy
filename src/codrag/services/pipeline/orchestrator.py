@@ -20,6 +20,11 @@ from codrag.services.build_orchestrator import (
     build_orchestrator,
 )
 
+
+class _WriteGuardBlocked(Exception):
+    """Raised when the write guard detects data loss and blocks pipeline advancement."""
+    pass
+
 from .stages import (
     StageId,
     STAGE_BUILD_TYPE,
@@ -1558,8 +1563,22 @@ class PipelineOrchestrator:
                     elif stage == StageId.ATLAS:
                         self._regenerate_rules_with_full_atlas(project_id)
 
+                    # Phase 70B: Write guard — block if data would shrink
+                    self._write_guard_check(matching_run, stage, pfl)
+
                     # Phase 60A: integrity guard — compare post-flight vs pre-flight
                     self._integrity_check_after_stage(matching_run, stage, pfl)
+                except _WriteGuardBlocked as wgb:
+                    # Write guard blocked advancement — fail this stage
+                    logger.critical(
+                        "WRITE GUARD BLOCKED stage %s for %s: %s",
+                        stage.value, project_id, wgb,
+                    )
+                    if pfl:
+                        pfl.log(stage.value, f"WRITE GUARD BLOCKED: {wgb}")
+                    # Transition to FAILED so the pipeline halts
+                    matching_run.fail(str(wgb))
+                    return  # do NOT advance to next stage
                 except Exception:
                     logger.exception(
                         "Post-completion bookkeeping failed for %s/%s stage %s "
@@ -2392,6 +2411,56 @@ class PipelineOrchestrator:
                 journal.set_checkpoint(run.journal_run_id, cp_path)
         except Exception:
             logger.debug("Checkpoint creation failed (non-fatal)", exc_info=True)
+
+    # ── Phase 70B: Write Guard ────────────────────────────────────
+
+    def _write_guard_check(
+        self,
+        run: PipelineGroupStateMachine,
+        stage: StageId,
+        pfl: Any = None,
+    ) -> None:
+        """Block pipeline advancement if a stage's output shrank.
+
+        Compares post-stage file state against the pre-flight snapshot.
+        Raises _WriteGuardBlocked if data would be lost. The pipeline
+        should only grow the graph, never shrink it.
+        """
+        try:
+            from codrag.services.pipeline_integrity import (
+                integrity_guard, STAGE_DATA_FILES,
+            )
+            from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
+
+            project = require_project(run.project_id)
+            idx_dir = Path(project_index_dir(project))
+            data_files = STAGE_DATA_FILES.get(stage.value, [])
+
+            if not data_files:
+                return  # stage has no tracked output files
+
+            post_files = {}
+            for fname in data_files:
+                fpath = idx_dir / fname
+                post_files[fname] = integrity_guard._snapshot_file(fpath)
+
+            blocked, reason = integrity_guard.should_block_stage_completion(
+                run.project_id, stage.value, post_files,
+            )
+
+            if blocked:
+                raise _WriteGuardBlocked(reason)
+
+            if pfl:
+                pfl.log(stage.value, "Write guard: OK")
+        except _WriteGuardBlocked:
+            raise  # re-raise to caller
+        except Exception:
+            logger.debug(
+                "Write guard check failed (non-fatal) for %s/%s",
+                run.project_id, stage.value, exc_info=True,
+            )
 
     # ── Phase 60A: Integrity Guard ────────────────────────────────
 
