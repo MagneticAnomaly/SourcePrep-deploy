@@ -19,6 +19,7 @@ import {
   FolderTreePanel,
   AgentScopePanel,
   AgentOpsPanel,
+  AgentOpsDetail,
   type AgentOpsData,
   FileExplorerDetail,
   CopyButton,
@@ -1297,7 +1298,66 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         />
       </div>
     ),
-  }), [p, excludedPaths, handleToggleExclude])
+    'agent-ops': (
+      <div className="max-w-4xl mx-auto w-full p-6">
+        <AgentOpsDetail
+          systemData={agentOpsData ? {
+            hr: {
+              readiness: { score: 0, ready_for_list: false, ready_for_auto: false, missing: [] },
+              roleCount: agentOpsData.hr?.role_count ?? 0,
+            },
+            researcher: {
+              runCount: agentOpsData.researcher?.run_count ?? 0,
+              latestRun: agentOpsData.researcher?.latest_run ?? null,
+            },
+            custodian: {
+              archiveCount: agentOpsData.custodian?.archive_count ?? 0,
+            },
+          } : null}
+          employeeData={null}
+          researchRuns={[]}
+          cleanupCandidates={[]}
+          onHRGenerate={async (mode, roleNames) => {
+            if (!p.selectedProjectId) return;
+            await fetch(`/projects/${p.selectedProjectId}/agents/hr/generate`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ mode, role_names: roleNames }),
+            });
+            // Refresh status
+            fetch(`/projects/${p.selectedProjectId}/agents/status`)
+              .then(r => r.json())
+              .then(json => setAgentOpsData(json.data ?? json))
+              .catch(() => {});
+          }}
+          onResearchRun={async (maxTopics) => {
+            if (!p.selectedProjectId) return;
+            await fetch(`/projects/${p.selectedProjectId}/agents/researcher/run`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ max_topics: maxTopics }),
+            });
+            fetch(`/projects/${p.selectedProjectId}/agents/status`)
+              .then(r => r.json())
+              .then(json => setAgentOpsData(json.data ?? json))
+              .catch(() => {});
+          }}
+          onCustodianRun={async (dryRun) => {
+            if (!p.selectedProjectId) return;
+            await fetch(`/projects/${p.selectedProjectId}/agents/custodian/run`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ dry_run: dryRun, max_files: 20 }),
+            });
+            fetch(`/projects/${p.selectedProjectId}/agents/status`)
+              .then(r => r.json())
+              .then(json => setAgentOpsData(json.data ?? json))
+              .catch(() => {});
+          }}
+        />
+      </div>
+    ),
+  }), [p, excludedPaths, handleToggleExclude, agentOpsData])
 
   return { panelContent, panelDetails, allPanelDefs, PINNED_PREFIX }
 }
