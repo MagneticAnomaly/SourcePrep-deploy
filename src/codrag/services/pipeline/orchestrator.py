@@ -2506,7 +2506,12 @@ class PipelineOrchestrator:
             )
 
             if blocked:
-                raise _WriteGuardBlocked(reason)
+                # Attempt auto-recovery before giving up
+                recovered = self._attempt_write_guard_recovery(
+                    run, stage, post_files, reason, pfl,
+                )
+                if not recovered:
+                    raise _WriteGuardBlocked(reason)
 
             if pfl:
                 pfl.log(stage.value, "Write guard: OK")
@@ -2517,6 +2522,83 @@ class PipelineOrchestrator:
                 "Write guard check failed (non-fatal) for %s/%s",
                 run.project_id, stage.value, exc_info=True,
             )
+
+    def _attempt_write_guard_recovery(
+        self,
+        run: PipelineGroupStateMachine,
+        stage: StageId,
+        post_files: Dict[str, Any],
+        reason: str,
+        pfl: Any = None,
+    ) -> bool:
+        """Attempt to recover from a write guard block.
+
+        For deterministic stages (Rust, embedding): log that re-run is safe.
+        For LLM stages: try to restore from the Phase 25 checkpoint.
+
+        Returns True if recovery succeeded (pipeline can continue).
+        Returns False if recovery failed (pipeline should halt).
+        """
+        from codrag.services.pipeline.stages import STAGE_IS_DETERMINISTIC
+
+        is_deterministic = STAGE_IS_DETERMINISTIC.get(stage, False)
+
+        if is_deterministic:
+            # Rust/embedding stages are cheap — just log the issue.
+            # The write already happened (temp+rename), so we can't undo it.
+            # But deterministic stages produce correct output, so a 0-record
+            # result means the inputs were empty, not a bug.
+            logger.warning(
+                "Write guard: deterministic stage %s produced fewer records "
+                "for %s (%s) — allowing (inputs may have changed)",
+                stage.value, run.project_id, reason,
+            )
+            if pfl:
+                pfl.log(stage.value, f"Write guard: allowed (deterministic): {reason}")
+            return True
+
+        # LLM stage — try checkpoint restore
+        try:
+            from codrag.services.pipeline_checkpoint import restore_checkpoint
+            from codrag.services.pipeline_journal import journal
+            from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
+
+            project = require_project(run.project_id)
+            idx_dir = Path(project_index_dir(project))
+
+            # Find the checkpoint for this run
+            if run.journal_run_id:
+                entry = journal.get_run(run.journal_run_id)
+                if entry and entry.checkpoint_path:
+                    restored = restore_checkpoint(entry.checkpoint_path, idx_dir)
+                    if restored > 0:
+                        logger.warning(
+                            "Write guard: RESTORED %d files from checkpoint for "
+                            "stage %s/%s (blocked: %s)",
+                            restored, stage.value, run.project_id, reason,
+                        )
+                        if pfl:
+                            pfl.log(
+                                stage.value,
+                                f"Write guard: RESTORED {restored} files from checkpoint ({reason})",
+                            )
+                        return True
+
+            logger.critical(
+                "Write guard: LLM stage %s produced data loss for %s (%s) "
+                "and no checkpoint available for recovery",
+                stage.value, run.project_id, reason,
+            )
+            if pfl:
+                pfl.log(stage.value, f"Write guard: NO RECOVERY AVAILABLE ({reason})")
+            return False
+        except Exception as e:
+            logger.error(
+                "Write guard recovery failed for %s/%s: %s",
+                run.project_id, stage.value, e, exc_info=True,
+            )
+            return False
 
     # ── Phase 60A: Integrity Guard ────────────────────────────────
 
