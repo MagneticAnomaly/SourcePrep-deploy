@@ -199,9 +199,16 @@ class TraceIndex:
             return rust_status
 
         manifest = self._manifest or {}
-        counts = manifest.get("counts", {})
+        counts = manifest.get("counts") or {}
         node_count = counts.get("nodes", 0)
         edge_count = counts.get("edges", 0)
+
+        # Fallback: if manifest lacks counts (e.g. Rust engine didn't write them),
+        # use the actual loaded data
+        if node_count == 0 and self._nodes:
+            node_count = len(self._nodes)
+        if edge_count == 0 and self._edges:
+            edge_count = len(self._edges)
 
         degraded = False
         degraded_reason = None
