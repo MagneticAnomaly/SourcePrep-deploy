@@ -64,6 +64,10 @@ export interface UseProjectManagerDeps {
   includedPaths?: Set<string>
   /** Whether auto-rebuild is enabled */
   indexAutoRebuild?: boolean
+  /** AbortSignal from hydration controller — aborted on project switch */
+  signal?: AbortSignal
+  /** True while hydration is in progress — suppress polls */
+  isHydrating?: boolean
 }
 
 // ── Hook ─────────────────────────────────────────────────────
@@ -89,6 +93,10 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
   includedPathsRef.current = deps.includedPaths
   const indexAutoRebuildRef = useRef(deps.indexAutoRebuild)
   indexAutoRebuildRef.current = deps.indexAutoRebuild
+  const signalRef = useRef(deps.signal)
+  signalRef.current = deps.signal
+  const isHydratingRef = useRef(deps.isHydrating)
+  isHydratingRef.current = deps.isHydrating
 
   // ── State ────────────────────────────────────────────────────
 
@@ -133,7 +141,9 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     if (!selectedProjectId) return
     void refreshStatus(selectedProjectId)
     // Load project config
+    const signal = signalRef.current
     api.getProject(selectedProjectId).then((data) => {
+      if (signal?.aborted) return
       const cfg = data.project.config
       if (cfg) {
         setProjectConfig((prev) => ({

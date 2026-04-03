@@ -59,6 +59,8 @@ function getExplodedPaths(nodes: TreeNode[], ancestorPath: string, targetPath: s
 interface UseFileSystemDeps {
   /** Ref to dashboard layout API for pinned panel management */
   layoutApiRef: React.RefObject<DashboardLayoutApi | null>
+  /** AbortSignal from hydration controller — aborted on project switch */
+  signal?: AbortSignal
 }
 
 // ── Hook ──────────────────────────────────────────────────────
@@ -321,11 +323,14 @@ export function useFileSystem(selectedProjectId: string | null, deps: UseFileSys
 
   useEffect(() => {
     if (!selectedProjectId) return
+    const signal = deps.signal
     void fetchFileTree(selectedProjectId)
     api.getPathWeights(selectedProjectId).then((data) => {
+      if (signal?.aborted) return
       setPathWeights(data.path_weights ?? {})
-    }).catch(() => { setPathWeights({}) })
+    }).catch(() => { if (!signal?.aborted) setPathWeights({}) })
     api.getIncludedPaths(selectedProjectId).then((data) => {
+      if (signal?.aborted) return
       const serverPaths = new Set(data.included_paths ?? [])
       if (serverPaths.size > 0) {
         setIncludedPaths(serverPaths)

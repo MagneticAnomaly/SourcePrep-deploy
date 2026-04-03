@@ -17,6 +17,10 @@ export interface UseEnrichmentDeps {
   onDeepCompleted?: () => void
   /** Called when fast sync pipeline completes (e.g. to refresh provenance) */
   onFastCompleted?: () => void
+  /** AbortSignal from hydration controller — aborted on project switch */
+  signal?: AbortSignal
+  /** True while hydration is in progress — suppress polls */
+  isHydrating?: boolean
 }
 
 // ── Hook ──────────────────────────────────────────────────────
@@ -250,7 +254,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     dispatch({ type: 'DESTROYED' })
 
     if (!selectedProjectId) return
-    let cancelled = false
+    const signal = deps.signal
 
     // Fetch all enrichment statuses in parallel
     Promise.allSettled([
@@ -260,7 +264,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       api.getDeepeningStatus(selectedProjectId),
       api.getKnowledgeStatus(selectedProjectId),
     ]).then(([aug, epi, mod, deep, know]) => {
-      if (cancelled) return
+      if (signal?.aborted) return
       if (aug.status === 'fulfilled') dispatch({ type: 'AUGMENTATION_STATUS', payload: aug.value })
       if (epi.status === 'fulfilled') dispatch({ type: 'EPISTEMIC_STATUS', payload: epi.value })
       if (mod.status === 'fulfilled') dispatch({ type: 'MODULE_STATUS', payload: mod.value })
@@ -270,7 +274,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
 
     // Hydrate running flags + stage data from pipeline status
     api.getPipelineStatus(selectedProjectId).then((ps: PipelineStatus) => {
-      if (cancelled) return
+      if (signal?.aborted) return
       // "Active" includes transient states (queued between stages, pausing,
       // recovering).  During these phases the pipeline is still "doing
       // something" — dropping all running flags would cause the UI to
@@ -316,7 +320,6 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       })
     }).catch(() => { /* silent — SSE will provide updates */ })
 
-    return () => { cancelled = true }
   }, [api, selectedProjectId])
 
   // ── SSE: enrichment-related pipeline updates ────────────────

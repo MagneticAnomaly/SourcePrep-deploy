@@ -190,12 +190,19 @@ function App() {
   // ── Project manager (hook — SM-1 Phase C1) ─────────────────
   // Owns: projects, selectedProjectId, projectStatuses, buildingProjects,
   // transientCompleteProjects, projectConfig, configDirty, and related actions.
+  // Signal/isHydrating refs — populated by useHydrationController below,
+  // but available to useProjectManager's effects which run after all hooks.
+  const hydrationSignalRef = useRef<AbortSignal | undefined>(undefined)
+  const hydrationIsHydratingRef = useRef(false)
+
   const project = useProjectManager({
     onError: (msg, variant) => showToast(msg, variant),
     handleStartWatch: async () => { await watchHookPlaceholder.current?.handleStartWatch?.() },
     refreshWatchStatus: async (pid) => { await watchHookPlaceholder.current?.refreshWatchStatus?.(pid) },
     fetchFileTree: async (pid) => { await fetchFileTreeRef.current?.(pid) },
     includedPaths: includedPathsRef.current,
+    signal: hydrationSignalRef.current,
+    isHydrating: hydrationIsHydratingRef.current,
   })
   // (includedPathsRef.current is updated below after useFileSystem runs)
   const {
@@ -212,6 +219,8 @@ function App() {
   // Coordinates project-switch: debounces ID, manages AbortController,
   // tracks hydration progress to suppress polls during transition.
   const hydration = useHydrationController(selectedProjectId)
+  hydrationSignalRef.current = hydration.signal
+  hydrationIsHydratingRef.current = hydration.isHydrating
 
   // Derive which project (if any) holds exclusive priority
   const exclusiveProjectId = useMemo(() => {
@@ -249,7 +258,7 @@ function App() {
     fetchFileTree, handleLoadChildren, handlePathWeightChange,
     handleToggleInclude, clearIncludedPaths,
     handlePinFile, handleUnpinFile, handleLoadFileContent,
-  } = useFileSystem(selectedProjectId, { layoutApiRef })
+  } = useFileSystem(selectedProjectId, { layoutApiRef, signal: hydration.signal })
   includedPathsRef.current = includedPaths
 
   // ── Watch (hook) ─────────────────────────────────────────────
@@ -327,6 +336,8 @@ function App() {
     pipelineEvents,
     onDeepCompleted: () => { void fetchAtlas(); void fetchProvenance() },
     onFastCompleted: () => { void fetchProvenance() },
+    signal: hydration.signal,
+    isHydrating: hydration.isHydrating,
   })
 
   // ── Atlas (Phase 29) ─────────────────────────────────────────
@@ -367,6 +378,8 @@ function App() {
     clearIncludedPaths,
     resetEnrichment,
     resetAtlas: () => setAtlasStatus(null),
+    signal: hydration.signal,
+    isHydrating: hydration.isHydrating,
   })
 
   const fetchAtlas = useCallback(async () => {

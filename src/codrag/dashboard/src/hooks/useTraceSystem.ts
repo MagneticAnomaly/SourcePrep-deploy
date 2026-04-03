@@ -55,6 +55,10 @@ export interface UseTraceSystemDeps {
   resetEnrichment?: () => void
   /** Reset atlas state (called during destroy) */
   resetAtlas?: () => void
+  /** AbortSignal from hydration controller — aborted on project switch */
+  signal?: AbortSignal
+  /** True while hydration is in progress — suppress polls */
+  isHydrating?: boolean
 }
 
 // ── Hook ─────────────────────────────────────────────────────
@@ -154,7 +158,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     setProjectLoading(true)
 
     if (!selectedProjectId) { setProjectLoading(false); return }
-    let cancelled = false
+    const signal = deps.signal
 
     // Fetch trace status → then pipeline status (sequential so pipeline
     // always has the last word on the `building` flag).
@@ -162,7 +166,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     // runs, so getPipelineStatus must resolve AFTER getTraceStatus to avoid
     // overwriting `building: true` with `false`.
     api.getTraceStatus(selectedProjectId).then((data) => {
-      if (cancelled) return
+      if (signal?.aborted) return
       const enabled = data.enabled ?? false
       setTraceStatus({
         enabled,
@@ -178,7 +182,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       if (enabled && selectedProjectId) {
         setTraceCoverage(prev => ({ ...prev, loading: true }))
         api.getTraceCoverage(selectedProjectId).then((cov) => {
-          if (cancelled) return
+          if (signal?.aborted) return
           setTraceCoverage({
             summary: cov.summary,
             untraced: cov.untraced,
@@ -188,27 +192,25 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
             loading: false,
           })
         }).catch(() => {
-          if (!cancelled) setTraceCoverage(prev => ({ ...prev, loading: false }))
+          if (!signal?.aborted) setTraceCoverage(prev => ({ ...prev, loading: false }))
         })
       }
       // Now load pipeline status — runs AFTER trace status so its `building`
       // flag takes precedence (Phase 24 + Phase 25 crash recovery).
       return api.getPipelineStatus(selectedProjectId)
     }).then((ps: PipelineStatus | void) => {
-      if (cancelled || !ps) return
+      if (signal?.aborted || !ps) return
       const fastRunning = ps.fast_sync?.phase === 'running'
       if (fastRunning) {
         setTraceStatus(p => ({ ...p, building: true }))
       }
       setCrashedRuns(ps.crashed_runs ?? [])
     }).catch(() => {
-      if (!cancelled) {
+      if (!signal?.aborted) {
         setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
         setProjectLoading(false)
       }
     })
-
-    return () => { cancelled = true }
   }, [api, selectedProjectId])
 
   // ── Fetch functions ─────────────────────────────────────────
