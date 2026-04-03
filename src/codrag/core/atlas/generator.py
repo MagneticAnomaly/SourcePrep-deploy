@@ -1022,17 +1022,22 @@ class CodebaseAtlas:
                 return True
 
         # 4. Segment drift check — new directories appeared or disappeared
+        # Only recompute segments if trace_nodes.jsonl changed since atlas was generated
+        # (compute_segments reads trace_nodes.jsonl which is O(n) for large projects)
         if cached.segment_ids:
-            current_ids = sorted(self._current_segment_ids())
-            cached_ids = sorted(cached.segment_ids)
-            if current_ids != cached_ids:
-                new_segments = set(current_ids) - set(cached_ids)
-                removed_segments = set(cached_ids) - set(current_ids)
-                logger.debug(
-                    "Atlas stale: segment drift detected. New: %s, Removed: %s",
-                    new_segments or "none", removed_segments or "none",
-                )
-                return True
+            nodes_path = self.index_dir / "trace_nodes.jsonl"
+            atlas_mtime = self.atlas_path.stat().st_mtime if self.atlas_path.exists() else 0
+            if nodes_path.exists() and nodes_path.stat().st_mtime > atlas_mtime:
+                current_ids = sorted(self._current_segment_ids())
+                cached_ids = sorted(cached.segment_ids)
+                if current_ids != cached_ids:
+                    new_segments = set(current_ids) - set(cached_ids)
+                    removed_segments = set(cached_ids) - set(current_ids)
+                    logger.debug(
+                        "Atlas stale: segment drift detected. New: %s, Removed: %s",
+                        new_segments or "none", removed_segments or "none",
+                    )
+                    return True
 
         return False
 

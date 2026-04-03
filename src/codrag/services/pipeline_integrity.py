@@ -263,7 +263,15 @@ class IntegrityGuard:
 
         return result
 
-    # ── Phase 70B: Blocking write guard ────────────────────────────
+    # ── Phase 70B: Write guard (detection + rollback) ──────────────
+    #
+    # DESIGN NOTE: This guard runs AFTER the stage has written output.
+    # It detects data loss and can trigger checkpoint restore (for LLM
+    # stages) or allow through (for deterministic stages). True write
+    # prevention happens via Phase 25 checkpoints, which back up files
+    # BEFORE destructive stages run. This guard catches what checkpoints
+    # miss — stages that weren't expected to be destructive but produced
+    # fewer records than existed.
 
     def should_block_stage_completion(
         self,

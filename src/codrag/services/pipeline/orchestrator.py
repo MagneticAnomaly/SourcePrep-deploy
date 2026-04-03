@@ -1440,14 +1440,15 @@ class PipelineOrchestrator:
                 "group": run.group,
             })
 
+        # Phase 70B: Freshness check — skip if outputs already current
+        # Placed before heartbeat/journal so skipped stages don't start timers.
+        if self._should_skip_stage_freshness(run, stage, pfl):
+            return  # stage is already current, don't run it
+
         # Phase 61B: Start heartbeat timer for this stage.
         # Writes to pipeline_run_metadata.json every 60s so the watchdog
         # can distinguish a genuinely running stage from a dead process.
         self._start_heartbeat_timer(run)
-
-        # Phase 70B: Freshness check — skip if outputs already current
-        if self._should_skip_stage_freshness(run, stage, pfl):
-            return  # stage is already current, don't run it
 
         # Phase 25: journal — record stage start
         self._journal_stage_started(run, stage)
@@ -2457,9 +2458,10 @@ class PipelineOrchestrator:
                 if pfl:
                     pfl.log(stage.value, f"SKIPPED (freshness): {reason}")
                 run.stage_results[stage.value] = "skipped"
-                # Advance to next stage
-                with self._lock:
-                    run.advance()
+                # Advance to next stage — no lock needed here since
+                # the caller may already hold self._lock (which is not
+                # reentrant). run.advance() only updates internal state.
+                run.advance()
                 return True
         except Exception:
             logger.debug(
