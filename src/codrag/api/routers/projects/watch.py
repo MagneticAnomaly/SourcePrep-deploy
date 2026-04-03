@@ -35,22 +35,12 @@ async def get_project_status(project_id: str) -> Dict[str, Any]:
     loop = asyncio.get_running_loop()
 
     def _compute_status():
-        import time as _time
-        import logging as _log
-        _logger = _log.getLogger("codrag.api.status_profile")
-
-        t0 = _time.monotonic()
-
         watch = srv._get_project_watcher_status(proj)
-        t1 = _time.monotonic()
-        _logger.info("watcher_status: %.3fs", t1 - t0)
 
         mtime_check = srv._check_index_staleness(proj, idx)
-        t2 = _time.monotonic()
-        _logger.info("staleness_check: %.3fs", t2 - t1)
-
         watcher_stale = bool(watch.get("stale", False))
         mtime_stale = bool(mtime_check.get("is_stale", False))
+
         is_stale = watcher_stale or mtime_stale
         stale_since = watch.get("stale_since") or mtime_check.get("stale_since")
 
@@ -61,32 +51,15 @@ async def get_project_status(project_id: str) -> Dict[str, Any]:
         except Exception:
             pass
 
-        building = srv._is_project_building(proj.id)
-        t3 = _time.monotonic()
-        _logger.info("building_check: %.3fs", t3 - t2)
-
-        index_status = srv._project_index_status(idx, srv._project_last_build_error.get(proj.id))
-        t4 = _time.monotonic()
-        _logger.info("index_status: %.3fs", t4 - t3)
-
-        trace = srv._project_trace_status(proj)
-        t5 = _time.monotonic()
-        _logger.info("trace_status: %.3fs", t5 - t4)
-
-        sync = srv._get_project_sync_status(proj)
-        t6 = _time.monotonic()
-        _logger.info("sync_status: %.3fs", t6 - t5)
-        _logger.info("TOTAL: %.3fs", t6 - t0)
-
         data = {
-            "building": building,
+            "building": srv._is_project_building(proj.id),
             "stale": is_stale,
             "stale_since": stale_since,
             "stale_count": mtime_check.get("stale_count", 0),
-            "index": index_status,
-            "trace": trace,
+            "index": srv._project_index_status(idx, srv._project_last_build_error.get(proj.id)),
+            "trace": srv._project_trace_status(proj),
             "watch": watch,
-            "sync": sync,
+            "sync": srv._get_project_sync_status(proj),
         }
         if obs_stats and obs_stats.get("total", 0) > 0:
             data["observations"] = obs_stats
