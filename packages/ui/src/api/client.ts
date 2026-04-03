@@ -660,7 +660,7 @@ export class CodragApiClient implements ApiClient {
 
     // Request timeout: abort if daemon doesn't respond within the limit.
     // Uses AbortSignal.any() to combine caller-provided signal with timeout.
-    const timeoutMs = opts?.timeoutMs ?? 10_000
+    const timeoutMs = opts?.timeoutMs ?? 5_000
     const timeoutController = new AbortController()
     const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs)
     const signals = [timeoutController.signal]

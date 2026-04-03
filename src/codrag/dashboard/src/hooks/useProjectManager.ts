@@ -144,7 +144,8 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     // (correct for polling), so we call the API directly for hydration.
     const signal = signalRef.current
     const hydrateStatus = async (pid: string) => {
-      for (let attempt = 0; attempt < 2; attempt++) {
+      const delays = [2000, 4000] // retry after 2s, then 4s
+      for (let attempt = 0; attempt <= delays.length; attempt++) {
         if (signal?.aborted) return
         try {
           const status = await api.getProjectStatus(pid)
@@ -155,9 +156,8 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
           }
           return // success
         } catch {
-          if (attempt === 0) {
-            // Wait 3s before retry
-            await new Promise(r => setTimeout(r, 3000))
+          if (attempt < delays.length) {
+            await new Promise(r => setTimeout(r, delays[attempt]))
           }
         }
       }

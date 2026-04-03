@@ -163,7 +163,8 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
 
     // Hydrate trace status with retry — daemon may be busy with pipeline work.
     const hydrateTrace = async (pid: string) => {
-      for (let attempt = 0; attempt < 2; attempt++) {
+      const delays = [2000, 4000] // retry after 2s, then 4s
+      for (let attempt = 0; attempt <= delays.length; attempt++) {
         if (signal?.aborted || unmounted) return
         try {
           const data = await api.getTraceStatus(pid)
@@ -207,9 +208,8 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
           } catch { /* pipeline status is supplementary — don't retry */ }
           return // success
         } catch {
-          if (attempt === 0 && !signal?.aborted && !unmounted) {
-            // Wait 3s before retry
-            await new Promise(r => setTimeout(r, 3000))
+          if (attempt < delays.length && !signal?.aborted && !unmounted) {
+            await new Promise(r => setTimeout(r, delays[attempt]))
           }
         }
       }
