@@ -39,6 +39,7 @@ import { useEnrichment } from './hooks/useEnrichment'
 import { useSearchContext } from './hooks/useSearchContext'
 import { useFileSystem } from './hooks/useFileSystem'
 import { useProjectManager } from './hooks/useProjectManager'
+import { useHydrationController } from './hooks/useHydrationController'
 import { useDashboardPanels } from './hooks/useDashboardPanels'
 import { useAuditSystem } from './hooks/useAuditSystem'
 import { useSpaghettiSystem } from './hooks/useSpaghettiSystem'
@@ -206,6 +207,11 @@ function App() {
     handleToggleActive, handleToggleStar, handleCyclePriority,
     setProjectConfig, setConfigDirty,
   } = project
+
+  // ── Hydration controller (Phase 70) ────────────────────────
+  // Coordinates project-switch: debounces ID, manages AbortController,
+  // tracks hydration progress to suppress polls during transition.
+  const hydration = useHydrationController(selectedProjectId)
 
   // Derive which project (if any) holds exclusive priority
   const exclusiveProjectId = useMemo(() => {
