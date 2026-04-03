@@ -1,42 +1,66 @@
-# Phase 70: Dashboard Project-Switch Performance — TODO
+# Phase 70: Dashboard State Machine — TODO
 
-## Tactical Fixes (Complete)
+## Phase 70A: Hydration Controller (Complete)
 
-- [x] **Task 1:** Create `useHydrationController` hook (AbortController + debounce)
-- [x] **Task 2:** Wire controller into App.tsx
-- [x] **Task 3:** Thread AbortSignal into simple hooks (audit, spaghetti, goalposts)
-- [x] **Task 4:** Thread AbortSignal into remaining secondary hooks (roadmap, opportunities, agentOps)
-- [x] **Task 5:** Thread AbortSignal into critical hooks (projectManager, fileSystem, trace, enrichment)
-- [x] **Task 6:** Guard all polling effects with `isHydrating` flag
-- [x] **Task 7:** Move App.tsx direct hydration effects behind the controller
+- [x] Create `useHydrationController` hook (AbortController + 250ms debounce)
+- [x] Wire controller into App.tsx
+- [x] Thread AbortSignal into all 12+ hooks
+- [x] Guard polling effects with `isHydrating` flag
+- [x] Move App.tsx hydration effects behind controller
+- [x] Fix `isHydrating` stuck true (review finding)
+- [x] Restore cleanup functions in useEnrichment/useTraceSystem
+- [x] Guard fetchFileTree with signal
+- [x] Fix signal lifecycle (render-phase AbortController replacement)
+- [x] API timeout (8s) + 3-attempt retry with backoff
+- [x] Async status endpoints with `run_in_executor`
+- [x] Staleness cache TTL 10s → 30s
+- [x] Trace count fallback when manifest lacks counts
+- [x] Mark abort errors with `aborted` flag for clean error handling
+- [x] Increase debounce to 250ms to prevent daemon thread pool exhaustion
 
-## Code Review Fixes (Complete)
+## Phase 70B: Pipeline Overwrite Protection (Complete)
 
-- [x] **C1:** Fix `isHydrating` permanently stuck true (removed unused registerHook/markHydrated)
-- [x] **I2:** Restore cleanup functions in useEnrichment/useTraceSystem
-- [x] **I3:** Guard fetchFileTree with signal
-- [x] **Signal lifecycle:** Move AbortController replacement to render phase (fixed blank panels)
+- [x] `should_block_stage_completion()` — blocks if output has fewer records
+- [x] Wire write guard into orchestrator completion handler
+- [x] `check_stage_freshness()` — skips stage if outputs newer than inputs
+- [x] `STAGE_INPUT_FILES` dependency map + `STAGE_IS_DETERMINISTIC` flag
+- [x] Auto-recovery: deterministic stages allowed, LLM stages try checkpoint restore
+- [x] Fix deadlock risk (remove nested Lock acquisition)
+- [x] Move freshness check before heartbeat timer
+- [x] Document write guard = detection + rollback (not prevention)
 
-## Panel Reliability Fixes (Complete)
+## Phase 70C: Atlas Segment Drift (Complete)
 
-- [x] **API timeout:** Add 10s request timeout to CodragApiClient (prevents indefinite hangs)
-- [x] **Retry:** Add retry-once-after-3s to useProjectManager hydration (fixes Knowledge Base Status)
-- [x] **Retry:** Add retry-once-after-3s to useTraceSystem hydration (fixes Graph Explorer + Graph Scope)
+- [x] `segment_ids` persisted in AtlasDocument
+- [x] 4th staleness trigger: segment drift detection
+- [x] Mtime guard so `compute_segments()` only runs when graph changed
 
-## Manual Testing
+## Phase 70D: Two-Tone Progress Bars (TODO)
 
-- [ ] **Test 1:** Start daemon with multiple projects, switch between them rapidly — no freeze
-- [ ] **Test 2:** Start daemon under pipeline load, select project — panels load within ~15s (timeout + retry)
-- [ ] **Test 3:** Switch projects while daemon is busy — old project data doesn't leak into new project
+See `04_two-tone-progress-bars-plan.md` for full spec.
 
-## Re-evaluation Checkpoint
+- [ ] Add `progress_baseline` to Group Reasoning status type
+- [ ] Add `progress_baseline` to Module Synthesis status type
+- [ ] Add `progress_baseline` to Atlas Building status type
+- [ ] Add `progress_baseline` to Continuous Deepening status type
+- [ ] Add two-tone support to Deep Knowledge Embedding (Stage 10)
+- [ ] Update `computeStageRerun()` calls for all 5 stages
+- [ ] Verify `slot_progress.baseline` is exposed in pipeline API for all active stages
+- [ ] **Test:** Run incremental pipeline, verify all stages show per-stage two-tone (not generic fallback)
 
-- [ ] **Decision:** Is performance acceptable?
-  - If yes: merge to main
-  - If no: proceed to structural fixes below
+## Manual Testing Checklist
 
-## Structural Fixes (If Needed)
+- [ ] Switch between projects rapidly — no freeze, no timeout cascade
+- [ ] Switch to unbuilt project — shows "Initialize Trace Graph" correctly
+- [ ] Switch back to built project — panels reload with data
+- [ ] Run pipeline while switching — no data corruption
+- [ ] Pipeline incremental run — write guard allows growth, blocks shrinkage
+- [ ] Pipeline fresh outputs skip — stages with current outputs are skipped
+- [ ] Add new directory to repo — atlas marks stale (segment drift)
 
-- [ ] Tiered concurrency cap in `useHydrationController` (max 4 critical, 3 secondary)
-- [ ] Full state machine (`idle -> switching -> hydrating:critical -> hydrating:secondary -> ready`)
-- [ ] Server-side batched endpoint (`/api/projects/{id}/context`)
+## Known Issues
+
+- [ ] Rapid project switching (5+ clicks fast) can still exhaust daemon thread pool
+  - Root cause: aborted requests still process server-side
+  - Mitigation: 250ms debounce reduces but doesn't eliminate
+  - Full fix: server-side request cancellation (check client disconnect in `run_in_executor`)
