@@ -625,7 +625,7 @@ export class CodragApiClient implements ApiClient {
 
   private async requestEnvelope<T>(
     path: string,
-    opts?: { method?: string; query?: Record<string, string | number | boolean | undefined>; body?: unknown }
+    opts?: { method?: string; query?: Record<string, string | number | boolean | undefined>; body?: unknown; timeoutMs?: number; signal?: AbortSignal }
   ): Promise<T> {
     const baseUrl = this.baseUrl.endsWith('/') ? this.baseUrl : `${this.baseUrl}/`;
     const relativePath = path.startsWith('/') ? path.slice(1) : path;
@@ -658,14 +658,34 @@ export class CodragApiClient implements ApiClient {
       body: opts?.body
     });
 
+    // Request timeout: abort if daemon doesn't respond within the limit.
+    // Uses AbortSignal.any() to combine caller-provided signal with timeout.
+    const timeoutMs = opts?.timeoutMs ?? 10_000
+    const timeoutController = new AbortController()
+    const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs)
+    const signals = [timeoutController.signal]
+    if (opts?.signal) signals.push(opts.signal)
+    // AbortSignal.any() is available in all modern browsers and Node 20+
+    const combinedSignal = typeof AbortSignal.any === 'function'
+      ? AbortSignal.any(signals)
+      : timeoutController.signal
+
     let res: Response;
     try {
       res = await this.fetchImpl(url.toString(), {
         method: opts?.method ?? 'GET',
         headers,
         body: opts?.body !== undefined ? JSON.stringify(opts.body) : undefined,
+        signal: combinedSignal,
       });
     } catch (err) {
+      clearTimeout(timeoutId)
+      if (timeoutController.signal.aborted) {
+        throw new ApiClientError(`Request timed out after ${timeoutMs}ms`, { url: url.toString() });
+      }
+      if (opts?.signal?.aborted) {
+        throw new ApiClientError('Request aborted', { url: url.toString() });
+      }
       console.error('[ApiClient] Network Error Details:', {
         url: url.toString(),
         error: err,
@@ -674,6 +694,7 @@ export class CodragApiClient implements ApiClient {
       });
       throw new ApiClientError('Network error contacting CoDRAG daemon', { url: url.toString() });
     }
+    clearTimeout(timeoutId)
 
     let json: unknown;
     try {
