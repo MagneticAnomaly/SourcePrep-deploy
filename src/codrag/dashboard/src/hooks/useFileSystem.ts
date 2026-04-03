@@ -99,11 +99,12 @@ export function useFileSystem(selectedProjectId: string | null, deps: UseFileSys
 
   // ── File tree handlers ──────────────────────────────────────
 
-  const fetchFileTree = useCallback(async (projId: string) => {
+  const fetchFileTree = useCallback(async (projId: string, signal?: AbortSignal) => {
     try {
       const data = await api.getProjectFiles(projId)
+      if (signal?.aborted) return
       const newRoots = data.tree as TreeNode[]
-      
+
       setFileTree((prev) => {
         // Strip stale status/chunks from nodes (used when preserving old
         // children that were NOT refreshed by the API response).
@@ -145,7 +146,7 @@ export function useFileSystem(selectedProjectId: string | null, deps: UseFileSys
         return mergeNodes(prev, newRoots)
       })
     } catch {
-      setFileTree([])
+      if (!signal?.aborted) setFileTree([])
     }
   }, [api])
 
@@ -324,7 +325,7 @@ export function useFileSystem(selectedProjectId: string | null, deps: UseFileSys
   useEffect(() => {
     if (!selectedProjectId) return
     const signal = deps.signal
-    void fetchFileTree(selectedProjectId)
+    void fetchFileTree(selectedProjectId, signal)
     api.getPathWeights(selectedProjectId).then((data) => {
       if (signal?.aborted) return
       setPathWeights(data.path_weights ?? {})

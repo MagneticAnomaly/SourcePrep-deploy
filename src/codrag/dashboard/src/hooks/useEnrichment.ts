@@ -255,6 +255,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
 
     if (!selectedProjectId) return
     const signal = deps.signal
+    let unmounted = false
 
     // Fetch all enrichment statuses in parallel
     Promise.allSettled([
@@ -264,7 +265,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       api.getDeepeningStatus(selectedProjectId),
       api.getKnowledgeStatus(selectedProjectId),
     ]).then(([aug, epi, mod, deep, know]) => {
-      if (signal?.aborted) return
+      if (signal?.aborted || unmounted) return
       if (aug.status === 'fulfilled') dispatch({ type: 'AUGMENTATION_STATUS', payload: aug.value })
       if (epi.status === 'fulfilled') dispatch({ type: 'EPISTEMIC_STATUS', payload: epi.value })
       if (mod.status === 'fulfilled') dispatch({ type: 'MODULE_STATUS', payload: mod.value })
@@ -274,7 +275,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
 
     // Hydrate running flags + stage data from pipeline status
     api.getPipelineStatus(selectedProjectId).then((ps: PipelineStatus) => {
-      if (signal?.aborted) return
+      if (signal?.aborted || unmounted) return
       // "Active" includes transient states (queued between stages, pausing,
       // recovering).  During these phases the pipeline is still "doing
       // something" — dropping all running flags would cause the UI to
@@ -320,6 +321,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       })
     }).catch(() => { /* silent — SSE will provide updates */ })
 
+    return () => { unmounted = true }
   }, [api, selectedProjectId])
 
   // ── SSE: enrichment-related pipeline updates ────────────────

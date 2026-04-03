@@ -159,6 +159,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
 
     if (!selectedProjectId) { setProjectLoading(false); return }
     const signal = deps.signal
+    let unmounted = false
 
     // Fetch trace status → then pipeline status (sequential so pipeline
     // always has the last word on the `building` flag).
@@ -166,7 +167,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     // runs, so getPipelineStatus must resolve AFTER getTraceStatus to avoid
     // overwriting `building: true` with `false`.
     api.getTraceStatus(selectedProjectId).then((data) => {
-      if (signal?.aborted) return
+      if (signal?.aborted || unmounted) return
       const enabled = data.enabled ?? false
       setTraceStatus({
         enabled,
@@ -182,7 +183,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       if (enabled && selectedProjectId) {
         setTraceCoverage(prev => ({ ...prev, loading: true }))
         api.getTraceCoverage(selectedProjectId).then((cov) => {
-          if (signal?.aborted) return
+          if (signal?.aborted || unmounted) return
           setTraceCoverage({
             summary: cov.summary,
             untraced: cov.untraced,
@@ -192,25 +193,27 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
             loading: false,
           })
         }).catch(() => {
-          if (!signal?.aborted) setTraceCoverage(prev => ({ ...prev, loading: false }))
+          if (!signal?.aborted && !unmounted) setTraceCoverage(prev => ({ ...prev, loading: false }))
         })
       }
       // Now load pipeline status — runs AFTER trace status so its `building`
       // flag takes precedence (Phase 24 + Phase 25 crash recovery).
       return api.getPipelineStatus(selectedProjectId)
     }).then((ps: PipelineStatus | void) => {
-      if (signal?.aborted || !ps) return
+      if (signal?.aborted || unmounted || !ps) return
       const fastRunning = ps.fast_sync?.phase === 'running'
       if (fastRunning) {
         setTraceStatus(p => ({ ...p, building: true }))
       }
       setCrashedRuns(ps.crashed_runs ?? [])
     }).catch(() => {
-      if (!signal?.aborted) {
+      if (!signal?.aborted && !unmounted) {
         setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
         setProjectLoading(false)
       }
     })
+
+    return () => { unmounted = true }
   }, [api, selectedProjectId])
 
   // ── Fetch functions ─────────────────────────────────────────
