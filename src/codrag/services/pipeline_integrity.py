@@ -263,6 +263,48 @@ class IntegrityGuard:
 
         return result
 
+    # ── Phase 70B: Blocking write guard ────────────────────────────
+
+    def should_block_stage_completion(
+        self,
+        project_id: str,
+        stage_id: str,
+        post_files: Dict[str, "FileSnapshot"],
+    ) -> tuple[bool, str]:
+        """Check if a stage's output would destroy existing data.
+
+        Compares post-stage file state against the pre-flight snapshot.
+        Returns (should_block, reason). If should_block is True, the
+        pipeline should NOT advance — the stage's output would reduce
+        the data below what already existed.
+
+        The pipeline should only grow the graph, never shrink it.
+        """
+        key = (project_id, stage_id)
+        pre = self._snapshots.get(key)
+        if pre is None:
+            return False, "no pre-flight snapshot"
+
+        for fname, pre_fs in pre.files.items():
+            if not pre_fs.exists or pre_fs.record_count == 0:
+                continue  # first run or empty file — nothing to protect
+
+            post_fs = post_files.get(fname)
+            if post_fs is None or not post_fs.exists:
+                return True, (
+                    f"Stage {stage_id} would delete {fname} "
+                    f"({pre_fs.record_count} records existed)"
+                )
+
+            if post_fs.record_count < pre_fs.record_count:
+                return True, (
+                    f"Stage {stage_id} would shrink {fname} from "
+                    f"{pre_fs.record_count} to {post_fs.record_count} records "
+                    f"({post_fs.record_count / pre_fs.record_count:.0%} of original)"
+                )
+
+        return False, "ok"
+
     # ── Internal helpers ─────────────────────────────────────────
 
     @staticmethod
