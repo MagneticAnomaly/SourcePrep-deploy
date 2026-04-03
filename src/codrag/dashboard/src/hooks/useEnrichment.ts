@@ -440,6 +440,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
 
   useEffect(() => {
     if (!selectedProjectId) return
+    if (deps.isHydrating) return
     const { inferredEdgesRunning, augmenting, epistemicRunning, groupReasoningRunning, clusterRunning, atlasRunning, deepeningRunning, fastKnowledgeBuilding, deepKnowledgeBuilding } = state
     const anyRunning = inferredEdgesRunning || augmenting || epistemicRunning || groupReasoningRunning || clusterRunning || atlasRunning || deepeningRunning || fastKnowledgeBuilding || deepKnowledgeBuilding
     if (!anyRunning) return

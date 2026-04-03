@@ -673,7 +673,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
 
   // ── Polling: trace coverage during build ─────────────────────
   useEffect(() => {
-    if (!selectedProjectId || !traceStatus.building) return
+    if (!selectedProjectId || !traceStatus.building || deps.isHydrating) return
     const interval = setInterval(() => { fetchTraceCoverage() }, 3000)
     return () => clearInterval(interval)
   }, [selectedProjectId, traceStatus.building, fetchTraceCoverage])

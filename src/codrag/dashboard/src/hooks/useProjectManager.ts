@@ -169,6 +169,7 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
   // ── Auto-poll while building (catches scope-triggered & other auto-builds) ──
   useEffect(() => {
     if (!selectedProjectId) return
+    if (isHydratingRef.current) return
     const ps = projectStatuses[selectedProjectId]
     // Only start polling if the backend reports building but we didn't
     // initiate it ourselves (handleBuild already has its own poll loop).

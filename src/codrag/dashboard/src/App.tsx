@@ -654,7 +654,7 @@ function App() {
     atlasRunning || deepeningRunning || fastKnowledgeBuilding || deepKnowledgeBuilding
 
   useEffect(() => {
-    if (!selectedProjectId || !anyPipelineRunning) return
+    if (!selectedProjectId || !anyPipelineRunning || hydration.isHydrating) return
     const interval = setInterval(() => { void fetchProvenance() }, 10_000)
     return () => clearInterval(interval)
   }, [selectedProjectId, anyPipelineRunning, fetchProvenance])
