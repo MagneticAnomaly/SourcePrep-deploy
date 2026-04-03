@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 # ── Mtime-based staleness cache ────────────────────────────────
 # Lightweight filesystem check that works without the watcher.
 # Cached per project to avoid scanning on every status poll.
-_STALE_CACHE_TTL = 10.0  # seconds
+_STALE_CACHE_TTL = 30.0  # seconds — filesystem walk is expensive on large repos
 _stale_cache_lock = threading.Lock()
 _stale_cache: Dict[str, Tuple[float, bool, Optional[str], int]] = {}  # project_id -> (expires_at, is_stale, stale_since_iso, stale_count)
 

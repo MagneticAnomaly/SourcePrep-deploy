@@ -26,10 +26,14 @@ router = APIRouter(tags=["trace"])
 
 
 @router.get("/projects/{project_id}/trace/status")
-def trace_status_project(project_id: str) -> Dict[str, Any]:
+async def trace_status_project(project_id: str) -> Dict[str, Any]:
+    import asyncio
     from codrag.server import _require_project, _project_trace_status
     proj = _require_project(project_id)
-    return ok(_project_trace_status(proj))
+    # _project_trace_status loads trace JSONL files from disk — offload to thread pool
+    loop = asyncio.get_running_loop()
+    result = await loop.run_in_executor(None, _project_trace_status, proj)
+    return ok(result)
 
 
 @router.post("/projects/{project_id}/trace/build")
@@ -107,8 +111,9 @@ def build_trace_project(project_id: str) -> Dict[str, Any]:
 
 
 @router.get("/projects/{project_id}/trace/coverage")
-def trace_coverage_project(project_id: str) -> Dict[str, Any]:
+async def trace_coverage_project(project_id: str) -> Dict[str, Any]:
     """Get trace coverage: traced, untraced, stale, and ignored files."""
+    import asyncio
     from codrag.server import _require_project, _is_project_trace_building
     proj = _require_project(project_id)
 
@@ -122,64 +127,60 @@ def trace_coverage_project(project_id: str) -> Dict[str, Any]:
             hint="Enable trace in project settings.",
         )
 
-    include_raw = cfg.get("include_globs") if isinstance(cfg, dict) else None
-    exclude_raw = cfg.get("exclude_globs") if isinstance(cfg, dict) else None
-    include_globs = list(include_raw) if isinstance(include_raw, list) else None
-    exclude_globs = list(exclude_raw) if isinstance(exclude_raw, list) else None
+    def _compute_coverage():
+        include_raw = cfg.get("include_globs") if isinstance(cfg, dict) else None
+        exclude_raw = cfg.get("exclude_globs") if isinstance(cfg, dict) else None
+        include_globs = list(include_raw) if isinstance(include_raw, list) else None
+        exclude_globs = list(exclude_raw) if isinstance(exclude_raw, list) else None
 
-    # User-configured trace ignore patterns (shown in the "Excluded" list)
-    trace_ignore = (trace_cfg or {}).get("ignore_patterns", [])
-    user_exclude_globs = [str(p) for p in trace_ignore] if isinstance(trace_ignore, list) else []
+        # User-configured trace ignore patterns (shown in the "Excluded" list)
+        trace_ignore = (trace_cfg or {}).get("ignore_patterns", [])
+        user_exclude_globs = [str(p) for p in trace_ignore] if isinstance(trace_ignore, list) else []
 
-    max_file_bytes = int((cfg.get("max_file_bytes") or 500_000) if isinstance(cfg, dict) else 500_000)
-    idx_dir = project_index_dir(proj)
+        max_file_bytes = int((cfg.get("max_file_bytes") or 500_000) if isinstance(cfg, dict) else 500_000)
+        idx_dir = project_index_dir(proj)
 
-    # Get embedded paths from the KNOWLEDGE index (not the code search index).
-    # Files are "traced & embedded" only after the Knowledge Embedding stage
-    # has processed them. The code search index may contain files from a prior
-    # code-only build that have nothing to do with trace embedding.
-    embedded_paths: set = set()
-    knowledge_docs_path = idx_dir / "knowledge_documents.json"
-    if knowledge_docs_path.exists():
-        try:
-            import json as _json
-            with open(knowledge_docs_path, "r", encoding="utf-8") as _f:
-                for doc in _json.load(_f):
-                    src = doc.get("source_id") or ""
-                    if not src:
-                        continue
-                    # Knowledge docs use node_id as source_id which has
-                    # prefixes like "file:" or "sym:".  Coverage tracks
-                    # plain relative paths, so strip the "file:" prefix.
-                    # Symbol nodes (sym:) don't map 1:1 to files — extract
-                    # the file portion from "sym:Name@FilePath:line".
-                    if src.startswith("file:"):
-                        embedded_paths.add(src[5:])
-                    elif src.startswith("sym:"):
-                        # sym:SymbolName@FilePath:line → extract FilePath
-                        at_idx = src.find("@")
-                        if at_idx >= 0:
-                            rest = src[at_idx + 1:]
-                            colon_idx = rest.rfind(":")
-                            if colon_idx > 0:
-                                embedded_paths.add(rest[:colon_idx])
-                            else:
-                                embedded_paths.add(rest)
-                    else:
-                        embedded_paths.add(src)
-        except Exception:
-            pass  # If unreadable, treat all as pending
+        # Get embedded paths from the KNOWLEDGE index (not the code search index).
+        embedded_paths: set = set()
+        knowledge_docs_path = idx_dir / "knowledge_documents.json"
+        if knowledge_docs_path.exists():
+            try:
+                import json as _json
+                with open(knowledge_docs_path, "r", encoding="utf-8") as _f:
+                    for doc in _json.load(_f):
+                        src = doc.get("source_id") or ""
+                        if not src:
+                            continue
+                        if src.startswith("file:"):
+                            embedded_paths.add(src[5:])
+                        elif src.startswith("sym:"):
+                            at_idx = src.find("@")
+                            if at_idx >= 0:
+                                rest = src[at_idx + 1:]
+                                colon_idx = rest.rfind(":")
+                                if colon_idx > 0:
+                                    embedded_paths.add(rest[:colon_idx])
+                                else:
+                                    embedded_paths.add(rest)
+                        else:
+                            embedded_paths.add(src)
+            except Exception:
+                pass
 
-    coverage = compute_trace_coverage(
-        repo_root=Path(proj.path),
-        index_dir=idx_dir,
-        include_globs=include_globs,
-        exclude_globs=exclude_globs,
-        user_exclude_globs=user_exclude_globs,
-        max_file_bytes=max_file_bytes,
-        embedded_paths=embedded_paths,
-    )
-    coverage["building"] = _is_project_trace_building(proj.id)
+        coverage = compute_trace_coverage(
+            repo_root=Path(proj.path),
+            index_dir=idx_dir,
+            include_globs=include_globs,
+            exclude_globs=exclude_globs,
+            user_exclude_globs=user_exclude_globs,
+            max_file_bytes=max_file_bytes,
+            embedded_paths=embedded_paths,
+        )
+        coverage["building"] = _is_project_trace_building(proj.id)
+        return coverage
+
+    loop = asyncio.get_running_loop()
+    coverage = await loop.run_in_executor(None, _compute_coverage)
     return ok(coverage)
 
 

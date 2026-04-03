@@ -23,41 +23,52 @@ router = APIRouter(tags=["projects"])
 
 
 @router.get("/projects/{project_id}/status")
-def get_project_status(project_id: str) -> Dict[str, Any]:
-    proj = _srv()._require_project(project_id)
-    idx = _srv()._get_project_index(proj)
+async def get_project_status(project_id: str) -> Dict[str, Any]:
+    import asyncio
 
-    watch = _srv()._get_project_watcher_status(proj)
+    srv = _srv()
+    proj = srv._require_project(project_id)
+    idx = srv._get_project_index(proj)
 
-    # Mtime-based staleness check — works even without the watcher (Manual mode)
-    mtime_check = _srv()._check_index_staleness(proj, idx)
-    watcher_stale = bool(watch.get("stale", False))
-    mtime_stale = bool(mtime_check.get("is_stale", False))
+    # Offload heavy I/O (filesystem walk, trace index load) to thread pool
+    # so we don't block the event loop and starve other API requests.
+    loop = asyncio.get_running_loop()
 
-    # Stale if either the watcher or the mtime check detects changes
-    is_stale = watcher_stale or mtime_stale
-    stale_since = watch.get("stale_since") or mtime_check.get("stale_since")
+    def _compute_status():
+        watch = srv._get_project_watcher_status(proj)
 
-    # Phase 39: Observation stats for dashboard health panel
-    obs_stats = None
-    try:
-        from codrag.services.observation_store import observation_store
-        obs_stats = observation_store.get_stats(project_id)
-    except Exception:
-        pass  # Store not initialized or unavailable
+        # Mtime-based staleness check — works even without the watcher (Manual mode)
+        mtime_check = srv._check_index_staleness(proj, idx)
+        watcher_stale = bool(watch.get("stale", False))
+        mtime_stale = bool(mtime_check.get("is_stale", False))
 
-    data = {
-        "building": _srv()._is_project_building(proj.id),
-        "stale": is_stale,
-        "stale_since": stale_since,
-        "stale_count": mtime_check.get("stale_count", 0),
-        "index": _srv()._project_index_status(idx, _srv()._project_last_build_error.get(proj.id)),
-        "trace": _srv()._project_trace_status(proj),
-        "watch": watch,
-        "sync": _srv()._get_project_sync_status(proj),
-    }
-    if obs_stats and obs_stats.get("total", 0) > 0:
-        data["observations"] = obs_stats
+        # Stale if either the watcher or the mtime check detects changes
+        is_stale = watcher_stale or mtime_stale
+        stale_since = watch.get("stale_since") or mtime_check.get("stale_since")
+
+        # Phase 39: Observation stats for dashboard health panel
+        obs_stats = None
+        try:
+            from codrag.services.observation_store import observation_store
+            obs_stats = observation_store.get_stats(project_id)
+        except Exception:
+            pass  # Store not initialized or unavailable
+
+        data = {
+            "building": srv._is_project_building(proj.id),
+            "stale": is_stale,
+            "stale_since": stale_since,
+            "stale_count": mtime_check.get("stale_count", 0),
+            "index": srv._project_index_status(idx, srv._project_last_build_error.get(proj.id)),
+            "trace": srv._project_trace_status(proj),
+            "watch": watch,
+            "sync": srv._get_project_sync_status(proj),
+        }
+        if obs_stats and obs_stats.get("total", 0) > 0:
+            data["observations"] = obs_stats
+        return data
+
+    data = await loop.run_in_executor(None, _compute_status)
     return ok(data)
 
 
