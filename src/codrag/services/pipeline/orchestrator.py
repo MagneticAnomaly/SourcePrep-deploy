@@ -901,7 +901,6 @@ class PipelineOrchestrator:
 
     # ── Coverage Gap Detection ─────────────────────────────────
 
-    # _COVERAGE_RETRIGGER_DELAY moved to resume.py:COVERAGE_RETRIGGER_DELAY
 
     @staticmethod
     def _refresh_manifest_hashes(project_id: str) -> int:
@@ -1917,7 +1916,6 @@ class PipelineOrchestrator:
 
     # ── Phase 48: Continuous Deepening Re-trigger ──────────────────
 
-    # _DEEPENING_CONVERGE/RETRIGGER moved to post_flight.py
 
     def _maybe_retrigger_deepening(self, project_id: str, pfl: Any = None) -> None:
         """Delegates to PostFlightActions.maybe_retrigger_deepening."""
