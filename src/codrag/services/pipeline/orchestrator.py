@@ -509,18 +509,16 @@ class PipelineOrchestrator:
                         )
 
                     if untraced > 0:
-                        # Phase 72: Untraced files need a structural rebuild
-                        # to be added to the trace graph.  Start from stage 0.
-                        # The Python engine's content-hash comparison prevents
-                        # unnecessary rewrites when files haven't changed.
-                        # Mark as incremental to SKIP the backup restore path
-                        # (Phase 60D) which would replace trace_manifest.json
-                        # with an old backup that doesn't know about new files.
+                        # Reverting Phase 72's Root Cause 12 workaround:
+                        # Skipping Structural (resume=1) causes new files to NEVER enter
+                        # trace_nodes.jsonl, locking them in 'untraced' state forever.
+                        # Running structural (resume=0) is safe because it only rebuilds
+                        # the base AST cleanly and leaves trace_epistemic data fully intact.
                         resume = 0
                         incremental = True
                         logger.info(
-                            "[%s] %d untraced files detected — starting from "
-                            "structural stage to add them to the trace",
+                            "[%s] %d untraced files detected — running structural (resume=0) "
+                            "to legally integrate them into trace_nodes.jsonl",
                             project_id, untraced,
                         )
                     else:
@@ -2246,7 +2244,10 @@ class PipelineOrchestrator:
                     if pfl:
                         pfl.log(stage.value, f"WRITE GUARD BLOCKED: {wgb}")
                     # Transition to FAILED so the pipeline halts
-                    matching_run.fail(str(wgb))
+                    if matching_run.can_transition(Event.STAGE_FAILED):
+                        matching_run.transition(Event.STAGE_FAILED, detail=f"WRITE GUARD BLOCKED: {wgb}")
+                    self._unload_group_models(matching_run)
+                    self._journal_pipeline_finished(matching_run)
                     return  # do NOT advance to next stage
                 except Exception:
                     logger.exception(

@@ -179,6 +179,27 @@ def add_project(req: AddProjectRequest) -> Dict[str, Any]:
             "files": existing_index_files[:20] if existing_index_files else [],
         }
 
+    warning_msg = None
+    from codrag.services.config_manager import load_ui_config
+    ui_cfg = load_ui_config(_srv()._config)
+    max_active = ui_cfg.get("max_active_projects", "infinite")
+    if max_active != "infinite":
+        max_active_int = int(max_active)
+        active_count = 0
+        for p_reg in reg.list_projects():
+            pcfg = p_reg.config if isinstance(p_reg.config, dict) else {}
+            if "active" in pcfg and pcfg["active"] is True:
+                active_count += 1
+        
+        if active_count > max_active_int:
+            from codrag.core.feature_gate import get_license, Tier
+            lic = get_license()
+            if lic.tier not in (Tier.TEAM, Tier.ENTERPRISE):
+                warning_msg = f"It is recommended to use {max_active_int} or fewer active projects because it can be performance invasive."
+
+    if warning_msg:
+        result["warning"] = warning_msg
+
     return ok(result)
 
 

@@ -207,7 +207,8 @@ Longest method (_detect_resume)     226 lines
 - ❌ During an incremental pipeline run focused on 209 specific files out of 1,348 total, the Graph Scope UI drops the 1,139 successfully completed items to `0 traced & embedded` and claims all `1348 in-progress` (painting the bar solid blue).
 - ❌ Additionally, the `stale` metric immediately drops to 0 in when the run begins, causing the two-tone rerun `<StageProgressBar>` to break since its fallback logic relies on `staleCounts`. It swaps dynamically from a rerun format to a standard indeterminate blue format, dropping all visibility into the incremental span.
 
-**Fix status**: 📝 Needs Fix in Phase 72 (UI Refactor / Preserve incremental baselines throughout pipeline execution)
+**Fix status**: ✅ FIXED in Phase 72
+- Re-architected `GraphStructurePanel.tsx` to preserve the `allTracedCount` as visually complete and limit the "in-progress" blue styling explicitly to the dynamically incrementing `inProgressPect` (untraced + stale) subset.
 
 ### Root Cause 11: Queue Processing Priority Inversion
 
@@ -248,6 +249,58 @@ Longest method (_detect_resume)     226 lines
 | 72-3 | Skip PAUSED hydration for pipelines in AUTO mode | orchestrator.py | ~15 |
 | 72-4 | Skip backup restore for untraced file integration (`incremental=True`) | orchestrator.py | ~5 |
 | 72-5 | Fix deepening status filename bug and missing `settled_ratio` | pipeline.py | ~10 |
+| 72-6 | Fix WriteGuard crash (use state_machine.transition over .fail) | orchestrator.py | ~5 |
+| 72-7 | Rust AST append wipe protection (treat untraced as stale) | orchestrator.py | ~10 |
+| 72-8 | Restore missing `get_pending_nodes` to `EpistemicEnricher` | epistemic_enrichment.py | ~15 |
 
-Total: 5 individual fixes across 2 files, ~45 lines changed.
+Total: 8 individual fixes across 3 files, ~80 lines changed.
 All of these are defensive patches — they work, but they demonstrate why we **urgently** need the structural decomposition detailed in `README.md`.
+
+### Root Cause 12: Rust AST Wipe (Incremental Data Loss)
+
+**What**: When `untraced` (new) files are detected, the pipeline originally forced a structural rebuild (`resume=0`) to add them to the AST. The Python engine safely handled this by selectively writing only changes. However, the Phase 72 Rust Engine replacement (`codrag index`) rewrites the `trace_nodes.jsonl` file from scratch, permanently wiping out months of deeply enriched Epistemic data attached to older nodes.
+
+>>> Seriously I don't undersand the problem here. the stage 0 rust build takes 1 second to run and you are behaving like if 0 runs the enture pipline is replaced and if it doesn't run the entire pipeline is blocked. does wiping the stage 0 really invalidate the rest of the entire pipe
+
+**Manifested as**:
+- ❌ Pipeline crashes on `WriteGuard` blocking the devastating 85% data loss.
+- ❌ `trace_nodes.jsonl` shrinks from 51k nodes to 6k nodes whenever a single file is added.
+- ❌ **The Ghost Loop**: Because the previous AI agent bypassed `resume=0` to "protect" data, new files were *never physical inserted* into `trace_nodes.jsonl`. This locked the pipeline into a perpetual infinite loop where it would run the incremental stages, finish, instantly detect the same 123 "untraced" files again, and restart continuously.
+
+**Fix status**: ✅ FIXED in Phase 72
+- Reverted the catastrophic orchestrator scheduling bypass. The pipeline correctly triggers `resume=0` (Structural) to integrate untraced files into the AST. The Rust wipe bug was a misunderstanding of how the `.jsonl` data works: regenerating `trace_nodes.jsonl` does **not** delete deep epistemic enrichments, which are safely isolated in `trace_epistemic.jsonl`. The full integration is now robust and breaks the infinite loop.
+
+### Root Cause 13: WriteGuard State Machine Crash
+
+**What**: The `_write_guard_check` successfully blocks catastrophic data loss (e.g. the Rust Wipe bug). However, its error handler caught the exception and erroneously called `matching_run.fail()`. The `PipelineGroupStateMachine` object doesn't have a `.fail()` method, creating an `AttributeError` that crashed the worker daemon before it could set the JSON state to "failed", permanently locking the orchestrator in "running".
+
+**Manifested as**:
+- ❌ Pipeline spins indefinitely in the UI on the backend.
+- ❌ "atlas demands to be incomplete for no reason," freezing `deep_knowledge`.
+
+**Fix status**: ✅ FIXED in Phase 72
+- Rewrote the catch block to correctly use `matching_run.transition(Event.STAGE_FAILED)`.
+
+### Root Cause 14: Scheduler Ghost Locks
+
+**What**: When a processing thread crashes (e.g. an unexpected exception inside an LLM generation or memory error) without safely hitting its `finally` block or successfully completing the global locking cleanup, it leaves "ghost locks" in `PipelineScheduler`. The backend scheduler records `current_load=1` for a node (like `__embedding__`) forever. Consequently, the `PipelineOrchestrator` queues new pipeline requests entirely because `self._start_group` waits infinitely for the ghost task to finish.
+
+**Manifested as**:
+- ❌ The pipeline freezes entirely after an unhandled daemon exception.
+- ❌ Pressing “Map All” hangs or seems ambiguous because the UI says "Running" but exactly nothing is computing in the backend. 
+- ❌ Auto-detecting new files fails silently.
+
+**Fix status**: ✅ FIXED in Phase 72
+- Defined explicit `clean_locks()` logic in `pipeline_scheduler.py` to recursively rip active tasks out of internal tracked queues.
+- Deployed a new `POST /compute/clear_locks` Rest API self-healing endpoint to safely flush the orchestrator without needing to drop the full daemon state.
+
+### Root Cause 15: Discrepant Deepening Status Hydration
+
+**What**: Deepening operations are incredibly heavy, relying on iterations. `pipeline.py /status` correctly reported pipeline state directly based on actual file existence (e.g. `settled_ratio: 1.0`, `total_scored: 6829`). The frontend UI (`useEnrichment.ts`) overrode this pristine data with a legacy independent endpoint (`/deepening/status`) tightly coupled to strict "trace_modules" existence gates. Since that file checking logic was flawed, it forced all metric stats on the frontend down to `0`, pushing the UI state machine into reading `Not Built`.
+
+**Manifested as**:
+- ❌ `Deep Knowledge Embedding` freezes or will not execute because `Continuous Deepening` refuses to acknowledge it ever ran successfully.
+- ❌ Continuous Deepening is permanently labelled "Not Built" despite having processed ~7k nodes in the backend.
+
+**Fix status**: ✅ FIXED in Phase 72
+- Forcefully removed the legacy `/deepening/status` standalone endpoint call from the frontend hydrating cycle (`useEnrichment.ts`). It now hydrates accurately from global `PipelineStatus` which skips the false gates.

@@ -575,11 +575,9 @@ def deepening_status_project(project_id: str) -> Dict[str, Any]:
     # clustering has produced modules.  Without modules, deepening hasn't
     # meaningfully run and showing epistemic scores here is misleading.
     result: Dict[str, Any] = {"running": False}
-    modules_path = idx_dir / "trace_modules.jsonl"
-    modules_exist = modules_path.exists() and modules_path.stat().st_size > 0
     try:
         manifest_path = idx_dir / "deepening_manifest.json"
-        if modules_exist and manifest_path.exists():
+        if manifest_path.exists():
             with open(manifest_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 quality = data.get("quality", {})

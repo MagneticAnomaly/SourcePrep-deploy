@@ -137,10 +137,10 @@ function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; bui
           <div
             className={cn(
               "transition-all duration-500",
-              building ? "bg-primary" : "bg-success"
+              "bg-success"
             )}
             style={{ width: `${tracedPct}%` }}
-            title={`${allTracedCount} traced & embedded`}
+            title={`${allTracedCount} traced`}
           />
         )}
         {inProgressPct > 0 && (
@@ -163,11 +163,11 @@ function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; bui
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-text-muted">
         {building ? (
           <>
-            <span className="flex items-center gap-1 font-medium text-primary">
-              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" /> {allTracedCount} in-progress
-            </span>
             <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-success" /> 0 traced & embedded
+              <span className="w-2 h-2 rounded-full bg-success" /> {allTracedCount} traced & embedded
+            </span>
+            <span className="flex items-center gap-1 font-medium text-primary">
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" /> {inProgress} in-progress
             </span>
           </>
         ) : (

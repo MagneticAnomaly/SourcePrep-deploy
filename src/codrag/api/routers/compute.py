@@ -258,3 +258,16 @@ def sync_scheduler() -> Dict[str, Any]:
     }
     logger.info("Scheduler synced: %s", nodes_summary)
     return ok({"synced": True, "nodes": nodes_summary})
+
+
+@router.post("/compute/clear_locks")
+def clear_locks(project_id: Optional[str] = None) -> Dict[str, Any]:
+    """Forcefully purge ghost tasks from the scheduler.
+    
+    If pipeline threads crash, they can leave active locks in the scheduler
+    that prevent any other jobs from running. This self-healing endpoint
+    clears them safely without needing to bounce the daemon.
+    """
+    from codrag.services.pipeline.scheduler import pipeline_scheduler
+    pipeline_scheduler.clean_locks(project_id)
+    return ok({"cleared": True})

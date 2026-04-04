@@ -400,6 +400,19 @@ class PipelineScheduler:
             for slot in self._slots.values():
                 slot.release(project_id)
 
+    def clean_locks(self, project_id: Optional[str] = None) -> None:
+        """Forcefully purge active tasks to self-heal from ghost locks."""
+        with self._lock:
+            for nid, slot in self._slots.items():
+                if project_id:
+                    if project_id in slot.active_stages:
+                        logger.warning("Scheduler: forcefully clearing ghost lock %s from node %s", project_id, nid)
+                        slot.active_stages.pop(project_id)
+                else:
+                    if slot.active_stages:
+                        logger.warning("Scheduler: forcefully clearing ALL ghost locks from node %s", nid)
+                        slot.active_stages.clear()
+
     # ── Node resolution (Phase 56) ─────────────────────────────────
 
     def resolve_node_for_model(

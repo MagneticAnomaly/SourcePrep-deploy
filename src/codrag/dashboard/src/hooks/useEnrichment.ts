@@ -262,15 +262,11 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       api.getAugmentStatus(selectedProjectId),
       api.getEpistemicStatus(selectedProjectId),
       api.getModuleStatus(selectedProjectId),
-      api.getDeepeningStatus(selectedProjectId),
-      api.getKnowledgeStatus(selectedProjectId),
-    ]).then(([aug, epi, mod, deep, know]) => {
+    ]).then(([aug, epi, mod]) => {
       if (signal?.aborted || unmounted) return
       if (aug.status === 'fulfilled') dispatch({ type: 'AUGMENTATION_STATUS', payload: aug.value })
       if (epi.status === 'fulfilled') dispatch({ type: 'EPISTEMIC_STATUS', payload: epi.value })
       if (mod.status === 'fulfilled') dispatch({ type: 'MODULE_STATUS', payload: mod.value })
-      if (deep.status === 'fulfilled') dispatch({ type: 'DEEPENING_STATUS', payload: deep.value })
-      if (know.status === 'fulfilled') dispatch({ type: 'KNOWLEDGE_STATUS', payload: know.value })
     })
 
     // Hydrate running flags + stage data from pipeline status
@@ -308,6 +304,14 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       // Hydrate group reasoning (no dedicated API endpoint — only in pipeline status)
       if (ps.stages?.group_reasoning) {
         dispatch({ type: 'GROUP_REASONING_STATUS', payload: ps.stages.group_reasoning })
+      }
+      // Hydrate deepening and knowledge from pipeline status to ensure consistency
+      // and avoid legacy API module gates that returned 0 scored objects.
+      if (ps.stages?.deepening) {
+        dispatch({ type: 'DEEPENING_STATUS', payload: ps.stages.deepening })
+      }
+      if (ps.stages?.deep_knowledge) {
+        dispatch({ type: 'KNOWLEDGE_STATUS', payload: ps.stages.deep_knowledge })
       }
       // Hydrate paused flags on initial load
       dispatch({

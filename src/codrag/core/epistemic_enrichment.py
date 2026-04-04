@@ -445,6 +445,27 @@ class EpistemicEnricher:
         # Already enriched and unchanged
         return False
 
+    def get_pending_nodes(self, trace_idx: Any = None) -> List[Dict[str, Any]]:
+        """Get a list of file nodes that need enrichment.
+        Args:
+            trace_idx: Optional trace index (ignored, uses disk loading for accuracy).
+        """
+        nodes = self.load_trace_nodes()
+        file_nodes = [n for n in nodes if n.get("kind") == "file"]
+        if not file_nodes:
+            return []
+            
+        existing = self.load_existing()
+        augmentations = self.load_augmentations()
+        file_hashes = self.load_file_hashes()
+        
+        pending_nodes = []
+        for node in file_nodes:
+            if self._needs_enrichment(node, existing, augmentations, file_hashes):
+                pending_nodes.append(node)
+                
+        return pending_nodes
+
     def enrich_node(
         self,
         node: Dict[str, Any],
