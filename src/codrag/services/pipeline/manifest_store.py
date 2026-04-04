@@ -18,14 +18,15 @@ import json
 import logging
 import os
 import tempfile
+from datetime import UTC
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from .stages import (
-    StageId,
-    STAGE_MANIFEST_FILE,
-    FAST_SYNC_STAGES,
     DEEP_ENRICHMENT_STAGES,
+    FAST_SYNC_STAGES,
+    STAGE_MANIFEST_FILE,
+    StageId,
 )
 
 logger = logging.getLogger(__name__)
@@ -40,7 +41,7 @@ class ManifestStore:
 
     # Stages that have a separate hash file (not embedded in provenance).
     # Other stages either don't have hash caches or embed them in provenance.
-    _HASH_FILE_OVERRIDES: Dict[StageId, str] = {
+    _HASH_FILE_OVERRIDES: dict[StageId, str] = {
         StageId.INFERRED_EDGES: "trace_inferred_hashes.json",
     }
 
@@ -49,7 +50,7 @@ class ManifestStore:
 
     # ── Atomic write helper ────────────────────────────────────
 
-    def _atomic_write_json(self, path: Path, data: Dict[str, Any]) -> None:
+    def _atomic_write_json(self, path: Path, data: dict[str, Any]) -> None:
         """Write JSON atomically: tmp file -> fsync -> rename."""
         path.parent.mkdir(parents=True, exist_ok=True)
         fd = None
@@ -98,17 +99,17 @@ class ManifestStore:
             return p.stat().st_mtime
         return 0.0
 
-    def write_provenance(self, stage: StageId, data: Dict[str, Any]) -> None:
+    def write_provenance(self, stage: StageId, data: dict[str, Any]) -> None:
         """Write a provenance manifest atomically."""
         self._atomic_write_json(self.provenance_path(stage), data)
 
-    def read_provenance(self, stage: StageId) -> Optional[Dict[str, Any]]:
+    def read_provenance(self, stage: StageId) -> dict[str, Any] | None:
         """Read a provenance manifest. Returns None if missing or corrupt."""
         p = self.provenance_path(stage)
         if not p.exists():
             return None
         try:
-            with open(p, "r", encoding="utf-8") as f:
+            with open(p, encoding="utf-8") as f:
                 return json.load(f)
         except (json.JSONDecodeError, OSError):
             logger.debug("Failed to read provenance for %s", stage.value, exc_info=True)
@@ -127,7 +128,7 @@ class ManifestStore:
             return self.idx_dir / override
         return self.provenance_path(stage)
 
-    def read_hashes(self, stage: StageId) -> Dict[str, str]:
+    def read_hashes(self, stage: StageId) -> dict[str, str]:
         """Read per-file content hashes for a stage.
 
         Returns empty dict if missing or corrupt.
@@ -137,7 +138,7 @@ class ManifestStore:
             if not p.exists():
                 return {}
             try:
-                with open(p, "r", encoding="utf-8") as f:
+                with open(p, encoding="utf-8") as f:
                     data = json.load(f)
                 # Phase 60D-4 guard: reject orchestrator metadata that was
                 # accidentally written to the hash file.
@@ -158,7 +159,7 @@ class ManifestStore:
         hashes = provenance.get("file_hashes")
         return hashes if isinstance(hashes, dict) else {}
 
-    def write_hashes(self, stage: StageId, hashes: Dict[str, str]) -> None:
+    def write_hashes(self, stage: StageId, hashes: dict[str, str]) -> None:
         """Write per-file content hashes for a stage."""
         if stage in self._HASH_FILE_OVERRIDES:
             self._atomic_write_json(self.hashes_path(stage), hashes)
@@ -170,7 +171,7 @@ class ManifestStore:
 
     # ── Quality metrics ────────────────────────────────────────
 
-    def read_quality(self, stage: StageId) -> Optional[Dict[str, Any]]:
+    def read_quality(self, stage: StageId) -> dict[str, Any] | None:
         """Read quality metrics from a provenance manifest."""
         provenance = self.read_provenance(stage)
         if provenance is None:
@@ -180,12 +181,12 @@ class ManifestStore:
 
     # ── Graph stats ────────────────────────────────────────────
 
-    def read_graph_stats(self) -> Dict[str, Any]:
+    def read_graph_stats(self) -> dict[str, Any]:
         """Read node/edge counts from the structural manifest.
 
         Returns dict with node_count, edge_count. Defaults to zeros.
         """
-        stats: Dict[str, Any] = {"node_count": 0, "edge_count": 0, "coverage_pct": None}
+        stats: dict[str, Any] = {"node_count": 0, "edge_count": 0, "coverage_pct": None}
         provenance = self.read_provenance(StageId.STRUCTURAL)
         if provenance is None:
             return stats
@@ -204,7 +205,7 @@ class ManifestStore:
 
     # ── Age summary ────────────────────────────────────────────
 
-    def age_summary(self) -> Dict[str, Dict[str, Any]]:
+    def age_summary(self) -> dict[str, dict[str, Any]]:
         """Get the age of all stage manifests for diagnostics.
 
         Returns dict keyed by stage name, each with:
@@ -213,10 +214,10 @@ class ManifestStore:
         - last_modified: ISO string (only when present)
         """
         import time as _time
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         now = _time.time()
-        result: Dict[str, Dict[str, Any]] = {}
+        result: dict[str, dict[str, Any]] = {}
 
         for stage in list(FAST_SYNC_STAGES) + list(DEEP_ENRICHMENT_STAGES):
             mf = STAGE_MANIFEST_FILE.get(stage)
@@ -232,7 +233,7 @@ class ManifestStore:
             result[stage.value] = {
                 "status": "present",
                 "age_hours": age_hours,
-                "last_modified": datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat(),
+                "last_modified": datetime.fromtimestamp(mtime, tz=UTC).isoformat(),
             }
 
         return result
