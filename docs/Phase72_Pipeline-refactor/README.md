@@ -4,7 +4,8 @@
 > **Status**: Planning  
 > **Priority**: High — stability of the entire CoDRAG enrichment pipeline depends on this  
 > **Predecessor**: Phase 60D (Pipeline Incrementalism — band-aid fixes)  
-> **Related**: Phase 70 (Dashboard State Machine), Phase 48 (Fix Pipeline), Phase 25B (State Machine)
+> **Related**: Phase 70 (Dashboard State Machine), Phase 48 (Fix Pipeline), Phase 25B (State Machine)  
+> **Branch**: `feat/phase72-pipeline-refactor` — all refactor work is isolated here. Merge to `main` when each stage passes its test suite.
 
 ## Executive Summary
 
