@@ -28,7 +28,9 @@ from .state_machine import (
     ActiveProjectGuard,
 )
 from .manifest_store import ManifestStore
+from .post_flight import PostFlightActions
 from .recovery import RecoveryManager
+from .resume import ResumeStrategy
 from .orchestrator import (
     PipelineOrchestrator,
     pipeline_orchestrator,
@@ -53,7 +55,9 @@ __all__ = [
     "Event",
     "ActiveProjectGuard",
     "ManifestStore",
+    "PostFlightActions",
     "RecoveryManager",
+    "ResumeStrategy",
     "PipelineOrchestrator",
     "pipeline_orchestrator",
 ]

@@ -47,7 +47,9 @@ from .state_machine import (
     ActiveProjectGuard,
 )
 from .manifest_store import ManifestStore
+from .post_flight import PostFlightActions
 from .recovery import RecoveryManager
+from .resume import ResumeStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -914,199 +916,13 @@ class PipelineOrchestrator:
 
     @staticmethod
     def _refresh_manifest_hashes(project_id: str) -> int:
-        """Refresh ``file_hashes`` in ``trace_manifest.json`` without re-running
-        the structural stage.
-
-        This fixes the Phase 60D incrementality gap: when the structural
-        stage is skipped to protect rich symbol-level data, ``file_hashes``
-        don't get updated.  Downstream stages process the changed files
-        but the manifest still has stale hashes, causing
-        ``check_coverage_gap()`` to report the same "stale" files forever.
-
-        Algorithm:
-          1. Read the current manifest.
-          2. Walk eligible files on disk (same globs as coverage).
-          3. For each file:
-             - If its content hash differs from the manifest → update it.
-             - If it's absent from the manifest but present in
-               ``trace_nodes.jsonl`` → add it (backfill untraced).
-          4. Remove hashes for files that no longer exist on disk.
-          5. Atomically write the updated manifest (preserving ``built_at``
-             to avoid a false mtime cascade).
-
-        Returns the number of hashes that changed.
-        """
-        import json as _json
-        import os
-        import tempfile
-
-        from codrag.core.ids import stable_file_hash
-        from codrag.core.trace.utils import _detect_language, _to_posix
-
-        try:
-            from codrag.services.project_helpers import require_project
-            from codrag.core.project_registry import project_index_dir
-        except ImportError:
-            return 0
-
-        try:
-            project = require_project(project_id)
-        except Exception:
-            return 0
-
-        idx_dir = Path(project_index_dir(project))
-        manifest_path = idx_dir / "trace_manifest.json"
-
-        if not manifest_path.exists():
-            return 0
-
-        try:
-            with open(manifest_path, "r", encoding="utf-8") as f:
-                manifest = _json.load(f)
-        except Exception:
-            return 0
-
-        old_hashes: Dict[str, str] = manifest.get("file_hashes") or {}
-        if not old_hashes:
-            # No file_hashes at all — nothing we can incrementally update.
-            # The structural stage needs to run first.
-            return 0
-
-        repo_root = Path(project.path).resolve()
-        pcfg = project.config or {}
-        max_file_bytes = int(pcfg.get("max_file_bytes") or 500_000)
-
-        # Collect the set of traced paths from trace_nodes.jsonl
-        # so we can add hashes for files that were traced by the
-        # structural engine but never had hashes computed (e.g. new
-        # files traced by the Rust engine).
-        traced_node_paths: set[str] = set()
-        nodes_path = idx_dir / "trace_nodes.jsonl"
-        if nodes_path.exists():
-            try:
-                with open(nodes_path, "r", encoding="utf-8") as nf:
-                    for line in nf:
-                        line = line.strip()
-                        if not line:
-                            continue
-                        try:
-                            node = _json.loads(line)
-                            if node.get("kind") == "file" and node.get("file_path"):
-                                traced_node_paths.add(node["file_path"])
-                        except _json.JSONDecodeError:
-                            continue
-            except Exception:
-                pass  # Can't read nodes — skip backfill
-
-        # Walk the repo to find current eligible files and their hashes.
-        # Use the same globs as the TraceBuilder to stay consistent.
-        from codrag.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
-        import pathspec
-
-        gitignore_spec = None
-        gitignore_path = repo_root / ".gitignore"
-        if gitignore_path.exists():
-            try:
-                with open(gitignore_path, "r", encoding="utf-8") as f:
-                    gitignore_spec = pathspec.PathSpec.from_lines("gitwildmatch", f)
-            except Exception:
-                pass
-
-        # Re-use the builder's include globs (broad set)
-        from codrag.core.trace.builder import TraceBuilder
-        default_builder = TraceBuilder(
-            repo_root=repo_root, index_dir=idx_dir,
-            max_file_bytes=max_file_bytes,
-        )
-        include_globs = default_builder.include_globs
-        exclude_globs = default_builder.exclude_globs
-
-        from codrag.core.trace.utils import _is_relevant
-
-        updated = 0
-        new_hashes = dict(old_hashes)  # start with existing
-        seen_paths: set[str] = set()
-
-        for root_dir, dirs, filenames in os.walk(repo_root):
-            dirs[:] = [d for d in dirs if d not in DEFAULT_EXCLUDE_DIR_NAMES and not d.startswith(".")]
-            root_path = Path(root_dir)
-            for fname in filenames:
-                file_path = root_path / fname
-                if file_path.is_symlink():
-                    continue
-                rel_path = _to_posix(str(file_path.relative_to(repo_root)))
-
-                if gitignore_spec and gitignore_spec.match_file(rel_path):
-                    continue
-                if not _is_relevant(rel_path, include_globs, exclude_globs):
-                    continue
-
-                try:
-                    fsize = file_path.stat().st_size
-                    if fsize > max_file_bytes:
-                        # Large file — read prefix for hash (same as builder)
-                        with open(file_path, "r", encoding="utf-8", errors="ignore") as hf:
-                            source = hf.read(50_000)
-                    else:
-                        source = file_path.read_text(encoding="utf-8", errors="ignore")
-                except Exception:
-                    continue
-
-                current_hash = stable_file_hash(source)
-                seen_paths.add(rel_path)
-
-                prev_hash = old_hashes.get(rel_path)
-                if prev_hash is None:
-                    # Not in manifest — only add if the structural trace
-                    # actually contains this file (don't add truly new files
-                    # that need a structural rebuild).
-                    if rel_path in traced_node_paths:
-                        new_hashes[rel_path] = current_hash
-                        updated += 1
-                elif prev_hash != current_hash:
-                    new_hashes[rel_path] = current_hash
-                    updated += 1
-
-        # Remove hashes for files that were deleted from disk
-        deleted_paths = set(old_hashes.keys()) - seen_paths
-        for dp in deleted_paths:
-            del new_hashes[dp]
-            updated += 1
-
-        if updated == 0:
-            return 0
-
-        # Write atomically — preserve built_at to avoid mtime cascade
-        manifest["file_hashes"] = new_hashes
-        try:
-            tmp = tempfile.NamedTemporaryFile(
-                mode="w", suffix=".json", dir=str(idx_dir),
-                delete=False, encoding="utf-8",
-            )
-            _json.dump(manifest, tmp, indent=2, sort_keys=True)
-            tmp.flush()
-            os.fsync(tmp.fileno())
-            tmp.close()
-            os.rename(tmp.name, manifest_path)
-            logger.info(
-                "Refreshed %d file_hashes in trace_manifest.json for %s "
-                "(added/updated: %d, deleted: %d)",
-                updated, project_id,
-                updated - len(deleted_paths), len(deleted_paths),
-            )
-        except Exception:
-            try:
-                os.unlink(tmp.name)
-            except OSError:
-                pass
-            logger.warning(
-                "Failed to write updated file_hashes for %s",
-                project_id, exc_info=True,
-            )
-
-        return updated
+        """Delegates to ResumeStrategy.refresh_manifest_hashes."""
+        return ResumeStrategy.refresh_manifest_hashes(project_id)
 
     @staticmethod
+    def check_coverage_gap(project_id: str, include_paths: bool = False) -> Dict[str, Any]:
+        """Delegates to ResumeStrategy.check_coverage_gap."""
+        return ResumeStrategy.check_coverage_gap(project_id, include_paths)
     def check_coverage_gap(project_id: str, include_paths: bool = False) -> Dict[str, Any]:
         """Check if there are files that should be traced but aren't.
 
@@ -1185,118 +1001,18 @@ class PipelineOrchestrator:
     def _maybe_retrigger_for_coverage(
         self, project_id: str, group: str, pfl: Any = None,
     ) -> None:
-        """After pipeline completion, check for untraced/stale files and
-        auto-retrigger if needed.
+        """Delegates to ResumeStrategy.maybe_retrigger_for_coverage."""
+        def _is_active(pid):
+            with self._lock:
+                return any(run.is_active for key, run in self._runs.items() if key[0] == pid)
 
-        Phase 48-F8: This is the key mechanism that ensures the pipeline
-        catches files that exist on disk but were missed by a previous run
-        (e.g., Rust engine failure, glob change, new files added between
-        watcher events).
-
-        Runs in a delayed background thread to avoid blocking the
-        completion callback and to give the filesystem time to settle.
-        """
-        def _check_and_retrigger():
-            try:
-                time.sleep(self._COVERAGE_RETRIGGER_DELAY)
-
-                # Respect pipeline mode: don't retrigger if Manual
-                try:
-                    from codrag.services.settings_store import settings as _ss
-                    pc = _ss.get("pipeline_config") or {}
-                    fast_auto = (pc.get("fast_sync") or {}).get("auto", False)
-                    if not fast_auto:
-                        logger.debug(
-                            "Coverage retrigger skipped for %s — "
-                            "pipeline in manual mode",
-                            project_id,
-                        )
-                        return
-                except Exception:
-                    pass  # Settings unavailable — proceed
-
-                # Don't retrigger if another run has started in the meantime
-                with self._lock:
-                    for key, run in self._runs.items():
-                        if key[0] == project_id and run.is_active:
-                            logger.debug(
-                                "Coverage retrigger skipped for %s — "
-                                "pipeline already running",
-                                project_id,
-                            )
-                            return
-
-                # Phase 72: Refresh file_hashes before checking coverage
-                # to avoid false "stale" due to skipped structural stage.
-                try:
-                    refreshed = self._refresh_manifest_hashes(project_id)
-                    if refreshed > 0:
-                        logger.info(
-                            "Coverage retrigger: refreshed %d file hashes for %s "
-                            "before gap check",
-                            refreshed, project_id,
-                        )
-                except Exception:
-                    pass  # Non-fatal
-
-                gap = self.check_coverage_gap(project_id)
-                if not gap["needs_rebuild"]:
-                    logger.info(
-                        "Coverage check for %s: %d/%d files traced (%.1f%%) — "
-                        "no retrigger needed",
-                        project_id, gap["traced"], gap["total"],
-                        gap["coverage_pct"],
-                    )
-                    return
-
-                stale_count = gap.get("stale", 0)
-                untraced_count = gap.get("untraced", 0)
-
-                # Phase 72: Only retrigger for STALE files.
-                # Untraced files need a structural rebuild — which we
-                # deliberately skip (Phase 60D) — so retriggering just
-                # creates an infinite loop.
-                if stale_count == 0:
-                    if untraced_count > 0:
-                        logger.info(
-                            "Coverage check for %s: 0 stale, %d untraced "
-                            "(need structural rebuild) — no retrigger",
-                            project_id, untraced_count,
-                        )
-                    return
-
-                logger.info(
-                    "Coverage gap detected for %s: %d untraced + %d stale "
-                    "out of %d total files (%.1f%% coverage) — retriggering "
-                    "fast sync",
-                    project_id, untraced_count, stale_count,
-                    gap["total"], gap["coverage_pct"],
-                )
-                if pfl:
-                    pfl.log(
-                        "coverage_gap",
-                        f"Retriggering: {untraced_count} untraced + "
-                        f"{stale_count} stale files",
-                    )
-
-                started = self.run_fast_sync(
-                    project_id,
-                )
-                logger.info(
-                    "Coverage retrigger for %s: started=%s",
-                    project_id, started,
-                )
-            except Exception:
-                logger.debug(
-                    "Coverage retrigger failed for %s",
-                    project_id, exc_info=True,
-                )
-
-        t = threading.Thread(target=_check_and_retrigger, daemon=True)
-        t.start()
-
-    # ── Node resolution (Phase 56) ─────────────────────────────────
-
+        ResumeStrategy.maybe_retrigger_for_coverage(
+            project_id,
+            run_fast_sync_fn=self.run_fast_sync,
+            is_any_active_fn=_is_active,
+            refresh_hashes_fn=self._refresh_manifest_hashes,
+            pfl=pfl,
+        )
     def _resolve_node_for_stage(
         self, project_id: str, stage: StageId,
     ) -> Optional[str]:
@@ -1345,271 +1061,14 @@ class PipelineOrchestrator:
         stages: List[StageId],
         skip_mtime_cascade: bool = False,
     ) -> int:
-        """Detect the first incomplete stage by checking manifest files on disk.
-
-        A stage is considered "complete" if its **manifest file** exists.
-        Output files alone are not sufficient — the augmenter writes
-        checkpoint data to its output file periodically, but only writes
-        the manifest at the end of a successful ``run()``.
-
-        For the structural stage (stage 1), we check if trace_nodes.jsonl
-        exists since it doesn't have a separate manifest in the same
-        sense — trace_manifest.json is the output.
-
-        Args:
-            skip_mtime_cascade: If True, don't invalidate downstream stages
-                based on manifest timestamps.  Used for incremental runs
-                where the structural trace was rebuilt for a small coverage
-                gap — the downstream stages already have data and their
-                workers handle incrementality internally.
-
-        Returns the index of the first incomplete stage.  If all stages
-        are complete, returns ``len(stages)``.
-        """
-        from pathlib import Path
-        from .stages import STAGE_OUTPUT_FILE, STAGE_MANIFEST_FILE
-        try:
-            from codrag.services.project_helpers import require_project
-            from codrag.core.project_registry import project_index_dir
-            project = require_project(project_id)
-            idx_dir = Path(project_index_dir(project))
-        except Exception:
-            return 0  # Can't resolve project — start from scratch
-
-        store = ManifestStore(idx_dir)
-
-        # Get the structural manifest mtime as the "baseline" — any
-        # downstream stage whose manifest is OLDER than this needs to
-        # re-run because its input data (the trace graph) changed.
-        baseline_mtime = 0.0
-        if not skip_mtime_cascade:
-            baseline_mtime = store.provenance_mtime(StageId.STRUCTURAL)
-
-        # Phase 60A: Collect per-stage decisions for logging
-        stage_decisions: list[dict] = []
-
-        for i, stage in enumerate(stages):
-            # The manifest file is the completion signal.
-            # Workers write output incrementally (checkpoints) but only
-            # write the manifest at the very end of a successful run.
-            manifest_file = STAGE_MANIFEST_FILE.get(stage)
-            if manifest_file:
-                mpath = idx_dir / manifest_file  # for logging/size checks
-                if store.provenance_exists(stage):
-                    # Phase 48-F8: For the structural stage, verify the
-                    # manifest actually reports nodes.
-                    if stage == StageId.STRUCTURAL:
-                        nodes_path = idx_dir / "trace_nodes.jsonl"
-                        if not nodes_path.exists() or nodes_path.stat().st_size == 0:
-                            logger.warning(
-                                "Structural manifest exists but "
-                                "trace_nodes.jsonl is missing/empty "
-                                "— treating as incomplete (needs rebuild)"
-                            )
-                            stage_decisions.append({
-                                "stage": stage.value, "decision": "INCOMPLETE",
-                                "reason": "Manifest exists but trace_nodes.jsonl missing/empty",
-                            })
-                            self._log_resume_decisions(project_id, stages, i, stage_decisions, skip_mtime_cascade)
-                            return i
-
-                    # Phase 67: Ensure Sub-Atlas generation is continuous.
-                    # If the pipeline crashed generating segment or role atlases, 
-                    # the main atlas manifest might exist, but segments are missing.
-                    elif stage == StageId.ATLAS:
-                        segments_path = idx_dir / "atlas_segments_manifest.json"
-                        if not segments_path.exists() or segments_path.stat().st_size == 0:
-                            logger.warning(
-                                "Atlas manifest exists but atlas_segments_manifest.json "
-                                "is missing/empty — treating as incomplete (needs rebuild)"
-                            )
-                            stage_decisions.append({
-                                "stage": stage.value, "decision": "INCOMPLETE",
-                                "reason": "Manifest exists but atlas_segments_manifest.json missing",
-                            })
-                            self._log_resume_decisions(project_id, stages, i, stage_decisions, skip_mtime_cascade)
-                            return i
-
-                    # Check staleness: is this manifest older than the
-                    # structural trace?
-                    if (not skip_mtime_cascade
-                            and stage != StageId.STRUCTURAL
-                            and baseline_mtime > 0):
-                        manifest_mtime = store.provenance_mtime(stage)
-                        age_gap = baseline_mtime - manifest_mtime
-                        if manifest_mtime < baseline_mtime:
-                            # Phase 60C: Tolerance window — sub-second mtime
-                            # differences are almost always false positives
-                            # caused by the structural rebuild refreshing its
-                            # manifest even when nothing changed.  Only treat
-                            # as genuinely stale if the gap exceeds 5 seconds.
-                            if age_gap <= 5.0:
-                                logger.info(
-                                    "Stage %s manifest mtime gap is %.1fs "
-                                    "(within 5s tolerance) — treating as COMPLETE",
-                                    stage.value, age_gap,
-                                )
-                                stage_decisions.append({
-                                    "stage": stage.value, "decision": "COMPLETE",
-                                    "note": f"mtime gap {age_gap:.1f}s within tolerance",
-                                    "manifest_size": mpath.stat().st_size,
-                                })
-                                continue  # Within tolerance — not stale
-
-                            # Phase 60D: Content-aware staleness — if the stage
-                            # has existing output data, touching the manifest is
-                            # sufficient.  Workers handle incrementality internally
-                            # (they read existing output and only process new/changed
-                            # nodes).  Cascade-restarting a stage with hours of LLM
-                            # reasoning is destructive — we only do it when the stage
-                            # has NEVER produced output.
-                            output_file = STAGE_OUTPUT_FILE.get(stage)
-                            has_existing_output = False
-                            if output_file:
-                                opath = idx_dir / output_file
-                                if opath.exists() and opath.stat().st_size > 1024:
-                                    has_existing_output = True
-                            elif stage == StageId.ATLAS:
-                                # Atlas doesn't have a single JSONL output, it produces an atlas.json
-                                # plus segment files. If atlas.json exists, we have existing output.
-                                opath = idx_dir / "atlas.json"
-                                output_file = "atlas.json"  # For logging
-                                if opath.exists() and opath.stat().st_size > 1024:
-                                    has_existing_output = True
-
-                            if has_existing_output:
-                                # Touch manifest to match structural — prevents
-                                # re-triggering on next resume check.  The worker
-                                # will pick up delta changes when it next runs.
-                                store.touch_provenance_mtime(stage, baseline_mtime)
-                                logger.info(
-                                    "Stage %s manifest is stale (gap=%.0fs) but has "
-                                    "existing output (%s, %d bytes) — touching manifest "
-                                    "and treating as COMPLETE (workers handle incrementality)",
-                                    stage.value, age_gap, output_file,
-                                    (idx_dir / output_file).stat().st_size,
-                                )
-                                stage_decisions.append({
-                                    "stage": stage.value, "decision": "COMPLETE",
-                                    "note": (
-                                        f"mtime gap {age_gap:.0f}s but output exists "
-                                        f"({output_file}) — manifest touched, "
-                                        f"workers handle incrementality"
-                                    ),
-                                    "manifest_size": mpath.stat().st_size,
-                                })
-                                continue  # Treated as complete
-
-                            # No output data — stage has never produced results,
-                            # so cascade-restarting is correct.
-                            logger.info(
-                                "Stage %s manifest is stale (%.0f < %.0f, gap=%.1fs) "
-                                "and has NO existing output — restarting stage",
-                                stage.value, manifest_mtime, baseline_mtime, age_gap,
-                            )
-                            stage_decisions.append({
-                                "stage": stage.value, "decision": "STALE_MTIME",
-                                "reason": f"Manifest mtime {manifest_mtime:.0f} < structural mtime {baseline_mtime:.0f}",
-                                "age_gap_seconds": round(age_gap, 1),
-                            })
-                            self._log_resume_decisions(project_id, stages, i, stage_decisions, skip_mtime_cascade)
-                            return i
-
-                    stage_decisions.append({
-                        "stage": stage.value, "decision": "COMPLETE",
-                        "manifest_size": mpath.stat().st_size,
-                    })
-                    continue  # Stage completed and fresh — skip
-
-                # Manifest missing or empty — stage needs to run.
-
-                # Atlas crash-loop guard
-                if stage == StageId.ATLAS:
-                    atlas_json = idx_dir / "atlas.json"
-                    if atlas_json.exists() and atlas_json.stat().st_size > 10:
-                        logger.warning(
-                            "Atlas manifest missing but atlas.json exists (%d bytes) "
-                            "— treating atlas as complete (crash recovery)",
-                            atlas_json.stat().st_size,
-                        )
-                        stage_decisions.append({
-                            "stage": stage.value, "decision": "CRASH_RECOVERY",
-                            "reason": f"Atlas manifest missing but atlas.json exists ({atlas_json.stat().st_size} bytes)",
-                        })
-                        continue
-
-                stage_decisions.append({
-                    "stage": stage.value, "decision": "MISSING_MANIFEST",
-                    "reason": f"{manifest_file} missing or empty",
-                })
-                self._log_resume_decisions(project_id, stages, i, stage_decisions, skip_mtime_cascade)
-                return i
-
-            # Stage has no manifest mapping — check output file existence
-            output_file = STAGE_OUTPUT_FILE.get(stage)
-            if output_file:
-                opath = idx_dir / output_file
-                if opath.exists() and opath.stat().st_size > 0:
-                    stage_decisions.append({
-                        "stage": stage.value, "decision": "COMPLETE",
-                        "output_size": opath.stat().st_size,
-                    })
-                    continue
-                stage_decisions.append({
-                    "stage": stage.value, "decision": "MISSING_OUTPUT",
-                    "reason": f"{output_file} missing or empty",
-                })
-                self._log_resume_decisions(project_id, stages, i, stage_decisions, skip_mtime_cascade)
-                return i
-
-            # No manifest and no output file — assume needs to run
-            stage_decisions.append({
-                "stage": stage.value, "decision": "NO_OUTPUT_FILE",
-                "reason": "No manifest or output file configured",
-            })
-            self._log_resume_decisions(project_id, stages, i, stage_decisions, skip_mtime_cascade)
-            return i
-
-        # All stages complete
-        self._log_resume_decisions(project_id, stages, len(stages), stage_decisions, skip_mtime_cascade)
-        return len(stages)
-
-    def _log_resume_decisions(
-        self,
-        project_id: str,
-        stages: list,
-        resume_index: int,
-        stage_decisions: list[dict],
-        skip_mtime_cascade: bool,
-    ) -> None:
-        """Log the per-stage resume point decision audit trail.
-
-        Called at the end of _detect_resume_point to write a structured
-        decision event showing WHY each stage was skipped or selected
-        as the resume point.  This is the single most important log
-        for diagnosing 'pipeline restarted from scratch' issues.
-        """
-        try:
-            pfl = self._get_file_logger(project_id)
-            if not pfl:
-                return
-
-            all_complete = resume_index >= len(stages)
-            resume_stage = None if all_complete else stages[resume_index].value
-
-            pfl.decision("resume_point", resume_stage or "all_complete", {
-                "resume_index": resume_index,
-                "total_stages": len(stages),
-                "all_complete": all_complete,
-                "skip_mtime_cascade": skip_mtime_cascade,
-                "per_stage": stage_decisions,
-            })
-        except Exception:
-            logger.debug(
-                "Failed to log resume decisions (non-fatal)",
-                exc_info=True,
-            )
-
+        """Delegates to ResumeStrategy.detect_resume_point."""
+        return ResumeStrategy.detect_resume_point(
+            project_id, stages, skip_mtime_cascade,
+            pfl_fn=self._get_file_logger,
+        )
+    def _log_resume_decisions(self, *args, **kwargs) -> None:
+        """Moved to ResumeStrategy._log_resume_decisions."""
+        pass
     @staticmethod
     def _is_deep_enrichment_auto(project_id: str) -> bool:
         """Check if deep enrichment should auto-chain after fast sync.
@@ -2567,76 +2026,13 @@ class PipelineOrchestrator:
     _DEEPENING_RETRIGGER_DELAY = 30.0
 
     def _maybe_retrigger_deepening(self, project_id: str, pfl: Any = None) -> None:
-        """Re-trigger deep enrichment if auto mode is on and deepening hasn't converged."""
-        if not self._is_deep_enrichment_auto(project_id):
-            return
-
-        try:
-            from codrag.core.project_registry import project_index_dir
-            from codrag.services.project_helpers import require_project
-            from codrag.core import EpistemicEnricher, LLMClient
-            from pathlib import Path
-
-            project = require_project(project_id)
-            idx_dir = project_index_dir(project)
-
-            modules_path = idx_dir / "trace_modules.jsonl"
-            if not modules_path.exists() or modules_path.stat().st_size == 0:
-                return
-
-            enricher = EpistemicEnricher(
-                llm=LLMClient("http://localhost:11434", "none"),
-                repo_root=Path(project.path),
-                index_dir=idx_dir,
-            )
-            scores = enricher.compute_all_scores()
-            if not scores:
-                return
-            composites = [s.composite for s in scores.values()]
-            settled_count = sum(1 for c in composites if c >= 0.60)
-            settled = settled_count / len(composites) if composites else 0.0
-        except Exception:
-            logger.debug("Could not compute settled_ratio for %s — skipping retrigger", project_id, exc_info=True)
-            return
-
-        if settled >= self._DEEPENING_CONVERGE_TARGET:
-            logger.info(
-                "Deepening converged for %s (%.1f%% >= %.1f%%) — no retrigger",
-                project_id, settled * 100, self._DEEPENING_CONVERGE_TARGET * 100,
-            )
-            if pfl:
-                pfl.log("deepening", f"Converged: {settled*100:.1f}%")
-            return
-
-        try:
-            from codrag.services.pipeline_budget import budget as _budget
-            if not _budget.check_allowed(project_id):
-                logger.info("Budget exhausted for %s — deferring retrigger", project_id)
-                return
-        except Exception:
-            pass
-
-        logger.info(
-            "Scheduling deepening retrigger for %s in %.0fs (settled=%.1f%%)",
-            project_id, self._DEEPENING_RETRIGGER_DELAY, settled * 100,
+        """Delegates to PostFlightActions.maybe_retrigger_deepening."""
+        PostFlightActions.maybe_retrigger_deepening(
+            project_id,
+            is_deep_auto_fn=self._is_deep_enrichment_auto,
+            run_deepening_fn=self.run_deepening_only,
+            pfl=pfl,
         )
-        if pfl:
-            pfl.log("deepening", f"Re-trigger in {self._DEEPENING_RETRIGGER_DELAY:.0f}s (settled={settled*100:.1f}%)")
-
-        import threading
-        def _retrigger():
-            try:
-                started = self.run_deepening_only(project_id)
-                logger.info("Deepening retrigger for %s: started=%s", project_id, started)
-            except Exception as e:
-                logger.warning("Deepening retrigger failed for %s: %s", project_id, e)
-
-        timer = threading.Timer(self._DEEPENING_RETRIGGER_DELAY, _retrigger)
-        timer.daemon = True
-        timer.start()
-
-    # ── Phase 50: Rules File Generation (post-stage hooks) ──────────
-
     @staticmethod
     def _read_graph_stats_from_manifest(idx_dir) -> Dict[str, Any]:
         """Read node/edge counts from trace_manifest.json for rules file stats.
@@ -2650,6 +2046,9 @@ class PipelineOrchestrator:
             return {"node_count": 0, "edge_count": 0, "coverage_pct": None}
 
     @staticmethod
+    def _write_atlas_signal(idx_dir) -> None:
+        """Delegates to PostFlightActions.write_atlas_signal."""
+        PostFlightActions.write_atlas_signal(idx_dir)
     def _write_atlas_signal(idx_dir) -> None:
         """D1: Write a timestamp signal file so the MCP server can detect atlas changes.
 
@@ -2666,207 +2065,14 @@ class PipelineOrchestrator:
             pass  # Non-fatal -- MCP server will still work, just won't get push freshness
 
     def _generate_preliminary_atlas_and_rules(self, project_id: str) -> None:
-        """Generate a structural-only atlas and write/update IDE rules files.
-
-        Called after Stage 1 (STRUCTURAL / Rust trace) completes. Takes ~100ms
-        (no LLM). The atlas is replaced by the full LLM-generated version when
-        Stage 9 (ATLAS) completes.
-
-        Non-fatal — never blocks the pipeline.
-        """
-        try:
-            from pathlib import Path
-            from codrag.services.project_helpers import require_project
-            from codrag.core.project_registry import project_index_dir
-            from codrag.core.atlas import CodebaseAtlas
-            from codrag.core.rules_generator import write_rules_file
-
-            project = require_project(project_id)
-            idx_dir = project_index_dir(project)
-
-            # Defensive: verify trace files exist before reading
-            nodes_path = idx_dir / "trace_nodes.jsonl"
-            if not nodes_path.exists() or nodes_path.stat().st_size == 0:
-                logger.debug("trace_nodes.jsonl missing after Stage 1 — skipping preliminary atlas")
-                return
-
-            atlas = CodebaseAtlas(idx_dir, llm=None, project_root=Path(project.path))
-
-            # ISSUE-I guard: If a full LLM atlas already exists (from a previous
-            # pipeline run), do NOT overwrite it with a structural one.  Instead,
-            # use the existing atlas content for the rules file and just refresh
-            # the focus areas / stats.
-            existing_doc = atlas.load()
-            if existing_doc and existing_doc.mode == "llm" and existing_doc.content:
-                logger.info(
-                    "Phase 50: Existing LLM atlas found for %s — reusing for rules file (not downgrading)",
-                    project_id,
-                )
-                doc = existing_doc
-            else:
-                # No LLM atlas yet — generate structural (no LLM, ~100ms)
-                doc = atlas.generate_structural()
-
-            if not doc or not doc.content:
-                logger.debug("Structural atlas empty for %s — writing rules without atlas", project_id)
-
-            # Gather stats for the rules file header
-            stats = self._read_graph_stats_from_manifest(idx_dir)
-            if doc and doc.file_count:
-                stats.setdefault("node_count", doc.file_count)
-
-            # Get included_paths from project config
-            pcfg = project.config or {}
-            included_paths = pcfg.get("included_paths") or []
-
-            # If reusing an existing LLM atlas, this is not preliminary
-            is_prelim = not (existing_doc and existing_doc.mode == "llm")
-
-            write_rules_file(
-                project_path=Path(project.path),
-                project_name=project.name or project_id,
-                atlas_content=doc.content if doc else "",
-                included_paths=included_paths if included_paths else None,
-                is_preliminary=is_prelim,
-                stats=stats,
-                ide="auto",
-                project_id=project_id,
-            )
-            # D1: Write signal file so MCP server detects atlas change
-            self._write_atlas_signal(idx_dir)
-
-            # Phase 64A: Cache rudimentary role sub-atlases from structural data.
-            # Uses path-based heuristics (no epistemic yet) — lower fidelity,
-            # but agents can immediately get role-filtered context.
-            try:
-                role_cache = atlas.cache_role_atlases()
-                logger.info(
-                    "Phase 64A: Preliminary role atlases cached — %d roles",
-                    len(role_cache),
-                )
-            except Exception:
-                logger.debug(
-                    "Phase 64A: Preliminary role atlas caching failed (non-fatal)",
-                    exc_info=True,
-                )
-
-            logger.info(
-                "Phase 50: Preliminary atlas + rules file written for %s (%d chars)",
-                project_id, doc.char_count if doc else 0,
-            )
-        except Exception:
-            logger.debug(
-                "Phase 50: Preliminary atlas generation failed for %s (non-fatal)",
-                project_id, exc_info=True,
-            )
-
+        """Delegates to PostFlightActions.generate_preliminary_atlas_and_rules."""
+        PostFlightActions.generate_preliminary_atlas_and_rules(project_id)
     def _regenerate_rules_with_full_atlas(self, project_id: str) -> None:
-        """Regenerate IDE rules files with the full LLM-generated atlas.
-
-        Called after Stage 9 (ATLAS) completes. Reads the atlas.json that the
-        atlas worker just wrote and embeds it into the rules files, replacing
-        the preliminary structural atlas from Stage 1.
-
-        Non-fatal — never blocks the pipeline.
-        """
-        try:
-            from pathlib import Path
-            from codrag.services.project_helpers import require_project
-            from codrag.core.project_registry import project_index_dir
-            from codrag.core.atlas import CodebaseAtlas
-            from codrag.core.rules_generator import write_rules_file
-
-            project = require_project(project_id)
-            idx_dir = project_index_dir(project)
-
-            # Load the full atlas that Stage 9 just generated
-            atlas = CodebaseAtlas(idx_dir)
-            doc = atlas.load()
-
-            if not doc or not doc.content:
-                logger.debug("No atlas.json found after Stage 9 for %s — skipping rules regen", project_id)
-                return
-
-            # Gather stats
-            stats = self._read_graph_stats_from_manifest(idx_dir)
-            if doc.file_count:
-                stats.setdefault("node_count", doc.file_count)
-
-            pcfg = project.config or {}
-            included_paths = pcfg.get("included_paths") or []
-
-            write_rules_file(
-                project_path=Path(project.path),
-                project_name=project.name or project_id,
-                atlas_content=doc.content,
-                included_paths=included_paths if included_paths else None,
-                is_preliminary=False,
-                stats=stats,
-                ide="auto",
-                project_id=project_id,
-            )
-            # D1: Write signal file so MCP server detects atlas change
-            self._write_atlas_signal(idx_dir)
-
-            logger.info(
-                "Phase 50: Rules file updated with full LLM atlas for %s (%d chars, mode=%s)",
-                project_id, doc.char_count, doc.mode,
-            )
-        except Exception:
-            logger.debug(
-                "Phase 50: Rules file regen failed for %s (non-fatal)",
-                project_id, exc_info=True,
-            )
-
-    # ── CodeIndex Build (post-pipeline) ─────────────────────────────
-
+        """Delegates to PostFlightActions.regenerate_rules_with_full_atlas."""
+        PostFlightActions.regenerate_rules_with_full_atlas(project_id)
     def _trigger_code_index_build(self, project_id: str, pfl: Any = None) -> None:
-        """Trigger a CodeIndex build after deep enrichment completes.
-
-        The pipeline builds KnowledgeIndex (knowledge_documents.json) but the
-        /context search endpoint requires CodeIndex (documents.json +
-        embeddings.npy).  This fires the build in the background so search
-        works immediately after the pipeline finishes.
-        """
-        # Don't trigger index builds for inactive projects
-        try:
-            from codrag.services.project_helpers import get_project_activity_status
-            if get_project_activity_status(project_id) != "active":
-                logger.info("Skipping CodeIndex build for %s — project not active", project_id)
-                return
-        except Exception:
-            pass
-
-        try:
-            from codrag.services.build_manager import build_manager
-            from codrag.services.project_helpers import require_project
-
-            project = require_project(project_id)
-            cfg = project.config or {}
-            include_globs = cfg.get("include_globs") or None
-            exclude_globs = cfg.get("exclude_globs") or None
-            max_file_bytes = int(cfg.get("max_file_bytes") or 500_000)
-            hard_limit_bytes = int(cfg.get("hard_limit_bytes") or 100_000_000)
-            included_paths = cfg.get("included_paths") or None
-
-            started = build_manager.start_project_build(
-                project, None, include_globs, exclude_globs,
-                max_file_bytes, hard_limit_bytes,
-                included_paths=included_paths,
-            )
-            logger.info(
-                "CodeIndex build triggered for %s after pipeline: started=%s",
-                project_id, started,
-            )
-            if pfl:
-                pfl.log("code_index", f"CodeIndex build triggered: started={started}")
-        except Exception as e:
-            logger.warning("Failed to trigger CodeIndex build for %s: %s", project_id, e)
-            if pfl:
-                pfl.log("code_index", f"CodeIndex build FAILED: {e}")
-
-    # ── Phase 25: Journal Helpers ─────────────────────────────────
-
+        """Delegates to PostFlightActions.trigger_code_index_build."""
+        PostFlightActions.trigger_code_index_build(project_id, pfl)
     def _journal_stage_started(self, run: PipelineGroupStateMachine, stage: StageId) -> None:
         if not run.journal_run_id:
             return
@@ -2992,71 +2198,18 @@ class PipelineOrchestrator:
         stage: StageId,
         pfl: Any = None,
     ) -> bool:
-        """Check if a stage's outputs are already newer than its inputs.
-
-        Returns True if the stage should be skipped (already current).
-        Marks the stage as 'skipped' in the run and advances to the next.
-        """
-        # Phase 60D: During incremental runs, the coverage gap check in
-        # run_fast_sync already determined that stale/new files exist.
-        # The freshness check compares output vs input file mtimes,
-        # but during incremental runs the output from a PREVIOUS run
-        # will be newer than inputs even though it doesn't cover all
-        # files.  Workers handle incrementality internally — they skip
-        # already-processed items and only do new ones.  Bypassing the
-        # freshness gate ensures the worker actually runs.
-        if run.project_id in self._incremental_runs:
-            logger.debug(
-                "Freshness check bypassed for %s/%s (incremental run — "
-                "workers handle incrementality internally)",
-                run.project_id, stage.value,
-            )
+        """Delegates to ResumeStrategy.should_skip_stage_freshness."""
+        is_incremental = run.project_id in self._incremental_runs
+        should_skip, reason = ResumeStrategy.should_skip_stage_freshness(
+            run.project_id, stage, is_incremental, pfl,
+        )
+        if should_skip:
+            logger.info("Stage %s skipped for %s: %s", stage.value, run.project_id, reason)
             if pfl:
-                pfl.log(stage.value, "Freshness check bypassed (incremental mode)")
-            return False
-
-        try:
-            from codrag.services.pipeline_integrity import (
-                integrity_guard, STAGE_DATA_FILES,
-            )
-            from codrag.services.pipeline.stages import STAGE_INPUT_FILES
-            from codrag.core.project_registry import project_index_dir
-            from codrag.services.project_helpers import require_project
-
-            project = require_project(run.project_id)
-            idx_dir = Path(project_index_dir(project))
-            input_files = STAGE_INPUT_FILES.get(stage, [])
-            output_files = STAGE_DATA_FILES.get(stage.value, [])
-
-            if not input_files:
-                return False  # structural has no pipeline inputs
-
-            should_skip, reason = integrity_guard.check_stage_freshness(
-                idx_dir, input_files, output_files,
-            )
-
-            if should_skip:
-                logger.info(
-                    "Stage %s skipped for %s: %s",
-                    stage.value, run.project_id, reason,
-                )
-                if pfl:
-                    pfl.log(stage.value, f"SKIPPED (freshness): {reason}")
-                run.stage_results[stage.value] = "skipped"
-                # Advance to next stage — no lock needed here since
-                # the caller may already hold self._lock (which is not
-                # reentrant). run.advance() only updates internal state.
-                run.advance()
-                return True
-        except Exception:
-            logger.debug(
-                "Freshness check failed (non-fatal) for %s/%s",
-                run.project_id, stage.value, exc_info=True,
-            )
-        return False
-
-    # ── Phase 60B: Pre-Stage Backup Restore ─────────────────────
-
+                pfl.log(stage.value, f"SKIPPED (freshness): {reason}")
+            run.stage_results[stage.value] = "skipped"
+            run.advance()
+        return should_skip
     def _try_restore_stage_from_backup(
         self,
         run: PipelineGroupStateMachine,
