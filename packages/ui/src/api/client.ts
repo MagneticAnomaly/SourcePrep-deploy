@@ -1,5 +1,9 @@
 import { ApiClientError } from './errors';
 import type {
+  ArchGraphResponse, ArchSummaryResponse, ArchState,
+  ArchNote, ArchNoteCreate, ArchNoteUpdate,
+} from '../types/architecture';
+import type {
   ApiEnvelope,
   AssembleContextRequest,
   AssembleContextResponse,
@@ -621,6 +625,63 @@ export class CodragApiClient implements ApiClient {
       method: 'PUT',
       body: config,
     });
+  }
+
+  // ── Architecture (Phase 71) ────────────────────────────────────────
+
+  async getArchitectureGraph(projectId: string, layerPath?: string): Promise<ArchGraphResponse> {
+    const query: Record<string, string> = {};
+    if (layerPath) query.layer_path = layerPath;
+    return this.requestEnvelope<ArchGraphResponse>(
+      `/projects/${encodeURIComponent(projectId)}/architecture/graph`,
+      { query },
+    );
+  }
+
+  async getArchitectureSummary(projectId: string): Promise<ArchSummaryResponse> {
+    return this.requestEnvelope<ArchSummaryResponse>(
+      `/projects/${encodeURIComponent(projectId)}/architecture/summary`,
+    );
+  }
+
+  async getArchitectureState(projectId: string): Promise<ArchState> {
+    return this.requestEnvelope<ArchState>(
+      `/projects/${encodeURIComponent(projectId)}/architecture/state`,
+    );
+  }
+
+  async saveArchitectureState(projectId: string, state: ArchState): Promise<{ saved: boolean }> {
+    return this.requestEnvelope<{ saved: boolean }>(
+      `/projects/${encodeURIComponent(projectId)}/architecture/state`,
+      { method: 'PUT', body: state },
+    );
+  }
+
+  async listArchitectureNotes(projectId: string): Promise<ArchNote[]> {
+    return this.requestEnvelope<ArchNote[]>(
+      `/projects/${encodeURIComponent(projectId)}/architecture/notes`,
+    );
+  }
+
+  async createArchitectureNote(projectId: string, note: ArchNoteCreate): Promise<ArchNote> {
+    return this.requestEnvelope<ArchNote>(
+      `/projects/${encodeURIComponent(projectId)}/architecture/notes`,
+      { method: 'POST', body: note },
+    );
+  }
+
+  async updateArchitectureNote(projectId: string, noteId: string, updates: ArchNoteUpdate): Promise<ArchNote> {
+    return this.requestEnvelope<ArchNote>(
+      `/projects/${encodeURIComponent(projectId)}/architecture/notes/${encodeURIComponent(noteId)}`,
+      { method: 'PUT', body: updates },
+    );
+  }
+
+  async deleteArchitectureNote(projectId: string, noteId: string): Promise<{ deleted: boolean }> {
+    return this.requestEnvelope<{ deleted: boolean }>(
+      `/projects/${encodeURIComponent(projectId)}/architecture/notes/${encodeURIComponent(noteId)}`,
+      { method: 'DELETE' },
+    );
   }
 
   private async requestEnvelope<T>(
