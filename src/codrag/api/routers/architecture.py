@@ -63,6 +63,11 @@ class NoteUpdate(BaseModel):
     color: Optional[str] = None
 
 
+class ArchStateBody(BaseModel):
+    layouts: Dict[str, Any] = {}
+    module_overrides: Dict[str, Any] = {}
+
+
 # ── Helpers ─────────────────────────────────────────────────────────
 
 def _load_modules(idx_dir: Path) -> List[Dict[str, Any]]:
@@ -322,11 +327,11 @@ def get_architecture_state(project_id: str) -> Dict[str, Any]:
 
 
 @router.put("/projects/{project_id}/architecture/state")
-def save_architecture_state(project_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
+def save_architecture_state(project_id: str, body: ArchStateBody) -> Dict[str, Any]:
     proj = _require_project(project_id)
     idx_dir = _project_index_dir(proj)
     arch = _get_arch_state(idx_dir)
-    arch.save_state(body)
+    arch.save_state(body.model_dump())
     return ok({"saved": True})
 
 

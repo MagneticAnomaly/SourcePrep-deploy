@@ -685,6 +685,7 @@ function App() {
     transientComplete: selectedProjectId ? transientCompleteProjects.has(selectedProjectId) : false,
     onOpenDeepSettings: () => { setSettingsOpenToTab('project'); setScrollToDeepAnalysis(true); setSettingsOpen(true) },
     onOpenSettings: () => { setSettingsOpenToTab('global'); setSettingsOpen(true) },
+    onOpenDetails: (panelId: string) => layoutApiRef.current?.openDetails(panelId),
     // Domain groups
     search: {
       query, setQuery, searchK, setSearchK, minScore, setMinScore,

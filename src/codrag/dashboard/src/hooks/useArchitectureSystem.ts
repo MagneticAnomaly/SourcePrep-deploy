@@ -142,7 +142,9 @@ export function useArchitectureSystem(
 
       if (saveDebounce.current) clearTimeout(saveDebounce.current);
       saveDebounce.current = setTimeout(() => {
-        api.saveArchitectureState(selectedProjectId, newState).catch(() => {});
+        api.saveArchitectureState(selectedProjectId, newState).catch((err) => {
+          setError(`Layout save failed: ${err.message}`);
+        });
       }, 1000);
     },
     [selectedProjectId, archState, layerPath, api],
@@ -158,7 +160,9 @@ export function useArchitectureSystem(
         .then((created) => {
           setNotes((prev) => [...prev, created]);
         })
-        .catch(() => {});
+        .catch((err) => {
+          setError(`Note creation failed: ${err.message}`);
+        });
     },
     [selectedProjectId, api],
   );
@@ -169,7 +173,8 @@ export function useArchitectureSystem(
       setNotes((prev) =>
         prev.map((n) => (n.id === noteId ? { ...n, content } : n)),
       );
-      api.updateArchitectureNote(selectedProjectId, noteId, { content }).catch(() => {
+      api.updateArchitectureNote(selectedProjectId, noteId, { content }).catch((err) => {
+        setError(`Note update failed: ${err.message}`);
         api.listArchitectureNotes(selectedProjectId).then(setNotes).catch(() => {});
       });
     },
@@ -180,7 +185,8 @@ export function useArchitectureSystem(
     (noteId: string) => {
       if (!selectedProjectId) return;
       setNotes((prev) => prev.filter((n) => n.id !== noteId));
-      api.deleteArchitectureNote(selectedProjectId, noteId).catch(() => {
+      api.deleteArchitectureNote(selectedProjectId, noteId).catch((err) => {
+        setError(`Note delete failed: ${err.message}`);
         api.listArchitectureNotes(selectedProjectId).then(setNotes).catch(() => {});
       });
     },

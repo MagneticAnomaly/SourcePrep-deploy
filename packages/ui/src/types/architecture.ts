@@ -14,7 +14,7 @@ export interface ArchModule {
   description: string;
   file_count: number;
   member_files: string[];
-  hub_files: string[];
+  hub_files?: string[];
   domain_tags: string[];
   architecture_layers: string[];
   component_status: string;

@@ -242,6 +242,8 @@ export interface DashboardPanelsProps {
   onOpenDeepSettings?: () => void
   /** Open settings drawer (generic — used for upgrade CTAs) */
   onOpenSettings?: () => void
+  /** Open detail overlay for a specific panel */
+  onOpenDetails?: (panelId: string) => void
   // Domain groups
   search: PanelSearchProps
   files: PanelFileSystemProps
@@ -1172,7 +1174,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         summary={archProps.summary}
         loading={archProps.loading}
         error={archProps.error}
-        onOpenDetail={() => {/* openDetails handled by layoutApi in ModularDashboard */}}
+        onOpenDetail={() => props.onOpenDetails?.('architecture')}
       />
     ),
   }), [p, excludedPaths, handleToggleExclude, archProps])

@@ -31,7 +31,7 @@ function DependencyEdgeInner(props: EdgeProps & { data?: DependencyEdgeData }) {
           strokeWidth: count > 5 ? 3 : count > 1 ? 2 : 1.5,
           strokeDasharray: style.dashArray,
         }}
-        markerEnd="url(#arrow)"
+        markerEnd="url(#arch-diagram-arrow)"
       />
       {count > 1 && (
         <foreignObject x={labelX - 12} y={labelY - 10} width={24} height={20} className="pointer-events-none">

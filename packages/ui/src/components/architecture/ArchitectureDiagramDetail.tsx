@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect, Fragment } from 'react';
+import { useCallback, useMemo, useState, useEffect, useRef, Fragment } from 'react';
 import {
   ReactFlow,
   Background,
@@ -167,6 +167,60 @@ async function autoLayout(nodes: Node[], edges: Edge[]): Promise<Node[]> {
   });
 }
 
+function SidebarNoteCard({ note, onUpdate, onDelete }: { note: ArchNote; onUpdate: (content: string) => void; onDelete: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(note.content);
+
+  const handleSave = useCallback(() => {
+    if (draft.trim() && draft !== note.content) {
+      onUpdate(draft.trim());
+    }
+    setEditing(false);
+  }, [draft, note.content, onUpdate]);
+
+  return (
+    <div className="mb-2 p-2 rounded bg-zinc-900 border border-zinc-800">
+      <div className="flex justify-between items-start">
+        <span className="text-[10px] text-zinc-500">
+          {note.note_type === 'adr' ? '📌 ADR' : note.note_type === 'agent_note' ? '🤖 Agent' : '💬'}
+        </span>
+        <div className="flex gap-1">
+          <button
+            onClick={() => { setEditing(!editing); setDraft(note.content); }}
+            className="text-[10px] text-zinc-600 hover:text-zinc-300"
+          >
+            {editing ? 'cancel' : 'edit'}
+          </button>
+          <button onClick={onDelete} className="text-[10px] text-zinc-600 hover:text-red-400">
+            delete
+          </button>
+        </div>
+      </div>
+      {editing ? (
+        <>
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && e.metaKey) handleSave(); }}
+            className="w-full mt-1 bg-transparent border border-zinc-600 rounded text-xs text-zinc-200 p-1 resize-none"
+            rows={3}
+            autoFocus
+          />
+          <button
+            onClick={handleSave}
+            className="mt-1 text-[10px] px-2 py-0.5 bg-zinc-700 rounded text-zinc-300 hover:bg-zinc-600"
+          >
+            Save
+          </button>
+        </>
+      ) : (
+        <p className="text-xs text-zinc-300 mt-1">{note.content}</p>
+      )}
+      <span className="text-[10px] text-zinc-600">— {note.author}</span>
+    </div>
+  );
+}
+
 function AddNoteForm({ nodeId, onCreateNote }: { nodeId: string; onCreateNote: (n: ArchNoteCreate) => void }) {
   const [content, setContent] = useState('');
   const [noteType, setNoteType] = useState<'comment' | 'adr'>('comment');
@@ -210,8 +264,8 @@ function AddNoteForm({ nodeId, onCreateNote }: { nodeId: string; onCreateNote: (
 function DiagramCanvas(props: ArchitectureDiagramDetailProps) {
   const {
     graph, notes, layerPath, loading,
-    onDrillInto, onNavigateToLayer,
-    onCreateNote, onDeleteNote,
+    onDrillInto, onNavigateToLayer, onSavePositions,
+    onCreateNote, onUpdateNote, onDeleteNote,
     onSelectNode, selectedNodeId,
     savedPositions, savedViewport,
   } = props;
@@ -227,29 +281,44 @@ function DiagramCanvas(props: ArchitectureDiagramDetailProps) {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const [needsLayout, setNeedsLayout] = useState(!savedPositions?.length);
+  const needsLayoutRef = useRef(!savedPositions?.length);
+  const viewportRef = useRef<Viewport>(savedViewport ?? { x: 0, y: 0, zoom: 0.8 });
 
+  // Sync nodes/edges when graph data changes, then auto-layout if no saved positions
   useEffect(() => {
     const newNodes = graph ? buildFlowNodes(graph, notes, savedPositions) : [];
     const newEdges = graph ? buildFlowEdges(graph) : [];
-    setNodes(newNodes);
-    setEdges(newEdges);
-    setNeedsLayout(!savedPositions?.length);
-  }, [graph, notes, savedPositions, setNodes, setEdges]);
+    const shouldLayout = !savedPositions?.length && newNodes.length > 0;
 
-  useEffect(() => {
-    if (needsLayout && nodes.length > 0) {
-      autoLayout(nodes, edges).then((laid) => {
+    if (shouldLayout) {
+      needsLayoutRef.current = true;
+      autoLayout(newNodes, newEdges).then((laid) => {
         setNodes(laid);
-        setNeedsLayout(false);
+        needsLayoutRef.current = false;
       });
+    } else {
+      setNodes(newNodes);
     }
-  }, [needsLayout, nodes.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    setEdges(newEdges);
+  }, [graph, notes, savedPositions, setNodes, setEdges]);
 
   const handleAutoLayout = useCallback(async () => {
     const laid = await autoLayout(nodes, edges);
     setNodes(laid);
   }, [nodes, edges, setNodes]);
+
+  // ── Layout persistence: save on drag end and viewport change ──
+  const handleNodeDragStop = useCallback(() => {
+    const positions = nodes.map((n) => ({ id: n.id, x: n.position.x, y: n.position.y }));
+    onSavePositions(positions, viewportRef.current);
+  }, [nodes, onSavePositions]);
+
+  const handleMoveEnd = useCallback((_event: any, viewport: Viewport) => {
+    viewportRef.current = viewport;
+    // Save positions + viewport together
+    const positions = nodes.map((n) => ({ id: n.id, x: n.position.x, y: n.position.y }));
+    onSavePositions(positions, viewport);
+  }, [nodes, onSavePositions]);
 
   const handleNodeDoubleClick = useCallback((_event: React.MouseEvent, node: Node) => {
     if (node.type === 'module') {
@@ -357,6 +426,8 @@ function DiagramCanvas(props: ArchitectureDiagramDetailProps) {
             onEdgesChange={onEdgesChange}
             onNodeDoubleClick={handleNodeDoubleClick}
             onNodeClick={handleNodeClick}
+            onNodeDragStop={handleNodeDragStop}
+            onMoveEnd={handleMoveEnd}
             onPaneClick={handlePaneClick}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
@@ -375,7 +446,7 @@ function DiagramCanvas(props: ArchitectureDiagramDetailProps) {
 
             <svg>
               <defs>
-                <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <marker id="arch-diagram-arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
                   <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b7280" />
                 </marker>
               </defs>
@@ -432,21 +503,12 @@ function DiagramCanvas(props: ArchitectureDiagramDetailProps) {
                 Notes ({selectedNodeNotes.length})
               </h4>
               {selectedNodeNotes.map((note) => (
-                <div key={note.id} className="mb-2 p-2 rounded bg-zinc-900 border border-zinc-800">
-                  <div className="flex justify-between items-start">
-                    <span className="text-[10px] text-zinc-500">
-                      {note.note_type === 'adr' ? '📌 ADR' : note.note_type === 'agent_note' ? '🤖 Agent' : '💬'}
-                    </span>
-                    <button
-                      onClick={() => onDeleteNote(note.id)}
-                      className="text-[10px] text-zinc-600 hover:text-red-400"
-                    >
-                      delete
-                    </button>
-                  </div>
-                  <p className="text-xs text-zinc-300 mt-1">{note.content}</p>
-                  <span className="text-[10px] text-zinc-600">— {note.author}</span>
-                </div>
+                <SidebarNoteCard
+                  key={note.id}
+                  note={note}
+                  onUpdate={(content) => onUpdateNote(note.id, content)}
+                  onDelete={() => onDeleteNote(note.id)}
+                />
               ))}
 
               <AddNoteForm nodeId={selectedNodeId!} onCreateNote={onCreateNote} />
