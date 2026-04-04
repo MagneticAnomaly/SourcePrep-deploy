@@ -203,6 +203,25 @@ class ManifestStore:
         if p.exists():
             os.utime(str(p), (mtime, mtime))
 
+    def sync_downstream_mtimes(self, baseline_stage: StageId, target_stages: list[StageId]) -> list[str]:
+        """Touch target stage manifests to match the baseline stage's mtime.
+
+        Returns list of stage names that were synced. Used to prevent
+        false STALE_MTIME detection in _detect_resume_point.
+        """
+        baseline_mtime = self.provenance_mtime(baseline_stage)
+        if baseline_mtime == 0.0:
+            return []
+
+        synced = []
+        for stage in target_stages:
+            if stage == baseline_stage:
+                continue
+            if self.provenance_exists(stage) and self.provenance_mtime(stage) < baseline_mtime:
+                self.touch_provenance_mtime(stage, baseline_mtime)
+                synced.append(stage.value)
+        return synced
+
     # ── Age summary ────────────────────────────────────────────
 
     def age_summary(self) -> dict[str, dict[str, Any]]:

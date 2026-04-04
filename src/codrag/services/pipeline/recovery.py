@@ -603,9 +603,7 @@ class RecoveryManager:
 
                 if deep_stale:
                     # Phase 72: Touch manifests first and re-check
-                    from codrag.services.pipeline.orchestrator import PipelineOrchestrator
-
-                    PipelineOrchestrator._touch_stale_deep_manifests(pid)
+                    store.sync_downstream_mtimes(StageId.CATALOGUE, list(DEEP_ENRICHMENT_STAGES))
 
                     # Re-verify after touching
                     deep_stale_after_touch = False

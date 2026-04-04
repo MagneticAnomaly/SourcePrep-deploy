@@ -88,23 +88,6 @@ class PipelineOrchestrator:
         self._changed_paths: Dict[str, set[str]] = {}
         # Explicit chain flag: run_all() sets this so deep_enrichment chains after fast_sync
         self._chain_deep: Dict[str, bool] = {}
-        # Phase 72: manifest store instances per project
-        self._manifest_stores: Dict[str, ManifestStore] = {}
-
-    def _get_manifest_store(self, project_id: str) -> Optional[ManifestStore]:
-        """Get or create a ManifestStore for a project."""
-        if project_id not in self._manifest_stores:
-            try:
-                from codrag.services.project_helpers import require_project
-                from codrag.core.project_registry import project_index_dir
-                project = require_project(project_id)
-                idx_dir = Path(project_index_dir(project))
-                self._manifest_stores[project_id] = ManifestStore(idx_dir)
-            except Exception:
-                logger.debug("Could not create ManifestStore for %s", project_id, exc_info=True)
-                return None
-        return self._manifest_stores.get(project_id)
-
     def _get_file_logger(self, project_id: str):
         """Get or create a PipelineFileLogger for a project."""
         if project_id not in self._file_loggers:
@@ -213,10 +196,7 @@ class PipelineOrchestrator:
 
     @staticmethod
     def _touch_stale_deep_manifests(project_id: str) -> None:
-        """Touch deep enrichment manifests so they match the catalogue mtime.
-
-        Delegates to ManifestStore for mtime queries and touch operations.
-        """
+        """Touch deep enrichment manifests so they match the catalogue mtime."""
         try:
             from codrag.services.project_helpers import require_project
             from codrag.core.project_registry import project_index_dir
@@ -225,18 +205,9 @@ class PipelineOrchestrator:
             idx_dir = Path(project_index_dir(project))
             store = ManifestStore(idx_dir)
 
-            cat_mtime = store.provenance_mtime(StageId.CATALOGUE)
-            if cat_mtime == 0.0:
-                return
-
-            for stage in DEEP_ENRICHMENT_STAGES:
-                if store.provenance_exists(stage):
-                    if store.provenance_mtime(stage) < cat_mtime:
-                        store.touch_provenance_mtime(stage, cat_mtime)
-                        logger.debug(
-                            "Touched deep manifest %s to match catalogue mtime (%.0f)",
-                            STAGE_MANIFEST_FILE.get(stage), cat_mtime,
-                        )
+            synced = store.sync_downstream_mtimes(StageId.CATALOGUE, list(DEEP_ENRICHMENT_STAGES))
+            if synced:
+                logger.debug("Touched %d deep manifests to match catalogue mtime", len(synced))
         except Exception:
             logger.debug(
                 "Failed to touch stale deep manifests for %s (non-fatal)",
@@ -318,21 +289,22 @@ class PipelineOrchestrator:
                 pfl.log("structural", f"Pruned {pruned} stale inferred edges ({len(kept)} kept)")
 
             # Also prune the inferred manifest's file hash entries
-            inferred_manifest = idx_dir / "trace_inferred_manifest.json"
-            if inferred_manifest.exists():
-                try:
-                    manifest = json.loads(inferred_manifest.read_text())
-                    file_hashes = manifest.get("file_hashes", {})
+            # Use ManifestStore for atomic write
+            try:
+                store = ManifestStore(idx_dir)
+                provenance = store.read_provenance(StageId.INFERRED_EDGES)
+                if provenance:
+                    file_hashes = provenance.get("file_hashes", {})
                     if file_hashes:
                         pruned_hashes = {
                             k: v for k, v in file_hashes.items()
                             if k in valid_paths
                         }
                         if len(pruned_hashes) < len(file_hashes):
-                            manifest["file_hashes"] = pruned_hashes
-                            inferred_manifest.write_text(json.dumps(manifest, indent=2))
-                except Exception:
-                    logger.debug("Failed to prune inferred manifest (non-fatal)", exc_info=True)
+                            provenance["file_hashes"] = pruned_hashes
+                            store.write_provenance(StageId.INFERRED_EDGES, provenance)
+            except Exception:
+                logger.debug("Failed to prune inferred manifest (non-fatal)", exc_info=True)
 
         except Exception:
             logger.debug(
