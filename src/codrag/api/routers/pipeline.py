@@ -374,6 +374,25 @@ async def pipeline_status(project_id: str) -> Dict[str, Any]:
                 if slot_info.get("phase"):
                     stage_data[stage_key]["slot_phase"] = slot_info["phase"]
 
+        # Phase 72 Stage 4: Merge stage snapshots from state machine.
+        # Snapshots provide live data during active runs (updated by workers).
+        # When a snapshot has data, it takes precedence for running/progress fields
+        # since it's fresher than the disk reads above.
+        stage_snapshots = pipeline_state.get("stage_snapshots") or {}
+        for snap_key, snap_data in stage_snapshots.items():
+            if snap_key in stage_data and isinstance(snap_data, dict):
+                # Only merge running/progress fields from snapshots
+                if snap_data.get("running"):
+                    stage_data[snap_key]["running"] = True
+                for k in ("progress_current", "progress_total", "progress_baseline"):
+                    if snap_data.get(k, 0) > 0:
+                        stage_data[snap_key][k] = snap_data[k]
+                # Merge item counts if snapshot has them (from completion)
+                if snap_data.get("item_count", 0) > 0:
+                    stage_data[snap_key]["snapshot_item_count"] = snap_data["item_count"]
+                if snap_data.get("avg_confidence", 0) > 0:
+                    stage_data[snap_key]["snapshot_avg_confidence"] = snap_data["avg_confidence"]
+
         # Phase 25: include crashed runs so the UI can show recovery banner
         crashed_runs = pipeline_orchestrator.get_crashed_runs(project_id)
 

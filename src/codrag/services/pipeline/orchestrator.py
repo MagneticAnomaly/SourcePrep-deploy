@@ -717,6 +717,12 @@ class PipelineOrchestrator:
                 (deep_run.is_active if deep_run else False)
             ),
             "run_mode": "incremental" if project_id in self._incremental_runs else None,
+            # Phase 72 Stage 4: Include stage snapshots for lock-free status reads.
+            # Combines snapshots from both group runs (fast_sync + deep_enrichment).
+            "stage_snapshots": {
+                **({k: v.to_dict() for k, v in fast_run.get_stage_snapshots().items()} if fast_run else {}),
+                **({k: v.to_dict() for k, v in deep_run.get_stage_snapshots().items()} if deep_run else {}),
+            },
             **self._get_branch_info(project_id),
         }
 
@@ -1351,6 +1357,9 @@ class PipelineOrchestrator:
                 "group": run.group,
             })
 
+        # Phase 72 Stage 4: Mark stage as running in snapshot
+        run.update_stage_snapshot(stage.value, running=True, exists=True)
+
         # Phase 70B: Freshness check — skip if outputs already current
         # Placed before heartbeat/journal so skipped stages don't start timers.
         if self._should_skip_stage_freshness(run, stage, pfl):
@@ -1482,6 +1491,12 @@ class PipelineOrchestrator:
                     self._write_stage_manifest_and_update_run(
                         matching_run, stage, slot,
                     )
+
+                    # Phase 72 Stage 4: Update stage snapshot on completion.
+                    # Captures final counts so the status endpoint has data
+                    # without reading disk next time it's polled.
+                    self._update_stage_snapshot_from_slot(matching_run, stage, slot)
+
                     # Phase 50: Generate preliminary atlas + rules file after Stage 1,
                     # and regenerate rules with full LLM atlas after Stage 9.
                     if stage == StageId.STRUCTURAL:
@@ -2079,6 +2094,64 @@ class PipelineOrchestrator:
     def _create_checkpoint_if_needed(self, run: PipelineGroupStateMachine, stage: StageId) -> None:
         """Delegates to RecoveryManager.create_checkpoint_if_needed."""
         RecoveryManager.create_checkpoint_if_needed(run, stage)
+
+    # ── Phase 72 Stage 4: Stage Snapshot Updates ─────────────────
+
+    def _update_stage_snapshot_from_slot(
+        self,
+        run: PipelineGroupStateMachine,
+        stage: StageId,
+        slot: Any,
+    ) -> None:
+        """Update the state machine's stage snapshot from a completed build slot.
+
+        Captures progress, quality, and result data so the status endpoint
+        can serve this without reading disk.
+        """
+        try:
+            worker_result = getattr(slot, "result", None) or {}
+            snapshot_data: Dict[str, Any] = {
+                "exists": True,
+                "running": False,
+            }
+
+            # Progress from build slot
+            if hasattr(slot, "progress_current"):
+                snapshot_data["progress_current"] = slot.progress_current
+                snapshot_data["progress_total"] = slot.progress_total
+                snapshot_data["progress_baseline"] = getattr(slot, "progress_baseline", 0)
+
+            # Item counts from worker result
+            if isinstance(worker_result, dict):
+                for key in ("total_items", "processed", "item_count", "nodes", "edges"):
+                    if key in worker_result:
+                        snapshot_data[key] = worker_result[key]
+
+            # Quality from manifest (just written by _write_stage_manifest)
+            try:
+                ms = self._get_or_create_manifest_store(run.project_id)
+                if ms:
+                    quality = ms.read_quality(stage)
+                    if quality:
+                        snapshot_data["item_count"] = quality.get("processed", quality.get("total_items", 0))
+                        snapshot_data["total_items"] = quality.get("total_items", 0)
+                        snapshot_data["avg_confidence"] = quality.get("avg_confidence", 0.0)
+            except Exception:
+                pass
+
+            run.update_stage_snapshot(stage.value, **snapshot_data)
+        except Exception:
+            logger.debug("Stage snapshot update failed for %s (non-fatal)", stage.value, exc_info=True)
+
+    def _get_or_create_manifest_store(self, project_id: str) -> Optional[ManifestStore]:
+        """Get a ManifestStore for a project, creating if needed."""
+        try:
+            from codrag.services.project_helpers import require_project
+            from codrag.core.project_registry import project_index_dir
+            project = require_project(project_id)
+            return ManifestStore(Path(project_index_dir(project)))
+        except Exception:
+            return None
 
     # ── Phase 70B: Freshness Check + Write Guard ─────────────────
 
