@@ -16,6 +16,7 @@ from codrag.services.pipeline.state_machine import (
     Event,
     TransitionGuard,
     ActiveProjectGuard,
+    StageSnapshot,
     TERMINAL_STATES,
     ACTIVE_STATES,
     _TRANSITIONS,
@@ -552,3 +553,106 @@ class TestTransitionTable:
             ]
             assert all(ev == Event.RESET for ev in allowed_events), \
                 f"Terminal state {state.value} allows non-RESET events: {allowed_events}"
+
+
+# ── Stage Snapshot Tests ────────────────────────────────────────
+
+class TestStageSnapshot:
+    def test_snapshot_immutable(self):
+        snap = StageSnapshot(stage_id="enrichment", item_count=100)
+        assert snap.stage_id == "enrichment"
+        assert snap.item_count == 100
+        with pytest.raises(AttributeError):
+            snap.item_count = 200  # frozen dataclass
+
+    def test_snapshot_to_dict(self):
+        snap = StageSnapshot(stage_id="enrichment", exists=True, item_count=50, total_items=100)
+        d = snap.to_dict()
+        assert d["stage_id"] == "enrichment"
+        assert d["exists"] is True
+        assert d["item_count"] == 50
+        assert d["total_items"] == 100
+
+    def test_snapshot_extra_fields_merged_into_dict(self):
+        snap = StageSnapshot(stage_id="atlas", extra={"mode": "llm", "char_count": 5000})
+        d = snap.to_dict()
+        assert d["mode"] == "llm"
+        assert d["char_count"] == 5000
+
+
+class TestStageSnapshotOnSM:
+    def test_update_creates_snapshot(self):
+        sm = make_sm()
+        sm.update_stage_snapshot("enrichment", exists=True, item_count=100)
+        snap = sm.get_stage_snapshot("enrichment")
+        assert snap is not None
+        assert snap.exists is True
+        assert snap.item_count == 100
+
+    def test_update_preserves_existing_fields(self):
+        sm = make_sm()
+        sm.update_stage_snapshot("enrichment", exists=True, item_count=100)
+        sm.update_stage_snapshot("enrichment", avg_confidence=0.87)
+        snap = sm.get_stage_snapshot("enrichment")
+        assert snap.item_count == 100  # preserved
+        assert snap.avg_confidence == 0.87  # updated
+
+    def test_get_stage_snapshots_returns_copy(self):
+        sm = make_sm()
+        sm.update_stage_snapshot("enrichment", item_count=50)
+        sm.update_stage_snapshot("clustering", item_count=600)
+        snaps = sm.get_stage_snapshots()
+        assert len(snaps) == 2
+        assert "enrichment" in snaps
+        assert "clustering" in snaps
+
+    def test_get_stage_snapshot_returns_none_for_unknown(self):
+        sm = make_sm()
+        assert sm.get_stage_snapshot("nonexistent") is None
+
+    def test_extra_kwargs_go_to_extra_dict(self):
+        sm = make_sm()
+        sm.update_stage_snapshot("atlas", exists=True, mode="llm", char_count=5000)
+        snap = sm.get_stage_snapshot("atlas")
+        assert snap.exists is True
+        assert snap.extra["mode"] == "llm"
+        assert snap.extra["char_count"] == 5000
+
+    def test_progress_fields(self):
+        sm = make_sm()
+        sm.update_stage_snapshot("catalogue",
+            running=True,
+            progress_current=150,
+            progress_total=500,
+            progress_baseline=100,
+        )
+        snap = sm.get_stage_snapshot("catalogue")
+        assert snap.running is True
+        assert snap.progress_current == 150
+        assert snap.progress_total == 500
+        assert snap.progress_baseline == 100
+
+    def test_thread_safe_updates(self):
+        """Multiple threads can update snapshots concurrently without errors."""
+        sm = make_sm()
+        errors = []
+
+        def updater(stage_id, count):
+            try:
+                for i in range(100):
+                    sm.update_stage_snapshot(stage_id, item_count=i)
+            except Exception as e:
+                errors.append(e)
+
+        threads = [
+            threading.Thread(target=updater, args=(f"stage_{i}", i))
+            for i in range(5)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(errors) == 0
+        snaps = sm.get_stage_snapshots()
+        assert len(snaps) == 5

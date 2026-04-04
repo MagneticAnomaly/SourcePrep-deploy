@@ -43,10 +43,50 @@ import enum
 import logging
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Dict, List, Optional, Set
 
 logger = logging.getLogger(__name__)
+
+
+# ── Stage Snapshot ──────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class StageSnapshot:
+    """Immutable snapshot of a single stage's status.
+
+    Updated by workers via progress callbacks. Read by the status
+    endpoint without locks (snapshot pattern — read a reference).
+    """
+    stage_id: str = ""
+    exists: bool = False
+    running: bool = False
+    # Data counts (from disk or worker progress)
+    item_count: int = 0
+    total_items: int = 0
+    avg_confidence: float = 0.0
+    # Progress (from BuildSlot progress callbacks)
+    progress_current: int = 0
+    progress_total: int = 0
+    progress_baseline: int = 0
+    # Extra per-stage data (flexible dict for stage-specific fields)
+    extra: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = {
+            "stage_id": self.stage_id,
+            "exists": self.exists,
+            "running": self.running,
+            "item_count": self.item_count,
+            "total_items": self.total_items,
+            "avg_confidence": self.avg_confidence,
+            "progress_current": self.progress_current,
+            "progress_total": self.progress_total,
+            "progress_baseline": self.progress_baseline,
+        }
+        if self.extra:
+            d.update(self.extra)
+        return d
 
 
 # ── States ────────────────────────────────────────────────────────
@@ -232,6 +272,9 @@ class PipelineGroupStateMachine:
     # Thread safety
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
+    # Stage snapshots — updated by workers, read by status endpoint
+    _stage_snapshots: Dict[str, StageSnapshot] = field(default_factory=dict, repr=False)
+
     # Callbacks: called AFTER a successful transition
     _on_transition: Optional[Callable[[TransitionRecord], None]] = field(default=None, repr=False)
 
@@ -394,3 +437,32 @@ class PipelineGroupStateMachine:
                 "is_paused": self.is_paused,
                 "is_queued": self.is_queued,
             }
+
+    # ── Stage Snapshots ────────────────────────────────────────
+
+    def update_stage_snapshot(self, stage_id: str, **kwargs: Any) -> None:
+        """Update a stage's snapshot. Called by workers via progress callback.
+
+        Thread-safe. Creates the snapshot if it doesn't exist.
+        Uses replace() on the frozen dataclass for immutability.
+        """
+        with self._lock:
+            old = self._stage_snapshots.get(stage_id, StageSnapshot(stage_id=stage_id))
+            # Filter kwargs to only valid StageSnapshot fields, put rest in extra
+            valid_fields = {f.name for f in old.__dataclass_fields__.values()} - {"extra"}
+            snapshot_kwargs = {k: v for k, v in kwargs.items() if k in valid_fields}
+            extra_kwargs = {k: v for k, v in kwargs.items() if k not in valid_fields}
+            if extra_kwargs:
+                merged_extra = {**old.extra, **extra_kwargs}
+                snapshot_kwargs["extra"] = merged_extra
+            self._stage_snapshots[stage_id] = replace(old, **snapshot_kwargs)
+
+    def get_stage_snapshots(self) -> Dict[str, StageSnapshot]:
+        """Get a copy of all stage snapshots. Lock-free read of immutable objects."""
+        with self._lock:
+            return dict(self._stage_snapshots)
+
+    def get_stage_snapshot(self, stage_id: str) -> Optional[StageSnapshot]:
+        """Get a single stage's snapshot."""
+        with self._lock:
+            return self._stage_snapshots.get(stage_id)

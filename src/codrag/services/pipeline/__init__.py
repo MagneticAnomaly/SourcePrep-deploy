@@ -26,6 +26,7 @@ from .state_machine import (
     PipelineState,
     Event,
     ActiveProjectGuard,
+    StageSnapshot,
 )
 from .manifest_store import ManifestStore
 from .post_flight import PostFlightActions
