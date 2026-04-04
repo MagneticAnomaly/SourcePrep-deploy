@@ -18,7 +18,7 @@ import type {
   SearchResponse,
   WatchActionResponse,
 } from './types';
-import type { LLMStatus, LicenseStatus, Project, ProjectStatus, TraceCoverage, TraceStatus, WatchStatus, GlobalConfig, ModelStatusResult, ModelReadinessStatus, AugmentationStatus, DeepAnalysisRunStatus, LLMSlotsStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, GraphEngineStatus, PipelineStatus, CrashedPipelineRun, AssignmentMode, LLMAssignmentBlock } from '../types';
+import type { LLMStatus, LicenseStatus, Project, ProjectStatus, TraceCoverage, TraceCoverageSummary, TraceStatus, WatchStatus, GlobalConfig, ModelStatusResult, ModelReadinessStatus, AugmentationStatus, DeepAnalysisRunStatus, LLMSlotsStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, GraphEngineStatus, PipelineStatus, CrashedPipelineRun, AssignmentMode, LLMAssignmentBlock } from '../types';
 
 export interface FileTreeNode {
   name: string;
@@ -58,6 +58,7 @@ export interface ApiClient {
   getTraceNeighbors(projectId: string, nodeId: string, direction?: string): Promise<{ nodes: any[]; edges: any[] }>;
   buildTrace(projectId: string): Promise<{ started: boolean }>;
   getTraceCoverage(projectId: string): Promise<TraceCoverage>;
+  getTraceCoverageSummary(projectId: string): Promise<{ summary: TraceCoverageSummary | null; building: boolean }>;
   updateTraceIgnore(projectId: string, action: 'add' | 'remove', patterns: string[]): Promise<{ ignore_patterns: string[] }>;
 
   // Roots & Files
@@ -290,6 +291,16 @@ export interface ApiClient {
   getResearchHistory(projectId: string): Promise<{ runs: Array<{ run_id: string; timestamp: string; topic_count: number; plan_count: number }> }>;
   runCustodian(projectId: string, dryRun: boolean, maxFiles: number): Promise<{ dry_run: boolean; branch_name: string; candidate_count: number; candidates: any[] }>;
   getCustodianManifest(projectId: string): Promise<{ entries: any[] }>;
+
+  // Architecture Diagram (Phase 71)
+  getArchitectureGraph(projectId: string, layerPath?: string): Promise<ArchGraphResponse>;
+  getArchitectureSummary(projectId: string): Promise<ArchSummaryResponse>;
+  getArchitectureState(projectId: string): Promise<ArchState>;
+  saveArchitectureState(projectId: string, state: ArchState): Promise<{ saved: boolean }>;
+  listArchitectureNotes(projectId: string): Promise<ArchNote[]>;
+  createArchitectureNote(projectId: string, note: ArchNoteCreate): Promise<ArchNote>;
+  updateArchitectureNote(projectId: string, noteId: string, updates: ArchNoteUpdate): Promise<ArchNote>;
+  deleteArchitectureNote(projectId: string, noteId: string): Promise<{ deleted: boolean }>;
 }
 
 export interface ApiClientConfig {
@@ -414,7 +425,15 @@ export class CodragApiClient implements ApiClient {
   }
 
   async getTraceCoverage(projectId: string): Promise<TraceCoverage> {
-    return this.requestEnvelope<TraceCoverage>(`/projects/${encodeURIComponent(projectId)}/trace/coverage`);
+    return this.requestEnvelope<TraceCoverage>(`/projects/${encodeURIComponent(projectId)}/trace/coverage`, {
+      timeoutMs: 90_000,  // Coverage can be slow on large codebases (filesystem scan)
+    });
+  }
+
+  async getTraceCoverageSummary(projectId: string): Promise<{ summary: TraceCoverageSummary | null; building: boolean }> {
+    return this.requestEnvelope<{ summary: TraceCoverageSummary | null; building: boolean }>(
+      `/projects/${encodeURIComponent(projectId)}/trace/coverage/summary`
+    );
   }
 
   async updateTraceIgnore(projectId: string, action: 'add' | 'remove', patterns: string[]): Promise<{ ignore_patterns: string[] }> {

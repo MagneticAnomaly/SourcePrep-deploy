@@ -189,6 +189,13 @@ export class MockApiClient implements ApiClient {
     };
   }
 
+  async getTraceCoverageSummary(): Promise<any> {
+    return {
+      summary: { total_files: 10, traced_files: 8, untraced_files: 2, stale_files: 0, coverage_pct: 80 },
+      building: false,
+    };
+  }
+
   async updateTraceIgnore(): Promise<any> {
     return { success: true };
   }
@@ -877,6 +884,32 @@ export class MockApiClient implements ApiClient {
   }
   async getCustodianManifest(_projectId: string) {
     return { entries: [] };
+  }
+
+  // Architecture Diagram (Phase 71) stubs
+  async getArchitectureGraph(_projectId: string, _layerPath?: string) {
+    return { exists: false, modules: [], files: [], edges: [], external_refs: [], stats: { total_modules: 0, total_files: 0, total_edges: 0, generated_at: '' } } as any;
+  }
+  async getArchitectureSummary(_projectId: string) {
+    return { exists: false, module_count: 0, file_count: 0, edge_count: 0, note_count: 0, last_edited: null } as any;
+  }
+  async getArchitectureState(_projectId: string) {
+    return { layouts: {}, module_overrides: {} } as any;
+  }
+  async saveArchitectureState(_projectId: string, _state: any) {
+    return { saved: true };
+  }
+  async listArchitectureNotes(_projectId: string) {
+    return [] as any;
+  }
+  async createArchitectureNote(_projectId: string, _note: any) {
+    return { id: 'mock', node_id: '', content: '', note_type: 'comment', author: 'user', color: 'yellow', created_at: '', updated_at: '' } as any;
+  }
+  async updateArchitectureNote(_projectId: string, _noteId: string, _updates: any) {
+    return { id: 'mock', node_id: '', content: '', note_type: 'comment', author: 'user', color: 'yellow', created_at: '', updated_at: '' } as any;
+  }
+  async deleteArchitectureNote(_projectId: string, _noteId: string) {
+    return { deleted: true };
   }
 }
 
