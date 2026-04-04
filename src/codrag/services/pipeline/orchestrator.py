@@ -1422,13 +1422,13 @@ class PipelineOrchestrator:
         if new_phase not in (BuildPhase.COMPLETED, BuildPhase.FAILED):
             return
 
+        # Phase 72: Minimal lock scope — only lookup and state transition
+        # inside the lock. All I/O, scheduler release, and callbacks run
+        # outside to prevent deadlocks and status endpoint blocking.
         stage: Optional[StageId] = None
+        matching_run: Optional[PipelineGroupStateMachine] = None
+
         with self._lock:
-            # Find any active or paused pipeline run for this project where
-            # the current stage matches this build type.  We include PAUSED
-            # because a worker's FAILED callback may arrive after
-            # _pause_group() already moved the SM to PAUSED (race).
-            matching_run: Optional[PipelineGroupStateMachine] = None
             for key, run in self._runs.items():
                 if run.project_id != project_id:
                     continue
@@ -1442,161 +1442,136 @@ class PipelineOrchestrator:
                         stage = current_stage
                         break
 
-            if matching_run is None or stage is None:
-                return
+        if matching_run is None or stage is None:
+            return
 
-            if new_phase == BuildPhase.COMPLETED:
-                # State machine handles stage_results + index increment
-                matching_run.transition(Event.STAGE_COMPLETED)
-                logger.info(
-                    "Pipeline %s/%s — stage %s completed",
+        if new_phase == BuildPhase.COMPLETED:
+            # State transition (SM has its own lock)
+            matching_run.transition(Event.STAGE_COMPLETED)
+            logger.info(
+                "Pipeline %s/%s — stage %s completed",
+                project_id, matching_run.group, stage.value,
+            )
+
+            # --- Post-completion bookkeeping (outside orchestrator lock) ---
+            _deferred_resume = None  # stash for _resume_queued_pipeline
+            try:
+                # Phase 44C: release model via state machine
+                completed_task = STAGE_TASK_ID.get(stage)
+                if completed_task:
+                    try:
+                        from codrag.core.model_awareness import model_awareness
+                        model_awareness.release(completed_task, unload=False)
+                    except Exception:
+                        logger.debug("ModelAwareness release failed for %s", completed_task, exc_info=True)
+
+                # Phase 45D / 56: release scheduler slot
+                _release_node = getattr(matching_run, '_current_node_id', None)
+                _deferred_resume = pipeline_scheduler.release(project_id, stage, _release_node)
+
+                # Fetch build slot for file logger + manifest writer
+                slot = self._orchestrator.status(project_id, build_type)
+
+                pfl = self._get_file_logger(project_id)
+                if pfl:
+                    pfl.stage_end(stage.value, "completed", data={
+                        "result": slot.result,
+                        "duration": slot.duration_seconds,
+                    })
+                    pfl.transition(build_type.value, old_phase.value, new_phase.value,
+                                   f"Stage {stage.value} completed")
+                # Phase 25: journal
+                self._journal_stage_completed(matching_run, stage)
+                # Phase 49: write stage manifest + update run metadata
+                self._write_stage_manifest_and_update_run(
+                    matching_run, stage, slot,
+                )
+                # Phase 72 Stage 4: Update stage snapshot on completion
+                self._update_stage_snapshot_from_slot(matching_run, stage, slot)
+                # Phase 50: Atlas/rules generation
+                if stage == StageId.STRUCTURAL:
+                    self._generate_preliminary_atlas_and_rules(project_id)
+                    self._prune_stale_derivative_files(project_id, pfl)
+                    self._sync_downstream_manifest_mtimes(project_id, pfl)
+                elif stage == StageId.ATLAS:
+                    self._regenerate_rules_with_full_atlas(project_id)
+
+                # Phase 70B: Write guard
+                self._write_guard_check(matching_run, stage, pfl)
+                # Phase 60A: integrity guard
+                self._integrity_check_after_stage(matching_run, stage, pfl)
+            except _WriteGuardBlocked as wgb:
+                logger.critical(
+                    "WRITE GUARD BLOCKED stage %s for %s: %s",
+                    stage.value, project_id, wgb,
+                )
+                pfl = self._get_file_logger(project_id)
+                if pfl:
+                    pfl.log(stage.value, f"WRITE GUARD BLOCKED: {wgb}")
+                if matching_run.can_transition(Event.STAGE_FAILED):
+                    matching_run.transition(Event.STAGE_FAILED, detail=f"WRITE GUARD BLOCKED: {wgb}")
+                self._unload_group_models(matching_run)
+                self._journal_run_completed(matching_run)
+                return
+            except Exception:
+                logger.exception(
+                    "Post-completion bookkeeping failed for %s/%s stage %s "
+                    "(pipeline will still advance)",
                     project_id, matching_run.group, stage.value,
                 )
 
-                # --- Post-completion bookkeeping (non-fatal) --------
-                # Wrapped in try/except so that failures in logging,
-                # metadata, or manifest writing can NEVER prevent
-                # _advance_pipeline from being called below.
-                try:
-                    # Phase 44C: release model via state machine
-                    completed_task = STAGE_TASK_ID.get(stage)
-                    if completed_task:
-                        try:
-                            from codrag.core.model_awareness import model_awareness
-                            model_awareness.release(completed_task, unload=False)
-                        except Exception:
-                            logger.debug("ModelAwareness release failed for %s", completed_task, exc_info=True)
+            # Deferred scheduler resume (outside lock to prevent deadlock)
+            if _deferred_resume:
+                self._resume_queued_pipeline(_deferred_resume.project_id, _deferred_resume.stage)
 
-                    # Phase 45D / 56: release scheduler slot on the correct node
-                    _release_node = getattr(matching_run, '_current_node_id', None)
-                    next_entry = pipeline_scheduler.release(project_id, stage, _release_node)
-                    if next_entry:
-                        self._resume_queued_pipeline(next_entry.project_id, next_entry.stage)
+        elif new_phase == BuildPhase.FAILED:
+            slot = self._orchestrator.status(project_id, build_type)
+            error_msg = f"Stage {stage.value} failed: {slot.error}"
 
-                    # Fetch build slot for file logger + manifest writer
-                    slot = self._orchestrator.status(project_id, build_type)
-
-                    # Pipeline file logger
-                    pfl = self._get_file_logger(project_id)
-                    if pfl:
-                        pfl.stage_end(stage.value, "completed", data={
-                            "result": slot.result,
-                            "duration": slot.duration_seconds,
-                        })
-                        pfl.transition(build_type.value, old_phase.value, new_phase.value,
-                                       f"Stage {stage.value} completed")
-                    # Phase 25: journal — record stage completion
-                    self._journal_stage_completed(matching_run, stage)
-                    # Phase 49: write stage manifest + update run metadata
-                    self._write_stage_manifest_and_update_run(
-                        matching_run, stage, slot,
-                    )
-
-                    # Phase 72 Stage 4: Update stage snapshot on completion.
-                    # Captures final counts so the status endpoint has data
-                    # without reading disk next time it's polled.
-                    self._update_stage_snapshot_from_slot(matching_run, stage, slot)
-
-                    # Phase 50: Generate preliminary atlas + rules file after Stage 1,
-                    # and regenerate rules with full LLM atlas after Stage 9.
-                    if stage == StageId.STRUCTURAL:
-                        self._generate_preliminary_atlas_and_rules(project_id)
-                        self._prune_stale_derivative_files(project_id, pfl)
-                        # Phase 60D: Touch all downstream manifests to match
-                        # the new structural manifest mtime.  This prevents
-                        # STALE_MTIME cascade — downstream workers handle
-                        # incrementality internally.
-                        self._sync_downstream_manifest_mtimes(project_id, pfl)
-                    elif stage == StageId.ATLAS:
-                        self._regenerate_rules_with_full_atlas(project_id)
-
-                    # Phase 70B: Write guard — block if data would shrink
-                    self._write_guard_check(matching_run, stage, pfl)
-
-                    # Phase 60A: integrity guard — compare post-flight vs pre-flight
-                    self._integrity_check_after_stage(matching_run, stage, pfl)
-                except _WriteGuardBlocked as wgb:
-                    # Write guard blocked advancement — fail this stage
-                    logger.critical(
-                        "WRITE GUARD BLOCKED stage %s for %s: %s",
-                        stage.value, project_id, wgb,
-                    )
-                    if pfl:
-                        pfl.log(stage.value, f"WRITE GUARD BLOCKED: {wgb}")
-                    # Transition to FAILED so the pipeline halts
-                    if matching_run.can_transition(Event.STAGE_FAILED):
-                        matching_run.transition(Event.STAGE_FAILED, detail=f"WRITE GUARD BLOCKED: {wgb}")
-                    self._unload_group_models(matching_run)
-                    self._journal_run_completed(matching_run)
-                    return  # do NOT advance to next stage
-                except Exception:
-                    logger.exception(
-                        "Post-completion bookkeeping failed for %s/%s stage %s "
-                        "(pipeline will still advance)",
-                        project_id, matching_run.group, stage.value,
-                    )
-
-            elif new_phase == BuildPhase.FAILED:
-                slot = self._orchestrator.status(project_id, build_type)
-                error_msg = f"Stage {stage.value} failed: {slot.error}"
-
-                # If the state machine is in PAUSING, PAUSED, or QUEUED, this
-                # "failure" is actually the worker responding to the pause
-                # signal (PipelinePausedError).  Don't transition to FAILED.
-                # - PAUSED: race — _pause_group() already moved SM to PAUSED
-                # - QUEUED: race — swap_model() paused then resumed, and
-                #   _advance_pipeline re-enqueued the stage while the old
-                #   worker's PipelinePausedError is still in flight.
-                if matching_run.state in (PipelineState.PAUSING, PipelineState.PAUSED, PipelineState.QUEUED):
-                    logger.info(
-                        "Pipeline %s/%s — ignoring STAGE_FAILED during %s "
-                        "(worker stopped for pause/swap, not a real failure)",
-                        project_id, matching_run.group, matching_run.state.value,
-                    )
-                    # Release scheduler slot but don't advance or fail
-                    _release_node = getattr(matching_run, '_current_node_id', None)
-                    next_entry = pipeline_scheduler.release(project_id, stage, _release_node)
-                    if next_entry:
-                        self._resume_queued_pipeline(next_entry.project_id, next_entry.stage)
-                    return
-
-                # Phase 55 fix: Instead of transitioning to a terminal FAILED state
-                # when an error occurs (like an LLM crash), auto-pause the pipeline
-                # so the user can see the error and click "Resume" after fixing it.
-                if matching_run.state == PipelineState.RUNNING:
-                    logger.error(
-                        "Pipeline %s/%s — stage %s failed: %s. Auto-pausing for recovery.",
-                        project_id, matching_run.group, stage.value, slot.error,
-                    )
-                    matching_run.transition(Event.PAUSE, detail=error_msg)
-                    matching_run.transition(Event.STAGE_FLUSHED, detail=error_msg)
-                    matching_run.stage_results[stage.value] = f"failed: {slot.error}"
-                else:
-                    matching_run.transition(Event.STAGE_FAILED, detail=error_msg)
-                    logger.error(
-                        "Pipeline %s/%s — stage %s failed: %s",
-                        project_id, matching_run.group, stage.value, slot.error,
-                    )
-
-                # Phase 45D / 56: release scheduler slot on failure too
+            if matching_run.state in (PipelineState.PAUSING, PipelineState.PAUSED, PipelineState.QUEUED):
+                logger.info(
+                    "Pipeline %s/%s — ignoring STAGE_FAILED during %s "
+                    "(worker stopped for pause/swap, not a real failure)",
+                    project_id, matching_run.group, matching_run.state.value,
+                )
                 _release_node = getattr(matching_run, '_current_node_id', None)
                 next_entry = pipeline_scheduler.release(project_id, stage, _release_node)
                 if next_entry:
                     self._resume_queued_pipeline(next_entry.project_id, next_entry.stage)
-
-                pfl = self._get_file_logger(project_id)
-                if pfl:
-                    pfl.stage_end(stage.value, "failed", error=slot.error, data={
-                        "duration": slot.duration_seconds,
-                    })
-                    pfl.end_run("failed", error=slot.error)
-                # Phase 25: journal — record stage failure
-                self._journal_stage_failed(matching_run, stage, slot.error or "Unknown error")
-                # Phase 61B: Stop heartbeat timer on failure
-                self._stop_heartbeat_timer(matching_run)
-                # VRAM lifecycle: release all group models
-                self._release_group_models_via_sm(matching_run)
                 return
+
+            # Phase 55: Auto-pause on failure for recovery
+            if matching_run.state == PipelineState.RUNNING:
+                logger.error(
+                    "Pipeline %s/%s — stage %s failed: %s. Auto-pausing for recovery.",
+                    project_id, matching_run.group, stage.value, slot.error,
+                )
+                matching_run.transition(Event.PAUSE, detail=error_msg)
+                matching_run.transition(Event.STAGE_FLUSHED, detail=error_msg)
+                matching_run.stage_results[stage.value] = f"failed: {slot.error}"
+            else:
+                matching_run.transition(Event.STAGE_FAILED, detail=error_msg)
+                logger.error(
+                    "Pipeline %s/%s — stage %s failed: %s",
+                    project_id, matching_run.group, stage.value, slot.error,
+                )
+
+            # Release scheduler slot (outside lock)
+            _release_node = getattr(matching_run, '_current_node_id', None)
+            next_entry = pipeline_scheduler.release(project_id, stage, _release_node)
+            if next_entry:
+                self._resume_queued_pipeline(next_entry.project_id, next_entry.stage)
+
+            pfl = self._get_file_logger(project_id)
+            if pfl:
+                pfl.stage_end(stage.value, "failed", error=slot.error, data={
+                    "duration": slot.duration_seconds,
+                })
+                pfl.end_run("failed", error=slot.error)
+            self._journal_stage_failed(matching_run, stage, slot.error or "Unknown error")
+            self._stop_heartbeat_timer(matching_run)
+            self._release_group_models_via_sm(matching_run)
+            return
 
         # Phase 48-F8: Post-structural sanity check.
         # If the structural stage completed but produced 0 nodes, check
