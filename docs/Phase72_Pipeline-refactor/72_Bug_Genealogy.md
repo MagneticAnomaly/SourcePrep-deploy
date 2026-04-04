@@ -184,7 +184,8 @@ Longest method (_detect_resume)     226 lines
 - ❌ The user looks at the `Continuous Deepening` UI and sees the text string explicitely saying `10%`, but the `<StageProgressBar>` component underneath renders a 99% solid green bar. 
 - ❌ This occurs because the UI detects `staleCounts.stale > 0` and silently overrides the active epoch/iteration progress with a "fallback" ratio reflecting the percentage of non-stale files out of the whole project codebase.
 
-**Fix status**: 📝 Needs Fix in Phase 72 (UI Refactor / Data Boundary Isolation)
+**Fix status**: ✅ FIXED (verified Phase 72 smoke test)
+- The `staleCounts` prop is declared but never used in `GraphEnrichmentPipeline.tsx`. Each stage uses domain-appropriate metrics: deepening uses `iteration/max_iterations`, enrichment uses `progress_current/progress_total`, etc. The dangerous cross-domain fallback was removed in a prior phase.
 
 ---
 
@@ -219,7 +220,10 @@ Longest method (_detect_resume)     226 lines
 - ❌ The user attempts to manually resume an incomplete pipeline, but the orchestrator spins or fails because it detects 2 stale files and tries to integrate them before making the entire pipeline "complete".
 - ❌ Redundant "new/stale" queue processing occurs when the core objective should be to repair and finish what was started.
 
-**Fix status**: 📝 Needs Fix in Phase 72 (Self-heal architecture must prioritize pipeline completion over new queue processing when state is incomplete)
+**Fix status**: ✅ FIXED in Phase 72
+- `run_fast_sync()` already had a priority inversion guard (lines 333-348) that blocks new/stale queue processing when deep_enrichment is incomplete.
+- Fixed `_maybe_retrigger_for_coverage()` race condition: the `_is_active` closure now checks `is_active or is_paused or is_queued` (was only `is_active`), preventing coverage retrigger when deep enrichment is paused or queued.
+- `_start_group()` correctly prevents concurrent fast_sync and deep_enrichment execution.
 
 ---
 
@@ -400,10 +404,10 @@ Stage deep_knowledge skipped: all outputs are newer than inputs — already curr
 ## Remaining Work
 
 ### Must-fix (pipeline correctness)
-- [ ] **ST-4**: Add AGENTS.md and .cursor/rules/codrag.mdc to default trace exclusion list
-- [ ] **ST-6**: Investigate IntegrityGuard data loss in trace_manifest.json during structural rebuilds
-- [ ] **Root Cause 8**: Cross-domain UI fallbacks (stale counts overriding stage progress)
-- [ ] **Root Cause 11**: Queue processing priority inversion (finish pipeline before chasing new files)
+- [x] **ST-4**: Add AGENTS.md and .cursor/rules/codrag.mdc to default trace exclusion list
+- [x] **ST-6**: Preserve file_hashes during Rust engine structural rebuilds
+- [x] **Root Cause 8**: Cross-domain UI fallbacks — verified already fixed (staleCounts declared but unused)
+- [x] **Root Cause 11**: Queue processing priority inversion — fixed race condition in coverage retrigger
 
 ### Should-fix (UX/telemetry)
 - [ ] **Root Cause 9**: Decouple AI Gateway telemetry from pipeline orchestrator

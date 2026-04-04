@@ -337,13 +337,13 @@ class PipelineOrchestrator:
             deep_resume = self._detect_resume_point(project_id, DEEP_ENRICHMENT_STAGES, skip_mtime_cascade=True)
             if deep_resume < len(DEEP_ENRICHMENT_STAGES):
                 logger.info(
-                    "Pipeline incomplete (deep resume=%d/4) for %s — skipping new/stale queue so it can finish",
-                    deep_resume, project_id,
+                    "Pipeline incomplete (deep resume=%d/%d) for %s — skipping new/stale queue so it can finish",
+                    deep_resume, len(DEEP_ENRICHMENT_STAGES), project_id,
                 )
                 if pfl:
                     pfl.decision("mode_selection", "skip_queue_pipeline_incomplete", {
                         "group": "fast_sync",
-                        "reason": f"Deep enrichment is incomplete ({deep_resume}/4) — prioritizing pipeline completion",
+                        "reason": f"Deep enrichment is incomplete ({deep_resume}/{len(DEEP_ENRICHMENT_STAGES)}) — prioritizing pipeline completion",
                     })
                 return False
 
@@ -917,7 +917,11 @@ class PipelineOrchestrator:
         """Delegates to ResumeStrategy.maybe_retrigger_for_coverage."""
         def _is_active(pid):
             with self._lock:
-                return any(run.is_active for key, run in self._runs.items() if key[0] == pid)
+                return any(
+                    run.is_active or run.is_paused or run.is_queued
+                    for key, run in self._runs.items()
+                    if key[0] == pid
+                )
 
         ResumeStrategy.maybe_retrigger_for_coverage(
             project_id,
