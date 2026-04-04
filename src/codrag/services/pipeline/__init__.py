@@ -28,6 +28,7 @@ from .state_machine import (
     ActiveProjectGuard,
 )
 from .manifest_store import ManifestStore
+from .recovery import RecoveryManager
 from .orchestrator import (
     PipelineOrchestrator,
     pipeline_orchestrator,
@@ -52,6 +53,7 @@ __all__ = [
     "Event",
     "ActiveProjectGuard",
     "ManifestStore",
+    "RecoveryManager",
     "PipelineOrchestrator",
     "pipeline_orchestrator",
 ]

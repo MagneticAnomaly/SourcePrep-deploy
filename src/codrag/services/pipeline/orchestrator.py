@@ -47,6 +47,7 @@ from .state_machine import (
     ActiveProjectGuard,
 )
 from .manifest_store import ManifestStore
+from .recovery import RecoveryManager
 
 logger = logging.getLogger(__name__)
 
@@ -207,82 +208,8 @@ class PipelineOrchestrator:
     def _try_restore_from_backup(
         project_id: str, stages: list, pfl: Any = None,
     ) -> bool:
-        """Try to restore pipeline data from the most recent backup checkpoint.
-
-        Phase 60D: Before starting a full rebuild from scratch, check if
-        a backup exists.  If so, restore the data files and return True.
-        The caller should then re-run _detect_resume_point to find where
-        to resume from the restored data.
-
-        Returns True if data was restored, False if no backup found.
-        """
-        from .stages import STAGE_MANIFEST_FILE, STAGE_OUTPUT_FILE
-
-        try:
-            from codrag.services.project_helpers import require_project
-            from codrag.core.project_registry import project_index_dir
-
-            project = require_project(project_id)
-            idx_dir = Path(project_index_dir(project))
-            checkpoints_dir = idx_dir / ".checkpoints"
-
-            if not checkpoints_dir.exists():
-                return False
-
-            # Find the most recent checkpoint with the most data
-            best_checkpoint = None
-            best_size = 0
-
-            for cp_dir in sorted(checkpoints_dir.iterdir(), reverse=True):
-                if not cp_dir.is_dir():
-                    continue
-                # Score by total data size in the checkpoint
-                total_size = sum(
-                    f.stat().st_size for f in cp_dir.iterdir()
-                    if f.is_file() and f.suffix in (".jsonl", ".json")
-                )
-                if total_size > best_size:
-                    best_size = total_size
-                    best_checkpoint = cp_dir
-
-            if not best_checkpoint or best_size < 1024:
-                return False
-
-            # Restore files from the backup
-            import shutil
-            restored_files = []
-            for src_file in best_checkpoint.iterdir():
-                if not src_file.is_file():
-                    continue
-                dst_file = idx_dir / src_file.name
-                # Only restore if the destination is missing or smaller
-                if not dst_file.exists() or dst_file.stat().st_size < src_file.stat().st_size:
-                    shutil.copy2(str(src_file), str(dst_file))
-                    restored_files.append(src_file.name)
-
-            if restored_files:
-                logger.info(
-                    "Phase 60D: Restored %d files from backup %s for %s: %s",
-                    len(restored_files), best_checkpoint.name, project_id,
-                    ", ".join(sorted(restored_files)[:10]),
-                )
-                if pfl:
-                    pfl.decision("mode_selection", "backup_restore", {
-                        "group": "fast_sync",
-                        "reason": f"Restored {len(restored_files)} files from backup {best_checkpoint.name}",
-                        "checkpoint": best_checkpoint.name,
-                        "restored_files": sorted(restored_files),
-                        "total_backup_size_mb": round(best_size / 1_048_576, 1),
-                    })
-                return True
-
-            return False
-        except Exception:
-            logger.debug(
-                "Failed to restore from backup for %s (non-fatal)",
-                project_id, exc_info=True,
-            )
-            return False
+        """Delegates to RecoveryManager.try_restore_from_backup."""
+        return RecoveryManager.try_restore_from_backup(project_id, stages, pfl)
 
     @staticmethod
     def _touch_stale_deep_manifests(project_id: str) -> None:
@@ -3082,23 +3009,8 @@ class PipelineOrchestrator:
             logger.debug("Checkpoint cleanup failed", exc_info=True)
 
     def _create_checkpoint_if_needed(self, run: PipelineGroupStateMachine, stage: StageId) -> None:
-        """Create a checkpoint before destructive stages."""
-        if not run.journal_run_id:
-            return
-        try:
-            from codrag.services.pipeline_checkpoint import create_checkpoint, CHECKPOINT_STAGES
-            if stage.value not in CHECKPOINT_STAGES:
-                return
-            from codrag.core.project_registry import project_index_dir
-            from codrag.services.project_helpers import require_project
-            project = require_project(run.project_id)
-            idx_dir = project_index_dir(project)
-            cp_path = create_checkpoint(idx_dir, run.journal_run_id, stage.value)
-            if cp_path:
-                from codrag.services.pipeline_journal import journal
-                journal.set_checkpoint(run.journal_run_id, cp_path)
-        except Exception:
-            logger.debug("Checkpoint creation failed (non-fatal)", exc_info=True)
+        """Delegates to RecoveryManager.create_checkpoint_if_needed."""
+        RecoveryManager.create_checkpoint_if_needed(run, stage)
 
     # ── Phase 70B: Freshness Check + Write Guard ─────────────────
 
@@ -3179,79 +3091,8 @@ class PipelineOrchestrator:
         stage: StageId,
         pfl: Any = None,
     ) -> bool:
-        """Check if a backup has valid data for this stage and restore it.
-
-        This is the core backup feature: before running an expensive stage
-        (especially LLM stages), check if a previous backup snapshot has
-        the stage's output data.  If found and valid, restore it instead
-        of re-running the stage from scratch.
-
-        Only applies to stages that don't already have output on disk
-        (freshness check handles that case).  Skips STRUCTURAL stage since
-        the trace graph must always reflect current filesystem state.
-
-        Returns True if the stage was restored (caller should skip running it).
-        """
-        # Don't restore structural — it must always reflect current files
-        if stage == StageId.STRUCTURAL:
-            return False
-
-        try:
-            from codrag.services.branch_backup_manager import (
-                check_stage_backup, restore_stage_from_backup,
-            )
-            from codrag.core.project_registry import project_index_dir
-            from codrag.services.project_helpers import require_project
-
-            project = require_project(run.project_id)
-            idx_dir = Path(project_index_dir(project))
-
-            manifest_file = STAGE_MANIFEST_FILE.get(stage)
-            output_file = STAGE_OUTPUT_FILE.get(stage)
-
-            if not manifest_file:
-                return False
-
-            # Only restore if the stage's output doesn't already exist on disk
-            if output_file and (idx_dir / output_file).is_file():
-                return False
-            if (idx_dir / manifest_file).is_file():
-                return False
-
-            # Check backups for this stage's data
-            backup = check_stage_backup(idx_dir, manifest_file, output_file)
-            if backup is None:
-                return False
-
-            logger.info(
-                "Phase 60B: Found backup data for stage %s from branch '%s' "
-                "(%d records) — restoring instead of rebuilding",
-                stage.value, backup["branch"], backup["record_count"],
-            )
-            if pfl:
-                pfl.log(
-                    stage.value,
-                    f"RESTORED from backup (branch={backup['branch']}, "
-                    f"records={backup['record_count']})",
-                )
-
-            restore_stage_from_backup(
-                idx_dir,
-                backup["snapshot_dir"],
-                manifest_file,
-                output_file,
-            )
-
-            run.stage_results[stage.value] = "restored_from_backup"
-            run.advance()
-            return True
-
-        except Exception:
-            logger.debug(
-                "Backup restore check failed (non-fatal) for %s/%s",
-                run.project_id, stage.value, exc_info=True,
-            )
-        return False
+        """Delegates to RecoveryManager.try_restore_stage_from_backup."""
+        return RecoveryManager.try_restore_stage_from_backup(run, stage, pfl)
 
     # ── Phase 70B: Write Guard ────────────────────────────────────
 
@@ -3500,444 +3341,74 @@ class PipelineOrchestrator:
     # ── Phase 25: Crash Recovery ──────────────────────────────────
 
     def startup_recovery(self) -> List[Any]:
-        """Called once on daemon startup.  Detects crashed runs and hydrates
-        PAUSED state machines for incomplete pipeline work.
-
-        After a server crash, ``_runs`` is empty (in-memory only).  This
-        method scans each project's disk state via ``_detect_resume_point()``
-        and creates PAUSED state machines for any group with incomplete
-        stages.  The user then sees "Paused" in the UI and can click Resume.
-
-        Returns list of JournalEntry dicts for the UI to display.
-        """
-        # Phase 1: Journal-based crash detection (existing)
-        journal_results: list = []
-        try:
-            from codrag.services.pipeline_journal import journal
-            crashed = journal.recover_crashed_runs()
-            self._crashed_runs = crashed
-            if crashed:
-                logger.warning(
-                    "Crash recovery: found %d crashed pipeline run(s)", len(crashed)
-                )
-                for entry in crashed:
-                    try:
-                        from codrag.services.pipeline_checkpoint import verify_trace_files, auto_heal
-                        from codrag.core.project_registry import project_index_dir
-                        from codrag.services.project_helpers import require_project
-                        project = require_project(entry.project_id)
-                        idx_dir = project_index_dir(project)
-                        valid, corrupt = verify_trace_files(idx_dir)
-                        if not valid:
-                            logger.warning(
-                                "Corrupt trace files for %s: %s — attempting auto-heal",
-                                entry.project_id, corrupt,
-                            )
-                            results = auto_heal(idx_dir, entry.checkpoint_path)
-                            logger.info("Auto-heal results for %s: %s", entry.project_id, results)
-                    except Exception:
-                        logger.debug("Auto-heal failed for %s", entry.project_id, exc_info=True)
-            journal_results = [e.to_dict() for e in crashed]
-        except Exception:
-            logger.debug("Journal crash recovery failed", exc_info=True)
-
-        # Phase 2: Disk-state hydration — create PAUSED state machines for
-        # projects with incomplete pipeline work so the UI shows the correct
-        # state and Resume works after a crash/restart.
-        try:
-            self._hydrate_paused_runs_from_disk()
-        except Exception:
-            logger.debug("Disk-state hydration failed", exc_info=True)
-
-        # Phase 61B: Active self-heal — detect stale/zombie metadata and
-        # auto-trigger recovery if deep_enrichment auto mode is enabled.
-        try:
-            self._auto_recover_stale_pipelines()
-        except Exception:
-            logger.debug("Phase 61B auto-recovery failed", exc_info=True)
-
-        return journal_results
+        """Delegates to RecoveryManager.startup_recovery with orchestrator callbacks."""
+        return RecoveryManager.startup_recovery(
+            hydrate_fn=self._hydrate_paused_runs_from_disk,
+            auto_recover_fn=self._auto_recover_stale_pipelines,
+            set_crashed_runs=lambda runs: setattr(self, '_crashed_runs', runs),
+        )
 
     def _hydrate_paused_runs_from_disk(self) -> None:
-        """Scan all projects and create PAUSED state machines for incomplete work.
+        """Delegates to RecoveryManager.hydrate_paused_runs_from_disk."""
 
-        Called during startup_recovery.  For each project, checks fast_sync
-        and deep_enrichment stage completion via _detect_resume_point().
-        If a group has partially completed stages (resume_point > 0 but
-        < len(stages)), creates a PAUSED SM at the resume point so the
-        user can click Resume.
+        def _detect_resume(pid, stages, skip_mtime=True):
+            return self._detect_resume_point(pid, stages, skip_mtime_cascade=skip_mtime)
 
-        Phase 72: Skip hydration for groups in AUTO mode — auto-recovery
-        handles resumption instead.  Hydrating as PAUSED blocks auto-recovery
-        because it sees is_paused=True and skips, causing the atlas (and
-        other deep stages) to appear permanently paused across restarts.
-        """
-        try:
-            from codrag.services.project_helpers import get_registry
-            registry = get_registry()
-            projects = registry.list_projects()
-        except Exception:
-            logger.debug("Cannot list projects for disk-state hydration", exc_info=True)
-            return
-
-        for project in projects:
-            pid = project.id
-            # Skip if we already have an active run for this project
-            # (shouldn't happen on fresh startup, but defensive)
+        def _register_run(pid, group, sm):
             with self._lock:
-                has_active = any(
+                self._runs[(pid, group)] = sm
+
+        def _is_active(pid):
+            with self._lock:
+                return any(
                     run.is_active or run.is_paused
                     for key, run in self._runs.items()
                     if key[0] == pid
                 )
-            if has_active:
-                continue
 
-            # Phase 72: Check auto config to skip hydration for AUTO groups.
-            # AUTO groups should be handled by _auto_recover_stale_pipelines()
-            # instead of creating zombie PAUSED states.
-            fast_auto = False
-            deep_auto = False
-            try:
-                from codrag.services.settings_store import settings
-                config = settings.get("pipeline_config") or {}
-                deep_mode = (config.get("deep_enrichment") or {}).get("mode", "manual")
-                fast_auto = (config.get("fast_sync") or {}).get("auto", False)
-                deep_auto = deep_mode == "auto"
-            except Exception:
-                pass  # Default to hydrating if we can't read config
-
-            for group, stages in [
-                ("fast_sync", FAST_SYNC_STAGES),
-                ("deep_enrichment", DEEP_ENRICHMENT_STAGES),
-            ]:
-                # Phase 72: Skip hydration for AUTO groups
-                if group == "fast_sync" and fast_auto:
-                    logger.info(
-                        "Skipping PAUSED hydration for %s/fast_sync — "
-                        "auto mode will handle resumption",
-                        pid,
-                    )
-                    continue
-                if group == "deep_enrichment" and deep_auto:
-                    logger.info(
-                        "Skipping PAUSED hydration for %s/deep_enrichment — "
-                        "auto mode will handle resumption",
-                        pid,
-                    )
-                    continue
-
-                resume = self._detect_resume_point(pid, stages)
-                if resume <= 0 or resume >= len(stages):
-                    continue  # Nothing started, or all complete
-
-                # Create a PAUSED state machine at the resume point
-                sm = PipelineGroupStateMachine(
-                    project_id=pid,
-                    group=group,
-                    stages=[s.value for s in stages],
-                )
-                sm.add_guard(self._default_guard)
-
-                # Transition: IDLE → RUNNING → PAUSING → PAUSED
-                sm.transition(Event.START)
-                sm.current_stage_index = resume
-                # Mark completed stages
-                for i in range(resume):
-                    sm.stage_results[stages[i].value] = "completed"
-                sm.transition(Event.PAUSE)
-                sm.transition(Event.STAGE_FLUSHED)
-
-                with self._lock:
-                    self._runs[(pid, group)] = sm
-
-                logger.info(
-                    "Hydrated PAUSED state for %s/%s at stage %d/%d (%s) "
-                    "— user can Resume to continue",
-                    pid, group, resume, len(stages), stages[resume].value,
-                )
+        RecoveryManager.hydrate_paused_runs_from_disk(
+            detect_resume_fn=_detect_resume,
+            register_run_fn=_register_run,
+            is_run_active_fn=_is_active,
+            default_guard=self._default_guard,
+        )
 
     def _auto_recover_stale_pipelines(self) -> None:
-        """Phase 61B: Scan all projects for stale pipeline state and auto-recover.
+        """Delegates to RecoveryManager.auto_recover_stale_pipelines."""
 
-        Called during startup_recovery AFTER hydrate_paused_runs_from_disk.
-        For each project:
-        1. Check pipeline_run_metadata.json — reset if zombie/stale
-        2. Log manifest age summary for diagnostics
-        3. If deep_enrichment auto mode is on and deep manifests are stale,
-           auto-trigger run_deep_enrichment after a short delay
-        """
-        try:
-            from codrag.services.project_helpers import get_registry
-            registry = get_registry()
-            projects = registry.list_projects()
-        except Exception:
-            logger.debug("Cannot list projects for Phase 61B auto-recovery", exc_info=True)
-            return
+        def _is_active(pid):
+            with self._lock:
+                return any(run.is_active for key, run in self._runs.items() if key[0] == pid)
 
-        for project in projects:
-            pid = project.id
-            try:
-                from codrag.core.project_registry import project_index_dir
-                idx_dir = Path(project_index_dir(project))
-            except Exception:
-                continue
+        def _clear_paused(pid):
+            with self._lock:
+                paused_keys = [
+                    key for key, run in self._runs.items()
+                    if key[0] == pid and run.is_paused
+                ]
+                for key in paused_keys:
+                    del self._runs[key]
+            return paused_keys
 
-            # Get pipeline file logger for this project
-            pfl = self._get_file_logger(pid)
-
-            # Step 1: Check for stale/zombie metadata and reset
-            try:
-                from codrag.services.pipeline_metadata import (
-                    check_heartbeat_stale, reset_stale_metadata,
-                    load_run_metadata,
-                )
-                stale_info = check_heartbeat_stale(idx_dir)
-                if stale_info:
-                    logger.warning(
-                        "Phase 61B: Detected %s pipeline metadata for %s "
-                        "(run_id=%s, group=%s, age=%.0fs, heartbeat_age=%.0fs)",
-                        stale_info["status"], pid,
-                        stale_info.get("run_id"), stale_info.get("group"),
-                        stale_info.get("age_seconds", 0),
-                        stale_info.get("heartbeat_age_seconds", 0),
-                    )
-                    if pfl:
-                        pfl.selfheal("stale_detected", f"{stale_info['status']} metadata found", stale_info)
-
-                    reset_stale_metadata(idx_dir, reason="startup_recovery")
-                    if pfl:
-                        pfl.selfheal("metadata_reset", "Reset stale metadata to 'interrupted'", {
-                            "project_id": pid,
-                            "previous_status": stale_info["status"],
-                        })
-            except Exception:
-                logger.debug("Phase 61B: stale check failed for %s", pid, exc_info=True)
-
-            # Step 2: Log manifest age summary for diagnostics
-            try:
-                self._log_manifest_age_summary(pid, idx_dir, pfl)
-            except Exception:
-                logger.debug("Phase 61B: manifest age summary failed for %s", pid, exc_info=True)
-
-            # Step 3: Auto-trigger deep enrichment if manifests are stale
-            try:
-                if not self._is_deep_enrichment_auto(pid):
-                    if pfl:
-                        pfl.selfheal("auto_recover", "Skipped — deep_enrichment auto mode is OFF", {
-                            "project_id": pid,
-                        })
-                    continue
-
-                # Check if deep manifests are stale vs structural trace
-                store = ManifestStore(idx_dir)
-                if not store.provenance_exists(StageId.STRUCTURAL):
-                    continue
-
-                structural_mtime = store.provenance_mtime(StageId.STRUCTURAL)
-                deep_stale = False
-
-                for stage in DEEP_ENRICHMENT_STAGES:
-                    if not store.provenance_exists(stage):
-                        deep_stale = True
-                        break
-                    if store.provenance_mtime(stage) < structural_mtime:
-                        deep_stale = True
-                        break
-
-                if deep_stale:
-                    # Phase 72: Touch manifests first and re-check.
-                    self._touch_stale_deep_manifests(pid)
-
-                    # Re-verify staleness after touching
-                    deep_stale_after_touch = False
-                    for stage in DEEP_ENRICHMENT_STAGES:
-                        if not store.provenance_exists(stage):
-                            deep_stale_after_touch = True
-                            break
-                        if store.provenance_mtime(stage) < structural_mtime:
-                            deep_stale_after_touch = True
-                            break
-
-                    if not deep_stale_after_touch:
-                        # Touching fixed it — no recovery needed
-                        logger.info(
-                            "Phase 61B/72: Deep manifests for %s were stale but "
-                            "touch resolved it — no recovery needed",
-                            pid,
-                        )
-                        if pfl:
-                            pfl.selfheal("auto_recover", "Manifests were stale but touch fixed it — skipping recovery", {
-                                "project_id": pid,
-                            })
-                        continue
-
-                    # Still stale after touching — a manifest is genuinely missing
-                    # or has never been produced.  Proceed with recovery.
-
-                    # Skip if we already have an ACTIVE run (actually running)
-                    # But if we have a PAUSED run (from hydration), clear it —
-                    # auto mode means we should auto-resume, not wait for user.
-                    with self._lock:
-                        has_active = False
-                        paused_keys = []
-                        for key, run in self._runs.items():
-                            if key[0] != pid:
-                                continue
-                            if run.is_active:
-                                has_active = True
-                                break
-                            if run.is_paused:
-                                paused_keys.append(key)
-
-                    if has_active:
-                        logger.info(
-                            "Phase 61B: Deep manifests stale for %s but run already "
-                            "active — skipping auto-recover",
-                            pid,
-                        )
-                        continue
-
-                    # Clear hydrated PAUSED runs so _start_group doesn't block
-                    if paused_keys:
-                        with self._lock:
-                            for key in paused_keys:
-                                del self._runs[key]
-                        logger.info(
-                            "Phase 61B: Cleared %d PAUSED hydrated runs for %s "
-                            "— auto mode replaces manual Resume",
-                            len(paused_keys), pid,
-                        )
-                        if pfl:
-                            pfl.selfheal("auto_recover", "Cleared PAUSED runs for auto mode", {
-                                "project_id": pid,
-                                "cleared_keys": [str(k) for k in paused_keys],
-                            })
-
-                    logger.info(
-                        "Phase 61B: Auto-recovering deep enrichment for %s "
-                        "(deep manifests genuinely stale vs structural trace)",
-                        pid,
-                    )
-                    if pfl:
-                        pfl.selfheal("auto_recover", "Triggering deep enrichment — manifests genuinely stale", {
-                            "project_id": pid,
-                            "reason": "deep_manifests_stale_vs_structural_after_touch",
-                        })
-
-                    # Delay to let the server fully initialize
-                    import threading
-                    _orch = self  # Capture reference for thread closure
-
-                    def _delayed_recover(_pid=pid, _pfl=pfl, _orch=_orch):
-                        try:
-                            time.sleep(10)  # Wait for full server warmup
-                            started = _orch.run_deep_enrichment(_pid)
-                            logger.info("Phase 61B: Auto-recovery deep enrichment for %s: started=%s", _pid, started)
-                            if _pfl:
-                                _pfl.selfheal("auto_recover", f"run_deep_enrichment returned {started}", {
-                                    "project_id": _pid,
-                                    "started": started,
-                                })
-                            # Phase 72: Do NOT fall back to run_all if deep returns False.
-                            # run_deep returning False now correctly means "all stages complete,
-                            # nothing to do".  Calling run_all would create a secondary loop:
-                            # run_all → fast_sync (False) → run_deep (False) → run_all...
-                        except Exception as e:
-                            logger.warning("Phase 61B: Auto-recovery failed for %s: %s", _pid, e, exc_info=True)
-                            if _pfl:
-                                _pfl.selfheal("auto_recover", f"Recovery FAILED: {e}", {
-                                    "project_id": _pid,
-                                    "error": str(e),
-                                })
-
-                    t = threading.Thread(target=_delayed_recover, daemon=True)
-                    t.start()
-                else:
-                    if pfl:
-                        pfl.selfheal("auto_recover", "No recovery needed — deep manifests up to date", {
-                            "project_id": pid,
-                        })
-
-            except Exception:
-                logger.debug("Phase 61B: auto-trigger check failed for %s", pid, exc_info=True)
-
-    def _log_manifest_age_summary(self, project_id: str, idx_dir: Path, pfl: Any = None) -> None:
-        """Log the age of all stage manifests for diagnostic purposes.
-
-        Delegates to ManifestStore.age_summary().
-        """
-        store = ManifestStore(idx_dir)
-        manifest_ages = store.age_summary()
-
-        if pfl:
-            pfl.selfheal("manifest_age", f"Pipeline checkpoint age summary for {project_id}", {
-                "project_id": project_id,
-                "manifests": manifest_ages,
-            })
-
-        ages_str = ", ".join(
-            f"{k}={v.get('age_hours', '?')}h" if v.get("status") == "present" else f"{k}=MISSING"
-            for k, v in manifest_ages.items()
+        RecoveryManager.auto_recover_stale_pipelines(
+            is_deep_auto_fn=self._is_deep_enrichment_auto,
+            get_file_logger_fn=self._get_file_logger,
+            is_run_active_fn=_is_active,
+            clear_paused_runs_fn=_clear_paused,
+            run_deep_enrichment_fn=self.run_deep_enrichment,
         )
-        logger.info("Phase 61B manifest ages for %s: %s", project_id, ages_str)
 
     def get_crashed_runs(self, project_id: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Get crashed runs (for UI display)."""
-        try:
-            from codrag.services.pipeline_journal import journal
-            entries = journal.get_crashed_runs(project_id)
-            return [e.to_dict() for e in entries]
-        except Exception:
-            return []
+        """Delegates to RecoveryManager.get_crashed_runs."""
+        return RecoveryManager.get_crashed_runs(project_id)
 
     def resume_crashed_run(self, run_id: str) -> bool:
-        """Resume a crashed pipeline run from the stage it was on.
-
-        Creates a new run starting from the crashed stage.
-        Returns True if resumed successfully.
-        """
-        try:
-            from codrag.services.pipeline_journal import journal
-            entry = journal.get_run(run_id)
-            if not entry or entry.status != "crashed":
-                return False
-
-            # Resolve the crashed run
-            journal.resolve_crashed_run(run_id, "resumed")
-
-            # Determine stages and resume point
-            if entry.group == "fast_sync":
-                stages = FAST_SYNC_STAGES
-            elif entry.group == "deep_enrichment":
-                stages = DEEP_ENRICHMENT_STAGES
-            else:
-                return False
-
-            resume_from = entry.current_stage_index
-            chain_deep = entry.chain_deep
-
-            logger.info(
-                "Resuming crashed run %s: %s/%s from stage %d (%s)",
-                run_id, entry.project_id, entry.group,
-                resume_from, entry.current_stage,
-            )
-
-            return self._start_group(
-                entry.project_id, entry.group, stages,
-                chain_deep=chain_deep, resume_from=resume_from,
-            )
-        except Exception:
-            logger.exception("Resume failed for run %s", run_id)
-            return False
+        """Delegates to RecoveryManager.resume_crashed_run."""
+        return RecoveryManager.resume_crashed_run(run_id, self._start_group)
 
     def discard_crashed_run(self, run_id: str) -> bool:
-        """Discard a crashed pipeline run without resuming."""
-        try:
-            from codrag.services.pipeline_journal import journal
-            return journal.resolve_crashed_run(run_id, "discarded")
-        except Exception:
-            return False
+        """Delegates to RecoveryManager.discard_crashed_run."""
+        return RecoveryManager.discard_crashed_run(run_id)
 
 
     # ── Phase 49: Process Metadata ─────────────────────────────────
