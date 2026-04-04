@@ -219,6 +219,15 @@ export { RoadmapTimeline } from './components/goalposts';
 export type { RoadmapTimelineProps } from './components/goalposts';
 export type { RoadmapTier, RoadmapNodeSource, RoadmapNodeState, RoadmapTask, RoadmapNode, RoadmapNorthStar, RoadmapResponse, GitHubSyncState, GitHubStatus, VelocitySnapshot, BurndownPoint, VelocityResponse, SprintSuggestion, PushGitHubResult, WebhookResult } from './types';
 
+// Types - Architecture Diagram (Phase 71)
+export type {
+  ArchModule, ArchFile, ArchEdge, ArchStats, ArchGraphResponse,
+  ArchSummaryResponse, ArchNoteType, ArchNote, ArchNoteCreate,
+  ArchNoteUpdate, ArchNodePosition, ArchLayerLayout, ArchState,
+  ArchBreadcrumb, ModuleNodeData, FileNodeData, ExternalRefNodeData,
+  AnnotationNodeData,
+} from './types/architecture';
+
 // Components - Enterprise (Phase 06)
 export { EnterpriseAdminPanel } from './components/enterprise';
 export type { EnterpriseAdminPanelProps, SecurityHealthResult, TokenUsageSummary, SyncFleetEntry, UsageData } from './components/enterprise';
