@@ -35,8 +35,10 @@
   "dependencies": {
     "@radix-ui/react-slot": "^1.0.2",
     "@tremor/react": "^3.14.0",
+    "@xyflow/react": "^12.10.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
+    "elkjs": "^0.9.3",
     "keyboard-css": "^1.2.4",
     "lucide-react": "^0.312.0",
     "react-grid-layout": "^1.4.4",
