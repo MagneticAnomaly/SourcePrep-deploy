@@ -934,6 +934,19 @@ class MCPServer:
             except Exception as e:
                 logger.debug("Role projection failed for role=%s: %s", role, e)
 
+        # Phase 71: Architecture context (user-curated)
+        try:
+            arch_data = await self._api_get(
+                f"/projects/{project_id}/architecture/context"
+            )
+            if isinstance(arch_data, dict) and arch_data.get("exists"):
+                arch_text = arch_data.get("text", "")
+                if arch_text:
+                    md_parts.append("\n---\n")
+                    md_parts.append(arch_text)
+        except Exception as e:
+            logger.debug("Architecture context failed: %s", e)
+
         result["_to_markdown"] = "\n".join(md_parts)
         return result
 
