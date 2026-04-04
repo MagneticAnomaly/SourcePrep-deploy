@@ -27,6 +27,7 @@ from .state_machine import (
     Event,
     ActiveProjectGuard,
 )
+from .manifest_store import ManifestStore
 from .orchestrator import (
     PipelineOrchestrator,
     pipeline_orchestrator,
@@ -50,6 +51,7 @@ __all__ = [
     "PipelineState",
     "Event",
     "ActiveProjectGuard",
+    "ManifestStore",
     "PipelineOrchestrator",
     "pipeline_orchestrator",
 ]

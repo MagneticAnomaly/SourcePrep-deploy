@@ -46,6 +46,7 @@ from .state_machine import (
     Event,
     ActiveProjectGuard,
 )
+from .manifest_store import ManifestStore
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +87,22 @@ class PipelineOrchestrator:
         self._changed_paths: Dict[str, set[str]] = {}
         # Explicit chain flag: run_all() sets this so deep_enrichment chains after fast_sync
         self._chain_deep: Dict[str, bool] = {}
+        # Phase 72: manifest store instances per project
+        self._manifest_stores: Dict[str, ManifestStore] = {}
+
+    def _get_manifest_store(self, project_id: str) -> Optional[ManifestStore]:
+        """Get or create a ManifestStore for a project."""
+        if project_id not in self._manifest_stores:
+            try:
+                from codrag.services.project_helpers import require_project
+                from codrag.core.project_registry import project_index_dir
+                project = require_project(project_id)
+                idx_dir = Path(project_index_dir(project))
+                self._manifest_stores[project_id] = ManifestStore(idx_dir)
+            except Exception:
+                logger.debug("Could not create ManifestStore for %s", project_id, exc_info=True)
+                return None
+        return self._manifest_stores.get(project_id)
 
     def _get_file_logger(self, project_id: str):
         """Get or create a PipelineFileLogger for a project."""
@@ -2740,22 +2757,13 @@ class PipelineOrchestrator:
     def _read_graph_stats_from_manifest(idx_dir) -> Dict[str, Any]:
         """Read node/edge counts from trace_manifest.json for rules file stats.
 
-        Returns a dict with node_count, edge_count, coverage_pct.
-        Non-fatal — returns zeros on any error.
+        Delegates to ManifestStore. Non-fatal — returns zeros on any error.
         """
-        import json as _json
-        stats: Dict[str, Any] = {"node_count": 0, "edge_count": 0, "coverage_pct": None}
         try:
-            manifest_path = idx_dir / "trace_manifest.json"
-            if manifest_path.exists():
-                with open(manifest_path, "r", encoding="utf-8") as f:
-                    manifest = _json.load(f)
-                counts = manifest.get("counts", {})
-                stats["node_count"] = counts.get("nodes_total", 0) or counts.get("files_parsed", 0)
-                stats["edge_count"] = counts.get("edges_total", 0)
+            store = ManifestStore(Path(idx_dir))
+            return store.read_graph_stats()
         except Exception:
-            pass
-        return stats
+            return {"node_count": 0, "edge_count": 0, "coverage_pct": None}
 
     @staticmethod
     def _write_atlas_signal(idx_dir) -> None:
@@ -3882,32 +3890,10 @@ class PipelineOrchestrator:
     def _log_manifest_age_summary(self, project_id: str, idx_dir: Path, pfl: Any = None) -> None:
         """Log the age of all stage manifests for diagnostic purposes.
 
-        This creates a comprehensive selfheal event showing exactly when
-        each stage last completed — the first thing to check when the
-        pipeline seems stuck.
+        Delegates to ManifestStore.age_summary().
         """
-        from .stages import STAGE_MANIFEST_FILE, StageId
-        from datetime import datetime, timezone
-
-        now = time.time()
-        manifest_ages: Dict[str, Any] = {}
-
-        for stage in list(FAST_SYNC_STAGES) + list(DEEP_ENRICHMENT_STAGES):
-            mf = STAGE_MANIFEST_FILE.get(stage)
-            if not mf:
-                manifest_ages[stage.value] = {"status": "no_manifest_mapping"}
-                continue
-            mp = idx_dir / mf
-            if not mp.exists():
-                manifest_ages[stage.value] = {"status": "missing"}
-                continue
-            mtime = mp.stat().st_mtime
-            age_hours = round((now - mtime) / 3600, 1)
-            manifest_ages[stage.value] = {
-                "status": "present",
-                "age_hours": age_hours,
-                "last_modified": datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat(),
-            }
+        store = ManifestStore(idx_dir)
+        manifest_ages = store.age_summary()
 
         if pfl:
             pfl.selfheal("manifest_age", f"Pipeline checkpoint age summary for {project_id}", {
@@ -3915,7 +3901,6 @@ class PipelineOrchestrator:
                 "manifests": manifest_ages,
             })
 
-        # Also log a one-line summary to the standard logger
         ages_str = ", ".join(
             f"{k}={v.get('age_hours', '?')}h" if v.get("status") == "present" else f"{k}=MISSING"
             for k, v in manifest_ages.items()
