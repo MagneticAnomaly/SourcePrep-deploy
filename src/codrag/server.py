@@ -563,6 +563,7 @@ from codrag.api.routers.opportunities import router as opportunities_router
 from codrag.api.routers.pm_push import router as pm_push_router
 from codrag.api.routers.agent_scope import router as agent_scope_router
 from codrag.api.routers.agents import router as agents_router
+from codrag.api.routers.architecture import router as architecture_router
 app.include_router(system_router)
 app.include_router(license_router)
 app.include_router(trace_router)
@@ -581,6 +582,7 @@ app.include_router(opportunities_router)
 app.include_router(pm_push_router)
 app.include_router(agent_scope_router)
 app.include_router(agents_router)
+app.include_router(architecture_router)
 
 
 # =============================================================================
