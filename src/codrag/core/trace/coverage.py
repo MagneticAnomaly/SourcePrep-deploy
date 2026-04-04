@@ -201,7 +201,12 @@ def compute_trace_coverage(
                         break
 
             if not matches_any_include:
-                continue
+                # Even if the file doesn't match current include_globs, count it
+                # if it's already in the trace manifest (the trace builder found it).
+                # This prevents misleading coverage when config globs are narrower
+                # than the trace builder's own file discovery.
+                if rel_path not in manifest_hashes:
+                    continue
 
             # Check if excluded by default/system patterns (silently skip)
             is_default_excluded = False

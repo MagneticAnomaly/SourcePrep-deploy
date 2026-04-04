@@ -133,7 +133,7 @@ export function IndexHealthPanel({ data, className }: IndexHealthPanelProps) {
           </div>
           <div className="text-[11px] text-text-muted flex items-center gap-2">
             <Freshness ts={data.last_build_at} />
-            {data.embedding_dim > 0 && <span>· {data.embedding_dim}d</span>}
+            {data.embedding_dim > 0 && <span>· {data.embedding_dim}-dim</span>}
           </div>
         </div>
 
