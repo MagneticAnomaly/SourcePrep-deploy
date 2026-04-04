@@ -228,6 +228,10 @@ export type {
   AnnotationNodeData,
 } from './types/architecture';
 
+// Components - Architecture Diagram (Phase 71)
+export { ArchitectureDiagramPanel, ArchitectureDiagramDetail } from './components/architecture';
+export type { ArchitectureDiagramPanelProps, ArchitectureDiagramDetailProps } from './components/architecture';
+
 // Components - Enterprise (Phase 06)
 export { EnterpriseAdminPanel } from './components/enterprise';
 export type { EnterpriseAdminPanelProps, SecurityHealthResult, TokenUsageSummary, SyncFleetEntry, UsageData } from './components/enterprise';

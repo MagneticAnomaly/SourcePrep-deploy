@@ -21,6 +21,7 @@ import {
   Terminal,
   Users,
   Bot,
+  Network,
 } from 'lucide-react';
 import type { PanelDefinition } from '../types/layout';
 
@@ -344,6 +345,18 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'config',
     closeable: true,
     resizable: true,
+  },
+  {
+    id: 'architecture',
+    title: 'Architecture',
+    description: 'Interactive architecture diagram: visualize modules, dependencies, and annotations. Drill down from system overview to individual files.',
+    icon: Network,
+    minHeight: 6,
+    defaultHeight: 8,
+    category: 'context',
+    closeable: true,
+    resizable: true,
+    fullWidth: true,
   },
 ];
 
