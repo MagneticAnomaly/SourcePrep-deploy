@@ -73,7 +73,7 @@ export interface GridLayoutItem {
  * Default layout configuration
  */
 export const DEFAULT_LAYOUT: DashboardLayout = {
-  version: 18,
+  version: 20,
   panels: [
     {
       id: "status",
@@ -201,6 +201,24 @@ export const DEFAULT_LAYOUT: DashboardLayout = {
       y: 0,
       w: 4
     },
+    {
+      id: "agent-ops",
+      visible: true,
+      height: 6,
+      collapsed: false,
+      x: 0,
+      y: 38,
+      w: 4
+    },
+    {
+      id: "agent-scope",
+      visible: true,
+      height: 10,
+      collapsed: false,
+      x: 4,
+      y: 38,
+      w: 4
+    }
   ]
 };
 

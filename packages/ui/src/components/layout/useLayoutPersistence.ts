@@ -65,7 +65,7 @@ function migrateLayout(layout: DashboardLayout): DashboardLayout {
   if (missingPanels.length > 0) {
     return {
       ...upgradedLayout,
-      panels: [...upgradedLayout.panels, ...missingPanels.map((p) => ({ ...p, visible: false }))],
+      panels: [...upgradedLayout.panels, ...missingPanels],
     };
   }
 
