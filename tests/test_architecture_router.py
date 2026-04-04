@@ -90,6 +90,12 @@ class TestGetArchitectureGraph:
         assert data["exists"] is True
         assert len(data["modules"]) == 2
         assert data["stats"]["total_modules"] == 2
+        # Verify module field normalization (module_id -> id, summary -> description)
+        auth_mod = next(m for m in data["modules"] if m["id"] == "mod_auth")
+        assert auth_mod["name"] == "Authentication"
+        assert auth_mod["description"] == "User auth and session management"
+        assert auth_mod["avg_confidence"] == 0.85
+        assert auth_mod["file_count"] == 2
         # Should have aggregated edge from auth -> db
         assert len(data["edges"]) == 1
         assert data["edges"][0]["source"] == "mod_auth"

@@ -140,6 +140,23 @@ def _aggregate_module_edges(
     return list(agg.values())
 
 
+def _normalize_module(m: Dict[str, Any]) -> Dict[str, Any]:
+    """Remap raw JSONL module fields to the frontend ArchModule contract."""
+    return {
+        "id": m.get("module_id", ""),
+        "name": m.get("name", ""),
+        "description": m.get("summary", ""),
+        "file_count": m.get("file_count", len(m.get("member_files", []))),
+        "member_files": m.get("member_files", []),
+        "hub_files": m.get("hub_files", []),
+        "domain_tags": m.get("domain_tags", []),
+        "architecture_layers": m.get("architecture_layers", []),
+        "component_status": m.get("component_status", "unknown"),
+        "avg_confidence": m.get("avg_epistemic_confidence", 0),
+        "dependencies": m.get("dependencies", []),
+    }
+
+
 def _guess_language(path: str) -> str:
     ext_map = {
         ".py": "python", ".ts": "typescript", ".tsx": "tsx", ".js": "javascript",
@@ -182,7 +199,7 @@ def get_architecture_graph(
         module_edges = _aggregate_module_edges(trace_edges, file_to_module)
         return ok({
             "exists": True,
-            "modules": modules,
+            "modules": [_normalize_module(m) for m in modules],
             "files": [],
             "edges": module_edges,
             "external_refs": [],
