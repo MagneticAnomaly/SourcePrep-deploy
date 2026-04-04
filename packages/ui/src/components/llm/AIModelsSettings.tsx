@@ -998,7 +998,7 @@ export function AIModelsSettings({
 
           {onMaxActiveProjectsChange && maxActiveProjects !== undefined && (
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-text-subtle">Max Active Projects</label>
+              <label className="text-xs font-medium text-text-subtle">Max Active Projects (Local Performance)</label>
               <Select
                 size="sm"
                 value={String(maxActiveProjects)}
@@ -1017,7 +1017,8 @@ export function AIModelsSettings({
                 className="w-full"
               />
               <p className="text-[10px] text-text-muted leading-relaxed">
-                How many projects can run LLM pipelines simultaneously.
+                This is a local performance safeguard to prevent your computer from overloading. It limits how many projects can run LLM pipelines simultaneously. Increase it if your hardware can handle the concurrency.
+
               </p>
             </div>
           )}

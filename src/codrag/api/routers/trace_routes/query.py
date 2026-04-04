@@ -115,6 +115,34 @@ def build_trace_project(project_id: str) -> Dict[str, Any]:
     return ok({"started": True, "building": True})
 
 
+import time as _time
+
+# Phase 72: Coverage result cache — keyed by project ID.
+# Returns cached result if fresh enough, otherwise recomputes.
+_coverage_cache: Dict[str, Dict[str, Any]] = {}
+_coverage_cache_ts: Dict[str, float] = {}
+_COVERAGE_CACHE_TTL = 30  # seconds
+
+
+@router.get("/projects/{project_id}/trace/coverage/summary")
+async def trace_coverage_summary_project(project_id: str) -> Dict[str, Any]:
+    """Fast endpoint: return cached summary only (no file lists) for progress bars."""
+    cached = _coverage_cache.get(project_id)
+    if cached:
+        return ok({
+            "summary": cached.get("summary"),
+            "building": cached.get("building", False),
+        })
+    # No cache — fall through to the full computation (first load)
+    full = await trace_coverage_project(project_id)
+    # Extract just the summary from the envelope
+    data = full.get("data", full)
+    return ok({
+        "summary": data.get("summary"),
+        "building": data.get("building", False),
+    })
+
+
 @router.get("/projects/{project_id}/trace/coverage")
 async def trace_coverage_project(project_id: str) -> Dict[str, Any]:
     """Get trace coverage: traced, untraced, stale, and ignored files."""
@@ -131,6 +159,11 @@ async def trace_coverage_project(project_id: str) -> Dict[str, Any]:
             message="Trace is disabled for this project",
             hint="Enable trace in project settings.",
         )
+
+    # Check cache freshness
+    cache_age = _time.time() - _coverage_cache_ts.get(project_id, 0)
+    if cache_age < _COVERAGE_CACHE_TTL and project_id in _coverage_cache:
+        return ok(_coverage_cache[project_id])
 
     def _compute_coverage():
         include_raw = cfg.get("include_globs") if isinstance(cfg, dict) else None
@@ -186,6 +219,9 @@ async def trace_coverage_project(project_id: str) -> Dict[str, Any]:
 
     loop = asyncio.get_running_loop()
     coverage = await loop.run_in_executor(_status_executor, _compute_coverage)
+    # Update cache
+    _coverage_cache[project_id] = coverage
+    _coverage_cache_ts[project_id] = _time.time()
     return ok(coverage)
 
 

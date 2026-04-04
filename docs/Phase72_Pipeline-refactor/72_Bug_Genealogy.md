@@ -117,6 +117,111 @@ Longest method (_detect_resume)     226 lines
 | GET /epistemic/status | 🔴 Potentially blocked | ⚠️ Still calls pipeline_orchestrator.status() |
 | GET /modules/status | 🔴 Potentially blocked | ⚠️ Still calls pipeline_orchestrator.status() |
 
+## Phase 72 Additions: Recently Fixed Architectural Bugs
+
+### Root Cause 4: Startup Hydration vs Auto-Recovery Priority Inversion
+
+**What**: During startup, `_hydrate_paused_runs_from_disk()` blindly creates fake `PAUSED` state machines for any incomplete pipelines BEFORE the auto-recovery system gets a chance to evaluate the data. 
+
+**Manifested as**:
+- ❌ Dashboard permanently shows Atlas as "Paused" after a simple server restart.
+- ❌ The user has to manually hit "Play" every single time the daemon boots.
+- ❌ `_auto_recover_stale_pipelines()` observes the fake "Paused" state, thinks a human paused it, and bails out, entirely defeating the auto-resume system.
+
+**Fix status**: ✅ FIXED in Phase 72
+- When a group is configured in `AUTO` mode, we completely skip `_hydrate_paused_runs_from_disk` for that group.
+- The `PAUSED` state is reserved for humans who explicitly pause; `_auto_recover_stale_pipelines()` cleanly auto-resumes orphaned pipelines.
+
+---
+
+### Root Cause 5: Backup Sabotage (Restoring Stale Checkpoints over Fresh Data)
+
+**What**: The `_try_restore_from_backup()` logic blindly clobbered the current `trace_manifest.json` with an older checkpoint if the orchestrator decided it needed to run a structural rebuild (i.e., `incremental=False`), effectively wiping its own short-term memory of new files.
+
+**Manifested as**:
+- ❌ 209 untraced files are detected by the coverage gap logic.
+- ❌ Orchestrator triggers a structural rebuild (`resume=0`, `incremental=False`) to add them to the graph.
+- ❌ Backup logic sees `incremental=False`, thinks "we are empty! Let me restore from a checkpoint."
+- ❌ An old `trace_manifest.json` is restored, overwriting the new file list. The 209 untraced files disappear from the orchestrator's radar forever.
+
+**Fix status**: ✅ FIXED in Phase 72
+- We now set `incremental=True` for untraced files because adding new files to existing valid structural data *is* an incremental operation. This completely bypasses the catastrophic backup restore path.
+
+---
+
+### Root Cause 6: The Infinite Iteration Loop (Reset on Completion)
+
+**What**: When all deep enrichment stages finished successfully, `run_deep_enrichment()` assumed it should stay alive to "process incremental changes" before any existed. It forcibly reset `resume=0` and restarted from stage 1.
+
+**Manifested as**:
+- ❌ Deep enrichment ran continuously in an infinite 6-stage loop.
+- ❌ Massive LLM token burning immediately after completion on clustering and atlas building.
+- ❌ Redundant "structural rebuilds" being endlessly fired by fast sync.
+
+**Fix status**: ✅ FIXED in Phase 72
+- When stages are complete on disk, the orchestrator now legitimately returns `False` ("nothing to do"). Future changes enter legally via the `fast_sync` coverage gap detection loop instead of arbitrary restarts.
+
+---
+
+### Root Cause 7: Provenance Namespace/State Silos
+
+**What**: The pipeline successfully runs and saves accurate data on disk, but the API endpoints looking up that data guess filenames or miss derived fields, rendering the UI blind to pipeline execution.
+
+**Manifested as**:
+- ❌ "Continuous Deepening" showed as "Not started" because the API hard-coded a check for `trace_deepening_manifest.json` instead of `deepening_manifest.json`.
+- ❌ Missing derived UI fields (like `settled_ratio`) missing from the API caused the dashboard frontend reducer (`computeDeepeningState`) to silently fall backwards to `not_built`.
+
+**Fix status**: ✅ FIXED in Phase 72
+- Synchronized API endpoints to read actual filenames and correctly re-compute required dashboard telemetry (e.g. `settled_ratio = processed / total`).
+
+---
+
+### Root Cause 8: Cross-Domain UI Fallbacks (Irrelevant Progress Ratios)
+
+**What**: Frontend components blindly apply generic fallback rendering data (e.g., project-level file metrics like `staleCounts`) across stages that operate on completely different abstract boundaries. In other words, file-level ratios are force-rendered on graph-level or epoch-level jobs.
+
+**Manifested as**:
+- ❌ The user looks at the `Continuous Deepening` UI and sees the text string explicitely saying `10%`, but the `<StageProgressBar>` component underneath renders a 99% solid green bar. 
+- ❌ This occurs because the UI detects `staleCounts.stale > 0` and silently overrides the active epoch/iteration progress with a "fallback" ratio reflecting the percentage of non-stale files out of the whole project codebase.
+
+**Fix status**: 📝 Needs Fix in Phase 72 (UI Refactor / Data Boundary Isolation)
+
+---
+
+### Root Cause 9: Orchestrator-Coupled Telemetry (Blind AI Gateway)
+
+**What**: The `AI Gateway /llm/status` endpoints determine whether an LLM is active exclusively by checking if the `pipeline_orchestrator` asserts that the `fast_sync` or `deep_enrichment` groups are `is_active`. It checks pipeline status, not LLM socket traffic.
+
+**Manifested as**:
+- ❌ Paperclip agents, chat completions, ad-hoc rule regeneration, and internal reasoning sidecar operations happen invisibly.
+- ❌ The AI Gateway dashboard and sidebar activity indicators show the system as completely "idle" and silent, even if an autonomous agent is slamming the local LLM at max capacity burning thousands of tokens.
+- ❌ Telemetry is coupled to pipeline batches instead of actual `LLMClient` token throughput or task queue dispatch locks.
+
+**Fix status**: 📝 Needs Fix in Phase 72 (Architectural decoupling of LLM telemetry from pipeline orchestrator constraints)
+
+### Root Cause 10: Binary UI Building State (Mishandling Incremental Metrics)
+
+**What**: Frontend components (like the `Graph Scope` trace coverage UI) detect a boolean `building` state and forcefully override their visual representation to a binary state. Rather than reflecting the true incremental status (completed vs. active), they collapse the entire graph into a monolithic "in-progress" status for the duration of the pipeline.
+
+**Manifested as**:
+- ❌ During an incremental pipeline run focused on 209 specific files out of 1,348 total, the Graph Scope UI drops the 1,139 successfully completed items to `0 traced & embedded` and claims all `1348 in-progress` (painting the bar solid blue).
+- ❌ Additionally, the `stale` metric immediately drops to 0 in when the run begins, causing the two-tone rerun `<StageProgressBar>` to break since its fallback logic relies on `staleCounts`. It swaps dynamically from a rerun format to a standard indeterminate blue format, dropping all visibility into the incremental span.
+
+**Fix status**: 📝 Needs Fix in Phase 72 (UI Refactor / Preserve incremental baselines throughout pipeline execution)
+
+### Root Cause 11: Queue Processing Priority Inversion
+
+**What**: When the pipeline is in an incomplete state (e.g., partial runs, crashed states, or skipped stages), the self-healing and queue processors prioritize gathering newly detected or stale items over simply finishing the existing, partially-processed pipeline graph. 
+
+**Manifested as**:
+- ❌ The system refuses to continue an incomplete Atlas or Deepening run, instead spinning up the 'Edge Discovery' or 'Fast Sync' loop to chase a handful of new/stale items.
+- ❌ The user attempts to manually resume an incomplete pipeline, but the orchestrator spins or fails because it detects 2 stale files and tries to integrate them before making the entire pipeline "complete".
+- ❌ Redundant "new/stale" queue processing occurs when the core objective should be to repair and finish what was started.
+
+**Fix status**: 📝 Needs Fix in Phase 72 (Self-heal architecture must prioritize pipeline completion over new queue processing when state is incomplete)
+
+---
+
 ## Phase 60D Fixes Applied (Already Deployed)
 
 | Fix ID | Description | File | Lines Changed |
@@ -134,5 +239,15 @@ Longest method (_detect_resume)     226 lines
 | 60D-5 | Inline status reads (eliminate lock cascade) | pipeline.py | ~80 |
 | 60D-6 | Periodic checkpointing every 10 batches | inferred_edges.py | ~10 |
 
-Total: 12 individual fixes across 6 files, ~370 lines changed.
-All of these are defensive patches — they work, but they don't address the structural decomposition needed in Phase 72.
+## Phase 72 Immediate Fixes Applied (Already Deployed)
+
+| Fix ID | Description | File | Lines Changed |
+|--------|-------------|------|---------------|
+| 72-1 | Break infinite looping on deep_enrichment complete | orchestrator.py | ~5 |
+| 72-2 | Post-touch freshness guard to prevent false staleness runs | orchestrator.py | ~10 |
+| 72-3 | Skip PAUSED hydration for pipelines in AUTO mode | orchestrator.py | ~15 |
+| 72-4 | Skip backup restore for untraced file integration (`incremental=True`) | orchestrator.py | ~5 |
+| 72-5 | Fix deepening status filename bug and missing `settled_ratio` | pipeline.py | ~10 |
+
+Total: 5 individual fixes across 2 files, ~45 lines changed.
+All of these are defensive patches — they work, but they demonstrate why we **urgently** need the structural decomposition detailed in `README.md`.

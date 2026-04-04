@@ -210,6 +210,14 @@ async def update_global_config_v2(req: Request) -> Dict[str, Any]:
     _deep_merge(current, data)
     _save_ui_config(current)
 
+    # Phase 72: Live-sync endpoint concurrency into the scheduler
+    # when the global config (which includes saved_endpoints) changes.
+    try:
+        from codrag.services.pipeline.scheduler import pipeline_scheduler
+        pipeline_scheduler.sync_endpoint_concurrency()
+    except Exception:
+        pass
+
     if embedding_changed:
         import codrag.server as _srv
         _srv._index = None

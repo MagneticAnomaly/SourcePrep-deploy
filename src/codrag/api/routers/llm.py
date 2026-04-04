@@ -673,6 +673,42 @@ def get_llm_slots_status() -> Dict[str, Any]:
                                 })
                     except (ValueError, KeyError):
                         pass
+
+        # Enrich running tasks with concurrent worker count from scheduler
+        try:
+            from codrag.services.pipeline.scheduler import pipeline_scheduler
+            for rt in running_tasks:
+                workers, node_id = pipeline_scheduler.concurrent_workers_for_project(
+                    rt["project_id"]
+                )
+                rt["concurrent_workers"] = workers
+                rt["compute_node"] = node_id
+        except Exception:
+            pass  # Scheduler not available — leave defaults
+
+        # [Goal 3] Merge live telemetry active requests that bypass the orchestrator
+        from codrag.services.token_telemetry import telemetry
+        for req in telemetry.get_active_requests():
+            # Skip if already tracked by orchestrator logic
+            if any(rt["project_id"] == req["project_id"] and rt.get("task_id") == req["task_id"] for rt in running_tasks):
+                continue
+            proj_name = req["project_id"]
+            try:
+                p = registry.get_project(req["project_id"])
+                if p:
+                    proj_name = p.name
+            except Exception:
+                pass
+            running_tasks.append({
+                "task_id": req["task_id"] or "agent_call",
+                "project_id": req["project_id"],
+                "project_name": proj_name,
+                "group": "agent_ops",
+                "stage": req["task_id"],
+                "model_slot": req["model_slot"] or "large_model",
+                "concurrent_workers": 1,
+                "compute_node": "local",
+            })
     except Exception:
         pass  # Non-critical
 

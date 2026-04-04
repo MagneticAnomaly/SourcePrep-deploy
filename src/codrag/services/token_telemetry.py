@@ -29,6 +29,19 @@ _telemetry_ctx: contextvars.ContextVar[Optional[Dict[str, str]]] = contextvars.C
 _fallback_ctx: Optional[Dict[str, str]] = None
 _fallback_lock = threading.Lock()
 
+@dataclass
+class ActiveLLMRequest:
+    project_id: str
+    task_id: str
+    model: str
+    provider: str
+    start_time: float
+    model_slot: Optional[str] = None
+
+# Track active requests uniquely by thread ID
+_active_requests: Dict[int, ActiveLLMRequest] = {}
+_active_requests_lock = threading.Lock()
+
 
 @contextmanager
 def set_telemetry_context(project_id: str, task_id: str) -> Iterator[None]:
@@ -223,5 +236,44 @@ class TokenTelemetryStore:
                 "total_tokens": row["total"],
             }
         return result
+
+    def track_active_request(self, model: str, provider: str, model_slot: Optional[str] = None) -> None:
+        ctx = _telemetry_ctx.get()
+        if not ctx:
+            with _fallback_lock:
+                ctx = _fallback_ctx
+        if not ctx:
+            return
+
+        tid = threading.get_ident()
+        with _active_requests_lock:
+            _active_requests[tid] = ActiveLLMRequest(
+                project_id=ctx["project_id"],
+                task_id=ctx["task_id"],
+                model=model,
+                provider=provider,
+                start_time=time.time(),
+                model_slot=model_slot,
+            )
+
+    def untrack_active_request(self) -> None:
+        tid = threading.get_ident()
+        with _active_requests_lock:
+            _active_requests.pop(tid, None)
+
+    def get_active_requests(self) -> List[Dict[str, Any]]:
+        with _active_requests_lock:
+            now = time.time()
+            return [
+                {
+                    "project_id": req.project_id,
+                    "task_id": req.task_id,
+                    "model": req.model,
+                    "provider": req.provider,
+                    "model_slot": req.model_slot,
+                    "duration_seconds": now - req.start_time,
+                }
+                for req in _active_requests.values()
+            ]
 
 telemetry = TokenTelemetryStore()

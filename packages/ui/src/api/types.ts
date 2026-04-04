@@ -86,6 +86,7 @@ export interface CreateProjectRequest {
 
 export interface CreateProjectResponse {
   project: ProjectListItem;
+  warning?: string;
 }
 
 export interface UpdateProjectRequest {
@@ -109,6 +110,7 @@ export interface UpdateProjectRequest {
 
 export interface UpdateProjectResponse {
   project: ProjectListItem;
+  warning?: string;
 }
 
 export interface DeleteProjectResponse {

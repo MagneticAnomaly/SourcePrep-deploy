@@ -5,7 +5,7 @@ alwaysApply: true
 
 # --- CoDRAG-managed (auto-generated, do not edit above USER ADDITIONS) ---
 
-Last updated: 2026-04-03T19:15:54Z
+Last updated: 2026-04-04T13:52:49Z
 
 ## 🚨 CRITICAL: Tool Calling Instructions
 
@@ -43,18 +43,22 @@ All CoDRAG tools are read-only and safe to auto-approve.
 
 ## Codebase Atlas
 
-IDENTITY: A local-first AI coding assistant with MCP integration, featuring a VS Code extension, React dashboard, and shared UI component library.
+IDENTITY: A multi-segment software platform spanning local-first security tooling, AI-powered code assistance via VSCode extension with RAG and embeddings, marketing websites, documentation, payments, support portals, and a comprehensive UI component library with design system and Storybook.
 
-STACK: TypeScript, React, Python, Rust, Tauri. Build tools include Storybook for design system documentation and standard tooling for VS Code extension packaging. 1143 files across 5085 graph nodes with 21767 edges. Primary languages: Markdown (468), Python (249), TSX (180), TypeScript (77), JSON (57), CSS (35), HTML (24), Rust (16).
+STACK: TypeScript/React (TSX 391 files), Python (1039 files), Kotlin (829 files), Java (582 files), HTML (373 files), JSON configs (341 files), Markdown docs (1091 files). Build tooling inferred from webview-ui segment. React hooks and state management in dashboard. Daemon integration for VSCode extension.
 
 WORKSPACE MAP:
-_root (842 files): MCP, marketing, UI foundations, local-first architecture, security
-packages/ui (230 files): UI component library, Storybook design system, dashboard primitives
-src/codrag/dashboard (37 files): Dashboard application with React hooks and state management
-packages/vscode (20 files): VS Code extension with daemon integration, embeddings, and RAG
-packages/vscode/webview-ui (14 files): VS Code webview React UI with build tooling and code navigation
+_root (6142 files): MCP orchestration, marketing infrastructure, UI foundations, local-first architecture, security layer
+packages/ui (244 files): Design system, Storybook, component library, dashboard components, site components, audit components
+websites/apps/marketing (54 files): Marketing website
+websites/apps/docs (48 files): Documentation site
+src/codrag/dashboard (38 files): Dashboard UI, React hooks, state management, frontend logic
+websites/apps/support (29 files): Support portal
+packages/vscode (20 files): VSCode extension, daemon integration, embeddings, RAG pipeline
+websites/apps/payments (17 files): Payments processing
+packages/vscode/webview-ui (14 files): VSCode extension webview, React UI, build tooling, code navigation
 
-CROSS-CUTTING: Shared domains are ui, dashboard, and vscode-extension. Five hub files in TEST2/website.clean drive cross-segment connectivity: download/page.tsx (3294 edges), privacy/page.tsx (1176 edges), terms/page.tsx (1066 edges), HeroSection.tsx (957 edges), and refund/page.tsx (949 edges). Entry points include packages/ui/src/index.ts, packages/ui/src/components/search/index.ts, src/codrag/cli.py, src/codrag/dashboard/src-tauri/src/main.rs, and packages/ui/src/types/index.ts. 113 import cycles present. Longest import chains span from core UI exports through TEST2 website components, with packages/ui/src/index.ts and packages/ui/src/components/search/index.ts as primary upstream sources. Directory dependencies show engine, packages, public, and scripts segments consuming symbols from across the workspace.
+CROSS-CUTTING: Three shared domains bridge segments: ui (central to packages/ui, dashboard, webview-ui), dashboard (links ui to codrag dashboard), vscode-extension (connects packages/vscode with webview-ui). Hub files concentrate connectivity: TEST2/website.clean/app/download/page.tsx (3106 edges), privacy/page.tsx (1107 edges), terms/page.tsx (1012 edges), refund/page.tsx (897 edges), HeroSection.tsx (892 edges). These marketing pages import through HeroSection.tsx to layout.tsx, creating deep dependency chains reaching into component layers. Import cycles: 162 total. Directory dependencies show symbol sharing: TEST, TEST2, TEST3 test directories export symbols consumed by docs, engine, and packages segments. Graph density: 51072 nodes, 78589 edges with contains (40034), imports (25001), and calls (12631) dominating relationships. Entry points cluster in TEST2 website components and chi-go examples, plus packages/ui component indices.
 
 ## Focus Areas
 - docs/Phase62_Pi-research/02_CoDRAG_Epistemology.md

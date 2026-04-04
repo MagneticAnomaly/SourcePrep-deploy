@@ -337,12 +337,13 @@ def get_batch_concurrency(provider: str, node_id: str | None = None, model: str 
 
     When ``node_id`` is explicitly provided, queries that exact node.
     Otherwise, **auto-discovers** the matching node from the scheduler's
-    active slots by provider prefix (``cloud:*`` or ``local:*``).
+    active slots — Phase 72 fix: the scheduler now resolves by the
+    project's *actual* acquired node before falling back to prefix
+    matching.
 
-    Ollama serializes requests per model — even cloud-proxied models
-    (kimi, gemini via Ollama) hit 429 if we send multiple concurrent
-    batch calls.  For local Ollama nodes this still returns 1.
-    True cloud APIs (OpenAI, Anthropic, Google) handle concurrency fine.
+    For local Ollama nodes this still returns 1 to protect VRAM.
+    Cloud APIs (OpenAI, Anthropic, Google, Ollama cloud-proxied) use
+    the configured ``cloud_concurrency`` budget.
     """
     provider_lower = provider.lower().strip()
 
@@ -365,15 +366,24 @@ def get_batch_concurrency(provider: str, node_id: str | None = None, model: str 
         from codrag.services.pipeline.scheduler import pipeline_scheduler
 
         if node_id is not None:
-            return pipeline_scheduler.available_batch_workers(
+            workers = pipeline_scheduler.available_batch_workers(
                 node_id, project_id=calling_project_id,
             )
+            logger.info(
+                "Batch concurrency: %d workers (explicit node=%s, project=%s)",
+                workers, node_id, calling_project_id,
+            )
+            return workers
 
         # Auto-discover: find the best matching node in the scheduler
         workers = pipeline_scheduler.available_batch_workers_for_provider(
             provider_lower, model, project_id=calling_project_id,
         )
         if workers is not None:
+            logger.info(
+                "Batch concurrency: %d workers (auto-discovered, provider=%s, model=%s, project=%s)",
+                workers, provider_lower, model, calling_project_id,
+            )
             return workers
     except ImportError:
         pass
@@ -382,9 +392,12 @@ def get_batch_concurrency(provider: str, node_id: str | None = None, model: str 
     is_cloud_model = provider_lower not in _LOCAL_PROVIDERS
     if not is_cloud_model and model:
         is_cloud_model = is_cloud_model_via_ollama(provider_lower, model)
-    if not is_cloud_model:
-        return 1
-    return 3
+    fallback = 3 if is_cloud_model else 1
+    logger.info(
+        "Batch concurrency: %d workers (FALLBACK — no scheduler, provider=%s, cloud=%s)",
+        fallback, provider_lower, is_cloud_model,
+    )
+    return fallback
 
 
 def detect_profile(provider: str, model: str) -> BatchProfile:

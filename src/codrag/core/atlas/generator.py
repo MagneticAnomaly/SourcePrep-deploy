@@ -320,23 +320,69 @@ class CodebaseAtlas:
             progress_callback("atlas_segmented", 1, total_steps)
 
         # Generate per-segment atlases
-        segment_docs: List[SegmentDocument] = []
-        for i, segment in enumerate(segments):
-            try:
-                seg_doc = self._generate_segment_atlas(
-                    segment, modules, epistemic, graph_stats, hub_files, segments,
-                )
-                segment_docs.append(seg_doc)
-            except Exception as e:
-                logger.warning("Failed to generate segment atlas for %s: %s", segment.id, e)
+        # Phase 72: Use the scheduler's batch concurrency budget to
+        # process multiple segments in parallel when using cloud endpoints.
+        try:
+            from codrag.core.batch_profiles import get_batch_concurrency
+            concurrency = get_batch_concurrency(self.llm.provider, model=self.llm.model)
+        except Exception as exc:
+            logger.warning("get_batch_concurrency failed for atlas, falling back to sequential: %s", exc)
+            concurrency = 1
 
-            if progress_callback:
-                progress_callback("atlas_segmented", 2 + i, total_steps)
+        logger.info(
+            "Segmented atlas: generating %d segment atlases with concurrency=%d",
+            len(segments), concurrency,
+        )
+
+        segment_docs: List[SegmentDocument] = []
+
+        if concurrency > 1 and len(segments) > 1:
+            import threading
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            lock = threading.Lock()
+            done_count = 0
+
+            def _gen_segment(seg):
+                return self._generate_segment_atlas(
+                    seg, modules, epistemic, graph_stats, hub_files, segments,
+                )
+
+            with ThreadPoolExecutor(max_workers=min(concurrency, len(segments))) as pool:
+                futures = {
+                    pool.submit(_gen_segment, seg): seg
+                    for seg in segments
+                }
+                for future in as_completed(futures):
+                    seg = futures[future]
+                    try:
+                        seg_doc = future.result()
+                        with lock:
+                            segment_docs.append(seg_doc)
+                    except Exception as e:
+                        logger.warning("Failed to generate segment atlas for %s: %s", seg.id, e)
+
+                    with lock:
+                        done_count += 1
+                        if progress_callback:
+                            progress_callback("atlas_segmented", 1 + done_count, total_steps)
+        else:
+            for i, segment in enumerate(segments):
+                try:
+                    seg_doc = self._generate_segment_atlas(
+                        segment, modules, epistemic, graph_stats, hub_files, segments,
+                    )
+                    segment_docs.append(seg_doc)
+                except Exception as e:
+                    logger.warning("Failed to generate segment atlas for %s: %s", segment.id, e)
+
+                if progress_callback:
+                    progress_callback("atlas_segmented", 2 + i, total_steps)
 
         duration_s = time.monotonic() - start
         logger.info(
-            "Segmented atlas: root + %d segments in %.1fs",
-            len(segment_docs), duration_s,
+            "Segmented atlas: root + %d segments in %.1fs (concurrency=%d)",
+            len(segment_docs), duration_s, concurrency,
         )
 
         if progress_callback:

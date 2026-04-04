@@ -80,6 +80,16 @@ def pipeline_run_fast(project_id: str) -> Dict[str, Any]:
     started = pipeline_orchestrator.run_fast_sync(project_id)
 
     if not started:
+        # Check if we skipped due to incomplete deep enrichment
+        status = pipeline_orchestrator.status(project_id)
+        deep_run = status.get("deep_enrichment")
+        if deep_run and (deep_run.get("is_active") or (deep_run.get("current_stage") and deep_run.get("current_stage") != "deep_knowledge")):
+            raise ApiException(
+                status_code=409,
+                code="PIPELINE_INCOMPLETE",
+                message="Deep enrichment is still in progress or paused. Please let the pipeline finish before processing new/stale items.",
+            )
+
         raise ApiException(
             status_code=409,
             code="PIPELINE_UP_TO_DATE",
@@ -256,14 +266,20 @@ async def pipeline_status(project_id: str) -> Dict[str, Any]:
         # 7. Deepening — read directly from files
         deepening_status: Dict[str, Any] = {"running": False, "total_scored": 0}
         if deep_has_run:
-            deepening_manifest = idx_dir / "trace_deepening_manifest.json"
+            deepening_manifest = idx_dir / "deepening_manifest.json"
             if deepening_manifest.exists():
                 try:
                     data = _json.loads(deepening_manifest.read_text(encoding="utf-8"))
                     quality = data.get("quality", {})
-                    deepening_status["total_scored"] = quality.get("total_items", 0)
-                    deepening_status["settled_count"] = quality.get("processed", 0)
+                    total_items = quality.get("total_items", 0)
+                    processed = quality.get("processed", 0)
+                    deepening_status["total_scored"] = total_items
+                    deepening_status["settled_count"] = processed
                     deepening_status["avg_score"] = quality.get("avg_confidence", 0.0)
+                    # Phase 72: Compute settled_ratio for the UI's computeDeepeningState
+                    deepening_status["settled_ratio"] = (
+                        processed / total_items if total_items > 0 else 0.0
+                    )
                 except Exception:
                     pass
 

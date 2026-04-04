@@ -240,3 +240,21 @@ def scheduler_status() -> Dict[str, Any]:
     """Full scheduler diagnostic status — all nodes, loads, and queues."""
     from codrag.services.pipeline.scheduler import pipeline_scheduler
     return ok(pipeline_scheduler.status())
+
+
+@router.post("/compute/sync")
+def sync_scheduler() -> Dict[str, Any]:
+    """Re-sync scheduler from saved endpoint concurrency settings.
+
+    Phase 72: Call this after changing endpoint concurrency to apply
+    changes to the live scheduler without a daemon restart.
+    """
+    from codrag.services.pipeline.scheduler import pipeline_scheduler
+    pipeline_scheduler.load_from_settings()
+    status = pipeline_scheduler.status()
+    nodes_summary = {
+        nid: v["max_concurrent"]
+        for nid, v in status.get("nodes", {}).items()
+    }
+    logger.info("Scheduler synced: %s", nodes_summary)
+    return ok({"synced": True, "nodes": nodes_summary})

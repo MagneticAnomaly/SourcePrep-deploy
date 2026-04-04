@@ -230,6 +230,9 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
       const data = await api.createProject({ path, name, mode, ...(indexPath ? { index_path: indexPath } : {}) })
       setProjects((prev) => [...prev, data.project])
       setSelectedProjectId(data.project.id)
+      if (data.warning) {
+        onErrorRef.current(data.warning, 'warning')
+      }
       return data.project
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Couldn\u2019t add project.'
@@ -357,7 +360,7 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     try {
       // Get the existing project config first since we need to preserve other settings
       const { project } = await api.getProject(projectId);
-      await api.updateProject(projectId, {
+      const res = await api.updateProject(projectId, {
         config: {
           ...(project.config || {}),
           active,
@@ -366,6 +369,11 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
       });
       // Refresh to ensure we have the authoritative state
       refreshProjects();
+      
+      // If the backend sent a warning (e.g. for performance limit), show it as a toast
+      if (res.warning) {
+        onErrorRef.current(res.warning, 'warning');
+      }
     } catch (e) {
       // Revert on error
       refreshProjects();

@@ -301,7 +301,7 @@ export function EndpointManager({
                             size="sm"
                             value={String(formCloudConcurrency)}
                             onChange={(e) => setFormCloudConcurrency(Number(e.target.value))}
-                            options={[1,2,3,4,5,6,8,10].map(n => ({ value: String(n), label: String(n) }))}
+                            options={[1,2,3,4,5,6,8,10,12,16,20].map(n => ({ value: String(n), label: String(n) }))}
                             className="w-full"
                           />
                           <p className="text-[9px] text-text-subtle mt-0.5">Max parallel API calls across all pipeline stages</p>
@@ -326,7 +326,7 @@ export function EndpointManager({
                               size="sm"
                               value={String(formCloudConcurrency)}
                               onChange={(e) => setFormCloudConcurrency(Number(e.target.value))}
-                              options={[0,1,2,3,4,5,6,8,10].map(n => ({ value: String(n), label: n === 0 ? 'Off' : String(n) }))}
+                              options={[0,1,2,3,4,5,6,8,10,12,16,20].map(n => ({ value: String(n), label: n === 0 ? 'Off' : String(n) }))}
                               className="w-full"
                             />
                             <p className="text-[9px] text-text-subtle mt-0.5">Proxied (kimi, gemini…)</p>
@@ -531,7 +531,7 @@ export function EndpointManager({
                     size="sm"
                     value={String(formCloudConcurrency)}
                     onChange={(e) => setFormCloudConcurrency(Number(e.target.value))}
-                    options={[1,2,3,4,5,6,8,10].map(n => ({ value: String(n), label: String(n) }))}
+                    options={[1,2,3,4,5,6,8,10,12,16,20].map(n => ({ value: String(n), label: String(n) }))}
                     className="w-full"
                   />
                   <p className="text-[9px] text-text-subtle mt-0.5">Max parallel API calls across all pipeline stages</p>
@@ -555,7 +555,7 @@ export function EndpointManager({
                       size="sm"
                       value={String(formCloudConcurrency)}
                       onChange={(e) => setFormCloudConcurrency(Number(e.target.value))}
-                      options={[0,1,2,3,4,5,6,8,10].map(n => ({ value: String(n), label: n === 0 ? 'Off' : String(n) }))}
+                      options={[0,1,2,3,4,5,6,8,10,12,16,20].map(n => ({ value: String(n), label: n === 0 ? 'Off' : String(n) }))}
                       className="w-full"
                     />
                     <p className="text-[9px] text-text-subtle mt-0.5">Proxied (kimi, gemini…)</p>

@@ -445,8 +445,38 @@ class PipelineOrchestrator:
             })
 
         if resume >= len(FAST_SYNC_STAGES):
+            # [Goal 5] Priority Inversion Check: If deep enrichment is INCOMPLETE,
+            # DO NOT trigger new/stale queue processing. We must finish the pipeline first.
+            from codrag.services.pipeline.stages import DEEP_ENRICHMENT_STAGES
+            deep_resume = self._detect_resume_point(project_id, DEEP_ENRICHMENT_STAGES, skip_mtime_cascade=True)
+            if deep_resume < len(DEEP_ENRICHMENT_STAGES):
+                logger.info(
+                    "Pipeline incomplete (deep resume=%d/4) for %s — skipping new/stale queue so it can finish",
+                    deep_resume, project_id,
+                )
+                if pfl:
+                    pfl.decision("mode_selection", "skip_queue_pipeline_incomplete", {
+                        "group": "fast_sync",
+                        "reason": f"Deep enrichment is incomplete ({deep_resume}/4) — prioritizing pipeline completion",
+                    })
+                return False
+
             # Phase 53: All manifests exist — but are there stale files?
             try:
+                # Phase 72: Refresh file_hashes first to clear false
+                # "stale" from the Phase 60D structural-skip.
+                try:
+                    refreshed = self._refresh_manifest_hashes(project_id)
+                    if refreshed > 0:
+                        logger.info(
+                            "Pre-gap refresh: updated %d file hashes for %s",
+                            refreshed, project_id,
+                        )
+                        if pfl:
+                            pfl.log("fast_sync", f"Pre-gap: refreshed {refreshed} file hashes")
+                except Exception:
+                    pass  # Non-fatal
+
                 gap = self.check_coverage_gap(project_id, include_paths=True)
 
                 if pfl:
@@ -459,14 +489,16 @@ class PipelineOrchestrator:
                         "total_nodes": gap.get("total_nodes", 0),
                     })
 
-                if gap["needs_rebuild"]:
-                    stale = gap.get("stale", 0)
-                    untraced = gap.get("untraced", 0)
+                stale = gap.get("stale", 0)
+                untraced = gap.get("untraced", 0)
+
+                if stale > 0 or untraced > 0:
                     changed_paths: set[str] = gap.get("changed_paths", set())
                     logger.info(
                         "All fast_sync stages complete but %d stale + %d untraced "
-                        "files for %s — running incremental update",
+                        "files for %s — running %s update",
                         stale, untraced, project_id,
+                        "incremental" if stale > 0 and untraced == 0 else "structural",
                     )
                     if changed_paths:
                         logger.info(
@@ -475,41 +507,53 @@ class PipelineOrchestrator:
                             ", ".join(sorted(changed_paths)[:20]),
                             f" ... (+{len(changed_paths) - 20} more)" if len(changed_paths) > 20 else "",
                         )
-                    # Phase 60D: Skip structural stage in incremental mode.
-                    # The structural data (51K+ nodes from Python engine) is
-                    # already complete and correct.  Re-running structural
-                    # would trigger the Rust engine which produces a minimal
-                    # file-level-only scan (6K nodes), DESTROYING the rich
-                    # symbol-level data.  Instead, start from stage 1
-                    # (inferred_edges) and let downstream workers handle the
-                    # delta incrementally.
-                    resume = 1  # Skip structural, start from inferred_edges
-                    # Mark as incremental: all stages already have data,
-                    # workers will skip already-processed items, we should
-                    # NOT cascade-invalidate downstream via manifest mtimes.
-                    incremental = True
+
+                    if untraced > 0:
+                        # Phase 72: Untraced files need a structural rebuild
+                        # to be added to the trace graph.  Start from stage 0.
+                        # The Python engine's content-hash comparison prevents
+                        # unnecessary rewrites when files haven't changed.
+                        # Mark as incremental to SKIP the backup restore path
+                        # (Phase 60D) which would replace trace_manifest.json
+                        # with an old backup that doesn't know about new files.
+                        resume = 0
+                        incremental = True
+                        logger.info(
+                            "[%s] %d untraced files detected — starting from "
+                            "structural stage to add them to the trace",
+                            project_id, untraced,
+                        )
+                    else:
+                        # Stale-only: skip structural (Phase 60D safety).
+                        # Existing structural data is valid — only content changed.
+                        # Re-running structural with the Rust engine would replace
+                        # the rich Python-engine symbol data with a minimal
+                        # file-level-only scan.
+                        resume = 1  # Skip structural, start from inferred_edges
+                        incremental = True
+
                     # Store changed paths so downstream workers can use them
                     if changed_paths:
                         self._changed_paths[project_id] = changed_paths
 
                     if pfl:
-                        pfl.decision("mode_selection", "incremental", {
+                        pfl.decision("mode_selection", "incremental" if incremental else "structural_rebuild", {
                             "group": "fast_sync",
                             "reason": f"All stages complete, {stale} stale + {untraced} untraced files",
                             "stale_files": stale,
                             "untraced_files": untraced,
                             "changed_path_count": len(changed_paths),
-                            "resume_point": 1,
+                            "resume_point": resume,
                         })
                 else:
                     logger.info(
-                        "All fast_sync stages complete and no stale files for %s — up to date",
+                        "All fast_sync stages complete and no stale/untraced files for %s — up to date",
                         project_id,
                     )
                     if pfl:
                         pfl.decision("mode_selection", "skip_up_to_date", {
                             "group": "fast_sync",
-                            "reason": "All stages complete, no stale/untraced files",
+                            "reason": f"All stages complete, 0 stale, 0 untraced",
                             "coverage_pct": gap.get("coverage_pct", 0),
                         })
                     return False
@@ -597,16 +641,20 @@ class PipelineOrchestrator:
         )
         if resume >= len(DEEP_ENRICHMENT_STAGES):
             # All stages complete on disk.  Touch any stale manifests
-            # to prevent future false-positive staleness detection, then
-            # let workers run and add new/changed data incrementally.
+            # to prevent future false-positive staleness detection.
             self._touch_stale_deep_manifests(project_id)
             logger.info(
                 "All deep_enrichment stages complete for %s — "
-                "workers will process any new/changed data incrementally",
+                "nothing to do (changes will flow through fast_sync coverage gap)",
                 project_id,
             )
-            # Still start the group so workers can process incremental changes
-            resume = 0
+            # Phase 72: Return False — do NOT reset resume=0.
+            # The old code (resume=0) caused an infinite loop: every startup
+            # would restart all 6 stages from scratch, burn LLM tokens on
+            # clustering, and never actually complete because the next cycle
+            # would restart again.  Changes should flow through fast_sync's
+            # coverage gap detection → incremental chain → deep_enrichment.
+            return False
 
         if resume > 0:
             logger.info(
@@ -966,6 +1014,200 @@ class PipelineOrchestrator:
     _COVERAGE_RETRIGGER_DELAY = 15.0  # seconds after completion before re-checking
 
     @staticmethod
+    def _refresh_manifest_hashes(project_id: str) -> int:
+        """Refresh ``file_hashes`` in ``trace_manifest.json`` without re-running
+        the structural stage.
+
+        This fixes the Phase 60D incrementality gap: when the structural
+        stage is skipped to protect rich symbol-level data, ``file_hashes``
+        don't get updated.  Downstream stages process the changed files
+        but the manifest still has stale hashes, causing
+        ``check_coverage_gap()`` to report the same "stale" files forever.
+
+        Algorithm:
+          1. Read the current manifest.
+          2. Walk eligible files on disk (same globs as coverage).
+          3. For each file:
+             - If its content hash differs from the manifest → update it.
+             - If it's absent from the manifest but present in
+               ``trace_nodes.jsonl`` → add it (backfill untraced).
+          4. Remove hashes for files that no longer exist on disk.
+          5. Atomically write the updated manifest (preserving ``built_at``
+             to avoid a false mtime cascade).
+
+        Returns the number of hashes that changed.
+        """
+        import json as _json
+        import os
+        import tempfile
+
+        from codrag.core.ids import stable_file_hash
+        from codrag.core.trace.utils import _detect_language, _to_posix
+
+        try:
+            from codrag.services.project_helpers import require_project
+            from codrag.core.project_registry import project_index_dir
+        except ImportError:
+            return 0
+
+        try:
+            project = require_project(project_id)
+        except Exception:
+            return 0
+
+        idx_dir = Path(project_index_dir(project))
+        manifest_path = idx_dir / "trace_manifest.json"
+
+        if not manifest_path.exists():
+            return 0
+
+        try:
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                manifest = _json.load(f)
+        except Exception:
+            return 0
+
+        old_hashes: Dict[str, str] = manifest.get("file_hashes") or {}
+        if not old_hashes:
+            # No file_hashes at all — nothing we can incrementally update.
+            # The structural stage needs to run first.
+            return 0
+
+        repo_root = Path(project.path).resolve()
+        pcfg = project.config or {}
+        max_file_bytes = int(pcfg.get("max_file_bytes") or 500_000)
+
+        # Collect the set of traced paths from trace_nodes.jsonl
+        # so we can add hashes for files that were traced by the
+        # structural engine but never had hashes computed (e.g. new
+        # files traced by the Rust engine).
+        traced_node_paths: set[str] = set()
+        nodes_path = idx_dir / "trace_nodes.jsonl"
+        if nodes_path.exists():
+            try:
+                with open(nodes_path, "r", encoding="utf-8") as nf:
+                    for line in nf:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            node = _json.loads(line)
+                            if node.get("kind") == "file" and node.get("file_path"):
+                                traced_node_paths.add(node["file_path"])
+                        except _json.JSONDecodeError:
+                            continue
+            except Exception:
+                pass  # Can't read nodes — skip backfill
+
+        # Walk the repo to find current eligible files and their hashes.
+        # Use the same globs as the TraceBuilder to stay consistent.
+        from codrag.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
+        import pathspec
+
+        gitignore_spec = None
+        gitignore_path = repo_root / ".gitignore"
+        if gitignore_path.exists():
+            try:
+                with open(gitignore_path, "r", encoding="utf-8") as f:
+                    gitignore_spec = pathspec.PathSpec.from_lines("gitwildmatch", f)
+            except Exception:
+                pass
+
+        # Re-use the builder's include globs (broad set)
+        from codrag.core.trace.builder import TraceBuilder
+        default_builder = TraceBuilder(
+            repo_root=repo_root, index_dir=idx_dir,
+            max_file_bytes=max_file_bytes,
+        )
+        include_globs = default_builder.include_globs
+        exclude_globs = default_builder.exclude_globs
+
+        from codrag.core.trace.utils import _is_relevant
+
+        updated = 0
+        new_hashes = dict(old_hashes)  # start with existing
+        seen_paths: set[str] = set()
+
+        for root_dir, dirs, filenames in os.walk(repo_root):
+            dirs[:] = [d for d in dirs if d not in DEFAULT_EXCLUDE_DIR_NAMES and not d.startswith(".")]
+            root_path = Path(root_dir)
+            for fname in filenames:
+                file_path = root_path / fname
+                if file_path.is_symlink():
+                    continue
+                rel_path = _to_posix(str(file_path.relative_to(repo_root)))
+
+                if gitignore_spec and gitignore_spec.match_file(rel_path):
+                    continue
+                if not _is_relevant(rel_path, include_globs, exclude_globs):
+                    continue
+
+                try:
+                    fsize = file_path.stat().st_size
+                    if fsize > max_file_bytes:
+                        # Large file — read prefix for hash (same as builder)
+                        with open(file_path, "r", encoding="utf-8", errors="ignore") as hf:
+                            source = hf.read(50_000)
+                    else:
+                        source = file_path.read_text(encoding="utf-8", errors="ignore")
+                except Exception:
+                    continue
+
+                current_hash = stable_file_hash(source)
+                seen_paths.add(rel_path)
+
+                prev_hash = old_hashes.get(rel_path)
+                if prev_hash is None:
+                    # Not in manifest — only add if the structural trace
+                    # actually contains this file (don't add truly new files
+                    # that need a structural rebuild).
+                    if rel_path in traced_node_paths:
+                        new_hashes[rel_path] = current_hash
+                        updated += 1
+                elif prev_hash != current_hash:
+                    new_hashes[rel_path] = current_hash
+                    updated += 1
+
+        # Remove hashes for files that were deleted from disk
+        deleted_paths = set(old_hashes.keys()) - seen_paths
+        for dp in deleted_paths:
+            del new_hashes[dp]
+            updated += 1
+
+        if updated == 0:
+            return 0
+
+        # Write atomically — preserve built_at to avoid mtime cascade
+        manifest["file_hashes"] = new_hashes
+        try:
+            tmp = tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", dir=str(idx_dir),
+                delete=False, encoding="utf-8",
+            )
+            _json.dump(manifest, tmp, indent=2, sort_keys=True)
+            tmp.flush()
+            os.fsync(tmp.fileno())
+            tmp.close()
+            os.rename(tmp.name, manifest_path)
+            logger.info(
+                "Refreshed %d file_hashes in trace_manifest.json for %s "
+                "(added/updated: %d, deleted: %d)",
+                updated, project_id,
+                updated - len(deleted_paths), len(deleted_paths),
+            )
+        except Exception:
+            try:
+                os.unlink(tmp.name)
+            except OSError:
+                pass
+            logger.warning(
+                "Failed to write updated file_hashes for %s",
+                project_id, exc_info=True,
+            )
+
+        return updated
+
+    @staticmethod
     def check_coverage_gap(project_id: str, include_paths: bool = False) -> Dict[str, Any]:
         """Check if there are files that should be traced but aren't.
 
@@ -1085,6 +1327,19 @@ class PipelineOrchestrator:
                             )
                             return
 
+                # Phase 72: Refresh file_hashes before checking coverage
+                # to avoid false "stale" due to skipped structural stage.
+                try:
+                    refreshed = self._refresh_manifest_hashes(project_id)
+                    if refreshed > 0:
+                        logger.info(
+                            "Coverage retrigger: refreshed %d file hashes for %s "
+                            "before gap check",
+                            refreshed, project_id,
+                        )
+                except Exception:
+                    pass  # Non-fatal
+
                 gap = self.check_coverage_gap(project_id)
                 if not gap["needs_rebuild"]:
                     logger.info(
@@ -1095,18 +1350,34 @@ class PipelineOrchestrator:
                     )
                     return
 
+                stale_count = gap.get("stale", 0)
+                untraced_count = gap.get("untraced", 0)
+
+                # Phase 72: Only retrigger for STALE files.
+                # Untraced files need a structural rebuild — which we
+                # deliberately skip (Phase 60D) — so retriggering just
+                # creates an infinite loop.
+                if stale_count == 0:
+                    if untraced_count > 0:
+                        logger.info(
+                            "Coverage check for %s: 0 stale, %d untraced "
+                            "(need structural rebuild) — no retrigger",
+                            project_id, untraced_count,
+                        )
+                    return
+
                 logger.info(
                     "Coverage gap detected for %s: %d untraced + %d stale "
                     "out of %d total files (%.1f%% coverage) — retriggering "
                     "fast sync",
-                    project_id, gap["untraced"], gap["stale"],
+                    project_id, untraced_count, stale_count,
                     gap["total"], gap["coverage_pct"],
                 )
                 if pfl:
                     pfl.log(
                         "coverage_gap",
-                        f"Retriggering: {gap['untraced']} untraced + "
-                        f"{gap['stale']} stale files",
+                        f"Retriggering: {untraced_count} untraced + "
+                        f"{stale_count} stale files",
                     )
 
                 started = self.run_fast_sync(
@@ -1296,6 +1567,13 @@ class PipelineOrchestrator:
                             has_existing_output = False
                             if output_file:
                                 opath = idx_dir / output_file
+                                if opath.exists() and opath.stat().st_size > 1024:
+                                    has_existing_output = True
+                            elif stage == StageId.ATLAS:
+                                # Atlas doesn't have a single JSONL output, it produces an atlas.json
+                                # plus segment files. If atlas.json exists, we have existing output.
+                                opath = idx_dir / "atlas.json"
+                                output_file = "atlas.json"  # For logging
                                 if opath.exists() and opath.stat().st_size > 1024:
                                     has_existing_output = True
 
@@ -1707,6 +1985,21 @@ class PipelineOrchestrator:
                     logger.info(
                         "NOT chaining deep enrichment for %s (reason=%s)",
                         run.project_id, chain_reason,
+                    )
+
+                # Phase 72: After fast_sync completes, refresh file_hashes
+                # in trace_manifest.json so that modified files are no longer
+                # reported as "stale" by check_coverage_gap().  This is
+                # necessary because the structural stage is skipped during
+                # incremental runs (Phase 60D).
+                try:
+                    refreshed = self._refresh_manifest_hashes(run.project_id)
+                    if refreshed > 0 and pfl:
+                        pfl.log("fast_sync", f"Refreshed {refreshed} file hashes in manifest")
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to refresh manifest hashes for %s: %s",
+                        run.project_id, exc,
                     )
 
                 # Phase 48-F8: After fast_sync completes, schedule a
@@ -3279,6 +3572,11 @@ class PipelineOrchestrator:
         If a group has partially completed stages (resume_point > 0 but
         < len(stages)), creates a PAUSED SM at the resume point so the
         user can click Resume.
+
+        Phase 72: Skip hydration for groups in AUTO mode — auto-recovery
+        handles resumption instead.  Hydrating as PAUSED blocks auto-recovery
+        because it sees is_paused=True and skips, causing the atlas (and
+        other deep stages) to appear permanently paused across restarts.
         """
         try:
             from codrag.services.project_helpers import get_registry
@@ -3301,10 +3599,40 @@ class PipelineOrchestrator:
             if has_active:
                 continue
 
+            # Phase 72: Check auto config to skip hydration for AUTO groups.
+            # AUTO groups should be handled by _auto_recover_stale_pipelines()
+            # instead of creating zombie PAUSED states.
+            fast_auto = False
+            deep_auto = False
+            try:
+                from codrag.services.settings_store import settings
+                config = settings.get("pipeline_config") or {}
+                deep_mode = (config.get("deep_enrichment") or {}).get("mode", "manual")
+                fast_auto = (config.get("fast_sync") or {}).get("auto", False)
+                deep_auto = deep_mode == "auto"
+            except Exception:
+                pass  # Default to hydrating if we can't read config
+
             for group, stages in [
                 ("fast_sync", FAST_SYNC_STAGES),
                 ("deep_enrichment", DEEP_ENRICHMENT_STAGES),
             ]:
+                # Phase 72: Skip hydration for AUTO groups
+                if group == "fast_sync" and fast_auto:
+                    logger.info(
+                        "Skipping PAUSED hydration for %s/fast_sync — "
+                        "auto mode will handle resumption",
+                        pid,
+                    )
+                    continue
+                if group == "deep_enrichment" and deep_auto:
+                    logger.info(
+                        "Skipping PAUSED hydration for %s/deep_enrichment — "
+                        "auto mode will handle resumption",
+                        pid,
+                    )
+                    continue
+
                 resume = self._detect_resume_point(pid, stages)
                 if resume <= 0 or resume >= len(stages):
                     continue  # Nothing started, or all complete
@@ -3428,6 +3756,41 @@ class PipelineOrchestrator:
                             break
 
                 if deep_stale:
+                    # Phase 72: Touch manifests first and re-check.
+                    # The manifests may simply have older mtimes from a previous
+                    # run that never synced them.  Touching fixes false positives
+                    # without burning LLM tokens on a full pipeline restart.
+                    self._touch_stale_deep_manifests(pid)
+
+                    # Re-verify staleness after touching
+                    deep_stale_after_touch = False
+                    for stage in DEEP_ENRICHMENT_STAGES:
+                        mf = STAGE_MANIFEST_FILE.get(stage)
+                        if mf:
+                            mp = idx_dir / mf
+                            if not mp.exists():
+                                deep_stale_after_touch = True
+                                break
+                            if mp.stat().st_mtime < structural_mtime:
+                                deep_stale_after_touch = True
+                                break
+
+                    if not deep_stale_after_touch:
+                        # Touching fixed it — no recovery needed
+                        logger.info(
+                            "Phase 61B/72: Deep manifests for %s were stale but "
+                            "touch resolved it — no recovery needed",
+                            pid,
+                        )
+                        if pfl:
+                            pfl.selfheal("auto_recover", "Manifests were stale but touch fixed it — skipping recovery", {
+                                "project_id": pid,
+                            })
+                        continue
+
+                    # Still stale after touching — a manifest is genuinely missing
+                    # or has never been produced.  Proceed with recovery.
+
                     # Skip if we already have an ACTIVE run (actually running)
                     # But if we have a PAUSED run (from hydration), clear it —
                     # auto mode means we should auto-resume, not wait for user.
@@ -3469,13 +3832,13 @@ class PipelineOrchestrator:
 
                     logger.info(
                         "Phase 61B: Auto-recovering deep enrichment for %s "
-                        "(deep manifests stale vs structural trace)",
+                        "(deep manifests genuinely stale vs structural trace)",
                         pid,
                     )
                     if pfl:
-                        pfl.selfheal("auto_recover", "Triggering deep enrichment — manifests stale", {
+                        pfl.selfheal("auto_recover", "Triggering deep enrichment — manifests genuinely stale", {
                             "project_id": pid,
-                            "reason": "deep_manifests_stale_vs_structural",
+                            "reason": "deep_manifests_stale_vs_structural_after_touch",
                         })
 
                     # Delay to let the server fully initialize
@@ -3492,16 +3855,10 @@ class PipelineOrchestrator:
                                     "project_id": _pid,
                                     "started": started,
                                 })
-                            if not started:
-                                # If deep enrichment didn't start, try run_all as fallback
-                                logger.info("Phase 61B: run_deep_enrichment returned False, trying run_all for %s", _pid)
-                                started2 = _orch.run_all(_pid)
-                                logger.info("Phase 61B: Fallback run_all for %s: started=%s", _pid, started2)
-                                if _pfl:
-                                    _pfl.selfheal("auto_recover", f"Fallback run_all returned {started2}", {
-                                        "project_id": _pid,
-                                        "started": started2,
-                                    })
+                            # Phase 72: Do NOT fall back to run_all if deep returns False.
+                            # run_deep returning False now correctly means "all stages complete,
+                            # nothing to do".  Calling run_all would create a secondary loop:
+                            # run_all → fast_sync (False) → run_deep (False) → run_all...
                         except Exception as e:
                             logger.warning("Phase 61B: Auto-recovery failed for %s: %s", _pid, e, exc_info=True)
                             if _pfl:

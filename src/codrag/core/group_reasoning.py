@@ -475,31 +475,107 @@ class GroupReasoningEngine:
         failed = 0
         results: Dict[str, GroupReasoningEntry] = dict(reuse)
 
-        for gid, members in to_analyze:
-            # Cooperative cancellation check
-            if cancel_token and cancel_token.is_cancelled:
-                logger.info("Group reasoning paused/cancelled at %d/%d — flushing partial results", analyzed, len(to_analyze))
-                self._write_results(results)
-                cancel_token.raise_if_cancelled()
+        # Phase 72: Use the scheduler's batch concurrency budget to
+        # process multiple groups in parallel.  Cloud endpoints can
+        # handle concurrent requests; local models fall back to 1.
+        try:
+            from codrag.core.batch_profiles import get_batch_concurrency
+            concurrency = get_batch_concurrency(self.llm.provider, model=self.llm.model)
+        except Exception as exc:
+            logger.warning("get_batch_concurrency failed, falling back to sequential: %s", exc)
+            concurrency = 1
 
-            entry = self.analyze_group(gid, members, epistemic, edges)
-            if entry:
-                results[gid] = entry
-                analyzed += 1
-            else:
-                failed += 1
+        logger.info(
+            "Group reasoning: processing %d groups with concurrency=%d",
+            len(to_analyze), concurrency,
+        )
 
-            if progress_callback:
-                progress_callback(
-                    "group_reasoning",
-                    len(reuse) + analyzed + failed,
-                    total_groups,
-                )
+        if concurrency > 1 and len(to_analyze) > 1:
+            # ── Concurrent path ─────────────────────────────────────
+            import threading
+            from concurrent.futures import ThreadPoolExecutor, as_completed
 
-            # Periodic checkpoint to avoid losing progress on crash
-            if analyzed > 0 and analyzed % 10 == 0:
-                self._write_results(results)
-                logger.info("Group reasoning checkpoint saved at %d/%d groups", analyzed, len(to_analyze))
+            lock = threading.Lock()
+            done_count = 0
+
+            def _analyze_one(gid_members):
+                gid, members = gid_members
+                return gid, self.analyze_group(gid, members, epistemic, edges)
+
+            with ThreadPoolExecutor(max_workers=min(concurrency, len(to_analyze))) as pool:
+                futures = {
+                    pool.submit(_analyze_one, (gid, members)): gid
+                    for gid, members in to_analyze
+                }
+                for future in as_completed(futures):
+                    gid = futures[future]
+                    try:
+                        _, entry = future.result()
+                    except Exception as exc:
+                        logger.warning(
+                            "[GroupReasoning] Group %s raised exception: %s", gid, exc,
+                        )
+                        entry = None
+
+                    with lock:
+                        if entry:
+                            results[gid] = entry
+                            analyzed += 1
+                        else:
+                            failed += 1
+                        done_count += 1
+
+                        if progress_callback:
+                            progress_callback(
+                                "group_reasoning",
+                                len(reuse) + done_count,
+                                total_groups,
+                            )
+
+                        # Periodic checkpoint
+                        if analyzed > 0 and analyzed % 10 == 0:
+                            self._write_results(results)
+                            logger.info(
+                                "Group reasoning checkpoint saved at %d/%d groups",
+                                analyzed, len(to_analyze),
+                            )
+
+                    # Cooperative cancellation
+                    if cancel_token and cancel_token.is_cancelled:
+                        logger.info(
+                            "Group reasoning cancelled at %d/%d — flushing partial results",
+                            done_count, len(to_analyze),
+                        )
+                        pool.shutdown(wait=False, cancel_futures=True)
+                        self._write_results(results)
+                        cancel_token.raise_if_cancelled()
+        else:
+            # ── Sequential path (local model or single group) ───────
+            for gid, members in to_analyze:
+                # Cooperative cancellation check
+                if cancel_token and cancel_token.is_cancelled:
+                    logger.info("Group reasoning paused/cancelled at %d/%d — flushing partial results", analyzed, len(to_analyze))
+                    self._write_results(results)
+                    cancel_token.raise_if_cancelled()
+
+                entry = self.analyze_group(gid, members, epistemic, edges)
+                if entry:
+                    results[gid] = entry
+                    analyzed += 1
+                else:
+                    failed += 1
+
+                if progress_callback:
+                    progress_callback(
+                        "group_reasoning",
+                        len(reuse) + analyzed + failed,
+                        total_groups,
+                    )
+
+                # Periodic checkpoint to avoid losing progress on crash
+                if analyzed > 0 and analyzed % 10 == 0:
+                    self._write_results(results)
+                    logger.info("Group reasoning checkpoint saved at %d/%d groups", analyzed, len(to_analyze))
 
         # Write atomically
         self._write_results(results)
@@ -514,12 +590,13 @@ class GroupReasoningEngine:
             "analyzed": analyzed,
             "reused": len(reuse),
             "failed": failed,
+            "concurrency": concurrency,
             "duration_ms": round(duration_ms, 1),
         }
 
         logger.info(
-            "Group reasoning complete: %d analyzed, %d reused, %d failed in %.1fs",
-            analyzed, len(reuse), failed, duration_ms / 1000,
+            "Group reasoning complete: %d analyzed, %d reused, %d failed, concurrency=%d in %.1fs",
+            analyzed, len(reuse), failed, concurrency, duration_ms / 1000,
         )
 
         return stats

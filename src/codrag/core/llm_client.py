@@ -404,7 +404,52 @@ class LLMClient:
         except Exception as e:
             logger.debug("Failed to record token telemetry: %s", e)
 
+    def _track_active(self, action: str) -> None:
+        """Track active LLM requests for AI Gateway telemetry."""
+        try:
+            store = getattr(self, '_telemetry_store', None)
+            if store is None:
+                from codrag.services.token_telemetry import telemetry
+                store = self._telemetry_store = telemetry
+            
+            if action == "start":
+                # Determine model slot based on task if available, but
+                # for generic AI Gateway display, generic tracking works.
+                store.track_active_request(self.model, self.provider, getattr(self, '_model_slot', None))
+            elif action == "stop":
+                store.untrack_active_request()
+        except Exception as e:
+            logger.debug("Failed to track active request: %s", e)
+
     def generate(
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        num_predict: int = 2048,
+        json_mode: bool = True,
+        temperature: float = 0.1,
+        response_schema: Optional[Dict[str, Any]] = None,
+        think: Optional[bool] = None,
+        max_chars: int = 0,
+        num_ctx: Optional[int] = None,
+    ) -> Tuple[str, int]:
+        self._track_active("start")
+        try:
+            return self._generate_internal(
+                prompt=prompt,
+                system=system,
+                num_predict=num_predict,
+                json_mode=json_mode,
+                temperature=temperature,
+                response_schema=response_schema,
+                think=think,
+                max_chars=max_chars,
+                num_ctx=num_ctx,
+            )
+        finally:
+            self._track_active("stop")
+
+    def _generate_internal(
         self,
         prompt: str,
         system: Optional[str] = None,

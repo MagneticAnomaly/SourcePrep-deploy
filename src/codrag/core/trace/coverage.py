@@ -91,12 +91,19 @@ def compute_trace_coverage(
     nodes_path = Path(index_dir) / "trace_nodes.jsonl"
     manifest_hashes: Dict[str, str] = {}
     manifest_built_at: Optional[str] = None
+    manifest_built_at_ts: Optional[float] = None  # Unix epoch seconds for mtime comparison
     if manifest_path.exists():
         try:
             with open(manifest_path, "r", encoding="utf-8") as f:
                 manifest = json.load(f)
             manifest_hashes = manifest.get("file_hashes") or {}
             manifest_built_at = manifest.get("built_at") or manifest.get("finished_at")
+            # Parse ISO timestamp to Unix epoch for fast mtime comparison
+            if manifest_built_at:
+                try:
+                    manifest_built_at_ts = datetime.fromisoformat(manifest_built_at).timestamp()
+                except (ValueError, TypeError):
+                    pass
 
             # One-time backfill: manifests may lack file_hashes (Rust engine
             # builds, or Python builds with the v2.0 manifest format).
@@ -257,16 +264,33 @@ def compute_trace_coverage(
                 # Not in trace manifest → untraced
                 untraced_files.append(file_info)
             else:
-                # Was traced — check if stale
-                try:
-                    source = file_path.read_text(encoding="utf-8", errors="ignore")
-                    current_hash = stable_file_hash(source)
-                except Exception:
-                    current_hash = ""
+                # Was traced — check if stale.
+                # Fast path: if file mtime is older than the manifest build time,
+                # the file hasn't changed since we last traced it → skip the
+                # expensive hash computation.  Only re-hash files that were
+                # modified after the manifest was written.
+                needs_hash = True
+                if manifest_built_at_ts is not None:
+                    try:
+                        file_mtime = stat.st_mtime
+                        if file_mtime < manifest_built_at_ts:
+                            needs_hash = False
+                    except Exception:
+                        pass  # Fall through to hash
 
-                if current_hash != prev_hash:
-                    stale_files.append(file_info)
+                if needs_hash:
+                    try:
+                        source = file_path.read_text(encoding="utf-8", errors="ignore")
+                        current_hash = stable_file_hash(source)
+                    except Exception:
+                        current_hash = ""
+
+                    if current_hash != prev_hash:
+                        stale_files.append(file_info)
+                    else:
+                        traced_files.append(file_info)
                 else:
+                    # mtime hasn't changed since build → still fresh
                     traced_files.append(file_info)
 
     # Sort lists by path

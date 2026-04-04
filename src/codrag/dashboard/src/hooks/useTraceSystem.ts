@@ -178,9 +178,24 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
             engine: data.engine,
           })
           setProjectLoading(false)
-          // Fetch coverage if trace is enabled
+          // Fetch coverage if trace is enabled.
+          // Phase 72: Fetch the lightweight summary first (from cache, <1s) to
+          // populate the progress bars immediately.  Then fetch the full coverage
+          // (which includes file lists for Queue/Patterns tabs) in the background.
           if (enabled && pid) {
             setTraceCoverage(prev => ({ ...prev, loading: true }))
+            // Fast path — summary only (cached on server, returns instantly)
+            api.getTraceCoverageSummary(pid).then((summ) => {
+              if (signal?.aborted || unmounted) return
+              setTraceCoverage(prev => ({
+                ...prev,
+                summary: summ.summary,
+                building: summ.building,
+                // Keep loading=true — full file lists still incoming
+              }))
+            }).catch(() => { /* summary not available — wait for full fetch */ })
+
+            // Full coverage (may take 1-45s depending on codebase size)
             api.getTraceCoverage(pid).then((cov) => {
               if (signal?.aborted || unmounted) return
               setTraceCoverage({

@@ -56,8 +56,15 @@ The "glue" code is particularly telling — 1,400 lines of defensive exception h
 | Mtime cascade destroys data | Manifest mtime comparison triggers full re-run | **Resume Detection** | **Manifest I/O** (mtime semantics) |
 | Structural stage overwrites 51K nodes | Incremental mode set resume=0 | **Resume Detection** | **Incremental Mode Flag** (wrong default) |
 | Dashboard shows "Mapping full codebase" | API timeout, stale state | **Status Reporting** | **API Thread Pool** conflicts |
+| **[Phase 72]** Infinite loop on completion | Orchestrator assumes zero-state means incremental run pending | **Core Orchestration** | **Resume Detection** |
+| **[Phase 72]** Backup Sabotage hides untraced files | Untraced files correctly trigger structural run, but backup blindly restores old manifest | **Recovery Logic** | **Incremental Mode Flag** |
+| **[Phase 72]** Persistent "Paused" state after restart | Disk hydration blindly creates paused states, blocking auto-recovery | **Paused State Hydration** | **Self-Healing Auto-Recovery** |
+| **[Phase 72]** UI Provenance Staleness | API endpoints hardcode wrong manifest filenames or omit computed properties | **Status Reporting** | **Manifest I/O** |
+| **[Phase 72]** 10% Visual Output with 99% Green Bar | Non-file-based abstract stages inherit file-level ratio fallbacks | **UI Rendering Logic** | **Project Scope Coverage Data** |
+| **[Phase 72]** AI Gateway Activity Indicators Blind | LLM metrics are sourced only from orchestrator state machine status | **LLM Telemetry** | **Pipeline Scope Isolation** |
+| **[Phase 72]** UI Binary State Overrides Incremental Context | State variables like `building` force visual metrics to 0 or 100%, erasing active incremental tracking | **UI Rendering Logic** | **Incremental Mode Flag** |
 
-**All seven bugs** would be impossible in a properly decomposed architecture where these concerns don't share state or locks.
+**All fourteen bugs** would be impossible in a properly decomposed architecture where these concerns don't share state or locks.
 
 ## Proposed Architecture
 

@@ -59,6 +59,22 @@ function runningCountForSlot(
   return runningTasks.filter(t => t.model_slot === slotKey).length;
 }
 
+/** Sum concurrent_workers across all tasks for a given slot. */
+function concurrentWorkersForSlot(
+  slotKey: 'small' | 'large' | 'code' | null,
+  runningTasks: RunningTask[],
+): number {
+  if (!slotKey) return 0;
+  return runningTasks
+    .filter(t => t.model_slot === slotKey)
+    .reduce((sum, t) => sum + (t.concurrent_workers || 1), 0);
+}
+
+/** Total concurrent workers across all slots. */
+function totalConcurrentWorkers(runningTasks: RunningTask[]): number {
+  return runningTasks.reduce((sum, t) => sum + (t.concurrent_workers || 1), 0);
+}
+
 /**
  * Collapsed sidebar view: vertical stack of colored dots per model slot
  * with running-count badges.
@@ -73,7 +89,7 @@ function CollapsedView({
   onOpenDetails?: () => void;
 }) {
   const slots = getSlots(slotsStatus);
-  const totalRunning = runningTasks.length;
+  const totalRunning = totalConcurrentWorkers(runningTasks);
 
   return (
     <div className="flex flex-col items-center gap-1.5 py-3 px-2">
@@ -88,17 +104,18 @@ function CollapsedView({
         )} />
         {slots.map(slot => {
           const running = runningCountForSlot(slot.modelSlotKey, runningTasks);
+          const workers = concurrentWorkersForSlot(slot.modelSlotKey, runningTasks);
           const isRunning = running > 0;
           return (
-            <div key={slot.key} className="relative" title={`${slot.label}${isRunning ? ` (${running} running)` : ''}`}>
+            <div key={slot.key} className="relative" title={`${slot.label}${isRunning ? ` (${workers} concurrent call${workers !== 1 ? 's' : ''})` : ''}`}>
               <div className={cn(
                 "w-2.5 h-2.5 rounded-full transition-colors",
                 slotColor(slot.status, isRunning),
                 isRunning && "animate-pulse"
               )} />
-              {running > 1 && (
+              {workers > 1 && (
                 <span className="absolute -top-1 -right-2 text-[8px] font-bold text-blue-500 leading-none">
-                  {running}
+                  {workers}×
                 </span>
               )}
             </div>
@@ -126,7 +143,7 @@ function ExpandedView({
   onOpenDetails?: () => void;
 }) {
   const slots = getSlots(slotsStatus);
-  const totalRunning = runningTasks.length;
+  const totalRunning = totalConcurrentWorkers(runningTasks);
 
   return (
     <div className="px-3 py-2">
@@ -165,6 +182,7 @@ function ExpandedView({
               t => t.model_slot === slot.modelSlotKey
             );
             const isRunning = slotRunning.length > 0;
+            const workers = concurrentWorkersForSlot(slot.modelSlotKey, runningTasks);
             const isConnected = slot.status?.status === 'connected' || slot.status?.status === 'local';
             const isConfigured = slot.status?.configured ?? false;
 
@@ -194,9 +212,9 @@ function ExpandedView({
                       )}>
                         {slot.label}
                       </span>
-                      {isRunning && (
-                        <span className="text-[10px] text-blue-500 font-medium">
-                          {slotRunning.length > 1 ? `${slotRunning.length}×` : ''}
+                      {isRunning && workers > 1 && (
+                        <span className="inline-flex items-center px-1 py-0 rounded text-[10px] font-semibold bg-blue-500/15 text-blue-400">
+                          {workers}×
                         </span>
                       )}
                     </div>
@@ -218,6 +236,11 @@ function ExpandedView({
                     <span className="truncate">
                       {TASK_LABELS[rt.task_id] ?? rt.task_id}
                     </span>
+                    {(rt.concurrent_workers ?? 1) > 1 && (
+                      <span className="inline-flex items-center px-1 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300 shrink-0">
+                        {rt.concurrent_workers}×
+                      </span>
+                    )}
                     <span className="text-text-muted/60 shrink-0">on</span>
                     <span className="text-blue-300 font-medium truncate">
                       {rt.project_name}

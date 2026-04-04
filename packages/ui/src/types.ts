@@ -1207,6 +1207,10 @@ export interface RunningTask {
   group: string;
   stage: string;
   model_slot?: 'small' | 'large' | 'code' | null;
+  /** How many parallel LLM calls this stage makes (from scheduler budget) */
+  concurrent_workers?: number;
+  /** Which compute node this project is running on (e.g. "cloud:default_ollama") */
+  compute_node?: string | null;
 }
 
 /**

@@ -139,7 +139,7 @@
         "provider": "ollama",
         "url": "http://localhost:11434",
         "local_concurrency": 1,
-        "cloud_concurrency": 3
+        "cloud_concurrency": 10
       }
     ],
     "embedding": {

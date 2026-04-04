@@ -412,17 +412,32 @@ class PipelineScheduler:
         whether the model is cloud-proxied (e.g. kimi, gemini) or local.
         """
         if provider.lower() in CLOUD_PROVIDERS:
-            return f"cloud:{endpoint_id}"
+            node = f"cloud:{endpoint_id}"
+            logger.info(
+                "Node resolution: %s/%s → %s (native cloud provider)",
+                provider, model, node,
+            )
+            return node
 
         # Ollama / LM Studio: check if this model is cloud-proxied
         try:
             from codrag.core.batch_profiles import is_cloud_model_via_ollama
             if is_cloud_model_via_ollama(provider, model):
-                return f"cloud:{endpoint_id}"
+                node = f"cloud:{endpoint_id}"
+                logger.info(
+                    "Node resolution: %s/%s → %s (cloud-proxied via Ollama)",
+                    provider, model, node,
+                )
+                return node
         except ImportError:
             pass
 
-        return f"local:{endpoint_id}"
+        node = f"local:{endpoint_id}"
+        logger.info(
+            "Node resolution: %s/%s → %s (local VRAM-constrained)",
+            provider, model, node,
+        )
+        return node
 
     # ── Batch concurrency budget (Phase 56B) ──────────────────────
 
@@ -473,10 +488,16 @@ class PipelineScheduler:
     ) -> Optional[int]:
         """Auto-discover the batch worker budget for a provider.
 
-        Searches active compute nodes for ones matching the provider
-        prefix (``cloud:*`` for cloud providers, ``local:*`` for local).
-        Returns the budget from the most constrained matching node,
-        or None if no matching nodes are configured.
+        **Phase 72 fix**: First checks which node the ``project_id``
+        has *actually* acquired (by scanning ``active_stages``), and
+        returns the budget for that exact node.  This eliminates the
+        prefix-guessing path that could silently downgrade a cloud
+        model to local concurrency (= 1) when the model name didn't
+        match ``is_cloud_model_via_ollama()`` heuristics.
+
+        Falls back to prefix-based discovery only when the project
+        isn't found in any active slot (e.g. pipeline hasn't called
+        ``acquire()`` yet).
 
         If ``project_id`` matches the priority ⭐ project, returns the
         full node capacity instead of the shared budget.
@@ -488,7 +509,41 @@ class PipelineScheduler:
             if not self._slots:
                 return None
 
-            # Determine which node prefix to match
+            is_exclusive = (
+                project_id is not None
+                and self._priority_project_id == project_id
+                and self._priority_level == "exclusive"
+            )
+            is_boost = (
+                project_id is not None
+                and self._priority_project_id == project_id
+                and self._priority_level == "boost"
+            )
+
+            # ── Fast path: find the exact node this project acquired ──
+            if project_id:
+                for nid, slot in self._slots.items():
+                    if project_id not in slot.active_stages:
+                        continue
+                    # Found! Compute budget on THIS node.
+                    full_budget = max(1, slot.max_concurrent)
+                    if is_exclusive:
+                        logger.debug(
+                            "Batch budget: exclusive project %s on %s → %d workers",
+                            project_id, nid, full_budget,
+                        )
+                        return full_budget
+                    active_count = max(1, slot.current_load)
+                    if active_count == 1:
+                        return full_budget
+                    base_share = max(1, full_budget // active_count)
+                    remainder = full_budget - (base_share * active_count)
+                    if remainder > 0 and is_boost:
+                        return base_share + remainder
+                    return base_share
+
+            # ── Fallback: prefix-based discovery ──────────────────────
+            # Used when project_id is unknown or hasn't acquired yet.
             is_cloud = provider in CLOUD_PROVIDERS
             if not is_cloud and model:
                 try:
@@ -498,13 +553,6 @@ class PipelineScheduler:
                 except ImportError:
                     pass
             prefix = "cloud:" if is_cloud else "local:"
-
-            # Exclusive ⭐ project gets the full capacity of any matching node
-            is_exclusive = (
-                project_id is not None
-                and self._priority_project_id == project_id
-                and self._priority_level == "exclusive"
-            )
 
             # Find all matching nodes that have active work
             budget = None
@@ -522,19 +570,14 @@ class PipelineScheduler:
                 base_share = max(1, slot.max_concurrent // active_count)
                 remainder = slot.max_concurrent - (base_share * active_count)
                 # Boost ⭐ project absorbs the remainder
-                if (
-                    remainder > 0
-                    and project_id is not None
-                    and self._priority_project_id == project_id
-                    and self._priority_level == "boost"
-                ):
+                if remainder > 0 and is_boost:
                     node_budget = base_share + remainder
                 else:
                     node_budget = base_share
                 if budget is None or node_budget < budget:
                     budget = node_budget
 
-            # If no active nodes found, check if any cloud nodes exist
+            # If no active nodes found, check if any matching nodes exist
             # and return their full capacity (happens when pipeline
             # hasn't called acquire yet but batch is about to start)
             if budget is None:
@@ -545,6 +588,40 @@ class PipelineScheduler:
                             budget = cap
 
             return budget
+
+    def concurrent_workers_for_project(
+        self, project_id: str,
+    ) -> Tuple[int, Optional[str]]:
+        """Return (concurrent_worker_count, node_id) for a project.
+
+        Used by the AI Gateway UI to display how many parallel LLM
+        calls a stage is making.  Returns (1, None) if the project
+        isn't found in any active slot.
+        """
+        with self._lock:
+            for nid, slot in self._slots.items():
+                if project_id not in slot.active_stages:
+                    continue
+                full_budget = max(1, slot.max_concurrent)
+                is_exclusive = (
+                    self._priority_project_id == project_id
+                    and self._priority_level == "exclusive"
+                )
+                if is_exclusive:
+                    return full_budget, nid
+                active_count = max(1, slot.current_load)
+                if active_count == 1:
+                    return full_budget, nid
+                base_share = max(1, full_budget // active_count)
+                remainder = full_budget - (base_share * active_count)
+                is_boost = (
+                    self._priority_project_id == project_id
+                    and self._priority_level == "boost"
+                )
+                if remainder > 0 and is_boost:
+                    return base_share + remainder, nid
+                return base_share, nid
+        return 1, None
 
     def status(self) -> Dict:
         """Return scheduler status for diagnostics/UI."""
@@ -570,6 +647,50 @@ class PipelineScheduler:
                 "level": self._priority_level,
             }
             return {"nodes": nodes, "priority": priority}
+
+    def sync_endpoint_concurrency(self) -> None:
+        """Live-sync endpoint concurrency from settings into the scheduler.
+
+        Phase 72: Called whenever LLM config is saved (e.g. user edits
+        endpoint concurrency in the UI).  Unlike ``load_from_settings()``,
+        this only updates existing node concurrency limits — it doesn't
+        rebuild priority, embedding, or legacy fallback config.
+
+        This enables changing concurrency from 3→10 without restarting.
+        """
+        try:
+            from codrag.services.settings_store import settings
+            llm_config = settings.get("llm_config") or {}
+        except Exception:
+            return
+
+        endpoints = llm_config.get("saved_endpoints", [])
+        if not endpoints:
+            return
+
+        updated = 0
+        for ep in endpoints:
+            ep_id = ep.get("id")
+            if not ep_id:
+                continue
+            provider = ep.get("provider", "ollama").lower()
+            local_c = max(1, int(ep.get("local_concurrency", 1)))
+            cloud_c = max(0, int(ep.get("cloud_concurrency", 1)))
+
+            if provider in CLOUD_PROVIDERS:
+                self.configure_node(f"cloud:{ep_id}", max(1, cloud_c))
+                updated += 1
+            else:
+                self.configure_node(f"local:{ep_id}", local_c)
+                effective_cloud_c = cloud_c if cloud_c > 0 else 3
+                self.configure_node(f"cloud:{ep_id}", effective_cloud_c)
+                updated += 1
+
+        if updated > 0:
+            logger.info(
+                "Scheduler: live-synced concurrency for %d endpoint(s)",
+                updated,
+            )
 
     def load_from_settings(self) -> None:
         """Load compute node configuration from the settings store.

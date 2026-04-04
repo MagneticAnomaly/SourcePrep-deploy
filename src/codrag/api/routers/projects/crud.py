@@ -192,6 +192,8 @@ def get_project(project_id: str) -> Dict[str, Any]:
 def update_project(project_id: str, req: UpdateProjectRequest) -> Dict[str, Any]:
     reg = _srv()._get_registry()
 
+    warning_msg = None
+
     # Detect activity toggle: compare old config.active with new config.active
     old_proj = _srv()._require_project(project_id)
     old_active = (old_proj.config or {}).get("active", True)
@@ -202,7 +204,6 @@ def update_project(project_id: str, req: UpdateProjectRequest) -> Dict[str, Any]
     # Enforce max_active_projects
     if not old_active and new_active:
         from codrag.services.config_manager import load_ui_config
-        from codrag.services.project_helpers import get_project_activity_status
         ui_cfg = load_ui_config(_srv()._config)
         max_active = ui_cfg.get("max_active_projects", "infinite")
         
@@ -220,12 +221,17 @@ def update_project(project_id: str, req: UpdateProjectRequest) -> Dict[str, Any]
                     active_count += 1
             
             if active_count >= max_active_int:
-                raise ApiException(
-                    status_code=400,
-                    code="MAX_ACTIVE_PROJECTS_REACHED",
-                    message=f"You already have {max_active_int} active project(s). Deactivate one first, or raise the limit in Global Settings.",
-                    hint="Deactivate another project first, or increase the limit in Global Settings.",
-                )
+                from codrag.core.feature_gate import get_license, Tier
+                lic = get_license()
+                if lic.tier in (Tier.TEAM, Tier.ENTERPRISE):
+                    raise ApiException(
+                        status_code=400,
+                        code="MAX_ACTIVE_PROJECTS_REACHED",
+                        message=f"You already have {max_active_int} active project(s). This limit is enforced for performance.",
+                        hint="Deactivate another project first.",
+                    )
+                else:
+                    warning_msg = f"It is recommended to use {max_active_int} or fewer active projects because it can be performance invasive."
 
     try:
         updated = reg.update_project(
@@ -279,7 +285,10 @@ def update_project(project_id: str, req: UpdateProjectRequest) -> Dict[str, Any]
             except Exception as exc:
                 logger.warning("Failed to update scheduler priority: %s", exc)
 
-    return ok({"project": _srv()._project_to_dict(updated)})
+    response_data = {"project": _srv()._project_to_dict(updated)}
+    if warning_msg:
+        response_data["warning"] = warning_msg
+    return ok(response_data)
 
 
 @router.put("/projects/{project_id}/path_weights")

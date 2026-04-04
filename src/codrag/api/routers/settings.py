@@ -426,6 +426,14 @@ def _save_llm_config(cfg: dict, change_source: str = "user") -> None:
     from codrag.services.settings_store import settings
     settings.set("llm_config", cfg)
 
+    # Phase 72: Live-sync endpoint concurrency into the scheduler
+    # so changes take effect immediately without daemon restart.
+    try:
+        from codrag.services.pipeline.scheduler import pipeline_scheduler
+        pipeline_scheduler.sync_endpoint_concurrency()
+    except Exception:
+        pass
+
     # GW-7: Policy change audit trail
     try:
         from codrag.core.audit_log import get_audit_log
