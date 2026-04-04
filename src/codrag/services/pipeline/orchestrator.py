@@ -165,37 +165,28 @@ class PipelineOrchestrator:
     def _sync_downstream_manifest_mtimes(project_id: str, pfl: Any = None) -> None:
         """Touch all downstream manifest files to match structural mtime.
 
-        Called after the STRUCTURAL stage completes.  When the structural
-        trace is rebuilt (even incrementally), its manifest gets a new mtime.
-        Downstream stages that have existing output data are still valid —
-        their workers handle incrementality internally.  By syncing their
-        manifest mtimes, we prevent _detect_resume_point from interpreting
-        the gap as STALE_MTIME and restarting expensive LLM stages.
+        Delegates to ManifestStore for mtime queries and touch operations.
         """
-        import os as _os
-        from .stages import STAGE_MANIFEST_FILE, StageId
-
         try:
             from codrag.services.project_helpers import require_project
             from codrag.core.project_registry import project_index_dir
 
             project = require_project(project_id)
             idx_dir = Path(project_index_dir(project))
+            store = ManifestStore(idx_dir)
 
-            structural_mf = idx_dir / STAGE_MANIFEST_FILE[StageId.STRUCTURAL]
-            if not structural_mf.exists():
+            baseline_mtime = store.provenance_mtime(StageId.STRUCTURAL)
+            if baseline_mtime == 0.0:
                 return
 
-            baseline_mtime = structural_mf.stat().st_mtime
             synced = []
-
-            for stage, mf_name in STAGE_MANIFEST_FILE.items():
+            for stage in list(StageId):
                 if stage == StageId.STRUCTURAL:
                     continue
-                mf_path = idx_dir / mf_name
-                if mf_path.exists() and mf_path.stat().st_mtime < baseline_mtime:
-                    _os.utime(str(mf_path), (baseline_mtime, baseline_mtime))
-                    synced.append(stage.value)
+                if store.provenance_exists(stage):
+                    if store.provenance_mtime(stage) < baseline_mtime:
+                        store.touch_provenance_mtime(stage, baseline_mtime)
+                        synced.append(stage.value)
 
             if synced:
                 logger.info(
@@ -297,33 +288,27 @@ class PipelineOrchestrator:
     def _touch_stale_deep_manifests(project_id: str) -> None:
         """Touch deep enrichment manifests so they match the catalogue mtime.
 
-        This prevents false STALE_MTIME detection when the catalogue was
-        re-run but deep stages already have valid data.
+        Delegates to ManifestStore for mtime queries and touch operations.
         """
-        import os as _os
-        from .stages import STAGE_MANIFEST_FILE, DEEP_ENRICHMENT_STAGES
-
         try:
             from codrag.services.project_helpers import require_project
             from codrag.core.project_registry import project_index_dir
 
             project = require_project(project_id)
             idx_dir = Path(project_index_dir(project))
+            store = ManifestStore(idx_dir)
 
-            catalogue_mf = idx_dir / "trace_augment_manifest.json"
-            if not catalogue_mf.exists():
+            cat_mtime = store.provenance_mtime(StageId.CATALOGUE)
+            if cat_mtime == 0.0:
                 return
 
-            cat_mtime = catalogue_mf.stat().st_mtime
             for stage in DEEP_ENRICHMENT_STAGES:
-                mf_name = STAGE_MANIFEST_FILE.get(stage)
-                if mf_name:
-                    mf_path = idx_dir / mf_name
-                    if mf_path.exists() and mf_path.stat().st_mtime < cat_mtime:
-                        _os.utime(str(mf_path), (cat_mtime, cat_mtime))
+                if store.provenance_exists(stage):
+                    if store.provenance_mtime(stage) < cat_mtime:
+                        store.touch_provenance_mtime(stage, cat_mtime)
                         logger.debug(
                             "Touched deep manifest %s to match catalogue mtime (%.0f)",
-                            mf_name, cat_mtime,
+                            STAGE_MANIFEST_FILE.get(stage), cat_mtime,
                         )
         except Exception:
             logger.debug(
@@ -4093,9 +4078,10 @@ class PipelineOrchestrator:
                         output_file: get_file_metadata(output_path),
                     }
 
-            # Save manifest
+            # Save manifest — Phase 72: use ManifestStore for atomic writes
             manifest_filename = STAGE_MANIFEST_FILE.get(stage, f"{stage.value}_manifest.json")
-            save_stage_manifest(manifest, idx_dir / manifest_filename)
+            store = ManifestStore(Path(idx_dir))
+            store.write_provenance(stage, manifest.to_dict())
 
             # Update run metadata
             self._update_run_metadata_for_stage(
