@@ -46,6 +46,7 @@ import { useSpaghettiSystem } from './hooks/useSpaghettiSystem'
 import { useGoalpostsSystem } from './hooks/useGoalpostsSystem'
 import { useRoadmapSystem } from './hooks/useRoadmapSystem'
 import { useOpportunitiesSystem } from './hooks/useOpportunitiesSystem'
+import { useArchitectureSystem } from './hooks/useArchitectureSystem'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
@@ -295,6 +296,9 @@ function App() {
 
   // ── Opportunities (Phase 63) ───────────────────────────────
   const opportunities = useOpportunitiesSystem(hydration.hydratedProjectId, { signal: hydration.signal, isHydrating: hydration.isHydrating })
+
+  // ── Architecture Diagram (Phase 71) ────────────────────────
+  const architecture = useArchitectureSystem(hydration.hydratedProjectId, { signal: hydration.signal })
 
   // ── Event Stream ───────────────────────────────────────────
   const eventsUrl = import.meta.env.DEV
@@ -743,6 +747,7 @@ function App() {
     goalposts,
     roadmap,
     opportunities,
+    architecture,
     activityData,
     adminPolicy,
     seatStatus,

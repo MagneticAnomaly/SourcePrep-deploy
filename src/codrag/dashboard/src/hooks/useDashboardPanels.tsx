@@ -60,11 +60,14 @@ import {
   AdvisorPanel,
   RoadmapPanel,
   OpportunitiesPanel,
+  ArchitectureDiagramPanel,
+  ArchitectureDiagramDetail,
 } from '@codrag/ui'
 import type { TraceStatus, TraceCoverage } from './useTraceSystem'
 import type { UseAuditSystemReturn } from './useAuditSystem'
 import type { UseSpaghettiSystemReturn } from './useSpaghettiSystem'
 import type { UseOpportunitiesSystemReturn } from './useOpportunitiesSystem'
+import type { UseArchitectureSystemReturn } from './useArchitectureSystem'
 
 const PINNED_PREFIX = 'pinned:'
 
@@ -252,6 +255,7 @@ export interface DashboardPanelsProps {
   goalposts: UseGoalpostsSystemReturn
   roadmap: UseRoadmapSystemReturn
   opportunities: UseOpportunitiesSystemReturn
+  architecture: UseArchitectureSystemReturn
   activityData: ActivityHeatmapData | null
   // Enterprise
   adminPolicy?: import('@codrag/ui').AdminPolicy | null
@@ -267,7 +271,7 @@ export interface DashboardPanelsProps {
 /** Builds all dashboard panel content, detail views, and dynamic panel definitions from domain state. */
 export function useDashboardPanels(props: DashboardPanelsProps) {
   // Flatten grouped sub-objects for backward-compatible p.xxx access internally
-  const { search, files, trace, enrichment, llm, deepAnalysis, atlas, audit: auditProps, spaghetti: spaghettiProps, goalposts: goalpostsProps, roadmap: roadmapProps, opportunities: opportunitiesProps, ...core } = props
+  const { search, files, trace, enrichment, llm, deepAnalysis, atlas, audit: auditProps, spaghetti: spaghettiProps, goalposts: goalpostsProps, roadmap: roadmapProps, opportunities: opportunitiesProps, architecture: archProps, ...core } = props
   const p = { ...core, ...search, ...files, ...trace, ...enrichment, ...llm, ...deepAnalysis }
 
   // Agent ops state — fetched when project changes
@@ -1163,7 +1167,15 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         agentStatus={opportunitiesProps.agentStatus}
       />
     ),
-  }), [p, excludedPaths, handleToggleExclude])
+    architecture: (
+      <ArchitectureDiagramPanel
+        summary={archProps.summary}
+        loading={archProps.loading}
+        error={archProps.error}
+        onOpenDetail={() => {/* openDetails handled by layoutApi in ModularDashboard */}}
+      />
+    ),
+  }), [p, excludedPaths, handleToggleExclude, archProps])
 
   const dynamicPanelDefs = useMemo(() =>
     [...p.pinnedPaths].map((path) => ({
@@ -1385,7 +1397,25 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         />
       </div>
     ),
-  }), [p, excludedPaths, handleToggleExclude, agentOpsData])
+    architecture: (
+      <ArchitectureDiagramDetail
+        graph={archProps.graph}
+        notes={archProps.notes}
+        layerPath={archProps.layerPath}
+        loading={archProps.loading}
+        onDrillInto={archProps.drillInto}
+        onNavigateToLayer={archProps.navigateToLayer}
+        onSavePositions={archProps.savePositions}
+        onCreateNote={archProps.createNote}
+        onUpdateNote={archProps.updateNote}
+        onDeleteNote={archProps.deleteNote}
+        onSelectNode={archProps.selectNode}
+        selectedNodeId={archProps.selectedNodeId}
+        savedPositions={archProps.savedPositions}
+        savedViewport={archProps.savedViewport}
+      />
+    ),
+  }), [p, excludedPaths, handleToggleExclude, agentOpsData, archProps])
 
   return { panelContent, panelDetails, allPanelDefs, PINNED_PREFIX }
 }
