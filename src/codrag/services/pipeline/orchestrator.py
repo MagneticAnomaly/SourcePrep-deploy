@@ -1477,13 +1477,14 @@ class PipelineOrchestrator:
         except Exception:
             return 0  # Can't resolve project — start from scratch
 
+        store = ManifestStore(idx_dir)
+
         # Get the structural manifest mtime as the "baseline" — any
         # downstream stage whose manifest is OLDER than this needs to
         # re-run because its input data (the trace graph) changed.
-        structural_manifest = idx_dir / "trace_manifest.json"
         baseline_mtime = 0.0
-        if not skip_mtime_cascade and structural_manifest.exists():
-            baseline_mtime = structural_manifest.stat().st_mtime
+        if not skip_mtime_cascade:
+            baseline_mtime = store.provenance_mtime(StageId.STRUCTURAL)
 
         # Phase 60A: Collect per-stage decisions for logging
         stage_decisions: list[dict] = []
@@ -1494,8 +1495,8 @@ class PipelineOrchestrator:
             # write the manifest at the very end of a successful run.
             manifest_file = STAGE_MANIFEST_FILE.get(stage)
             if manifest_file:
-                mpath = idx_dir / manifest_file
-                if mpath.exists() and mpath.stat().st_size > 0:
+                mpath = idx_dir / manifest_file  # for logging/size checks
+                if store.provenance_exists(stage):
                     # Phase 48-F8: For the structural stage, verify the
                     # manifest actually reports nodes.
                     if stage == StageId.STRUCTURAL:
@@ -1535,7 +1536,7 @@ class PipelineOrchestrator:
                     if (not skip_mtime_cascade
                             and stage != StageId.STRUCTURAL
                             and baseline_mtime > 0):
-                        manifest_mtime = mpath.stat().st_mtime
+                        manifest_mtime = store.provenance_mtime(stage)
                         age_gap = baseline_mtime - manifest_mtime
                         if manifest_mtime < baseline_mtime:
                             # Phase 60C: Tolerance window — sub-second mtime
@@ -1581,8 +1582,7 @@ class PipelineOrchestrator:
                                 # Touch manifest to match structural — prevents
                                 # re-triggering on next resume check.  The worker
                                 # will pick up delta changes when it next runs.
-                                import os as _os
-                                _os.utime(str(mpath), (baseline_mtime, baseline_mtime))
+                                store.touch_provenance_mtime(stage, baseline_mtime)
                                 logger.info(
                                     "Stage %s manifest is stale (gap=%.0fs) but has "
                                     "existing output (%s, %d bytes) — touching manifest "
@@ -3730,44 +3730,34 @@ class PipelineOrchestrator:
                     continue
 
                 # Check if deep manifests are stale vs structural trace
-                structural_manifest = idx_dir / "trace_manifest.json"
-                if not structural_manifest.exists():
+                store = ManifestStore(idx_dir)
+                if not store.provenance_exists(StageId.STRUCTURAL):
                     continue
 
-                structural_mtime = structural_manifest.stat().st_mtime
+                structural_mtime = store.provenance_mtime(StageId.STRUCTURAL)
                 deep_stale = False
 
-                from .stages import STAGE_MANIFEST_FILE
                 for stage in DEEP_ENRICHMENT_STAGES:
-                    mf = STAGE_MANIFEST_FILE.get(stage)
-                    if mf:
-                        mp = idx_dir / mf
-                        if not mp.exists():
-                            deep_stale = True
-                            break
-                        if mp.stat().st_mtime < structural_mtime:
-                            deep_stale = True
-                            break
+                    if not store.provenance_exists(stage):
+                        deep_stale = True
+                        break
+                    if store.provenance_mtime(stage) < structural_mtime:
+                        deep_stale = True
+                        break
 
                 if deep_stale:
                     # Phase 72: Touch manifests first and re-check.
-                    # The manifests may simply have older mtimes from a previous
-                    # run that never synced them.  Touching fixes false positives
-                    # without burning LLM tokens on a full pipeline restart.
                     self._touch_stale_deep_manifests(pid)
 
                     # Re-verify staleness after touching
                     deep_stale_after_touch = False
                     for stage in DEEP_ENRICHMENT_STAGES:
-                        mf = STAGE_MANIFEST_FILE.get(stage)
-                        if mf:
-                            mp = idx_dir / mf
-                            if not mp.exists():
-                                deep_stale_after_touch = True
-                                break
-                            if mp.stat().st_mtime < structural_mtime:
-                                deep_stale_after_touch = True
-                                break
+                        if not store.provenance_exists(stage):
+                            deep_stale_after_touch = True
+                            break
+                        if store.provenance_mtime(stage) < structural_mtime:
+                            deep_stale_after_touch = True
+                            break
 
                     if not deep_stale_after_touch:
                         # Touching fixed it — no recovery needed
