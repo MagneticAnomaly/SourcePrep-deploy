@@ -26,7 +26,7 @@ from .embedder import Embedder
 from .ids import stable_file_hash, stable_file_node_id
 from .manifest import ManifestBuildStats, build_manifest, write_manifest
 from .repo_policy import ensure_repo_policy
-from .repo_profile import DEFAULT_ROLE_WEIGHTS, classify_rel_path
+from .repo_profile import DEFAULT_EXCLUDE_FILE_GLOBS, DEFAULT_ROLE_WEIGHTS, classify_rel_path
 from codrag.api.envelope import ApiException
 
 logger = logging.getLogger(__name__)
@@ -279,6 +279,7 @@ class CodeIndex:
                 "**/*.log",
                 "**/.DS_Store",
             ])
+            exclude_globs.extend(DEFAULT_EXCLUDE_FILE_GLOBS)
 
         rw = policy.get("role_weights")
         role_weights: Dict[str, float] = dict(DEFAULT_ROLE_WEIGHTS)

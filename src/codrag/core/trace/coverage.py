@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Set
 import pathspec
 
 from codrag.core.ids import stable_file_hash
-from codrag.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
+from codrag.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES, DEFAULT_EXCLUDE_FILE_GLOBS
 
 from .utils import _detect_language, _to_posix
 
@@ -83,6 +83,7 @@ def compute_trace_coverage(
             "**/*.log",
             "**/.DS_Store",
         ])
+        exclude_globs.extend(DEFAULT_EXCLUDE_FILE_GLOBS)
     if user_exclude_globs is None:
         user_exclude_globs = []
 

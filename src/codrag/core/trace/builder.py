@@ -21,7 +21,7 @@ from codrag.core.ids import (
     stable_file_hash,
     stable_file_node_id,
 )
-from codrag.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
+from codrag.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES, DEFAULT_EXCLUDE_FILE_GLOBS
 
 from .models import (
     FileError,
@@ -96,6 +96,8 @@ class TraceBuilder:
                 "**/*.log",
                 "**/.DS_Store",
             ])
+            # CoDRAG-generated files — AI agents already have direct access
+            exclude_globs.extend(DEFAULT_EXCLUDE_FILE_GLOBS)
             
         self.exclude_globs = exclude_globs
         self.max_file_bytes = max_file_bytes
@@ -363,6 +365,21 @@ class TraceBuilder:
         logger.info("Building trace index via Rust engine")
         start = time.monotonic()
 
+        # Preserve existing file_hashes before Rust overwrites the manifest.
+        # The Rust engine writes a minimal manifest without file_hashes,
+        # which causes IntegrityGuard to flag a catastrophic shrink
+        # (e.g. 95KB → 304B).
+        saved_file_hashes: Optional[Dict[str, str]] = None
+        if self.manifest_path.exists():
+            try:
+                with open(self.manifest_path, "r", encoding="utf-8") as f:
+                    old_manifest = json.load(f)
+                saved_file_hashes = old_manifest.get("file_hashes")
+                if saved_file_hashes:
+                    logger.info("Preserved %d file_hashes before Rust engine build", len(saved_file_hashes))
+            except Exception:
+                pass
+
         if progress_callback:
             # Emit a "running" state so the UI knows it hasn't stalled
             progress_callback("trace_scan", 0, 1)
@@ -423,7 +440,16 @@ class TraceBuilder:
         # so that compute_trace_coverage can determine traced/untraced/stale.
         if "file_hashes" not in manifest:
             logger.info("Computing file_hashes for Rust-built trace manifest")
-            manifest["file_hashes"] = self._compute_file_hashes()
+            new_hashes = self._compute_file_hashes()
+            if saved_file_hashes:
+                # Merge: start with preserved hashes, overlay with freshly computed
+                merged = dict(saved_file_hashes)
+                merged.update(new_hashes)
+                manifest["file_hashes"] = merged
+                logger.info("Merged %d preserved + %d new = %d file_hashes",
+                            len(saved_file_hashes), len(new_hashes), len(merged))
+            else:
+                manifest["file_hashes"] = new_hashes
             self._write_manifest(manifest)
 
         return manifest
