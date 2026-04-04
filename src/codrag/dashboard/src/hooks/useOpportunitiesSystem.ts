@@ -80,6 +80,8 @@ export function useOpportunitiesSystem(
   // Phase 66: Pi agent status from pipeline status API
   const [agentStatus, setAgentStatus] = useState<AgentStatusType | null>(null)
   const agentPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const isHydratingRef = useRef(options?.isHydrating)
+  isHydratingRef.current = options?.isHydrating
 
   // Hydrate on project change
   useEffect(() => {
@@ -123,7 +125,7 @@ export function useOpportunitiesSystem(
 
     const signal = options?.signal
     const fetchAgent = () => {
-      if (signal?.aborted) return
+      if (signal?.aborted || isHydratingRef.current) return
       api.getPipelineStatus(selectedProjectId)
         .then((ps) => {
           if (signal?.aborted) return

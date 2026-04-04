@@ -390,6 +390,8 @@ export interface EpistemicStatus {
   enabled: boolean;
   enriched_nodes: number;
   total_file_nodes?: number;
+  /** Total nodes of all kinds (files + functions + classes etc) — matches enrichment scope */
+  total_nodes?: number;
   avg_confidence: number;
   running: boolean;
   /** True when ANY deep enrichment stage (5-8) is active (for DeepCoverageBar) */
@@ -825,6 +827,7 @@ export interface ProjectConfig {
   auto_rebuild: { enabled: boolean; debounce_ms?: number };
   graph_engine?: GraphEngineConfig;
   advanced?: ProjectAdvancedConfig;
+  max_branch_backups?: number; // Phase 60B
 }
 
 /**
@@ -1018,6 +1021,10 @@ export interface PipelineStatus {
   scheduler?: SchedulerStatus | null;
   /** Phase 66: Pi agent status and gate state */
   agent?: AgentStatus | null;
+  /** Phase 60B: Branch-aware backups */
+  branch?: string | null;
+  branch_snapshots?: any[];
+  branch_state?: any | null;
 }
 
 /**
@@ -1191,11 +1198,24 @@ export interface LLMBlockStatus {
 }
 
 /**
+ * A currently-running pipeline task with project context
+ */
+export interface RunningTask {
+  task_id: CodragTaskId;
+  project_id: string;
+  project_name: string;
+  group: string;
+  stage: string;
+  model_slot?: 'small' | 'large' | 'code' | null;
+}
+
+/**
  * All LLM slot statuses from /llm/slots/status
  */
 export interface LLMSlotsStatus {
   assignment_mode?: AssignmentMode;
   running_task_id?: CodragTaskId | null;
+  running_tasks?: RunningTask[];
   embedding: LLMSlotStatus;
   small_model: LLMSlotStatus;
   large_model: LLMSlotStatus;

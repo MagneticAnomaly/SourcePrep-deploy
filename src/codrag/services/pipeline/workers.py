@@ -99,6 +99,9 @@ class WorkerFactory:
     actual build logic.
     """
 
+    # Class-level store for changed paths from coverage gap (set by PipelineOrchestrator)
+    _changed_paths: Dict[str, set] = {}
+
     @staticmethod
     def create_worker(
         project_id: str,
@@ -112,7 +115,9 @@ class WorkerFactory:
         """
 
         if stage == StageId.STRUCTURAL:
-            base_worker = WorkerFactory._trace_worker(project_id)
+            # Pop changed_paths if available (incremental rebuild)
+            changed = WorkerFactory._changed_paths.pop(project_id, None)
+            base_worker = WorkerFactory._trace_worker(project_id, changed_paths=changed)
         elif stage == StageId.INFERRED_EDGES:
             base_worker = WorkerFactory._inferred_edges_worker(project_id)
         elif stage == StageId.CATALOGUE:
@@ -250,7 +255,7 @@ class WorkerFactory:
     # ── Stage Workers ──────────────────────────────────────────
 
     @staticmethod
-    def _trace_worker(project_id: str):
+    def _trace_worker(project_id: str, changed_paths: Optional[set] = None):
         def worker(slot: BuildSlot, progress_cb: Callable) -> Dict[str, Any]:
             from codrag.services.build_manager import build_manager
             from codrag.core.trace import TraceBuilder, TraceIndex
@@ -272,9 +277,15 @@ class WorkerFactory:
                 max_edges=max_e,
             )
             log_cb = WorkerFactory._logged_progress("Structural", progress_cb, project.name)
-            logger.info("[%s/Structural] Starting trace build", project.name)
+            if changed_paths:
+                logger.info(
+                    "[%s/Structural] Starting INCREMENTAL trace build — %d changed paths",
+                    project.name, len(changed_paths),
+                )
+            else:
+                logger.info("[%s/Structural] Starting trace build", project.name)
             _t0 = time.time()
-            builder.build(progress_callback=log_cb)
+            builder.build(progress_callback=log_cb, changed_paths=changed_paths)
 
             trace_idx = TraceIndex(idx_dir)
             trace_idx.load()

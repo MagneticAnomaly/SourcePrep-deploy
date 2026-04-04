@@ -82,6 +82,8 @@ class PipelineOrchestrator:
         self._run_metadata: Dict[tuple[str, str], Any] = {}  # (project_id, group) → PipelineRunMetadata
         # Phase 53: track which projects are in incremental mode
         self._incremental_runs: set[str] = set()
+        # Phase 53+: changed file paths for incremental structural rebuilds
+        self._changed_paths: Dict[str, set[str]] = {}
         # Explicit chain flag: run_all() sets this so deep_enrichment chains after fast_sync
         self._chain_deep: Dict[str, bool] = {}
 
@@ -141,6 +143,176 @@ class PipelineOrchestrator:
         except Exception:
             logger.debug("Failed to read incremental flag for %s", project_id, exc_info=True)
             return False
+
+    @staticmethod
+    def _sync_downstream_manifest_mtimes(project_id: str, pfl: Any = None) -> None:
+        """Touch all downstream manifest files to match structural mtime.
+
+        Called after the STRUCTURAL stage completes.  When the structural
+        trace is rebuilt (even incrementally), its manifest gets a new mtime.
+        Downstream stages that have existing output data are still valid —
+        their workers handle incrementality internally.  By syncing their
+        manifest mtimes, we prevent _detect_resume_point from interpreting
+        the gap as STALE_MTIME and restarting expensive LLM stages.
+        """
+        import os as _os
+        from .stages import STAGE_MANIFEST_FILE, StageId
+
+        try:
+            from codrag.services.project_helpers import require_project
+            from codrag.core.project_registry import project_index_dir
+
+            project = require_project(project_id)
+            idx_dir = Path(project_index_dir(project))
+
+            structural_mf = idx_dir / STAGE_MANIFEST_FILE[StageId.STRUCTURAL]
+            if not structural_mf.exists():
+                return
+
+            baseline_mtime = structural_mf.stat().st_mtime
+            synced = []
+
+            for stage, mf_name in STAGE_MANIFEST_FILE.items():
+                if stage == StageId.STRUCTURAL:
+                    continue
+                mf_path = idx_dir / mf_name
+                if mf_path.exists() and mf_path.stat().st_mtime < baseline_mtime:
+                    _os.utime(str(mf_path), (baseline_mtime, baseline_mtime))
+                    synced.append(stage.value)
+
+            if synced:
+                logger.info(
+                    "Phase 60D: Synced %d downstream manifest mtimes to structural "
+                    "mtime (%.0f) for %s: %s",
+                    len(synced), baseline_mtime, project_id, ", ".join(synced),
+                )
+                if pfl:
+                    pfl.log("structural", f"Synced {len(synced)} downstream manifest mtimes")
+
+        except Exception:
+            logger.debug(
+                "Failed to sync downstream manifest mtimes for %s (non-fatal)",
+                project_id, exc_info=True,
+            )
+
+    @staticmethod
+    def _try_restore_from_backup(
+        project_id: str, stages: list, pfl: Any = None,
+    ) -> bool:
+        """Try to restore pipeline data from the most recent backup checkpoint.
+
+        Phase 60D: Before starting a full rebuild from scratch, check if
+        a backup exists.  If so, restore the data files and return True.
+        The caller should then re-run _detect_resume_point to find where
+        to resume from the restored data.
+
+        Returns True if data was restored, False if no backup found.
+        """
+        from .stages import STAGE_MANIFEST_FILE, STAGE_OUTPUT_FILE
+
+        try:
+            from codrag.services.project_helpers import require_project
+            from codrag.core.project_registry import project_index_dir
+
+            project = require_project(project_id)
+            idx_dir = Path(project_index_dir(project))
+            checkpoints_dir = idx_dir / ".checkpoints"
+
+            if not checkpoints_dir.exists():
+                return False
+
+            # Find the most recent checkpoint with the most data
+            best_checkpoint = None
+            best_size = 0
+
+            for cp_dir in sorted(checkpoints_dir.iterdir(), reverse=True):
+                if not cp_dir.is_dir():
+                    continue
+                # Score by total data size in the checkpoint
+                total_size = sum(
+                    f.stat().st_size for f in cp_dir.iterdir()
+                    if f.is_file() and f.suffix in (".jsonl", ".json")
+                )
+                if total_size > best_size:
+                    best_size = total_size
+                    best_checkpoint = cp_dir
+
+            if not best_checkpoint or best_size < 1024:
+                return False
+
+            # Restore files from the backup
+            import shutil
+            restored_files = []
+            for src_file in best_checkpoint.iterdir():
+                if not src_file.is_file():
+                    continue
+                dst_file = idx_dir / src_file.name
+                # Only restore if the destination is missing or smaller
+                if not dst_file.exists() or dst_file.stat().st_size < src_file.stat().st_size:
+                    shutil.copy2(str(src_file), str(dst_file))
+                    restored_files.append(src_file.name)
+
+            if restored_files:
+                logger.info(
+                    "Phase 60D: Restored %d files from backup %s for %s: %s",
+                    len(restored_files), best_checkpoint.name, project_id,
+                    ", ".join(sorted(restored_files)[:10]),
+                )
+                if pfl:
+                    pfl.decision("mode_selection", "backup_restore", {
+                        "group": "fast_sync",
+                        "reason": f"Restored {len(restored_files)} files from backup {best_checkpoint.name}",
+                        "checkpoint": best_checkpoint.name,
+                        "restored_files": sorted(restored_files),
+                        "total_backup_size_mb": round(best_size / 1_048_576, 1),
+                    })
+                return True
+
+            return False
+        except Exception:
+            logger.debug(
+                "Failed to restore from backup for %s (non-fatal)",
+                project_id, exc_info=True,
+            )
+            return False
+
+    @staticmethod
+    def _touch_stale_deep_manifests(project_id: str) -> None:
+        """Touch deep enrichment manifests so they match the catalogue mtime.
+
+        This prevents false STALE_MTIME detection when the catalogue was
+        re-run but deep stages already have valid data.
+        """
+        import os as _os
+        from .stages import STAGE_MANIFEST_FILE, DEEP_ENRICHMENT_STAGES
+
+        try:
+            from codrag.services.project_helpers import require_project
+            from codrag.core.project_registry import project_index_dir
+
+            project = require_project(project_id)
+            idx_dir = Path(project_index_dir(project))
+
+            catalogue_mf = idx_dir / "trace_augment_manifest.json"
+            if not catalogue_mf.exists():
+                return
+
+            cat_mtime = catalogue_mf.stat().st_mtime
+            for stage in DEEP_ENRICHMENT_STAGES:
+                mf_name = STAGE_MANIFEST_FILE.get(stage)
+                if mf_name:
+                    mf_path = idx_dir / mf_name
+                    if mf_path.exists() and mf_path.stat().st_mtime < cat_mtime:
+                        _os.utime(str(mf_path), (cat_mtime, cat_mtime))
+                        logger.debug(
+                            "Touched deep manifest %s to match catalogue mtime (%.0f)",
+                            mf_name, cat_mtime,
+                        )
+        except Exception:
+            logger.debug(
+                "Failed to touch stale deep manifests for %s (non-fatal)",
+                project_id, exc_info=True,
+            )
 
     @staticmethod
     def _prune_stale_derivative_files(project_id: str, pfl: Any = None) -> None:
@@ -244,20 +416,23 @@ class PipelineOrchestrator:
     def run_fast_sync(self, project_id: str, force_from_start: bool = False) -> bool:
         """Start the Fast Sync group (stages 1-5).
 
-        By default, detects which stages already have output on disk and
-        resumes from the first incomplete stage.  Pass ``force_from_start=True``
-        to re-run all stages from scratch (e.g. after file changes that
-        invalidate the trace graph).
+        Phase 60D philosophy: ASSUME data exists and USE it.
 
-        Phase 53: When all stages are "complete" on disk, checks for stale
-        or untraced files via check_coverage_gap().  If changes are detected,
-        re-runs from Stage 1 (structural) so the trace graph picks up the
-        new/changed files.  Uses "incremental" mode which prevents
-        manifest-timestamp-based cascade invalidation of downstream stages
-        — their workers already handle incrementality internally.
+        1. If all stages are complete and there are stale/untraced files,
+           skip structural and start from inferred_edges (stage 1).
+           Workers handle incrementality internally.
+        2. If no data exists on disk, check backups FIRST.
+        3. Only start from scratch if NO data and NO backup found.
+        4. ``force_from_start=True`` is the ONLY way to get a true full
+           rebuild — this should only be called from the "Destroy Graph"
+           UI action, never automatically.
         """
         incremental = False
-        resume = 0 if force_from_start else self._detect_resume_point(project_id, FAST_SYNC_STAGES)
+        # Phase 60D: Always skip mtime cascade — if data exists, USE IT.
+        # Content-aware staleness in _detect_resume_point handles edge cases.
+        resume = 0 if force_from_start else self._detect_resume_point(
+            project_id, FAST_SYNC_STAGES, skip_mtime_cascade=True,
+        )
 
         # Phase 60A: Log the trigger decision to pipeline file logger
         pfl = self._get_file_logger(project_id)
@@ -272,7 +447,7 @@ class PipelineOrchestrator:
         if resume >= len(FAST_SYNC_STAGES):
             # Phase 53: All manifests exist — but are there stale files?
             try:
-                gap = self.check_coverage_gap(project_id)
+                gap = self.check_coverage_gap(project_id, include_paths=True)
 
                 if pfl:
                     pfl.decision("coverage_gap", "checked", {
@@ -287,16 +462,35 @@ class PipelineOrchestrator:
                 if gap["needs_rebuild"]:
                     stale = gap.get("stale", 0)
                     untraced = gap.get("untraced", 0)
+                    changed_paths: set[str] = gap.get("changed_paths", set())
                     logger.info(
                         "All fast_sync stages complete but %d stale + %d untraced "
-                        "files for %s — re-running from structural for incremental update",
+                        "files for %s — running incremental update",
                         stale, untraced, project_id,
                     )
-                    resume = 0  # Start from Stage 1 to rebuild trace graph
+                    if changed_paths:
+                        logger.info(
+                            "[%s] Changed paths (%d): %s%s",
+                            project_id, len(changed_paths),
+                            ", ".join(sorted(changed_paths)[:20]),
+                            f" ... (+{len(changed_paths) - 20} more)" if len(changed_paths) > 20 else "",
+                        )
+                    # Phase 60D: Skip structural stage in incremental mode.
+                    # The structural data (51K+ nodes from Python engine) is
+                    # already complete and correct.  Re-running structural
+                    # would trigger the Rust engine which produces a minimal
+                    # file-level-only scan (6K nodes), DESTROYING the rich
+                    # symbol-level data.  Instead, start from stage 1
+                    # (inferred_edges) and let downstream workers handle the
+                    # delta incrementally.
+                    resume = 1  # Skip structural, start from inferred_edges
                     # Mark as incremental: all stages already have data,
                     # workers will skip already-processed items, we should
                     # NOT cascade-invalidate downstream via manifest mtimes.
                     incremental = True
+                    # Store changed paths so downstream workers can use them
+                    if changed_paths:
+                        self._changed_paths[project_id] = changed_paths
 
                     if pfl:
                         pfl.decision("mode_selection", "incremental", {
@@ -304,7 +498,8 @@ class PipelineOrchestrator:
                             "reason": f"All stages complete, {stale} stale + {untraced} untraced files",
                             "stale_files": stale,
                             "untraced_files": untraced,
-                            "resume_point": 0,
+                            "changed_path_count": len(changed_paths),
+                            "resume_point": 1,
                         })
                 else:
                     logger.info(
@@ -320,11 +515,12 @@ class PipelineOrchestrator:
                     return False
             except Exception:
                 logger.warning(
-                    "Coverage gap check failed for %s — triggering rebuild as safety fallback",
+                    "Coverage gap check failed for %s — skipping structural (Phase 60D safety)",
                     project_id, exc_info=True,
                 )
-                # Safe default: rebuild rather than silently skip
-                resume = 0
+                # Safe default: skip structural, start from inferred_edges
+                # to avoid Rust engine overwriting Python symbol data.
+                resume = 1
                 incremental = True
         if resume > 0:
             logger.info(
@@ -340,12 +536,23 @@ class PipelineOrchestrator:
                     "resume_stage": FAST_SYNC_STAGES[resume].value,
                 })
         elif not incremental:
-            if pfl:
-                pfl.decision("mode_selection", "initial_full_run", {
-                    "group": "fast_sync",
-                    "reason": "No stages complete on disk, starting from scratch",
-                    "resume_point": 0,
-                })
+            # Phase 60D: Before starting from scratch, check for backups.
+            # ASSUME data exists somewhere — check backups before rebuilding.
+            restored = self._try_restore_from_backup(project_id, FAST_SYNC_STAGES, pfl)
+            if restored:
+                # Backup restored — re-detect resume point from the restored data
+                resume = self._detect_resume_point(project_id, FAST_SYNC_STAGES, skip_mtime_cascade=True)
+                logger.info(
+                    "[%s] Restored from backup, resuming from stage %d",
+                    project_id, resume,
+                )
+            else:
+                if pfl:
+                    pfl.decision("mode_selection", "initial_full_run", {
+                        "group": "fast_sync",
+                        "reason": "No stages complete on disk AND no backup found — starting from scratch",
+                        "resume_point": 0,
+                    })
         if incremental:
             # Track that this is an incremental run so that:
             # 1. _detect_resume_point skips mtime cascade for deep_enrichment
@@ -364,19 +571,14 @@ class PipelineOrchestrator:
 
         Auto-detects resume point from disk state.
 
-        Phase 53: When all deep stages are complete, checks if the
-        catalogue manifest (fast sync output) is newer than any deep
-        manifest — meaning fast sync re-ran for stale files and deep
-        stages need to re-process the updated data.
-
-        Note: If the preceding fast_sync was incremental (small coverage
-        gap), we skip the "delete stale deep manifests" logic.  The deep
-        workers already handle incrementality internally — they'll pick
-        up new/changed nodes without needing a full restart.
+        Phase 60D philosophy: ASSUME data exists and USE it.  Only start
+        from scratch if a stage has genuinely never produced output.
+        Workers handle incrementality internally — they read existing
+        output and only process new/changed nodes.  Restarting a stage
+        that has hours of LLM reasoning is destructive and should NEVER
+        happen automatically.
         """
         # Check if the preceding fast_sync was incremental.
-        # Try in-memory first (same process), then fall back to disk
-        # (survives daemon restart between fast_sync and deep_enrichment).
         is_incremental = project_id in self._incremental_runs
         self._incremental_runs.discard(project_id)
         if not is_incremental:
@@ -388,50 +590,24 @@ class PipelineOrchestrator:
                     project_id,
                 )
 
+        # Phase 60D: Always skip mtime cascade.  If data exists, it's valid.
+        # Workers handle incremental updates internally.
         resume = 0 if force_from_start else self._detect_resume_point(
-            project_id, DEEP_ENRICHMENT_STAGES, skip_mtime_cascade=is_incremental,
+            project_id, DEEP_ENRICHMENT_STAGES, skip_mtime_cascade=True,
         )
         if resume >= len(DEEP_ENRICHMENT_STAGES):
-            if is_incremental:
-                # After incremental fast_sync, deep stages already have data.
-                # Don't cascade-invalidate — workers will pick up the delta.
-                logger.info(
-                    "All deep_enrichment stages complete and fast_sync was incremental "
-                    "for %s — running deep stages in incremental mode",
-                    project_id,
-                )
-                resume = 0  # Run all stages, but workers skip existing data
-            else:
-                # Phase 53: Check if fast sync output is newer than deep manifests.
-                # Instead of deleting stale manifests (which forces a full rebuild),
-                # just restart from stage 0 and let workers handle incrementality.
-                # Workers internally skip already-processed items.
-                try:
-                    from codrag.services.project_helpers import require_project
-                    from codrag.core.project_registry import project_index_dir
-                    project = require_project(project_id)
-                    idx_dir = Path(project_index_dir(project))
-                    catalogue_manifest = idx_dir / "trace_augment_manifest.json"
-                    if catalogue_manifest.exists():
-                        cat_mtime = catalogue_manifest.stat().st_mtime
-                        # Check if any deep manifest is older than catalogue
-                        for stage in DEEP_ENRICHMENT_STAGES:
-                            mf = STAGE_MANIFEST_FILE.get(stage)
-                            if mf:
-                                mp = idx_dir / mf
-                                if mp.exists() and mp.stat().st_mtime < cat_mtime:
-                                    logger.info(
-                                        "Deep stage %s manifest is stale (catalogue was re-run) "
-                                        "for %s — re-running deep enrichment incrementally",
-                                        stage.value, project_id,
-                                    )
-                                    resume = 0
-                                    break
-                except Exception:
-                    pass
-            if resume >= len(DEEP_ENRICHMENT_STAGES):
-                logger.info("All deep_enrichment stages already complete on disk for %s — skipping", project_id)
-                return False
+            # All stages complete on disk.  Touch any stale manifests
+            # to prevent future false-positive staleness detection, then
+            # let workers run and add new/changed data incrementally.
+            self._touch_stale_deep_manifests(project_id)
+            logger.info(
+                "All deep_enrichment stages complete for %s — "
+                "workers will process any new/changed data incrementally",
+                project_id,
+            )
+            # Still start the group so workers can process incremental changes
+            resume = 0
+
         if resume > 0:
             logger.info(
                 "Resuming deep_enrichment for %s from stage %d/%d (%s)",
@@ -609,11 +785,72 @@ class PipelineOrchestrator:
                 (deep_run.is_active if deep_run else False)
             ),
             "run_mode": "incremental" if project_id in self._incremental_runs else None,
+            **self._get_branch_info(project_id),
         }
 
     def cancel_fast_sync(self, project_id: str) -> bool:
         """Cancel the Fast Sync group."""
         return self._cancel_group(project_id, "fast_sync")
+
+    def _get_branch_info(self, project_id: str) -> Dict[str, Any]:
+        """Get branch-aware backup info for a project (Phase 60B).
+
+        Returns keys to merge into the pipeline status dict:
+        - ``branch``: current Git branch (or None if not a Git repo)
+        - ``branch_snapshots``: list of available branch snapshots
+        - ``branch_state``: last-known branch state from disk
+
+        Results are cached for 30s to avoid spawning ``git rev-parse``
+        on every SSE event during an active pipeline run.
+        """
+        # Check cache (keyed by project_id, 30s TTL)
+        cache_key = f"_branch_cache_{project_id}"
+        cached = getattr(self, cache_key, None)
+        if cached:
+            ts, data = cached
+            if time.time() - ts < 30:
+                return data
+
+        try:
+            from codrag.services.branch_backup_manager import (
+                detect_current_branch,
+                list_snapshots,
+                read_branch_state,
+            )
+            from codrag.services.project_helpers import require_project
+            from codrag.core.project_registry import project_index_dir
+            from datetime import datetime, timezone
+            project = require_project(project_id)
+            idx_dir = Path(project_index_dir(project))
+
+            current_branch = detect_current_branch(project.path)
+            snapshots = list_snapshots(idx_dir)
+            state = read_branch_state(idx_dir)
+
+            # Only include transition_from if the switch was recent (< 5 min)
+            # to avoid the "Restored" badge showing permanently in the UI.
+            if state and state.get("transition_from") and state.get("switched_at"):
+                try:
+                    switched = datetime.fromisoformat(state["switched_at"])
+                    age_s = (datetime.now(timezone.utc) - switched).total_seconds()
+                    if age_s > 300:  # 5 minutes
+                        state = {k: v for k, v in state.items() if k != "transition_from"}
+                except Exception:
+                    pass
+
+            result = {
+                "branch": current_branch,
+                "branch_snapshots": snapshots,
+                "branch_state": state if state else None,
+            }
+            setattr(self, cache_key, (time.time(), result))
+            return result
+        except Exception:
+            logger.debug(
+                "Phase 60B: branch info unavailable for %s",
+                project_id, exc_info=True,
+            )
+            return {"branch": None, "branch_snapshots": [], "branch_state": None}
 
     def cancel_deep_enrichment(self, project_id: str) -> bool:
         """Cancel the Deep Enrichment group."""
@@ -729,12 +966,18 @@ class PipelineOrchestrator:
     _COVERAGE_RETRIGGER_DELAY = 15.0  # seconds after completion before re-checking
 
     @staticmethod
-    def check_coverage_gap(project_id: str) -> Dict[str, Any]:
+    def check_coverage_gap(project_id: str, include_paths: bool = False) -> Dict[str, Any]:
         """Check if there are files that should be traced but aren't.
 
         Uses ``compute_trace_coverage()`` to compare the filesystem against
-        the trace manifest.  Returns a lightweight summary — does NOT
-        return the full file lists to keep memory usage low.
+        the trace manifest.
+
+        Args:
+            project_id: Project to check.
+            include_paths: If True, include ``changed_paths`` (set of
+                relative paths for untraced + stale files) so the caller
+                can forward them to the structural worker for targeted
+                rebuilds.
 
         Returns dict with:
           - total: total eligible files on disk
@@ -743,6 +986,7 @@ class PipelineOrchestrator:
           - stale: files that were traced but content has changed
           - needs_rebuild: True if untraced + stale > 0
           - coverage_pct: percentage of files traced
+          - changed_paths: (only when include_paths=True) set of rel paths
         """
         try:
             from codrag.services.project_helpers import require_project
@@ -769,7 +1013,7 @@ class PipelineOrchestrator:
             untraced = summary.get("untraced", 0)
             stale = summary.get("stale", 0)
 
-            return {
+            result: Dict[str, Any] = {
                 "total": summary.get("total", 0),
                 "traced": summary.get("traced", 0),
                 "untraced": untraced,
@@ -777,6 +1021,16 @@ class PipelineOrchestrator:
                 "needs_rebuild": (untraced + stale) > 0,
                 "coverage_pct": summary.get("coverage_pct", 0.0),
             }
+
+            if include_paths and result["needs_rebuild"]:
+                changed: set[str] = set()
+                for f in coverage.get("untraced", []):
+                    changed.add(f["path"])
+                for f in coverage.get("stale", []):
+                    changed.add(f["path"])
+                result["changed_paths"] = changed
+
+            return result
         except Exception:
             logger.warning(
                 "Coverage gap check failed for %s — defaulting to needs_rebuild=True",
@@ -1011,16 +1265,75 @@ class PipelineOrchestrator:
                             and stage != StageId.STRUCTURAL
                             and baseline_mtime > 0):
                         manifest_mtime = mpath.stat().st_mtime
+                        age_gap = baseline_mtime - manifest_mtime
                         if manifest_mtime < baseline_mtime:
+                            # Phase 60C: Tolerance window — sub-second mtime
+                            # differences are almost always false positives
+                            # caused by the structural rebuild refreshing its
+                            # manifest even when nothing changed.  Only treat
+                            # as genuinely stale if the gap exceeds 5 seconds.
+                            if age_gap <= 5.0:
+                                logger.info(
+                                    "Stage %s manifest mtime gap is %.1fs "
+                                    "(within 5s tolerance) — treating as COMPLETE",
+                                    stage.value, age_gap,
+                                )
+                                stage_decisions.append({
+                                    "stage": stage.value, "decision": "COMPLETE",
+                                    "note": f"mtime gap {age_gap:.1f}s within tolerance",
+                                    "manifest_size": mpath.stat().st_size,
+                                })
+                                continue  # Within tolerance — not stale
+
+                            # Phase 60D: Content-aware staleness — if the stage
+                            # has existing output data, touching the manifest is
+                            # sufficient.  Workers handle incrementality internally
+                            # (they read existing output and only process new/changed
+                            # nodes).  Cascade-restarting a stage with hours of LLM
+                            # reasoning is destructive — we only do it when the stage
+                            # has NEVER produced output.
+                            output_file = STAGE_OUTPUT_FILE.get(stage)
+                            has_existing_output = False
+                            if output_file:
+                                opath = idx_dir / output_file
+                                if opath.exists() and opath.stat().st_size > 1024:
+                                    has_existing_output = True
+
+                            if has_existing_output:
+                                # Touch manifest to match structural — prevents
+                                # re-triggering on next resume check.  The worker
+                                # will pick up delta changes when it next runs.
+                                import os as _os
+                                _os.utime(str(mpath), (baseline_mtime, baseline_mtime))
+                                logger.info(
+                                    "Stage %s manifest is stale (gap=%.0fs) but has "
+                                    "existing output (%s, %d bytes) — touching manifest "
+                                    "and treating as COMPLETE (workers handle incrementality)",
+                                    stage.value, age_gap, output_file,
+                                    (idx_dir / output_file).stat().st_size,
+                                )
+                                stage_decisions.append({
+                                    "stage": stage.value, "decision": "COMPLETE",
+                                    "note": (
+                                        f"mtime gap {age_gap:.0f}s but output exists "
+                                        f"({output_file}) — manifest touched, "
+                                        f"workers handle incrementality"
+                                    ),
+                                    "manifest_size": mpath.stat().st_size,
+                                })
+                                continue  # Treated as complete
+
+                            # No output data — stage has never produced results,
+                            # so cascade-restarting is correct.
                             logger.info(
-                                "Stage %s manifest is stale (%.0f < %.0f) — "
-                                "trace was rebuilt after this stage last ran",
-                                stage.value, manifest_mtime, baseline_mtime,
+                                "Stage %s manifest is stale (%.0f < %.0f, gap=%.1fs) "
+                                "and has NO existing output — restarting stage",
+                                stage.value, manifest_mtime, baseline_mtime, age_gap,
                             )
                             stage_decisions.append({
                                 "stage": stage.value, "decision": "STALE_MTIME",
                                 "reason": f"Manifest mtime {manifest_mtime:.0f} < structural mtime {baseline_mtime:.0f}",
-                                "age_gap_seconds": round(baseline_mtime - manifest_mtime, 1),
+                                "age_gap_seconds": round(age_gap, 1),
                             })
                             self._log_resume_decisions(project_id, stages, i, stage_decisions, skip_mtime_cascade)
                             return i
@@ -1240,6 +1553,48 @@ class PipelineOrchestrator:
         except Exception:
             logger.debug("Phase 50: detect_and_regenerate failed at pipeline start (non-fatal)", exc_info=True)
 
+        # Phase 60B: Branch-aware backup — detect branch transitions and
+        # snapshot/restore pipeline data so LLM reasoning survives branch
+        # switches.  Only runs for the first group in a pipeline run
+        # (fast_sync) to avoid double-snapshotting when run_all() chains.
+        if group == "fast_sync":
+            try:
+                from codrag.services.branch_backup_manager import check_branch_transition
+                from codrag.services.project_helpers import require_project
+                from codrag.core.project_registry import project_index_dir
+                project = require_project(project_id)
+                max_backups = (project.config or {}).get("max_branch_backups", 3)
+                transition = check_branch_transition(
+                    project_path=project.path,
+                    index_dir=Path(project_index_dir(project)),
+                    max_backups=max_backups,
+                )
+                if transition:
+                    logger.info(
+                        "Phase 60B: Branch transition %s → %s for %s "
+                        "(snapshot=%s, restored=%s, pruned=%s)",
+                        transition["from_branch"], transition["to_branch"],
+                        project_id,
+                        transition["snapshot_created"],
+                        transition["snapshot_restored"],
+                        transition.get("pruned_branches", []),
+                    )
+                    if pfl:
+                        pfl.selfheal("branch_transition", (
+                            f"Detected branch change: "
+                            f"{transition['from_branch']} → {transition['to_branch']}"
+                        ), transition)
+                    # Invalidate branch info cache so next status()
+                    # call reflects the new branch immediately
+                    cache_key = f"_branch_cache_{project_id}"
+                    if hasattr(self, cache_key):
+                        delattr(self, cache_key)
+            except Exception:
+                logger.debug(
+                    "Phase 60B: branch check failed for %s (non-fatal)",
+                    project_id, exc_info=True,
+                )
+
         # Start the first (or resumed) stage
         self._advance_pipeline(sm)
         return True
@@ -1445,6 +1800,13 @@ class PipelineOrchestrator:
         if self._should_skip_stage_freshness(run, stage, pfl):
             return  # stage is already current, don't run it
 
+        # Phase 60B: Backup restore — before rebuilding a stage from scratch,
+        # check if a backup snapshot has valid data for this stage.  This
+        # prevents re-running expensive LLM stages when good data already
+        # exists from a previous run (e.g., branch snapshot, prior build).
+        if self._try_restore_stage_from_backup(run, stage, pfl):
+            return  # stage data restored from backup, skip running it
+
         # Phase 61B: Start heartbeat timer for this stage.
         # Writes to pipeline_run_metadata.json every 60s so the watchdog
         # can distinguish a genuinely running stage from a dead process.
@@ -1458,6 +1820,10 @@ class PipelineOrchestrator:
 
         # Phase 60A: integrity guard — snapshot data files before stage runs
         self._integrity_snapshot_before_stage(run, stage)
+
+        # Pass changed_paths to WorkerFactory for incremental structural rebuilds
+        if stage == StageId.STRUCTURAL and run.project_id in self._changed_paths:
+            WorkerFactory._changed_paths[run.project_id] = self._changed_paths.pop(run.project_id)
 
         worker = WorkerFactory.create_worker(run.project_id, stage)
         started = self._orchestrator.start(run.project_id, build_type, worker)
@@ -1565,6 +1931,11 @@ class PipelineOrchestrator:
                     if stage == StageId.STRUCTURAL:
                         self._generate_preliminary_atlas_and_rules(project_id)
                         self._prune_stale_derivative_files(project_id, pfl)
+                        # Phase 60D: Touch all downstream manifests to match
+                        # the new structural manifest mtime.  This prevents
+                        # STALE_MTIME cascade — downstream workers handle
+                        # incrementality internally.
+                        self._sync_downstream_manifest_mtimes(project_id, pfl)
                     elif stage == StageId.ATLAS:
                         self._regenerate_rules_with_full_atlas(project_id)
 
@@ -2326,6 +2697,8 @@ class PipelineOrchestrator:
         Finds the matching state machine, transitions it from QUEUED → RUNNING,
         and advances the pipeline.
         """
+        from codrag.services.pipeline.scheduler import pipeline_scheduler
+
         # Find the state machine for this project
         matching_sm = None
         with self._lock:
@@ -2336,9 +2709,18 @@ class PipelineOrchestrator:
 
         if matching_sm is None:
             logger.warning(
-                "Scheduler: dequeued %s/%s but no QUEUED state machine found",
+                "Scheduler: dequeued %s/%s but no QUEUED state machine found — "
+                "re-enqueuing to avoid losing the entry",
                 project_id, stage.value,
             )
+            # Re-enqueue so the entry isn't lost
+            try:
+                pipeline_scheduler.enqueue(project_id, stage)
+            except Exception:
+                logger.error(
+                    "Scheduler: failed to re-enqueue lost entry %s/%s",
+                    project_id, stage.value,
+                )
             return
 
         # Transition QUEUED → RUNNING
@@ -2358,9 +2740,23 @@ class PipelineOrchestrator:
                 self._advance_pipeline(matching_sm)
             except Exception as exc:
                 logger.exception(
-                    "Scheduler: _advance_pipeline failed for resumed %s: %s",
+                    "Scheduler: _advance_pipeline failed for resumed %s: %s — "
+                    "re-enqueuing",
                     project_id, exc,
                 )
+                # Re-enqueue so it can retry when next slot frees
+                try:
+                    pipeline_scheduler.enqueue(project_id, stage)
+                    if matching_sm.can_transition(Event.ENQUEUE):
+                        matching_sm.transition(
+                            Event.ENQUEUE,
+                            detail=f"re-enqueued after _advance_pipeline failure",
+                        )
+                except Exception:
+                    logger.error(
+                        "Scheduler: failed to re-enqueue after advance failure %s/%s",
+                        project_id, stage.value,
+                    )
 
     def _journal_stage_completed(self, run: PipelineGroupStateMachine, stage: StageId) -> None:
         if not run.journal_run_id:
@@ -2430,6 +2826,24 @@ class PipelineOrchestrator:
         Returns True if the stage should be skipped (already current).
         Marks the stage as 'skipped' in the run and advances to the next.
         """
+        # Phase 60D: During incremental runs, the coverage gap check in
+        # run_fast_sync already determined that stale/new files exist.
+        # The freshness check compares output vs input file mtimes,
+        # but during incremental runs the output from a PREVIOUS run
+        # will be newer than inputs even though it doesn't cover all
+        # files.  Workers handle incrementality internally — they skip
+        # already-processed items and only do new ones.  Bypassing the
+        # freshness gate ensures the worker actually runs.
+        if run.project_id in self._incremental_runs:
+            logger.debug(
+                "Freshness check bypassed for %s/%s (incremental run — "
+                "workers handle incrementality internally)",
+                run.project_id, stage.value,
+            )
+            if pfl:
+                pfl.log(stage.value, "Freshness check bypassed (incremental mode)")
+            return False
+
         try:
             from codrag.services.pipeline_integrity import (
                 integrity_guard, STAGE_DATA_FILES,
@@ -2466,6 +2880,88 @@ class PipelineOrchestrator:
         except Exception:
             logger.debug(
                 "Freshness check failed (non-fatal) for %s/%s",
+                run.project_id, stage.value, exc_info=True,
+            )
+        return False
+
+    # ── Phase 60B: Pre-Stage Backup Restore ─────────────────────
+
+    def _try_restore_stage_from_backup(
+        self,
+        run: PipelineGroupStateMachine,
+        stage: StageId,
+        pfl: Any = None,
+    ) -> bool:
+        """Check if a backup has valid data for this stage and restore it.
+
+        This is the core backup feature: before running an expensive stage
+        (especially LLM stages), check if a previous backup snapshot has
+        the stage's output data.  If found and valid, restore it instead
+        of re-running the stage from scratch.
+
+        Only applies to stages that don't already have output on disk
+        (freshness check handles that case).  Skips STRUCTURAL stage since
+        the trace graph must always reflect current filesystem state.
+
+        Returns True if the stage was restored (caller should skip running it).
+        """
+        # Don't restore structural — it must always reflect current files
+        if stage == StageId.STRUCTURAL:
+            return False
+
+        try:
+            from codrag.services.branch_backup_manager import (
+                check_stage_backup, restore_stage_from_backup,
+            )
+            from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
+
+            project = require_project(run.project_id)
+            idx_dir = Path(project_index_dir(project))
+
+            manifest_file = STAGE_MANIFEST_FILE.get(stage)
+            output_file = STAGE_OUTPUT_FILE.get(stage)
+
+            if not manifest_file:
+                return False
+
+            # Only restore if the stage's output doesn't already exist on disk
+            if output_file and (idx_dir / output_file).is_file():
+                return False
+            if (idx_dir / manifest_file).is_file():
+                return False
+
+            # Check backups for this stage's data
+            backup = check_stage_backup(idx_dir, manifest_file, output_file)
+            if backup is None:
+                return False
+
+            logger.info(
+                "Phase 60B: Found backup data for stage %s from branch '%s' "
+                "(%d records) — restoring instead of rebuilding",
+                stage.value, backup["branch"], backup["record_count"],
+            )
+            if pfl:
+                pfl.log(
+                    stage.value,
+                    f"RESTORED from backup (branch={backup['branch']}, "
+                    f"records={backup['record_count']})",
+                )
+
+            restore_stage_from_backup(
+                idx_dir,
+                backup["snapshot_dir"],
+                manifest_file,
+                output_file,
+            )
+
+            run.stage_results[stage.value] = "restored_from_backup"
+            run.advance()
+            return True
+
+        except Exception:
+            logger.debug(
+                "Backup restore check failed (non-fatal) for %s/%s",
                 run.project_id, stage.value, exc_info=True,
             )
         return False
@@ -2546,18 +3042,36 @@ class PipelineOrchestrator:
         is_deterministic = STAGE_IS_DETERMINISTIC.get(stage, False)
 
         if is_deterministic:
-            # Rust/embedding stages are cheap — just log the issue.
-            # The write already happened (temp+rename), so we can't undo it.
-            # But deterministic stages produce correct output, so a 0-record
-            # result means the inputs were empty, not a bug.
+            # Deterministic stages (Rust, embedding) are cheap to re-run.
+            # The write already happened (temp+rename), so we can't undo it
+            # inline.  However, we should NOT blindly allow severe shrinkage
+            # — the structural stage producing 10% of its previous output
+            # means something went wrong (scope change, glob misconfiguration).
+            #
+            # Phase 60C: Allow minor shrinkage (<10% loss) as normal churn.
+            # For severe shrinkage, try checkpoint restore first.
+            import re
+            # Extract shrinkage percentage from reason string
+            pct_match = re.search(r'(\d+)% of original', reason)
+            shrink_pct = int(pct_match.group(1)) if pct_match else 0
+
+            if shrink_pct >= 90:
+                # Minor loss (>=90% retained) — allow through
+                logger.info(
+                    "Write guard: deterministic stage %s lost ~%d%% for %s — "
+                    "allowing (normal file churn)",
+                    stage.value, 100 - shrink_pct, run.project_id,
+                )
+                if pfl:
+                    pfl.log(stage.value, f"Write guard: allowed (minor deterministic loss): {reason}")
+                return True
+
+            # Severe shrinkage — try checkpoint restore
             logger.warning(
-                "Write guard: deterministic stage %s produced fewer records "
-                "for %s (%s) — allowing (inputs may have changed)",
+                "Write guard: deterministic stage %s produced severe shrinkage "
+                "for %s (%s) — attempting checkpoint restore",
                 stage.value, run.project_id, reason,
             )
-            if pfl:
-                pfl.log(stage.value, f"Write guard: allowed (deterministic): {reason}")
-            return True
 
         # LLM stage — try checkpoint restore
         try:

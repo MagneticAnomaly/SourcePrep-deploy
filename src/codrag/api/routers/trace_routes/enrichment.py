@@ -301,6 +301,7 @@ def epistemic_status_project(project_id: str) -> Dict[str, Any]:
         except Exception: return 0
 
     total_file_nodes = 0
+    total_nodes = 0
     nodes_manifest = idx_dir / "trace_nodes_manifest.json"
     if nodes_manifest.exists():
         try:
@@ -308,7 +309,10 @@ def epistemic_status_project(project_id: str) -> Dict[str, Any]:
                 data = json.load(f)
                 total_file_nodes = data.get("quality", {}).get("total_items", 0)
         except Exception: pass
-    
+
+    # Total nodes (all kinds) — the denominator for enrichment percentage
+    total_nodes = _fast_count(idx_dir / "trace_nodes.jsonl")
+
     if total_file_nodes == 0:
         total_file_nodes = _fast_count(idx_dir / "trace_nodes.jsonl", '"kind":"file"')
 
@@ -317,6 +321,7 @@ def epistemic_status_project(project_id: str) -> Dict[str, Any]:
             "enabled": False,
             "enriched_nodes": 0,
             "total_file_nodes": total_file_nodes,
+            "total_nodes": total_nodes,
             "avg_confidence": 0.0,
         }
     else:
@@ -339,6 +344,7 @@ def epistemic_status_project(project_id: str) -> Dict[str, Any]:
             "enabled": True,
             "enriched_nodes": display_count,
             "total_file_nodes": total_file_nodes,
+            "total_nodes": total_nodes,
             "avg_confidence": round(avg_conf, 3),
         }
 

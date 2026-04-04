@@ -46,6 +46,7 @@ const DEFAULT_CONFIG: ProjectConfig = {
   auto_rebuild: { enabled: false, debounce_ms: 5000 },
   is_starred: false,
   priority_level: 'none' as PriorityLevel,
+  max_branch_backups: 3,
 }
 
 // ── Dependencies ─────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { FileText, Settings, AlertCircle, AlertTriangle, X } from 'lucide-react'
+import { FileText, Settings, AlertCircle, AlertTriangle, X, GitBranch } from 'lucide-react'
 import type { AtlasStatus, ActivityHeatmapData, UserRole, PipelineProvenance } from '@codrag/ui'
 import {
   // API
@@ -8,13 +8,13 @@ import {
   AppShell,
   Sidebar,
   ProjectList,
+  SidebarAIGateway,
   TeamSyncIndicator,
   // Dashboard
   ModularDashboard,
   // Project
   AddProjectModal,
   // Patterns
-  LoadingState,
   EmptyState,
   // Primitives
   Button,
@@ -446,9 +446,9 @@ function App() {
   }, [uiMode, uiTheme, bgImage])
 
   // ── Persist UI preferences to backend ─────────────────────
-  const uiPrefsSkipRef = useRef(0)
+  const uiPrefsInitialMount = useRef(true)
   useEffect(() => {
-    if (uiPrefsSkipRef.current < 2) { uiPrefsSkipRef.current++; return }
+    if (uiPrefsInitialMount.current) { uiPrefsInitialMount.current = false; return }
     const timeout = setTimeout(() => {
       api.updateGlobalConfig({
         ui_preferences: { mode: uiMode, theme: uiTheme, bg_image: bgImage },
@@ -617,10 +617,10 @@ function App() {
   }, [refreshProjects, isConnected])
 
   // ── Auto-save dashboard layout to backend ───────────────────
-  const layoutSkipRef = useRef(0)
+  const layoutInitialMount = useRef(true)
   useEffect(() => {
     if (!dashboardLayout) return
-    if (layoutSkipRef.current < 2) { layoutSkipRef.current++; return }
+    if (layoutInitialMount.current) { layoutInitialMount.current = false; return }
     const timeout = setTimeout(() => {
       api.updateGlobalConfig({ module_layout: dashboardLayout }).catch(() => { })
     }, 1000)
@@ -769,17 +769,18 @@ function App() {
   })
 
   // ── Loading state ──────────────────────────────────────────
-  if (!isConnected) {
+  // Consolidated: show StartupScreen throughout both the daemon‐connection
+  // phase AND the subsequent init/hydration phase. The stage text updates
+  // to keep the user informed without jarring screen transitions.
+  if (!isConnected || loading) {
     return (
       <StartupScreen
         apiBaseUrl={api.baseUrl}
         onReady={() => setIsConnected(true)}
+        stage={isConnected ? 'initializing' : undefined}
+        stageMessage={isConnected ? 'Loading projects and configuration…' : undefined}
       />
     )
-  }
-
-  if (loading) {
-    return <LoadingState message="Connecting to CoDRAG daemon..." />
   }
 
   // ── Render ─────────────────────────────────────────────────
@@ -881,9 +882,22 @@ function App() {
           <Sidebar
             collapsed={sidebarCollapsed}
             onCollapseToggle={() => setSidebarCollapsed((c) => !c)}
+            footer={sidebarCollapsed ? (
+              <SidebarAIGateway
+                slotsStatus={llmSlotsStatus}
+                collapsed
+                onOpenDetails={() => layoutApiRef.current?.openDetails('llm-status')}
+              />
+            ) : undefined}
           >
             {!sidebarCollapsed && (
               <ProjectList
+                beforeActions={
+                  <SidebarAIGateway
+                    slotsStatus={llmSlotsStatus}
+                    onOpenDetails={() => layoutApiRef.current?.openDetails('llm-status')}
+                  />
+                }
                 projects={sortedProjectSummaries}
                 selectedProjectId={selectedProjectId ?? undefined}
                 onProjectSelect={setSelectedProjectId}
@@ -930,6 +944,22 @@ function App() {
               hidePanelPicker
               headerRight={
                 <div className="flex items-center gap-2">
+                  {selectedProjectId && pipelineEvents?.[selectedProjectId]?.branch && (
+                    <div className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-md bg-stone-100 dark:bg-stone-800/80 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700">
+                      <GitBranch className="w-3.5 h-3.5" />
+                      <span className="max-w-[120px] truncate" title={pipelineEvents[selectedProjectId]!.branch!}>
+                        {pipelineEvents[selectedProjectId]!.branch!}
+                      </span>
+                      {pipelineEvents[selectedProjectId]!.branch_state?.transition_from && (
+                        <div className="flex items-center ml-1">
+                          <span className="w-1 h-1 rounded-full bg-blue-500 mr-1.5 animate-pulse" />
+                          <span className="text-blue-600 dark:text-blue-400 font-semibold" title={`Restored from: ${pipelineEvents[selectedProjectId]!.branch_state.transition_from}`}>
+                            Restored
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <TeamSyncIndicator status={projectStatus?.sync} />
                 </div>
               }

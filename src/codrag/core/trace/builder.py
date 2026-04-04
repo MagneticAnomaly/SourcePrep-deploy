@@ -305,18 +305,48 @@ class TraceBuilder:
              self._write_manifest(manifest)
              return manifest
 
-        self._write_atomic(nodes, edges)
+        # Phase 60C: Content-hash comparison — if the file set hasn't
+        # changed, skip the destructive write to preserve the existing
+        # manifest mtime and prevent false STALE_MTIME cascade.
+        skip_write = False
+        if self.manifest_path.exists():
+            try:
+                import json as _json
+                with open(self.manifest_path, "r", encoding="utf-8") as f:
+                    existing_manifest = _json.load(f)
+                existing_hashes = existing_manifest.get("file_hashes", {})
+                existing_counts = existing_manifest.get("counts", {})
 
-        manifest = self._build_manifest(
-            nodes_count=len(nodes),
-            edges_count=len(edges),
-            files_parsed=files_parsed,
-            files_failed=files_failed,
-            file_errors=file_errors,
-            last_error=None,
-            file_hashes=file_hashes,
-        )
-        self._write_manifest(manifest)
+                if (existing_hashes
+                        and existing_hashes == file_hashes
+                        and existing_counts.get("nodes", 0) == len(nodes)
+                        and existing_counts.get("edges", 0) == len(edges)):
+                    skip_write = True
+                    logger.info(
+                        "Structural trace unchanged (%d nodes, %d edges, "
+                        "%d file hashes identical) — skipping write to "
+                        "preserve manifest mtime",
+                        len(nodes), len(edges), len(file_hashes),
+                    )
+            except Exception:
+                pass  # Can't read existing manifest — write anyway
+
+        if skip_write:
+            # Return the existing manifest without updating its mtime
+            manifest = existing_manifest
+        else:
+            self._write_atomic(nodes, edges)
+
+            manifest = self._build_manifest(
+                nodes_count=len(nodes),
+                edges_count=len(edges),
+                files_parsed=files_parsed,
+                files_failed=files_failed,
+                file_errors=file_errors,
+                last_error=None,
+                file_hashes=file_hashes,
+            )
+            self._write_manifest(manifest)
 
         if progress_callback:
             progress_callback("trace_write", len(files), len(files))

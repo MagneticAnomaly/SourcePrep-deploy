@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useApiClient } from '@codrag/ui'
 import type { AuditFinding, AuditStatus, AuditReport } from '@codrag/ui'
 
@@ -23,6 +23,20 @@ export function useAuditSystem(
   const [auditReports, setAuditReports] = useState<AuditReport[]>([])
   const [auditReportContent, setAuditReportContent] = useState<string | null>(null)
   const [viewingAuditReport, setViewingAuditReport] = useState<string | null>(null)
+
+  const pollRef = useRef<NodeJS.Timeout | null>(null)
+  const isHydratingRef = useRef(options?.isHydrating)
+  isHydratingRef.current = options?.isHydrating
+
+  // Clean up polling interval on unmount or project change
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current)
+        pollRef.current = null
+      }
+    }
+  }, [selectedProjectId])
 
   // Hydrate audit data on project change
   useEffect(() => {
@@ -58,13 +72,16 @@ export function useAuditSystem(
     setAuditStatus((prev) => prev ? { ...prev, running: true } : { running: true, error: null, has_results: false })
     api.triggerAudit(selectedProjectId, { synthesize })
       .then(() => {
+        if (pollRef.current) clearInterval(pollRef.current)
         // Poll for completion
-        const poll = setInterval(() => {
+        pollRef.current = setInterval(() => {
+          if (isHydratingRef.current) return
           api.getAuditStatus(selectedProjectId)
             .then((s) => {
               setAuditStatus(s)
               if (!s.running) {
-                clearInterval(poll)
+                if (pollRef.current) clearInterval(pollRef.current)
+                pollRef.current = null
                 if (s.has_results) {
                   api.getAuditFindings(selectedProjectId, { limit: 200 })
                     .then((r) => setAuditFindings(r.findings || []))
@@ -75,7 +92,10 @@ export function useAuditSystem(
                 }
               }
             })
-            .catch(() => clearInterval(poll))
+            .catch(() => {
+              if (pollRef.current) clearInterval(pollRef.current)
+              pollRef.current = null
+            })
         }, 1500)
       })
       .catch(() => setAuditStatus((prev) => prev ? { ...prev, running: false, error: 'Failed to start audit' } : null))

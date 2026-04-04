@@ -22,6 +22,7 @@ Exposes the 8-stage pipeline orchestrator via HTTP endpoints.
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter
@@ -33,6 +34,12 @@ from codrag.core.project_registry import project_index_dir
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["pipeline"])
+
+# Phase 60D-3: Dedicated thread pool for status endpoints.
+# The default thread pool gets exhausted by long-running LLM workers
+# (30+ minutes each), leaving no threads for status endpoints.
+# This 4-thread pool ensures status & coverage endpoints can always respond.
+_status_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="pipeline-status")
 
 
 # ── Request models ───────────────────────────────────────────────
@@ -121,97 +128,177 @@ def pipeline_run_all(project_id: str) -> Dict[str, Any]:
 
 
 @router.get("/projects/{project_id}/pipeline/status")
-def pipeline_status(project_id: str) -> Dict[str, Any]:
+async def pipeline_status(project_id: str) -> Dict[str, Any]:
     """Get the full 11-stage pipeline status (two-group model).
 
     Returns both group-level run status and per-stage build slot status.
     Also includes legacy per-stage data fetched from existing sources
     for backward compatibility with the current UI.
+
+    Phase 60D-3: Runs in a dedicated thread pool to avoid being blocked
+    when LLM workers occupy all slots in the default thread pool.
     """
-    from codrag.server import _require_project
-    from codrag.services.build_manager import build_manager
-    from codrag.api.routers.trace_routes.enrichment import (
-        augment_status_project as _augment_status,
-        epistemic_status_project as _epistemic_status,
-        modules_status_project as _cluster_status,
-        deepening_status_project as _deepening_status,
-    )
+    import asyncio
 
-    proj = _require_project(project_id)
-    idx_dir = project_index_dir(proj)
+    def _build_status():
+        import json as _json
+        from codrag.server import _require_project
+        from codrag.services.build_manager import build_manager
 
-    # 1. Structural trace
-    trace_idx = build_manager.get_project_trace_index(proj)
-    trace_status = {
-        "enabled": bool((proj.config.get("trace") or {}).get("enabled", False)),
-        "exists": trace_idx.exists(),
-        "building": build_manager.is_project_trace_building(project_id),
-        "stats": trace_idx.node_count() if trace_idx.exists() and trace_idx.load() else 0,
-    }
+        proj = _require_project(project_id)
+        idx_dir = project_index_dir(proj)
 
-    # 2. Inferred Edges (code model)
-    inferred_edges_count = 0
-    try:
-        inferred_path = idx_dir / "trace_inferred_edges.jsonl"
-        if inferred_path.exists():
-            with open(inferred_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip():
-                        inferred_edges_count += 1
-    except Exception:
+        def _fast_line_count(path) -> int:
+            """Count lines in a JSONL file without loading it."""
+            if not path.exists():
+                return 0
+            try:
+                with open(path, "rb") as f:
+                    return sum(1 for _ in f)
+            except Exception:
+                return 0
+
+        # 1. Structural trace
+        trace_idx = build_manager.get_project_trace_index(proj)
+        trace_status = {
+            "enabled": bool((proj.config.get("trace") or {}).get("enabled", False)),
+            "exists": trace_idx.exists(),
+            "building": build_manager.is_project_trace_building(project_id),
+            "stats": trace_idx.node_count() if trace_idx.exists() and trace_idx.load() else 0,
+        }
+
+        # 2. Inferred Edges (code model)
         inferred_edges_count = 0
-    inferred_edges_status = {
-        "enabled": True,
-        "exists": inferred_edges_count > 0,
-        "edge_count": inferred_edges_count,
-    }
+        try:
+            inferred_path = idx_dir / "trace_inferred_edges.jsonl"
+            if inferred_path.exists():
+                with open(inferred_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if line.strip():
+                            inferred_edges_count += 1
+        except Exception:
+            inferred_edges_count = 0
+        inferred_edges_status = {
+            "enabled": True,
+            "exists": inferred_edges_count > 0,
+            "edge_count": inferred_edges_count,
+        }
 
-    # 3. Fast Catalogue (augmentation)
-    augment_status = _augment_status(project_id)["data"]
+        # 3. Fast Catalogue (augmentation) — read directly from file
+        # Phase 60D-5: Replaced _augment_status() call to avoid lock contention
+        augment_status: Dict[str, Any]
+        try:
+            from codrag.server import _project_augment_status
+            augment_status = _project_augment_status(proj)
+        except Exception:
+            augment_status = {"enabled": False, "total_nodes": 0, "augmented_nodes": 0}
 
-    # 4. Validation (pass-through for now)
-    validation_status = {
-        "enabled": True,
-        "inferred_edges": inferred_edges_count,
-        "validated_edges": inferred_edges_count,
-    }
+        # 4. Validation (pass-through for now)
+        validation_status = {
+            "enabled": True,
+            "inferred_edges": inferred_edges_count,
+            "validated_edges": inferred_edges_count,
+        }
 
-    # 4 + 8. Knowledge embedding
-    know_idx = build_manager.get_project_knowledge_index(proj)
-    knowledge_status = know_idx.status()
-    is_know_building = build_manager.is_project_knowledge_building(project_id)
-    knowledge_status["building"] = is_know_building
-    knowledge_status["running"] = is_know_building
+        # 4 + 8. Knowledge embedding
+        know_idx = build_manager.get_project_knowledge_index(proj)
+        knowledge_status = know_idx.status()
+        is_know_building = build_manager.is_project_knowledge_building(project_id)
+        knowledge_status["building"] = is_know_building
+        knowledge_status["running"] = is_know_building
 
-    # Phase 48 (P48-F4): Create separate deep_knowledge_status.
-    # Stage 11 reuses the same KnowledgeIndex but we need to distinguish
-    # whether it ran after deep enrichment (with richer data) or not.
-    deep_knowledge_status = dict(knowledge_status)  # Shallow copy
-    deepening_path = idx_dir / "trace_epistemic.jsonl"
-    modules_path = idx_dir / "trace_modules.jsonl"
-    deep_has_run = (
-        deepening_path.exists() and deepening_path.stat().st_size > 0 and
-        modules_path.exists() and modules_path.stat().st_size > 0
-    )
-    deep_knowledge_status["deep_chunks_embedded"] = (
-        knowledge_status.get("chunks_embedded", 0) if deep_has_run else 0
-    )
+        # Phase 48 (P48-F4): Create separate deep_knowledge_status.
+        deep_knowledge_status = dict(knowledge_status)
+        deepening_path = idx_dir / "trace_epistemic.jsonl"
+        modules_path = idx_dir / "trace_modules.jsonl"
+        deep_has_run = (
+            deepening_path.exists() and deepening_path.stat().st_size > 0 and
+            modules_path.exists() and modules_path.stat().st_size > 0
+        )
+        deep_knowledge_status["deep_chunks_embedded"] = (
+            knowledge_status.get("chunks_embedded", 0) if deep_has_run else 0
+        )
 
-    # 5. Epistemic enrichment
-    epistemic_status = _epistemic_status(project_id)["data"]
+        # 5. Epistemic enrichment — read directly from files
+        # Phase 60D-5: Inline read avoids pipeline_orchestrator.status() lock
+        epistemic_path = idx_dir / "trace_epistemic.jsonl"
+        enriched_count = _fast_line_count(epistemic_path)
+        total_file_nodes = _fast_line_count(idx_dir / "trace_nodes.jsonl")
+        epistemic_status: Dict[str, Any] = {
+            "enabled": enriched_count > 0,
+            "enriched_nodes": enriched_count,
+            "total_file_nodes": total_file_nodes,
+            "total_nodes": total_file_nodes,
+            "avg_confidence": 0.0,
+            "running": False,
+        }
+        # Try to get confidence from manifest
+        ep_manifest = idx_dir / "trace_epistemic_manifest.json"
+        if ep_manifest.exists():
+            try:
+                data = _json.loads(ep_manifest.read_text(encoding="utf-8"))
+                quality = data.get("quality", {})
+                if quality.get("processed", 0) > 0:
+                    epistemic_status["enriched_nodes"] = quality["processed"]
+                epistemic_status["avg_confidence"] = quality.get("avg_confidence", 0.0)
+            except Exception:
+                pass
 
-    # 6. Cluster synthesis
-    cluster_status = _cluster_status(project_id)["data"]
+        # 6. Cluster synthesis — read directly from files
+        modules_count = _fast_line_count(modules_path)
+        cluster_status: Dict[str, Any] = {
+            "enabled": modules_count > 0,
+            "module_count": modules_count,
+            "total_files_clustered": modules_count,
+            "running": False,
+        }
 
-    # 7. Deepening
-    deepening_status = _deepening_status(project_id)["data"]
+        # 7. Deepening — read directly from files
+        deepening_status: Dict[str, Any] = {"running": False, "total_scored": 0}
+        if deep_has_run:
+            deepening_manifest = idx_dir / "trace_deepening_manifest.json"
+            if deepening_manifest.exists():
+                try:
+                    data = _json.loads(deepening_manifest.read_text(encoding="utf-8"))
+                    quality = data.get("quality", {})
+                    deepening_status["total_scored"] = quality.get("total_items", 0)
+                    deepening_status["settled_count"] = quality.get("processed", 0)
+                    deepening_status["avg_score"] = quality.get("avg_confidence", 0.0)
+                except Exception:
+                    pass
 
-    atlas_status: Dict[str, Any]
-    try:
-        from codrag.core.atlas import CodebaseAtlas
-        atlas = CodebaseAtlas(idx_dir)
-        doc = atlas.load()
-        if doc is None:
+        atlas_status: Dict[str, Any]
+        try:
+            from codrag.core.atlas import CodebaseAtlas
+            atlas = CodebaseAtlas(idx_dir)
+            doc = atlas.load()
+            if doc is None:
+                atlas_status = {
+                    "exists": False,
+                    "mode": None,
+                    "model": None,
+                    "generated_at": None,
+                    "file_count": 0,
+                    "module_count": 0,
+                    "char_count": 0,
+                    "stale": True,
+                    "segmented": False,
+                    "routing": atlas.has_routing(),
+                }
+            else:
+                atlas_status = {
+                    "exists": True,
+                    "mode": doc.mode,
+                    "model": doc.model,
+                    "generated_at": doc.generated_at,
+                    "file_count": doc.file_count,
+                    "module_count": doc.module_count,
+                    "char_count": doc.char_count,
+                    "stale": atlas.is_stale(),
+                    "segmented": atlas.has_segments(),
+                    "routing": atlas.has_routing(),
+                }
+        except Exception:
             atlas_status = {
                 "exists": False,
                 "mode": None,
@@ -222,115 +309,92 @@ def pipeline_status(project_id: str) -> Dict[str, Any]:
                 "char_count": 0,
                 "stale": True,
                 "segmented": False,
-                "routing": atlas.has_routing(),
+                "routing": False,
             }
-        else:
-            atlas_status = {
-                "exists": True,
-                "mode": doc.mode,
-                "model": doc.model,
-                "generated_at": doc.generated_at,
-                "file_count": doc.file_count,
-                "module_count": doc.module_count,
-                "char_count": doc.char_count,
-                "stale": atlas.is_stale(),
-                "segmented": atlas.has_segments(),
-                "routing": atlas.has_routing(),
+
+        # Pipeline orchestrator group-level status
+        from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+        pipeline_state = pipeline_orchestrator.status(project_id)
+
+        # Merge live build-slot progress into each stage's data so the UI
+        # can show progress bars that update during long-running stages.
+        slot_stages = pipeline_state.get("stages") or {}
+        # Group reasoning status
+        group_reasoning_status: Dict[str, Any] = {"enabled": False, "group_count": 0, "analyzed": 0}
+        try:
+            gr_path = idx_dir / "trace_group_reasoning.jsonl"
+            if gr_path.exists():
+                gr_count = 0
+                with open(gr_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if line.strip():
+                            gr_count += 1
+                group_reasoning_status = {"enabled": True, "group_count": gr_count, "analyzed": gr_count}
+        except Exception:
+            pass
+
+        stage_data = {
+            "structural": trace_status,
+            "inferred_edges": inferred_edges_status,
+            "catalogue": augment_status,
+            "validation": validation_status,
+            "knowledge": knowledge_status,
+            "enrichment": epistemic_status,
+            "group_reasoning": group_reasoning_status,
+            "clustering": cluster_status,
+            "atlas": atlas_status,
+            "deepening": deepening_status,
+            "deep_knowledge": deep_knowledge_status,  # Separate status with deep_chunks_embedded field
+        }
+        for stage_key, slot_info in slot_stages.items():
+            if stage_key in stage_data and isinstance(slot_info, dict):
+                slot_progress = slot_info.get("progress")
+                if slot_progress:
+                    stage_data[stage_key]["slot_progress"] = slot_progress
+                    # Flatten into top-level keys so the UI can read progress_current/progress_total directly
+                    stage_data[stage_key]["progress_current"] = slot_progress.get("current", 0)
+                    stage_data[stage_key]["progress_total"] = slot_progress.get("total", 0)
+                    stage_data[stage_key]["progress_baseline"] = slot_progress.get("baseline", 0)
+                if slot_info.get("phase"):
+                    stage_data[stage_key]["slot_phase"] = slot_info["phase"]
+
+        # Phase 25: include crashed runs so the UI can show recovery banner
+        crashed_runs = pipeline_orchestrator.get_crashed_runs(project_id)
+
+        # Phase 45D: include scheduler status so the UI can show queue state
+        scheduler_data = None
+        try:
+            from codrag.services.pipeline.scheduler import pipeline_scheduler
+            scheduler_data = pipeline_scheduler.status()
+        except Exception:
+            pass
+
+        # Phase 66: Pi agent status
+        agent_data = None
+        try:
+            from codrag.services.pi_agent import get_pi_agent
+            from codrag.services.agent_gate import get_agent_gate
+            pi = get_pi_agent()
+            gate = get_agent_gate()
+            agent_data = {
+                **(pi.status() if pi else {"enabled": False}),
+                "gate": gate.status(),
             }
-    except Exception:
-        atlas_status = {
-            "exists": False,
-            "mode": None,
-            "model": None,
-            "generated_at": None,
-            "file_count": 0,
-            "module_count": 0,
-            "char_count": 0,
-            "stale": True,
-            "segmented": False,
-            "routing": False,
-        }
+        except Exception:
+            pass
 
-    # Pipeline orchestrator group-level status
-    from codrag.services.pipeline_orchestrator import pipeline_orchestrator
-    pipeline_state = pipeline_orchestrator.status(project_id)
+        return ok({
+            "fast_sync": pipeline_state.get("fast_sync"),
+            "deep_enrichment": pipeline_state.get("deep_enrichment"),
+            "stages": stage_data,
+            "any_running": pipeline_state.get("any_running", False),
+            "crashed_runs": crashed_runs,
+            "scheduler": scheduler_data,
+            "agent": agent_data,
+        })
 
-    # Merge live build-slot progress into each stage's data so the UI
-    # can show progress bars that update during long-running stages.
-    slot_stages = pipeline_state.get("stages") or {}
-    # Group reasoning status
-    group_reasoning_status: Dict[str, Any] = {"enabled": False, "group_count": 0, "analyzed": 0}
-    try:
-        gr_path = idx_dir / "trace_group_reasoning.jsonl"
-        if gr_path.exists():
-            gr_count = 0
-            with open(gr_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip():
-                        gr_count += 1
-            group_reasoning_status = {"enabled": True, "group_count": gr_count, "analyzed": gr_count}
-    except Exception:
-        pass
-
-    stage_data = {
-        "structural": trace_status,
-        "inferred_edges": inferred_edges_status,
-        "catalogue": augment_status,
-        "validation": validation_status,
-        "knowledge": knowledge_status,
-        "enrichment": epistemic_status,
-        "group_reasoning": group_reasoning_status,
-        "clustering": cluster_status,
-        "atlas": atlas_status,
-        "deepening": deepening_status,
-        "deep_knowledge": deep_knowledge_status,  # Separate status with deep_chunks_embedded field
-    }
-    for stage_key, slot_info in slot_stages.items():
-        if stage_key in stage_data and isinstance(slot_info, dict):
-            slot_progress = slot_info.get("progress")
-            if slot_progress:
-                stage_data[stage_key]["slot_progress"] = slot_progress
-                # Flatten into top-level keys so the UI can read progress_current/progress_total directly
-                stage_data[stage_key]["progress_current"] = slot_progress.get("current", 0)
-                stage_data[stage_key]["progress_total"] = slot_progress.get("total", 0)
-                stage_data[stage_key]["progress_baseline"] = slot_progress.get("baseline", 0)
-            if slot_info.get("phase"):
-                stage_data[stage_key]["slot_phase"] = slot_info["phase"]
-
-    # Phase 25: include crashed runs so the UI can show recovery banner
-    crashed_runs = pipeline_orchestrator.get_crashed_runs(project_id)
-
-    # Phase 45D: include scheduler status so the UI can show queue state
-    scheduler_data = None
-    try:
-        from codrag.services.pipeline.scheduler import pipeline_scheduler
-        scheduler_data = pipeline_scheduler.status()
-    except Exception:
-        pass
-
-    # Phase 66: Pi agent status
-    agent_data = None
-    try:
-        from codrag.services.pi_agent import get_pi_agent
-        from codrag.services.agent_gate import get_agent_gate
-        pi = get_pi_agent()
-        gate = get_agent_gate()
-        agent_data = {
-            **(pi.status() if pi else {"enabled": False}),
-            "gate": gate.status(),
-        }
-    except Exception:
-        pass
-
-    return ok({
-        "fast_sync": pipeline_state.get("fast_sync"),
-        "deep_enrichment": pipeline_state.get("deep_enrichment"),
-        "stages": stage_data,
-        "any_running": pipeline_state.get("any_running", False),
-        "crashed_runs": crashed_runs,
-        "scheduler": scheduler_data,
-        "agent": agent_data,
-    })
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(_status_executor, _build_status)
 
 
 @router.post("/projects/{project_id}/pipeline/cancel")

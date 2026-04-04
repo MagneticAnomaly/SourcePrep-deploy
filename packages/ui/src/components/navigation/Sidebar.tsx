@@ -6,6 +6,7 @@ import { Button } from '../primitives/Button';
 
 export interface SidebarProps {
   children: ReactNode;
+  footer?: ReactNode;
   collapsed?: boolean;
   onCollapseToggle?: () => void;
   className?: string;
@@ -26,6 +27,7 @@ export interface SidebarProps {
  */
 export function Sidebar({
   children,
+  footer,
   collapsed = false,
   onCollapseToggle,
   className,
@@ -111,6 +113,13 @@ export function Sidebar({
         <div className="flex-1 overflow-y-auto py-2">
           {children}
         </div>
+
+        {/* Footer (AI Gateway, etc.) */}
+        {footer && (
+          <div className="flex-shrink-0 border-t border-border">
+            {footer}
+          </div>
+        )}
 
         {/* Resize handle */}
         {!collapsed && (

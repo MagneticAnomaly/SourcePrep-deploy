@@ -658,9 +658,10 @@ export class CodragApiClient implements ApiClient {
       body: opts?.body
     });
 
-    // Request timeout: abort if daemon doesn't respond within the limit.
-    // Uses AbortSignal.any() to combine caller-provided signal with timeout.
-    const timeoutMs = opts?.timeoutMs ?? 8_000
+    // Phase 60D: Increased from 8s to 30s.  During pipeline activity,
+    // endpoints like /trace/coverage and /status do filesystem scans
+    // that take >8s, causing the dashboard to show "no data" state.
+    const timeoutMs = opts?.timeoutMs ?? 30_000
     const timeoutController = new AbortController()
     const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs)
     const signals = [timeoutController.signal]

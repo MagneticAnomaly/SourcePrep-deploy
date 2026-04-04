@@ -135,6 +135,22 @@ Even when the server doesn't restart, a pipeline stage can stall silently (LLM t
 
 ---
 
+## Phase 61D: Data-First Incrementalism (2026-04-03)
+
+> Cross-ref: See `Phase60_db-backup/60D_Pipeline_Incrementalism.md` for full technical details.
+
+Phase 61D addresses the root cause of the "silent rebuild" issue — the pipeline was operating under the wrong assumption (rebuild unless data found) instead of the correct one (assume data exists, use it).
+
+### Key Changes
+
+1. **Structural stage skip** — `resume=1` in incremental mode prevents Rust engine from overwriting Python's 51K nodes
+2. **Backup auto-recovery** — `_try_restore_from_backup()` scans `.checkpoints/` before allowing a full rebuild  
+3. **Mtime cascade disabled** — `skip_mtime_cascade=True` everywhere prevents false-positive staleness
+4. **Dashboard resilience** — API timeout increased 8s→30s; dashboard preserves known-good state during retries
+5. **Deep manifest touching** — `_touch_stale_deep_manifests()` prevents deep stage cascade restarts
+
+---
+
 ## Future Enhancements
 
 - [ ] **Dashboard health indicator**: Expose `/api/pipeline/health` with per-stage freshness
@@ -142,3 +158,4 @@ Even when the server doesn't restart, a pipeline stage can stall silently (LLM t
 - [ ] **Auto-prune old logs**: Rotate `.codrag/logs/` after N days or N MB
 - [ ] **Sub-atlas freshness check**: Verify segment/role atlases are complete
 - [ ] **Coverage gap autofix**: When codrag-selfheal finds gaps, trigger specific stages
+- [ ] **Inferred edges manifest separation**: Split orchestrator stage manifest from InferredEdgesAnalyzer hash manifest to enable true incremental edge discovery

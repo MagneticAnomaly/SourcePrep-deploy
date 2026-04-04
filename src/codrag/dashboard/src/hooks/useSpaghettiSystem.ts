@@ -13,7 +13,7 @@ export interface UseSpaghettiSystemReturn {
 
 export function useSpaghettiSystem(
   selectedProjectId: string | null,
-  options?: { signal?: AbortSignal }
+  options?: { signal?: AbortSignal; isHydrating?: boolean }
 ): UseSpaghettiSystemReturn {
   const api = useApiClient()
 

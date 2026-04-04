@@ -202,8 +202,10 @@ function DeepCoverageBar({
   knowledgeStatus?: KnowledgeEmbeddingStatus;
 }) {
   // Show accurate enrichment progress based on actual enriched node count.
-  const total = epistemic.total_file_nodes || augmentation?.total_nodes || epistemic.enriched_nodes;
-  const enriched = epistemic.enriched_nodes;
+  // Use total_nodes (all kinds) since enrichment processes all node types, not just files.
+  // Fallback chain: total_nodes → augmentation total → file nodes → enriched (last resort).
+  const total = epistemic.total_nodes || augmentation?.total_nodes || epistemic.total_file_nodes || epistemic.enriched_nodes;
+  const enriched = Math.min(epistemic.enriched_nodes, total);
   
   if (total === 0) return null;
 
@@ -455,7 +457,7 @@ export function GraphStructurePanel({
             ) : (
               <div className="flex items-center gap-2 text-xs text-primary">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                {summary && summary.traced > 0 ? 'Updating to reflect codebase changes...' : 'Mapping full codebase...'}
+                {(summary && summary.traced > 0) || traceExists ? 'Updating to reflect codebase changes...' : 'Mapping full codebase...'}
               </div>
             )}
           </div>

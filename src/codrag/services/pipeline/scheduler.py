@@ -431,9 +431,11 @@ class PipelineScheduler:
     ) -> int:
         """How many concurrent batch API calls a project can use on a node.
 
-        Divides the node's ``max_concurrent`` by the number of active
-        projects.  Boost priority gets proportional share; exclusive
-        priority gets the full budget.
+        Divides the node's ``max_concurrent`` across active projects:
+          - Exclusive ⭐ gets the full budget.
+          - Boost ⭐ gets an equal share PLUS any remainder from integer
+            division (e.g. budget=3, 2 projects → boost gets 2, other gets 1).
+          - Non-priority projects get an equal share (floor division).
 
         Returns at least 1.
         """
@@ -453,7 +455,17 @@ class PipelineScheduler:
                 return full_budget
             if active_count == 1:
                 return full_budget
-            return max(1, slot.max_concurrent // active_count)
+            base_share = max(1, full_budget // active_count)
+            remainder = full_budget - (base_share * active_count)
+            # Boost ⭐ project absorbs the remainder so no capacity is wasted
+            if (
+                remainder > 0
+                and project_id
+                and self._priority_project_id == project_id
+                and self._priority_level == "boost"
+            ):
+                return base_share + remainder
+            return base_share
 
     def available_batch_workers_for_provider(
         self, provider: str, model: str | None = None,
@@ -507,7 +519,18 @@ class PipelineScheduler:
                 active_count = max(1, slot.current_load)
                 if active_count == 0:
                     continue  # No work on this node
-                node_budget = max(1, slot.max_concurrent // active_count)
+                base_share = max(1, slot.max_concurrent // active_count)
+                remainder = slot.max_concurrent - (base_share * active_count)
+                # Boost ⭐ project absorbs the remainder
+                if (
+                    remainder > 0
+                    and project_id is not None
+                    and self._priority_project_id == project_id
+                    and self._priority_level == "boost"
+                ):
+                    node_budget = base_share + remainder
+                else:
+                    node_budget = base_share
                 if budget is None or node_budget < budget:
                     budget = node_budget
 

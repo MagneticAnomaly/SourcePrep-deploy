@@ -25,6 +25,7 @@ What's missing is the **frontend/state-machine layer** that prevents the dashboa
 - **Effect**: All API requests time out, dashboard freezes
 - **User action**: Thinks daemon crashed, kills process mid-pipeline
 - **Fix applied**: Async endpoints + 30s staleness cache
+- **Phase 60D update**: Default API client timeout increased 8s→30s. Dashboard now preserves last-known trace state during retries instead of resetting to "Initialize Trace Graph" hero. See `Phase60_db-backup/60D_Pipeline_Incrementalism.md`.
 
 ### 3. Hydration cascade (just fixed)
 - **What**: 25 concurrent API calls on project switch overwhelm daemon

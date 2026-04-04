@@ -2,13 +2,19 @@ import { useState, useEffect, useRef } from 'react'
 import { AlertCircle, RefreshCw, Power } from 'lucide-react'
 import { Button } from '@codrag/ui'
 
+type StartupStage = 'connecting' | 'initializing' | 'ready'
+
 interface StartupScreenProps {
   apiBaseUrl: string
   onReady: () => void
   timeoutMs?: number
+  /** Override the displayed stage (e.g. 'initializing' while loading config). */
+  stage?: StartupStage
+  /** Custom subtitle text for the current stage. */
+  stageMessage?: string
 }
 
-export function StartupScreen({ apiBaseUrl, onReady, timeoutMs = 30000 }: StartupScreenProps) {
+export function StartupScreen({ apiBaseUrl, onReady, timeoutMs = 30000, stage: externalStage, stageMessage }: StartupScreenProps) {
   const [status, setStatus] = useState<'connecting' | 'failed'>('connecting')
   const [attempts, setAttempts] = useState(0)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -63,7 +69,18 @@ export function StartupScreen({ apiBaseUrl, onReady, timeoutMs = 30000 }: Startu
     setRetryKey(k => k + 1)
   }
 
-  if (status === 'connecting') {
+  // Determine displayed stage — external stage takes priority (e.g. 'initializing' after connection).
+  const displayStage: StartupStage | 'failed' = externalStage ?? (status === 'connecting' ? 'connecting' : 'failed')
+
+  const stageLabels: Record<StartupStage, { title: string; subtitle: string }> = {
+    connecting: { title: 'Starting Engine', subtitle: 'Initializing local daemon and verifying ports' },
+    initializing: { title: 'Loading Dashboard', subtitle: stageMessage || 'Loading projects and configuration…' },
+    ready: { title: 'Ready', subtitle: 'Launching dashboard…' },
+  }
+
+  const currentLabel = displayStage !== 'failed' ? stageLabels[displayStage] : stageLabels.connecting
+
+  if (displayStage !== 'failed' && status !== 'failed') {
     return (
       <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-4 z-50 overflow-hidden">
         <style>{`
@@ -131,18 +148,29 @@ export function StartupScreen({ apiBaseUrl, onReady, timeoutMs = 30000 }: Startu
             {/* Status Text */}
             <div className="flex flex-col items-center gap-2 text-center" style={{ fontFamily: '"Inter", system-ui, sans-serif' }}>
               <p className="text-sm text-text font-bold tracking-widest uppercase">
-                Starting Engine
+                {currentLabel.title}
               </p>
               <p className="text-sm text-text-muted font-medium">
-                Initializing local daemon and verifying ports
+                {currentLabel.subtitle}
               </p>
-              <div className="mt-3 text-xs text-text-subtle font-mono flex items-center gap-2 bg-surface px-4 py-2 rounded-md border border-border/50 shadow-sm">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                </span>
-                Connecting to {apiBaseUrl} <span className="opacity-50">(Attempt {attempts + 1})</span>
-              </div>
+              {displayStage === 'connecting' && (
+                <div className="mt-3 text-xs text-text-subtle font-mono flex items-center gap-2 bg-surface px-4 py-2 rounded-md border border-border/50 shadow-sm">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                  </span>
+                  Connecting to {apiBaseUrl} <span className="opacity-50">(Attempt {attempts + 1})</span>
+                </div>
+              )}
+              {displayStage === 'initializing' && (
+                <div className="mt-3 text-xs text-text-subtle font-mono flex items-center gap-2 bg-surface px-4 py-2 rounded-md border border-border/50 shadow-sm">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                  </span>
+                  {stageMessage || 'Hydrating dashboard state…'}
+                </div>
+              )}
             </div>
           </div>
         </div>

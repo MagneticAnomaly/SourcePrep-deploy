@@ -213,9 +213,17 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
           }
         }
       }
-      // Both attempts failed — reset to clean state
+      // Phase 60D: All retry attempts failed (daemon under heavy load).
+      // DON'T reset exists=false — that shows the misleading "Initialize
+      // Trace Graph" hero.  Keep projectLoading=true so the user sees
+      // a loading spinner instead.  The next polling cycle will retry.
       if (!signal?.aborted && !unmounted) {
-        setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
+        // Only reset if we've never successfully loaded trace data.
+        // This prevents flashing "Initialize" when daemon is just slow.
+        setTraceStatus(prev => {
+          if (prev.exists) return prev  // Keep known-good state
+          return { enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } }
+        })
         setProjectLoading(false)
       }
     }

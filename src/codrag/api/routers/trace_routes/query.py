@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -23,6 +24,10 @@ from .shared import TraceSearchRequest, TraceIgnoreRequest, LSPEdge, LSPEdgesReq
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["trace"])
+
+# Phase 60D-3: Dedicated thread pool for status/coverage endpoints.
+# Prevents LLM workers from starving the API thread pool.
+_status_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="trace-status")
 
 
 @router.get("/projects/{project_id}/trace/status")
@@ -180,7 +185,7 @@ async def trace_coverage_project(project_id: str) -> Dict[str, Any]:
         return coverage
 
     loop = asyncio.get_running_loop()
-    coverage = await loop.run_in_executor(None, _compute_coverage)
+    coverage = await loop.run_in_executor(_status_executor, _compute_coverage)
     return ok(coverage)
 
 

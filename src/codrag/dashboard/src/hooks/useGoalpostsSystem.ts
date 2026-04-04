@@ -19,6 +19,8 @@ export function useGoalpostsSystem(
 
   const [state, setState] = useState<GoalpostsResponse | null>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
+  const isHydratingRef = useRef(options?.isHydrating)
+  isHydratingRef.current = options?.isHydrating
 
   // Clean up polling interval on unmount or project change
   useEffect(() => {
@@ -52,6 +54,7 @@ export function useGoalpostsSystem(
         if (pollRef.current) clearInterval(pollRef.current)
         // Poll for completion
         pollRef.current = setInterval(() => {
+          if (isHydratingRef.current) return
           api.getGoalposts(selectedProjectId)
             .then((s) => {
               setState(s)

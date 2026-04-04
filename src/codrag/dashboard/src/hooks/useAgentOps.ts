@@ -16,7 +16,7 @@ export interface UseAgentOpsReturn {
 
 export function useAgentOps(
   selectedProjectId: string | null,
-  options?: { signal?: AbortSignal }
+  options?: { signal?: AbortSignal; isHydrating?: boolean }
 ): UseAgentOpsReturn {
   const api = useApiClient()
 

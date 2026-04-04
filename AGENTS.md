@@ -3,7 +3,7 @@
 <!-- codrag-managed-start -->
 ## CoDRAG Integration
 
-Last updated: 2026-03-28T19:25:10Z
+Last updated: 2026-04-03T19:15:54Z
 
 ## 🚨 CRITICAL: Tool Calling Instructions
 
@@ -55,11 +55,14 @@ packages/vscode/webview-ui (14 files): VS Code webview React UI with build tooli
 CROSS-CUTTING: Shared domains are ui, dashboard, and vscode-extension. Five hub files in TEST2/website.clean drive cross-segment connectivity: download/page.tsx (3294 edges), privacy/page.tsx (1176 edges), terms/page.tsx (1066 edges), HeroSection.tsx (957 edges), and refund/page.tsx (949 edges). Entry points include packages/ui/src/index.ts, packages/ui/src/components/search/index.ts, src/codrag/cli.py, src/codrag/dashboard/src-tauri/src/main.rs, and packages/ui/src/types/index.ts. 113 import cycles present. Longest import chains span from core UI exports through TEST2 website components, with packages/ui/src/index.ts and packages/ui/src/components/search/index.ts as primary upstream sources. Directory dependencies show engine, packages, public, and scripts segments consuming symbols from across the workspace.
 
 ## Focus Areas
-- docs/Phase24_StateMachine/README.md
-- docs/Phase41_Managing-Mulitiple-Projects/README.md
-- docs/Phase48_fix-pipeline/README.md
-- docs/Phase57_Goalposts/01_Goalposts_Vision.md
-- docs/Phase59_Roadmap
+- docs/Phase62_Pi-research/02_CoDRAG_Epistemology.md
+- docs/Phase62_Pi-research/10_Universal_Adapter_Architecture.md
+- docs/Phase62_Pi-research/11_Autonomous_Agent_Scenarios.md
+- docs/Phase62_Pi-research/Paperclip + Sequential Thinking MCP + Superpowers Integration.md
+- docs/Phase64_prep-for-agents+paperclip
+- docs/Phase65_PushingTasksToPaperclip
+- docs/Phase66_Pi-Agent
+- docs/Phase67_AGENTS
 - src/codrag/core/llm_client.py
 - src/codrag/core/model_awareness.py
 - src/codrag/core/model_readiness.py

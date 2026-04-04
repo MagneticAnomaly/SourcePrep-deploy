@@ -171,7 +171,15 @@ class InferredEdgesAnalyzer:
         self._batch_profile = batch_profile
 
         self.inferred_path = self.index_dir / "trace_inferred_edges.jsonl"
-        self.manifest_path = self.index_dir / "trace_inferred_manifest.json"
+        # Phase 60D-4: Use a separate filename for the per-file content hash
+        # manifest.  The orchestrator writes stage-level provenance metadata
+        # (format_version, stage_id, quality, etc.) to trace_inferred_manifest.json.
+        # Using the same filename caused every incremental run to lose its
+        # hash cache and reprocess ALL 4000+ files from scratch.
+        self.manifest_path = self.index_dir / "trace_inferred_hashes.json"
+        # Migration: if the old manifest exists and looks like a hash dict
+        # (not orchestrator metadata), rename it to the new path.
+        self._migrate_old_manifest()
 
     # ── Public API ────────────────────────────────────────────────
 
@@ -272,6 +280,10 @@ class InferredEdgesAnalyzer:
             schema = get_structured_schema("inferred_edges")
             from .batch_profiles import get_batch_concurrency
             _concurrency = get_batch_concurrency(self.llm.provider, model=self.llm.model)
+            logger.info(
+                "BATCHED concurrency: %d parallel requests (provider=%s, model=%s)",
+                _concurrency, self.llm.provider, self.llm.model,
+            )
 
             # Pre-build all batch payloads
             all_batches = []
@@ -323,6 +335,7 @@ class InferredEdgesAnalyzer:
 
             # Dispatch batches concurrently
             done_batches = 0
+            _CHECKPOINT_INTERVAL = 10  # Save manifest + edges every N batches
             with ThreadPoolExecutor(max_workers=min(_concurrency, len(all_batches) or 1)) as pool:
                 future_to_items = {
                     pool.submit(_call_edge_batch, items): items
@@ -377,6 +390,17 @@ class InferredEdgesAnalyzer:
                     done_batches += 1
                     if progress_callback:
                         progress_callback("Inferring edges", min(done_batches * batch_size, total_work) + already_done, len(code_files), already_done)
+
+                    # Phase 60D-6: Periodic checkpoint so manifest + edges
+                    # survive server restarts mid-run.
+                    if done_batches % _CHECKPOINT_INTERVAL == 0:
+                        self._write_edges(new_edges)
+                        self._save_manifest(new_manifest)
+                        new_edges = []  # Already flushed
+                        logger.info(
+                            "Checkpoint: %d batches done, %d hashes saved, %d edges flushed",
+                            done_batches, len(new_manifest), edges_written,
+                        )
 
         else:
             # Local model: sequential or concurrent
@@ -619,11 +643,52 @@ class InferredEdgesAnalyzer:
                         edges.append(json.loads(line))
         return edges
 
+    def _migrate_old_manifest(self) -> None:
+        """One-time migration: rescue hash data from old manifest path.
+
+        Before Phase 60D-4, the analyzer stored per-file hashes in
+        ``trace_inferred_manifest.json``.  The orchestrator now writes
+        stage-level provenance metadata to that same file, clobbering
+        the hash data.
+
+        If the NEW path does not exist yet and the OLD path contains
+        what looks like a hash dict (no ``format_version`` key), copy
+        the old data to the new path so we don't lose incrementality.
+        """
+        if self.manifest_path.exists():
+            return  # New path already has data
+        old_path = self.index_dir / "trace_inferred_manifest.json"
+        if not old_path.exists():
+            return
+        try:
+            data = json.loads(old_path.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and "format_version" not in data:
+                # Looks like a hash dict — migrate it
+                self.manifest_path.write_text(
+                    json.dumps(data, indent=2), encoding="utf-8",
+                )
+                logger.info(
+                    "Migrated %d file hashes from old manifest path to %s",
+                    len(data), self.manifest_path.name,
+                )
+        except Exception:
+            pass  # Non-fatal
+
     def _load_manifest(self) -> Dict[str, str]:
         """Load manifest of already-analyzed file hashes."""
         if self.manifest_path.exists():
             try:
-                return json.loads(self.manifest_path.read_text(encoding="utf-8"))
+                data = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+                # Phase 60D-4: Reject orchestrator metadata that may have
+                # been written to the wrong file.  Hash manifests are plain
+                # {path: hash} dicts — no format_version key.
+                if isinstance(data, dict) and "format_version" not in data:
+                    return data
+                logger.warning(
+                    "Inferred edges manifest at %s contains orchestrator metadata "
+                    "(format_version=%s) — ignoring (all files will be re-analyzed)",
+                    self.manifest_path.name, data.get("format_version"),
+                )
             except Exception:
                 pass
         return {}

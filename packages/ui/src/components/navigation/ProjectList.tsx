@@ -20,6 +20,7 @@ export interface ProjectListProps {
   exclusiveProjectId?: string | null;
   isPro?: boolean;
   extraActions?: ReactNode;
+  beforeActions?: ReactNode;
   className?: string;
 }
 
@@ -201,6 +202,7 @@ export function ProjectList({
   exclusiveProjectId,
   isPro = false,
   extraActions,
+  beforeActions,
   className,
 }: ProjectListProps) {
   return (
@@ -230,6 +232,11 @@ export function ProjectList({
           ))
         )}
       </div>
+      {beforeActions && (
+        <div className="flex-shrink-0 border-t border-border">
+          {beforeActions}
+        </div>
+      )}
       <div className="px-2 py-2 border-t border-border flex gap-1.5">
         <Button
           onClick={onAddProject}

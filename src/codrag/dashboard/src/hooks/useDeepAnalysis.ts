@@ -120,10 +120,10 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError }: U
   }, [api, selectedProjectId])
 
   // ── Auto-save schedule to backend ───────────────────────────
-  const deepAnalysisSkipRef = useRef(0)
+  const deepAnalysisInitialMount = useRef(true)
   useEffect(() => {
-    if (deepAnalysisSkipRef.current < 2) {
-      deepAnalysisSkipRef.current++
+    if (deepAnalysisInitialMount.current) {
+      deepAnalysisInitialMount.current = false
       return
     }
     const timeout = setTimeout(() => {

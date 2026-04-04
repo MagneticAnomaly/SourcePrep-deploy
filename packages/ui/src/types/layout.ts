@@ -73,7 +73,7 @@ export interface GridLayoutItem {
  * Default layout configuration
  */
 export const DEFAULT_LAYOUT: DashboardLayout = {
-  version: 17,
+  version: 18,
   panels: [
     {
       id: "status",
@@ -158,7 +158,7 @@ export const DEFAULT_LAYOUT: DashboardLayout = {
     },
     {
       id: "llm-status",
-      visible: true,
+      visible: false,
       height: 6,
       collapsed: false,
       x: 0,

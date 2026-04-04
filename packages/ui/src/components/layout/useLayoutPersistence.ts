@@ -44,25 +44,32 @@ function saveLayout(key: string, layout: DashboardLayout): void {
 }
 
 function migrateLayout(layout: DashboardLayout): DashboardLayout {
-  // Reset to defaults when stored version is behind current
-  if (layout.version < DEFAULT_LAYOUT.version) {
-    return DEFAULT_LAYOUT;
-  }
+  const isOutdated = layout.version < 20;
+
+  // We gently upgrade the layout rather than wiping it
+  const upgradedLayout = {
+    ...layout,
+    version: DEFAULT_LAYOUT.version,
+    panels: isOutdated ? layout.panels.map(p => ({
+      ...p,
+      // Provide backwards compatibility fixes for individual panels here if needed
+    })) : layout.panels
+  };
 
   // Ensure all default panels exist (newly added panels)
-  const existingIds = new Set(layout.panels.map((p) => p.id));
+  const existingIds = new Set(upgradedLayout.panels.map((p) => p.id));
   const missingPanels = DEFAULT_LAYOUT.panels.filter(
     (p) => !existingIds.has(p.id)
   );
 
   if (missingPanels.length > 0) {
     return {
-      ...layout,
-      panels: [...layout.panels, ...missingPanels.map((p) => ({ ...p, visible: false }))],
+      ...upgradedLayout,
+      panels: [...upgradedLayout.panels, ...missingPanels.map((p) => ({ ...p, visible: false }))],
     };
   }
 
-  return layout;
+  return upgradedLayout;
 }
 
 export function useLayoutPersistence(

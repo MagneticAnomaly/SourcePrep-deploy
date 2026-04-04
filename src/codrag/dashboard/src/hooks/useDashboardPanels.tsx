@@ -294,6 +294,34 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
     setLocalExcludedPaths(new Set())
   }, [p.selectedProject?.id])
 
+  // Hydrate excluded paths from persisted ignore_patterns on project load.
+  // When users click a folder in the Exclude Tree, handleToggleExclude saves
+  // both the folder path (e.g. "tests/eval") and a glob (e.g. "tests/eval/**").
+  // On restart/reload, we read these patterns back and extract the folder-level
+  // entries (patterns that DON'T end in "/**") so the FolderTree checkboxes
+  // render correctly.
+  const projectTraceConfig = p.projectConfig?.trace as Record<string, unknown> | undefined
+  const persistedIgnorePatterns = (projectTraceConfig as any)?.ignore_patterns as string[] | undefined
+  useEffect(() => {
+    if (!persistedIgnorePatterns || !Array.isArray(persistedIgnorePatterns) || persistedIgnorePatterns.length === 0) return
+    setLocalExcludedPaths(prev => {
+      const merged = new Set(prev)
+      for (const pattern of persistedIgnorePatterns) {
+        // Skip glob-only patterns (e.g. "tests/eval/**") — the tree only
+        // needs the folder path itself (e.g. "tests/eval")
+        if (pattern.endsWith('/**')) continue
+        // Skip patterns with wildcards (these are glob patterns, not folder paths)
+        if (pattern.includes('*') || pattern.includes('?')) continue
+        // Clean trailing slashes
+        const clean = pattern.replace(/\/$/, '')
+        if (clean) merged.add(clean)
+      }
+      if (merged.size === prev.size) return prev
+      return merged
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.selectedProject?.id, persistedIgnorePatterns?.length])
+
   // Sync server-side excluded paths into local state (additive merge)
   useEffect(() => {
     if (p.traceCoverage?.excluded) {

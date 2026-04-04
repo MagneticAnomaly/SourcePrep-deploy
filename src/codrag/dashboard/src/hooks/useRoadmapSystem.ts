@@ -30,6 +30,8 @@ export function useRoadmapSystem(
 
   const [state, setState] = useState<RoadmapResponse | null>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
+  const isHydratingRef = useRef(options?.isHydrating)
+  isHydratingRef.current = options?.isHydrating
 
   // Clean up polling on unmount or project change
   useEffect(() => {
@@ -57,6 +59,7 @@ export function useRoadmapSystem(
     if (!selectedProjectId) return
     if (pollRef.current) clearInterval(pollRef.current)
     pollRef.current = setInterval(() => {
+      if (isHydratingRef.current) return
       api.getRoadmap(selectedProjectId)
         .then((s) => {
           setState(s)

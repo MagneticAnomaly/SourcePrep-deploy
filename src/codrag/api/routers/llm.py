@@ -639,12 +639,13 @@ def get_llm_slots_status() -> Dict[str, Any]:
     # Determine current assignment mode
     assignment_mode = llm_cfg.get("assignment_mode", "structured")
 
-    # Detect running task from active pipeline runs
+    # Detect running tasks from active pipeline runs (all projects)
     running_task_id: Optional[str] = None
+    running_tasks: List[Dict[str, Any]] = []
     try:
         from codrag.services.pipeline_orchestrator import pipeline_orchestrator
         from codrag.services.project_helpers import get_registry as _get_reg
-        from codrag.services.pipeline.stages import STAGE_TASK_ID, StageId
+        from codrag.services.pipeline.stages import STAGE_TASK_ID, STAGE_MODEL_SLOT, StageId
 
         registry = _get_reg()
         for project in registry.list_projects():
@@ -654,15 +655,24 @@ def get_llm_slots_status() -> Dict[str, Any]:
                 if group_run and group_run.get("is_active") and group_run.get("current_stage"):
                     stage_str = group_run["current_stage"]
                     try:
-                        task_id = STAGE_TASK_ID.get(StageId(stage_str))
+                        stage_id = StageId(stage_str)
+                        task_id = STAGE_TASK_ID.get(stage_id)
+                        model_slot = STAGE_MODEL_SLOT.get(stage_id)
                         if task_id:
-                            running_task_id = task_id
+                            if running_task_id is None:
+                                running_task_id = task_id
+                            # Only include LLM-using stages in running_tasks
+                            if model_slot is not None:
+                                running_tasks.append({
+                                    "task_id": task_id,
+                                    "project_id": project.id,
+                                    "project_name": project.name,
+                                    "group": group_name,
+                                    "stage": stage_str,
+                                    "model_slot": model_slot,
+                                })
                     except (ValueError, KeyError):
                         pass
-                if running_task_id:
-                    break
-            if running_task_id:
-                break
     except Exception:
         pass  # Non-critical
 
@@ -734,6 +744,7 @@ def get_llm_slots_status() -> Dict[str, Any]:
     result: Dict[str, Any] = {
         "assignment_mode": assignment_mode,
         "running_task_id": running_task_id,
+        "running_tasks": running_tasks,
         "embedding": emb_status,
         "small_model": _check_slot("small_model"),
         "large_model": _check_slot("large_model"),
