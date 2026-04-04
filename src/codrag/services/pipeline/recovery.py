@@ -233,8 +233,9 @@ class RecoveryManager:
                 output_file,
             )
 
+            # Mark as restored — the orchestrator wrapper handles advancing
             run.stage_results[stage.value] = "restored_from_backup"
-            run.advance()
+            run.current_stage_index += 1
             return True
 
         except Exception:

@@ -149,10 +149,7 @@ class PipelineOrchestrator:
 
     @staticmethod
     def _sync_downstream_manifest_mtimes(project_id: str, pfl: Any = None) -> None:
-        """Touch all downstream manifest files to match structural mtime.
-
-        Delegates to ManifestStore for mtime queries and touch operations.
-        """
+        """Touch all downstream manifest files to match structural mtime."""
         try:
             from codrag.services.project_helpers import require_project
             from codrag.core.project_registry import project_index_dir
@@ -161,28 +158,14 @@ class PipelineOrchestrator:
             idx_dir = Path(project_index_dir(project))
             store = ManifestStore(idx_dir)
 
-            baseline_mtime = store.provenance_mtime(StageId.STRUCTURAL)
-            if baseline_mtime == 0.0:
-                return
-
-            synced = []
-            for stage in list(StageId):
-                if stage == StageId.STRUCTURAL:
-                    continue
-                if store.provenance_exists(stage):
-                    if store.provenance_mtime(stage) < baseline_mtime:
-                        store.touch_provenance_mtime(stage, baseline_mtime)
-                        synced.append(stage.value)
-
+            synced = store.sync_downstream_mtimes(StageId.STRUCTURAL, list(StageId))
             if synced:
                 logger.info(
-                    "Phase 60D: Synced %d downstream manifest mtimes to structural "
-                    "mtime (%.0f) for %s: %s",
-                    len(synced), baseline_mtime, project_id, ", ".join(synced),
+                    "Phase 60D: Synced %d downstream manifest mtimes for %s: %s",
+                    len(synced), project_id, ", ".join(synced),
                 )
                 if pfl:
                     pfl.log("structural", f"Synced {len(synced)} downstream manifest mtimes")
-
         except Exception:
             logger.debug(
                 "Failed to sync downstream manifest mtimes for %s (non-fatal)",
@@ -912,7 +895,7 @@ class PipelineOrchestrator:
 
     # ── Coverage Gap Detection ─────────────────────────────────
 
-    _COVERAGE_RETRIGGER_DELAY = 15.0  # seconds after completion before re-checking
+    # _COVERAGE_RETRIGGER_DELAY moved to resume.py:COVERAGE_RETRIGGER_DELAY
 
     @staticmethod
     def _refresh_manifest_hashes(project_id: str) -> int:
@@ -991,9 +974,6 @@ class PipelineOrchestrator:
             project_id, stages, skip_mtime_cascade,
             pfl_fn=self._get_file_logger,
         )
-    def _log_resume_decisions(self, *args, **kwargs) -> None:
-        """Moved to ResumeStrategy._log_resume_decisions."""
-        pass
     @staticmethod
     def _is_deep_enrichment_auto(project_id: str) -> bool:
         """Check if deep enrichment should auto-chain after fast sync.
@@ -1532,7 +1512,7 @@ class PipelineOrchestrator:
                     if matching_run.can_transition(Event.STAGE_FAILED):
                         matching_run.transition(Event.STAGE_FAILED, detail=f"WRITE GUARD BLOCKED: {wgb}")
                     self._unload_group_models(matching_run)
-                    self._journal_pipeline_finished(matching_run)
+                    self._journal_run_completed(matching_run)
                     return  # do NOT advance to next stage
                 except Exception:
                     logger.exception(
@@ -1947,8 +1927,7 @@ class PipelineOrchestrator:
 
     # ── Phase 48: Continuous Deepening Re-trigger ──────────────────
 
-    _DEEPENING_CONVERGE_TARGET = 0.70
-    _DEEPENING_RETRIGGER_DELAY = 30.0
+    # _DEEPENING_CONVERGE/RETRIGGER moved to post_flight.py
 
     def _maybe_retrigger_deepening(self, project_id: str, pfl: Any = None) -> None:
         """Delegates to PostFlightActions.maybe_retrigger_deepening."""
@@ -1974,20 +1953,6 @@ class PipelineOrchestrator:
     def _write_atlas_signal(idx_dir) -> None:
         """Delegates to PostFlightActions.write_atlas_signal."""
         PostFlightActions.write_atlas_signal(idx_dir)
-    def _write_atlas_signal(idx_dir) -> None:
-        """D1: Write a timestamp signal file so the MCP server can detect atlas changes.
-
-        The MCP server (separate process) polls this file on each tool_context()
-        call. When the mtime is newer than last check, it invalidates its
-        _rules_file_cache and sends notifications/resources/updated to the host.
-        """
-        import time
-        from pathlib import Path as _Path
-        try:
-            signal_path = _Path(str(idx_dir)) / "atlas_updated.signal"
-            signal_path.write_text(str(time.time()), encoding="utf-8")
-        except Exception:
-            pass  # Non-fatal -- MCP server will still work, just won't get push freshness
 
     def _generate_preliminary_atlas_and_rules(self, project_id: str) -> None:
         """Delegates to PostFlightActions.generate_preliminary_atlas_and_rules."""
@@ -2133,7 +2098,11 @@ class PipelineOrchestrator:
             if pfl:
                 pfl.log(stage.value, f"SKIPPED (freshness): {reason}")
             run.stage_results[stage.value] = "skipped"
-            run.advance()
+            # Manually advance stage index (not via transition, since this
+            # isn't a STAGE_COMPLETED event — it's a skip). The caller
+            # (_advance_pipeline) will start the next stage.
+            run.current_stage_index += 1
+            self._advance_pipeline(run)
         return should_skip
     def _try_restore_stage_from_backup(
         self,
@@ -2142,7 +2111,10 @@ class PipelineOrchestrator:
         pfl: Any = None,
     ) -> bool:
         """Delegates to RecoveryManager.try_restore_stage_from_backup."""
-        return RecoveryManager.try_restore_stage_from_backup(run, stage, pfl)
+        restored = RecoveryManager.try_restore_stage_from_backup(run, stage, pfl)
+        if restored:
+            self._advance_pipeline(run)
+        return restored
 
     # ── Phase 70B: Write Guard ────────────────────────────────────
 
