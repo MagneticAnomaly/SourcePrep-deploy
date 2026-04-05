@@ -612,11 +612,24 @@ def _assemble_ambient_context(
             content = lod_content
             lod_label = "LOD 2"
         elif file_docs:
-            # Fall back to first 500 chars of content
-            best_doc = max(file_docs, key=lambda d: len(str(d.get("content") or "")))
-            raw = str(best_doc.get("content") or "")
-            content = raw[:500] + ("..." if len(raw) > 500 else "")
-            lod_label = "truncated"
+            # Phase 73: Prefer META_SYNOPSIS over blind truncation
+            meta_doc = next((d for d in file_docs if d.get("section") == "META_SYNOPSIS"), None)
+            if meta_doc:
+                content = str(meta_doc.get("content") or "")
+                lod_label = "synopsis"
+            else:
+                best_doc = max(file_docs, key=lambda d: len(str(d.get("content") or "")))
+                raw = str(best_doc.get("content") or "")
+                # Truncate at newline boundary, not mid-line
+                if len(raw) > 500:
+                    cut = raw[:500].rfind("\n")
+                    if cut > 250:
+                        content = raw[:cut] + "\n..."
+                    else:
+                        content = raw[:500] + "..."
+                else:
+                    content = raw
+                lod_label = "truncated"
         else:
             continue
 
