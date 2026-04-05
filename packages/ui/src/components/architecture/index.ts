@@ -7,3 +7,5 @@ export { ArchitectureDiagramPanel } from './ArchitectureDiagramPanel';
 export type { ArchitectureDiagramPanelProps } from './ArchitectureDiagramPanel';
 export { ArchitectureDiagramDetail } from './ArchitectureDiagramDetail';
 export type { ArchitectureDiagramDetailProps } from './ArchitectureDiagramDetail';
+export { BreadcrumbNav } from './BreadcrumbNav';
+export type { BreadcrumbNavProps } from './BreadcrumbNav';

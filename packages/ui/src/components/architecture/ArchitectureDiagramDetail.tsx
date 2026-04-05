@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect, useRef, Fragment } from 'react';
+import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import {
   ReactFlow,
   Background,
@@ -27,6 +27,7 @@ import { FileNode } from './FileNode';
 import { ExternalRefNode } from './ExternalRefNode';
 import { AnnotationNode } from './AnnotationNode';
 import { DependencyEdge } from './DependencyEdge';
+import { BreadcrumbNav } from './BreadcrumbNav';
 
 const elk = new ELK();
 
@@ -378,21 +379,7 @@ function DiagramCanvas(props: ArchitectureDiagramDetailProps) {
     <div className="flex h-full">
       <div className="flex-1 flex flex-col">
         {/* Breadcrumb */}
-        <div className="flex items-center gap-1 px-4 py-2 border-b border-zinc-800 bg-zinc-950 text-sm">
-          {breadcrumbs.map((crumb, i) => (
-            <Fragment key={i}>
-              {i > 0 && <span className="text-zinc-600 mx-1">{'›'}</span>}
-              <button
-                onClick={() => onNavigateToLayer(crumb.layerPath)}
-                className={`px-2 py-0.5 rounded hover:bg-zinc-800 transition-colors ${
-                  i === breadcrumbs.length - 1 ? 'text-zinc-200 font-medium' : 'text-zinc-500'
-                }`}
-              >
-                {crumb.label}
-              </button>
-            </Fragment>
-          ))}
-        </div>
+        <BreadcrumbNav breadcrumbs={breadcrumbs} onNavigateToLayer={onNavigateToLayer} />
 
         {/* Toolbar */}
         <div className="flex items-center gap-2 px-4 py-2 border-b border-zinc-800 bg-zinc-950">
