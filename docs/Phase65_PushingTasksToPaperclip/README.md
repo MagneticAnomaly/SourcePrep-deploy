@@ -205,18 +205,18 @@ Paperclip agent done       →  Agent runs codrag_audit(verify) to confirm fix
 
 ### 4.1 Where It Lives
 
-Following the hexagonal architecture (Phase 62 Doc 10), the Paperclip adapter is another **driving port**:
+Following the Hybrid MCP Architecture, the Paperclip adapter is a workflow integration module. This logic operates within (or parallel to) our lightweight `@codrag/paperclip-plugin` to automate project management:
 
 ```
 CoDRAG Core
   │
-  ├── MCP Adapter ✅ (tools for AI agents)
+  ├── MCP Server ✅ (Primary tool provider for AI agents)
   ├── CLI Adapter ✅ (codrag advise --format json)
   ├── HTTP Adapter ✅ (/opportunities/export)
   ├── SARIF Adapter ✅ (GitHub Code Scanning)
   ├── AGENTS.md Adapter ✅ (auto-refresh)
   ├── A2A Adapter 🔜 (agent discovery)
-  └── Paperclip Adapter 🆕 (Phase 65)
+  └── Paperclip Workflow Sync 🆕 (Phase 65 Push Logic)
 ```
 
 ### 4.2 New Components
@@ -550,9 +550,9 @@ The Paperclip configuration would live in the AI Gateway panel:
 
 ---
 
-## 10. The Elegance: Why This Architecture Works
+## 10. The Elegance: Why the Hybrid Architecture Works
 
-### 10.1 CoDRAG Stays Pure
+### 10.1 CoDRAG Stays Pure via MCP
 
 CoDRAG doesn't become a project management tool. It stays a **knowledge provider**. The Paperclip adapter is just another export format — like SARIF is an export for GitHub, the Paperclip push is an export for Paperclip. Same `ActionItem` model, different serialization.
 

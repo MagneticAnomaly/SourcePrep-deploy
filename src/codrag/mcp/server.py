@@ -778,7 +778,7 @@ class MCPServer:
             "k": k,
             "max_chars": max_chars,
             "include_sources": True,
-            "include_scores": False,
+            "include_scores": True,  # Phase 73.1 Fix 4: expose relevance scores
             "structured": True,
             "trace_expand": bool(trace_expand),
         }
@@ -818,6 +818,15 @@ class MCPServer:
                         subsystem_hint = f"\n[Subsystem focus: {top_dir}/ -- {top_count}/{len(sources)} results in this area]\n"
 
         if context_str:
+            # Phase 73.1 Fix 4: Add retrieval confidence indicator
+            sources = data.get("sources", []) if isinstance(data, dict) else []
+            if sources:
+                scores = [s.get("score", 0) for s in sources if isinstance(s, dict)]
+                if scores:
+                    avg_score = sum(scores) / len(scores)
+                    confidence = "high" if avg_score > 0.7 else "medium" if avg_score > 0.4 else "low"
+                    confidence_line = f"[retrieval confidence: {confidence} | top score: {max(scores):.2f} | {len(scores)} chunks]\n"
+                    context_str = confidence_line + context_str
             result["_to_markdown"] = subsystem_hint + context_str if subsystem_hint else context_str
         else:
             result["_to_markdown"] = f"No results found for: {query}"
@@ -1299,34 +1308,29 @@ class MCPServer:
         """Run or retrieve a codebase health audit."""
         project_id = await self._resolve_project_id(override=project_override)
 
-        # First try to get existing findings
+        # Phase 73.1 Fix 3: Always run fresh audit — stale cached results
+        # mislead agents (e.g., package-lock.json appearing as "critical"
+        # after the analyzer was updated to ignore it).
+        findings = []
         try:
+            payload: Dict[str, Any] = {"synthesize": synthesize}
+            if category:
+                payload["categories"] = [category]
+            await self._api_post(f"/projects/{project_id}/audit", payload)
+
+            # Poll for completion (max 30s for Tier 1, should be <2s)
+            import asyncio
+
+            for _ in range(30):
+                await asyncio.sleep(1)
+                status = await self._api_get(f"/projects/{project_id}/audit/status")
+                if isinstance(status, dict) and not status.get("running", True):
+                    break
+
             data = await self._api_get(f"/projects/{project_id}/audit/findings")
             findings = data.get("findings", []) if isinstance(data, dict) else []
-        except Exception:
-            findings = []
-
-        # If no findings exist or caller wants fresh results, trigger a new audit
-        if not findings:
-            try:
-                payload: Dict[str, Any] = {"synthesize": synthesize}
-                if category:
-                    payload["categories"] = [category]
-                await self._api_post(f"/projects/{project_id}/audit", payload)
-
-                # Poll for completion (max 30s for Tier 1, should be <2s)
-                import asyncio
-
-                for _ in range(30):
-                    await asyncio.sleep(1)
-                    status = await self._api_get(f"/projects/{project_id}/audit/status")
-                    if isinstance(status, dict) and not status.get("running", True):
-                        break
-
-                data = await self._api_get(f"/projects/{project_id}/audit/findings")
-                findings = data.get("findings", []) if isinstance(data, dict) else []
-            except Exception as e:
-                return {"project_id": project_id, "error": f"Audit failed: {e}"}
+        except Exception as e:
+            return {"project_id": project_id, "error": f"Audit failed: {e}"}
 
         # Format findings for token efficiency
         severity_counts = {}

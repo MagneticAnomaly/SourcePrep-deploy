@@ -180,6 +180,71 @@ class PipelineOrchestrator:
         return RecoveryManager.try_restore_from_backup(project_id, stages, pfl)
 
     @staticmethod
+    def _invalidate_deep_manifests_for_incremental(
+        project_id: str, pfl: Any = None,
+    ) -> None:
+        """Invalidate deep enrichment manifests after incremental fast_sync.
+
+        When fast_sync runs incrementally and adds new files to the trace graph,
+        the deep enrichment stages (6-11) need to re-run to process those files.
+
+        CRITICAL GUARD: Only invalidate if ALL deep stages were previously
+        complete.  If any stages are already incomplete (missing manifests),
+        they will naturally re-run — deleting manifests for complete stages
+        would destroy checkpoint data (e.g. hours of Module Synthesis LLM
+        work) for no benefit.  Workers handle incrementality internally by
+        reading existing output and only processing new/changed nodes.
+        """
+        from codrag.core.project_registry import project_index_dir
+        from codrag.services.project_helpers import require_project
+
+        project = require_project(project_id)
+        idx_dir = Path(project_index_dir(project))
+        store = ManifestStore(idx_dir)
+
+        # Check if ALL deep stages are complete first
+        incomplete = [
+            stage for stage in DEEP_ENRICHMENT_STAGES
+            if not store.provenance_exists(stage)
+        ]
+        if incomplete:
+            # Some stages are already incomplete — they'll naturally re-run.
+            # Don't destroy manifests for stages that already completed.
+            msg = (
+                f"Skipping deep manifest invalidation for {project_id}: "
+                f"{len(incomplete)} stages already incomplete "
+                f"({', '.join(s.value for s in incomplete)}) — "
+                f"workers will handle incremental updates internally"
+            )
+            logger.info(msg)
+            if pfl:
+                pfl.log("fast_sync", msg)
+            return
+
+        # All stages were complete — invalidate so they re-process new files.
+        # Workers read existing output and only process new/changed nodes,
+        # so this just forces them to wake up, not redo all work.
+        deleted = []
+        for stage in DEEP_ENRICHMENT_STAGES:
+            p = store.provenance_path(stage)
+            if p.exists():
+                p.unlink()
+                deleted.append(stage.value)
+
+        if deleted:
+            logger.info(
+                "Invalidated %d deep enrichment manifests for %s after "
+                "incremental fast_sync (all were complete): %s",
+                len(deleted), project_id, ", ".join(deleted),
+            )
+            if pfl:
+                pfl.log(
+                    "fast_sync",
+                    f"Invalidated {len(deleted)} deep manifests for incremental "
+                    f"(all were complete): {', '.join(deleted)}",
+                )
+
+    @staticmethod
     def _touch_stale_deep_manifests(project_id: str) -> None:
         """Touch deep enrichment manifests so they match the catalogue mtime."""
         try:
@@ -1234,6 +1299,22 @@ class PipelineOrchestrator:
                         pass  # Budget module unavailable — allow chain
 
                 if should_chain:
+                    # Phase 72 fix: If fast_sync was incremental (new/stale files),
+                    # invalidate deep enrichment manifests so run_deep_enrichment()
+                    # doesn't see "all_complete" and skip.  Without this, new files
+                    # added during incremental fast_sync are never processed by
+                    # deep enrichment stages (6-11).
+                    if run.project_id in self._incremental_runs:
+                        try:
+                            self._invalidate_deep_manifests_for_incremental(
+                                run.project_id, pfl,
+                            )
+                        except Exception:
+                            logger.debug(
+                                "Deep manifest invalidation failed for %s (non-fatal)",
+                                run.project_id, exc_info=True,
+                            )
+
                     logger.info(
                         "Chaining deep enrichment after fast sync for %s (reason=%s)",
                         run.project_id, chain_reason,

@@ -446,21 +446,27 @@ def _assemble_ambient_context(
             pass
 
     if scope_modules:
+        # Phase 73.1 Fix 1: Tier modules to reduce noise
+        significant = [m for m in scope_modules if m.get("file_count", 0) >= 5]
+        small = [m for m in scope_modules if 2 <= m.get("file_count", 0) < 5]
+        tiny = [m for m in scope_modules if m.get("file_count", 0) < 2]
+
         mod_header = "## Modules in scope\n"
-        for m in sorted(scope_modules, key=lambda x: -x.get("file_count", 0)):
+        for m in sorted(significant, key=lambda x: -x.get("file_count", 0)):
             name = m.get("name", m.get("module_id", "?"))
             summary = m.get("summary", "")
             fc = m.get("file_count", 0)
-            tags = ", ".join(m.get("domain_tags", [])[:5])
             deps = ", ".join(m.get("dependencies", [])[:3])
             line = f"- **{name}** ({fc} files)"
             if summary:
                 line += f": {summary}"
-            if tags:
-                line += f" [{tags}]"
             if deps:
                 line += f" → {deps}"
             mod_header += line + "\n"
+        if small:
+            mod_header += f"\n*Plus {len(small)} smaller modules (2-4 files each)*\n"
+        if tiny:
+            mod_header += f"*Plus {len(tiny)} single-file modules*\n"
         parts.append(mod_header.strip())
         total_chars += len(parts[-1])
 
@@ -521,9 +527,13 @@ def _assemble_ambient_context(
     neighbor_budget = int(chars_budget * 0.3)  # 30% for neighbors
 
     hub_chars = 0
+    seen_hub_paths: set = set()  # Phase 73.1 Fix 2: dedup hub files
     for fp, deg in hub_files:
         if hub_chars >= hub_budget:
             break
+        if fp in seen_hub_paths:  # Phase 73.1: skip duplicate file paths
+            continue
+        seen_hub_paths.add(fp)
         file_docs = doc_by_path.get(fp, [])
         if not file_docs:
             continue

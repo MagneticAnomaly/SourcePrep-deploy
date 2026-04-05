@@ -100,8 +100,34 @@ class ManifestStore:
         return 0.0
 
     def write_provenance(self, stage: StageId, data: dict[str, Any]) -> None:
-        """Write a provenance manifest atomically."""
-        self._atomic_write_json(self.provenance_path(stage), data)
+        """Write a provenance manifest atomically.
+
+        For STRUCTURAL, the provenance manifest is trace_manifest.json which
+        also holds ``file_hashes`` written by TraceBuilder.  We MERGE the
+        provenance fields into the existing file so that file_hashes (and
+        other builder data like ``config``, ``counts``) are preserved.
+        Without this merge, the ~304-byte provenance blob would overwrite
+        the ~97 KB manifest, causing coverage gap to report all files as
+        untraced and triggering an infinite restart loop.
+        """
+        if stage == StageId.STRUCTURAL:
+            path = self.provenance_path(stage)
+            existing: dict[str, Any] = {}
+            if path.exists():
+                try:
+                    with open(path, encoding="utf-8") as f:
+                        existing = json.load(f)
+                except (json.JSONDecodeError, OSError):
+                    pass  # Corrupt — overwrite is fine
+            # Merge: provenance fields update the manifest, but
+            # file_hashes and builder-owned keys are preserved.
+            preserved_keys = ("file_hashes", "config", "file_errors")
+            for key in preserved_keys:
+                if key in existing and key not in data:
+                    data[key] = existing[key]
+            self._atomic_write_json(path, data)
+        else:
+            self._atomic_write_json(self.provenance_path(stage), data)
 
     def read_provenance(self, stage: StageId) -> dict[str, Any] | None:
         """Read a provenance manifest. Returns None if missing or corrupt."""

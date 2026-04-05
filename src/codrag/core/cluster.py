@@ -130,6 +130,11 @@ Respond with this exact JSON format:
 "dependencies": ["other-subsystem-1", "other-subsystem-2"],
 "tech_debt_summary": "brief summary of tech debt across the subsystem, or null if none"}}
 
+NAMING RULES for "name":
+- Must be SPECIFIC and DESCRIPTIVE. Bad: "UI Subsystem", "Config Module". Good: "Dashboard State Management", "LLM Concurrency Scheduler".
+- For clusters with 1-3 files, derive the name from the most prominent file's purpose.
+- Never use the word "Subsystem" alone as a name — always pair it with a specific domain.
+
 Where component_status describes the overall implementation completeness of this subsystem.
 
 JSON response:"""

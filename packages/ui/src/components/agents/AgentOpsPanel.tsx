@@ -1,12 +1,14 @@
 /**
  * AgentOpsPanel — Modular dashboard panel for Agent Operations (Level 1).
  *
- * Shows 3 compact AgentCards (HR, Researcher, Custodian) plus managed employee
- * badges. This is the panel-level view; clicking "Details" opens the full overlay.
+ * Shows 3 compact AgentCards (HR, Researcher, Custodian), the MCP Connection
+ * card for one-click Paperclip integration, and managed employee badges.
+ * Clicking "Details" opens the full overlay.
  */
 import { Users, Search, Trash2 } from 'lucide-react';
 import { AgentCard } from './AgentCard';
 import { EmployeeBadges, type RoleBadge } from './EmployeeBadges';
+import { MCPConnectionCard, type MCPStatusData, type MCPInstallResult } from './MCPConnectionCard';
 
 export interface AgentOpsData {
   hr: {
@@ -29,6 +31,13 @@ export interface AgentOpsPanelProps {
   onHRGenerate?: () => void;
   onResearchRun?: () => void;
   onCustodianRun?: () => void;
+  /** MCP connection props */
+  mcpStatus?: MCPStatusData | null;
+  mcpLoading?: boolean;
+  mcpWorkspacePath?: string;
+  onMCPInstall?: (workspacePath: string) => Promise<MCPInstallResult>;
+  onMCPUninstall?: (workspacePath: string) => Promise<void>;
+  onMCPRefresh?: () => void;
   className?: string;
 }
 
@@ -38,6 +47,12 @@ export function AgentOpsPanel({
   onHRGenerate,
   onResearchRun,
   onCustodianRun,
+  mcpStatus,
+  mcpLoading = false,
+  mcpWorkspacePath,
+  onMCPInstall,
+  onMCPUninstall,
+  onMCPRefresh,
   className = '',
 }: AgentOpsPanelProps) {
   if (loading || !data) {
@@ -104,6 +119,16 @@ export function AgentOpsPanel({
           actionLabel="Scan"
         />
       </div>
+
+      {/* MCP Connection Card */}
+      <MCPConnectionCard
+        workspacePath={mcpWorkspacePath}
+        status={mcpStatus ?? null}
+        loading={mcpLoading}
+        onInstall={onMCPInstall}
+        onUninstall={onMCPUninstall}
+        onRefresh={onMCPRefresh}
+      />
 
       {/* Employee Badges */}
       {data.roster && data.roster.length > 0 && (

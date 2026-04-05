@@ -573,8 +573,85 @@ class AutoRebuildWatcher:
             except Exception:
                 logger.debug("Phase 61B watchdog check failed", exc_info=True)
 
+        # Phase 72: Deep enrichment completion check.
+        # If fast_sync is fully complete but deep enrichment has incomplete
+        # stages, auto-start deep enrichment to finish them.  This catches
+        # the case where auto-chain didn't fire (server restart, budget
+        # exhaustion, etc.) and stages 6-11 sit incomplete indefinitely.
+        if self.project_id:
+            self._check_incomplete_deep_enrichment()
+
         # Schedule next check
         self._schedule_coverage_check()
+
+
+    def _check_incomplete_deep_enrichment(self) -> None:
+        """Auto-start deep enrichment if fast_sync is done but deep stages are incomplete.
+
+        Guards:
+        - Deep enrichment must be in auto mode
+        - Pipeline must not already be running
+        - Fast sync must be fully complete (all 5 stages have manifests)
+        - At least one deep enrichment stage must be incomplete
+        """
+        try:
+            from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+            from codrag.services.pipeline.stages import FAST_SYNC_STAGES, DEEP_ENRICHMENT_STAGES
+            from codrag.services.pipeline.manifest_store import ManifestStore
+            from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
+
+            pid = self.project_id
+
+            # Guard: only if deep enrichment is in auto mode
+            if not pipeline_orchestrator._is_deep_enrichment_auto(pid):
+                return
+
+            # Guard: pipeline not currently active
+            po_status = pipeline_orchestrator.status(pid)
+            if po_status.get("any_running"):
+                return
+
+            project = require_project(pid)
+            idx_dir = Path(project_index_dir(project))
+            store = ManifestStore(idx_dir)
+
+            # Guard: fast_sync must be fully complete
+            for stage in FAST_SYNC_STAGES:
+                if not store.provenance_exists(stage):
+                    return  # Fast sync not done — don't start deep yet
+
+            # Check deep enrichment stages
+            incomplete = [
+                stage for stage in DEEP_ENRICHMENT_STAGES
+                if not store.provenance_exists(stage)
+            ]
+            if not incomplete:
+                return  # All done
+
+            logger.info(
+                "Phase 72 selfheal: Deep enrichment incomplete for %s — "
+                "%d/%d stages missing (%s). Auto-starting.",
+                pid, len(incomplete), len(DEEP_ENRICHMENT_STAGES),
+                ", ".join(s.value for s in incomplete),
+            )
+
+            try:
+                from codrag.services.pipeline_logger import get_pipeline_logger
+                pfl = get_pipeline_logger(str(idx_dir))
+                pfl.selfheal(
+                    "deep_enrichment_incomplete",
+                    f"Watcher detected {len(incomplete)} incomplete deep stages "
+                    f"({', '.join(s.value for s in incomplete)}) — auto-starting",
+                    {},
+                )
+            except Exception:
+                pass
+
+            pipeline_orchestrator.run_deep_enrichment(pid)
+
+        except Exception:
+            logger.debug("Deep enrichment completion check failed", exc_info=True)
 
 
 class _AutoRebuildEventHandler(FileSystemEventHandler):

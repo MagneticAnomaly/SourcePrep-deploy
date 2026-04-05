@@ -21,6 +21,8 @@ import {
   AgentOpsPanel,
   AgentOpsDetail,
   type AgentOpsData,
+  type MCPStatusData,
+  type MCPInstallResult,
   FileExplorerDetail,
   CopyButton,
   LogConsole,
@@ -290,6 +292,38 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
       .catch(() => {})
       .finally(() => setAgentOpsLoading(false))
   }, [p.selectedProjectId])
+
+  // MCP connection state — checks workspace installation status
+  const [mcpStatus, setMcpStatus] = useState<MCPStatusData | null>(null)
+  const mcpWorkspacePath = p.selectedProject?.path ?? undefined
+
+  const fetchMcpStatus = useCallback(() => {
+    if (!mcpWorkspacePath) { setMcpStatus(null); return }
+    fetch(`/mcp/status?workspace_path=${encodeURIComponent(mcpWorkspacePath)}`)
+      .then(r => r.json())
+      .then(json => setMcpStatus(json.data ?? json))
+      .catch(() => {})
+  }, [mcpWorkspacePath])
+
+  useEffect(() => { fetchMcpStatus() }, [fetchMcpStatus])
+
+  const handleMCPInstall = useCallback(async (wsPath: string): Promise<MCPInstallResult> => {
+    const res = await fetch('/mcp/install', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workspace_path: wsPath }),
+    })
+    const json = await res.json()
+    return json.data ?? json
+  }, [])
+
+  const handleMCPUninstall = useCallback(async (wsPath: string): Promise<void> => {
+    await fetch('/mcp/uninstall', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workspace_path: wsPath }),
+    })
+  }, [])
 
   // Optimistic local state for excluded paths — updates INSTANTLY on click.
   // Seeded from trace coverage when it arrives, but local clicks are immediate.
@@ -729,6 +763,11 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
       <AgentOpsPanel
         data={agentOpsData}
         loading={agentOpsLoading}
+        mcpStatus={mcpStatus}
+        mcpWorkspacePath={mcpWorkspacePath}
+        onMCPInstall={handleMCPInstall}
+        onMCPUninstall={handleMCPUninstall}
+        onMCPRefresh={fetchMcpStatus}
         className="h-full"
       />
     ),

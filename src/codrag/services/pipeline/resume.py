@@ -18,6 +18,7 @@ import os
 import threading
 import time
 from collections.abc import Callable
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,11 @@ from .stages import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _iso_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
 
 # Delay before checking coverage gaps after pipeline completion
 COVERAGE_RETRIGGER_DELAY = 15.0  # seconds
@@ -204,19 +210,48 @@ class ResumeStrategy:
 
                 # Manifest missing or empty
 
-                # Atlas crash-loop guard
+                # Atlas crash-loop guard: if atlas.json AND segments manifest
+                # both exist, write a recovery provenance manifest so
+                # downstream freshness checks and resume detection work
+                # correctly.  If only atlas.json exists (no segments),
+                # Atlas needs to actually re-run.
                 if stage == StageId.ATLAS:
                     atlas_json = idx_dir / "atlas.json"
-                    if atlas_json.exists() and atlas_json.stat().st_size > 10:
+                    segments_manifest = idx_dir / "atlas_segments_manifest.json"
+                    if (
+                        atlas_json.exists()
+                        and atlas_json.stat().st_size > 10
+                        and segments_manifest.exists()
+                        and segments_manifest.stat().st_size > 10
+                    ):
+                        # Both data files exist — write a recovery manifest
+                        # so downstream stages see correct mtimes.
+                        store.write_provenance(stage, {
+                            "format_version": "2.0",
+                            "stage_id": "atlas",
+                            "recovered": True,
+                            "recovery_note": (
+                                "Manifest reconstructed from existing "
+                                "atlas.json + atlas_segments_manifest.json"
+                            ),
+                            "finished_at": _iso_now(),
+                        })
                         logger.warning(
-                            "Atlas manifest missing but atlas.json exists (%d bytes) "
-                            "— treating atlas as complete (crash recovery)",
+                            "Atlas manifest missing but atlas.json (%d bytes) "
+                            "and segments manifest (%d bytes) exist — wrote "
+                            "recovery manifest",
                             atlas_json.stat().st_size,
+                            segments_manifest.stat().st_size,
                         )
                         stage_decisions.append({
                             "stage": stage.value,
                             "decision": "CRASH_RECOVERY",
-                            "reason": f"Atlas manifest missing but atlas.json exists ({atlas_json.stat().st_size} bytes)",
+                            "reason": (
+                                f"Atlas manifest missing but atlas.json "
+                                f"({atlas_json.stat().st_size} bytes) and "
+                                f"segments ({segments_manifest.stat().st_size} "
+                                f"bytes) exist — recovery manifest written"
+                            ),
                         })
                         continue
 
@@ -562,6 +597,16 @@ class ResumeStrategy:
 
             project = require_project(run_project_id)
             idx_dir = Path(project_index_dir(project))
+            store = ManifestStore(idx_dir)
+
+            # If the stage has no provenance manifest, it never completed
+            # successfully — don't skip it regardless of file mtimes.
+            # This prevents the case where a stage's output IS its input
+            # (e.g. deepening writes to trace_epistemic.jsonl) causing
+            # the freshness check to always say "already current."
+            if not store.provenance_exists(stage):
+                return False, None
+
             input_files = STAGE_INPUT_FILES.get(stage, [])
             output_files = STAGE_DATA_FILES.get(stage.value, [])
 
