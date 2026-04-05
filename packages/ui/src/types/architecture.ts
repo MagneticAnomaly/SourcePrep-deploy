@@ -171,3 +171,61 @@ export interface AnnotationNodeData {
   onEdit?: (noteId: string, content: string) => void;
   onDelete?: (noteId: string) => void;
 }
+
+// ── ACRs (Phase B) ────────────────────────────────────────────────
+
+export type ACRStatus = 'proposed' | 'approved' | 'in_progress' | 'completed' | 'rejected';
+
+/** Architecture Change Request */
+export interface ACR {
+  id: string;
+  title: string;
+  description: string;
+  status: ACRStatus;
+  source_type: 'agent' | 'user' | 'audit';
+  source_agent: string;
+  affected_nodes: string[];
+  paperclip_issue_id?: string;
+  created_at: string;
+  approved_at?: string;
+}
+
+/** Request body for creating an ACR */
+export interface ACRCreate {
+  title: string;
+  description: string;
+  source_type: 'agent' | 'user' | 'audit';
+  source_agent: string;
+  affected_nodes: string[];
+}
+
+// ── Issue Linking (Phase B) ───────────────────────────────────────
+
+export type IssuePriority = 'P0' | 'P1' | 'P2' | 'P3';
+export type IssueStatus = 'open' | 'in_progress' | 'closed';
+
+/** A Paperclip issue linked to a diagram node */
+export interface LinkedIssue {
+  paperclip_issue_id: string;
+  title: string;
+  priority: IssuePriority;
+  status: IssueStatus;
+  node_id: string;
+}
+
+/** Request body for linking an issue to a node */
+export interface LinkIssueRequest {
+  paperclip_issue_id: string;
+  title: string;
+  priority: IssuePriority;
+  status: IssueStatus;
+}
+
+// ── Entry Point Node (Phase B) ────────────────────────────────────
+
+export interface EntryPointNodeData {
+  label: string;
+  path: string;
+  entryType: 'api_route' | 'cli_command' | 'main' | 'webhook';
+  noteCount: number;
+}
