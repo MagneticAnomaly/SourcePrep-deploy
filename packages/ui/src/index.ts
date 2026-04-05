@@ -225,7 +225,9 @@ export type {
   ArchSummaryResponse, ArchNoteType, ArchNote, ArchNoteCreate,
   ArchNoteUpdate, ArchNodePosition, ArchLayerLayout, ArchState,
   ArchBreadcrumb, ModuleNodeData, FileNodeData, ExternalRefNodeData,
-  AnnotationNodeData,
+  AnnotationNodeData, ACRStatus, ACR, ACRCreate,
+  IssuePriority, IssueStatus, LinkedIssue, LinkIssueRequest,
+  EntryPointNodeData,
 } from './types/architecture';
 
 // Components - Architecture Diagram (Phase 71)

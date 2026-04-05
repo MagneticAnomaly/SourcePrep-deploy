@@ -3,6 +3,7 @@ import { useApiClient } from '@codrag/ui';
 import type {
   ArchGraphResponse, ArchSummaryResponse, ArchNote,
   ArchState, ArchNoteCreate, ArchNodePosition,
+  ACR, ACRCreate, LinkedIssue, LinkIssueRequest,
 } from '@codrag/ui';
 import type { Viewport } from '@xyflow/react';
 
@@ -10,6 +11,8 @@ export interface UseArchitectureSystemReturn {
   summary: ArchSummaryResponse | null;
   graph: ArchGraphResponse | null;
   notes: ArchNote[];
+  acrs: ACR[];
+  issueLinks: LinkedIssue[];
   layerPath: string[];
   loading: boolean;
   error: string | null;
@@ -23,6 +26,11 @@ export interface UseArchitectureSystemReturn {
   createNote: (note: ArchNoteCreate) => void;
   updateNote: (noteId: string, content: string) => void;
   deleteNote: (noteId: string) => void;
+  createACR: (acr: ACRCreate) => void;
+  approveACR: (acrId: string) => void;
+  rejectACR: (acrId: string) => void;
+  linkIssue: (nodeId: string, body: LinkIssueRequest) => void;
+  unlinkIssue: (nodeId: string, issueId: string) => void;
 }
 
 export function useArchitectureSystem(
@@ -34,6 +42,8 @@ export function useArchitectureSystem(
   const [summary, setSummary] = useState<ArchSummaryResponse | null>(null);
   const [graph, setGraph] = useState<ArchGraphResponse | null>(null);
   const [notes, setNotes] = useState<ArchNote[]>([]);
+  const [acrs, setACRs] = useState<ACR[]>([]);
+  const [issueLinks, setIssueLinks] = useState<LinkedIssue[]>([]);
   const [archState, setArchState] = useState<ArchState | null>(null);
   const [layerPath, setLayerPath] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -48,6 +58,8 @@ export function useArchitectureSystem(
     setSummary(null);
     setGraph(null);
     setNotes([]);
+    setACRs([]);
+    setIssueLinks([]);
     setArchState(null);
     setLayerPath([]);
     setError(null);
@@ -62,13 +74,17 @@ export function useArchitectureSystem(
       api.getArchitectureGraph(selectedProjectId),
       api.listArchitectureNotes(selectedProjectId),
       api.getArchitectureState(selectedProjectId),
+      api.listACRs(selectedProjectId),
+      api.listIssueLinks(selectedProjectId),
     ])
-      .then(([sum, g, n, s]) => {
+      .then(([sum, g, n, s, acrList, links]) => {
         if (options?.signal?.aborted) return;
         setSummary(sum);
         setGraph(g);
         setNotes(n);
         setArchState(s);
+        setACRs(acrList);
+        setIssueLinks(links);
       })
       .catch((err) => {
         if (options?.signal?.aborted) return;
@@ -193,6 +209,66 @@ export function useArchitectureSystem(
     [selectedProjectId, api],
   );
 
+  // ── ACR CRUD ─────────────────────────────────────────────────────
+
+  const createACR = useCallback(
+    (acr: ACRCreate) => {
+      if (!selectedProjectId) return;
+      api.createACR(selectedProjectId, acr)
+        .then((created) => setACRs((prev) => [...prev, created]))
+        .catch((err) => setError(`ACR creation failed: ${err.message}`));
+    },
+    [selectedProjectId, api],
+  );
+
+  const approveACR = useCallback(
+    (acrId: string) => {
+      if (!selectedProjectId) return;
+      api.approveACR(selectedProjectId, acrId)
+        .then((updated) => setACRs((prev) => prev.map((a) => a.id === acrId ? updated : a)))
+        .catch((err) => setError(`ACR approve failed: ${err.message}`));
+    },
+    [selectedProjectId, api],
+  );
+
+  const rejectACR = useCallback(
+    (acrId: string) => {
+      if (!selectedProjectId) return;
+      api.rejectACR(selectedProjectId, acrId)
+        .then((updated) => setACRs((prev) => prev.map((a) => a.id === acrId ? updated : a)))
+        .catch((err) => setError(`ACR reject failed: ${err.message}`));
+    },
+    [selectedProjectId, api],
+  );
+
+  // ── Issue Linking ────────────────────────────────────────────────
+
+  const linkIssueAction = useCallback(
+    (nodeId: string, body: LinkIssueRequest) => {
+      if (!selectedProjectId) return;
+      api.linkIssue(selectedProjectId, nodeId, body)
+        .then(() => {
+          setIssueLinks((prev) => [...prev, { ...body, node_id: nodeId }]);
+        })
+        .catch((err) => setError(`Issue link failed: ${err.message}`));
+    },
+    [selectedProjectId, api],
+  );
+
+  const unlinkIssueAction = useCallback(
+    (nodeId: string, issueId: string) => {
+      if (!selectedProjectId) return;
+      api.unlinkIssue(selectedProjectId, nodeId, issueId)
+        .then(() => {
+          setIssueLinks((prev) => prev.filter(
+            (l) => !(l.node_id === nodeId && l.paperclip_issue_id === issueId)
+          ));
+        })
+        .catch((err) => setError(`Issue unlink failed: ${err.message}`));
+    },
+    [selectedProjectId, api],
+  );
+
   // ── Derived: saved layout for current layer ──────────────────────
 
   const layerKey = layerPath.length === 0 ? 'root' : layerPath.join('/');
@@ -204,6 +280,8 @@ export function useArchitectureSystem(
     summary,
     graph,
     notes,
+    acrs,
+    issueLinks,
     layerPath,
     loading,
     error,
@@ -217,5 +295,10 @@ export function useArchitectureSystem(
     createNote,
     updateNote,
     deleteNote,
+    createACR,
+    approveACR,
+    rejectACR,
+    linkIssue: linkIssueAction,
+    unlinkIssue: unlinkIssueAction,
   };
 }

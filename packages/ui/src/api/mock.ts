@@ -911,6 +911,16 @@ export class MockApiClient implements ApiClient {
   async deleteArchitectureNote(_projectId: string, _noteId: string) {
     return { deleted: true };
   }
+
+  // Architecture Governance (Phase 71B) — stubs
+  async listACRs(_projectId: string) { return []; }
+  async createACR(_projectId: string, _acr: any) { return {} as any; }
+  async approveACR(_projectId: string, _acrId: string) { return {} as any; }
+  async rejectACR(_projectId: string, _acrId: string) { return {} as any; }
+  async listIssueLinks(_projectId: string) { return []; }
+  async linkIssue(_projectId: string, _nodeId: string, _body: any) { return { linked: true }; }
+  async unlinkIssue(_projectId: string, _nodeId: string, _issueId: string) { return { unlinked: true }; }
+  async generateBriefing(_projectId: string, _nodeId: string, _scope?: string) { return { briefing: '' }; }
 }
 
 export const createMockApiClient = (): ApiClient => new MockApiClient();
