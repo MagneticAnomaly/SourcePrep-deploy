@@ -26,6 +26,7 @@ import { ModuleNode } from './ModuleNode';
 import { FileNode } from './FileNode';
 import { ExternalRefNode } from './ExternalRefNode';
 import { AnnotationNode } from './AnnotationNode';
+import { EntryPointNode } from './EntryPointNode';
 import { DependencyEdge } from './DependencyEdge';
 import { BreadcrumbNav } from './BreadcrumbNav';
 import { DiagramToolbar } from './DiagramToolbar';
@@ -38,6 +39,7 @@ const nodeTypes: NodeTypes = {
   file: FileNode as any,
   externalRef: ExternalRefNode as any,
   annotation: AnnotationNode as any,
+  entryPoint: EntryPointNode as any,
 };
 
 const edgeTypes: EdgeTypes = {
@@ -153,7 +155,7 @@ async function autoLayout(nodes: Node[], edges: Edge[]): Promise<Node[]> {
     children: nodes.map((n) => ({
       id: n.id,
       width: 220,
-      height: n.type === 'module' ? 120 : n.type === 'annotation' ? 80 : 60,
+      height: n.type === 'module' ? 120 : n.type === 'annotation' || n.type === 'entryPoint' ? 80 : 60,
     })),
     edges: edges.map((e) => ({
       id: e.id,

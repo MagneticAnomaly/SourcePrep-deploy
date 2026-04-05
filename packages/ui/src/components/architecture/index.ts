@@ -13,3 +13,4 @@ export { DiagramToolbar } from './DiagramToolbar';
 export type { DiagramToolbarProps } from './DiagramToolbar';
 export { DiagramSidebar } from './DiagramSidebar';
 export type { DiagramSidebarProps } from './DiagramSidebar';
+export { EntryPointNode } from './EntryPointNode';
