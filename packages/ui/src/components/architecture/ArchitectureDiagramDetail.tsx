@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
+import { useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   ReactFlow,
   Background,
@@ -29,6 +29,7 @@ import { AnnotationNode } from './AnnotationNode';
 import { DependencyEdge } from './DependencyEdge';
 import { BreadcrumbNav } from './BreadcrumbNav';
 import { DiagramToolbar } from './DiagramToolbar';
+import { DiagramSidebar } from './DiagramSidebar';
 
 const elk = new ELK();
 
@@ -169,100 +170,6 @@ async function autoLayout(nodes: Node[], edges: Edge[]): Promise<Node[]> {
   });
 }
 
-function SidebarNoteCard({ note, onUpdate, onDelete }: { note: ArchNote; onUpdate: (content: string) => void; onDelete: () => void }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(note.content);
-
-  const handleSave = useCallback(() => {
-    if (draft.trim() && draft !== note.content) {
-      onUpdate(draft.trim());
-    }
-    setEditing(false);
-  }, [draft, note.content, onUpdate]);
-
-  return (
-    <div className="mb-2 p-2 rounded bg-zinc-900 border border-zinc-800">
-      <div className="flex justify-between items-start">
-        <span className="text-[10px] text-zinc-500">
-          {note.note_type === 'adr' ? '📌 ADR' : note.note_type === 'agent_note' ? '🤖 Agent' : '💬'}
-        </span>
-        <div className="flex gap-1">
-          <button
-            onClick={() => { setEditing(!editing); setDraft(note.content); }}
-            className="text-[10px] text-zinc-600 hover:text-zinc-300"
-          >
-            {editing ? 'cancel' : 'edit'}
-          </button>
-          <button onClick={onDelete} className="text-[10px] text-zinc-600 hover:text-red-400">
-            delete
-          </button>
-        </div>
-      </div>
-      {editing ? (
-        <>
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && e.metaKey) handleSave(); }}
-            className="w-full mt-1 bg-transparent border border-zinc-600 rounded text-xs text-zinc-200 p-1 resize-none"
-            rows={3}
-            autoFocus
-          />
-          <button
-            onClick={handleSave}
-            className="mt-1 text-[10px] px-2 py-0.5 bg-zinc-700 rounded text-zinc-300 hover:bg-zinc-600"
-          >
-            Save
-          </button>
-        </>
-      ) : (
-        <p className="text-xs text-zinc-300 mt-1">{note.content}</p>
-      )}
-      <span className="text-[10px] text-zinc-600">— {note.author}</span>
-    </div>
-  );
-}
-
-function AddNoteForm({ nodeId, onCreateNote }: { nodeId: string; onCreateNote: (n: ArchNoteCreate) => void }) {
-  const [content, setContent] = useState('');
-  const [noteType, setNoteType] = useState<'comment' | 'adr'>('comment');
-
-  const handleSubmit = useCallback(() => {
-    if (!content.trim()) return;
-    onCreateNote({ node_id: nodeId, content: content.trim(), note_type: noteType, author: 'user' });
-    setContent('');
-  }, [content, noteType, nodeId, onCreateNote]);
-
-  return (
-    <div className="mt-2">
-      <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder="Add a note..."
-        className="w-full bg-zinc-900 border border-zinc-700 rounded text-xs text-zinc-200 p-2 resize-none"
-        rows={2}
-      />
-      <div className="flex items-center gap-2 mt-1">
-        <select
-          value={noteType}
-          onChange={(e) => setNoteType(e.target.value as 'comment' | 'adr')}
-          className="text-[10px] bg-zinc-800 border border-zinc-700 rounded px-1 py-0.5 text-zinc-400"
-        >
-          <option value="comment">Comment</option>
-          <option value="adr">ADR</option>
-        </select>
-        <button
-          onClick={handleSubmit}
-          disabled={!content.trim()}
-          className="text-[10px] px-2 py-0.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded text-white"
-        >
-          Add
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function DiagramCanvas(props: ArchitectureDiagramDetailProps) {
   const {
     graph, notes, layerPath, loading,
@@ -354,10 +261,6 @@ function DiagramCanvas(props: ArchitectureDiagramDetailProps) {
     () => nodes.find((n) => n.id === selectedNodeId) ?? null,
     [nodes, selectedNodeId],
   );
-  const selectedNodeNotes = useMemo(
-    () => selectedNodeId ? notes.filter((n) => n.node_id === selectedNodeId) : [],
-    [notes, selectedNodeId],
-  );
 
   if (loading) {
     return (
@@ -429,64 +332,16 @@ function DiagramCanvas(props: ArchitectureDiagramDetailProps) {
 
       {/* Sidebar */}
       {selectedNode && (
-        <div className="w-80 border-l border-zinc-800 bg-zinc-950 overflow-y-auto">
-          <div className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-zinc-200 truncate">
-                {(selectedNode.data as any).label}
-              </h3>
-              <button
-                onClick={() => onSelectNode(null)}
-                className="text-zinc-500 hover:text-zinc-300 text-xs"
-              >
-                {'×'}
-              </button>
-            </div>
-
-            {(selectedNode.data as any).description && (
-              <p className="text-xs text-zinc-400 mb-4">{(selectedNode.data as any).description}</p>
-            )}
-
-            <div className="text-xs text-zinc-500 space-y-1 mb-4">
-              {selectedNode.type === 'module' && (() => {
-                const d = selectedNode.data as unknown as ModuleNodeData;
-                return (
-                  <>
-                    <div>Files: {d.fileCount}</div>
-                    <div>Status: {d.componentStatus}</div>
-                    <div>Confidence: {(d.confidence * 100).toFixed(0)}%</div>
-                  </>
-                );
-              })()}
-              {selectedNode.type === 'file' && (() => {
-                const d = selectedNode.data as unknown as FileNodeData;
-                return (
-                  <>
-                    <div>Path: {d.path}</div>
-                    <div>Language: {d.language}</div>
-                    <div>Lines: {d.lineCount}</div>
-                  </>
-                );
-              })()}
-            </div>
-
-            <div className="border-t border-zinc-800 pt-3">
-              <h4 className="text-xs font-medium text-zinc-400 mb-2">
-                Notes ({selectedNodeNotes.length})
-              </h4>
-              {selectedNodeNotes.map((note) => (
-                <SidebarNoteCard
-                  key={note.id}
-                  note={note}
-                  onUpdate={(content) => onUpdateNote(note.id, content)}
-                  onDelete={() => onDeleteNote(note.id)}
-                />
-              ))}
-
-              <AddNoteForm nodeId={selectedNodeId!} onCreateNote={onCreateNote} />
-            </div>
-          </div>
-        </div>
+        <DiagramSidebar
+          selectedNode={selectedNode}
+          notes={notes}
+          acrs={[]}
+          issueLinks={[]}
+          onClose={() => onSelectNode(null)}
+          onCreateNote={onCreateNote}
+          onUpdateNote={onUpdateNote}
+          onDeleteNote={onDeleteNote}
+        />
       )}
     </div>
   );
