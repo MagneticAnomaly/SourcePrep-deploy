@@ -637,7 +637,9 @@ def _assemble_ambient_context(
                 content = str(meta_doc.get("content") or "")
                 lod_label = "synopsis"
             else:
-                best_doc = max(file_docs, key=lambda d: len(str(d.get("content") or "")))
+                # Phase 73: Consistent with hub selection — prefer first chunk by line
+                by_span = sorted(file_docs, key=lambda d: (d.get("span") or {}).get("start_line", 9999))
+                best_doc = by_span[0]
                 raw = str(best_doc.get("content") or "")
                 # Truncate at newline boundary, not mid-line
                 if len(raw) > 500:

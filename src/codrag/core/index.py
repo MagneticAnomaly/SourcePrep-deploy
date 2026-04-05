@@ -1362,6 +1362,7 @@ class CodeIndex:
                     "score": 1.0,  # Primer chunks always get max score
                     "truncated": content.endswith("..."),
                     "is_primer": True,
+                    "content": content,
                 })
         
         if not results and not parts:
@@ -1401,6 +1402,7 @@ class CodeIndex:
                         "score": r.score,
                         "truncated": True,
                         "is_primer": False,
+                        "content": d.get("content", ""),
                     })
                 break
 
@@ -1412,6 +1414,7 @@ class CodeIndex:
                 "score": r.score,
                 "truncated": False,
                 "is_primer": False,
+                "content": d.get("content", ""),
             })
 
         # Inject boundaries to prevent prompt injection
@@ -1694,7 +1697,7 @@ class CodeIndex:
                         header_bits.append(section)
                     header_bits.append(f"@{sp}")
                     header = " | ".join(header_bits) if header_bits else sp
-                    block = f"[{header}]\n{chunk.get('text', '')}"
+                    block = f"[{header}]\n```\n{chunk.get('content', '')}\n```"
                 sep = "\n\n---\n\n" if parts else ""
                 parts.append(sep + block)
 
@@ -1844,14 +1847,21 @@ class CodeIndex:
                 elif t in dirpath:
                     score += 0.12
 
+            # META_SYNOPSIS chunks are file-level summaries designed to anchor
+            # the file's identity in embedding space — give them a baseline
+            # boost so they surface for any query matching their file's name.
+            section = str(d.get("section") or "")
+            if section == "META_SYNOPSIS" and score > 0:
+                score += 0.08
+
             # Section-level keyword match (weaker, supplementary)
-            section = str(d.get("section") or "").lower()
             if section:
+                section_lower = section.lower()
                 for t in tokens:
-                    if t in section:
+                    if t in section_lower:
                         score += 0.04
 
-            boosts[i] = min(0.45, score)
+            boosts[i] = min(0.50, score)
         return boosts
 
     def _primer_boosts(self, docs: List[Dict[str, Any]]) -> np.ndarray:
