@@ -48,6 +48,11 @@ def _get_arch_state(idx_dir: Path):
     return ArchitectureState(idx_dir)
 
 
+def _get_acr_mgr(idx_dir: Path):
+    from codrag.core.architecture_acr import ArchitectureACRManager
+    return ArchitectureACRManager(idx_dir)
+
+
 # ── Request Models ──────────────────────────────────────────────────
 
 class NoteCreate(BaseModel):
@@ -61,6 +66,26 @@ class NoteCreate(BaseModel):
 class NoteUpdate(BaseModel):
     content: Optional[str] = None
     color: Optional[str] = None
+
+
+class ACRCreate(BaseModel):
+    title: str
+    description: str
+    source_type: str = "user"
+    source_agent: str = "user"
+    affected_nodes: List[str] = []
+
+
+class LinkIssueBody(BaseModel):
+    paperclip_issue_id: str
+    title: str
+    priority: str = "P2"
+    status: str = "open"
+
+
+class BriefingRequest(BaseModel):
+    node_id: str
+    scope: str = "module"
 
 
 class ArchStateBody(BaseModel):
@@ -433,3 +458,160 @@ def get_architecture_context(project_id: str) -> Dict[str, Any]:
     lines.append("")
 
     return ok({"text": "\n".join(lines), "exists": True})
+
+
+# ── ACR CRUD (Phase B) ────────────────────────────────────────────
+
+@router.get("/projects/{project_id}/architecture/acrs")
+def list_acrs(project_id: str) -> Dict[str, Any]:
+    proj = _require_project(project_id)
+    idx_dir = _project_index_dir(proj)
+    mgr = _get_acr_mgr(idx_dir)
+    return ok(mgr.list_acrs())
+
+
+@router.post("/projects/{project_id}/architecture/acrs")
+def create_acr(project_id: str, body: ACRCreate) -> Dict[str, Any]:
+    proj = _require_project(project_id)
+    idx_dir = _project_index_dir(proj)
+    mgr = _get_acr_mgr(idx_dir)
+    acr = mgr.create_acr(
+        title=body.title,
+        description=body.description,
+        source_type=body.source_type,
+        source_agent=body.source_agent,
+        affected_nodes=body.affected_nodes,
+    )
+    return ok(acr)
+
+
+@router.put("/projects/{project_id}/architecture/acrs/{acr_id}/approve")
+def approve_acr(project_id: str, acr_id: str) -> Dict[str, Any]:
+    proj = _require_project(project_id)
+    idx_dir = _project_index_dir(proj)
+    mgr = _get_acr_mgr(idx_dir)
+    acr = mgr.approve_acr(acr_id)
+    if not acr:
+        raise ApiException(404, "ACR_NOT_FOUND", f"ACR '{acr_id}' not found")
+    return ok(acr)
+
+
+@router.put("/projects/{project_id}/architecture/acrs/{acr_id}/reject")
+def reject_acr(project_id: str, acr_id: str) -> Dict[str, Any]:
+    proj = _require_project(project_id)
+    idx_dir = _project_index_dir(proj)
+    mgr = _get_acr_mgr(idx_dir)
+    acr = mgr.reject_acr(acr_id)
+    if not acr:
+        raise ApiException(404, "ACR_NOT_FOUND", f"ACR '{acr_id}' not found")
+    return ok(acr)
+
+
+# ── Issue Linking (Phase B) ───────────────────────────────────────
+
+@router.get("/projects/{project_id}/architecture/issue-links")
+def list_issue_links_endpoint(project_id: str) -> Dict[str, Any]:
+    proj = _require_project(project_id)
+    idx_dir = _project_index_dir(proj)
+    mgr = _get_acr_mgr(idx_dir)
+    return ok(mgr.list_issue_links())
+
+
+@router.post("/projects/{project_id}/architecture/nodes/{node_id}/link-issue")
+def link_issue(project_id: str, node_id: str, body: LinkIssueBody) -> Dict[str, Any]:
+    proj = _require_project(project_id)
+    idx_dir = _project_index_dir(proj)
+    mgr = _get_acr_mgr(idx_dir)
+    mgr.link_issue(
+        node_id=node_id,
+        paperclip_issue_id=body.paperclip_issue_id,
+        title=body.title,
+        priority=body.priority,
+        status=body.status,
+    )
+    return ok({"linked": True})
+
+
+@router.delete("/projects/{project_id}/architecture/nodes/{node_id}/link-issue/{issue_id}")
+def unlink_issue(project_id: str, node_id: str, issue_id: str) -> Dict[str, Any]:
+    proj = _require_project(project_id)
+    idx_dir = _project_index_dir(proj)
+    mgr = _get_acr_mgr(idx_dir)
+    removed = mgr.unlink_issue(node_id, issue_id)
+    if not removed:
+        raise ApiException(404, "LINK_NOT_FOUND", f"No link for issue '{issue_id}' on node '{node_id}'")
+    return ok({"unlinked": True})
+
+
+# ── Agent Briefing (Phase B) ──────────────────────────────────────
+
+@router.post("/projects/{project_id}/architecture/briefing")
+def generate_briefing(project_id: str, body: BriefingRequest) -> Dict[str, Any]:
+    """Generate a structured text briefing for an agent about a node."""
+    proj = _require_project(project_id)
+    idx_dir = _project_index_dir(proj)
+
+    modules = _load_modules(idx_dir)
+    arch = _get_arch_state(idx_dir)
+    acr_mgr = _get_acr_mgr(idx_dir)
+
+    # Find the target module
+    target = None
+    for m in modules:
+        if m["module_id"] == body.node_id:
+            target = m
+            break
+
+    if not target:
+        raise ApiException(404, "NODE_NOT_FOUND", f"Node '{body.node_id}' not found")
+
+    notes = arch.get_notes_for_node(body.node_id)
+    acrs = acr_mgr.get_acrs_for_node(body.node_id)
+    issues = acr_mgr.get_issues_for_node(body.node_id)
+
+    # Build dependency info
+    trace_edges = _load_trace_edges(idx_dir)
+    file_to_module = _build_file_to_module_map(modules)
+    module_edges = _aggregate_module_edges(trace_edges, file_to_module)
+
+    deps = [e["target"] for e in module_edges if e["source"] == body.node_id]
+    dependents = [e["source"] for e in module_edges if e["target"] == body.node_id]
+
+    lines: List[str] = []
+    name = target.get("name", body.node_id)
+    lines.append(f"## Agent Briefing: {name}")
+    lines.append("")
+    lines.append(f"**Module:** {name} ({target.get('file_count', 0)} files)")
+    lines.append(f"**Description:** {target.get('summary', 'No description')}")
+    lines.append(f"**Dependencies:** {', '.join(deps) if deps else 'none'}")
+    lines.append(f"**Depended on by:** {', '.join(dependents) if dependents else 'none'}")
+
+    if notes:
+        lines.append("")
+        lines.append("**Annotations:**")
+        for n in notes:
+            prefix = "\U0001f4cc" if n.get("note_type") == "adr" else "\U0001f4ac"
+            lines.append(f"  {prefix} {n.get('content', '')}")
+
+    if acrs:
+        lines.append("")
+        lines.append("**Active ACRs:**")
+        for a in acrs:
+            lines.append(f"  \u26a0\ufe0f {a['id']}: {a['title']} ({a['status']})")
+
+    if issues:
+        lines.append("")
+        lines.append("**Linked Issues:**")
+        for i in issues:
+            lines.append(f"  \U0001f3ab {i['paperclip_issue_id']}: {i['title']} [{i['priority']}] ({i['status']})")
+
+    member_files = target.get("member_files", [])
+    if member_files:
+        lines.append("")
+        lines.append("**Files:**")
+        for f in member_files[:20]:
+            lines.append(f"  - {f}")
+        if len(member_files) > 20:
+            lines.append(f"  ... and {len(member_files) - 20} more")
+
+    return ok({"briefing": "\n".join(lines)})
