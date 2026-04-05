@@ -20,6 +20,7 @@ export interface ArchModule {
   component_status: string;
   avg_confidence: number;
   dependencies: string[];
+  workspace_segment?: string;
 }
 
 /** A file node in the architecture graph */
@@ -138,6 +139,7 @@ export interface ModuleNodeData {
   fileCount: number;
   hubFiles: string[];
   domainTags: string[];
+  architectureLayer: string;
   componentStatus: string;
   confidence: number;
   noteCount: number;

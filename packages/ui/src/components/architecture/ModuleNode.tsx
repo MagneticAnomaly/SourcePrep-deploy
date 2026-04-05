@@ -20,6 +20,12 @@ function ModuleNodeInner({ data, selected }: NodeProps & { data: ModuleNodeData 
       <IssueBadge issueCount={data.issueCount} acrCount={data.acrCount} maxPriority={data.maxPriority} />
       <Handle type="target" position={Position.Top} className="!bg-zinc-500 !w-2 !h-2" />
 
+      {data.architectureLayer && data.architectureLayer !== 'unknown' && (
+        <div className="text-[9px] uppercase tracking-wider text-zinc-500 mb-1 font-medium">
+          {data.architectureLayer}
+        </div>
+      )}
+
       <div className="flex items-center gap-2 mb-1">
         <span className="text-xs text-zinc-500">{'📦'}</span>
         <span className="text-sm font-semibold text-zinc-100 truncate">{data.label}</span>

@@ -117,6 +117,7 @@ function buildFlowNodes(
         fileCount: mod.file_count,
         hubFiles: mod.hub_files ?? [],
         domainTags: mod.domain_tags ?? [],
+        architectureLayer: (mod.architecture_layers ?? [])[0] ?? 'unknown',
         componentStatus: mod.component_status ?? 'complete',
         confidence: mod.avg_confidence ?? 0,
         noteCount: noteCountForNode(mod.id, notes),
@@ -180,6 +181,17 @@ function buildFlowEdges(graph: ArchGraphResponse): Edge[] {
 }
 
 async function autoLayout(nodes: Node[], edges: Edge[]): Promise<Node[]> {
+  // Assign partition indices based on architecture layer for grouping
+  const layerSet = new Set<string>();
+  for (const n of nodes) {
+    if (n.type === 'module') {
+      const layer = (n.data as any).architectureLayer ?? 'unknown';
+      layerSet.add(layer);
+    }
+  }
+  const layerIndex = new Map<string, number>();
+  [...layerSet].sort().forEach((l, i) => layerIndex.set(l, i));
+
   const elkGraph = {
     id: 'root',
     layoutOptions: {
@@ -187,12 +199,21 @@ async function autoLayout(nodes: Node[], edges: Edge[]): Promise<Node[]> {
       'elk.direction': 'DOWN',
       'elk.spacing.nodeNode': '60',
       'elk.layered.spacing.nodeNodeBetweenLayers': '80',
+      'elk.partitioning.activate': 'true',
     },
-    children: nodes.map((n) => ({
-      id: n.id,
-      width: 220,
-      height: n.type === 'module' ? 120 : n.type === 'annotation' || n.type === 'entryPoint' ? 80 : 60,
-    })),
+    children: nodes.map((n) => {
+      const partition = n.type === 'module'
+        ? layerIndex.get((n.data as any).architectureLayer ?? 'unknown') ?? 0
+        : 0;
+      return {
+        id: n.id,
+        width: 220,
+        height: n.type === 'module' ? 140 : n.type === 'annotation' || n.type === 'entryPoint' ? 80 : 60,
+        layoutOptions: {
+          'elk.partitioning.partition': String(partition),
+        },
+      };
+    }),
     edges: edges.map((e) => ({
       id: e.id,
       sources: [e.source],
