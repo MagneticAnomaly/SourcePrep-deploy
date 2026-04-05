@@ -14,3 +14,5 @@ export type { DiagramToolbarProps } from './DiagramToolbar';
 export { DiagramSidebar } from './DiagramSidebar';
 export type { DiagramSidebarProps } from './DiagramSidebar';
 export { EntryPointNode } from './EntryPointNode';
+export { IssueBadge } from './IssueBadge';
+export type { IssueBadgeProps } from './IssueBadge';

@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { ModuleNodeData } from '../../types/architecture';
+import { IssueBadge } from './IssueBadge';
 
 function ModuleNodeInner({ data, selected }: NodeProps & { data: ModuleNodeData }) {
   const statusColor = data.componentStatus === 'complete' ? 'border-blue-500' :
@@ -9,13 +10,14 @@ function ModuleNodeInner({ data, selected }: NodeProps & { data: ModuleNodeData 
   return (
     <div
       className={`
-        rounded-lg border-2 bg-zinc-900 shadow-md px-4 py-3 min-w-[180px] max-w-[260px]
+        relative rounded-lg border-2 bg-zinc-900 shadow-md px-4 py-3 min-w-[180px] max-w-[260px]
         transition-all duration-150
         ${statusColor}
         ${selected ? 'ring-2 ring-blue-400 shadow-blue-500/20' : ''}
         ${data.isHub ? 'shadow-purple-500/30 shadow-lg' : ''}
       `}
     >
+      <IssueBadge issueCount={data.issueCount} acrCount={data.acrCount} maxPriority={data.maxPriority} />
       <Handle type="target" position={Position.Top} className="!bg-zinc-500 !w-2 !h-2" />
 
       <div className="flex items-center gap-2 mb-1">

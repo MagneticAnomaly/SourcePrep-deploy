@@ -91,6 +91,9 @@ function buildFlowNodes(
         confidence: mod.avg_confidence ?? 0,
         noteCount: noteCountForNode(mod.id, notes),
         isHub: (mod.hub_files?.length ?? 0) > 0,
+        issueCount: 0,
+        acrCount: 0,
+        maxPriority: null,
       } satisfies ModuleNodeData,
     });
   }
@@ -112,6 +115,9 @@ function buildFlowNodes(
         lineCount: file.line_count,
         noteCount: noteCountForNode(file.id, notes),
         isHub: file.hub_score > 5,
+        issueCount: 0,
+        acrCount: 0,
+        maxPriority: null,
       } satisfies FileNodeData,
     });
   }

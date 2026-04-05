@@ -142,6 +142,9 @@ export interface ModuleNodeData {
   confidence: number;
   noteCount: number;
   isHub: boolean;
+  issueCount: number;
+  acrCount: number;
+  maxPriority: 'P0' | 'P1' | 'P2' | 'P3' | null;
 }
 
 export interface FileNodeData {
@@ -154,6 +157,9 @@ export interface FileNodeData {
   lineCount: number;
   noteCount: number;
   isHub: boolean;
+  issueCount: number;
+  acrCount: number;
+  maxPriority: 'P0' | 'P1' | 'P2' | 'P3' | null;
 }
 
 export interface ExternalRefNodeData {
