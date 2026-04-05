@@ -9,3 +9,5 @@ export { ArchitectureDiagramDetail } from './ArchitectureDiagramDetail';
 export type { ArchitectureDiagramDetailProps } from './ArchitectureDiagramDetail';
 export { BreadcrumbNav } from './BreadcrumbNav';
 export type { BreadcrumbNavProps } from './BreadcrumbNav';
+export { DiagramToolbar } from './DiagramToolbar';
+export type { DiagramToolbarProps } from './DiagramToolbar';

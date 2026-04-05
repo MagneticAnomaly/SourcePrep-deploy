@@ -28,6 +28,7 @@ import { ExternalRefNode } from './ExternalRefNode';
 import { AnnotationNode } from './AnnotationNode';
 import { DependencyEdge } from './DependencyEdge';
 import { BreadcrumbNav } from './BreadcrumbNav';
+import { DiagramToolbar } from './DiagramToolbar';
 
 const elk = new ELK();
 
@@ -382,27 +383,11 @@ function DiagramCanvas(props: ArchitectureDiagramDetailProps) {
         <BreadcrumbNav breadcrumbs={breadcrumbs} onNavigateToLayer={onNavigateToLayer} />
 
         {/* Toolbar */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-zinc-800 bg-zinc-950">
-          <button
-            onClick={handleAutoLayout}
-            className="text-xs px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
-          >
-            Auto-layout
-          </button>
-          {layerPath.length > 0 && (
-            <button
-              onClick={() => onNavigateToLayer(layerPath.slice(0, -1))}
-              className="text-xs px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
-            >
-              {'← Back'}
-            </button>
-          )}
-          <div className="ml-auto text-xs text-zinc-500">
-            {graph.stats.total_modules > 0 && `${graph.stats.total_modules} modules · `}
-            {graph.stats.total_files > 0 && `${graph.stats.total_files} files · `}
-            {graph.stats.total_edges} edges
-          </div>
-        </div>
+        <DiagramToolbar
+          onAutoLayout={handleAutoLayout}
+          onGoBack={layerPath.length > 0 ? () => onNavigateToLayer(layerPath.slice(0, -1)) : null}
+          stats={graph.stats}
+        />
 
         {/* React Flow Canvas */}
         <div className="flex-1">
