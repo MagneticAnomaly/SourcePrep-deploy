@@ -271,3 +271,52 @@ def chunk_code(
         idx += 1
 
     return chunks
+
+
+def extract_file_synopsis(text: str, source_path: str, max_chars: int = 1500) -> str:
+    """Extract a structural synopsis of a file for use as a meta-chunk.
+
+    Pulls out the module docstring, class names with docstrings, and
+    public function/method names. Returns a compact text summary suitable
+    for embedding so that structural queries match the file's identity.
+
+    Args:
+        text: Raw file content.
+        source_path: Relative path to the file.
+        max_chars: Maximum length of the returned synopsis.
+
+    Returns:
+        A newline-separated synopsis string.
+    """
+    parts: List[str] = [f"File: {source_path}"]
+
+    # 1. Module docstring (first triple-quoted string at the start of the file)
+    mod_doc_match = re.match(r'\s*(?:\'\'\'|""")(.+?)(?:\'\'\'|""")', text, re.DOTALL)
+    if mod_doc_match:
+        purpose = mod_doc_match.group(1).strip().split("\n")[0].strip()
+        if purpose:
+            parts.append(f"Purpose: {purpose}")
+
+    # 2. Classes with their docstrings
+    class_pattern = re.compile(
+        r'^class\s+(\w+)[^:]*:\s*\n\s*(?:\'\'\'|""")(.+?)(?:\'\'\'|""")',
+        re.MULTILINE | re.DOTALL,
+    )
+    classes: List[str] = []
+    for m in class_pattern.finditer(text):
+        name = m.group(1)
+        doc = m.group(2).strip().split("\n")[0].strip()
+        classes.append(f"{name} \u2014 {doc}" if doc else name)
+    if classes:
+        parts.append(f"Classes: {'; '.join(classes)}")
+
+    # 3. Public function and method names (not starting with _)
+    func_pattern = re.compile(r'^\s*def\s+([a-zA-Z]\w*)\s*\(', re.MULTILINE)
+    funcs = sorted(set(m.group(1) for m in func_pattern.finditer(text)))
+    if funcs:
+        parts.append(f"Functions: {', '.join(funcs)}")
+
+    result = "\n".join(parts)
+    if len(result) > max_chars:
+        result = result[:max_chars]
+    return result

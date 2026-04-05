@@ -21,7 +21,7 @@ from typing import Any, Callable, Dict, List, Optional
 import numpy as np
 import pathspec
 
-from .chunking import Chunk, chunk_code, chunk_markdown
+from .chunking import Chunk, chunk_code, chunk_markdown, extract_file_synopsis
 from .embedder import Embedder
 from .ids import stable_file_hash, stable_file_node_id
 from .manifest import ManifestBuildStats, build_manifest, write_manifest
@@ -557,6 +557,35 @@ class CodeIndex:
                 chunks = chunk_markdown(raw, source_path=rel_path)
             else:
                 chunks = chunk_code(raw, source_path=rel_path)
+
+            # Phase 73: Inject meta-chunk for multi-chunk files.
+            if len(chunks) > 1:
+                synopsis = extract_file_synopsis(raw, rel_path)
+                meta_chunk_id = stable_file_hash(rel_path + ":meta_synopsis")
+                meta_text = self._format_chunk_for_embedding(
+                    Chunk(
+                        chunk_id=meta_chunk_id,
+                        content=synopsis,
+                        metadata={"source_path": rel_path, "section": "META_SYNOPSIS"},
+                    ),
+                    file_hash,
+                )
+                meta_emb = self.embedder.embed(meta_text).vector
+                docs.append({
+                    "id": meta_chunk_id,
+                    "source_path": rel_path,
+                    "file_hash": file_hash,
+                    "role": role,
+                    "section": "META_SYNOPSIS",
+                    "span": None,
+                    "content": synopsis,
+                })
+                vectors.append(meta_emb)
+                chunks_embedded += 1
+                if is_doc:
+                    chunks_docs += 1
+                else:
+                    chunks_code += 1
 
             for ch in chunks:
                 text_for_embed = self._format_chunk_for_embedding(ch, file_hash)
@@ -1763,23 +1792,58 @@ class CodeIndex:
         return "\n".join(bits)
 
     def _keyword_boosts(self, query: str, docs: List[Dict[str, Any]]) -> np.ndarray:
-        """Compute keyword-based score boosts."""
+        """Compute keyword-based score boosts with path-aware weighting.
+
+        Phase 73.2: Differentiate basename matches (strong) from directory
+        matches (moderate) so queries like "orchestrator" reliably surface
+        orchestrator.py above smaller peripheral files.
+        """
         q = query.lower()
-        tokens = set(re.findall(r"[a-zA-Z0-9_./-]{3,}", q))
+        tokens = set(re.findall(r"[a-zA-Z0-9_]{3,}", q))
+        if not tokens:
+            return np.zeros(len(docs), dtype=np.float32)
+
+        # Stop words that shouldn't trigger path boosting
+        stop = {
+            "the", "how", "does", "what", "where", "when", "why", "which",
+            "this", "that", "with", "from", "have", "has", "are", "was",
+            "were", "been", "being", "for", "and", "not", "but", "all",
+            "can", "will", "just", "about", "into", "file", "files",
+            "code", "function", "class", "method",
+        }
+        tokens = tokens - stop
+
         if not tokens:
             return np.zeros(len(docs), dtype=np.float32)
 
         boosts = np.zeros(len(docs), dtype=np.float32)
         for i, d in enumerate(docs):
+            sp = str(d.get("source_path") or "").lower()
+            if not sp:
+                continue
+
+            # Split path into basename (without extension) and directory
+            parts = sp.rsplit("/", 1)
+            basename = parts[-1].rsplit(".", 1)[0] if parts else ""
+            dirpath = parts[0] if len(parts) > 1 else ""
+
             score = 0.0
-            for field in ("source_path", "section"):
-                v = str(d.get(field, "")).lower()
-                if not v:
-                    continue
+            for t in tokens:
+                # Strong boost: token matches the basename
+                if t == basename or (len(t) >= 4 and t in basename):
+                    score += 0.25
+                # Moderate boost: token appears in directory path
+                elif t in dirpath:
+                    score += 0.12
+
+            # Section-level keyword match (weaker, supplementary)
+            section = str(d.get("section") or "").lower()
+            if section:
                 for t in tokens:
-                    if t in v:
-                        score += 0.03
-            boosts[i] = min(0.25, score)
+                    if t in section:
+                        score += 0.04
+
+            boosts[i] = min(0.45, score)
         return boosts
 
     def _primer_boosts(self, docs: List[Dict[str, Any]]) -> np.ndarray:
