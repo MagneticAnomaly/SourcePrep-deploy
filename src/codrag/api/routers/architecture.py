@@ -205,6 +205,7 @@ def _guess_language(path: str) -> str:
 def get_architecture_graph(
     project_id: str,
     layer_path: str = "",
+    show_orphans: bool = False,
 ) -> Dict[str, Any]:
     """Compose the architecture graph from modules + trace edges."""
     proj = _require_project(project_id)
@@ -227,15 +228,26 @@ def get_architecture_graph(
     if not layer_path:
         # Layer 0: System overview — modules + aggregated edges
         module_edges = _aggregate_module_edges(trace_edges, file_to_module)
+
+        # Filter to only connected modules unless show_orphans is set
+        if not show_orphans:
+            connected_ids: set = set()
+            for e in module_edges:
+                connected_ids.add(e["source"])
+                connected_ids.add(e["target"])
+            visible_modules = [m for m in modules if m["module_id"] in connected_ids]
+        else:
+            visible_modules = modules
+
         return ok({
             "exists": True,
-            "modules": [_normalize_module(m) for m in modules],
+            "modules": [_normalize_module(m) for m in visible_modules],
             "files": [],
             "edges": module_edges,
             "external_refs": [],
             "stats": {
-                "total_modules": len(modules),
-                "total_files": sum(m.get("file_count", 0) for m in modules),
+                "total_modules": len(visible_modules),
+                "total_files": sum(m.get("file_count", 0) for m in visible_modules),
                 "total_edges": len(module_edges),
                 "generated_at": datetime.now(timezone.utc).isoformat(),
             },

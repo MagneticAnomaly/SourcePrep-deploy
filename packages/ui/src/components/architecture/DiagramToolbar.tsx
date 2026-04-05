@@ -5,9 +5,12 @@ export interface DiagramToolbarProps {
   onAutoLayout: () => void;
   onGoBack: (() => void) | null;
   stats: ArchStats;
+  showOrphans?: boolean;
+  onToggleOrphans?: () => void;
+  isLayerZero?: boolean;
 }
 
-function DiagramToolbarInner({ onAutoLayout, onGoBack, stats }: DiagramToolbarProps) {
+function DiagramToolbarInner({ onAutoLayout, onGoBack, stats, showOrphans, onToggleOrphans, isLayerZero }: DiagramToolbarProps) {
   return (
     <div className="flex items-center gap-2 px-4 py-2 border-b border-zinc-800 bg-zinc-950">
       <button
@@ -22,6 +25,18 @@ function DiagramToolbarInner({ onAutoLayout, onGoBack, stats }: DiagramToolbarPr
           className="text-xs px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
         >
           {'← Back'}
+        </button>
+      )}
+      {isLayerZero && onToggleOrphans && (
+        <button
+          onClick={onToggleOrphans}
+          className={`text-xs px-3 py-1.5 rounded transition-colors ${
+            showOrphans
+              ? 'bg-blue-600 hover:bg-blue-500 text-white'
+              : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
+          }`}
+        >
+          {showOrphans ? 'Connected only' : 'Show all'}
         </button>
       )}
       <div className="ml-auto text-xs text-zinc-500">

@@ -887,7 +887,7 @@ export class MockApiClient implements ApiClient {
   }
 
   // Architecture Diagram (Phase 71) stubs
-  async getArchitectureGraph(_projectId: string, _layerPath?: string) {
+  async getArchitectureGraph(_projectId: string, _layerPath?: string, _showOrphans?: boolean) {
     return { exists: false, modules: [], files: [], edges: [], external_refs: [], stats: { total_modules: 0, total_files: 0, total_edges: 0, generated_at: '' } } as any;
   }
   async getArchitectureSummary(_projectId: string) {

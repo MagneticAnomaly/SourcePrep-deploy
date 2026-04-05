@@ -294,7 +294,7 @@ export interface ApiClient {
   getCustodianManifest(projectId: string): Promise<{ entries: any[] }>;
 
   // Architecture Diagram (Phase 71)
-  getArchitectureGraph(projectId: string, layerPath?: string): Promise<ArchGraphResponse>;
+  getArchitectureGraph(projectId: string, layerPath?: string, showOrphans?: boolean): Promise<ArchGraphResponse>;
   getArchitectureSummary(projectId: string): Promise<ArchSummaryResponse>;
   getArchitectureState(projectId: string): Promise<ArchState>;
   saveArchitectureState(projectId: string, state: ArchState): Promise<{ saved: boolean }>;
@@ -659,9 +659,10 @@ export class CodragApiClient implements ApiClient {
 
   // ── Architecture (Phase 71) ────────────────────────────────────────
 
-  async getArchitectureGraph(projectId: string, layerPath?: string): Promise<ArchGraphResponse> {
+  async getArchitectureGraph(projectId: string, layerPath?: string, showOrphans?: boolean): Promise<ArchGraphResponse> {
     const query: Record<string, string> = {};
     if (layerPath) query.layer_path = layerPath;
+    if (showOrphans) (query as any).show_orphans = 'true';
     return this.requestEnvelope<ArchGraphResponse>(
       `/projects/${encodeURIComponent(projectId)}/architecture/graph`,
       { query },

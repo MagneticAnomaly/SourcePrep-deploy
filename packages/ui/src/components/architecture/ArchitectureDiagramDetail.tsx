@@ -63,6 +63,8 @@ export interface ArchitectureDiagramDetailProps {
   selectedNodeId: string | null;
   savedPositions?: Array<{ id: string; x: number; y: number }>;
   savedViewport?: Viewport;
+  showOrphans?: boolean;
+  onToggleOrphans?: () => void;
 }
 
 function noteCountForNode(nodeId: string, notes: ArchNote[]): number {
@@ -213,6 +215,7 @@ function DiagramCanvas(props: ArchitectureDiagramDetailProps) {
     onCreateNote, onUpdateNote, onDeleteNote,
     onSelectNode, selectedNodeId,
     savedPositions, savedViewport,
+    showOrphans, onToggleOrphans,
   } = props;
 
   const initialNodes = useMemo(
@@ -326,6 +329,9 @@ function DiagramCanvas(props: ArchitectureDiagramDetailProps) {
           onAutoLayout={handleAutoLayout}
           onGoBack={layerPath.length > 0 ? () => onNavigateToLayer(layerPath.slice(0, -1)) : null}
           stats={graph.stats}
+          showOrphans={showOrphans}
+          onToggleOrphans={onToggleOrphans}
+          isLayerZero={layerPath.length === 0}
         />
 
         {/* React Flow Canvas */}

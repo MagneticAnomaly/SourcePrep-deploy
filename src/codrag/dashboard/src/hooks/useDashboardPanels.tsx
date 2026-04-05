@@ -1417,6 +1417,8 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         selectedNodeId={archProps.selectedNodeId}
         savedPositions={archProps.savedPositions}
         savedViewport={archProps.savedViewport}
+        showOrphans={archProps.showOrphans}
+        onToggleOrphans={archProps.toggleOrphans}
       />
     ),
   }), [p, excludedPaths, handleToggleExclude, agentOpsData, archProps])

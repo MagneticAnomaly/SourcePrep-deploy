@@ -31,6 +31,8 @@ export interface UseArchitectureSystemReturn {
   rejectACR: (acrId: string) => void;
   linkIssue: (nodeId: string, body: LinkIssueRequest) => void;
   unlinkIssue: (nodeId: string, issueId: string) => void;
+  showOrphans: boolean;
+  toggleOrphans: () => void;
 }
 
 export function useArchitectureSystem(
@@ -49,6 +51,7 @@ export function useArchitectureSystem(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [showOrphans, setShowOrphans] = useState(false);
 
   const saveDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -98,12 +101,12 @@ export function useArchitectureSystem(
   // ── Navigation ───────────────────────────────────────────────────
 
   const fetchGraph = useCallback(
-    (path: string[]) => {
+    (path: string[], orphans?: boolean) => {
       if (!selectedProjectId) return;
       setLoading(true);
       const layerParam = path.length > 0 ? path[path.length - 1] : undefined;
       api
-        .getArchitectureGraph(selectedProjectId, layerParam)
+        .getArchitectureGraph(selectedProjectId, layerParam, orphans)
         .then((g) => {
           if (!options?.signal?.aborted) setGraph(g);
         })
@@ -134,6 +137,15 @@ export function useArchitectureSystem(
       fetchGraph(path);
     },
     [fetchGraph],
+  );
+
+  const toggleOrphans = useCallback(
+    () => {
+      const next = !showOrphans;
+      setShowOrphans(next);
+      fetchGraph(layerPath, next);
+    },
+    [showOrphans, layerPath, fetchGraph],
   );
 
   // ── Layout persistence ───────────────────────────────────────────
@@ -300,5 +312,7 @@ export function useArchitectureSystem(
     rejectACR,
     linkIssue: linkIssueAction,
     unlinkIssue: unlinkIssueAction,
+    showOrphans,
+    toggleOrphans,
   };
 }
