@@ -1403,6 +1403,8 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
       <ArchitectureDiagramDetail
         graph={archProps.graph}
         notes={archProps.notes}
+        acrs={archProps.acrs}
+        issueLinks={archProps.issueLinks}
         layerPath={archProps.layerPath}
         loading={archProps.loading}
         onDrillInto={archProps.drillInto}

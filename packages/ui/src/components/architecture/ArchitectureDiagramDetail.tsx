@@ -18,7 +18,7 @@ import '@xyflow/react/dist/style.css';
 import ELK from 'elkjs/lib/elk.bundled.js';
 
 import type {
-  ArchGraphResponse, ArchNote,
+  ArchGraphResponse, ArchNote, ACR, LinkedIssue,
   ModuleNodeData, FileNodeData, ExternalRefNodeData,
   ArchBreadcrumb, ArchNoteCreate,
 } from '../../types/architecture';
@@ -49,6 +49,8 @@ const edgeTypes: EdgeTypes = {
 export interface ArchitectureDiagramDetailProps {
   graph: ArchGraphResponse | null;
   notes: ArchNote[];
+  acrs: ACR[];
+  issueLinks: LinkedIssue[];
   layerPath: string[];
   loading: boolean;
   onDrillInto: (moduleId: string) => void;
@@ -67,13 +69,39 @@ function noteCountForNode(nodeId: string, notes: ArchNote[]): number {
   return notes.filter((n) => n.node_id === nodeId).length;
 }
 
+function getMaxPriority(issues: LinkedIssue[]): 'P0' | 'P1' | 'P2' | 'P3' | null {
+  if (issues.length === 0) return null;
+  const priorities = issues.map((i) => i.priority);
+  if (priorities.includes('P0')) return 'P0';
+  if (priorities.includes('P1')) return 'P1';
+  if (priorities.includes('P2')) return 'P2';
+  return 'P3';
+}
+
 function buildFlowNodes(
   graph: ArchGraphResponse,
   notes: ArchNote[],
+  acrs: ACR[],
+  issueLinks: LinkedIssue[],
   savedPositions?: Array<{ id: string; x: number; y: number }>,
 ): Node[] {
   const posMap = new Map(savedPositions?.map((p) => [p.id, p]) ?? []);
   const flowNodes: Node[] = [];
+
+  // Build overlay indices
+  const issuesByNode = new Map<string, LinkedIssue[]>();
+  for (const link of issueLinks) {
+    const existing = issuesByNode.get(link.node_id) ?? [];
+    existing.push(link);
+    issuesByNode.set(link.node_id, existing);
+  }
+
+  const acrCountByNode = new Map<string, number>();
+  for (const acr of acrs) {
+    for (const nid of acr.affected_nodes) {
+      acrCountByNode.set(nid, (acrCountByNode.get(nid) ?? 0) + 1);
+    }
+  }
 
   for (const mod of graph.modules) {
     const pos = posMap.get(mod.id);
@@ -91,9 +119,9 @@ function buildFlowNodes(
         confidence: mod.avg_confidence ?? 0,
         noteCount: noteCountForNode(mod.id, notes),
         isHub: (mod.hub_files?.length ?? 0) > 0,
-        issueCount: 0,
-        acrCount: 0,
-        maxPriority: null,
+        issueCount: (issuesByNode.get(mod.id) ?? []).length,
+        acrCount: acrCountByNode.get(mod.id) ?? 0,
+        maxPriority: getMaxPriority(issuesByNode.get(mod.id) ?? []),
       } satisfies ModuleNodeData,
     });
   }
@@ -115,9 +143,9 @@ function buildFlowNodes(
         lineCount: file.line_count,
         noteCount: noteCountForNode(file.id, notes),
         isHub: file.hub_score > 5,
-        issueCount: 0,
-        acrCount: 0,
-        maxPriority: null,
+        issueCount: (issuesByNode.get(file.id) ?? []).length,
+        acrCount: acrCountByNode.get(file.id) ?? 0,
+        maxPriority: getMaxPriority(issuesByNode.get(file.id) ?? []),
       } satisfies FileNodeData,
     });
   }
@@ -180,7 +208,7 @@ async function autoLayout(nodes: Node[], edges: Edge[]): Promise<Node[]> {
 
 function DiagramCanvas(props: ArchitectureDiagramDetailProps) {
   const {
-    graph, notes, layerPath, loading,
+    graph, notes, acrs, issueLinks, layerPath, loading,
     onDrillInto, onNavigateToLayer, onSavePositions,
     onCreateNote, onUpdateNote, onDeleteNote,
     onSelectNode, selectedNodeId,
@@ -188,7 +216,7 @@ function DiagramCanvas(props: ArchitectureDiagramDetailProps) {
   } = props;
 
   const initialNodes = useMemo(
-    () => graph ? buildFlowNodes(graph, notes, savedPositions) : [],
+    () => graph ? buildFlowNodes(graph, notes, acrs, issueLinks, savedPositions) : [],
     [graph, notes, savedPositions],
   );
   const initialEdges = useMemo(
@@ -203,7 +231,7 @@ function DiagramCanvas(props: ArchitectureDiagramDetailProps) {
 
   // Sync nodes/edges when graph data changes, then auto-layout if no saved positions
   useEffect(() => {
-    const newNodes = graph ? buildFlowNodes(graph, notes, savedPositions) : [];
+    const newNodes = graph ? buildFlowNodes(graph, notes, acrs, issueLinks, savedPositions) : [];
     const newEdges = graph ? buildFlowEdges(graph) : [];
     const shouldLayout = !savedPositions?.length && newNodes.length > 0;
 
@@ -343,8 +371,8 @@ function DiagramCanvas(props: ArchitectureDiagramDetailProps) {
         <DiagramSidebar
           selectedNode={selectedNode}
           notes={notes}
-          acrs={[]}
-          issueLinks={[]}
+          acrs={acrs}
+          issueLinks={issueLinks}
           onClose={() => onSelectNode(null)}
           onCreateNote={onCreateNote}
           onUpdateNote={onUpdateNote}
