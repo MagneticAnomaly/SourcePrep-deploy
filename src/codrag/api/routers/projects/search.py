@@ -6,6 +6,7 @@ Contains: search, context, and all context assembly helpers
 """
 from __future__ import annotations
 
+import json as _json
 import logging
 import re as _re
 from pathlib import Path
@@ -398,6 +399,91 @@ def _apply_compression(
     return {"context": result.compressed, "compression": compression_meta}
 
 
+def _load_scope_modules(
+    idx_dir: Path,
+    included_paths: List[str],
+) -> List[Dict[str, Any]]:
+    """Load and filter modules from trace_modules.jsonl by scope paths."""
+    scope_modules: List[Dict[str, Any]] = []
+    modules_path = idx_dir / "trace_modules.jsonl"
+    if not modules_path.exists():
+        return scope_modules
+    try:
+        with open(modules_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    m = _json.loads(line)
+                    member_files = m.get("member_files", [])
+                    for ip in included_paths:
+                        prefix = ip.rstrip("/") + "/"
+                        if any(mf == ip or mf.startswith(prefix) for mf in member_files):
+                            scope_modules.append(m)
+                            break
+                except _json.JSONDecodeError:
+                    continue
+    except OSError:
+        pass
+    return scope_modules
+
+
+def _format_module_tiers(scope_modules: List[Dict[str, Any]]) -> str:
+    """Format modules into tiered display: significant, small, tiny."""
+    if not scope_modules:
+        return ""
+    significant = [m for m in scope_modules if m.get("file_count", 0) >= 5]
+    small = [m for m in scope_modules if 2 <= m.get("file_count", 0) < 5]
+    tiny = [m for m in scope_modules if m.get("file_count", 0) < 2]
+
+    mod_header = "## Modules in scope\n"
+    for m in sorted(significant, key=lambda x: -x.get("file_count", 0)):
+        name = m.get("name", m.get("module_id", "?"))
+        summary = m.get("summary", "")
+        fc = m.get("file_count", 0)
+        deps = ", ".join(m.get("dependencies", [])[:3])
+        line = f"- **{name}** ({fc} files)"
+        if summary:
+            line += f": {summary}"
+        if deps:
+            line += f" → {deps}"
+        mod_header += line + "\n"
+    if small:
+        mod_header += f"\n*Plus {len(small)} smaller modules (2-4 files each)*\n"
+    if tiny:
+        mod_header += f"*Plus {len(tiny)} single-file modules*\n"
+    return mod_header.strip()
+
+
+def _resolve_hub_files(
+    trace_idx: Any,
+    idx: Any,
+    included_paths: List[str],
+) -> List[Tuple[str, int]]:
+    """Resolve hub files from trace index with fallbacks."""
+    hub_files: List[Tuple[str, int]] = []
+    if trace_idx is not None and trace_idx.is_loaded():
+        scope_set = set(included_paths) if included_paths else None
+        hub_files = trace_idx.get_hub_files(scope_paths=scope_set, k=8)
+    if not hub_files and included_paths:
+        indexed_docs = getattr(idx, '_documents', None) or []
+        for ip in included_paths:
+            prefix = ip.rstrip("/") + "/"
+            for d in indexed_docs:
+                sp = str(d.get("source_path") or "")
+                if sp == ip or sp.startswith(prefix):
+                    hub_files.append((sp, 0))
+                    if len(hub_files) >= 8:
+                        break
+            if len(hub_files) >= 8:
+                break
+    if not hub_files:
+        if trace_idx is not None and trace_idx.is_loaded():
+            hub_files = trace_idx.get_hub_files(k=8)
+    return hub_files
+
+
 def _assemble_ambient_context(
     proj,
     project_id: str,
@@ -420,81 +506,14 @@ def _assemble_ambient_context(
     idx_dir = project_index_dir(proj)
 
     # ── C2: Module-aware header ──────────────────────────────────
-    # Load modules and find which ones overlap with included_paths
-    modules_path = idx_dir / "trace_modules.jsonl"
-    scope_modules: List[Dict[str, Any]] = []
-    if modules_path.exists():
-        try:
-            import json as _json
-            with open(modules_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        m = _json.loads(line)
-                        member_files = m.get("member_files", [])
-                        # Check if any member file falls under included_paths
-                        for ip in included_paths:
-                            prefix = ip.rstrip("/") + "/"
-                            if any(mf == ip or mf.startswith(prefix) for mf in member_files):
-                                scope_modules.append(m)
-                                break
-                    except _json.JSONDecodeError:
-                        continue
-        except OSError:
-            pass
-
-    if scope_modules:
-        # Phase 73.1 Fix 1: Tier modules to reduce noise
-        significant = [m for m in scope_modules if m.get("file_count", 0) >= 5]
-        small = [m for m in scope_modules if 2 <= m.get("file_count", 0) < 5]
-        tiny = [m for m in scope_modules if m.get("file_count", 0) < 2]
-
-        mod_header = "## Modules in scope\n"
-        for m in sorted(significant, key=lambda x: -x.get("file_count", 0)):
-            name = m.get("name", m.get("module_id", "?"))
-            summary = m.get("summary", "")
-            fc = m.get("file_count", 0)
-            deps = ", ".join(m.get("dependencies", [])[:3])
-            line = f"- **{name}** ({fc} files)"
-            if summary:
-                line += f": {summary}"
-            if deps:
-                line += f" → {deps}"
-            mod_header += line + "\n"
-        if small:
-            mod_header += f"\n*Plus {len(small)} smaller modules (2-4 files each)*\n"
-        if tiny:
-            mod_header += f"*Plus {len(tiny)} single-file modules*\n"
-        parts.append(mod_header.strip())
+    scope_modules = _load_scope_modules(idx_dir, included_paths)
+    mod_text = _format_module_tiers(scope_modules)
+    if mod_text:
+        parts.append(mod_text)
         total_chars += len(parts[-1])
 
     # ── C1: Hub-file extraction ──────────────────────────────────
-    hub_files: List[Tuple[str, int]] = []
-    if trace_idx is not None and trace_idx.is_loaded():
-        scope_set = set(included_paths) if included_paths else None
-        hub_files = trace_idx.get_hub_files(scope_paths=scope_set, k=8)
-
-    # Fall back to included_paths as-is if no trace or no hubs found
-    if not hub_files and included_paths:
-        # Use included_paths directly — pick files from the index
-        indexed_docs = getattr(idx, '_documents', None) or []
-        for ip in included_paths:
-            prefix = ip.rstrip("/") + "/"
-            for d in indexed_docs:
-                sp = str(d.get("source_path") or "")
-                if sp == ip or sp.startswith(prefix):
-                    hub_files.append((sp, 0))
-                    if len(hub_files) >= 8:
-                        break
-            if len(hub_files) >= 8:
-                break
-
-    if not hub_files:
-        # No scope at all — fall back to global hubs from trace
-        if trace_idx is not None and trace_idx.is_loaded():
-            hub_files = trace_idx.get_hub_files(k=8)
+    hub_files = _resolve_hub_files(trace_idx, idx, included_paths)
 
     # ── C3: LOD-stratified assembly ──────────────────────────────
     # Hub files get full content (LOD 0), their neighbors get signatures
