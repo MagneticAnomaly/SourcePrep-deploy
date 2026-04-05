@@ -272,6 +272,17 @@ def update_project(project_id: str, req: UpdateProjectRequest) -> Dict[str, Any]
     if req.path_weights is not None:
         updated = _persist_path_weights(updated, req.path_weights)
 
+    # ── Invalidate cached indexes when config changes ─────────────
+    if req.config:
+        try:
+            srv = _srv()
+            bm = srv.build_manager
+            bm.project_indexes.pop(project_id, None)
+            bm.project_knowledge_indexes.pop(project_id, None)
+            bm._layered_indexes.pop(project_id, None)
+        except Exception:
+            pass
+
     # ── React to activity toggle ──────────────────────────────────
     if old_active and not new_active:
         # DEACTIVATED: stop watcher + cancel pipelines

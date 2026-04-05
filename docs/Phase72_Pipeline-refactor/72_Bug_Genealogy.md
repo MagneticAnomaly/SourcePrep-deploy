@@ -410,8 +410,8 @@ Stage deep_knowledge skipped: all outputs are newer than inputs — already curr
 - [x] **Root Cause 11**: Queue processing priority inversion — fixed race condition in coverage retrigger
 
 ### Should-fix (UX/telemetry)
-- [ ] **Root Cause 9**: Decouple AI Gateway telemetry from pipeline orchestrator
-- [ ] **ST-5**: Fix "No project loaded" / "No index data" dashboard state after project config changes
+- [ ] **Root Cause 9**: Decouple AI Gateway telemetry from pipeline orchestrator (architectural; deferred)
+- [x] **ST-5**: Fix "No project loaded" / "No index data" dashboard state after project config changes
 
 ### Nice-to-have
 - [ ] Stale project config migration (auto-update include_globs when CoDRAG version changes)
