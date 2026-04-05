@@ -827,7 +827,30 @@ class MCPServer:
                     confidence = "high" if avg_score > 0.7 else "medium" if avg_score > 0.4 else "low"
                     confidence_line = f"[retrieval confidence: {confidence} | top score: {max(scores):.2f} | {len(scores)} chunks]\n"
                     context_str = confidence_line + context_str
-            result["_to_markdown"] = subsystem_hint + context_str if subsystem_hint else context_str
+
+            # Phase 74: Concept augmentation — surface matching concepts
+            concept_hint = ""
+            try:
+                concept_data = await self._api_post(
+                    f"/projects/{project_id}/concepts/search",
+                    {"query": query, "limit": 3},
+                )
+                if isinstance(concept_data, dict):
+                    cdata = concept_data.get("data", concept_data)
+                    concepts = cdata.get("concepts", [])
+                    if concepts:
+                        c_lines = ["[Related concepts:]"]
+                        for c in concepts[:2]:  # Max 2 to limit token usage
+                            title = c.get("title", "")
+                            content = c.get("content", "")[:150]
+                            category = c.get("category", "")
+                            c_lines.append(f"  • {title} [{category}]: {content}")
+                        concept_hint = "\n".join(c_lines) + "\n"
+            except Exception:
+                pass  # Non-critical
+
+            prefix = concept_hint + subsystem_hint if concept_hint else subsystem_hint
+            result["_to_markdown"] = prefix + context_str if prefix else context_str
         else:
             result["_to_markdown"] = f"No results found for: {query}"
 
@@ -935,6 +958,7 @@ class MCPServer:
                 )
                 if isinstance(atlas_data, dict):
                     role_content = atlas_data.get("role_atlas", "")
+                    role_content = self._truncate_section(role_content, 2000, "role atlas")
                     if role_content:
                         md_parts.append("\n---\n")
                         md_parts.append(role_content)
@@ -950,14 +974,51 @@ class MCPServer:
             )
             if isinstance(arch_data, dict) and arch_data.get("exists"):
                 arch_text = arch_data.get("text", "")
+                arch_text = self._truncate_section(arch_text, 3000, "architecture")
                 if arch_text:
                     md_parts.append("\n---\n")
                     md_parts.append(arch_text)
         except Exception as e:
             logger.debug("Architecture context failed: %s", e)
 
+        # Phase 74: Concepts summary (lightweight — just counts)
+        try:
+            concepts_data = await self._api_get(
+                f"/projects/{project_id}/concepts/stats"
+            )
+            if isinstance(concepts_data, dict):
+                cdata = concepts_data.get("data", concepts_data)
+                total = cdata.get("total", 0)
+                if total > 0:
+                    active = cdata.get("active", 0)
+                    seeds = cdata.get("seeds", 0)
+                    pending_q = cdata.get("pending_questions", 0)
+                    cats = cdata.get("by_category", {})
+                    concept_line = f"\n[Concepts: {active} active, {seeds} seeds"
+                    if cats:
+                        concept_line += f" — {', '.join(f'{k}: {v}' for k, v in cats.items())}"
+                    if pending_q:
+                        concept_line += f" | {pending_q} questions pending"
+                    concept_line += ". Use codrag_concepts to explore.]"
+                    md_parts.append(concept_line)
+                    result["concepts_total"] = total
+                    result["concepts_active"] = active
+        except Exception as e:
+            logger.debug("Concepts context failed: %s", e)
+
         result["_to_markdown"] = "\n".join(md_parts)
         return result
+
+    @staticmethod
+    def _truncate_section(text: str, max_chars: int, label: str) -> str:
+        """Truncate a response section to a hard character cap."""
+        if len(text) <= max_chars:
+            return text
+        truncated = text[:max_chars]
+        last_nl = truncated.rfind("\n")
+        if last_nl > max_chars // 2:
+            truncated = truncated[:last_nl]
+        return truncated + f"\n\n[{label}: truncated to {max_chars} chars]"
 
     @staticmethod
     def _format_context_response(project_id: str, data: Any) -> Dict[str, Any]:
@@ -1298,6 +1359,116 @@ class MCPServer:
             "observations": observations,
             "_to_markdown": obs_md,
         }
+
+    async def tool_concepts(
+        self,
+        action: str = "get",
+        query: Optional[str] = None,
+        title: Optional[str] = None,
+        content: Optional[str] = None,
+        category: Optional[str] = None,
+        anchors: Optional[List[str]] = None,
+        status: Optional[str] = None,
+        project_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get or save codebase concepts — high-level 'why' knowledge.
+
+        Phase 74: Concepts are heavier than observations — they capture
+        business rationale, design decisions, domain knowledge, and
+        architectural intent that isn't obvious from the code.
+
+        action='get' (default): List or search concepts.
+        action='save': Create or update a concept.
+        """
+        project_id = await self._resolve_project_id(override=project_override)
+
+        if action == "save":
+            if not title or not content:
+                raise InvalidParamsError(
+                    "Both 'title' and 'content' are required when action='save'"
+                )
+            payload: Dict[str, Any] = {
+                "title": title,
+                "content": content,
+                "category": category or "technical",
+                "status": "active",  # AI-created concepts are active
+            }
+            if anchors:
+                payload["anchors"] = anchors
+            data = await self._api_post(
+                f"/projects/{project_id}/concepts", payload
+            )
+            cid = (data or {}).get("id", "unknown") if isinstance(data, dict) else "unknown"
+            msg = (
+                f"Concept saved: \"{title}\" (id={cid}). "
+                f"It will persist in the concept store and appear in ambient context."
+            )
+            return {
+                "saved": True,
+                "id": cid,
+                "project_id": project_id,
+                "message": msg,
+                "_to_markdown": msg,
+            }
+        else:
+            # Get/search concepts
+            if query:
+                data = await self._api_post(
+                    f"/projects/{project_id}/concepts/search",
+                    {"query": query, "limit": 10},
+                )
+            else:
+                params = []
+                if status:
+                    params.append(f"status={status}")
+                if category:
+                    params.append(f"category={category}")
+                qs = "&".join(params) if params else ""
+                url = f"/projects/{project_id}/concepts"
+                if qs:
+                    url += f"?{qs}"
+                data = await self._api_get(url)
+
+            concepts = []
+            if isinstance(data, dict):
+                raw_concepts = data.get("concepts", [])
+                for c in raw_concepts:
+                    entry = {
+                        "id": c.get("id", ""),
+                        "title": c.get("title", ""),
+                        "content": c.get("content", ""),
+                        "category": c.get("category", ""),
+                        "status": c.get("status", ""),
+                    }
+                    if c.get("anchors"):
+                        entry["anchors"] = c["anchors"]
+                    if c.get("stale"):
+                        entry["stale"] = True
+                    concepts.append(entry)
+
+            # Markdown output
+            if concepts:
+                md_lines = [f"## Concepts ({len(concepts)})\n"]
+                for c in concepts:
+                    stale_tag = " [STALE]" if c.get("stale") else ""
+                    status_tag = f" ({c['status']})" if c.get("status") == "seed" else ""
+                    anchors_str = ""
+                    if c.get("anchors"):
+                        anchors_str = f" → {', '.join(c['anchors'][:3])}"
+                    md_lines.append(
+                        f"- **{c['title']}** [{c['category']}]{status_tag}{stale_tag}{anchors_str}\n"
+                        f"  {c['content'][:200]}"
+                    )
+                concepts_md = "\n".join(md_lines)
+            else:
+                concepts_md = "No concepts found. Use the CoDRAG dashboard to initialize concepts, or save one with action='save'."
+
+            return {
+                "project_id": project_id,
+                "count": len(concepts),
+                "concepts": concepts,
+                "_to_markdown": concepts_md,
+            }
 
     async def tool_audit(
         self,
@@ -2433,6 +2604,19 @@ class MCPServer:
                         include_stale=args.get("include_stale", True),
                         project_override=project_override,
                     )
+
+            # Phase 74: Concepts tool
+            elif name == "codrag_concepts":
+                result = await self.tool_concepts(
+                    action=args.get("action", "get"),
+                    query=args.get("query"),
+                    title=args.get("title"),
+                    content=args.get("content"),
+                    category=args.get("category"),
+                    anchors=args.get("anchors"),
+                    status=args.get("status"),
+                    project_override=project_override,
+                )
 
             # ── Hidden admin tool (not listed, but dispatches) ──────
             elif name == "codrag_build":
