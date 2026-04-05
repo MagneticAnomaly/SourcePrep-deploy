@@ -420,7 +420,10 @@ def get_architecture_context(project_id: str) -> Dict[str, Any]:
         return ok({"text": "", "exists": False})
 
     arch = _get_arch_state(idx_dir)
+    acr_mgr = _get_acr_mgr(idx_dir)
     notes = arch.list_notes()
+    all_acrs = acr_mgr.list_acrs()
+    all_links = acr_mgr.list_issue_links()
     trace_edges = _load_trace_edges(idx_dir)
     file_to_module = _build_file_to_module_map(modules)
     module_edges = _aggregate_module_edges(trace_edges, file_to_module)
@@ -430,6 +433,18 @@ def get_architecture_context(project_id: str) -> Dict[str, Any]:
     for n in notes:
         nid = n.get("node_id", "")
         notes_by_node.setdefault(nid, []).append(n)
+
+    # Build ACR index by node_id
+    acrs_by_node: Dict[str, List[Dict[str, Any]]] = {}
+    for a in all_acrs:
+        for nid in a.get("affected_nodes", []):
+            acrs_by_node.setdefault(nid, []).append(a)
+
+    # Build issue index by node_id
+    issues_by_node: Dict[str, List[Dict[str, Any]]] = {}
+    for link in all_links:
+        nid = link.get("node_id", "")
+        issues_by_node.setdefault(nid, []).append(link)
 
     # Build dependency map
     dep_map: Dict[str, List[str]] = {}
@@ -454,6 +469,16 @@ def get_architecture_context(project_id: str) -> Dict[str, Any]:
             nt = note.get("note_type", "comment")
             prefix = "\U0001f4cc" if nt == "adr" else "\U0001f916" if nt == "agent_note" else "\U0001f4ac"
             lines.append(f"  {prefix} \"{note.get('content', '')}\"")
+
+        # Add ACRs for this module
+        for acr in acrs_by_node.get(mid, []):
+            lines.append(f"  \u26a0\ufe0f ACR: \"{acr.get('title', '')}\" ({acr.get('status', '')})")
+
+        # Add issue count
+        node_issues = issues_by_node.get(mid, [])
+        if node_issues:
+            open_count = sum(1 for i in node_issues if i.get("status") != "closed")
+            lines.append(f"  \U0001f3ab {open_count} open issue(s)")
 
     lines.append("")
 
