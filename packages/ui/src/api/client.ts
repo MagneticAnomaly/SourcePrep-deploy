@@ -2,6 +2,7 @@ import { ApiClientError } from './errors';
 import type {
   ArchGraphResponse, ArchSummaryResponse, ArchState,
   ArchNote, ArchNoteCreate, ArchNoteUpdate,
+  ACR, ACRCreate, LinkedIssue, LinkIssueRequest,
 } from '../types/architecture';
 import type {
   ApiEnvelope,
@@ -301,6 +302,16 @@ export interface ApiClient {
   createArchitectureNote(projectId: string, note: ArchNoteCreate): Promise<ArchNote>;
   updateArchitectureNote(projectId: string, noteId: string, updates: ArchNoteUpdate): Promise<ArchNote>;
   deleteArchitectureNote(projectId: string, noteId: string): Promise<{ deleted: boolean }>;
+
+  // Architecture Governance (Phase 71B)
+  listACRs(projectId: string): Promise<ACR[]>;
+  createACR(projectId: string, acr: ACRCreate): Promise<ACR>;
+  approveACR(projectId: string, acrId: string): Promise<ACR>;
+  rejectACR(projectId: string, acrId: string): Promise<ACR>;
+  listIssueLinks(projectId: string): Promise<LinkedIssue[]>;
+  linkIssue(projectId: string, nodeId: string, body: LinkIssueRequest): Promise<{ linked: boolean }>;
+  unlinkIssue(projectId: string, nodeId: string, issueId: string): Promise<{ unlinked: boolean }>;
+  generateBriefing(projectId: string, nodeId: string, scope?: 'module' | 'file'): Promise<{ briefing: string }>;
 }
 
 export interface ApiClientConfig {
@@ -700,6 +711,66 @@ export class CodragApiClient implements ApiClient {
     return this.requestEnvelope<{ deleted: boolean }>(
       `/projects/${encodeURIComponent(projectId)}/architecture/notes/${encodeURIComponent(noteId)}`,
       { method: 'DELETE' },
+    );
+  }
+
+  // ── Architecture: ACRs (Phase 71B) ─────────────────────────────
+
+  async listACRs(projectId: string): Promise<ACR[]> {
+    return this.requestEnvelope<ACR[]>(
+      `/projects/${encodeURIComponent(projectId)}/architecture/acrs`,
+    );
+  }
+
+  async createACR(projectId: string, acr: ACRCreate): Promise<ACR> {
+    return this.requestEnvelope<ACR>(
+      `/projects/${encodeURIComponent(projectId)}/architecture/acrs`,
+      { method: 'POST', body: acr },
+    );
+  }
+
+  async approveACR(projectId: string, acrId: string): Promise<ACR> {
+    return this.requestEnvelope<ACR>(
+      `/projects/${encodeURIComponent(projectId)}/architecture/acrs/${encodeURIComponent(acrId)}/approve`,
+      { method: 'PUT' },
+    );
+  }
+
+  async rejectACR(projectId: string, acrId: string): Promise<ACR> {
+    return this.requestEnvelope<ACR>(
+      `/projects/${encodeURIComponent(projectId)}/architecture/acrs/${encodeURIComponent(acrId)}/reject`,
+      { method: 'PUT' },
+    );
+  }
+
+  // ── Architecture: Issue Linking (Phase 71B) ────────────────────
+
+  async listIssueLinks(projectId: string): Promise<LinkedIssue[]> {
+    return this.requestEnvelope<LinkedIssue[]>(
+      `/projects/${encodeURIComponent(projectId)}/architecture/issue-links`,
+    );
+  }
+
+  async linkIssue(projectId: string, nodeId: string, body: LinkIssueRequest): Promise<{ linked: boolean }> {
+    return this.requestEnvelope<{ linked: boolean }>(
+      `/projects/${encodeURIComponent(projectId)}/architecture/nodes/${encodeURIComponent(nodeId)}/link-issue`,
+      { method: 'POST', body },
+    );
+  }
+
+  async unlinkIssue(projectId: string, nodeId: string, issueId: string): Promise<{ unlinked: boolean }> {
+    return this.requestEnvelope<{ unlinked: boolean }>(
+      `/projects/${encodeURIComponent(projectId)}/architecture/nodes/${encodeURIComponent(nodeId)}/link-issue/${encodeURIComponent(issueId)}`,
+      { method: 'DELETE' },
+    );
+  }
+
+  // ── Architecture: Briefing (Phase 71B) ─────────────────────────
+
+  async generateBriefing(projectId: string, nodeId: string, scope: 'module' | 'file' = 'module'): Promise<{ briefing: string }> {
+    return this.requestEnvelope<{ briefing: string }>(
+      `/projects/${encodeURIComponent(projectId)}/architecture/briefing`,
+      { method: 'POST', body: { node_id: nodeId, scope } },
     );
   }
 
