@@ -537,8 +537,16 @@ def _assemble_ambient_context(
         file_docs = doc_by_path.get(fp, [])
         if not file_docs:
             continue
-        # Pick the largest chunk for this file (most representative)
-        best_doc = max(file_docs, key=lambda d: len(str(d.get("content") or "")))
+        # Phase 73: Pick most representative chunk, not largest.
+        # Priority: META_SYNOPSIS > first chunk (by line) > largest chunk.
+        best_doc = None
+        for d in file_docs:
+            if d.get("section") == "META_SYNOPSIS":
+                best_doc = d
+                break
+        if best_doc is None:
+            by_span = sorted(file_docs, key=lambda d: (d.get("span") or {}).get("start_line", 9999))
+            best_doc = by_span[0]
         content = str(best_doc.get("content") or "")
         if hub_chars + len(content) > hub_budget and hub_chars > 0:
             continue
