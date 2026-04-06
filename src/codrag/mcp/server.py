@@ -215,6 +215,9 @@ class MCPServer:
         Checks for any of: .cursor/rules/codrag.mdc, .windsurf/rules/codrag.md,
         AGENTS.md with CoDRAG markers, CLAUDE.md with CoDRAG markers.
         Cached per project_id for the session lifetime (~0 cost after first check).
+
+        Also extracts the atlas content hash if present, cached in
+        ``_rules_atlas_hash_cache`` for use by ``tool_context()``.
         """
         cache = getattr(self, "_rules_file_cache", None)
         if cache is None:
@@ -222,6 +225,10 @@ class MCPServer:
             cache = self._rules_file_cache
         if project_id in cache:
             return cache[project_id]
+
+        # Ensure hash cache exists
+        if not hasattr(self, "_rules_atlas_hash_cache"):
+            self._rules_atlas_hash_cache: Dict[str, Optional[str]] = {}
 
         found = False
         try:
@@ -243,11 +250,25 @@ class MCPServer:
                             found = True
                     except Exception:
                         pass
-                elif (p / "CLAUDE.md").exists():
+                # CLAUDE.md — also extract atlas hash for precise freshness
+                if not found and (p / "CLAUDE.md").exists():
                     try:
-                        content = (p / "CLAUDE.md").read_text(encoding="utf-8")[:500]
-                        if "codrag-managed" in content or "CoDRAG" in content:
+                        content = (p / "CLAUDE.md").read_text(encoding="utf-8")
+                        if "codrag-managed" in content[:500] or "CoDRAG" in content[:500]:
                             found = True
+                        # Extract atlas hash (may be anywhere in the managed section)
+                        atlas_hash = self._extract_atlas_hash(content)
+                        if atlas_hash:
+                            self._rules_atlas_hash_cache[project_id] = atlas_hash
+                    except Exception:
+                        pass
+                elif found and (p / "CLAUDE.md").exists():
+                    # Rules found via another file, but also check CLAUDE.md for hash
+                    try:
+                        content = (p / "CLAUDE.md").read_text(encoding="utf-8")
+                        atlas_hash = self._extract_atlas_hash(content)
+                        if atlas_hash:
+                            self._rules_atlas_hash_cache[project_id] = atlas_hash
                     except Exception:
                         pass
         except Exception:
@@ -255,6 +276,12 @@ class MCPServer:
 
         cache[project_id] = found
         return found
+
+    def _get_rules_atlas_hash(self, project_id: str) -> Optional[str]:
+        """Return the cached atlas hash from the project's rules file, or None."""
+        if not hasattr(self, "_rules_atlas_hash_cache"):
+            return None
+        return self._rules_atlas_hash_cache.get(project_id)
 
     @staticmethod
     def _extract_atlas_hash(content: str) -> str | None:
@@ -327,9 +354,10 @@ class MCPServer:
                 # Invalidate rules file cache (rules were regenerated with new atlas)
                 if hasattr(self, "_rules_file_cache"):
                     self._rules_file_cache.pop(project_id, None)
-                # Notify host that cached resources are stale
-                await self.notify_resource_changed(f"codrag://{project_id}/atlas")
-                await self.notify_resource_changed(f"codrag://{project_id}/structure")
+                # Notify host that cached resources are stale.
+                # Atlas rebuild affects: atlas, structure, modules (all derived from index).
+                for resource_type in ("atlas", "structure", "modules", "health"):
+                    await self.notify_resource_changed(f"codrag://{project_id}/{resource_type}")
                 logger.debug(
                     "D1: Atlas signal detected for %s (mtime %.0f > %.0f)", project_id, mtime, last
                 )
@@ -958,17 +986,31 @@ class MCPServer:
         # the host that cached resources are stale.
         await self._check_atlas_signal(project_id)
 
-        # ISSUE-6: Adaptive atlas inclusion.
+        # ISSUE-6 + Phase 73.4: Adaptive atlas inclusion with hash freshness.
         # If a CoDRAG rules file exists, the atlas is already in the AI's
         # system prompt (via alwaysApply/always_on). Skipping the atlas
         # prepend saves ~500-2500 chars of budget that goes to actual code
         # content instead. Without rules files, include the atlas so the AI
         # gets structural orientation from the tool response.
+        #
+        # Phase 73.4 enhancement: If the rules file has an atlas hash, we
+        # compare it against the current atlas. Match = skip (atlas is fresh).
+        # Mismatch = include (atlas is stale in the rules file).
         has_rules = self._project_has_rules_file(project_id)
+        include_atlas = not has_rules
+        atlas_fresh = False
+        if has_rules:
+            rules_hash = self._get_rules_atlas_hash(project_id)
+            if rules_hash:
+                # We have a hash — will compare after we get the current atlas.
+                # For now, tentatively skip atlas; we'll override if stale.
+                include_atlas = False
+            # else: rules exist but no hash — use the old behavior (skip atlas)
+
         payload: Dict[str, Any] = {
             "query": "",
             "max_chars": max_chars,
-            "include_atlas": not has_rules,
+            "include_atlas": include_atlas,
             "context_tier": self._get_context_tier(),
         }
 
@@ -995,6 +1037,41 @@ class MCPServer:
             }
 
         result = self._format_context_response(project_id, data)
+
+        # Phase 73.4: Hash-based atlas freshness check.
+        # If we skipped the atlas because rules file exists, verify via hash
+        # that the rules file's atlas is still current. If stale, re-fetch
+        # with atlas included so the agent gets fresh structural context.
+        if has_rules and isinstance(data, dict):
+            rules_hash = self._get_rules_atlas_hash(project_id)
+            if rules_hash:
+                import hashlib
+                current_atlas = (data.get("atlas", {}) or {}).get("text", "")
+                if current_atlas:
+                    current_hash = hashlib.sha256(current_atlas.strip().encode()).hexdigest()[:12]
+                    if current_hash == rules_hash:
+                        atlas_fresh = True
+                    else:
+                        # Atlas is stale in rules file — re-fetch with atlas included
+                        logger.debug(
+                            "Atlas hash mismatch for %s: rules=%s current=%s — including fresh atlas",
+                            project_id, rules_hash, current_hash,
+                        )
+                        payload["include_atlas"] = True
+                        try:
+                            data = await self._api_post(f"/projects/{project_id}/context", payload)
+                            result = self._format_context_response(project_id, data)
+                        except Exception:
+                            pass  # Fall through with original response
+                else:
+                    # No atlas text in response — can't compare, assume fresh
+                    atlas_fresh = True
+            else:
+                # No hash in rules file — fall back to old behavior (rules exist = skip)
+                atlas_fresh = True
+
+        result["atlas_fresh"] = atlas_fresh
+
         # Add ambient-specific metadata
         if isinstance(data, dict):
             for key in ("ambient", "hub_files", "modules_in_scope", "neighbor_files"):
