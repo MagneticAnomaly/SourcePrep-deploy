@@ -16,7 +16,10 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from codrag.core.query_analyzer import QuerySignals
 
 import numpy as np
 import pathspec
@@ -1030,6 +1033,12 @@ class CodeIndex:
         sims = sims + self._keyword_boosts(query, docs)
         sims = sims + self._fts_boosts(query, docs, limit=max(10, k * 4))
 
+        # Phase 73.5: Structural query decomposition — boost files/symbols named in query
+        from codrag.core.query_analyzer import QueryAnalyzer
+        _query_signals = QueryAnalyzer.extract_signals(query)
+        sims = sims + _structural_boosts(_query_signals, docs)
+        self._last_query_signals = _query_signals
+
         # Apply primer score boost
         sims = sims + self._primer_boosts(docs)
 
@@ -2006,3 +2015,45 @@ class CodeIndex:
             boosts[i] = max(boosts[i], float(boost))
 
         return boosts
+
+
+def _structural_boosts(
+    signals: "QuerySignals",
+    docs: List[Dict[str, Any]],
+) -> "np.ndarray":
+    """Compute score boosts from structural query signals (Phase 73.5).
+
+    File path matches get a strong boost (0.35) — the user explicitly
+    named a file. File name matches get a moderate boost (0.25) — basename
+    match. Symbol matches in content get a smaller boost (0.15).
+    """
+    boosts = np.zeros(len(docs), dtype=np.float32)
+
+    if not signals.has_structural_signals:
+        return boosts
+
+    for i, d in enumerate(docs):
+        sp = str(d.get("source_path") or "")
+        content = str(d.get("content") or "")
+        boost = 0.0
+
+        # Exact file path match (strongest signal)
+        for fp in signals.file_paths:
+            if sp == fp or sp.endswith("/" + fp):
+                boost = max(boost, 0.35)
+
+        # Basename match
+        if sp:
+            basename = sp.rsplit("/", 1)[-1]
+            for fn in signals.file_names:
+                if basename == fn:
+                    boost = max(boost, 0.25)
+
+        # Symbol in content
+        for sym in signals.symbols:
+            if sym in content:
+                boost = max(boost, 0.15)
+
+        boosts[i] = boost
+
+    return boosts
