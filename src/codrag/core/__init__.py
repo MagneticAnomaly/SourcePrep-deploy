@@ -68,6 +68,7 @@ from .batch_profiles import BatchProfile, BatchProfileName, BatchStage, detect_p
 from .batch_strategy import BatchStrategy, BatchedResponseParser, create_batch_strategy
 from .knowledge import KnowledgeIndex
 from .lod_extractor import LODExtractor, LODResult, assign_lod
+from .context_tier import ContextTier, tier_from_budget
 from .atlas import (
     CodebaseAtlas, AtlasDocument, SegmentDescriptor,
     compute_atlas_budget, build_routing_descriptors, route_query,
@@ -125,6 +126,8 @@ __all__ = [
     "LODExtractor",
     "LODResult",
     "assign_lod",
+    "ContextTier",
+    "tier_from_budget",
     "InferredEdgesAnalyzer",
     "InferredEdgesResult",
     "BatchProfile",
