@@ -11,7 +11,7 @@ from fastapi import APIRouter
 
 from codrag.api.envelope import ApiException, ok
 from codrag.core.feature_gate import (
-    License, get_license, get_feature_limit, FeatureGateError,
+    License, get_license, get_feature_limit, FeatureGateError, Tier
 )
 from codrag.core.project_registry import (
     ProjectAlreadyExists, ProjectNotFound, Project, project_index_dir,
@@ -192,7 +192,6 @@ def add_project(req: AddProjectRequest) -> Dict[str, Any]:
                 active_count += 1
         
         if active_count > max_active_int:
-            from codrag.core.feature_gate import get_license, Tier
             lic = get_license()
             if lic.tier not in (Tier.TEAM, Tier.ENTERPRISE):
                 warning_msg = f"It is recommended to use {max_active_int} or fewer active projects because it can be performance invasive."
@@ -242,7 +241,6 @@ def update_project(project_id: str, req: UpdateProjectRequest) -> Dict[str, Any]
                     active_count += 1
             
             if active_count >= max_active_int:
-                from codrag.core.feature_gate import get_license, Tier
                 lic = get_license()
                 if lic.tier in (Tier.TEAM, Tier.ENTERPRISE):
                     raise ApiException(

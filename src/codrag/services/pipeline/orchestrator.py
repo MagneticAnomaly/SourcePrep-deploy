@@ -1093,6 +1093,28 @@ class PipelineOrchestrator:
                     )
                     return False
 
+            # Determine robust UI mode flag
+            mode = "initial"
+            if resume_from > 0:
+                mode = "incremental"
+            else:
+                try:
+                    from codrag.core.project_registry import project_index_dir
+                    from codrag.services.project_helpers import require_project
+                    from codrag.services.pipeline.stages import STAGE_OUTPUT_FILE
+                    from pathlib import Path
+                    
+                    if stages:
+                        proj_idx = Path(project_index_dir(require_project(project_id)))
+                        first_stage = stages[0]
+                        out_file = STAGE_OUTPUT_FILE.get(first_stage)
+                        if out_file:
+                            opath = proj_idx / out_file
+                            if opath.exists() and opath.stat().st_size > 100:
+                                mode = "incremental"
+                except Exception:
+                    pass
+
             # Create state machine (or reuse existing for resume)
             sm = PipelineGroupStateMachine(
                 project_id=project_id,

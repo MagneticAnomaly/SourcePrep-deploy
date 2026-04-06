@@ -108,14 +108,6 @@ class TestFeatureChecks:
         os.environ["CODRAG_TIER"] = "free"
         assert check_feature("trace_search") is True
 
-    def test_free_cannot_compress(self):
-        os.environ["CODRAG_TIER"] = "free"
-        assert check_feature("context_compression") is False
-
-    def test_monthly_can_compress(self):
-        os.environ["CODRAG_TIER"] = "monthly"
-        assert check_feature("context_compression") is True
-
     def test_free_can_mcp_tools(self):
         os.environ["CODRAG_TIER"] = "free"
         assert check_feature("mcp_tools") is True
@@ -173,13 +165,6 @@ class TestRequireFeature:
         assert exc_info.value.required_tier == "pro"
         assert "codrag.io/pricing" in str(exc_info.value)
 
-    def test_require_compression_as_free_raises(self):
-        os.environ["CODRAG_TIER"] = "free"
-        with pytest.raises(FeatureGateError) as exc_info:
-            require_feature("context_compression")
-        assert exc_info.value.required_tier == "pro"
-
-
 class TestLicenseToDict:
     def test_to_dict_structure(self):
         lic = License(tier=Tier.PERPETUAL, email="test@example.com")
@@ -225,7 +210,6 @@ class TestLicenseEndpoint:
         data = res.json()["data"]
         assert data["license"]["tier"] == "pro"
         assert data["features"]["auto_rebuild"] is True
-        assert data["features"]["context_compression"] is True
         assert data["features"]["projects_max"] == 999
 
 
@@ -260,18 +244,6 @@ class TestWatcherGate:
             os.environ["CODRAG_TIER"] = "perpetual"
             clear_license_cache()
             client.delete(f"/projects/{pid}")
-
-
-class TestCompressionGate:
-    """Test that context compression is gated behind MONTHLY+ tier."""
-
-    def test_free_compression_returns_403(self):
-        os.environ["CODRAG_TIER"] = "free"
-        assert check_feature("context_compression") is False
-
-    def test_monthly_compression_allowed(self):
-        os.environ["CODRAG_TIER"] = "monthly"
-        assert check_feature("context_compression") is True
 
 
 class TestTraceExpandGate:

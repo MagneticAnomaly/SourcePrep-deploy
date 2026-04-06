@@ -6,9 +6,6 @@
     - GET  /embedding/status    — native embedder availability & cache status
     - POST /embedding/download  — download HF model to local cache
 
-  Compression:
-    - GET  /compression/status  — LinguaCompressor + LOD availability
-
   LLM Slots & Status:
     - GET  /llm/slots/status    — per-slot connectivity check (embedding, small, large)
     - GET  /llm/status          — legacy Ollama connectivity
@@ -40,7 +37,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from codrag.api.envelope import ApiException, ok
-from codrag.core import NativeEmbedder, LinguaCompressor
+from codrag.core import NativeEmbedder
 from codrag.core.model_readiness import (
     ModelStatus,
     get_model_status,
@@ -276,85 +273,6 @@ def embedding_download() -> Dict[str, Any]:
         "status": "downloaded",
         "model_path": model_path,
         "hf_repo_id": NativeEmbedder.HF_REPO_ID,
-    })
-
-
-# ═════════════════════════════════════════════════════════════════
-# Compression Status
-# ═════════════════════════════════════════════════════════════════
-
-@router.get("/compression/status")
-def compression_status() -> Dict[str, Any]:
-    """Return compression subsystem status (LLMLingua-2 + LOD)."""
-    from codrag.core import LinguaCompressor
-    
-    lingua = LinguaCompressor()
-    lingua_info = lingua.status()
-    
-    # Check if model is cached (only needs huggingface_hub, not llmlingua)
-    model_cached = False
-    model_path = None
-    try:
-        from huggingface_hub import try_to_load_from_cache  # type: ignore[import-untyped]
-        cached = try_to_load_from_cache(
-            LinguaCompressor.HF_MODEL_ID, "config.json"
-        )
-        if isinstance(cached, str):
-            model_cached = True
-            model_path = cached
-    except Exception:
-        pass
-    
-    lingua_info["downloaded"] = model_cached
-    lingua_info["model_path"] = model_path
-    lingua_info["hf_repo_id"] = LinguaCompressor.HF_MODEL_ID
-
-    # LOD is always available (pure Python, no external deps)
-    lod_info = {"available": True, "type": "lod"}
-
-    return ok({
-        "lingua": lingua_info,
-        "lod": lod_info,
-    })
-
-
-@router.post("/compression/download")
-def compression_download() -> Dict[str, Any]:
-    """Download the LLMLingua-2 compression model from HuggingFace Hub.
-
-    The model is cached in the standard HF cache directory (~/.cache/huggingface/).
-    This is a blocking call — the download happens synchronously.
-    Only requires huggingface_hub (not llmlingua) to download.
-    """
-    from codrag.core import LinguaCompressor
-
-    try:
-        from huggingface_hub import snapshot_download  # type: ignore[import-untyped]
-    except ImportError:
-        raise ApiException(
-            status_code=400,
-            code="HF_HUB_MISSING",
-            message="huggingface_hub is not installed",
-            hint="pip install huggingface-hub",
-        )
-
-    try:
-        model_path = snapshot_download(
-            repo_id=LinguaCompressor.HF_MODEL_ID,
-            allow_patterns=["*.json", "*.bin", "*.safetensors", "*.txt"],
-        )
-    except Exception as e:
-        raise ApiException(
-            status_code=500,
-            code="DOWNLOAD_FAILED",
-            message=f"Model download failed: {e}",
-            hint="Check your internet connection and try again.",
-        )
-
-    return ok({
-        "status": "downloaded",
-        "model_path": model_path,
-        "hf_repo_id": LinguaCompressor.HF_MODEL_ID,
     })
 
 

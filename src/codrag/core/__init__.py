@@ -52,7 +52,7 @@ else:
 
 from .embedder import Embedder, OllamaEmbedder, NativeEmbedder, FakeEmbedder, EmbeddingResult
 from .chunking import Chunk, chunk_markdown, chunk_code
-from .compressor import ContextCompressor, LinguaCompressor, NoopCompressor, CompressResult
+from .compressor import ContextCompressor, NoopCompressor, CompressResult
 from .index import CodeIndex, SearchResult
 from .trace import TraceBuilder, TraceIndex, TraceNode, TraceEdge, build_trace
 from .llm_client import LLMClient, _parse_json_response, _parse_confidence, _strip_think_tags, _get_llm_concurrency
@@ -99,7 +99,6 @@ __all__ = [
     "KnowledgeIndex",
     "EmbeddingResult",
     "ContextCompressor",
-    "LinguaCompressor",
     "NoopCompressor",
     "CompressResult",
     "Chunk",

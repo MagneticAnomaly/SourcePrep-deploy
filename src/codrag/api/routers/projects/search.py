@@ -2,7 +2,7 @@
 Project search and context endpoints — the primary value delivery path.
 
 Contains: search, context, and all context assembly helpers
-(observations, atlas prepend, LOD compression, lingua compression, ambient context).
+(observations, atlas prepend, LOD compression, ambient context).
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from fastapi import APIRouter
 from codrag.api.envelope import ApiException, ok
 from codrag.core.feature_gate import require_feature, FeatureGateError
 from codrag.core.project_registry import project_index_dir
-from codrag.core import LinguaCompressor, NoopCompressor
+from codrag.core import NoopCompressor
 from codrag.core.query import preprocess_query as _preprocess_query
 
 from .helpers import _srv, _get_project_globs
@@ -365,127 +365,12 @@ def _apply_lod_compression(
 
 
 def _get_compressor(compression: str) -> "ContextCompressor":
-    """Get the appropriate compressor based on the compression parameter."""
-    if compression in ("lingua", "auto"):
-        return LinguaCompressor()
-    return NoopCompressor()
+    """Get the appropriate compressor based on the compression parameter.
 
-
-def _apply_compression(
-    context_str: str,
-    req: ContextRequest,
-) -> Dict[str, Any]:
-    """Apply compression to context string and return compression metadata."""
-    if req.compression == "none":
-        return {"context": context_str, "compression": None}
-
-
-    compressor = _get_compressor(req.compression)
-    budget = req.compression_target_chars or req.max_chars
-    result = compressor.compress(
-        context_str,
-        query=req.query,
-        budget_chars=budget,
-        level=req.compression_level,
-        timeout_s=req.compression_timeout_s,
-    )
-
-    compression_meta = {
-        "enabled": True,
-        "mode": req.compression,
-        "level": req.compression_level,
-        "input_chars": result.input_chars,
-        "output_chars": result.output_chars,
-        "input_tokens": result.input_tokens,
-        "output_tokens": result.output_tokens,
-        "compression_ratio": result.compression_ratio,
-        "timing_ms": round(result.timing_ms, 1),
-        "error": result.error,
-    }
-
-    return {"context": result.compressed, "compression": compression_meta}
-
-
-_DOC_EXTENSIONS = frozenset({".md", ".markdown", ".txt", ".rst", ".adoc", ".textile"})
-
-
-def _apply_lingua_to_doc_chunks(
-    lod_result: Dict[str, Any],
-    query: str,
-    compression_level: str = "standard",
-    compression_timeout_s: float = 30.0,
-) -> Dict[str, Any]:
-    """Apply LLMLingua-2 to documentation chunks within an LOD-compressed result.
-
-    Phase 73.3b dual-channel: code chunks are already LOD-compressed. This pass
-    identifies doc/markdown chunks by source_path extension and compresses their
-    content with LLMLingua-2 token pruning. Code chunks are left untouched.
-
-    Modifies lod_result in-place and returns it.
+    LLMLingua-2 was removed — quality testing showed unacceptable term retention
+    on technical documentation. All compression now goes through LOD or noop.
     """
-    compressor = LinguaCompressor()
-    if not compressor.is_available():
-        return lod_result
-
-    context = lod_result.get("context", "")
-    if not context:
-        return lod_result
-
-    chunks = lod_result.get("chunks", [])
-    doc_paths = set()
-    for ch in chunks:
-        sp = str(ch.get("source_path") or "")
-        if sp:
-            ext = sp.rsplit(".", 1)[-1] if "." in sp else ""
-            if f".{ext}" in _DOC_EXTENSIONS:
-                doc_paths.add(sp)
-
-    if not doc_paths:
-        return lod_result
-
-    # Split context into blocks separated by --- and compress doc blocks
-    import re
-    blocks = re.split(r"(\n\n---\n\n)", context)
-    lingua_input_chars = 0
-    lingua_output_chars = 0
-    lingua_timing_ms = 0.0
-    compressed_blocks = []
-
-    for block in blocks:
-        # Check if this block is a doc chunk (starts with [@path.md] or similar)
-        is_doc = False
-        for dp in doc_paths:
-            if f"@{dp}" in block[:200]:
-                is_doc = True
-                break
-
-        if is_doc and len(block) > 100:
-            result = compressor.compress(
-                block, query=query, level=compression_level,
-                timeout_s=compression_timeout_s,
-            )
-            compressed_blocks.append(result.compressed)
-            lingua_input_chars += result.input_chars
-            lingua_output_chars += result.output_chars
-            lingua_timing_ms += result.timing_ms
-        else:
-            compressed_blocks.append(block)
-
-    lod_result["context"] = "".join(compressed_blocks)
-    lod_result["total_chars"] = len(lod_result["context"])
-    lod_result["estimated_tokens"] = len(lod_result["context"]) // 4
-
-    # Merge lingua metadata into compression info
-    comp = lod_result.get("compression", {}) or {}
-    comp["mode"] = "auto"
-    if lingua_input_chars > 0:
-        comp["lingua_input_chars"] = lingua_input_chars
-        comp["lingua_output_chars"] = lingua_output_chars
-        comp["lingua_timing_ms"] = round(lingua_timing_ms, 1)
-        comp["lingua_ratio"] = round(lingua_input_chars / max(lingua_output_chars, 1), 2)
-    lod_result["compression"] = comp
-
-    return lod_result
+    return NoopCompressor()
 
 
 def _load_scope_modules(
@@ -1103,10 +988,7 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
             segment_boost=_sr6_segment_boost,
         )
 
-        comp = _apply_compression(ctx, req)
-        resp: Dict[str, Any] = {"context": comp["context"]}
-        if comp["compression"] is not None:
-            resp["compression"] = comp["compression"]
+        resp: Dict[str, Any] = {"context": ctx}
         # Atlas: routing metadata (no injection) + legacy prepend fallback
         if _routing_meta:
             resp["atlas"] = _routing_meta
@@ -1179,38 +1061,17 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
             existing_chunks.extend(_knowledge_fallback_chunks)
             result["chunks"] = existing_chunks
 
-        if req.compression in ("none", "lod", "auto"):
-            # Phase 34c E1: auto-LOD — structural compression is always applied
-            # in the structured+trace path. "none", "lod", and "auto" all trigger it.
-            lod_result = _apply_lod_compression(
-                result.get("chunks", []), proj, req.query, req.max_chars,
-                context_tier=req.context_tier,
-            )
-            # Phase 73.3b: Dual-channel auto mode.
-            # Quality testing showed LLMLingua-2 destroys technical identifiers
-            # in CoDRAG-style docs (22% key term retention at light level).
-            # LOD-only compression is both safer and faster.
-            # Lingua remains available via compression="lingua" for users who
-            # want to opt-in for pure-prose content, but auto mode uses LOD only.
-            resp_data: Dict[str, Any] = {
-                **lod_result,
-                "trace_expanded": result.get("trace_expanded", False),
-                "trace_nodes_added": result.get("trace_nodes_added", 0),
-            }
-        else:
-            # lingua — skip LOD, apply requested compression
-            context_str = str(result.get("context") or "")
-            comp = _apply_compression(context_str, req)
-            resp_data = {
-                "context": comp["context"],
-                "chunks": result.get("chunks", []),
-                "total_chars": len(comp["context"]),
-                "estimated_tokens": len(comp["context"]) // 4,
-                "trace_expanded": result.get("trace_expanded", False),
-                "trace_nodes_added": result.get("trace_nodes_added", 0),
-            }
-            if comp["compression"] is not None:
-                resp_data["compression"] = comp["compression"]
+        # Phase 34c E1: LOD structural compression is always applied
+        # in the structured+trace path.
+        lod_result = _apply_lod_compression(
+            result.get("chunks", []), proj, req.query, req.max_chars,
+            context_tier=req.context_tier,
+        )
+        resp_data: Dict[str, Any] = {
+            **lod_result,
+            "trace_expanded": result.get("trace_expanded", False),
+            "trace_nodes_added": result.get("trace_nodes_added", 0),
+        }
         # Atlas: routing metadata (no injection) + legacy prepend fallback
         if _routing_meta:
             resp_data["atlas"] = _routing_meta
@@ -1241,120 +1102,23 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
     )
 
     # Phase 34c E1: auto-LOD in structured path (no trace fallback)
-    if req.compression in ("none", "lod", "auto"):
-        raw_chunks = [
-            {
-                "source_path": str(r.doc.get("source_path") or ""),
-                "section": str(r.doc.get("section") or ""),
-                "score": float(r.score),
-                "text": str(r.doc.get("content") or ""),
-            }
-            for r in results
-        ]
-        # SR-2: Append knowledge fallback chunks to non-trace results
-        if _knowledge_fallback_chunks:
-            raw_chunks.extend(_knowledge_fallback_chunks)
-        lod_result = _apply_lod_compression(
-            raw_chunks, proj, req.query, req.max_chars,
-            context_tier=req.context_tier,
-        )
-        resp_data: Dict[str, Any] = lod_result
-        # Phase 73.5: Forward query coverage metadata
-        _qc_signals = getattr(idx, "_last_query_signals", None)
-        if _qc_signals and _qc_signals.keywords and results:
-            _qc_content = " ".join(
-                str(r.doc.get("content") or "") + " " + str(r.doc.get("source_path") or "")
-                for r in results
-            )
-            _qc_cov = _qc_signals.compute_coverage(_qc_content)
-            _qc_matched = sum(1 for v in _qc_cov.values() if v)
-            resp_data["query_coverage"] = {
-                "terms": _qc_cov,
-                "matched": _qc_matched,
-                "total": len(_qc_cov),
-                "ratio": round(_qc_matched / len(_qc_cov), 2) if _qc_cov else 1.0,
-            }
-        if _routing_meta:
-            resp_data["atlas"] = _routing_meta
-        elif req.include_atlas:
-            new_ctx, atlas_meta, atlas_chars = _prepend_atlas(resp_data["context"], project_id, _file_count)
-            resp_data["context"] = new_ctx
-            resp_data["total_chars"] = len(new_ctx)
-            resp_data["estimated_tokens"] = len(new_ctx) // 4
-            if atlas_meta:
-                resp_data["atlas"] = atlas_meta
-        # Phase 39: Inject relevant observations as session-memory
-        resp_data["context"], _obs_meta = _inject_observations(resp_data["context"], project_id, req.query)
-        if _obs_meta:
-            resp_data["session_memory"] = _obs_meta
-            resp_data["total_chars"] = len(resp_data["context"])
-            resp_data["estimated_tokens"] = resp_data["total_chars"] // 4
-        return ok(resp_data)
-
-    parts: List[str] = []
-    chunks: List[Dict[str, Any]] = []
-    total = 0
-
-    for r in results:
-        d = r.doc
-        chunk_id = str(d.get("id") or "")
-        source_path = str(d.get("source_path") or "")
-        section = str(d.get("section") or "")
-        span = d.get("span")
-        if not isinstance(span, dict) or "start_line" not in span or "end_line" not in span:
-            span = {"start_line": 1, "end_line": 1}
-
-        header_bits: List[str] = []
-        if section:
-            header_bits.append(section)
-        if source_path:
-            header_bits.append(f"@{source_path}")
-        header = " | ".join(header_bits) if header_bits else source_path
-
-        sep = "\n\n---\n\n" if parts else ""
-        remaining = int(req.max_chars) - total
-        if remaining <= 0 or len(sep) >= remaining:
-            break
-
-        prefix = f"[{header}]\n" if header else ""
-        allowed = remaining - len(sep)
-        if len(prefix) >= allowed:
-            break
-
-        text = str(d.get("content") or "")
-        if len(prefix) + len(text) > allowed:
-            text_allowed = allowed - len(prefix)
-            if text_allowed > 200:
-                text = text[: max(0, text_allowed - 3)] + "..."
-            else:
-                break
-
-        block = prefix + text
-        parts.append(sep + block)
-        total += len(sep) + len(block)
-        chunks.append(
-            {
-                "chunk_id": chunk_id,
-                "source_path": source_path,
-                "span": span,
-                "score": float(r.score),
-                "text": text,
-            }
-        )
-        if text.endswith("..."):
-            break
-
-    context_str = "".join(parts)
-
-    comp = _apply_compression(context_str, req)
-    resp_data: Dict[str, Any] = {
-        "context": comp["context"],
-        "chunks": chunks,
-        "total_chars": len(comp["context"]),
-        "estimated_tokens": len(comp["context"]) // 4,
-    }
-    if comp["compression"] is not None:
-        resp_data["compression"] = comp["compression"]
+    raw_chunks = [
+        {
+            "source_path": str(r.doc.get("source_path") or ""),
+            "section": str(r.doc.get("section") or ""),
+            "score": float(r.score),
+            "text": str(r.doc.get("content") or ""),
+        }
+        for r in results
+    ]
+    # SR-2: Append knowledge fallback chunks to non-trace results
+    if _knowledge_fallback_chunks:
+        raw_chunks.extend(_knowledge_fallback_chunks)
+    lod_result = _apply_lod_compression(
+        raw_chunks, proj, req.query, req.max_chars,
+        context_tier=req.context_tier,
+    )
+    resp_data: Dict[str, Any] = lod_result
     # Phase 73.5: Forward query coverage metadata
     _qc_signals = getattr(idx, "_last_query_signals", None)
     if _qc_signals and _qc_signals.keywords and results:
@@ -1370,7 +1134,6 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
             "total": len(_qc_cov),
             "ratio": round(_qc_matched / len(_qc_cov), 2) if _qc_cov else 1.0,
         }
-    # Atlas: routing metadata (no injection) + legacy prepend fallback
     if _routing_meta:
         resp_data["atlas"] = _routing_meta
     elif req.include_atlas:

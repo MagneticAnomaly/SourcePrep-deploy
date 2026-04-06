@@ -61,8 +61,8 @@ class LargeFileAnalyzer(BaseAnalyzer):
             basename = os.path.basename(file_path)
             if basename in EXPECTED_LARGE_BASENAMES:
                 continue
-            # Phase 73: Skip generic lock suffixes and minified files
-            if basename.endswith((".lock", ".min.js", ".min.css")):
+            # Phase 73: Skip generic lock suffixes, generated, and minified files
+            if basename.endswith((".lock", ".min.js", ".min.css", ".map", ".js.map", ".pb.go", ".generated.ts")):
                 continue
             if basename.endswith("-lock.json") or basename.endswith("-lock.yaml"):
                 continue

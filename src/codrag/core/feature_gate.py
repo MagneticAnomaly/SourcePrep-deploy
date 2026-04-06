@@ -54,7 +54,6 @@ FEATURE_TIERS = {
     "mcp_tools": Tier.FREE,             # MCP tools (basic)
     "mcp_trace_expand": Tier.MONTHLY,   # Trace-aware context expansion via MCP
     "path_weights": Tier.FREE,          # Path weight overrides
-    "context_compression": Tier.MONTHLY,  # LLMLingua-2 + LOD context compression
     "multi_repo_agent": Tier.MONTHLY,   # Multi-repo agent mode
     "team_config": Tier.TEAM,           # Shared team configuration
     "audit_log": Tier.ENTERPRISE,       # Audit logging

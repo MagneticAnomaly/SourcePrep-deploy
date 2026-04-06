@@ -829,8 +829,6 @@ class MCPServer:
         max_chars: int = 12000,
         trace_expand: bool = True,
         compression: str = "none",
-        compression_level: str = "standard",
-        compression_timeout_s: float = 30.0,
         exclude_paths: Optional[List[str]] = None,
         role: Optional[str] = None,  # Phase 67: agent scope filtering
         project_override: Optional[str] = None,
@@ -857,8 +855,8 @@ class MCPServer:
         if max_chars > MAX_CONTEXT_CHARS:
             raise InvalidParamsError(f"max_chars too large (max {MAX_CONTEXT_CHARS})")
 
-        if compression not in ("none", "lingua", "auto"):
-            raise InvalidParamsError("compression must be 'none', 'lingua', or 'auto'")
+        if compression not in ("none", "lod"):
+            raise InvalidParamsError("compression must be 'none' or 'lod'")
         if compression_level not in ("light", "standard", "aggressive"):
             raise InvalidParamsError(
                 "compression_level must be 'light', 'standard', or 'aggressive'"
@@ -878,8 +876,6 @@ class MCPServer:
         }
         if compression != "none":
             payload["compression"] = compression
-            payload["compression_level"] = compression_level
-            payload["compression_timeout_s"] = float(compression_timeout_s)
         if exclude_paths:
             payload["exclude_paths"] = list(exclude_paths)
         # Phase 67: Agent scope filtering
@@ -3115,8 +3111,6 @@ class MCPServer:
                         max_chars=args.get("max_chars", 12000),
                         trace_expand=bool(args.get("trace_expand", True)),
                         compression=args.get("compression", "none"),
-                        compression_level=args.get("compression_level", "standard"),
-                        compression_timeout_s=args.get("compression_timeout_s", 30.0),
                         exclude_paths=args.get("exclude_paths") or None,
                         role=args.get("role"),  # Phase 67: agent scope filtering
                         project_override=project_override,

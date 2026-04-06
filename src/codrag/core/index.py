@@ -1033,6 +1033,9 @@ class CodeIndex:
 
         sims = sims + self._keyword_boosts(query, docs)
         sims = sims + self._fts_boosts(query, docs, limit=max(10, k * 4))
+        
+        # Phase 73: Path-Keyword Boosting (Source Bias)
+        sims = sims + self._compute_path_boost(query, docs)
 
         # Phase 73.5: Structural query decomposition — boost files/symbols named in query
         from codrag.core.query_analyzer import QueryAnalyzer
@@ -1110,6 +1113,24 @@ class CodeIndex:
             candidates = self._adaptive_k_trim(candidates, score_drop_ratio, k)
 
         return candidates[:k]
+
+    def _compute_path_boost(self, query: str, docs: List[Dict[str, Any]]) -> np.ndarray:
+        """Boost score for source files when queried for core engineering concepts."""
+        boosts = np.zeros(len(docs), dtype=np.float32)
+        q = query.lower()
+        
+        # Only boost if query implies implementation/state/architecture
+        source_keywords = {"state", "model", "data", "impl", "factory", "manager", "service", "controller", "view"}
+        if not any(kw in q for kw in source_keywords):
+            return boosts
+            
+        source_exts = {".js", ".ts", ".tsx", ".jsx", ".py", ".rs", ".go", ".swift", ".cs", ".java"}
+        for i, d in enumerate(docs):
+            sp = str(d.get("source_path", ""))
+            if sp and any(sp.endswith(ext) for ext in source_exts):
+                boosts[i] = 0.08  # small additive boost
+                
+        return boosts
 
     # -- Adaptive-K & MMR helpers ------------------------------------------
 
