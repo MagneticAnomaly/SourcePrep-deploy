@@ -94,6 +94,7 @@ class PushResult:
     consolidated_groups: int = 0       # Groups after consolidation
     errors: List[str] = field(default_factory=list)
     details: List[Dict[str, Any]] = field(default_factory=list)
+    conflicts: List[Any] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -108,6 +109,7 @@ class PushResult:
             "consolidated_groups": self.consolidated_groups,
             "errors": self.errors,
             "details": self.details,
+            "conflicts_detected": len(self.conflicts),
         }
 
 

@@ -45,9 +45,13 @@ class PushEngine:
         self,
         adapter: PMAdapter,
         consolidator: Optional[Consolidator] = None,
+        conflict_detector: Optional[Any] = None,
+        conflict_store: Optional[Any] = None,
     ) -> None:
         self.adapter = adapter
         self.consolidator = consolidator or Consolidator()
+        self._conflict_detector = conflict_detector
+        self._conflict_store = conflict_store
 
     def push(
         self,
@@ -94,6 +98,28 @@ class PushEngine:
         # ── Step 2: Consolidate ──────────────────────────────────
         groups = self.consolidator.consolidate(filtered, strategy=strategy)
         result.consolidated_groups = len(groups)
+
+        # ── Step 2b: Conflict detection (Phase 73.5) ────────────
+        if self._conflict_detector and self._conflict_store:
+            try:
+                from codrag.services.observation_store import observation_store
+                all_obs = observation_store.get_by_agent(
+                    codrag_project_id, created_by="",
+                    include_stale=False, limit=200,
+                )
+                attributed = [o for o in all_obs if o.created_by]
+                if attributed:
+                    conflicts = self._conflict_detector.detect_from_observations(
+                        codrag_project_id, attributed,
+                    )
+                    for c in conflicts:
+                        self._conflict_store.save(c)
+                    result.conflicts = conflicts
+            except Exception:
+                logger.debug(
+                    "Conflict detection failed (non-fatal)",
+                    exc_info=True,
+                )
 
         if dry_run:
             result.dry_run = True
