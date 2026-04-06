@@ -2331,7 +2331,9 @@ class MCPServer:
     # ── Resource content generators ──────────────────────────────────
 
     async def _resource_structure(self, project_id: str) -> str:
-        """Hub files + graph topology. ~300 tokens. Fast: 2 API calls, <30ms."""
+        """Hub files + graph topology. Tier-adaptive hub count."""
+        from codrag.core.context_tier import tier_from_budget
+
         data = await self._api_get(f"/projects/{project_id}/status")
         if not isinstance(data, dict):
             return "(No project data available)"
@@ -2349,13 +2351,15 @@ class MCPServer:
         if nodes or chunks:
             parts.append(f"Graph: {nodes} nodes, {edges} edges | Index: {chunks} chunks\n")
 
-        # Hub files (single fast API call)
+        # Hub files — tier-adaptive count
+        tier = tier_from_budget(self._get_context_budget())
+        hub_k = tier.hub_count
         try:
-            hub_data = await self._api_get(f"/projects/{project_id}/trace/hub_files?k=8")
+            hub_data = await self._api_get(f"/projects/{project_id}/trace/hub_files?k={hub_k}")
             hub_files = (hub_data or {}).get("hub_files", []) if isinstance(hub_data, dict) else []
             if hub_files:
                 parts.append("### Hub Files (most connected)")
-                for h in hub_files[:8]:
+                for h in hub_files[:hub_k]:
                     if isinstance(h, dict) and h.get("path"):
                         parts.append(f"- `{h['path']}` ({h.get('in_degree', 0)} connections)")
                 parts.append("")
@@ -2369,15 +2373,16 @@ class MCPServer:
         return "\n".join(parts)
 
     async def _resource_atlas(self, project_id: str) -> str:
-        """Codebase atlas text. ~400 tokens. Single API call."""
+        """Codebase atlas text. Tier-adaptive budget."""
         try:
-            # Request atlas via include_atlas=True. With empty query, the
-            # backend prepends the atlas to the context string.
+            # Tier-adaptive: T1 gets 4K, T2 gets 3K, T2.5 gets 2K
+            budget = min(4000, self._get_context_budget() // 10)
+            budget = max(budget, 2000)  # floor at 2K
             ctx_data = await self._api_post(
                 f"/projects/{project_id}/context",
                 {
                     "query": "",
-                    "max_chars": 2500,
+                    "max_chars": budget,
                     "include_atlas": True,
                 },
             )
@@ -2388,9 +2393,7 @@ class MCPServer:
             context = ctx_data.get("context", "") or ""
 
             if atlas_meta.get("included") and context:
-                # The atlas is prepended to context. Return up to 2500 chars
-                # which covers the full atlas for all project sizes.
-                return context[:2500]
+                return context[:budget]
 
             return "(Atlas not yet generated -- the pipeline will create it at Stage 9)"
         except IndexNotReadyError:
@@ -2825,6 +2828,69 @@ class MCPServer:
         else:
             raise MethodNotFoundError(f"Unknown prompt: {name}")
 
+    # ── Argument auto-completion ────────────────────────────────────
+
+    async def handle_completion(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle completion/complete — auto-complete prompt arguments.
+
+        Provides file path completions for prompt arguments like file_path
+        and module name completions for resource templates.
+        """
+        ref = params.get("ref", {})
+        ref_type = ref.get("type", "")  # "ref/prompt" or "ref/resource"
+        argument = params.get("argument", {})
+        arg_name = argument.get("name", "")
+        arg_value = argument.get("value", "")
+
+        completions: List[Dict[str, str]] = []
+
+        try:
+            project_id = await self._resolve_project_id()
+        except Exception:
+            return {"completion": {"values": [], "hasMore": False}}
+
+        # File path completion (for codrag-review file_path argument)
+        if arg_name == "file_path" and arg_value:
+            try:
+                data = await self._api_get(f"/projects/{project_id}/files")
+                files = (data or {}).get("files", []) if isinstance(data, dict) else []
+                # Filter by prefix match
+                matches = [f for f in files if isinstance(f, str) and arg_value.lower() in f.lower()]
+                completions = [{"value": f} for f in matches[:20]]
+            except Exception:
+                pass
+
+        # Module name completion (for resource templates)
+        elif arg_name == "name" and ref_type == "ref/resource":
+            try:
+                data = await self._api_get(f"/projects/{project_id}/modules")
+                modules = (data or {}).get("modules", []) if isinstance(data, dict) else []
+                for mod in modules:
+                    if isinstance(mod, dict):
+                        name = mod.get("name", "")
+                        if name and (not arg_value or arg_value.lower() in name.lower()):
+                            completions.append({"value": name})
+                completions = completions[:20]
+            except Exception:
+                pass
+
+        # Query completion (for codrag-investigate query argument)
+        elif arg_name == "query" and arg_value:
+            # Suggest from recent observations/concepts as query hints
+            try:
+                data = await self._api_get(f"/projects/{project_id}/concepts")
+                concepts = (data or {}).get("concepts", []) if isinstance(data, dict) else []
+                for c in concepts:
+                    if isinstance(c, dict):
+                        title = c.get("title", "")
+                        if title and arg_value.lower() in title.lower():
+                            completions.append({"value": title})
+                completions = completions[:10]
+            except Exception:
+                pass
+
+        return {"completion": {"values": completions, "hasMore": len(completions) >= 20}}
+
     # EA-B12: MCP rate limiting state
     _mcp_call_times: List[float] = []
     _MCP_RATE_LIMIT = 120  # max calls
@@ -3159,6 +3225,8 @@ class MCPServer:
                 result = await self.handle_prompts_list(params)
             elif method == "prompts/get":
                 result = await self.handle_prompts_get(params)
+            elif method == "completion/complete":
+                result = await self.handle_completion(params)
             elif method == "ping":
                 result = {}
             else:
