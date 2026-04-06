@@ -296,17 +296,9 @@ These can land immediately with no dependencies on the larger work:
 | Tier-adaptive score thresholds | `core/models.py` or search.py | min_score from tier config |
 | Wire tier into MCP server | `mcp/server.py` | `_get_context_tier()` from client budget, pass to API calls |
 
-### Phase 5: Tool Consolidation (2-3 days)
+### Phase 5: Tool Consolidation — DEFERRED (Not Needed)
 
-**Goal:** Slim down tool surface now that resources carry reference data.
-
-| Task | Files | Details |
-|---|---|---|
-| Migrate `codrag_audit` read to resource | `mcp_tools.py`, `server.py` | Keep scan as tool; findings become resource-only |
-| Migrate `codrag_concepts` read to resource | `mcp_tools.py`, `server.py` | Keep save as tool; browse becomes resource-only |
-| Backward compat aliases | `mcp_tools.py:TOOL_ALIASES` | Legacy tool names → resource hints for one release cycle |
-| Update AGENTS.md generation | `rules_generator.py` | Reflect new primitive placement in generated instructions |
-| Update `.claude/skills/codrag.md` | `rules_generator.py` | Reference resources and prompts alongside tools |
+**Decision:** Keep all 6 tools. With 6 tools we're well under Claude Code's 10K-token Tool Search deferral threshold. Removing read access from tools (audit get, concepts get) would reduce agent capability (agents can't autonomously decide to check findings) without meaningful benefit. Resources provide the user-initiated path alongside the agent-initiated tool path — "different access patterns, same data" is the right design.
 
 ---
 
