@@ -92,3 +92,42 @@ def test_no_project_id_still_works():
     for target in ("claude", "cursor", "universal"):
         content = _build_managed_content(**args, target=target)
         assert "codrag" in content.lower()
+
+
+# -- Integration tests: write_rules_file wiring --
+
+from pathlib import Path
+
+from codrag.core.rules_generator import write_rules_file
+
+
+def test_write_rules_passes_claude_target(tmp_path):
+    """write_rules_file should pass target='claude' for Claude rules."""
+    (tmp_path / "CLAUDE.md").write_text("# My Project\n")
+    (tmp_path / ".claude").mkdir()
+
+    write_rules_file(
+        project_path=tmp_path,
+        project_name="test",
+        atlas_content="IDENTITY: Test",
+        ide="claude",
+        project_id="test-id",
+    )
+    claude_md = (tmp_path / "CLAUDE.md").read_text()
+    # Claude target should NOT contain the verbose universal sections
+    assert "Tool Calling Rules" not in claude_md
+    assert "codrag" in claude_md.lower()
+
+
+def test_write_rules_passes_universal_target_for_agents_md(tmp_path):
+    """AGENTS.md should always use the universal target."""
+    write_rules_file(
+        project_path=tmp_path,
+        project_name="test",
+        atlas_content="IDENTITY: Test",
+        ide="agents_md",
+        project_id="test-id",
+    )
+    agents_md = (tmp_path / "AGENTS.md").read_text()
+    # Universal includes the verbose sections
+    assert "Tool Calling Rules" in agents_md

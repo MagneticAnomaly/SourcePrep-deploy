@@ -521,6 +521,7 @@ def generate_cursor_rules(
         is_preliminary,
         stats,
         project_id=project_id,
+        target="cursor",
     )
 
     return (
@@ -688,6 +689,7 @@ def generate_claude_rules(
         is_preliminary,
         stats,
         project_id=project_id,
+        target="claude",
     )
 
     return f"{_CLAUDE_MARKER_START}\n# CoDRAG Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
@@ -814,6 +816,7 @@ def _write_agents_md(
         is_preliminary,
         stats,
         project_id=project_id,
+        target="universal",
     )
     new_section = (
         f"{_CLAUDE_MARKER_START}\n## CoDRAG Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
