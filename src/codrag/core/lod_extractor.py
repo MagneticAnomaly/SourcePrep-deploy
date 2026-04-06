@@ -195,6 +195,53 @@ _STATE_PLACEHOLDER = 1
 _STATE_SKIP = 2
 
 
+def _infer_body_end(lines: List[str], start: int, language: str) -> int:
+    """Infer function/method body end when the trace span is a single line.
+
+    For brace languages (Swift, JS, TS, Java, etc.): find the matching closing brace.
+    For Python: find the last line at deeper indentation.
+
+    Returns the 1-indexed end line, or start if inference fails.
+    """
+    n = len(lines)
+    if start < 1 or start > n:
+        return start
+
+    decl_line = lines[start - 1]
+
+    if language in _BRACE_LANGS or language in ("swift",):
+        # Scan for opening brace, then match to closing brace
+        depth = 0
+        found_open = False
+        for ln in range(start, min(start + 500, n + 1)):
+            text = lines[ln - 1]
+            for ch in text:
+                if ch == "{":
+                    depth += 1
+                    found_open = True
+                elif ch == "}":
+                    depth -= 1
+                    if found_open and depth == 0:
+                        return ln
+        return start
+
+    if language == "python":
+        # Find indentation of the def/class line, scan until back to same or less
+        base_indent = len(decl_line) - len(decl_line.lstrip())
+        last_body = start
+        for ln in range(start + 1, min(start + 500, n + 1)):
+            text = lines[ln - 1]
+            if not text.strip():
+                continue
+            indent = len(text) - len(text.lstrip())
+            if indent <= base_indent:
+                break
+            last_body = ln
+        return last_body
+
+    return start
+
+
 def _build_lod23(
     lines: List[str],
     symbols: List[Dict[str, Any]],
@@ -212,8 +259,22 @@ def _build_lod23(
 
     placeholder_text = _PLACEHOLDER.get(language, _DEFAULT_PLACEHOLDER)
 
+    # Phase 73.3: Expand single-line spans before sorting/processing.
+    # Some parsers (Rust tree-sitter for Swift/JS) store only the declaration
+    # line. We infer the full body span so LOD 2/3 can compress the body.
+    expanded_symbols = []
+    for sym in symbols:
+        span = sym.get("span") or {}
+        start = span.get("start_line", 0)
+        end = span.get("end_line", 0)
+        if start and end and start == end and start <= n:
+            inferred_end = _infer_body_end(lines, start, language)
+            if inferred_end > start:
+                sym = {**sym, "span": {**span, "end_line": inferred_end}}
+        expanded_symbols.append(sym)
+
     # Sort symbols by span size ascending = process innermost first
-    syms = sorted(symbols, key=lambda s: (s["span"]["end_line"] - s["span"]["start_line"]))
+    syms = sorted(expanded_symbols, key=lambda s: (s["span"]["end_line"] - s["span"]["start_line"]))
 
     # Identify class spans to distinguish methods from top-level functions
     class_spans = [
@@ -310,9 +371,21 @@ def _build_lod25(
     n = len(lines)
     import_pat = _IMPORT_RE.get(language)
 
+    # Phase 73.3: Expand single-line spans (same as _build_lod23)
+    expanded_symbols = []
+    for sym in symbols:
+        span = sym.get("span") or {}
+        start = span.get("start_line", 0)
+        end = span.get("end_line", 0)
+        if start and end and start == end and start <= n:
+            inferred_end = _infer_body_end(lines, start, language)
+            if inferred_end > start:
+                sym = {**sym, "span": {**span, "end_line": inferred_end}}
+        expanded_symbols.append(sym)
+
     # 1. Determine which lines fall inside a symbol span (1-indexed)
     in_symbol: set[int] = set()
-    for sym in symbols:
+    for sym in expanded_symbols:
         span = sym.get("span") or {}
         start = span.get("start_line", 0)
         end = span.get("end_line", 0)
@@ -324,7 +397,7 @@ def _build_lod25(
     placeholder_text = _PLACEHOLDER.get(language, _DEFAULT_PLACEHOLDER)
     state = [_STATE_KEEP] * (n + 2)  # 1-indexed
 
-    syms = sorted(symbols, key=lambda s: (s["span"]["end_line"] - s["span"]["start_line"]))
+    syms = sorted(expanded_symbols, key=lambda s: (s["span"]["end_line"] - s["span"]["start_line"]))
 
     class_spans = [
         (s["span"]["start_line"], s["span"]["end_line"])
