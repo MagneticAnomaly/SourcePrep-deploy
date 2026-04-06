@@ -41,11 +41,13 @@ class AgentCore:
         index_dir: Path,
         project_root: Optional[Path] = None,
         pm_config: Optional[PMPushConfig] = None,
+        collab_hub: Optional[Any] = None,
     ) -> None:
         self.project_id = project_id
         self._data = CoDRAGDataAccess(index_dir, project_root, project_id)
         self._paperclip = PaperclipClient(pm_config) if pm_config and pm_config.enabled else None
         self._git = GitClient(project_root) if project_root else None
+        self.collab = collab_hub
 
     # ── CoDRAG Read Methods ──────────────────────────────────────────────
 
@@ -99,6 +101,8 @@ class AgentCore:
         content: str,
         file_path: Optional[str] = None,
         category: str = "note",
+        created_by: Optional[str] = None,
+        visibility: str = "shared",
     ) -> str:
         """Persist an agent observation and return its ID.
 
@@ -107,11 +111,16 @@ class AgentCore:
             file_path: Optional source file this observation relates to.
             category: One of ``note``, ``decision``, ``bug``, ``pattern``,
                 ``assumption``.
+            created_by: Agent role identifier (e.g. 'researcher').
+            visibility: 'shared', 'private', or 'internal'.
 
         Returns:
             Observation UUID string.
         """
-        return self._data.save_observation(content, file_path=file_path, category=category)
+        return self._data.save_observation(
+            content, file_path=file_path, category=category,
+            created_by=created_by, visibility=visibility,
+        )
 
     def get_observations(self, query: str, limit: int = 5) -> list:
         """Search stored observations and return matches.

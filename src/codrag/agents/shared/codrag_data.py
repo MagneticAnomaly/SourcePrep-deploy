@@ -239,6 +239,8 @@ class CoDRAGDataAccess:
         content: str,
         file_path: Optional[str] = None,
         category: str = "note",
+        created_by: Optional[str] = None,
+        visibility: str = "shared",
     ) -> str:
         """Persist an agent observation and return its ID.
 
@@ -247,6 +249,8 @@ class CoDRAGDataAccess:
             file_path: Optional source file this observation relates to.
             category: One of ``note``, ``decision``, ``bug``, ``pattern``,
                 ``assumption``.
+            created_by: Agent role identifier (e.g. 'researcher').
+            visibility: 'shared', 'private', or 'internal'.
 
         Returns:
             Observation UUID string.
@@ -256,6 +260,8 @@ class CoDRAGDataAccess:
             content,
             file_path=file_path,
             category=category,
+            created_by=created_by,
+            visibility=visibility,
         )
 
     def get_observations(self, query: str, limit: int = 5) -> list:
