@@ -816,3 +816,47 @@ def test_readonly_tools_have_idempotent_hint():
         assert annotations.get("idempotentHint") is True, (
             f"Read-only tool {tool['name']} should be idempotent"
         )
+
+
+# =============================================================================
+# Resource tests
+# =============================================================================
+
+
+def test_resources_list_has_all_types():
+    """Resource list should include all 7 resource types."""
+    import asyncio
+
+    server = MCPServer(daemon_url="http://127.0.0.1:8400", project_id="test-project")
+    server._resolve_project_id = AsyncMock(return_value="test-project")
+
+    result = asyncio.get_event_loop().run_until_complete(
+        server.handle_resources_list({})
+    )
+    resource_names = {r["name"] for r in result["resources"]}
+    expected = {
+        "Codebase Atlas",
+        "Codebase Structure",
+        "Module Map",
+        "Audit Findings",
+        "Concepts",
+        "Focus Areas",
+        "Index Health",
+    }
+    assert expected.issubset(resource_names), f"Missing: {expected - resource_names}"
+
+
+def test_resources_have_audience_annotations():
+    """All resources should have audience annotations."""
+    import asyncio
+
+    server = MCPServer(daemon_url="http://127.0.0.1:8400", project_id="test-project")
+    server._resolve_project_id = AsyncMock(return_value="test-project")
+
+    result = asyncio.get_event_loop().run_until_complete(
+        server.handle_resources_list({})
+    )
+    for resource in result["resources"]:
+        annotations = resource.get("annotations", {})
+        assert "audience" in annotations, f"Resource {resource['name']} missing audience annotation"
+        assert isinstance(annotations["audience"], list)

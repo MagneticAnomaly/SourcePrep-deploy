@@ -2103,9 +2103,8 @@ class MCPServer:
     async def handle_resources_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle resources/list request.
 
-        Returns lightweight resource descriptors. Each resource is <500 tokens
-        and serves as on-demand cached context the AI can pull without a
-        tool call (no approval needed).
+        Returns lightweight resource descriptors. Resources provide on-demand
+        context the user can attach via @ mention (no tool call needed).
         """
         try:
             project_id = await self._resolve_project_id()
@@ -2115,28 +2114,53 @@ class MCPServer:
         return {
             "resources": [
                 {
-                    "uri": f"codrag://{project_id}/structure",
-                    "name": "Codebase Structure",
-                    "description": "Module summaries, hub files, and dependency map. ~500 tokens.",
-                    "mimeType": "text/markdown",
-                },
-                {
                     "uri": f"codrag://{project_id}/atlas",
                     "name": "Codebase Atlas",
-                    "description": "Architectural overview of the codebase. ~400 tokens.",
+                    "description": "Architectural overview: identity, stack, workspace map, cross-cutting concerns.",
                     "mimeType": "text/markdown",
+                    "annotations": {"audience": ["assistant"]},
                 },
                 {
-                    "uri": f"codrag://{project_id}/files",
-                    "name": "Selected Files",
-                    "description": "Knowledge base files selected by the user. ~300 tokens.",
+                    "uri": f"codrag://{project_id}/structure",
+                    "name": "Codebase Structure",
+                    "description": "Hub files with connection counts and structural roles.",
                     "mimeType": "text/markdown",
+                    "annotations": {"audience": ["assistant"]},
+                },
+                {
+                    "uri": f"codrag://{project_id}/modules",
+                    "name": "Module Map",
+                    "description": "Module list with file counts, dependencies, and summaries.",
+                    "mimeType": "text/markdown",
+                    "annotations": {"audience": ["assistant"]},
+                },
+                {
+                    "uri": f"codrag://{project_id}/audit",
+                    "name": "Audit Findings",
+                    "description": "Latest codebase health findings: architecture, quality, tech debt.",
+                    "mimeType": "text/markdown",
+                    "annotations": {"audience": ["user", "assistant"]},
+                },
+                {
+                    "uri": f"codrag://{project_id}/concepts",
+                    "name": "Concepts",
+                    "description": "High-level codebase concepts: business rationale, design decisions, domain knowledge.",
+                    "mimeType": "text/markdown",
+                    "annotations": {"audience": ["assistant"]},
+                },
+                {
+                    "uri": f"codrag://{project_id}/focus",
+                    "name": "Focus Areas",
+                    "description": "User-selected focus areas with content excerpts.",
+                    "mimeType": "text/markdown",
+                    "annotations": {"audience": ["assistant"]},
                 },
                 {
                     "uri": f"codrag://{project_id}/health",
                     "name": "Index Health",
-                    "description": "Index freshness, coverage, and build status. ~100 tokens.",
+                    "description": "Index freshness, coverage, and build status.",
                     "mimeType": "text/markdown",
+                    "annotations": {"audience": ["user", "assistant"]},
                 },
             ]
         }
@@ -2175,6 +2199,14 @@ class MCPServer:
                 content = await self._resource_atlas(project_id)
             elif resource_type == "files":
                 content = await self._resource_files(project_id)
+            elif resource_type == "modules":
+                content = await self._resource_modules(project_id)
+            elif resource_type == "audit":
+                content = await self._resource_audit(project_id)
+            elif resource_type == "concepts":
+                content = await self._resource_concepts(project_id)
+            elif resource_type == "focus":
+                content = await self._resource_focus(project_id)
             elif resource_type == "health":
                 content = await self._resource_health(project_id)
             else:
@@ -2329,6 +2361,104 @@ class MCPServer:
             return "\n".join(parts)
         except Exception as e:
             return f"(Health data unavailable: {e})"
+
+    async def _resource_modules(self, project_id: str) -> str:
+        """Module map with summaries."""
+        try:
+            ctx_data = await self._api_post(
+                f"/projects/{project_id}/context",
+                {"query": "", "max_chars": self._get_context_budget() // 2, "include_atlas": False},
+            )
+            if not isinstance(ctx_data, dict):
+                return "(Module data not available)"
+
+            modules = ctx_data.get("modules", [])
+            if not modules:
+                return "(No modules detected yet -- run the pipeline to Stage 7+)"
+
+            parts = ["## Module Map\n"]
+            for mod in modules:
+                if isinstance(mod, dict):
+                    name = mod.get("name", "unnamed")
+                    count = mod.get("file_count", 0)
+                    summary = mod.get("summary", "")
+                    parts.append(f"- **{name}** ({count} files): {summary}")
+            return "\n".join(parts)
+        except Exception as e:
+            return f"(Module map unavailable: {e})"
+
+    async def _resource_audit(self, project_id: str) -> str:
+        """Latest audit findings summary."""
+        try:
+            data = await self._api_get(f"/projects/{project_id}/audit/findings")
+            if not isinstance(data, dict):
+                return "(No audit data available -- run `codrag_audit` first)"
+
+            findings = data.get("findings", [])
+            if not findings:
+                return "(No audit findings -- codebase looks healthy!)"
+
+            parts = [f"## Audit Findings ({len(findings)} issues)\n"]
+            for f in findings[:20]:
+                if isinstance(f, dict):
+                    severity = f.get("severity", "info")
+                    title = f.get("title", "untitled")
+                    fid = f.get("id", "")
+                    parts.append(f"- [{severity.upper()}] {title} ({fid})")
+            if len(findings) > 20:
+                parts.append(f"- ... +{len(findings) - 20} more")
+            return "\n".join(parts)
+        except Exception as e:
+            return f"(Audit data unavailable: {e})"
+
+    async def _resource_concepts(self, project_id: str) -> str:
+        """Epistemic knowledge layer summary."""
+        try:
+            data = await self._api_get(f"/projects/{project_id}/concepts")
+            if not isinstance(data, dict):
+                return "(No concepts available)"
+
+            concepts = data.get("concepts", [])
+            if not concepts:
+                return "(No concepts saved yet -- use `codrag_concepts` to add them)"
+
+            # Group by category
+            by_cat: Dict[str, list] = {}
+            for c in concepts:
+                if isinstance(c, dict):
+                    cat = c.get("category", "technical")
+                    by_cat.setdefault(cat, []).append(c)
+
+            parts = [f"## Codebase Concepts ({len(concepts)} total)\n"]
+            for cat, items in sorted(by_cat.items()):
+                parts.append(f"### {cat.title()} ({len(items)})")
+                for item in items[:5]:
+                    title = item.get("title", "untitled")
+                    parts.append(f"- {title}")
+                if len(items) > 5:
+                    parts.append(f"- ... +{len(items) - 5} more")
+                parts.append("")
+            return "\n".join(parts)
+        except Exception as e:
+            return f"(Concepts unavailable: {e})"
+
+    async def _resource_focus(self, project_id: str) -> str:
+        """User's selected focus areas."""
+        try:
+            data = await self._api_get(f"/projects/{project_id}/included_paths")
+            paths = (data or {}).get("included_paths", []) if isinstance(data, dict) else []
+
+            if not paths:
+                return "(No focus areas selected -- configure in dashboard or CLI)"
+
+            parts = [f"## Focus Areas ({len(paths)} paths)\n"]
+            for p in paths[:20]:
+                parts.append(f"- `{p}`")
+            if len(paths) > 20:
+                parts.append(f"- ... +{len(paths) - 20} more")
+            return "\n".join(parts)
+        except Exception as e:
+            return f"(Focus areas unavailable: {e})"
 
     # ── Phase 50 Sprint 5: MCP Prompts ─────────────────────────────
 
