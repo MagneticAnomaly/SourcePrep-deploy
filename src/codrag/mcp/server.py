@@ -9,6 +9,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import sys
 import uuid
 from logging.handlers import RotatingFileHandler
@@ -254,6 +255,16 @@ class MCPServer:
 
         cache[project_id] = found
         return found
+
+    @staticmethod
+    def _extract_atlas_hash(content: str) -> str | None:
+        """Extract the atlas content hash from a rules file.
+
+        Looks for <!-- codrag-atlas-hash:XXXX --> comment.
+        Returns the hash string or None if not found.
+        """
+        match = re.search(r"codrag-atlas-hash:([a-f0-9]{12})", content)
+        return match.group(1) if match else None
 
     def _get_project_path_sync(self, project_id: str) -> Optional[str]:
         """Get the filesystem path for a project without an async call.

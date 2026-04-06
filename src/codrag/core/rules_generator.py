@@ -10,6 +10,7 @@ Phase 50: MCP Interfacing.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import threading
 from datetime import datetime, timezone
@@ -415,7 +416,10 @@ def _build_managed_content(
 
     # Atlas section (if available)
     if atlas_content and atlas_content.strip():
+        # Embed content hash for freshness detection by MCP server
+        atlas_hash = hashlib.sha256(atlas_content.strip().encode()).hexdigest()[:12]
         parts.append("")
+        parts.append(f"<!-- codrag-atlas-hash:{atlas_hash} -->")
         parts.append("## Codebase Atlas")
         parts.append("")
         parts.append(atlas_content.strip())
