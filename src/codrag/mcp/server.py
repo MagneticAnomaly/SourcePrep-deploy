@@ -2464,35 +2464,56 @@ class MCPServer:
 
     _PROMPTS = [
         {
-            "name": "codrag-analyze",
-            "description": "Analyze the codebase architecture using CoDRAG's structural intelligence",
-            "arguments": [
-                {
-                    "name": "focus",
-                    "description": "Optional area to focus the analysis on (e.g., 'authentication', 'API layer')",
-                    "required": False,
-                },
-            ],
+            "name": "codrag-onboard",
+            "description": "Orient to this codebase — get structural overview, key modules, and hub files",
+            "arguments": [],
         },
         {
             "name": "codrag-review",
-            "description": "Review the current file or selection for bugs, style issues, and structural problems",
+            "description": "Review a file with structural awareness — blast radius, dependencies, and related code",
             "arguments": [
                 {
+                    "name": "file_path",
+                    "description": "Path of the file to review",
+                    "required": True,
+                },
+                {
                     "name": "scope",
-                    "description": "What to review: 'file' (current file), 'selection' (selected code), or a file path",
+                    "description": "Review scope: 'file' (default), 'module', or 'blast-radius'",
                     "required": False,
                 },
             ],
         },
         {
             "name": "codrag-plan",
-            "description": "Plan a change with impact analysis -- understand what files are affected before editing",
+            "description": "Plan a change with impact analysis — understand what files are affected before editing",
             "arguments": [
                 {
                     "name": "change",
                     "description": "Description of the change you want to make",
                     "required": True,
+                },
+            ],
+        },
+        {
+            "name": "codrag-investigate",
+            "description": "Deep-dive into a topic — search, trace expansion, and module context",
+            "arguments": [
+                {
+                    "name": "query",
+                    "description": "What you want to understand (e.g., 'authentication flow', 'how caching works')",
+                    "required": True,
+                },
+            ],
+        },
+        {
+            "name": "codrag-health",
+            "description": "Check codebase health — audit findings, tech debt, and improvement recommendations",
+            "arguments": [
+                {
+                    "name": "focus",
+                    "description": "Optional focus area: 'debt', 'complexity', 'coverage', 'architecture'",
+                    "required": False,
                 },
             ],
         },
@@ -2503,30 +2524,25 @@ class MCPServer:
         return {"prompts": self._PROMPTS}
 
     async def handle_prompts_get(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle prompts/get request.
-
-        Returns the prompt messages that the host injects into the conversation
-        when the user triggers the prompt (e.g., via a slash command).
-        """
+        """Handle prompts/get request."""
         name = params.get("name", "")
         arguments = params.get("arguments", {})
 
-        if name == "codrag-analyze":
-            focus = arguments.get("focus", "")
-            focus_text = f" Focus on: {focus}." if focus else ""
+        if name == "codrag-onboard":
             return {
-                "description": "Analyze codebase architecture",
+                "description": "Codebase orientation",
                 "messages": [
                     {
                         "role": "user",
                         "content": {
                             "type": "text",
                             "text": (
-                                f"Analyze this codebase's architecture using CoDRAG.{focus_text}\n\n"
-                                "1. Call `codrag` first to get the structural overview (modules, hub files, connections).\n"
-                                "2. Identify architectural patterns, potential issues, and areas for improvement.\n"
-                                "3. Use `codrag_search` to examine specific areas in detail.\n"
-                                "4. Summarize your findings with concrete file references."
+                                "Orient me to this codebase using CoDRAG.\n\n"
+                                "1. Call `codrag` to get the structural overview (modules, hub files, connections).\n"
+                                "2. Summarize the architecture: what are the main components and how do they connect?\n"
+                                "3. Identify the most important files (hub files) and explain their role.\n"
+                                "4. List the key entry points and data flow patterns.\n"
+                                "5. Note any areas that need attention (from audit findings if available)."
                             ),
                         },
                     }
@@ -2534,20 +2550,22 @@ class MCPServer:
             }
 
         elif name == "codrag-review":
+            file_path = arguments.get("file_path", "the current file")
             scope = arguments.get("scope", "file")
             return {
-                "description": "Review code with structural context",
+                "description": "Structural code review",
                 "messages": [
                     {
                         "role": "user",
                         "content": {
                             "type": "text",
                             "text": (
-                                f"Review this code (scope: {scope}) using CoDRAG's structural understanding.\n\n"
-                                "1. Call `codrag` for structural context -- understand where this code fits in the architecture.\n"
-                                "2. Call `codrag_impact` on the relevant file to understand its dependencies and dependents.\n"
+                                f"Review `{file_path}` (scope: {scope}) using CoDRAG's structural understanding.\n\n"
+                                "1. Call `codrag_impact` on the file to understand its dependencies and dependents.\n"
+                                "2. Call `codrag_search` to find related code and patterns.\n"
                                 "3. Check for bugs, style issues, missing error handling, and structural problems.\n"
-                                "4. Consider how changes here would affect connected files."
+                                "4. Consider how changes here would affect connected files.\n"
+                                "5. Provide concrete improvement suggestions with file references."
                             ),
                         },
                     }
@@ -2557,7 +2575,7 @@ class MCPServer:
         elif name == "codrag-plan":
             change = arguments.get("change", "the proposed change")
             return {
-                "description": "Plan a change with impact analysis",
+                "description": "Change planning with impact analysis",
                 "messages": [
                     {
                         "role": "user",
@@ -2575,6 +2593,55 @@ class MCPServer:
                     }
                 ],
             }
+
+        elif name == "codrag-investigate":
+            query = arguments.get("query", "this topic")
+            return {
+                "description": "Deep investigation with structural context",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": {
+                            "type": "text",
+                            "text": (
+                                f"Help me understand: {query}\n\n"
+                                "1. Call `codrag_search` to find relevant code and documentation.\n"
+                                "2. Call `codrag` for module structure around the relevant area.\n"
+                                "3. Call `codrag_impact` on key files to trace the dependency graph.\n"
+                                "4. Explain how the pieces connect — data flow, call chains, design patterns.\n"
+                                "5. Summarize with a clear mental model I can use going forward."
+                            ),
+                        },
+                    }
+                ],
+            }
+
+        elif name == "codrag-health":
+            focus = arguments.get("focus", "")
+            focus_text = f" Focus on: {focus}." if focus else ""
+            return {
+                "description": "Codebase health check",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": {
+                            "type": "text",
+                            "text": (
+                                f"Check the health of this codebase using CoDRAG.{focus_text}\n\n"
+                                "1. Call `codrag_audit` to get current findings.\n"
+                                "2. Call `codrag` for structural context — hub files and module dependencies.\n"
+                                "3. Prioritize findings by impact: what's most likely to cause problems?\n"
+                                "4. For the top 3 findings, suggest concrete fixes with file references.\n"
+                                "5. Summarize the overall health: what's good, what needs work."
+                            ),
+                        },
+                    }
+                ],
+            }
+
+        # Backward compat: old prompt name
+        elif name == "codrag-analyze":
+            return await self.handle_prompts_get({"name": "codrag-onboard", "arguments": arguments})
 
         else:
             raise MethodNotFoundError(f"Unknown prompt: {name}")

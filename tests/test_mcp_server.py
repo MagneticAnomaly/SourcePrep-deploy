@@ -860,3 +860,88 @@ def test_resources_have_audience_annotations():
         annotations = resource.get("annotations", {})
         assert "audience" in annotations, f"Resource {resource['name']} missing audience annotation"
         assert isinstance(annotations["audience"], list)
+
+
+def test_prompts_list_has_all_prompts():
+    """Prompt list should include onboard, review, plan, investigate, health."""
+    import asyncio
+
+    server = MCPServer.__new__(MCPServer)
+    server._client_name = "claude-code"
+    server._client_version = ""
+    server._codrag_called = False
+    server._pinned_project = None
+    server._initialize_roots = []
+    server._notification_callback = None
+    server._last_atlas_signal = {}
+
+    result = asyncio.get_event_loop().run_until_complete(
+        server.handle_prompts_list({})
+    )
+    prompt_names = {p["name"] for p in result["prompts"]}
+    expected = {"codrag-onboard", "codrag-review", "codrag-plan", "codrag-investigate", "codrag-health"}
+    assert expected.issubset(prompt_names), f"Missing: {expected - prompt_names}"
+
+
+def test_prompt_onboard_returns_messages():
+    """The onboard prompt should return structured messages."""
+    import asyncio
+
+    server = MCPServer.__new__(MCPServer)
+    server._client_name = "claude-code"
+    server._client_version = ""
+    server._codrag_called = False
+    server._pinned_project = None
+    server._initialize_roots = []
+    server._notification_callback = None
+    server._last_atlas_signal = {}
+
+    result = asyncio.get_event_loop().run_until_complete(
+        server.handle_prompts_get({"name": "codrag-onboard", "arguments": {}})
+    )
+    assert "messages" in result
+    assert len(result["messages"]) > 0
+    assert result["messages"][0]["role"] == "user"
+
+
+def test_prompt_investigate_uses_query():
+    """The investigate prompt should use the query argument."""
+    import asyncio
+
+    server = MCPServer.__new__(MCPServer)
+    server._client_name = "claude-code"
+    server._client_version = ""
+    server._codrag_called = False
+    server._pinned_project = None
+    server._initialize_roots = []
+    server._notification_callback = None
+    server._last_atlas_signal = {}
+
+    result = asyncio.get_event_loop().run_until_complete(
+        server.handle_prompts_get({
+            "name": "codrag-investigate",
+            "arguments": {"query": "authentication flow"},
+        })
+    )
+    assert "authentication flow" in result["messages"][0]["content"]["text"]
+
+
+def test_prompt_analyze_backward_compat():
+    """The old codrag-analyze prompt should redirect to codrag-onboard."""
+    import asyncio
+
+    server = MCPServer.__new__(MCPServer)
+    server._client_name = "claude-code"
+    server._client_version = ""
+    server._codrag_called = False
+    server._pinned_project = None
+    server._initialize_roots = []
+    server._notification_callback = None
+    server._last_atlas_signal = {}
+
+    result = asyncio.get_event_loop().run_until_complete(
+        server.handle_prompts_get({"name": "codrag-analyze", "arguments": {}})
+    )
+    assert "messages" in result
+    # Should get the onboard prompt content
+    assert "Orient" in result["messages"][0]["content"]["text"]
