@@ -309,7 +309,7 @@ function App() {
   const eventsUrl = import.meta.env.DEV
     ? `http://${window.location.hostname}:8400/events`
     : `${api.baseUrl}/events`;
-  const { logs, tasks, clearLogs, pipelineEvents, scopeEvents } = useEventStream(eventsUrl, 1000);
+  const { logs, tasks, clearLogs, pipelineEvents, scopeEvents, queueVersion } = useEventStream(eventsUrl, 1000);
 
   // Helper to find relevant task for current project.
   // Prefer running tasks over completed ones so transition detectors
@@ -940,7 +940,7 @@ function App() {
             {!sidebarCollapsed && (
               <SidebarPipelineQueue
                 baseUrl={import.meta.env.DEV ? `http://${window.location.hostname}:8400` : api.baseUrl}
-                eventsUrl={eventsUrl}
+                queueVersion={queueVersion}
               />
             )}
           </Sidebar>

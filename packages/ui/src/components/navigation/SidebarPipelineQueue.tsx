@@ -36,7 +36,8 @@ interface QueueResponse {
 
 export interface SidebarPipelineQueueProps {
   baseUrl: string;
-  eventsUrl?: string;
+  /** Monotonic counter from useEventStream's queueVersion — triggers immediate re-fetch on change */
+  queueVersion?: number;
   onPause?: (projectId: string, group: string) => void;
   onResume?: (projectId: string, group: string) => void;
   onCancel?: (projectId: string, group: string) => void;
@@ -78,7 +79,7 @@ function groupLabel(group: string): string {
 
 export function SidebarPipelineQueue({
   baseUrl,
-  eventsUrl,
+  queueVersion,
   onPause,
   onResume,
   onCancel,
@@ -122,26 +123,12 @@ export function SidebarPipelineQueue({
     };
   }, [fetchQueue]);
 
-  // SSE listener for immediate refresh
+  // Immediate re-fetch when parent's SSE stream sees queue_changed
   useEffect(() => {
-    if (!eventsUrl) return;
-    const source = new EventSource(eventsUrl);
-    const handler = (event: MessageEvent) => {
-      try {
-        const payload = JSON.parse(event.data);
-        if (payload.type === 'queue_changed') {
-          fetchQueue();
-        }
-      } catch {
-        // ignore parse errors
-      }
-    };
-    source.addEventListener('message', handler);
-    return () => {
-      source.removeEventListener('message', handler);
-      source.close();
-    };
-  }, [eventsUrl, fetchQueue]);
+    if (queueVersion && queueVersion > 0) {
+      fetchQueue();
+    }
+  }, [queueVersion, fetchQueue]);
 
   const toggleCollapsed = useCallback(() => {
     setCollapsed(prev => {
