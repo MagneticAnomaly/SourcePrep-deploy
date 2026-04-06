@@ -69,6 +69,7 @@ from .batch_strategy import BatchStrategy, BatchedResponseParser, create_batch_s
 from .knowledge import KnowledgeIndex
 from .lod_extractor import LODExtractor, LODResult, assign_lod
 from .context_tier import ContextTier, tier_from_budget
+from .query_analyzer import QueryAnalyzer, QuerySignals
 from .atlas import (
     CodebaseAtlas, AtlasDocument, SegmentDescriptor,
     compute_atlas_budget, build_routing_descriptors, route_query,
@@ -128,6 +129,8 @@ __all__ = [
     "assign_lod",
     "ContextTier",
     "tier_from_budget",
+    "QueryAnalyzer",
+    "QuerySignals",
     "InferredEdgesAnalyzer",
     "InferredEdgesResult",
     "BatchProfile",
