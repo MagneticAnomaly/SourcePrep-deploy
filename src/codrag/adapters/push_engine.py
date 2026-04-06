@@ -103,11 +103,9 @@ class PushEngine:
         if self._conflict_detector and self._conflict_store:
             try:
                 from codrag.services.observation_store import observation_store
-                all_obs = observation_store.get_by_agent(
-                    codrag_project_id, created_by="",
-                    include_stale=False, limit=200,
+                attributed = observation_store.get_all_attributed(
+                    codrag_project_id, limit=200,
                 )
-                attributed = [o for o in all_obs if o.created_by]
                 if attributed:
                     conflicts = self._conflict_detector.detect_from_observations(
                         codrag_project_id, attributed,

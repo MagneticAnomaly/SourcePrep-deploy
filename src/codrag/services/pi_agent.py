@@ -283,14 +283,16 @@ class PiAgent:
             )
 
             # Save the librarian report as an observation
+            summary = (
+                f"Librarian scan: {results['stale_found']} stale observations, "
+                f"{results['orphaned_found']} orphaned observations found."
+            )
             self._save_observation(
-                content=(
-                    f"Librarian scan: {results['stale_found']} stale observations, "
-                    f"{results['orphaned_found']} orphaned observations found."
-                ),
+                content=summary,
                 category="agent_scan",
                 scenario="pi/librarian",
             )
+            self._log_activity("librarian", "scan_complete", summary)
 
             return results
 
@@ -414,6 +416,10 @@ class PiAgent:
                 "Pi dispatcher: complete in %.1fs — %d root causes found",
                 elapsed, len(root_causes),
             )
+            self._log_activity(
+                "dispatcher", "triage_complete",
+                f"{len(root_causes)} root causes from {len(findings)} findings",
+            )
 
             return result
 
@@ -536,6 +542,10 @@ class PiAgent:
                 ),
                 category="agent_scan",
                 scenario="pi/doctor",
+            )
+            self._log_activity(
+                "doctor", "check_complete",
+                f"{issue_count} issues, recommendation: {results['recommendation']}",
             )
 
             return results
@@ -674,6 +684,10 @@ class PiAgent:
                 "Pi geologist: complete in %.1fs — drift_detected=%s (%d changes)",
                 elapsed, results["drift_detected"], changed,
             )
+            self._log_activity(
+                "geologist", "drift_scan_complete",
+                f"drift={'yes' if results['drift_detected'] else 'no'}, {changed} changes",
+            )
 
             return results
 
@@ -772,6 +786,10 @@ class PiAgent:
                 ),
                 category="agent_scan",
                 scenario="pi/architect",
+            )
+            self._log_activity(
+                "architect", "assessment_complete",
+                f"{results['assessment']}: {module_count} modules, {arch_count} findings",
             )
 
             return results
@@ -902,6 +920,10 @@ class PiAgent:
                 ),
                 category="agent_scan",
                 scenario="pi/scholar",
+            )
+            self._log_activity(
+                "scholar", "quality_report_complete",
+                f"{issue_count} issues, aug={results['coverage'].get('augmentation', 0)}%",
             )
 
             return results
@@ -1128,6 +1150,49 @@ class PiAgent:
             scenario="pi/watchdog",
         )
         self._log_activity("watchdog", "delta_scan_complete", content)
+        self._capture_graph_snapshot()
+
+    def _capture_graph_snapshot(self) -> None:
+        """Capture current graph state for structural delta computation."""
+        if not self._collab:
+            return
+        try:
+            from codrag.core.trace import TraceIndex
+            trace_path = self.index_dir / "trace_index.json"
+            if not trace_path.exists():
+                return
+            ti = TraceIndex(self.index_dir)
+            ti.load()
+            # Extract hub files
+            hub_data = ti.hub_files(k=15)
+            hubs = [
+                {
+                    "path": h.get("path", ""),
+                    "dependents_count": h.get("in_degree", 0),
+                    "rank": i + 1,
+                }
+                for i, h in enumerate(hub_data)
+                if isinstance(h, dict) and h.get("path")
+            ]
+            # Extract modules from clusters
+            modules = []
+            if hasattr(ti, "get_clusters"):
+                for cluster in (ti.get_clusters() or []):
+                    if isinstance(cluster, dict):
+                        modules.append({
+                            "name": cluster.get("name", ""),
+                            "file_count": len(
+                                cluster.get("member_files", [])
+                            ),
+                        })
+            self._collab.snapshots.capture(
+                self.project_id, hubs=hubs, modules=modules,
+            )
+        except Exception:
+            logger.debug(
+                "Pi: graph snapshot capture failed (non-fatal)",
+                exc_info=True,
+            )
 
     def _save_observation(
         self,

@@ -207,6 +207,18 @@ def start_project_watch(
     watcher.start()
     _srv()._project_watchers[proj.id] = watcher
 
+    # Phase 73.5: Initialize collaboration hub (before Pi so Pi can use it).
+    collab_hub = None
+    try:
+        from codrag.services.collaboration import init_collaboration, get_collaboration_hub
+        if get_collaboration_hub() is None:
+            from codrag.services.settings_store import settings
+            init_collaboration(settings.db_path)
+            logger.info("Collaboration hub initialized")
+        collab_hub = get_collaboration_hub()
+    except Exception:
+        logger.debug("Collaboration hub init failed (non-fatal)", exc_info=True)
+
     # Phase 66: Initialize Pi agent alongside the watcher.
     # Pi uses the same project context as the watcher.
     # Non-fatal: if Pi init fails, the watcher still works.
@@ -216,6 +228,7 @@ def start_project_watch(
             project_id=proj.id,
             index_dir=project_index_dir(proj),
             project_root=Path(proj.path),
+            collab_hub=collab_hub,
         )
     except Exception:
         logger.debug("Pi agent initialization failed (non-fatal)", exc_info=True)

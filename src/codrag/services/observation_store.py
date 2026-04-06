@@ -477,6 +477,23 @@ class ObservationStore:
 
         return [Observation.from_row(r) for r in rows]
 
+    def get_all_attributed(
+        self,
+        project_id: str,
+        limit: int = 200,
+    ) -> List[Observation]:
+        """Return all observations that have a created_by value set."""
+        conn = self._require_conn()
+        with self._lock:
+            rows = conn.execute(
+                """SELECT * FROM observations
+                   WHERE project_id = ? AND created_by IS NOT NULL
+                   AND stale = 0
+                   ORDER BY created_at DESC LIMIT ?""",
+                (project_id, limit),
+            ).fetchall()
+        return [Observation.from_row(r) for r in rows]
+
     def get_stats(self, project_id: str) -> Dict[str, Any]:
         """Get observation statistics for a project."""
         conn = self._require_conn()
