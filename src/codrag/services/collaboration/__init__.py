@@ -18,8 +18,14 @@ class CollaborationHub:
 
     def __init__(self, db_path: Path) -> None:
         from codrag.services.collaboration.activity import ActivityStore
+        from codrag.services.collaboration.claims import ClaimStore
+        from codrag.services.collaboration.conflicts import ConflictStore
+        from codrag.services.collaboration.snapshots import GraphSnapshotStore
 
         self.activity = ActivityStore(db_path)
+        self.claims = ClaimStore(db_path)
+        self.conflicts = ConflictStore(db_path)
+        self.snapshots = GraphSnapshotStore(db_path)
 
 
 # Module-level singleton (initialized by daemon startup)
