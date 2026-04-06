@@ -905,10 +905,16 @@ function App() {
             {!sidebarCollapsed && (
               <ProjectList
                 beforeActions={
-                  <SidebarAIGateway
-                    slotsStatus={llmSlotsStatus}
-                    onOpenDetails={() => layoutApiRef.current?.openDetails('llm-status')}
-                  />
+                  <>
+                    <SidebarAIGateway
+                      slotsStatus={llmSlotsStatus}
+                      onOpenDetails={() => layoutApiRef.current?.openDetails('llm-status')}
+                    />
+                    <SidebarPipelineQueue
+                      baseUrl={import.meta.env.DEV ? `http://${window.location.hostname}:8400` : api.baseUrl}
+                      queueVersion={queueVersion}
+                    />
+                  </>
                 }
                 projects={sortedProjectSummaries}
                 selectedProjectId={selectedProjectId ?? undefined}
@@ -935,12 +941,6 @@ function App() {
                     />
                   ) : undefined
                 }
-              />
-            )}
-            {!sidebarCollapsed && (
-              <SidebarPipelineQueue
-                baseUrl={import.meta.env.DEV ? `http://${window.location.hostname}:8400` : api.baseUrl}
-                queueVersion={queueVersion}
               />
             )}
           </Sidebar>
