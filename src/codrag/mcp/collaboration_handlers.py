@@ -28,6 +28,7 @@ def get_collaboration_resources(project_id: str) -> List[Dict[str, Any]]:
                 "(e.g. researcher, pi/watchdog)."
             ),
             "mimeType": "text/markdown",
+            "annotations": {"audience": ["assistant"]},
         },
         {
             "uri": f"codrag://{pid}/agents/{{role}}/findings",
@@ -37,6 +38,7 @@ def get_collaboration_resources(project_id: str) -> List[Dict[str, Any]]:
                 "Replace {role} with agent name."
             ),
             "mimeType": "text/markdown",
+            "annotations": {"audience": ["assistant"]},
         },
         {
             "uri": f"codrag://{pid}/activity",
@@ -45,6 +47,7 @@ def get_collaboration_resources(project_id: str) -> List[Dict[str, Any]]:
                 "Chronological timeline of all agent actions."
             ),
             "mimeType": "text/markdown",
+            "annotations": {"audience": ["user", "assistant"]},
         },
         {
             "uri": f"codrag://{pid}/delta",
@@ -54,6 +57,7 @@ def get_collaboration_resources(project_id: str) -> List[Dict[str, Any]]:
                 "in the last 7 days."
             ),
             "mimeType": "text/markdown",
+            "annotations": {"audience": ["assistant"]},
         },
         {
             "uri": f"codrag://{pid}/conflicts",
@@ -63,6 +67,7 @@ def get_collaboration_resources(project_id: str) -> List[Dict[str, Any]]:
                 "the same files."
             ),
             "mimeType": "text/markdown",
+            "annotations": {"audience": ["user", "assistant"]},
         },
     ]
 

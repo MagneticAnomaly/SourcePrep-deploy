@@ -2205,8 +2205,7 @@ class MCPServer:
         except Exception:
             project_id = "default"
 
-        return {
-            "resources": [
+        resources = [
                 {
                     "uri": f"codrag://{project_id}/atlas",
                     "name": "Codebase Atlas",
@@ -2256,8 +2255,13 @@ class MCPServer:
                     "mimeType": "text/markdown",
                     "annotations": {"audience": ["user", "assistant"]},
                 },
-            ]
-        }
+        ]
+
+        # Phase 73.5: Append collaboration resources
+        from codrag.mcp.collaboration_handlers import get_collaboration_resources
+        resources.extend(get_collaboration_resources(project_id))
+
+        return {"resources": resources}
 
     async def handle_resources_templates_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle resources/templates/list — parameterized resource templates."""
@@ -2308,6 +2312,20 @@ class MCPServer:
         resource_type = resource_parts[0]
         resource_param = resource_parts[1] if len(resource_parts) > 1 else None
 
+        # Phase 73.5: Try collaboration resources first
+        from codrag.mcp.collaboration_handlers import parse_collaboration_uri
+        collab_parsed = parse_collaboration_uri(resource_path)
+        if collab_parsed is not None:
+            content = await self._read_collaboration_resource(
+                project_id, collab_parsed[0], collab_parsed[1],
+            )
+            return {
+                "contents": [{
+                    "uri": uri, "mimeType": "text/markdown",
+                    "text": content,
+                }]
+            }
+
         content = ""
         try:
             if resource_type == "structure":
@@ -2344,6 +2362,66 @@ class MCPServer:
                 }
             ]
         }
+
+    # ── Phase 73.5: Collaboration resource reader ─────────────────
+
+    async def _read_collaboration_resource(
+        self, project_id: str, resource_name: str,
+        params: Dict[str, str],
+    ) -> str:
+        """Fetch collaboration resource from daemon, format as markdown."""
+        from codrag.mcp.collaboration_handlers import (
+            format_activity_resource,
+            format_memory_resource,
+            format_delta_resource,
+            format_conflicts_resource,
+        )
+
+        try:
+            if resource_name == "activity":
+                data = await self._api_get(
+                    f"/projects/{project_id}/collaboration/activity"
+                )
+                return format_activity_resource(
+                    (data or {}).get("entries", []),
+                )
+
+            elif resource_name in ("memory", "agent_findings"):
+                role = params.get("role", "")
+                vis = "shared" if resource_name == "agent_findings" else None
+                url = (
+                    f"/projects/{project_id}/collaboration/"
+                    f"observations?created_by={role}"
+                )
+                if vis:
+                    url += f"&visibility={vis}"
+                data = await self._api_get(url)
+                return format_memory_resource(
+                    role, (data or {}).get("observations", []),
+                )
+
+            elif resource_name == "delta":
+                data = await self._api_get(
+                    f"/projects/{project_id}/collaboration/delta"
+                )
+                return format_delta_resource(data or {})
+
+            elif resource_name == "conflicts":
+                data = await self._api_get(
+                    f"/projects/{project_id}/collaboration/conflicts"
+                )
+                return format_conflicts_resource(
+                    (data or {}).get("conflicts", []),
+                )
+
+        except Exception as e:
+            logger.debug(
+                "Collaboration resource %s failed: %s",
+                resource_name, e,
+            )
+            return f"(Collaboration resource unavailable: {e})"
+
+        return "(Unknown collaboration resource)"
 
     # ── Resource content generators ──────────────────────────────────
 
@@ -2679,12 +2757,21 @@ class MCPServer:
 
     async def handle_prompts_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle prompts/list request."""
-        return {"prompts": self._PROMPTS}
+        from codrag.mcp.collaboration_handlers import get_collaboration_prompts
+        return {"prompts": self._PROMPTS + get_collaboration_prompts()}
 
     async def handle_prompts_get(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle prompts/get request."""
         name = params.get("name", "")
         arguments = params.get("arguments", {})
+
+        # Phase 73.5: Try collaboration prompts first
+        from codrag.mcp.collaboration_handlers import (
+            get_collaboration_prompt_messages,
+        )
+        collab_result = get_collaboration_prompt_messages(name, arguments)
+        if collab_result is not None:
+            return collab_result
 
         if name == "codrag-onboard":
             try:
