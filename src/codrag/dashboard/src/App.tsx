@@ -906,13 +906,13 @@ function App() {
               <ProjectList
                 beforeActions={
                   <>
-                    <SidebarAIGateway
-                      slotsStatus={llmSlotsStatus}
-                      onOpenDetails={() => layoutApiRef.current?.openDetails('llm-status')}
-                    />
                     <SidebarPipelineQueue
                       baseUrl={import.meta.env.DEV ? `http://${window.location.hostname}:8400` : api.baseUrl}
                       queueVersion={queueVersion}
+                    />
+                    <SidebarAIGateway
+                      slotsStatus={llmSlotsStatus}
+                      onOpenDetails={() => layoutApiRef.current?.openDetails('llm-status')}
                     />
                   </>
                 }
