@@ -79,7 +79,7 @@ PROJECT_SELECTION_AMBIGUOUS = -32004
 
 MAX_SEARCH_K = 50
 MAX_CONTEXT_K = 50
-MAX_CONTEXT_CHARS = 20_000
+MAX_CONTEXT_CHARS = 80_000  # Phase 73.2b: raised for Tier 1 (1M context) first-call boost
 
 
 from codrag.mcp_tools import TOOLS
@@ -122,34 +122,87 @@ class MCPServer:
 
     # OPP-W5: Adaptive token budget tiers based on detected MCP client.
     # Maps clientInfo.name patterns to max_chars defaults.
-    # Larger context windows -> more generous budgets.
+    #
+    # Phase 73.2b: 2.5-tier strategy for 2026 model landscape:
+    #
+    #   Tier 1 — 1M context (Opus 4, Gemini 2.5 Pro):
+    #     50K chars (~12.5K tokens = 1.3% of window).
+    #     These models excel at long-context reasoning. Give them
+    #     rich structural context: more hub files, deeper LOD,
+    #     full concept content (not just stats).
+    #
+    #   Tier 2 — 200-250K context (Sonnet 4, GPT-4o, Qwen3):
+    #     30K chars (~7.5K tokens = 3% of window).
+    #     Solid workhorse models. Standard structural context with
+    #     hub files + neighbor signatures + module hierarchy.
+    #
+    #   Tier 2.5 — Local models (assume 250K floor):
+    #     20K chars (~5K tokens = 2% of window).
+    #     Local models via Cline/Roo/Continue. We drop support for
+    #     sub-250K models since they're not useful for code-agent
+    #     tasks. 20K is generous for structured context.
+    #
     _CLIENT_BUDGETS: Dict[str, int] = {
-        "gemini": 24000,  # Gemini CLI: 1M tokens, be generous
-        "claude": 18000,  # Claude Code: 200K tokens
-        "cursor": 14000,  # Cursor: 200K tokens (Claude Sonnet)
-        "windsurf": 14000,  # Windsurf: 200K tokens
-        "cascade": 14000,  # Windsurf Cascade
-        "copilot": 14000,  # GitHub Copilot: 128K tokens (GPT-4o)
-        "cline": 10000,  # Cline: variable (may use local LLMs)
-        "roo": 10000,  # Roo Code: variable
-        "continue": 10000,  # Continue: variable
-        "qwen": 18000,  # Qwen Code: large context
+        # Tier 1: 1M context window models
+        "gemini": 50_000,    # Gemini 2.5 Pro: 1M tokens
+        # Claude Code sends clientInfo.name="claude-code" for both Opus
+        # and Sonnet. Since Opus (1M) and Sonnet (200K) both handle 50K
+        # chars easily (6.25% of Sonnet's window), use Tier 1 for all.
+        "claude": 50_000,    # Claude Code: Opus (1M) / Sonnet (200K)
+        # Tier 2: 200-250K context window models (IDE integrations)
+        "cursor": 30_000,    # Cursor: 200K+ (Claude Sonnet / Gemini)
+        "windsurf": 30_000,  # Windsurf: 200K+ (Claude Sonnet)
+        "cascade": 30_000,   # Windsurf Cascade
+        "copilot": 24_000,   # GitHub Copilot: 200K (GPT-4o / Claude)
+        "qwen": 24_000,      # Qwen Code: 128-256K tokens
+        # Tier 2.5: Local models (250K floor assumed)
+        "cline": 20_000,     # Cline: local models
+        "roo": 20_000,       # Roo Code: local models
+        "continue": 20_000,  # Continue: local models
     }
-    _DEFAULT_BUDGET = 12000
+    _DEFAULT_BUDGET = 24_000  # Assume Tier 2 for unknown clients
 
     def _get_context_budget(self) -> int:
         """Return adaptive max_chars based on detected MCP client.
 
         Phase 50 OPP-W5: Different AI tools have different context window
-        sizes. A local LLM via Cline (8K-32K) needs a much smaller atlas
-        than Gemini CLI (1M tokens). We detect the client from the MCP
-        initialize handshake and adjust accordingly.
+        sizes. We detect the client from the MCP initialize handshake
+        and assign the appropriate tier budget.
+
+        Phase 73.2: First-call orientation boost — the first `codrag` call
+        in a session gets 50% more context because that's when the agent
+        is building its mental model of the codebase. Subsequent calls
+        get the standard budget since the agent already has orientation.
         """
         client_lower = self._client_name.lower()
+        base = self._DEFAULT_BUDGET
         for pattern, budget in self._CLIENT_BUDGETS.items():
             if pattern in client_lower:
-                return budget
-        return self._DEFAULT_BUDGET
+                base = budget
+                break
+
+        # First-call orientation boost: give 50% more context
+        if not self._codrag_called:
+            base = int(base * 1.5)
+
+        # Clamp to hard cap so auto-computed budgets never fail validation
+        return min(base, MAX_CONTEXT_CHARS)
+
+    def _get_context_tier(self) -> int:
+        """Return the context tier int for the current client.
+
+        Phase 73.3b: Flows the tier to the backend so LOD thresholds,
+        hub selection, and module display adapt per client.
+        Uses the BASE budget (without orientation boost) for tier detection.
+        """
+        from codrag.core.context_tier import tier_from_budget
+        client_lower = self._client_name.lower()
+        base = self._DEFAULT_BUDGET
+        for pattern, budget in self._CLIENT_BUDGETS.items():
+            if pattern in client_lower:
+                base = budget
+                break
+        return tier_from_budget(base).value
 
     def _project_has_rules_file(self, project_id: str) -> bool:
         """Check if a CoDRAG rules file exists for the resolved project.
@@ -781,6 +834,7 @@ class MCPServer:
             "include_scores": True,  # Phase 73.1 Fix 4: expose relevance scores
             "structured": True,
             "trace_expand": bool(trace_expand),
+            "context_tier": self._get_context_tier(),
         }
         if compression != "none":
             payload["compression"] = compression
@@ -798,30 +852,36 @@ class MCPServer:
         # Phase 50 Sprint 3: Markdown output for search results.
         context_str = result.get("context", "")
 
-        # OPP-W2: Per-subsystem deep dive. If search results cluster in
-        # a specific directory, try to include a brief subsystem orientation.
+        # Phase 73.2: Per-subsystem deep dive from chunks (structured path)
+        # or sources (non-structured path).
         subsystem_hint = ""
         if isinstance(data, dict):
-            sources = data.get("sources", [])
-            if isinstance(sources, list) and sources:
+            source_items = data.get("chunks", []) or data.get("sources", [])
+            if isinstance(source_items, list) and source_items:
                 # Detect dominant directory from source paths
                 dir_counts: Dict[str, int] = {}
-                for src in sources:
-                    path = src.get("file_path", "") if isinstance(src, dict) else ""
+                for src in source_items:
+                    if not isinstance(src, dict):
+                        continue
+                    path = src.get("source_path", "") or src.get("file_path", "")
                     if "/" in path:
                         top_dir = path.split("/")[0]
                         dir_counts[top_dir] = dir_counts.get(top_dir, 0) + 1
                 if dir_counts:
                     top_dir, top_count = max(dir_counts.items(), key=lambda x: x[1])
                     # If >60% of results are in one directory, add subsystem hint
-                    if top_count >= len(sources) * 0.6 and top_count >= 2:
-                        subsystem_hint = f"\n[Subsystem focus: {top_dir}/ -- {top_count}/{len(sources)} results in this area]\n"
+                    if top_count >= len(source_items) * 0.6 and top_count >= 2:
+                        subsystem_hint = f"\n[Subsystem focus: {top_dir}/ -- {top_count}/{len(source_items)} results in this area]\n"
 
         if context_str:
-            # Phase 73.1 Fix 4: Add retrieval confidence indicator
-            sources = data.get("sources", []) if isinstance(data, dict) else []
-            if sources:
-                scores = [s.get("score", 0) for s in sources if isinstance(s, dict)]
+            # Phase 73.2: Add retrieval confidence indicator
+            # Structured path returns scores in chunks; non-structured in sources
+            score_items = []
+            if isinstance(data, dict):
+                score_items = data.get("chunks", []) or data.get("sources", [])
+            if score_items and isinstance(score_items, list):
+                scores = [s.get("score", 0) for s in score_items
+                          if isinstance(s, dict) and s.get("score")]
                 if scores:
                     avg_score = sum(scores) / len(scores)
                     confidence = "high" if avg_score > 0.7 else "medium" if avg_score > 0.4 else "low"
@@ -898,6 +958,7 @@ class MCPServer:
             "query": "",
             "max_chars": max_chars,
             "include_atlas": not has_rules,
+            "context_tier": self._get_context_tier(),
         }
 
         try:
@@ -941,11 +1002,8 @@ class MCPServer:
         total_chars = result.get("total_chars", 0)
 
         md_parts: List[str] = []
-        md_parts.append(f"## CoDRAG Context ({chunks} chunks, {total_chars} chars)")
-        if hub_count or mod_count:
-            md_parts.append(
-                f"Hubs: {hub_count} | Modules: {mod_count} | Neighbors: {neighbor_count}"
-            )
+        # Phase 73.2: Clean header — AI doesn't need chunk/char counts
+        md_parts.append("## Project Structure")
         md_parts.append("")
         if context_str:
             md_parts.append(context_str)
@@ -967,15 +1025,19 @@ class MCPServer:
             except Exception as e:
                 logger.debug("Role projection failed for role=%s: %s", role, e)
 
-        # Phase 71: Architecture context (user-curated)
+        # Phase 73.2: Architecture context (user-curated, budget-capped)
+        # Only include when annotations exist — otherwise it's redundant
+        # with the module list already in the ambient context.
         try:
             arch_data = await self._api_get(
                 f"/projects/{project_id}/architecture/context"
             )
             if isinstance(arch_data, dict) and arch_data.get("exists"):
                 arch_text = arch_data.get("text", "")
-                arch_text = self._truncate_section(arch_text, 3000, "architecture")
-                if arch_text:
+                # Phase 73.2: Halved budget from 3000→1500 to reduce redundancy
+                arch_text = self._truncate_section(arch_text, 1500, "architecture")
+                # Skip if it's just the header + empty module list
+                if arch_text and len(arch_text.strip().splitlines()) > 3:
                     md_parts.append("\n---\n")
                     md_parts.append(arch_text)
         except Exception as e:
@@ -996,7 +1058,12 @@ class MCPServer:
                     cats = cdata.get("by_category", {})
                     concept_line = f"\n[Concepts: {active} active, {seeds} seeds"
                     if cats:
-                        concept_line += f" — {', '.join(f'{k}: {v}' for k, v in cats.items())}"
+                        # Show top 4 categories to keep ambient context concise
+                        sorted_cats = sorted(cats.items(), key=lambda x: x[1], reverse=True)
+                        top = sorted_cats[:4]
+                        concept_line += f" — {', '.join(f'{k}: {v}' for k, v in top)}"
+                        if len(sorted_cats) > 4:
+                            concept_line += f", +{len(sorted_cats) - 4} more"
                     if pending_q:
                         concept_line += f" | {pending_q} questions pending"
                     concept_line += ". Use codrag_concepts to explore.]"
@@ -1446,9 +1513,18 @@ class MCPServer:
                         entry["stale"] = True
                     concepts.append(entry)
 
+            # Cap results to avoid flooding agent context
+            total_count = len(concepts)
+            if total_count > 25:
+                concepts = concepts[:25]
+
             # Markdown output
             if concepts:
-                md_lines = [f"## Concepts ({len(concepts)})\n"]
+                header = f"## Concepts ({len(concepts)}"
+                if total_count > len(concepts):
+                    header += f" of {total_count} — use query or category filter to narrow"
+                header += ")\n"
+                md_lines = [header]
                 for c in concepts:
                     stale_tag = " [STALE]" if c.get("stale") else ""
                     status_tag = f" ({c['status']})" if c.get("status") == "seed" else ""
