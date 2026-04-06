@@ -58,6 +58,7 @@ class ContextRequest(BaseModel):
     compression_level: str = "standard"  # "light" | "standard" | "aggressive"
     compression_target_chars: Optional[int] = None
     compression_timeout_s: float = 30.0
+    context_tier: Optional[int] = None  # Phase 73.3b: 1=Tier1, 2=Tier2, 3=Tier2.5. None=auto from max_chars.
     include_atlas: bool = False  # Explicit opt-in: prepend atlas text to context. Routing (Phase 29B) handles segment selection automatically; atlas text is primarily accessed via the codrag_atlas tool.
     role: Optional[str] = None  # Phase 67: agent role for scoped search filtering
 
