@@ -1,6 +1,6 @@
 """
-CoDRAG Pipeline Router — Phase 24 (SM-6) + Phase 25 (Crash Protection)
-=======================================================================
+CoDRAG Pipeline Router — Phase 24 (SM-6) + Phase 25 (Crash Protection) + Phase 76 (Rebuild)
+=============================================================================================
 
 Exposes the 8-stage pipeline orchestrator via HTTP endpoints.
 
@@ -8,6 +8,7 @@ Exposes the 8-stage pipeline orchestrator via HTTP endpoints.
   - POST /projects/{id}/pipeline/fast     — run Fast Sync (stages 1-4)
   - POST /projects/{id}/pipeline/deep     — run Deep Enrichment (stages 5-8)
   - POST /projects/{id}/pipeline/all      — run all stages (fast → deep)
+  - POST /projects/{id}/pipeline/rebuild  — rebuild all stages from scratch (Phase 76)
   - GET  /projects/{id}/pipeline/status   — pipeline status (8-stage, two-group)
   - POST /projects/{id}/pipeline/cancel   — cancel a running group
   - GET  /pipeline/crashed                — all crashed runs (Phase 25)
@@ -161,6 +162,33 @@ def pipeline_run_all(project_id: str) -> Dict[str, Any]:
         )
 
     return ok({"started": True, "group": "all"})
+
+
+@router.post("/projects/{project_id}/pipeline/rebuild")
+def pipeline_rebuild(project_id: str) -> Dict[str, Any]:
+    """Rebuild all pipeline stages from scratch (zero-downtime).
+
+    Each stage rebuilds its output completely, writing to a temp file
+    and atomically swapping it into the live index directory.  The
+    existing data remains available until the new data is ready.
+
+    Phase 76: This is the non-destructive alternative to Reset Graph +
+    re-run.  It does NOT delete anything first — it overwrites in place.
+    """
+    from codrag.services.project_helpers import require_project_writable
+    require_project_writable(project_id)
+
+    from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+    started = pipeline_orchestrator.run_all(project_id, force_from_start=True)
+
+    if not started:
+        raise ApiException(
+            status_code=409,
+            code="PIPELINE_ALREADY_RUNNING",
+            message="Pipeline is already running for this project",
+        )
+
+    return ok({"started": True, "group": "all", "mode": "rebuild"})
 
 
 @router.get("/projects/{project_id}/pipeline/status")
