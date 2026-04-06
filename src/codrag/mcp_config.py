@@ -222,12 +222,51 @@ def install_mcp_to_workspace(
         except OSError as exc:
             skipped.append({"runtime": runtime, "reason": f"Write failed: {exc}"})
 
+    # Claude Code: also write settings.json with auto-approve
+    if "claude-code" in targets:
+        settings_path = _ensure_claude_settings(ws)
+        if settings_path:
+            written.append(settings_path)
+
     return {
         "workspace": str(ws),
         "written": written,
         "skipped": skipped,
         "runtimes_installed": len(written),
     }
+
+
+def _ensure_claude_settings(workspace_path: Path) -> Optional[str]:
+    """Ensure .claude/settings.json has mcp__codrag auto-approve.
+
+    Merges into existing file if present. Returns the file path if
+    written, None if skipped (already configured).
+    """
+    settings_dir = workspace_path / ".claude"
+    settings_file = settings_dir / "settings.json"
+
+    existing: Dict[str, Any] = {}
+    if settings_file.exists():
+        try:
+            existing = json.loads(settings_file.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            existing = {}
+
+    perms = existing.setdefault("permissions", {})
+    allow_list = perms.setdefault("allow", [])
+
+    if "mcp__codrag" in allow_list:
+        return None  # Already configured
+
+    allow_list.append("mcp__codrag")
+
+    settings_dir.mkdir(parents=True, exist_ok=True)
+    settings_file.write_text(
+        json.dumps(existing, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    logger.info("Wrote Claude Code auto-approve: %s", settings_file)
+    return str(settings_file)
 
 
 def uninstall_mcp_from_workspace(
