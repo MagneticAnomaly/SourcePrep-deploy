@@ -429,12 +429,25 @@ def _load_scope_modules(
     return scope_modules
 
 
-def _format_module_tiers(scope_modules: List[Dict[str, Any]]) -> str:
+def _format_module_tiers(
+    scope_modules: List[Dict[str, Any]],
+    context_tier: Optional["ContextTier"] = None,
+) -> str:
     """Format modules into tiered display: significant, small, tiny."""
+    from codrag.core.context_tier import ContextTier
+
+    tier = context_tier if context_tier is not None else ContextTier.TIER_2
+
     if not scope_modules:
         return ""
-    significant = [m for m in scope_modules if m.get("file_count", 0) >= 5]
-    small = [m for m in scope_modules if 2 <= m.get("file_count", 0) < 5]
+    significant = [
+        m for m in scope_modules
+        if m.get("file_count", 0) >= tier.module_min_files_significant
+    ]
+    small = [
+        m for m in scope_modules
+        if 2 <= m.get("file_count", 0) < tier.module_min_files_significant
+    ]
     tiny = [m for m in scope_modules if m.get("file_count", 0) < 2]
 
     mod_header = "## Modules in scope\n"
@@ -449,10 +462,14 @@ def _format_module_tiers(scope_modules: List[Dict[str, Any]]) -> str:
         if deps:
             line += f" → {deps}"
         mod_header += line + "\n"
-    if small:
+    if tier.module_show_small and small:
         mod_header += f"\n*Plus {len(small)} smaller modules (2-4 files each)*\n"
-    if tiny:
+    if tier.module_show_tiny and tiny:
         mod_header += f"*Plus {len(tiny)} single-file modules*\n"
+    if not tier.module_show_small and not tier.module_show_tiny:
+        omitted = len(small) + len(tiny)
+        if omitted:
+            mod_header += f"\n*Plus {omitted} smaller modules*\n"
     return mod_header.strip()
 
 
@@ -460,12 +477,13 @@ def _resolve_hub_files(
     trace_idx: Any,
     idx: Any,
     included_paths: List[str],
+    hub_count: int = 8,
 ) -> List[Tuple[str, int]]:
     """Resolve hub files from trace index with fallbacks."""
     hub_files: List[Tuple[str, int]] = []
     if trace_idx is not None and trace_idx.is_loaded():
         scope_set = set(included_paths) if included_paths else None
-        hub_files = trace_idx.get_hub_files(scope_paths=scope_set, k=8)
+        hub_files = trace_idx.get_hub_files(scope_paths=scope_set, k=hub_count)
     if not hub_files and included_paths:
         indexed_docs = getattr(idx, '_documents', None) or []
         for ip in included_paths:
@@ -474,13 +492,13 @@ def _resolve_hub_files(
                 sp = str(d.get("source_path") or "")
                 if sp == ip or sp.startswith(prefix):
                     hub_files.append((sp, 0))
-                    if len(hub_files) >= 8:
+                    if len(hub_files) >= hub_count:
                         break
-            if len(hub_files) >= 8:
+            if len(hub_files) >= hub_count:
                 break
     if not hub_files:
         if trace_idx is not None and trace_idx.is_loaded():
-            hub_files = trace_idx.get_hub_files(k=8)
+            hub_files = trace_idx.get_hub_files(k=hub_count)
     return hub_files
 
 
@@ -491,6 +509,7 @@ def _assemble_ambient_context(
     trace_idx,
     included_paths: List[str],
     max_chars: int = 6000,
+    context_tier: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Assemble context from project state without a query (Phase 34 C1/C2/C3).
 
@@ -505,6 +524,12 @@ def _assemble_ambient_context(
 
     idx_dir = project_index_dir(proj)
 
+    from codrag.core.context_tier import ContextTier, tier_from_budget
+    tier = (
+        ContextTier(context_tier) if context_tier is not None
+        else tier_from_budget(max_chars)
+    )
+
     # ── C2: Module-aware header ──────────────────────────────────
     scope_modules = _load_scope_modules(idx_dir, included_paths)
     mod_text = _format_module_tiers(scope_modules)
@@ -513,7 +538,7 @@ def _assemble_ambient_context(
         total_chars += len(parts[-1])
 
     # ── C1: Hub-file extraction ──────────────────────────────────
-    hub_files = _resolve_hub_files(trace_idx, idx, included_paths)
+    hub_files = _resolve_hub_files(trace_idx, idx, included_paths, hub_count=tier.hub_count)
 
     # ── C3: LOD-stratified assembly ──────────────────────────────
     # Hub files get full content (LOD 0), their neighbors get signatures
@@ -542,8 +567,17 @@ def _assemble_ambient_context(
 
     # Assemble hub file content (LOD 0 — full source, budget-aware)
     chars_budget = max_chars - total_chars
-    hub_budget = int(chars_budget * 0.7)  # 70% for hubs
-    neighbor_budget = int(chars_budget * 0.3)  # 30% for neighbors
+    hub_budget = int(chars_budget * tier.hub_budget_pct)
+    neighbor_budget = int(chars_budget * tier.neighbor_budget_pct)
+
+    hub_lod_extractor = None
+    if tier.hub_lod > 0:
+        try:
+            from codrag.core.lod_extractor import LODExtractor
+            hub_lod_extractor = LODExtractor(index_dir=idx_dir)
+        except Exception:
+            pass
+    repo_root_path = Path(proj.path) if proj.path else None
 
     hub_chars = 0
     seen_hub_paths: set = set()  # Phase 73.1 Fix 2: dedup hub files
@@ -554,23 +588,52 @@ def _assemble_ambient_context(
             continue
         seen_hub_paths.add(fp)
         file_docs = doc_by_path.get(fp, [])
-        if not file_docs:
-            continue
-        # Phase 73: Pick most representative chunk, not largest.
-        # Priority: META_SYNOPSIS > first chunk (by line) > largest chunk.
-        best_doc = None
-        for d in file_docs:
-            if d.get("section") == "META_SYNOPSIS":
-                best_doc = d
-                break
-        if best_doc is None:
-            by_span = sorted(file_docs, key=lambda d: (d.get("span") or {}).get("start_line", 9999))
-            best_doc = by_span[0]
-        content = str(best_doc.get("content") or "")
+
+        # Tier-aware hub LOD: use LOD extraction when tier specifies LOD > 0
+        content = None
+        if tier.hub_lod > 0 and hub_lod_extractor is not None and repo_root_path is not None:
+            try:
+                trace_nodes_for_hub = []
+                if trace_idx is not None and trace_idx.is_loaded():
+                    for nid_key in list(getattr(trace_idx, '_nodes', {}).keys()):
+                        n = trace_idx.get_node(nid_key)
+                        if n and n.get("file_path") == fp:
+                            trace_nodes_for_hub.append(n)
+                lod_result = hub_lod_extractor.extract(
+                    fp, lod=tier.hub_lod, trace_nodes=trace_nodes_for_hub,
+                    repo_root=repo_root_path,
+                )
+                if lod_result and lod_result.content and not lod_result.error:
+                    content = lod_result.content
+            except Exception:
+                pass
+
+        if content is None:
+            # Original document-based fallback
+            if not file_docs:
+                continue
+            # Phase 73: Pick most representative chunk, not largest.
+            # Priority: META_SYNOPSIS > first chunk (by line) > largest chunk.
+            best_doc = None
+            for d in file_docs:
+                if d.get("section") == "META_SYNOPSIS":
+                    best_doc = d
+                    break
+            if best_doc is None:
+                by_span = sorted(
+                    file_docs,
+                    key=lambda d: (d.get("span") or {}).get("start_line", 9999),
+                )
+                best_doc = by_span[0]
+            content = str(best_doc.get("content") or "")
+
         if hub_chars + len(content) > hub_budget and hub_chars > 0:
             continue
-        section = str(best_doc.get("section") or "")
-        header = f"[hub | in-degree:{deg} | @{fp}"
+        section = str(best_doc.get("section") or "") if tier.hub_lod == 0 and file_docs else ""
+        header = f"[hub | in-degree:{deg}"
+        if tier.hub_lod > 0:
+            header += f" | lod={tier.hub_lod}"
+        header += f" | @{fp}"
         if section:
             header += f" § {section}"
         header += "]"
@@ -580,7 +643,7 @@ def _assemble_ambient_context(
             "source_path": fp,
             "section": section,
             "score": 1.0,
-            "truncated": False,
+            "truncated": tier.hub_lod > 0,
             "ambient_role": "hub",
         })
         hub_chars += len(block)
@@ -621,7 +684,7 @@ def _assemble_ambient_context(
                         if n and n.get("file_path") == nfp and n.get("kind") != "file":
                             trace_nodes.append(n)
 
-                lod_result = lod_extractor.extract(nfp, lod=2, trace_nodes=trace_nodes, repo_root=repo_root)
+                lod_result = lod_extractor.extract(nfp, lod=tier.neighbor_lod, trace_nodes=trace_nodes, repo_root=repo_root)
                 if lod_result and lod_result.content and not lod_result.error:
                     lod_content = lod_result.content
             except Exception:
@@ -629,7 +692,7 @@ def _assemble_ambient_context(
 
         if lod_content:
             content = lod_content
-            lod_label = "LOD 2"
+            lod_label = f"LOD {tier.neighbor_lod}"
         elif file_docs:
             # Phase 73: Prefer META_SYNOPSIS over blind truncation
             meta_doc = next((d for d in file_docs if d.get("section") == "META_SYNOPSIS"), None)
@@ -724,6 +787,7 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
         _included = (proj.config or {}).get("included_paths") or []
         return _assemble_ambient_context(
             proj, project_id, idx, trace_idx, _included, max_chars=req.max_chars,
+            context_tier=req.context_tier,
         )
 
     # ── Phase 34e F: Query preprocessing ─────────────────────────
