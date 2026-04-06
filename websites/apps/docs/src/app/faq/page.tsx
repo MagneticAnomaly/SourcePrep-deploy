@@ -36,7 +36,7 @@ export default function Page() {
             <p className="mt-2 text-text-muted leading-relaxed">
               <span className="font-semibold text-text">No.</span> The core features (indexing, trace graph, search, and compression) run efficiently on CPU. 
               The built-in embedding model is quantized and optimized for CPU inference. 
-              Context compression is built in &mdash; structural compression for code runs instantly with no model, and language-aware compression for docs uses a lightweight CPU model.
+              Context compression is built in &mdash; structural compression for code runs instantly with no model.
             </p>
           </div>
 

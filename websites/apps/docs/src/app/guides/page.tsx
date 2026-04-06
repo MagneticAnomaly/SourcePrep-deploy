@@ -51,8 +51,8 @@ export default function Page() {
           >
             <h2 className="text-xl font-semibold">Smart Context Compression</h2>
             <p className="mt-2 text-sm text-text-muted">
-              Two built-in engines: structural compression for code (3–20×) and language-aware
-              compression for docs. No GPU or sidecar needed.
+              Built-in structural compression for code (3–20×) with tier-adaptive LOD levels.
+              No GPU, no model, no sidecar needed.
             </p>
           </a>
 

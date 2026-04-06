@@ -30,7 +30,7 @@ export function SplitHero({ isBetaMode }: { isBetaMode: boolean }) {
           <FeaturePoint icon={<Search className="w-5 h-5 text-primary" />} text="Semantic search with built-in ONNX embeddings — Ollama or cloud API optional" />
           <FeaturePoint icon={<Layers className="w-5 h-5 text-primary" />} text="Rust-powered Code Graph maps imports, calls, and symbol hierarchies" />
           <FeaturePoint icon={<Zap className="w-5 h-5 text-primary" />} text="Path weights let you boost core modules and silence noise — instantly" />
-          <FeaturePoint icon={<Shield className="w-5 h-5 text-primary" />} text="Smart compression for code (3–20× structural) and docs (language-aware) — built in" />
+          <FeaturePoint icon={<Shield className="w-5 h-5 text-primary" />} text="Smart structural compression for code (3–20×) — built in, zero dependencies" />
         </div>
 
         <Flex className="mt-10 gap-4">

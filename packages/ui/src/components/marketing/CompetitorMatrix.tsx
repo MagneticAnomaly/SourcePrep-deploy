@@ -159,7 +159,7 @@ const matrixData: FeatureRow[] = [
           vexp: {
             text: 'Capsule\nContext',
             status: 'full',
-            detail: "Vexp implements capsule context very similarly to CoDRAG \u2014 full source for pivot nodes, signatures for neighbors. Credit where it's due: this is one of the closest approaches to CoDRAG's LOD system and validates the core idea. The difference is CoDRAG's dual-engine compression and module-summary injection, which provide additional layers of context beyond what Vexp includes, plus CoDRAG's dashboard lets you visually inspect the assembled capsule before it's sent.",
+            detail: "Vexp implements capsule context very similarly to CoDRAG \u2014 full source for pivot nodes, signatures for neighbors. Credit where it's due: this is one of the closest approaches to CoDRAG's LOD system and validates the core idea. The difference is CoDRAG's tier-adaptive LOD compression and module-summary injection, which provide additional layers of context beyond what Vexp includes, plus CoDRAG's dashboard lets you visually inspect the assembled capsule before it's sent.",
           },
           empirica: {
             text: 'Reasoning\nCheckpoints',
@@ -188,9 +188,9 @@ const matrixData: FeatureRow[] = [
         name: 'Token Efficiency',
         description: 'Minimizing distractor tokens',
         codrag: {
-          text: 'Dual-Engine\nCompression (3\u201320x)',
+          text: 'Structural\nCompression (3\u201320x)',
           status: 'full',
-          detail: "CoDRAG achieves 3\u201320x token compression through a dual-engine approach: LOD-based structural compression (signatures instead of full bodies) and module-summary injection (one paragraph replacing hundreds of lines). In benchmarks, this reduces the average context window from ~15K tokens to 2\u20135K tokens while retaining the information the AI actually needs. The compression level adapts dynamically per query.",
+          detail: "CoDRAG achieves 3\u201320x token compression through LOD-based structural compression (signatures instead of full bodies) and module-summary injection (one paragraph replacing hundreds of lines). The compression level adapts dynamically per query and per client tier \u2014 Claude/Gemini get more full-source files, local models get tighter compression to fit constrained windows.",
         },
         competitors: {
           gitnexus: {
@@ -201,7 +201,7 @@ const matrixData: FeatureRow[] = [
           vexp: {
             text: 'High\n(Signature Only)',
             status: 'partial',
-            detail: "Vexp achieves good efficiency by returning only signatures for non-focal nodes. This is the same core strategy as CoDRAG's LOD system, and it works well. Vexp's compression is query-adaptive and effective. CoDRAG's additional edge comes from module-summary injection (providing project-level context that Vexp doesn't include) and the dual BM25+semantic scoring that better prioritizes which nodes to include at all.",
+            detail: "Vexp achieves good efficiency by returning only signatures for non-focal nodes. This is the same core strategy as CoDRAG's LOD system, and it works well. Vexp's compression is query-adaptive and effective. CoDRAG's additional edge comes from module-summary injection (providing project-level context that Vexp doesn't include), tier-adaptive LOD thresholds, and the BM25+semantic scoring that better prioritizes which nodes to include at all.",
           },
           empirica: {
             text: 'Low\n(State Dumps)',

@@ -35,16 +35,16 @@ const stackComponents: StackComponent[] = [
   {
     name: 'Smart Context Compression',
     required: false,
-    tag: 'Built-in — dual-engine compression for code & docs',
+    tag: 'Built-in — structural code compression, no dependencies',
     accent: 'success',
     icon: <Shrink className="w-6 h-6" />,
-    description: 'Two compression engines, each optimized for what it compresses. Code files are structurally compressed — the engine understands functions, classes, and imports, so it keeps what matters and summarizes the rest. Documentation and markdown are compressed with a lightweight language model that removes filler while preserving meaning. Both run on CPU, no GPU needed.',
+    description: 'CoDRAG understands your code\'s structure — functions, classes, imports — and compresses at variable fidelity based on relevance. Top results stay at full source, mid-relevance shows signatures, peripheral files show names only. Tier-adaptive: the compression level adjusts to your AI tool\'s context window. Zero dependencies, runs instantly on CPU.',
     provides: [
-      '3–20× structural compression for code (understands your code\'s shape)',
-      'Language-aware compression for docs and markdown (~1.6×, 89% concept retention)',
+      '3–20× structural compression for code (validated on real codebases)',
+      'Tier-adaptive — adjusts compression per client (Opus gets more detail, local models get tighter compression)',
       'Score-aware — high-relevance stays full, low-relevance compresses more',
       'Increases signal density — fit more relevant context into every prompt',
-      'Built-in — no GPU, no cloud, works via API, MCP, and dashboard',
+      'Built-in — no GPU, no cloud, no model downloads, works via API, MCP, and dashboard',
     ],
   },
 ];
@@ -179,8 +179,8 @@ export function TechStackMatrix({ className = '' }: TechStackMatrixProps) {
         <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
         <span>
           <strong>Recommended:</strong> Install CoDRAG — embeddings, search, and context assembly work immediately.
-          The built-in model (~130 MB) downloads automatically on first build. Smart compression is built in —
-          structural compression for code, language-aware compression for docs, zero extra dependencies.
+          The built-in model (~130 MB) downloads automatically on first build. Structural compression is built in —
+          3-20x code compression with zero extra dependencies.
         </span>
       </div>
     </div>
