@@ -145,7 +145,7 @@ function App() {
     const stored = localStorage.getItem('codrag_dev_role_override')
     return stored ? stored as UserRole : null
   })
-  const [globalConfig, setGlobalConfig] = useState<{ developer_debug_mode?: boolean }>({})
+  const [globalConfig, setGlobalConfig] = useState<{ developer_debug_mode?: boolean; developer_show_dev_panels?: boolean }>({})
 
   const [adminPolicy, setAdminPolicy] = useState<any>(null)
   const [seatStatus, setSeatStatus] = useState<any>(null)
@@ -369,7 +369,7 @@ function App() {
     handleAddExcludePattern, handleRemoveExcludePattern,
     handleRunFastSync,
     handleEnrichmentAutoConfigChange, handleIndexAutoRebuildChange,
-    handleDestroyGraph, handleDestroyIndex,
+    handleDestroyGraph, handleDestroyIndex, handleRebuildPipeline,
   } = useTraceSystem(selectedProjectId, {
     projectConfig,
     setProjectConfig,
@@ -582,8 +582,12 @@ function App() {
           const globalCfg = await api.getGlobalConfig()
           // Read developer_debug_mode FIRST — before any operations that
           // might throw and skip it via the catch block below.
-          if (globalCfg.developer_debug_mode !== undefined) {
-            setGlobalConfig(prev => ({ ...prev, developer_debug_mode: globalCfg.developer_debug_mode }))
+          if (globalCfg.developer_debug_mode !== undefined || globalCfg.developer_show_dev_panels !== undefined) {
+            setGlobalConfig(prev => ({
+              ...prev,
+              ...(globalCfg.developer_debug_mode !== undefined && { developer_debug_mode: globalCfg.developer_debug_mode }),
+              ...(globalCfg.developer_show_dev_panels !== undefined && { developer_show_dev_panels: globalCfg.developer_show_dev_panels }),
+            }))
           }
           if (globalCfg.max_active_projects) {
             setMaxActiveProjects(globalCfg.max_active_projects)
@@ -691,6 +695,7 @@ function App() {
     onOpenDeepSettings: () => { setSettingsOpenToTab('project'); setScrollToDeepAnalysis(true); setSettingsOpen(true) },
     onOpenSettings: () => { setSettingsOpenToTab('global'); setSettingsOpen(true) },
     onOpenDetails: (panelId: string) => layoutApiRef.current?.openDetails(panelId),
+    showDevPanels: globalConfig.developer_show_dev_panels ?? false,
     // Domain groups
     search: {
       query, setQuery, searchK, setSearchK, minScore, setMinScore,
@@ -860,6 +865,7 @@ function App() {
         projectName={selectedProject?.name}
         onDestroyGraph={handleDestroyGraph}
         onDestroyIndex={handleDestroyIndex}
+        onRebuildPipeline={handleRebuildPipeline}
         onDestroyAtlas={handleDestroyAtlas}
         onDestroyGroupReasoning={handleDestroyGroupReasoning}
         onDestroyDeepEnrichment={handleDestroyDeepEnrichment}
