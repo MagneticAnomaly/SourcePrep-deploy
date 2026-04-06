@@ -2048,9 +2048,9 @@ class MCPServer:
         return {
             "protocolVersion": MCP_PROTOCOL_VERSION,
             "capabilities": {
-                "tools": {"listChanged": False},
-                "resources": {"subscribe": False, "listChanged": False},
-                "prompts": {"listChanged": False},
+                "tools": {"listChanged": True},
+                "resources": {"subscribe": False, "listChanged": True},
+                "prompts": {"listChanged": True},
             },
             "serverInfo": {
                 "name": "codrag",
