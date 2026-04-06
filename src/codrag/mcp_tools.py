@@ -719,6 +719,10 @@ LEGACY_TOOLS = [
                     "enum": ["note", "decision", "bug", "pattern", "assumption"],
                     "default": "note",
                 },
+                "created_by": {
+                    "type": "string",
+                    "description": "Agent role identifier for attribution (e.g. 'researcher', 'pi/watchdog').",
+                },
                 "project_id": {
                     "type": "string",
                     "description": "CoDRAG project ID. Auto-detected from workspace root if omitted.",

@@ -35,6 +35,7 @@ class SaveObservationRequest(BaseModel):
     file_path: Optional[str] = None
     symbol: Optional[str] = None
     category: Optional[str] = "note"
+    created_by: Optional[str] = None
 
 
 class SearchObservationsParams(BaseModel):
@@ -73,6 +74,7 @@ async def save_observation(project_id: str, body: SaveObservationRequest):
             file_path=body.file_path,
             symbol_fqn=body.symbol,
             category=body.category or "note",
+            created_by=body.created_by,
         )
     except ValueError as e:
         raise ApiException(400, "VALIDATION_ERROR", str(e))

@@ -567,6 +567,7 @@ from codrag.api.routers.agent_scope import router as agent_scope_router
 from codrag.api.routers.agents import router as agents_router
 from codrag.api.routers.architecture import router as architecture_router
 from codrag.api.routers.mcp_setup import router as mcp_setup_router
+from codrag.api.routers.collaboration import router as collaboration_router
 app.include_router(system_router)
 app.include_router(license_router)
 app.include_router(trace_router)
@@ -588,6 +589,7 @@ app.include_router(agent_scope_router)
 app.include_router(agents_router)
 app.include_router(architecture_router)
 app.include_router(mcp_setup_router)
+app.include_router(collaboration_router)
 
 
 # =============================================================================

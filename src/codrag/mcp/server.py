@@ -1425,6 +1425,7 @@ class MCPServer:
         file_path: Optional[str] = None,
         symbol: Optional[str] = None,
         category: str = "note",
+        created_by: Optional[str] = None,
         project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Save an observation about the codebase for cross-session memory.
@@ -1441,6 +1442,8 @@ class MCPServer:
             payload["symbol"] = symbol
         if category:
             payload["category"] = category
+        if created_by:
+            payload["created_by"] = created_by
         data = await self._api_post(f"/projects/{project_id}/observations", payload)
         obs_id = (data or {}).get("id", "unknown") if isinstance(data, dict) else "unknown"
         msg = f"Observation saved (id={obs_id}). It will persist across sessions and be flagged stale if the linked file changes."
@@ -3227,6 +3230,7 @@ class MCPServer:
                         file_path=args.get("file_path"),
                         symbol=args.get("symbol"),
                         category=args.get("category", "note"),
+                        created_by=args.get("created_by"),
                         project_override=project_override,
                     )
                 else:
