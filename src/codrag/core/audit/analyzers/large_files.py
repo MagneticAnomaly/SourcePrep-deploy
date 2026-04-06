@@ -14,6 +14,9 @@ WARNING_BYTES = 40_000    # ~1000 lines
 
 # Lock/generated files that are always large and never actionable.
 # These are managed by package managers, not by developers.
+_GENERATED_DIRS = ("/dist/", "/build/", "/out/", "/.next/", "/node_modules/",
+                   "/__pycache__/", "/.tox/", "/target/", "/.nuxt/")
+
 EXPECTED_LARGE_BASENAMES = frozenset({
     "package-lock.json",
     "yarn.lock",
@@ -64,9 +67,7 @@ class LargeFileAnalyzer(BaseAnalyzer):
             if basename.endswith("-lock.json") or basename.endswith("-lock.yaml"):
                 continue
             # Phase 73: Skip generated/build output directories
-            _GEN_DIRS = ("/dist/", "/build/", "/out/", "/.next/", "/node_modules/",
-                         "/__pycache__/", "/.tox/", "/target/", "/.nuxt/")
-            if any(seg in f"/{file_path}/" for seg in _GEN_DIRS):
+            if any(seg in f"/{file_path}/" for seg in _GENERATED_DIRS):
                 continue
 
             lang = node.get("language", "unknown")

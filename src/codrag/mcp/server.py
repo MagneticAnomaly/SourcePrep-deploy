@@ -163,6 +163,18 @@ class MCPServer:
     }
     _DEFAULT_BUDGET = 24_000  # Assume Tier 2 for unknown clients
 
+    def _base_budget_for_client(self) -> int:
+        """Return the base max_chars budget for the detected MCP client.
+
+        Matches client name against _CLIENT_BUDGETS patterns.
+        Does NOT apply orientation boost or hard cap.
+        """
+        client_lower = self._client_name.lower()
+        for pattern, budget in self._CLIENT_BUDGETS.items():
+            if pattern in client_lower:
+                return budget
+        return self._DEFAULT_BUDGET
+
     def _get_context_budget(self) -> int:
         """Return adaptive max_chars based on detected MCP client.
 
@@ -175,12 +187,7 @@ class MCPServer:
         is building its mental model of the codebase. Subsequent calls
         get the standard budget since the agent already has orientation.
         """
-        client_lower = self._client_name.lower()
-        base = self._DEFAULT_BUDGET
-        for pattern, budget in self._CLIENT_BUDGETS.items():
-            if pattern in client_lower:
-                base = budget
-                break
+        base = self._base_budget_for_client()
 
         # First-call orientation boost: give 50% more context
         if not self._codrag_called:
@@ -197,13 +204,7 @@ class MCPServer:
         Uses the BASE budget (without orientation boost) for tier detection.
         """
         from codrag.core.context_tier import tier_from_budget
-        client_lower = self._client_name.lower()
-        base = self._DEFAULT_BUDGET
-        for pattern, budget in self._CLIENT_BUDGETS.items():
-            if pattern in client_lower:
-                base = budget
-                break
-        return tier_from_budget(base).value
+        return tier_from_budget(self._base_budget_for_client()).value
 
     def _project_has_rules_file(self, project_id: str) -> bool:
         """Check if a CoDRAG rules file exists for the resolved project.

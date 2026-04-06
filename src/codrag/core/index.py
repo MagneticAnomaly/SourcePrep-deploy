@@ -139,6 +139,7 @@ class CodeIndex:
         self._documents: Optional[List[Dict[str, Any]]] = None
         self._embeddings: Optional[np.ndarray] = None
         self._manifest: Dict[str, Any] = {}
+        self._last_query_signals: Optional[Any] = None  # Phase 73.5: set by search(), read by get_context_structured()
 
         self._load()
         self._cleanup_stale_builds()
