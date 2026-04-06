@@ -3,7 +3,7 @@
 <!-- codrag-managed-start -->
 ## CoDRAG Integration
 
-Last updated: 2026-04-06T15:25:02Z
+Last updated: 2026-04-06T18:09:48Z
 
 ## 🚨 CRITICAL: Tool Calling Instructions
 

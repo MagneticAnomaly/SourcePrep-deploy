@@ -1,6 +1,7 @@
 # Agent Collaboration Infrastructure — Strategic Direction
 
 > Date: 2026-04-06 | Reframing collaboration as Paperclip-first structural intelligence
+> Status: **P1 + P2 items IMPLEMENTED** — See commit `024ee94d` and `feature_documentation.md`
 
 ---
 
@@ -22,7 +23,7 @@ For non-Paperclip MCP clients (Claude Code, Cursor, Gemini CLI), CoDRAG still se
 
 ## 2. What's Already Built (Phase 73.5 Implementation)
 
-The current implementation (17 commits, 74 tests) includes:
+The full implementation (19 commits, 76 tests) includes:
 
 **Foundation (keep as-is):**
 - `created_by` + `visibility` columns on observation store
@@ -37,11 +38,11 @@ The current implementation (17 commits, 74 tests) includes:
 - `GraphSnapshotStore` — hub + module snapshot capture + structural delta computation
 - `ConflictStore` + `ConflictDetector` — observation-level conflict detection
 
-**MCP layer (revise per this doc):**
-- 5 MCP resources (some to be removed or rethought)
-- 3 MCP prompts (some to be rethought)
-- FastAPI collaboration routes (keep)
-- MCP server integration points (keep, adjust)
+**MCP layer (revised):**
+- 3 MCP resources (memory, agent_findings, delta) — activity + conflicts removed
+- 3 MCP prompts (handoff, scope, enrich) — triage replaced with enrich
+- FastAPI collaboration routes (7 endpoints)
+- MCP server integration points (4 touch points)
 
 **Agent wiring (keep):**
 - Pi: snapshot capture after Watchdog, activity logging on all scenarios
@@ -186,22 +187,13 @@ Update prompts to remove `@codrag://activity` references (removed resource) and 
 
 ---
 
-## 4. Remaining Unresolved Work
+## 4. Remaining Work
 
-### 4.1 Conflict Push to Paperclip (New)
+> Items 4.1, 4.4, 4.5, 4.6, and 4.7 are **DONE**. Items 4.2 and 4.3 are deferred (P3).
 
-**Problem:** Conflicts are currently stored in SQLite and served as an MCP resource. They need to flow to Paperclip as issues instead.
+### 4.1 Conflict Push to Paperclip — DONE
 
-**Solution:** Add a `push_conflict()` method to `PaperclipClient` (or extend PushEngine). When `ConflictDetector` finds conflicts:
-
-1. For each `AgentConflict`, check if a Paperclip issue with the same `codrag-address` already exists (dedup).
-2. If not, create a new issue in a "CoDRAG Conflicts" project with both agents' assessments.
-3. If yes, update the description (assessments may have changed).
-4. When a conflict is resolved (via Paperclip or API), mark it resolved in `ConflictStore` too.
-
-**Integration point:** In `PushEngine.push()`, after the existing conflict detection block, add the push-to-Paperclip step (only if `PaperclipAdapter` is available).
-
-**Effort:** Small — uses existing `PaperclipAdapter.create_issue()` and dedup pattern.
+Implemented in `PushEngine._push_conflict_to_pm()`. After `ConflictDetector` finds conflicts (Step 2b), each conflict is pushed to Paperclip as a tagged issue (Step 2c) with both agents' assessments. Dedup via `codrag-address` in the description.
 
 ### 4.2 Delta Push to Paperclip (New)
 
@@ -245,122 +237,37 @@ def _push_significant_delta(self, delta: StructuralDelta) -> None:
 
 **Effort:** Small — plugin-side only, daemon API already exists.
 
-### 4.4 MCP Resource Cleanup (Revision)
+### 4.4 MCP Resource Cleanup — DONE
 
-**Problem:** 5 resources currently registered. Need to remove 2, keep 3.
+Removed `activity` and `conflicts` from `get_collaboration_resources()` and `parse_collaboration_uri()`. Internal formatters kept. Prompts updated to remove `@codrag://activity` and `@codrag://conflicts` references.
 
-**Changes to `collaboration_handlers.py`:**
-- Remove `activity` and `conflicts` from `get_collaboration_resources()`
-- Remove `"activity"` and `"conflicts"` from `parse_collaboration_uri()`
-- Keep `format_activity_resource()` and `format_conflicts_resource()` as internal functions (used by FastAPI routes or plugin data providers)
+### 4.5 `codrag-enrich` Prompt — DONE
 
-**Changes to MCP prompts:**
-- `codrag-handoff`: Remove `@codrag://activity` reference, remove `@codrag://conflicts` reference. Replace with: "Check Paperclip for recent agent activity and any conflict issues."
-- `codrag-scope`: Same — remove activity/conflicts resource references.
-- Replace `codrag-triage` with `codrag-enrich` (new prompt text).
+Replaced `codrag-triage` with `codrag-enrich` in `collaboration_handlers.py`. Provides structural enrichment (blast radius, hub involvement, cross-module analysis) instead of triage.
 
-**Effort:** Small — string edits in `collaboration_handlers.py`.
+### 4.6 Plugin Data Providers — DONE
 
-### 4.5 `codrag-enrich` Prompt (New)
+Added `structural-delta` and `agent-claims` data providers to `packages/paperclip-plugin-codrag/src/worker/index.ts`. Both call daemon collaboration API endpoints. Plugin init log updated to "4 data providers".
 
-**Problem:** `codrag-triage` does Paperclip's job. Need a prompt that provides structural enrichment for triage instead.
+### 4.7 Observation Tool `created_by` in Plugin — DONE
 
-**Solution:** Replace `codrag-triage` with `codrag-enrich`:
-
-```python
-{
-    "name": "codrag-enrich",
-    "description": "Enrich findings with structural intelligence — blast radius, hub involvement, cross-module analysis",
-    "arguments": [
-        {"name": "scope", "description": "Optional area to focus on", "required": False},
-    ],
-}
-```
-
-Prompt text:
-```
-Enrich the current findings with structural intelligence from CoDRAG.{scope_text}
-
-1. Call `codrag_audit` to get current findings.
-2. For the top findings, call `codrag_impact` to assess blast radius.
-3. Identify which findings touch hub files vs leaf files.
-4. Note which findings span multiple modules vs are contained to one.
-5. Summarize each finding with: scope size, hub involvement, blast radius,
-   and whether it overlaps with areas other agents have flagged.
-```
-
-**Effort:** Trivial — replace prompt definition in `collaboration_handlers.py`.
-
-### 4.6 Plugin Data Providers (New)
-
-**Problem:** Paperclip plugin doesn't expose collaboration data yet.
-
-**Changes to plugin manifest (`manifest.ts`):**
-```typescript
-// Add to dataProviders array
-{
-  name: 'structural-delta',
-  displayName: 'Structural Changes',
-  description: 'Recent structural changes in the codebase graph',
-},
-{
-  name: 'agent-claims',
-  displayName: 'Agent Claims',
-  description: 'Files currently claimed by agents',
-},
-```
-
-**Changes to plugin worker (`worker/index.ts`):**
-```typescript
-// Add data provider handlers
-case 'structural-delta':
-  const delta = await client.request(`/projects/${pid}/collaboration/delta`);
-  return { content: delta };
-
-case 'agent-claims':
-  const claims = await client.request(`/projects/${pid}/collaboration/claims`);
-  return { content: claims };
-```
-
-**Effort:** Small — daemon API endpoints already exist.
-
-### 4.7 Observation Tool `created_by` in Plugin (Enhancement)
-
-**Problem:** The Paperclip plugin's `codrag:observe` tool doesn't pass `created_by`. When a Paperclip agent saves an observation through the plugin, it's unattributed.
-
-**Solution:** The plugin should automatically set `created_by` based on the calling agent's role. The `ToolRunContext` in the Paperclip SDK provides the agent ID and role — use it:
-
-```typescript
-case 'observe':
-  const agentRole = ctx.agent?.role ?? ctx.agent?.name ?? 'paperclip-agent';
-  await client.request(`/projects/${pid}/observations`, {
-    method: 'POST',
-    body: {
-      content: params.content,
-      file_path: params.file_path,
-      category: params.category ?? 'note',
-      created_by: agentRole,
-    },
-  });
-```
-
-**Effort:** Trivial — one-line addition to plugin worker.
+Added `created_by: 'paperclip-agent'` to the observe tool POST body in the plugin worker. Uses a static value since the current SDK doesn't provide per-agent role context in the `ToolRunContext`.
 
 ---
 
 ## 5. Implementation Priority
 
-| Priority | Item | Effort | Why |
+| Priority | Item | Effort | Status |
 |---|---|---|---|
-| **P1** | 4.4 MCP resource cleanup | Small | Remove confusing duplicates, clean signal |
-| **P1** | 4.5 `codrag-enrich` prompt | Trivial | Replace mispositioned triage prompt |
-| **P1** | 4.7 Plugin `created_by` | Trivial | Observations from Paperclip agents should be attributed |
-| **P2** | 4.6 Plugin data providers | Small | Expose delta + claims in Paperclip UI |
-| **P2** | 4.1 Conflict push | Small | Conflicts should be Paperclip issues, not CoDRAG resources |
-| **P3** | 4.3 Claims push (UI only) | Small | Paperclip can display claims, no daemon changes |
-| **P3** | 4.2 Delta push | Medium | Proactive alerting for structural changes |
+| **P1** | 4.4 MCP resource cleanup | Small | **DONE** |
+| **P1** | 4.5 `codrag-enrich` prompt | Trivial | **DONE** |
+| **P1** | 4.7 Plugin `created_by` | Trivial | **DONE** |
+| **P2** | 4.6 Plugin data providers | Small | **DONE** |
+| **P2** | 4.1 Conflict push | Small | **DONE** |
+| **P3** | 4.3 Claims push (UI only) | Small | Deferred |
+| **P3** | 4.2 Delta push | Medium | Deferred |
 
-P1 items are pure revisions to existing code — no new features, just repositioning. P2 items extend the Paperclip integration. P3 items are enhancements that can wait for user feedback.
+All P1 and P2 items are implemented. P3 items are deferred for user feedback.
 
 ---
 

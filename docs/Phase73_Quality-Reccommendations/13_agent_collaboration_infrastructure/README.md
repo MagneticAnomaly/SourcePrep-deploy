@@ -1,6 +1,14 @@
 # Phase 73.5 — Agent Collaboration Infrastructure
 
 > Date: 2026-04-06 | Turning CoDRAG from a code intelligence library into the coordination substrate for multi-agent development teams
+>
+> **Implementation Status:** COMPLETE — 19 commits, 76 tests, Layers 1+2 implemented with Paperclip-first revisions. See `feature_documentation.md` for what was built and `strategic_direction.md` for the Paperclip-first reframing.
+>
+> **Note:** This document is the original design. Some details were revised during implementation:
+> - MCP resources reduced from 6 to 3 (activity + conflicts removed, consensus deferred)
+> - `codrag-triage` replaced with `codrag-enrich`; `codrag-attest` deferred to Layer 3
+> - Cycles and cross-cutting dropped from snapshots (no structured data source)
+> - Conflicts push to Paperclip as issues instead of being served as MCP resource
 
 ---
 
@@ -476,23 +484,28 @@ Mapping all collaboration primitives to MCP's three control models (from Phase 7
 
 ### 4.1 Resources (User-Browsable, `@` Mention)
 
-| Resource URI | Layer | Content | Update Trigger |
-|---|---|---|---|
-| `codrag://{pid}/memory/{role}` | Awareness | Agent's own observations | Observation save |
-| `codrag://{pid}/agents/{role}/findings` | Awareness | Another agent's recent findings | Observation save |
-| `codrag://{pid}/activity` | Awareness | Chronological agent action feed | Any agent action |
-| `codrag://{pid}/delta?since={ts}` | Coordination | Structural graph diff | Index rebuild |
-| `codrag://{pid}/conflicts` | Coordination | Active inter-agent conflicts | Conflict detection |
-| `codrag://{pid}/consensus` | Emergence | High-consensus findings | Periodic computation |
+> **As implemented** (3 resources, revised from original 6):
+
+| Resource URI | Layer | Content | Update Trigger | Status |
+|---|---|---|---|---|
+| `codrag://{pid}/memory/{role}` | Awareness | Agent's own observations | Observation save | **Implemented** |
+| `codrag://{pid}/agents/{role}/findings` | Awareness | Another agent's recent findings | Observation save | **Implemented** |
+| `codrag://{pid}/delta` | Coordination | Structural graph diff | Index rebuild | **Implemented** |
+| ~~`codrag://{pid}/activity`~~ | ~~Awareness~~ | ~~Chronological agent action feed~~ | ~~Any agent action~~ | **Removed** — Paperclip has richer activity feed |
+| ~~`codrag://{pid}/conflicts`~~ | ~~Coordination~~ | ~~Active inter-agent conflicts~~ | ~~Conflict detection~~ | **Removed** — Conflicts push to Paperclip as issues |
+| `codrag://{pid}/consensus` | Emergence | High-consensus findings | Periodic computation | **Deferred** to Layer 3 |
 
 ### 4.2 Prompts (User-Initiated, `/` Command)
 
-| Prompt | Layer | Arguments | Returns |
-|---|---|---|---|
-| `codrag-handoff` | Coordination | `from_role`, `to_role`, `task_context` | Structured context transfer: what from-agent found, what to-agent should focus on, embedded memory + findings resources |
-| `codrag-scope` | Coordination | `role` | Live role scoping: owned modules, recent structural changes in scope, open findings in domain, suggested focus areas |
-| `codrag-attest` | Emergence | `capability`, `context` | Capability assessment: can the agent handle this? Context budget estimate, risk factors, alternatives |
-| `codrag-triage` | Coordination | `finding_ids` (optional) | Smart triage workflow: cluster findings by root cause, assign to agent roles, surface consensus and conflicts |
+> **As implemented** (3 prompts, revised from original 4):
+
+| Prompt | Layer | Arguments | Returns | Status |
+|---|---|---|---|---|
+| `codrag-handoff` | Coordination | `from_role`, `to_role`, `task` | Structured context transfer: memory + findings + delta | **Implemented** |
+| `codrag-scope` | Coordination | `role` | Live role scoping: owned modules, structural changes, findings | **Implemented** |
+| `codrag-enrich` | Coordination | `scope` (optional) | Structural enrichment: blast radius, hub involvement, cross-module analysis | **Implemented** (replaced `codrag-triage`) |
+| ~~`codrag-triage`~~ | ~~Coordination~~ | ~~`finding_ids`~~ | ~~Cluster findings, assign to agent roles~~ | **Replaced** by `codrag-enrich` — triage is Paperclip's job |
+| `codrag-attest` | Emergence | `capability`, `context` | Capability assessment: can the agent handle this? | **Deferred** to Layer 3 |
 
 ### 4.3 Tools (Model-Initiated, Agent Decides)
 
@@ -500,9 +513,9 @@ No new tools needed. The existing tool surface is sufficient:
 
 | Tool | Collaboration Role |
 |---|---|
-| `codrag` | Now returns slimmer response + links to collaboration resources |
+| `codrag` | Returns structural overview + links to collaboration resources |
 | `codrag_search` | Unchanged — agents search autonomously |
-| `codrag_impact` | Extended with optional `include_routing: true` for complexity analysis |
+| `codrag_impact` | Unchanged (routing analysis deferred to Layer 3) |
 | `codrag_observe` | Extended with `created_by` parameter for attribution |
 
 **Why no new tools?** Tools are for autonomous agent decisions. Collaboration is inherently about *shared state* (resources) and *structured workflows* (prompts). Adding collaboration tools would bloat the tool surface and conflict with Phase 73.4's principle of keeping tools lean.
@@ -511,7 +524,9 @@ No new tools needed. The existing tool surface is sufficient:
 
 ## 5. Implementation Plan
 
-### Phase 5.1: Awareness Layer (3-5 days)
+> **All phases below are COMPLETE except Phase 5.3 (Layer 3, deferred).**
+
+### Phase 5.1: Awareness Layer (3-5 days) — COMPLETE
 
 Foundation work. Everything else builds on attribution and visibility.
 
@@ -527,7 +542,7 @@ Foundation work. Everything else builds on attribution and visibility.
 
 **Backward compatibility:** All changes are additive. Existing observations get `created_by=NULL`, `visibility="shared"`. No behavior change for callers that don't pass the new fields.
 
-### Phase 5.2: Coordination Layer (5-7 days)
+### Phase 5.2: Coordination Layer (5-7 days) — COMPLETE
 
 Depends on Phase 5.1 (needs attribution for conflict detection).
 
@@ -545,9 +560,9 @@ Depends on Phase 5.1 (needs attribution for conflict detection).
 | Shared computation cache in AgentCore | `agents/core.py` | TTL-based cache for audit findings + impact results | Small |
 | Dependency declarations on plans | `agents/shared/models.py` | Add `depends_on`, `blocks` to ResearchPlan + CleanupPlan | Small |
 
-### Phase 5.3: Emergence Layer (5-8 days)
+### Phase 5.3: Emergence Layer (5-8 days) — DEFERRED
 
-Depends on Phase 5.1 (needs attribution for decision tracking). Can partially overlap with Phase 5.2.
+Depends on Phase 5.1 (needs attribution for decision tracking). Deferred pending real usage data.
 
 | Task | Files | Details | Effort |
 |---|---|---|---|
@@ -562,14 +577,14 @@ Depends on Phase 5.1 (needs attribution for decision tracking). Can partially ov
 | `codrag-triage` prompt | `mcp/server.py` | Prompt definition with clustering + assignment | Medium |
 | Adaptive role scope suggestions | `agents/hr/engine.py` + Pi Geologist | Correlate decision outcomes with role scopes | Large |
 
-### Phase 5.4: Integration & Polish (2-3 days)
+### Phase 5.4: Integration & Polish (2-3 days) — PARTIALLY COMPLETE
 
-| Task | Files | Details | Effort |
-|---|---|---|---|
-| Update AGENTS.md generation | `core/rules_generator.py` | Document collaboration resources in generated AGENTS.md | Small |
-| Update Paperclip plugin | `packages/paperclip-plugin-codrag/` | Add data providers for memory, activity, conflicts | Medium |
-| Dashboard collaboration panel | `src/codrag/dashboard/` | Activity feed + conflict viewer + consensus highlights | Medium |
-| Documentation | `docs/` | User guide for collaboration features | Small |
+| Task | Files | Details | Effort | Status |
+|---|---|---|---|---|
+| Update AGENTS.md generation | `core/rules_generator.py` | Document collaboration resources in generated AGENTS.md | Small | Deferred |
+| Update Paperclip plugin | `packages/paperclip-plugin-codrag/` | Add data providers for delta + claims, `created_by` attribution | Medium | **DONE** |
+| Dashboard collaboration panel | `src/codrag/dashboard/` | Activity feed + conflict viewer | Medium | Deferred |
+| Documentation | `docs/` | Feature docs, concept doc, strategic direction | Small | **DONE** |
 
 ---
 

@@ -1,6 +1,7 @@
-# Agent Collaboration Infrastructure — Session Summary & Next Steps
+# Agent Collaboration Infrastructure — Session Summary & Completion Record
 
-> Date: 2026-04-06 | Recording everything accomplished and everything remaining
+> Date: 2026-04-06 | Recording everything accomplished
+> Status: **COMPLETE** — 19 commits, 76 tests, all P1+P2 items implemented
 
 ---
 
@@ -287,125 +288,74 @@ The spec updates `AgentCore` and `ObservationStore` but forgets the intermediate
 
 ---
 
-## 3. What Needs to Happen Next
+## 3. Implementation Status
 
-### 3.1 Fix the Spec (Priority: Do First)
+> All 9 issues from the scrutiny pass were resolved during implementation. All P1 and P2 items from the strategic direction were implemented in the Paperclip-first revision.
 
-Update `docs/superpowers/specs/2026-04-06-agent-collaboration-infrastructure-design.md` with all 9 fixes. The critical ones that change the architecture:
+### 3.1 Issues Resolved
 
-1. **Issue 6 (critical):** Add a new section "FastAPI Routes" specifying the new `src/codrag/api/routers/collaboration.py` router. Update `collaboration_handlers.py` to use `server._api_get()` instead of direct hub access. Document the daemon-side initialization of `CollaborationHub`.
+All 9 issues identified in section 2 were fixed during implementation:
 
-2. **Issues 1+2 (medium):** Simplify `GraphSnapshot` to only capture hubs + modules (structured data we actually have). Drop cycles and cross-cutting, or replace cross-cutting with `shared_domains: Dict[str, List[str]]` from domain tag data.
+1. **Issue 6 (critical):** Resolved — `src/codrag/api/routers/collaboration.py` created with 7 FastAPI routes. MCP `collaboration_handlers.py` fetches data via `server._api_get()`. CollaborationHub initialized daemon-side in `watch.py`.
 
-3. **Issues 3+4 (high):** Add `collab_hub` param to `PiAgent.__init__`, `init_pi_agent()`, and `PushEngine.__init__` + factory.
+2. **Issues 1+2 (medium):** Resolved — `GraphSnapshot` captures hubs + modules only. Cycles and cross-cutting dropped (no structured data source exists).
 
-4. **Issue 5 (medium):** Standardize all engine access as `self._core.collab.*`.
+3. **Issues 3+4 (high):** Resolved — `collab_hub` param added to `PiAgent.__init__`, `init_pi_agent()`, and `PushEngine.__init__`. Factory passes through.
 
-5. **Issue 8 (medium):** Split conflict detection into observation-level (same file, different agents) and push-level (same file, contradictory ActionItem categories).
+4. **Issue 5 (medium):** Resolved — All engine access standardized as `self._core.collab.*`.
 
-6. **Issue 9 (high):** Add `created_by` passthrough to `CoDRAGDataAccess.save_observation()`.
+5. **Issue 8 (medium):** Resolved — Observation-level conflict detection only (same file, different agents). Push-level detection deferred to Layer 3.
 
-7. **Issue 7 (low):** Document URI parsing strategy.
+6. **Issue 9 (high):** Resolved — `created_by` + `visibility` passthrough added to `CoDRAGDataAccess.save_observation()`.
 
-### 3.2 Updated File Manifest (After Spec Fixes)
+7. **Issue 7 (low):** Resolved — `parse_collaboration_uri()` documents the URI parsing strategy with clear routing.
 
-**New files to create:**
+### 3.2 File Manifest (All Created/Modified)
 
-| File | Purpose |
-|---|---|
-| `src/codrag/services/collaboration/__init__.py` | CollaborationHub facade |
-| `src/codrag/services/collaboration/activity.py` | ActivityStore — append-only agent action log |
-| `src/codrag/services/collaboration/snapshots.py` | GraphSnapshotStore — persist + diff graph state (hubs + modules only) |
-| `src/codrag/services/collaboration/conflicts.py` | ConflictStore + ConflictDetector (two strategies) |
-| `src/codrag/services/collaboration/claims.py` | ClaimStore — soft file claims with auto-expiry |
-| `src/codrag/api/routers/collaboration.py` | FastAPI routes for collaboration data (daemon-side) |
-| `src/codrag/mcp/collaboration_handlers.py` | MCP resource content generators + prompt handlers (calls daemon via HTTP) |
-| `tests/test_activity_store.py` | Unit tests for ActivityStore |
-| `tests/test_graph_snapshots.py` | Unit tests for GraphSnapshotStore + delta computation |
-| `tests/test_conflict_store.py` | Unit tests for ConflictStore + ConflictDetector |
-| `tests/test_claim_store.py` | Unit tests for ClaimStore |
-| `tests/test_observation_attribution.py` | Tests for created_by + visibility in ObservationStore |
-| `tests/test_collaboration_hub.py` | Integration tests for CollaborationHub |
-| `tests/test_collab_resources.py` | Tests for MCP resource content generators |
-| `tests/test_collab_prompts.py` | Tests for MCP prompt handlers |
-| `tests/test_collab_api.py` | Tests for FastAPI collaboration routes |
+All files below were created or modified during implementation. See `feature_documentation.md` for the complete file listing with line counts and change descriptions.
 
-**Existing files to modify:**
+### 3.3 Implementation Phases (All Complete)
 
-| File | Changes |
-|---|---|
-| `src/codrag/services/observation_store.py` | Add `created_by` + `visibility` columns, extend `save()` + `from_row()`, add `get_by_agent()` method, schema migration |
-| `src/codrag/agents/shared/codrag_data.py` | Add `created_by` + `visibility` passthrough to `save_observation()` |
-| `src/codrag/agents/core.py` | Add `collab_hub` param, add `created_by` to `save_observation()` |
-| `src/codrag/services/pi_agent.py` | Add `collab_hub` param, add `scenario` to `_save_observation()`, add activity logging + snapshot capture to scenarios |
-| `src/codrag/agents/researcher/engine.py` | Add `created_by="researcher"` to observations, add activity logging, add claim creation |
-| `src/codrag/agents/custodian/engine.py` | Add `created_by="custodian"` to observations, add activity logging, add claim checking |
-| `src/codrag/adapters/push_engine.py` | Add `conflict_detector` + `conflict_store` params, add conflict detection in `push()`, add `conflicts` field to `PushResult` |
-| `src/codrag/adapters/pm_models.py` | Add `conflicts` field to `PushResult` dataclass |
-| `src/codrag/mcp/server.py` | 4 thin integration points: init hub proxy, extend resource list, delegate resource read, delegate prompts |
-| `src/codrag/mcp_tools.py` | Add `created_by` param to `codrag_save_observation` tool schema |
-| `src/codrag/server.py` | Initialize `CollaborationHub` during daemon startup, register collaboration router |
+All four implementation phases were completed:
 
-### 3.3 Implementation Order
+**Phase A: Foundation** — DONE
+- Observation store schema migration, `get_by_agent()`, `get_all_attributed()`
+- `CoDRAGDataAccess` and `AgentCore` passthrough
+- `CollaborationHub` facade + singleton
+- `ActivityStore`
 
-The work naturally splits into phases based on dependency chains:
+**Phase B: Awareness Resources** — DONE
+- FastAPI collaboration router (7 endpoints)
+- `collaboration_handlers.py` (3 MCP resources, 3 prompts)
+- MCP server integration (4 touch points)
+- Pi agent attribution (all 9 `_save_observation` calls + all 7 scenarios)
+- Researcher + Custodian attribution
 
-**Phase A: Foundation (2-3 days)**
+**Phase C: Coordination** — DONE
+- `GraphSnapshotStore` + delta computation
+- `ConflictStore` + `ConflictDetector`
+- `ClaimStore`
+- Researcher claims, Custodian claim-checking
+- PushEngine conflict detection + conflict push to Paperclip
 
-Must be done first — everything else depends on this.
+**Phase D: Polish + Paperclip-First Revision** — DONE
+- CollaborationHub initialization in daemon startup
+- Hub injection into Pi, AgentCore, PushEngine
+- MCP resource cleanup (5→3, removed activity/conflicts)
+- Prompt revision (triage→enrich, updated handoff/scope)
+- Paperclip plugin: `created_by` attribution, 2 data providers
+- 76 tests passing
 
-1. Observation store schema migration (`created_by` + `visibility` columns)
-2. Observation store `save()` signature update + `get_by_agent()` method
-3. `CoDRAGDataAccess.save_observation()` passthrough
-4. `AgentCore.save_observation()` passthrough
-5. `CollaborationHub` facade (`__init__.py`)
-6. `ActivityStore` (new)
-7. Unit tests for observation attribution + activity store
+### 3.4 Deferred Work
 
-**Phase B: Awareness Resources (2-3 days)**
+**P3 items (deferred for user feedback):**
 
-Depends on Phase A.
+| Feature | Status | Notes |
+|---|---|---|
+| Claims push as Paperclip agent metadata | Deferred | Requires Paperclip agent metadata API |
+| Delta push as Paperclip issues | Deferred | Requires Pi → PushEngine integration |
 
-1. FastAPI collaboration router with observation + activity endpoints
-2. `collaboration_handlers.py` — resource generators for `memory/{role}`, `agents/{role}/findings`, `activity`
-3. MCP server integration (4 thin touch points)
-4. `mcp_tools.py` schema update for `codrag_observe` `created_by` param
-5. Wire `created_by` into Pi agent `_save_observation()` (all 7 scenarios)
-6. Wire `created_by` into Researcher + Custodian engines
-7. Wire activity logging into Pi, Researcher, Custodian
-8. Tests for resources + prompts + API routes
-
-**Phase C: Coordination (3-5 days)**
-
-Depends on Phase A. Can partially overlap with Phase B.
-
-1. `GraphSnapshotStore` (hubs + modules only)
-2. Delta computation logic
-3. `ConflictStore` + `ConflictDetector` (both observation-level and push-level strategies)
-4. `ClaimStore`
-5. FastAPI routes for delta, conflicts, claims
-6. Resource generators for `delta`, `conflicts`
-7. Prompt handlers for `codrag-handoff`, `codrag-scope`, `codrag-triage`
-8. Wire snapshot capture into Pi Watchdog (post-pipeline)
-9. Wire claim creation into Researcher
-10. Wire claim checking into Custodian
-11. Wire conflict detection into PushEngine
-12. Unit + integration tests
-
-**Phase D: Polish (1-2 days)**
-
-After C.
-
-1. Update `CollaborationHub` initialization in daemon startup
-2. Pass hub into `init_pi_agent()`
-3. Pass hub into `AgentCore` construction (in `api/routers/agents.py`)
-4. Pass conflict detector into `PushEngine` construction
-5. End-to-end integration test: full workflow from agent observation → conflict detection → MCP resource → prompt
-6. Update AGENTS.md generation to document collaboration resources
-
-### 3.4 Deferred Work (Layer 3 Roadmap)
-
-These features build on Layers 1+2 and should be considered after real usage data is available:
+**Layer 3 Roadmap (Emergence):**
 
 | Feature | Prerequisite | Estimated Effort |
 |---|---|---|
@@ -417,26 +367,28 @@ These features build on Layers 1+2 and should be considered after real usage dat
 | Cycle detection in trace graph | Trace index SCC algorithm | 2-3 days |
 | Structured cross-cutting concerns | Atlas generator refactor | 2-3 days |
 
-### 3.5 Open Questions
+### 3.5 Resolved Questions
 
-1. **Snapshot capture source:** The spec says snapshots are captured after Watchdog runs (post-pipeline). The data comes from the existing daemon APIs (`/trace/hub_files`, `/projects/{pid}/modules`). But Pi Agent uses direct Python imports, not HTTP calls. Do we have Pi call the Python internals directly (faster, tighter coupling) or go through the HTTP API (consistent, slower)? Pi already imports `run_audit()` directly — direct Python is the existing pattern.
+1. **Snapshot capture source:** Resolved — Pi calls Python internals directly (TraceIndex.hub_files, module clusters). Matches existing pattern (Pi already imports `run_audit()` directly).
 
-2. **Activity feed retention:** The spec says 30-day prune. Is this enough? Too much? For a project with 5 active agents running daily, that's ~150 entries/day × 30 = 4,500 entries. At ~200 bytes each, that's <1MB. Probably fine.
+2. **Activity feed retention:** Resolved — 30-day prune at 1000 entries. Reasonable for expected volumes.
 
-3. **Conflict auto-resolution:** The spec defaults all conflicts to `"deferred"`. Should there be any auto-resolution rules? E.g., "if the file has >5 dependents, researcher wins over custodian" (can't delete a highly-connected file). This is probably Layer 3 territory.
+3. **Conflict auto-resolution:** Deferred to Layer 3. All conflicts default to `"deferred"` resolution.
 
-4. **Resource template registration:** MCP spec supports `resources/templates/list` for parameterized resources like `codrag://{pid}/memory/{role}`. Should we register templates so clients can auto-complete role names? This would let users type `@codrag://memory/` and see available roles. Nice-to-have, not blocking.
+4. **Resource template registration:** Not implemented. Nice-to-have for future.
 
 ---
 
-## 4. Documents Produced This Session
+## 4. Documents Produced
 
-| Document | Location | Purpose |
-|---|---|---|
-| Design doc (README.md) | `docs/Phase73_Quality-Reccommendations/13_agent_collaboration_infrastructure/README.md` | Full architectural design — three layers, MCP primitives, SQL schemas, implementation plan |
-| Paperclip concept | `docs/Phase73_Quality-Reccommendations/13_agent_collaboration_infrastructure/paperclip_concept.md` | Non-technical overview for Paperclip users |
-| Implementation spec | `docs/superpowers/specs/2026-04-06-agent-collaboration-infrastructure-design.md` | Detailed build spec — data models, API signatures, testing strategy. **Needs 9 fixes before implementation.** |
-| This document | `docs/Phase73_Quality-Reccommendations/13_agent_collaboration_infrastructure/next_steps.md` | Session summary, 9 issues documented, implementation order, open questions |
+| Document | Location | Purpose | Status |
+|---|---|---|---|
+| Design doc (README.md) | `docs/Phase73_Quality-Reccommendations/13_agent_collaboration_infrastructure/README.md` | Full architectural design — three layers, MCP primitives, SQL schemas | Original design — see strategic_direction.md for Paperclip-first revisions |
+| Paperclip concept | `docs/Phase73_Quality-Reccommendations/13_agent_collaboration_infrastructure/paperclip_concept.md` | Non-technical overview for Paperclip users | Updated to reflect Paperclip-first direction |
+| Implementation spec | `docs/superpowers/specs/2026-04-06-agent-collaboration-infrastructure-design.md` | Detailed build spec — data models, API signatures, testing strategy | All 9 issues resolved during implementation |
+| Feature documentation | `docs/Phase73_Quality-Reccommendations/13_agent_collaboration_infrastructure/feature_documentation.md` | Comprehensive record of what was built | Updated with Paperclip-first revisions |
+| Strategic direction | `docs/Phase73_Quality-Reccommendations/13_agent_collaboration_infrastructure/strategic_direction.md` | Paperclip-first reframing, P1/P2/P3 items | P1+P2 items implemented |
+| This document | `docs/Phase73_Quality-Reccommendations/13_agent_collaboration_infrastructure/next_steps.md` | Session summary, issues documented, completion record | Updated to reflect completion |
 
 ---
 
@@ -447,8 +399,11 @@ These features build on Layers 1+2 and should be considered after real usage dat
 | Build Layers 1+2 only, roadmap Layer 3 | Layer 3 needs real usage data; premature optimization risk |
 | Approach B: collaboration module package | Keep server.py from growing; clean separation of concerns |
 | No new MCP tools | Tools are for autonomous agent decisions; collaboration is resources (shared state) + prompts (workflows) |
-| 3 new prompts, not overlapping with doc 14 | Doc 14's 5 prompts are human developer workflows; our 3 are agent collaboration workflows (handoff, scope, triage) |
+| 3 new prompts, not overlapping with doc 14 | Doc 14's 5 prompts are human developer workflows; our 3 are agent collaboration workflows (handoff, scope, enrich) |
 | Drop cycles + cross-cutting from snapshots | No structured data source exists; hubs + modules are available and sufficient |
 | MCP server delegates via HTTP, not direct DB | MCPServer is an HTTP proxy; all data access goes through daemon FastAPI routes |
 | Engines access hub via `self._core.collab` | Single path through AgentCore; no separate hub injection into engines |
-| Conflict detection: two strategies | Observation-level (proximity signal) + push-level (semantic signal) — different data, different approaches |
+| Paperclip-first direction | CoDRAG provides structural intelligence to enrich Paperclip, not a parallel PM system |
+| Remove activity + conflicts MCP resources | Paperclip has richer versions; conflicts push to Paperclip as tagged issues instead |
+| Replace triage with enrich | CoDRAG provides structural enrichment; Paperclip does the actual triage |
+| Observation-level conflict detection only | Same file, different agents = proximity signal; push-level (semantic) deferred to Layer 3 |

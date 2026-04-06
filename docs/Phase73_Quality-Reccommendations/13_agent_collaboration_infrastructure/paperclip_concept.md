@@ -1,6 +1,6 @@
 # Agent Collaboration Infrastructure — Concept Overview
 
-> For Paperclip users and agent operators
+> For Paperclip users and agent operators | Updated 2026-04-06
 
 ---
 
@@ -16,6 +16,8 @@ This creates real problems:
 - An agent starts a task without knowing that the codebase structure changed since its last session
 
 **Agent Collaboration Infrastructure** is a set of capabilities that let your agents *see each other's work* and *avoid stepping on each other* — without requiring a central orchestrator to manage every interaction.
+
+**Built for Paperclip first.** CoDRAG provides structural intelligence that enriches Paperclip's existing coordination — it doesn't build a parallel PM system. Activity tracking, task routing, and conflict resolution live in Paperclip. CoDRAG pushes signals that only the code graph can provide.
 
 ---
 
@@ -45,26 +47,26 @@ Agents can also browse *each other's* memory. Your dispatcher agent can see what
 
 ### 2. Structural Change Detection
 
-Git tells you what *files* changed. CoDRAG tells you what *structurally* shifted — new hub files that many other files depend on, resolved dependency cycles, modules that split or merged.
+Git tells you what *files* changed. CoDRAG tells you what *structurally* shifted — new hub files that many other files depend on, modules that split or merged, dependency rankings that shifted.
 
-When your agent starts a task, it can check: "Has the codebase architecture changed since my last session?" If a critical hub file emerged or a dependency cycle was introduced, the agent knows before it starts working.
+When your agent starts a task, it can check: "Has the codebase architecture changed since my last session?" If a critical hub file emerged or a module restructured, the agent knows before it starts working.
 
 This is especially valuable for long-running agent teams. A weekly researcher session needs to know that the module it investigated last week was split into two modules this week.
 
-### 3. Conflict Detection
+### 3. Conflict Detection → Paperclip Issues
 
-When two agents disagree about the same file — one says "important pattern, consolidate" and the other says "dead code, delete" — CoDRAG catches it before either recommendation reaches Paperclip.
-
-Conflicts surface as a clear report:
+When two agents disagree about the same file — one says "important pattern, consolidate" and the other says "dead code, delete" — CoDRAG catches it and pushes it to Paperclip as an issue:
 
 ```
-CONFLICT on src/auth/legacy.py:
+CoDRAG Conflict: src/auth/legacy.py — researcher vs custodian
+
+  Two agents disagree about this file:
+  
   Researcher: "Important JWT refresh pattern — consolidate into shared validator"
   Custodian:  "No imports found — safe to delete"
-  Status:     Deferred for human review
 ```
 
-You decide how to resolve it. The key is that you *see* the disagreement instead of two agents silently pushing contradictory recommendations.
+The conflict appears in your normal Paperclip issue tracker. You can assign it, comment, resolve — using the same workflow you use for everything else. The key is that you *see* the disagreement instead of two agents silently pushing contradictory recommendations.
 
 ---
 
@@ -72,25 +74,30 @@ You decide how to resolve it. The key is that you *see* the disagreement instead
 
 ### MCP Resources (browsable via `@` mention)
 
-These are data your agents can pull into their context on demand:
+Three resources your agents can pull into their context on demand:
 
 | Resource | What it provides |
 |---|---|
 | `@codrag://memory/{role}` | An agent's own prior observations and findings |
 | `@codrag://agents/{role}/findings` | Another agent's recent work (cross-agent visibility) |
-| `@codrag://activity` | Timeline of all agent actions across your team |
-| `@codrag://delta` | What changed structurally since a given date |
-| `@codrag://conflicts` | Active disagreements between agents |
-| `@codrag://consensus` | Findings that multiple agents independently flagged (high-confidence signals) |
+| `@codrag://delta` | What changed structurally since the last snapshot |
+
+### Paperclip Data Providers
+
+Two data providers available in the Paperclip plugin UI:
+
+| Provider | What it provides |
+|---|---|
+| `structural-delta` | Recent structural changes in the codebase graph (dashboard widget) |
+| `agent-claims` | Files currently claimed by agents (agent detail tab) |
 
 ### MCP Prompts (structured workflows via `/` command)
 
 | Prompt | What it does |
 |---|---|
-| `/codrag-handoff` | When one agent finishes and another picks up — packages context transfer with the right structural data |
+| `/codrag-handoff` | When one agent finishes and another picks up — packages context transfer with memory, findings, and structural delta |
 | `/codrag-scope` | Shows an agent what modules it owns, what changed in its scope, and what findings are open in its domain |
-| `/codrag-triage` | Clusters findings by root cause and suggests which agent role should handle each cluster |
-| `/codrag-attest` | Checks whether an agent has the capability to handle a specific task before it accepts the assignment |
+| `/codrag-enrich` | Enriches findings with structural intelligence — blast radius, hub involvement, cross-module analysis |
 
 ### Enhanced Observations
 
@@ -106,47 +113,56 @@ Every observation now carries attribution:
 }
 ```
 
-You can see which agent found what, filter by agent, and trace findings back to their source.
+You can see which agent found what, filter by agent, and trace findings back to their source. The Paperclip plugin automatically sets `created_by: "paperclip-agent"` for observations saved through it.
 
 ---
 
 ## How this fits with Paperclip
 
-CoDRAG doesn't replace Paperclip's orchestration. Paperclip decides *who* works on what and *when*. CoDRAG provides the intelligence that makes those decisions better.
+CoDRAG doesn't replace Paperclip's orchestration. Paperclip decides *who* works on what and *when*. CoDRAG provides the structural intelligence that makes those decisions better.
 
 ```
                 Paperclip (orchestration)
                 ┌─────────────────────┐
                 │ Assigns tasks       │
-                │ Tracks progress     │
+                │ Tracks activity     │
                 │ Manages agents      │
+                │ Routes conflicts    │
                 └────────┬────────────┘
                          │
-                         │ "What should this agent know?"
-                         │ "Are any agents conflicting?"
-                         │ "What changed since last run?"
+                         │ CoDRAG pushes:
+                         │ • Structural delta (what shifted in the graph)
+                         │ • Conflict issues (agents disagree about a file)
+                         │ • File claims (what agents are working on)
                          │
                 ┌────────▼────────────┐
                 │ CoDRAG (intelligence)│
                 │ Agent memory        │
                 │ Structural delta    │
                 │ Conflict detection  │
-                │ Consensus scoring   │
-                │ Capability check    │
+                │ File-level claims   │
                 └─────────────────────┘
 ```
 
+**CoDRAG provides three things Paperclip cannot compute:**
+
+1. **Structural delta** — what changed in the dependency graph, not just what files changed
+2. **File-level claims with structural awareness** — coordination at the code level, not the task level
+3. **Pre-push conflict detection** — catch agent disagreements before they become separate Paperclip issues
+
+Everything else (activity tracking, task routing, agent management, audit trail) belongs in Paperclip. CoDRAG enriches Paperclip's coordination with structural intelligence. It doesn't replace it.
+
 **Concrete integration points:**
 
-1. **Task assignment** — Before assigning a task, Paperclip can check `codrag-attest` to see if the agent can handle it. CoDRAG responds with scope size, dependency depth, and a recommended agent class (lightweight/standard/heavyweight).
+1. **Agent startup** — When a Paperclip agent starts a session, its system prompt can include `@codrag://memory/{role}` so it has its prior work context immediately.
 
-2. **Agent startup** — When a Paperclip agent starts a session, its system prompt can include `@codrag://memory/{role}` so it has its prior work context immediately.
+2. **Handoff** — When Agent A finishes and Agent B picks up, the `codrag-handoff` prompt packages what A found, what B should focus on, and the structural context for the relevant code area.
 
-3. **Handoff** — When Agent A finishes and Agent B picks up, the `codrag-handoff` prompt packages what A found, what B should focus on, and the structural context for the relevant code area.
+3. **Structural enrichment** — Before triaging findings, use `/codrag-enrich` to add blast radius, hub involvement, and cross-module analysis to each finding. Paperclip gets better signal for routing.
 
-4. **Conflict resolution** — Paperclip can poll `@codrag://conflicts` to surface disagreements to the human operator, or build automation rules (e.g., "on conflict between researcher and custodian, always defer to researcher for actively-imported files").
+4. **Conflict resolution** — Conflicts appear as Paperclip issues with both agents' assessments. Assign, comment, and resolve using your normal workflow.
 
-5. **Consensus prioritization** — When multiple agents independently flag the same area, CoDRAG assigns a consensus score. Paperclip can use this to prioritize which issues get worked on first — high-consensus findings are more likely to be real problems.
+5. **Structural awareness** — The `structural-delta` data provider shows what changed in the dependency graph since the last pipeline rebuild. Useful for scoping agent work and understanding codebase drift.
 
 ---
 
@@ -158,20 +174,22 @@ CoDRAG's approach is **observation-mediated** — agents don't talk to each othe
 
 This is more resilient (agents don't need to be online simultaneously), more transparent (all traces are inspectable), and works across any MCP client (Claude Code, Cursor, Windsurf, Gemini, or Paperclip-managed agents).
 
-The other unique element is the **codebase graph as coordination medium**. CoDRAG knows the structural relationships between files — which files are hubs, which modules depend on each other, where cycles exist. When agents coordinate through CoDRAG, they coordinate through *structural understanding*, not just file paths. This means conflict detection catches semantic conflicts ("these two agents are working on structurally connected code") not just name collisions.
+The other unique element is the **codebase graph as coordination medium**. CoDRAG knows the structural relationships between files — which files are hubs, which modules depend on each other. When agents coordinate through CoDRAG, they coordinate through *structural understanding*, not just file paths. This means conflict detection catches semantic conflicts ("these two agents are working on structurally connected code") not just name collisions.
 
 ---
 
 ## Getting started
 
-If you're already using the CoDRAG Paperclip plugin (`@codrag/paperclip-plugin`), collaboration infrastructure is available through the same MCP connection your agents already use.
+If you're already using the CoDRAG Paperclip plugin (`@codrag/paperclip-plugin`), collaboration infrastructure is available through the same connection your agents already use.
 
-1. **Agent attribution** — Pass `created_by: "your-agent-role"` when calling `codrag_observe`. Your agent's observations become browsable via `@codrag://memory/{role}`.
+1. **Agent attribution** — The plugin automatically sets `created_by` when agents save observations via `codrag:observe`. Your agent's observations become browsable via `@codrag://memory/{role}`.
 
-2. **Cross-agent awareness** — Have agents include `@codrag://activity` in their startup context to see what other agents have done recently.
+2. **Cross-agent visibility** — Have agents include `@codrag://agents/{role}/findings` in their startup context to see what other agents discovered.
 
-3. **Conflict alerts** — Monitor `@codrag://conflicts` in your Paperclip dashboard or have agents check before pushing findings.
+3. **Structural delta** — Have long-running agents check `@codrag://delta` at session start to understand what changed since their last run. Or view the `structural-delta` data provider in the Paperclip dashboard.
 
-4. **Structural delta** — Have long-running agents check `@codrag://delta` at session start to understand what changed since their last run.
+4. **Conflict alerts** — Conflicts automatically push to Paperclip as tagged issues. No polling or monitoring needed — they show up in your normal issue tracker.
+
+5. **File claims** — The `agent-claims` data provider shows which files agents have claimed. View in the Paperclip agent detail tab to avoid routing conflicts.
 
 No orchestration changes required. Your existing agent workflows continue to work — these are additive capabilities that make them smarter.

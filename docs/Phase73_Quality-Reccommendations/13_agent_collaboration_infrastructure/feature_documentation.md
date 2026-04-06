@@ -1,6 +1,6 @@
 # Agent Collaboration Infrastructure — Feature Documentation
 
-> Phase 73.5 | Implemented 2026-04-06 | 17 commits, 74 tests
+> Phase 73.5 | Implemented 2026-04-06 | 19 commits, 76 tests | Paperclip-first direction
 
 ---
 
@@ -12,9 +12,15 @@ Before this feature, CoDRAG's agents — Pi (7 background scenarios), Researcher
 
 This feature fixes those problems with two layers of capabilities:
 
-**Layer 1 — Awareness:** Every observation now carries metadata about which agent created it (`created_by`) and who should see it (`visibility`). Agents can browse each other's recent work through dedicated MCP resources. An activity feed tracks what every agent did and when.
+**Layer 1 — Awareness:** Every observation now carries metadata about which agent created it (`created_by`) and who should see it (`visibility`). Agents can browse each other's recent work through dedicated MCP resources (memory, cross-agent findings). Internal activity tracking records what every agent did and when.
 
-**Layer 2 — Coordination:** Agents can claim files they're actively working on so other agents skip those areas. CoDRAG captures structural snapshots of the codebase graph after every pipeline rebuild and can compute what changed between any two points in time. When agents disagree about the same file, the system detects and surfaces the conflict.
+**Layer 2 — Coordination:** Agents can claim files they're actively working on so other agents skip those areas. CoDRAG captures structural snapshots of the codebase graph after every pipeline rebuild and can compute what changed between any two points in time. When agents disagree about the same file, the system detects the conflict and pushes it to Paperclip as an issue.
+
+### Paperclip-First Direction
+
+After the initial build, we reframed the collaboration infrastructure around a key insight: **CoDRAG should provide structural intelligence that enriches Paperclip's existing coordination, not build a parallel PM system.** Paperclip already manages agents, tracks activity, routes tasks, and maintains an audit trail. CoDRAG should tell Paperclip things only CoDRAG can know — what changed in the dependency graph, which files are structurally connected, where agents are about to collide — and let Paperclip act on that intelligence.
+
+This led to removing the `codrag://activity` and `codrag://conflicts` MCP resources (Paperclip has richer versions of both), replacing the `codrag-triage` prompt with `codrag-enrich` (CoDRAG provides structural enrichment, Paperclip does triage), and adding conflict push to Paperclip as tagged issues.
 
 ---
 
@@ -24,13 +30,13 @@ This feature fixes those problems with two layers of capabilities:
 
 A new Python package with a `CollaborationHub` facade composing four stores:
 
-**ActivityStore** (`activity.py`) — An append-only log of agent actions. Every time an agent completes a scenario (Pi Watchdog runs a delta scan, Researcher selects a topic, Custodian discovers dead code), it writes a one-line entry with its role name, the action taken, and a summary. Entries are queryable by project and time range. Auto-prunes entries older than 30 days when the table exceeds 1000 rows. Used by the `codrag://{pid}/activity` MCP resource.
+**ActivityStore** (`activity.py`) — An append-only log of agent actions. Every time an agent completes a scenario (Pi Watchdog runs a delta scan, Researcher selects a topic, Custodian discovers dead code), it writes a one-line entry with its role name, the action taken, and a summary. Entries are queryable by project and time range. Auto-prunes entries older than 30 days when the table exceeds 1000 rows. Used internally by FastAPI routes and the Paperclip plugin's data providers (not exposed as an MCP resource — Paperclip has its own richer activity feed).
 
 **ClaimStore** (`claims.py`) — Soft file claims with auto-expiry. When the Researcher starts investigating a file, it creates a claim on that file with a reason and a TTL (default 24 hours). The Custodian checks claims before marking files for deletion — if another agent has claimed a file, the Custodian skips it. Claims support directory prefixes (claiming `src/auth/` covers all files under that path). Expired claims are cleaned up lazily on the next write or query. Used by Researcher (creates claims) and Custodian (checks claims).
 
 **GraphSnapshotStore** (`snapshots.py`) — Captures hub files and module structure at index rebuild time and computes structural deltas between any two snapshots. After every Pi Watchdog run (triggered by pipeline completion), a snapshot is captured containing the current hub file rankings and module cluster data. The `compute_delta()` method diffs two snapshots and returns a `StructuralDelta` showing which hubs were added, removed, or changed rank, and which modules were added, removed, or changed size by more than 20%. Only the 10 most recent snapshots are kept per project. Used by the `codrag://{pid}/delta` MCP resource.
 
-**ConflictStore + ConflictDetector** (`conflicts.py`) — Detects when two agents have observations about the same file (a proximity signal that they may disagree). The `ConflictDetector` groups attributed observations by file path and creates an `AgentConflict` record when two different agents both have observations on the same file. Conflicts are stored with both agents' assessments and default to `deferred` resolution until a human or automation resolves them. The PushEngine runs conflict detection before pushing findings to Paperclip. Used by the `codrag://{pid}/conflicts` MCP resource.
+**ConflictStore + ConflictDetector** (`conflicts.py`) — Detects when two agents have observations about the same file (a proximity signal that they may disagree). The `ConflictDetector` groups attributed observations by file path and creates an `AgentConflict` record when two different agents both have observations on the same file. Conflicts are stored with both agents' assessments and default to `deferred` resolution until a human or automation resolves them. The PushEngine runs conflict detection before pushing findings to Paperclip, then pushes detected conflicts to Paperclip as tagged issues (not exposed as an MCP resource — conflicts flow to Paperclip's issue tracker instead).
 
 **CollaborationHub** (`__init__.py`) — Single facade composing all four stores. Initialized once during daemon startup (when the file watcher starts). Agent engines and API routes access collaboration features through this hub. A module-level singleton pattern matches the existing `observation_store` singleton.
 
@@ -67,29 +73,32 @@ These endpoints are called by the MCP server via HTTP proxy — the MCP server n
 
 ### MCP Resources (`src/codrag/mcp/collaboration_handlers.py`)
 
-Five new MCP resources browsable via `@` mention in any MCP client:
+Three MCP resources browsable via `@` mention in any MCP client:
 
 **`codrag://{pid}/memory/{role}`** — An agent's own prior observations, filtered by `created_by`. When a Researcher starts a new session, it can `@codrag://memory/researcher` to see what it found last time — without making a tool call. Formatted as a chronological markdown list with dates, content, file paths, and categories. Returns "No observations from this agent" when empty.
 
 **`codrag://{pid}/agents/{role}/findings`** — Another agent's recent findings, filtered to `visibility="shared"`. Lets any agent browse what another agent discovered. The Dispatcher can see what the Researcher found; the Architect can see what the Custodian flagged. Same format as memory, but cross-agent.
 
-**`codrag://{pid}/activity`** — Chronological timeline of all agent actions across the team. Formatted as a markdown table with time, agent role, action type, and summary. Shows up to 50 recent entries by default. Useful for understanding "what happened while I was offline?"
-
 **`codrag://{pid}/delta`** — What changed structurally in the codebase graph since the last snapshot. Shows new/removed/rank-changed hub files and new/removed/size-changed modules. This is data no other tool can provide — git log shows file changes, but this shows structural shifts (new hubs emerging, modules splitting, dependency rankings changing). Returns "No structural changes detected" if the latest two snapshots are identical. Returns guidance text if no snapshots exist yet.
 
-**`codrag://{pid}/conflicts`** — Active disagreements between agents. Shows each conflict with both agents' assessments, the conflict type, and resolution status. Designed for human review — surface the disagreement, let the user decide.
+**Removed resources (Paperclip-first revision):**
+
+- ~~`codrag://{pid}/activity`~~ — Removed. Paperclip has a richer activity/audit trail. The `ActivityStore` remains as internal infrastructure and is accessible via FastAPI routes and the Paperclip plugin's `structural-delta` data provider.
+- ~~`codrag://{pid}/conflicts`~~ — Removed. Conflicts now flow to Paperclip as tagged issues via `PushEngine._push_conflict_to_pm()`. The `ConflictStore` remains for persistent records and is accessible via FastAPI routes.
 
 All resources include `audience` annotations for MCP clients and handle empty state gracefully.
 
 ### MCP Prompts
 
-Three new MCP prompts available as `/` commands in any MCP client:
+Three MCP prompts available as `/` commands in any MCP client:
 
-**`codrag-handoff`** (`from_role`, `to_role`, optional `task`) — Structured context transfer between agent sessions. Returns a 5-step workflow: review the prior agent's memory and findings, check the activity feed for timeline, check for conflicts, search for relevant code, and summarize the handoff. Designed for multi-agent workflows where one agent finishes and another picks up.
+**`codrag-handoff`** (`from_role`, `to_role`, optional `task`) — Structured context transfer between agent sessions. Returns a 4-step workflow: review the prior agent's memory and findings, check the structural delta for changes, search for relevant code, and summarize the handoff. Designed for multi-agent workflows where one agent finishes and another picks up.
 
-**`codrag-scope`** (`role`) — Shows what an agent role owns and what's happening in its domain. Pulls structural overview, memory, delta, and conflicts filtered to the role. Useful for understanding an agent's current scope and responsibilities.
+**`codrag-scope`** (`role`) — Shows what an agent role owns and what's happening in its domain. Pulls structural overview, memory, and delta filtered to the role. Useful for understanding an agent's current scope and responsibilities.
 
-**`codrag-triage`** (optional `focus`) — Clusters current findings by root cause, checks activity for what's been done, surfaces conflicts, and recommends agent assignments. Useful for dispatching work across a team of agents.
+**`codrag-enrich`** (optional `scope`) — Enriches findings with structural intelligence from CoDRAG. Walks through: get audit findings, assess blast radius via `codrag_impact`, identify hub vs leaf file involvement, check cross-module scope, and summarize each finding with structural context. This gives Paperclip the *inputs* for triage (blast radius, hub involvement, cross-module flag) without doing the triage itself.
+
+**Replaced prompt:** `codrag-triage` was renamed to `codrag-enrich` in the Paperclip-first revision. Triage (clustering findings, assigning to agents) is Paperclip's job. CoDRAG provides structural evidence that helps Paperclip make better decisions.
 
 These prompts are distinct from the 5 existing CoDRAG prompts (onboard, review, plan, investigate, health) which are human developer workflows. The collaboration prompts are agent coordination workflows.
 
@@ -111,8 +120,9 @@ These prompts are distinct from the 5 existing CoDRAG prompts (onboard, review, 
 - Accesses the hub through `self._core.collab`.
 
 **PushEngine** (`adapters/push_engine.py`):
-- Runs conflict detection after consolidation, before pushing to Paperclip.
+- Runs conflict detection after consolidation (Step 2b), before pushing to Paperclip.
 - Queries all attributed observations via `get_all_attributed()`, passes them to `ConflictDetector`, and stores any detected conflicts.
+- Pushes detected conflicts to Paperclip as tagged issues (Step 2c) via `_push_conflict_to_pm()`. Each conflict becomes a Paperclip issue with both agents' assessments, deduped via `codrag-address` embedded in the description.
 - `PushResult` now includes a `conflicts` list and `conflicts_detected` count.
 - Accepts optional `conflict_detector` and `conflict_store` in `__init__`.
 
@@ -125,9 +135,9 @@ These prompts are distinct from the 5 existing CoDRAG prompts (onboard, review, 
 
 Four thin integration points — no new logic in server.py, all delegated to `collaboration_handlers.py`:
 
-1. `handle_resources_list` appends 5 collaboration resources to the existing 7.
-2. `handle_resources_read` tries `parse_collaboration_uri()` before the existing if/elif chain. If it matches, delegates to `_read_collaboration_resource()` which calls the daemon's collaboration API endpoints and formats the response.
-3. `handle_prompts_list` appends 3 collaboration prompts to the existing 5.
+1. `handle_resources_list` appends 3 collaboration resources (memory, agent_findings, delta) to the existing 7.
+2. `handle_resources_read` tries `parse_collaboration_uri()` before the existing if/elif chain. If it matches, delegates to `_read_collaboration_resource()` which calls the daemon's collaboration API endpoints and formats the response. Routes: `memory/{role}`, `agents/{role}/findings`, `delta`.
+3. `handle_prompts_list` appends 3 collaboration prompts (handoff, scope, enrich) to the existing 5.
 4. `handle_prompts_get` tries `get_collaboration_prompt_messages()` before the existing branches.
 
 The `codrag_observe` tool (save action) now accepts an optional `created_by` parameter, passed through the tool schema, dispatch, API endpoint, and observation store.
@@ -150,7 +160,7 @@ The `codrag_observe` tool (save action) now accepts an optional `created_by` par
 
 **Agents see structural changes.** After every pipeline rebuild, the Watchdog captures a graph snapshot. Any agent (or MCP client) can ask "what changed structurally since my last run?" and get a concrete answer: "src/gateway.py became a new hub with 14 dependents, the auth module merged with auth_legacy, the logging concern expanded to 45 files." This is data only CoDRAG can provide — it requires the dependency graph.
 
-**Disagreements are surfaced.** When the PushEngine consolidates findings for Paperclip, it checks if two agents have observations about the same file. If the Researcher says "important JWT pattern here" and the Custodian says "dead code, safe to delete," that conflict is stored and surfaced in the `codrag://conflicts` resource. The user sees the disagreement before either recommendation is acted on.
+**Disagreements are surfaced and pushed to Paperclip.** When the PushEngine consolidates findings for Paperclip, it checks if two agents have observations about the same file. If the Researcher says "important JWT pattern here" and the Custodian says "dead code, safe to delete," that conflict is stored locally and pushed to Paperclip as a tagged issue (e.g., "CoDRAG Conflict: src/auth.py — researcher vs custodian"). The user sees the disagreement in their normal Paperclip issue tracker before either recommendation is acted on.
 
 ### For External Agents (via MCP)
 
@@ -172,7 +182,7 @@ The `codrag_observe` tool (save action) now accepts an optional `created_by` par
 
 ## Architecture: How It Wires Up
 
-### Data Flow: Agent Observation → MCP Resource
+### Data Flow: Agent Observation → MCP Resource / Paperclip
 
 ```
 1. Pi Watchdog completes delta scan
@@ -183,11 +193,16 @@ The `codrag_observe` tool (save action) now accepts an optional `created_by` par
 6. Calls _capture_graph_snapshot()
 7. GraphSnapshotStore.capture() writes hub + module data to graph_snapshots table
 
-Later, an MCP client reads @codrag://activity:
-8. MCP server calls _read_collaboration_resource("activity", {})
-9. Which calls self._api_get("/projects/{pid}/collaboration/activity")
-10. Daemon's FastAPI route calls hub.activity.get_recent()
-11. Returns ActivityEntry list → formatted as markdown table → sent to client
+Later, an MCP client reads @codrag://memory/pi/watchdog:
+8. MCP server calls _read_collaboration_resource("memory", {"role": "pi/watchdog"})
+9. Which calls self._api_get("/projects/{pid}/collaboration/observations?created_by=pi/watchdog")
+10. Daemon's FastAPI route calls observation_store.get_by_agent()
+11. Returns observations → formatted as markdown list → sent to client
+
+Later, Paperclip plugin fetches structural-delta data provider:
+12. Plugin calls GET /projects/{pid}/collaboration/delta
+13. Daemon's FastAPI route calls hub.snapshots.get_latest_two() + compute_delta()
+14. Returns StructuralDelta → plugin renders in Paperclip UI
 ```
 
 ### Data Flow: Researcher Claims → Custodian Skips
@@ -204,16 +219,19 @@ Later, Custodian runs discover():
 7. Custodian logs "Skipping src/auth/login.py — claimed by another agent" and continues
 ```
 
-### Data Flow: Conflict Detection on Push
+### Data Flow: Conflict Detection → Push to Paperclip
 
 ```
-1. PushEngine.push() consolidates ActionItems into groups
-2. Calls observation_store.get_all_attributed(project_id) → gets all observations with created_by set
+1. PushEngine.push() consolidates ActionItems into groups (Step 1-2)
+2. Step 2b: Calls observation_store.get_all_attributed(project_id) → all observations with created_by
 3. ConflictDetector.detect_from_observations() groups by file_path
 4. Finds src/auth.py has observations from both "researcher" and "custodian"
 5. Creates AgentConflict(agent_a="researcher", agent_b="custodian", ...)
 6. ConflictStore.save() writes to agent_conflicts table
-7. PushResult.conflicts populated → Paperclip sees conflicts_detected count
+7. Step 2c: For each conflict, calls _push_conflict_to_pm()
+8. Checks dedup: adapter.find_issue_by_codrag_address("codrag://pid/CONFLICT-abc123")
+9. If not exists: adapter.create_issue() → creates Paperclip issue with both assessments
+10. PushResult.conflicts populated → Paperclip sees conflicts_detected count
 ```
 
 ### Initialization Chain
@@ -237,7 +255,29 @@ Agent API called
 
 ---
 
-## What's Not Built Yet (Layer 3 Roadmap)
+## Paperclip Plugin Integration
+
+The Paperclip plugin (`packages/paperclip-plugin-codrag/src/worker/index.ts`) was extended with collaboration capabilities:
+
+**Observation Attribution** — The `codrag:observe` tool now includes `created_by: 'paperclip-agent'` in every POST body. When a Paperclip-managed agent saves an observation through the plugin, it's automatically attributed.
+
+**Data Providers** — Two new data providers expose collaboration data in the Paperclip UI:
+- `structural-delta` — Calls `GET /projects/{pid}/collaboration/delta` to show recent structural changes (new hubs, removed modules, rank changes) in a Paperclip dashboard widget.
+- `agent-claims` — Calls `GET /projects/{pid}/collaboration/claims` to show files currently claimed by agents, displayed in the agent detail tab.
+
+The plugin now has 5 tools, 4 data providers, 2 actions, and 1 job.
+
+---
+
+## What's Not Built Yet
+
+### P3 Items (Deferred for User Feedback)
+
+**Claims Push as Paperclip Agent Metadata** — When an agent creates a claim, update the agent's metadata in Paperclip so routing logic can factor in claims before assigning tasks. Requires Paperclip agent metadata API support.
+
+**Delta Push as Paperclip Issues** — After Pi Watchdog captures a snapshot with significant structural changes (new/removed hubs or modules), proactively create Paperclip issues alerting users. Requires Pi to have Paperclip adapter access (or a "pending push" pattern via PushEngine).
+
+### Layer 3 Roadmap (Emergence)
 
 The design doc (`README.md`) describes a third layer — **Emergence** — where agents get smarter together based on collective outcomes. This layer is roadmapped but not implemented:
 
@@ -277,7 +317,7 @@ Additional data sources for snapshots (cycle detection, structured cross-cutting
 | `tests/test_collab_api.py` | ~90 | FastAPI route tests |
 | `tests/test_collab_resources.py` | ~120 | MCP handler tests |
 
-### Modified Files (11)
+### Modified Files (12)
 
 | File | Change |
 |---|---|
@@ -287,7 +327,7 @@ Additional data sources for snapshots (cycle detection, structured cross-cutting
 | `src/codrag/services/pi_agent.py` | `collab_hub`, `scenario=` attribution, `_log_activity()`, `_capture_graph_snapshot()` |
 | `src/codrag/agents/researcher/engine.py` | Claim creation + activity logging |
 | `src/codrag/agents/custodian/engine.py` | Claim checking + `_is_claimed_by_other()` |
-| `src/codrag/adapters/push_engine.py` | Conflict detection, `conflict_detector`/`conflict_store` params |
+| `src/codrag/adapters/push_engine.py` | Conflict detection, `conflict_detector`/`conflict_store` params, `_push_conflict_to_pm()` |
 | `src/codrag/adapters/pm_models.py` | `conflicts` field on PushResult |
 | `src/codrag/mcp_tools.py` | `created_by` on `codrag_save_observation` schema |
 | `src/codrag/mcp/server.py` | 4 integration points for resources + prompts, `created_by` on tool handler |
@@ -295,12 +335,13 @@ Additional data sources for snapshots (cycle detection, structured cross-cutting
 | `src/codrag/api/routers/projects/watch.py` | Hub initialization + pass to Pi |
 | `src/codrag/api/routers/observations.py` | `created_by` on save endpoint |
 | `src/codrag/api/routers/agents.py` | `_make_core()` helper with hub injection |
+| `packages/paperclip-plugin-codrag/src/worker/index.ts` | `created_by` on observe tool, 2 data providers (structural-delta, agent-claims) |
 
 ---
 
 ## Testing
 
-74 tests across 8 test files, all passing:
+76 tests across 8 test files, all passing:
 
 - 9 observation attribution tests (save/query with `created_by` + `visibility`)
 - 8 activity store tests (log, query, ordering, filtering, pruning)
@@ -309,6 +350,12 @@ Additional data sources for snapshots (cycle detection, structured cross-cutting
 - 6 conflict store + detector tests (save, resolve, observation-level detection)
 - 4 integration tests (hub init, cross-store workflows)
 - 8 API route tests (all 7 endpoints)
-- 21 MCP handler tests (URI parsing, 5 formatters, 3 prompts)
+- 22 MCP handler tests (URI parsing, 3 resource formatters, 2 internal formatters, 3 prompts, negative tests for removed resources/prompts)
 
-All changes are backward compatible — no existing tests were modified.
+Test updates in the Paperclip-first revision:
+- `test_parse_uri_activity` and `test_parse_uri_conflicts` replaced with `test_parse_uri_activity_not_routed` and `test_parse_uri_conflicts_not_routed` (verify removed resources return `None`)
+- `test_get_collaboration_resources_returns_5` → `test_get_collaboration_resources_returns_3` (verify activity/conflicts not in list)
+- `test_prompt_triage_returns_messages` → `test_prompt_triage_no_longer_exists` + `test_prompt_enrich_returns_messages`
+- Prompt tests verify `@codrag://activity` and `@codrag://conflicts` no longer appear in prompt text
+
+All changes are backward compatible — no existing tests outside collaboration files were modified.
