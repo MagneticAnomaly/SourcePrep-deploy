@@ -143,6 +143,21 @@ class ResearcherEngine:
         llm_fn: LLMFn,
     ) -> str:
         """Research a single topic and return the LLM's analysis."""
+        # Phase 73.5: Claim affected files + log activity
+        if self._core and self._core.collab:
+            try:
+                for fp in topic.affected_files[:5]:
+                    self._core.collab.claims.claim(
+                        self._project_id, "researcher", fp,
+                        reason=f"Researching: {topic.title}",
+                    )
+                self._core.collab.activity.log(
+                    self._project_id, "researcher",
+                    "research_topic_start",
+                    f"Researching: {topic.title}",
+                )
+            except Exception:
+                pass
         code_context = self._search_code(topic.title)
         impact_summary = ""
         if topic.affected_files:

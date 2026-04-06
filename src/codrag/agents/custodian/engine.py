@@ -54,6 +54,18 @@ class CustodianEngine:
             return len(result.get("dependents", []))
         return 0
 
+    def _is_claimed_by_other(self, file_path: str) -> bool:
+        """Check if another agent has claimed this file."""
+        if self._core and self._core.collab:
+            try:
+                return self._core.collab.claims.is_claimed(
+                    self._project_id, file_path,
+                    exclude_agent="custodian",
+                )
+            except Exception:
+                pass
+        return False
+
     def _read_file_contents(self, file_path: str) -> str:
         if self._core is not None and hasattr(self._core, '_data'):
             project_root = self._core._data._project_root
@@ -79,6 +91,13 @@ class CustodianEngine:
             if category not in _DEAD_CODE_CATEGORIES:
                 continue
             for file_path in f.get("affected_files", []):
+                # Phase 73.5: Skip files claimed by another agent
+                if self._is_claimed_by_other(file_path):
+                    logger.info(
+                        "Custodian: skipping %s — claimed by "
+                        "another agent", file_path,
+                    )
+                    continue
                 dep_count = self._get_impact(file_path)
                 candidates.append(CleanupCandidate(
                     file_path=file_path,
