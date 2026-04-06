@@ -52,7 +52,7 @@ _CORE_TOOLS = [
             },
             "required": [],
         },
-        "annotations": {"readOnlyHint": True, "openWorldHint": True},
+        "annotations": {"title": "CoDRAG: Codebase Context", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
     },
     # ── 2. codrag_search (query-based retrieval) ────────────────────
     {
@@ -110,7 +110,7 @@ _CORE_TOOLS = [
             },
             "required": ["query"],
         },
-        "annotations": {"readOnlyHint": True, "openWorldHint": True},
+        "annotations": {"title": "CoDRAG: Code Search", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
     },
     # ── 3. codrag_impact (blast radius + graph traversal) ───────────
     {
@@ -149,7 +149,7 @@ _CORE_TOOLS = [
             },
             "required": [],
         },
-        "annotations": {"readOnlyHint": True, "openWorldHint": True},
+        "annotations": {"title": "CoDRAG: Impact Analysis", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
     },
     # ── 4. codrag_audit (codebase health) ───────────────────────────
     {
@@ -205,7 +205,7 @@ _CORE_TOOLS = [
             },
             "required": [],
         },
-        "annotations": {"readOnlyHint": True, "openWorldHint": True},
+        "annotations": {"title": "CoDRAG: Codebase Audit", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
     },
     # ── 5. codrag_observe (session memory) ──────────────────────────
     {
@@ -261,7 +261,7 @@ _CORE_TOOLS = [
             },
             "required": [],
         },
-        "annotations": {"readOnlyHint": False},
+        "annotations": {"title": "CoDRAG: Observations", "readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True},
     },
     # ── 6. codrag_concepts (epistemic knowledge layer) ─────────────
     {
@@ -314,7 +314,7 @@ _CORE_TOOLS = [
             },
             "required": [],
         },
-        "annotations": {"readOnlyHint": False},
+        "annotations": {"title": "CoDRAG: Concepts", "readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True},
     },
 ]
 
@@ -338,7 +338,7 @@ _DEV_ALIAS_TOOL = {
         },
         "required": [],
     },
-    "annotations": {"readOnlyHint": True, "openWorldHint": True},
+    "annotations": {"title": "CoDRAG: Context (Dev)", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
 }
 
 # Build the final TOOLS list

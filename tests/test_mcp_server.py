@@ -782,3 +782,37 @@ class TestProjectRouting:
 
             result = await srv._resolve_project_id()
             assert result == "only_one"
+
+
+# =============================================================================
+# Tool Annotation Tests
+# =============================================================================
+
+from codrag.mcp_tools import TOOLS as MCP_TOOLS
+
+
+def test_all_tools_have_title():
+    """Every production tool must have a title annotation for UI display."""
+    for tool in MCP_TOOLS:
+        annotations = tool.get("annotations", {})
+        assert "title" in annotations, f"Tool {tool['name']} missing 'title' annotation"
+        assert isinstance(annotations["title"], str)
+        assert len(annotations["title"]) > 0
+
+
+def test_all_tools_have_destructive_hint():
+    """Every tool must declare destructiveHint (none are destructive)."""
+    for tool in MCP_TOOLS:
+        annotations = tool.get("annotations", {})
+        assert "destructiveHint" in annotations, f"Tool {tool['name']} missing 'destructiveHint'"
+        assert annotations["destructiveHint"] is False, f"Tool {tool['name']} should not be destructive"
+
+
+def test_readonly_tools_have_idempotent_hint():
+    """Read-only tools should declare idempotentHint=True."""
+    readonly_tools = [t for t in MCP_TOOLS if t.get("annotations", {}).get("readOnlyHint")]
+    for tool in readonly_tools:
+        annotations = tool.get("annotations", {})
+        assert annotations.get("idempotentHint") is True, (
+            f"Read-only tool {tool['name']} should be idempotent"
+        )
