@@ -163,8 +163,8 @@ export default function Page() {
               <h3 className="text-lg font-semibold">4. Smart Compression (built-in)</h3>
               <p className="text-sm text-text-muted mb-2">No GPU required</p>
               <p>
-                <span className="font-semibold text-text">Structural compression</span> for code extracts at variable Levels of Detail (LOD 0&ndash;5) based on relevance &mdash;
-                3&ndash;20&times;, no model needed. Compression adapts per client tier (Claude/Gemini get more detail, local models get tighter compression).
+                Two engines: <span className="font-semibold text-text">structural compression</span> for code extracts at variable Levels of Detail (LOD 0&ndash;5) based on relevance &mdash;
+                3&ndash;20&times;, no model needed. <span className="font-semibold text-text">Language compression</span> for docs uses a lightweight BERT model (~178 MB) to remove filler while preserving meaning. Tier-adaptive per client.
                 <a href="/guides/compression" className="ml-1 text-primary hover:underline">Read the full compression guide &rarr;</a>
               </p>
             </div>

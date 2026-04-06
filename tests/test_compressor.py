@@ -136,10 +136,13 @@ class TestLinguaCompressorFallback:
 
     def test_compress_returns_noop_when_unavailable(self) -> None:
         comp = LinguaCompressor()
-        # Force unavailable state
+        # Simulate model load failure — set _available=False AND provide a
+        # non-None _compressor sentinel so _ensure_loaded doesn't re-try
         comp._available = False
         comp._compressor = None
-        result = comp.compress("Hello, this is a test string.")
+        # Patch the import to fail so _ensure_loaded can't reload
+        with patch.dict("sys.modules", {"llmlingua": None}):
+            result = comp.compress("Hello, this is a test string.")
         assert result.compressed == "Hello, this is a test string."
         assert result.error is not None
         assert "not available" in result.error

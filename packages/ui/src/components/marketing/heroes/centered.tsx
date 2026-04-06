@@ -43,7 +43,7 @@ export function CenteredHero({ isBetaMode }: { isBetaMode: boolean }) {
         <p className="mt-6 text-lg md:text-xl text-text-muted max-w-2xl mx-auto leading-relaxed">
           CoDRAG's Rust-powered engine indexes your entire codebase — semantics, symbols,
           and call graphs — with built-in ONNX embeddings, path weights for precision control, and
-          smart structural compression that fits 3–20× more code context into every prompt. Runs locally, or connect your preferred cloud APIs.
+          smart dual-engine compression that fits 3–20× more signal into every prompt. Runs locally, or connect your preferred cloud APIs.
         </p>
 
         {/* CTAs */}

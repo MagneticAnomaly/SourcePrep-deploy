@@ -117,7 +117,7 @@ const faqs: FAQItem[] = [
                   ["Role weights (code vs docs vs tests)", "No", "No", "Yes"],
                   ["Path weights (per-directory relevance)", "No", "No", "Yes"],
                   ["Intent detection (query → weight adjustment)", "No", "No", "Yes"],
-                  ["Smart structural compression (code)", "No", "No", "Yes"],
+                  ["Smart compression (code + docs)", "No", "No", "Yes"],
                   ["Transparency (scores, chunks, what was sent)", "No", "Partial", "Yes"],
                   ["Works across all tools (MCP standard)", "\u2014", "\u2014", "Yes"],
                   ["Persistent agent memory (cross-session)", "No", "No", "Yes"],
@@ -260,7 +260,7 @@ const faqs: FAQItem[] = [
           <li><strong className="text-text">Intent-aware weighting.</strong> CoDRAG detects whether your query is about implementation, debugging, or architecture and adjusts which types of content are prioritized. Automated — not something you configure per query.</li>
           <li><strong className="text-text">User transparency and control.</strong> Every other tool is a black box. CoDRAG shows you the scores, lets you set weights, and tells you exactly what was sent and why.</li>
           <li><strong className="text-text">Tool-agnostic via MCP.</strong> Your index, configuration, and codebase understanding work whether you&apos;re in Cursor today or Claude Code tomorrow.</li>
-          <li><strong className="text-text">Smart context compression.</strong> Built-in structural compression for code (3&ndash;20&times; &mdash; keeps full source for top results, signatures for mid-relevance, names only for peripheral files). Tier-adaptive: compression adjusts per client to fit your AI tool&apos;s context window. No GPU required.</li>
+          <li><strong className="text-text">Smart context compression.</strong> Two built-in engines: structural compression for code (3&ndash;20&times;) and language-aware compression for docs (~2.4&times;). Tier-adaptive: compression adjusts per client to fit your AI tool&apos;s context window. No GPU required.</li>
           <li><strong className="text-text">Persistent cross-session knowledge.</strong> The AI accumulates linked observations about your codebase over time, with automatic staleness detection when files change. Its understanding of your project gets deeper across sessions, not just per-conversation.</li>
         </ul>
       </div>
@@ -326,7 +326,7 @@ const faqs: FAQItem[] = [
     a: (
       <div className="space-y-4">
         <p><strong>No.</strong> The core CoDRAG indexing engine, structural graph generation, and ONNX embeddings all run highly efficiently on standard CPUs. You only need a powerful GPU if you choose to run large local reasoning models (like Qwen or Llama 3) via Ollama instead of using cloud APIs.</p>
-        <p><strong>Context compression</strong> is built in &mdash; structural compression for code files runs instantly with no model at all. No GPU, no sidecar.</p>
+        <p><strong>Context compression</strong> is built in &mdash; structural compression for code files runs instantly with no model, and language-aware compression for docs uses a lightweight CPU model (~178 MB). No GPU, no sidecar.</p>
       </div>
     ),
   },
@@ -345,8 +345,8 @@ const faqs: FAQItem[] = [
     q: "Does it work on documentation, not just code?",
     a: (
       <div className="space-y-4">
-        <p><strong>Yes.</strong> CoDRAG indexes and searches documentation alongside code. Code files get structural compression (full source for top results, signatures for medium-relevance, names for peripheral). Documentation files are included at full text within the context budget.</p>
-        <p>This means you can include architecture docs, API references, and design decisions in your project scope. The AI gets both implementation details and the human reasoning behind them.</p>
+        <p><strong>Yes</strong> &mdash; and it handles docs differently than code, which matters. CoDRAG runs two distinct compression strategies: <strong>structural compression</strong> for code files (preserving full source for top results, signatures for medium-relevance, names for peripheral) and <strong>language-aware compression</strong> for Markdown and text (preserving concepts while stripping filler words).</p>
+        <p>This means you can include architecture docs, API references, and design decisions in your project scope, and CoDRAG will compress them intelligently alongside your code.</p>
       </div>
     ),
   },

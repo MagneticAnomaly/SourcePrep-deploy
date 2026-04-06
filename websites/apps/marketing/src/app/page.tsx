@@ -50,7 +50,7 @@ export default function Page() {
               Built for large codebases and sprawling doc trees
             </h2>
             <p className="mt-4 text-lg text-text-muted max-w-2xl mx-auto">
-              Built-in embeddings, Rust-powered structural tracing, multi-pass graph enrichment, path weights for fine-grained control, and smart structural compression for code &mdash; running locally, integrated with every major AI coding tool.
+              Built-in embeddings, Rust-powered structural tracing, multi-pass graph enrichment, path weights for fine-grained control, and smart compression for both code and documentation &mdash; running locally, integrated with every major AI coding tool.
             </p>
           </div>
 

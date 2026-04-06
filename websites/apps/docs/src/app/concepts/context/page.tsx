@@ -55,10 +55,11 @@ export default function Page() {
 
           <AnchorHeading id="compression" level="h3" className="text-lg font-semibold mt-6">4. Smart Compression</AnchorHeading>
           <p>
-            CoDRAG structurally compresses <span className="font-semibold text-text">code files</span> at
-            a Level of Detail (LOD) determined by relevance score &mdash; top results stay full,
+            When compression is enabled, CoDRAG uses two engines. <span className="font-semibold text-text">Code files</span> are structurally
+            compressed at a Level of Detail (LOD) determined by relevance score &mdash; top results stay full,
             mid-relevance shows signatures, peripheral files show names only (3&ndash;20&times;, no model needed).
-            The compression level adapts automatically to your AI tool&apos;s context window tier.
+            <span className="font-semibold text-text">Documentation</span> is compressed with a lightweight language model that removes filler
+            while preserving meaning (~2.4&times;). Both run on CPU. Tier-adaptive per client.
           </p>
 
           <AnchorHeading id="formatting" level="h3" className="text-lg font-semibold mt-6">5. Formatting</AnchorHeading>

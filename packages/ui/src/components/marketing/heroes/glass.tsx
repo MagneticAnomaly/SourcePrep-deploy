@@ -22,7 +22,7 @@ export function GlassHero({ isBetaMode }: { isBetaMode: boolean }) {
           
           <p className="text-xl text-text-muted mb-8 max-w-2xl mx-auto">
             CoDRAG sits between your codebase and your AI tools — built-in embeddings, structural tracing,
-            path weights for precision control, and smart structural compression for code. Better context in, better code out. Core runs entirely locally, add cloud reasoning when needed.
+            path weights for precision control, and smart compression for both code and docs. Better context in, better code out. Core runs entirely locally, add cloud reasoning when needed.
           </p>
 
           <Flex className="gap-4" justifyContent="center">

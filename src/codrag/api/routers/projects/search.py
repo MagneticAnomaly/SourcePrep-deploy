@@ -406,6 +406,88 @@ def _apply_compression(
     return {"context": result.compressed, "compression": compression_meta}
 
 
+_DOC_EXTENSIONS = frozenset({".md", ".markdown", ".txt", ".rst", ".adoc", ".textile"})
+
+
+def _apply_lingua_to_doc_chunks(
+    lod_result: Dict[str, Any],
+    query: str,
+    compression_level: str = "standard",
+    compression_timeout_s: float = 30.0,
+) -> Dict[str, Any]:
+    """Apply LLMLingua-2 to documentation chunks within an LOD-compressed result.
+
+    Phase 73.3b dual-channel: code chunks are already LOD-compressed. This pass
+    identifies doc/markdown chunks by source_path extension and compresses their
+    content with LLMLingua-2 token pruning. Code chunks are left untouched.
+
+    Modifies lod_result in-place and returns it.
+    """
+    compressor = LinguaCompressor()
+    if not compressor.is_available():
+        return lod_result
+
+    context = lod_result.get("context", "")
+    if not context:
+        return lod_result
+
+    chunks = lod_result.get("chunks", [])
+    doc_paths = set()
+    for ch in chunks:
+        sp = str(ch.get("source_path") or "")
+        if sp:
+            ext = sp.rsplit(".", 1)[-1] if "." in sp else ""
+            if f".{ext}" in _DOC_EXTENSIONS:
+                doc_paths.add(sp)
+
+    if not doc_paths:
+        return lod_result
+
+    # Split context into blocks separated by --- and compress doc blocks
+    import re
+    blocks = re.split(r"(\n\n---\n\n)", context)
+    lingua_input_chars = 0
+    lingua_output_chars = 0
+    lingua_timing_ms = 0.0
+    compressed_blocks = []
+
+    for block in blocks:
+        # Check if this block is a doc chunk (starts with [@path.md] or similar)
+        is_doc = False
+        for dp in doc_paths:
+            if f"@{dp}" in block[:200]:
+                is_doc = True
+                break
+
+        if is_doc and len(block) > 100:
+            result = compressor.compress(
+                block, query=query, level=compression_level,
+                timeout_s=compression_timeout_s,
+            )
+            compressed_blocks.append(result.compressed)
+            lingua_input_chars += result.input_chars
+            lingua_output_chars += result.output_chars
+            lingua_timing_ms += result.timing_ms
+        else:
+            compressed_blocks.append(block)
+
+    lod_result["context"] = "".join(compressed_blocks)
+    lod_result["total_chars"] = len(lod_result["context"])
+    lod_result["estimated_tokens"] = len(lod_result["context"]) // 4
+
+    # Merge lingua metadata into compression info
+    comp = lod_result.get("compression", {}) or {}
+    comp["mode"] = "auto"
+    if lingua_input_chars > 0:
+        comp["lingua_input_chars"] = lingua_input_chars
+        comp["lingua_output_chars"] = lingua_output_chars
+        comp["lingua_timing_ms"] = round(lingua_timing_ms, 1)
+        comp["lingua_ratio"] = round(lingua_input_chars / max(lingua_output_chars, 1), 2)
+    lod_result["compression"] = comp
+
+    return lod_result
+
+
 def _load_scope_modules(
     idx_dir: Path,
     included_paths: List[str],
@@ -739,6 +821,19 @@ def _assemble_ambient_context(
         })
         neighbor_chars += len(block)
         total_chars += len(block)
+
+    # Phase 73: Fallback to Atlas if no structural hubs/neighbors were found
+    if not parts:
+        try:
+            import json
+            atlas_path = Path(idx_dir) / "atlas.json"
+            if atlas_path.exists():
+                with open(atlas_path, "r", encoding="utf-8") as f:
+                    atlas_data = json.load(f)
+                    if atlas_data and atlas_data.get("content"):
+                        parts.append(f"## Codebase Atlas\n\n{atlas_data['content']}")
+        except Exception:
+            pass
 
     context_str = "\n\n---\n\n".join(parts) if parts else "(No context available — select files in the dashboard or build the trace index.)"
     total_chars = len(context_str)
@@ -1091,6 +1186,12 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
                 result.get("chunks", []), proj, req.query, req.max_chars,
                 context_tier=req.context_tier,
             )
+            # Phase 73.3b: Dual-channel auto mode — after LOD compresses code,
+            # apply LLMLingua-2 to documentation/markdown chunks in the assembled context.
+            if req.compression == "auto":
+                lod_result = _apply_lingua_to_doc_chunks(
+                    lod_result, req.query, req.compression_level, req.compression_timeout_s,
+                )
             resp_data: Dict[str, Any] = {
                 **lod_result,
                 "trace_expanded": result.get("trace_expanded", False),
