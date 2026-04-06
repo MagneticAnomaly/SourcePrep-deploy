@@ -309,10 +309,7 @@ def update_project(project_id: str, req: UpdateProjectRequest) -> Dict[str, Any]
         if new_level != old_level:
             try:
                 from codrag.services.pipeline.scheduler import pipeline_scheduler
-                if new_level == "none":
-                    pipeline_scheduler.set_priority(None, "none")
-                else:
-                    pipeline_scheduler.set_priority(project_id, new_level)
+                pipeline_scheduler.set_priority(project_id, new_level)
                 logger.info("Priority for %s changed: %s → %s", project_id, old_level, new_level)
             except Exception as exc:
                 logger.warning("Failed to update scheduler priority: %s", exc)

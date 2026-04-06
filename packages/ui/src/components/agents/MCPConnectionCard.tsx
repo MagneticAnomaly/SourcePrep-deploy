@@ -1,11 +1,12 @@
 /**
- * MCPConnectionCard — "Enable CoDRAG for Workspace" one-click UI.
+ * MCPConnectionCard — Paperclip Skill integration status.
  *
- * Displays MCP server status, which runtimes have CoDRAG installed,
- * and provides the one-click install/uninstall action.
+ * Shows whether the CoDRAG skill is installed globally in
+ * ~/.claude/skills/codrag so Paperclip agents can use it.
+ * Provides one-click install/uninstall and a manual snippet.
  */
 import { useState, useCallback } from 'react';
-import { Plug, Check, Circle, Copy, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Plug, Check, Copy, ChevronDown, ChevronUp } from 'lucide-react';
 
 export interface MCPRuntimeStatus {
   installed: boolean;
@@ -16,45 +17,35 @@ export interface MCPRuntimeStatus {
 
 export interface MCPStatusData {
   daemon_url: string;
-  mcp_command: string;
-  supported_runtimes: string[];
-  workspace?: string;
-  runtimes?: Record<string, MCPRuntimeStatus>;
-  any_installed?: boolean;
+  installed: boolean;
+  path: string;
+  skills_home: string;
+  mode?: 'symlink' | 'copy';
+  source?: string;
 }
 
 export interface MCPInstallResult {
-  workspace: string;
-  written: string[];
-  skipped: Array<{ runtime: string; reason: string }>;
-  runtimes_installed: number;
+  installed: boolean;
+  path: string;
+  mode: string;
+  message: string;
 }
 
 export interface MCPConnectionCardProps {
-  /** Workspace path to install MCP configs into */
-  workspacePath?: string;
-  /** Current status data (from GET /mcp/status) */
+  /** Skill status data (from GET /paperclip/skill-status) */
   status: MCPStatusData | null;
   /** Loading state */
   loading?: boolean;
-  /** Call POST /mcp/install */
-  onInstall?: (workspacePath: string) => Promise<MCPInstallResult>;
-  /** Call POST /mcp/uninstall */
-  onUninstall?: (workspacePath: string) => Promise<void>;
+  /** Call POST /paperclip/install-skill */
+  onInstall?: () => Promise<MCPInstallResult>;
+  /** Call POST /paperclip/uninstall-skill */
+  onUninstall?: () => Promise<void>;
   /** Refresh status */
   onRefresh?: () => void;
   className?: string;
 }
 
-const RUNTIME_LABELS: Record<string, string> = {
-  'claude-code': 'Claude Code',
-  cursor: 'Cursor',
-  vscode: 'VS Code',
-  windsurf: 'Windsurf',
-};
-
 export function MCPConnectionCard({
-  workspacePath,
   status,
   loading: _loading = false,
   onInstall,
@@ -64,40 +55,41 @@ export function MCPConnectionCard({
 }: MCPConnectionCardProps) {
   const [installing, setInstalling] = useState(false);
   const [uninstalling, setUninstalling] = useState(false);
-  const [lastResult, setLastResult] = useState<MCPInstallResult | null>(null);
   const [showSnippet, setShowSnippet] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const anyInstalled = status?.any_installed ?? false;
-  const runtimes = status?.runtimes ?? {};
+  const installed = status?.installed ?? false;
 
   const handleInstall = useCallback(async () => {
-    if (!onInstall || !workspacePath) return;
+    if (!onInstall) return;
     setInstalling(true);
+    setMessage(null);
     try {
-      const result = await onInstall(workspacePath);
-      setLastResult(result);
+      const result = await onInstall();
+      setMessage(result.message);
       onRefresh?.();
     } catch {
-      // Error handled by caller
+      setMessage('Installation failed');
     } finally {
       setInstalling(false);
     }
-  }, [onInstall, workspacePath, onRefresh]);
+  }, [onInstall, onRefresh]);
 
   const handleUninstall = useCallback(async () => {
-    if (!onUninstall || !workspacePath) return;
+    if (!onUninstall) return;
     setUninstalling(true);
+    setMessage(null);
     try {
-      await onUninstall(workspacePath);
-      setLastResult(null);
+      await onUninstall();
+      setMessage('Skill removed');
       onRefresh?.();
     } catch {
-      // Error handled by caller
+      setMessage('Removal failed');
     } finally {
       setUninstalling(false);
     }
-  }, [onUninstall, workspacePath, onRefresh]);
+  }, [onUninstall, onRefresh]);
 
   const snippet = JSON.stringify(
     {
@@ -109,7 +101,7 @@ export function MCPConnectionCard({
       },
     },
     null,
-    2
+    2,
   );
 
   const handleCopy = useCallback(() => {
@@ -124,127 +116,118 @@ export function MCPConnectionCard({
       <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
         <div className="flex items-center gap-2">
           <Plug size={14} className="text-primary" />
-          <h4 className="font-medium text-sm">MCP Connection</h4>
+          <h4 className="font-medium text-sm">Paperclip Integration</h4>
         </div>
         <div className="flex items-center gap-1.5">
           <span
             className={`w-2 h-2 rounded-full ${
-              status ? 'bg-green-500 animate-pulse' : 'bg-zinc-400'
+              installed
+                ? 'bg-green-500'
+                : status
+                  ? 'bg-amber-500'
+                  : 'bg-zinc-400'
             }`}
           />
           <span className="text-xs text-muted-foreground">
-            {status ? 'Server Running' : 'Checking...'}
+            {installed ? 'Skill Installed' : status ? 'Not Installed' : 'Checking...'}
           </span>
         </div>
       </div>
 
       <div className="p-4 space-y-3">
-        {/* Workspace + install button */}
-        {workspacePath ? (
+        {installed ? (
+          /* ── Installed state ── */
           <>
-            <div className="flex items-center justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <div className="text-xs text-muted-foreground mb-0.5">Workspace</div>
-                <div className="text-xs font-mono text-foreground truncate" title={workspacePath}>
-                  {workspacePath}
-                </div>
+            <div className="flex items-start gap-2 rounded-md bg-green-500/10 border border-green-500/20 px-3 py-2.5">
+              <Check size={14} className="text-green-500 mt-0.5 shrink-0" />
+              <div className="text-xs text-green-700 dark:text-green-400 space-y-1">
+                <p className="font-medium">
+                  CoDRAG skill is installed globally
+                </p>
+                <p>
+                  Enable the <code className="bg-green-500/10 px-1 rounded">codrag</code> skill
+                  on any agent in Paperclip → Agent → Skills tab.
+                </p>
               </div>
-              {anyInstalled ? (
-                <button
-                  onClick={handleUninstall}
-                  disabled={uninstalling}
-                  className="shrink-0 text-xs px-3 py-1.5 rounded-md border border-red-500/30 text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-50"
-                >
-                  {uninstalling ? 'Removing...' : 'Remove'}
-                </button>
-              ) : (
-                <button
-                  onClick={handleInstall}
-                  disabled={installing || !onInstall}
-                  className="shrink-0 text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 font-medium"
-                >
-                  {installing ? 'Installing...' : 'Enable CoDRAG'}
-                </button>
-              )}
             </div>
 
-            {/* Runtime status badges */}
-            <div className="flex flex-wrap gap-1.5">
-              {Object.entries(RUNTIME_LABELS).map(([key, label]) => {
-                const rt = runtimes[key];
-                const installed = rt?.installed ?? false;
-                return (
-                  <span
-                    key={key}
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${
-                      installed
-                        ? 'bg-green-500/10 text-green-700 dark:text-green-400'
-                        : 'bg-zinc-500/10 text-zinc-500 dark:text-zinc-400'
-                    }`}
-                    title={installed ? `Installed: ${rt?.file}` : 'Not installed'}
-                  >
-                    {installed ? (
-                      <Check size={10} className="text-green-500" />
-                    ) : (
-                      <Circle size={10} />
-                    )}
-                    {label}
-                  </span>
-                );
-              })}
-            </div>
+            {status?.mode && (
+              <div className="text-xs text-muted-foreground">
+                <span className="font-medium">Mode:</span>{' '}
+                {status.mode === 'symlink' ? 'Linked to repo (auto-updates)' : 'Standalone copy'}
+                {status.path && (
+                  <>
+                    {' · '}
+                    <span className="font-mono">{status.path}</span>
+                  </>
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={handleUninstall}
+              disabled={uninstalling}
+              className="text-xs text-red-500/70 hover:text-red-500 transition-colors disabled:opacity-50"
+            >
+              {uninstalling ? 'Removing...' : 'Remove skill'}
+            </button>
           </>
         ) : (
+          /* ── Not installed state ── */
+          <>
+            <p className="text-xs text-muted-foreground">
+              Install the CoDRAG skill so Paperclip agents can use structural
+              codebase intelligence tools (<code className="bg-muted px-1 rounded">codrag</code>,{' '}
+              <code className="bg-muted px-1 rounded">codrag_search</code>,{' '}
+              <code className="bg-muted px-1 rounded">codrag_impact</code>).
+            </p>
+
+            <button
+              onClick={handleInstall}
+              disabled={installing || !onInstall}
+              className="text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 font-medium"
+            >
+              {installing ? 'Installing...' : 'Install Paperclip Skill'}
+            </button>
+          </>
+        )}
+
+        {/* Feedback message */}
+        {message && (
           <div className="text-xs text-muted-foreground italic">
-            Select a project to enable MCP for its workspace
+            {message}
           </div>
         )}
 
-        {/* Success feedback */}
-        {lastResult && lastResult.runtimes_installed > 0 && (
-          <div className="flex items-start gap-2 rounded-md bg-green-500/10 border border-green-500/20 px-3 py-2">
-            <Check size={14} className="text-green-500 mt-0.5 shrink-0" />
-            <div className="text-xs text-green-700 dark:text-green-400">
-              CoDRAG enabled for {lastResult.runtimes_installed} runtime
-              {lastResult.runtimes_installed !== 1 ? 's' : ''}. Agents will discover CoDRAG
-              tools on next heartbeat.
+        {/* Manual MCP snippet toggle */}
+        <div className="border-t border-border/50 pt-2">
+          <button
+            onClick={() => setShowSnippet(!showSnippet)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {showSnippet ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            Manual MCP config
+          </button>
+
+          {showSnippet && (
+            <div className="relative mt-2">
+              <pre className="text-xs font-mono bg-muted/50 rounded-md p-3 overflow-x-auto border border-border/50">
+                {snippet}
+              </pre>
+              <button
+                onClick={handleCopy}
+                className="absolute top-2 right-2 p-1 rounded bg-muted hover:bg-muted-foreground/20 transition-colors"
+                title="Copy to clipboard"
+              >
+                {copied ? (
+                  <Check size={12} className="text-green-500" />
+                ) : (
+                  <Copy size={12} className="text-muted-foreground" />
+                )}
+              </button>
             </div>
-            <button
-              onClick={() => setLastResult(null)}
-              className="ml-auto shrink-0 text-green-500/50 hover:text-green-500"
-            >
-              <X size={12} />
-            </button>
-          </div>
-        )}
-
-        {/* Manual snippet toggle */}
-        <button
-          onClick={() => setShowSnippet(!showSnippet)}
-          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {showSnippet ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          Manual config
-        </button>
-
-        {showSnippet && (
-          <div className="relative">
-            <pre className="text-xs font-mono bg-muted/50 rounded-md p-3 overflow-x-auto border border-border/50">
-              {snippet}
-            </pre>
-            <button
-              onClick={handleCopy}
-              className="absolute top-2 right-2 p-1 rounded bg-muted hover:bg-muted-foreground/20 transition-colors"
-              title="Copy to clipboard"
-            >
-              {copied ? (
-                <Check size={12} className="text-green-500" />
-              ) : (
-                <Copy size={12} className="text-muted-foreground" />
-              )}
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

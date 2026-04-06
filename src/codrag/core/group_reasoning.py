@@ -403,7 +403,7 @@ class GroupReasoningEngine:
 
     def run(
         self,
-        progress_callback: Optional[Callable[[str, int, int], None]] = None,
+        progress_callback: Optional[Callable[..., None]] = None,
         cancel_token: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """Run group deep reasoning on all dependency groups.
@@ -469,7 +469,7 @@ class GroupReasoningEngine:
         )
 
         if progress_callback:
-            progress_callback("group_reasoning", len(reuse), total_groups)
+            progress_callback("group_reasoning", len(reuse), total_groups, len(reuse))
 
         analyzed = 0
         failed = 0
@@ -530,6 +530,7 @@ class GroupReasoningEngine:
                                 "group_reasoning",
                                 len(reuse) + done_count,
                                 total_groups,
+                                len(reuse),
                             )
 
                         # Periodic checkpoint
@@ -570,6 +571,7 @@ class GroupReasoningEngine:
                         "group_reasoning",
                         len(reuse) + analyzed + failed,
                         total_groups,
+                        len(reuse),
                     )
 
                 # Periodic checkpoint to avoid losing progress on crash
@@ -583,7 +585,7 @@ class GroupReasoningEngine:
         duration_ms = (time.monotonic() - start) * 1000
 
         if progress_callback:
-            progress_callback("group_reasoning_complete", total_groups, total_groups)
+            progress_callback("group_reasoning_complete", total_groups, total_groups, len(reuse))
 
         stats = {
             "total_groups": total_groups,

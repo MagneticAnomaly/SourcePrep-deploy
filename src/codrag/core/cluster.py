@@ -131,9 +131,35 @@ Respond with this exact JSON format:
 "tech_debt_summary": "brief summary of tech debt across the subsystem, or null if none"}}
 
 NAMING RULES for "name":
-- Must be SPECIFIC and DESCRIPTIVE. Bad: "UI Subsystem", "Config Module". Good: "Dashboard State Management", "LLM Concurrency Scheduler".
+- Must be SPECIFIC and DESCRIPTIVE.
 - For clusters with 1-3 files, derive the name from the most prominent file's purpose.
-- Never use the word "Subsystem" alone as a name — always pair it with a specific domain.
+- Each module name must be UNIQUE — no two modules should have similar names.
+
+GOOD name examples:
+- "LLM Concurrency Scheduler" (not "Core Module")
+- "Pipeline Stage Orchestrator" (not "Pipeline Subsystem")
+- "Trace Graph Builder" (not "Data Processing")
+- "VS Code RAG Integration" (not "Extension")
+- "Architecture Diagram React Components" (not "UI Subsystem")
+
+ANTI-PATTERNS (never produce these):
+- Generic labels: "UI Subsystem", "Config Module", "Data Layer", "Testing Framework"
+- Numbered clones: "UI Subsystem #2", "Config (Packages) #3"
+- Single-word names: "Dashboard", "Pipeline", "Utils"
+- Names that restate the directory path: "Packages UI" for packages/ui/
+
+SUMMARY RULES:
+- Lead with WHAT the subsystem does, not what files it contains.
+- Bad: "Contains 15 TypeScript files related to UI components."
+- Good: "Renders the interactive architecture diagram with semantic zoom, breadcrumb navigation, and annotation overlays. Built on React Flow with custom layout algorithms."
+
+EXAMPLE — given a cluster with 4 files (scheduler.py, worker_pool.py, job_queue.py, priority.py) in a pipeline domain, a good response is:
+{{"name": "Pipeline Job Scheduler & Worker Pool",
+"summary": "Manages concurrent pipeline job execution with priority queuing and worker lifecycle. Distributes enrichment tasks across a configurable thread pool, enforces per-stage ordering constraints, and provides graceful shutdown with in-flight job draining.",
+"component_status": "complete",
+"data_flow": "Jobs enter via job_queue → priority sorting → worker_pool dispatches to available workers → scheduler monitors completion and triggers dependent stages",
+"dependencies": ["pipeline-orchestrator", "llm-client"],
+"tech_debt_summary": "Worker pool size is hardcoded; should be configurable per deployment."}}
 
 Where component_status describes the overall implementation completeness of this subsystem.
 
@@ -1130,7 +1156,7 @@ class ClusterSynthesizer:
 
     def run(
         self,
-        progress_callback: Optional[Callable[[str, int, int], None]] = None,
+        progress_callback: Optional[Callable[..., None]] = None,
         min_cluster_size: int = 2,
         cancel_token: Optional[Any] = None,
     ) -> Dict[str, Any]:
@@ -1165,12 +1191,16 @@ class ClusterSynthesizer:
 
         # Load existing modules for incremental reuse
         existing_modules = self.load_existing_modules()
-        # Build fingerprint map: module_id → (member_fingerprint, ModuleEntry)
+        # Build TWO lookup maps for matching:
+        # 1. fingerprint → ModuleEntry (content-based, stable across runs)
+        # 2. module_id → (fingerprint, ModuleEntry) (name-based, for exact ID match)
+        fp_to_module: Dict[str, ModuleEntry] = {}
         existing_fp: Dict[str, tuple] = {}
         for mod_id, mod in existing_modules.items():
             fp = self._cluster_fingerprint(
                 [f"file:{f}" if not f.startswith("file:") else f for f in mod.member_files]
             )
+            fp_to_module[fp] = mod
             existing_fp[mod_id] = (fp, mod)
 
         total_work = len(clusters)
@@ -1179,18 +1209,54 @@ class ClusterSynthesizer:
         reused = 0
         synthesized = 0
 
-        # Separate reusable clusters from those needing synthesis
+        # Separate reusable clusters from those needing synthesis.
+        # Match by FINGERPRINT first (handles unstable cluster_idx counter),
+        # then fall back to module_id match.
         to_synthesize: List[Cluster] = []
         for cluster in clusters:
             module_id = f"module:{cluster.cluster_id.replace('cluster:', '')}"
             new_fp = self._cluster_fingerprint(cluster.member_node_ids)
+
+            # Primary: content-based match — same members = reuse
+            if new_fp in fp_to_module:
+                old_module = fp_to_module[new_fp]
+                # Adopt the existing synthesis but assign the new module_id
+                # so the output file uses the current cluster naming scheme
+                reused_mod = ModuleEntry(
+                    module_id=module_id,
+                    name=old_module.name,
+                    summary=old_module.summary,
+                    member_files=old_module.member_files,
+                    domain_tags=old_module.domain_tags,
+                    architecture_layers=old_module.architecture_layers,
+                    component_status=old_module.component_status,
+                    data_flow=old_module.data_flow,
+                    dependencies=old_module.dependencies,
+                    tech_debt_summary=old_module.tech_debt_summary,
+                    file_count=old_module.file_count,
+                    avg_epistemic_confidence=old_module.avg_epistemic_confidence,
+                    synthesized_at=old_module.synthesized_at,
+                    model=old_module.model,
+                )
+                modules[module_id] = reused_mod
+                reused += 1
+                continue
+
+            # Fallback: exact module_id match (for stable cluster IDs)
             if module_id in existing_fp:
                 old_fp, old_module = existing_fp[module_id]
                 if old_fp == new_fp:
                     modules[module_id] = old_module
                     reused += 1
                     continue
+
             to_synthesize.append(cluster)
+
+        logger.info(
+            "Cluster reuse: %d total, %d reused (fingerprint match), %d to synthesize, "
+            "%d existing modules on disk, %d unique fingerprints",
+            total_work, reused, len(to_synthesize), len(existing_modules), len(fp_to_module),
+        )
 
         # Decide: batched (BYOK) or sequential (local)
         use_batching = (
@@ -1292,7 +1358,7 @@ class ClusterSynthesizer:
                     synthesized += 1
 
                 if progress_callback:
-                    progress_callback("cluster_synthesis", reused + synthesized + failed, total_work)
+                    progress_callback("cluster_synthesis", reused + synthesized + failed, total_work, reused)
 
         else:
             # Local model: sequential or concurrent
@@ -1309,7 +1375,7 @@ class ClusterSynthesizer:
                         cancel_token.raise_if_cancelled()
 
                     if progress_callback:
-                        progress_callback("cluster_synthesis", reused + i, total_work)
+                        progress_callback("cluster_synthesis", reused + i, total_work, reused)
 
                     module = self.synthesize_cluster(cluster, epistemic, edges)
                     if module:
@@ -1342,7 +1408,7 @@ class ClusterSynthesizer:
                                     failed += 1
                                 done_count += 1
                                 if progress_callback:
-                                    progress_callback("cluster_synthesis", reused + done_count, total_work)
+                                    progress_callback("cluster_synthesis", reused + done_count, total_work, reused)
                         except Exception as e:
                             logger.warning("Cluster synthesis failed: %s", e)
                             with lock:
@@ -1358,7 +1424,7 @@ class ClusterSynthesizer:
         duration_ms = (time.monotonic() - start) * 1000
 
         if progress_callback:
-            progress_callback("cluster_complete", total_work, total_work)
+            progress_callback("cluster_complete", total_work, total_work, reused)
 
         stats = {
             "clusters": len(clusters),

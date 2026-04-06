@@ -141,6 +141,21 @@ class ManifestStore:
             logger.debug("Failed to read provenance for %s", stage.value, exc_info=True)
             return None
 
+    def is_stub_manifest(self, stage: StageId) -> bool:
+        """Check if a stage's manifest is a stub created by auto-recovery.
+
+        Stub manifests have ``restored: true`` and were created synthetically
+        (Phase 72C) when a manifest was missing but data files existed. They
+        should NOT be treated as proof that the stage completed successfully —
+        the stage may never have actually run.
+
+        Returns True if the manifest is a stub, False otherwise.
+        """
+        data = self.read_provenance(stage)
+        if data is None:
+            return False
+        return bool(data.get("restored"))
+
     # ── Worker hash manifests ──────────────────────────────────
 
     def hashes_path(self, stage: StageId) -> Path:

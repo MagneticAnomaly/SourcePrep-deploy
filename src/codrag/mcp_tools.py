@@ -263,6 +263,59 @@ _CORE_TOOLS = [
         },
         "annotations": {"readOnlyHint": False},
     },
+    # ── 6. codrag_concepts (epistemic knowledge layer) ─────────────
+    {
+        "name": "codrag_concepts",
+        "description": (
+            "Get or save high-level codebase concepts — the 'why' behind the code. "
+            "Concepts capture business rationale, design decisions, domain knowledge, "
+            "architectural intent, and constraints that aren't obvious from reading code. "
+            "Use action='get' (default) to list or search concepts (pass query for search). "
+            "Use action='save' to record a new concept (requires title + content)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Operation: 'get' or 'save'. Default: 'get'.",
+                    "enum": ["get", "save"],
+                    "default": "get",
+                },
+                "query": {
+                    "type": "string",
+                    "description": "(get) Search concepts by title and content.",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "(save) Short title for the concept.",
+                },
+                "content": {
+                    "type": "string",
+                    "description": "(save) Detailed explanation (max 4000 chars).",
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Concept category.",
+                    "enum": ["architecture", "domain", "product", "epistemic", "process", "brand", "security", "technical", "pattern", "constraint", "decision"],
+                    "default": "technical",
+                },
+                "anchors": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "(save) File paths the concept relates to. Concept is flagged stale when these change.",
+                },
+                "status": {
+                    "type": "string",
+                    "description": "(get) Filter by status.",
+                    "enum": ["seed", "active", "archived"],
+                },
+                "project_id": _PROJECT_ID_PROP,
+            },
+            "required": [],
+        },
+        "annotations": {"readOnlyHint": False},
+    },
 ]
 
 # Dev alias: codrag_context (listed only when CODRAG_DEV_MODE=1)

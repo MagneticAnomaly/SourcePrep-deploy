@@ -412,6 +412,7 @@ export interface ModuleStatus {
   last_run_at?: string | null;
   progress_current?: number;
   progress_total?: number;
+  progress_baseline?: number;
 }
 
 /**

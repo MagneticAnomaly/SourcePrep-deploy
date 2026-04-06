@@ -109,10 +109,36 @@ def pipeline_run_deep(project_id: str) -> Dict[str, Any]:
     started = pipeline_orchestrator.run_deep_enrichment(project_id)
 
     if not started:
+        # Diagnose WHY it didn't start
+        status = pipeline_orchestrator.status(project_id)
+        deep_run = status.get("deep_enrichment")
+
+        # Case 1: Already running
+        if deep_run and deep_run.get("is_active"):
+            current = deep_run.get("current_stage", "unknown")
+            raise ApiException(
+                status_code=409,
+                code="PIPELINE_ALREADY_RUNNING",
+                message=f"Deep Enrichment is already running (currently at {current})",
+            )
+
+        # Case 2: Another group is running
+        fast_run = status.get("fast_sync")
+        if fast_run and fast_run.get("is_active"):
+            raise ApiException(
+                status_code=409,
+                code="PIPELINE_BUSY",
+                message="Cannot start Deep Enrichment — Fast Sync is currently running. Wait for it to finish.",
+            )
+
+        # Case 3: All stages detected as complete
         raise ApiException(
             status_code=409,
             code="PIPELINE_UP_TO_DATE",
-            message="Deep Enrichment is already up-to-date or is already running",
+            message=(
+                "Deep Enrichment detected all stages as complete. "
+                "If stages appear incomplete in the UI, try 'Force Reset' then 'Run' again."
+            ),
         )
 
     return ok({"started": True, "group": "deep_enrichment"})

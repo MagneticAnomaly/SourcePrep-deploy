@@ -2531,12 +2531,13 @@ class MCPServer:
         try:
             # ── Primary tools (new consolidated set) ────────────────
             if name in ("codrag", "codrag_context", "codrag_"):
-                self._codrag_called = True
                 result = await self.tool_context(
                     max_chars=args.get("max_chars", 0),  # 0 = adaptive budget (OPP-W5)
                     role=args.get("role"),  # Phase 64A: role-based atlas projection
                     project_override=project_override,
                 )
+                # Set AFTER tool_context so first-call orientation boost fires
+                self._codrag_called = True
 
             elif name == "codrag_search":
                 search_type = args.get("type", "context")

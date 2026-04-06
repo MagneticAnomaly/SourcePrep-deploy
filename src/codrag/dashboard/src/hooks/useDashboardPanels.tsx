@@ -10,7 +10,7 @@ import {
   SearchResultsList,
   ChunkPreview,
   ContextOutput,
-  LLMStatusWidget,
+
   AIModelsSettings,
   DeepAnalysisSettings,
   TraceExplorer,
@@ -64,12 +64,14 @@ import {
   OpportunitiesPanel,
   ArchitectureDiagramPanel,
   ArchitectureDiagramDetail,
+  ConceptsPanel,
 } from '@codrag/ui'
 import type { TraceStatus, TraceCoverage } from './useTraceSystem'
 import type { UseAuditSystemReturn } from './useAuditSystem'
 import type { UseSpaghettiSystemReturn } from './useSpaghettiSystem'
 import type { UseOpportunitiesSystemReturn } from './useOpportunitiesSystem'
 import type { UseArchitectureSystemReturn } from './useArchitectureSystem'
+import type { UseConceptSystemReturn } from './useConceptSystem'
 
 const PINNED_PREFIX = 'pinned:'
 
@@ -260,6 +262,7 @@ export interface DashboardPanelsProps {
   roadmap: UseRoadmapSystemReturn
   opportunities: UseOpportunitiesSystemReturn
   architecture: UseArchitectureSystemReturn
+  concepts: UseConceptSystemReturn
   activityData: ActivityHeatmapData | null
   // Enterprise
   adminPolicy?: import('@codrag/ui').AdminPolicy | null
@@ -275,7 +278,7 @@ export interface DashboardPanelsProps {
 /** Builds all dashboard panel content, detail views, and dynamic panel definitions from domain state. */
 export function useDashboardPanels(props: DashboardPanelsProps) {
   // Flatten grouped sub-objects for backward-compatible p.xxx access internally
-  const { search, files, trace, enrichment, llm, deepAnalysis, atlas, audit: auditProps, spaghetti: spaghettiProps, goalposts: goalpostsProps, roadmap: roadmapProps, opportunities: opportunitiesProps, architecture: archProps, ...core } = props
+  const { search, files, trace, enrichment, llm, deepAnalysis, atlas, audit: auditProps, spaghetti: spaghettiProps, goalposts: goalpostsProps, roadmap: roadmapProps, opportunities: opportunitiesProps, architecture: archProps, concepts: conceptsProps, ...core } = props
   const p = { ...core, ...search, ...files, ...trace, ...enrichment, ...llm, ...deepAnalysis }
 
   // Agent ops state — fetched when project changes
@@ -293,35 +296,31 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
       .finally(() => setAgentOpsLoading(false))
   }, [p.selectedProjectId])
 
-  // MCP connection state — checks workspace installation status
+  // Paperclip skill status — global (not per-workspace)
   const [mcpStatus, setMcpStatus] = useState<MCPStatusData | null>(null)
-  const mcpWorkspacePath = p.selectedProject?.path ?? undefined
 
   const fetchMcpStatus = useCallback(() => {
-    if (!mcpWorkspacePath) { setMcpStatus(null); return }
-    fetch(`/mcp/status?workspace_path=${encodeURIComponent(mcpWorkspacePath)}`)
+    fetch('/paperclip/skill-status')
       .then(r => r.json())
       .then(json => setMcpStatus(json.data ?? json))
       .catch(() => {})
-  }, [mcpWorkspacePath])
+  }, [])
 
   useEffect(() => { fetchMcpStatus() }, [fetchMcpStatus])
 
-  const handleMCPInstall = useCallback(async (wsPath: string): Promise<MCPInstallResult> => {
-    const res = await fetch('/mcp/install', {
+  const handleMCPInstall = useCallback(async (): Promise<MCPInstallResult> => {
+    const res = await fetch('/paperclip/install-skill', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ workspace_path: wsPath }),
+      body: JSON.stringify({ mode: 'symlink' }),
     })
     const json = await res.json()
     return json.data ?? json
   }, [])
 
-  const handleMCPUninstall = useCallback(async (wsPath: string): Promise<void> => {
-    await fetch('/mcp/uninstall', {
+  const handleMCPUninstall = useCallback(async (): Promise<void> => {
+    await fetch('/paperclip/uninstall-skill', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ workspace_path: wsPath }),
     })
   }, [])
 
@@ -599,89 +598,14 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         hideChart={p.transientComplete}
       />
     ),
+    // Phase 74: llm-status summary card is sunset. The sidebar AI Gateway
+    // widget is the sole live view; full settings open via its expand button.
+    // Keeping a minimal stub so any saved layouts referencing 'llm-status' don't crash.
     'llm-status': (
-      <div className="h-full overflow-y-auto">
-        <LLMStatusWidget
-          services={(() => {
-            const hasEmbedding = !!(p.llmConfig.embedding.model && (p.llmConfig.embedding.source === 'endpoint' || p.llmConfig.embedding.source === 'huggingface'));
-            const hasFast = !!(p.llmConfig.small_model.model);
-            const hasThinking = !!(p.llmConfig.large_model.model);
-            const fastName = hasThinking ? 'Fast Model' : 'Single LLM';
-            
-            // Map pipeline states to model activity
-            const embeddingRunning = p.searchLoading || (p.projectStatus?.building ?? false) || p.fastKnowledgeBuilding || p.deepKnowledgeBuilding;
-            const fastRunning = p.augmenting;
-            const largeRunning = p.validating || p.epistemicRunning || p.groupReasoningRunning || p.deepeningRunning || p.clusterRunning || p.atlasRunning;
-            const codeRunning = p.inferredEdgesRunning;
-
-            type Svc = { name: string; status: 'connected' | 'disconnected' | 'disabled' | 'not-configured'; type: 'ollama' | 'openai' | 'other'; model?: string; running?: boolean };
-            const items: Svc[] = [];
-            if (hasEmbedding) {
-              items.push({
-                name: 'Embedding',
-                status: p.llmSlotsStatus?.embedding
-                  ? (p.llmSlotsStatus.embedding.status === 'connected' || p.llmSlotsStatus.embedding.status === 'local' ? 'connected'
-                    : p.llmSlotsStatus.embedding.status === 'unreachable' ? 'disconnected'
-                    : p.llmSlotsStatus.embedding.configured ? 'disconnected' : 'not-configured')
-                  : 'connected',
-                type: 'other',
-                model: p.llmConfig.embedding.model,
-                running: embeddingRunning,
-              });
-            }
-            if (hasFast) {
-              items.push({
-                name: fastName,
-                status: p.llmSlotsStatus?.small_model
-                  ? (p.llmSlotsStatus.small_model.status === 'connected' ? 'connected'
-                    : p.llmSlotsStatus.small_model.status === 'unreachable' ? 'disconnected'
-                    : p.llmSlotsStatus.small_model.configured ? 'disconnected' : 'not-configured')
-                  : 'connected',
-                type: 'ollama',
-                model: p.llmConfig.small_model.model,
-                running: fastRunning,
-              });
-            }
-            if (hasThinking) {
-              items.push({
-                name: 'Thinking Model',
-                status: p.llmSlotsStatus?.large_model
-                  ? (p.llmSlotsStatus.large_model.status === 'connected' ? 'connected'
-                    : p.llmSlotsStatus.large_model.status === 'unreachable' ? 'disconnected'
-                    : p.llmSlotsStatus.large_model.configured ? 'disconnected' : 'not-configured')
-                  : 'connected',
-                type: 'openai',
-                model: p.llmConfig.large_model.model,
-                running: largeRunning,
-              });
-            }
-            const hasCode = !!(p.llmConfig.code_model?.model);
-            if (hasCode) {
-              items.push({
-                name: 'Code Model',
-                status: p.llmSlotsStatus?.code_model
-                  ? (p.llmSlotsStatus.code_model.status === 'connected' ? 'connected'
-                    : p.llmSlotsStatus.code_model.status === 'unreachable' ? 'disconnected'
-                    : p.llmSlotsStatus.code_model.configured ? 'disconnected' : 'not-configured')
-                  : 'connected',
-                type: 'ollama',
-                model: p.llmConfig.code_model.model,
-                running: codeRunning,
-              });
-            }
-            if (items.length === 0) {
-              items.push({ name: 'No models configured', status: 'not-configured', type: 'other' });
-            }
-            return items;
-          })()}
-          assignmentMode={p.llmSlotsStatus?.assignment_mode ?? (p.llmConfig.assignment_mode || 'structured')}
-          assignedBlocks={p.llmConfig.assignment_blocks}
-          assignedEndpoints={p.llmConfig.saved_endpoints}
-          runningTaskId={p.llmSlotsStatus?.running_task_id ?? null}
-          fileCount={p.projectStatus?.index?.total_chunks ?? 0}
-          tokenUsageData={p.tokenUsageData ?? undefined}
-          bare
-        />
+      <div className="h-full flex items-center justify-center text-sm text-text-muted p-4 text-center">
+        AI Gateway status has moved to the sidebar.
+        <br />
+        Click the expand icon (⤢) to open full settings.
       </div>
     ),
     search: (
@@ -764,7 +688,6 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         data={agentOpsData}
         loading={agentOpsLoading}
         mcpStatus={mcpStatus}
-        mcpWorkspacePath={mcpWorkspacePath}
         onMCPInstall={handleMCPInstall}
         onMCPUninstall={handleMCPUninstall}
         onMCPRefresh={fetchMcpStatus}
@@ -1216,7 +1139,23 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onOpenDetail={() => props.onOpenDetails?.('architecture')}
       />
     ),
-  }), [p, excludedPaths, handleToggleExclude, archProps])
+    concepts: (
+      <ConceptsPanel
+        concepts={conceptsProps.concepts}
+        questions={conceptsProps.questions}
+        stats={conceptsProps.stats}
+        loading={conceptsProps.loading}
+        initializing={conceptsProps.initializing}
+        error={conceptsProps.error}
+        onInitialize={conceptsProps.handleInitialize}
+        onApprove={conceptsProps.handleApprove}
+        onArchive={conceptsProps.handleArchive}
+        onDelete={conceptsProps.handleDelete}
+        onAnswerQuestion={conceptsProps.handleAnswerQuestion}
+        onOpenDetail={() => props.onOpenDetails?.('concepts')}
+      />
+    ),
+  }), [p, excludedPaths, handleToggleExclude, archProps, conceptsProps])
 
   const dynamicPanelDefs = useMemo(() =>
     [...p.pinnedPaths].map((path) => ({

@@ -349,7 +349,7 @@ export function TraceCoveragePanel({
             ) : (
               <div className="flex items-center gap-2 text-xs text-primary">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                {traceExists ? 'Updating to reflect codebase changes...' : 'Mapping full codebase...'}
+                {traceExists && summary && summary.untraced === 0 ? 'Updating to reflect codebase changes...' : 'Building knowledge graph...'}
               </div>
             )}
           </div>

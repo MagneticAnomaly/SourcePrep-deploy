@@ -234,6 +234,10 @@ export type {
 export { ArchitectureDiagramPanel, ArchitectureDiagramDetail } from './components/architecture';
 export type { ArchitectureDiagramPanelProps, ArchitectureDiagramDetailProps } from './components/architecture';
 
+// Components - Concepts (Phase 74)
+export { ConceptsPanel } from './components/concepts';
+export type { ConceptsPanelProps, ConceptItem, ConceptQuestionItem, ConceptStats } from './components/concepts';
+
 // Components - Enterprise (Phase 06)
 export { EnterpriseAdminPanel } from './components/enterprise';
 export type { EnterpriseAdminPanelProps, SecurityHealthResult, TokenUsageSummary, SyncFleetEntry, UsageData } from './components/enterprise';

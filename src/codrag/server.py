@@ -409,6 +409,7 @@ TASK_TO_SLOT: Dict[str, str] = {
     "goalposts":       "large",
     "augmentation":    "small",
     "advisor":         "large",   # Phase 63: opportunity discovery pipeline
+    "concepts":        "large",   # Phase 74: concept seeding pipeline
 }
 
 # Tasks whose structured slot falls back to "small" when the primary slot is unconfigured.
@@ -555,6 +556,7 @@ from codrag.api.routers.pipeline import router as pipeline_router
 from codrag.api.routers.settings import router as settings_router
 from codrag.api.routers.scope import router as scope_router
 from codrag.api.routers.observations import router as observations_router
+from codrag.api.routers.concepts import router as concepts_router
 from codrag.api.routers.audit import router as audit_router
 from codrag.api.routers.compute import router as compute_router
 from codrag.api.routers.goalposts import router as goalposts_router
@@ -575,6 +577,7 @@ app.include_router(pipeline_router)
 app.include_router(settings_router)
 app.include_router(scope_router)
 app.include_router(observations_router)
+app.include_router(concepts_router)
 app.include_router(audit_router)
 app.include_router(compute_router)
 app.include_router(goalposts_router)
@@ -664,6 +667,10 @@ def configure(
     # Initialize observation store (Phase 39: Session Continuity)
     from codrag.services.observation_store import observation_store as _obs_store
     _obs_store.init(db_path)
+
+    # Initialize concept store (Phase 74: Epistemic Concepts)
+    from codrag.services.concept_store import concept_store as _concept_store
+    _concept_store.init(db_path)
     from codrag.services.pipeline_orchestrator import pipeline_orchestrator as _pipeline
     crashed = _pipeline.startup_recovery()
     if crashed:

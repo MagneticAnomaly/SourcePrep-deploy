@@ -5,7 +5,7 @@ alwaysApply: true
 
 # --- CoDRAG-managed (auto-generated, do not edit above USER ADDITIONS) ---
 
-Last updated: 2026-04-05T02:00:16Z
+Last updated: 2026-04-06T04:00:02Z
 
 ## 🚨 CRITICAL: Tool Calling Instructions
 
@@ -43,22 +43,19 @@ All CoDRAG tools are read-only and safe to auto-approve.
 
 ## Codebase Atlas
 
-IDENTITY: A multi-segment software platform spanning local-first security tooling, AI-powered code assistance via VSCode extension with RAG and embeddings, marketing websites, documentation, payments, support portals, and a comprehensive UI component library with design system and Storybook.
+IDENTITY: Codrag is a multi-segment AI coding assistant platform with a Model Context Protocol (MCP) server, Python backend services, React/TypeScript UI components, VS Code extension, and Rust-based code analysis engine.
 
-STACK: TypeScript/React (TSX 391 files), Python (1039 files), Kotlin (829 files), Java (582 files), HTML (373 files), JSON configs (341 files), Markdown docs (1091 files). Build tooling inferred from webview-ui segment. React hooks and state management in dashboard. Daemon integration for VSCode extension.
+STACK: Python 323 files, TypeScript/TSX 334 files, Rust 18 files, Markdown 569 files. React, Storybook, Paperclip. MCP, FastAPI, RAG pipeline. Build tools: dashboard build-system, test_ui_build.sh.
 
 WORKSPACE MAP:
-_root (6142 files): MCP orchestration, marketing infrastructure, UI foundations, local-first architecture, security layer
-packages/ui (244 files): Design system, Storybook, component library, dashboard components, site components, audit components
-websites/apps/marketing (54 files): Marketing website
-websites/apps/docs (48 files): Documentation site
-src/codrag/dashboard (38 files): Dashboard UI, React hooks, state management, frontend logic
-websites/apps/support (29 files): Support portal
-packages/vscode (20 files): VSCode extension, daemon integration, embeddings, RAG pipeline
-websites/apps/payments (17 files): Payments processing
-packages/vscode/webview-ui (14 files): VSCode extension webview, React UI, build tooling, code navigation
+_root (1012 files): MCP server, Python services, testing infrastructure, marketing, UI coordination
+Ui (packages/ui, 291 files): Enterprise and architecture component libraries, Storybook documentation, TypeScript UI foundation
+Dashboard (src/codrag/dashboard, 42 files): Project management dashboard with state management and build-system integration
+Vscode (packages/vscode, 20 files): VS Code extension with daemon integration, RAG features, project management
+Webview Ui (packages/vscode/webview-ui, 14 files): React-based code navigation and context management within VS Code
+Paperclip Plugin Codrag (packages/paperclip-plugin-codrag, 12 files): Paperclip design tool plugin with TypeScript configuration system
 
-CROSS-CUTTING: Three shared domains bridge segments: ui (central to packages/ui, dashboard, webview-ui), dashboard (links ui to codrag dashboard), vscode-extension (connects packages/vscode with webview-ui). Hub files concentrate connectivity: TEST2/website.clean/app/download/page.tsx (3106 edges), privacy/page.tsx (1107 edges), terms/page.tsx (1012 edges), refund/page.tsx (897 edges), HeroSection.tsx (892 edges). These marketing pages import through HeroSection.tsx to layout.tsx, creating deep dependency chains reaching into component layers. Import cycles: 162 total. Directory dependencies show symbol sharing: TEST, TEST2, TEST3 test directories export symbols consumed by docs, engine, and packages segments. Graph density: 51072 nodes, 78589 edges with contains (40034), imports (25001), and calls (12631) dominating relationships. Entry points cluster in TEST2 website components and chi-go examples, plus packages/ui component indices.
+CROSS-CUTTING: Five entry points anchor the graph: enterprise components, CLI, Rust walker, MCP server, architecture components. Shared domains across segments: ui, dashboard, typescript, project-management, vscode-extension. Hub dependencies: typing 223 edges, pathlib 168 edges, logging 156 edges, json 153 edges. Import chains link UI components through backend_config.py to pipeline orchestrator and scheduler; CLI chains through server to project registry, rules generator, watcher, and trace builder. 124 import cycles present. Directory dependencies: docs, engine, packages, public, scripts, src each expose symbols to other segments.
 
 ## Focus Areas
 - docs/Phase62_Pi-research/02_CoDRAG_Epistemology.md

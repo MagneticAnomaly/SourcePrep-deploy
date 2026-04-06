@@ -85,6 +85,76 @@ class ResumeStrategy:
             if manifest_file:
                 mpath = idx_dir / manifest_file  # for logging/size checks
                 if store.provenance_exists(stage):
+                    # Phase 72D: Stub manifest check.
+                    # Stubs are created by auto-recovery (Phase 72C) when a
+                    # manifest is missing but a data file exists. However, the
+                    # data file may belong to a PRIOR stage (e.g. enrichment's
+                    # trace_epistemic.jsonl is shared with deepening), so a
+                    # stub does NOT prove the stage itself completed.
+                    #
+                    # Stages with dedicated output files (enrichment, clustering, etc.)
+                    # can be validated by checking their output exists and is substantial.
+                    # Stages with NO dedicated output (deep_knowledge) or SHARED output
+                    # (deepening shares trace_epistemic.jsonl with enrichment) need the
+                    # stub to be treated as incomplete.
+                    if store.is_stub_manifest(stage):
+                        # Stages that share output with prior stages or have no output
+                        _SHARED_OUTPUT_STAGES = {
+                            StageId.DEEPENING,       # shares trace_epistemic.jsonl with ENRICHMENT
+                            StageId.DEEP_KNOWLEDGE,  # shares knowledge_* with KNOWLEDGE
+                        }
+                        if stage in _SHARED_OUTPUT_STAGES:
+                            logger.warning(
+                                "Stage %s has a stub manifest (auto-recovery) but "
+                                "shares its output file with a prior stage — treating "
+                                "as INCOMPLETE so it actually runs",
+                                stage.value,
+                            )
+                            stage_decisions.append({
+                                "stage": stage.value,
+                                "decision": "STUB_INCOMPLETE",
+                                "reason": (
+                                    "Stub manifest from auto-recovery — stage never "
+                                    "actually completed (shared output with prior stage)"
+                                ),
+                            })
+                            ResumeStrategy._log_resume_decisions(
+                                project_id, stages, i, stage_decisions, skip_mtime_cascade, pfl_fn
+                            )
+                            return i
+
+                        # For stages with dedicated output, verify the output
+                        # file looks like it was produced by THIS stage, not just
+                        # inherited from a prior run. Accept if output has
+                        # substantial content.
+                        output_file = STAGE_OUTPUT_FILE.get(stage)
+                        if output_file:
+                            opath = idx_dir / output_file
+                            if not opath.exists() or opath.stat().st_size < 100:
+                                logger.warning(
+                                    "Stage %s has a stub manifest but output "
+                                    "%s is missing/tiny — treating as INCOMPLETE",
+                                    stage.value, output_file,
+                                )
+                                stage_decisions.append({
+                                    "stage": stage.value,
+                                    "decision": "STUB_NO_OUTPUT",
+                                    "reason": (
+                                        f"Stub manifest but {output_file} "
+                                        f"missing or < 100 bytes"
+                                    ),
+                                })
+                                ResumeStrategy._log_resume_decisions(
+                                    project_id, stages, i, stage_decisions, skip_mtime_cascade, pfl_fn
+                                )
+                                return i
+                            else:
+                                logger.info(
+                                    "Stage %s has a stub manifest but dedicated "
+                                    "output %s exists (%d bytes) — accepting as complete",
+                                    stage.value, output_file, opath.stat().st_size,
+                                )
+
                     # Structural: verify trace_nodes.jsonl exists
                     if stage == StageId.STRUCTURAL:
                         nodes_path = idx_dir / "trace_nodes.jsonl"

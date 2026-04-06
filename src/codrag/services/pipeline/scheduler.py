@@ -105,9 +105,11 @@ class PipelineScheduler:
         # Dedicated embedding concurrency (default: 1 = sequential)
         self._embedding_max_concurrent = 1
         self._init_embedding_slot()
-        # Three-tier priority: none → boost → exclusive
-        self._priority_project_id: Optional[str] = None
-        self._priority_level: PriorityLevel = "none"
+        # Phase 72B: Multi-project priority support.
+        # Maps project_id → PriorityLevel for ALL starred projects.
+        # Previously only tracked a single project, causing starvation
+        # when multiple projects were starred.
+        self._priority_projects: Dict[str, PriorityLevel] = {}
 
     # ── Configuration ─────────────────────────────────────────────
 
@@ -172,37 +174,90 @@ class PipelineScheduler:
         project_id: Optional[str],
         level: PriorityLevel = "boost",
     ) -> None:
-        """Set the global priority project.
+        """Add, update, or remove priority for a project.
+
+        Phase 72B: Now supports multiple concurrent priority projects.
 
         Levels:
-          ``none``      — no special treatment (clears priority).
+          ``none``      — remove this project from the priority set.
           ``boost``     — queue-jump + proportional share of cloud budget.
           ``exclusive`` — queue-jump + FULL cloud budget; other projects'
                           LLM stages are queued until exclusive finishes.
 
-        Only one project can hold priority at a time.  Setting a new
-        project automatically clears the previous one.
+        Multiple projects can hold ``boost`` simultaneously.  Only one
+        project can hold ``exclusive`` — setting exclusive on a new project
+        demotes all existing exclusive projects to ``boost``.
+
+        Passing ``project_id=None`` with ``level='none'`` clears ALL priorities.
         """
         with self._lock:
-            old_id = self._priority_project_id
-            old_level = self._priority_level
-            if level == "none" or project_id is None:
-                self._priority_project_id = None
-                self._priority_level = "none"
-            else:
-                self._priority_project_id = project_id
-                self._priority_level = level
-            if (project_id, level) != (old_id, old_level):
-                label = f"{project_id} ({level})" if project_id else "(none)"
-                logger.info("Scheduler: priority → %s", label)
+            if project_id is None and level == "none":
+                # Clear all priorities
+                if self._priority_projects:
+                    logger.info("Scheduler: clearing all priorities (%d projects)",
+                                len(self._priority_projects))
+                self._priority_projects.clear()
+                return
+
+            if project_id is None:
+                return  # Nothing to do
+
+            if level == "none":
+                old = self._priority_projects.pop(project_id, None)
+                if old:
+                    logger.info("Scheduler: removed priority for %s (was %s)",
+                                project_id, old)
+                return
+
+            # If setting exclusive, demote any existing exclusive projects to boost
+            if level == "exclusive":
+                for pid, plevel in list(self._priority_projects.items()):
+                    if plevel == "exclusive" and pid != project_id:
+                        self._priority_projects[pid] = "boost"
+                        logger.info(
+                            "Scheduler: demoting %s from exclusive → boost "
+                            "(new exclusive: %s)", pid, project_id,
+                        )
+
+            old_level = self._priority_projects.get(project_id)
+            self._priority_projects[project_id] = level
+            if old_level != level:
+                logger.info("Scheduler: priority %s → %s (%s)",
+                            project_id, level,
+                            f"was {old_level}" if old_level else "new")
+
+    def clear_all_priorities(self) -> None:
+        """Remove all project priorities."""
+        self.set_priority(None, "none")
+
+    def get_priority(self, project_id: str) -> PriorityLevel:
+        """Get the priority level for a specific project."""
+        return self._priority_projects.get(project_id, "none")
 
     @property
     def priority_project_id(self) -> Optional[str]:
-        return self._priority_project_id
+        """Backward-compat: return first exclusive project, or first boosted."""
+        for pid, level in self._priority_projects.items():
+            if level == "exclusive":
+                return pid
+        for pid, level in self._priority_projects.items():
+            if level == "boost":
+                return pid
+        return None
 
     @property
     def priority_level(self) -> PriorityLevel:
-        return self._priority_level
+        """Backward-compat: return the highest priority level currently set."""
+        if any(l == "exclusive" for l in self._priority_projects.values()):
+            return "exclusive"
+        if any(l == "boost" for l in self._priority_projects.values()):
+            return "boost"
+        return "none"
+
+    @property
+    def priority_projects(self) -> Dict[str, PriorityLevel]:
+        """Return a snapshot of all priority projects."""
+        return dict(self._priority_projects)
 
     # ── Slot management ───────────────────────────────────────────
 
@@ -272,13 +327,13 @@ class PipelineScheduler:
                 return False
             # Exclusive gate: if another project holds exclusive priority
             # and is active on this node, queue us instead of starting.
-            if (
-                self._priority_level == "exclusive"
-                and self._priority_project_id
-                and self._priority_project_id != project_id
-                and self._priority_project_id in slot.active_stages
-            ):
-                return False
+            for exc_pid, exc_level in self._priority_projects.items():
+                if (
+                    exc_level == "exclusive"
+                    and exc_pid != project_id
+                    and exc_pid in slot.active_stages
+                ):
+                    return False
             return True
 
     def acquire(
@@ -300,13 +355,13 @@ class PipelineScheduler:
             slot = self._get_slot(resolved)
             # Exclusive gate: if another project holds exclusive priority
             # and is active on this node, block.
-            if (
-                self._priority_level == "exclusive"
-                and self._priority_project_id
-                and self._priority_project_id != project_id
-                and self._priority_project_id in slot.active_stages
-            ):
-                return False
+            for exc_pid, exc_level in self._priority_projects.items():
+                if (
+                    exc_level == "exclusive"
+                    and exc_pid != project_id
+                    and exc_pid in slot.active_stages
+                ):
+                    return False
             ok = slot.acquire(project_id, stage.value)
             if ok:
                 logger.info(
@@ -371,11 +426,12 @@ class PipelineScheduler:
                     return
             entry = QueueEntry(project_id=project_id, stage=stage)
             # Priority projects (boost or exclusive) go to front of queue
-            if self._priority_project_id and project_id == self._priority_project_id:
+            project_priority = self._priority_projects.get(project_id)
+            if project_priority and project_priority != "none":
                 queue.appendleft(entry)
                 logger.info(
                     "Scheduler: ⭐ %s (%s) priority-queued on %s for %s (position 1)",
-                    project_id, self._priority_level,
+                    project_id, project_priority,
                     resolved, stage.value,
                 )
             else:
@@ -452,48 +508,96 @@ class PipelineScheduler:
         )
         return node
 
-    # ── Batch concurrency budget (Phase 56B) ──────────────────────
+    # ── Batch concurrency budget (Phase 56B / 72B weighted) ────────
+
+    def _weighted_share(
+        self, slot: ComputeSlot, project_id: Optional[str],
+    ) -> int:
+        """Compute weighted fair-share budget for a project on a slot.
+
+        Phase 72B weighted model:
+          - Exclusive ⭐ gets the FULL budget — all other projects wait.
+          - Boost ⭐ projects get 2× weight; normal projects get 1× weight.
+          - Budget is divided proportionally, with remainders going to
+            priority projects first.
+
+        Examples (10 concurrency, 4 active):
+          - 2 boost + 2 normal → weights = 2+2+1+1 = 6
+            → boost: floor(10×2/6) = 3, normal: floor(10×1/6) = 1
+            → total = 3+3+1+1 = 8, remainder 2 → boost gets 4+3+1+1 = 9, last 1 to normal
+          - 0 boost + 4 normal → equal split: 10÷4 = 2 each, remainder 2 to first
+
+        Examples (6 concurrency, 4 active):
+          - 2 boost + 2 normal → weights = 6
+            → boost: floor(6×2/6) = 2, normal: floor(6×1/6) = 1
+            → total = 2+2+1+1 = 6 ✓
+
+        Returns at least 1.
+        """
+        full_budget = max(1, slot.max_concurrent)
+        active_count = max(1, slot.current_load)
+
+        proj_level = self._priority_projects.get(project_id, "none") if project_id else "none"
+
+        # Exclusive gets everything
+        if proj_level == "exclusive":
+            return full_budget
+
+        # Single project gets everything
+        if active_count == 1:
+            return full_budget
+
+        # Count how many active projects are boosted vs normal
+        num_boost = 0
+        num_normal = 0
+        for pid in slot.active_stages:
+            if self._priority_projects.get(pid, "none") in ("boost", "exclusive"):
+                num_boost += 1
+            else:
+                num_normal += 1
+
+        # If no boost projects, equal split
+        if num_boost == 0:
+            share = max(1, full_budget // active_count)
+            return share
+
+        # Weighted split: boost gets 2× weight, normal gets 1×
+        total_weight = (2 * num_boost) + (1 * num_normal)
+        if total_weight <= 0:
+            return max(1, full_budget // active_count)
+
+        is_boost = proj_level == "boost"
+        weight = 2 if is_boost else 1
+        share = max(1, (full_budget * weight) // total_weight)
+
+        # Distribute remainder to boost projects
+        allocated = (
+            (full_budget * 2 // total_weight) * num_boost
+            + (full_budget * 1 // total_weight) * num_normal
+        )
+        remainder = full_budget - allocated
+        if remainder > 0 and is_boost:
+            # Spread remainder across boost projects
+            extra = max(0, remainder // num_boost)
+            share += extra
+
+        return max(1, share)
 
     def available_batch_workers(
         self, node_id: Optional[str] = None, *, project_id: Optional[str] = None,
     ) -> int:
         """How many concurrent batch API calls a project can use on a node.
 
-        Divides the node's ``max_concurrent`` across active projects:
-          - Exclusive ⭐ gets the full budget.
-          - Boost ⭐ gets an equal share PLUS any remainder from integer
-            division (e.g. budget=3, 2 projects → boost gets 2, other gets 1).
-          - Non-priority projects get an equal share (floor division).
-
-        Returns at least 1.
+        Phase 72B: Uses weighted fair-share.  Boost ⭐ projects get 2×
+        the workers of non-priority projects.  Exclusive ⭐ gets the
+        full budget.  Returns at least 1.
         """
         with self._lock:
             nid = node_id or self._default_node_id
             if nid not in self._slots:
                 return 1
             slot = self._slots[nid]
-            full_budget = max(1, slot.max_concurrent)
-            active_count = max(1, slot.current_load)
-            # Exclusive ⭐ project gets the full budget unconditionally
-            if (
-                project_id
-                and self._priority_project_id == project_id
-                and self._priority_level == "exclusive"
-            ):
-                return full_budget
-            if active_count == 1:
-                return full_budget
-            base_share = max(1, full_budget // active_count)
-            remainder = full_budget - (base_share * active_count)
-            # Boost ⭐ project absorbs the remainder so no capacity is wasted
-            if (
-                remainder > 0
-                and project_id
-                and self._priority_project_id == project_id
-                and self._priority_level == "boost"
-            ):
-                return base_share + remainder
-            return base_share
+            return self._weighted_share(slot, project_id)
 
     def available_batch_workers_for_provider(
         self, provider: str, model: str | None = None,
@@ -522,38 +626,15 @@ class PipelineScheduler:
             if not self._slots:
                 return None
 
-            is_exclusive = (
-                project_id is not None
-                and self._priority_project_id == project_id
-                and self._priority_level == "exclusive"
-            )
-            is_boost = (
-                project_id is not None
-                and self._priority_project_id == project_id
-                and self._priority_level == "boost"
-            )
+            proj_level = self._priority_projects.get(project_id, "none") if project_id else "none"
 
             # ── Fast path: find the exact node this project acquired ──
             if project_id:
                 for nid, slot in self._slots.items():
                     if project_id not in slot.active_stages:
                         continue
-                    # Found! Compute budget on THIS node.
-                    full_budget = max(1, slot.max_concurrent)
-                    if is_exclusive:
-                        logger.debug(
-                            "Batch budget: exclusive project %s on %s → %d workers",
-                            project_id, nid, full_budget,
-                        )
-                        return full_budget
-                    active_count = max(1, slot.current_load)
-                    if active_count == 1:
-                        return full_budget
-                    base_share = max(1, full_budget // active_count)
-                    remainder = full_budget - (base_share * active_count)
-                    if remainder > 0 and is_boost:
-                        return base_share + remainder
-                    return base_share
+                    # Found! Use weighted share on THIS node.
+                    return self._weighted_share(slot, project_id)
 
             # ── Fallback: prefix-based discovery ──────────────────────
             # Used when project_id is unknown or hasn't acquired yet.
@@ -572,21 +653,14 @@ class PipelineScheduler:
             for nid, slot in self._slots.items():
                 if not nid.startswith(prefix):
                     continue
-                if is_exclusive:
+                if proj_level == "exclusive":
                     cap = max(1, slot.max_concurrent)
                     if budget is None or cap < budget:
                         budget = cap
                     continue
-                active_count = max(1, slot.current_load)
-                if active_count == 0:
+                if slot.current_load == 0:
                     continue  # No work on this node
-                base_share = max(1, slot.max_concurrent // active_count)
-                remainder = slot.max_concurrent - (base_share * active_count)
-                # Boost ⭐ project absorbs the remainder
-                if remainder > 0 and is_boost:
-                    node_budget = base_share + remainder
-                else:
-                    node_budget = base_share
+                node_budget = self._weighted_share(slot, project_id)
                 if budget is None or node_budget < budget:
                     budget = node_budget
 
@@ -615,25 +689,7 @@ class PipelineScheduler:
             for nid, slot in self._slots.items():
                 if project_id not in slot.active_stages:
                     continue
-                full_budget = max(1, slot.max_concurrent)
-                is_exclusive = (
-                    self._priority_project_id == project_id
-                    and self._priority_level == "exclusive"
-                )
-                if is_exclusive:
-                    return full_budget, nid
-                active_count = max(1, slot.current_load)
-                if active_count == 1:
-                    return full_budget, nid
-                base_share = max(1, full_budget // active_count)
-                remainder = full_budget - (base_share * active_count)
-                is_boost = (
-                    self._priority_project_id == project_id
-                    and self._priority_level == "boost"
-                )
-                if remainder > 0 and is_boost:
-                    return base_share + remainder, nid
-                return base_share, nid
+                return self._weighted_share(slot, project_id), nid
         return 1, None
 
     def status(self) -> Dict:
@@ -655,9 +711,11 @@ class PipelineScheduler:
                         for e in queue
                     ],
                 }
+            # Phase 72B: Report all priority projects, with backward-compat fields
             priority = {
-                "project_id": self._priority_project_id,
-                "level": self._priority_level,
+                "project_id": self.priority_project_id,  # backward compat
+                "level": self.priority_level,             # backward compat
+                "projects": dict(self._priority_projects),
             }
             return {"nodes": nodes, "priority": priority}
 
@@ -788,10 +846,12 @@ class PipelineScheduler:
                 logger.debug("Scheduler: memory detection failed, embedding concurrency = 1")
 
             # ── Restore saved priority from project configs ───────────
-            # Runs after ALL paths above so priority is always restored.
+            # Phase 72B: Restore ALL starred projects, not just the first one.
+            # The old `break` caused only one project to get priority on restart.
             try:
                 from codrag.core.project_registry import ProjectRegistry
-                registry = ProjectRegistry.from_default_config()
+                registry = ProjectRegistry()
+                restored_count = 0
                 for proj in registry.list_projects():
                     pcfg = proj.config if isinstance(proj.config, dict) else {}
                     level = pcfg.get("priority_level")
@@ -799,7 +859,13 @@ class PipelineScheduler:
                         level = "boost"
                     if level and level != "none":
                         self.set_priority(proj.id, level)
-                        break  # Only one priority project at a time
+                        restored_count += 1
+                if restored_count > 0:
+                    logger.info(
+                        "Scheduler: restored priority for %d project(s): %s",
+                        restored_count,
+                        ", ".join(f"{pid}={lvl}" for pid, lvl in self._priority_projects.items()),
+                    )
             except Exception:
                 logger.debug("Scheduler: could not restore priority from project configs", exc_info=True)
 

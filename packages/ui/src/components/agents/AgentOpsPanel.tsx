@@ -31,12 +31,11 @@ export interface AgentOpsPanelProps {
   onHRGenerate?: () => void;
   onResearchRun?: () => void;
   onCustodianRun?: () => void;
-  /** MCP connection props */
+  /** Paperclip skill status */
   mcpStatus?: MCPStatusData | null;
   mcpLoading?: boolean;
-  mcpWorkspacePath?: string;
-  onMCPInstall?: (workspacePath: string) => Promise<MCPInstallResult>;
-  onMCPUninstall?: (workspacePath: string) => Promise<void>;
+  onMCPInstall?: () => Promise<MCPInstallResult>;
+  onMCPUninstall?: () => Promise<void>;
   onMCPRefresh?: () => void;
   className?: string;
 }
@@ -49,7 +48,6 @@ export function AgentOpsPanel({
   onCustodianRun,
   mcpStatus,
   mcpLoading = false,
-  mcpWorkspacePath,
   onMCPInstall,
   onMCPUninstall,
   onMCPRefresh,
@@ -120,9 +118,8 @@ export function AgentOpsPanel({
         />
       </div>
 
-      {/* MCP Connection Card */}
+      {/* Paperclip Skill Card */}
       <MCPConnectionCard
-        workspacePath={mcpWorkspacePath}
         status={mcpStatus ?? null}
         loading={mcpLoading}
         onInstall={onMCPInstall}

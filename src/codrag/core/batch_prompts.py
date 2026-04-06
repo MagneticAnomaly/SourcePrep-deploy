@@ -78,9 +78,14 @@ def build_batched_file_prompt(items: List[Dict[str, Any]]) -> str:
         parts.append(f"Imports: {item.get('imports', '')}")
         label = item.get('content_label', 'First 30 lines')
         parts.append(f"{label}:\n```\n{item.get('head', '')}\n```")
+        tail = item.get('tail_section', '')
+        if tail:
+            parts.append(tail)
 
     parts.append(
-        '\nFor each file, respond with: '
+        '\nFor each file, write a SPECIFIC summary (not generic). '
+        'Bad: "Python source file." Good: "Pipeline orchestrator — coordinates 11-stage indexing and manages LLM lifecycle."\n'
+        'Respond with: '
         '{"id": <file_number>, "file": "<file_path>", '
         '"summary": "1 sentence file purpose", '
         '"role": "<one of: api, core, model, utility, config, test, script, ui, documentation>", '
@@ -329,11 +334,22 @@ def build_batched_cluster_prompt(items: List[Dict[str, Any]]) -> str:
         parts.append(f"External dependencies:\n{item.get('external_deps', '(none)')}")
 
     parts.append(
+        '\nNAMING RULES: Each name must be specific and descriptive. '
+        'Good: "LLM Concurrency Scheduler", "Trace Graph Builder". '
+        'Bad: "UI Subsystem", "Config Module", "Pipeline #2". '
+        'Never use generic labels, numbered clones, or single-word names.'
+    )
+    parts.append(
+        '\nSUMMARY RULES: Lead with WHAT the subsystem does, not what files it contains. '
+        'Bad: "Contains 15 TypeScript files." '
+        'Good: "Renders the architecture diagram with semantic zoom and annotations."'
+    )
+    parts.append(
         '\nFor each cluster, respond with: '
-        '{"id": <cluster_number>, "name": "Subsystem Name", '
+        '{"id": <cluster_number>, "name": "Descriptive Module Name", '
         '"summary": "2-4 sentence module purpose", '
         '"architecture_layers": ["business_logic"], '
-        '"component_status": "active|stable|experimental|deprecated|unknown", '
+        '"component_status": "complete|partial|stubbed|deprecated", '
         '"data_flow": "optional description of data flow", '
         '"dependencies": ["other-subsystem"], '
         '"tech_debt_summary": "optional summary or null"}'

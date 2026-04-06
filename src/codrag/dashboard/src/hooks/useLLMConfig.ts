@@ -199,6 +199,22 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     }
   }, [api])
 
+  // ── Live polling: keep sidebar AI Gateway in sync with real pipeline state ──
+  // Adaptive interval: 3s when pipeline is active (running_tasks exist), 10s idle.
+  // Skips polls while tab is hidden (Chrome throttles background timers anyway).
+  const hasRunningTasks = (llmSlotsStatus?.running_tasks?.length ?? 0) > 0
+  useEffect(() => {
+    const intervalMs = hasRunningTasks ? 3000 : 10000
+    const poll = () => {
+      if (!document.hidden) {
+        void fetchLLMSlotsStatus()
+      }
+    }
+    const interval = setInterval(poll, intervalMs)
+    // Also poll immediately when switching from idle → active (interval change)
+    return () => clearInterval(interval)
+  }, [fetchLLMSlotsStatus, hasRunningTasks])
+
   const fetchCompressionStatus = useCallback(async () => {
     try {
       const status = await api.getCompressionStatus()

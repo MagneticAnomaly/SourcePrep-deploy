@@ -268,3 +268,120 @@ def auto_heal(
             logger.warning("Auto-heal: no backup available for %s", fname)
 
     return results
+
+
+# ── Golden checkpoint (protected "known-good" snapshot) ──────
+
+
+# All files worth preserving in a golden checkpoint.
+# Superset of TRACE_FILES — includes deep stage outputs and manifests.
+_GOLDEN_FILES = sorted(set(TRACE_FILES + [
+    "trace_group_reasoning.jsonl",
+    "trace_group_reasoning_manifest.json",
+    "trace_modules_manifest.json",
+    "atlas.json",
+    "atlas_prev.json",
+    "atlas_segments_manifest.json",
+    "atlas_routing.json",
+    "atlas_manifest.json",
+    "deepening_manifest.json",
+    "deep_knowledge_manifest.json",
+    "knowledge_documents.json",
+]))
+
+_GOLDEN_DIR_NAME = "_golden"
+
+
+def create_golden_checkpoint(index_dir: Path) -> Optional[str]:
+    """Create a protected "golden" snapshot after successful pipeline completion.
+
+    The golden checkpoint is:
+    - The primary restore target during auto-recovery
+    - Never auto-pruned by `prune_old_checkpoints`
+    - Overwritten on each successful full pipeline run
+
+    Returns the golden checkpoint directory path, or None.
+    """
+    cp_root = index_dir / ".checkpoints"
+    golden_dir = cp_root / _GOLDEN_DIR_NAME
+    golden_dir.mkdir(parents=True, exist_ok=True)
+
+    copied = 0
+    for fname in _GOLDEN_FILES:
+        src = index_dir / fname
+        if src.exists() and src.stat().st_size > 0:
+            try:
+                shutil.copy2(src, golden_dir / fname)
+                copied += 1
+            except Exception as e:
+                logger.warning("Golden checkpoint: failed to copy %s: %s", fname, e)
+
+    if copied > 0:
+        # Write a metadata file with the timestamp
+        meta = {
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "files_copied": copied,
+        }
+        try:
+            import json as _json
+            with open(golden_dir / "_meta.json", "w") as f:
+                _json.dump(meta, f, indent=2)
+        except Exception:
+            pass
+
+        logger.info(
+            "Golden checkpoint: created %s (%d files)",
+            golden_dir, copied,
+        )
+        return str(golden_dir)
+
+    # Nothing to checkpoint
+    try:
+        golden_dir.rmdir()
+    except OSError:
+        pass
+    return None
+
+
+def prune_old_checkpoints(index_dir: Path, keep: int = 3) -> int:
+    """Remove old run checkpoints, keeping only the N most recent.
+
+    The golden checkpoint (`_golden`) is never removed.
+    Checkpoints are sorted by directory modification time (newest first).
+
+    Returns the number of directories removed.
+    """
+    cp_root = index_dir / ".checkpoints"
+    if not cp_root.is_dir():
+        return 0
+
+    # Collect run checkpoint dirs (exclude _golden and other special dirs)
+    run_dirs: List[Path] = []
+    for d in cp_root.iterdir():
+        if not d.is_dir():
+            continue
+        if d.name.startswith("_"):
+            continue  # Skip _golden and any future protected dirs
+        run_dirs.append(d)
+
+    if len(run_dirs) <= keep:
+        return 0
+
+    # Sort by mtime (newest first)
+    run_dirs.sort(key=lambda d: d.stat().st_mtime, reverse=True)
+
+    removed = 0
+    for d in run_dirs[keep:]:
+        try:
+            shutil.rmtree(d)
+            removed += 1
+        except Exception as e:
+            logger.warning("Checkpoint prune: failed to remove %s: %s", d.name, e)
+
+    if removed:
+        logger.info(
+            "Checkpoint prune: removed %d old checkpoints for %s (kept %d newest + golden)",
+            removed, index_dir.name, keep,
+        )
+
+    return removed

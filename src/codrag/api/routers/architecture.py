@@ -463,17 +463,40 @@ def get_architecture_context(project_id: str) -> Dict[str, Any]:
     for e in module_edges:
         dep_map.setdefault(e["source"], []).append(e["target"])
 
-    lines: List[str] = []
-    lines.append(f"### Architecture ({len(modules)} modules, user-curated)")
-    lines.append("")
+    # Phase 73.2b: Only include modules with USER ANNOTATIONS.
+    # The module list in ambient context already provides structural overview.
+    # This section's unique value is showing notes, ACRs, and issue links —
+    # curations that the module list doesn't have.
+    # Previously: showed all 239 modules with ≥5 files (18K chars, 91% noise).
+    # Now: only shows modules the user has annotated (0 chars if no annotations).
+    annotated = []
 
     for m in sorted(modules, key=lambda x: -x.get("file_count", 0)):
+        mid = m["module_id"]
+        has_notes = bool(notes_by_node.get(mid))
+        has_acrs = bool(acrs_by_node.get(mid))
+        has_issues = bool(issues_by_node.get(mid))
+
+        if has_notes or has_acrs or has_issues:
+            annotated.append(m)
+
+    # No annotations → skip entirely (module list covers structural overview)
+    if not annotated:
+        return ok({"text": "", "exists": False})
+
+    lines: List[str] = []
+    lines.append(f"### Architecture Annotations ({len(annotated)} modules with notes/ACRs)")
+    lines.append("")
+
+    for m in annotated:
         mid = m["module_id"]
         name = m.get("name", mid)
         fc = m.get("file_count", 0)
         deps = dep_map.get(mid, [])
-        dep_str = ", ".join(deps) if deps else "none"
-        line = f"- **{name}** ({fc} files) \u2192 depends on: {dep_str}"
+        dep_str = ", ".join(deps[:5]) if deps else "none"
+        line = f"- **{name}** ({fc} files) → depends on: {dep_str}"
+        if len(deps) > 5:
+            line += f" (+{len(deps) - 5} more)"
         lines.append(line)
 
         # Add notes for this module

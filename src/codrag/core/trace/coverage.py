@@ -106,11 +106,13 @@ def compute_trace_coverage(
                 except (ValueError, TypeError):
                     pass
 
-            # One-time backfill: manifests may lack file_hashes (Rust engine
-            # builds, or Python builds with the v2.0 manifest format).
-            # Recover them from trace_nodes.jsonl so coverage isn't lost.
-            if not manifest_hashes and nodes_path.exists() and nodes_path.stat().st_size > 0:
-                logger.info("Backfilling file_hashes from traced nodes (Rust manifest migration)")
+            # Backfill: ensure file_hashes includes ALL files from trace_nodes.jsonl.
+            # The Rust engine discovers files that the Python augmenter may not have
+            # hashed (structural-only nodes). Without this, those files appear as
+            # "Untraced" in the queue even though they're in the knowledge graph.
+            # This runs when hashes are empty OR when trace_nodes has entries
+            # missing from the existing hashes.
+            if nodes_path.exists() and nodes_path.stat().st_size > 0:
                 try:
                     traced_paths: List[str] = []
                     with open(nodes_path, "r", encoding="utf-8") as nf:
@@ -120,41 +122,49 @@ def compute_trace_coverage(
                                 continue
                             node = json.loads(line)
                             if node.get("kind") == "file":
-                                traced_paths.append(node["file_path"])
+                                fp = node.get("file_path", "")
+                                if fp and fp not in manifest_hashes:
+                                    traced_paths.append(fp)
 
-                    for rel_path in traced_paths:
-                        full = repo_root / rel_path
-                        if not full.exists():
-                            continue
+                    if traced_paths:
+                        logger.info(
+                            "Backfilling %d file_hashes from traced nodes "
+                            "(Rust engine files not in manifest)",
+                            len(traced_paths),
+                        )
+                        for rel_path in traced_paths:
+                            full = repo_root / rel_path
+                            if not full.exists():
+                                continue
+                            try:
+                                fsize = full.stat().st_size
+                                if fsize > max_file_bytes:
+                                    with open(full, "r", encoding="utf-8", errors="ignore") as hf:
+                                        source = hf.read(50_000)
+                                else:
+                                    source = full.read_text(encoding="utf-8", errors="ignore")
+                            except Exception:
+                                source = ""
+                            manifest_hashes[rel_path] = stable_file_hash(source)
+
+                        # Persist so this backfill only runs once per new file set
+                        manifest["file_hashes"] = manifest_hashes
+                        tmp_manifest = tempfile.NamedTemporaryFile(
+                            mode="w", suffix=".json", dir=str(Path(index_dir)),
+                            delete=False, encoding="utf-8",
+                        )
                         try:
-                            fsize = full.stat().st_size
-                            if fsize > max_file_bytes:
-                                with open(full, "r", encoding="utf-8", errors="ignore") as hf:
-                                    source = hf.read(50_000)
-                            else:
-                                source = full.read_text(encoding="utf-8", errors="ignore")
+                            json.dump(manifest, tmp_manifest, indent=2, sort_keys=True)
+                            tmp_manifest.flush()
+                            os.fsync(tmp_manifest.fileno())
+                            tmp_manifest.close()
+                            os.rename(tmp_manifest.name, manifest_path)
+                            logger.info("Backfilled %d file_hashes into manifest (total: %d)", len(traced_paths), len(manifest_hashes))
                         except Exception:
-                            source = ""
-                        manifest_hashes[rel_path] = stable_file_hash(source)
-
-                    # Persist so this migration only runs once
-                    manifest["file_hashes"] = manifest_hashes
-                    tmp_manifest = tempfile.NamedTemporaryFile(
-                        mode="w", suffix=".json", dir=str(Path(index_dir)),
-                        delete=False, encoding="utf-8",
-                    )
-                    try:
-                        json.dump(manifest, tmp_manifest, indent=2, sort_keys=True)
-                        tmp_manifest.flush()
-                        os.fsync(tmp_manifest.fileno())
-                        tmp_manifest.close()
-                        os.rename(tmp_manifest.name, manifest_path)
-                        logger.info("Backfilled %d file_hashes into manifest", len(manifest_hashes))
-                    except Exception:
-                        try:
-                            os.unlink(tmp_manifest.name)
-                        except OSError:
-                            pass
+                            try:
+                                os.unlink(tmp_manifest.name)
+                            except OSError:
+                                pass
                 except Exception as e:
                     logger.warning("file_hashes backfill failed: %s", e)
         except Exception:

@@ -47,6 +47,7 @@ import { useGoalpostsSystem } from './hooks/useGoalpostsSystem'
 import { useRoadmapSystem } from './hooks/useRoadmapSystem'
 import { useOpportunitiesSystem } from './hooks/useOpportunitiesSystem'
 import { useArchitectureSystem } from './hooks/useArchitectureSystem'
+import { useConceptSystem } from './hooks/useConceptSystem'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
@@ -299,6 +300,9 @@ function App() {
 
   // ── Architecture Diagram (Phase 71) ────────────────────────
   const architecture = useArchitectureSystem(hydration.hydratedProjectId, { signal: hydration.signal })
+
+  // ── Concepts (Phase 74) ────────────────────────────────────
+  const concepts = useConceptSystem(hydration.hydratedProjectId)
 
   // ── Event Stream ───────────────────────────────────────────
   const eventsUrl = import.meta.env.DEV
@@ -749,6 +753,7 @@ function App() {
     roadmap,
     opportunities,
     architecture,
+    concepts,
     activityData,
     adminPolicy,
     seatStatus,

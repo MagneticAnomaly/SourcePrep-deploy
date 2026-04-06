@@ -345,6 +345,14 @@ class ScopeOrchestrator:
                             )
                         except Exception:
                             logger.debug("Observation staleness update failed (non-fatal)", exc_info=True)
+                        # Phase 74: Mark concepts stale when anchored files change
+                        try:
+                            from codrag.services.concept_store import concept_store
+                            concept_store.mark_stale_batch(
+                                project_id, stale_paths, reason="file modified",
+                            )
+                        except Exception:
+                            logger.debug("Concept staleness update failed (non-fatal)", exc_info=True)
                 else:
                     self._states[project_id] = ScopeState.FAILED
                     self._errors[project_id] = "Build returned failure"

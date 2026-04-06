@@ -375,7 +375,197 @@ class TestPriorityStar:
         assert entry.project_id == "proj-b"
 
 
-# ── Phase 56B fix: Auto-discovery ────────────────────────────────
+# ── Phase 72B: Multi-priority support ─────────────────────────────
+
+class TestMultiPriority:
+    """Test multi-project priority support (Phase 72B)."""
+
+    def test_two_starred_projects_both_get_queue_jump(self):
+        """Both starred projects should jump to front of queue."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 1)
+        sched.set_priority("proj-b")
+        sched.set_priority("proj-c")
+
+        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.enqueue("proj-d", StageId.ENRICHMENT, "cloud:ep-1")  # normal
+        sched.enqueue("proj-b", StageId.ENRICHMENT, "cloud:ep-1")  # ⭐
+        sched.enqueue("proj-c", StageId.ENRICHMENT, "cloud:ep-1")  # ⭐
+
+        # Both starred projects should be at the front
+        entry1 = sched.release("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        assert entry1 is not None
+        assert entry1.project_id in ("proj-b", "proj-c")  # one of the starred
+
+    def test_unstar_one_keeps_other(self):
+        """Unstarring one project doesn't affect the other."""
+        sched = PipelineScheduler()
+        sched.set_priority("proj-a", "boost")
+        sched.set_priority("proj-b", "boost")
+
+        assert sched.get_priority("proj-a") == "boost"
+        assert sched.get_priority("proj-b") == "boost"
+
+        # Unstar proj-a
+        sched.set_priority("proj-a", "none")
+
+        assert sched.get_priority("proj-a") == "none"
+        assert sched.get_priority("proj-b") == "boost"
+
+    def test_clear_all_priorities(self):
+        """Clearing all priorities with None removes everything."""
+        sched = PipelineScheduler()
+        sched.set_priority("proj-a", "boost")
+        sched.set_priority("proj-b", "exclusive")
+        sched.set_priority("proj-c", "boost")
+
+        sched.clear_all_priorities()
+
+        assert sched.get_priority("proj-a") == "none"
+        assert sched.get_priority("proj-b") == "none"
+        assert sched.get_priority("proj-c") == "none"
+        assert sched.priority_project_id is None
+        assert sched.priority_level == "none"
+
+    def test_exclusive_demotes_existing_exclusive(self):
+        """Setting exclusive on a new project demotes the old one to boost."""
+        sched = PipelineScheduler()
+        sched.set_priority("proj-a", "exclusive")
+
+        assert sched.get_priority("proj-a") == "exclusive"
+
+        sched.set_priority("proj-b", "exclusive")
+
+        assert sched.get_priority("proj-a") == "boost"  # demoted
+        assert sched.get_priority("proj-b") == "exclusive"
+
+    def test_backward_compat_priority_project_id(self):
+        """priority_project_id property returns exclusive first, then boost."""
+        sched = PipelineScheduler()
+        sched.set_priority("proj-a", "boost")
+        sched.set_priority("proj-b", "boost")
+
+        # Should return one of the boost projects
+        assert sched.priority_project_id in ("proj-a", "proj-b")
+
+        # Add an exclusive — it should take precedence
+        sched.set_priority("proj-c", "exclusive")
+        assert sched.priority_project_id == "proj-c"
+        assert sched.priority_level == "exclusive"
+
+    def test_priority_projects_property(self):
+        """priority_projects returns a snapshot of all priorities."""
+        sched = PipelineScheduler()
+        sched.set_priority("proj-a", "boost")
+        sched.set_priority("proj-b", "exclusive")
+
+        projects = sched.priority_projects
+        assert projects == {"proj-a": "boost", "proj-b": "exclusive"}
+
+    def test_status_reports_multi_priority(self):
+        """status() includes the full priority dict."""
+        sched = PipelineScheduler()
+        sched.set_default_concurrency(1)
+        sched.set_priority("proj-a", "boost")
+        sched.set_priority("proj-b", "boost")
+
+        status = sched.status()
+        assert "priority" in status
+        assert "projects" in status["priority"]
+        assert status["priority"]["projects"] == {
+            "proj-a": "boost",
+            "proj-b": "boost",
+        }
+        # Backward compat fields
+        assert status["priority"]["project_id"] in ("proj-a", "proj-b")
+        assert status["priority"]["level"] == "boost"
+
+
+# ── Phase 72B: Weighted fair-share budget ────────────────────────
+
+class TestWeightedFairShare:
+    """Test weighted fair-share budget allocation (Phase 72B)."""
+
+    def test_ten_concurrency_two_boost_two_normal(self):
+        """10 concurrency, 2 boost + 2 normal → 3+3+1+1 (remainder to boost)."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.set_priority("proj-a", "boost")
+        sched.set_priority("proj-b", "boost")
+
+        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-c", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-d", StageId.ENRICHMENT, "cloud:ep-1")
+
+        # Boost projects (weight 2): floor(10 * 2 / 6) = 3
+        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-a") == 4  # 3 + remainder
+        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-b") == 4  # 3 + remainder
+        # Normal projects (weight 1): floor(10 * 1 / 6) = 1
+        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-c") == 1
+        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-d") == 1
+
+    def test_six_concurrency_two_boost_two_normal(self):
+        """6 concurrency, 2 boost + 2 normal → 2+2+1+1 (clean split)."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 6)
+        sched.set_priority("proj-a", "boost")
+        sched.set_priority("proj-b", "boost")
+
+        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-c", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-d", StageId.ENRICHMENT, "cloud:ep-1")
+
+        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-a") == 2
+        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-b") == 2
+        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-c") == 1
+        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-d") == 1
+
+    def test_no_priority_equal_split(self):
+        """No priority → even split among all projects."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+
+        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+
+        # 10 / 2 = 5 each
+        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-a") == 5
+        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-b") == 5
+
+    def test_exclusive_gets_full_budget(self):
+        """Exclusive project gets entire budget regardless of others."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.set_priority("proj-a", "exclusive")
+
+        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+
+        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-a") == 10
+
+    def test_one_boost_three_normal(self):
+        """10 concurrency, 1 boost + 3 normal → boost gets 4, normals get 2."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.set_priority("proj-a", "boost")
+
+        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-c", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-d", StageId.ENRICHMENT, "cloud:ep-1")
+
+        # weight = 2+1+1+1 = 5
+        # boost: floor(10*2/5) = 4
+        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-a") == 4
+        # normal: floor(10*1/5) = 2
+        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-b") == 2
+        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-c") == 2
+        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-d") == 2
+
+
+
 
 class TestAutoDiscoveryBatchWorkers:
     """Test available_batch_workers_for_provider() auto-discovery."""

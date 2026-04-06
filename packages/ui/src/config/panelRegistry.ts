@@ -67,6 +67,9 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     docsUrl: 'https://docs.codrag.io/dashboard#status',
   },
   {
+    // Phase 74: Sunset — AI Gateway summary card used manually-constructed state
+    // that drifted from real pipeline status. The sidebar AI Gateway widget is now
+    // the sole live view; full settings open via its expand button → panelDetails.
     id: 'llm-status',
     title: 'AI Gateway',
     description: 'Connection status for local (Ollama) and cloud (OpenAI/Anthropic) models.',
@@ -76,6 +79,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     docsUrl: 'https://docs.codrag.io/dashboard#llm-status',
+    hidden: true,
   },
   {
     id: 'search',
@@ -357,6 +361,17 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     closeable: true,
     resizable: true,
     fullWidth: true,
+  },
+  {
+    id: 'concepts',
+    title: 'Concepts',
+    description: 'High-level codebase understanding: business rationale, design decisions, domain knowledge, and architectural intent. AI-seeded, user-curated.',
+    icon: Brain,
+    minHeight: 6,
+    defaultHeight: 8,
+    category: 'context',
+    closeable: true,
+    resizable: true,
   },
 ];
 

@@ -107,21 +107,41 @@ class RecoveryManager:
             if not checkpoints_dir.exists():
                 return False
 
-            # Find the most recent checkpoint with the most data
+            # Phase 72D: Prefer the golden checkpoint (known-good state)
             best_checkpoint = None
             best_size = 0
 
-            for cp_dir in sorted(checkpoints_dir.iterdir(), reverse=True):
-                if not cp_dir.is_dir():
-                    continue
-                total_size = sum(
+            golden_dir = checkpoints_dir / "_golden"
+            if golden_dir.is_dir():
+                golden_size = sum(
                     f.stat().st_size
-                    for f in cp_dir.iterdir()
+                    for f in golden_dir.iterdir()
                     if f.is_file() and f.suffix in (".jsonl", ".json")
                 )
-                if total_size > best_size:
-                    best_size = total_size
-                    best_checkpoint = cp_dir
+                if golden_size > 1024:
+                    best_checkpoint = golden_dir
+                    best_size = golden_size
+                    logger.info(
+                        "Phase 72D: Preferring golden checkpoint for %s "
+                        "(%d bytes of data)",
+                        project_id, golden_size,
+                    )
+
+            # Fallback: find the most recent run checkpoint with the most data
+            if best_checkpoint is None:
+                for cp_dir in sorted(checkpoints_dir.iterdir(), reverse=True):
+                    if not cp_dir.is_dir():
+                        continue
+                    if cp_dir.name.startswith("_"):
+                        continue  # Already checked _golden
+                    total_size = sum(
+                        f.stat().st_size
+                        for f in cp_dir.iterdir()
+                        if f.is_file() and f.suffix in (".jsonl", ".json")
+                    )
+                    if total_size > best_size:
+                        best_size = total_size
+                        best_checkpoint = cp_dir
 
             if not best_checkpoint or best_size < 1024:
                 return False
@@ -524,6 +544,23 @@ class RecoveryManager:
             if idx_dir is None:
                 continue
 
+            # Phase 72B: Skip inactive/frozen/locked projects.
+            # Auto-recovery should only trigger for active projects.
+            # Without this filter, ALL projects get recovery-triggered on
+            # every daemon restart, overwhelming the scheduler and starving
+            # newly-enabled projects that actually need processing.
+            try:
+                from codrag.services.project_helpers import get_project_activity_status
+                activity = get_project_activity_status(pid)
+                if activity != "active":
+                    logger.debug(
+                        "Phase 61B: skipping auto-recovery for %s (status=%s)",
+                        pid, activity,
+                    )
+                    continue
+            except Exception:
+                pass  # Can't determine status — proceed with recovery
+
             pfl = get_file_logger_fn(pid)
 
             # Step 1: Check for stale/zombie metadata and reset
@@ -596,6 +633,53 @@ class RecoveryManager:
 
                 for stage in DEEP_ENRICHMENT_STAGES:
                     if not store.provenance_exists(stage):
+                        # Phase 72C: Before declaring stale, check if the
+                        # DATA FILE exists. If so, the stage completed but
+                        # the manifest was lost (pre-manifest code, or
+                        # deleted by _invalidate_deep_manifests). Create a
+                        # stub manifest so we don't needlessly re-run.
+                        #
+                        # Phase 72D: SKIP stub creation for stages that share
+                        # their output file with a prior stage. The data file
+                        # belongs to the earlier stage, not this one.
+                        _SHARED_OUTPUT_STAGES = {
+                            StageId.DEEPENING,       # shares trace_epistemic.jsonl with ENRICHMENT
+                            StageId.DEEP_KNOWLEDGE,  # shares knowledge_* with KNOWLEDGE
+                        }
+                        if stage in _SHARED_OUTPUT_STAGES:
+                            logger.info(
+                                "Phase 72D: Stage %s manifest missing — skipping "
+                                "stub creation (shares output with prior stage)",
+                                stage.value,
+                            )
+                            deep_stale = True
+                            break
+
+                        output_file = STAGE_OUTPUT_FILE.get(stage)
+                        data_path = (idx_dir / output_file) if output_file else None
+                        if data_path and data_path.exists() and data_path.stat().st_size > 0:
+                            logger.info(
+                                "Phase 72C: Stage %s manifest missing but data "
+                                "file %s exists (%d bytes). Creating stub manifest "
+                                "instead of triggering re-run.",
+                                stage.value, output_file, data_path.stat().st_size,
+                            )
+                            store.write_provenance(stage, {
+                                "codrag_version": "0.1.0",
+                                "format_version": "2.0",
+                                "stage_id": stage.value,
+                                "restored": True,
+                                "restored_reason": "manifest_missing_but_data_exists",
+                            })
+                            store.touch_provenance_mtime(stage, structural_mtime)
+                            if pfl:
+                                pfl.selfheal(
+                                    "auto_recover",
+                                    f"Created stub manifest for {stage.value} "
+                                    f"(data file {output_file} exists)",
+                                    {"project_id": pid, "stage": stage.value},
+                                )
+                            continue
                         deep_stale = True
                         break
                     if store.provenance_mtime(stage) < structural_mtime:

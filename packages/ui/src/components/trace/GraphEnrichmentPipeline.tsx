@@ -57,7 +57,7 @@ export interface GraphEnrichmentPipelineProps {
   onRunDeepEnrichment?: () => void;
   onDestroyGraph?: () => void;
   /** Group reasoning status (Stage 6b) */
-  groupReasoning?: { enabled: boolean; group_count: number; analyzed: number; running?: boolean; slot_phase?: string; progress_current?: number; progress_total?: number };
+  groupReasoning?: { enabled: boolean; group_count: number; analyzed: number; running?: boolean; slot_phase?: string; progress_current?: number; progress_total?: number; progress_baseline?: number };
   /** Open the settings drawer to the Deep Enrichment configuration */
   onOpenDeepSettings?: () => void;
   onTogglePause?: () => void;
@@ -976,7 +976,7 @@ export function GraphEnrichmentPipeline({
         ? Math.min(100, Math.round((groupReasoning.progress_current ?? 0) / groupReasoning.progress_total * 100))
         : undefined,
       rerun: (groupReasoningRunning || groupReasoning?.slot_phase === 'running' || groupReasoning?.running)
-        ? computeStageRerun(undefined, undefined) : undefined,
+        ? computeStageRerun(groupReasoning?.progress_baseline, groupReasoning?.progress_total) : undefined,
     },
     {
       id: 'clustering', label: 'Module Synthesis', icon: Layers, modelTag: 'Thinking',
@@ -984,7 +984,7 @@ export function GraphEnrichmentPipeline({
       progress: (clusterRunning || modules?.running) && modules?.progress_total
         ? Math.min(100, Math.round((modules.progress_current ?? 0) / modules.progress_total * 100))
         : (clusteringState === 'running' ? 0 : undefined),
-      rerun: clusteringState === 'running' ? computeStageRerun(undefined, undefined) : undefined,
+      rerun: clusteringState === 'running' ? computeStageRerun(modules?.progress_baseline, modules?.progress_total) : undefined,
     },
     { id: 'atlas', label: 'Atlas Building', icon: Map, modelTag: 'Thinking', state: atlasState, stats: atlasStats, rerun: atlasState === 'running' ? computeStageRerun(undefined, undefined) : undefined },
     { id: 'deepening', label: 'Continuous Deepening', icon: Network, state: deepeningState, stats: deepeningStats, progress: deepeningState === 'running' ? (deepeningProgress ?? 0) : undefined, rerun: deepeningState === 'running' ? computeStageRerun(undefined, undefined) : undefined },

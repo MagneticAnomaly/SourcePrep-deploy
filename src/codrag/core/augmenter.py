@@ -211,12 +211,15 @@ Imports: {imports}
 ```
 {head}
 ```
-
+{tail_section}
 Respond with this exact JSON format:
 {{"summary": "1 sentence file purpose", "role": "utility", "confidence": 0.85, "key_exports": ["symbol1", "symbol2"], "related_files": ["path/to/related.py"]}}
 
 Where role is one of: api, core, model, utility, config, test, script, ui, documentation
 related_files: list up to 5 files this file most likely relates to (by path)
+
+Write a SPECIFIC summary that describes what this file actually does, not a generic label.
+Bad: "Python source file." Good: "Pipeline stage orchestrator — coordinates the 11-stage indexing pipeline and manages LLM model lifecycle."
 
 JSON response:"""
 
@@ -494,6 +497,20 @@ class TraceAugmenter:
             text = full_path.read_text(encoding="utf-8", errors="ignore")
             lines = text.splitlines()[:max_lines]
             return "\n".join(lines)
+        except Exception:
+            return ""
+
+    def _get_file_tail(self, file_path: str, max_lines: int = 20) -> str:
+        """Read the last N lines of a file (for large file context)."""
+        try:
+            full_path = self.repo_root / file_path
+            if not full_path.exists():
+                return ""
+            text = full_path.read_text(encoding="utf-8", errors="ignore")
+            lines = text.splitlines()
+            if len(lines) <= 60:
+                return ""  # File is small enough that head covers it
+            return "\n".join(lines[-max_lines:])
         except Exception:
             return ""
 
@@ -887,12 +904,20 @@ class TraceAugmenter:
 
         imports = self._get_file_imports(file_path, edges, nodes_by_id)
 
+        # Phase 73: Include tail lines for large files so the LLM sees
+        # the public API / main entry point, not just imports.
+        tail = self._get_file_tail(file_path, max_lines=20)
+        tail_section = ""
+        if tail:
+            tail_section = f"\nLast 20 lines:\n```\n{tail}\n```\n"
+
         prompt = FILE_ROLE_PROMPT.format(
             file_path=file_path,
             symbol_names=", ".join(symbol_names[:30]) or "(none)",
             imports=imports or "(none)",
             content_label="First 30 lines",
             head=head,
+            tail_section=tail_section,
         )
 
         try:
@@ -1258,12 +1283,17 @@ class TraceAugmenter:
                 )[:500]
                 imports = self._get_file_imports(fp, edges, nodes_by_id)
                 head = self._get_file_head(fp, max_lines=30)
+                tail = self._get_file_tail(fp, max_lines=20)
+                tail_section = ""
+                if tail:
+                    tail_section = f"\nLast 20 lines:\n```\n{tail}\n```\n"
                 items.append({
                     "file_path": fp,
                     "symbol_names": symbol_names,
                     "imports": imports,
                     "content_label": "First 30 lines",
                     "head": head,
+                    "tail_section": tail_section,
                     "_node": node,
                     "_node_id": nid,
                 })

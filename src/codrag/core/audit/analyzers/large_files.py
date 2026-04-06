@@ -58,6 +58,16 @@ class LargeFileAnalyzer(BaseAnalyzer):
             basename = os.path.basename(file_path)
             if basename in EXPECTED_LARGE_BASENAMES:
                 continue
+            # Phase 73: Skip generic lock suffixes and minified files
+            if basename.endswith((".lock", ".min.js", ".min.css")):
+                continue
+            if basename.endswith("-lock.json") or basename.endswith("-lock.yaml"):
+                continue
+            # Phase 73: Skip generated/build output directories
+            _GEN_DIRS = ("/dist/", "/build/", "/out/", "/.next/", "/node_modules/",
+                         "/__pycache__/", "/.tox/", "/target/", "/.nuxt/")
+            if any(seg in f"/{file_path}/" for seg in _GEN_DIRS):
+                continue
 
             lang = node.get("language", "unknown")
             est_lines = size // 40
@@ -73,6 +83,19 @@ class LargeFileAnalyzer(BaseAnalyzer):
             aug = ctx.augmentations.get(nid, {})
             role = aug.get("role", "unknown")
             summary = aug.get("summary", "")
+
+            # Phase 73: Context-aware advice based on file type
+            ext = os.path.splitext(file_path)[1].lower()
+            if ext in (".md", ".rst", ".txt"):
+                action = "Consider splitting into sub-documents or adding a table of contents."
+            elif ext in (".json", ".yaml", ".yml", ".toml"):
+                action = "Review whether this config can be split into per-environment or per-module files."
+            elif ext in (".log",):
+                action = "Consider adding to .gitignore or archiving old logs."
+            elif severity == "critical":
+                action = "Consider splitting into focused modules with clear responsibilities."
+            else:
+                action = "Review for extraction opportunities."
 
             findings.append(Finding(
                 analyzer=self.name,
@@ -91,11 +114,7 @@ class LargeFileAnalyzer(BaseAnalyzer):
                     "language": lang,
                     "role": role,
                 },
-                suggested_action=(
-                    "Consider splitting into a subpackage with focused modules."
-                    if severity == "critical"
-                    else "Review for extraction opportunities."
-                ),
+                suggested_action=action,
             ))
 
         findings.sort(key=lambda f: -f.evidence.get("bytes", 0))

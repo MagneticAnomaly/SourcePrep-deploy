@@ -221,28 +221,27 @@ class PipelineOrchestrator:
                 pfl.log("fast_sync", msg)
             return
 
-        # All stages were complete — invalidate so they re-process new files.
-        # Workers read existing output and only process new/changed nodes,
-        # so this just forces them to wake up, not redo all work.
-        deleted = []
-        for stage in DEEP_ENRICHMENT_STAGES:
-            p = store.provenance_path(stage)
-            if p.exists():
-                p.unlink()
-                deleted.append(stage.value)
-
-        if deleted:
-            logger.info(
-                "Invalidated %d deep enrichment manifests for %s after "
-                "incremental fast_sync (all were complete): %s",
-                len(deleted), project_id, ", ".join(deleted),
+        # All stages were complete — mark as needing re-check by setting
+        # a stale timestamp. Workers read existing output and only process
+        # new/changed nodes, so this just forces them to wake up.
+        #
+        # IMPORTANT: We do NOT delete manifest files (p.unlink()).
+        # Deleting them causes auto-recovery to interpret "missing manifest"
+        # as "stage never ran" and triggers needless full re-runs on every
+        # daemon restart, destroying hours of LLM synthesis work.
+        # Instead, we just let the orchestrator notice that the deep stages
+        # need to re-process the incremental additions organically.
+        logger.info(
+            "Incremental fast_sync for %s: deep stages were all complete. "
+            "Workers will handle new files internally (manifests preserved).",
+            project_id,
+        )
+        if pfl:
+            pfl.log(
+                "fast_sync",
+                "Deep enrichment stages all complete — workers will handle "
+                "new files internally (manifests preserved, not deleted)",
             )
-            if pfl:
-                pfl.log(
-                    "fast_sync",
-                    f"Invalidated {len(deleted)} deep manifests for incremental "
-                    f"(all were complete): {', '.join(deleted)}",
-                )
 
     @staticmethod
     def _touch_stale_deep_manifests(project_id: str) -> None:
@@ -1254,6 +1253,8 @@ class PipelineOrchestrator:
             # when the user explicitly clicks Rebuild.
             if run.group == "deep_enrichment":
                 self._trigger_code_index_build(run.project_id, pfl)
+                # Phase 74: Auto-seed concepts from pipeline data
+                PostFlightActions.trigger_concept_seeding(run.project_id, pfl)
             # Phase 48 (P48-F5): After deep enrichment completes in auto mode,
             # check if deepening has converged. If not, re-trigger.
             if run.group == "deep_enrichment":
@@ -2139,7 +2140,7 @@ class PipelineOrchestrator:
             journal.run_completed(run.journal_run_id)
         except Exception:
             logger.debug("Journal run_completed write failed", exc_info=True)
-        # Cleanup checkpoint
+        # Cleanup this run's checkpoint
         try:
             from codrag.services.pipeline_journal import journal as j
             entry = j.get_run(run.journal_run_id)
@@ -2148,6 +2149,38 @@ class PipelineOrchestrator:
                 cleanup_checkpoint(entry.checkpoint_path)
         except Exception:
             logger.debug("Checkpoint cleanup failed", exc_info=True)
+
+        # Phase 72D: Golden checkpoint + pruning
+        try:
+            from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
+            from codrag.services.pipeline_checkpoint import (
+                create_golden_checkpoint,
+                prune_old_checkpoints,
+            )
+
+            project = require_project(run.project_id)
+            idx_dir = Path(project_index_dir(project))
+
+            # Create a golden checkpoint after deep_enrichment completes.
+            # This is the "known-good" state — the preferred restore target.
+            if run.group == "deep_enrichment":
+                gp = create_golden_checkpoint(idx_dir)
+                if gp:
+                    logger.info(
+                        "Phase 72D: Golden checkpoint created for %s at %s",
+                        run.project_id, gp,
+                    )
+
+            # Prune old run checkpoints (keep 3 most recent + golden)
+            pruned = prune_old_checkpoints(idx_dir, keep=3)
+            if pruned:
+                logger.info(
+                    "Phase 72D: Pruned %d old checkpoints for %s",
+                    pruned, run.project_id,
+                )
+        except Exception:
+            logger.debug("Phase 72D golden/prune failed (non-fatal)", exc_info=True)
 
     def _create_checkpoint_if_needed(self, run: PipelineGroupStateMachine, stage: StageId) -> None:
         """Delegates to RecoveryManager.create_checkpoint_if_needed."""
