@@ -1433,13 +1433,31 @@ class CodeIndex:
             total += len(parts[0]) + len(parts[-1])
 
         context_str = "\n\n---\n\n".join(parts)
-        return {
+        result = {
             "context": context_str,
             "chunks": chunks_meta,
             "total_chars": total,
             "estimated_tokens": total // 4,
             "meta": {"query": query, "policy": policy},
         }
+
+        # Phase 73.5: Query coverage — show which terms matched
+        signals = getattr(self, "_last_query_signals", None)
+        if signals and signals.keywords and results:
+            all_content = " ".join(
+                str(r.doc.get("content") or "") + " " + str(r.doc.get("source_path") or "")
+                for r in results
+            )
+            coverage = signals.compute_coverage(all_content)
+            matched = sum(1 for v in coverage.values() if v)
+            result["query_coverage"] = {
+                "terms": coverage,
+                "matched": matched,
+                "total": len(coverage),
+                "ratio": round(matched / len(coverage), 2) if coverage else 1.0,
+            }
+
+        return result
 
     def get_chunk(self, chunk_id: str) -> Optional[Dict[str, Any]]:
         """Get a specific chunk by ID."""

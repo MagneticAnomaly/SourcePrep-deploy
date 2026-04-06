@@ -927,6 +927,22 @@ class MCPServer:
                     confidence_line = f"[retrieval confidence: {confidence} | top score: {max(scores):.2f} | {len(scores)} chunks]\n"
                     context_str = confidence_line + context_str
 
+            # Phase 73.5: Query coverage indicator
+            if isinstance(data, dict):
+                qcov = data.get("query_coverage")
+                if qcov and isinstance(qcov, dict):
+                    terms = qcov.get("terms", {})
+                    if terms:
+                        matched = [k for k, v in terms.items() if v]
+                        missed = [k for k, v in terms.items() if not v]
+                        parts = []
+                        if matched:
+                            parts.append(" ".join(f"{t}\u2713" for t in matched))
+                        if missed:
+                            parts.append(" ".join(f"{t}\u2717" for t in missed))
+                        coverage_line = f"[query terms: {' | '.join(parts)}]\n"
+                        context_str = coverage_line + context_str
+
             # Phase 74: Concept augmentation — surface matching concepts
             concept_hint = ""
             try:

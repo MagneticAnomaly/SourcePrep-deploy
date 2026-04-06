@@ -1120,6 +1120,9 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
             resp_data["estimated_tokens"] = len(new_ctx) // 4
             if atlas_meta:
                 resp_data["atlas"] = atlas_meta
+        # Phase 73.5: Forward query coverage metadata
+        if isinstance(result, dict) and "query_coverage" in result:
+            resp_data["query_coverage"] = result["query_coverage"]
         # Phase 39: Inject relevant observations as session-memory
         resp_data["context"], _obs_meta = _inject_observations(resp_data["context"], project_id, req.query)
         if _obs_meta:
@@ -1155,6 +1158,21 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
             context_tier=req.context_tier,
         )
         resp_data: Dict[str, Any] = lod_result
+        # Phase 73.5: Forward query coverage metadata
+        _qc_signals = getattr(idx, "_last_query_signals", None)
+        if _qc_signals and _qc_signals.keywords and results:
+            _qc_content = " ".join(
+                str(r.doc.get("content") or "") + " " + str(r.doc.get("source_path") or "")
+                for r in results
+            )
+            _qc_cov = _qc_signals.compute_coverage(_qc_content)
+            _qc_matched = sum(1 for v in _qc_cov.values() if v)
+            resp_data["query_coverage"] = {
+                "terms": _qc_cov,
+                "matched": _qc_matched,
+                "total": len(_qc_cov),
+                "ratio": round(_qc_matched / len(_qc_cov), 2) if _qc_cov else 1.0,
+            }
         if _routing_meta:
             resp_data["atlas"] = _routing_meta
         elif req.include_atlas:
@@ -1236,6 +1254,21 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
     }
     if comp["compression"] is not None:
         resp_data["compression"] = comp["compression"]
+    # Phase 73.5: Forward query coverage metadata
+    _qc_signals = getattr(idx, "_last_query_signals", None)
+    if _qc_signals and _qc_signals.keywords and results:
+        _qc_content = " ".join(
+            str(r.doc.get("content") or "") + " " + str(r.doc.get("source_path") or "")
+            for r in results
+        )
+        _qc_cov = _qc_signals.compute_coverage(_qc_content)
+        _qc_matched = sum(1 for v in _qc_cov.values() if v)
+        resp_data["query_coverage"] = {
+            "terms": _qc_cov,
+            "matched": _qc_matched,
+            "total": len(_qc_cov),
+            "ratio": round(_qc_matched / len(_qc_cov), 2) if _qc_cov else 1.0,
+        }
     # Atlas: routing metadata (no injection) + legacy prepend fallback
     if _routing_meta:
         resp_data["atlas"] = _routing_meta
