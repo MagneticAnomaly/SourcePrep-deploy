@@ -88,7 +88,7 @@ class TestTier2Properties:
         assert self.tier.hub_budget_pct == 0.50
 
     def test_neighbor_lod(self) -> None:
-        assert self.tier.neighbor_lod == 2
+        assert self.tier.neighbor_lod == 25  # LOD 2.5
 
     def test_neighbor_budget_pct(self) -> None:
         assert self.tier.neighbor_budget_pct == 0.25
@@ -125,7 +125,7 @@ class TestTier25Properties:
         assert self.tier.hub_count == 4
 
     def test_hub_lod(self) -> None:
-        assert self.tier.hub_lod == 2
+        assert self.tier.hub_lod == 25  # LOD 2.5
 
     def test_hub_budget_pct(self) -> None:
         assert self.tier.hub_budget_pct == 0.45

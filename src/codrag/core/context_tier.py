@@ -59,7 +59,7 @@ _TIER_PARAMS: dict[int, _TierParams] = {
         hub_count=6,
         hub_lod=0,
         hub_budget_pct=0.50,
-        neighbor_lod=2,
+        neighbor_lod=25,  # LOD 2.5: sigs + docstrings, strips module constants (2-5x vs 1.2-2.7x)
         neighbor_budget_pct=0.25,
         min_score=0.20,
         trace_max_chars=4000,
@@ -72,7 +72,7 @@ _TIER_PARAMS: dict[int, _TierParams] = {
     ),
     3: _TierParams(
         hub_count=4,
-        hub_lod=2,
+        hub_lod=25,  # LOD 2.5 for hub files too — tighter budget needs better compression
         hub_budget_pct=0.45,
         neighbor_lod=4,
         neighbor_budget_pct=0.20,
