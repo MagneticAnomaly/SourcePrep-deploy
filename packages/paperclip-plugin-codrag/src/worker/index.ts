@@ -232,7 +232,12 @@ const plugin = definePlugin({
           const p = params as Record<string, unknown>;
           const data = await client.request(`/projects/${pid}/observations`, {
             method: 'POST',
-            body: { content: p.content, file_path: p.file_path, category: p.category ?? 'note' },
+            body: {
+              content: p.content,
+              file_path: p.file_path,
+              category: p.category ?? 'note',
+              created_by: 'paperclip-agent',
+            },
           });
           return { content: JSON.stringify(data) };
         } catch (err) {
@@ -273,6 +278,28 @@ const plugin = definePlugin({
         return data;
       } catch (err) {
         return { files: [], error: String(err) };
+      }
+    });
+
+    // ── Phase 73.5: Collaboration Data Providers ───────────
+
+    ctx.data.register('structural-delta', async () => {
+      try {
+        const pid = await client.resolveProjectId(config);
+        const data = await client.request(`/projects/${pid}/collaboration/delta`);
+        return data;
+      } catch (err) {
+        return { is_empty: true, error: String(err) };
+      }
+    });
+
+    ctx.data.register('agent-claims', async () => {
+      try {
+        const pid = await client.resolveProjectId(config);
+        const data = await client.request(`/projects/${pid}/collaboration/claims`);
+        return data;
+      } catch (err) {
+        return { claims: [], error: String(err) };
       }
     });
 
@@ -326,7 +353,7 @@ const plugin = definePlugin({
       }
     });
 
-    ctx.logger.info('CoDRAG plugin initialized — 5 tools, 2 data providers, 2 actions, 1 job');
+    ctx.logger.info('CoDRAG plugin initialized — 5 tools, 4 data providers, 2 actions, 1 job');
   },
 
   async onHealth(): Promise<PluginHealthDiagnostics> {

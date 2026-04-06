@@ -16,16 +16,8 @@ from codrag.mcp.collaboration_handlers import (
 # ── URI parsing ─────────────────────────────────────────────
 
 
-def test_parse_uri_activity():
-    assert parse_collaboration_uri("activity") == ("activity", {})
-
-
 def test_parse_uri_delta():
     assert parse_collaboration_uri("delta") == ("delta", {})
-
-
-def test_parse_uri_conflicts():
-    assert parse_collaboration_uri("conflicts") == ("conflicts", {})
 
 
 def test_parse_uri_memory_with_role():
@@ -46,18 +38,30 @@ def test_parse_uri_memory_no_role():
     assert parse_collaboration_uri("memory/") is None
 
 
+def test_parse_uri_activity_not_routed():
+    """activity is no longer an MCP resource (served via Paperclip)."""
+    assert parse_collaboration_uri("activity") is None
+
+
+def test_parse_uri_conflicts_not_routed():
+    """conflicts are pushed to Paperclip, not served as MCP resource."""
+    assert parse_collaboration_uri("conflicts") is None
+
+
 # ── Resource list ───────────────────────────────────────────
 
 
-def test_get_collaboration_resources_returns_5():
+def test_get_collaboration_resources_returns_3():
     resources = get_collaboration_resources("proj-1")
-    assert len(resources) == 5
+    assert len(resources) == 3
     uris = {r["uri"] for r in resources}
-    assert "codrag://proj-1/activity" in uris
-    assert "codrag://proj-1/conflicts" in uris
+    assert "codrag://proj-1/delta" in uris
+    # activity and conflicts should NOT be in the list
+    assert not any("activity" in u for u in uris)
+    assert not any("conflicts" in u for u in uris)
 
 
-# ── Formatters ──────────────────────────────────────────────
+# ── Formatters (kept as internal utils) ─────────────────────
 
 
 def test_format_activity_empty():
@@ -149,7 +153,7 @@ def test_get_collaboration_prompts_returns_3():
     prompts = get_collaboration_prompts()
     assert len(prompts) == 3
     names = {p["name"] for p in prompts}
-    assert names == {"codrag-handoff", "codrag-scope", "codrag-triage"}
+    assert names == {"codrag-handoff", "codrag-scope", "codrag-enrich"}
 
 
 def test_prompt_handoff_returns_messages():
@@ -158,7 +162,12 @@ def test_prompt_handoff_returns_messages():
         {"from_role": "researcher", "to_role": "custodian"},
     )
     assert result is not None
-    assert "researcher" in result["messages"][0]["content"]["text"]
+    text = result["messages"][0]["content"]["text"]
+    assert "researcher" in text
+    # Should reference delta, not activity/conflicts
+    assert "@codrag://delta" in text
+    assert "@codrag://activity" not in text
+    assert "@codrag://conflicts" not in text
 
 
 def test_prompt_scope_returns_messages():
@@ -166,15 +175,25 @@ def test_prompt_scope_returns_messages():
         "codrag-scope", {"role": "researcher"},
     )
     assert result is not None
-    assert "researcher" in result["messages"][0]["content"]["text"]
+    text = result["messages"][0]["content"]["text"]
+    assert "researcher" in text
+    assert "@codrag://conflicts" not in text
 
 
-def test_prompt_triage_returns_messages():
+def test_prompt_enrich_returns_messages():
     result = get_collaboration_prompt_messages(
-        "codrag-triage", {},
+        "codrag-enrich", {},
     )
     assert result is not None
-    assert "codrag_audit" in result["messages"][0]["content"]["text"]
+    text = result["messages"][0]["content"]["text"]
+    assert "codrag_audit" in text
+    assert "codrag_impact" in text
+    assert "hub files" in text
+
+
+def test_prompt_triage_no_longer_exists():
+    result = get_collaboration_prompt_messages("codrag-triage", {})
+    assert result is None
 
 
 def test_prompt_unknown_returns_none():

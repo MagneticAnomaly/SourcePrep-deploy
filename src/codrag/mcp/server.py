@@ -2370,22 +2370,12 @@ class MCPServer:
     ) -> str:
         """Fetch collaboration resource from daemon, format as markdown."""
         from codrag.mcp.collaboration_handlers import (
-            format_activity_resource,
             format_memory_resource,
             format_delta_resource,
-            format_conflicts_resource,
         )
 
         try:
-            if resource_name == "activity":
-                data = await self._api_get(
-                    f"/projects/{project_id}/collaboration/activity"
-                )
-                return format_activity_resource(
-                    (data or {}).get("entries", []),
-                )
-
-            elif resource_name in ("memory", "agent_findings"):
+            if resource_name in ("memory", "agent_findings"):
                 role = params.get("role", "")
                 vis = "shared" if resource_name == "agent_findings" else None
                 url = (
@@ -2404,14 +2394,6 @@ class MCPServer:
                     f"/projects/{project_id}/collaboration/delta"
                 )
                 return format_delta_resource(data or {})
-
-            elif resource_name == "conflicts":
-                data = await self._api_get(
-                    f"/projects/{project_id}/collaboration/conflicts"
-                )
-                return format_conflicts_resource(
-                    (data or {}).get("conflicts", []),
-                )
 
         except Exception as e:
             logger.debug(

@@ -41,15 +41,6 @@ def get_collaboration_resources(project_id: str) -> List[Dict[str, Any]]:
             "annotations": {"audience": ["assistant"]},
         },
         {
-            "uri": f"codrag://{pid}/activity",
-            "name": "Agent Activity Feed",
-            "description": (
-                "Chronological timeline of all agent actions."
-            ),
-            "mimeType": "text/markdown",
-            "annotations": {"audience": ["user", "assistant"]},
-        },
-        {
             "uri": f"codrag://{pid}/delta",
             "name": "Structural Delta",
             "description": (
@@ -58,16 +49,6 @@ def get_collaboration_resources(project_id: str) -> List[Dict[str, Any]]:
             ),
             "mimeType": "text/markdown",
             "annotations": {"audience": ["assistant"]},
-        },
-        {
-            "uri": f"codrag://{pid}/conflicts",
-            "name": "Agent Conflicts",
-            "description": (
-                "Active disagreements between agents about "
-                "the same files."
-            ),
-            "mimeType": "text/markdown",
-            "annotations": {"audience": ["user", "assistant"]},
         },
     ]
 
@@ -86,12 +67,8 @@ def parse_collaboration_uri(
     Returns:
         ``(resource_name, params)`` or ``None`` if not a collab resource.
     """
-    if resource_type == "activity":
-        return ("activity", {})
     if resource_type == "delta":
         return ("delta", {})
-    if resource_type == "conflicts":
-        return ("conflicts", {})
     if resource_type.startswith("memory/"):
         role = resource_type[len("memory/"):]
         if role:
@@ -296,14 +273,14 @@ def get_collaboration_prompts() -> List[Dict[str, Any]]:
             ],
         },
         {
-            "name": "codrag-triage",
+            "name": "codrag-enrich",
             "description": (
-                "Triage agent findings — cluster by root cause, "
-                "flag conflicts, suggest assignments"
+                "Enrich findings with structural intelligence — "
+                "blast radius, hub involvement, cross-module analysis"
             ),
             "arguments": [
                 {
-                    "name": "focus",
+                    "name": "scope",
                     "description": "Optional area to focus on",
                     "required": False,
                 },
@@ -336,13 +313,11 @@ def get_collaboration_prompt_messages(
                         f"observations and "
                         f"@codrag://agents/{from_role}/findings "
                         f"for findings.\n"
-                        "2. Check @codrag://activity for recent "
-                        "agent actions.\n"
-                        "3. Check @codrag://conflicts for any "
-                        "disagreements.\n"
-                        "4. Call `codrag_search` to deepen your "
+                        "2. Check @codrag://delta for any structural "
+                        "changes since their last session.\n"
+                        "3. Call `codrag_search` to deepen your "
                         "understanding of relevant code.\n"
-                        "5. Summarize what you're picking up and "
+                        "4. Summarize what you're picking up and "
                         "your next steps."
                     ),
                 },
@@ -364,38 +339,39 @@ def get_collaboration_prompt_messages(
                         f"2. Check @codrag://memory/{role} for "
                         "recent observations.\n"
                         "3. Check @codrag://delta for structural "
-                        "changes.\n"
-                        "4. Check @codrag://conflicts for "
-                        f"disputes involving {role}.\n"
-                        f"5. Summarize: what does {role} own, "
+                        "changes in their scope.\n"
+                        f"4. Summarize: what does {role} own, "
                         "what changed, what needs attention."
                     ),
                 },
             }],
         }
 
-    if name == "codrag-triage":
-        focus = arguments.get("focus", "")
-        focus_text = f" Focus on: {focus}." if focus else ""
+    if name == "codrag-enrich":
+        scope = arguments.get("scope", "")
+        scope_text = f" Focus on: {scope}." if scope else ""
         return {
-            "description": "Triage agent findings",
+            "description": "Enrich findings with structural intelligence",
             "messages": [{
                 "role": "user",
                 "content": {
                     "type": "text",
                     "text": (
-                        "Triage the current agent findings and "
-                        "route them to the right agents."
-                        f"{focus_text}\n\n"
+                        "Enrich the current findings with structural "
+                        "intelligence from CoDRAG."
+                        f"{scope_text}\n\n"
                         "1. Call `codrag_audit` to get current "
                         "findings.\n"
-                        "2. Check @codrag://activity for what "
-                        "agents have done.\n"
-                        "3. Check @codrag://conflicts for "
-                        "unresolved disagreements.\n"
-                        "4. Cluster findings by root cause.\n"
-                        "5. For each cluster: recommend an agent "
-                        "role, flag conflicts, note consensus."
+                        "2. For the top findings, call "
+                        "`codrag_impact` to assess blast radius.\n"
+                        "3. Identify which findings touch hub files "
+                        "vs leaf files.\n"
+                        "4. Note which findings span multiple "
+                        "modules vs are contained to one.\n"
+                        "5. Summarize each finding with: scope "
+                        "size, hub involvement, blast radius, "
+                        "and whether it overlaps with areas other "
+                        "agents have flagged."
                     ),
                 },
             }],

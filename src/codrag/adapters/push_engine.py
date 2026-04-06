@@ -113,6 +113,10 @@ class PushEngine:
                     for c in conflicts:
                         self._conflict_store.save(c)
                     result.conflicts = conflicts
+
+                    # Step 2c: Push conflicts to Paperclip as issues
+                    for c in conflicts:
+                        self._push_conflict_to_pm(c, codrag_project_id)
             except Exception:
                 logger.debug(
                     "Conflict detection failed (non-fatal)",
@@ -254,6 +258,46 @@ class PushEngine:
         # Create new issue
         self.adapter.create_issue(pm_issue)
         result.issues_created += 1
+
+    # ── Conflict Push ───────────────────────────────────────────
+
+    def _push_conflict_to_pm(self, conflict: Any, project_id: str) -> None:
+        """Push a detected conflict to Paperclip as a tagged issue."""
+        address = f"codrag://{project_id}/CONFLICT-{conflict.id}"
+        # Dedup: check if this conflict is already pushed
+        existing = self.adapter.find_issue_by_codrag_address(address)
+        if existing:
+            return
+
+        title = (
+            f"CoDRAG Conflict: {conflict.file_path} "
+            f"— {conflict.agent_a} vs {conflict.agent_b}"
+        )
+        desc = (
+            f"Two agents disagree about this file:\n\n"
+            f"**{conflict.agent_a}:** "
+            f"\"{conflict.agent_a_assessment}\"\n\n"
+            f"**{conflict.agent_b}:** "
+            f"\"{conflict.agent_b_assessment}\"\n\n"
+            f"**Type:** {conflict.conflict_type}\n\n"
+            f"---\n"
+            f"<!-- codrag-address:{address} -->\n"
+            f"<!-- codrag-conflict:true -->"
+        )
+        try:
+            issue = PMIssue(
+                title=title,
+                description=desc,
+                priority="P2",
+                category="conflict",
+                codrag_address=address,
+            )
+            self.adapter.create_issue(issue)
+        except Exception:
+            logger.debug(
+                "Failed to push conflict %s to PM (non-fatal)",
+                conflict.id, exc_info=True,
+            )
 
     # ── Push History ─────────────────────────────────────────────
 
