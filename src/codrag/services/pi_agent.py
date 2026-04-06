@@ -62,10 +62,12 @@ class PiAgent:
         project_id: str,
         index_dir: Path,
         project_root: Optional[Path] = None,
+        collab_hub: Optional[Any] = None,
     ) -> None:
         self.project_id = project_id
         self.index_dir = Path(index_dir)
         self.project_root = Path(project_root) if project_root else None
+        self._collab = collab_hub
 
         # Configuration (loaded from settings_store at runtime)
         self._enabled: bool = False
@@ -287,6 +289,7 @@ class PiAgent:
                     f"{results['orphaned_found']} orphaned observations found."
                 ),
                 category="agent_scan",
+                scenario="pi/librarian",
             )
 
             return results
@@ -403,6 +406,7 @@ class PiAgent:
                     )
                 ),
                 category="agent_triage",
+                scenario="pi/dispatcher",
             )
 
             elapsed = time.monotonic() - start
@@ -531,6 +535,7 @@ class PiAgent:
                     + (f" Issues: {'; '.join(results['integrity_issues'][:3])}" if results["integrity_issues"] else "")
                 ),
                 category="agent_scan",
+                scenario="pi/doctor",
             )
 
             return results
@@ -647,6 +652,7 @@ class PiAgent:
                 content=json.dumps(sorted(current_modules)),
                 category="agent_scan",
                 query_tag="geologist_module_snapshot",
+                scenario="pi/geologist",
             )
 
             # Step 5: Save drift report
@@ -660,6 +666,7 @@ class PiAgent:
                 self._save_observation(
                     content=f"Geologist drift: {' | '.join(drift_parts)}",
                     category="agent_scan",
+                    scenario="pi/geologist",
                 )
 
             elapsed = time.monotonic() - start
@@ -764,6 +771,7 @@ class PiAgent:
                     f"Hub files: {', '.join(results['hub_files'][:5]) or 'none detected'}."
                 ),
                 category="agent_scan",
+                scenario="pi/architect",
             )
 
             return results
@@ -893,6 +901,7 @@ class PiAgent:
                     + (f"Issues: {'; '.join(results['quality_issues'][:3])}" if results["quality_issues"] else "No issues.")
                 ),
                 category="agent_scan",
+                scenario="pi/scholar",
             )
 
             return results
@@ -1090,6 +1099,7 @@ class PiAgent:
             content=json.dumps(summary, default=str),
             category="agent_scan",
             query_tag="pi_scan_baseline",
+            scenario="pi/watchdog",
         )
 
     def _save_delta_observation(self, delta: Dict[str, Any], group: str) -> None:
@@ -1113,13 +1123,18 @@ class PiAgent:
             + f" | {delta['unchanged_count']} unchanged"
         )
 
-        self._save_observation(content=content, category="agent_scan")
+        self._save_observation(
+            content=content, category="agent_scan",
+            scenario="pi/watchdog",
+        )
+        self._log_activity("watchdog", "delta_scan_complete", content)
 
     def _save_observation(
         self,
         content: str,
         category: str = "note",
         query_tag: Optional[str] = None,
+        scenario: Optional[str] = None,
     ) -> None:
         """Save an observation via the observation store.
 
@@ -1134,15 +1149,28 @@ class PiAgent:
             else:
                 tagged = content
 
-            # ObservationStore.save() takes positional (project_id, content)
-            # Category must be in VALID_CATEGORIES; use 'note' for agent observations
             observation_store.save(
                 self.project_id,
                 tagged,
                 category="note",
+                created_by=scenario or "pi",
             )
         except Exception:
             logger.debug("Pi: failed to save observation", exc_info=True)
+
+    def _log_activity(
+        self, scenario: str, action: str, summary: str,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Log an activity entry if collaboration hub is available."""
+        if self._collab:
+            try:
+                self._collab.activity.log(
+                    self.project_id, f"pi/{scenario}",
+                    action, summary, details=details,
+                )
+            except Exception:
+                logger.debug("Pi: failed to log activity", exc_info=True)
 
 
 # ── Module-level singleton ───────────────────────────────────────
@@ -1158,6 +1186,7 @@ def init_pi_agent(
     project_id: str,
     index_dir: Path,
     project_root: Optional[Path] = None,
+    collab_hub: Optional[Any] = None,
 ) -> PiAgent:
     """Initialize the Pi agent singleton."""
     global _pi_agent
@@ -1165,6 +1194,7 @@ def init_pi_agent(
         project_id=project_id,
         index_dir=index_dir,
         project_root=project_root,
+        collab_hub=collab_hub,
     )
     logger.info("Pi agent initialized for project %s (enabled=%s)", project_id, _pi_agent._enabled)
     return _pi_agent
