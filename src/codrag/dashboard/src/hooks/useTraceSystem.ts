@@ -526,6 +526,15 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     }
   }, [api, selectedProjectId])
 
+  const handleRebuildPipeline = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      await api.rebuildPipeline(selectedProjectId)
+    } catch (err) {
+      console.error('Failed to trigger pipeline rebuild:', err)
+    }
+  }, [api, selectedProjectId])
+
   // ── SSE: auto-refresh coverage when trace build completes ───
 
   const prevTraceBuildStatusRef = useRef<string | undefined>(undefined)
@@ -738,6 +747,6 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     // Config
     handleEnrichmentAutoConfigChange, handleIndexAutoRebuildChange,
     // Destroy
-    handleDestroyGraph, handleDestroyIndex,
+    handleDestroyGraph, handleDestroyIndex, handleRebuildPipeline,
   }
 }
