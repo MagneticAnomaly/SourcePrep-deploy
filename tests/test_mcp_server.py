@@ -883,9 +883,10 @@ def test_prompts_list_has_all_prompts():
     assert expected.issubset(prompt_names), f"Missing: {expected - prompt_names}"
 
 
-def test_prompt_onboard_returns_messages():
-    """The onboard prompt should return structured messages."""
+def test_prompt_onboard_returns_messages_with_resources():
+    """The onboard prompt should return messages with embedded resources."""
     import asyncio
+    from unittest.mock import AsyncMock
 
     server = MCPServer.__new__(MCPServer)
     server._client_name = "claude-code"
@@ -895,6 +896,7 @@ def test_prompt_onboard_returns_messages():
     server._initialize_roots = []
     server._notification_callback = None
     server._last_atlas_signal = {}
+    server._resolve_project_id = AsyncMock(return_value="test-project")
 
     result = asyncio.get_event_loop().run_until_complete(
         server.handle_prompts_get({"name": "codrag-onboard", "arguments": {}})
@@ -902,6 +904,12 @@ def test_prompt_onboard_returns_messages():
     assert "messages" in result
     assert len(result["messages"]) > 0
     assert result["messages"][0]["role"] == "user"
+    # Content should be a list with text + resource items
+    content = result["messages"][0]["content"]
+    assert isinstance(content, list), "onboard prompt content should be a list (text + resources)"
+    content_types = [item["type"] for item in content]
+    assert "text" in content_types
+    assert "resource" in content_types
 
 
 def test_prompt_investigate_uses_query():
@@ -926,9 +934,10 @@ def test_prompt_investigate_uses_query():
     assert "authentication flow" in result["messages"][0]["content"]["text"]
 
 
-def test_prompt_analyze_backward_compat():
-    """The old codrag-analyze prompt should redirect to codrag-onboard."""
+def test_prompt_health_embeds_audit_resource():
+    """The health prompt should embed audit and health resources."""
     import asyncio
+    from unittest.mock import AsyncMock
 
     server = MCPServer.__new__(MCPServer)
     server._client_name = "claude-code"
@@ -938,10 +947,17 @@ def test_prompt_analyze_backward_compat():
     server._initialize_roots = []
     server._notification_callback = None
     server._last_atlas_signal = {}
+    server._resolve_project_id = AsyncMock(return_value="test-project")
 
     result = asyncio.get_event_loop().run_until_complete(
-        server.handle_prompts_get({"name": "codrag-analyze", "arguments": {}})
+        server.handle_prompts_get({"name": "codrag-health", "arguments": {}})
     )
-    assert "messages" in result
-    # Should get the onboard prompt content
-    assert "Orient" in result["messages"][0]["content"]["text"]
+    content = result["messages"][0]["content"]
+    assert isinstance(content, list)
+    resource_uris = [
+        item["resource"]["uri"]
+        for item in content
+        if item["type"] == "resource"
+    ]
+    assert any("audit" in uri for uri in resource_uris)
+    assert any("health" in uri for uri in resource_uris)

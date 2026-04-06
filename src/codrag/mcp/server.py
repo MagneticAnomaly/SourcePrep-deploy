@@ -2242,6 +2242,24 @@ class MCPServer:
             ]
         }
 
+    async def handle_resources_templates_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle resources/templates/list — parameterized resource templates."""
+        try:
+            project_id = await self._resolve_project_id()
+        except Exception:
+            project_id = "default"
+
+        return {
+            "resourceTemplates": [
+                {
+                    "uriTemplate": f"codrag://{project_id}/modules/{{name}}",
+                    "name": "Module Detail",
+                    "description": "Detailed view of a single module: files, dependencies, summary.",
+                    "mimeType": "text/markdown",
+                },
+            ]
+        }
+
     async def handle_resources_read(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Handle resources/read request.
 
@@ -2260,7 +2278,7 @@ class MCPServer:
         if len(parts) != 2:
             raise InvalidParamsError(f"Invalid resource URI: {uri}")
 
-        project_id_from_uri, resource_type = parts
+        project_id_from_uri, resource_path = parts
 
         # Resolve actual project (URI project_id is a hint, auto-detect if needed)
         try:
@@ -2268,16 +2286,22 @@ class MCPServer:
         except Exception:
             project_id = project_id_from_uri
 
+        # Parse resource path — may be simple ("atlas") or templated ("modules/Pipeline")
+        resource_parts = resource_path.split("/", 1)
+        resource_type = resource_parts[0]
+        resource_param = resource_parts[1] if len(resource_parts) > 1 else None
+
         content = ""
         try:
             if resource_type == "structure":
                 content = await self._resource_structure(project_id)
             elif resource_type == "atlas":
                 content = await self._resource_atlas(project_id)
-            elif resource_type == "files":
-                content = await self._resource_files(project_id)
             elif resource_type == "modules":
-                content = await self._resource_modules(project_id)
+                if resource_param:
+                    content = await self._resource_module_detail(project_id, resource_param)
+                else:
+                    content = await self._resource_modules(project_id)
             elif resource_type == "audit":
                 content = await self._resource_audit(project_id)
             elif resource_type == "concepts":
@@ -2464,6 +2488,43 @@ class MCPServer:
         except Exception as e:
             return f"(Module map unavailable: {e})"
 
+    async def _resource_module_detail(self, project_id: str, module_name: str) -> str:
+        """Single module detail — files, dependencies, summary."""
+        try:
+            data = await self._api_get(f"/projects/{project_id}/modules")
+            if not isinstance(data, dict):
+                return f"(Module '{module_name}' not found)"
+
+            modules = data.get("modules", [])
+            # Find by name (case-insensitive partial match)
+            match = None
+            for mod in modules:
+                if isinstance(mod, dict):
+                    name = mod.get("name", "")
+                    if name.lower() == module_name.lower() or module_name.lower() in name.lower():
+                        match = mod
+                        break
+
+            if not match:
+                available = [m.get("name", "") for m in modules if isinstance(m, dict)][:10]
+                return f"(Module '{module_name}' not found. Available: {', '.join(available)})"
+
+            parts = [f"## Module: {match.get('name', module_name)}\n"]
+            if match.get("summary"):
+                parts.append(match["summary"])
+                parts.append("")
+            if match.get("files"):
+                parts.append(f"**Files ({len(match['files'])}):**")
+                for f in match["files"][:30]:
+                    parts.append(f"- `{f}`")
+                if len(match["files"]) > 30:
+                    parts.append(f"- ... +{len(match['files']) - 30} more")
+            if match.get("dependencies"):
+                parts.append(f"\n**Dependencies:** {', '.join(match['dependencies'][:10])}")
+            return "\n".join(parts)
+        except Exception as e:
+            return f"(Module detail unavailable: {e})"
+
     async def _resource_audit(self, project_id: str) -> str:
         """Latest audit findings summary."""
         try:
@@ -2606,22 +2667,45 @@ class MCPServer:
         arguments = params.get("arguments", {})
 
         if name == "codrag-onboard":
+            try:
+                pid = await self._resolve_project_id()
+            except Exception:
+                pid = "default"
             return {
                 "description": "Codebase orientation",
                 "messages": [
                     {
                         "role": "user",
-                        "content": {
-                            "type": "text",
-                            "text": (
-                                "Orient me to this codebase using CoDRAG.\n\n"
-                                "1. Call `codrag` to get the structural overview (modules, hub files, connections).\n"
-                                "2. Summarize the architecture: what are the main components and how do they connect?\n"
-                                "3. Identify the most important files (hub files) and explain their role.\n"
-                                "4. List the key entry points and data flow patterns.\n"
-                                "5. Note any areas that need attention (from audit findings if available)."
-                            ),
-                        },
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": (
+                                    "Orient me to this codebase using CoDRAG.\n\n"
+                                    "I've attached the codebase atlas and module map as context. "
+                                    "Use these plus CoDRAG tools to:\n\n"
+                                    "1. Summarize the architecture: what are the main components and how do they connect?\n"
+                                    "2. Identify the most important files (hub files) and explain their role.\n"
+                                    "3. List the key entry points and data flow patterns.\n"
+                                    "4. Note any areas that need attention (from audit findings if available)."
+                                ),
+                            },
+                            {
+                                "type": "resource",
+                                "resource": {
+                                    "uri": f"codrag://{pid}/atlas",
+                                    "mimeType": "text/markdown",
+                                    "text": "",
+                                },
+                            },
+                            {
+                                "type": "resource",
+                                "resource": {
+                                    "uri": f"codrag://{pid}/modules",
+                                    "mimeType": "text/markdown",
+                                    "text": "",
+                                },
+                            },
+                        ],
                     }
                 ],
             }
@@ -2696,29 +2780,47 @@ class MCPServer:
         elif name == "codrag-health":
             focus = arguments.get("focus", "")
             focus_text = f" Focus on: {focus}." if focus else ""
+            try:
+                pid = await self._resolve_project_id()
+            except Exception:
+                pid = "default"
             return {
                 "description": "Codebase health check",
                 "messages": [
                     {
                         "role": "user",
-                        "content": {
-                            "type": "text",
-                            "text": (
-                                f"Check the health of this codebase using CoDRAG.{focus_text}\n\n"
-                                "1. Call `codrag_audit` to get current findings.\n"
-                                "2. Call `codrag` for structural context — hub files and module dependencies.\n"
-                                "3. Prioritize findings by impact: what's most likely to cause problems?\n"
-                                "4. For the top 3 findings, suggest concrete fixes with file references.\n"
-                                "5. Summarize the overall health: what's good, what needs work."
-                            ),
-                        },
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": (
+                                    f"Check the health of this codebase using CoDRAG.{focus_text}\n\n"
+                                    "I've attached the latest audit findings. Use these plus CoDRAG tools to:\n\n"
+                                    "1. Prioritize findings by impact: what's most likely to cause problems?\n"
+                                    "2. Call `codrag` for structural context — hub files and module dependencies.\n"
+                                    "3. For the top 3 findings, suggest concrete fixes with file references.\n"
+                                    "4. Summarize the overall health: what's good, what needs work."
+                                ),
+                            },
+                            {
+                                "type": "resource",
+                                "resource": {
+                                    "uri": f"codrag://{pid}/audit",
+                                    "mimeType": "text/markdown",
+                                    "text": "",
+                                },
+                            },
+                            {
+                                "type": "resource",
+                                "resource": {
+                                    "uri": f"codrag://{pid}/health",
+                                    "mimeType": "text/markdown",
+                                    "text": "",
+                                },
+                            },
+                        ],
                     }
                 ],
             }
-
-        # Backward compat: old prompt name
-        elif name == "codrag-analyze":
-            return await self.handle_prompts_get({"name": "codrag-onboard", "arguments": arguments})
 
         else:
             raise MethodNotFoundError(f"Unknown prompt: {name}")
@@ -3049,6 +3151,8 @@ class MCPServer:
                 result = await self.handle_tools_call(params)
             elif method == "resources/list":
                 result = await self.handle_resources_list(params)
+            elif method == "resources/templates/list":
+                result = await self.handle_resources_templates_list(params)
             elif method == "resources/read":
                 result = await self.handle_resources_read(params)
             elif method == "prompts/list":
