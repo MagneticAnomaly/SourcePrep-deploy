@@ -150,6 +150,7 @@ export interface ApiClient {
   runPipelineFast(projectId: string): Promise<{ started: boolean; group: string }>;
   runPipelineDeep(projectId: string): Promise<{ started: boolean; group: string }>;
   runPipelineAll(projectId: string): Promise<{ started: boolean; group: string }>;
+  rebuildPipeline(projectId: string): Promise<{ started: boolean; group: string; mode: string }>;
   getPipelineStatus(projectId: string): Promise<PipelineStatus>;
   cancelPipeline(projectId: string, group: string): Promise<{ cancelled: boolean; group: string }>;
   pausePipeline(projectId: string, group: string): Promise<{ paused: boolean; group: string }>;
@@ -1039,6 +1040,12 @@ export class CodragApiClient implements ApiClient {
 
   async runPipelineAll(projectId: string): Promise<{ started: boolean; group: string }> {
     return this.requestEnvelope<{ started: boolean; group: string }>(`/projects/${projectId}/pipeline/all`, {
+      method: 'POST',
+    });
+  }
+
+  async rebuildPipeline(projectId: string): Promise<{ started: boolean; group: string; mode: string }> {
+    return this.requestEnvelope<{ started: boolean; group: string; mode: string }>(`/projects/${projectId}/pipeline/rebuild`, {
       method: 'POST',
     });
   }

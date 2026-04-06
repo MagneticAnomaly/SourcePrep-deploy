@@ -464,6 +464,10 @@ export class MockApiClient implements ApiClient {
     return { started: true, group: 'all' };
   }
 
+  async rebuildPipeline(): Promise<any> {
+    return { started: true, group: 'all', mode: 'rebuild' };
+  }
+
   async getPipelineStatus(): Promise<any> {
     return { running: false, group: null, stage: null, progress: null };
   }
