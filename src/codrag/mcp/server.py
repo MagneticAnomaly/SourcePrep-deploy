@@ -206,6 +206,35 @@ class MCPServer:
         from codrag.core.context_tier import tier_from_budget
         return tier_from_budget(self._base_budget_for_client()).value
 
+    def _build_instructions(self) -> str:
+        """Return MCP server instructions tailored to the detected client.
+
+        Clients with their own rules files (Claude Code -> CLAUDE.md,
+        Gemini -> GEMINI.md) get a compact version since the detailed
+        tool guidance is already in their system prompt. Unknown clients
+        get verbose instructions as their only guidance.
+        """
+        client_lower = self._client_name.lower()
+        # Clients that have dedicated rules files with full instructions
+        has_rules_file = any(
+            p in client_lower for p in ("claude", "gemini")
+        )
+        if has_rules_file:
+            return (
+                "CoDRAG provides structural codebase intelligence. "
+                "All tools are read-only and safe to auto-approve. "
+                "Call `codrag` at the start of every task for orientation."
+            )
+        return (
+            "CoDRAG maps how your codebase is connected -- modules, dependencies, "
+            "hub files, and architectural patterns. All tools are read-only. "
+            "Call `codrag` at the start of every task for structural overview. "
+            "Use `codrag_search` for code queries with dependency expansion. "
+            "Use `codrag_impact` before changes to see what breaks. "
+            "Use `codrag_audit` for codebase health findings. "
+            "Categories: code structure, architecture, dependencies, navigation."
+        )
+
     def _project_has_rules_file(self, project_id: str) -> bool:
         """Check if a CoDRAG rules file exists for the resolved project.
 
@@ -2160,18 +2189,9 @@ class MCPServer:
                 "name": "codrag",
                 "version": "2.0.0",
             },
-            # Phase 50: MCP server instructions (spec 2025-06-18).
-            # Gemini CLI, Claude Code, Qwen Code append this to system prompt.
-            # Cursor/Windsurf may ignore it -- rules files cover those.
-            "instructions": (
-                "CoDRAG maps how your codebase is connected -- modules, dependencies, "
-                "hub files, and architectural patterns. All tools are read-only. "
-                "Call `codrag` at the start of every task for structural overview. "
-                "Use `codrag_search` for code queries with dependency expansion. "
-                "Use `codrag_impact` before changes to see what breaks. "
-                "Use `codrag_audit` for codebase health findings. "
-                "Categories: code structure, architecture, dependencies, navigation."
-            ),
+            # Phase 77: Client-aware instructions. Compact for clients with
+            # rules files (Claude Code, Gemini), verbose for others.
+            "instructions": self._build_instructions(),
         }
 
     @staticmethod
