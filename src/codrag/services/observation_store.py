@@ -63,6 +63,8 @@ class Observation:
     updated_at: Optional[float] = None
     stale: bool = False
     stale_reason: Optional[str] = None
+    created_by: Optional[str] = None
+    visibility: str = "shared"
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -83,10 +85,15 @@ class Observation:
             d["updated_at"] = self.updated_at
         if self.stale_reason:
             d["stale_reason"] = self.stale_reason
+        if self.created_by:
+            d["created_by"] = self.created_by
+        if self.visibility != "shared":
+            d["visibility"] = self.visibility
         return d
 
     @staticmethod
     def from_row(row: sqlite3.Row) -> Observation:
+        keys = row.keys()
         return Observation(
             id=row["id"],
             project_id=row["project_id"],
@@ -99,6 +106,8 @@ class Observation:
             updated_at=row["updated_at"],
             stale=bool(row["stale"]),
             stale_reason=row["stale_reason"],
+            created_by=row["created_by"] if "created_by" in keys else None,
+            visibility=row["visibility"] if "visibility" in keys else "shared",
         )
 
 
@@ -171,6 +180,16 @@ class ObservationStore:
             logger.debug("FTS5 not available for observations; falling back to LIKE search")
         self._conn.commit()
 
+        # Phase 73.5: Add collaboration columns (safe to run repeatedly)
+        for col, default in [("created_by", "NULL"), ("visibility", "'shared'")]:
+            try:
+                self._conn.execute(
+                    f"ALTER TABLE observations ADD COLUMN {col} TEXT DEFAULT {default}"
+                )
+                self._conn.commit()
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
     def _require_conn(self) -> sqlite3.Connection:
         if self._conn is None:
             raise RuntimeError(
@@ -188,6 +207,8 @@ class ObservationStore:
         symbol_fqn: Optional[str] = None,
         trace_node_id: Optional[str] = None,
         category: str = "note",
+        created_by: Optional[str] = None,
+        visibility: str = "shared",
     ) -> str:
         """Save an observation.  Returns the observation ID.
 
@@ -230,10 +251,11 @@ class ObservationStore:
             conn.execute(
                 """INSERT INTO observations
                    (id, project_id, content, file_path, symbol_fqn,
-                    trace_node_id, category, created_at, stale)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)""",
+                    trace_node_id, category, created_at, stale,
+                    created_by, visibility)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)""",
                 (obs_id, project_id, content, file_path, symbol_fqn,
-                 trace_node_id, category, now),
+                 trace_node_id, category, now, created_by, visibility),
             )
             # FTS insert
             try:
