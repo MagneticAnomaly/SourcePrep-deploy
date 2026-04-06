@@ -29,6 +29,17 @@ def _get_engine_context(project_id: str):
     return idx_dir, project_root, proj.id
 
 
+def _make_core(pid: str, idx_dir: Path, project_root: Path):
+    """Create an AgentCore with collaboration hub if available."""
+    from codrag.agents.core import AgentCore
+    from codrag.services.collaboration import get_collaboration_hub
+    return AgentCore(
+        project_id=pid, index_dir=idx_dir,
+        project_root=project_root,
+        collab_hub=get_collaboration_hub(),
+    )
+
+
 # ── Request Models ──────────────────────────────────────────
 
 class HRGenerateRequest(BaseModel):
@@ -53,8 +64,7 @@ def hr_readiness(project_id: str) -> Dict[str, Any]:
     """Check codebase readiness for HR role generation."""
     idx_dir, project_root, pid = _get_engine_context(project_id)
 
-    from codrag.agents.core import AgentCore
-    core = AgentCore(project_id=pid, index_dir=idx_dir, project_root=project_root)
+    core = _make_core(pid, idx_dir, project_root)
 
     from codrag.agents.hr.engine import StaffingEngine
     engine = StaffingEngine(core=core)
@@ -103,8 +113,7 @@ def hr_generate(project_id: str, req: HRGenerateRequest) -> Dict[str, Any]:
     idx_dir, project_root, pid = _get_engine_context(project_id)
     logger.info("[HR API] Generate request: mode=%s, role_names=%s, project=%s", req.mode, req.role_names, pid)
 
-    from codrag.agents.core import AgentCore
-    core = AgentCore(project_id=pid, index_dir=idx_dir, project_root=project_root)
+    core = _make_core(pid, idx_dir, project_root)
 
     from codrag.agents.hr.engine import StaffingEngine
     engine = StaffingEngine(core=core)
@@ -171,11 +180,13 @@ def hr_sync(project_id: str) -> Dict[str, Any]:
     pm_config = PMPushConfig(**pm_raw)
 
     from codrag.agents.core import AgentCore
+    from codrag.services.collaboration import get_collaboration_hub
     core = AgentCore(
         project_id=pid,
         index_dir=idx_dir,
         project_root=project_root,
         pm_config=pm_config,
+        collab_hub=get_collaboration_hub(),
     )
 
     from codrag.agents.hr.engine import StaffingEngine
@@ -208,8 +219,7 @@ def researcher_run(project_id: str, req: ResearchRunRequest) -> Dict[str, Any]:
     """Run the research pipeline: select topics, research, formulate plans."""
     idx_dir, project_root, pid = _get_engine_context(project_id)
 
-    from codrag.agents.core import AgentCore
-    core = AgentCore(project_id=pid, index_dir=idx_dir, project_root=project_root)
+    core = _make_core(pid, idx_dir, project_root)
 
     from codrag.agents.researcher.engine import ResearcherEngine
     engine = ResearcherEngine(core=core)
@@ -248,8 +258,7 @@ def custodian_run(project_id: str, req: CustodianRunRequest) -> Dict[str, Any]:
     """Run the custodian cleanup pipeline."""
     idx_dir, project_root, pid = _get_engine_context(project_id)
 
-    from codrag.agents.core import AgentCore
-    core = AgentCore(project_id=pid, index_dir=idx_dir, project_root=project_root)
+    core = _make_core(pid, idx_dir, project_root)
 
     from codrag.agents.custodian.engine import CustodianEngine
     engine = CustodianEngine(core=core)
@@ -335,9 +344,11 @@ def researcher_push(project_id: str) -> Dict[str, Any]:
     pm_config = PMPushConfig(**pm_raw)
 
     from codrag.agents.core import AgentCore
+    from codrag.services.collaboration import get_collaboration_hub
     core = AgentCore(
         project_id=pid, index_dir=idx_dir,
         project_root=project_root, pm_config=pm_config,
+        collab_hub=get_collaboration_hub(),
     )
 
     from codrag.agents.researcher.engine import ResearcherEngine
@@ -398,9 +409,11 @@ def custodian_push(project_id: str) -> Dict[str, Any]:
     pm_config = PMPushConfig(**pm_raw)
 
     from codrag.agents.core import AgentCore
+    from codrag.services.collaboration import get_collaboration_hub
     core = AgentCore(
         project_id=pid, index_dir=idx_dir,
         project_root=project_root, pm_config=pm_config,
+        collab_hub=get_collaboration_hub(),
     )
 
     from codrag.agents.custodian.engine import CustodianEngine
