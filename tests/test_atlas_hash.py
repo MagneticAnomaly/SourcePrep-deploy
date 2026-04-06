@@ -87,3 +87,18 @@ def test_managed_content_mentions_prompts():
     )
     assert "codrag-onboard" in content
     assert "MCP Prompts" in content
+
+
+def test_get_rules_atlas_hash_returns_cached_hash():
+    """_get_rules_atlas_hash should return hash after _project_has_rules_file populates cache."""
+    server = MCPServer.__new__(MCPServer)
+    # Manually set up the hash cache as _project_has_rules_file would
+    server._rules_atlas_hash_cache = {"proj-1": "abcdef123456"}
+    assert server._get_rules_atlas_hash("proj-1") == "abcdef123456"
+    assert server._get_rules_atlas_hash("proj-unknown") is None
+
+
+def test_get_rules_atlas_hash_returns_none_without_cache():
+    """_get_rules_atlas_hash returns None when cache doesn't exist."""
+    server = MCPServer.__new__(MCPServer)
+    assert server._get_rules_atlas_hash("proj-1") is None
