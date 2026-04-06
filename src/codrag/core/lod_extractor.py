@@ -15,7 +15,10 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from codrag.core.context_tier import ContextTier
 
 logger = logging.getLogger(__name__)
 
@@ -363,10 +366,19 @@ _DEFAULT_PLACEHOLDER = "    ..."
 # Main extractor class
 # ---------------------------------------------------------------------------
 
-def assign_lod(score: float, *, is_trace_expanded: bool = False) -> int:
+def assign_lod(
+    score: float,
+    *,
+    is_trace_expanded: bool = False,
+    tier: Optional["ContextTier"] = None,
+) -> int:
     """Map a search score to an LOD level.
 
-    Validated by HCP top-k/top-p findings:
+    When *tier* is provided the thresholds come from the tier's
+    ``lod_full``, ``lod_sig``, and ``lod_names`` properties.
+    When *tier* is ``None`` Tier 2 defaults are used for backward
+    compatibility:
+
       ≥ 0.50 → LOD 0 (full source — highly relevant)
       0.35–0.49 → LOD 2 (signatures + docstrings)
       0.20–0.34 → LOD 4 (names + imports)
@@ -375,11 +387,22 @@ def assign_lod(score: float, *, is_trace_expanded: bool = False) -> int:
     """
     if is_trace_expanded:
         return 4
-    if score >= 0.50:
+
+    if tier is not None:
+        t_full = tier.lod_full
+        t_sig = tier.lod_sig
+        t_names = tier.lod_names
+    else:
+        # Tier 2 defaults for backward compatibility
+        t_full = 0.50
+        t_sig = 0.35
+        t_names = 0.20
+
+    if score >= t_full:
         return 0
-    if score >= 0.35:
+    if score >= t_sig:
         return 2
-    if score >= 0.20:
+    if score >= t_names:
         return 4
     return 5
 
@@ -512,22 +535,11 @@ class LODExtractor:
         return _detect_language(file_path)
 
     @staticmethod
-    def assign_lod(score: float, *, is_trace_expanded: bool = False) -> int:
-        """Map a search score to an LOD level.
-
-        Validated by HCP top-k/top-p findings:
-          ≥ 0.50 → LOD 0 (full source — highly relevant)
-          0.35–0.49 → LOD 2 (signatures + docstrings)
-          0.20–0.34 → LOD 4 (names + imports)
-          trace-expanded neighbors → LOD 4 or 5
-          < 0.20 → LOD 5 (summary only)
-        """
-        if is_trace_expanded:
-            return 4
-        if score >= 0.50:
-            return 0
-        if score >= 0.35:
-            return 2
-        if score >= 0.20:
-            return 4
-        return 5
+    def assign_lod(
+        score: float,
+        *,
+        is_trace_expanded: bool = False,
+        tier: Optional["ContextTier"] = None,
+    ) -> int:
+        """Delegate to the module-level :func:`assign_lod`."""
+        return assign_lod(score, is_trace_expanded=is_trace_expanded, tier=tier)

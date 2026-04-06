@@ -19,6 +19,7 @@ from unittest.mock import patch
 
 import pytest
 
+from codrag.core.context_tier import ContextTier
 from codrag.core.lod_extractor import LODExtractor, LODResult, assign_lod
 
 
@@ -650,3 +651,51 @@ class TestLoadAugmentedData:
         d1 = ext.load_augmented_data()
         d2 = ext.load_augmented_data()
         assert d1 is d2  # same object = cached
+
+
+# ---------------------------------------------------------------------------
+# Tier-aware assign_lod()
+# ---------------------------------------------------------------------------
+
+class TestAssignLODTierAware:
+    """Verify tier-adaptive LOD thresholds."""
+
+    def test_tier1_more_generous(self) -> None:
+        # Tier 1 lod_full=0.40 so 0.45 → LOD 0; Tier 2 lod_full=0.50 so 0.45 → LOD 2
+        assert assign_lod(0.45, tier=ContextTier.TIER_1) == 0
+        assert assign_lod(0.45, tier=ContextTier.TIER_2) == 2
+
+    def test_tier2_5_more_aggressive(self) -> None:
+        # Tier 2 lod_full=0.50 so 0.55 → LOD 0; Tier 2.5 lod_full=0.60 so 0.55 → LOD 2
+        assert assign_lod(0.55, tier=ContextTier.TIER_2) == 0
+        assert assign_lod(0.55, tier=ContextTier.TIER_2_5) == 2
+
+    def test_tier1_boundaries(self) -> None:
+        # Tier 1: lod_full=0.40, lod_sig=0.25, lod_names=0.15
+        assert assign_lod(0.40, tier=ContextTier.TIER_1) == 0
+        assert assign_lod(0.39, tier=ContextTier.TIER_1) == 2
+        assert assign_lod(0.25, tier=ContextTier.TIER_1) == 2
+        assert assign_lod(0.24, tier=ContextTier.TIER_1) == 4
+        assert assign_lod(0.15, tier=ContextTier.TIER_1) == 4
+        assert assign_lod(0.14, tier=ContextTier.TIER_1) == 5
+
+    def test_tier2_5_boundaries(self) -> None:
+        # Tier 2.5: lod_full=0.60, lod_sig=0.40, lod_names=0.25
+        assert assign_lod(0.60, tier=ContextTier.TIER_2_5) == 0
+        assert assign_lod(0.59, tier=ContextTier.TIER_2_5) == 2
+        assert assign_lod(0.40, tier=ContextTier.TIER_2_5) == 2
+        assert assign_lod(0.39, tier=ContextTier.TIER_2_5) == 4
+        assert assign_lod(0.25, tier=ContextTier.TIER_2_5) == 4
+        assert assign_lod(0.24, tier=ContextTier.TIER_2_5) == 5
+
+    def test_no_tier_uses_tier2_defaults(self) -> None:
+        # Backward compat: no tier → Tier 2 thresholds (0.50, 0.35, 0.20)
+        assert assign_lod(0.50) == 0
+        assert assign_lod(0.49) == 2
+        assert assign_lod(0.35) == 2
+        assert assign_lod(0.34) == 4
+
+    def test_trace_expanded_ignores_tier(self) -> None:
+        for tier in ContextTier:
+            assert assign_lod(0.80, is_trace_expanded=True, tier=tier) == 4
+            assert assign_lod(0.10, is_trace_expanded=True, tier=tier) == 4
