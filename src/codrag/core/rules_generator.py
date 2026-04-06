@@ -332,11 +332,19 @@ def _build_managed_content(
     is_preliminary: bool,
     stats: Optional[Dict[str, Any]],
     project_id: Optional[str] = None,
+    target: str = "universal",
 ) -> str:
-    """Build the CoDRAG-managed content block shared across all IDEs."""
+    """Build the CoDRAG-managed content block.
+
+    Args:
+        target: Content profile.
+            "claude" — compact, Claude Code-specific (~60 lines)
+            "cursor" — no Claude-specific hints
+            "universal" — verbose, for AGENTS.md (default, backward-compat)
+    """
     parts: List[str] = []
 
-    # Header with freshness info
+    # ── Header (all targets) ──
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     stat_parts = [f"Last updated: {now}"]
     if stats:
@@ -351,81 +359,83 @@ def _build_managed_content(
     parts.append(" | ".join(stat_parts))
     parts.append("")
 
-    # CRITICAL: Tool calling instructions (front-loaded for immediate visibility)
-    parts.append("## 🚨 CRITICAL: Tool Calling Instructions")
-    parts.append("")
-
-    # Project ID routing — the primary multi-project routing mechanism.
-    # The LLM reads this and passes project_id in every tool call,
-    # guaranteeing correct routing even when the IDE/MCP client sends
-    # no workspace roots.
+    # ── Project ID routing (all targets) ──
     if project_id:
         parts.append(f"codrag_project_id: {project_id}")
         parts.append("")
         parts.append(
             f"**ROUTING: When calling ANY CoDRAG tool, ALWAYS include "
-            f"`project_id: \"{project_id}\"` in the arguments.**\n"
-            f"This ensures your calls reach the correct project index."
+            f"`project_id: \"{project_id}\"` in the arguments.**"
         )
         parts.append("")
 
-    parts.append('When user types "codrag" → IMMEDIATELY call the `codrag` tool.')
-    parts.append("When user mentions code search → IMMEDIATELY call `codrag_search`.")
-    parts.append("When user asks about project structure → IMMEDIATELY call `codrag`.")
-    parts.append("No announcements. No 'I will'. Just call the tool.")
+    # ── Tool table (all targets — compact reference) ──
+    parts.append("## Tools")
+    parts.append("| Tool | When to Use |")
+    parts.append("|------|-------------|")
+    parts.append("| `codrag` | START of every task — structural overview, modules, hub files |")
+    parts.append("| `codrag_search` | Find code by meaning, not just string match |")
+    parts.append("| `codrag_impact` | BEFORE editing — check what depends on a file |")
+    parts.append("| `codrag_audit` | Codebase health, tech debt, refactoring guidance |")
+    parts.append("| `codrag_observe` | Save/retrieve cross-session notes |")
+    parts.append("| `codrag_concepts` | Record/query business rationale and design decisions |")
+    parts.append("")
+    parts.append("Call `codrag` first. Call `codrag_impact` before modifying hub files.")
+    parts.append("All read-only tools are safe to auto-approve.")
     parts.append("")
 
-    # Quick Reference Table
-    parts.append("### Quick Reference")
-    parts.append("| User Says | You Do |")
-    parts.append("|-----------|--------|")
-    if project_id:
-        pid_short = project_id[:12] + "..."
-        parts.append(f'| "codrag" | Call `codrag(project_id="{pid_short}")` immediately |')
-        parts.append(f'| "search for X" | Call `codrag_search(query="X", project_id="{pid_short}")` |')
-        parts.append(f'| "find where X is defined" | Call `codrag_search(query="X")` |')
-        parts.append(f'| "how does this project work" | Call `codrag()` for overview |')
-        parts.append(f'| "codrag context" | Call `codrag()` for ambient context |')
+    # ── Target-specific instructions ──
+    if target == "claude":
+        parts.append("### Auto-Approve")
+        parts.append(
+            "Add to `.claude/settings.json`:\n"
+            '```json\n'
+            '{ "permissions": { "allow": ["mcp__codrag"] } }\n'
+            '```'
+        )
+        parts.append("")
+        parts.append(
+            "Use `@` to browse CoDRAG resources (atlas, modules, audit). "
+            "Use `/mcp__codrag__codrag-onboard` for guided orientation."
+        )
+    elif target == "cursor":
+        parts.append(
+            "For specific code lookups, use `codrag_search` with a natural language query.\n"
+            "CoDRAG understands structural relationships — use it instead of\n"
+            "grep when you need to understand how files connect."
+        )
     else:
-        parts.append('| "codrag" | Call `codrag()` immediately |')
-        parts.append('| "search for X" | Call `codrag_search(query="X")` |')
-        parts.append('| "find where X is defined" | Call `codrag_search(query="X")` |')
-        parts.append('| "how does this project work" | Call `codrag()` for overview |')
-        parts.append('| "codrag context" | Call `codrag()` for ambient context |')
-    parts.append("")
+        # Universal (AGENTS.md): verbose, multi-IDE
+        parts.append(
+            "You have access to CoDRAG, a structural code intelligence system.\n"
+            "ALWAYS call `codrag` (no arguments) at the START of every task.\n"
+            "This gives you module structure, hub files, and the user's selected focus areas."
+        )
+        parts.append("")
+        parts.append(
+            "For specific code lookups, use `codrag_search` with a natural language query.\n"
+            "Before making changes to a file, use `codrag_impact` to understand dependencies.\n"
+            "CoDRAG understands structural relationships between files -- use it instead of\n"
+            "grep when you need to understand how files connect to each other."
+        )
+        parts.append("")
+        parts.append(
+            "For codebase health and tech debt, use `codrag_audit`.\n"
+            "For cross-session memory, use `codrag_observe` to save/retrieve notes.\n"
+            "All CoDRAG tools are read-only and safe to auto-approve."
+        )
+        parts.append("")
+        parts.append(
+            "### Auto-Approve Configuration\n"
+            "To skip approval prompts for CoDRAG's read-only tools, add to your settings:\n"
+            '```json\n'
+            '{ "permissions": { "allow": ["mcp__codrag"] } }\n'
+            '```\n'
+            "In Claude Code: add to `.claude/settings.json`. In Cursor: add to MCP settings."
+        )
 
-    # Tool instructions
-    parts.append(
-        "You have access to CoDRAG, a structural code intelligence system.\n"
-        "ALWAYS call `codrag` (no arguments) at the START of every task.\n"
-        "This gives you module structure, hub files, and the user's selected focus areas."
-    )
-    parts.append("")
-    parts.append(
-        "For specific code lookups, use `codrag_search` with a natural language query.\n"
-        "Before making changes to a file, use `codrag_impact` to understand dependencies.\n"
-        "CoDRAG understands structural relationships between files -- use it instead of\n"
-        "grep when you need to understand how files connect to each other."
-    )
-    parts.append("")
-    parts.append(
-        "For codebase health and tech debt, use `codrag_audit`.\n"
-        "For cross-session memory, use `codrag_observe` to save/retrieve notes.\n"
-        "All CoDRAG tools are read-only and safe to auto-approve."
-    )
-    parts.append("")
-    parts.append(
-        "### Auto-Approve Configuration\n"
-        "To skip approval prompts for CoDRAG's read-only tools, add to your settings:\n"
-        '```json\n'
-        '{ "permissions": { "allow": ["mcp__codrag"] } }\n'
-        '```\n'
-        "In Claude Code: add to `.claude/settings.json`. In Cursor: add to MCP settings."
-    )
-
-    # Atlas section (if available)
+    # ── Atlas (all targets) ──
     if atlas_content and atlas_content.strip():
-        # Embed content hash for freshness detection by MCP server
         atlas_hash = hashlib.sha256(atlas_content.strip().encode()).hexdigest()[:12]
         parts.append("")
         parts.append(f"<!-- codrag-atlas-hash:{atlas_hash} -->")
@@ -433,7 +443,7 @@ def _build_managed_content(
         parts.append("")
         parts.append(atlas_content.strip())
 
-    # Focus areas (pointers only, not file content)
+    # ── Focus areas (all targets) ──
     if included_paths:
         parts.append("")
         parts.append("## Focus Areas")
@@ -443,55 +453,51 @@ def _build_managed_content(
             parts.append(f"- ... +{len(included_paths) - 15} more")
         parts.append("Call `codrag` for detailed content from these areas.")
 
-    # Stale index / first-run fallback
+    # ── Fallback / refresh hints (all targets) ──
     parts.append("")
     parts.append(
         "If `codrag` returns 'setup in progress', the index hasn't been built yet.\n"
         "Work normally with read_file/grep_search until the user builds the index."
     )
-
-    # Long-task refresh hint
     parts.append("")
     parts.append(
         "For long tasks (5+ tool calls), call `codrag` again to refresh your\nstructural context."
     )
 
-    # OPP-1: Parallel tool call encouragement
-    parts.append("")
-    parts.append(
-        "You can call `codrag` and `codrag_search` in parallel on your first\n"
-        "prompt -- structural overview + targeted code lookup in one round-trip."
-    )
-
-    # Tool Calling Rules (reinforcement)
-    parts.append("")
-    parts.append("### Tool Calling Rules")
-    parts.append("1. **Never announce** 'I will now call...' - just call the tool")
-    parts.append("2. **No permission needed** - simple keywords = immediate invocation")
-    parts.append("3. **Single word triggers** - 'codrag' alone is enough to call the tool")
-    parts.append(
-        "4. **Context is cheap** - prefer calling codrag to using grep for structural understanding"
-    )
-    parts.append("")
-    parts.append(
-        '**Remember: The word "codrag" anywhere in user input is a tool invocation signal. Call immediately without asking permission.**'
-    )
-
-    # MCP Resources and Prompts
-    parts.append("")
-    parts.append("### MCP Resources (browse with @)")
-    parts.append(
-        "CoDRAG also exposes browsable resources via MCP. In supported clients,\n"
-        "type `@` to see: atlas, structure, modules, audit findings, concepts, focus areas.\n"
-        "Resources provide on-demand context without a tool call."
-    )
-    parts.append("")
-    parts.append("### MCP Prompts (invoke with /)")
-    parts.append(
-        "Available workflow prompts: `codrag-onboard` (orientation), `codrag-review` (file review),\n"
-        "`codrag-plan` (change planning), `codrag-investigate` (deep dive), `codrag-health` (audit).\n"
-        "In Claude Code: `/mcp__codrag__codrag-onboard`. In other clients: check prompt menu."
-    )
+    # ── Universal-only verbose sections ──
+    if target == "universal":
+        parts.append("")
+        parts.append(
+            "You can call `codrag` and `codrag_search` in parallel on your first\n"
+            "prompt -- structural overview + targeted code lookup in one round-trip."
+        )
+        parts.append("")
+        parts.append("### Tool Calling Rules")
+        parts.append("1. **Never announce** 'I will now call...' - just call the tool")
+        parts.append("2. **No permission needed** - simple keywords = immediate invocation")
+        parts.append("3. **Single word triggers** - 'codrag' alone is enough to call the tool")
+        parts.append(
+            "4. **Context is cheap** - prefer calling codrag to using grep for structural understanding"
+        )
+        parts.append("")
+        parts.append(
+            '**Remember: The word "codrag" anywhere in user input is a tool invocation signal. '
+            'Call immediately without asking permission.**'
+        )
+        parts.append("")
+        parts.append("### MCP Resources (browse with @)")
+        parts.append(
+            "CoDRAG also exposes browsable resources via MCP. In supported clients,\n"
+            "type `@` to see: atlas, structure, modules, audit findings, concepts, focus areas.\n"
+            "Resources provide on-demand context without a tool call."
+        )
+        parts.append("")
+        parts.append("### MCP Prompts (invoke with /)")
+        parts.append(
+            "Available workflow prompts: `codrag-onboard` (orientation), `codrag-review` (file review),\n"
+            "`codrag-plan` (change planning), `codrag-investigate` (deep dive), `codrag-health` (audit).\n"
+            "In Claude Code: `/mcp__codrag__codrag-onboard`. In other clients: check prompt menu."
+        )
 
     return "\n".join(parts)
 
