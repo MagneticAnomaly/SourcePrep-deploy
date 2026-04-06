@@ -1186,12 +1186,12 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
                 result.get("chunks", []), proj, req.query, req.max_chars,
                 context_tier=req.context_tier,
             )
-            # Phase 73.3b: Dual-channel auto mode — after LOD compresses code,
-            # apply LLMLingua-2 to documentation/markdown chunks in the assembled context.
-            if req.compression == "auto":
-                lod_result = _apply_lingua_to_doc_chunks(
-                    lod_result, req.query, req.compression_level, req.compression_timeout_s,
-                )
+            # Phase 73.3b: Dual-channel auto mode.
+            # Quality testing showed LLMLingua-2 destroys technical identifiers
+            # in CoDRAG-style docs (22% key term retention at light level).
+            # LOD-only compression is both safer and faster.
+            # Lingua remains available via compression="lingua" for users who
+            # want to opt-in for pure-prose content, but auto mode uses LOD only.
             resp_data: Dict[str, Any] = {
                 **lod_result,
                 "trace_expanded": result.get("trace_expanded", False),

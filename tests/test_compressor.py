@@ -401,7 +401,13 @@ class TestLinguaCompressorLive:
         # Key terms should survive
         assert "CoDRAG" in result.compressed or "codrag" in result.compressed.lower()
 
-    def test_compress_preserves_file_refs(self) -> None:
+    def test_compress_damages_file_refs(self) -> None:
+        """LLMLingua-2 damages file paths — documents why auto mode uses LOD only.
+
+        Quality testing showed that even with FORCE_TOKENS protecting .py and /,
+        the model removes the identifier text between path separators.
+        E.g., src/codrag/services/config_manager.py → / codrag / config _ manager.py
+        """
         comp = LinguaCompressor()
         if not comp.is_available():
             pytest.skip("llmlingua not installed")
@@ -412,10 +418,9 @@ class TestLinguaCompressorLive:
             level="light",
         )
         assert result.error is None
-        # File extensions and path separators survive (FORCE_TOKENS)
-        assert "server.py" in result.compressed
-        # Underscores now survive too (added _ to FORCE_TOKENS)
-        assert "_" in result.compressed or "manager" in result.compressed
+        assert result.compression_ratio > 1.2
+        # .py extension survives (in FORCE_TOKENS) but path basenames may not
+        assert ".py" in result.compressed
 
     def test_compress_code_badly(self) -> None:
         """Demonstrate that Lingua damages code — validates why we use LOD for code."""
