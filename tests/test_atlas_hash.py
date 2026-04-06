@@ -46,3 +46,16 @@ def test_extract_atlas_hash_missing():
     """Returns None when no hash comment is present."""
     extracted = MCPServer._extract_atlas_hash("## Just some content")
     assert extracted is None
+
+
+def test_managed_content_includes_permission_hint():
+    """The managed content should include auto-approve configuration hint."""
+    content = _build_managed_content(
+        project_name="test",
+        atlas_content="",
+        included_paths=None,
+        is_preliminary=False,
+        stats=None,
+        project_id="test-id",
+    )
+    assert "mcp__codrag" in content

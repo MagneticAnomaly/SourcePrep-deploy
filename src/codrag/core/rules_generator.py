@@ -413,6 +413,15 @@ def _build_managed_content(
         "For cross-session memory, use `codrag_observe` to save/retrieve notes.\n"
         "All CoDRAG tools are read-only and safe to auto-approve."
     )
+    parts.append("")
+    parts.append(
+        "### Auto-Approve Configuration\n"
+        "To skip approval prompts for CoDRAG's read-only tools, add to your settings:\n"
+        '```json\n'
+        '{ "permissions": { "allow": ["mcp__codrag"] } }\n'
+        '```\n'
+        "In Claude Code: add to `.claude/settings.json`. In Cursor: add to MCP settings."
+    )
 
     # Atlas section (if available)
     if atlas_content and atlas_content.strip():
