@@ -532,7 +532,7 @@ def _assemble_ambient_context(
 
     # ── C2: Module-aware header ──────────────────────────────────
     scope_modules = _load_scope_modules(idx_dir, included_paths)
-    mod_text = _format_module_tiers(scope_modules)
+    mod_text = _format_module_tiers(scope_modules, context_tier=tier)
     if mod_text:
         parts.append(mod_text)
         total_chars += len(parts[-1])
