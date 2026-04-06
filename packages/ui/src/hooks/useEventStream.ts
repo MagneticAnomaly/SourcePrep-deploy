@@ -10,6 +10,8 @@ export interface UseEventStreamResult {
   pipelineEvents: Record<string, PipelineStatus & { project_id: string }>;
   /** Scope status updates keyed by project_id (Phase 24 SM-8) */
   scopeEvents: Record<string, ScopeStatus>;
+  /** Monotonic counter that increments on every queue_changed SSE event (Phase 75) */
+  queueVersion: number;
 }
 
 export function useEventStream(url: string, maxLogs: number = 1000): UseEventStreamResult {
@@ -17,6 +19,7 @@ export function useEventStream(url: string, maxLogs: number = 1000): UseEventStr
   const [tasks, setTasks] = useState<Record<string, TaskProgress>>({});
   const [pipelineEvents, setPipelineEvents] = useState<Record<string, PipelineStatus & { project_id: string }>>({});
   const [scopeEvents, setScopeEvents] = useState<Record<string, ScopeStatus>>({});
+  const [queueVersion, setQueueVersion] = useState(0);
   const [connected, setConnected] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
@@ -71,6 +74,8 @@ export function useEventStream(url: string, maxLogs: number = 1000): UseEventStr
         if (scopePid) {
           setScopeEvents(prev => ({ ...prev, [scopePid]: ss }));
         }
+      } else if (type === 'queue_changed') {
+        setQueueVersion(v => v + 1);
       }
     } catch (e) {
       console.error('Failed to parse SSE event:', e);
@@ -117,5 +122,5 @@ export function useEventStream(url: string, maxLogs: number = 1000): UseEventStr
     setLogs([]);
   }, []);
 
-  return { logs, tasks, connected, clearLogs, pipelineEvents, scopeEvents };
+  return { logs, tasks, connected, clearLogs, pipelineEvents, scopeEvents, queueVersion };
 }

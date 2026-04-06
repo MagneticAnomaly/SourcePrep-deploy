@@ -9,6 +9,7 @@ import {
   Sidebar,
   ProjectList,
   SidebarAIGateway,
+  SidebarPipelineQueue,
   TeamSyncIndicator,
   // Dashboard
   ModularDashboard,
@@ -934,6 +935,12 @@ function App() {
                     />
                   ) : undefined
                 }
+              />
+            )}
+            {!sidebarCollapsed && (
+              <SidebarPipelineQueue
+                baseUrl={import.meta.env.DEV ? `http://${window.location.hostname}:8400` : api.baseUrl}
+                eventsUrl={eventsUrl}
               />
             )}
           </Sidebar>

@@ -89,8 +89,8 @@ export { LogConsole, AnimatedCLI, TerminalFrame, AnimatedIDE, codragSearchDemo, 
 export type { LogConsoleProps, AnimatedCLIProps, TerminalFrameProps, AnimatedIDEProps, CliEvent, CliScript, TerminalTheme } from './components/console';
 
 // Components - Navigation
-export { Sidebar, ProjectList, ProjectTabs, AppShell, SidebarAIGateway } from './components/navigation';
-export type { SidebarProps, ProjectListProps, ProjectTabsProps, ProjectTab, AppShellProps, SidebarAIGatewayProps } from './components/navigation';
+export { Sidebar, ProjectList, ProjectTabs, AppShell, SidebarAIGateway, SidebarPipelineQueue } from './components/navigation';
+export type { SidebarProps, ProjectListProps, ProjectTabsProps, ProjectTab, AppShellProps, SidebarAIGatewayProps, SidebarPipelineQueueProps, QueueItem } from './components/navigation';
 
 // Components - Search
 export { SearchInput, SearchResultRow, ChunkViewer, SearchPanel, ContextOptionsPanel, SearchResultsList, ChunkPreview, ContextOutput } from './components/search';

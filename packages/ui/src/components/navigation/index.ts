@@ -3,3 +3,4 @@ export { ProjectList, type ProjectListProps } from './ProjectList';
 export { ProjectTabs, type ProjectTabsProps, type ProjectTab } from './ProjectTabs';
 export { AppShell, type AppShellProps } from './AppShell';
 export { SidebarAIGateway, type SidebarAIGatewayProps } from './SidebarAIGateway';
+export { SidebarPipelineQueue, type SidebarPipelineQueueProps, type QueueItem } from './SidebarPipelineQueue';
