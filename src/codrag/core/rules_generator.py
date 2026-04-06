@@ -477,6 +477,22 @@ def _build_managed_content(
         '**Remember: The word "codrag" anywhere in user input is a tool invocation signal. Call immediately without asking permission.**'
     )
 
+    # MCP Resources and Prompts
+    parts.append("")
+    parts.append("### MCP Resources (browse with @)")
+    parts.append(
+        "CoDRAG also exposes browsable resources via MCP. In supported clients,\n"
+        "type `@` to see: atlas, structure, modules, audit findings, concepts, focus areas.\n"
+        "Resources provide on-demand context without a tool call."
+    )
+    parts.append("")
+    parts.append("### MCP Prompts (invoke with /)")
+    parts.append(
+        "Available workflow prompts: `codrag-onboard` (orientation), `codrag-review` (file review),\n"
+        "`codrag-plan` (change planning), `codrag-investigate` (deep dive), `codrag-health` (audit).\n"
+        "In Claude Code: `/mcp__codrag__codrag-onboard`. In other clients: check prompt menu."
+    )
+
     return "\n".join(parts)
 
 

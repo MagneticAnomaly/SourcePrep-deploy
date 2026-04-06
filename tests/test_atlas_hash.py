@@ -59,3 +59,31 @@ def test_managed_content_includes_permission_hint():
         project_id="test-id",
     )
     assert "mcp__codrag" in content
+
+
+def test_managed_content_mentions_resources():
+    """Generated content should inform agents about available MCP resources."""
+    content = _build_managed_content(
+        project_name="test",
+        atlas_content="IDENTITY: Test",
+        included_paths=None,
+        is_preliminary=False,
+        stats=None,
+        project_id="test-id",
+    )
+    assert "MCP Resources" in content
+    assert "@" in content  # mentions @ browsing
+
+
+def test_managed_content_mentions_prompts():
+    """Generated content should inform agents about available MCP prompts."""
+    content = _build_managed_content(
+        project_name="test",
+        atlas_content="IDENTITY: Test",
+        included_paths=None,
+        is_preliminary=False,
+        stats=None,
+        project_id="test-id",
+    )
+    assert "codrag-onboard" in content
+    assert "MCP Prompts" in content
