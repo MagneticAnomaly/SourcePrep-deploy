@@ -1631,6 +1631,16 @@ class PipelineOrchestrator:
             if _deferred_resume:
                 self._resume_queued_pipeline(_deferred_resume.project_id, _deferred_resume.stage)
 
+            # Phase 75: notify queue UI of state change
+            try:
+                from codrag.core.events import get_event_bus
+                get_event_bus().emit("queue_changed", {
+                    "reason": "pipeline_stage_completed",
+                    "project_id": project_id,
+                })
+            except Exception:
+                pass
+
         elif new_phase == BuildPhase.FAILED:
             slot = self._orchestrator.status(project_id, build_type)
             error_msg = f"Stage {stage.value} failed: {slot.error}"
@@ -1668,6 +1678,21 @@ class PipelineOrchestrator:
             next_entry = pipeline_scheduler.release(project_id, stage, _release_node)
             if next_entry:
                 self._resume_queued_pipeline(next_entry.project_id, next_entry.stage)
+
+            # Phase 75: ghost guard + queue notification on failure
+            try:
+                from codrag.services.pipeline.ghost_guard import purge_ghost_locks
+                purge_ghost_locks()
+            except Exception:
+                logger.debug("Ghost guard failed during FAILED transition", exc_info=True)
+            try:
+                from codrag.core.events import get_event_bus
+                get_event_bus().emit("queue_changed", {
+                    "reason": "pipeline_stage_failed",
+                    "project_id": project_id,
+                })
+            except Exception:
+                pass
 
             pfl = self._get_file_logger(project_id)
             if pfl:
