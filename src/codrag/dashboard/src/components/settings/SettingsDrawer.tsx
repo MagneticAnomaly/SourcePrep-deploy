@@ -95,13 +95,14 @@ export interface SettingsDrawerProps {
   projectName?: string
   onDestroyGraph: () => void
   onDestroyIndex: () => void
+  onRebuildPipeline: () => void
   // Developer tab – selective resets
   onDestroyAtlas?: () => void
   onDestroyGroupReasoning?: () => void
   onDestroyDeepEnrichment?: () => void
   // Global config for debug mode
-  globalConfig?: { developer_debug_mode?: boolean; exploratory_testing_mode?: boolean }
-  onGlobalConfigChange?: (config: Partial<{ developer_debug_mode?: boolean; exploratory_testing_mode?: boolean }>) => void
+  globalConfig?: { developer_debug_mode?: boolean; exploratory_testing_mode?: boolean; developer_show_dev_panels?: boolean }
+  onGlobalConfigChange?: (config: Partial<{ developer_debug_mode?: boolean; exploratory_testing_mode?: boolean; developer_show_dev_panels?: boolean }>) => void
   // Developer tab
   devTierOverride: LicenseTier | null
   onDevTierOverrideChange: (tier: LicenseTier | null) => void
@@ -141,6 +142,7 @@ export function SettingsDrawer({
   projectName,
   onDestroyGraph,
   onDestroyIndex,
+  onRebuildPipeline,
   onDestroyAtlas,
   onDestroyGroupReasoning,
   onDestroyDeepEnrichment,
@@ -170,16 +172,17 @@ export function SettingsDrawer({
       }, 100)
     }
   }, [open, scrollToDeepAnalysis])
-  const [confirmAction, setConfirmAction] = useState<'graph' | 'index' | 'atlas' | 'group_reasoning' | 'deep_enrichment' | null>(null)
+  const [confirmAction, setConfirmAction] = useState<'graph' | 'index' | 'rebuild' | 'atlas' | 'group_reasoning' | 'deep_enrichment' | null>(null)
 
   const handleConfirmedAction = useCallback(() => {
     if (confirmAction === 'graph') onDestroyGraph()
     if (confirmAction === 'index') onDestroyIndex()
+    if (confirmAction === 'rebuild') onRebuildPipeline()
     if (confirmAction === 'atlas') onDestroyAtlas?.()
     if (confirmAction === 'group_reasoning') onDestroyGroupReasoning?.()
     if (confirmAction === 'deep_enrichment') onDestroyDeepEnrichment?.()
     setConfirmAction(null)
-  }, [confirmAction, onDestroyGraph, onDestroyIndex, onDestroyAtlas, onDestroyGroupReasoning, onDestroyDeepEnrichment])
+  }, [confirmAction, onDestroyGraph, onDestroyIndex, onRebuildPipeline, onDestroyAtlas, onDestroyGroupReasoning, onDestroyDeepEnrichment])
 
   const runHealthTest = async () => {
     setHealthResult('Testing...')
@@ -266,7 +269,16 @@ export function SettingsDrawer({
                 <p className="text-xs text-text-muted mb-4">
                   These actions permanently delete project data and cannot be undone.
                 </p>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="p-3 rounded border border-warning/30 bg-warning/5 flex flex-col justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-text">Rebuild Pipeline</p>
+                      <p className="text-xs text-text-muted mt-1">Re-runs all 11 stages from scratch. Data stays live during rebuild.</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => setConfirmAction('rebuild')} className="w-full border-warning/40 text-warning hover:bg-warning/10">
+                      Rebuild
+                    </Button>
+                  </div>
                   <div className="p-3 rounded border border-border bg-surface-raised flex flex-col justify-between gap-3">
                     <div>
                       <p className="text-sm font-medium text-text">Reset Graph</p>
@@ -486,6 +498,21 @@ export function SettingsDrawer({
                     }}
                   />
                 </div>
+
+                <div className="flex items-center justify-between p-3 rounded bg-bg-surface border border-border">
+                  <div>
+                    <h4 className="text-sm font-medium text-text">Show Dev Panels</h4>
+                    <p className="text-xs text-text-muted mt-1">
+                      Show experimental and in-progress dashboard panels (Roadmap, Agent Ops, Architecture, Concepts, etc).
+                    </p>
+                  </div>
+                  <Toggle
+                    checked={globalConfig?.developer_show_dev_panels ?? false}
+                    onChange={(val: boolean) => {
+                      onGlobalConfigChange?.({ developer_show_dev_panels: val })
+                    }}
+                  />
+                </div>
               </div>
             </section>
 
@@ -633,14 +660,17 @@ export function SettingsDrawer({
         onConfirm={handleConfirmedAction}
         onCancel={() => setConfirmAction(null)}
         title={
-          confirmAction === 'graph' ? `Reset Graph for ${projectName || 'Project'}?`
+          confirmAction === 'rebuild' ? `Rebuild Pipeline for ${projectName || 'Project'}?`
+            : confirmAction === 'graph' ? `Reset Graph for ${projectName || 'Project'}?`
             : confirmAction === 'atlas' ? `Reset Atlas for ${projectName || 'Project'}?`
               : confirmAction === 'group_reasoning' ? `Reset Group Reasoning for ${projectName || 'Project'}?`
                 : confirmAction === 'deep_enrichment' ? `Reset Deep Enrichment for ${projectName || 'Project'}?`
                   : `Full Reset for ${projectName || 'Project'}?`
         }
         description={
-          confirmAction === 'graph'
+          confirmAction === 'rebuild'
+            ? 'This will re-run all 11 pipeline stages from scratch. Your existing data remains available throughout the rebuild — each stage atomically replaces its output when the new version is ready. This can take a long time for large codebases.'
+            : confirmAction === 'graph'
             ? 'This will permanently delete the trace graph, all augmentation, epistemic enrichment, and cluster data. Embeddings and search will remain intact.'
             : confirmAction === 'atlas'
               ? 'This will permanently delete the atlas and routing data for this project. Other enrichment stages will remain intact.'
@@ -651,7 +681,8 @@ export function SettingsDrawer({
                   : 'This will permanently delete ALL project data: embeddings, search index, trace graph, and all enrichment. You will need to rebuild everything from scratch.'
         }
         confirmLabel={
-          confirmAction === 'graph' ? 'Reset Graph'
+          confirmAction === 'rebuild' ? 'Start Rebuild'
+            : confirmAction === 'graph' ? 'Reset Graph'
             : confirmAction === 'atlas' ? 'Reset Atlas'
               : confirmAction === 'group_reasoning' ? 'Reset Group Reasoning'
                 : confirmAction === 'deep_enrichment' ? 'Reset Deep Enrichment'
