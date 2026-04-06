@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-06
 **Phase:** 75
-**Status:** Approved
+**Status:** Implemented
 
 ## Problem
 
@@ -31,10 +31,12 @@ A **Global Pipeline Queue** that:
 
 | File | Change |
 |------|--------|
-| `src/codrag/services/pipeline/orchestrator.py` | Emit `queue_changed` event in `_on_build_transition` (line ~1555 COMPLETED branch, ~1634 FAILED branch). Also call `purge_ghost_locks()` in the FAILED branch. Total: ~5 lines added. |
-| `src/codrag/server.py` | Register new queue router |
-| `packages/ui/src/components/navigation/Sidebar.tsx` | Accept new `queueWidget` prop slot |
-| `src/codrag/dashboard/src/App.tsx` | Wire queue widget into sidebar |
+| `src/codrag/services/pipeline/orchestrator.py` | Emit `queue_changed` event in `_on_build_transition` COMPLETED and FAILED branches. Call `purge_ghost_locks()` in FAILED branch. ~25 lines added. |
+| `src/codrag/server.py` | Register new queue router (+2 lines) |
+| `src/codrag/dashboard/src/App.tsx` | Import `SidebarPipelineQueue`, render inside Sidebar, pass `queueVersion` from `useEventStream` |
+| `packages/ui/src/hooks/useEventStream.ts` | Handle `queue_changed` SSE event, expose `queueVersion` counter |
+| `packages/ui/src/components/navigation/index.ts` | Export `SidebarPipelineQueue` |
+| `packages/ui/src/index.ts` | Export `SidebarPipelineQueue` from package |
 
 ### Unchanged Files
 
@@ -80,6 +82,7 @@ Logic:
 Trigger points:
 - Every `GET /system/pipeline-queue` call (cheap, idempotent, O(n) where n = active projects)
 - Called from orchestrator's `_on_build_transition` on FAILED transitions (catch crashes immediately)
+- Manual via `POST /system/pipeline-queue/purge-ghosts`
 
 ### queue.py Router
 
@@ -91,7 +94,7 @@ Merges three data sources into a unified queue response:
 2. **Orchestrator runs** (`pipeline_orchestrator._runs`): state machines with group/stage/timing
 3. **Project registry**: project names for display
 
-Response schema:
+Response schema (phases are lowercase, matching state machine `.value`):
 ```json
 {
   "queue": [
@@ -99,10 +102,11 @@ Response schema:
       "project_id": "uuid-1234",
       "project_name": "DebateHaus",
       "group": "fast_sync",
-      "phase": "RUNNING",
+      "phase": "running",
       "current_stage": "catalogue",
       "started_at": 1712431440,
       "elapsed_seconds": 142.5,
+      "wait_seconds": null,
       "priority": "boost",
       "compute_node": "local:default_ollama",
       "concurrent_workers": 3
@@ -111,9 +115,10 @@ Response schema:
       "project_id": "uuid-5678",
       "project_name": "Antigravity",
       "group": "deep_enrichment",
-      "phase": "QUEUED",
+      "phase": "queued",
       "current_stage": null,
       "started_at": null,
+      "elapsed_seconds": null,
       "wait_seconds": 45.2,
       "priority": "none",
       "compute_node": null,
@@ -130,7 +135,7 @@ Response schema:
 }
 ```
 
-Items are ordered: RUNNING first (sorted by started_at), then PAUSED, then QUEUED (by wait time), then FAILED.
+Items are ordered: running first, then paused, then queued, then failed. Completed/idle runs are excluded.
 
 **`POST /system/pipeline-queue/priority`**
 
@@ -176,7 +181,7 @@ The UI uses this to trigger an immediate re-fetch of `/system/pipeline-queue` ra
 
 ### SidebarPipelineQueue.tsx
 
-**Location in sidebar:** Between the ProjectList (main children) and the AI Gateway footer. Uses a new `queueWidget` prop on `Sidebar` to insert in the correct position.
+**Location in sidebar:** Rendered as a direct child inside the `<Sidebar>` in `App.tsx`, below the `<ProjectList>` and gated on `!sidebarCollapsed`.
 
 **Visual layout:**
 
@@ -198,53 +203,34 @@ The UI uses this to trigger an immediate re-fetch of `/system/pipeline-queue` ra
 └─────────────────────────┘
 ```
 
+**Component props:**
+- `baseUrl` — API base URL for fetch calls
+- `queueVersion` — Monotonic counter from `useEventStream`'s `queueVersion`; triggers immediate re-fetch on SSE `queue_changed` events without creating a duplicate `EventSource`
+
 **Component behavior:**
 - Polls `GET /system/pipeline-queue` every 5s as baseline
-- Listens to SSE `queue_changed` events for immediate refresh
+- Re-fetches immediately when `queueVersion` prop changes (driven by the shared `useEventStream` SSE connection)
 - Collapsible header (persisted to localStorage)
-- Empty state hidden or shows minimal "No active pipelines" text
-- Status badges reuse existing `StatusBadge` component with color mapping:
-  - Running → blue
-  - Queued → amber
-  - Paused → gray
-  - Failed → red
+- When empty and collapsed, renders nothing; when empty and expanded, shows "No active pipelines"
+- Status badges reuse existing `StatusBadge` component (maps phase → StatusState: running→building, queued→pending, paused→stale, failed→error)
 
 **Controls mapped to existing endpoints:**
 - Pause → `POST /projects/{id}/pipeline/pause` with `{ group }`
 - Resume → `POST /projects/{id}/pipeline/resume` with `{ group }`
 - Cancel → `POST /projects/{id}/pipeline/cancel` with `{ group }`
-- Star toggle → `POST /system/pipeline-queue/priority` with `{ project_id, level }`
+- Star toggle → `POST /system/pipeline-queue/priority` with `{ project_id, level }` (cycles none→boost→exclusive→none)
 
-### Sidebar.tsx Changes
+### Sidebar.tsx — Unchanged
 
-Add an optional `queueWidget` prop:
-```tsx
-export interface SidebarProps {
-  // ... existing props
-  queueWidget?: ReactNode;
-}
-```
-
-Rendered between `children` and `footer`:
-```tsx
-<div className="flex-1 overflow-y-auto py-2">
-  {children}
-</div>
-{queueWidget && (
-  <div className="flex-shrink-0 border-t border-border">
-    {queueWidget}
-  </div>
-)}
-{footer && (
-  <div className="flex-shrink-0 border-t border-border">
-    {footer}
-  </div>
-)}
-```
+No modifications to `Sidebar.tsx` were needed. The queue widget is rendered as a direct child inside the Sidebar JSX in `App.tsx`, not via a prop.
 
 ### App.tsx Wiring
 
-The dashboard app creates a `<SidebarPipelineQueue />` instance and passes it as the `queueWidget` prop to `<Sidebar>`. The component manages its own data fetching internally (no prop drilling of queue state).
+The dashboard app renders `<SidebarPipelineQueue>` inside `<Sidebar>` after `<ProjectList>`, gated on `!sidebarCollapsed`. It passes `baseUrl` and `queueVersion` (from the shared `useEventStream` hook). The component manages its own data fetching internally.
+
+### useEventStream.ts
+
+Added `queue_changed` event handling: when the SSE stream receives a `queue_changed` event, a `queueVersion` counter increments. This is exposed in the hook's return value and consumed by `SidebarPipelineQueue` via prop.
 
 ---
 
@@ -265,20 +251,19 @@ THEN scheduler.clean_locks(project_id)  # ghost lock
 This is mathematically sound: if the scheduler claims a project holds a compute slot, but the build orchestrator confirms zero living threads for that project, the lock cannot be legitimate.
 
 **Trigger frequency:**
-- On every `GET /system/pipeline-queue` (dashboard polls every 5s when open)
-- On every `_on_build_transition` FAILED event
-- On `run_fast_sync` / `run_deep_enrichment` invocation (before slot acquisition)
+- On every `GET /system/pipeline-queue` call (dashboard polls every 5s when open)
+- On every `_on_build_transition` FAILED event in the orchestrator
 - Manual via `POST /system/pipeline-queue/purge-ghosts`
 
 This guarantees ghost locks are detected within seconds of occurring, not minutes or hours.
 
 ---
 
-## Testing Strategy
+## Testing (Implemented)
 
-- **ghost_guard.py:** Unit test with mocked scheduler/build_orchestrator. Verify purge fires when lock exists but no threads alive. Verify no-op when threads are alive.
-- **queue.py router:** Integration test hitting the endpoint with a running pipeline. Verify response schema. Verify ghost purge is called.
-- **SidebarPipelineQueue.tsx:** Component test with mocked API responses for each state (running, queued, paused, empty).
+- **`tests/test_ghost_guard.py`** (4 tests): Orphaned lock cleanup, no-op when threads alive, multi-node purge, empty scheduler.
+- **`tests/test_queue_router.py`** (6 tests): Running pipeline items, queued entries from scheduler, empty state, priority delegation, sort ordering, completed/idle exclusion.
+- **SidebarPipelineQueue.tsx:** No component tests yet (v1 — visual testing via dashboard).
 
 ---
 

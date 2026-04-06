@@ -38,7 +38,6 @@ This is mathematically sound: if the scheduler claims a project holds a compute 
 **Trigger points:**
 - Every `GET /system/pipeline-queue` call (cheap, idempotent)
 - `_on_build_transition` FAILED events in orchestrator
-- `run_fast_sync` / `run_deep_enrichment` invocation
 - Manual via `POST /system/pipeline-queue/purge-ghosts`
 
 ### 3.2 Queue API (`api/routers/queue.py`)
@@ -52,7 +51,7 @@ This is mathematically sound: if the scheduler claims a project holds a compute 
       "project_id": "uuid-1234",
       "project_name": "DebateHaus",
       "group": "fast_sync",
-      "phase": "RUNNING",
+      "phase": "running",
       "current_stage": "catalogue",
       "started_at": 1712431440,
       "elapsed_seconds": 142.5,
@@ -64,7 +63,7 @@ This is mathematically sound: if the scheduler claims a project holds a compute 
       "project_id": "uuid-5678",
       "project_name": "Antigravity",
       "group": "deep_enrichment",
-      "phase": "QUEUED",
+      "phase": "queued",
       "current_stage": null,
       "started_at": null,
       "wait_seconds": 45.2,
@@ -106,7 +105,7 @@ Compact widget mounted between ProjectList and AI Gateway in the sidebar:
 └─────────────────────────┘
 ```
 
-Controls map directly to existing pipeline endpoints (pause/resume/cancel) and the new priority endpoint. Polls every 5s with SSE-triggered immediate refresh.
+Controls map directly to existing pipeline endpoints (pause/resume/cancel) and the new priority endpoint. Polls every 5s with reactive `queueVersion` prop (from shared `useEventStream` SSE connection) triggering immediate refresh on `queue_changed` events.
 
 ## 4. Files Changed
 
@@ -115,10 +114,12 @@ Controls map directly to existing pipeline endpoints (pause/resume/cancel) and t
 | `services/pipeline/ghost_guard.py` | **NEW** — Ghost lock cross-check module |
 | `api/routers/queue.py` | **NEW** — System-level queue API router |
 | `packages/ui/.../SidebarPipelineQueue.tsx` | **NEW** — Sidebar queue widget |
-| `services/pipeline/orchestrator.py` | Emit `queue_changed` event + call `purge_ghost_locks()` on FAILED (~5 lines) |
-| `server.py` | Register queue router |
-| `packages/ui/.../Sidebar.tsx` | Add `queueWidget` prop slot |
-| `dashboard/src/App.tsx` | Wire queue widget into sidebar |
+| `services/pipeline/orchestrator.py` | Emit `queue_changed` event on COMPLETED/FAILED + call `purge_ghost_locks()` on FAILED (~25 lines) |
+| `server.py` | Register queue router (+2 lines) |
+| `packages/ui/.../useEventStream.ts` | Handle `queue_changed` SSE event, expose `queueVersion` counter |
+| `packages/ui/.../navigation/index.ts` | Export new component |
+| `packages/ui/src/index.ts` | Export new component from package |
+| `dashboard/src/App.tsx` | Import `SidebarPipelineQueue`, render in sidebar, pass `queueVersion` |
 
 ## 5. Design Spec
 
