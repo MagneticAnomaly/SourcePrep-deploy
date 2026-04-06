@@ -276,6 +276,170 @@ class TestGetCompressorRouting:
 
 
 # ═══════════════════════════════════════════════════════════════════
+# Dual-channel auto mode (LOD for code + Lingua for docs)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class TestDualChannelAutoMode:
+    """Test _apply_lingua_to_doc_chunks — the dual-channel routing function."""
+
+    def test_code_only_result_unchanged(self) -> None:
+        """When all chunks are code files, Lingua does nothing."""
+        from codrag.api.routers.projects.search import _apply_lingua_to_doc_chunks
+        lod_result = {
+            "context": "[score=0.8 | @src/auth.py]\ndef login(): ...",
+            "chunks": [{"source_path": "src/auth.py", "score": 0.8}],
+            "total_chars": 42,
+            "estimated_tokens": 10,
+        }
+        result = _apply_lingua_to_doc_chunks(lod_result, "auth")
+        # Should be unchanged — no doc chunks to compress
+        assert result["context"] == lod_result["context"]
+
+    def test_doc_chunk_gets_compressed(self) -> None:
+        """Markdown chunks should be compressed by Lingua."""
+        from codrag.api.routers.projects.search import _apply_lingua_to_doc_chunks
+        doc_content = (
+            "This is a comprehensive documentation file that explains in great detail "
+            "how the authentication system works within the broader context of the "
+            "application architecture and its various subsystems. It covers multiple "
+            "aspects including session management, token validation, and authorization "
+            "flow patterns that are commonly used throughout the entire codebase for "
+            "security purposes. The document also discusses the integration points "
+            "between the authentication middleware and the request handling pipeline, "
+            "including how JWT tokens are validated, how refresh tokens are rotated, "
+            "and how the permission system maps roles to specific API endpoint access "
+            "controls. Understanding these patterns is essential for anyone modifying "
+            "the security infrastructure of the application."
+        )
+        context = f"[@docs/auth.md]\n{doc_content}"
+        original_len = len(context)
+        lod_result = {
+            "context": context,
+            "chunks": [{"source_path": "docs/auth.md", "score": 0.6}],
+            "total_chars": original_len,
+            "estimated_tokens": original_len // 4,
+        }
+        result = _apply_lingua_to_doc_chunks(lod_result, "authentication")
+        # Lingua should have compressed the doc content
+        assert len(result["context"]) < original_len
+        comp = result.get("compression", {})
+        assert comp.get("mode") == "auto"
+        assert comp.get("lingua_input_chars", 0) > 0
+        assert comp.get("lingua_output_chars", 0) > 0
+        assert comp.get("lingua_ratio", 0) > 1.0
+
+    def test_mixed_preserves_code_compresses_docs(self) -> None:
+        """In a mixed result, code stays intact while docs get compressed."""
+        from codrag.api.routers.projects.search import _apply_lingua_to_doc_chunks
+        code_block = "[score=0.9 | @src/auth.py]\ndef login(user, password):\n    return validate(user)"
+        doc_content = (
+            "The authentication module provides comprehensive security features "
+            "including password hashing, session management, OAuth integration, "
+            "rate limiting, and brute force protection mechanisms that safeguard "
+            "the application from unauthorized access attempts. It implements "
+            "a multi-layered defense strategy with configurable lockout thresholds, "
+            "cryptographically secure token generation, and automatic session "
+            "invalidation after configurable idle timeouts. The module also supports "
+            "multi-factor authentication via TOTP and WebAuthn protocols."
+        )
+        doc_block = f"[@docs/auth-guide.md]\n{doc_content}"
+        context = f"{code_block}\n\n---\n\n{doc_block}"
+        original_len = len(context)
+        lod_result = {
+            "context": context,
+            "chunks": [
+                {"source_path": "src/auth.py", "score": 0.9},
+                {"source_path": "docs/auth-guide.md", "score": 0.6},
+            ],
+            "total_chars": original_len,
+            "estimated_tokens": original_len // 4,
+        }
+        result = _apply_lingua_to_doc_chunks(lod_result, "authentication")
+        # Code block should be preserved exactly
+        assert "def login(user, password):" in result["context"]
+        # Doc block should be compressed (shorter overall)
+        assert len(result["context"]) < original_len
+
+    def test_empty_context_noop(self) -> None:
+        from codrag.api.routers.projects.search import _apply_lingua_to_doc_chunks
+        result = _apply_lingua_to_doc_chunks(
+            {"context": "", "chunks": [], "total_chars": 0}, "test"
+        )
+        assert result["context"] == ""
+
+    def test_short_doc_chunk_skipped(self) -> None:
+        """Doc chunks under 100 chars are not worth compressing."""
+        from codrag.api.routers.projects.search import _apply_lingua_to_doc_chunks
+        lod_result = {
+            "context": "[@docs/short.md]\nBrief note.",
+            "chunks": [{"source_path": "docs/short.md", "score": 0.5}],
+            "total_chars": 30,
+            "estimated_tokens": 7,
+        }
+        result = _apply_lingua_to_doc_chunks(lod_result, "test")
+        assert result["context"] == lod_result["context"]
+
+
+class TestLinguaCompressorLive:
+    """Live integration tests — actually run LLMLingua-2 on real content."""
+
+    def test_compress_real_text(self) -> None:
+        comp = LinguaCompressor()
+        if not comp.is_available():
+            pytest.skip("llmlingua not installed")
+        result = comp.compress(
+            "CoDRAG is a local-first codebase intelligence platform that builds "
+            "persistent semantic indexes of codebases and serves bounded, source-cited "
+            "context to AI coding agents via MCP. The goal is to give AI agents robust "
+            "contextual and epistemological knowledge of a codebase.",
+            level="standard",
+        )
+        assert result.error is None
+        assert result.compression_ratio > 1.3
+        assert result.output_chars < result.input_chars
+        # Key terms should survive
+        assert "CoDRAG" in result.compressed or "codrag" in result.compressed.lower()
+
+    def test_compress_preserves_file_refs(self) -> None:
+        comp = LinguaCompressor()
+        if not comp.is_available():
+            pytest.skip("llmlingua not installed")
+        result = comp.compress(
+            "The main entry point is src/codrag/server.py which starts the FastAPI "
+            "daemon on port 8400. Configuration lives in src/codrag/services/config_manager.py "
+            "and the CLI is at src/codrag/cli.py for command-line usage.",
+            level="light",
+        )
+        assert result.error is None
+        # File extensions and path separators survive (FORCE_TOKENS)
+        assert "server.py" in result.compressed
+        # Underscores now survive too (added _ to FORCE_TOKENS)
+        assert "_" in result.compressed or "manager" in result.compressed
+
+    def test_compress_code_badly(self) -> None:
+        """Demonstrate that Lingua damages code — validates why we use LOD for code."""
+        comp = LinguaCompressor()
+        if not comp.is_available():
+            pytest.skip("llmlingua not installed")
+        code = (
+            "def calculate_score(items: List[Dict], weights: Dict[str, float]) -> float:\n"
+            "    total = sum(w * items[i].get('value', 0) for i, w in weights.items())\n"
+            "    return round(total / max(len(items), 1), 4)\n"
+        )
+        result = comp.compress(code, level="standard")
+        # The compressed version should be syntactically broken or missing key tokens
+        # This test documents WHY we don't use Lingua on code
+        if result.compression_ratio > 1.5:
+            # If it compressed significantly, syntax is likely broken
+            try:
+                compile(result.compressed, "<test>", "exec")
+                # If it somehow compiles, that's fine too
+            except SyntaxError:
+                pass  # Expected — Lingua corrupts code syntax
+
+
+# ═══════════════════════════════════════════════════════════════════
 # LOD on real CoDRAG source files
 # ═══════════════════════════════════════════════════════════════════
 

@@ -98,8 +98,8 @@ class LinguaCompressor(ContextCompressor):
     FORCE_TOKENS = [
         # Structural formatting
         "\n", "---", "|",
-        # File path components
-        "@", "/", ".py", ".ts", ".tsx", ".js", ".rs", ".go", ".md",
+        # File path components and identifiers
+        "@", "/", "_", ".py", ".ts", ".tsx", ".js", ".rs", ".go", ".md",
         ".jsx", ".rb", ".java", ".swift", ".css", ".html", ".json",
         ".toml", ".yaml", ".yml",
         # CoDRAG context markers
