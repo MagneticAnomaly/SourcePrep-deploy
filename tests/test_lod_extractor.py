@@ -445,6 +445,49 @@ class TestLOD3:
 
 
 # ---------------------------------------------------------------------------
+# LOD 2.5: signatures + docstrings, strip module-level constants
+# ---------------------------------------------------------------------------
+
+class TestLOD25:
+    """LOD 2.5: signatures + docstrings, strip module-level constants."""
+
+    def test_retains_function_signatures(self, extractor: LODExtractor, tmp_repo: Path) -> None:
+        nodes = _make_python_trace_nodes()
+        result = extractor.extract("src/example.py", 25, nodes, tmp_repo)
+        assert "def standalone_function" in result.content
+        assert "class MyClass" in result.content
+
+    def test_strips_module_level_constants(self, extractor: LODExtractor, tmp_repo: Path) -> None:
+        nodes = _make_python_trace_nodes()
+        result = extractor.extract("src/example.py", 25, nodes, tmp_repo)
+        assert "CONSTANT = 42" not in result.content
+
+    def test_retains_imports(self, extractor: LODExtractor, tmp_repo: Path) -> None:
+        nodes = _make_python_trace_nodes()
+        result = extractor.extract("src/example.py", 25, nodes, tmp_repo)
+        assert "import os" in result.content
+        assert "from pathlib import Path" in result.content
+
+    def test_better_ratio_than_lod2(self, extractor: LODExtractor, tmp_repo: Path) -> None:
+        nodes = _make_python_trace_nodes()
+        r2 = extractor.extract("src/example.py", 2, nodes, tmp_repo)
+        r25 = extractor.extract("src/example.py", 25, nodes, tmp_repo)
+        assert r25.output_chars <= r2.output_chars
+
+    def test_larger_than_lod4(self, extractor: LODExtractor, tmp_repo: Path) -> None:
+        nodes = _make_python_trace_nodes()
+        r25 = extractor.extract("src/example.py", 25, nodes, tmp_repo)
+        r4 = extractor.extract("src/example.py", 4, nodes, tmp_repo)
+        assert r25.output_chars >= r4.output_chars
+
+    def test_retains_method_docstrings(self, extractor: LODExtractor, tmp_repo: Path) -> None:
+        nodes = _make_python_trace_nodes()
+        result = extractor.extract("src/example.py", 25, nodes, tmp_repo)
+        assert "Return the sum of x and y." in result.content
+        assert "A sample class." in result.content
+
+
+# ---------------------------------------------------------------------------
 # LOD 4: imports + first lines of symbols
 # ---------------------------------------------------------------------------
 

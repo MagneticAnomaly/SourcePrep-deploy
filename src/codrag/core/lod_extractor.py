@@ -292,6 +292,104 @@ def _build_lod23(
 
 
 # ---------------------------------------------------------------------------
+# LOD 2.5: signatures + docstrings, strip module-level constants
+# ---------------------------------------------------------------------------
+
+
+def _build_lod25(
+    lines: List[str],
+    symbols: List[Dict[str, Any]],
+    language: str,
+) -> str:
+    """LOD 2.5: signatures + docstrings, strip module-level constants.
+
+    Like LOD 2 but also removes lines outside any symbol span that are
+    not imports. Addresses weak compression on constant-heavy files
+    (e.g., lod_extractor.py achieves 1.3x at LOD 2 but should be ~3x).
+    """
+    n = len(lines)
+    import_pat = _IMPORT_RE.get(language)
+
+    # 1. Determine which lines fall inside a symbol span (1-indexed)
+    in_symbol: set[int] = set()
+    for sym in symbols:
+        span = sym.get("span") or {}
+        start = span.get("start_line", 0)
+        end = span.get("end_line", 0)
+        if start and end:
+            for ln in range(start, end + 1):
+                in_symbol.add(ln)
+
+    # 2. Run LOD 2 to get the state array (KEEP / PLACEHOLDER / SKIP)
+    placeholder_text = _PLACEHOLDER.get(language, _DEFAULT_PLACEHOLDER)
+    state = [_STATE_KEEP] * (n + 2)  # 1-indexed
+
+    syms = sorted(symbols, key=lambda s: (s["span"]["end_line"] - s["span"]["start_line"]))
+
+    class_spans = [
+        (s["span"]["start_line"], s["span"]["end_line"])
+        for s in syms
+        if (s.get("metadata") or {}).get("symbol_type") == "class"
+    ]
+
+    for sym in syms:
+        span = sym.get("span") or {}
+        start = span.get("start_line", 0)
+        end = span.get("end_line", 0)
+        if not start or not end or end < start:
+            continue
+
+        meta = sym.get("metadata") or {}
+        sym_type = meta.get("symbol_type", "")
+
+        if sym_type == "class":
+            continue
+
+        sig_end = _find_sig_end(lines, start, end, language)
+        doc_end = _find_docstring_end(lines, sig_end, end, language)
+        body_start = doc_end + 1
+        if body_start > end:
+            continue
+
+        placed = False
+        for ln in range(body_start, end + 1):
+            if state[ln] == _STATE_KEEP:
+                if not placed:
+                    state[ln] = _STATE_PLACEHOLDER
+                    placed = True
+                else:
+                    state[ln] = _STATE_SKIP
+
+    # 3. Build output: only imports + symbol-interior lines
+    out: List[str] = []
+
+    # Collect import lines first (preserving order)
+    for i, line in enumerate(lines, 1):
+        if import_pat and import_pat.match(line):
+            out.append(line)
+
+    if out:
+        out.append("")  # blank separator after imports
+
+    # Add symbol lines using the LOD 2 state array
+    for ln in range(1, n + 1):
+        if ln not in in_symbol:
+            continue  # skip module-level code (constants, bare assignments, etc.)
+        s = state[ln]
+        if s == _STATE_KEEP:
+            out.append(lines[ln - 1])
+        elif s == _STATE_PLACEHOLDER:
+            out.append(placeholder_text)
+        # _STATE_SKIP: omit
+
+    # Remove trailing blank lines
+    while out and not out[-1].strip():
+        out.pop()
+
+    return "\n".join(out)
+
+
+# ---------------------------------------------------------------------------
 # LOD 4: imports + symbol first lines
 # ---------------------------------------------------------------------------
 
@@ -488,6 +586,9 @@ class LODExtractor:
         elif lod == 3:
             lines = source.splitlines()
             content = _build_lod23(lines, file_symbols, language or "", lod3=True)
+        elif lod == 25:
+            lines = source.splitlines()
+            content = _build_lod25(lines, file_symbols, language or "")
         elif lod == 4:
             lines = source.splitlines()
             content = _build_lod4(lines, file_symbols, language or "")
