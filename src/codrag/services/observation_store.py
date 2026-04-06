@@ -437,6 +437,46 @@ class ObservationStore:
             rows = conn.execute(sql, params).fetchall()
         return [Observation.from_row(r) for r in rows]
 
+    def get_by_agent(
+        self,
+        project_id: str,
+        created_by: str,
+        include_stale: bool = False,
+        visibility_filter: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Observation]:
+        """Return observations created by a specific agent role.
+
+        Args:
+            project_id: Project ID.
+            created_by: Agent role identifier (e.g. "researcher", "pi/watchdog").
+            include_stale: If False (default), exclude stale observations.
+            visibility_filter: If set, only return observations with this visibility.
+            limit: Maximum results.
+        """
+        conn = self._require_conn()
+        conditions = ["project_id = ?", "created_by = ?"]
+        params: list = [project_id, created_by]
+
+        if not include_stale:
+            conditions.append("stale = 0")
+
+        if visibility_filter:
+            conditions.append("visibility = ?")
+            params.append(visibility_filter)
+
+        where = " AND ".join(conditions)
+        params.append(limit)
+
+        with self._lock:
+            rows = conn.execute(
+                f"SELECT * FROM observations WHERE {where}"
+                " ORDER BY created_at DESC LIMIT ?",
+                params,
+            ).fetchall()
+
+        return [Observation.from_row(r) for r in rows]
+
     def get_stats(self, project_id: str) -> Dict[str, Any]:
         """Get observation statistics for a project."""
         conn = self._require_conn()

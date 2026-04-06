@@ -46,3 +46,52 @@ def test_visibility_defaults_to_shared(store):
     match = [o for o in obs if o.id == obs_id]
     assert len(match) == 1
     assert match[0].visibility == "shared"
+
+
+# ── get_by_agent tests ──────────────────────────────────────────
+
+
+def test_get_by_agent_filters_by_created_by(store):
+    store.save("proj-1", "Researcher note 1", created_by="researcher")
+    store.save("proj-1", "Custodian note 1", created_by="custodian")
+    store.save("proj-1", "Researcher note 2", created_by="researcher")
+
+    results = store.get_by_agent("proj-1", "researcher")
+    assert len(results) == 2
+    assert all(o.created_by == "researcher" for o in results)
+
+
+def test_get_by_agent_excludes_stale_by_default(store):
+    store.save("proj-1", "Will go stale", created_by="researcher",
+               file_path="src/a.py")
+    store.mark_stale_batch("proj-1", ["src/a.py"], reason="test")
+    store.save("proj-1", "Fresh note", created_by="researcher")
+
+    results = store.get_by_agent("proj-1", "researcher", include_stale=False)
+    assert all(not o.stale for o in results)
+
+
+def test_get_by_agent_visibility_filter(store):
+    store.save("proj-1", "Shared note", created_by="researcher",
+               visibility="shared")
+    store.save("proj-1", "Private note", created_by="researcher",
+               visibility="private")
+
+    shared = store.get_by_agent("proj-1", "researcher",
+                                visibility_filter="shared")
+    assert len(shared) == 1
+    assert shared[0].content == "Shared note"
+
+
+def test_get_by_agent_respects_limit(store):
+    for i in range(10):
+        store.save("proj-1", f"Note {i}", created_by="researcher")
+
+    results = store.get_by_agent("proj-1", "researcher", limit=3)
+    assert len(results) == 3
+
+
+def test_get_by_agent_empty_for_unknown_agent(store):
+    store.save("proj-1", "Some note", created_by="researcher")
+    results = store.get_by_agent("proj-1", "unknown_agent")
+    assert len(results) == 0
