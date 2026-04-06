@@ -254,6 +254,7 @@ def _apply_lod_compression(
     proj: Any,
     query: str,
     max_chars: int,
+    context_tier: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Apply LOD-based structural compression to structured search results.
 
@@ -262,6 +263,12 @@ def _apply_lod_compression(
     Files are deduplicated — each file appears once at its highest-fidelity LOD.
     """
     from codrag.core.lod_extractor import LODExtractor, assign_lod
+    from codrag.core.context_tier import ContextTier, tier_from_budget
+
+    tier = (
+        ContextTier(context_tier) if context_tier is not None
+        else tier_from_budget(max_chars)
+    )
 
     repo_root = Path(proj.path) if proj.path else Path(".")
     trace_nodes = _load_trace_nodes_for_project(proj)
@@ -283,7 +290,7 @@ def _apply_lod_compression(
             continue
         score = float(ch.get("score", 0.0))
         is_expanded = bool(ch.get("trace_expanded", False))
-        lod = assign_lod(score, is_trace_expanded=is_expanded)
+        lod = assign_lod(score, is_trace_expanded=is_expanded, tier=tier)
         if sp not in file_score or score > file_score[sp]:
             file_score[sp] = score
             file_lod[sp] = lod
@@ -1081,7 +1088,8 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
             # Phase 34c E1: auto-LOD — structural compression is always applied
             # in the structured+trace path. "none", "lod", and "auto" all trigger it.
             lod_result = _apply_lod_compression(
-                result.get("chunks", []), proj, req.query, req.max_chars
+                result.get("chunks", []), proj, req.query, req.max_chars,
+                context_tier=req.context_tier,
             )
             resp_data: Dict[str, Any] = {
                 **lod_result,
@@ -1142,7 +1150,10 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
         # SR-2: Append knowledge fallback chunks to non-trace results
         if _knowledge_fallback_chunks:
             raw_chunks.extend(_knowledge_fallback_chunks)
-        lod_result = _apply_lod_compression(raw_chunks, proj, req.query, req.max_chars)
+        lod_result = _apply_lod_compression(
+            raw_chunks, proj, req.query, req.max_chars,
+            context_tier=req.context_tier,
+        )
         resp_data: Dict[str, Any] = lod_result
         if _routing_meta:
             resp_data["atlas"] = _routing_meta
