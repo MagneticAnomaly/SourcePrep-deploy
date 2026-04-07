@@ -12,6 +12,7 @@ export interface UseConceptSystemReturn {
   handleApprove: (id: string) => void;
   handleArchive: (id: string) => void;
   handleDelete: (id: string) => void;
+  handleMarkFresh: (id: string) => void;
   handleAnswerQuestion: (questionId: string, answer: string) => void;
   handleRefresh: () => void;
 }
@@ -86,11 +87,12 @@ export function useConceptSystem(projectId: string | null): UseConceptSystemRetu
       const data = await res.json();
       const result = data?.data ?? data;
 
-      if (result?.status === 'llm_error' || result?.status === 'no_model') {
-        setError(result.message);
-      } else {
+      if (result?.status === 'success') {
         // Refresh after seeding
         await fetchConcepts();
+      } else {
+        // Show error for any non-success status (llm_error, no_model, insufficient_data, etc.)
+        setError(result?.message || 'Initialization returned no results');
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Initialization failed');
@@ -143,6 +145,22 @@ export function useConceptSystem(projectId: string | null): UseConceptSystemRetu
     }
   }, [projectId]);
 
+  const handleMarkFresh = useCallback(async (id: string) => {
+    if (!projectId) return;
+    try {
+      await fetch(`/projects/${projectId}/concepts/${id}/fresh`, { method: 'PATCH' });
+      // Optimistic update
+      setConcepts((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, stale: false, stale_reason: undefined } : c))
+      );
+      const statsRes = await fetch(`/projects/${projectId}/concepts/stats`);
+      const statsData = await statsRes.json();
+      setStats(statsData?.data ?? statsData);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Mark fresh failed');
+    }
+  }, [projectId]);
+
   const handleAnswerQuestion = useCallback(async (questionId: string, answer: string) => {
     if (!projectId) return;
     try {
@@ -171,6 +189,7 @@ export function useConceptSystem(projectId: string | null): UseConceptSystemRetu
     handleApprove,
     handleArchive,
     handleDelete,
+    handleMarkFresh,
     handleAnswerQuestion,
     handleRefresh: fetchConcepts,
   };

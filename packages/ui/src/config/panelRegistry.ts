@@ -79,7 +79,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     docsUrl: 'https://docs.codrag.io/dashboard#llm-status',
-    hidden: true,
+    devOnly: true,
   },
   {
     id: 'search',
@@ -247,7 +247,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     closeable: true,
     resizable: true,
     docsUrl: 'https://docs.codrag.io/guides/spaghetti-finder',
-    hidden: true,
+    devOnly: true,
   },
   {
     id: 'activity-heatmap',
@@ -273,7 +273,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     closeable: true,
     resizable: true,
     docsUrl: 'https://docs.codrag.io/guides/goalposts',
-    hidden: true,
+    devOnly: true,
   },
   {
     // Phase 65: Sunset — functionality merged into Opportunities panel
@@ -287,7 +287,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     closeable: true,
     resizable: true,
     docsUrl: 'https://docs.codrag.io/guides/health-scanner',
-    hidden: true,
+    devOnly: true,
   },
   {
     // Phase 65: Sunset — functionality merged into Opportunities panel
@@ -301,7 +301,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     closeable: true,
     resizable: true,
     docsUrl: 'https://docs.codrag.io/guides/advisor',
-    hidden: true,
+    devOnly: true,
   },
   {
     id: 'roadmap',
@@ -315,6 +315,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     resizable: true,
     fullWidth: true,
     docsUrl: 'https://docs.codrag.io/guides/roadmap',
+    devOnly: true,
   },
   {
     id: 'opportunities',
@@ -327,6 +328,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     closeable: true,
     resizable: true,
     docsUrl: 'https://docs.codrag.io/guides/opportunities',
+    devOnly: true,
   },
   {
     id: 'agent-scope',
@@ -385,11 +387,10 @@ export function getPanelDefinition(id: string): PanelDefinition | undefined {
 /**
  * Get panels grouped by category
  */
-export function getPanelsByCategory(): Record<string, PanelDefinition[]> {
+export function getPanelsByCategory(showDevPanels = false): Record<string, PanelDefinition[]> {
   const grouped: Record<string, PanelDefinition[]> = {};
   for (const panel of PANEL_REGISTRY) {
-    // Phase 65: Don't show hidden (sunset) panels in picker
-    if (panel.hidden) continue;
+    if (panel.devOnly && !showDevPanels) continue;
     if (!grouped[panel.category]) {
       grouped[panel.category] = [];
     }

@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Trash2,
   Send,
+  RefreshCw,
 } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────
@@ -45,6 +46,9 @@ export interface ConceptStats {
   stale: number;
   pending_questions: number;
   by_category: Record<string, number>;
+  coverage_pct?: number;
+  total_modules?: number;
+  covered_modules?: number;
 }
 
 export interface ConceptsPanelProps {
@@ -58,7 +62,9 @@ export interface ConceptsPanelProps {
   onApprove: (id: string) => void;
   onArchive: (id: string) => void;
   onDelete: (id: string) => void;
+  onMarkFresh?: (id: string) => void;
   onAnswerQuestion: (questionId: string, answer: string) => void;
+  onRefresh?: () => void;
   onOpenDetail?: () => void;
 }
 
@@ -166,7 +172,7 @@ function EmptyState({ onInitialize, initializing }: { onInitialize: () => void; 
 
 // ── Stats Bar ────────────────────────────────────────────────────
 
-function StatsBar({ stats }: { stats: ConceptStats }) {
+function StatsBar({ stats, onRefresh, loading }: { stats: ConceptStats; onRefresh?: () => void; loading?: boolean }) {
   const items = [
     { label: 'Active', value: stats.active, color: '#34d399' },
     { label: 'Seeds', value: stats.seeds, color: '#fbbf24' },
@@ -181,25 +187,44 @@ function StatsBar({ stats }: { stats: ConceptStats }) {
           <span style={{ fontSize: '11px', fontWeight: 600, color: '#e2e8f0' }}>{item.value}</span>
         </div>
       ))}
-      {stats.pending_questions > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: 'auto' }}>
-          <MessageCircleQuestion size={12} style={{ color: '#a78bfa' }} />
-          <span style={{ fontSize: '11px', color: '#a78bfa', fontWeight: 500 }}>
-            {stats.pending_questions} question{stats.pending_questions !== 1 ? 's' : ''}
-          </span>
-        </div>
-      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+        {stats.pending_questions > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <MessageCircleQuestion size={12} style={{ color: '#a78bfa' }} />
+            <span style={{ fontSize: '11px', color: '#a78bfa', fontWeight: 500 }}>
+              {stats.pending_questions} question{stats.pending_questions !== 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
+        {onRefresh && (
+          <button
+            onClick={onRefresh}
+            disabled={loading}
+            title="Refresh concepts"
+            style={{
+              display: 'flex', alignItems: 'center', padding: '2px',
+              borderRadius: '4px', border: 'none', background: 'transparent',
+              color: '#64748b', cursor: loading ? 'default' : 'pointer',
+              opacity: loading ? 0.4 : 0.6,
+              transition: 'opacity 0.15s',
+            }}
+          >
+            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
 
 // ── Concept Row ──────────────────────────────────────────────────
 
-function ConceptRow({ concept, onApprove, onArchive, onDelete }: {
+function ConceptRow({ concept, onApprove, onArchive, onDelete, onMarkFresh }: {
   concept: ConceptItem;
   onApprove: (id: string) => void;
   onArchive: (id: string) => void;
   onDelete: (id: string) => void;
+  onMarkFresh?: (id: string) => void;
 }) {
   return (
     <div style={{
@@ -216,8 +241,21 @@ function ConceptRow({ concept, onApprove, onArchive, onDelete }: {
         <CategoryBadge category={concept.category} />
         <StatusBadge status={concept.status} />
         {concept.stale && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '10px', color: '#f87171' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '10px', color: '#f87171' }}>
             <AlertTriangle size={10} /> stale
+            {onMarkFresh && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onMarkFresh(concept.id); }}
+                style={{
+                  fontSize: '10px', padding: '0 4px', borderRadius: '3px',
+                  border: '1px solid rgba(248, 113, 113, 0.3)', background: 'rgba(248, 113, 113, 0.08)',
+                  color: '#f87171', cursor: 'pointer', marginLeft: '2px',
+                }}
+                title={concept.stale_reason || 'Mark as reviewed'}
+              >
+                dismiss
+              </button>
+            )}
           </span>
         )}
       </div>
@@ -346,6 +384,39 @@ function QuestionRow({ question, onAnswer }: {
   );
 }
 
+// ── Coverage Bar ────────────────────────────────────────────
+
+function CoverageBar({ stats }: { stats: ConceptStats }) {
+  const pct = stats.coverage_pct ?? 0;
+  const total = stats.total_modules ?? 0;
+  const covered = stats.covered_modules ?? 0;
+  if (total === 0) return null;
+
+  return (
+    <div style={{ padding: '6px 12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+        <span style={{ fontSize: '10px', color: '#94a3b8' }}>
+          Module coverage
+        </span>
+        <span style={{ fontSize: '10px', fontWeight: 600, color: '#e2e8f0' }}>
+          {covered}/{total} ({pct}%)
+        </span>
+      </div>
+      <div style={{
+        height: '4px', borderRadius: '2px',
+        background: 'rgba(255,255,255,0.06)', overflow: 'hidden',
+      }}>
+        <div style={{
+          height: '100%', borderRadius: '2px',
+          width: `${Math.min(pct, 100)}%`,
+          background: pct >= 80 ? '#34d399' : pct >= 50 ? '#fbbf24' : '#f87171',
+          transition: 'width 0.3s ease',
+        }} />
+      </div>
+    </div>
+  );
+}
+
 // ── Main Panel ───────────────────────────────────────────────────
 
 export function ConceptsPanel({
@@ -360,9 +431,11 @@ export function ConceptsPanel({
   onArchive,
   onDelete,
   onAnswerQuestion,
+  onMarkFresh,
+  onRefresh,
   onOpenDetail,
 }: ConceptsPanelProps) {
-  const isEmpty = !loading && concepts.length === 0 && questions.length === 0 && !error;
+  const isEmpty = !loading && concepts.length === 0 && questions.length === 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -381,11 +454,11 @@ export function ConceptsPanel({
         <EmptyState onInitialize={onInitialize} initializing={initializing} />
       ) : (
         <>
-          {stats && <StatsBar stats={stats} />}
+          {stats && <StatsBar stats={stats} onRefresh={onRefresh} loading={loading} />}
 
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {concepts.slice(0, 20).map((c) => (
-              <ConceptRow key={c.id} concept={c} onApprove={onApprove} onArchive={onArchive} onDelete={onDelete} />
+              <ConceptRow key={c.id} concept={c} onApprove={onApprove} onArchive={onArchive} onDelete={onDelete} onMarkFresh={onMarkFresh} />
             ))}
 
             {questions.length > 0 && (
@@ -405,7 +478,9 @@ export function ConceptsPanel({
             )}
           </div>
 
-          {concepts.length > 20 && onOpenDetail && (
+          {stats && <CoverageBar stats={stats} />}
+
+          {onOpenDetail && (
             <button
               onClick={onOpenDetail}
               style={{
@@ -415,7 +490,7 @@ export function ConceptsPanel({
                 fontSize: '12px', fontWeight: 500, cursor: 'pointer',
               }}
             >
-              View all {concepts.length} concepts <ChevronRight size={14} />
+              {concepts.length > 20 ? `View all ${concepts.length} concepts` : 'Open detail view'} <ChevronRight size={14} />
             </button>
           )}
         </>

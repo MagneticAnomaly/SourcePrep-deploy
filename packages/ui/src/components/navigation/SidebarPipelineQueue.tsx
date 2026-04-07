@@ -193,8 +193,6 @@ export function SidebarPipelineQueue({
     }
   }, [baseUrl, onPriorityChange, fetchQueue]);
 
-  if (queue.length === 0 && collapsed) return null;
-
   return (
     <div className={cn('px-2 py-2', className)}>
       <button

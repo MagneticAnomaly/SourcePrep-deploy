@@ -195,6 +195,14 @@ def start_project_watch(
             pass
         return False
     
+    # Phase 74: Mark concepts stale when their anchored files change.
+    def on_files_changed(paths: list[str]) -> None:
+        try:
+            from codrag.services.concept_store import concept_store
+            concept_store.mark_stale_batch(proj.id, paths, reason="file modified")
+        except Exception:
+            pass  # Non-fatal: concept store may not be initialized
+
     watcher = AutoRebuildWatcher(
         repo_root=Path(proj.path),
         index_dir=idx.index_dir,
@@ -203,6 +211,7 @@ def start_project_watch(
         debounce_ms=debounce_ms,
         min_rebuild_gap_ms=min_gap_ms,
         project_id=proj.id,
+        on_files_changed=on_files_changed,
     )
     watcher.start()
     _srv()._project_watchers[proj.id] = watcher

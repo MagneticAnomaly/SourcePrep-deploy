@@ -1129,6 +1129,7 @@ export interface GlobalConfig {
   };
   module_layout?: import('./types/layout').DashboardLayout;
   developer_debug_mode?: boolean;
+  developer_show_dev_panels?: boolean;
 }
 
 /**

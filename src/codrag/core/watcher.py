@@ -40,6 +40,7 @@ class AutoRebuildWatcher:
         min_rebuild_gap_ms: int = 2000,
         project_id: Optional[str] = None,
         on_coverage_gap: Optional[Callable[[], None]] = None,
+        on_files_changed: Optional[Callable[[List[str]], None]] = None,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.index_dir = Path(index_dir).resolve()
@@ -50,6 +51,7 @@ class AutoRebuildWatcher:
         self._on_trigger_build = on_trigger_build
         self._is_building = is_building
         self._on_coverage_gap = on_coverage_gap
+        self._on_files_changed = on_files_changed
 
         self._lock = threading.Lock()
         self._enabled = False
@@ -257,6 +259,13 @@ class AutoRebuildWatcher:
             paths = sorted(self._pending_paths)
             self._pending_paths = set()
             self._next_rebuild_at = None
+
+        # Notify listeners about changed files (e.g. concept staleness)
+        if self._on_files_changed and paths:
+            try:
+                self._on_files_changed(paths)
+            except Exception:
+                logger.debug("on_files_changed callback failed", exc_info=True)
 
         if self._is_building():
             with self._lock:

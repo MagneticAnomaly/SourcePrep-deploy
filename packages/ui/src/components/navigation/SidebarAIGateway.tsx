@@ -187,8 +187,8 @@ function ExpandedView({
             const isConfigured = slot.status?.configured ?? false;
 
             return (
-              <div key={slot.key}>
-                <div className="flex items-center gap-2">
+              <div key={slot.key} className="min-h-[36px]">
+                <div className="flex items-center gap-2 h-[36px]">
                   {/* Status indicator */}
                   <div className={cn(
                     "shrink-0 w-5 h-5 rounded-full flex items-center justify-center",
@@ -218,11 +218,9 @@ function ExpandedView({
                         </span>
                       )}
                     </div>
-                    {isConfigured && slot.status?.model && (
-                      <div className="text-[10px] text-text-muted truncate">
-                        {slot.status.model}
-                      </div>
-                    )}
+                    <div className="text-[10px] text-text-muted truncate h-[14px]">
+                      {isConfigured && slot.status?.model ? slot.status.model : '\u00A0'}
+                    </div>
                   </div>
                 </div>
 

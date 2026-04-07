@@ -65,6 +65,7 @@ import {
   ArchitectureDiagramPanel,
   ArchitectureDiagramDetail,
   ConceptsPanel,
+  ConceptsDetail,
 } from '@codrag/ui'
 import type { TraceStatus, TraceCoverage } from './useTraceSystem'
 import type { UseAuditSystemReturn } from './useAuditSystem'
@@ -248,6 +249,7 @@ export interface DashboardPanelsProps {
   onOpenSettings?: () => void
   /** Open detail overlay for a specific panel */
   onOpenDetails?: (panelId: string) => void
+  showDevPanels?: boolean
   // Domain groups
   search: PanelSearchProps
   files: PanelFileSystemProps
@@ -1151,11 +1153,15 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onApprove={conceptsProps.handleApprove}
         onArchive={conceptsProps.handleArchive}
         onDelete={conceptsProps.handleDelete}
+        onMarkFresh={conceptsProps.handleMarkFresh}
         onAnswerQuestion={conceptsProps.handleAnswerQuestion}
+        onRefresh={conceptsProps.handleRefresh}
         onOpenDetail={() => props.onOpenDetails?.('concepts')}
       />
     ),
-  }), [p, excludedPaths, handleToggleExclude, archProps, conceptsProps])
+  }), [p, excludedPaths, handleToggleExclude, archProps,
+      conceptsProps.concepts, conceptsProps.questions, conceptsProps.stats,
+      conceptsProps.loading, conceptsProps.initializing, conceptsProps.error])
 
   const dynamicPanelDefs = useMemo(() =>
     [...p.pinnedPaths].map((path) => ({
@@ -1172,9 +1178,13 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
     [p.pinnedPaths]
   )
 
+  const showDevPanels = props.showDevPanels ?? false
   const allPanelDefs = useMemo(
-    () => [...PANEL_REGISTRY, ...dynamicPanelDefs],
-    [dynamicPanelDefs]
+    () => [
+      ...PANEL_REGISTRY.filter(p => !p.devOnly || showDevPanels),
+      ...dynamicPanelDefs,
+    ],
+    [dynamicPanelDefs, showDevPanels]
   )
 
   const panelDetails = useMemo(() => ({
@@ -1399,7 +1409,21 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onToggleOrphans={archProps.toggleOrphans}
       />
     ),
-  }), [p, excludedPaths, handleToggleExclude, agentOpsData, archProps])
+    concepts: (
+      <ConceptsDetail
+        concepts={conceptsProps.concepts}
+        questions={conceptsProps.questions}
+        stats={conceptsProps.stats}
+        loading={conceptsProps.loading}
+        onApprove={conceptsProps.handleApprove}
+        onArchive={conceptsProps.handleArchive}
+        onDelete={conceptsProps.handleDelete}
+        onMarkFresh={conceptsProps.handleMarkFresh}
+        onAnswerQuestion={conceptsProps.handleAnswerQuestion}
+        onRefresh={conceptsProps.handleRefresh}
+      />
+    ),
+  }), [p, excludedPaths, handleToggleExclude, agentOpsData, archProps, conceptsProps.concepts, conceptsProps.questions, conceptsProps.stats, conceptsProps.loading])
 
   return { panelContent, panelDetails, allPanelDefs, PINNED_PREFIX }
 }

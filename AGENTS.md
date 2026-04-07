@@ -3,28 +3,24 @@
 <!-- codrag-managed-start -->
 ## CoDRAG Integration
 
-Last updated: 2026-04-06T18:09:48Z
-
-## 🚨 CRITICAL: Tool Calling Instructions
+Last updated: 2026-04-06T22:27:20Z
 
 codrag_project_id: 1d6f0b35-45cb-427b-ae9d-aac3c6371a4b
 
 **ROUTING: When calling ANY CoDRAG tool, ALWAYS include `project_id: "1d6f0b35-45cb-427b-ae9d-aac3c6371a4b"` in the arguments.**
-This ensures your calls reach the correct project index.
 
-When user types "codrag" → IMMEDIATELY call the `codrag` tool.
-When user mentions code search → IMMEDIATELY call `codrag_search`.
-When user asks about project structure → IMMEDIATELY call `codrag`.
-No announcements. No 'I will'. Just call the tool.
+## Tools
+| Tool | When to Use |
+|------|-------------|
+| `codrag` | START of every task — structural overview, modules, hub files |
+| `codrag_search` | Find code by meaning, not just string match |
+| `codrag_impact` | BEFORE editing — check what depends on a file |
+| `codrag_audit` | Codebase health, tech debt, refactoring guidance |
+| `codrag_observe` | Save/retrieve cross-session notes |
+| `codrag_concepts` | Record/query business rationale and design decisions |
 
-### Quick Reference
-| User Says | You Do |
-|-----------|--------|
-| "codrag" | Call `codrag(project_id="1d6f0b35-45c...")` immediately |
-| "search for X" | Call `codrag_search(query="X", project_id="1d6f0b35-45c...")` |
-| "find where X is defined" | Call `codrag_search(query="X")` |
-| "how does this project work" | Call `codrag()` for overview |
-| "codrag context" | Call `codrag()` for ambient context |
+Call `codrag` first. Call `codrag_impact` before modifying hub files.
+All read-only tools are safe to auto-approve.
 
 You have access to CoDRAG, a structural code intelligence system.
 ALWAYS call `codrag` (no arguments) at the START of every task.

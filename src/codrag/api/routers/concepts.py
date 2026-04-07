@@ -60,6 +60,55 @@ class SearchConceptsRequest(BaseModel):
     include_archived: bool = False
 
 
+def _calculate_coverage(project_id: str, store) -> Dict[str, Any]:
+    """Calculate what % of modules have at least one concept anchored."""
+    import json as _json
+    from codrag.core.project_registry import project_index_dir
+    from codrag.services.project_helpers import require_project
+
+    project = require_project(project_id)
+    index_dir = project_index_dir(project)
+    modules_path = index_dir / "trace_modules.jsonl"
+
+    if not modules_path.exists():
+        return {"coverage_pct": 0.0, "total_modules": 0, "covered_modules": 0}
+
+    # Build file → module_id map
+    file_to_module: Dict[str, str] = {}
+    module_ids: set = set()
+    with open(modules_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                mod = _json.loads(line)
+                mid = mod.get("module_id") or mod.get("name", "")
+                if not mid:
+                    continue
+                module_ids.add(mid)
+                for fp in mod.get("member_files", mod.get("files", [])):
+                    file_to_module[fp] = mid
+            except (ValueError, KeyError):
+                continue
+
+    if not module_ids:
+        return {"coverage_pct": 0.0, "total_modules": 0, "covered_modules": 0}
+
+    # Find which modules have concepts anchored
+    concepts = store.list_concepts(project_id, include_archived=False)
+    covered: set = set()
+    for c in concepts:
+        for anchor in c.anchors:
+            mid = file_to_module.get(anchor)
+            if mid:
+                covered.add(mid)
+
+    total = len(module_ids)
+    pct = round(len(covered) / total * 100, 1) if total > 0 else 0.0
+    return {"coverage_pct": pct, "total_modules": total, "covered_modules": len(covered)}
+
+
 class AnswerQuestionRequest(BaseModel):
     answer: str
     title: Optional[str] = None  # Override title for the created concept
@@ -108,10 +157,19 @@ async def list_concepts(
 
 @router.get("/projects/{project_id}/concepts/stats")
 async def concept_stats(project_id: str):
-    """Get concept statistics."""
+    """Get concept statistics including module coverage."""
     _require_project(project_id)
     store = _get_store()
     stats = store.get_stats(project_id)
+
+    # Calculate module coverage (non-fatal if modules aren't available)
+    try:
+        stats.update(_calculate_coverage(project_id, store))
+    except Exception:
+        stats.setdefault("coverage_pct", 0.0)
+        stats.setdefault("total_modules", 0)
+        stats.setdefault("covered_modules", 0)
+
     return ok(stats)
 
 
@@ -297,6 +355,23 @@ async def archive_concept(project_id: str, concept_id: str):
     if not existed:
         raise ApiException(404, "NOT_FOUND", f"Concept {concept_id} not found")
     return ok({"archived": True})
+
+
+@router.patch("/projects/{project_id}/concepts/{concept_id}/fresh")
+async def mark_fresh(project_id: str, concept_id: str):
+    """Clear the stale flag on a concept after user review."""
+    _require_project(project_id)
+    store = _get_store()
+    conn = store._require_conn()
+    with store._lock:
+        cur = conn.execute(
+            "UPDATE concepts SET stale = 0, stale_reason = NULL, updated_at = ? WHERE id = ?",
+            (__import__("time").time(), concept_id),
+        )
+        conn.commit()
+    if cur.rowcount == 0:
+        raise ApiException(404, "NOT_FOUND", f"Concept {concept_id} not found")
+    return ok({"fresh": True})
 
 
 @router.delete("/projects/{project_id}/concepts/{concept_id}")

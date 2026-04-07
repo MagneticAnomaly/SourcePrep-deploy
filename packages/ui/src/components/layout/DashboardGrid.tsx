@@ -100,7 +100,6 @@ export function DashboardGrid({
         width={width}
         margin={margin}
         containerPadding={margin}
-        onLayoutChange={handleLayoutCommit}
         onDragStop={handleLayoutCommit}
         onResizeStop={handleLayoutCommit}
         draggableHandle=".drag-handle"

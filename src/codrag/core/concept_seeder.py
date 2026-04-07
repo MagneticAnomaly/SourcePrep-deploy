@@ -145,17 +145,25 @@ def _assemble_seeding_context(index_dir: Path, project_path: str) -> str:
         try:
             with open(atlas_path, "r", encoding="utf-8") as f:
                 atlas = json.load(f)
+
+            # Atlas may store data as separate keys OR as a single "content" string
+            content_str = atlas.get("content", "")
             identity = atlas.get("identity", "")
             workspace_map = atlas.get("workspace_map", "")
             cross_cutting = atlas.get("cross_cutting", "")
 
             atlas_text = ""
-            if identity:
-                atlas_text += f"IDENTITY: {identity}\n"
-            if workspace_map:
-                atlas_text += f"WORKSPACE MAP:\n{workspace_map}\n"
-            if cross_cutting:
-                atlas_text += f"CROSS-CUTTING: {cross_cutting}\n"
+            if content_str and isinstance(content_str, str):
+                # Modern format: everything in a single content field
+                atlas_text = content_str
+            else:
+                # Legacy/structured format: separate fields
+                if identity:
+                    atlas_text += f"IDENTITY: {identity}\n"
+                if workspace_map:
+                    atlas_text += f"WORKSPACE MAP:\n{workspace_map}\n"
+                if cross_cutting:
+                    atlas_text += f"CROSS-CUTTING: {cross_cutting}\n"
 
             if atlas_text:
                 trimmed = atlas_text[:1500]
@@ -176,7 +184,8 @@ def _assemble_seeding_context(index_dir: Path, project_path: str) -> str:
                         continue
                     try:
                         mod = json.loads(line)
-                        file_count = len(mod.get("files", []))
+                        # Support both "member_files" (current) and "files" (legacy)
+                        file_count = mod.get("file_count", len(mod.get("member_files", mod.get("files", []))))
                         if file_count >= MIN_MODULE_FILES:
                             modules.append(mod)
                     except json.JSONDecodeError:
@@ -184,12 +193,12 @@ def _assemble_seeding_context(index_dir: Path, project_path: str) -> str:
 
             if modules:
                 # Sort by file count (most important first)
-                modules.sort(key=lambda m: len(m.get("files", [])), reverse=True)
+                modules.sort(key=lambda m: m.get("file_count", len(m.get("member_files", m.get("files", [])))), reverse=True)
                 mod_lines = []
                 for mod in modules[:15]:  # Top 15 modules
-                    name = mod.get("name", "unnamed")
+                    name = mod.get("name", mod.get("module_id", "unnamed"))
                     summary = mod.get("summary", "")[:100]
-                    files = mod.get("files", [])
+                    files = mod.get("member_files", mod.get("files", []))
                     mod_lines.append(f"- {name} ({len(files)} files): {summary}")
 
                 mod_text = "\n".join(mod_lines)[:budget - 50]

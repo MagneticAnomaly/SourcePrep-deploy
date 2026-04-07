@@ -235,8 +235,8 @@ export { ArchitectureDiagramPanel, ArchitectureDiagramDetail } from './component
 export type { ArchitectureDiagramPanelProps, ArchitectureDiagramDetailProps } from './components/architecture';
 
 // Components - Concepts (Phase 74)
-export { ConceptsPanel } from './components/concepts';
-export type { ConceptsPanelProps, ConceptItem, ConceptQuestionItem, ConceptStats } from './components/concepts';
+export { ConceptsPanel, ConceptsDetail } from './components/concepts';
+export type { ConceptsPanelProps, ConceptsDetailProps, ConceptItem, ConceptQuestionItem, ConceptStats } from './components/concepts';
 
 // Components - Enterprise (Phase 06)
 export { EnterpriseAdminPanel } from './components/enterprise';

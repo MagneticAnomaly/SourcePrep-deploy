@@ -30,10 +30,21 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _safe_write_stdout(data: str) -> bool:
+    """Write to stdout, returning False if the pipe is broken."""
+    try:
+        sys.stdout.write(data)
+        sys.stdout.flush()
+        return True
+    except (BrokenPipeError, OSError) as e:
+        logger.error("stdout pipe broken: %s", e)
+        return False
+
+
 async def run_stdio(server: "MCPServer") -> None:
     """
     Run the MCP server over stdio transport.
-    
+
     Reads JSON-RPC messages from stdin, writes responses to stdout.
     Messages are newline-delimited.
     """
@@ -44,8 +55,7 @@ async def run_stdio(server: "MCPServer") -> None:
 
     # OPP-2: Wire notification callback so server can push resource updates
     async def _stdio_notify(notification: dict) -> None:
-        sys.stdout.write(json.dumps(notification) + "\n")
-        sys.stdout.flush()
+        _safe_write_stdout(json.dumps(notification) + "\n")
     server._notification_callback = _stdio_notify
 
     try:
@@ -69,14 +79,14 @@ async def run_stdio(server: "MCPServer") -> None:
                     "id": None,
                     "error": {"code": PARSE_ERROR, "message": f"Parse error: {e}"},
                 }
-                sys.stdout.write(json.dumps(error_response) + "\n")
-                sys.stdout.flush()
+                _safe_write_stdout(json.dumps(error_response) + "\n")
                 continue
 
             response = await server.handle_request(request)
             if response is not None:
-                sys.stdout.write(json.dumps(response) + "\n")
-                sys.stdout.flush()
+                if not _safe_write_stdout(json.dumps(response) + "\n"):
+                    logger.error("Cannot write response — stdout broken, exiting")
+                    break
 
     except Exception as e:
         logger.exception("Error in stdio loop")

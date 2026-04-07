@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DashboardLayout } from '../../types/layout';
 import { DEFAULT_LAYOUT, LAYOUT_STORAGE_KEY, reflowLayout as reflowLayoutUtil } from '../../types/layout';
 
@@ -85,13 +85,24 @@ export function useLayoutPersistence(
     return DEFAULT_LAYOUT;
   });
 
-  // Debounced save
+  // Debounced save to localStorage
   useEffect(() => {
     const timeout = setTimeout(() => {
       saveLayout(storageKey, layout);
     }, debounceMs);
     return () => clearTimeout(timeout);
   }, [layout, storageKey, debounceMs]);
+
+  // Flush immediately on tab/window close to prevent debounce data loss.
+  // Use a ref so the listener registers once per storageKey, not on every layout change.
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+
+  useEffect(() => {
+    const flush = () => saveLayout(storageKey, layoutRef.current);
+    window.addEventListener('beforeunload', flush);
+    return () => window.removeEventListener('beforeunload', flush);
+  }, [storageKey]);
 
   const updateLayout = useCallback((newLayout: DashboardLayout) => {
     setLayoutState(newLayout);
