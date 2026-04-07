@@ -48,6 +48,14 @@ _CORE_TOOLS = [
                         "Returns a role-appropriate codebase view with matched detail level."
                     ),
                 },
+                "working_dir": {
+                    "type": "string",
+                    "description": (
+                        "Directory you are currently working in (e.g. 'src/codrag/services'). "
+                        "When set, CoDRAG includes L2 scoped context: observations and concepts "
+                        "anchored to files in this directory. Improves relevance without a search query."
+                    ),
+                },
                 "project_id": _PROJECT_ID_PROP,
             },
             "required": [],
@@ -104,6 +112,14 @@ _CORE_TOOLS = [
                         "Optional agent role for scoped search. When set, results are "
                         "filtered to only include files in the agent's configured "
                         "Knowledge Scope (e.g. 'ceo', 'ux_designer', 'devops')."
+                    ),
+                },
+                "working_dir": {
+                    "type": "string",
+                    "description": (
+                        "Directory you are currently working in (e.g. 'src/codrag/services'). "
+                        "When set, CoDRAG includes L2 scoped context: observations and concepts "
+                        "anchored to files in this directory."
                     ),
                 },
                 "project_id": _PROJECT_ID_PROP,
