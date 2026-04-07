@@ -55,6 +55,10 @@ class PMIssue:
     item_count: int = 1                # How many ActionItems were consolidated
     codrag_item_ids: List[str] = field(default_factory=list)  # All original item IDs
 
+    # Structural enrichment (Phase 73.5 Emergence)
+    structural_context: Optional["StructuralContext"] = None
+    significance: str = "recommended"   # "mandatory" | "recommended" | "informational"
+
     def pm_priority(self) -> str:
         """Map CoDRAG priority to a generic PM priority string."""
         return CODRAG_TO_PM_PRIORITY.get(self.priority, "medium")
@@ -167,3 +171,39 @@ class PMPushConfig:
             "min_priority": self.min_priority,
             "exclude_categories": self.exclude_categories,
         }
+
+
+# ── Structural Enrichment (Phase 73.5 Emergence) ───────────────────
+
+
+@dataclass
+class StructuralContext:
+    """Structural intelligence attached to a PM issue.
+
+    CoDRAG-only data that helps Paperclip route work.
+    """
+    hub_files_involved: List[str] = field(default_factory=list)
+    hub_count: int = 0
+    total_dependents: int = 0
+    modules_spanned: List[str] = field(default_factory=list)
+    cross_module: bool = False
+    complexity_tier: str = "lightweight"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "hub_files": self.hub_files_involved,
+            "hub_count": self.hub_count,
+            "total_dependents": self.total_dependents,
+            "modules_spanned": self.modules_spanned,
+            "cross_module": self.cross_module,
+            "complexity_tier": self.complexity_tier,
+        }
+
+
+def compute_complexity_tier(ctx: StructuralContext) -> str:
+    """Classify structural complexity: lightweight / standard / heavyweight."""
+    if ctx.hub_count >= 2 or ctx.total_dependents > 20 or ctx.cross_module:
+        return "heavyweight"
+    if ctx.hub_count >= 1 or ctx.total_dependents > 5:
+        return "standard"
+    return "lightweight"
