@@ -437,7 +437,7 @@ class GroupReasoningEngine:
             from codrag.core.batch_profiles import get_batch_concurrency
             concurrency = get_batch_concurrency(self.llm.provider, model=self.llm.model)
         except Exception:
-            concurrency = 4
+            concurrency = 1
 
         orch = SwarmOrchestrator(llm=self.llm, concurrency=concurrency)
 
@@ -499,11 +499,16 @@ class GroupReasoningEngine:
                 return None
             return json.dumps(entry.to_dict())
 
+        def progress_fn(done: int, total: int) -> None:
+            if progress_callback:
+                progress_callback("group_reasoning", done, len(to_analyze), 0)
+
         result = orch.execute(
             items=items,
             coordinator_prompt=coordinator_prompt,
             worker_fn=worker_fn,
             synthesis_prompt=synthesis_prompt,
+            progress_fn=progress_fn,
         )
 
         if result is None:
@@ -519,8 +524,9 @@ class GroupReasoningEngine:
                 except (KeyError, ValueError) as exc:
                     logger.warning("Failed to parse worker result for %s: %s", wr.item_id, exc)
 
-        # Write synthesis artifact
-        self._write_synthesis(result)
+        # Write synthesis artifact (only if synthesis succeeded)
+        if result.synthesis:
+            self._write_synthesis(result)
 
         return entries
 
