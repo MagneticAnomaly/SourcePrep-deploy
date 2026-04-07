@@ -531,3 +531,87 @@ Plus the new infrastructure:
 3. **Issue description enrichment format** — The structural context section uses markdown. Does Paperclip render markdown in issue descriptions? If not, we need a plain-text format.
 
 4. **Auto-push timing** — Should auto-push happen immediately after engine run (synchronous), or should it be a background task that runs after the engine completes? Synchronous is simpler but blocks the API response.
+
+---
+
+## 13. Implementation Status
+
+> Updated: 2026-04-07 | 19 commits on `feat/phase72-pipeline-refactor` | 27 Python tests passing
+
+### What's Done
+
+| Component | Status | Commits |
+|-----------|--------|---------|
+| **Consensus scoring** (`get_consensus_scores()` on ObservationStore) | Done | `067f94e2` |
+| **StructuralContext** dataclass + `compute_complexity_tier()` | Done | `84191afb` |
+| **PushEngine structural enrichment** (`_enrich_with_structural_context()`, `snapshot_store` param) | Done | `d8c553c4` |
+| **Delta push** (`push_significant_delta()` on PushEngine) | Done | `4384a62c` |
+| **Consensus hotspots in delta MCP resource** + claims steps in prompts | Done | `9a74611d` |
+| **Significance classification** (`classify_significance()` with hub_count) | Done | `c89ae6c9`, `7950d28c` |
+| **REST endpoints** (`/collaboration/consensus`, `/collaboration/push-summary`) | Done | `5ddf1bd5` |
+| **Push enrichment wired into `_push_group()`** (structural + consensus) | Done | `88b708f0` |
+| **AgentOpsPanel** rewritten to config-only (engine rows + MCPConnection + PushSettings) | Done | `27858ae8`, `7637d08b` |
+| **PushSettings** component (auto-push toggle, significance threshold, Paperclip project) | Done (wired to dashboard state) | `27858ae8`, `7950d28c` |
+| **Dashboard hook** maps API response to new EngineStatus shape | Done | `8e10a3e6`, `7637d08b` |
+| **Panel registry** updated | Done | `8e10a3e6` |
+| **Storybook stories** updated for new interface | Done | `b6a28c32` |
+| **CodebaseHealthWidget** (pipeline status, push summary, consensus, delta) | Done | `e4196811` |
+| **KnowledgeScopeTab** (read-only scope + claims overlay) | Done | `136c2a35` |
+| **IssueContextTab** (structural context parsing + on-demand enrichment) | Done | `2fdd9b19` |
+| **Plugin worker** (6 data providers, 3 actions, fixed agent-knowledge-scope) | Done | `d2106869` |
+| **Push param on HR endpoint** (actually pushes to Paperclip) | Done | `46f15ee1` |
+| **Push param on Researcher/Custodian** (accepted, echoed as `push_requested`) | Stub | `46f15ee1` |
+
+### What's Deferred — Roadmap
+
+These items are explicitly deferred. Each is a small, self-contained task that can be picked up independently.
+
+#### Priority 1: Push Settings Persistence
+
+**What:** `GET/PUT /projects/{pid}/push/settings` endpoints backed by the settings store.
+**Why deferred:** Requires wiring `PMPushConfig` (which already has `auto_push`, `min_priority`, `consolidation_strategy` fields) to new REST endpoints and connecting the dashboard's `PushSettings` component to fetch/save from them. Currently push settings live in dashboard React state only (not persisted across refreshes).
+**Effort:** Small — 2 endpoints + settings store read/write + dashboard fetch/save wiring.
+**Files:** `src/codrag/api/routers/collaboration.py`, `src/codrag/dashboard/src/hooks/useDashboardPanels.tsx`
+
+#### Priority 2: Researcher + Custodian Push Execution
+
+**What:** When `push=true` is passed to the researcher/custodian run endpoints, actually push findings to Paperclip via PushEngine (like HR already does).
+**Why deferred:** The Researcher and Custodian engines produce different output shapes (research topics, cleanup candidates) than what PushEngine.push() expects (ActionItems). Needs an adapter layer to convert engine output → ActionItems → PushEngine.
+**Effort:** Medium — adapter functions for each engine output type, PushEngine integration, tests.
+**Files:** `src/codrag/api/routers/agents.py`, possibly new adapter functions in each engine.
+
+#### Priority 3: Push Activity Logging
+
+**What:** Log push events to `ActivityStore` when PushEngine successfully pushes issues. This makes the `/collaboration/push-summary` endpoint return real data instead of always 0.
+**Why deferred:** Requires threading the `CollaborationHub` through to PushEngine, or having the API layer log after push completes. The plumbing is straightforward but touches several files.
+**Effort:** Small — add `hub.activity.record()` calls after successful pushes in PushEngine or the API layer.
+**Files:** `src/codrag/adapters/push_engine.py` or `src/codrag/api/routers/agents.py`
+
+#### Priority 4: Pipeline Rebuild → Delta Push
+
+**What:** After pipeline rebuild completes, automatically capture a graph snapshot, compute delta, and push significant changes to Paperclip.
+**Why deferred:** The `POST /pipeline/rebuild` endpoint exists but the post-rebuild hook needs to call `CollaborationHub.snapshots.capture()` then `PushEngine.push_significant_delta()`. Requires both services to be available in the rebuild handler.
+**Effort:** Small — post-rebuild hook in the pipeline endpoint or watcher.
+**Files:** `src/codrag/api/routers/projects/watch.py` or `src/codrag/core/watcher.py`
+
+#### Priority 5: SettingsPage Enhancement
+
+**What:** Enhance the Paperclip plugin's Settings page with daemon URL field, project ID, auto-context toggle, and push settings link.
+**Why deferred:** The current 55-line implementation works for basic config. Enhancement is nice-to-have.
+**Effort:** Trivial — UI-only change in `packages/paperclip-plugin-codrag/src/ui/SettingsPage.tsx`.
+
+### Test Coverage
+
+| Test file | Tests | Covers |
+|-----------|-------|--------|
+| `tests/test_consensus_scoring.py` | 5 | `get_consensus_scores()` edge cases |
+| `tests/test_structural_enrichment.py` | 9 | `StructuralContext`, `compute_complexity_tier()`, `_enrich_with_structural_context()` |
+| `tests/test_delta_push.py` | 5 | `push_significant_delta()` dedup + filtering |
+| `tests/test_significance.py` | 6 | `classify_significance()` including hub_count override |
+| `tests/test_push_settings_api.py` | 2 | `/collaboration/consensus` endpoint |
+| **Total** | **27** | |
+
+**Not tested (noted for future):**
+- `/collaboration/push-summary` endpoint (returns 0 until activity logging is added)
+- `enrich-issue` plugin action (requires Paperclip SDK test harness)
+- Dashboard rendering (requires browser/Storybook test infrastructure)
