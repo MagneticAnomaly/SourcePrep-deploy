@@ -195,6 +195,22 @@ def format_delta_resource(delta: Dict[str, Any]) -> str:
                     f"{m.get('new_file_count', '?')} files"
                 )
 
+    # Consensus hotspots (if provided)
+    consensus = delta.get("consensus_hotspots", [])
+    if consensus:
+        lines.append("")
+        lines.append("### Consensus Hotspots (files flagged by 2+ agents)")
+        lines.append("")
+        lines.append("| File | Agents | Score |")
+        lines.append("|---|---|---|")
+        for entry in consensus:
+            agents_str = ", ".join(entry.get("agents", []))
+            score = entry.get("consensus_score", 0)
+            lines.append(
+                f"| {entry.get('file_path', '?')} "
+                f"| {agents_str} | {score:.2f} |"
+            )
+
     return "\n".join(lines)
 
 
@@ -318,7 +334,13 @@ def get_collaboration_prompt_messages(
                         "3. Call `codrag_search` to deepen your "
                         "understanding of relevant code.\n"
                         "4. Summarize what you're picking up and "
-                        "your next steps."
+                        "your next steps.\n"
+                        "5. Check active claims: does the "
+                        f"{from_role} agent have any active file "
+                        "claims?\n"
+                        "   The receiving agent should be aware of "
+                        "claimed areas and either\n"
+                        "   respect or release those claims."
                     ),
                 },
             }],
@@ -371,7 +393,14 @@ def get_collaboration_prompt_messages(
                         "5. Summarize each finding with: scope "
                         "size, hub involvement, blast radius, "
                         "and whether it overlaps with areas other "
-                        "agents have flagged."
+                        "agents have flagged.\n"
+                        "6. Call `codrag_search` on the top findings "
+                        "for deeper structural context.\n"
+                        "7. Check active file claims: which files are "
+                        "currently claimed by agents?\n"
+                        "   Findings on claimed files should note the "
+                        "claim — the claiming agent\n"
+                        "   may already be addressing the issue."
                     ),
                 },
             }],
