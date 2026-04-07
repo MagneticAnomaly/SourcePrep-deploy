@@ -1259,8 +1259,8 @@ class MCPServer:
                 sections.append(
                     f"**Observations for `{working_dir}/`:**\n" + "\n".join(obs_lines)
                 )
-        except Exception:
-            pass  # Store not initialized — skip gracefully
+        except Exception as e:
+            logger.debug("L2 observations for %s failed: %s", working_dir, e)
 
         # L2 concepts
         try:
@@ -1275,8 +1275,8 @@ class MCPServer:
                 sections.append(
                     f"**Concepts for `{working_dir}/`:**\n" + "\n".join(con_lines)
                 )
-        except Exception:
-            pass  # Store not initialized — skip gracefully
+        except Exception as e:
+            logger.debug("L2 concepts for %s failed: %s", working_dir, e)
 
         if not sections:
             return ""

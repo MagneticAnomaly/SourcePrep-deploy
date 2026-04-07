@@ -16,19 +16,28 @@ import re
 from typing import Dict, List, Optional
 
 
+_MIN_CODE_LENGTH = 2  # Minimum code length to prevent false matches in text
+
+
 def _stem_code(path: str, length: int = 3) -> str:
     """Derive a short code from a file path's stem.
 
     Takes the uppercase initials of underscore/camelCase segments.
     Falls back to first N chars of filename if segments are too short.
+    Always returns at least _MIN_CODE_LENGTH characters to prevent
+    single-char codes that would corrupt text via false replacements.
     """
     name = path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
     parts = re.split(r"[_\-]", name)
     if len(parts) >= length:
         code = "".join(p[0] for p in parts[:length] if p).upper()
-        if len(code) >= 2:
+        if len(code) >= _MIN_CODE_LENGTH:
             return code
-    return name[:length].upper()
+    # Fallback: pad short names to minimum length
+    code = name[:max(length, _MIN_CODE_LENGTH)].upper()
+    if len(code) < _MIN_CODE_LENGTH:
+        code = code.ljust(_MIN_CODE_LENGTH, "X")
+    return code
 
 
 class SymbolRegistry:
