@@ -1,0 +1,50 @@
+{
+  "version": "0.1.0",
+  "last_reviewed": "2026-04-07",
+  "min_groups_threshold": 3,
+  "models": [
+    {
+      "id": "kimi-k2.5",
+      "providers": ["ollama"],
+      "contains": "kimi",
+      "tier": "both",
+      "notes": "Primary supported model. Designed for agent swarm."
+    },
+    {
+      "id": "claude-sonnet-4",
+      "providers": ["anthropic", "openai-compatible"],
+      "contains": "sonnet",
+      "tier": "both",
+      "notes": "Best cost/quality ratio."
+    },
+    {
+      "id": "claude-opus-4",
+      "providers": ["anthropic", "openai-compatible"],
+      "contains": "opus",
+      "tier": "coordinator",
+      "notes": "Best synthesis quality."
+    },
+    {
+      "id": "gpt-5.4",
+      "providers": ["openai", "openai-compatible"],
+      "contains": "gpt-5",
+      "tier": "both",
+      "notes": "Structured outputs. Outstanding agentic evals."
+    },
+    {
+      "id": "gemini-pro",
+      "providers": ["openai-compatible", "ollama"],
+      "contains": "gemini",
+      "tier": "coordinator",
+      "notes": "Best long-context coordination."
+    },
+    {
+      "id": "grok-4",
+      "providers": ["openai-compatible"],
+      "contains": "grok",
+      "tier": "both",
+      "notes": "Strong contextual awareness."
+    }
+  ],
+  "default_tier": "unsuitable"
+}
