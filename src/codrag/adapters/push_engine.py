@@ -242,6 +242,50 @@ class PushEngine:
             codrag_item_ids=group.codrag_item_ids,
         )
 
+        # Structural enrichment (Phase 73.5 Emergence)
+        structural_ctx = self._enrich_with_structural_context(
+            affected_files=group.affected_files[:20],
+            project_id=codrag_project_id,
+        )
+        if structural_ctx:
+            pm_issue.structural_context = structural_ctx
+            pm_issue.description += (
+                f"\n\n---\n### Structural Context (CoDRAG)\n"
+                f"- **Complexity:** {structural_ctx.complexity_tier}\n"
+            )
+            if structural_ctx.hub_files_involved:
+                hub_list = ", ".join(structural_ctx.hub_files_involved[:5])
+                pm_issue.description += (
+                    f"- **Hub files:** {hub_list}\n"
+                    f"- **Blast radius:** {structural_ctx.total_dependents} total dependents\n"
+                )
+            if structural_ctx.cross_module:
+                mod_list = ", ".join(structural_ctx.modules_spanned[:5])
+                pm_issue.description += f"- **Modules spanned:** {mod_list}\n"
+
+        # Consensus enrichment
+        if codrag_project_id:
+            try:
+                from codrag.services.observation_store import observation_store
+                consensus = observation_store.get_consensus_scores(
+                    codrag_project_id, min_agents=2, since_days=30,
+                )
+                affected_set = set(group.affected_files)
+                matching = [
+                    c for c in consensus
+                    if c["file_path"] in affected_set
+                ]
+                if matching:
+                    best = max(matching, key=lambda c: c["consensus_score"])
+                    agents_str = ", ".join(best["agents"])
+                    pm_issue.description += (
+                        f"\n**Consensus:** {best['agent_count']}/{best['total_active_agents']} "
+                        f"agents independently flagged files in this area "
+                        f"({agents_str})\n"
+                    )
+            except Exception:
+                pass  # Consensus is best-effort
+
         # Check for existing issue (dedup)
         existing_id = self.adapter.find_issue_by_codrag_address(codrag_address)
         if existing_id:
