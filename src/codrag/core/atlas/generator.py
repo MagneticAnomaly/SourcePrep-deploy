@@ -43,6 +43,8 @@ from .routing import (
     build_routing_descriptors,
 )
 from codrag.core.llm_client import TASK_MAX_CHARS
+from codrag.core.swarm_registry import get_swarm_tier, get_min_groups_threshold
+from codrag.core.swarm_orchestrator import SwarmOrchestrator, WorkItem, WorkerAssignment, SwarmResult
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +84,14 @@ class CodebaseAtlas:
         self.atlas_path = self.index_dir / "atlas.json"
         self.atlas_prev_path = self.index_dir / "atlas_prev.json"
         self.segments_dir = self.index_dir / "atlas_segments"
+
+    def _get_swarm_enabled(self) -> bool:
+        """Check if swarm is enabled in pipeline settings."""
+        try:
+            from codrag.services.settings_store import settings
+            return bool(settings.get("swarm_enabled", True))
+        except Exception:
+            return True
 
     # ── Public API ─────────────────────────────────────────────
 
@@ -318,6 +328,37 @@ class CodebaseAtlas:
         root_doc = self._generate_root_atlas(segments, graph_stats, modules)
         if progress_callback:
             progress_callback("atlas_segmented", 1, total_steps)
+
+        # Phase 79: Swarm-orchestrated segment generation
+        # Use swarm when: model supports it, swarm is enabled, and enough segments
+        swarm_tier = get_swarm_tier(self.llm.provider, self.llm.model)
+        swarm_threshold = get_min_groups_threshold()
+        use_swarm = (
+            swarm_tier.can_coordinate
+            and self._get_swarm_enabled()
+            and len(segments) >= swarm_threshold
+        )
+        if use_swarm:
+            logger.info(
+                "[Swarm] Atlas swarm activated: %d segments, tier=%s",
+                len(segments), swarm_tier,
+            )
+            swarm_docs, swarm_synthesis = self._run_swarm(
+                segments, modules, epistemic, graph_stats, hub_files,
+                progress_callback=progress_callback,
+            )
+            if swarm_docs:
+                if swarm_synthesis:
+                    self._write_atlas_synthesis(swarm_synthesis, len(segments))
+                duration_s = time.monotonic() - start
+                logger.info(
+                    "Segmented atlas (swarm): root + %d segments in %.1fs",
+                    len(swarm_docs), duration_s,
+                )
+                if progress_callback:
+                    progress_callback("atlas_complete", total_steps, total_steps)
+                return root_doc, swarm_docs
+            logger.warning("[Swarm] Atlas swarm returned empty results — falling back to standard path")
 
         # Generate per-segment atlases
         # Phase 72: Use the scheduler's batch concurrency budget to
@@ -629,6 +670,325 @@ class CodebaseAtlas:
 
         self._save_segment(seg_doc)
         return seg_doc
+
+    def _generate_segment_atlas_with_angle(
+        self,
+        segment: Segment,
+        all_modules: List[Dict[str, Any]],
+        epistemic: Dict[str, Any],
+        graph_stats: Dict[str, Any],
+        hub_files: List[Tuple[str, int]],
+        all_segments: List[Segment],
+        analysis_focus: str,
+        cross_segment_hints: List[str],
+    ) -> SegmentDocument:
+        """Generate atlas for one segment with coordinator-assigned analysis angle.
+
+        Extends _generate_segment_atlas by appending coordinator guidance to
+        the prompt before the LLM call. Used by the atlas swarm fan-out phase.
+        """
+        # Compute adaptive budget for this segment
+        target_chars = min(
+            SEGMENT_ATLAS_MAX_CHARS,
+            max(SEGMENT_ATLAS_MIN_CHARS, int(segment.file_count * 8)),
+        )
+        max_chars = int(target_chars * 1.3)
+
+        # Filter modules to those within this segment
+        seg_file_set = set(segment.file_paths)
+        seg_modules = [
+            m for m in all_modules
+            if any(fp in seg_file_set for fp in m.get("member_files", []))
+        ]
+
+        # Filter hub files to those within this segment
+        seg_hubs = [(p, d) for p, d in hub_files if p in seg_file_set]
+
+        # Build external dependency info
+        seg_to_other = self._compute_external_deps(segment, all_segments)
+
+        # Format prompt data
+        module_text = self._format_modules(seg_modules) if seg_modules else "(no module data for this segment)"
+
+        # Segment-specific layer distribution
+        seg_layers: Counter = Counter()
+        epi_path = self.index_dir / "trace_epistemic.jsonl"
+        if epi_path.exists():
+            try:
+                with open(epi_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            d = json.loads(line)
+                            nid = d.get("node_id", "")
+                            fp = nid.replace("file:", "", 1) if nid.startswith("file:") else ""
+                            if fp in seg_file_set:
+                                layer = d.get("architecture_layer", "unknown")
+                                seg_layers[layer] += 1
+                        except json.JSONDecodeError:
+                            continue
+            except OSError:
+                pass
+        layer_text = ", ".join(f"{l}: {c}" for l, c in seg_layers.most_common(5)) if seg_layers else "(no layer data)"
+
+        hub_text = self._format_hubs(seg_hubs) if seg_hubs else "(no hub data for this segment)"
+        ext_deps_text = seg_to_other if seg_to_other else "(no cross-segment dependencies detected)"
+
+        # Build file listing
+        file_lines = segment.file_paths[:50]
+        if len(segment.file_paths) > 50:
+            file_lines.append(f"... +{len(segment.file_paths) - 50} more files")
+        file_listing = "\n".join(file_lines) if file_lines else "(no files)"
+
+        system = SEGMENT_ATLAS_SYSTEM.format(target_chars=target_chars, max_chars=max_chars)
+        prompt = SEGMENT_ATLAS_PROMPT.format(
+            segment_name=segment.name,
+            segment_dir=segment.dir_path,
+            segment_file_count=segment.file_count,
+            module_summaries=module_text,
+            architecture_layers=layer_text,
+            hub_files=hub_text,
+            file_listing=file_listing,
+            external_deps=ext_deps_text,
+            target_chars=target_chars,
+            max_chars=max_chars,
+        )
+
+        # Append coordinator guidance
+        if cross_segment_hints:
+            hints_text = "\n".join(f"- {h}" for h in cross_segment_hints)
+        else:
+            hints_text = "- (none identified)"
+        prompt += (
+            "\n\n## Coordinator Guidance\n"
+            f"Analysis focus: {analysis_focus}\n"
+            "Cross-segment connections to highlight:\n"
+            f"{hints_text}\n"
+        )
+
+        prompt_tokens = len(prompt) // 4
+        num_predict, num_ctx, warnings = compute_optimal_settings(
+            task=PipelineTask.ATLAS,
+            prompt_tokens=prompt_tokens,
+            model=self.llm.model,
+            think=False,
+        )
+
+        try:
+            text, tokens = self.llm.generate(
+                prompt, system=system, num_predict=num_predict, num_ctx=num_ctx,
+                json_mode=False, temperature=0.3, think=False,
+            )
+            content = self._postprocess(text, max_chars)
+        except Exception as e:
+            logger.warning(
+                "Segment atlas (swarm) LLM failed for %s: %s — using structural",
+                segment.name, e,
+            )
+            content = ""
+
+        # Quality gate: fall back to structural summary for this segment
+        if len(content) < SEGMENT_ATLAS_MIN_CHARS // 2:
+            logger.warning(
+                "Segment atlas (swarm) %s: LLM output too short (%d chars) — using structural",
+                segment.name, len(content),
+            )
+            parts = [f"SEGMENT: {segment.name} ({segment.dir_path}, {segment.file_count} files)"]
+            if seg_modules:
+                mod_names = [m.get("name", "?") for m in seg_modules[:10]]
+                parts.append(f"Modules: {', '.join(mod_names)}")
+            if seg_hubs:
+                hub_str = ", ".join(f"{p} ({d} edges)" for p, d in seg_hubs[:5])
+                parts.append(f"Key files: {hub_str}")
+            top_files = segment.file_paths[:15]
+            parts.append(f"Files: {', '.join(top_files)}")
+            content = ". ".join(parts)
+
+        fp = self._compute_segment_fingerprint(segment, seg_modules)
+
+        seg_doc = SegmentDocument(
+            content=content,
+            generated_at=datetime.now(timezone.utc).isoformat(),
+            model=self.llm.model,
+            fingerprint=fp,
+            segment_id=segment.id,
+            segment_name=segment.name,
+            dir_path=segment.dir_path,
+            file_count=segment.file_count,
+            char_count=len(content),
+            mode="llm",
+        )
+
+        self._save_segment(seg_doc)
+        return seg_doc
+
+    def _run_swarm(
+        self,
+        segments: List[Segment],
+        all_modules: List[Dict[str, Any]],
+        epistemic: Dict[str, Any],
+        graph_stats: Dict[str, Any],
+        hub_files: List[Tuple[str, int]],
+        progress_callback: Optional[Callable[..., None]] = None,
+    ) -> Tuple[List[SegmentDocument], Optional[Dict[str, Any]]]:
+        """Run swarm-orchestrated segment atlas generation.
+
+        Returns (segment_docs, synthesis_dict).
+        Empty list signals the caller to fall back to standard path.
+        """
+        # Phase 79: Swarm stages bypass the scheduler's fair-share division
+        # to get the full concurrency budget. The stage still waits its turn
+        # in the queue — only the worker parallelism is maximized.
+        # TODO(Phase79-DualModel): pass coordinator_model and worker_model separately
+        concurrency = 1
+        try:
+            from codrag.services.pipeline.scheduler import pipeline_scheduler
+            full = pipeline_scheduler.full_budget_for_swarm(
+                self.llm.provider, self.llm.model,
+            )
+            if full is not None:
+                concurrency = full
+        except (ImportError, Exception) as exc:
+            logger.debug("Swarm full budget unavailable, trying batch concurrency: %s", exc)
+        if concurrency <= 1:
+            try:
+                from codrag.core.batch_profiles import get_batch_concurrency
+                concurrency = get_batch_concurrency(self.llm.provider, model=self.llm.model)
+            except Exception:
+                concurrency = 1
+        logger.info("[Swarm] Atlas using concurrency=%d for fan-out", concurrency)
+
+        orch = SwarmOrchestrator(llm=self.llm, concurrency=concurrency)
+
+        # Build WorkItems from segments
+        items: List[WorkItem] = []
+        seg_map: Dict[str, Segment] = {}
+        for seg in segments:
+            seg_map[seg.id] = seg
+            summary = (
+                f"{seg.dir_path} ({seg.file_count} files); "
+                f"domains: {', '.join(seg.domain_tags[:5]) if seg.domain_tags else 'unknown'}"
+            )
+            full_context = json.dumps({
+                "segment_id": seg.id,
+                "name": seg.name,
+                "dir_path": seg.dir_path,
+                "file_count": seg.file_count,
+                "file_paths": seg.file_paths[:20],
+                "module_ids": seg.module_ids[:10],
+                "domain_tags": seg.domain_tags,
+            })
+            items.append(WorkItem(id=seg.id, summary=summary, full_context=full_context))
+
+        coordinator_prompt = (
+            "You are coordinating parallel architectural analysis of {n} codebase segments.\n"
+            "Each segment is a directory-based subsystem.\n\n"
+            "Segments:\n{{group_summaries}}\n\n"
+            "For EACH segment, assign a specific analysis_angle (architectural focus area)\n"
+            "and priority_concerns (cross-segment dependencies or risks to highlight).\n\n"
+            "Respond with JSON:\n"
+            '{{"assignments": [{{"item_id": "seg:...", "analysis_angle": "...", '
+            '"priority_concerns": ["..."]}}]}}'
+        ).format(n=len(items))
+
+        synthesis_prompt = (
+            "Below are the atlas results from {n} parallel segment analyses.\n\n"
+            "{{worker_outputs}}\n\n"
+            "Synthesize cross-segment patterns:\n"
+            '{{"cross_segment_data_flows": ["..."], '
+            '"shared_dependencies": ["..."], '
+            '"architectural_coherence": "high|medium|low", '
+            '"key_insight": "..."}}'
+        ).format(n=len(items))
+
+        def worker_fn(item: WorkItem, assignment: WorkerAssignment) -> Optional[str]:
+            seg = seg_map.get(item.id)
+            if seg is None:
+                return None
+            try:
+                seg_doc = self._generate_segment_atlas_with_angle(
+                    seg, all_modules, epistemic, graph_stats, hub_files, segments,
+                    analysis_focus=assignment.analysis_angle,
+                    cross_segment_hints=assignment.priority_concerns,
+                )
+                return json.dumps({
+                    "segment_id": seg_doc.segment_id,
+                    "dir_path": seg_doc.dir_path,
+                    "content": seg_doc.content,
+                    "file_count": seg_doc.file_count,
+                })
+            except Exception as exc:
+                logger.warning("[Swarm] Worker failed for segment %s: %s", item.id, exc)
+                return None
+
+        def progress_fn(done: int, total: int) -> None:
+            if progress_callback:
+                progress_callback("atlas_segmented", 1 + done, 1 + total)
+
+        result = orch.execute(
+            items=items,
+            coordinator_prompt=coordinator_prompt,
+            worker_fn=worker_fn,
+            synthesis_prompt=synthesis_prompt,
+            progress_fn=progress_fn,
+        )
+
+        if result is None:
+            return [], None
+
+        # Convert worker results back to SegmentDocument objects
+        seg_docs: List[SegmentDocument] = []
+        for wr in result.worker_results:
+            if wr.success and wr.parsed:
+                try:
+                    seg = seg_map.get(wr.item_id)
+                    if seg is None:
+                        continue
+                    content = wr.parsed.get("content", "")
+                    fp = self._compute_segment_fingerprint(
+                        seg,
+                        [m for m in all_modules
+                         if any(fp in set(seg.file_paths) for fp in m.get("member_files", []))],
+                    )
+                    seg_doc = SegmentDocument(
+                        content=content,
+                        generated_at=datetime.now(timezone.utc).isoformat(),
+                        model=self.llm.model,
+                        fingerprint=fp,
+                        segment_id=seg.id,
+                        segment_name=seg.name,
+                        dir_path=seg.dir_path,
+                        file_count=seg.file_count,
+                        char_count=len(content),
+                        mode="llm",
+                    )
+                    seg_docs.append(seg_doc)
+                except (KeyError, ValueError) as exc:
+                    logger.warning("[Swarm] Failed to reconstruct SegmentDocument for %s: %s", wr.item_id, exc)
+
+        synthesis = result.synthesis if result.synthesis else None
+        return seg_docs, synthesis
+
+    def _write_atlas_synthesis(
+        self,
+        synthesis: Dict[str, Any],
+        segment_count: int,
+    ) -> None:
+        """Write swarm atlas synthesis artifact to disk."""
+        artifact = {
+            "stage": "atlas_swarm_synthesis",
+            "model": self.llm.model if self.llm else "unknown",
+            "segments_analyzed": segment_count,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "synthesis": synthesis,
+        }
+        path = self.index_dir / "atlas_swarm_synthesis.json"
+        self.index_dir.mkdir(parents=True, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(artifact, f, indent=2)
+        logger.info("[Swarm] Atlas synthesis written to %s", path)
 
     def _compute_external_deps(
         self,
