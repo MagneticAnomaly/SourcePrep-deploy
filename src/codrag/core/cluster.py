@@ -30,6 +30,8 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 from .llm_client import LLMClient, _get_llm_concurrency, _parse_confidence, _parse_json_response
 from .epistemic_score import EpistemicEntry
 from codrag.core.llm_client import TASK_MAX_CHARS, batched_max_chars
+from .swarm_registry import get_swarm_tier, get_min_groups_threshold
+from .swarm_orchestrator import SwarmOrchestrator, WorkItem, WorkerAssignment, SwarmResult
 
 logger = logging.getLogger(__name__)
 
@@ -948,6 +950,14 @@ class ClusterSynthesizer:
         self._batch_profile = batch_profile
         self.modules_path = index_dir / "trace_modules.jsonl"
 
+    def _get_swarm_enabled(self) -> bool:
+        """Check if swarm is enabled in pipeline settings."""
+        try:
+            from codrag.services.settings_store import settings
+            return bool(settings.get("swarm_enabled", True))
+        except Exception:
+            return True
+
     def load_epistemic(self) -> Dict[str, EpistemicEntry]:
         """Load epistemic entries from trace_epistemic.jsonl."""
         entries: Dict[str, EpistemicEntry] = {}
@@ -1147,6 +1157,242 @@ class ClusterSynthesizer:
             model=self.llm.model,
         )
 
+    def synthesize_cluster_with_angle(
+        self,
+        cluster: Cluster,
+        epistemic: Dict[str, EpistemicEntry],
+        edges: List[Dict[str, Any]],
+        naming_guidance: str,
+        analysis_angle: str,
+        naming_constraints: List[str],
+    ) -> Optional[ModuleEntry]:
+        """Synthesize a cluster with coordinator-assigned scoping."""
+        member_summaries = self._build_member_summaries(cluster, epistemic, max_files=30)
+        external_deps = self._build_external_deps(cluster, edges, epistemic)
+
+        prompt = MODULE_SYNTHESIS_PROMPT.format(
+            cluster_name=cluster.primary_tag.replace("_", " ").replace("-", " ").title(),
+            domain_tags=", ".join(sorted(cluster.all_tags)),
+            file_count=len(cluster.member_node_ids),
+            member_summaries=member_summaries,
+            external_deps=external_deps,
+        )
+
+        # Append coordinator guidance
+        constraints_text = ", ".join(naming_constraints) if naming_constraints else "none"
+        prompt += (
+            f"\n\n## Coordinator Guidance\n"
+            f"Naming direction: {naming_guidance}\n"
+            f"Analysis focus: {analysis_angle}\n"
+            f"Names to AVOID (already used by other modules): {constraints_text}"
+        )
+
+        prompt_tokens = len(prompt) // 4
+        num_predict, num_ctx, warnings = compute_optimal_settings(
+            task=PipelineTask.CLUSTER,
+            prompt_tokens=prompt_tokens,
+            model=self.llm.model,
+            think=False,
+        )
+
+        try:
+            text, tokens = self.llm.generate(
+                prompt, system=MODULE_SYNTHESIS_SYSTEM,
+                num_predict=num_predict, num_ctx=num_ctx,
+                json_mode=False, think=False,
+                max_chars=TASK_MAX_CHARS["augmentation"],
+            )
+        except Exception as e:
+            logger.warning("[Cluster/Swarm] Worker failed for %s: %s", cluster.cluster_id, e)
+            return None
+
+        parsed = _parse_json_response(text)
+        if parsed is None:
+            logger.warning("[Cluster/Swarm] Unparseable response for %s", cluster.cluster_id)
+            return None
+
+        module_id = f"module:{cluster.cluster_id.replace('cluster:', '')}"
+        confs = [
+            epistemic[nid].epistemic_confidence
+            for nid in cluster.member_node_ids
+            if nid in epistemic
+        ]
+        avg_conf = sum(confs) / len(confs) if confs else 0.0
+
+        return ModuleEntry(
+            module_id=module_id,
+            name=str(parsed.get("name", cluster.primary_tag))[:200],
+            summary=str(parsed.get("summary", ""))[:1000],
+            member_files=[nid.replace("file:", "", 1) for nid in cluster.member_node_ids],
+            domain_tags=sorted(cluster.all_tags),
+            architecture_layers=sorted(parsed.get("architecture_layers", [])),
+            component_status=parsed.get("component_status", "unknown"),
+            data_flow=parsed.get("data_flow"),
+            dependencies=parsed.get("dependencies"),
+            tech_debt_summary=parsed.get("tech_debt_summary"),
+            file_count=len(cluster.member_node_ids),
+            avg_epistemic_confidence=avg_conf,
+            synthesized_at=datetime.now(timezone.utc).isoformat(),
+            model=self.llm.model,
+        )
+
+    def _run_swarm(
+        self,
+        to_synthesize: List[Cluster],
+        epistemic: Dict[str, EpistemicEntry],
+        edges: List[Dict[str, Any]],
+        progress_callback: Optional[Callable[..., None]] = None,
+    ) -> Dict[str, ModuleEntry]:
+        """Run swarm-orchestrated cluster synthesis.
+
+        Returns dict of module_id -> ModuleEntry.
+        Empty dict signals the caller to fall back to standard path.
+        """
+        concurrency = 1
+        try:
+            from codrag.services.pipeline.scheduler import pipeline_scheduler
+            full = pipeline_scheduler.full_budget_for_swarm(
+                self.llm.provider, self.llm.model,
+            )
+            if full is not None:
+                concurrency = full
+        except (ImportError, Exception) as exc:
+            logger.debug("Swarm full budget unavailable: %s", exc)
+        if concurrency <= 1:
+            try:
+                from codrag.core.batch_profiles import get_batch_concurrency
+                concurrency = get_batch_concurrency(self.llm.provider, model=self.llm.model)
+            except Exception:
+                concurrency = 1
+        logger.info("[Cluster/Swarm] Using concurrency=%d for fan-out", concurrency)
+
+        # TODO(Phase79-DualModel): When dual-model swarm is implemented,
+        # use large_llm for coordinator/synthesis, small_llm for workers.
+        # For now, single model handles all three phases.
+        orch = SwarmOrchestrator(llm=self.llm, concurrency=concurrency)
+
+        # Build WorkItems
+        items: List[WorkItem] = []
+        cluster_by_id: Dict[str, Cluster] = {}
+        for cluster in to_synthesize:
+            cluster_by_id[cluster.cluster_id] = cluster
+
+            paths = [
+                nid.replace("file:", "", 1)
+                for nid in cluster.member_node_ids[:5]
+            ]
+            summary = f"{cluster.primary_tag}: {', '.join(paths)}"
+            if len(cluster.member_node_ids) > 5:
+                summary += f" (+{len(cluster.member_node_ids) - 5} more)"
+
+            member_summaries = self._build_member_summaries(cluster, epistemic, max_files=30)
+            external_deps = self._build_external_deps(cluster, edges, epistemic)
+            full_context = json.dumps({
+                "cluster_name": cluster.primary_tag,
+                "domain_tags": sorted(cluster.all_tags),
+                "file_count": len(cluster.member_node_ids),
+                "member_summaries": member_summaries,
+                "external_deps": external_deps,
+            })
+
+            items.append(WorkItem(id=cluster.cluster_id, summary=summary, full_context=full_context))
+
+        coordinator_prompt = (
+            "You are coordinating parallel module synthesis for {n} code clusters.\n"
+            "Each cluster is a group of related files that should become one named module.\n\n"
+            "Clusters:\n{{group_summaries}}\n\n"
+            "For EACH cluster, assign:\n"
+            '- "analysis_angle": what aspect to emphasize in the synthesis\n'
+            '- "priority_concerns": naming guidance and names to avoid\n\n'
+            "Respond with JSON:\n"
+            '{{"assignments": [{{"item_id": "cluster:...", '
+            '"analysis_angle": "...", '
+            '"priority_concerns": ["naming_guidance: ...", "avoid_names: ..."]'
+            "}}]}}"
+        ).format(n=len(items))
+
+        synthesis_prompt = (
+            "Below are module synthesis results from {n} parallel cluster analyses.\n\n"
+            "{{worker_outputs}}\n\n"
+            "Assess the set of modules as a whole:\n"
+            '{{"naming_consistency": "are module names coherent as a set?", '
+            '"cross_cluster_deps": ["shared dependencies across clusters"], '
+            '"architectural_layering": "do clusters map cleanly to layers?", '
+            '"redundancy_flags": ["any clusters that seem to be the same module"], '
+            '"key_insight": "most important observation about the module structure"}}'
+        ).format(n=len(items))
+
+        def worker_fn(item: WorkItem, assignment: WorkerAssignment) -> Optional[str]:
+            cluster = cluster_by_id.get(item.id)
+            if cluster is None:
+                return None
+
+            naming_guidance = assignment.analysis_angle
+            naming_constraints = []
+            for concern in assignment.priority_concerns:
+                if concern.startswith("naming_guidance:"):
+                    naming_guidance = concern.replace("naming_guidance:", "").strip()
+                elif concern.startswith("avoid_names:"):
+                    naming_constraints.append(concern.replace("avoid_names:", "").strip())
+
+            module = self.synthesize_cluster_with_angle(
+                cluster, epistemic, edges,
+                naming_guidance=naming_guidance,
+                analysis_angle=assignment.analysis_angle,
+                naming_constraints=naming_constraints,
+            )
+            if module is None:
+                return None
+            return json.dumps(module.to_dict())
+
+        def progress_fn(done: int, total: int) -> None:
+            if progress_callback:
+                progress_callback("cluster_synthesis", done, len(to_synthesize), 0)
+
+        result = orch.execute(
+            items=items,
+            coordinator_prompt=coordinator_prompt,
+            worker_fn=worker_fn,
+            synthesis_prompt=synthesis_prompt,
+            progress_fn=progress_fn,
+        )
+
+        if result is None:
+            return {}
+
+        modules: Dict[str, ModuleEntry] = {}
+        for wr in result.worker_results:
+            if wr.success and wr.parsed:
+                try:
+                    entry = ModuleEntry.from_dict(wr.parsed)
+                    modules[entry.module_id] = entry
+                except (KeyError, ValueError) as exc:
+                    logger.warning("Failed to parse cluster worker result for %s: %s", wr.item_id, exc)
+
+        if result.synthesis:
+            self._write_cluster_synthesis(result)
+
+        return modules
+
+    def _write_cluster_synthesis(self, result: SwarmResult) -> None:
+        """Write swarm synthesis artifact to disk."""
+        artifact = {
+            "stage": "cluster_synthesis_swarm",
+            "model": self.llm.model,
+            "clusters_analyzed": result.stats.total_items,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "synthesis": result.synthesis,
+            "stats": {
+                "workers_succeeded": result.stats.workers_succeeded,
+                "workers_failed": result.stats.workers_failed,
+                "wall_clock_seconds": round(result.stats.wall_clock_seconds, 1),
+            },
+        }
+        path = self.index_dir / "trace_cluster_swarm_synthesis.json"
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(artifact, f, indent=2, ensure_ascii=False)
+        logger.info("[Cluster/Swarm] Synthesis written to %s", path)
+
     @staticmethod
     def _cluster_fingerprint(member_node_ids: List[str]) -> str:
         """Stable fingerprint for a cluster's membership (sorted node IDs)."""
@@ -1257,6 +1503,49 @@ class ClusterSynthesizer:
             "%d existing modules on disk, %d unique fingerprints",
             total_work, reused, len(to_synthesize), len(existing_modules), len(fp_to_module),
         )
+
+        # ── Swarm decision ──────────────────────────────────────────
+        swarm_tier = get_swarm_tier(self.llm.provider, self.llm.model)
+        swarm_enabled = self._get_swarm_enabled()
+        min_threshold = get_min_groups_threshold()
+        use_swarm = (
+            swarm_tier.can_coordinate
+            and swarm_enabled
+            and len(to_synthesize) >= min_threshold
+        )
+
+        if use_swarm:
+            logger.info(
+                "Cluster synthesis: using SWARM orchestration (%s, %d clusters, tier=%s)",
+                self.llm.model, len(to_synthesize), swarm_tier.value,
+            )
+            swarm_modules = self._run_swarm(
+                to_synthesize, epistemic, edges, progress_callback,
+            )
+            if swarm_modules:
+                modules.update(swarm_modules)
+                synthesized = len(swarm_modules)
+                failed = len(to_synthesize) - synthesized
+
+                _deduplicate_module_names(modules)
+                self._write_modules(modules)
+
+                duration_ms = (time.monotonic() - start) * 1000
+                if progress_callback:
+                    progress_callback("cluster_complete", total_work, total_work, reused)
+                return {
+                    "clusters": total_work,
+                    "synthesized": synthesized,
+                    "reused": reused,
+                    "failed": failed,
+                    "total_files_clustered": sum(
+                        len(m.member_files) for m in modules.values()
+                    ),
+                    "duration_ms": round(duration_ms, 1),
+                    "swarm": True,
+                }
+            else:
+                logger.info("Cluster swarm coordinator failed — falling back to standard path")
 
         # Decide: batched (BYOK) or sequential (local)
         use_batching = (
