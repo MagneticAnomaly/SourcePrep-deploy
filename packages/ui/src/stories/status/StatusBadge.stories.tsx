@@ -15,6 +15,10 @@ const meta: Meta<typeof StatusBadge> = {
       control: 'boolean',
       description: 'Whether to show the status label text',
     },
+    labelOverride: {
+      control: 'text',
+      description: 'Optional label override (e.g. "Swarming" instead of "Building")',
+    },
   },
 };
 
@@ -63,12 +67,21 @@ export const Disabled: Story = {
   },
 };
 
+export const Swarming: Story = {
+  args: {
+    status: 'building',
+    showLabel: true,
+    labelOverride: 'Swarming',
+  },
+};
+
 export const AllStates: Story = {
   render: () => (
     <div className="flex flex-wrap gap-2">
       <StatusBadge status="fresh" />
       <StatusBadge status="stale" />
       <StatusBadge status="building" />
+      <StatusBadge status="building" labelOverride="Swarming" />
       <StatusBadge status="pending" />
       <StatusBadge status="error" />
       <StatusBadge status="disabled" />
