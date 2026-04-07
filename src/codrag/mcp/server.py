@@ -860,6 +860,7 @@ class MCPServer:
         compression: str = "none",
         exclude_paths: Optional[List[str]] = None,
         role: Optional[str] = None,  # Phase 67: agent scope filtering
+        working_dir: Optional[str] = None,  # Phase 80: L2 scoped context
         project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Query-based context retrieval with trace expansion and routing."""
@@ -991,12 +992,20 @@ class MCPServer:
         else:
             result["_to_markdown"] = f"No results found for: {query}"
 
+        # Phase 80: L2 module-scoped context
+        if working_dir:
+            l2_section = self._assemble_l2_context(project_id, working_dir)
+            if l2_section:
+                md = result.get("_to_markdown", "")
+                result["_to_markdown"] = md + l2_section if md else l2_section
+
         return result
 
     async def tool_context(
         self,
         max_chars: int = 0,  # 0 = use adaptive budget from OPP-W5
         role: Optional[str] = None,
+        working_dir: Optional[str] = None,  # Phase 80: L2 scoped context
         project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Ambient context assembly — no query needed.
@@ -1199,6 +1208,12 @@ class MCPServer:
         except Exception as e:
             logger.debug("Concepts context failed: %s", e)
 
+        # Phase 80: L2 module-scoped context
+        if working_dir:
+            l2_section = self._assemble_l2_context(project_id, working_dir)
+            if l2_section:
+                md_parts.append(l2_section)
+
         result["_to_markdown"] = "\n".join(md_parts)
         return result
 
@@ -1212,6 +1227,61 @@ class MCPServer:
         if last_nl > max_chars // 2:
             truncated = truncated[:last_nl]
         return truncated + f"\n\n[{label}: truncated to {max_chars} chars]"
+
+    def _assemble_l2_context(
+        self,
+        project_id: str,
+        working_dir: str,
+        max_items: int = 5,
+    ) -> str:
+        """Assemble L2 module-scoped context for a working directory.
+
+        Returns a markdown section with observations and concepts anchored
+        to files under the working directory. Returns empty string if
+        nothing is found.
+        """
+        from codrag.services.observation_store import observation_store
+        from codrag.services.concept_store import concept_store
+
+        sections: list = []
+
+        # L2 observations
+        try:
+            observations = observation_store.get_for_directory(
+                project_id, working_dir, include_stale=False, limit=max_items,
+            )
+            if observations:
+                obs_lines = []
+                for obs in observations:
+                    prefix = f"[{obs.category}] " if obs.category != "note" else ""
+                    file_hint = f" ({obs.file_path})" if obs.file_path else ""
+                    obs_lines.append(f"- {prefix}{obs.content}{file_hint}")
+                sections.append(
+                    f"**Observations for `{working_dir}/`:**\n" + "\n".join(obs_lines)
+                )
+        except Exception:
+            pass  # Store not initialized — skip gracefully
+
+        # L2 concepts
+        try:
+            concepts = concept_store.get_for_anchors_directory(
+                project_id, working_dir, include_stale=False, limit=max_items,
+            )
+            if concepts:
+                con_lines = []
+                for c in concepts:
+                    preview = c.content[:120] + "..." if len(c.content) > 120 else c.content
+                    con_lines.append(f"- **{c.title}** ({c.category}): {preview}")
+                sections.append(
+                    f"**Concepts for `{working_dir}/`:**\n" + "\n".join(con_lines)
+                )
+        except Exception:
+            pass  # Store not initialized — skip gracefully
+
+        if not sections:
+            return ""
+
+        return "\n\n## Working Area Context\n\n" + "\n\n".join(sections) + "\n"
 
     @staticmethod
     def _format_context_response(project_id: str, data: Any) -> Dict[str, Any]:
@@ -3088,6 +3158,7 @@ class MCPServer:
                 result = await self.tool_context(
                     max_chars=args.get("max_chars", 0),  # 0 = adaptive budget (OPP-W5)
                     role=args.get("role"),  # Phase 64A: role-based atlas projection
+                    working_dir=args.get("working_dir"),  # Phase 80: L2 scoped context
                     project_override=project_override,
                 )
                 # Set AFTER tool_context so first-call orientation boost fires
@@ -3111,6 +3182,7 @@ class MCPServer:
                         compression=args.get("compression", "none"),
                         exclude_paths=args.get("exclude_paths") or None,
                         role=args.get("role"),  # Phase 67: agent scope filtering
+                        working_dir=args.get("working_dir"),  # Phase 80: L2 scoped context
                         project_override=project_override,
                     )
                 # Phase 50 Sprint 3: Nudge if codrag hasn't been called yet
