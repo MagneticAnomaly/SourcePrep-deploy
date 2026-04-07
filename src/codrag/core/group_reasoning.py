@@ -34,6 +34,8 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from .llm_client import LLMClient, _parse_json_response
 from .epistemic_score import EpistemicEntry
+from .swarm_registry import SwarmTier, get_swarm_tier, get_min_groups_threshold
+from .swarm_orchestrator import SwarmOrchestrator, WorkItem, WorkerAssignment, SwarmResult
 
 logger = logging.getLogger(__name__)
 
@@ -317,6 +319,234 @@ class GroupReasoningEngine:
                 internal.append(f"  {src_short} --[{kind}]--> {tgt_short}")
         return "\n".join(internal[:20]) if internal else "(no direct edges between members)"
 
+    # ── Swarm helpers ───────────────────────────────────────────────
+
+    def _get_swarm_enabled(self) -> bool:
+        """Check if swarm is enabled in pipeline settings."""
+        try:
+            from codrag.services.settings_store import settings
+            return bool(settings.get("swarm_enabled", True))
+        except Exception:
+            return True  # Default to enabled
+
+    def analyze_group_with_angle(
+        self,
+        group_id: str,
+        member_ids: List[str],
+        epistemic: Dict[str, EpistemicEntry],
+        edges: List[Dict[str, Any]],
+        analysis_angle: str,
+        priority_concerns: List[str],
+    ) -> Optional[GroupReasoningEntry]:
+        """Variant of analyze_group that accepts coordinator-assigned scoping."""
+        member_details = self._build_member_details(member_ids, epistemic)
+        internal_edges = self._build_internal_edges(member_ids, edges)
+
+        prompt = GROUP_REASONING_PROMPT.format(
+            file_count=len(member_ids),
+            member_details=member_details,
+            internal_edges=internal_edges,
+        )
+
+        # Append coordinator guidance
+        concerns_text = "\n".join(f"- {c}" for c in priority_concerns) if priority_concerns else "None specified"
+        prompt += (
+            f"\n\n## Coordinator Guidance\n"
+            f"Analysis angle: {analysis_angle}\n"
+            f"Priority concerns:\n{concerns_text}"
+        )
+
+        import time as _time
+        _start = _time.monotonic()
+        logger.info(
+            "[GroupReasoning] Analyzing group %s with angle (%d files, prompt=%d chars)",
+            group_id, len(member_ids), len(prompt),
+        )
+
+        try:
+            prompt_tokens = len(prompt) // 4
+            num_predict, num_ctx, warnings = compute_optimal_settings(
+                task=PipelineTask.GROUP_REASONING,
+                prompt_tokens=prompt_tokens,
+                model=self.llm.model,
+                think=True,
+            )
+
+            from codrag.core.llm_client import TASK_MAX_CHARS
+            text, tokens = self.llm.generate(
+                prompt,
+                system=GROUP_REASONING_SYSTEM,
+                num_predict=num_predict,
+                num_ctx=num_ctx,
+                json_mode=True,
+                temperature=0.6,
+                think=True,
+                max_chars=TASK_MAX_CHARS["group_reasoning"],
+            )
+            elapsed = _time.monotonic() - _start
+            logger.info(
+                "[GroupReasoning] Group %s (angled) responded in %.1fs (%d tokens)",
+                group_id, elapsed, tokens,
+            )
+        except Exception as e:
+            elapsed = _time.monotonic() - _start
+            logger.warning(
+                "[GroupReasoning] LLM call failed for group %s (angled) after %.1fs: %s",
+                group_id, elapsed, e,
+            )
+            return None
+
+        parsed = _parse_json_response(text)
+        if parsed is None:
+            logger.warning(
+                "[GroupReasoning] Failed to parse angled response for group %s — raw: %.200s",
+                group_id, text,
+            )
+            return None
+
+        fingerprint = compute_group_fingerprint(member_ids, epistemic)
+
+        return GroupReasoningEntry(
+            group_id=group_id,
+            member_node_ids=member_ids,
+            pattern=str(parsed.get("pattern", "unknown"))[:200],
+            data_flow=str(parsed.get("data_flow", ""))[:500],
+            coupling_risks=[str(r) for r in parsed.get("coupling_risks", [])][:10],
+            blast_radius=[str(r) for r in parsed.get("blast_radius", [])][:20],
+            architectural_insight=str(parsed.get("architectural_insight", ""))[:500],
+            confidence=max(0.0, min(1.0, float(parsed.get("confidence", 0.7)))),
+            analyzed_at=datetime.now(timezone.utc).isoformat(),
+            model=self.llm.model,
+            member_fingerprint=fingerprint,
+        )
+
+    def _run_swarm(
+        self,
+        to_analyze: List[Tuple[str, List[str]]],
+        epistemic: Dict[str, EpistemicEntry],
+        edges: List[Dict[str, Any]],
+        progress_callback: Optional[Callable[..., None]] = None,
+        cancel_token: Optional[Any] = None,
+    ) -> Dict[str, GroupReasoningEntry]:
+        """Run swarm-orchestrated group reasoning.
+
+        Returns a dict of group_id -> GroupReasoningEntry.
+        Empty dict signals the caller to fall back to standard path.
+        """
+        try:
+            from codrag.core.batch_profiles import get_batch_concurrency
+            concurrency = get_batch_concurrency(self.llm.provider, model=self.llm.model)
+        except Exception:
+            concurrency = 4
+
+        orch = SwarmOrchestrator(llm=self.llm, concurrency=concurrency)
+
+        # Build WorkItem list
+        items: List[WorkItem] = []
+        gid_to_members: Dict[str, List[str]] = {}
+        for gid, members in to_analyze:
+            gid_to_members[gid] = members
+            # Summary: file paths (capped at 5) with architecture layers
+            paths = []
+            for nid in members[:5]:
+                fp = nid.replace("file:", "", 1) if nid.startswith("file:") else nid
+                entry = epistemic.get(nid)
+                layer = entry.architecture_layer if entry else "unknown"
+                paths.append(f"{fp} ({layer})")
+            if len(members) > 5:
+                paths.append(f"... and {len(members) - 5} more")
+            summary = "; ".join(paths)
+
+            # Full context: JSON with member_details and internal_edges
+            member_details = self._build_member_details(members, epistemic)
+            internal_edges = self._build_internal_edges(members, edges)
+            full_context = json.dumps({
+                "member_details": member_details,
+                "internal_edges": internal_edges,
+                "file_count": len(members),
+            })
+
+            items.append(WorkItem(id=gid, summary=summary, full_context=full_context))
+
+        coordinator_prompt = (
+            "You are coordinating parallel analysis of {n} code groups.\n"
+            "Each group is a connected component of related files.\n\n"
+            "Groups:\n{{group_summaries}}\n\n"
+            "For EACH group, assign a specific analysis_angle (what aspect to focus on)\n"
+            "and priority_concerns (what risks to look for).\n\n"
+            "Respond with JSON:\n"
+            '{{"assignments": [{{"item_id": "group:...", "analysis_angle": "...", '
+            '"priority_concerns": ["..."]}}]}}'
+        ).format(n=len(items))
+
+        synthesis_prompt = (
+            "Below are the analysis results from {n} parallel group analyses.\n\n"
+            "{{worker_outputs}}\n\n"
+            "Synthesize cross-group patterns:\n"
+            '{{"cross_group_patterns": ["..."], '
+            '"shared_risks": ["..."], '
+            '"architectural_recommendations": ["..."], '
+            '"overall_health": "good|moderate|concerning"}}'
+        ).format(n=len(items))
+
+        def worker_fn(item: WorkItem, assignment: WorkerAssignment) -> Optional[str]:
+            member_ids = gid_to_members.get(item.id, [])
+            entry = self.analyze_group_with_angle(
+                item.id, member_ids, epistemic, edges,
+                assignment.analysis_angle, assignment.priority_concerns,
+            )
+            if entry is None:
+                return None
+            return json.dumps(entry.to_dict())
+
+        result = orch.execute(
+            items=items,
+            coordinator_prompt=coordinator_prompt,
+            worker_fn=worker_fn,
+            synthesis_prompt=synthesis_prompt,
+        )
+
+        if result is None:
+            return {}
+
+        # Convert WorkerResults to GroupReasoningEntry objects
+        entries: Dict[str, GroupReasoningEntry] = {}
+        for wr in result.worker_results:
+            if wr.success and wr.parsed:
+                try:
+                    entry = GroupReasoningEntry.from_dict(wr.parsed)
+                    entries[entry.group_id] = entry
+                except (KeyError, ValueError) as exc:
+                    logger.warning("Failed to parse worker result for %s: %s", wr.item_id, exc)
+
+        # Write synthesis artifact
+        self._write_synthesis(result)
+
+        return entries
+
+    def _write_synthesis(self, result: SwarmResult) -> None:
+        """Write swarm synthesis artifact to disk."""
+        artifact = {
+            "stage": "group_reasoning_swarm",
+            "model": self.llm.model,
+            "groups_analyzed": result.stats.total_items,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "synthesis": result.synthesis,
+            "stats": {
+                "coordinator_tokens": result.stats.coordinator_tokens,
+                "worker_tokens": result.stats.worker_tokens,
+                "synthesis_tokens": result.stats.synthesis_tokens,
+                "workers_succeeded": result.stats.workers_succeeded,
+                "workers_failed": result.stats.workers_failed,
+                "wall_clock_seconds": round(result.stats.wall_clock_seconds, 2),
+            },
+        }
+        path = self.index_dir / "trace_swarm_synthesis.json"
+        self.index_dir.mkdir(parents=True, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(artifact, f, indent=2)
+        logger.info("[Swarm] Synthesis written to %s", path)
+
     def analyze_group(
         self,
         group_id: str,
@@ -474,6 +704,43 @@ class GroupReasoningEngine:
         analyzed = 0
         failed = 0
         results: Dict[str, GroupReasoningEntry] = dict(reuse)
+
+        # ── Swarm decision ──────────────────────────────────────────
+        swarm_tier = get_swarm_tier(self.llm.provider, self.llm.model)
+        swarm_enabled = self._get_swarm_enabled()
+        min_threshold = get_min_groups_threshold()
+        use_swarm = (
+            swarm_tier.can_coordinate
+            and swarm_enabled
+            and len(to_analyze) >= min_threshold
+        )
+
+        if use_swarm:
+            logger.info(
+                "Group reasoning: using SWARM orchestration (%s, %d groups, tier=%s)",
+                self.llm.model, len(to_analyze), swarm_tier.value,
+            )
+            swarm_entries = self._run_swarm(
+                to_analyze, epistemic, edges, progress_callback, cancel_token,
+            )
+            if swarm_entries:
+                results.update(swarm_entries)
+                analyzed = len(swarm_entries)
+                self._write_results(results)
+                elapsed = time.monotonic() - start
+                if progress_callback:
+                    progress_callback("group_reasoning_complete", total_groups, total_groups, len(reuse))
+                return {
+                    "total_groups": total_groups,
+                    "analyzed": analyzed,
+                    "reused": len(reuse),
+                    "failed": len(to_analyze) - analyzed,
+                    "elapsed_seconds": round(elapsed, 1),
+                    "swarm": True,
+                }
+            else:
+                logger.info("Swarm coordinator failed — falling back to standard path")
+                # Fall through to existing concurrent/sequential logic below
 
         # Phase 72: Use the scheduler's batch concurrency budget to
         # process multiple groups in parallel.  Cloud endpoints can
