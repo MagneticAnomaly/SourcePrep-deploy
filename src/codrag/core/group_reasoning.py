@@ -34,7 +34,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from .llm_client import LLMClient, _parse_json_response
 from .epistemic_score import EpistemicEntry
-from .swarm_registry import SwarmTier, get_swarm_tier, get_min_groups_threshold
+from .swarm_registry import get_swarm_tier, get_min_groups_threshold
 from .swarm_orchestrator import SwarmOrchestrator, WorkItem, WorkerAssignment, SwarmResult
 
 logger = logging.getLogger(__name__)
