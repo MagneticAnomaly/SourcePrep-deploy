@@ -6,7 +6,7 @@ const meta: Meta<typeof AgentOpsPanel> = {
   component: AgentOpsPanel,
   parameters: {
     layout: 'padded',
-    docs: { description: { component: 'Agent Operations dashboard panel showing the three CoDRAG agents (HR, Researcher, Custodian) with action buttons and managed employee badges.' } },
+    docs: { description: { component: 'Config-only Agent Operations panel: engine controls, Paperclip connection, push settings.' } },
   },
 };
 
@@ -14,33 +14,18 @@ export default meta;
 type Story = StoryObj<typeof AgentOpsPanel>;
 
 const activeData: AgentOpsData = {
-  hr: {
-    role_count: 5,
-    roles: ['CEO', 'CTO', 'UX Designer', 'DevOps', 'Security Lead'],
-  },
-  researcher: {
-    run_count: 3,
-    latest_run: new Date(Date.now() - 3600000).toISOString(),
-  },
-  custodian: {
-    archive_count: 12,
-  },
-  roster: [
-    { slug: 'ceo', displayName: 'CEO', hasAgentsMd: true, hasSoulMd: true, hasKnowledgeMd: true },
-    { slug: 'cto', displayName: 'CTO', hasAgentsMd: true, hasSoulMd: true, hasKnowledgeMd: true },
-    { slug: 'ux_designer', displayName: 'UX Designer', hasAgentsMd: true, hasSoulMd: true, hasKnowledgeMd: false },
-    { slug: 'devops', displayName: 'DevOps', hasAgentsMd: true, hasSoulMd: false, hasKnowledgeMd: false },
-    { slug: 'security_lead', displayName: 'Security Lead', hasAgentsMd: true, hasSoulMd: false, hasKnowledgeMd: false },
-  ],
+  hr: { last_run: '2 hours ago', push_count: 5 },
+  researcher: { last_run: '45 min ago', push_count: 3 },
+  custodian: { last_run: '1 day ago', push_count: 0 },
 };
 
 const emptyData: AgentOpsData = {
-  hr: { role_count: 0, roles: [] },
-  researcher: { run_count: 0, latest_run: null },
-  custodian: { archive_count: 0 },
+  hr: { last_run: null, push_count: 0 },
+  researcher: { last_run: null, push_count: 0 },
+  custodian: { last_run: null, push_count: 0 },
 };
 
-/** Active agents with roles generated and research runs completed */
+/** Active engines with recent runs and push counts */
 export const Active: Story = {
   args: {
     data: activeData,
@@ -48,10 +33,12 @@ export const Active: Story = {
     onHRGenerate: () => console.log('HR Generate'),
     onResearchRun: () => console.log('Research Run'),
     onCustodianRun: () => console.log('Custodian Run'),
+    pushSettings: { auto_push: true, min_significance: 'recommended', paperclip_project: '' },
+    onPushSettingsUpdate: (s) => console.log('Push settings update', s),
   },
 };
 
-/** Empty state — no agents have been used yet */
+/** Empty state — no engines have run yet */
 export const Empty: Story = {
   args: {
     data: emptyData,
@@ -59,6 +46,7 @@ export const Empty: Story = {
     onHRGenerate: () => console.log('HR Generate'),
     onResearchRun: () => console.log('Research Run'),
     onCustodianRun: () => console.log('Custodian Run'),
+    pushSettings: { auto_push: false, min_significance: 'recommended', paperclip_project: '' },
   },
 };
 

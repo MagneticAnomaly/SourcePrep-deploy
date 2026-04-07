@@ -442,7 +442,7 @@ export const FullDashboard: StoryObj = {
       ),
       'agent-ops': (
         <AgentOpsPanel 
-          data={{ hr: { role_count: 5, roles: ['CEO'] }, researcher: { run_count: 3, latest_run: null }, custodian: { archive_count: 12 }, roster: [] }}
+          data={{ hr: { last_run: '2h ago', push_count: 5 }, researcher: { last_run: null, push_count: 0 }, custodian: { last_run: '1d ago', push_count: 0 } }}
           loading={false} 
         />
       ),
