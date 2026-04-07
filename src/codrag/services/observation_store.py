@@ -363,6 +363,33 @@ class ObservationStore:
             rows = conn.execute(sql, params).fetchall()
         return [Observation.from_row(r) for r in rows]
 
+    def get_for_directory(
+        self,
+        project_id: str,
+        directory: str,
+        include_stale: bool = True,
+        limit: int = 50,
+    ) -> List[Observation]:
+        """Get observations linked to files under a directory prefix.
+
+        This is the L2 (on-demand scoped) retrieval layer — cheaper than
+        semantic search, returns observations relevant to the working area.
+        """
+        conn = self._require_conn()
+        # Normalize: ensure prefix ends with / for clean LIKE matching
+        prefix = directory.rstrip("/") + "/"
+        sql = """SELECT * FROM observations
+                 WHERE project_id = ? AND file_path IS NOT NULL
+                 AND file_path LIKE ?"""
+        params: list = [project_id, f"{prefix}%"]
+        if not include_stale:
+            sql += " AND stale = 0"
+        sql += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+        with self._lock:
+            rows = conn.execute(sql, params).fetchall()
+        return [Observation.from_row(r) for r in rows]
+
     @staticmethod
     def _fts_query(query: str) -> str:
         """Convert a natural language query to FTS5 OR query.
