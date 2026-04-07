@@ -494,6 +494,64 @@ class ObservationStore:
             ).fetchall()
         return [Observation.from_row(r) for r in rows]
 
+    def get_consensus_scores(
+        self,
+        project_id: str,
+        min_agents: int = 2,
+        since_days: int = 30,
+    ) -> List[Dict[str, Any]]:
+        """Group attributed observations by file_path, count distinct agents.
+
+        Returns files flagged by min_agents or more distinct agents,
+        with consensus_score = agent_count / total_active_agents.
+        """
+        conn = self._require_conn()
+        cutoff = time.time() - since_days * 86400
+
+        with self._lock:
+            total_row = conn.execute(
+                """SELECT COUNT(DISTINCT created_by) AS cnt
+                   FROM observations
+                   WHERE project_id = ? AND created_by IS NOT NULL
+                   AND created_at > ?""",
+                (project_id, cutoff),
+            ).fetchone()
+            total_active = total_row["cnt"] if total_row else 0
+
+            if total_active < min_agents:
+                return []
+
+            rows = conn.execute(
+                """SELECT file_path,
+                          GROUP_CONCAT(DISTINCT created_by) AS agents,
+                          COUNT(DISTINCT created_by) AS agent_count,
+                          MAX(created_at) AS latest_at
+                   FROM observations
+                   WHERE project_id = ?
+                     AND created_by IS NOT NULL
+                     AND file_path IS NOT NULL
+                     AND stale = 0
+                     AND created_at > ?
+                   GROUP BY file_path
+                   HAVING COUNT(DISTINCT created_by) >= ?
+                   ORDER BY agent_count DESC, latest_at DESC""",
+                (project_id, cutoff, min_agents),
+            ).fetchall()
+
+        return [
+            {
+                "file_path": row["file_path"],
+                "agents": row["agents"].split(","),
+                "agent_count": row["agent_count"],
+                "total_active_agents": total_active,
+                "consensus_score": round(
+                    row["agent_count"] / total_active, 2,
+                ),
+                "latest_observation_at": row["latest_at"],
+            }
+            for row in rows
+        ]
+
     def get_stats(self, project_id: str) -> Dict[str, Any]:
         """Get observation statistics for a project."""
         conn = self._require_conn()
