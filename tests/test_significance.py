@@ -33,3 +33,11 @@ def test_low_confidence_is_informational():
         category="quality", consensus_score=0.0, hub_count=0,
         confidence="low",
     ) == "informational"
+
+
+def test_low_confidence_with_hub_is_recommended():
+    """Hub involvement overrides low confidence — hub findings are always at least recommended."""
+    assert classify_significance(
+        category="quality", consensus_score=0.0, hub_count=1,
+        confidence="low",
+    ) == "recommended"

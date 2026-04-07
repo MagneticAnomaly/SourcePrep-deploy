@@ -81,7 +81,7 @@ function migrateLayout(layout: DashboardLayout): DashboardLayout {
 export function useLayoutPersistence(
   options: UseLayoutPersistenceOptions = {}
 ): UseLayoutPersistenceReturn {
-  const { storageKey = LAYOUT_STORAGE_KEY, debounceMs = 500 } = options;
+  const { storageKey = LAYOUT_STORAGE_KEY } = options;
 
   const [layout, setLayoutState] = useState<DashboardLayout>(() => {
     const stored = loadLayout(storageKey);

@@ -284,12 +284,13 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
 
   // Agent ops state — fetched when project changes
   const mapAgentStatus = (raw: any): AgentOpsData => ({
-    hr: { last_run: raw.hr?.roles?.length > 0 ? 'configured' : null, push_count: raw.hr?.role_count ?? 0 },
-    researcher: { last_run: raw.researcher?.latest_run ?? null, push_count: raw.researcher?.run_count ?? 0 },
-    custodian: { last_run: raw.custodian?.archive_count > 0 ? 'has entries' : null, push_count: 0 },
+    hr: { last_run: raw.hr?.roles?.length > 0 ? `${raw.hr.role_count} roles` : null, push_count: 0 },
+    researcher: { last_run: raw.researcher?.latest_run ?? null, push_count: 0 },
+    custodian: { last_run: raw.custodian?.archive_count > 0 ? `${raw.custodian.archive_count} archived` : null, push_count: 0 },
   })
   const [agentOpsData, setAgentOpsData] = useState<AgentOpsData | null>(null)
   const [agentOpsLoading, setAgentOpsLoading] = useState(false)
+  const [pushSettings, setPushSettings] = useState<{ auto_push: boolean; min_significance: 'all' | 'recommended' | 'mandatory'; paperclip_project: string }>({ auto_push: false, min_significance: 'recommended', paperclip_project: '' })
 
   useEffect(() => {
     setAgentOpsData(null)
@@ -697,6 +698,8 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onMCPInstall={handleMCPInstall}
         onMCPUninstall={handleMCPUninstall}
         onMCPRefresh={fetchMcpStatus}
+        pushSettings={pushSettings}
+        onPushSettingsUpdate={setPushSettings}
         className="h-full"
       />
     ),
@@ -1372,6 +1375,8 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
             .then(json => setAgentOpsData(mapAgentStatus(json.data ?? json)))
             .catch(() => {});
         }}
+        pushSettings={pushSettings}
+        onPushSettingsUpdate={setPushSettings}
       />
     ),
     architecture: (

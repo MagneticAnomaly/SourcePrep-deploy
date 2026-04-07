@@ -225,6 +225,6 @@ def classify_significance(
         return "mandatory"
     if consensus_score > 0.5:
         return "mandatory"
-    if confidence == "low":
+    if confidence == "low" and hub_count == 0:
         return "informational"
     return "recommended"
