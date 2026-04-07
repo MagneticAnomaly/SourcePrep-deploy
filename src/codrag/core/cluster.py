@@ -24,14 +24,15 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from codrag.core.context_config import PipelineTask, compute_optimal_settings
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
-from .llm_client import LLMClient, _get_llm_concurrency, _parse_confidence, _parse_json_response
-from .epistemic_score import EpistemicEntry
+from codrag.core.context_config import PipelineTask, compute_optimal_settings
 from codrag.core.llm_client import TASK_MAX_CHARS, batched_max_chars
-from .swarm_registry import get_swarm_tier, get_min_groups_threshold
-from .swarm_orchestrator import SwarmOrchestrator, WorkItem, WorkerAssignment, SwarmResult
+
+from .epistemic_score import EpistemicEntry
+from .llm_client import LLMClient, _get_llm_concurrency, _parse_confidence, _parse_json_response
+from .swarm_orchestrator import SwarmOrchestrator, SwarmResult, WorkerAssignment, WorkItem
+from .swarm_registry import get_min_groups_threshold, get_swarm_tier
 
 logger = logging.getLogger(__name__)
 
@@ -781,8 +782,8 @@ def build_clusters_structural(
                 edge_pairs[(i, j)] = max(edge_pairs.get((i, j), 0.0), w * conf)
 
         # Add directory-proximity implicit edges (CL-4 style)
-        import os.path as osp
         import math
+        import os.path as osp
         for a_idx in range(min(ln, 200)):
             fp_a = layer_nodes[a_idx][5:]
             for b_idx in range(a_idx + 1, min(ln, 200)):

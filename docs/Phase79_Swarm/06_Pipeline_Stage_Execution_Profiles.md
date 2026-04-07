@@ -179,8 +179,8 @@ The mode is chosen **per-stage, per-run** based on the model's capabilities and 
 | 5. Knowledge | Embed | No | — | — | Batch embed | None | — |
 | 6. Enrichment | LLM | Yes | `large` (deep) | No | Concurrent batch | Low | — |
 | **7. Group Reasoning** | **LLM** | **Yes** | **`large` (deep)** | **Yes** | **Swarm / Concurrent** | **HIGH** | **Phase 79** |
-| 8. Clustering | LLM | Yes | `large` (deep) | No | Concurrent batch | Medium | Future |
-| 9. Atlas | LLM | Yes | `large` (deep) | No | Sequential (few calls) | Medium | Future |
+| **8. Clustering** | **LLM** | **Yes** | **`large` (deep)** | **No** | **Swarm / Concurrent** | **Medium** | **Phase 79** |
+| **9. Atlas** | **LLM** | **Yes** | **`large` (deep)** | **No** | **Swarm / Sequential** | **Medium** | **Phase 79** |
 | 10. Deepening | LLM | Yes | `large` (deep) | No | Concurrent batch | Low | — |
 | 11. Deep Knowledge | Embed | No | — | — | Batch embed | None | — |
 

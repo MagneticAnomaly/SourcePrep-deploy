@@ -16,35 +16,41 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
-from codrag.core.context_config import PipelineTask, compute_optimal_settings, compute_module_cap
-from .models import AtlasDocument, Segment, SegmentDocument, SegmentDescriptor
+from codrag.core.context_config import PipelineTask, compute_module_cap, compute_optimal_settings
+from codrag.core.llm_client import TASK_MAX_CHARS
+from codrag.core.swarm_orchestrator import (
+    SwarmOrchestrator,
+    SwarmResult,
+    WorkerAssignment,
+    WorkItem,
+)
+from codrag.core.swarm_registry import get_min_groups_threshold, get_swarm_tier
+
+from .models import AtlasDocument, Segment, SegmentDescriptor, SegmentDocument
 from .prompts import (
-    ATLAS_SYSTEM,
     ATLAS_PROMPT,
-    ROOT_ATLAS_SYSTEM,
+    ATLAS_SYSTEM,
     ROOT_ATLAS_PROMPT,
-    SEGMENT_ATLAS_SYSTEM,
+    ROOT_ATLAS_SYSTEM,
     SEGMENT_ATLAS_PROMPT,
+    SEGMENT_ATLAS_SYSTEM,
 )
 from .routing import (
-    MIN_FILES_FOR_ATLAS,
-    MIN_ATLAS_CHARS,
     MAX_ATLAS_CHARS,
-    ROOT_ATLAS_MIN_CHARS,
-    ROOT_ATLAS_MAX_CHARS,
-    SEGMENT_ATLAS_MIN_CHARS,
-    SEGMENT_ATLAS_MAX_CHARS,
+    MIN_ATLAS_CHARS,
+    MIN_FILES_FOR_ATLAS,
     MIN_FILES_FOR_ROUTING,
     MIN_MODULES_FOR_ROUTING,
+    ROOT_ATLAS_MAX_CHARS,
+    ROOT_ATLAS_MIN_CHARS,
     ROUTING_SEGMENT_BOOST,
+    SEGMENT_ATLAS_MAX_CHARS,
+    SEGMENT_ATLAS_MIN_CHARS,
+    build_routing_descriptors,
     compute_atlas_budget,
     compute_root_atlas_budget,
     compute_segments,
-    build_routing_descriptors,
 )
-from codrag.core.llm_client import TASK_MAX_CHARS
-from codrag.core.swarm_registry import get_swarm_tier, get_min_groups_threshold
-from codrag.core.swarm_orchestrator import SwarmOrchestrator, WorkItem, WorkerAssignment, SwarmResult
 
 logger = logging.getLogger(__name__)
 
@@ -2165,8 +2171,8 @@ class CodebaseAtlas:
             return cached
 
         # Live generation fallback
-        from .role_resolver import resolve_role
         from .role_projection import project_atlas_for_role
+        from .role_resolver import resolve_role
 
         role_vector = resolve_role(role)
         doc = self.load()
@@ -2183,8 +2189,8 @@ class CodebaseAtlas:
         Returns:
             Mapping of role_id → char_count for each cached atlas.
         """
-        from .role_resolver import resolve_role
         from .role_projection import project_atlas_for_role
+        from .role_resolver import resolve_role
         from .role_vectors import BUILT_IN_ROLES
 
         roles_dir = self.index_dir / "atlas_roles"
