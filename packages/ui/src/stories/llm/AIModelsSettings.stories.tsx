@@ -68,11 +68,6 @@ const baseConfig: LLMConfig = {
   code_model: {
     enabled: false,
   },
-  compression: {
-    enabled: false,
-    mode: 'auto',
-    level: 'standard',
-  },
   saved_endpoints: baseEndpoints,
 };
 
@@ -170,33 +165,6 @@ export const Default: Story = {
             },
           }));
         }}
-      />
-    );
-  },
-};
-
-export const CompressionEnabled: Story = {
-  render: () => {
-    const [config, setConfig] = useState<LLMConfig>({
-      ...baseConfig,
-      compression: {
-        enabled: true,
-        mode: 'auto',
-        level: 'standard',
-      },
-    });
-
-    return (
-      <AIModelsSettings
-        config={config}
-        onConfigChange={setConfig}
-        onAddEndpoint={() => {}}
-        onEditEndpoint={() => {}}
-        onDeleteEndpoint={() => {}}
-        onTestEndpoint={async () => ({ success: true, message: 'Connected.' })}
-        onFetchModels={async () => []}
-        onTestModel={async () => ({ success: true, message: 'Test succeeded.' })}
-        onHFDownload={() => {}}
       />
     );
   },

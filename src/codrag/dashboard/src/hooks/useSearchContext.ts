@@ -33,7 +33,6 @@ export function useSearchContext(selectedProjectId: string | null, { onError }: 
   const [contextIncludeScores, setContextIncludeScores] = useState(false)
   const [contextStructured, setContextStructured] = useState(false)
   const [contextIncludeAtlas, setContextIncludeAtlas] = useState(true)
-  const [contextCompression, setContextCompression] = useState<'none' | 'lod' | 'lingua'>('none')
   const [context, setContext] = useState<string>('')
   const [contextMeta, setContextMeta] = useState<ContextMeta | null>(null)
 
@@ -76,9 +75,8 @@ export function useSearchContext(selectedProjectId: string | null, { onError }: 
         include_sources: contextIncludeSources,
         include_scores: contextIncludeScores,
         min_score: minScore,
-        structured: contextStructured || contextCompression === 'lod',
+        structured: contextStructured,
         include_atlas: contextIncludeAtlas,
-        compression: contextCompression === 'none' ? undefined : contextCompression,
       })
       setContext(String(data.context || ''))
       if ('chunks' in data && data.chunks) {
@@ -100,7 +98,7 @@ export function useSearchContext(selectedProjectId: string | null, { onError }: 
     } catch (e) {
       onErrorRef.current?.(e instanceof Error ? e.message : 'Couldn\u2019t assemble context.', 'warning')
     }
-  }, [api, contextIncludeScores, contextIncludeSources, contextIncludeAtlas, contextCompression, contextK, contextMaxChars, contextStructured, minScore, query, selectedProjectId])
+  }, [api, contextIncludeScores, contextIncludeSources, contextIncludeAtlas, contextK, contextMaxChars, contextStructured, minScore, query, selectedProjectId])
 
   const handleCopyContext = useCallback(async () => {
     if (!context) return
@@ -137,7 +135,6 @@ export function useSearchContext(selectedProjectId: string | null, { onError }: 
     contextIncludeScores, setContextIncludeScores,
     contextStructured, setContextStructured,
     contextIncludeAtlas, setContextIncludeAtlas,
-    contextCompression, setContextCompression,
     context,
     contextMeta,
     // Actions

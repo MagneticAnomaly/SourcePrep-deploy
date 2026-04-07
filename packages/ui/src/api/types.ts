@@ -46,7 +46,6 @@ export interface AssembleContextRequest {
   structured?: boolean;
   include_atlas?: boolean;
   trace_expand?: TraceExpandOptions;
-  compression?: 'none' | 'lod' | 'lingua' | 'auto';
 }
 
 export interface StructuredContextChunk {

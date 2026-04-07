@@ -245,14 +245,6 @@ export class MockApiClient implements ApiClient {
     return { success: true };
   }
 
-  async getCompressionStatus(): Promise<any> {
-    return { lingua: { available: false, type: 'lingua' }, lod: { available: true, type: 'lod' } };
-  }
-
-  async downloadLinguaModel(): Promise<{ status: string }> {
-    return { status: 'downloading' };
-  }
-
   async getProjectActivity(): Promise<any> {
     return { days: [], totals: { embeddings: 0, trace: 0, builds: 0 } };
   }

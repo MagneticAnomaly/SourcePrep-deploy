@@ -16,7 +16,7 @@ import type {
   ComputeNode,
   AdminPolicy,
 } from '../../types';
-import { Cpu, Info, Download, CheckCircle, Shrink, Cloud, Plus, Save, Trash2, Edit2 } from 'lucide-react';
+import { Cpu, Info, Plus, Save, Trash2, Edit2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 
 export interface AIModelsSettingsProps {
@@ -35,7 +35,7 @@ export interface AIModelsSettingsProps {
   onClearTestResult?: (slot: string) => void;
   
   // HuggingFace operations
-  onHFDownload: (slotType: 'embedding' | 'lingua') => void;
+  onHFDownload: (slotType: 'embedding') => void;
   
   // UI state
   availableModels?: Record<string, string[]>; // endpointId -> models
@@ -661,7 +661,7 @@ export function AIModelsSettings({
                 href="https://docs.codrag.io/guides/models" 
               />
             </h2>
-            <p className="text-sm text-text-muted mt-1">Configure LLMs for embedding, analysis, and compression</p>
+            <p className="text-sm text-text-muted mt-1">Configure LLMs for embedding and analysis</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <div className="p-1 bg-surface-raised rounded-lg flex items-center border border-border">
@@ -710,7 +710,7 @@ export function AIModelsSettings({
         </div>
       </div>
 
-      {/* Two-column layout: Left (Embed, Compression, Cloud) + Right (mode toggle + model cards OR assignment blocks) */}
+      {/* Two-column layout: Left (Embed) + Right (mode toggle + model cards OR assignment blocks) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* ══════ LEFT COLUMN — unchanged in both modes ══════ */}
         <div className="flex flex-col gap-6">
@@ -744,99 +744,6 @@ export function AIModelsSettings({
             testResult={testResults['embedding']}
             testingConnection={testingSlot === 'embedding'}
           />
-
-          {/* Context Compression */}
-          <div className={cn(
-            'codrag-card rounded-lg border bg-surface p-6 transition-colors flex flex-col',
-            config.compression?.enabled && config.compression?.lingua_downloaded
-              ? 'border-success/50 shadow-[0_0_15px_rgba(var(--success),0.1)]'
-              : 'border-border',
-          )}>
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-surface-raised text-primary">
-                  <Shrink className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-semibold font-mono text-text">Context Compression</h3>
-                    <InfoTooltip
-                      content="LLMLingua-2 prunes docs/markdown tokens; LOD extracts code at configurable detail levels. Download the model to enable compression."
-                      href="https://docs.codrag.io/guides/models"
-                    />
-                  </div>
-                  <p className="text-sm text-text-muted">LLMLingua-2 (docs) + LOD (code)</p>
-                </div>
-              </div>
-              <span className={cn(
-                "text-xs px-2 py-1 rounded-full font-medium border flex items-center gap-1.5",
-                config.compression?.enabled && config.compression?.lingua_downloaded
-                  ? "bg-success-muted text-success border-success/20"
-                  : "bg-surface-raised text-text-muted border-border"
-              )}>
-                {config.compression?.enabled && config.compression?.lingua_downloaded
-                  ? 'Connected'
-                  : config.compression?.enabled
-                    ? 'Not Configured'
-                    : 'Disabled'}
-              </span>
-            </div>
-            <div className="flex-grow space-y-6">
-              <div className="p-1 bg-surface-raised rounded-lg flex gap-1 border border-border">
-                <button
-                  onClick={() => onConfigChange({ ...config, compression: { ...config.compression, enabled: false } })}
-                  className={cn('flex-1 px-3 py-2 text-xs rounded-md transition-all font-medium flex items-center justify-center gap-2', !(config.compression?.enabled ?? false) ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text hover:bg-surface/50')}
-                >
-                  Compression Disabled
-                </button>
-                <button
-                  onClick={() => onConfigChange({ ...config, compression: { ...config.compression, enabled: true } })}
-                  className={cn('flex-1 px-3 py-2 text-xs rounded-md transition-all font-medium flex items-center justify-center gap-2', config.compression?.enabled ?? false ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text hover:bg-surface/50')}
-                >
-                  <Cloud className="w-3 h-3" />
-                  Download from HF
-                </button>
-              </div>
-              {config.compression?.enabled && (
-                <div className="space-y-4">
-                  <div className="p-4 bg-surface-raised rounded-lg border border-border">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-medium text-text-muted">Model Repository</span>
-                      <code className="text-xs text-primary bg-primary-muted/20 px-1.5 py-0.5 rounded">microsoft/llmlingua-2-bert-base</code>
-                    </div>
-                    {config.compression?.lingua_downloaded ? (
-                      <div className="flex items-center gap-2 text-sm text-success font-medium bg-success-muted/10 p-3 rounded border border-success-muted/20">
-                        <CheckCircle className="w-4 h-4" />
-                        Downloaded & Ready
-                      </div>
-                    ) : config.compression?.lingua_download_progress != null && config.compression.lingua_download_progress > 0 ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs text-text-muted">
-                          <span>Downloading model files...</span>
-                          <span>{Math.round(config.compression.lingua_download_progress * 100)}%</span>
-                        </div>
-                        <div className="h-2 bg-border rounded-full overflow-hidden">
-                          <div className="h-full bg-info transition-all duration-300" style={{ width: `${config.compression.lingua_download_progress * 100}%` }} />
-                        </div>
-                      </div>
-                    ) : (
-                      <Button onClick={() => onHFDownload('lingua')} className="w-full" icon={Download}>Download Model</Button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-text-muted mb-1.5">Mode</label>
-                      <Select value={config.compression?.mode ?? 'auto'} onChange={(e) => onConfigChange({ ...config, compression: { ...config.compression, mode: e.target.value as any } })} options={[{ value: 'auto', label: 'Auto (dual-channel)' }, { value: 'lingua', label: 'Lingua only (docs/markdown)' }, { value: 'none', label: 'LOD only (code)' }]} className="w-full" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-text-muted mb-1.5">Level</label>
-                      <Select value={config.compression?.level ?? 'standard'} onChange={(e) => onConfigChange({ ...config, compression: { ...config.compression, level: e.target.value as any } })} options={[{ value: 'light', label: 'Light (keep 60%)' }, { value: 'standard', label: 'Standard (keep 40%)' }, { value: 'aggressive', label: 'Aggressive (keep 25%)' }]} className="w-full" />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
 
         </div>
 

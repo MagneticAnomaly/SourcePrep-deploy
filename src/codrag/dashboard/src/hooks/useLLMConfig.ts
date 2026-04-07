@@ -28,7 +28,6 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     small_model: { enabled: false },
     large_model: { enabled: false },
     code_model: { enabled: false },
-    compression: { enabled: false, mode: 'auto', level: 'standard' },
   })
   const [availableModels, setAvailableModels] = useState<Record<string, string[]>>({})
   const [modelDetails, setModelDetails] = useState<Record<string, Array<{ name: string; context_window?: string; cost_tier?: string; rate_limits?: { rpd?: number; rpm?: number }; batch_estimate?: { files_per_request: number; daily_file_capacity?: number } }>>>({})
@@ -215,63 +214,15 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     return () => clearInterval(interval)
   }, [fetchLLMSlotsStatus, hasRunningTasks])
 
-  const fetchCompressionStatus = useCallback(async () => {
-    try {
-      const status = await api.getCompressionStatus()
-      if (status.lingua) {
-        setLLMConfig((prev) => ({
-          ...prev,
-          compression: {
-            ...prev.compression,
-            lingua_downloaded: status.lingua.downloaded ?? false,
-          },
-        }))
-      }
-    } catch {
-      // Silent — not critical
-    }
-  }, [api])
-
-  const handleDownloadModel = useCallback(async (slot: 'embedding' | 'lingua') => {
+  const handleDownloadModel = useCallback(async (slot: 'embedding') => {
     try {
       if (slot === 'embedding') {
         await api.downloadEmbedding()
-      } else if (slot === 'lingua') {
-        // Show downloading state immediately
-        setLLMConfig((prev) => ({
-          ...prev,
-          compression: {
-            ...prev.compression,
-            lingua_download_progress: 0.1,
-          },
-        }))
-        await api.downloadLinguaModel()
-        // Mark as downloaded immediately, then confirm with server
-        setLLMConfig((prev) => ({
-          ...prev,
-          compression: {
-            ...prev.compression,
-            lingua_downloaded: true,
-            lingua_download_progress: undefined,
-          },
-        }))
-        // Also refresh from server to be sure
-        void fetchCompressionStatus()
       }
     } catch (err) {
       console.error(`Failed to trigger ${slot} download:`, err)
-      // Clear downloading state on error
-      if (slot === 'lingua') {
-        setLLMConfig((prev) => ({
-          ...prev,
-          compression: {
-            ...prev.compression,
-            lingua_download_progress: undefined,
-          },
-        }))
-      }
     }
-  }, [api, fetchCompressionStatus])
+  }, [api])
 
   const handleModeSwitch = useCallback(async (mode: AssignmentMode, blocks?: LLMConfig['assignment_blocks']) => {
     try {
@@ -308,7 +259,6 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
       code: cfg.code_model,
       mode: cfg.assignment_mode,
       blocks: cfg.assignment_blocks,
-      compression: cfg.compression,
     })
     
     if (lastSavedRef.current) {
@@ -354,9 +304,6 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
         void handleFetchModels(epId)
       }
     }
-    
-    // Also fetch compression status on mount
-    void fetchCompressionStatus()
   // Run once on mount — intentionally omitting deps to avoid re-fetching on every config change
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

@@ -88,10 +88,6 @@ export interface ApiClient {
   getEmbeddingStatus(): Promise<{ available: boolean; model: string; dim: number; downloaded: boolean }>;
   downloadEmbedding(): Promise<{ status: string }>;
 
-  // Compression
-  getCompressionStatus(): Promise<{ lingua: any; lod: any }>;
-  downloadLinguaModel(): Promise<{ status: string }>;
-
   // Activity & Coverage
   getProjectActivity(projectId: string, weeks?: number): Promise<{ days: any[]; totals: { embeddings: number; trace: number; builds: number } }>;
   getProjectCoverage(projectId: string): Promise<{ tree: any[] }>;
@@ -584,16 +580,6 @@ export class CodragApiClient implements ApiClient {
 
   async downloadEmbedding(): Promise<{ status: string }> {
     return this.requestEnvelope<{ status: string }>('/embedding/download', { method: 'POST' });
-  }
-
-  // ── Compression ───────────────────────────────────────────
-
-  async getCompressionStatus(): Promise<{ lingua: any; lod: any }> {
-    return this.requestEnvelope<{ lingua: any; lod: any }>('/compression/status');
-  }
-
-  async downloadLinguaModel(): Promise<{ status: string; model_path: string; hf_repo_id: string }> {
-    return this.requestEnvelope<{ status: string; model_path: string; hf_repo_id: string }>('/compression/download', { method: 'POST' });
   }
 
   // ── Activity & Coverage ──────────────────────────────────

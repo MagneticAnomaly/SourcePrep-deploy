@@ -249,7 +249,6 @@ function App() {
     contextIncludeScores, setContextIncludeScores,
     contextStructured, setContextStructured,
     contextIncludeAtlas, setContextIncludeAtlas,
-    contextCompression, setContextCompression,
     context, contextMeta,
     handleSearch, handleGetContext, handleCopyContext,
     resetSearch,
@@ -596,19 +595,6 @@ function App() {
             setLLMConfig(globalCfg.llm_config)
             // Mark as clean so the Save button doesn't show on initial load
             setTimeout(() => markLLMConfigClean(), 100)
-            // Fetch compression status to populate lingua_downloaded
-            try {
-              const compressionStatus = await api.getCompressionStatus()
-              if (compressionStatus.lingua) {
-                setLLMConfig((prev) => ({
-                  ...prev,
-                  compression: {
-                    ...prev.compression,
-                    lingua_downloaded: compressionStatus.lingua.downloaded ?? false,
-                  },
-                }))
-              }
-            } catch { /* Compression status not critical */ }
           }
           if (globalCfg.deep_analysis) setDeepAnalysisSchedule((prev) => ({ ...prev, ...globalCfg.deep_analysis } as any))
           if (globalCfg.ui_preferences) {
@@ -705,7 +691,6 @@ function App() {
       contextIncludeScores, setContextIncludeScores,
       contextStructured, setContextStructured,
       contextIncludeAtlas, setContextIncludeAtlas,
-      contextCompression, setContextCompression,
       context, contextMeta, handleGetContext, handleCopyContext,
     },
     files: {

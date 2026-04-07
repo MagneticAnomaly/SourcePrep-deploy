@@ -101,8 +101,6 @@ export interface PanelSearchProps {
   setContextStructured: (b: boolean) => void
   contextIncludeAtlas: boolean
   setContextIncludeAtlas: (b: boolean) => void
-  contextCompression: 'none' | 'lod' | 'lingua'
-  setContextCompression: (v: 'none' | 'lod' | 'lingua') => void
   context: string
   contextMeta: ContextMeta | null
   handleGetContext: () => void
@@ -192,7 +190,7 @@ export interface PanelLLMProps {
   handleFetchModels: (endpointId: string) => Promise<any>
   handleTestModel: (slot: 'embedding' | 'small' | 'large' | 'code') => Promise<any>
   handleClearTestResult: (slot: string) => void
-  handleDownloadModel: (slot: 'embedding' | 'lingua') => Promise<void>
+  handleDownloadModel: (slot: 'embedding') => Promise<void>
   handleModeSwitch: (mode: import('@codrag/ui').AssignmentMode, blocks?: import('@codrag/ui').LLMConfig['assignment_blocks']) => Promise<any>
   availableModels: Record<string, string[]>
   modelDetails: Record<string, Array<{ name: string; context_window?: string; cost_tier?: string; rate_limits?: { rpd?: number; rpm?: number }; batch_estimate?: { files_per_request: number; daily_file_capacity?: number } }>>
@@ -546,7 +544,6 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
               endpoint_id: p.llmConfig.large_model.endpoint_id,
               model: p.llmConfig.large_model.model,
             } : null,
-            compression: p.llmConfig.compression ?? null,
             saved_endpoints: p.llmConfig.saved_endpoints?.map((ep: SavedEndpoint) => ({
               id: ep.id, name: ep.name, provider: ep.provider, url: ep.url,
             })),
@@ -642,8 +639,6 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onStructuredChange={p.setContextStructured}
         includeAtlas={search.contextIncludeAtlas}
         onIncludeAtlasChange={search.setContextIncludeAtlas}
-        compression={search.contextCompression}
-        onCompressionChange={search.setContextCompression}
         onGetContext={p.handleGetContext}
         onCopyContext={p.handleCopyContext}
         hasContext={!!p.context}

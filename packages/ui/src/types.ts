@@ -705,17 +705,6 @@ export interface LLMSlotConfig {
 }
 
 /**
- * Compression configuration (LLMLingua-2 + LOD)
- */
-export interface CompressionConfig {
-  enabled: boolean;
-  mode: 'none' | 'lingua' | 'auto';
-  level: 'light' | 'standard' | 'aggressive';
-  lingua_downloaded?: boolean;
-  lingua_download_progress?: number;
-}
-
-/**
  * Full LLM configuration
  */
 export interface LLMConfig {
@@ -724,7 +713,6 @@ export interface LLMConfig {
   small_model: LLMSlotConfig;
   large_model: LLMSlotConfig;
   code_model: LLMSlotConfig;
-  compression: CompressionConfig;
   saved_endpoints: SavedEndpoint[];
   compute_nodes?: ComputeNode[];
   assignment_blocks?: LLMAssignmentBlock[];
@@ -1143,7 +1131,8 @@ export interface FeatureAvailability {
   mcp_tools: boolean;
   mcp_trace_expand: boolean;
   path_weights: boolean;
-  context_compression: boolean;
+  /** @deprecated LOD compression is always-on */
+  context_compression?: boolean;
   multi_repo_agent: boolean;
   team_config: boolean;
   audit_log: boolean;
