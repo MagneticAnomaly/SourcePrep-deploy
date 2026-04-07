@@ -65,6 +65,8 @@ class Observation:
     stale_reason: Optional[str] = None
     created_by: Optional[str] = None
     visibility: str = "shared"
+    valid_from: Optional[float] = None   # epoch when observation became valid
+    valid_to: Optional[float] = None     # epoch when observation was invalidated (None = current)
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -108,6 +110,8 @@ class Observation:
             stale_reason=row["stale_reason"],
             created_by=row["created_by"] if "created_by" in keys else None,
             visibility=row["visibility"] if "visibility" in keys else "shared",
+            valid_from=row["valid_from"] if "valid_from" in keys else None,
+            valid_to=row["valid_to"] if "valid_to" in keys else None,
         )
 
 
@@ -190,6 +194,22 @@ class ObservationStore:
             except sqlite3.OperationalError:
                 pass  # Column already exists
 
+        # Phase 80: Add temporal validity columns (safe to run repeatedly)
+        for col in ("valid_from", "valid_to"):
+            try:
+                self._conn.execute(
+                    f"ALTER TABLE observations ADD COLUMN {col} REAL DEFAULT NULL"
+                )
+                self._conn.commit()
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
+        # Backfill: set valid_from = created_at for existing rows
+        self._conn.execute(
+            "UPDATE observations SET valid_from = created_at WHERE valid_from IS NULL"
+        )
+        self._conn.commit()
+
     def _require_conn(self) -> sqlite3.Connection:
         if self._conn is None:
             raise RuntimeError(
@@ -252,10 +272,10 @@ class ObservationStore:
                 """INSERT INTO observations
                    (id, project_id, content, file_path, symbol_fqn,
                     trace_node_id, category, created_at, stale,
-                    created_by, visibility)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)""",
+                    created_by, visibility, valid_from)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)""",
                 (obs_id, project_id, content, file_path, symbol_fqn,
-                 trace_node_id, category, now, created_by, visibility),
+                 trace_node_id, category, now, created_by, visibility, now),
             )
             # FTS insert
             try:
@@ -331,9 +351,9 @@ class ObservationStore:
             for fp in file_paths:
                 cur = conn.execute(
                     """UPDATE observations
-                       SET stale = 1, stale_reason = ?, updated_at = ?
+                       SET stale = 1, stale_reason = ?, updated_at = ?, valid_to = ?
                        WHERE project_id = ? AND file_path = ? AND stale = 0""",
-                    (reason, now, project_id, fp),
+                    (reason, now, now, project_id, fp),
                 )
                 total += cur.rowcount
             conn.commit()
