@@ -251,13 +251,22 @@ const plugin = definePlugin({
     ctx.data.register('codebase-health', async () => {
       try {
         const pid = await client.resolveProjectId(config);
-        const [status, readiness] = await Promise.all([
+        const [status, readiness, pushSummary, consensus, delta] = await Promise.all([
           client.request(`/projects/${pid}/agents/status`),
           client.request(`/projects/${pid}/agents/hr/readiness`),
+          client.request(`/projects/${pid}/collaboration/push-summary`).catch(() => null),
+          client.request(`/projects/${pid}/collaboration/consensus`).catch(() => ({ scores: [] })),
+          client.request(`/projects/${pid}/collaboration/delta`).catch(() => null),
         ]);
-        return { status, readiness };
+        return {
+          status,
+          readiness,
+          push_summary: pushSummary,
+          consensus: (consensus as any)?.scores ?? [],
+          delta,
+        };
       } catch {
-        return { status: null, readiness: null, error: 'CoDRAG daemon unavailable' };
+        return { status: null, readiness: null, push_summary: null, consensus: [], delta: null, error: 'CoDRAG daemon unavailable' };
       }
     });
 
@@ -265,19 +274,31 @@ const plugin = definePlugin({
       try {
         const pid = await client.resolveProjectId(config);
         const agentId = (input as Record<string, unknown>)?.entityId as string;
-        if (!agentId) return { files: [], error: 'No agent selected' };
+        if (!agentId) return { files: [], role: null, error: 'No agent selected' };
 
-        const roleSlug = await ctx.state.get({
-          scopeKind: 'agent',
-          scopeId: agentId,
-          stateKey: 'role_slug',
-        });
-        if (!roleSlug) return { files: [], error: 'No CoDRAG role mapped for this agent' };
+        // Try reading role from agent's adapter config first, fall back to state
+        let roleSlug: string | null = null;
+        try {
+          const agent = await (ctx as any).agents?.get?.(agentId);
+          roleSlug = (agent as any)?.adapterConfig?.codrag_role ?? null;
+        } catch {
+          // agents API may not be available
+        }
 
-        const data = await client.request(`/projects/${pid}/scope/${roleSlug}`);
-        return data;
+        if (!roleSlug) {
+          roleSlug = await ctx.state.get({
+            scopeKind: 'agent',
+            scopeId: agentId,
+            stateKey: 'role_slug',
+          }) as string | null;
+        }
+
+        if (!roleSlug) return { files: [], role: null, error: 'No CoDRAG role mapped for this agent' };
+
+        const data = await client.request(`/projects/${pid}/agent-scope/${roleSlug}`);
+        return { ...(data as object), role: roleSlug };
       } catch (err) {
-        return { files: [], error: String(err) };
+        return { files: [], role: null, error: String(err) };
       }
     });
 
@@ -303,6 +324,26 @@ const plugin = definePlugin({
       }
     });
 
+    ctx.data.register('consensus-hotspots', async () => {
+      try {
+        const pid = await client.resolveProjectId(config);
+        const data = await client.request(`/projects/${pid}/collaboration/consensus`);
+        return data;
+      } catch (err) {
+        return { scores: [], error: String(err) };
+      }
+    });
+
+    ctx.data.register('push-summary', async () => {
+      try {
+        const pid = await client.resolveProjectId(config);
+        const data = await client.request(`/projects/${pid}/collaboration/push-summary`);
+        return data;
+      } catch (err) {
+        return { total_pushes: 0, latest_push_at: null, error: String(err) };
+      }
+    });
+
     // ── Actions ─────────────────────────────────────────────
 
     ctx.actions.register('run-researcher', async (input) => {
@@ -321,6 +362,44 @@ const plugin = definePlugin({
         method: 'POST',
         body: { dry_run: (p?.dryRun as boolean) ?? true, max_files: (p?.maxFiles as number) ?? 20 },
       });
+    });
+
+    ctx.actions.register('enrich-issue', async (input) => {
+      const pid = await client.resolveProjectId(config);
+      const p = input as Record<string, unknown>;
+      const issueId = p?.issueId as string;
+      if (!issueId) return { error: 'No issue ID provided' };
+
+      // Get the issue to extract file paths from description
+      let desc = '';
+      try {
+        const issue = await (ctx as any).issues?.get?.(issueId);
+        desc = (issue as any)?.description ?? '';
+      } catch {
+        return { error: 'Could not fetch issue' };
+      }
+
+      // Extract file paths (simple heuristic: paths with extensions)
+      const filePaths = desc.match(/[\w/.-]+\.\w{1,10}/g) ?? [];
+      const uniquePaths = [...new Set(filePaths)].slice(0, 5);
+
+      if (uniquePaths.length === 0) {
+        return { error: 'No file paths found in issue description' };
+      }
+
+      const results = await Promise.all(
+        uniquePaths.map((file: string) =>
+          client.request(`/projects/${pid}/trace/impact`, {
+            method: 'POST',
+            body: { file },
+          }).catch(() => null),
+        ),
+      );
+
+      return {
+        files_analyzed: uniquePaths,
+        impact: results.filter(Boolean),
+      };
     });
 
     // ── Event Handlers ──────────────────────────────────────
@@ -353,7 +432,7 @@ const plugin = definePlugin({
       }
     });
 
-    ctx.logger.info('CoDRAG plugin initialized — 5 tools, 4 data providers, 2 actions, 1 job');
+    ctx.logger.info('CoDRAG plugin initialized — 5 tools, 6 data providers, 3 actions, 1 job');
   },
 
   async onHealth(): Promise<PluginHealthDiagnostics> {
