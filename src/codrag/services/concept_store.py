@@ -629,6 +629,54 @@ class ConceptStore:
 
         return results
 
+    def get_for_anchors_directory(
+        self,
+        project_id: str,
+        directory: str,
+        include_stale: bool = True,
+        include_archived: bool = False,
+        limit: int = 20,
+    ) -> List[Concept]:
+        """Get concepts anchored to files under a directory prefix.
+
+        Scans the JSON anchors array for each concept and returns those
+        with at least one anchor matching the directory prefix. This is
+        the L2 (on-demand scoped) retrieval layer for concepts.
+        """
+        conn = self._require_conn()
+        prefix = directory.rstrip("/") + "/"
+
+        # SQLite JSON: use LIKE on the anchors text column to find
+        # concepts with at least one anchor under the directory.
+        sql = """SELECT * FROM concepts
+                 WHERE project_id = ? AND anchors LIKE ?"""
+        params: list = [project_id, f"%{prefix}%"]
+
+        if not include_stale:
+            sql += " AND stale = 0"
+        if not include_archived:
+            sql += " AND status != 'archived'"
+
+        sql += """ ORDER BY
+            CASE status WHEN 'active' THEN 0 WHEN 'seed' THEN 1 ELSE 2 END,
+            created_at DESC
+            LIMIT ?"""
+        params.append(limit)
+
+        with self._lock:
+            rows = conn.execute(sql, params).fetchall()
+
+        # Post-filter: verify at least one anchor actually starts with prefix
+        # (the LIKE on JSON text can false-match on content or other anchors)
+        results = []
+        for row in rows:
+            concept = Concept.from_row(row)
+            if any(a.startswith(prefix) or a.rstrip("/") + "/" == prefix
+                   for a in concept.anchors):
+                results.append(concept)
+
+        return results[:limit]
+
     def get_stats(self, project_id: str) -> Dict[str, Any]:
         """Get concept statistics for the project."""
         conn = self._require_conn()
