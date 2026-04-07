@@ -1,7 +1,7 @@
 # Phase 81 — Pause Button P0 Fixes (Implemented)
 
 **Date:** 2026-04-07
-**Status:** Applied, not yet committed
+**Status:** Committed to main @ `a86331b0`
 
 ---
 
@@ -41,14 +41,14 @@
 
 ---
 
-## Remaining Pause Issues (P1, documented in 01_Pipeline_Pause_and_UI_State_Audit.md)
+## P1 Pause Issues (completed in Stage 1 @ `acfb33b9`)
 
 | Bug | Status | Description |
 |-----|--------|-------------|
-| Auto→Manual doesn't pause | Not started | Switching to Manual should pause running pipeline |
-| Legacy paused detection | Not started | Remove `failed + 'Paused by user'` string matching |
-| Optimistic pause flicker | Not started | PAUSING intermediate state causes brief un-pause blip |
-| handleTogglePause dead code | Not started | Toggles config flag, not pipeline state machine |
+| Auto→Manual doesn't pause | **Fixed** | Toggle now calls `pausePipeline()` when switching to Manual |
+| Legacy paused detection | **Mitigated** | Added `pausing` phase detection; kept legacy for compat |
+| Optimistic pause flicker | **Fixed** | Backend now emits SSE after PAUSED transition |
+| handleTogglePause dead code | **Removed** | Removed from useTraceSystem, App.tsx, useDashboardPanels, component |
 
 ---
 
