@@ -143,9 +143,9 @@ export { useAdminPolicy } from './hooks/useAdminPolicy';
 export { FolderTree, sampleFileTree, ProjectSettingsPanel, FolderTreePanel, PinnedTextFilesPanel, AddProjectModal, FilePreviewPane, FileExplorerDetail, CodeViewer } from './components/project';
 export type { FolderTreeProps, TreeNode, FileStatus, ProjectSettingsPanelProps, FolderTreePanelProps, PinnedTextFilesPanelProps, PinnedTextFile, AddProjectModalProps, FilePreviewPaneProps, FileExplorerDetailProps, FileExplorerTab, CodeViewerProps } from './components/project';
 
-// Components - Agent Scopes & Operations (Phase 67)
-export { AgentScopePanel, AgentOpsPanel, AgentOpsDetail, AgentCard, EmployeeBadges, SystemAgentsTab, ManagedEmployeesTab, MCPConnectionCard } from './components/agents';
-export type { AgentScopePanelProps, AgentOpsPanelProps, AgentOpsData, AgentOpsDetailProps, AgentCardProps, RoleBadge, EmployeeBadgesProps, SystemAgentsData, SystemAgentsTabProps, ManagedEmployeesData, ManagedEmployeesTabProps, MCPConnectionCardProps, MCPStatusData, MCPRuntimeStatus, MCPInstallResult } from './components/agents';
+// Components - Agent Scopes & Operations (Phase 67 / Unified Surfaces)
+export { AgentScopePanel, AgentOpsPanel, MCPConnectionCard, PushSettings } from './components/agents';
+export type { AgentScopePanelProps, AgentOpsPanelProps, AgentOpsData, EngineStatus, MCPConnectionCardProps, MCPStatusData, MCPRuntimeStatus, MCPInstallResult, PushSettingsData, PushSettingsProps } from './components/agents';
 
 // Components - Watch (Phase 03)
 export { WatchStatusIndicator, WatchControlPanel } from './components/watch';

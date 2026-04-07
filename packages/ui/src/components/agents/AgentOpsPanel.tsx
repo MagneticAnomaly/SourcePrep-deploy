@@ -1,28 +1,23 @@
 /**
- * AgentOpsPanel — Modular dashboard panel for Agent Operations (Level 1).
+ * AgentOpsPanel — Config-only dashboard panel for Agent Operations.
  *
- * Shows 3 compact AgentCards (HR, Researcher, Custodian), the MCP Connection
- * card for one-click Paperclip integration, and managed employee badges.
- * Clicking "Details" opens the full overlay.
+ * Shows engine control rows (Run/Generate/Scan with last-run + push count),
+ * Paperclip connection status, and push settings.
+ * No operational monitoring — that belongs in Paperclip.
  */
 import { Users, Search, Trash2 } from 'lucide-react';
-import { AgentCard } from './AgentCard';
-import { EmployeeBadges, type RoleBadge } from './EmployeeBadges';
 import { MCPConnectionCard, type MCPStatusData, type MCPInstallResult } from './MCPConnectionCard';
+import { PushSettings, type PushSettingsData } from './PushSettings';
+
+export interface EngineStatus {
+  last_run: string | null;
+  push_count: number;
+}
 
 export interface AgentOpsData {
-  hr: {
-    role_count: number;
-    roles: string[];
-  };
-  researcher: {
-    run_count: number;
-    latest_run: string | null;
-  };
-  custodian: {
-    archive_count: number;
-  };
-  roster?: RoleBadge[];
+  hr: EngineStatus;
+  researcher: EngineStatus;
+  custodian: EngineStatus;
 }
 
 export interface AgentOpsPanelProps {
@@ -31,13 +26,57 @@ export interface AgentOpsPanelProps {
   onHRGenerate?: () => void;
   onResearchRun?: () => void;
   onCustodianRun?: () => void;
-  /** Paperclip skill status */
   mcpStatus?: MCPStatusData | null;
   mcpLoading?: boolean;
   onMCPInstall?: () => Promise<MCPInstallResult>;
   onMCPUninstall?: () => Promise<void>;
   onMCPRefresh?: () => void;
+  pushSettings?: PushSettingsData | null;
+  pushSettingsLoading?: boolean;
+  onPushSettingsUpdate?: (settings: PushSettingsData) => void;
   className?: string;
+}
+
+interface EngineRowProps {
+  name: string;
+  description: string;
+  icon: React.ReactNode;
+  status: EngineStatus | null;
+  onAction?: () => void;
+  actionLabel: string;
+}
+
+function EngineRow({ name, description, icon, status, onAction, actionLabel }: EngineRowProps) {
+  return (
+    <div className="flex items-center gap-3 py-2 px-2 rounded-md hover:bg-muted/30 transition-colors">
+      <div className="text-muted-foreground shrink-0">{icon}</div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium truncate">{name}</div>
+        <div className="text-xs text-muted-foreground truncate">{description}</div>
+      </div>
+      <div className="text-right shrink-0 mr-2">
+        {status?.last_run ? (
+          <div className="text-[10px] text-muted-foreground">
+            {status.push_count > 0 && (
+              <span className="text-primary">{status.push_count} pushed</span>
+            )}
+            {status.push_count > 0 && ' · '}
+            {status.last_run}
+          </div>
+        ) : (
+          <div className="text-[10px] text-muted-foreground italic">Not yet run</div>
+        )}
+      </div>
+      {onAction && (
+        <button
+          onClick={onAction}
+          className="shrink-0 px-2.5 py-1 text-xs font-medium rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+        >
+          {actionLabel}
+        </button>
+      )}
+    </div>
+  );
 }
 
 export function AgentOpsPanel({
@@ -51,74 +90,50 @@ export function AgentOpsPanel({
   onMCPInstall,
   onMCPUninstall,
   onMCPRefresh,
+  pushSettings,
+  pushSettingsLoading = false,
+  onPushSettingsUpdate,
   className = '',
 }: AgentOpsPanelProps) {
-  if (loading || !data) {
+  if (loading) {
     return (
       <div className={`flex items-center justify-center p-8 text-muted-foreground ${className}`}>
-        {loading ? 'Loading agent status...' : 'No project selected'}
+        Loading agent config...
       </div>
     );
   }
 
-  const isEmpty = data.hr.role_count === 0
-    && data.researcher.run_count === 0
-    && data.custodian.archive_count === 0;
-
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Getting Started — shown when no agents have been used yet */}
-      {isEmpty && (
-        <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4">
-          <h4 className="font-medium text-sm mb-2">Get Started with Agent Operations</h4>
-          <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal pl-4">
-            <li>Ensure an LLM is configured in the <span className="font-medium text-foreground">AI Gateway</span> panel</li>
-            <li>Generate roles: <code className="bg-muted px-1 rounded">codrag hr-generate --mode auto</code></li>
-            <li>Run research: <code className="bg-muted px-1 rounded">codrag research-run</code></li>
-            <li>Scan for dead code: <code className="bg-muted px-1 rounded">codrag custodian-run</code></li>
-          </ol>
-          <p className="text-xs text-muted-foreground mt-2">
-            Run <code className="bg-muted px-1 rounded">codrag agents</code> for a full command reference.
-          </p>
+      <div>
+        <h4 className="text-xs font-medium text-muted-foreground mb-1">Engines</h4>
+        <div className="divide-y divide-border/50">
+          <EngineRow
+            name="HR Agent"
+            description="Generate and audit agent role definitions"
+            icon={<Users size={14} />}
+            status={data?.hr ?? null}
+            onAction={onHRGenerate}
+            actionLabel="Generate"
+          />
+          <EngineRow
+            name="Researcher"
+            description="Mine audit findings, formulate plans"
+            icon={<Search size={14} />}
+            status={data?.researcher ?? null}
+            onAction={onResearchRun}
+            actionLabel="Research"
+          />
+          <EngineRow
+            name="Custodian"
+            description="Detect dead code, plan cleanup"
+            icon={<Trash2 size={14} />}
+            status={data?.custodian ?? null}
+            onAction={onCustodianRun}
+            actionLabel="Scan"
+          />
         </div>
-      )}
-
-      {/* Agent Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <AgentCard
-          name="HR Agent"
-          description="Generates and manages AI agent role definitions"
-          icon={<Users size={16} />}
-          status={data.hr.role_count > 0 ? 'fresh' : 'pending'}
-          metric={String(data.hr.role_count)}
-          metricLabel="roles"
-          onAction={onHRGenerate}
-          actionLabel="Generate"
-        />
-        <AgentCard
-          name="Researcher"
-          description="Mines audit findings and formulates plans"
-          icon={<Search size={16} />}
-          status={data.researcher.run_count > 0 ? 'fresh' : 'pending'}
-          metric={String(data.researcher.run_count)}
-          metricLabel="research runs"
-          lastRun={data.researcher.latest_run}
-          onAction={onResearchRun}
-          actionLabel="Run"
-        />
-        <AgentCard
-          name="Custodian"
-          description="Detects dead code and plans cleanup"
-          icon={<Trash2 size={16} />}
-          status={data.custodian.archive_count > 0 ? 'fresh' : 'pending'}
-          metric={String(data.custodian.archive_count)}
-          metricLabel="archived"
-          onAction={onCustodianRun}
-          actionLabel="Scan"
-        />
       </div>
-
-      {/* Paperclip Skill Card */}
       <MCPConnectionCard
         status={mcpStatus ?? null}
         loading={mcpLoading}
@@ -126,16 +141,11 @@ export function AgentOpsPanel({
         onUninstall={onMCPUninstall}
         onRefresh={onMCPRefresh}
       />
-
-      {/* Employee Badges */}
-      {data.roster && data.roster.length > 0 && (
-        <div>
-          <h4 className="text-xs font-medium text-muted-foreground mb-2">
-            Managed Employees
-          </h4>
-          <EmployeeBadges roles={data.roster} />
-        </div>
-      )}
+      <PushSettings
+        settings={pushSettings ?? null}
+        loading={pushSettingsLoading}
+        onUpdate={onPushSettingsUpdate}
+      />
     </div>
   );
 }
