@@ -302,7 +302,7 @@ function App() {
   const architecture = useArchitectureSystem(hydration.hydratedProjectId, { signal: hydration.signal })
 
   // ── Concepts (Phase 74) ────────────────────────────────────
-  const concepts = useConceptSystem(hydration.hydratedProjectId)
+  const concepts = useConceptSystem(hydration.hydratedProjectId, { signal: hydration.signal })
 
   // ── Event Stream ───────────────────────────────────────────
   const eventsUrl = import.meta.env.DEV
@@ -643,6 +643,10 @@ function App() {
     const pid = hydration.hydratedProjectId
     if (!pid) return
     const signal = hydration.signal
+    // Reset stale data immediately to prevent cross-project contamination
+    setAtlasStatus(null)
+    setActivityData(null)
+    setPipelineProvenance(null)
     void refreshWatchStatus(pid)
     void fetchDeepAnalysisStatus()
     void fetchAtlas()

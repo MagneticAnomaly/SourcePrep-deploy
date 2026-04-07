@@ -17,7 +17,10 @@ export interface UseConceptSystemReturn {
   handleRefresh: () => void;
 }
 
-export function useConceptSystem(projectId: string | null): UseConceptSystemReturn {
+export function useConceptSystem(
+  projectId: string | null,
+  opts: { signal?: AbortSignal } = {},
+): UseConceptSystemReturn {
   const [concepts, setConcepts] = useState<ConceptItem[]>([]);
   const [questions, setQuestions] = useState<ConceptQuestionItem[]>([]);
   const [stats, setStats] = useState<ConceptStats | null>(null);
@@ -27,14 +30,15 @@ export function useConceptSystem(projectId: string | null): UseConceptSystemRetu
 
   const fetchConcepts = useCallback(async () => {
     if (!projectId) return;
+    const signal = opts.signal;
     setLoading(true);
     setError(null);
     try {
       // Fetch concepts + stats (critical) and questions (optional) in parallel.
       // Questions are fetched with allSettled so a 404 doesn't break the panel.
       const [conceptsRes, statsRes] = await Promise.all([
-        fetch(`/projects/${projectId}/concepts`),
-        fetch(`/projects/${projectId}/concepts/stats`),
+        fetch(`/projects/${projectId}/concepts`, { signal }),
+        fetch(`/projects/${projectId}/concepts/stats`, { signal }),
       ]);
 
       const conceptsData = await conceptsRes.json();
@@ -48,7 +52,7 @@ export function useConceptSystem(projectId: string | null): UseConceptSystemRetu
 
       // Questions are optional — don't let a failure break the whole panel
       try {
-        const questionsRes = await fetch(`/projects/${projectId}/concepts/questions`);
+        const questionsRes = await fetch(`/projects/${projectId}/concepts/questions`, { signal });
         if (questionsRes.ok) {
           const questionsData = await questionsRes.json();
           const qdata = questionsData?.data ?? questionsData;
@@ -60,11 +64,13 @@ export function useConceptSystem(projectId: string | null): UseConceptSystemRetu
         setQuestions([]);
       }
     } catch (e) {
+      // Don't set error for aborted requests (project switch)
+      if (e instanceof DOMException && e.name === 'AbortError') return;
       setError(e instanceof Error ? e.message : 'Failed to load concepts');
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, opts.signal]);
 
   useEffect(() => {
     setConcepts([]);

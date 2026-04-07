@@ -57,6 +57,14 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError }: U
     return () => { cancelled = true }
   }, [api])
 
+  // ── Reset per-project state on project switch ───────────────
+  useEffect(() => {
+    setDeepAnalysisStatus({})
+    setDeepAnalysisRunning(false)
+    setBudgetUsage(null)
+    setTokenUsageData(null)
+  }, [selectedProjectId])
+
   // ── Handlers ────────────────────────────────────────────────
 
   const fetchDeepAnalysisStatus = useCallback(async () => {

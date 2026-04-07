@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useApiClient, type SearchResult, type ContextMeta } from '@codrag/ui'
 
 // ── Dependencies ──────────────────────────────────────────────
@@ -35,6 +35,16 @@ export function useSearchContext(selectedProjectId: string | null, { onError }: 
   const [contextIncludeAtlas, setContextIncludeAtlas] = useState(true)
   const [context, setContext] = useState<string>('')
   const [contextMeta, setContextMeta] = useState<ContextMeta | null>(null)
+
+  // ── Reset results on project switch ─────────────────────────
+  // Search is user-initiated, but results are project-specific.
+  // Showing stale results from the previous project is confusing.
+  useEffect(() => {
+    setSearchResults([])
+    setSelectedChunk(null)
+    setContext('')
+    setContextMeta(null)
+  }, [selectedProjectId])
 
   // ── Handlers ────────────────────────────────────────────────
 
