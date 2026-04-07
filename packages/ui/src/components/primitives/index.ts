@@ -39,3 +39,5 @@ export type { BudgetPillProps } from './BudgetPill';
 
 export { BudgetPreview } from './BudgetPreview';
 export type { BudgetPreviewProps } from './BudgetPreview';
+
+export { PanelLoading } from './PanelLoading';

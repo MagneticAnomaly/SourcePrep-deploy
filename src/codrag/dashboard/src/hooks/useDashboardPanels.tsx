@@ -65,6 +65,7 @@ import {
   ArchitectureDiagramDetail,
   ConceptsPanel,
   ConceptsDetail,
+  PanelLoading,
 } from '@codrag/ui'
 import type { TraceStatus, TraceCoverage } from './useTraceSystem'
 import type { UseAuditSystemReturn } from './useAuditSystem'
@@ -980,24 +981,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onAnswerQuestion={goalpostsProps.handleAnswerQuestion}
       />
     ) : (
-      <GoalpostsPanel
-        productIntent=""
-        proposals={[]}
-        questions={[]}
-        generating={false}
-        error={null}
-        ready={false}
-        hasAudit={false}
-        hasIntent={false}
-        missing={['Loading...']}
-        lastGeneratedAt=""
-        modelUsed=""
-        onGenerate={() => {}}
-        onUpdateIntent={() => {}}
-        onApprove={() => {}}
-        onDismiss={() => {}}
-        onAnswerQuestion={() => {}}
-      />
+      <PanelLoading message="Loading goalposts..." />
     ),
     advisor: goalpostsProps.state ? (
       <AdvisorPanel
@@ -1019,24 +1003,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onAnswerQuestion={goalpostsProps.handleAnswerQuestion}
       />
     ) : (
-      <AdvisorPanel
-        productIntent=""
-        proposals={[]}
-        questions={[]}
-        generating={false}
-        error={null}
-        ready={false}
-        hasAudit={false}
-        hasIntent={false}
-        missing={['Loading...']}
-        lastGeneratedAt=""
-        modelUsed=""
-        onGenerate={() => {}}
-        onUpdateIntent={() => {}}
-        onApprove={() => {}}
-        onDismiss={() => {}}
-        onAnswerQuestion={() => {}}
-      />
+      <PanelLoading message="Loading advisor..." />
     ),
     roadmap: roadmapProps.state ? (
       <RoadmapPanel
@@ -1075,28 +1042,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         } : { configured: false }}
       />
     ) : (
-      <RoadmapPanel
-        nodes={[]}
-        questions={[]}
-        northStar={null}
-        appEthos=""
-        generating={false}
-        scanning={false}
-        error={null}
-        ready={false}
-        lastGeneratedAt=""
-        modelUsed=""
-        onGenerate={() => {}}
-        onScanTodos={() => {}}
-        onUpdateEthos={() => {}}
-        onPromoteNode={() => {}}
-        onDismissNode={() => {}}
-        onDeleteNode={() => {}}
-        onCreateNode={() => {}}
-        onAnswerQuestion={() => {}}
-        onSyncGitHub={() => {}}
-        onMineRoadmap={() => {}}
-      />
+      <PanelLoading message="Loading roadmap..." />
     ),
     'token-budget': (
       <TokenBudgetPanel

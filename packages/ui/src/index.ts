@@ -135,6 +135,7 @@ export { BudgetPreview } from './components/primitives/BudgetPreview';
 export type { BudgetPreviewProps } from './components/primitives/BudgetPreview';
 export { AdminSection } from './components/primitives/AdminSection';
 export type { AdminSectionProps } from './components/primitives/AdminSection';
+export { PanelLoading } from './components/primitives/PanelLoading';
 
 // Hooks - Enterprise (EA-C4)
 export { useAdminPolicy } from './hooks/useAdminPolicy';
