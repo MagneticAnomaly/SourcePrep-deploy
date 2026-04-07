@@ -347,6 +347,106 @@ class PushEngine:
         ctx.complexity_tier = compute_complexity_tier(ctx)
         return ctx
 
+    def push_significant_delta(
+        self,
+        delta: Any,
+        project_id: str,
+    ) -> int:
+        """Push significant structural changes to Paperclip as issues.
+
+        Only pushes new/removed hubs and modules. Rank changes and
+        size changes are informational only.
+        Returns the number of issues created.
+        """
+        from codrag.adapters.pm_models import PMIssue
+
+        significant = []
+        for h in delta.hub_changes:
+            if h.get("change") in ("new", "removed"):
+                significant.append({**h, "type": "hub"})
+        for m in delta.module_changes:
+            if m.get("change") in ("new", "removed"):
+                significant.append({**m, "type": "module"})
+
+        if not significant:
+            return 0
+
+        created = 0
+        for change in significant:
+            change_type = change["type"]
+            change_action = change["change"]
+
+            if change_type == "hub":
+                path = change.get("path", "unknown")
+                address = f"codrag://{project_id}/DELTA-hub-{hash(path) & 0xFFFFFFFF:08x}"
+                if change_action == "new":
+                    deps = change.get("dependents_count", 0)
+                    rank = change.get("rank", "?")
+                    title = f"Structural Change: {path} is a new hub ({deps} dependents)"
+                    desc = (
+                        f"A new hub file was detected after pipeline rebuild.\n\n"
+                        f"**File:** {path}\n"
+                        f"**Dependents:** {deps}\n"
+                        f"**Rank:** #{rank}\n\n"
+                        f"Hub files are central dependencies — many other files import from them. "
+                        f"Changes to hub files have high blast radius.\n\n"
+                        f"---\n"
+                        f"<!-- codrag-address:{address} -->\n"
+                        f"<!-- codrag-delta:true -->"
+                    )
+                else:
+                    title = f"Structural Change: {path} is no longer a hub"
+                    desc = (
+                        f"A hub file was removed from the hub list after pipeline rebuild.\n\n"
+                        f"**File:** {path}\n\n"
+                        f"This file no longer has enough dependents to be a hub.\n\n"
+                        f"---\n"
+                        f"<!-- codrag-address:{address} -->\n"
+                        f"<!-- codrag-delta:true -->"
+                    )
+            else:
+                name = change.get("name", "unknown")
+                address = f"codrag://{project_id}/DELTA-module-{hash(name) & 0xFFFFFFFF:08x}"
+                if change_action == "new":
+                    file_count = change.get("file_count", 0)
+                    title = f"Structural Change: new module '{name}' ({file_count} files)"
+                    desc = (
+                        f"A new module was detected after pipeline rebuild.\n\n"
+                        f"**Module:** {name}\n"
+                        f"**Files:** {file_count}\n\n"
+                        f"---\n"
+                        f"<!-- codrag-address:{address} -->\n"
+                        f"<!-- codrag-delta:true -->"
+                    )
+                else:
+                    title = f"Structural Change: module '{name}' removed"
+                    desc = (
+                        f"A module was removed after pipeline rebuild.\n\n"
+                        f"**Module:** {name}\n\n"
+                        f"---\n"
+                        f"<!-- codrag-address:{address} -->\n"
+                        f"<!-- codrag-delta:true -->"
+                    )
+
+            existing = self.adapter.find_issue_by_codrag_address(address)
+            if existing:
+                continue
+
+            try:
+                issue = PMIssue(
+                    title=title,
+                    description=desc,
+                    priority="P3",
+                    category="architecture",
+                    codrag_address=address,
+                )
+                self.adapter.create_issue(issue)
+                created += 1
+            except Exception:
+                logger.debug("Failed to push delta issue (non-fatal)", exc_info=True)
+
+        return created
+
     # ── Push History ─────────────────────────────────────────────
 
     @staticmethod
