@@ -344,7 +344,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
   {
     id: 'agent-ops',
     title: 'Agent Operations',
-    description: 'Manage the three CoDRAG agents: HR (role generation), Researcher (plan formulation), and Digital Custodian (dead code cleanup).',
+    description: 'Configure CoDRAG agent engines (HR, Researcher, Custodian), Paperclip connection, and push settings.',
     icon: Bot,
     minHeight: 4,
     defaultHeight: 6,
