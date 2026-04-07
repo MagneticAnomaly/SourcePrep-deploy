@@ -47,11 +47,13 @@ class PushEngine:
         consolidator: Optional[Consolidator] = None,
         conflict_detector: Optional[Any] = None,
         conflict_store: Optional[Any] = None,
+        snapshot_store: Optional[Any] = None,
     ) -> None:
         self.adapter = adapter
         self.consolidator = consolidator or Consolidator()
         self._conflict_detector = conflict_detector
         self._conflict_store = conflict_store
+        self._snapshot_store = snapshot_store
 
     def push(
         self,
@@ -298,6 +300,52 @@ class PushEngine:
                 "Failed to push conflict %s to PM (non-fatal)",
                 conflict.id, exc_info=True,
             )
+
+    # ── Structural Enrichment ──────────────────────────────────
+
+    def _enrich_with_structural_context(
+        self,
+        affected_files: List[str],
+        project_id: str,
+    ) -> Optional["StructuralContext"]:
+        """Compute structural context for a set of affected files.
+
+        Uses the latest graph snapshot to check hub involvement
+        and module membership. Returns None if no snapshot available.
+        """
+        if not self._snapshot_store:
+            return None
+
+        from codrag.adapters.pm_models import StructuralContext, compute_complexity_tier
+
+        latest = self._snapshot_store.get_latest(project_id)
+        if not latest:
+            return None
+
+        hub_paths = {h["path"]: h for h in latest.hubs}
+        hub_files = [f for f in affected_files if f in hub_paths]
+        total_deps = sum(
+            hub_paths[f].get("dependents_count", 0) for f in hub_files
+        )
+
+        # Module detection from snapshot
+        file_to_module: Dict[str, str] = {}
+        for mod in latest.modules:
+            for f in mod.get("files", []):
+                file_to_module[f] = mod["name"]
+        modules = list(set(
+            file_to_module.get(f, "unknown") for f in affected_files
+        ))
+
+        ctx = StructuralContext(
+            hub_files_involved=hub_files,
+            hub_count=len(hub_files),
+            total_dependents=total_deps,
+            modules_spanned=modules,
+            cross_module=len(modules) > 1,
+        )
+        ctx.complexity_tier = compute_complexity_tier(ctx)
+        return ctx
 
     # ── Push History ─────────────────────────────────────────────
 
