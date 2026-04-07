@@ -84,6 +84,8 @@ class Concept:
     updated_at: Optional[float] = None
     stale: bool = False
     stale_reason: Optional[str] = None
+    valid_from: Optional[float] = None   # epoch when concept became valid
+    valid_to: Optional[float] = None     # epoch when concept was invalidated (None = current)
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -105,12 +107,17 @@ class Concept:
             d["updated_at"] = self.updated_at
         if self.stale_reason:
             d["stale_reason"] = self.stale_reason
+        if self.valid_from is not None:
+            d["valid_from"] = self.valid_from
+        if self.valid_to is not None:
+            d["valid_to"] = self.valid_to
         return d
 
     @staticmethod
     def from_row(row: sqlite3.Row) -> Concept:
         anchors_raw = row["anchors"]
         tags_raw = row["tags"]
+        keys = row.keys()
         return Concept(
             id=row["id"],
             project_id=row["project_id"],
@@ -126,6 +133,8 @@ class Concept:
             updated_at=row["updated_at"],
             stale=bool(row["stale"]),
             stale_reason=row["stale_reason"],
+            valid_from=row["valid_from"] if "valid_from" in keys else None,
+            valid_to=row["valid_to"] if "valid_to" in keys else None,
         )
 
 
@@ -268,6 +277,22 @@ class ConceptStore:
             logger.debug("FTS5 not available for concepts; falling back to LIKE search")
         self._conn.commit()
 
+        # Phase 80: Add temporal validity columns (safe to run repeatedly)
+        for col in ("valid_from", "valid_to"):
+            try:
+                self._conn.execute(
+                    f"ALTER TABLE concepts ADD COLUMN {col} REAL DEFAULT NULL"
+                )
+                self._conn.commit()
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
+        # Backfill: set valid_from = created_at for existing rows
+        self._conn.execute(
+            "UPDATE concepts SET valid_from = created_at WHERE valid_from IS NULL"
+        )
+        self._conn.commit()
+
     def _require_conn(self) -> sqlite3.Connection:
         if self._conn is None:
             raise RuntimeError(
@@ -328,10 +353,11 @@ class ConceptStore:
                     """UPDATE concepts
                        SET content = ?, category = ?, confidence = ?,
                            anchors = ?, tags = ?, cluster_id = ?,
-                           updated_at = ?, stale = 0, stale_reason = NULL
+                           updated_at = ?, stale = 0, stale_reason = NULL,
+                           valid_from = ?, valid_to = NULL
                        WHERE id = ?""",
                     (content, category, confidence, anchors_json,
-                     tags_json, cluster_id, now, existing["id"]),
+                     tags_json, cluster_id, now, now, existing["id"]),
                 )
                 # Update FTS
                 try:
@@ -361,10 +387,10 @@ class ConceptStore:
             conn.execute(
                 """INSERT INTO concepts
                    (id, project_id, title, content, category, status,
-                    confidence, anchors, tags, cluster_id, created_at, stale)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)""",
+                    confidence, anchors, tags, cluster_id, created_at, stale, valid_from)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)""",
                 (concept_id, project_id, title, content, category, status,
-                 confidence, anchors_json, tags_json, cluster_id, now),
+                 confidence, anchors_json, tags_json, cluster_id, now, now),
             )
             # FTS insert
             try:
@@ -524,9 +550,9 @@ class ConceptStore:
                 if any(fp in concept_anchors for fp in file_paths):
                     conn.execute(
                         """UPDATE concepts
-                           SET stale = 1, stale_reason = ?, updated_at = ?
+                           SET stale = 1, stale_reason = ?, updated_at = ?, valid_to = ?
                            WHERE id = ?""",
-                        (reason, now, row["id"]),
+                        (reason, now, now, row["id"]),
                     )
                     total += 1
             conn.commit()
@@ -555,8 +581,16 @@ class ConceptStore:
         category: Optional[str] = None,
         include_stale: bool = True,
         include_archived: bool = False,
+        as_of: Optional[float] = None,
     ) -> List[Concept]:
-        """List concepts for a project with optional filters."""
+        """List concepts for a project with optional filters.
+
+        If ``as_of`` is provided (Unix epoch float), only concepts that were
+        valid at that point in time are returned (valid_from <= as_of and
+        valid_to is NULL or valid_to > as_of).  The ``include_stale`` filter
+        is skipped when ``as_of`` is set because the temporal filter handles
+        currency.
+        """
         conn = self._require_conn()
         sql = "SELECT * FROM concepts WHERE project_id = ?"
         params: list = [project_id]
@@ -571,7 +605,11 @@ class ConceptStore:
             sql += " AND category = ?"
             params.append(category)
 
-        if not include_stale:
+        if as_of is not None:
+            sql += " AND (valid_from IS NULL OR valid_from <= ?)"
+            sql += " AND (valid_to IS NULL OR valid_to > ?)"
+            params.extend([as_of, as_of])
+        elif not include_stale:
             sql += " AND stale = 0"
 
         sql += " ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'seed' THEN 1 ELSE 2 END, created_at DESC"
