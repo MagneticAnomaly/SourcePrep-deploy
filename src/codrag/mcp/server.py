@@ -1576,6 +1576,7 @@ class MCPServer:
         file_path: Optional[str] = None,
         limit: int = 10,
         include_stale: bool = True,
+        as_of: Optional[float] = None,  # Phase 80: temporal queries
         project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Retrieve previous observations about the codebase."""
@@ -1588,6 +1589,8 @@ class MCPServer:
         params.append(f"limit={limit}")
         if not include_stale:
             params.append("include_stale=false")
+        if as_of is not None:
+            params.append(f"as_of={as_of}")
         qs = "&".join(params)
         data = await self._api_get(f"/projects/{project_id}/observations?{qs}")
 
@@ -1635,6 +1638,7 @@ class MCPServer:
         category: Optional[str] = None,
         anchors: Optional[List[str]] = None,
         status: Optional[str] = None,
+        as_of: Optional[float] = None,  # Phase 80: temporal queries
         project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Get or save codebase concepts — high-level 'why' knowledge.
@@ -1689,6 +1693,8 @@ class MCPServer:
                     params.append(f"status={status}")
                 if category:
                     params.append(f"category={category}")
+                if as_of is not None:
+                    params.append(f"as_of={as_of}")
                 qs = "&".join(params) if params else ""
                 url = f"/projects/{project_id}/concepts"
                 if qs:
@@ -3304,6 +3310,7 @@ class MCPServer:
                         file_path=args.get("file_path"),
                         limit=args.get("limit", 10),
                         include_stale=args.get("include_stale", True),
+                        as_of=args.get("as_of"),  # Phase 80: temporal queries
                         project_override=project_override,
                     )
 
@@ -3317,6 +3324,7 @@ class MCPServer:
                     category=args.get("category"),
                     anchors=args.get("anchors"),
                     status=args.get("status"),
+                    as_of=args.get("as_of"),  # Phase 80: temporal queries
                     project_override=project_override,
                 )
 

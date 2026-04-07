@@ -273,6 +273,14 @@ _CORE_TOOLS = [
                     "description": "(get) Include stale observations. Default: true.",
                     "default": True,
                 },
+                "as_of": {
+                    "type": "number",
+                    "description": (
+                        "(get) Unix epoch timestamp for point-in-time queries. "
+                        "Returns observations that were valid at this time. "
+                        "Omit for current observations only."
+                    ),
+                },
                 "project_id": _PROJECT_ID_PROP,
             },
             "required": [],
@@ -325,6 +333,14 @@ _CORE_TOOLS = [
                     "type": "string",
                     "description": "(get) Filter by status.",
                     "enum": ["seed", "active", "archived"],
+                },
+                "as_of": {
+                    "type": "number",
+                    "description": (
+                        "(get) Unix epoch timestamp for point-in-time queries. "
+                        "Returns concepts that were valid at this time. "
+                        "Omit for current concepts only."
+                    ),
                 },
                 "project_id": _PROJECT_ID_PROP,
             },
