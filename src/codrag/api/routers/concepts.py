@@ -138,6 +138,7 @@ async def list_concepts(
     category: Optional[str] = None,
     include_stale: bool = True,
     include_archived: bool = False,
+    as_of: Optional[float] = None,
 ):
     """List concepts for a project."""
     _require_project(project_id)
@@ -148,6 +149,7 @@ async def list_concepts(
         category=category,
         include_stale=include_stale,
         include_archived=include_archived,
+        as_of=as_of,
     )
     return ok({
         "concepts": [c.to_dict() for c in concepts],

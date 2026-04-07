@@ -89,6 +89,7 @@ async def list_observations(
     file_path: Optional[str] = None,
     limit: int = 10,
     include_stale: bool = True,
+    as_of: Optional[float] = None,
 ):
     """List or search observations for a project."""
     _require_project(project_id)
@@ -101,7 +102,9 @@ async def list_observations(
             project_id, query, limit=limit, include_stale=include_stale,
         )
     else:
-        results = store.get_recent(project_id, limit=limit, include_stale=include_stale)
+        results = store.get_recent(
+            project_id, limit=limit, include_stale=include_stale, as_of=as_of,
+        )
 
     return ok({
         "observations": [obs.to_dict() for obs in results],

@@ -91,6 +91,10 @@ class Observation:
             d["created_by"] = self.created_by
         if self.visibility != "shared":
             d["visibility"] = self.visibility
+        if self.valid_from is not None:
+            d["valid_from"] = self.valid_from
+        if self.valid_to is not None:
+            d["valid_to"] = self.valid_to
         return d
 
     @staticmethod
@@ -471,12 +475,23 @@ class ObservationStore:
         project_id: str,
         limit: int = 10,
         include_stale: bool = True,
+        as_of: Optional[float] = None,
     ) -> List[Observation]:
-        """Get the most recent observations for a project."""
+        """Get the most recent observations for a project.
+
+        Args:
+            as_of: If set, return observations that were valid at this epoch time.
+                   An observation is valid at time T if: valid_from <= T AND
+                   (valid_to IS NULL OR valid_to > T).
+        """
         conn = self._require_conn()
         sql = "SELECT * FROM observations WHERE project_id = ?"
         params: list = [project_id]
-        if not include_stale:
+        if as_of is not None:
+            sql += " AND (valid_from IS NULL OR valid_from <= ?)"
+            sql += " AND (valid_to IS NULL OR valid_to > ?)"
+            params.extend([as_of, as_of])
+        elif not include_stale:
             sql += " AND stale = 0"
         sql += " ORDER BY created_at DESC LIMIT ?"
         params.append(limit)

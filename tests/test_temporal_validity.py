@@ -48,6 +48,53 @@ def test_observation_mark_stale_sets_valid_to(obs_store: ObservationStore) -> No
     assert results[0].valid_to is not None
 
 
+def test_observation_to_dict_includes_temporal_fields(obs_store: ObservationStore) -> None:
+    """to_dict() must include valid_from and valid_to when set."""
+    obs_store.save("proj-1", "Auth note", file_path="src/auth.py")
+    obs_store.mark_stale_batch("proj-1", ["src/auth.py"], "changed")
+
+    results = obs_store.get_for_file("proj-1", "src/auth.py")
+    d = results[0].to_dict()
+    assert "valid_from" in d
+    assert "valid_to" in d
+    assert isinstance(d["valid_from"], float)
+    assert isinstance(d["valid_to"], float)
+
+
+def test_observation_get_recent_as_of(obs_store: ObservationStore) -> None:
+    """get_recent(as_of=...) returns observations valid at that time."""
+    obs_store.save("proj-1", "Early note", file_path="src/early.py")
+    time.sleep(0.05)
+    t_mid = time.time()
+    time.sleep(0.05)
+
+    obs_store.mark_stale_batch("proj-1", ["src/early.py"], "changed")
+    obs_store.save("proj-1", "Late note", file_path="src/late.py")
+
+    # At t_mid: "Early note" was valid, "Late note" didn't exist yet
+    results = obs_store.get_recent("proj-1", as_of=t_mid)
+    contents = {r.content for r in results}
+    assert "Early note" in contents
+    assert "Late note" not in contents
+
+
+def test_concept_dedup_update_resets_temporal(store: ConceptStore) -> None:
+    """Re-saving a concept with the same title resets valid_from and clears valid_to."""
+    cid = store.save("proj-1", "Auth Design", "Original", anchors=["src/auth.py"])
+    original = store.get(cid)
+    time.sleep(0.05)
+
+    # Mark stale then re-save with same title
+    store.mark_stale_batch("proj-1", ["src/auth.py"], "changed")
+    stale_concept = store.get(cid)
+    assert stale_concept.valid_to is not None
+
+    store.save("proj-1", "Auth Design", "Updated content")
+    updated = store.get(cid)
+    assert updated.valid_to is None  # Cleared
+    assert updated.valid_from > original.valid_from  # Reset to new time
+
+
 # ── Concept Store Fixtures ───────────────────────────────────────
 
 
