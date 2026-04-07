@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 from codrag.core.atlas.generator import CodebaseAtlas
 from codrag.core.atlas.models import Segment, AtlasDocument, SegmentDocument
+from codrag.core.swarm_orchestrator import SwarmResult, SwarmStats
 from codrag.core.swarm_registry import SwarmTier
 
 
@@ -61,15 +62,28 @@ class TestAtlasSwarmDecision:
         mock_llm = _make_mock_llm()
         atlas = CodebaseAtlas(index_dir=tmp_path, llm=mock_llm)
 
-        with patch.object(atlas, "_run_swarm", return_value=([], None)) as mock_swarm:
+        # Return non-empty docs so the success path (early return) is tested
+        mock_docs = [
+            SegmentDocument(
+                content="SEGMENT: test", generated_at="2026-04-07", model="test",
+                fingerprint="x", file_count=5, segment_id=f"seg:pkg{i}",
+                segment_name=f"Package {i}", dir_path=f"packages/pkg{i}",
+                char_count=13, mode="llm",
+            )
+            for i in range(4)
+        ]
+        mock_result = SwarmResult(stats=SwarmStats(total_items=4, workers_succeeded=4))
+
+        with patch.object(atlas, "_run_swarm", return_value=(mock_docs, mock_result)) as mock_swarm:
             with patch.object(atlas, "_get_swarm_enabled", return_value=True):
                 with patch.object(atlas, "_load_modules", return_value=[]):
                     with patch.object(atlas, "_load_epistemic_summary", return_value={}):
                         with patch.object(atlas, "_load_graph_stats", return_value={"file_count": 50}):
                             with patch.object(atlas, "_identify_hubs", return_value=[]):
                                 with patch.object(atlas, "_generate_root_atlas", return_value=_make_root_doc()):
-                                    atlas.generate_segmented()
+                                    root_doc, seg_docs = atlas.generate_segmented()
                                     mock_swarm.assert_called_once()
+                                    assert len(seg_docs) == 4  # swarm docs returned
 
     @patch("codrag.core.atlas.generator.get_swarm_tier")
     @patch("codrag.core.atlas.generator.compute_segments")

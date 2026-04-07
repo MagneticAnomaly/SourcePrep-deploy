@@ -1196,6 +1196,9 @@ class ClusterSynthesizer:
             think=False,
         )
 
+        parsed = None
+
+        # Attempt 1: Full context (30 files)
         try:
             text, tokens = self.llm.generate(
                 prompt, system=MODULE_SYNTHESIS_SYSTEM,
@@ -1203,11 +1206,41 @@ class ClusterSynthesizer:
                 json_mode=False, think=False,
                 max_chars=TASK_MAX_CHARS["augmentation"],
             )
+            parsed = _parse_json_response(text)
         except Exception as e:
-            logger.warning("[Cluster/Swarm] Worker failed for %s: %s", cluster.cluster_id, e)
-            return None
+            logger.warning("[Cluster/Swarm] Worker failed for %s (full context): %s", cluster.cluster_id, e)
 
-        parsed = _parse_json_response(text)
+            # Attempt 2: Reduced context (10 files)
+            try:
+                reduced_summaries = self._build_member_summaries(cluster, epistemic, max_files=10)
+                reduced_prompt = MODULE_SYNTHESIS_PROMPT.format(
+                    cluster_name=cluster.primary_tag.replace("_", " ").replace("-", " ").title(),
+                    domain_tags=", ".join(sorted(cluster.all_tags)),
+                    file_count=len(cluster.member_node_ids),
+                    member_summaries=reduced_summaries,
+                    external_deps=external_deps,
+                )
+                reduced_prompt += (
+                    f"\n\n## Coordinator Guidance\n"
+                    f"Naming direction: {naming_guidance}\n"
+                    f"Analysis focus: {analysis_angle}\n"
+                    f"Names to AVOID (already used by other modules): {constraints_text}"
+                )
+                r_tokens = len(reduced_prompt) // 4
+                r_predict, r_ctx, _ = compute_optimal_settings(
+                    task=PipelineTask.CLUSTER, prompt_tokens=r_tokens,
+                    model=self.llm.model, think=False,
+                )
+                text, tokens = self.llm.generate(
+                    reduced_prompt, system=MODULE_SYNTHESIS_SYSTEM,
+                    num_predict=r_predict, num_ctx=r_ctx,
+                    json_mode=False, think=False,
+                    max_chars=TASK_MAX_CHARS["augmentation"],
+                )
+                parsed = _parse_json_response(text)
+            except Exception as e2:
+                logger.warning("[Cluster/Swarm] Worker failed for %s (reduced context): %s", cluster.cluster_id, e2)
+
         if parsed is None:
             logger.warning("[Cluster/Swarm] Unparseable response for %s", cluster.cluster_id)
             return None
@@ -1243,6 +1276,7 @@ class ClusterSynthesizer:
         epistemic: Dict[str, EpistemicEntry],
         edges: List[Dict[str, Any]],
         progress_callback: Optional[Callable[..., None]] = None,
+        cancel_token: Optional[Any] = None,
     ) -> Dict[str, ModuleEntry]:
         """Run swarm-orchestrated cluster synthesis.
 
@@ -1390,6 +1424,7 @@ class ClusterSynthesizer:
             },
         }
         path = self.index_dir / "trace_cluster_swarm_synthesis.json"
+        self.index_dir.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(artifact, f, indent=2, ensure_ascii=False)
         logger.info("[Cluster/Swarm] Synthesis written to %s", path)
@@ -1521,7 +1556,7 @@ class ClusterSynthesizer:
                 self.llm.model, len(to_synthesize), swarm_tier.value,
             )
             swarm_modules = self._run_swarm(
-                to_synthesize, epistemic, edges, progress_callback,
+                to_synthesize, epistemic, edges, progress_callback, cancel_token,
             )
             if swarm_modules:
                 modules.update(swarm_modules)

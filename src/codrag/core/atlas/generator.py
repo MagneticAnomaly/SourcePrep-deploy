@@ -349,13 +349,13 @@ class CodebaseAtlas:
                 "[Swarm] Atlas swarm activated: %d segments, tier=%s",
                 len(segments), swarm_tier,
             )
-            swarm_docs, swarm_synthesis = self._run_swarm(
+            swarm_docs, swarm_result = self._run_swarm(
                 segments, modules, epistemic, graph_stats, hub_files,
                 progress_callback=progress_callback,
             )
             if swarm_docs:
-                if swarm_synthesis:
-                    self._write_atlas_synthesis(swarm_synthesis, len(segments))
+                if swarm_result and swarm_result.synthesis:
+                    self._write_atlas_synthesis(swarm_result)
                 duration_s = time.monotonic() - start
                 logger.info(
                     "Segmented atlas (swarm): root + %d segments in %.1fs",
@@ -838,10 +838,10 @@ class CodebaseAtlas:
         graph_stats: Dict[str, Any],
         hub_files: List[Tuple[str, int]],
         progress_callback: Optional[Callable[..., None]] = None,
-    ) -> Tuple[List[SegmentDocument], Optional[Dict[str, Any]]]:
+    ) -> Tuple[List[SegmentDocument], Optional[SwarmResult]]:
         """Run swarm-orchestrated segment atlas generation.
 
-        Returns (segment_docs, synthesis_dict).
+        Returns (segment_docs, swarm_result).
         Empty list signals the caller to fall back to standard path.
         """
         # Phase 79: Swarm stages bypass the scheduler's fair-share division
@@ -953,16 +953,17 @@ class CodebaseAtlas:
                     if seg is None:
                         continue
                     content = wr.parsed.get("content", "")
-                    fp = self._compute_segment_fingerprint(
-                        seg,
-                        [m for m in all_modules
-                         if any(fp in set(seg.file_paths) for fp in m.get("member_files", []))],
-                    )
+                    seg_file_set = set(seg.file_paths)
+                    seg_modules = [
+                        m for m in all_modules
+                        if any(mfp in seg_file_set for mfp in m.get("member_files", []))
+                    ]
+                    fingerprint = self._compute_segment_fingerprint(seg, seg_modules)
                     seg_doc = SegmentDocument(
                         content=content,
                         generated_at=datetime.now(timezone.utc).isoformat(),
                         model=self.llm.model,
-                        fingerprint=fp,
+                        fingerprint=fingerprint,
                         segment_id=seg.id,
                         segment_name=seg.name,
                         dir_path=seg.dir_path,
@@ -974,21 +975,21 @@ class CodebaseAtlas:
                 except (KeyError, ValueError) as exc:
                     logger.warning("[Swarm] Failed to reconstruct SegmentDocument for %s: %s", wr.item_id, exc)
 
-        synthesis = result.synthesis if result.synthesis else None
-        return seg_docs, synthesis
+        return seg_docs, result
 
-    def _write_atlas_synthesis(
-        self,
-        synthesis: Dict[str, Any],
-        segment_count: int,
-    ) -> None:
+    def _write_atlas_synthesis(self, result: SwarmResult) -> None:
         """Write swarm atlas synthesis artifact to disk."""
         artifact = {
             "stage": "atlas_swarm_synthesis",
             "model": self.llm.model if self.llm else "unknown",
-            "segments_analyzed": segment_count,
+            "segments_analyzed": result.stats.total_items,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "synthesis": synthesis,
+            "synthesis": result.synthesis,
+            "stats": {
+                "workers_succeeded": result.stats.workers_succeeded,
+                "workers_failed": result.stats.workers_failed,
+                "wall_clock_seconds": round(result.stats.wall_clock_seconds, 1),
+            },
         }
         path = self.index_dir / "atlas_swarm_synthesis.json"
         self.index_dir.mkdir(parents=True, exist_ok=True)
