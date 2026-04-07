@@ -22,14 +22,20 @@ interface UseLayoutPersistenceReturn {
 function loadLayout(key: string): DashboardLayout | null {
   try {
     const stored = localStorage.getItem(key);
-    if (!stored) return null;
+    if (!stored) {
+      console.debug('[Layout] No saved layout found in localStorage');
+      return null;
+    }
     const parsed = JSON.parse(stored) as DashboardLayout;
     // Basic validation
     if (typeof parsed.version !== 'number' || !Array.isArray(parsed.panels)) {
+      console.warn('[Layout] Saved layout failed validation, using defaults');
       return null;
     }
+    console.debug('[Layout] Restored saved layout (v%d, %d panels)', parsed.version, parsed.panels.length);
     return parsed;
-  } catch {
+  } catch (e) {
+    console.warn('[Layout] Failed to parse saved layout:', e);
     return null;
   }
 }
@@ -85,23 +91,26 @@ export function useLayoutPersistence(
     return DEFAULT_LAYOUT;
   });
 
-  // Debounced save to localStorage
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      saveLayout(storageKey, layout);
-    }, debounceMs);
-    return () => clearTimeout(timeout);
-  }, [layout, storageKey, debounceMs]);
-
-  // Flush immediately on tab/window close to prevent debounce data loss.
-  // Use a ref so the listener registers once per storageKey, not on every layout change.
+  // Save to localStorage on every layout change.
+  // No debounce — localStorage.setItem is synchronous and fast (~1ms).
+  // The previous 500ms debounce caused data loss on page refresh.
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
 
   useEffect(() => {
+    saveLayout(storageKey, layout);
+  }, [layout, storageKey]);
+
+  // Safety net: flush on tab close and visibility change (mobile background)
+  useEffect(() => {
     const flush = () => saveLayout(storageKey, layoutRef.current);
     window.addEventListener('beforeunload', flush);
-    return () => window.removeEventListener('beforeunload', flush);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) flush();
+    });
+    return () => {
+      window.removeEventListener('beforeunload', flush);
+    };
   }, [storageKey]);
 
   const updateLayout = useCallback((newLayout: DashboardLayout) => {
