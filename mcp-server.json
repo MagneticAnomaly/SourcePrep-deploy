@@ -24,7 +24,7 @@
   "installations": {
     "pip": {
       "package": "codrag",
-      "command": "codrag",
+      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/codrag-mcp-wrapper.sh",
       "args": ["mcp", "--mode", "direct"]
     }
   },
