@@ -295,18 +295,14 @@ Respond with ONLY a JSON object (no markdown fencing):
   ]
 }}"""
 
-    # Use the LLM client's chat method
-    messages = [{"role": "user", "content": prompt}]
-    response = llm.chat(messages, temperature=0.3, max_tokens=4000)
-
-    # Extract content from response
-    if isinstance(response, dict):
-        # OpenAI-style response
-        choices = response.get("choices", [])
-        if choices:
-            return choices[0].get("message", {}).get("content", "")
-        return response.get("content", "")
-    return str(response)
+    # LLMClient.generate returns (text, token_count)
+    text, _tokens = llm.generate(
+        prompt=prompt,
+        json_mode=True,
+        temperature=0.3,
+        num_predict=4000,
+    )
+    return text
 
 
 def _parse_llm_response(raw: str) -> Dict[str, Any]:

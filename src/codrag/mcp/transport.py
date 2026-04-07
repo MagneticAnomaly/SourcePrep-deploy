@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import signal
 import sys
 import uuid
 from typing import Any, Dict, List, Optional
@@ -49,6 +50,23 @@ async def run_stdio(server: "MCPServer") -> None:
     Messages are newline-delimited.
     """
     loop = asyncio.get_event_loop()
+    exit_reason = "stdin EOF"
+
+    # Catch signals that would otherwise kill the process silently.
+    # Python's default SIGTERM raises SystemExit (BaseException), which
+    # bypasses `except Exception` — so we'd exit with no log entry.
+    def _on_signal(signum, _frame):
+        nonlocal exit_reason
+        name = signal.Signals(signum).name
+        exit_reason = f"received {name} (signal {signum})"
+        logger.warning("MCP stdio server %s", exit_reason)
+        raise SystemExit(128 + signum)
+
+    for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        try:
+            signal.signal(sig, _on_signal)
+        except (OSError, ValueError):
+            pass  # some signals can't be caught in threads
 
     def read_line():
         return sys.stdin.readline()
@@ -63,6 +81,7 @@ async def run_stdio(server: "MCPServer") -> None:
             # Read line in a separate thread to avoid blocking the event loop
             line_str = await loop.run_in_executor(None, read_line)
             if not line_str:
+                logger.info("MCP stdio server exiting: stdin closed (EOF)")
                 break
 
             line_str = line_str.strip()
@@ -85,12 +104,17 @@ async def run_stdio(server: "MCPServer") -> None:
             response = await server.handle_request(request)
             if response is not None:
                 if not _safe_write_stdout(json.dumps(response) + "\n"):
+                    exit_reason = "stdout pipe broken"
                     logger.error("Cannot write response — stdout broken, exiting")
                     break
 
+    except SystemExit:
+        pass  # already logged in _on_signal
     except Exception as e:
+        exit_reason = f"unhandled exception: {e}"
         logger.exception("Error in stdio loop")
     finally:
+        logger.info("MCP stdio server shutting down: %s", exit_reason)
         await server.close()
 
 

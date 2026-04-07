@@ -252,8 +252,8 @@ def _require_project_writable(project_id: str) -> Project:
     return _ph_require_project_writable(project_id)
 
 
-def _project_index_status(idx: CodeIndex, last_build_error: Optional[str] = None) -> Dict[str, Any]:
-    return _ph_project_index_status(idx, last_build_error)
+def _project_index_status(idx: CodeIndex, last_build_error: Optional[str] = None, project: Optional[Project] = None) -> Dict[str, Any]:
+    return _ph_project_index_status(idx, last_build_error, project=project)
 
 
 def _project_trace_status(project: Project) -> Dict[str, Any]:

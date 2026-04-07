@@ -279,14 +279,55 @@ def require_project_writable(project_id: str) -> Project:
 
 # ── Status helpers ──────────────────────────────────────────────
 
-def project_index_status(idx: CodeIndex, last_build_error: Optional[str] = None) -> Dict[str, Any]:
+def project_index_status(
+    idx: CodeIndex,
+    last_build_error: Optional[str] = None,
+    project: Optional["Project"] = None,
+) -> Dict[str, Any]:
     st = idx.stats()
     last_error = None
     if last_build_error:
         last_error = {"code": "BUILD_FAILED", "message": str(last_build_error)}
 
+    # If CodeIndex is loaded, return its stats directly
+    if st.get("loaded"):
+        return {
+            "exists": True,
+            "total_chunks": int(st.get("total_documents") or 0),
+            "embedding_dim": int(st.get("embedding_dim") or 0) if st.get("embedding_dim") is not None else None,
+            "embedding_model": st.get("model"),
+            "last_build_at": st.get("built_at"),
+            "build": st.get("build"),
+            "last_error": last_error,
+            "source": "code_index",
+        }
+
+    # CodeIndex not loaded — fall back to KnowledgeIndex (pipeline output).
+    # The KnowledgeIndex covers ALL files with enriched descriptions and is
+    # built by the crash-resilient pipeline. For projects with no Knowledge
+    # Scope files selected, this is the only index available.
+    if project is not None:
+        try:
+            from codrag.services.build_manager import build_manager as bm
+            know_idx = bm.get_project_knowledge_index(project)
+            if know_idx.is_loaded():
+                know_st = know_idx.status()
+                return {
+                    "exists": True,
+                    "total_chunks": int(know_st.get("count") or 0),
+                    "embedding_dim": None,  # KnowledgeIndex doesn't expose dim in status
+                    "embedding_model": know_st.get("model"),
+                    "last_build_at": know_st.get("last_build_at"),
+                    "build": None,
+                    "last_error": last_error,
+                    "source": "knowledge",
+                }
+        except Exception:
+            pass
+
+    # Neither index loaded
     return {
-        "exists": bool(st.get("loaded", False)),
+        "exists": False,
         "total_chunks": int(st.get("total_documents") or 0),
         "embedding_dim": int(st.get("embedding_dim") or 0) if st.get("embedding_dim") is not None else None,
         "embedding_model": st.get("model"),
@@ -562,7 +603,7 @@ def parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
 def project_activity_payload(project: Project, weeks: int) -> Dict[str, Any]:
     from codrag.services.build_manager import build_manager as bm
     idx = bm.get_project_index(project)
-    idx_status = project_index_status(idx, bm.last_build_error.get(project.id))
+    idx_status = project_index_status(idx, bm.last_build_error.get(project.id), project=project)
     trace_status = project_trace_status(project)
 
     idx_dir = project_index_dir(project)

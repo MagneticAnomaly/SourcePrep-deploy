@@ -403,6 +403,31 @@ def _load_scope_modules(
     return scope_modules
 
 
+def _load_all_modules(idx_dir: Path) -> List[Dict[str, Any]]:
+    """Load ALL modules from trace_modules.jsonl (no scope filtering).
+
+    Used by the KnowledgeIndex fallback path where the index covers
+    all files in the codebase, not just user-selected Knowledge Scope files.
+    """
+    modules: List[Dict[str, Any]] = []
+    modules_path = idx_dir / "trace_modules.jsonl"
+    if not modules_path.exists():
+        return modules
+    try:
+        with open(modules_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    modules.append(_json.loads(line))
+                except _json.JSONDecodeError:
+                    continue
+    except OSError:
+        pass
+    return modules
+
+
 def _format_module_tiers(
     scope_modules: List[Dict[str, Any]],
     context_tier: Optional["ContextTier"] = None,
@@ -740,13 +765,34 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
     proj = _srv()._require_project(project_id)
 
     idx = _srv()._get_project_layered_index(proj)
+
+    # ── KnowledgeIndex fallback: if CodeIndex isn't loaded, check if the
+    # pipeline's KnowledgeIndex can serve. This covers projects where no
+    # Knowledge Scope files are selected (CodeIndex was never built) or
+    # where the CodeIndex build was lost (daemon crash mid-build).
+    _using_knowledge_fallback = False
     if not idx.is_loaded():
-        raise ApiException(
-            status_code=409,
-            code="INDEX_NOT_BUILT",
-            message="Index has not been built yet",
-            hint="Run a build first.",
-        )
+        try:
+            from codrag.server import _get_project_knowledge_index
+            know_idx = _get_project_knowledge_index(proj)
+            if know_idx.is_loaded():
+                _using_knowledge_fallback = True
+            else:
+                raise ApiException(
+                    status_code=409,
+                    code="INDEX_NOT_BUILT",
+                    message="Index has not been built yet",
+                    hint="Run a build first.",
+                )
+        except ApiException:
+            raise
+        except Exception:
+            raise ApiException(
+                status_code=409,
+                code="INDEX_NOT_BUILT",
+                message="Index has not been built yet",
+                hint="Run a build first.",
+            )
 
     # Resolve trace index for trace expansion
     # Phase 34: trace_expand defaults to True. Gracefully degrade if
@@ -768,6 +814,99 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
                     pass  # Graceful: fall back to non-expanded context
         except FeatureGateError:
             pass  # Phase 34: default-on means graceful fallback for free tier
+
+    # ── KnowledgeIndex-only path ─────────────────────────────────
+    # When CodeIndex isn't loaded but KnowledgeIndex is, serve context
+    # from the KnowledgeIndex. For ambient (no query), build a minimal
+    # structural context. For queries, search the KnowledgeIndex.
+    if _using_knowledge_fallback:
+        from codrag.server import _get_project_knowledge_index
+        from codrag.core.project_registry import project_index_dir
+        know_idx = _get_project_knowledge_index(proj)
+
+        if not req.query.strip():
+            # Ambient context: modules + atlas (no CodeIndex chunks needed)
+            _included = (proj.config or {}).get("included_paths") or []
+            idx_dir = project_index_dir(proj)
+            parts: List[str] = []
+            total_chars = 0
+
+            from codrag.core.context_tier import ContextTier, tier_from_budget
+            tier = (
+                ContextTier(req.context_tier) if req.context_tier is not None
+                else tier_from_budget(req.max_chars)
+            )
+
+            # Load modules — when Knowledge Scope files are selected, filter
+            # to those; otherwise load ALL modules since the KnowledgeIndex
+            # covers the full codebase.
+            if _included:
+                scope_modules = _load_scope_modules(idx_dir, _included)
+            else:
+                scope_modules = _load_all_modules(idx_dir)
+            mod_text = _format_module_tiers(scope_modules, context_tier=tier)
+            if mod_text:
+                parts.append(mod_text)
+                total_chars += len(mod_text)
+
+            context_text = "\n\n".join(parts)
+            resp: Dict[str, Any] = ok({
+                "context": context_text,
+                "chunks_used": 0,
+                "total_chars": total_chars,
+                "estimated_tokens": total_chars // 4,
+                "ambient": True,
+                "hub_files": 0,
+                "modules_in_scope": len(scope_modules),
+                "neighbor_files": 0,
+                "source": "knowledge",
+            })
+            # Atlas prepend
+            if req.include_atlas:
+                _file_count = know_idx.status().get("count", 0)
+                new_ctx, atlas_meta, _ = _prepend_atlas(context_text, project_id, _file_count)
+                resp["data"]["context"] = new_ctx
+                if atlas_meta:
+                    resp["data"]["atlas"] = atlas_meta
+            return resp
+
+        # Query-based search: use KnowledgeIndex.search()
+        know_results = know_idx.search(req.query, k=req.k, min_score=req.min_score)
+        chunks: List[Dict[str, Any]] = []
+        context_parts: List[str] = []
+        for kr in know_results:
+            doc = kr.get("doc", {})
+            score = float(kr.get("score", 0.0))
+            source_id = doc.get("source_id", "")
+            content = doc.get("content", "")
+            chunks.append({
+                "source_path": source_id,
+                "section": doc.get("type", "knowledge"),
+                "score": score,
+                "text": content,
+                "source": "knowledge",
+            })
+            context_parts.append(f"--- {source_id} (score: {score:.3f}) ---\n{content}")
+
+        context_text = "\n\n".join(context_parts)
+        total_chars = len(context_text)
+
+        resp = {"context": context_text, "chunks": chunks, "source": "knowledge"}
+
+        # Atlas prepend
+        if req.include_atlas:
+            _file_count = know_idx.status().get("count", 0)
+            new_ctx, atlas_meta, _ = _prepend_atlas(context_text, project_id, _file_count)
+            resp["context"] = new_ctx
+            if atlas_meta:
+                resp["atlas"] = atlas_meta
+
+        # Observations injection
+        resp["context"], _obs_meta = _inject_observations(resp["context"], project_id, req.query)
+        if _obs_meta:
+            resp["session_memory"] = _obs_meta
+
+        return ok(resp)
 
     # ── Phase 34 C4: Ambient context mode (no query) ─────────────
     if not req.query.strip():

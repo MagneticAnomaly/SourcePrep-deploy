@@ -56,7 +56,7 @@ async def get_project_status(project_id: str) -> Dict[str, Any]:
             "stale": is_stale,
             "stale_since": stale_since,
             "stale_count": mtime_check.get("stale_count", 0),
-            "index": srv._project_index_status(idx, srv._project_last_build_error.get(proj.id)),
+            "index": srv._project_index_status(idx, srv._project_last_build_error.get(proj.id), project=proj),
             "trace": srv._project_trace_status(proj),
             "watch": watch,
             "sync": srv._get_project_sync_status(proj),
