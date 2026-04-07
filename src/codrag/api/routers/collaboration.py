@@ -159,3 +159,37 @@ async def release_claim(project_id: str, claim_id: str):
     hub = _get_hub()
     result = hub.claims.release(claim_id)
     return ok({"released": result})
+
+
+# ── Consensus ──────────────────────────────────────────────────
+
+
+@router.get("/projects/{project_id}/collaboration/consensus")
+async def get_consensus(
+    project_id: str,
+    min_agents: int = Query(2, ge=2),
+    since_days: int = Query(30, ge=1, le=365),
+):
+    store = _get_obs_store()
+    scores = store.get_consensus_scores(
+        project_id, min_agents=min_agents, since_days=since_days,
+    )
+    return ok({"scores": scores})
+
+
+# ── Push Summary ───────────────────────────────────────────────
+
+
+@router.get("/projects/{project_id}/collaboration/push-summary")
+async def get_push_summary(project_id: str):
+    """Lightweight push summary from activity store."""
+    hub = _get_hub()
+    entries = hub.activity.get_recent(project_id, limit=50)
+    push_entries = [
+        e for e in entries
+        if "push" in (e.action if hasattr(e, "action") else "").lower()
+    ]
+    return ok({
+        "total_pushes": len(push_entries),
+        "latest_push_at": push_entries[0].created_at if push_entries else None,
+    })
