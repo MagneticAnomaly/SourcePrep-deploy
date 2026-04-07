@@ -1,53 +1,83 @@
 /**
- * Knowledge Scope Detail Tab
- *
- * Shows the CoDRAG Knowledge Scope file list for a specific Paperclip agent.
- * Registered as a detail tab on agent entities.
+ * Knowledge Scope Tab — read-only agent scope view in Paperclip.
+ * Shows CoDRAG-configured file scope + active claims. Edit in CoDRAG dashboard only.
  */
 
-declare function usePluginData(key: string, params?: any): { data: any; loading: boolean; error: any };
-declare function useHostContext(): { companyId?: string; projectId?: string; entityId?: string };
+interface Claim {
+  id: string;
+  agent_role: string;
+  path: string;
+  reason: string;
+  expires_at: number;
+}
 
-export function KnowledgeScopeTab() {
-  const { entityId } = useHostContext();
-  const { data, loading, error } = usePluginData('agent-knowledge-scope', { entityId });
+export interface KnowledgeScopeTabProps {
+  files: string[];
+  role: string | null;
+  claims?: Claim[];
+  error?: string;
+}
 
-  if (loading) return <div style={{ padding: 16, color: '#888' }}>Loading knowledge scope...</div>;
-  if (error) return <div style={{ padding: 16, color: '#e55' }}>Error: {error.message}</div>;
-
-  const files = data?.files ?? [];
-
-  if (files.length === 0) {
+export function KnowledgeScopeTab({ files, role, claims = [], error }: KnowledgeScopeTabProps) {
+  if (error) {
     return (
-      <div style={{ padding: 24, textAlign: 'center' }}>
-        <div style={{ fontSize: 32, marginBottom: 8 }}>&#128269;</div>
-        <div style={{ fontWeight: 600, marginBottom: 4 }}>No Knowledge Scope</div>
-        <div style={{ fontSize: 13, color: '#888' }}>
-          {data?.error ?? 'Run auto-populate in CoDRAG to assign files to this agent.'}
+      <div className="p-4">
+        <div className="text-sm text-yellow-400">{error}</div>
+        <div className="text-xs text-gray-500 mt-2">
+          Configure agent scopes in the CoDRAG dashboard (Agent Knowledge Scopes panel).
         </div>
       </div>
     );
   }
 
+  const relevantClaims = claims.filter((claim) =>
+    files.some((f) => f.startsWith(claim.path) || claim.path.startsWith(f)),
+  );
+
   return (
-    <div style={{ padding: 16 }}>
-      <div style={{ fontSize: 13, color: '#888', marginBottom: 8 }}>
-        {files.length} files in scope
+    <div className="p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-medium">
+          Knowledge Scope
+          {role && <span className="text-gray-400 ml-1">({role})</span>}
+        </div>
+        <span className="text-xs text-gray-500">{files.length} files</span>
       </div>
-      <div style={{ maxHeight: 400, overflow: 'auto' }}>
-        {files.map((f: any, i: number) => (
-          <div
-            key={i}
-            style={{
-              padding: '4px 8px',
-              fontFamily: 'monospace',
-              fontSize: 12,
-              borderBottom: '1px solid rgba(255,255,255,0.05)',
-            }}
-          >
-            {f.path ?? f}
+
+      {files.length > 0 ? (
+        <div className="space-y-0.5 max-h-64 overflow-y-auto">
+          {files.map((file) => (
+            <div key={file} className="text-xs text-gray-400 py-0.5 font-mono truncate">
+              {file}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-xs text-gray-500 italic">
+          No files in scope. Configure in CoDRAG dashboard.
+        </div>
+      )}
+
+      {relevantClaims.length > 0 && (
+        <div>
+          <div className="text-xs font-medium text-amber-400 mb-1">
+            Active Claims ({relevantClaims.length})
           </div>
-        ))}
+          {relevantClaims.map((claim) => (
+            <div key={claim.id} className="text-xs text-gray-400 py-0.5">
+              <span className="text-gray-300">{claim.agent_role}</span>
+              {' → '}
+              <span className="font-mono">{claim.path}</span>
+              {claim.reason && (
+                <span className="text-gray-500 ml-1">({claim.reason})</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="text-[10px] text-gray-600 border-t border-gray-800 pt-2">
+        Scope is read-only here. Edit in CoDRAG dashboard → Agent Knowledge Scopes.
       </div>
     </div>
   );
