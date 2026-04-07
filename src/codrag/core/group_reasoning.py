@@ -433,11 +433,27 @@ class GroupReasoningEngine:
         Returns a dict of group_id -> GroupReasoningEntry.
         Empty dict signals the caller to fall back to standard path.
         """
+        # Phase 79: Swarm stages bypass the scheduler's fair-share division
+        # to get the full concurrency budget. The stage still waits its turn
+        # in the queue — only the worker parallelism is maximized.
+        concurrency = 1
         try:
-            from codrag.core.batch_profiles import get_batch_concurrency
-            concurrency = get_batch_concurrency(self.llm.provider, model=self.llm.model)
-        except Exception:
-            concurrency = 1
+            from codrag.services.pipeline.scheduler import pipeline_scheduler
+            full = pipeline_scheduler.full_budget_for_swarm(
+                self.llm.provider, self.llm.model,
+            )
+            if full is not None:
+                concurrency = full
+        except (ImportError, Exception) as exc:
+            logger.debug("Swarm full budget unavailable, trying batch concurrency: %s", exc)
+        if concurrency <= 1:
+            # Fallback: use the standard fair-share path
+            try:
+                from codrag.core.batch_profiles import get_batch_concurrency
+                concurrency = get_batch_concurrency(self.llm.provider, model=self.llm.model)
+            except Exception:
+                concurrency = 1
+        logger.info("[Swarm] Using concurrency=%d for fan-out", concurrency)
 
         orch = SwarmOrchestrator(llm=self.llm, concurrency=concurrency)
 

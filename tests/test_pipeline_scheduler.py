@@ -722,3 +722,65 @@ class TestEmbeddingSlot:
         assert sched.can_start("proj-c", StageId.STRUCTURAL) is True
         assert sched.can_start("proj-c", StageId.VALIDATION) is True
 
+
+class TestFullBudgetForSwarm:
+    """Phase 79: Swarm stages bypass fair-share and get full concurrency."""
+
+    def test_single_project_gets_full_budget(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+
+        result = sched.full_budget_for_swarm("openai", project_id="proj-a")
+        assert result == 10
+
+    def test_two_projects_still_gets_full_budget(self):
+        """Swarm bypasses fair-share — even with 2 active projects, gets full budget."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+
+        # Swarm should get 10, NOT 5 (the fair-share split)
+        result = sched.full_budget_for_swarm("openai", project_id="proj-a")
+        assert result == 10
+
+        # For comparison, normal fair-share would give 5
+        normal = sched.available_batch_workers_for_provider("openai", project_id="proj-a")
+        assert normal == 5
+
+    def test_three_projects_with_boost_still_gets_full(self):
+        """Swarm ignores boost/normal weighting entirely."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-c", StageId.CATALOGUE, "cloud:ep-1")
+        sched.set_priority("proj-b", "boost")
+
+        # Swarm gets full 10 regardless of other projects' priority
+        result = sched.full_budget_for_swarm("openai", project_id="proj-a")
+        assert result == 10
+
+    def test_prefix_fallback_when_no_project_id(self):
+        """Without project_id, falls back to prefix discovery."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 8)
+
+        result = sched.full_budget_for_swarm("openai")
+        assert result == 8
+
+    def test_empty_scheduler_returns_none(self):
+        sched = PipelineScheduler()
+        result = sched.full_budget_for_swarm("openai")
+        assert result is None
+
+    def test_local_ollama_finds_local_node(self):
+        sched = PipelineScheduler()
+        sched.configure_node("local:ollama-1", 4)
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "local:ollama-1")
+
+        result = sched.full_budget_for_swarm("ollama", project_id="proj-a")
+        assert result == 4
+

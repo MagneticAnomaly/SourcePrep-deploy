@@ -676,6 +676,60 @@ class PipelineScheduler:
 
             return budget
 
+    def full_budget_for_swarm(
+        self, provider: str, model: str | None = None,
+        *, project_id: str | None = None,
+    ) -> int | None:
+        """Return the FULL undivided concurrency budget for swarm stages.
+
+        Phase 79: Swarm orchestration (coordinator → fan-out → synthesis)
+        benefits from maximum parallelism.  This method bypasses the
+        weighted fair-share division that ``available_batch_workers*``
+        applies, returning ``slot.max_concurrent`` directly.
+
+        The stage still occupies its scheduler slot and waits its turn
+        in the queue — only the *concurrency division* is bypassed,
+        not the *scheduling*.
+
+        Falls back to the same node discovery as
+        ``available_batch_workers_for_provider``.  Returns None if no
+        matching node is found.
+        """
+        with self._lock:
+            if not self._slots:
+                return None
+
+            # Fast path: find the exact node this project acquired
+            if project_id:
+                for nid, slot in self._slots.items():
+                    if project_id in slot.active_stages:
+                        logger.info(
+                            "[Swarm] Full budget for project %s on node %s: %d (bypassing fair-share)",
+                            project_id, nid, slot.max_concurrent,
+                        )
+                        return max(1, slot.max_concurrent)
+
+            # Fallback: prefix-based discovery (same as available_batch_workers_for_provider)
+            is_cloud = provider in CLOUD_PROVIDERS
+            if not is_cloud and model:
+                try:
+                    from codrag.core.batch_profiles import is_cloud_model_via_ollama
+                    if is_cloud_model_via_ollama(provider, model):
+                        is_cloud = True
+                except ImportError:
+                    pass
+            prefix = "cloud:" if is_cloud else "local:"
+
+            for nid, slot in self._slots.items():
+                if nid.startswith(prefix):
+                    logger.info(
+                        "[Swarm] Full budget via prefix %s on node %s: %d",
+                        prefix, nid, slot.max_concurrent,
+                    )
+                    return max(1, slot.max_concurrent)
+
+            return None
+
     def concurrent_workers_for_project(
         self, project_id: str,
     ) -> Tuple[int, Optional[str]]:
