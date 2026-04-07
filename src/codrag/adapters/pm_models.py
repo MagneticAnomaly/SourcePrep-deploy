@@ -207,3 +207,24 @@ def compute_complexity_tier(ctx: StructuralContext) -> str:
     if ctx.hub_count >= 1 or ctx.total_dependents > 5:
         return "standard"
     return "lightweight"
+
+
+def classify_significance(
+    category: str = "quality",
+    consensus_score: float = 0.0,
+    hub_count: int = 0,
+    confidence: str = "normal",
+) -> str:
+    """Classify finding significance: mandatory / recommended / informational.
+
+    Mandatory: security issues, high-consensus (score > 0.5).
+    Recommended: standard findings, hub involvement.
+    Informational: low-confidence, no structural backing.
+    """
+    if category == "security":
+        return "mandatory"
+    if consensus_score > 0.5:
+        return "mandatory"
+    if confidence == "low":
+        return "informational"
+    return "recommended"
