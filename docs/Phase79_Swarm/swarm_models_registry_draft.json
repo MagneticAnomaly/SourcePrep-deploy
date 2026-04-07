@@ -1,0 +1,59 @@
+{
+  "_comment": "CoDRAG Swarm Model Registry — Phase 79. Tight list of validated swarm-capable models. Kimi K2.5 is the primary supported model.",
+  "_tiers": {
+    "coordinator": "Can plan, decompose, and synthesize. Used as swarm coordinator.",
+    "both": "Can coordinate or work. Cost-effective all-rounder.",
+    "worker": "Scoped sub-task execution only.",
+    "unsuitable": "Falls back to standard concurrent batching."
+  },
+  "_version": "0.1.0",
+  "_last_reviewed": "2026-04-07",
+
+  "registry": [
+    {
+      "provider": "ollama",
+      "model_pattern": "kimi.*k2",
+      "swarm_tier": "both",
+      "notes": "Primary supported swarm model. Designed for agent swarm from the ground up. Ollama cloud."
+    },
+    {
+      "provider": "anthropic",
+      "model_pattern": "claude.*sonnet.*(?:[\\-./])4(?:\\.[0-6])?",
+      "swarm_tier": "both",
+      "notes": "Versions 4.0 to 4.6 supported. Newer flagships (4.6) are extremely capable but can be cost overkill."
+    },
+    {
+      "provider": "openai",
+      "model_pattern": "gpt-5\\.[2-4](?!-)",
+      "swarm_tier": "both",
+      "notes": "Structured outputs API forces valid JSON. Strong evals for 5.2, 5.3, 5.4."
+    },
+    {
+      "provider": "openai-compatible",
+      "model_pattern": "gemini.*(?:3|3\\.1).*pro",
+      "swarm_tier": "coordinator",
+      "notes": "Cost-effective for long-context coordination. 1M effective context."
+    },
+    {
+      "provider": "anthropic",
+      "model_pattern": "claude.*opus.*(?:[\\-./])4(?:\\.[0-6])?",
+      "swarm_tier": "unsuitable",
+      "notes": "NOT RECOMMENDED. Massive overkill and cost-prohibitive for the high token volume of agent swarms."
+    },
+    {
+      "provider": "openai-compatible",
+      "model_pattern": "claude.*sonnet.*(?:[\\-./])4(?:\\.[0-6])?",
+      "swarm_tier": "both",
+      "notes": "Claude Sonnet via OpenRouter/Bedrock"
+    },
+    {
+      "provider": "openai-compatible",
+      "model_pattern": "claude.*opus.*(?:[\\-./])4(?:\\.[0-6])?",
+      "swarm_tier": "unsuitable",
+      "notes": "NOT RECOMMENDED. Claude Opus is cost-prohibitive for swarms."
+    }
+  ],
+
+  "default_tier": "unsuitable",
+  "min_groups_threshold": 3
+}
