@@ -906,12 +906,21 @@ def deep_enrichment_destroy(project_id: str) -> Dict[str, Any]:
 
 @router.delete("/projects/{project_id}/index/destroy")
 def index_destroy_project(project_id: str) -> Dict[str, Any]:
-    """Permanently delete ALL project data: embeddings, trace graph,
-    knowledge index — full reset to a blank project.
+    """Nuclear reset: delete ALL project data and recovery artifacts.
 
     Removes everything produced by building, tracing, augmenting,
-    enriching, clustering, and knowledge embedding.
+    enriching, clustering, and knowledge embedding.  Also removes
+    checkpoints, golden snapshots, debug backups, pipeline logs,
+    atlas subdirectories, orphaned temp files, and journal entries
+    so the project returns to a true blank-slate state.
+
+    Phase 76: Previously this only deleted files from ALL_DATA_FILES,
+    leaving .checkpoints/_golden/ intact.  The self-healing system
+    would then restore data from the golden checkpoint on next startup,
+    making the reset appear to fail.
     """
+    import shutil
+
     from codrag.server import (
         _require_project_writable, _is_project_trace_building, _is_project_building,
         _project_build_lock, _project_build_threads,
@@ -951,6 +960,7 @@ def index_destroy_project(project_id: str) -> Dict[str, Any]:
     deleted: list[str] = []
     errors: list[str] = []
 
+    # 1. Delete all known data files
     for fname in ALL_DATA_FILES:
         fp = idx_dir / fname
         if fp.exists():
@@ -960,13 +970,46 @@ def index_destroy_project(project_id: str) -> Dict[str, Any]:
             except Exception as e:
                 errors.append(f"{fname}: {e}")
 
-    # Clear all in-memory caches
+    # 2. Remove subdirectories that contain recovery/cache artifacts
+    for subdir_name in [".checkpoints", "backups", "logs", "atlas_segments", "atlas_roles"]:
+        subdir = idx_dir / subdir_name
+        if subdir.is_dir():
+            try:
+                shutil.rmtree(subdir)
+                deleted.append(f"{subdir_name}/")
+            except Exception as e:
+                errors.append(f"{subdir_name}/: {e}")
+
+    # 3. Clean up orphaned temp files (.tmp*)
+    if idx_dir.is_dir():
+        for tmp_file in idx_dir.glob("*.tmp*"):
+            try:
+                tmp_file.unlink()
+                deleted.append(tmp_file.name)
+            except Exception as e:
+                errors.append(f"{tmp_file.name}: {e}")
+
+    # 4. Clear pipeline orchestrator state machines
+    try:
+        from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+        pipeline_orchestrator.clear_project(project_id)
+    except Exception:
+        pass
+
+    # 5. Clear journal entries (prevents crash recovery from reviving the project)
+    try:
+        from codrag.services.pipeline_journal import journal
+        journal.clear_project(project_id)
+    except Exception:
+        pass
+
+    # 6. Clear all in-memory caches
     _project_indexes.pop(project_id, None)
     _project_trace_indexes.pop(project_id, None)
     _project_knowledge_indexes.pop(project_id, None)
 
     logger.info(
-        "Full reset for %s: deleted %d files, %d errors",
+        "Full reset for %s: deleted %d items, %d errors",
         project_id, len(deleted), len(errors),
     )
     result: Dict[str, Any] = {"deleted": deleted, "errors": errors}
