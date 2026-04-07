@@ -741,7 +741,7 @@ class GroupReasoningEngine:
                     "analyzed": analyzed,
                     "reused": len(reuse),
                     "failed": len(to_analyze) - analyzed,
-                    "elapsed_seconds": round(elapsed, 1),
+                    "duration_ms": round(elapsed * 1000, 1),
                     "swarm": True,
                 }
             else:
