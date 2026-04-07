@@ -954,6 +954,21 @@ def index_destroy_project(project_id: str) -> Dict[str, Any]:
 
     idx_dir = project_index_dir(proj)
 
+    # 0. Stop the file watcher BEFORE deleting anything.
+    # If the watcher is running, it will detect file changes and immediately
+    # trigger run_fast_sync(), which calls try_restore_from_backup() and
+    # resurrects the data we're about to delete.
+    watcher_was_running = False
+    try:
+        from codrag.server import _project_watchers
+        watcher = _project_watchers.pop(project_id, None)
+        if watcher:
+            watcher.stop()
+            watcher_was_running = True
+            logger.info("Full reset: stopped watcher for %s", project_id)
+    except Exception:
+        pass
+
     # Backup before delete when debug mode is on
     backup_path = _backup_files_if_debug(idx_dir, ALL_DATA_FILES, "full_reset")
 
