@@ -189,7 +189,7 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
     case 'FAST_FAILED':
       return {
         ...state,
-        inferredEdgesRunning: false, augmenting: false, validating: false, fastKnowledgeBuilding: false, fastPausedStage: undefined,
+        inferredEdgesRunning: false, augmenting: false, validating: false, fastKnowledgeBuilding: false, fastPaused: false, fastPausedStage: undefined,
         // Clear pipeline slot progress so it doesn't bleed into next run
         augmentationStatus: { ...state.augmentationStatus, progress_current: undefined, progress_total: undefined, progress_baseline: undefined },
       }

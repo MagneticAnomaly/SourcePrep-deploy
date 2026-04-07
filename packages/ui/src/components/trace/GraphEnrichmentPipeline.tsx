@@ -1150,7 +1150,7 @@ export function GraphEnrichmentPipeline({
       <div className="flex items-center justify-between py-1.5 px-1">
         <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Deep Enrichment</span>
         <div className="flex items-center gap-2">
-          {deepMode === 'manual' && deepPaused && onResumePipeline && !deepRunning && (
+          {deepPaused && onResumePipeline && !deepRunning && (
             <button
               onClick={() => onResumePipeline('deep_enrichment')}
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
@@ -1208,7 +1208,7 @@ export function GraphEnrichmentPipeline({
             <StageRow
               key={stage.id}
               stage={stage}
-              onPause={onPausePipeline ? () => onPausePipeline('deep_enrichment') : undefined}
+              onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
               onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('deep_enrichment') : undefined}
               isPaused={isStagePaused}
               showDetails={showDetails}
@@ -1238,7 +1238,6 @@ export function GraphEnrichmentPipeline({
         </div>
         <StageProgressBar
           progress={roundedProgress}
-          rerun={{ donePercent: 50, stalePercent: 20 }}
         />
       </div>
 
