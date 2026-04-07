@@ -313,15 +313,19 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       if (ps.stages?.deep_knowledge) {
         dispatch({ type: 'KNOWLEDGE_STATUS', payload: ps.stages.deep_knowledge })
       }
-      // Hydrate paused flags on initial load
+      // Hydrate paused flags on initial load.
+      // Check 'paused' (state machine), 'pausing' (intermediate — worker flushing),
+      // and legacy 'failed' + error (build_orchestrator layer).
+      const fastIsPaused = ps.fast_sync?.phase === 'paused' || ps.fast_sync?.phase === 'pausing'
+        || (ps.fast_sync?.phase === 'failed' && (ps.fast_sync?.error || '').includes('Paused by user'))
+      const deepIsPaused = ps.deep_enrichment?.phase === 'paused' || ps.deep_enrichment?.phase === 'pausing'
+        || (ps.deep_enrichment?.phase === 'failed' && (ps.deep_enrichment?.error || '').includes('Paused by user'))
       dispatch({
         type: 'SYNC_PAUSED',
-        fastPaused: ps.fast_sync?.phase === 'paused' || (ps.fast_sync?.phase === 'failed' && (ps.fast_sync?.error || '').includes('Paused by user')),
-        deepPaused: ps.deep_enrichment?.phase === 'paused' || (ps.deep_enrichment?.phase === 'failed' && (ps.deep_enrichment?.error || '').includes('Paused by user')),
-        fastPausedStage: (ps.fast_sync?.phase === 'paused' || (ps.fast_sync?.phase === 'failed' && (ps.fast_sync?.error || '').includes('Paused by user')))
-          ? ps.fast_sync?.current_stage ?? undefined : undefined,
-        deepPausedStage: (ps.deep_enrichment?.phase === 'paused' || (ps.deep_enrichment?.phase === 'failed' && (ps.deep_enrichment?.error || '').includes('Paused by user')))
-          ? ps.deep_enrichment?.current_stage ?? undefined : undefined,
+        fastPaused: fastIsPaused,
+        deepPaused: deepIsPaused,
+        fastPausedStage: fastIsPaused ? ps.fast_sync?.current_stage ?? undefined : undefined,
+        deepPausedStage: deepIsPaused ? ps.deep_enrichment?.current_stage ?? undefined : undefined,
       })
     }).catch(() => { /* silent — SSE will provide updates */ })
 
@@ -362,17 +366,19 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       deepKnowledgeBuilding: deepActive && (deep?.current_stage === 'deep_knowledge' || false),
     })
 
-    // Sync paused flags — state machine uses proper 'paused' phase;
-    // also check legacy 'failed' + error containing 'Paused by user' for
-    // backward compat (the error may be wrapped in "Stage X failed: ...")
+    // Sync paused flags — check 'paused' (state machine), 'pausing'
+    // (intermediate — worker flushing), and legacy 'failed' + error
+    // (build_orchestrator layer emits FAILED with "Paused by user").
+    const fastIsPausedSSE = fast?.phase === 'paused' || fast?.phase === 'pausing'
+      || (fast?.phase === 'failed' && (fast?.error || '').includes('Paused by user'))
+    const deepIsPausedSSE = deep?.phase === 'paused' || deep?.phase === 'pausing'
+      || (deep?.phase === 'failed' && (deep?.error || '').includes('Paused by user'))
     dispatch({
       type: 'SYNC_PAUSED',
-      fastPaused: fast?.phase === 'paused' || (fast?.phase === 'failed' && (fast?.error || '').includes('Paused by user')),
-      deepPaused: deep?.phase === 'paused' || (deep?.phase === 'failed' && (deep?.error || '').includes('Paused by user')),
-      fastPausedStage: (fast?.phase === 'paused' || (fast?.phase === 'failed' && (fast?.error || '').includes('Paused by user')))
-        ? fast?.current_stage ?? undefined : undefined,
-      deepPausedStage: (deep?.phase === 'paused' || (deep?.phase === 'failed' && (deep?.error || '').includes('Paused by user')))
-        ? deep?.current_stage ?? undefined : undefined,
+      fastPaused: fastIsPausedSSE,
+      deepPaused: deepIsPausedSSE,
+      fastPausedStage: fastIsPausedSSE ? fast?.current_stage ?? undefined : undefined,
+      deepPausedStage: deepIsPausedSSE ? deep?.current_stage ?? undefined : undefined,
     })
 
     // ── Detect transitions for status refresh ──

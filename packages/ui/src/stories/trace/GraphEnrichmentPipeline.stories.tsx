@@ -153,8 +153,7 @@ export const Paused: Story = {
     trace: traceReady,
     augmentation: augFull,
     deepAnalysis: deepRan,
-    paused: true,
-    onTogglePause: () => alert('Toggling pause...'),
+    fastPaused: true,
   },
 };
 
@@ -163,8 +162,7 @@ export const FullPipelineRunning: Story = {
     trace: traceReady,
     augmentation: augFull,
     deepAnalysis: deepRan,
-    paused: false,
-    onTogglePause: () => alert('Toggling pause...'),
+    fastPaused: false,
   },
 };
 
@@ -184,7 +182,6 @@ export const ManualWithRunButtons: Story = {
     onAutoConfigChange: (cfg) => console.log('Config changed:', cfg),
     onRunFastSync: () => alert('Running Fast Sync set...'),
     onRunDeepEnrichment: () => alert('Running Deep Enrichment set...'),
-    onTogglePause: () => alert('Toggling pause...'),
     isPro: true,
   },
 };
@@ -199,7 +196,6 @@ export const AutoMode: Story = {
     onAutoConfigChange: (cfg) => console.log('Config changed:', cfg),
     onRunFastSync: () => alert('Running Fast Sync set...'),
     onRunDeepEnrichment: () => alert('Running Deep Enrichment set...'),
-    onTogglePause: () => alert('Toggling pause...'),
     isPro: true,
   },
 };
@@ -214,7 +210,6 @@ export const ScheduledDeep: Story = {
     onAutoConfigChange: (cfg) => console.log('Config changed:', cfg),
     onRunFastSync: () => alert('Running Fast Sync set...'),
     onRunDeepEnrichment: () => alert('Running Deep Enrichment set...'),
-    onTogglePause: () => alert('Toggling pause...'),
     isPro: true,
   },
 };
@@ -229,7 +224,6 @@ export const FreeUser: Story = {
     onAutoConfigChange: (cfg) => console.log('Config changed:', cfg),
     onRunFastSync: () => alert('Running Fast Sync set...'),
     onRunDeepEnrichment: () => alert('Running Deep Enrichment set...'),
-    onTogglePause: () => alert('Toggling pause...'),
     isPro: false,
   },
 };
@@ -244,7 +238,6 @@ export const FastSyncRunning: Story = {
     onAutoConfigChange: (cfg) => console.log('Config changed:', cfg),
     onRunFastSync: () => alert('Running Fast Sync set...'),
     onRunDeepEnrichment: () => alert('Running Deep Enrichment set...'),
-    onTogglePause: () => alert('Toggling pause...'),
     isPro: true,
   },
 };
@@ -273,7 +266,6 @@ export const FullPipeline10Stages: Story = {
     onAutoConfigChange: (cfg) => console.log('Config changed:', cfg),
     onRunFastSync: () => alert('Running Fast Sync...'),
     onRunDeepEnrichment: () => alert('Running Deep Enrichment...'),
-    onTogglePause: () => alert('Toggling pause...'),
     onDestroyGraph: () => alert('Destroying graph...'),
     isPro: true,
   },

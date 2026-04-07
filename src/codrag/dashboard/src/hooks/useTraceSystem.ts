@@ -55,6 +55,8 @@ export interface UseTraceSystemDeps {
   resetEnrichment?: () => void
   /** Reset atlas state (called during destroy) */
   resetAtlas?: () => void
+  /** Pause a running pipeline group (Phase 81: used when Auto→Manual toggle) */
+  pausePipeline?: (group: 'fast_sync' | 'deep_enrichment') => Promise<void>
   /** AbortSignal from hydration controller — aborted on project switch */
   signal?: AbortSignal
   /** True while hydration is in progress — suppress polls */
@@ -94,6 +96,8 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   resetEnrichmentRef.current = deps.resetEnrichment
   const resetAtlasRef = useRef(deps.resetAtlas)
   resetAtlasRef.current = deps.resetAtlas
+  const pausePipelineRef = useRef(deps.pausePipeline)
+  pausePipelineRef.current = deps.pausePipeline
 
   // ── State ───────────────────────────────────────────────────
   /** True while the initial hydration API calls are in-flight after a project switch.
@@ -300,15 +304,6 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     setTraceStatus(prev => ({ ...prev, enabled: true }))
   }, [api, selectedProjectId, deps.projectConfig, deps.setProjectConfig, deps.setConfigDirty])
 
-  const handleTogglePause = useCallback(() => {
-    if (!selectedProjectId) return
-    const newPaused = !deps.projectConfig.trace.paused
-    const newConfig = { ...deps.projectConfig, trace: { ...deps.projectConfig.trace, paused: newPaused } }
-    deps.setProjectConfig(newConfig)
-    deps.setConfigDirty(true)
-    api.updateProject(selectedProjectId, { config: newConfig }).catch(() => { })
-  }, [api, selectedProjectId, deps.projectConfig, deps.setProjectConfig, deps.setConfigDirty])
-
   const handleAddExcludePattern = useCallback((pattern: string) => {
     if (!selectedProjectId) return
     api.updateTraceIgnore(selectedProjectId, 'add', [pattern]).then(() => {
@@ -392,6 +387,15 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     }
 
     if (!selectedProjectId) return
+
+    // Phase 81: When switching to Manual, pause any running pipeline for that group.
+    // This ensures the toggle is the single source of truth for "is this running."
+    if (!config.fastSync && prevFastSync && traceStatus.building) {
+      pausePipelineRef.current?.('fast_sync').catch(() => { /* silent — may not be running */ })
+    }
+    if (config.deepEnrichment === 'manual' && prevDeep !== 'manual') {
+      pausePipelineRef.current?.('deep_enrichment').catch(() => { /* silent — may not be running */ })
+    }
 
     // When Fast Sync switches to Auto: start watcher + trigger immediate run
     // BUT skip the run if the pipeline is already running (user just toggled
@@ -738,7 +742,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     // Fetch
     fetchTraceCoverage,
     // Trace
-    handleBuildTrace, handleEnableTrace, handleTogglePause,
+    handleBuildTrace, handleEnableTrace,
     handleSearchTrace, handleGetTraceNode, handleGetTraceNeighbors,
     handleTraceAll, handleRetraceStale,
     handleAddExcludePattern, handleRemoveExcludePattern,

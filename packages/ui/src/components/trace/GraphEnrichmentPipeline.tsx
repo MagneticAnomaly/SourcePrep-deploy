@@ -60,13 +60,10 @@ export interface GraphEnrichmentPipelineProps {
   groupReasoning?: { enabled: boolean; group_count: number; analyzed: number; running?: boolean; slot_phase?: string; progress_current?: number; progress_total?: number; progress_baseline?: number };
   /** Open the settings drawer to the Deep Enrichment configuration */
   onOpenDeepSettings?: () => void;
-  onTogglePause?: () => void;
   /** Pause the currently running pipeline group (flush partial results + stop) */
   onPausePipeline?: (group: 'fast_sync' | 'deep_enrichment') => void;
   /** Resume a paused pipeline group */
   onResumePipeline?: (group: 'fast_sync' | 'deep_enrichment') => void;
-  /** @deprecated Use fastPaused/deepPaused instead */
-  isPaused?: boolean;
   /** True if the fast sync group is paused */
   fastPaused?: boolean;
   /** True if the deep enrichment group is paused */
@@ -86,7 +83,6 @@ export interface GraphEnrichmentPipelineProps {
   groupReasoningRunning?: boolean;
   fastKnowledgeBuilding?: boolean;
   deepKnowledgeBuilding?: boolean;
-  paused?: boolean;
   /** Two-group auto config */
   autoConfig?: EnrichmentAutoConfig;
   /** Called when auto config changes */
@@ -725,7 +721,6 @@ export function GraphEnrichmentPipeline({
   onOpenDeepSettings,
   onPausePipeline,
   onResumePipeline,
-  isPaused = false,
   fastPaused: fastPausedProp,
   deepPaused: deepPausedProp,
   fastPausedStage,
@@ -734,9 +729,8 @@ export function GraphEnrichmentPipeline({
   projectLoading,
   className,
 }: GraphEnrichmentPipelineProps) {
-  // Per-group paused flags (fall back to legacy isPaused for backward compat)
-  const fastPaused = fastPausedProp ?? isPaused;
-  const deepPaused = deepPausedProp ?? isPaused;
+  const fastPaused = fastPausedProp ?? false;
+  const deepPaused = deepPausedProp ?? false;
 
   // ── Phase 49: Details toggle (persisted to localStorage) ──────
   const [showDetails, setShowDetails] = useState(() => {

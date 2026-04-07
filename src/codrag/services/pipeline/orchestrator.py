@@ -759,6 +759,23 @@ class PipelineOrchestrator:
         self._chain_deep.pop(project_id, None)
         return self.run_deep_enrichment(project_id, force_from_start=force_from_start)
 
+    def _emit_pipeline_status(self, project_id: str) -> None:
+        """Emit a pipeline_status SSE event for the given project.
+
+        Used after state machine transitions that don't go through the
+        build_orchestrator (e.g. PAUSING→PAUSED) and would otherwise be
+        invisible to the frontend until the next poll.
+        """
+        try:
+            from codrag.core.events import get_event_bus
+            bus = get_event_bus()
+            bus.emit("pipeline_status", {
+                "project_id": project_id,
+                **self.status(project_id),
+            })
+        except Exception:
+            logger.debug("Pipeline status SSE emit failed (non-fatal)", exc_info=True)
+
     def status(self, project_id: str) -> Dict[str, Any]:
         """Get pipeline status for a project."""
         with self._lock:
@@ -1881,6 +1898,11 @@ class PipelineOrchestrator:
 
         # PAUSING → PAUSED
         run.transition(Event.STAGE_FLUSHED)
+
+        # Emit SSE so the frontend sees the PAUSED state immediately
+        # (the build_orchestrator's FAILED event only triggers pipeline_status
+        # with phase="pausing" — this emits the final "paused" phase).
+        self._emit_pipeline_status(project_id)
 
         # Journal: record pause
         if run.journal_run_id:

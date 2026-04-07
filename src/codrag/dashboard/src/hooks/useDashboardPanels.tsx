@@ -134,7 +134,6 @@ export interface PanelTraceProps {
   handleGetTraceNeighbors: (nodeId: string, direction?: string) => Promise<any>
   handleBuildTrace: () => void
   handleEnableTrace: () => void
-  handleTogglePause: () => void
   handleTraceAll: () => void
   handleRetraceStale: () => void
   handleAddExcludePattern: (pattern: string) => void
@@ -828,8 +827,6 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           deepeningRunning={p.deepeningRunning}
           fastKnowledgeBuilding={p.fastKnowledgeBuilding}
           deepKnowledgeBuilding={p.deepKnowledgeBuilding}
-          paused={p.projectConfig.trace.paused}
-          onTogglePause={p.handleTogglePause}
           onPausePipeline={p.handlePausePipeline}
           onResumePipeline={p.handleResumePipeline}
           fastPaused={p.fastPaused}
