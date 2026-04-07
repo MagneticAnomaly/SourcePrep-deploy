@@ -886,10 +886,6 @@ class MCPServer:
 
         if compression not in ("none", "lod"):
             raise InvalidParamsError("compression must be 'none' or 'lod'")
-        if compression_level not in ("light", "standard", "aggressive"):
-            raise InvalidParamsError(
-                "compression_level must be 'light', 'standard', or 'aggressive'"
-            )
 
         project_id = await self._resolve_project_id(override=project_override)
         # OPP-W3: Request augmented summaries alongside source content
