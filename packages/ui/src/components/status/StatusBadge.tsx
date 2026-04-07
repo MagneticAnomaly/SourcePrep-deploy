@@ -5,6 +5,7 @@ export interface StatusBadgeProps {
   status: StatusState;
   className?: string;
   showLabel?: boolean;
+  labelOverride?: string;
 }
 
 const statusConfig: Record<StatusState, { label: string; classes: string }> = {
@@ -39,9 +40,9 @@ const statusConfig: Record<StatusState, { label: string; classes: string }> = {
  * 
  * Maps StatusState to appropriate semantic theme colors.
  */
-export function StatusBadge({ status, className, showLabel = true }: StatusBadgeProps) {
+export function StatusBadge({ status, className, showLabel = true, labelOverride }: StatusBadgeProps) {
   const config = statusConfig[status];
-  
+
   return (
     <span
       className={cn(
@@ -50,7 +51,7 @@ export function StatusBadge({ status, className, showLabel = true }: StatusBadge
         className
       )}
     >
-      {showLabel && config.label}
+      {showLabel && (labelOverride ?? config.label)}
     </span>
   );
 }

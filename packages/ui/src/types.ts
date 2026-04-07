@@ -1202,6 +1202,8 @@ export interface RunningTask {
   concurrent_workers?: number;
   /** Which compute node this project is running on (e.g. "cloud:default_ollama") */
   compute_node?: string | null;
+  /** Whether this stage is running in swarm mode (coordinator → fan-out → synthesis) */
+  is_swarm?: boolean;
 }
 
 /**

@@ -599,12 +599,15 @@ def get_llm_slots_status() -> Dict[str, Any]:
         # Enrich running tasks with concurrent worker count from scheduler
         try:
             from codrag.services.pipeline.scheduler import pipeline_scheduler
+            _SWARM_STAGES = {"group_reasoning", "clustering", "atlas"}
             for rt in running_tasks:
                 workers, node_id = pipeline_scheduler.concurrent_workers_for_project(
                     rt["project_id"]
                 )
                 rt["concurrent_workers"] = workers
                 rt["compute_node"] = node_id
+                # Flag swarm-capable stages
+                rt["is_swarm"] = rt.get("stage", "") in _SWARM_STAGES
         except Exception:
             pass  # Scheduler not available — leave defaults
 

@@ -65,6 +65,14 @@ function concurrentWorkersForSlot(
     .reduce((sum, t) => sum + (t.concurrent_workers || 1), 0);
 }
 
+/** Check if any task for a given slot is running in swarm mode. */
+function isSwarmForSlot(
+  slotKey: 'embedding' | 'small' | 'large' | 'code',
+  runningTasks: RunningTask[],
+): boolean {
+  return runningTasks.some(t => t.model_slot === slotKey && t.is_swarm);
+}
+
 /** Total concurrent workers across all slots. */
 function totalConcurrentWorkers(runningTasks: RunningTask[]): number {
   return runningTasks.reduce((sum, t) => sum + (t.concurrent_workers || 1), 0);
@@ -100,9 +108,10 @@ function CollapsedView({
         {slots.map(slot => {
           const running = runningCountForSlot(slot.modelSlotKey, runningTasks);
           const workers = concurrentWorkersForSlot(slot.modelSlotKey, runningTasks);
+          const swarming = isSwarmForSlot(slot.modelSlotKey, runningTasks);
           const isRunning = running > 0;
           return (
-            <div key={slot.key} className="relative" title={`${slot.label}${isRunning ? ` (${workers} concurrent call${workers !== 1 ? 's' : ''})` : ''}`}>
+            <div key={slot.key} className="relative" title={`${slot.label}${isRunning ? ` (${workers}${swarming ? ' swarm' : ' concurrent'} call${workers !== 1 ? 's' : ''})` : ''}`}>
               <div className={cn(
                 "w-2.5 h-2.5 rounded-full transition-colors",
                 slotColor(slot.status, isRunning),
@@ -110,7 +119,7 @@ function CollapsedView({
               )} />
               {workers > 1 && (
                 <span className="absolute -top-1 -right-2 text-[8px] font-bold text-blue-500 leading-none">
-                  {workers}×
+                  {workers}×{swarming ? 'S' : ''}
                 </span>
               )}
             </div>
@@ -230,8 +239,11 @@ function ExpandedView({
                       {TASK_LABELS[rt.task_id] ?? rt.task_id}
                     </span>
                     {(rt.concurrent_workers ?? 1) > 1 && (
-                      <span className="inline-flex items-center px-1 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300 shrink-0">
-                        {rt.concurrent_workers}×
+                      <span className={cn(
+                        "inline-flex items-center px-1 rounded text-[9px] font-bold shrink-0",
+                        rt.is_swarm ? "bg-purple-500/20 text-purple-300" : "bg-blue-500/20 text-blue-300",
+                      )}>
+                        {rt.concurrent_workers}×{rt.is_swarm ? 'Swarm' : ''}
                       </span>
                     )}
                     <span className="text-text-muted/60 shrink-0">on</span>

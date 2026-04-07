@@ -82,6 +82,18 @@ def _build_queue_item(
     priority = pipeline_scheduler.get_priority(project_id)
     workers, node_id = pipeline_scheduler.concurrent_workers_for_project(project_id)
 
+    # Determine if this stage is running in swarm mode.
+    # Swarm-capable stages use coordinator → fan-out → synthesis when
+    # the model supports it and swarm_enabled is True.
+    is_swarm = False
+    _SWARM_STAGES = {"group_reasoning", "clustering", "atlas"}
+    if current_stage in _SWARM_STAGES:
+        try:
+            from codrag.services.settings_store import settings
+            is_swarm = bool(settings.get("swarm_enabled", True))
+        except Exception:
+            pass
+
     return {
         "project_id": project_id,
         "project_name": _resolve_project_name(project_id),
@@ -94,6 +106,7 @@ def _build_queue_item(
         "priority": priority,
         "compute_node": node_id,
         "concurrent_workers": workers,
+        "is_swarm": is_swarm,
     }
 
 

@@ -26,6 +26,7 @@ export interface QueueItem {
   priority: string;
   compute_node: string | null;
   concurrent_workers: number;
+  is_swarm?: boolean;
 }
 
 interface QueueResponse {
@@ -234,7 +235,10 @@ export function SidebarPipelineQueue({
                     )}
                     {item.project_name}
                   </span>
-                  <StatusBadge status={phaseToStatus(item.phase)} />
+                  <StatusBadge
+                    status={phaseToStatus(item.phase)}
+                    labelOverride={item.phase === 'running' && item.is_swarm ? 'Swarming' : undefined}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between mt-0.5">
