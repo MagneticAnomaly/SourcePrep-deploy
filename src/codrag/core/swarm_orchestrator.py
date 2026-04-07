@@ -7,6 +7,7 @@ Phase 3 (Synthesize): One LLM call aggregates worker results.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -146,6 +147,10 @@ class SwarmOrchestrator:
             for a in raw_assignments
         ]
 
+        logger.info(
+            "[Swarm] Coordinator planned %d assignments (%d tokens)",
+            len(assignments), tokens,
+        )
         return CoordinatorPlan(assignments=assignments), tokens
 
     # -- Phase 2: Fan-out ---------------------------------------------------
@@ -201,6 +206,11 @@ class SwarmOrchestrator:
                 if progress_fn is not None:
                     progress_fn(done_count, total)
 
+        succeeded = sum(1 for r in results if r.success)
+        logger.info(
+            "[Swarm] Fan-out complete: %d/%d workers succeeded",
+            succeeded, total,
+        )
         return results
 
     # -- Phase 3: Synthesize ------------------------------------------------
@@ -215,13 +225,14 @@ class SwarmOrchestrator:
         Returns (parsed_result, token_count). Result is None on failure
         or if no workers succeeded.
         """
-        successful = [r for r in worker_results if r.success]
+        successful = [r for r in worker_results if r.success and r.parsed]
         if not successful:
-            logger.warning("No successful workers — skipping synthesis")
+            logger.warning("[Swarm] No successful workers with parsed output — skipping synthesis")
             return None, 0
 
         outputs = "\n\n".join(
-            f"=== {r.item_id} ===\n{r.raw_output}" for r in successful
+            f"### {r.item_id}\n```json\n{json.dumps(r.parsed, indent=2)}\n```"
+            for r in successful
         )
         prompt = synthesis_prompt.replace("{worker_outputs}", outputs)
 
@@ -241,6 +252,7 @@ class SwarmOrchestrator:
             logger.warning("Synthesis returned unparseable JSON")
             return None, tokens
 
+        logger.info("[Swarm] Synthesis complete (%d tokens)", tokens)
         return parsed, tokens
 
     # -- Full execution -----------------------------------------------------
