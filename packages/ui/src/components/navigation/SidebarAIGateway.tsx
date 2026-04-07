@@ -26,13 +26,13 @@ interface SlotInfo {
   label: string;
   shortLabel: string;
   status: LLMSlotStatus | undefined;
-  modelSlotKey: 'small' | 'large' | 'code' | null;
+  modelSlotKey: 'embedding' | 'small' | 'large' | 'code';
 }
 
 function getSlots(slotsStatus: LLMSlotsStatus | null): SlotInfo[] {
   if (!slotsStatus) return [];
   return [
-    { key: 'embedding', label: 'Embedding', shortLabel: 'Emb', status: slotsStatus.embedding, modelSlotKey: null },
+    { key: 'embedding', label: 'Embedding', shortLabel: 'Emb', status: slotsStatus.embedding, modelSlotKey: 'embedding' },
     { key: 'small_model', label: 'Fast Model', shortLabel: 'Fast', status: slotsStatus.small_model, modelSlotKey: 'small' },
     { key: 'large_model', label: 'Thinking', shortLabel: 'Think', status: slotsStatus.large_model, modelSlotKey: 'large' },
     { key: 'code_model', label: 'Code Model', shortLabel: 'Code', status: slotsStatus.code_model, modelSlotKey: 'code' },
@@ -49,22 +49,17 @@ function slotColor(status: LLMSlotStatus | undefined, isRunning: boolean): strin
 }
 
 function runningCountForSlot(
-  slotKey: 'small' | 'large' | 'code' | null,
+  slotKey: 'embedding' | 'small' | 'large' | 'code',
   runningTasks: RunningTask[],
 ): number {
-  if (!slotKey) {
-    // Embedding slot — not mapped to running tasks
-    return 0;
-  }
   return runningTasks.filter(t => t.model_slot === slotKey).length;
 }
 
 /** Sum concurrent_workers across all tasks for a given slot. */
 function concurrentWorkersForSlot(
-  slotKey: 'small' | 'large' | 'code' | null,
+  slotKey: 'embedding' | 'small' | 'large' | 'code',
   runningTasks: RunningTask[],
 ): number {
-  if (!slotKey) return 0;
   return runningTasks
     .filter(t => t.model_slot === slotKey)
     .reduce((sum, t) => sum + (t.concurrent_workers || 1), 0);

@@ -563,7 +563,7 @@ def get_llm_slots_status() -> Dict[str, Any]:
     try:
         from codrag.services.pipeline_orchestrator import pipeline_orchestrator
         from codrag.services.project_helpers import get_registry as _get_reg
-        from codrag.services.pipeline.stages import STAGE_TASK_ID, STAGE_MODEL_SLOT, StageId
+        from codrag.services.pipeline.stages import STAGE_TASK_ID, STAGE_MODEL_SLOT, STAGE_QUEUE_TYPE, QueueType, StageId
 
         registry = _get_reg()
         for project in registry.list_projects():
@@ -576,19 +576,23 @@ def get_llm_slots_status() -> Dict[str, Any]:
                         stage_id = StageId(stage_str)
                         task_id = STAGE_TASK_ID.get(stage_id)
                         model_slot = STAGE_MODEL_SLOT.get(stage_id)
-                        if task_id:
+                        queue_type = STAGE_QUEUE_TYPE.get(stage_id)
+                        # Include LLM-using stages and embedding stages
+                        if model_slot is not None or queue_type == QueueType.EMBEDDING:
+                            effective_task_id = task_id or stage_str
+                            if running_task_id is None:
+                                running_task_id = effective_task_id
+                            running_tasks.append({
+                                "task_id": effective_task_id,
+                                "project_id": project.id,
+                                "project_name": project.name,
+                                "group": group_name,
+                                "stage": stage_str,
+                                "model_slot": model_slot or "embedding",
+                            })
+                        elif task_id:
                             if running_task_id is None:
                                 running_task_id = task_id
-                            # Only include LLM-using stages in running_tasks
-                            if model_slot is not None:
-                                running_tasks.append({
-                                    "task_id": task_id,
-                                    "project_id": project.id,
-                                    "project_name": project.name,
-                                    "group": group_name,
-                                    "stage": stage_str,
-                                    "model_slot": model_slot,
-                                })
                     except (ValueError, KeyError):
                         pass
 
