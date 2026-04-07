@@ -45,16 +45,19 @@ def _make_core(pid: str, idx_dir: Path, project_root: Path):
 class HRGenerateRequest(BaseModel):
     mode: str = "list"  # list | auto | hybrid
     role_names: List[str] = []
+    push: bool = False
 
 
 class ResearchRunRequest(BaseModel):
     max_topics: int = 3
+    push: bool = False
 
 
 class CustodianRunRequest(BaseModel):
     dry_run: bool = True
     max_candidates: int = 50
     max_files: int = 20
+    push: bool = False
 
 
 # ── HR Endpoints ────────────────────────────────────────────
@@ -145,11 +148,21 @@ def hr_generate(project_id: str, req: HRGenerateRequest) -> Dict[str, Any]:
 
     logger.info("[HR API] Generation complete: %d role(s), files written to %s", len(roles), engine._agents_dir())
 
+    push_count = 0
+    if req.push:
+        try:
+            engine_fresh = StaffingEngine(core=core)
+            engine_fresh.push_to_paperclip(llm_fn)
+            push_count = len(roles)
+        except Exception as e:
+            logger.warning("[HR API] Push to Paperclip failed: %s", e)
+
     return ok({
         "roles_generated": len(roles),
         "slugs": [r.slug for r in roles],
         "files": file_paths,
         "agents_dir": str(engine._agents_dir()),
+        "push_count": push_count,
     })
 
 
@@ -231,6 +244,7 @@ def researcher_run(project_id: str, req: ResearchRunRequest) -> Dict[str, Any]:
     return ok({
         "plans": [p.to_dict() for p in plans],
         "count": len(plans),
+        "push_requested": req.push,
     })
 
 
@@ -277,6 +291,7 @@ def custodian_run(project_id: str, req: CustodianRunRequest) -> Dict[str, Any]:
         "branch_name": plan.branch_name,
         "candidate_count": len(plan.candidates),
         "candidates": [c.to_dict() for c in plan.candidates],
+        "push_requested": req.push,
     })
 
 
