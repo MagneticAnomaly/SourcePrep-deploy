@@ -3613,25 +3613,110 @@ class MCPServer:
 
             elif name == "codrag_search":
                 search_type = args.get("type", "context")
-                if search_type == "symbol":
+                query_text = args.get("query", "")
+                intent_override = args.get("intent")
+
+                # Phase 86: Intent classification — auto-detect search mode
+                from codrag.core.intent import classify_intent, rewrite_query, SearchIntent
+                if intent_override:
+                    # Manual override — use specified intent
+                    try:
+                        detected_intent = SearchIntent(intent_override)
+                    except ValueError:
+                        detected_intent = SearchIntent.EXPLAIN
+                    confidence = "override"
+                elif search_type == "symbol":
+                    # Explicit type=symbol — treat as LOCATE
+                    detected_intent = SearchIntent.LOCATE
+                    confidence = "explicit"
+                else:
+                    detected_intent, confidence = classify_intent(query_text)
+
+                # Rewrite query to strip signal words
+                clean_query = rewrite_query(query_text, detected_intent)
+
+                # Route based on classified intent
+                if detected_intent == SearchIntent.LOCATE:
                     result = await self.tool_trace_search(
-                        query=args.get("query", ""),
+                        query=clean_query,
                         kind=args.get("kind"),
                         limit=args.get("limit", args.get("k", 20)),
                         project_override=project_override,
                     )
-                else:
+                elif detected_intent == SearchIntent.TRACE:
+                    # Delegate to impact tool for graph traversal
+                    result = await self.tool_impact(
+                        file_path=clean_query if "/" in clean_query else None,
+                        symbol=clean_query if "/" not in clean_query else None,
+                        max_hops=2,
+                        project_override=project_override,
+                    )
+                elif detected_intent == SearchIntent.RATIONALE:
+                    # Concepts-first, fall back to semantic search
+                    try:
+                        result = await self.tool_concepts(
+                            action="get",
+                            query=clean_query,
+                            project_override=project_override,
+                        )
+                        # If no concepts found, fall back to semantic search
+                        if isinstance(result, dict) and result.get("count", 0) == 0:
+                            result = await self.tool_search(
+                                query=clean_query,
+                                k=args.get("k", 5),
+                                max_chars=args.get("max_chars", 12000),
+                                trace_expand=True,
+                                exclude_paths=args.get("exclude_paths") or None,
+                                role=args.get("role"),
+                                working_dir=args.get("working_dir"),
+                                project_override=project_override,
+                            )
+                    except Exception:
+                        result = await self.tool_search(
+                            query=clean_query,
+                            k=args.get("k", 5),
+                            max_chars=args.get("max_chars", 12000),
+                            trace_expand=True,
+                            exclude_paths=args.get("exclude_paths") or None,
+                            role=args.get("role"),
+                            working_dir=args.get("working_dir"),
+                            project_override=project_override,
+                        )
+                elif detected_intent == SearchIntent.DISCOVER:
+                    # Module overview — use ambient context scoped to query
                     result = await self.tool_search(
-                        query=args.get("query", ""),
+                        query=clean_query,
+                        k=args.get("k", 8),
+                        max_chars=args.get("max_chars", 15000),
+                        trace_expand=True,
+                        compression="signatures",
+                        exclude_paths=args.get("exclude_paths") or None,
+                        role=args.get("role"),
+                        working_dir=args.get("working_dir"),
+                        project_override=project_override,
+                    )
+                else:
+                    # EXPLAIN, EXAMPLE, COMPARE — all use semantic search
+                    result = await self.tool_search(
+                        query=clean_query,
                         k=args.get("k", 5),
                         max_chars=args.get("max_chars", 12000),
                         trace_expand=bool(args.get("trace_expand", True)),
                         compression=args.get("compression", "none"),
                         exclude_paths=args.get("exclude_paths") or None,
-                        role=args.get("role"),  # Phase 67: agent scope filtering
-                        working_dir=args.get("working_dir"),  # Phase 80: L2 scoped context
+                        role=args.get("role"),
+                        working_dir=args.get("working_dir"),
                         project_override=project_override,
                     )
+
+                # Inject intent metadata into response
+                if isinstance(result, dict):
+                    result["_intent"] = {
+                        "detected": detected_intent.value,
+                        "confidence": confidence,
+                        "original_query": query_text,
+                        "clean_query": clean_query,
+                    }
                 # Phase 50 Sprint 3: Nudge if codrag hasn't been called yet
                 if not self._codrag_called and isinstance(result, dict):
                     md = result.get("_to_markdown", "")

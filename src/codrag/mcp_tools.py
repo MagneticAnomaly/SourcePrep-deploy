@@ -101,6 +101,15 @@ _CORE_TOOLS = [
                     "description": "(Advanced) Number of initial chunks to retrieve. Default: 5.",
                     "default": 5,
                 },
+                "intent": {
+                    "type": "string",
+                    "description": (
+                        "Override auto-detected intent. CoDRAG classifies queries automatically "
+                        "(LOCATE for 'where is X', RATIONALE for 'why X', etc.) — use this "
+                        "only when auto-detection gets it wrong."
+                    ),
+                    "enum": ["locate", "explain", "rationale", "trace", "example", "compare", "discover"],
+                },
                 "kind": {
                     "type": "string",
                     "description": "(Advanced, symbol mode only) Filter by node kind.",
