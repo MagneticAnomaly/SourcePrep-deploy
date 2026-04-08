@@ -14,7 +14,7 @@ import sys
 import uuid
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 
@@ -1332,23 +1332,30 @@ class MCPServer:
         nodes = (data or {}).get("nodes", []) if isinstance(data, dict) else []
         formatted = []
         for n in nodes:
-            formatted.append(
-                {
-                    "id": n.get("id", ""),
-                    "name": n.get("name", ""),
-                    "kind": n.get("kind", ""),
-                    "path": n.get("file_path", n.get("path", "")),
-                    "line": n.get("start_line", n.get("line")),
-                }
-            )
+            entry: Dict[str, Any] = {
+                "id": n.get("id", ""),
+                "name": n.get("name", ""),
+                "kind": n.get("kind", ""),
+                "path": n.get("file_path", n.get("path", "")),
+                "line": n.get("start_line", n.get("line")),
+                # Phase 83 P0: Include code context for symbol results
+                "qualified_name": n.get("qualified_name", n.get("name", "")),
+                "signature": n.get("signature", ""),
+                "docstring": (n.get("docstring", "") or "")[:200],
+            }
+            formatted.append(entry)
 
         # Phase 50 Sprint 3: Markdown for symbol search results
         if formatted:
             md_lines = [f"## Symbol search: {query} ({len(formatted)} results)\n"]
             for n in formatted:
-                line = f"- `{n['name']}` ({n['kind']}) @ `{n['path']}`"
+                line = f"- `{n['qualified_name'] or n['name']}` ({n['kind']}) @ `{n['path']}`"
                 if n.get("line"):
                     line += f":{n['line']}"
+                if n.get("signature"):
+                    line += f"\n    `{n['signature']}`"
+                if n.get("docstring"):
+                    line += f"\n    {n['docstring']}"
                 md_lines.append(line)
             md_text = "\n".join(md_lines)
         else:
@@ -1403,13 +1410,31 @@ class MCPServer:
         nodes = (data or {}).get("nodes", []) if isinstance(data, dict) else []
         edges = (data or {}).get("edges", []) if isinstance(data, dict) else []
 
+        # Phase 83 P0: Filter stdlib/external nodes by default
+        nodes = [n for n in nodes if n.get("kind") != "external_module"
+                 and not n.get("id", "").startswith("ext:")]
+        edges = [e for e in edges
+                 if not e.get("target", "").startswith("ext:")
+                 and not e.get("source", "").startswith("ext:")]
+
+        # Phase 83 P0: Format as markdown for consistency with other tools
+        center_name = center.get("name", node_id) if isinstance(center, dict) else node_id
+        md_lines = [f"## Neighbors for {center_name}\n"]
+        md_lines.append(f"Nodes: {len(nodes)} | Edges: {len(edges)}\n")
+        for n in nodes[:max_nodes]:
+            name = n.get("name", n.get("id", "?"))
+            kind = n.get("kind", "")
+            path = n.get("file_path", "")
+            md_lines.append(f"  - {name} ({path}) [{kind}]")
+
         return {
             "project_id": project_id,
             "center": center,
             "node_count": len(nodes),
             "edge_count": len(edges),
             "nodes": nodes[:max_nodes],
-            "edges": edges[:50],  # Cap edges for token efficiency
+            "edges": edges[:50],
+            "_to_markdown": "\n".join(md_lines),
         }
 
     async def tool_trace_coverage(self, project_override: Optional[str] = None) -> Dict[str, Any]:
@@ -1468,6 +1493,11 @@ class MCPServer:
 
         target = data.get("target", {})
         dependents = data.get("dependents", [])
+
+        # Phase 83 P0: Filter stdlib/external from dependents
+        dependents = [d for d in dependents
+                     if d.get("kind") != "external_module"
+                     and not d.get("id", "").startswith("ext:")]
 
         # Format as human-readable summary for the LLM
         lines = []
@@ -1839,6 +1869,261 @@ class MCPServer:
         result["_to_markdown"] = "\n".join(md_lines)
 
         return result
+
+    async def tool_audit_structural(
+        self,
+        category: Optional[str] = None,
+        scope: Optional[str] = None,
+        max_findings: int = 20,
+        project_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Run structural-only audit: coupling hotspots + import cycles."""
+        from codrag.core.audit.structural import run_structural_audit
+
+        project_id = await self._resolve_project_id(override=project_override)
+
+        # Gather hub files
+        hub_files: List[Tuple[str, int]] = []
+        try:
+            hub_data = await self._api_get(
+                f"/projects/{project_id}/trace/hub-files?k=50"
+            )
+            for hf in (hub_data.get("hub_files", []) if isinstance(hub_data, dict) else []):
+                fp = hf.get("file_path", "")
+                deg = hf.get("in_degree", 0)
+                if fp:
+                    hub_files.append((fp, deg))
+        except Exception as e:
+            logger.debug("Failed to fetch hub files for structural audit: %s", e)
+
+        # Gather import cycles from existing audit findings
+        cycles: List[List[str]] = []
+        try:
+            findings_data = await self._api_get(
+                f"/projects/{project_id}/audit/findings?limit=500"
+            )
+            all_findings = (
+                findings_data.get("findings", [])
+                if isinstance(findings_data, dict) else []
+            )
+            for f in all_findings:
+                if f.get("analyzer") == "circular_deps":
+                    cycle = (f.get("evidence") or {}).get("cycle", [])
+                    if cycle:
+                        cycles.append(cycle)
+        except Exception as e:
+            logger.debug("Failed to fetch cycles for structural audit: %s", e)
+
+        # Gather modules
+        modules: List[Dict[str, Any]] = []
+        try:
+            mod_data = await self._api_get(f"/projects/{project_id}/trace/modules")
+            modules = mod_data.get("modules", []) if isinstance(mod_data, dict) else []
+        except Exception as e:
+            logger.debug("Failed to fetch modules for structural audit: %s", e)
+
+        # Gather concepts (lazy import, may not be initialized)
+        concepts: List[Dict[str, Any]] = []
+        try:
+            from codrag.services.concept_store import concept_store
+            raw_concepts = concept_store.list_concepts(project_id)
+            concepts = [c.to_dict() for c in raw_concepts]
+        except Exception as e:
+            logger.debug("Failed to fetch concepts for structural audit: %s", e)
+
+        # Gather observations (lazy import, may not be initialized)
+        observations: List[Dict[str, Any]] = []
+        try:
+            from codrag.services.observation_store import observation_store
+            raw_obs = observation_store.get_recent(project_id, limit=50)
+            observations = [o.to_dict() for o in raw_obs]
+        except Exception as e:
+            logger.debug("Failed to fetch observations for structural audit: %s", e)
+
+        # Build context and run structural audit
+        ctx: Dict[str, Any] = {
+            "hub_files": hub_files,
+            "cycles": cycles,
+            "modules": modules,
+            "concepts": concepts,
+            "observations": observations,
+            "total_files": len(hub_files),  # Approximate — hub query returns top-k only
+        }
+        findings = run_structural_audit(
+            ctx, max_findings=max_findings, scope=scope, category=category,
+        )
+
+        # Format as dicts
+        findings_dicts = []
+        for f in findings:
+            findings_dicts.append({
+                "finding_type": f.finding_type,
+                "file_path": f.file_path,
+                "severity": f.severity,
+                "title": f.title,
+                "description": f.description,
+                "risk_score": round(f.risk_score, 3),
+                "recommendation": f.recommendation,
+                "evidence": f.evidence,
+                "related_concepts": f.related_concepts,
+                "related_observations": f.related_observations,
+            })
+
+        # Build markdown
+        md_lines = [f"## Structural Audit ({len(findings_dicts)} findings)\n"]
+        severity_counts: Dict[str, int] = {}
+        for fd in findings_dicts:
+            sev = fd["severity"]
+            severity_counts[sev] = severity_counts.get(sev, 0) + 1
+        if severity_counts:
+            sev_parts = [f"{k}: {v}" for k, v in sorted(severity_counts.items())]
+            md_lines.append(f"Severity: {', '.join(sev_parts)}\n")
+        for fd in findings_dicts:
+            md_lines.append(f"- **[{fd['severity']}] {fd['title']}** (risk: {fd['risk_score']})")
+            md_lines.append(f"  {fd['description']}")
+            if fd["recommendation"]:
+                md_lines.append(f"  → {fd['recommendation']}")
+            if fd["related_concepts"]:
+                md_lines.append(f"  Concepts: {', '.join(fd['related_concepts'][:3])}")
+
+        result: Dict[str, Any] = {
+            "project_id": project_id,
+            "total_findings": len(findings_dicts),
+            "findings": findings_dicts,
+            "_to_markdown": "\n".join(md_lines),
+        }
+        return result
+
+    async def tool_audit_enrich(
+        self,
+        findings: List[Dict[str, Any]],
+        max_findings: int = 200,
+        project_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Enrich external findings with CoDRAG structural context."""
+        from codrag.core.enrichment import enrich_findings
+
+        project_id = await self._resolve_project_id(override=project_override)
+
+        # Collect unique file paths from findings
+        file_paths: set = set()
+        for f in findings:
+            fp = f.get("file", "")
+            if fp:
+                file_paths.add(fp)
+
+        # Fetch modules once for the batch
+        modules: List[Dict[str, Any]] = []
+        try:
+            mod_data = await self._api_get(f"/projects/{project_id}/trace/modules")
+            modules = mod_data.get("modules", []) if isinstance(mod_data, dict) else []
+        except Exception as e:
+            logger.debug("Failed to fetch modules for enrichment: %s", e)
+
+        # Build per-file context
+        context: Dict[str, Dict[str, Any]] = {}
+        for file_path in file_paths:
+            ctx: Dict[str, Any] = {
+                "dependents": 0,
+                "hub_status": "low",
+                "module": "",
+                "concepts": [],
+                "observations": [],
+            }
+
+            # Dependents count
+            try:
+                dep_data = await self._api_get(
+                    f"/projects/{project_id}/trace/neighbors/file:{file_path}"
+                    f"?direction=in&max_nodes=100"
+                )
+                if isinstance(dep_data, dict):
+                    nodes = dep_data.get("in_nodes") or dep_data.get("nodes") or []
+                    ctx["dependents"] = len(nodes)
+            except Exception as e:
+                logger.debug("Failed to fetch dependents for %s: %s", file_path, e)
+
+            # Module (find which module contains this file)
+            for m in modules:
+                mod_files = m.get("files", [])
+                mod_path = m.get("path", "")
+                if file_path in mod_files or (mod_path and file_path.startswith(mod_path)):
+                    ctx["module"] = m.get("name", mod_path)
+                    break
+
+            # Concepts
+            try:
+                from codrag.services.concept_store import concept_store
+                raw = concept_store.search(project_id, file_path, limit=5)
+                ctx["concepts"] = [c.title for c in raw]
+            except Exception as e:
+                logger.debug("Failed to fetch concepts for %s: %s", file_path, e)
+
+            # Observations
+            try:
+                from codrag.services.observation_store import observation_store
+                raw_obs = observation_store.get_for_file(project_id, file_path)
+                ctx["observations"] = [o.content[:120] for o in raw_obs]
+            except Exception as e:
+                logger.debug("Failed to fetch observations for %s: %s", file_path, e)
+
+            # Hub status based on dependent count
+            dep_count = ctx["dependents"]
+            if dep_count >= 20:
+                ctx["hub_status"] = "critical"
+            elif dep_count >= 10:
+                ctx["hub_status"] = "high"
+            elif dep_count >= 5:
+                ctx["hub_status"] = "moderate"
+            else:
+                ctx["hub_status"] = "low"
+
+            context[file_path] = ctx
+
+        # Run enrichment
+        result = enrich_findings(findings, context, max_findings=max_findings)
+        result_dict = result.to_dict()
+
+        # Build markdown summary
+        summary = result_dict.get("summary", {})
+        md_lines = [
+            f"## Enrichment Results\n",
+            f"- Total: {summary.get('total', 0)}",
+            f"- Enriched with CoDRAG context: {summary.get('enriched', 0)}",
+            f"- Unenriched (file not in index): {summary.get('unenriched', 0)}",
+            f"- High risk: {summary.get('high_risk', 0)}",
+        ]
+        if result_dict.get("stale_data_warning"):
+            md_lines.append(
+                "\n> Looks like you have stale data, "
+                "CoDRAG recommends running enrichment again."
+            )
+
+        # Show top high-risk findings
+        high_risk = [
+            f for f in result_dict.get("findings", [])
+            if (f.get("codrag") or {}).get("risk_score", 0) >= 0.5
+        ]
+        if high_risk:
+            md_lines.append(f"\n### High-Risk Findings ({len(high_risk)})\n")
+            for f in high_risk[:10]:
+                codrag_ctx = f.get("codrag", {})
+                md_lines.append(
+                    f"- **{f.get('file', '?')}:{f.get('line', '?')}** "
+                    f"[{f.get('severity', '')}] {f.get('message', '')}"
+                )
+                md_lines.append(
+                    f"  Risk: {codrag_ctx.get('risk_score', 0):.2f} | "
+                    f"Hub: {codrag_ctx.get('hub_status', 'low')} | "
+                    f"Deps: {codrag_ctx.get('dependents', 0)}"
+                )
+                rec = codrag_ctx.get("recommendation", "")
+                if rec:
+                    md_lines.append(f"  → {rec}")
+
+        result_dict["project_id"] = project_id
+        result_dict["_to_markdown"] = "\n".join(md_lines)
+        return result_dict
 
     async def tool_audit_refactor(
         self,
@@ -3246,39 +3531,48 @@ class MCPServer:
                         )
 
             elif name == "codrag_audit":
-                action = args.get("action", "scan")
-                if action == "refactor":
-                    result = await self.tool_audit_refactor(
-                        finding_ids=args.get("finding_ids", []),
-                        instructions=args.get("instructions"),
-                        project_override=project_override,
-                    )
-                elif action == "verify":
-                    result = await self.tool_audit_check(
-                        analyzers=args.get("analyzers", []),
-                        project_override=project_override,
-                    )
-                elif action == "report":
-                    result = await self.tool_audit_report(
-                        report_name=args.get("report_name", ""),
-                        project_override=project_override,
-                    )
-                elif action == "advise":
-                    result = await self.tool_advise(
-                        project_override=project_override,
-                    )
-                elif action == "roadmap":
-                    result = await self.tool_roadmap(
-                        tier=args.get("tier"),
+                if args.get("findings"):
+                    # Enrichment mode: annotate external findings with CoDRAG context
+                    result = await self.tool_audit_enrich(
+                        findings=args.get("findings", []),
+                        max_findings=args.get("max_findings", 200),
                         project_override=project_override,
                     )
                 else:
-                    # Default: scan
-                    result = await self.tool_audit(
-                        synthesize=bool(args.get("synthesize", False)),
-                        category=args.get("category"),
-                        project_override=project_override,
-                    )
+                    action = args.get("action", "scan")
+                    if action == "refactor":
+                        result = await self.tool_audit_refactor(
+                            finding_ids=args.get("finding_ids", []),
+                            instructions=args.get("instructions"),
+                            project_override=project_override,
+                        )
+                    elif action == "verify":
+                        result = await self.tool_audit_check(
+                            analyzers=args.get("analyzers", []),
+                            project_override=project_override,
+                        )
+                    elif action == "report":
+                        result = await self.tool_audit_report(
+                            report_name=args.get("report_name", ""),
+                            project_override=project_override,
+                        )
+                    elif action == "advise":
+                        result = await self.tool_advise(
+                            project_override=project_override,
+                        )
+                    elif action == "roadmap":
+                        result = await self.tool_roadmap(
+                            tier=args.get("tier"),
+                            project_override=project_override,
+                        )
+                    else:
+                        # Default: structural audit (Phase 83 — replaces legacy scan)
+                        result = await self.tool_audit_structural(
+                            category=args.get("category"),
+                            scope=args.get("scope"),
+                            max_findings=args.get("max_findings", 20),
+                            project_override=project_override,
+                        )
                 # Phase 50: Nudge if codrag hasn't been called yet
                 if not self._codrag_called and isinstance(result, dict):
                     md = result.get("_to_markdown", "")

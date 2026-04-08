@@ -131,6 +131,58 @@ class StaffingEngine:
             parts.append(f"- **{name}** ({count} files): {summary} [{tags}]")
         return "\n".join(parts) if parts else "(no modules)"
 
+    def _build_role_knowledge(
+        self,
+        role_slug: str,
+        full_atlas: str,
+    ) -> Tuple[str, List[Tuple[str, float]]]:
+        """Build role-filtered sub-atlas and scored file list for KNOWLEDGE.md.
+
+        Uses RoleVector projection to generate a focused sub-atlas containing
+        only modules, hub files, and graph centralities within the role's scope.
+        This solves the 28K boilerplate problem — each role gets 2-5K tokens
+        of focused, actionable context instead of the global atlas dump.
+
+        Returns:
+            Tuple of (role_filtered_atlas, scored_files) where scored_files
+            is a list of (file_path, relevance_score) tuples for the top files.
+        """
+        try:
+            from codrag.core.atlas.role_resolver import resolve_role
+            from codrag.core.atlas.role_projection import (
+                project_atlas_for_role,
+                _python_scoring,
+            )
+
+            role_vector = resolve_role(role_slug)
+
+            # Generate role-filtered sub-atlas
+            role_atlas = project_atlas_for_role(
+                role_vector, self._index_dir, atlas_content=full_atlas
+            )
+
+            # Score files and extract top recommendations
+            scored = _python_scoring(role_vector, self._index_dir)
+            scored_files: List[Tuple[str, float]] = []
+            if scored:
+                for file_path, _entry, score in scored[:25]:
+                    if score >= 0.2:
+                        scored_files.append((file_path, score))
+
+            logger.info(
+                "[HR/%s] Role-filtered atlas: %d chars (vs %d full), %d scored files",
+                role_slug, len(role_atlas), len(full_atlas), len(scored_files),
+            )
+            return role_atlas, scored_files
+
+        except Exception as exc:
+            logger.warning(
+                "[HR/%s] Role projection failed, using truncated atlas: %s",
+                role_slug, exc,
+            )
+            # Graceful fallback to truncated global atlas
+            return full_atlas[:2000] if full_atlas else "(no atlas available)", []
+
     # -- Readiness --
 
     def check_readiness(self) -> ReadinessReport:
@@ -285,13 +337,14 @@ class StaffingEngine:
         soul_md, soul_tokens = llm_fn(soul_prompt, system=SOUL_MD_SYSTEM)
         logger.info("[HR/%s] SOUL.md generated (%d chars, %d tokens)", slug, len(soul_md), soul_tokens)
 
-        # 3. Generate KNOWLEDGE.md via template (no LLM)
-        logger.info("[HR/%s] Rendering KNOWLEDGE.md template ...", slug)
+        # 3. Generate KNOWLEDGE.md via role-filtered sub-atlas (no LLM)
+        logger.info("[HR/%s] Rendering role-filtered KNOWLEDGE.md ...", slug)
+        role_atlas, scored_files = self._build_role_knowledge(slug, atlas)
         knowledge_md = render_knowledge_md(
             role_name=display_name,
             role_slug=slug,
-            atlas_snapshot=atlas_excerpt,
-            recommended_files=[],
+            atlas_snapshot=role_atlas,
+            recommended_files=scored_files,
             domain_focus=domain_tags,
             project_id=self._project_id,
         )
@@ -448,6 +501,34 @@ class StaffingEngine:
             min_readiness=0.0,
         )
 
+    def _load_audit_findings(self) -> List[Dict[str, str]]:
+        """Load structural audit findings for role inference.
+
+        Returns a simplified list of findings suitable for LLM prompt injection.
+        Prioritizes coupling hotspots, hub concentration, concept violations,
+        and architectural drift — the signals most useful for role justification.
+        """
+        if self._core is None:
+            return []
+        try:
+            items = self._core.get_audit_findings(
+                min_priority="P2",
+                categories=["architecture", "coupling", "complexity", "quality"],
+            )
+            findings: List[Dict[str, str]] = []
+            for item in items[:30]:  # Cap to avoid prompt bloat
+                findings.append({
+                    "title": getattr(item, "title", ""),
+                    "category": getattr(item, "category", ""),
+                    "severity": getattr(item, "severity", "info"),
+                    "description": getattr(item, "description", ""),
+                    "affected_files": ", ".join(getattr(item, "affected_files", [])[:5]),
+                })
+            return findings
+        except Exception as exc:
+            logger.debug("Audit findings unavailable for role inference: %s", exc)
+            return []
+
     def _infer_roles(
         self,
         modules: List[Dict[str, Any]],
@@ -455,6 +536,9 @@ class StaffingEngine:
         llm_fn: LLMFn,
     ) -> List[Dict[str, Any]]:
         """Use LLM to infer optimal roles from codebase analysis.
+
+        Incorporates structural audit findings (coupling hotspots, hub
+        concentration, concept violations) when available via AgentCore.
 
         Raises:
             ValueError: If the LLM response cannot be parsed as valid JSON.
@@ -466,6 +550,10 @@ class StaffingEngine:
             layer = m.get("architecture_layer", "unknown")
             layer_dist[layer] = layer_dist.get(layer, 0) + len(m.get("member_files", []))
 
+        audit_findings = self._load_audit_findings()
+        if audit_findings:
+            logger.info("[HR] Loaded %d audit findings for role inference", len(audit_findings))
+
         file_count = sum(len(m.get("member_files", [])) for m in modules)
         prompt = render_auto_roles_prompt(
             file_count=file_count,
@@ -474,6 +562,7 @@ class StaffingEngine:
             atlas_excerpt=atlas[:2000] if atlas else "",
             domain_tags=sorted(set(all_tags)),
             layer_distribution=layer_dist,
+            audit_findings=audit_findings if audit_findings else None,
         )
 
         response, _ = llm_fn(prompt, system=AUTO_ROLES_SYSTEM, json_mode=True)

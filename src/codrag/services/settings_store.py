@@ -117,6 +117,11 @@ class SettingsStore:
         """Set a global setting.  Value is JSON-serialized."""
         self._set("global", key, value)
 
+    def get_experimental(self) -> bool:
+        """Return the global experimental toggle. Defaults to False."""
+        val = self.get("global/experimental")
+        return bool(val) if val is not None else False
+
     def delete(self, key: str) -> bool:
         """Delete a global setting.  Returns True if it existed."""
         return self._delete("global", key)
