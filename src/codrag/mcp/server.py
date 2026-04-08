@@ -1403,13 +1403,31 @@ class MCPServer:
         nodes = (data or {}).get("nodes", []) if isinstance(data, dict) else []
         edges = (data or {}).get("edges", []) if isinstance(data, dict) else []
 
+        # Phase 83 P0: Filter stdlib/external nodes by default
+        nodes = [n for n in nodes if n.get("kind") != "external_module"
+                 and not n.get("id", "").startswith("ext:")]
+        edges = [e for e in edges
+                 if not e.get("target", "").startswith("ext:")
+                 and not e.get("source", "").startswith("ext:")]
+
+        # Phase 83 P0: Format as markdown for consistency with other tools
+        center_name = center.get("name", node_id) if isinstance(center, dict) else node_id
+        md_lines = [f"## Neighbors for {center_name}\n"]
+        md_lines.append(f"Nodes: {len(nodes)} | Edges: {len(edges)}\n")
+        for n in nodes[:max_nodes]:
+            name = n.get("name", n.get("id", "?"))
+            kind = n.get("kind", "")
+            path = n.get("file_path", "")
+            md_lines.append(f"  - {name} ({path}) [{kind}]")
+
         return {
             "project_id": project_id,
             "center": center,
             "node_count": len(nodes),
             "edge_count": len(edges),
             "nodes": nodes[:max_nodes],
-            "edges": edges[:50],  # Cap edges for token efficiency
+            "edges": edges[:50],
+            "_to_markdown": "\n".join(md_lines),
         }
 
     async def tool_trace_coverage(self, project_override: Optional[str] = None) -> Dict[str, Any]:
@@ -1468,6 +1486,11 @@ class MCPServer:
 
         target = data.get("target", {})
         dependents = data.get("dependents", [])
+
+        # Phase 83 P0: Filter stdlib/external from dependents
+        dependents = [d for d in dependents
+                     if d.get("kind") != "external_module"
+                     and not d.get("id", "").startswith("ext:")]
 
         # Format as human-readable summary for the LLM
         lines = []
