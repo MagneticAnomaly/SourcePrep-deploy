@@ -1332,23 +1332,30 @@ class MCPServer:
         nodes = (data or {}).get("nodes", []) if isinstance(data, dict) else []
         formatted = []
         for n in nodes:
-            formatted.append(
-                {
-                    "id": n.get("id", ""),
-                    "name": n.get("name", ""),
-                    "kind": n.get("kind", ""),
-                    "path": n.get("file_path", n.get("path", "")),
-                    "line": n.get("start_line", n.get("line")),
-                }
-            )
+            entry: Dict[str, Any] = {
+                "id": n.get("id", ""),
+                "name": n.get("name", ""),
+                "kind": n.get("kind", ""),
+                "path": n.get("file_path", n.get("path", "")),
+                "line": n.get("start_line", n.get("line")),
+                # Phase 83 P0: Include code context for symbol results
+                "qualified_name": n.get("qualified_name", n.get("name", "")),
+                "signature": n.get("signature", ""),
+                "docstring": (n.get("docstring", "") or "")[:200],
+            }
+            formatted.append(entry)
 
         # Phase 50 Sprint 3: Markdown for symbol search results
         if formatted:
             md_lines = [f"## Symbol search: {query} ({len(formatted)} results)\n"]
             for n in formatted:
-                line = f"- `{n['name']}` ({n['kind']}) @ `{n['path']}`"
+                line = f"- `{n['qualified_name'] or n['name']}` ({n['kind']}) @ `{n['path']}`"
                 if n.get("line"):
                     line += f":{n['line']}"
+                if n.get("signature"):
+                    line += f"\n    `{n['signature']}`"
+                if n.get("docstring"):
+                    line += f"\n    {n['docstring']}"
                 md_lines.append(line)
             md_text = "\n".join(md_lines)
         else:
