@@ -596,21 +596,35 @@ class PipelineOrchestrator:
             project_id, DEEP_ENRICHMENT_STAGES, skip_mtime_cascade=True,
         )
         if resume >= len(DEEP_ENRICHMENT_STAGES):
-            # All stages complete on disk.  Touch any stale manifests
-            # to prevent future false-positive staleness detection.
-            self._touch_stale_deep_manifests(project_id)
-            logger.info(
-                "All deep_enrichment stages complete for %s — "
-                "nothing to do (changes will flow through fast_sync coverage gap)",
-                project_id,
-            )
-            # Phase 72: Return False — do NOT reset resume=0.
-            # The old code (resume=0) caused an infinite loop: every startup
-            # would restart all 6 stages from scratch, burn LLM tokens on
-            # clustering, and never actually complete because the next cycle
-            # would restart again.  Changes should flow through fast_sync's
-            # coverage gap detection → incremental chain → deep_enrichment.
-            return False
+            if is_incremental:
+                # Phase 89: After incremental fast_sync added new files, deep
+                # enrichment must run to process them — even though all manifests
+                # show "complete" from the previous run. Workers handle
+                # incrementality internally (read existing output, process only
+                # new/changed nodes). Resume from stage 0 so all stages get a
+                # chance to pick up the new files.
+                resume = 0
+                logger.info(
+                    "All deep_enrichment stages complete for %s, but preceding "
+                    "fast_sync was incremental — re-running to process new files "
+                    "(workers will skip already-done items)",
+                    project_id,
+                )
+            else:
+                # Truly nothing to do. Touch stale manifests to prevent
+                # future false-positive staleness detection.
+                self._touch_stale_deep_manifests(project_id)
+                logger.info(
+                    "All deep_enrichment stages complete for %s — "
+                    "nothing to do",
+                    project_id,
+                )
+                # Phase 72: Return False — do NOT reset resume=0.
+                # The old code (resume=0) caused an infinite loop: every startup
+                # would restart all 6 stages from scratch, burn LLM tokens on
+                # clustering, and never actually complete because the next cycle
+                # would restart again.
+                return False
 
         if resume > 0:
             logger.info(
