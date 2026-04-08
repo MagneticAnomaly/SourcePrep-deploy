@@ -90,6 +90,8 @@ class PipelineOrchestrator:
         self._changed_paths: Dict[str, set[str]] = {}
         # Explicit chain flag: run_all() sets this so deep_enrichment chains after fast_sync
         self._chain_deep: Dict[str, bool] = {}
+        # Phase 89: Track force_from_start for chain propagation to deep enrichment
+        self._force_from_start_runs: set[str] = set()
     def _get_file_logger(self, project_id: str):
         """Get or create a PipelineFileLogger for a project."""
         if project_id not in self._file_loggers:
@@ -386,6 +388,12 @@ class PipelineOrchestrator:
 
         # Phase 60A: Log the trigger decision to pipeline file logger
         pfl = self._get_file_logger(project_id)
+
+        # Phase 89: Track force_from_start so chain to deep enrichment preserves it
+        if force_from_start:
+            self._force_from_start_runs.add(project_id)
+        else:
+            self._force_from_start_runs.discard(project_id)
 
         if force_from_start and pfl:
             pfl.decision("mode_selection", "force_from_start", {
@@ -1348,7 +1356,13 @@ class PipelineOrchestrator:
                     # doesn't see "all_complete" and skip.  Without this, new files
                     # added during incremental fast_sync are never processed by
                     # deep enrichment stages (6-11).
-                    if run.project_id in self._incremental_runs:
+                    # Phase 89: Also invalidate for force_from_start (rebuild) —
+                    # deep enrichment must also rebuild from scratch.
+                    _should_invalidate = (
+                        run.project_id in self._incremental_runs
+                        or run.project_id in self._force_from_start_runs
+                    )
+                    if _should_invalidate:
                         try:
                             self._invalidate_deep_manifests_for_incremental(
                                 run.project_id, pfl,
@@ -1359,12 +1373,17 @@ class PipelineOrchestrator:
                                 run.project_id, exc_info=True,
                             )
 
+                    # Phase 89: Propagate force_from_start to deep enrichment chain
+                    _chain_force = run.project_id in self._force_from_start_runs
+
                     logger.info(
-                        "Chaining deep enrichment after fast sync for %s (reason=%s)",
-                        run.project_id, chain_reason,
+                        "Chaining deep enrichment after fast sync for %s (reason=%s, force=%s)",
+                        run.project_id, chain_reason, _chain_force,
                     )
                     try:
-                        started = self.run_deep_enrichment(run.project_id)
+                        started = self.run_deep_enrichment(
+                            run.project_id, force_from_start=_chain_force,
+                        )
                         logger.info(
                             "Deep enrichment chain result for %s: started=%s",
                             run.project_id, started,
