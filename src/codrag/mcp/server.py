@@ -2082,20 +2082,67 @@ class MCPServer:
     async def tool_antibodies(
         self,
         project_override: Optional[str] = None,
+        antibody_id: Optional[str] = None,
+        status: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """List antibodies derived from project concepts (Phase 87)."""
+        """List antibodies or update antibody status (Phase 87.1).
+
+        If ``antibody_id`` and ``status`` are provided, updates the antibody
+        status and returns confirmation.  Otherwise lists all persisted
+        antibodies, auto-seeding from concepts if the store is empty.
+        """
         project_id = await self._resolve_project_id(override=project_override)
 
-        # Get concepts and derive antibodies
-        antibodies = []
         try:
-            from codrag.services.concept_store import concept_store
-            from codrag.core.antibody_derivation import derive_antibodies_for_project
-            raw_concepts = concept_store.list_concepts(project_id)
-            concept_dicts = [c.to_dict() for c in raw_concepts]
-            antibodies = derive_antibodies_for_project(concept_dicts)
+            from codrag.services.antibody_store import antibody_store as ab_store
         except Exception as e:
-            logger.debug("Failed to derive antibodies: %s", e)
+            logger.debug("Antibody store not available: %s", e)
+            return {
+                "project_id": project_id,
+                "error": "Antibody store not available",
+                "_to_markdown": "## Immune System\n\nAntibody store not available.",
+            }
+
+        # ── Status update mode ──────────────────────────────────
+        if antibody_id and status:
+            valid_statuses = ("active", "testing", "disabled")
+            if status not in valid_statuses:
+                return {
+                    "project_id": project_id,
+                    "error": f"Invalid status '{status}'. Must be one of: {', '.join(valid_statuses)}",
+                    "_to_markdown": f"Invalid status '{status}'.",
+                }
+            updated = ab_store.update_status(antibody_id, status)
+            if updated:
+                return {
+                    "project_id": project_id,
+                    "antibody_id": antibody_id,
+                    "new_status": status,
+                    "_to_markdown": f"Antibody `{antibody_id}` status updated to **{status}**.",
+                }
+            return {
+                "project_id": project_id,
+                "error": f"Antibody '{antibody_id}' not found",
+                "_to_markdown": f"Antibody `{antibody_id}` not found.",
+            }
+
+        # ── List mode (with auto-seed) ──────────────────────────
+        antibodies = ab_store.list_antibodies(project_id)
+
+        # Auto-seed: if store is empty, derive from concepts and persist
+        if not antibodies:
+            try:
+                from codrag.services.concept_store import concept_store
+                from codrag.core.antibody_derivation import derive_antibodies_for_project
+                raw_concepts = concept_store.list_concepts(project_id)
+                concept_dicts = [c.to_dict() for c in raw_concepts]
+                derived = derive_antibodies_for_project(concept_dicts)
+                for ab in derived:
+                    ab_store.save(project_id, ab)
+                antibodies = derived
+                logger.info("Auto-seeded %d antibodies for %s", len(derived), project_id)
+            except Exception as e:
+                logger.debug("Failed to auto-seed antibodies: %s", e)
 
         ab_dicts = [ab.to_dict() for ab in antibodies]
 
@@ -2106,10 +2153,13 @@ class MCPServer:
                 status_tag = f"[{ab['status']}]"
                 sev_tag = f"[{ab['severity']}]"
                 md_lines.append(f"- **{ab['name']}** {sev_tag} {status_tag}")
+                md_lines.append(f"  ID: `{ab['id']}`")
                 md_lines.append(f"  Trigger: {ab['trigger']['type']} on `{ab['trigger']['target']}`")
                 if ab['trigger'].get('pattern'):
                     md_lines.append(f"  Pattern: `{ab['trigger']['pattern']}`")
                 md_lines.append(f"  Response: {ab['response']['message']}")
+                if ab['trigger_count']:
+                    md_lines.append(f"  Triggered: {ab['trigger_count']}x")
         else:
             md_lines = [
                 "## Immune System — No Antibodies\n",
@@ -3887,6 +3937,8 @@ class MCPServer:
                         # Phase 87: Immune system antibody management
                         result = await self.tool_antibodies(
                             project_override=project_override,
+                            antibody_id=args.get("antibody_id"),
+                            status=args.get("status"),
                         )
                     else:
                         # Default: structural audit (Phase 83 — replaces legacy scan)
