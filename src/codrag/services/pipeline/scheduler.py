@@ -610,6 +610,14 @@ class PipelineScheduler:
                         logger.warning("Scheduler: forcefully clearing ALL ghost locks from node %s", nid)
                         slot.active_stages.clear()
 
+    def is_held_by(self, project_id: str) -> bool:
+        """Check if a project currently holds any scheduler slot."""
+        with self._lock:
+            for slot in self._slots.values():
+                if project_id in slot.active_stages:
+                    return True
+            return False
+
     # ── Node resolution (Phase 56) ─────────────────────────────────
 
     def resolve_node_for_model(

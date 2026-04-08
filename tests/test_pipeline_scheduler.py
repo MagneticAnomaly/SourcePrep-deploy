@@ -926,3 +926,24 @@ class TestSchedulerStatusAIMD:
         assert "current_limit" in node
         assert node["aimd_mode"] == "jumpstart"
         assert node["current_limit"] == 5  # default
+
+
+class TestIsHeldBy:
+
+    def test_returns_true_when_held(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        assert sched.is_held_by("proj-a") is True
+
+    def test_returns_false_when_not_held(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        assert sched.is_held_by("proj-a") is False
+
+    def test_returns_false_after_release(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.release("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        assert sched.is_held_by("proj-a") is False
