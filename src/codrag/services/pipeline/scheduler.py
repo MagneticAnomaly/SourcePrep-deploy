@@ -43,6 +43,28 @@ from .stages import QueueType, STAGE_QUEUE_TYPE, StageId
 
 logger = logging.getLogger(__name__)
 
+# Stages that can use swarm orchestration (coordinator → fan-out → synthesis).
+# Shared constant — imported by queue.py and llm.py routers to avoid duplication.
+SWARM_CAPABLE_STAGES: frozenset = frozenset({"group_reasoning", "clustering", "atlas"})
+
+
+def is_swarm_active_for_stage(stage: str, provider: str, model: str) -> bool:
+    """Check if a stage would use swarm orchestration with the given model.
+
+    Mirrors the decision in GroupReasoningEngine.run(), ClusterSynthesizer,
+    and AtlasGenerator — minus the min_groups check (not available at query time).
+    """
+    if stage not in SWARM_CAPABLE_STAGES:
+        return False
+    try:
+        from codrag.core.swarm_registry import get_swarm_tier
+        from codrag.services.settings_store import settings
+        tier = get_swarm_tier(provider, model)
+        return tier.can_coordinate and bool(settings.get("swarm_enabled", True))
+    except Exception:
+        return False
+
+
 # Providers that are always cloud — never compete for local VRAM.
 CLOUD_PROVIDERS = {"openai", "anthropic", "google", "azure-openai"}
 

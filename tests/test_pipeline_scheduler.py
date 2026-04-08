@@ -784,3 +784,65 @@ class TestFullBudgetForSwarm:
         result = sched.full_budget_for_swarm("ollama", project_id="proj-a")
         assert result == 4
 
+
+# ── Phase 82: Shared swarm constant + helper ─────────────────────
+
+from codrag.services.pipeline.scheduler import (
+    SWARM_CAPABLE_STAGES,
+    is_swarm_active_for_stage,
+)
+
+
+class TestSwarmCapableStages:
+
+    def test_group_reasoning_in_set(self):
+        assert "group_reasoning" in SWARM_CAPABLE_STAGES
+
+    def test_clustering_in_set(self):
+        assert "clustering" in SWARM_CAPABLE_STAGES
+
+    def test_atlas_in_set(self):
+        assert "atlas" in SWARM_CAPABLE_STAGES
+
+    def test_enrichment_not_in_set(self):
+        assert "enrichment" not in SWARM_CAPABLE_STAGES
+
+    def test_catalogue_not_in_set(self):
+        assert "catalogue" not in SWARM_CAPABLE_STAGES
+
+
+class TestIsSwarmActiveForStage:
+
+    def test_kimi_on_ollama_group_reasoning(self):
+        assert is_swarm_active_for_stage("group_reasoning", "ollama", "kimi-k2.5:cloud") is True
+
+    def test_kimi_on_ollama_clustering(self):
+        assert is_swarm_active_for_stage("clustering", "ollama", "kimi-k2.5:cloud") is True
+
+    def test_kimi_on_ollama_atlas(self):
+        assert is_swarm_active_for_stage("atlas", "ollama", "kimi-k2.5:cloud") is True
+
+    def test_kimi_on_ollama_non_swarm_stage(self):
+        assert is_swarm_active_for_stage("enrichment", "ollama", "kimi-k2.5:cloud") is False
+
+    def test_unsuitable_model_returns_false(self):
+        assert is_swarm_active_for_stage("group_reasoning", "ollama", "llama3.3:70b") is False
+
+    def test_claude_sonnet_on_anthropic(self):
+        assert is_swarm_active_for_stage("group_reasoning", "anthropic", "claude-sonnet-4.6") is True
+
+    def test_unknown_provider_returns_false(self):
+        assert is_swarm_active_for_stage("group_reasoning", "lm-studio", "kimi-k2.5") is False
+
+    def test_swarm_disabled_setting(self, monkeypatch):
+        """When swarm_enabled=False in settings, always returns False."""
+        from codrag.services import settings_store
+        original_get = settings_store.settings.get
+
+        def mock_get(key, default=None):
+            if key == "swarm_enabled":
+                return False
+            return original_get(key, default)
+
+        monkeypatch.setattr(settings_store.settings, "get", mock_get)
+        assert is_swarm_active_for_stage("group_reasoning", "ollama", "kimi-k2.5:cloud") is False
