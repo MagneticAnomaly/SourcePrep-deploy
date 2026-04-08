@@ -271,12 +271,47 @@ def _detect_import_cycles(
     return findings
 
 
+def _detect_concept_conflicts(
+    concepts: List[Dict[str, Any]],
+) -> List[StructuralFinding]:
+    """Detect conflicting active concepts and surface as audit findings."""
+    from codrag.core.concept_conflicts import detect_conflicts
+
+    conflicts = detect_conflicts(concepts)
+    findings: List[StructuralFinding] = []
+    for conflict in conflicts:
+        primary_file = conflict.shared_anchors[0] if conflict.shared_anchors else ""
+        findings.append(StructuralFinding(
+            finding_type="concept_conflict",
+            file_path=primary_file,
+            severity="warning",
+            title=f"Conflicting concepts: '{conflict.concept_a_title}' vs '{conflict.concept_b_title}'",
+            description=(
+                f"Two active concepts share anchors ({', '.join(conflict.shared_anchors)}) "
+                f"and may contradict each other. Oldest concept wins for code enforcement "
+                f"until resolved."
+            ),
+            risk_score=0.65,
+            recommendation=(
+                "Review and resolve: archive, supersede, or update one of the "
+                "conflicting concepts."
+            ),
+            evidence={
+                "concept_a": conflict.concept_a_id,
+                "concept_b": conflict.concept_b_id,
+                "shared_anchors": conflict.shared_anchors,
+                "winner": conflict.winner_id,
+            },
+        ))
+    return findings
+
+
 # Map category param values to finding_type values
 _CATEGORY_TO_FINDING_TYPE = {
     "coupling": {"coupling_hotspot"},
     "cycles": {"import_cycle"},
     "hub_concentration": {"coupling_hotspot"},
-    "concept_violation": set(),  # Future: Phase 84
+    "concept_violation": {"concept_conflict"},
 }
 
 
@@ -322,6 +357,8 @@ def run_structural_audit(
         all_findings.extend(_detect_coupling_hotspots(hub_files, concepts, observations))
     if allowed_types is None or "import_cycle" in allowed_types:
         all_findings.extend(_detect_import_cycles(cycles, concepts, observations))
+    if allowed_types is None or "concept_conflict" in allowed_types:
+        all_findings.extend(_detect_concept_conflicts(concepts))
 
     # Final dedup pass by (finding_type, file_path) — keeps highest risk_score
     deduped: Dict[Tuple[str, str], StructuralFinding] = {}
