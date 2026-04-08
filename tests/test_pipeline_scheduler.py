@@ -867,7 +867,7 @@ class TestConcurrentWorkersSwarmAware:
             "large_model": {"endpoint_id": "ep-1", "model": "kimi-k2.5:cloud"},
             "saved_endpoints": [{"id": "ep-1", "provider": "ollama"}],
         }
-        with patch("codrag.api.routers._llm_helpers.settings") as mock_settings:
+        with patch("codrag.services.pipeline._model_resolution.settings") as mock_settings:
             mock_settings.get.return_value = mock_config
             workers, node_id = sched.concurrent_workers_for_project(
                 "proj-a", stage="group_reasoning",
@@ -907,7 +907,7 @@ class TestConcurrentWorkersSwarmAware:
             "large_model": {"endpoint_id": "ep-1", "model": "llama3.3:70b"},
             "saved_endpoints": [{"id": "ep-1", "provider": "ollama"}],
         }
-        with patch("codrag.api.routers._llm_helpers.settings") as mock_settings:
+        with patch("codrag.services.pipeline._model_resolution.settings") as mock_settings:
             mock_settings.get.return_value = mock_config
             workers, _ = sched.concurrent_workers_for_project(
                 "proj-a", stage="group_reasoning",

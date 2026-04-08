@@ -1,8 +1,8 @@
-"""Shared helpers for LLM-related API routers.
+"""Pipeline model resolution helpers.
 
-Phase 82: Provides model resolution so queue.py and llm.py can
-determine provider/model for a project's current pipeline stage
-without duplicating the slot -> endpoint -> provider resolution chain.
+Phase 82: Resolves which provider/model a pipeline stage is using
+by walking stage -> model_slot -> llm_config -> endpoint -> provider.
+Used by scheduler, queue.py, and llm.py for model-aware swarm detection.
 """
 from __future__ import annotations
 

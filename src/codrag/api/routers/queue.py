@@ -90,7 +90,7 @@ def _build_queue_item(
     if current_stage:
         try:
             from codrag.services.pipeline.scheduler import SWARM_CAPABLE_STAGES, is_swarm_active_for_stage
-            from codrag.api.routers._llm_helpers import resolve_model_for_stage
+            from codrag.services.pipeline._model_resolution import resolve_model_for_stage
             if current_stage in SWARM_CAPABLE_STAGES:
                 resolved = resolve_model_for_stage(project_id, current_stage)
                 if resolved:

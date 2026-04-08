@@ -601,7 +601,7 @@ def get_llm_slots_status() -> Dict[str, Any]:
             from codrag.services.pipeline.scheduler import (
                 pipeline_scheduler, SWARM_CAPABLE_STAGES, is_swarm_active_for_stage,
             )
-            from codrag.api.routers._llm_helpers import resolve_model_for_stage
+            from codrag.services.pipeline._model_resolution import resolve_model_for_stage
             for rt in running_tasks:
                 workers, node_id = pipeline_scheduler.concurrent_workers_for_project(
                     rt["project_id"], stage=rt.get("stage"),

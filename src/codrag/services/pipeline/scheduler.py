@@ -75,19 +75,6 @@ class ComputeSlot:
     node_id: str
     max_concurrent: int
     active_stages: Dict[str, str] = field(default_factory=dict)  # project_id -> stage_id
-    # Phase 82: AIMD current limit — starts at min(5, max_concurrent), converges upward.
-    # dynamic_capacity = min(current_limit, max_concurrent).
-    current_limit: int = 5
-
-    def __post_init__(self) -> None:
-        # Clamp current_limit down if max_concurrent is smaller
-        if self.max_concurrent < self.current_limit:
-            self.current_limit = self.max_concurrent
-
-    @property
-    def dynamic_capacity(self) -> int:
-        """Effective capacity respecting AIMD current_limit."""
-        return min(self.current_limit, self.max_concurrent)
 
     # Latency-Aware AIMD (Phase 82)
     current_limit: int = 5
@@ -901,7 +888,7 @@ class PipelineScheduler:
                 # Phase 82: Check if this is an active swarm stage
                 if stage and stage in SWARM_CAPABLE_STAGES:
                     try:
-                        from codrag.api.routers._llm_helpers import resolve_model_for_stage
+                        from codrag.services.pipeline._model_resolution import resolve_model_for_stage
                         resolved = resolve_model_for_stage(project_id, stage)
                         if resolved and is_swarm_active_for_stage(stage, *resolved):
                             budget = max(1, slot.dynamic_capacity - 1)
@@ -921,7 +908,7 @@ class PipelineScheduler:
                     "max_concurrent": slot.max_concurrent,
                     "dynamic_capacity": slot.dynamic_capacity,
                     "current_load": slot.current_load,
-                    "aimd_mode": getattr(slot, 'mode', 'jumpstart'),
+                    "aimd_mode": slot.mode,
                     "current_limit": slot.current_limit,
                     "active": dict(slot.active_stages),
                     "queued": [
