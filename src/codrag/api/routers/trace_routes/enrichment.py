@@ -739,6 +739,18 @@ def trace_destroy_project(project_id: str) -> Dict[str, Any]:
             except Exception as e:
                 errors.append(f"{fname}: {e}")
 
+    # Phase 81: Clean up directories that TRACE_FILES doesn't cover.
+    # Leftover dirs (atlas_roles, logs) can confuse subsequent pipeline runs.
+    import shutil
+    for dirname in ["atlas_roles", "logs"]:
+        dp = idx_dir / dirname
+        if dp.is_dir():
+            try:
+                shutil.rmtree(dp)
+                deleted.append(f"{dirname}/")
+            except Exception as e:
+                errors.append(f"{dirname}/: {e}")
+
     # Clear in-memory caches
     _project_trace_indexes.pop(project_id, None)
 

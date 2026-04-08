@@ -46,6 +46,10 @@ TRACE_FILES = [
     # Atlas Routing (Phase 29B)
     "atlas_routing.json",
     "atlas_routing_embeddings.npy",
+    # Phase 81: Previously missing from destroy list — leftover files
+    # caused the resume detector to think skipped stages were complete.
+    "atlas_updated.signal",
+    "pipeline_run_metadata.json",
 ]
 
 INDEX_FILES = [
