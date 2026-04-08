@@ -197,9 +197,10 @@ _CORE_TOOLS = [
                     "type": "string",
                     "description": (
                         "Operation mode. 'scan' (default) runs structural-only audit. "
+                        "'antibodies' lists immune system defenses derived from concepts. "
                         "'refactor', 'verify', 'report', 'advise' are legacy actions."
                     ),
-                    "enum": ["scan", "refactor", "verify", "report", "advise"],
+                    "enum": ["scan", "antibodies", "refactor", "verify", "report", "advise"],
                     "default": "scan",
                 },
                 "findings": {

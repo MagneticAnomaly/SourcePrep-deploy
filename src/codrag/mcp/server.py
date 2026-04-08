@@ -1214,6 +1214,24 @@ class MCPServer:
             if l2_section:
                 md_parts.append(l2_section)
 
+        # Phase 87: Inject immune system alerts into ambient context
+        try:
+            from codrag.core.alert_queue import alert_queue
+            alerts = alert_queue.drain()
+            if alerts:
+                alert_lines = ["\n---\n## Recent Warnings\n"]
+                severity_icons = {"review": "[REVIEW]", "warn": "[WARN]", "inform": "[INFO]"}
+                for alert in alerts:
+                    icon = severity_icons.get(alert.severity, "[INFO]")
+                    alert_lines.append(
+                        f"- **{icon} {alert.antibody_name}** — {alert.message}"
+                    )
+                    if alert.file_path:
+                        alert_lines.append(f"  File: `{alert.file_path}`")
+                md_parts.append("\n".join(alert_lines))
+        except Exception:
+            pass  # Immune system is optional — don't break ambient context
+
         result["_to_markdown"] = "\n".join(md_parts)
         return result
 
@@ -2060,6 +2078,51 @@ class MCPServer:
             "_to_markdown": "\n".join(md_lines),
         }
         return result
+
+    async def tool_antibodies(
+        self,
+        project_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List antibodies derived from project concepts (Phase 87)."""
+        project_id = await self._resolve_project_id(override=project_override)
+
+        # Get concepts and derive antibodies
+        antibodies = []
+        try:
+            from codrag.services.concept_store import concept_store
+            from codrag.core.antibody_derivation import derive_antibodies_for_project
+            raw_concepts = concept_store.list_concepts(project_id)
+            concept_dicts = [c.to_dict() for c in raw_concepts]
+            antibodies = derive_antibodies_for_project(concept_dicts)
+        except Exception as e:
+            logger.debug("Failed to derive antibodies: %s", e)
+
+        ab_dicts = [ab.to_dict() for ab in antibodies]
+
+        # Format as markdown
+        if ab_dicts:
+            md_lines = [f"## Immune System — {len(ab_dicts)} Antibodies\n"]
+            for ab in ab_dicts:
+                status_tag = f"[{ab['status']}]"
+                sev_tag = f"[{ab['severity']}]"
+                md_lines.append(f"- **{ab['name']}** {sev_tag} {status_tag}")
+                md_lines.append(f"  Trigger: {ab['trigger']['type']} on `{ab['trigger']['target']}`")
+                if ab['trigger'].get('pattern'):
+                    md_lines.append(f"  Pattern: `{ab['trigger']['pattern']}`")
+                md_lines.append(f"  Response: {ab['response']['message']}")
+        else:
+            md_lines = [
+                "## Immune System — No Antibodies\n",
+                "No antibodies could be derived. Save concepts with category "
+                "'constraint' or 'architecture' and anchors to enable immune system defenses.",
+            ]
+
+        return {
+            "project_id": project_id,
+            "total_antibodies": len(ab_dicts),
+            "antibodies": ab_dicts,
+            "_to_markdown": "\n".join(md_lines),
+        }
 
     async def _build_enrichment_context(
         self, file_paths: set, project_id: str
@@ -3818,6 +3881,11 @@ class MCPServer:
                     elif action == "roadmap":
                         result = await self.tool_roadmap(
                             tier=args.get("tier"),
+                            project_override=project_override,
+                        )
+                    elif action == "antibodies":
+                        # Phase 87: Immune system antibody management
+                        result = await self.tool_antibodies(
                             project_override=project_override,
                         )
                     else:
