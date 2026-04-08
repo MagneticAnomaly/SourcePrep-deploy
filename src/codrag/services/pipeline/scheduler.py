@@ -316,53 +316,60 @@ class PipelineScheduler:
         rate_limit_remaining: Optional[int] = None,
         is_429_or_timeout: bool = False,
     ) -> None:
-        """Internal helper to apply AIMD logic to a single slot."""
-        # Hard limits supplied by Cloud headers
+        """Internal helper to apply AIMD logic to a single slot.
+
+        Works for ALL providers:
+        - Ollama: uses queue_time_ms (wall clock - eval/prompt/load durations)
+        - Cloud APIs: uses rate_limit_remaining headers + 429/timeout signals
+        - Both: queue_time_ms > 2000ms triggers congestion detection
+        """
+        # Step 1: Clamp hard limit from cloud rate-limit headers (when available)
         if rate_limit_remaining is not None and rate_limit_remaining >= 0:
-            # Clamp hard limit exactly under the cloud provider's available limit
-            # Leave a safety margin
             safe_limit = max(1, rate_limit_remaining - 2)
             if slot.max_concurrent > safe_limit:
-                    slot.max_concurrent = safe_limit
-                    if slot.current_limit > safe_limit:
-                        slot.current_limit = safe_limit
+                slot.max_concurrent = safe_limit
+                if slot.current_limit > safe_limit:
+                    slot.current_limit = safe_limit
 
-            # Congestion Detection
-            if is_429_or_timeout or queue_time_ms > 2000.0:
-                now = time.time()
-                # Cooldown so we don't back off 10 times for a single congested batch
-                if now - slot._last_backoff_time > 2.0:
-                    slot.mode = "congestion_avoidance"
-                    slot.success_streak = 0
-                    
-                    # Multiplicative Decrease: Half limit, or current in-flight
-                    in_flight = slot.current_load
-                    new_limit = max(1, min(slot.current_limit // 2, in_flight))
-                    
-                    if slot.current_limit > new_limit:
-                        logger.warning(
-                            "Scheduler: Node %s congested (queue_ms=%.1f, 429/timeout=%s). "
-                            "Backing off limit %d -> %d",
-                            node_id, queue_time_ms, is_429_or_timeout,
-                            slot.current_limit, new_limit
+        # Step 2: Congestion detection (works for ALL providers)
+        if is_429_or_timeout or queue_time_ms > 2000.0:
+            now = time.time()
+            # Cooldown so we don't back off 10 times for a single congested batch
+            if now - slot._last_backoff_time > 2.0:
+                slot.mode = "congestion_avoidance"
+                slot.success_streak = 0
+
+                # Multiplicative Decrease: Half limit, or current in-flight
+                in_flight = slot.current_load
+                new_limit = max(1, min(slot.current_limit // 2, in_flight))
+
+                if slot.current_limit > new_limit:
+                    logger.warning(
+                        "Scheduler: Node %s congested (queue_ms=%.1f, 429/timeout=%s). "
+                        "Backing off limit %d -> %d",
+                        slot.node_id, queue_time_ms, is_429_or_timeout,
+                        slot.current_limit, new_limit,
+                    )
+                    slot.current_limit = new_limit
+                slot._last_backoff_time = now
+        else:
+            # Step 3: Additive Increase or Jumpstart (no congestion detected)
+            slot.success_streak += 1
+
+            batch_size = max(1, slot.current_limit)
+            if slot.success_streak >= batch_size:
+                slot.success_streak = 0
+                if slot.current_limit < slot.max_concurrent:
+                    if slot.mode == "jumpstart":
+                        new_limit = min(slot.max_concurrent, slot.current_limit * 2)
+                        logger.info(
+                            "Scheduler: Node %s jumpstart %d -> %d",
+                            slot.node_id, slot.current_limit, new_limit,
                         )
                         slot.current_limit = new_limit
-                    slot._last_backoff_time = now
-            else:
-                # Additive Increase or Jumpstart
-                slot.success_streak += 1
-                
-                batch_size = max(1, slot.current_limit)
-                if slot.success_streak >= batch_size:
-                    slot.success_streak = 0
-                    if slot.current_limit < slot.max_concurrent:
-                        if slot.mode == "jumpstart":
-                            new_limit = min(slot.max_concurrent, slot.current_limit * 2)
-                            logger.info("Scheduler: Node %s jumpstart %d -> %d", node_id, slot.current_limit, new_limit)
-                            slot.current_limit = new_limit
-                        else:
-                            new_limit = min(slot.max_concurrent, slot.current_limit + 1)
-                            slot.current_limit = new_limit
+                    else:
+                        new_limit = min(slot.max_concurrent, slot.current_limit + 1)
+                        slot.current_limit = new_limit
 
     def get_priority(self, project_id: str) -> PriorityLevel:
         """Get the priority level for a specific project."""
