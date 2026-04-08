@@ -90,13 +90,15 @@ def _extract_import_pattern(text: str) -> Optional[str]:
     m = re.search(
         r"(?:never|must not|should not|cannot|don'?t)\s+"
         r"(?:import|depend on|use)\s+"
-        r"([a-zA-Z0-9_,\s]+)",
+        r"([a-zA-Z0-9_][a-zA-Z0-9_,\s]*[a-zA-Z0-9_])",
         text_lower,
     )
     if m:
-        modules = [mod.strip() for mod in m.group(1).split(",") if mod.strip()]
+        # Split on commas and 'or'/'and', keep only identifier-like tokens
+        raw = re.split(r"[,]|\bor\b|\band\b", m.group(1))
+        modules = [tok.strip() for tok in raw
+                   if tok.strip() and re.match(r"^[a-zA-Z0-9_]+$", tok.strip())]
         if modules:
-            # Build a regex that matches any of the modules in import lines
             return "|".join(re.escape(mod) for mod in modules[:5])
 
     # "no X imports" or "zero X dependencies"

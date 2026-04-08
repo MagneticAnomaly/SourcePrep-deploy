@@ -26,7 +26,7 @@ def classify_intent(query: str) -> Tuple[SearchIntent, str]:
     Returns (intent, confidence) where confidence is "high" if multiple
     signal words match, "low" if falling back to default.
 
-    Priority order: RATIONALE > TRACE > COMPARE > EXAMPLE > EXPLAIN > LOCATE > DISCOVER
+    Evaluation order: TRACE > RATIONALE > COMPARE > EXAMPLE > DISCOVER > LOCATE > EXPLAIN (default)
     """
     q = query.lower().strip()
 

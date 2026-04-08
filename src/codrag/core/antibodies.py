@@ -122,13 +122,19 @@ class Antibody:
         )
 
 
-def evaluate_trigger(trigger: Trigger, file_path: str, file_content: str = "") -> bool:
+def evaluate_trigger(
+    trigger: Trigger,
+    file_path: str,
+    file_content: str = "",
+    dependent_count: int = 0,
+) -> bool:
     """Evaluate whether a file change matches an antibody trigger.
 
     Args:
         trigger: The trigger to evaluate
         file_path: Path of the changed file
         file_content: Content of the changed file (for PATTERN_MATCH, IMPORT_ADDED)
+        dependent_count: Current dependent count (for COUPLING_THRESHOLD)
 
     Returns:
         True if the trigger fires.
@@ -159,6 +165,9 @@ def evaluate_trigger(trigger: Trigger, file_path: str, file_content: str = "") -
             return False
         return bool(re.search(trigger.pattern, file_content))
 
+    if trigger.type == TriggerType.COUPLING_THRESHOLD:
+        return dependent_count > trigger.max_dependents > 0
+
     return False
 
 
@@ -175,5 +184,5 @@ def _path_matches(file_path: str, target: str) -> bool:
         return fnmatch.fnmatch(file_path, target)
     # Prefix match for directory-like targets without trailing slash
     if "/" in target and "." not in target.split("/")[-1]:
-        return file_path.startswith(target + "/") or file_path.startswith(target)
+        return file_path.startswith(target + "/")
     return False
