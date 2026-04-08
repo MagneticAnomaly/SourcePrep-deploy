@@ -1578,7 +1578,6 @@ class PipelineOrchestrator:
             )
 
             # --- Post-completion bookkeeping (outside orchestrator lock) ---
-            _deferred_resume = None  # stash for _resume_queued_pipeline
             try:
                 # Phase 44C: release model via state machine
                 completed_task = STAGE_TASK_ID.get(stage)
@@ -1588,10 +1587,6 @@ class PipelineOrchestrator:
                         model_awareness.release(completed_task, unload=False)
                     except Exception:
                         logger.debug("ModelAwareness release failed for %s", completed_task, exc_info=True)
-
-                # Phase 45D / 56: release scheduler slot
-                _release_node = getattr(matching_run, '_current_node_id', None)
-                _deferred_resume = pipeline_scheduler.release(project_id, stage, _release_node)
 
                 # Fetch build slot for file logger + manifest writer
                 slot = self._orchestrator.status(project_id, build_type)
@@ -1636,6 +1631,11 @@ class PipelineOrchestrator:
                     matching_run.transition(Event.STAGE_FAILED, detail=f"WRITE GUARD BLOCKED: {wgb}")
                 self._unload_group_models(matching_run)
                 self._journal_run_completed(matching_run)
+                # Phase 89: Release scheduler slot on write guard failure
+                _release_node = getattr(matching_run, '_current_node_id', None)
+                _deferred = pipeline_scheduler.release(project_id, stage, _release_node)
+                if _deferred:
+                    self._resume_queued_pipeline(_deferred.project_id, _deferred.stage)
                 return
             except Exception:
                 logger.exception(
@@ -1643,20 +1643,6 @@ class PipelineOrchestrator:
                     "(pipeline will still advance)",
                     project_id, matching_run.group, stage.value,
                 )
-
-            # Deferred scheduler resume (outside lock to prevent deadlock)
-            if _deferred_resume:
-                self._resume_queued_pipeline(_deferred_resume.project_id, _deferred_resume.stage)
-
-            # Phase 75: notify queue UI of state change
-            try:
-                from codrag.core.events import get_event_bus
-                get_event_bus().emit("queue_changed", {
-                    "reason": "pipeline_stage_completed",
-                    "project_id": project_id,
-                })
-            except Exception:
-                pass
 
         elif new_phase == BuildPhase.FAILED:
             slot = self._orchestrator.status(project_id, build_type)
@@ -1812,6 +1798,24 @@ class PipelineOrchestrator:
                     Event.STAGE_FAILED,
                     detail=f"Failed to advance after {stage.value if stage else '?'}: {exc}",
                 )
+
+        # Phase 89: Release old stage's scheduler slot AFTER advance.
+        # This ensures the pipeline always holds at least one lock during
+        # stage transitions, eliminating the race window where ghost guard
+        # or dequeued pipelines could interfere.
+        if new_phase == BuildPhase.COMPLETED:
+            _release_node = getattr(matching_run, '_current_node_id', None) if matching_run else None
+            _deferred_resume = pipeline_scheduler.release(project_id, stage, _release_node)
+            if _deferred_resume:
+                self._resume_queued_pipeline(_deferred_resume.project_id, _deferred_resume.stage)
+            try:
+                from codrag.core.events import get_event_bus
+                get_event_bus().emit("queue_changed", {
+                    "reason": "pipeline_stage_completed",
+                    "project_id": project_id,
+                })
+            except Exception:
+                pass
 
     def _cancel_group(self, project_id: str, group: str) -> bool:
         """Cancel a running group using state machine events."""
