@@ -1,7 +1,7 @@
 # Phase 83 — Audit Redesign: Structural Intelligence + Enrichment Layer
 
 **Date:** 2026-04-07
-**Status:** Design complete, implementation pending
+**Status:** Design finalized
 **Scope:** Redesign `codrag_audit` from a linter-clone into a dual-mode tool: structural intelligence (CoDRAG-unique findings) and external finding enrichment
 **Dependencies:** None (can begin immediately)
 **Predecessor:** Phase 82 MCP-Dogfooding analysis (all 15 docs)
@@ -15,6 +15,24 @@ Phase 82 dogfooding revealed that `codrag_audit` is the weakest of the 6 MCP too
 The core insight: **AI agents that consume CoDRAG already have access to linters.** Claude Code runs ruff. Cursor surfaces ESLint. What these agents *don't* have is structural context — how many files depend on the thing the linter flagged, whether there's a concept saying it's scheduled for refactoring, whether it's been observed as a growing concern across sessions.
 
 CoDRAG should stop competing with linters and instead become the **enrichment layer** that makes linter findings actionable. Simultaneously, CoDRAG should surface the structural insights that *only* it can see — coupling hotspots, hub concentration risk, concept violations, architectural drift.
+
+The dashboard's Audit pane is **downgraded to experimental/dev-only**. The real product surface for audit is the MCP layer — AI agents are the primary consumers.
+
+---
+
+## Global Experimental Toggle
+
+A single project-level setting controls all experimental features:
+
+```
+experimental: true/false  (default: false)
+```
+
+**When off (default):** Template-based recommendations only. Audit dashboard pane hidden. Stable, predictable behavior.
+
+**When on:** LLM-generated recommendations appear alongside templates. Audit dashboard pane visible (dev/QA tool). Future experimental features activate through this same toggle.
+
+No per-feature flags. One toggle, everything experimental lights up or stays dark.
 
 ---
 
@@ -158,6 +176,42 @@ Each finding is returned with a `codrag` context block appended:
 | `risk_score` | Composite | 0-1 score combining: dependent count, hub status, concept alignment, observation frequency |
 | `recommendation` | Generated | Context-aware sentence synthesizing all signals |
 
+### Risk Score Formula
+
+```
+risk_score = (
+    0.40 * hub_score          # 0-1 based on dependent count percentile
+  + 0.30 * concept_score      # 1.0 if active constraint, 0.5 if architecture, 0.0 if none
+  + 0.20 * observation_score  # 0-1 based on recency and frequency of observations
+  + 0.10 * churn_score        # 0-1 based on how often this file changes (from git)
+)
+```
+
+Hub dominates because structural impact is CoDRAG's strongest unique signal. Weights stored in config (not hardcoded) for post-dogfooding tuning.
+
+### Recommendations: Templates + Experimental LLM
+
+**Default (experimental off):** Template-based composable fragments:
+- `[hub_status = critical]` → "Critical hub file — changes here ripple to {n} dependents."
+- `[has_concept]` → "Existing concept: {concept.title}."
+- `[has_observations]` → "Flagged {n} times since {earliest_date}."
+- `[hub + concept]` → "Prioritize — high structural impact with planned refactoring already documented."
+- `[hub + no_concept]` → "High impact but no architectural plan documented. Consider creating a concept before modifying."
+
+**Experimental on:** LLM-generated recommendations appear alongside template output. The LLM receives the same context (dependents, concepts, observations) and produces a more contextual, nuanced recommendation. Both are returned so the user/agent can compare quality.
+
+### Stale Data Handling
+
+If any findings reference files not in the CoDRAG index, the response includes a single message:
+
+> "Looks like you have stale data, CoDRAG recommends running enrichment again."
+
+No per-file flags, no error metadata. One message, actionable.
+
+### Enrichment Limits
+
+Default cap: **200 findings per call**. Beyond cap: top 200 by estimated risk score, summary notes remaining count. Configurable via `max_findings` parameter.
+
 ### P0 Quick Fixes (Bundle With This Phase)
 
 These fixes from Phase 82 doc 07 are small enough to ship alongside the audit redesign and improve the other tools:
@@ -241,9 +295,9 @@ Nobody else is building the enrichment layer. This is the moat.
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-1. **Risk score formula** — What weights for dependent count vs. concept alignment vs. observation frequency? Needs experimentation.
-2. **Recommendation generation** — Template-based or LLM-generated? Templates are faster and more predictable; LLM is more contextual. Start with templates, consider LLM upgrade in Phase 84+.
-3. **Enrichment for files not in the index** — What happens when a finding references a file CoDRAG hasn't indexed? Return the finding un-enriched with a note, or skip it?
-4. **Streaming** — For large SARIF files with 500+ findings, should enrichment stream results or batch? Probably batch with a cap for V1.
+1. **Risk score formula** — Weighted composite: 0.40 hub + 0.30 concept + 0.20 observation + 0.10 churn. Weights in config for tuning.
+2. **Recommendation generation** — Both: templates as default, LLM as experimental (behind global toggle). LLM output appears alongside templates when experimental=true.
+3. **Enrichment for files not in the index** — Single message: "Looks like you have stale data, CoDRAG recommends running enrichment again." No per-file metadata.
+4. **Streaming** — Batch with 200-finding cap. Top 200 by risk score. Configurable via `max_findings`.

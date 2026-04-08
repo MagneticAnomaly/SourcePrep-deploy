@@ -1,8 +1,8 @@
 # Phase 84 — Concepts Formalization: From Theoretical to Load-Bearing
 
-**Date:** 2026-04-07
-**Status:** Design complete, implementation pending
-**Scope:** Make `codrag_concepts` reliable and structured enough to power Phase 83's concept violation detection and Phase 87's immune system
+**Date:** 2026-04-08
+**Status:** Design finalized
+**Scope:** Make `codrag_concepts` reliable and structured enough to power Phase 83's concept violation detection and Phase 87's immune system. Core features: structured data model, typing/editing, observation promotion, anchor system, doc linking. LLM-assisted generation is experimental (high priority).
 **Dependencies:** Phase 83 (audit redesign creates the demand for concept violations)
 **Predecessor:** Phase 82 docs 05 (observe/concepts analysis) and 08 (ambient context: code vs concepts)
 
@@ -20,6 +20,16 @@ Phase 83's audit redesign changes this. Structural mode needs to detect **concep
 4. **Queryable** — efficient lookup by file, module, or category for real-time enrichment
 
 This phase formalizes concepts from "a place to write notes about design decisions" into "a structured knowledge base that powers automated architectural enforcement."
+
+### Key Design Decisions
+
+- **Concepts feed the dashboard overlay** — displayed as a grid in MVP, design iterable later
+- **Paperclip goal mapping is partial** — some concepts map naturally to Paperclip goals, not a 1:1 bridge
+- **Doc linking is a core feature** — concepts link to files, docs, folders (e.g., "Design System" concept links to core component files, Storybook root, relevant docs). Links are addable/removable.
+- **Typing/editing is core** — manual concept creation and editing ships in this phase
+- **LLM-assisted concept generation is experimental** — behind the global experimental toggle, high priority but not MVP
+- **Observation → concept promotion** — human confirms/edits assertion before saving. Start with human review, measure auto-extraction quality over time.
+- **Keep basic, revisit for robust UI** — the data model and core interactions ship now; rich visualization and advanced UI come in a future phase
 
 ---
 
@@ -48,15 +58,28 @@ Concept:
   created_at: datetime
   updated_at: datetime
   source: string | null       # Where this concept came from (observation, discussion, PR, doc)
+  doc_links: DocLink[]         # Linked documentation, source files, folders
 ```
 
 **Anchor:**
 ```
 Anchor:
-  type: enum                  # file | module | symbol | directory | glob
-  target: string              # "src/codrag/mcp/server.py" | "mcp" | "tool_context" | "src/codrag/core/*"
+  type: enum                  # file | module | directory | glob
+  target: string              # "src/codrag/mcp/server.py" | "mcp" | "src/codrag/core/*"
   relationship: enum          # defines | constrains | explains | warns
 ```
+
+Symbol-level anchoring deferred — file/module/directory/glob covers all MVP use cases. Can be added later if a concrete need arises.
+
+**Linked Documentation:**
+```
+DocLink:
+  path: string                # File or directory path, relative to project root
+  label: string | null        # Optional display label (e.g., "Storybook root")
+  type: enum                  # source | doc | config | external
+```
+
+Concepts can link to grounded documentation — source files, doc folders, config files, or external references. Example: a "Design System" concept links to `packages/ui/src/components/`, `packages/ui/.storybook/`, and `docs/design-system.md`. Links are addable and removable through both MCP and dashboard UI.
 
 ### Category Taxonomy
 
@@ -92,6 +115,15 @@ proposed → active → [deprecated | superseded]
 - **Active:** Validated and enforced. Concept violations against active concepts generate audit findings.
 - **Deprecated:** No longer relevant. Kept for history but not enforced.
 - **Superseded:** Replaced by a newer concept. The `superseded_by` link maintains the evolution chain.
+
+### Concept Conflict Resolution
+
+When two active concepts contradict each other:
+- **For code enforcement:** Oldest concept wins. The older concept's assertion is used for violation detection.
+- **In the dashboard:** Both conflicting concepts get **red outlines** until a human resolves the conflict.
+- **In audit:** Surfaced as an audit finding: "Conflicting concepts detected" listing both, with a prompt to resolve.
+
+CoDRAG doesn't pick a winner beyond the "oldest wins for code" default. Human resolution is required.
 
 ### Integration with Phase 83 Audit
 
@@ -181,9 +213,9 @@ Current concepts are free-text blobs. Migration strategy:
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-1. **Auto-extraction quality** — Can we reliably extract assertions from free-text observations, or will most require human editing? Start with human review and measure what percentage can be auto-extracted.
-2. **Concept conflict resolution** — What happens when two active concepts contradict each other? Flag as an audit finding ("conflicting concepts") and require human resolution.
-3. **Anchor granularity** — Is symbol-level anchoring worth the complexity for v1, or should we start with file/module/glob only? Probably start coarser and add symbol anchoring if needed.
-4. **LLM-assisted concept creation** — Should `codrag_concepts(action="save")` use an LLM to help structure the assertion? Possibly, but makes the tool non-deterministic. Start without, add as opt-in later.
+1. **Auto-extraction quality** — Start with human review. Observation → concept promotion flow: suggest → human confirms/edits assertion → save. Measure auto-extraction success rate over time. If 60%+ are usable with light editing, consider more automation.
+2. **Concept conflict resolution** — Oldest concept wins for code enforcement. Both get red outlines in dashboard UI. Also surfaced as an audit finding. Human resolution required.
+3. **Anchor granularity** — File/module/directory/glob for MVP. Symbol-level deferred — no concrete use case demands it yet.
+4. **LLM-assisted concept creation** — Behind global experimental toggle. High priority but not MVP. When enabled, LLM helps structure assertions from free-text input.
