@@ -846,3 +846,70 @@ class TestIsSwarmActiveForStage:
 
         monkeypatch.setattr(settings_store.settings, "get", mock_get)
         assert is_swarm_active_for_stage("group_reasoning", "ollama", "kimi-k2.5:cloud") is False
+
+
+from unittest.mock import patch
+
+
+class TestConcurrentWorkersSwarmAware:
+
+    def test_swarm_stage_returns_full_budget(self):
+        """When stage is swarm-capable and model supports swarm,
+        return full dynamic_capacity - 1, not weighted share."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 12)
+        # Set AIMD limit to match max_concurrent for this test
+        with sched._lock:
+            sched._slots["cloud:ep-1"].current_limit = 12
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+
+        mock_config = {
+            "large_model": {"endpoint_id": "ep-1", "model": "kimi-k2.5:cloud"},
+            "saved_endpoints": [{"id": "ep-1", "provider": "ollama"}],
+        }
+        with patch("codrag.api.routers._llm_helpers.settings") as mock_settings:
+            mock_settings.get.return_value = mock_config
+            workers, node_id = sched.concurrent_workers_for_project(
+                "proj-a", stage="group_reasoning",
+            )
+        assert node_id == "cloud:ep-1"
+        # full budget = dynamic_capacity - 1 = 12 - 1 = 11
+        assert workers == 11
+
+    def test_non_swarm_stage_returns_weighted_share(self):
+        """Non-swarm stages still use weighted share."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+
+        workers, node_id = sched.concurrent_workers_for_project(
+            "proj-a", stage="enrichment",
+        )
+        assert node_id == "cloud:ep-1"
+        assert workers >= 1
+
+    def test_no_stage_returns_weighted_share(self):
+        """When stage is None (backward compat), use weighted share."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.CATALOGUE, "cloud:ep-1")
+
+        workers, _ = sched.concurrent_workers_for_project("proj-a")
+        assert workers >= 1
+
+    def test_unsuitable_model_on_swarm_stage_returns_weighted_share(self):
+        """Swarm stage with unsuitable model falls back to weighted share."""
+        sched = PipelineScheduler()
+        sched.configure_node("local:ep-1", 1)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "local:ep-1")
+
+        mock_config = {
+            "large_model": {"endpoint_id": "ep-1", "model": "llama3.3:70b"},
+            "saved_endpoints": [{"id": "ep-1", "provider": "ollama"}],
+        }
+        with patch("codrag.api.routers._llm_helpers.settings") as mock_settings:
+            mock_settings.get.return_value = mock_config
+            workers, _ = sched.concurrent_workers_for_project(
+                "proj-a", stage="group_reasoning",
+            )
+        assert workers == 1

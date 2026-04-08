@@ -75,6 +75,19 @@ class ComputeSlot:
     node_id: str
     max_concurrent: int
     active_stages: Dict[str, str] = field(default_factory=dict)  # project_id -> stage_id
+    # Phase 82: AIMD current limit — starts at min(5, max_concurrent), converges upward.
+    # dynamic_capacity = min(current_limit, max_concurrent).
+    current_limit: int = 5
+
+    def __post_init__(self) -> None:
+        # Clamp current_limit down if max_concurrent is smaller
+        if self.max_concurrent < self.current_limit:
+            self.current_limit = self.max_concurrent
+
+    @property
+    def dynamic_capacity(self) -> int:
+        """Effective capacity respecting AIMD current_limit."""
+        return min(self.current_limit, self.max_concurrent)
 
     # Latency-Aware AIMD (Phase 82)
     current_limit: int = 5
@@ -869,18 +882,32 @@ class PipelineScheduler:
             return None
 
     def concurrent_workers_for_project(
-        self, project_id: str,
+        self, project_id: str, stage: Optional[str] = None,
     ) -> Tuple[int, Optional[str]]:
         """Return (concurrent_worker_count, node_id) for a project.
 
         Used by the AI Gateway UI to display how many parallel LLM
         calls a stage is making.  Returns (1, None) if the project
         isn't found in any active slot.
+
+        Phase 82: When ``stage`` is a swarm-capable stage and the
+        model supports swarm, returns the full undivided budget
+        instead of the weighted fair-share.
         """
         with self._lock:
             for nid, slot in self._slots.items():
                 if project_id not in slot.active_stages:
                     continue
+                # Phase 82: Check if this is an active swarm stage
+                if stage and stage in SWARM_CAPABLE_STAGES:
+                    try:
+                        from codrag.api.routers._llm_helpers import resolve_model_for_stage
+                        resolved = resolve_model_for_stage(project_id, stage)
+                        if resolved and is_swarm_active_for_stage(stage, *resolved):
+                            budget = max(1, slot.dynamic_capacity - 1)
+                            return budget, nid
+                    except Exception:
+                        pass  # Fall through to weighted share
                 return self._weighted_share(slot, project_id), nid
         return 1, None
 
