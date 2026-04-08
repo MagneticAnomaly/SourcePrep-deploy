@@ -2023,24 +2023,10 @@ class MCPServer:
         }
         return result
 
-    async def tool_audit_enrich(
-        self,
-        findings: List[Dict[str, Any]],
-        max_findings: int = 200,
-        project_override: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """Enrich external findings with CoDRAG structural context."""
-        from codrag.core.enrichment import enrich_findings
-
-        project_id = await self._resolve_project_id(override=project_override)
-
-        # Collect unique file paths from findings
-        file_paths: set = set()
-        for f in findings:
-            fp = f.get("file", "")
-            if fp:
-                file_paths.add(fp)
-
+    async def _build_enrichment_context(
+        self, file_paths: set, project_id: str
+    ) -> Dict[str, Dict[str, Any]]:
+        """Build per-file structural context for enrichment (shared by simple + SARIF)."""
         # Fetch modules once for the batch
         modules: List[Dict[str, Any]] = []
         try:
@@ -2049,18 +2035,12 @@ class MCPServer:
         except Exception as e:
             logger.debug("Failed to fetch modules for enrichment: %s", e)
 
-        # Build per-file context
         context: Dict[str, Dict[str, Any]] = {}
         for file_path in file_paths:
             ctx: Dict[str, Any] = {
-                "dependents": 0,
-                "hub_status": "low",
-                "module": "",
-                "concepts": [],
-                "observations": [],
+                "dependents": 0, "hub_status": "low", "module": "",
+                "concepts": [], "observations": [],
             }
-
-            # Dependents count
             try:
                 dep_data = await self._api_get(
                     f"/projects/{project_id}/trace/neighbors/file:{file_path}"
@@ -2072,7 +2052,6 @@ class MCPServer:
             except Exception as e:
                 logger.debug("Failed to fetch dependents for %s: %s", file_path, e)
 
-            # Module (find which module contains this file)
             for m in modules:
                 mod_files = m.get("files", [])
                 mod_path = m.get("path", "")
@@ -2080,7 +2059,6 @@ class MCPServer:
                     ctx["module"] = m.get("name", mod_path)
                     break
 
-            # Concepts
             try:
                 from codrag.services.concept_store import concept_store
                 raw = concept_store.search(project_id, file_path, limit=5)
@@ -2088,7 +2066,6 @@ class MCPServer:
             except Exception as e:
                 logger.debug("Failed to fetch concepts for %s: %s", file_path, e)
 
-            # Observations
             try:
                 from codrag.services.observation_store import observation_store
                 raw_obs = observation_store.get_for_file(project_id, file_path)
@@ -2096,7 +2073,6 @@ class MCPServer:
             except Exception as e:
                 logger.debug("Failed to fetch observations for %s: %s", file_path, e)
 
-            # Hub status based on dependent count
             dep_count = ctx["dependents"]
             if dep_count >= 20:
                 ctx["hub_status"] = "critical"
@@ -2104,10 +2080,70 @@ class MCPServer:
                 ctx["hub_status"] = "high"
             elif dep_count >= 5:
                 ctx["hub_status"] = "moderate"
-            else:
-                ctx["hub_status"] = "low"
 
             context[file_path] = ctx
+        return context
+
+    async def tool_audit_enrich_sarif(
+        self,
+        sarif_data: Dict[str, Any],
+        max_findings: int = 200,
+        project_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Enrich SARIF input with CoDRAG structural context. Returns enriched SARIF."""
+        from codrag.core.enrichment import enrich_sarif
+
+        project_id = await self._resolve_project_id(override=project_override)
+
+        # Extract file paths directly from raw SARIF (avoids double-parsing)
+        file_paths: set = set()
+        for run in sarif_data.get("runs", []):
+            for result in run.get("results", []):
+                locs = result.get("locations", [])
+                if locs:
+                    uri = locs[0].get("physicalLocation", {}).get("artifactLocation", {}).get("uri", "")
+                    if uri:
+                        fp = uri[len("file:///"):] if uri.startswith("file:///") else uri
+                        file_paths.add(fp)
+
+        context = await self._build_enrichment_context(file_paths, project_id)
+
+        enriched_sarif = enrich_sarif(sarif_data, context, max_findings=max_findings)
+
+        # Build markdown summary from the SARIF run properties
+        md_lines = ["## SARIF Enrichment Results\n"]
+        for run in enriched_sarif.get("runs", []):
+            tool_name = run.get("tool", {}).get("driver", {}).get("name", "unknown")
+            run_summary = run.get("properties", {}).get("codrag", {}).get("summary", {})
+            md_lines.append(f"**Tool: {tool_name}**")
+            md_lines.append(f"- Total: {run_summary.get('total', 0)}")
+            md_lines.append(f"- Enriched: {run_summary.get('enriched', 0)}")
+            md_lines.append(f"- High risk: {run_summary.get('high_risk', 0)}")
+
+        return {
+            "project_id": project_id,
+            "format": "sarif",
+            "sarif": enriched_sarif,
+            "_to_markdown": "\n".join(md_lines),
+        }
+
+    async def tool_audit_enrich(
+        self,
+        findings: List[Dict[str, Any]],
+        max_findings: int = 200,
+        output_format: str = "auto",
+        project_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Enrich external findings (simple schema) with CoDRAG structural context."""
+        from codrag.core.enrichment import enrich_findings
+
+        project_id = await self._resolve_project_id(override=project_override)
+
+        # Collect unique file paths
+        file_paths = set(f.get("file", "") for f in findings if f.get("file"))
+
+        # Build per-file context using shared helper
+        context = await self._build_enrichment_context(file_paths, project_id)
 
         # Run enrichment
         result = enrich_findings(findings, context, max_findings=max_findings)
@@ -2152,6 +2188,59 @@ class MCPServer:
 
         result_dict["project_id"] = project_id
         result_dict["_to_markdown"] = "\n".join(md_lines)
+
+        # Phase 85: output_format="sarif" converts simple results to SARIF
+        if output_format == "sarif":
+            from codrag.core.sarif import SarifInput, SarifRun, enriched_to_sarif
+            # Build a synthetic SARIF wrapper for the simple findings
+            synthetic_sarif = SarifInput(
+                version="2.1.0",
+                runs=[SarifRun(
+                    tool_name="codrag-enrichment",
+                    results=findings,
+                    raw={
+                        "tool": {"driver": {"name": "codrag-enrichment", "rules": []}},
+                        "results": [
+                            {
+                                "ruleId": f.get("tool", "unknown"),
+                                "level": f.get("severity", "warning"),
+                                "message": {"text": f.get("message", "")},
+                                "locations": [{"physicalLocation": {
+                                    "artifactLocation": {"uri": f.get("file", "")},
+                                    "region": {"startLine": f.get("line", 0)},
+                                }}],
+                            }
+                            for f in findings
+                        ],
+                    },
+                )],
+                raw={
+                    "version": "2.1.0",
+                    "runs": [{
+                        "tool": {"driver": {"name": "codrag-enrichment", "rules": []}},
+                        "results": [
+                            {
+                                "ruleId": f.get("tool", "unknown"),
+                                "level": f.get("severity", "warning"),
+                                "message": {"text": f.get("message", "")},
+                                "locations": [{"physicalLocation": {
+                                    "artifactLocation": {"uri": f.get("file", "")},
+                                    "region": {"startLine": f.get("line", 0)},
+                                }}],
+                            }
+                            for f in findings
+                        ],
+                    }],
+                },
+            )
+            sarif_output = enriched_to_sarif(synthetic_sarif, result)
+            return {
+                "project_id": project_id,
+                "format": "sarif",
+                "sarif": sarif_output,
+                "_to_markdown": "\n".join(md_lines),
+            }
+
         return result_dict
 
     async def tool_audit_refactor(
@@ -3560,13 +3649,27 @@ class MCPServer:
                         )
 
             elif name == "codrag_audit":
-                if args.get("findings"):
-                    # Enrichment mode: annotate external findings with CoDRAG context
-                    result = await self.tool_audit_enrich(
-                        findings=args.get("findings", []),
-                        max_findings=args.get("max_findings", 200),
-                        project_override=project_override,
-                    )
+                ext_findings = args.get("findings")
+                if ext_findings is not None:
+                    # Enrichment mode: detect SARIF vs simple schema
+                    from codrag.core.sarif import is_sarif
+                    output_format = args.get("output_format", "auto")
+
+                    if is_sarif(ext_findings):
+                        # SARIF input — full SARIF enrichment pipeline
+                        result = await self.tool_audit_enrich_sarif(
+                            sarif_data=ext_findings,
+                            max_findings=args.get("max_findings", 200),
+                            project_override=project_override,
+                        )
+                    else:
+                        # Simple schema list
+                        result = await self.tool_audit_enrich(
+                            findings=ext_findings if isinstance(ext_findings, list) else [],
+                            max_findings=args.get("max_findings", 200),
+                            output_format=output_format,
+                            project_override=project_override,
+                        )
                 else:
                     action = args.get("action", "scan")
                     if action == "refactor":

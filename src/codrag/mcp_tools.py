@@ -249,6 +249,12 @@ _CORE_TOOLS = [
                     "type": "integer",
                     "description": "Maximum findings to return/enrich. Default: 200 for enrichment, 20 for structural.",
                 },
+                "output_format": {
+                    "type": "string",
+                    "description": "(enrichment) Output format. 'auto' returns same format as input. 'sarif' forces SARIF output even from simple input.",
+                    "enum": ["auto", "sarif", "simple"],
+                    "default": "auto",
+                },
                 "project_id": _PROJECT_ID_PROP,
             },
             "required": [],
