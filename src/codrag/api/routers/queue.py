@@ -181,6 +181,8 @@ def get_queue() -> dict[str, Any]:
         node_summary[nid] = {
             "max_concurrent": node_info.get("max_concurrent", 1),
             "current_load": node_info.get("current_load", 0),
+            "active": node_info.get("active", {}),
+            "queued": node_info.get("queued", []),
         }
 
     return ok({

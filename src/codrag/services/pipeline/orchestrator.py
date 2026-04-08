@@ -1291,6 +1291,27 @@ class PipelineOrchestrator:
             )
             if pfl:
                 pfl.end_run("completed")
+
+            # Phase 89: Release scheduler lock on pipeline completion.
+            # When all stages are done (including via skip/freshness),
+            # release any held lock so queued pipelines can proceed.
+            # The release-after-advance block in _on_build_transition()
+            # only handles the normal stage completion path — this
+            # handles the "all stages done" path (skip, restore, chain).
+            if pipeline_scheduler.is_held_by(run.project_id):
+                _release_node = getattr(run, '_current_node_id', None)
+                # Find the last stage to release (current_stage_index points past end)
+                _last_stage_idx = len(run.stages) - 1
+                if _last_stage_idx >= 0:
+                    _last_stage = StageId(run.stages[_last_stage_idx])
+                    _deferred = pipeline_scheduler.release(
+                        run.project_id, _last_stage, _release_node,
+                    )
+                    if _deferred:
+                        self._resume_queued_pipeline(
+                            _deferred.project_id, _deferred.stage,
+                        )
+
             # Phase 61B: Stop heartbeat timer — run is complete
             self._stop_heartbeat_timer(run)
             # VRAM lifecycle: release group models via state machine (falls back to legacy)
