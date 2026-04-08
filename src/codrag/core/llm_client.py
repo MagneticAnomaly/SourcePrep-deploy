@@ -421,6 +421,20 @@ class LLMClient:
         except Exception as e:
             logger.debug("Failed to track active request: %s", e)
 
+    def _record_throughput(self, queue_time_ms: float = 0.0, rate_limit_remaining: Optional[int] = None, is_429_or_timeout: bool = False) -> None:
+        """Phase 82: Asynchronously notify the PipelineScheduler of connection health for AIMD adjusting."""
+        try:
+            from codrag.services.pipeline.scheduler import pipeline_scheduler
+            pipeline_scheduler.record_throughput_for_provider(
+                self.provider, 
+                self.model, 
+                queue_time_ms=queue_time_ms, 
+                rate_limit_remaining=rate_limit_remaining, 
+                is_429_or_timeout=is_429_or_timeout
+            )
+        except Exception as e:
+            logger.debug("Failed to report latency throughput to scheduler: %s", e)
+
     def generate(
         self,
         prompt: str,
@@ -621,11 +635,17 @@ class LLMClient:
             # that rate-limit; sequential batches can exhaust the limit.
             _resp = None
             for _attempt in range(self._MAX_429_RETRIES + 1):
-                _resp = requests.post(url, json=payload, timeout=(30, self.timeout), stream=True)
-                if _resp.status_code != 429:
-                    break
-                _resp.close()
+                try:
+                    _resp = requests.post(url, json=payload, timeout=(30, self.timeout), stream=True)
+                    if _resp.status_code != 429:
+                        break
+                    _resp.close()
+                except requests.exceptions.Timeout:
+                    self._record_throughput(is_429_or_timeout=True)
+                    raise
+                
                 if _attempt < self._MAX_429_RETRIES:
+                    self._record_throughput(is_429_or_timeout=True)
                     _wait = 5 * (_attempt + 1)  # 5s, 10s
                     logger.info(
                         "429 rate-limited by %s — retry %d/%d in %ds",
@@ -660,10 +680,23 @@ class LLMClient:
                 if chunk.get("done"):
                     eval_count = chunk.get("eval_count", 0)
                     prompt_eval_count = chunk.get("prompt_eval_count", 0)
+                    
+                    # Phase 82: Duration metrics in ns -> ms
+                    eval_duration_ns = chunk.get("eval_duration", 0)
+                    prompt_eval_duration_ns = chunk.get("prompt_eval_duration", 0)
+                    load_duration_ns = chunk.get("load_duration", 0)
+                    total_exec_ms = (eval_duration_ns + prompt_eval_duration_ns + load_duration_ns) / 1000000.0
+                    
                     tokens = eval_count + prompt_eval_count
                     self._record_telemetry(prompt_eval_count, eval_count, tokens)
                     break
             resp.close()
+            
+            t1 = time.monotonic()
+            wall_time_ms = (t1 - t0) * 1000.0
+            queue_time_ms = max(0.0, wall_time_ms - total_exec_ms)
+            self._record_throughput(queue_time_ms=queue_time_ms)
+            
             text = "".join(text_parts)
             thinking = "".join(thinking_parts)
             # If aborted due to repetition, truncate to the good content
@@ -732,17 +765,35 @@ class LLMClient:
             base = self.endpoint_url if "v1" in self.endpoint_url else f"{self.endpoint_url}/v1"
             url = f"{base}/chat/completions"
             
+            t0 = time.monotonic()
             _resp = None
+            rate_limit_remaining = None
             for _attempt in range(self._MAX_429_RETRIES + 1):
-                _resp = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
-                if _resp.status_code != 429:
-                    break
+                try:
+                    _resp = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
+                    
+                    # Parse OpenAI ratelimit headers
+                    srem = _resp.headers.get("x-ratelimit-remaining-requests")
+                    if srem and srem.isdigit():
+                        rate_limit_remaining = int(srem)
+
+                    if _resp.status_code != 429:
+                        break
+                except requests.exceptions.Timeout:
+                    self._record_throughput(is_429_or_timeout=True)
+                    raise
+                
                 if _attempt < self._MAX_429_RETRIES:
+                    self._record_throughput(is_429_or_timeout=True)
                     _wait = 5 * (_attempt + 1)
                     logger.info("429 rate-limited by %s — retry %d/%d in %ds", self.model, _attempt + 1, self._MAX_429_RETRIES, _wait)
                     time.sleep(_wait)
             resp = _resp
             resp.raise_for_status()
+            
+            t1 = time.monotonic()
+            wall_time_ms = (t1 - t0) * 1000.0
+            self._record_throughput(queue_time_ms=wall_time_ms, rate_limit_remaining=rate_limit_remaining)
             data = resp.json()
             
             choice = data.get("choices", [{}])[0]
@@ -782,17 +833,35 @@ class LLMClient:
                 headers["x-api-key"] = self.api_key
 
             url = f"{self.endpoint_url}/v1/messages"
+            t0 = time.monotonic()
             _resp = None
+            rate_limit_remaining = None
             for _attempt in range(self._MAX_429_RETRIES + 1):
-                _resp = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
-                if _resp.status_code != 429:
-                    break
+                try:
+                    _resp = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
+                    
+                    # Parse Anthropic ratelimit headers
+                    srem = _resp.headers.get("anthropic-ratelimit-requests-remaining")
+                    if srem and srem.isdigit():
+                        rate_limit_remaining = int(srem)
+
+                    if _resp.status_code != 429:
+                        break
+                except requests.exceptions.Timeout:
+                    self._record_throughput(is_429_or_timeout=True)
+                    raise
+                
                 if _attempt < self._MAX_429_RETRIES:
+                    self._record_throughput(is_429_or_timeout=True)
                     _wait = 5 * (_attempt + 1)
                     logger.info("429 rate-limited by %s — retry %d/%d in %ds", self.model, _attempt + 1, self._MAX_429_RETRIES, _wait)
                     time.sleep(_wait)
             resp = _resp
             resp.raise_for_status()
+            
+            t1 = time.monotonic()
+            wall_time_ms = (t1 - t0) * 1000.0
+            self._record_throughput(queue_time_ms=wall_time_ms, rate_limit_remaining=rate_limit_remaining)
             data = resp.json()
 
             # Anthropic returns content as a list of blocks

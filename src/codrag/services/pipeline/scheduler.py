@@ -54,13 +54,28 @@ class ComputeSlot:
     max_concurrent: int
     active_stages: Dict[str, str] = field(default_factory=dict)  # project_id -> stage_id
 
+    # Latency-Aware AIMD (Phase 82)
+    current_limit: int = 5
+    mode: Literal["jumpstart", "congestion_avoidance"] = "jumpstart"
+    success_streak: int = 0
+    _last_backoff_time: float = 0.0
+
+    def __post_init__(self):
+        if self.max_concurrent < self.current_limit:
+            self.current_limit = max(1, self.max_concurrent)
+            self.mode = "congestion_avoidance"
+
     @property
     def current_load(self) -> int:
         return len(self.active_stages)
 
     @property
+    def dynamic_capacity(self) -> int:
+        return min(self.max_concurrent, self.current_limit)
+
+    @property
     def has_capacity(self) -> bool:
-        return self.current_load < self.max_concurrent
+        return self.current_load < self.dynamic_capacity
 
     def acquire(self, project_id: str, stage_id: str) -> bool:
         """Try to acquire a slot. Returns True if successful."""
@@ -230,6 +245,103 @@ class PipelineScheduler:
         """Remove all project priorities."""
         self.set_priority(None, "none")
 
+    def record_throughput(
+        self,
+        node_id: str,
+        queue_time_ms: float = 0.0,
+        rate_limit_remaining: Optional[int] = None,
+        is_429_or_timeout: bool = False,
+    ) -> None:
+        """Phase 82: Latency-Aware AIMD step, called upon LLM completion.
+        
+        Adjusts `current_limit` dynamically based on LLM execution queue time
+        or hard rate limits.
+        """
+        with self._lock:
+            if node_id not in self._slots:
+                return
+            self._record_throughput_for_slot(self._slots[node_id], queue_time_ms, rate_limit_remaining, is_429_or_timeout)
+
+    def record_throughput_for_provider(
+        self,
+        provider: str,
+        model: str,
+        queue_time_ms: float = 0.0,
+        rate_limit_remaining: Optional[int] = None,
+        is_429_or_timeout: bool = False,
+    ) -> None:
+        """Helper for LLMClient: resolves node automatically based on provider/model."""
+        is_cloud = provider in CLOUD_PROVIDERS
+        if not is_cloud and model:
+            try:
+                from codrag.core.batch_profiles import is_cloud_model_via_ollama
+                if is_cloud_model_via_ollama(provider, model):
+                    is_cloud = True
+            except ImportError:
+                pass
+        prefix = "cloud:" if is_cloud else "local:"
+        
+        with self._lock:
+            # Report to all matching slots
+            for nid, slot in self._slots.items():
+                if nid.startswith(prefix):
+                    self._record_throughput_for_slot(slot, queue_time_ms, rate_limit_remaining, is_429_or_timeout)
+
+    def _record_throughput_for_slot(
+        self,
+        slot: ComputeSlot,
+        queue_time_ms: float = 0.0,
+        rate_limit_remaining: Optional[int] = None,
+        is_429_or_timeout: bool = False,
+    ) -> None:
+        """Internal helper to apply AIMD logic to a single slot."""
+        # Hard limits supplied by Cloud headers
+        if rate_limit_remaining is not None and rate_limit_remaining >= 0:
+            # Clamp hard limit exactly under the cloud provider's available limit
+            # Leave a safety margin
+            safe_limit = max(1, rate_limit_remaining - 2)
+            if slot.max_concurrent > safe_limit:
+                    slot.max_concurrent = safe_limit
+                    if slot.current_limit > safe_limit:
+                        slot.current_limit = safe_limit
+
+            # Congestion Detection
+            if is_429_or_timeout or queue_time_ms > 2000.0:
+                now = time.time()
+                # Cooldown so we don't back off 10 times for a single congested batch
+                if now - slot._last_backoff_time > 2.0:
+                    slot.mode = "congestion_avoidance"
+                    slot.success_streak = 0
+                    
+                    # Multiplicative Decrease: Half limit, or current in-flight
+                    in_flight = slot.current_load
+                    new_limit = max(1, min(slot.current_limit // 2, in_flight))
+                    
+                    if slot.current_limit > new_limit:
+                        logger.warning(
+                            "Scheduler: Node %s congested (queue_ms=%.1f, 429/timeout=%s). "
+                            "Backing off limit %d -> %d",
+                            node_id, queue_time_ms, is_429_or_timeout,
+                            slot.current_limit, new_limit
+                        )
+                        slot.current_limit = new_limit
+                    slot._last_backoff_time = now
+            else:
+                # Additive Increase or Jumpstart
+                slot.success_streak += 1
+                
+                batch_size = max(1, slot.current_limit)
+                if slot.success_streak >= batch_size:
+                    slot.success_streak = 0
+                    if slot.current_limit < slot.max_concurrent:
+                        if slot.mode == "jumpstart":
+                            new_limit = min(slot.max_concurrent, slot.current_limit * 2)
+                            logger.info("Scheduler: Node %s jumpstart %d -> %d", node_id, slot.current_limit, new_limit)
+                            slot.current_limit = new_limit
+                        else:
+                            new_limit = min(slot.max_concurrent, slot.current_limit + 1)
+                            slot.current_limit = new_limit
+
     def get_priority(self, project_id: str) -> PriorityLevel:
         """Get the priority level for a specific project."""
         return self._priority_projects.get(project_id, "none")
@@ -365,9 +477,9 @@ class PipelineScheduler:
             ok = slot.acquire(project_id, stage.value)
             if ok:
                 logger.info(
-                    "Scheduler: %s acquired slot on %s for %s (%d/%d)",
+                    "Scheduler: %s acquired slot on %s for %s (%d/%d dynamic cap)",
                     project_id, slot.node_id, stage.value,
-                    slot.current_load, slot.max_concurrent,
+                    slot.current_load, slot.dynamic_capacity,
                 )
             return ok
 
@@ -390,9 +502,9 @@ class PipelineScheduler:
             released = slot.release(project_id)
             if released:
                 logger.info(
-                    "Scheduler: %s released slot on %s (%d/%d)",
+                    "Scheduler: %s released slot on %s (%d/%d dynamic cap)",
                     project_id, slot.node_id,
-                    slot.current_load, slot.max_concurrent,
+                    slot.current_load, slot.dynamic_capacity,
                 )
             # Check if there's a queued pipeline waiting for this node
             queue = self._get_queue(resolved)
@@ -534,7 +646,9 @@ class PipelineScheduler:
 
         Returns at least 1.
         """
-        full_budget = max(1, slot.max_concurrent)
+        # Phase 82: Reserve N-1 headroom for interactive queries when allocating batches
+        # except when dynamic_capacity is merely 1, then we use 1.
+        full_budget = max(1, slot.dynamic_capacity - 1)
         active_count = max(1, slot.current_load)
 
         proj_level = self._priority_projects.get(project_id, "none") if project_id else "none"
@@ -654,7 +768,7 @@ class PipelineScheduler:
                 if not nid.startswith(prefix):
                     continue
                 if proj_level == "exclusive":
-                    cap = max(1, slot.max_concurrent)
+                    cap = max(1, slot.dynamic_capacity - 1)
                     if budget is None or cap < budget:
                         budget = cap
                     continue
@@ -670,7 +784,7 @@ class PipelineScheduler:
             if budget is None:
                 for nid, slot in self._slots.items():
                     if nid.startswith(prefix):
-                        cap = max(1, slot.max_concurrent)
+                        cap = max(1, slot.dynamic_capacity - 1)
                         if budget is None or cap < budget:
                             budget = cap
 
@@ -703,11 +817,12 @@ class PipelineScheduler:
             if project_id:
                 for nid, slot in self._slots.items():
                     if project_id in slot.active_stages:
+                        budget = max(1, slot.dynamic_capacity - 1)
                         logger.info(
                             "[Swarm] Full budget for project %s on node %s: %d (bypassing fair-share)",
-                            project_id, nid, slot.max_concurrent,
+                            project_id, nid, budget,
                         )
-                        return max(1, slot.max_concurrent)
+                        return budget
 
             # Fallback: prefix-based discovery (same as available_batch_workers_for_provider)
             is_cloud = provider in CLOUD_PROVIDERS
@@ -722,11 +837,12 @@ class PipelineScheduler:
 
             for nid, slot in self._slots.items():
                 if nid.startswith(prefix):
+                    budget = max(1, slot.dynamic_capacity - 1)
                     logger.info(
                         "[Swarm] Full budget via prefix %s on node %s: %d",
-                        prefix, nid, slot.max_concurrent,
+                        prefix, nid, budget,
                     )
-                    return max(1, slot.max_concurrent)
+                    return budget
 
             return None
 
@@ -754,6 +870,7 @@ class PipelineScheduler:
                 queue = self._queues.get(nid, deque())
                 nodes[nid] = {
                     "max_concurrent": slot.max_concurrent,
+                    "dynamic_capacity": slot.dynamic_capacity,
                     "current_load": slot.current_load,
                     "active": dict(slot.active_stages),
                     "queued": [
