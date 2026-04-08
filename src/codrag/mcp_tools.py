@@ -167,36 +167,65 @@ _CORE_TOOLS = [
         },
         "annotations": {"title": "CoDRAG: Impact Analysis", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
     },
-    # ── 4. codrag_audit (codebase health) ───────────────────────────
+    # ── 4. codrag_audit (codebase health + enrichment) ────────────
     {
         "name": "codrag_audit",
         "description": (
-            "Run or retrieve a codebase health audit with findings about architecture, "
-            "code quality, and tech debt. Use 'action' to select the operation: "
-            "'scan' (default) to run the audit, "
-            "'refactor' to get findings with code context for implementation (pass finding_ids), "
-            "'verify' to re-check specific analyzers after fixes (pass analyzers), "
-            "'report' to retrieve a full report document (pass report_name), "
-            "'advise' to get forward-looking design proposals and TODO detection."
+            "Codebase structural intelligence and finding enrichment. "
+            "Two modes: (1) Call with no 'findings' param to get CoDRAG's own "
+            "structural insights — coupling hotspots, import cycles, hub concentration, "
+            "concept violations. These are things only CoDRAG can see. "
+            "(2) Call with 'findings' param to enrich external lint/analysis results "
+            "with structural context — dependent counts, hub status, related concepts, "
+            "risk scores. Pipe ruff/eslint/semgrep output through here to make findings "
+            "actionable. "
+            "Legacy actions ('refactor', 'verify', 'report', 'advise') still work."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "action": {
                     "type": "string",
-                    "description": "Operation: 'scan', 'refactor', 'verify', 'report', or 'advise'. Default: 'scan'.",
+                    "description": (
+                        "Operation mode. 'scan' (default) runs structural-only audit. "
+                        "'refactor', 'verify', 'report', 'advise' are legacy actions."
+                    ),
                     "enum": ["scan", "refactor", "verify", "report", "advise"],
                     "default": "scan",
                 },
-                "synthesize": {
-                    "type": "boolean",
-                    "description": "(scan) Also generate LLM-written markdown reports. Default: false.",
-                    "default": False,
+                "findings": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "file": {"type": "string", "description": "File path"},
+                            "line": {"type": "integer", "description": "Line number"},
+                            "message": {"type": "string", "description": "Finding message"},
+                            "severity": {"type": "string", "description": "warning/error/info"},
+                            "tool": {"type": "string", "description": "Source tool (ruff, eslint, etc.)"},
+                        },
+                        "required": ["file", "message"],
+                    },
+                    "description": (
+                        "External findings to enrich. When provided, CoDRAG annotates each "
+                        "finding with structural context (dependents, hub status, concepts, "
+                        "risk score). Omit to get CoDRAG's own structural findings."
+                    ),
+                },
+                "scope": {
+                    "type": "string",
+                    "description": "Limit structural scan to a specific file or directory path.",
                 },
                 "category": {
                     "type": "string",
-                    "description": "(scan) Filter to a specific finding category.",
-                    "enum": ["size", "architecture", "quality", "coverage", "naming", "testing"],
+                    "description": "(scan) Filter structural findings by type.",
+                    "enum": ["coupling", "cycles", "hub_concentration", "concept_violation",
+                             "size", "architecture", "quality", "coverage", "naming", "testing"],
+                },
+                "synthesize": {
+                    "type": "boolean",
+                    "description": "(legacy scan) Also generate LLM-written markdown reports. Default: false.",
+                    "default": False,
                 },
                 "finding_ids": {
                     "type": "array",
@@ -216,6 +245,10 @@ _CORE_TOOLS = [
                     "type": "string",
                     "description": "(report) Name of the report to retrieve.",
                     "enum": ["AUDIT_SUMMARY", "ARCHITECTURE_ANALYSIS", "GAP_ANALYSIS", "COMPONENT_INVENTORY", "TECH_DEBT_REPORT"],
+                },
+                "max_findings": {
+                    "type": "integer",
+                    "description": "Maximum findings to return/enrich. Default: 200 for enrichment, 20 for structural.",
                 },
                 "project_id": _PROJECT_ID_PROP,
             },
