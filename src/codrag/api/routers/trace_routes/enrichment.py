@@ -776,13 +776,18 @@ def trace_destroy_project(project_id: str) -> Dict[str, Any]:
 ATLAS_FILES = [
     "atlas.json",
     "atlas_prev.json",
+    "atlas_manifest.json",
     "atlas_segments_manifest.json",
     "atlas_routing.json",
     "atlas_routing_embeddings.npy",
+    "atlas_updated.signal",
 ]
+
+ATLAS_DIRS = ["atlas_roles"]
 
 GROUP_REASONING_FILES = [
     "trace_group_reasoning.jsonl",
+    "group_reasoning_manifest.json",
 ]
 
 DEEP_ENRICHMENT_FILES = [
@@ -791,19 +796,31 @@ DEEP_ENRICHMENT_FILES = [
     "trace_epistemic_manifest.json",
     # Group Reasoning
     "trace_group_reasoning.jsonl",
+    "group_reasoning_manifest.json",
     # Module Synthesis
     "trace_modules.jsonl",
+    "trace_modules_manifest.json",
     # Atlas Building
     "atlas.json",
     "atlas_prev.json",
+    "atlas_manifest.json",
     "atlas_segments_manifest.json",
     "atlas_routing.json",
     "atlas_routing_embeddings.npy",
+    "atlas_updated.signal",
+    # Deepening
+    "deepening_manifest.json",
+    # Deep Knowledge
+    "deep_knowledge_manifest.json",
+    # Pipeline run metadata (prevents stale resume decisions)
+    "pipeline_run_metadata.json",
     # NOTE: Knowledge Embedding files (knowledge_documents.json, knowledge_embeddings.npy,
     # knowledge_manifest.json) are intentionally NOT deleted here because they are shared
     # with Fast Sync stage 5. The Deep Knowledge Embedding stage will rebuild them
     # automatically from the new enrichment data when it runs.
 ]
+
+DEEP_ENRICHMENT_DIRS = ["atlas_roles"]
 
 
 def _backup_files_if_debug(idx_dir, file_list: list, label: str) -> Optional[str]:
@@ -843,9 +860,9 @@ def _backup_files_if_debug(idx_dir, file_list: list, label: str) -> Optional[str
     return str(backup_dir.relative_to(idx_dir))
 
 
-def _selective_delete(project_id: str, file_list: list, label: str) -> Dict[str, Any]:
-    """Delete specific files for a project. Shared helper for selective resets.
-    
+def _selective_delete(project_id: str, file_list: list, label: str, dirs: list | None = None) -> Dict[str, Any]:
+    """Delete specific files (and optionally directories) for a project.
+
     Uses _require_project (not _require_project_writable) so developer tools
     can reset data on inactive projects too.
     """
@@ -884,6 +901,18 @@ def _selective_delete(project_id: str, file_list: list, label: str) -> Dict[str,
             except Exception as e:
                 errors.append(f"{fname}: {e}")
 
+    # Clean up directories if specified
+    if dirs:
+        import shutil
+        for dirname in dirs:
+            dp = idx_dir / dirname
+            if dp.is_dir():
+                try:
+                    shutil.rmtree(dp)
+                    deleted.append(f"{dirname}/")
+                except Exception as e:
+                    errors.append(f"{dirname}/: {e}")
+
     # Invalidate in-memory trace cache so next load picks up the change
     _project_trace_indexes.pop(project_id, None)
 
@@ -897,7 +926,7 @@ def _selective_delete(project_id: str, file_list: list, label: str) -> Dict[str,
 @router.delete("/projects/{project_id}/atlas/destroy")
 def atlas_destroy(project_id: str) -> Dict[str, Any]:
     """Delete only the atlas data for a project."""
-    return _selective_delete(project_id, ATLAS_FILES, "atlas")
+    return _selective_delete(project_id, ATLAS_FILES, "atlas", dirs=ATLAS_DIRS)
 
 
 @router.delete("/projects/{project_id}/group-reasoning/destroy")
@@ -910,10 +939,10 @@ def group_reasoning_destroy(project_id: str) -> Dict[str, Any]:
 def deep_enrichment_destroy(project_id: str) -> Dict[str, Any]:
     """Delete all 6 deep enrichment stages for a project.
 
-    Removes: epistemic, group reasoning, modules, atlas, and knowledge embedding.
+    Removes: epistemic, group reasoning, modules, atlas, deepening, and deep knowledge manifests.
     Preserves: structural graph, augmentation, inferred edges (fast sync stages).
     """
-    return _selective_delete(project_id, DEEP_ENRICHMENT_FILES, "deep enrichment")
+    return _selective_delete(project_id, DEEP_ENRICHMENT_FILES, "deep enrichment", dirs=DEEP_ENRICHMENT_DIRS)
 
 
 @router.delete("/projects/{project_id}/index/destroy")
