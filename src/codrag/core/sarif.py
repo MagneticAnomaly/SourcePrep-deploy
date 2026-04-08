@@ -55,7 +55,7 @@ def is_sarif(data: Any) -> bool:
         return False
     if "$schema" in data and "sarif" in str(data.get("$schema", "")).lower():
         return True
-    if "version" in data and "runs" in data:
+    if "version" in data and "runs" in data and isinstance(data.get("runs"), list):
         return True
     return False
 
@@ -173,6 +173,7 @@ def enriched_to_sarif(
         # Track per-run stats for the summary.
         run_enriched = 0
         run_total = 0
+        run_high_risk = 0
 
         # Walk only the results that were *not* skipped during parsing (i.e.
         # those that had valid locations).  The parsed run.results list and the
@@ -184,19 +185,27 @@ def enriched_to_sarif(
             run_total += 1
 
             if enriched_finding.codrag is not None:
+                # Inject tool context from adapter
+                from codrag.core.sarif_adapters import get_tool_context
+                tool_ctx = get_tool_context(run.tool_name)
+                enriched_finding.codrag["tool_context"] = tool_ctx
+
                 out_result.setdefault("properties", {})
                 out_result["properties"]["codrag"] = enriched_finding.codrag
                 run_enriched += 1
+                if enriched_finding.codrag.get("risk_score", 0) >= 0.5:
+                    run_high_risk += 1
 
-        # Per-run summary.
+        # Per-run summary with per-run high_risk count.
+        key_insight = enrichment_result.summary.get("key_insight", "")
         out_run.setdefault("properties", {})
         out_run["properties"]["codrag"] = {
             "summary": {
                 "total": run_total,
                 "enriched": run_enriched,
                 "unenriched": run_total - run_enriched,
-                "high_risk": enrichment_result.summary.get("high_risk", 0),
-                "key_insight": enrichment_result.summary.get("key_insight", ""),
+                "high_risk": run_high_risk,
+                "key_insights": [key_insight] if key_insight else [],
             }
         }
 

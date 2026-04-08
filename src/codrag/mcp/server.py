@@ -2092,14 +2092,19 @@ class MCPServer:
     ) -> Dict[str, Any]:
         """Enrich SARIF input with CoDRAG structural context. Returns enriched SARIF."""
         from codrag.core.enrichment import enrich_sarif
-        from codrag.core.sarif import parse_sarif, sarif_to_simple
 
         project_id = await self._resolve_project_id(override=project_override)
 
-        # Extract file paths from SARIF for context building
-        sarif_input = parse_sarif(sarif_data)
-        simple = sarif_to_simple(sarif_input)
-        file_paths = set(f.get("file", "") for f in simple if f.get("file"))
+        # Extract file paths directly from raw SARIF (avoids double-parsing)
+        file_paths: set = set()
+        for run in sarif_data.get("runs", []):
+            for result in run.get("results", []):
+                locs = result.get("locations", [])
+                if locs:
+                    uri = locs[0].get("physicalLocation", {}).get("artifactLocation", {}).get("uri", "")
+                    if uri:
+                        fp = uri[len("file:///"):] if uri.startswith("file:///") else uri
+                        file_paths.add(fp)
 
         context = await self._build_enrichment_context(file_paths, project_id)
 
@@ -2183,6 +2188,59 @@ class MCPServer:
 
         result_dict["project_id"] = project_id
         result_dict["_to_markdown"] = "\n".join(md_lines)
+
+        # Phase 85: output_format="sarif" converts simple results to SARIF
+        if output_format == "sarif":
+            from codrag.core.sarif import SarifInput, SarifRun, enriched_to_sarif
+            # Build a synthetic SARIF wrapper for the simple findings
+            synthetic_sarif = SarifInput(
+                version="2.1.0",
+                runs=[SarifRun(
+                    tool_name="codrag-enrichment",
+                    results=findings,
+                    raw={
+                        "tool": {"driver": {"name": "codrag-enrichment", "rules": []}},
+                        "results": [
+                            {
+                                "ruleId": f.get("tool", "unknown"),
+                                "level": f.get("severity", "warning"),
+                                "message": {"text": f.get("message", "")},
+                                "locations": [{"physicalLocation": {
+                                    "artifactLocation": {"uri": f.get("file", "")},
+                                    "region": {"startLine": f.get("line", 0)},
+                                }}],
+                            }
+                            for f in findings
+                        ],
+                    },
+                )],
+                raw={
+                    "version": "2.1.0",
+                    "runs": [{
+                        "tool": {"driver": {"name": "codrag-enrichment", "rules": []}},
+                        "results": [
+                            {
+                                "ruleId": f.get("tool", "unknown"),
+                                "level": f.get("severity", "warning"),
+                                "message": {"text": f.get("message", "")},
+                                "locations": [{"physicalLocation": {
+                                    "artifactLocation": {"uri": f.get("file", "")},
+                                    "region": {"startLine": f.get("line", 0)},
+                                }}],
+                            }
+                            for f in findings
+                        ],
+                    }],
+                },
+            )
+            sarif_output = enriched_to_sarif(synthetic_sarif, result)
+            return {
+                "project_id": project_id,
+                "format": "sarif",
+                "sarif": sarif_output,
+                "_to_markdown": "\n".join(md_lines),
+            }
+
         return result_dict
 
     async def tool_audit_refactor(
@@ -3599,13 +3657,6 @@ class MCPServer:
 
                     if is_sarif(ext_findings):
                         # SARIF input — full SARIF enrichment pipeline
-                        result = await self.tool_audit_enrich_sarif(
-                            sarif_data=ext_findings,
-                            max_findings=args.get("max_findings", 200),
-                            project_override=project_override,
-                        )
-                    elif isinstance(ext_findings, dict) and "runs" in ext_findings:
-                        # Looks like SARIF passed as dict
                         result = await self.tool_audit_enrich_sarif(
                             sarif_data=ext_findings,
                             max_findings=args.get("max_findings", 200),
