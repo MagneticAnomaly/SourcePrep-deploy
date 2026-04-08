@@ -660,6 +660,7 @@ class LLMClient:
             text_parts = []
             thinking_parts = []
             tokens = 0
+            total_exec_ms = 0.0
             aborted = False
             abort_reason = ""
             for raw_line in resp.iter_lines(decode_unicode=True):
