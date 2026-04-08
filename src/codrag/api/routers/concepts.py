@@ -43,6 +43,10 @@ class SaveConceptRequest(BaseModel):
     status: Optional[str] = "active"
     anchors: Optional[List[str]] = None
     tags: Optional[List[str]] = None
+    # Phase 84: new concept fields
+    assertion: Optional[str] = None
+    doc_links: Optional[List[Dict[str, str]]] = None
+    superseded_by: Optional[str] = None
 
 
 class UpdateConceptRequest(BaseModel):
@@ -52,6 +56,9 @@ class UpdateConceptRequest(BaseModel):
     status: Optional[str] = None
     anchors: Optional[List[str]] = None
     tags: Optional[List[str]] = None
+    # Phase 84: new concept fields
+    assertion: Optional[str] = None
+    doc_links: Optional[List[Dict[str, str]]] = None
 
 
 class SearchConceptsRequest(BaseModel):
@@ -312,6 +319,8 @@ async def create_concept(project_id: str, body: SaveConceptRequest):
             confidence=1.0,  # User-created concepts are full confidence
             anchors=body.anchors,
             tags=body.tags,
+            assertion=body.assertion or "",
+            doc_links=body.doc_links or [],
         )
     except ValueError as e:
         raise ApiException(400, "VALIDATION_ERROR", str(e))
@@ -331,6 +340,8 @@ async def update_concept(project_id: str, concept_id: str, body: UpdateConceptRe
         status=body.status,
         anchors=body.anchors,
         tags=body.tags,
+        assertion=body.assertion,
+        doc_links=body.doc_links,
     )
     if not existed:
         raise ApiException(404, "NOT_FOUND", f"Concept {concept_id} not found")

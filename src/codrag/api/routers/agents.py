@@ -46,6 +46,11 @@ class HRGenerateRequest(BaseModel):
     mode: str = "list"  # list | auto | hybrid
     role_names: List[str] = []
     push: bool = False
+    dry_run: bool = False
+
+
+class HRAdoptRequest(BaseModel):
+    agents_dir: str = ".agents"
 
 
 class ResearchRunRequest(BaseModel):
@@ -114,7 +119,7 @@ def hr_generate(project_id: str, req: HRGenerateRequest) -> Dict[str, Any]:
     are preserved and expanded upon (edit-aware regeneration).
     """
     idx_dir, project_root, pid = _get_engine_context(project_id)
-    logger.info("[HR API] Generate request: mode=%s, role_names=%s, project=%s", req.mode, req.role_names, pid)
+    logger.info("[HR API] Generate request: mode=%s, role_names=%s, dry_run=%s, project=%s", req.mode, req.role_names, req.dry_run, pid)
 
     core = _make_core(pid, idx_dir, project_root)
 
@@ -123,6 +128,15 @@ def hr_generate(project_id: str, req: HRGenerateRequest) -> Dict[str, Any]:
 
     llm_fn = _get_llm_fn(pid)
     logger.info("[HR API] LLM function resolved, starting generation ...")
+
+    # Dry-run: preview without writing files
+    if req.dry_run:
+        report = engine.dry_run(
+            llm_fn=llm_fn,
+            mode=req.mode,
+            role_names=req.role_names if req.role_names else None,
+        )
+        return ok(report)
 
     if req.mode == "list":
         if not req.role_names:
@@ -211,17 +225,49 @@ def hr_sync(project_id: str) -> Dict[str, Any]:
 @router.post("/projects/{project_id}/agents/hr/audit")
 def hr_audit(project_id: str) -> Dict[str, Any]:
     """Run drift detection on the current roster."""
-    idx_dir, _, pid = _get_engine_context(project_id)
+    idx_dir, project_root, pid = _get_engine_context(project_id)
+    core = _make_core(pid, idx_dir, project_root)
     from codrag.agents.hr.engine import StaffingEngine
-    engine = StaffingEngine(index_dir=idx_dir, project_id=pid)
+    engine = StaffingEngine(core=core)
     report = engine.audit_roles()
     return ok({
         "role_fitness": [
             {"slug": rf.slug, "display_name": rf.display_name,
-             "fitness_score": rf.fitness_score, "recommendation": rf.recommendation}
+             "fitness_score": rf.fitness_score, "recommendation": rf.recommendation,
+             "details": rf.details}
             for rf in report.role_fitness
         ],
         "coverage_gaps": report.coverage_gaps,
+        "overlap_warnings": report.overlap_warnings,
+    })
+
+
+@router.post("/projects/{project_id}/agents/hr/adopt")
+def hr_adopt(project_id: str, req: HRAdoptRequest) -> Dict[str, Any]:
+    """Import existing agent files and enrich with CoDRAG intelligence.
+
+    Reads AGENTS.md from each subdirectory of agents_dir, then generates
+    role-filtered KNOWLEDGE.md and SOUL.md (if missing) for each role.
+    """
+    idx_dir, project_root, pid = _get_engine_context(project_id)
+    core = _make_core(pid, idx_dir, project_root)
+
+    from codrag.agents.hr.engine import StaffingEngine
+    engine = StaffingEngine(core=core)
+
+    llm_fn = _get_llm_fn(pid)
+
+    agents_path = Path(req.agents_dir)
+    if not agents_path.is_absolute():
+        agents_path = project_root / agents_path
+
+    adopted = engine.adopt_existing_agents(agents_path, llm_fn)
+    return ok({
+        "adopted_count": len(adopted),
+        "adopted": [
+            {"slug": r.slug, "display_name": r.display_name}
+            for r in adopted
+        ],
     })
 
 

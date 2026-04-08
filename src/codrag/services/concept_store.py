@@ -62,7 +62,7 @@ VALID_CATEGORIES = {
 }
 
 # Valid statuses
-VALID_STATUSES = {"seed", "active", "archived", "superseded", "proposed"}
+VALID_STATUSES = {"seed", "active", "archived", "superseded", "proposed", "deprecated"}
 
 
 # ── Data Classes ────────────────────────────────────────────────
@@ -114,12 +114,10 @@ class Concept:
             d["valid_from"] = self.valid_from
         if self.valid_to is not None:
             d["valid_to"] = self.valid_to
-        if self.assertion:
-            d["assertion"] = self.assertion
-        if self.doc_links:
-            d["doc_links"] = self.doc_links
-        if self.superseded_by:
-            d["superseded_by"] = self.superseded_by
+        # Phase 84: always include new fields for API consistency
+        d["assertion"] = self.assertion
+        d["doc_links"] = self.doc_links
+        d["superseded_by"] = self.superseded_by
         return d
 
     @staticmethod
@@ -448,6 +446,8 @@ class ConceptStore:
         status: Optional[str] = None,
         anchors: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
+        assertion: Optional[str] = None,
+        doc_links: Optional[List[Dict[str, str]]] = None,
     ) -> bool:
         """Update a concept.  Returns True if it existed."""
         conn = self._require_conn()
@@ -478,6 +478,13 @@ class ConceptStore:
         if tags is not None:
             updates.append("tags = ?")
             params.append(json.dumps(tags))
+        # Phase 84: new fields
+        if assertion is not None:
+            updates.append("assertion = ?")
+            params.append(assertion)
+        if doc_links is not None:
+            updates.append("doc_links = ?")
+            params.append(json.dumps(doc_links))
 
         if not updates:
             return False
@@ -602,11 +609,18 @@ class ConceptStore:
 
         Sets the old concept's status to 'superseded' and records the
         new concept's ID in superseded_by.  Returns True if the old
-        concept existed and was updated.
+        concept existed and was updated.  Raises ValueError if old_id
+        does not exist.
         """
         conn = self._require_conn()
         now = time.time()
         with self._lock:
+            # Verify old concept exists
+            exists = conn.execute(
+                "SELECT 1 FROM concepts WHERE id = ?", (old_id,)
+            ).fetchone()
+            if not exists:
+                raise ValueError(f"Cannot supersede: concept {old_id} not found")
             cur = conn.execute(
                 """UPDATE concepts
                    SET status = 'superseded', superseded_by = ?, updated_at = ?, valid_to = ?

@@ -1,8 +1,9 @@
 """Concept conflict detection for CoDRAG.
 
-Detects contradictory active concepts that share anchors.
-Only constraint and architecture concepts can conflict.
-Oldest concept wins for code enforcement.
+Detects POTENTIAL conflicts: active constraint/architecture concepts that
+share anchors. Shared anchors are a heuristic — two concepts anchored to
+the same file may or may not actually contradict. Human review is required
+to confirm conflicts. Oldest concept wins for code enforcement until resolved.
 """
 from __future__ import annotations
 

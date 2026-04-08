@@ -284,7 +284,7 @@ def _detect_concept_conflicts(
         findings.append(StructuralFinding(
             finding_type="concept_conflict",
             file_path=primary_file,
-            severity="warning",
+            severity="moderate",
             title=f"Conflicting concepts: '{conflict.concept_a_title}' vs '{conflict.concept_b_title}'",
             description=(
                 f"Two active concepts share anchors ({', '.join(conflict.shared_anchors)}) "

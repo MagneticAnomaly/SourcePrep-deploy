@@ -385,7 +385,7 @@ _CORE_TOOLS = [
                 "status": {
                     "type": "string",
                     "description": "(get) Filter by status.",
-                    "enum": ["seed", "active", "archived", "proposed", "superseded"],
+                    "enum": ["seed", "active", "archived", "proposed", "superseded", "deprecated"],
                 },
                 "as_of": {
                     "type": "number",

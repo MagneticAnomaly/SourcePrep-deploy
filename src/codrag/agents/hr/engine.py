@@ -298,8 +298,6 @@ class StaffingEngine:
         passed to the LLM as ``previous_content`` so human edits (e.g. the user
         adding "manages the storybook") are preserved and expanded upon.
         """
-        atlas_excerpt = atlas[:2000] if atlas else "(no atlas available)"
-
         # ── Load previous content from disk (edit-aware regeneration) ──
         prev_agents, prev_soul = self._load_existing_files(slug)
         if prev_agents:
@@ -313,6 +311,12 @@ class StaffingEngine:
                 slug, len(prev_soul),
             )
 
+        # 0. Build role-filtered context (used by AGENTS.md and KNOWLEDGE.md)
+        role_atlas, scored_files = self._build_role_knowledge(slug, atlas)
+        top_file_paths = [fp for fp, _score in scored_files[:10]]
+        # Use role-filtered atlas for LLM prompts; fall back to truncated global
+        atlas_excerpt = role_atlas if role_atlas else (atlas[:2000] if atlas else "(no atlas available)")
+
         # 1. Generate AGENTS.md via LLM
         logger.info("[HR/%s] Generating AGENTS.md ...", slug)
         agents_prompt = render_agents_md_prompt(
@@ -320,7 +324,7 @@ class StaffingEngine:
             role_slug=slug,
             atlas_excerpt=atlas_excerpt,
             modules_summary=modules_summary,
-            recommended_files=[],
+            recommended_files=top_file_paths,
             previous_content=prev_agents,
         )
         agents_md, agents_tokens = llm_fn(agents_prompt, system=AGENTS_MD_SYSTEM)
@@ -339,7 +343,6 @@ class StaffingEngine:
 
         # 3. Generate KNOWLEDGE.md via role-filtered sub-atlas (no LLM)
         logger.info("[HR/%s] Rendering role-filtered KNOWLEDGE.md ...", slug)
-        role_atlas, scored_files = self._build_role_knowledge(slug, atlas)
         knowledge_md = render_knowledge_md(
             role_name=display_name,
             role_slug=slug,
@@ -355,6 +358,7 @@ class StaffingEngine:
             agents_md=agents_md,
             soul_md=soul_md,
             knowledge_md=knowledge_md,
+            recommended_files=top_file_paths,
         )
 
         # 4. Write files to disk
@@ -589,11 +593,13 @@ class StaffingEngine:
     def audit_roles(self) -> DriftReport:
         """Analyze drift between existing roles and current codebase state.
 
-        Computes a fitness score per role by checking whether the modules
-        and domain tags referenced in the role's AGENTS.md still exist.
+        Uses RoleVector-based fitness scoring: resolves each role to a
+        RoleVector, scores all indexed files against it, and measures how
+        well the role's declared scope matches the files that actually
+        score highly for it. Also detects cross-role overlaps and coverage gaps.
 
         Returns:
-            DriftReport with per-role fitness and cross-role analysis.
+            DriftReport with per-role fitness, coverage gaps, and overlap warnings.
         """
         roles = self._roster.list_roles()
         if not roles:
@@ -601,11 +607,9 @@ class StaffingEngine:
 
         modules = self._load_modules()
         module_names = {m.get("name", "").lower() for m in modules}
-        all_tags: set = set()
-        for m in modules:
-            all_tags.update(t.lower() for t in m.get("domain_tags", []))
 
         fitness_list: List[RoleFitness] = []
+        role_top_files: Dict[str, set] = {}  # slug -> set of top-scoring files
         covered_modules: set = set()
 
         for slug in roles:
@@ -613,49 +617,137 @@ class StaffingEngine:
             if role is None:
                 continue
 
-            score = self._compute_role_fitness(role, module_names, all_tags)
+            score, top_files, details = self._compute_role_fitness_vector(role)
             fitness_list.append(RoleFitness(
                 slug=role.slug,
                 display_name=role.display_name,
                 fitness_score=score,
                 recommendation=RoleFitness.classify(score),
+                details=details,
             ))
+            role_top_files[slug] = top_files
 
+            # Track module coverage: from scored files first, text match fallback
             for mn in module_names:
-                if mn in role.agents_md.lower():
+                if top_files and any(mn in fp.lower() for fp in top_files):
+                    covered_modules.add(mn)
+                elif mn in role.agents_md.lower():
                     covered_modules.add(mn)
 
+        # Coverage gaps: modules with no role scoring highly for them
         gaps = [mn for mn in module_names if mn not in covered_modules and mn]
+
+        # Cross-role overlap detection
+        overlap_warnings = self._detect_role_overlaps(role_top_files)
 
         return DriftReport(
             role_fitness=fitness_list,
             coverage_gaps=gaps,
+            overlap_warnings=overlap_warnings,
         )
 
-    def _compute_role_fitness(
+    def _compute_role_fitness_vector(
         self,
         role: RoleSpec,
-        module_names: set,
-        domain_tags: set,
-    ) -> float:
-        """Score how well a role's definition matches current codebase.
+    ) -> Tuple[float, set, str]:
+        """Score role fitness using RoleVector projection against the index.
 
-        Checks:
-        - Do modules referenced in AGENTS.md still exist? (weight: 0.5)
-        - Do domain tags in KNOWLEDGE.md still exist? (weight: 0.3)
-        - Is the role's content non-empty? (weight: 0.2)
+        Resolves the role slug to a RoleVector, scores all indexed files,
+        and measures alignment between the role's declared scope (recommended_files)
+        and files that actually score highly.
+
+        Returns:
+            Tuple of (fitness_score, top_file_paths, details_string).
         """
-        content = (role.agents_md + " " + role.knowledge_md).lower()
+        try:
+            from codrag.core.atlas.role_resolver import resolve_role
+            from codrag.core.atlas.role_projection import _python_scoring
 
+            role_vector = resolve_role(role.slug)
+            scored = _python_scoring(role_vector, self._index_dir)
+
+            if not scored:
+                # No index data — fall back to content-based heuristic
+                return self._compute_role_fitness_fallback(role), set(), "no index data"
+
+            # Top files: those scoring above threshold
+            top_files = {fp for fp, _entry, score in scored[:30] if score >= 0.25}
+
+            # Alignment: how many of the role's recommended files score highly?
+            declared = set(role.recommended_files) if role.recommended_files else set()
+            if declared:
+                overlap = declared & top_files
+                alignment = len(overlap) / len(declared)
+            else:
+                # No declared files — measure by average score of top-k
+                top_scores = [score for _, _, score in scored[:20]]
+                alignment = sum(top_scores) / len(top_scores) if top_scores else 0.0
+
+            # Content quality score
+            content_ok = 1.0 if len(role.agents_md) > 50 and len(role.soul_md) > 20 else 0.5
+
+            # Composite: 60% vector alignment, 20% content quality, 20% top-file strength
+            top_k = scored[:10]
+            top_strength = sum(s for _, _, s in top_k) / len(top_k) if top_k else 0.3
+            fitness = round(alignment * 0.6 + content_ok * 0.2 + top_strength * 0.2, 3)
+
+            details = (
+                f"vector alignment={alignment:.2f}, "
+                f"top_strength={top_strength:.2f}, "
+                f"declared_files={len(declared)}, "
+                f"top_scored={len(top_files)}"
+            )
+            return fitness, top_files, details
+
+        except Exception as exc:
+            logger.debug("Vector fitness failed for %s: %s", role.slug, exc)
+            return self._compute_role_fitness_fallback(role), set(), f"fallback: {exc}"
+
+    def _compute_role_fitness_fallback(self, role: RoleSpec) -> float:
+        """Fallback text-match fitness when index data is unavailable."""
+        modules = self._load_modules()
+        module_names = {m.get("name", "").lower() for m in modules}
+        all_tags: set = set()
+        for m in modules:
+            all_tags.update(t.lower() for t in m.get("domain_tags", []))
+
+        content = (role.agents_md + " " + role.knowledge_md).lower()
         referenced = sum(1 for mn in module_names if mn and mn in content)
         module_score = min(1.0, referenced / max(1, len(module_names) * 0.3))
-
-        tag_hits = sum(1 for t in domain_tags if t and t in content)
-        tag_score = min(1.0, tag_hits / max(1, len(domain_tags) * 0.3))
-
+        tag_hits = sum(1 for t in all_tags if t and t in content)
+        tag_score = min(1.0, tag_hits / max(1, len(all_tags) * 0.3))
         content_score = 1.0 if len(role.agents_md) > 50 and len(role.soul_md) > 20 else 0.5
-
         return round(module_score * 0.5 + tag_score * 0.3 + content_score * 0.2, 3)
+
+    def _detect_role_overlaps(
+        self,
+        role_top_files: Dict[str, set],
+    ) -> List[str]:
+        """Detect significant file overlap between roles.
+
+        Two roles sharing >50% of their top-scoring files indicates
+        either redundancy (merge candidates) or unclear boundaries.
+        """
+        warnings: List[str] = []
+        slugs = list(role_top_files.keys())
+        for i, slug_a in enumerate(slugs):
+            files_a = role_top_files[slug_a]
+            if not files_a:
+                continue
+            for slug_b in slugs[i + 1:]:
+                files_b = role_top_files[slug_b]
+                if not files_b:
+                    continue
+                overlap = files_a & files_b
+                union = files_a | files_b
+                jaccard = len(overlap) / len(union) if union else 0.0
+                if jaccard > 0.4:
+                    warnings.append(
+                        f"'{slug_a}' and '{slug_b}' share {len(overlap)} "
+                        f"top files (Jaccard={jaccard:.0%}) — "
+                        f"consider merging or clarifying boundaries"
+                    )
+        return warnings
 
     # -- Org Chart --
 
@@ -790,6 +882,192 @@ class StaffingEngine:
                                agent_id, role.slug)
 
         return result
+
+    # -- Dry Run --
+
+    def dry_run(
+        self,
+        llm_fn: LLMFn,
+        mode: str = "auto",
+        role_names: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Preview what generation would produce without writing files or syncing.
+
+        Returns a report dict with proposed roster, drift analysis (if existing
+        roles), and estimated knowledge sizes — but no side effects.
+
+        Args:
+            llm_fn: LLM callable for role inference.
+            mode: "auto", "list", or "hybrid".
+            role_names: Required for "list" and "hybrid" modes.
+
+        Returns:
+            Dict with keys: proposed_roles, readiness, drift (if applicable),
+            estimated_knowledge_sizes.
+        """
+        report: Dict[str, Any] = {}
+
+        # Readiness
+        readiness = self.check_readiness()
+        report["readiness"] = {
+            "score": readiness.score,
+            "ready_for_auto": readiness.ready_for_auto,
+            "ready_for_list": readiness.ready_for_list,
+            "missing": readiness.missing,
+        }
+
+        modules = self._load_modules()
+        atlas = self._load_atlas()
+
+        # Infer roles
+        if mode == "auto" or mode == "hybrid":
+            inferred = self._infer_roles(modules, atlas, llm_fn)
+            proposed = [r["display_name"] for r in inferred]
+            if mode == "hybrid" and role_names:
+                required_slugs = {_normalize_slug(n) for n in role_names}
+                merged = list(role_names)  # copy to avoid mutating caller
+                for name in proposed:
+                    if _normalize_slug(name) not in required_slugs:
+                        merged.append(name)
+                proposed = merged
+        elif role_names:
+            proposed = role_names
+            inferred = [{"display_name": n, "slug": _normalize_slug(n)} for n in role_names]
+        else:
+            proposed = []
+            inferred = []
+
+        report["proposed_roles"] = inferred
+
+        # Estimate knowledge sizes for each proposed role
+        sizes: Dict[str, int] = {}
+        for name in proposed:
+            slug = _normalize_slug(name)
+            role_atlas, scored_files = self._build_role_knowledge(slug, atlas)
+            sizes[slug] = len(role_atlas)
+        report["estimated_knowledge_sizes"] = sizes
+
+        # Drift against existing roster
+        existing = self._roster.list_roles()
+        if existing:
+            drift = self.audit_roles()
+            report["drift"] = {
+                "role_fitness": [
+                    {
+                        "slug": rf.slug,
+                        "display_name": rf.display_name,
+                        "fitness_score": rf.fitness_score,
+                        "recommendation": rf.recommendation,
+                        "details": rf.details,
+                    }
+                    for rf in drift.role_fitness
+                ],
+                "coverage_gaps": drift.coverage_gaps,
+                "overlap_warnings": drift.overlap_warnings,
+            }
+
+        return report
+
+    # -- Adoption Mode --
+
+    def adopt_existing_agents(
+        self,
+        agents_dir: Path,
+        llm_fn: LLMFn,
+    ) -> List[RoleSpec]:
+        """Import existing agent files and enrich them with CoDRAG intelligence.
+
+        Reads AGENTS.md (and optionally SOUL.md, KNOWLEDGE.md) from each
+        subdirectory of agents_dir, then regenerates KNOWLEDGE.md with
+        role-filtered sub-atlas and populates recommended_files via scoring.
+
+        Args:
+            agents_dir: Path containing agent subdirectories (e.g., `.agents/`).
+            llm_fn: LLM callable for regenerating SOUL.md if missing.
+
+        Returns:
+            List of enriched RoleSpec instances.
+        """
+        if not agents_dir.exists():
+            raise ValueError(f"Agents directory does not exist: {agents_dir}")
+
+        # Load shared data once (not per-role)
+        atlas = self._load_atlas()
+        modules = self._load_modules()
+        all_tags: List[str] = []
+        for m in modules:
+            all_tags.extend(m.get("domain_tags", []))
+        unique_tags = list(set(all_tags))
+
+        adopted: List[RoleSpec] = []
+        for role_dir in sorted(agents_dir.iterdir()):
+            if not role_dir.is_dir():
+                continue
+
+            slug = role_dir.name
+            agents_path = role_dir / "AGENTS.md"
+            if not agents_path.exists():
+                logger.debug("[HR/adopt] Skipping %s — no AGENTS.md", slug)
+                continue
+
+            logger.info("[HR/adopt] Adopting role: %s", slug)
+
+            agents_md = agents_path.read_text(encoding="utf-8")
+            soul_md = ""
+            soul_path = role_dir / "SOUL.md"
+            if soul_path.exists():
+                soul_md = soul_path.read_text(encoding="utf-8")
+
+            # Derive display name from slug or first line of AGENTS.md
+            display_name = slug.replace("_", " ").title()
+            for line in agents_md.split("\n"):
+                stripped = line.strip().lstrip("#").strip()
+                if stripped:
+                    display_name = stripped
+                    break
+
+            # Build role-filtered knowledge
+            role_atlas, scored_files = self._build_role_knowledge(slug, atlas)
+            top_file_paths = [fp for fp, _score in scored_files[:10]]
+
+            knowledge_md = render_knowledge_md(
+                role_name=display_name,
+                role_slug=slug,
+                atlas_snapshot=role_atlas,
+                recommended_files=scored_files,
+                domain_focus=unique_tags,
+                project_id=self._project_id,
+            )
+
+            # Generate SOUL.md if missing
+            if not soul_md:
+                logger.info("[HR/adopt/%s] No SOUL.md found, generating ...", slug)
+                atlas_excerpt = atlas[:2000] if atlas else ""
+                soul_prompt = render_soul_md_prompt(
+                    role_name=display_name,
+                    role_slug=slug,
+                    atlas_excerpt=atlas_excerpt,
+                )
+                soul_md, _ = llm_fn(soul_prompt, system=SOUL_MD_SYSTEM)
+
+            role = RoleSpec(
+                slug=slug,
+                display_name=display_name,
+                agents_md=agents_md,
+                soul_md=soul_md,
+                knowledge_md=knowledge_md,
+                recommended_files=top_file_paths,
+            )
+
+            self._roster.save_role(role)
+            written = self.write_role_files(role)
+            for fp in written:
+                logger.info("[HR/adopt/%s] Wrote: %s", slug, fp)
+
+            adopted.append(role)
+
+        logger.info("[HR/adopt] Adopted %d role(s)", len(adopted))
+        return adopted
 
     # -- Roster Access --
 
