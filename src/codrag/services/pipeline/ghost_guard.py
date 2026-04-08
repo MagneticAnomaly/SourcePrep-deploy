@@ -61,16 +61,48 @@ def purge_ghost_locks(
     if not locked_projects:
         return 0
 
+    # Phase 82: Also check the pipeline orchestrator state machine.
+    # There's a brief window between worker completion and the orchestrator
+    # advancing to the next stage where no build thread is alive but the
+    # lock is legitimately held.  If the pipeline state machine is still
+    # in RUNNING state, the lock is valid — don't purge it.
+    pipeline_orch = None
+    try:
+        from codrag.services.pipeline_orchestrator import pipeline_orchestrator as _po
+        pipeline_orch = _po
+    except ImportError:
+        pass
+
     purged = 0
     for project_id in locked_projects:
-        if not build_orchestrator.is_any_active(project_id):
-            logger.warning(
-                "Ghost Guard: project %s holds scheduler lock but has no "
-                "active build threads — purging ghost lock",
-                project_id,
-            )
-            scheduler.clean_locks(project_id)
-            purged += 1
+        if build_orchestrator.is_any_active(project_id):
+            continue  # Thread alive — lock is valid
+
+        # No build thread — but is the pipeline state machine still running?
+        if pipeline_orch is not None:
+            try:
+                ps = pipeline_orch.status(project_id)
+                pipeline_active = any(
+                    g.get("is_active") for g in [ps.get("fast_sync", {}), ps.get("deep_enrichment", {})]
+                    if isinstance(g, dict)
+                )
+                if pipeline_active:
+                    logger.debug(
+                        "Ghost Guard: project %s has no build threads but pipeline "
+                        "state machine is active — skipping purge (transition window)",
+                        project_id,
+                    )
+                    continue
+            except Exception:
+                pass  # Can't check — fall through to purge
+
+        logger.warning(
+            "Ghost Guard: project %s holds scheduler lock but has no "
+            "active build threads — purging ghost lock",
+            project_id,
+        )
+        scheduler.clean_locks(project_id)
+        purged += 1
 
     if purged > 0:
         event_bus.emit("queue_changed", {
