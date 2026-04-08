@@ -126,3 +126,30 @@ def test_structural_category_cycles_only():
     findings = run_structural_audit(ctx, category="cycles")
     for f in findings:
         assert f.finding_type == "import_cycle"
+
+
+def test_structural_detects_concept_conflicts():
+    ctx = _make_mock_context()
+    ctx["concepts"] = [
+        {"id": "c1", "title": "Use dispatch pattern", "anchors": ["src/server.py"],
+         "category": "architecture", "status": "active", "created_at": 1000},
+        {"id": "c2", "title": "Use inline handlers", "anchors": ["src/server.py"],
+         "category": "architecture", "status": "active", "created_at": 2000},
+    ]
+    findings = run_structural_audit(ctx)
+    conflict_findings = [f for f in findings if f.finding_type == "concept_conflict"]
+    assert len(conflict_findings) == 1
+    assert "dispatch" in conflict_findings[0].title.lower() or "inline" in conflict_findings[0].title.lower()
+
+
+def test_structural_category_concept_violation():
+    ctx = _make_mock_context()
+    ctx["concepts"] = [
+        {"id": "c1", "title": "A", "anchors": ["src/server.py"],
+         "category": "constraint", "status": "active", "created_at": 1000},
+        {"id": "c2", "title": "B", "anchors": ["src/server.py"],
+         "category": "constraint", "status": "active", "created_at": 2000},
+    ]
+    findings = run_structural_audit(ctx, category="concept_violation")
+    for f in findings:
+        assert f.finding_type == "concept_conflict"

@@ -1667,6 +1667,9 @@ class MCPServer:
         content: Optional[str] = None,
         category: Optional[str] = None,
         anchors: Optional[List[str]] = None,
+        assertion: Optional[str] = None,  # Phase 84
+        doc_links: Optional[List[Dict[str, str]]] = None,  # Phase 84
+        supersede: Optional[str] = None,  # Phase 84
         status: Optional[str] = None,
         as_of: Optional[float] = None,  # Phase 80: temporal queries
         project_override: Optional[str] = None,
@@ -1695,14 +1698,30 @@ class MCPServer:
             }
             if anchors:
                 payload["anchors"] = anchors
+            # Phase 84: new concept fields
+            if assertion:
+                payload["assertion"] = assertion
+            if doc_links:
+                payload["doc_links"] = doc_links
             data = await self._api_post(
                 f"/projects/{project_id}/concepts", payload
             )
             cid = (data or {}).get("id", "unknown") if isinstance(data, dict) else "unknown"
+
+            # Phase 84: handle supersede — mark old concept as superseded
+            if supersede and cid != "unknown":
+                try:
+                    from codrag.services.concept_store import concept_store
+                    concept_store.supersede(supersede, cid)
+                except Exception as e:
+                    logger.debug("Failed to supersede concept %s: %s", supersede, e)
+
             msg = (
                 f"Concept saved: \"{title}\" (id={cid}). "
                 f"It will persist in the concept store and appear in ambient context."
             )
+            if supersede:
+                msg += f" Supersedes concept {supersede}."
             return {
                 "saved": True,
                 "id": cid,
@@ -1746,6 +1765,13 @@ class MCPServer:
                         entry["anchors"] = c["anchors"]
                     if c.get("stale"):
                         entry["stale"] = True
+                    # Phase 84: include new fields when present
+                    if c.get("assertion"):
+                        entry["assertion"] = c["assertion"]
+                    if c.get("doc_links"):
+                        entry["doc_links"] = c["doc_links"]
+                    if c.get("superseded_by"):
+                        entry["superseded_by"] = c["superseded_by"]
                     concepts.append(entry)
 
             # Cap results to avoid flooding agent context
@@ -1766,8 +1792,11 @@ class MCPServer:
                     anchors_str = ""
                     if c.get("anchors"):
                         anchors_str = f" → {', '.join(c['anchors'][:3])}"
+                    assertion_str = ""
+                    if c.get("assertion"):
+                        assertion_str = f"\n  Assertion: _{c['assertion']}_"
                     md_lines.append(
-                        f"- **{c['title']}** [{c['category']}]{status_tag}{stale_tag}{anchors_str}\n"
+                        f"- **{c['title']}** [{c['category']}]{status_tag}{stale_tag}{anchors_str}{assertion_str}\n"
                         f"  {c['content'][:200]}"
                     )
                 concepts_md = "\n".join(md_lines)
@@ -3617,6 +3646,9 @@ class MCPServer:
                     content=args.get("content"),
                     category=args.get("category"),
                     anchors=args.get("anchors"),
+                    assertion=args.get("assertion"),  # Phase 84
+                    doc_links=args.get("doc_links"),  # Phase 84
+                    supersede=args.get("supersede"),  # Phase 84
                     status=args.get("status"),
                     as_of=args.get("as_of"),  # Phase 80: temporal queries
                     project_override=project_override,

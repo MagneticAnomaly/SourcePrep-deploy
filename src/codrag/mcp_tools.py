@@ -356,15 +356,36 @@ _CORE_TOOLS = [
                     "enum": ["architecture", "domain", "product", "epistemic", "process", "brand", "security", "technical", "pattern", "constraint", "decision"],
                     "default": "technical",
                 },
+                "assertion": {
+                    "type": "string",
+                    "description": "(save) A testable statement about what should be true. Used for violation detection.",
+                },
                 "anchors": {
                     "type": "array",
                     "items": {"type": "string"},
                     "description": "(save) File paths the concept relates to. Concept is flagged stale when these change.",
                 },
+                "doc_links": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string", "description": "File or directory path"},
+                            "label": {"type": "string", "description": "Display label"},
+                            "type": {"type": "string", "enum": ["source", "doc", "config", "external"]},
+                        },
+                        "required": ["path"],
+                    },
+                    "description": "(save) Linked documentation, source files, or folders.",
+                },
+                "supersede": {
+                    "type": "string",
+                    "description": "(save) ID of an existing concept that this new concept supersedes.",
+                },
                 "status": {
                     "type": "string",
                     "description": "(get) Filter by status.",
-                    "enum": ["seed", "active", "archived"],
+                    "enum": ["seed", "active", "archived", "proposed", "superseded", "deprecated"],
                 },
                 "as_of": {
                     "type": "number",

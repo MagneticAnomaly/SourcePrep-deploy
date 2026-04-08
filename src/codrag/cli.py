@@ -1513,6 +1513,7 @@ def hr_readiness(
 def hr_generate(
     role_names: Optional[List[str]] = typer.Argument(None, help="Role names (for list/hybrid mode)"),
     mode: str = typer.Option("list", "--mode", "-m", help="Generation mode: list, auto, hybrid"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Preview what would be generated without writing files"),
     project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID"),
     host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
     port: int = typer.Option(8400, "--port", help="Server port"),
@@ -1524,10 +1525,40 @@ def hr_generate(
       codrag hr-generate "Backend Dev" "API Engineer" --mode list
       codrag hr-generate --mode auto
       codrag hr-generate "CTO" --mode hybrid
+      codrag hr-generate --mode auto --dry-run
     """
     base = _base_url(host, port)
     pid = _resolve_project(base, project_id)
-    payload = {"mode": mode, "role_names": role_names or []}
+    payload = {"mode": mode, "role_names": role_names or [], "dry_run": dry_run}
+
+    if dry_run:
+        console.print(f"[cyan]Dry run — previewing {mode} mode...[/cyan]")
+        data = _post_json(f"{base}/projects/{pid}/agents/hr/generate", payload)
+        readiness = data.get("readiness", {})
+        console.print(f"\nReadiness: {readiness.get('score', 0):.2f}")
+        proposed = data.get("proposed_roles", [])
+        console.print(f"\n[bold]Proposed roles ({len(proposed)}):[/bold]")
+        for r in proposed:
+            console.print(f"  - {r.get('display_name', '?')} ({r.get('slug', '?')})")
+            if r.get("justification"):
+                console.print(f"    {r['justification'][:120]}")
+        sizes = data.get("estimated_knowledge_sizes", {})
+        if sizes:
+            console.print("\n[bold]Estimated KNOWLEDGE.md sizes:[/bold]")
+            for slug, size in sizes.items():
+                console.print(f"  - {slug}: {size:,} chars")
+        drift = data.get("drift")
+        if drift:
+            console.print("\n[bold]Drift vs existing roster:[/bold]")
+            for rf in drift.get("role_fitness", []):
+                score = rf["fitness_score"]
+                color = "green" if score > 0.8 else "yellow" if score > 0.6 else "red"
+                console.print(f"  - {rf['slug']}: [{color}]{score:.2f}[/{color}] ({rf['recommendation']})")
+            overlaps = drift.get("overlap_warnings", [])
+            for w in overlaps:
+                console.print(f"  [yellow]⚠ {w}[/yellow]")
+        return
+
     console.print(f"[cyan]Generating roles ({mode} mode)...[/cyan]")
     data = _post_json(f"{base}/projects/{pid}/agents/hr/generate", payload)
     count = data.get("roles_generated", 0)
@@ -1600,6 +1631,9 @@ def hr_audit(
     gaps = data.get("coverage_gaps", [])
     if gaps:
         console.print(f"\n[yellow]Coverage gaps:[/yellow] {', '.join(gaps)}")
+    overlaps = data.get("overlap_warnings", [])
+    for w in overlaps:
+        console.print(f"[yellow]⚠ {w}[/yellow]")
 
 
 @app.command("hr-sync")
@@ -1620,6 +1654,38 @@ def hr_sync(
     console.print(f"[green]Synced {len(synced)} role(s) to Paperclip:[/green]")
     for slug, agent_id in synced.items():
         console.print(f"  - {slug} -> {agent_id}")
+
+
+@app.command("hr-adopt")
+def hr_adopt(
+    agents_dir: str = typer.Argument(".agents", help="Path to directory containing agent subdirectories"),
+    project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
+    port: int = typer.Option(8400, "--port", help="Server port"),
+) -> None:
+    """Import existing agent files and enrich with CoDRAG intelligence.
+
+    \b
+    Reads AGENTS.md from each subdirectory of the given path, then generates
+    role-filtered KNOWLEDGE.md and SOUL.md (if missing) for each role.
+
+    \b
+    Examples:
+      codrag hr-adopt .agents
+      codrag hr-adopt /path/to/agents --project my-project
+    """
+    base = _base_url(host, port)
+    pid = _resolve_project(base, project_id)
+    console.print(f"[cyan]Adopting agents from {agents_dir}...[/cyan]")
+    data = _post_json(f"{base}/projects/{pid}/agents/hr/adopt", {"agents_dir": agents_dir})
+    count = data.get("adopted_count", 0)
+    adopted = data.get("adopted", [])
+    if not adopted:
+        console.print("[dim]No agents found to adopt.[/dim]")
+        return
+    console.print(f"[green]Adopted {count} role(s):[/green]")
+    for r in adopted:
+        console.print(f"  - {r.get('slug', '?')} ({r.get('display_name', '?')})")
 
 
 @app.command("research-run")
@@ -1786,6 +1852,8 @@ def agents_overview(
     cmd_table.add_row("codrag hr-generate --mode auto", "Auto-infer roles from codebase")
     cmd_table.add_row("codrag hr-roster", "List generated roles")
     cmd_table.add_row("codrag hr-audit", "Run drift detection on roles")
+    cmd_table.add_row("codrag hr-generate --dry-run", "Preview what generation would produce")
+    cmd_table.add_row("codrag hr-adopt .agents", "Import existing agents and enrich with CoDRAG")
     cmd_table.add_row("codrag hr-sync", "Sync roles to Paperclip")
     cmd_table.add_row("", "")
     cmd_table.add_row("codrag research-run", "Mine audit findings, formulate plans")

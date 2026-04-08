@@ -208,9 +208,11 @@ def render_auto_roles_prompt(
         finding_lines = []
         for f in audit_findings[:20]:  # Cap at 20 to stay within prompt budget
             files = f.get("affected_files", "")
+            desc = f.get("description", "")
+            desc_truncated = (desc[:147] + "...") if len(desc) > 150 else desc
             finding_lines.append(
                 f"- [{f.get('severity', 'info').upper()}] {f.get('title', '')} "
-                f"({f.get('category', '')}): {f.get('description', '')[:150]}"
+                f"({f.get('category', '')}): {desc_truncated}"
                 + (f" — files: {files}" if files else "")
             )
         audit_section = f"""

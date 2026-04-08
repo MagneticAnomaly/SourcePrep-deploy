@@ -62,7 +62,7 @@ VALID_CATEGORIES = {
 }
 
 # Valid statuses
-VALID_STATUSES = {"seed", "active", "archived"}
+VALID_STATUSES = {"seed", "active", "archived", "superseded", "proposed", "deprecated"}
 
 
 # ── Data Classes ────────────────────────────────────────────────
@@ -86,6 +86,9 @@ class Concept:
     stale_reason: Optional[str] = None
     valid_from: Optional[float] = None   # epoch when concept became valid
     valid_to: Optional[float] = None     # epoch when concept was invalidated (None = current)
+    assertion: str = ""                  # testable statement for violation detection
+    doc_links: List[Dict[str, str]] = field(default_factory=list)  # [{path, label, type}]
+    superseded_by: Optional[str] = None  # concept ID that replaces this one
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -111,6 +114,10 @@ class Concept:
             d["valid_from"] = self.valid_from
         if self.valid_to is not None:
             d["valid_to"] = self.valid_to
+        # Phase 84: always include new fields for API consistency
+        d["assertion"] = self.assertion
+        d["doc_links"] = self.doc_links
+        d["superseded_by"] = self.superseded_by
         return d
 
     @staticmethod
@@ -135,6 +142,9 @@ class Concept:
             stale_reason=row["stale_reason"],
             valid_from=row["valid_from"] if "valid_from" in keys else None,
             valid_to=row["valid_to"] if "valid_to" in keys else None,
+            assertion=row["assertion"] if "assertion" in keys and row["assertion"] else "",
+            doc_links=json.loads(row["doc_links"]) if "doc_links" in keys and row["doc_links"] else [],
+            superseded_by=row["superseded_by"] if "superseded_by" in keys else None,
         )
 
 
@@ -293,6 +303,20 @@ class ConceptStore:
         )
         self._conn.commit()
 
+        # Phase 84: Add assertion, doc_links, superseded_by columns
+        for col, coltype in [
+            ("assertion", "TEXT DEFAULT ''"),
+            ("doc_links", "TEXT DEFAULT '[]'"),
+            ("superseded_by", "TEXT DEFAULT NULL"),
+        ]:
+            try:
+                self._conn.execute(
+                    f"ALTER TABLE concepts ADD COLUMN {col} {coltype}"
+                )
+                self._conn.commit()
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
     def _require_conn(self) -> sqlite3.Connection:
         if self._conn is None:
             raise RuntimeError(
@@ -313,6 +337,9 @@ class ConceptStore:
         anchors: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
         cluster_id: Optional[str] = None,
+        assertion: str = "",
+        doc_links: Optional[List[Dict[str, str]]] = None,
+        superseded_by: Optional[str] = None,
     ) -> str:
         """Save a concept.  Returns the concept ID.
 
@@ -337,6 +364,7 @@ class ConceptStore:
 
         anchors_json = json.dumps(anchors or [])
         tags_json = json.dumps(tags or [])
+        doc_links_json = json.dumps(doc_links or [])
 
         with self._lock:
             # Dedup: check for existing concept with same title
@@ -354,10 +382,12 @@ class ConceptStore:
                        SET content = ?, category = ?, confidence = ?,
                            anchors = ?, tags = ?, cluster_id = ?,
                            updated_at = ?, stale = 0, stale_reason = NULL,
-                           valid_from = ?, valid_to = NULL
+                           valid_from = ?, valid_to = NULL,
+                           assertion = ?, doc_links = ?, superseded_by = ?
                        WHERE id = ?""",
                     (content, category, confidence, anchors_json,
-                     tags_json, cluster_id, now, now, existing["id"]),
+                     tags_json, cluster_id, now, now,
+                     assertion, doc_links_json, superseded_by, existing["id"]),
                 )
                 # Update FTS
                 try:
@@ -387,10 +417,12 @@ class ConceptStore:
             conn.execute(
                 """INSERT INTO concepts
                    (id, project_id, title, content, category, status,
-                    confidence, anchors, tags, cluster_id, created_at, stale, valid_from)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)""",
+                    confidence, anchors, tags, cluster_id, created_at, stale, valid_from,
+                    assertion, doc_links, superseded_by)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)""",
                 (concept_id, project_id, title, content, category, status,
-                 confidence, anchors_json, tags_json, cluster_id, now, now),
+                 confidence, anchors_json, tags_json, cluster_id, now, now,
+                 assertion, doc_links_json, superseded_by),
             )
             # FTS insert
             try:
@@ -414,6 +446,8 @@ class ConceptStore:
         status: Optional[str] = None,
         anchors: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
+        assertion: Optional[str] = None,
+        doc_links: Optional[List[Dict[str, str]]] = None,
     ) -> bool:
         """Update a concept.  Returns True if it existed."""
         conn = self._require_conn()
@@ -444,6 +478,13 @@ class ConceptStore:
         if tags is not None:
             updates.append("tags = ?")
             params.append(json.dumps(tags))
+        # Phase 84: new fields
+        if assertion is not None:
+            updates.append("assertion = ?")
+            params.append(assertion)
+        if doc_links is not None:
+            updates.append("doc_links = ?")
+            params.append(json.dumps(doc_links))
 
         if not updates:
             return False
@@ -562,6 +603,32 @@ class ConceptStore:
                 total, project_id, len(file_paths),
             )
         return total
+
+    def supersede(self, old_id: str, new_id: str) -> bool:
+        """Mark a concept as superseded by another concept.
+
+        Sets the old concept's status to 'superseded' and records the
+        new concept's ID in superseded_by.  Returns True if the old
+        concept existed and was updated.  Raises ValueError if old_id
+        does not exist.
+        """
+        conn = self._require_conn()
+        now = time.time()
+        with self._lock:
+            # Verify old concept exists
+            exists = conn.execute(
+                "SELECT 1 FROM concepts WHERE id = ?", (old_id,)
+            ).fetchone()
+            if not exists:
+                raise ValueError(f"Cannot supersede: concept {old_id} not found")
+            cur = conn.execute(
+                """UPDATE concepts
+                   SET status = 'superseded', superseded_by = ?, updated_at = ?, valid_to = ?
+                   WHERE id = ?""",
+                (new_id, now, now, old_id),
+            )
+            conn.commit()
+            return cur.rowcount > 0
 
     # ── Read Operations ──────────────────────────────────────────
 
