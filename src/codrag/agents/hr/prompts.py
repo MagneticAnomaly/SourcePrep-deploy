@@ -5,7 +5,7 @@ produce the system+user prompts. KNOWLEDGE.md is pure template rendering.
 """
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
 def render_agents_md_prompt(
@@ -189,10 +189,40 @@ def render_auto_roles_prompt(
     atlas_excerpt: str,
     domain_tags: List[str],
     layer_distribution: Dict[str, int],
+    audit_findings: Optional[List[Dict[str, str]]] = None,
 ) -> str:
-    """Render the LLM prompt for auto-inferring roles from codebase analysis."""
+    """Render the LLM prompt for auto-inferring roles from codebase analysis.
+
+    Args:
+        audit_findings: Optional list of structural audit findings, each with
+            'title', 'category', 'severity', 'affected_files', 'description'.
+            When provided, the LLM uses these to justify roles that address
+            specific structural problems (coupling hotspots, hub concentration,
+            concept violations, architectural drift).
+    """
     tags_str = ", ".join(domain_tags) if domain_tags else "(none)"
     layers_str = ", ".join(f"{k}: {v} files" for k, v in layer_distribution.items()) if layer_distribution else "(none)"
+
+    audit_section = ""
+    if audit_findings:
+        finding_lines = []
+        for f in audit_findings[:20]:  # Cap at 20 to stay within prompt budget
+            files = f.get("affected_files", "")
+            finding_lines.append(
+                f"- [{f.get('severity', 'info').upper()}] {f.get('title', '')} "
+                f"({f.get('category', '')}): {f.get('description', '')[:150]}"
+                + (f" — files: {files}" if files else "")
+            )
+        audit_section = f"""
+
+## Structural Audit Findings
+
+These are CoDRAG-detected structural issues in the codebase. Use them to justify
+roles that address specific problems — a role should exist because it resolves
+real structural failures, not just because a domain exists.
+
+{chr(10).join(finding_lines)}
+"""
 
     return f"""Analyze this codebase and recommend an optimal team of AI agent roles.
 
@@ -210,14 +240,14 @@ def render_auto_roles_prompt(
 ## Codebase Overview
 
 {atlas_excerpt}
-
+{audit_section}
 ## Instructions
 
 Based on the codebase structure above, recommend 2-6 agent roles. For each role provide:
 
 1. **slug** — lowercase_underscore identifier
 2. **display_name** — Human-readable role title
-3. **justification** — Why this role is needed (cite specific modules/domains)
+3. **justification** — Why this role is needed (cite specific modules/domains and any audit findings that this role would address)
 4. **primary_modules** — Which modules this role owns
 5. **domain_focus** — Which domain tags this role covers
 
@@ -227,7 +257,9 @@ Guidelines:
 - Small codebases (<30 files): 2-3 generalist roles
 - Medium codebases (30-100 files): 3-4 roles
 - Large codebases (>100 files): 4-6 specialized roles
-- Monorepos: Consider domain-owner roles per workspace"""
+- Monorepos: Consider domain-owner roles per workspace
+- If audit findings show coupling hotspots or hub concentration in a module, that module needs a dedicated steward role
+- If audit findings show concept violations or architectural drift, propose a role responsible for maintaining architectural intent"""
 
 
 AUTO_ROLES_SYSTEM = """You are an expert at analyzing codebases and designing optimal AI agent team structures.

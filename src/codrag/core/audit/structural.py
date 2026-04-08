@@ -5,27 +5,27 @@ Deliberately excludes anything a linter can already catch.
 """
 from __future__ import annotations
 
-import math
+import os
 import statistics
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from codrag.core.audit.recommendations import compute_risk_score, generate_recommendation
 
-# Patterns that identify generated/lock files that should be excluded
-_GENERATED_PATTERNS = (
-    "package-lock.json",
-    "yarn.lock",
-    "pnpm-lock.yaml",
-    "composer.lock",
-    ".d.ts",
-    ".min.js",
-    ".min.css",
-    "__generated__",
-    ".pb.go",
-    "_pb2.py",
-    "generated/",
+# Exact basenames that are always generated/lock files
+_GENERATED_BASENAMES = frozenset({
+    "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
+    "composer.lock", "Cargo.lock", "poetry.lock", "Pipfile.lock",
+})
+
+# Suffixes that indicate generated files
+_GENERATED_SUFFIXES = (
+    ".d.ts", ".min.js", ".min.css", ".pb.go", "_pb2.py",
+    ".generated.ts", ".generated.py",
 )
+
+# Directory components that indicate generated content
+_GENERATED_DIRS = frozenset({"__generated__", "generated", "dist", "build"})
 
 # Minimum z-score to flag a file as a coupling hotspot
 _ZSCORE_THRESHOLD = 2.0
@@ -36,9 +36,14 @@ _MIN_INDEGREE = 8
 
 def _is_generated(file_path: str) -> bool:
     """Return True if the file path looks like a generated/lock file."""
-    for pat in _GENERATED_PATTERNS:
-        if file_path.endswith(pat) or pat in file_path:
-            return True
+    basename = os.path.basename(file_path)
+    if basename in _GENERATED_BASENAMES:
+        return True
+    if any(file_path.endswith(suffix) for suffix in _GENERATED_SUFFIXES):
+        return True
+    parts = set(file_path.replace("\\", "/").split("/"))
+    if parts & _GENERATED_DIRS:
+        return True
     return False
 
 
@@ -266,9 +271,20 @@ def _detect_import_cycles(
     return findings
 
 
+# Map category param values to finding_type values
+_CATEGORY_TO_FINDING_TYPE = {
+    "coupling": {"coupling_hotspot"},
+    "cycles": {"import_cycle"},
+    "hub_concentration": {"coupling_hotspot"},
+    "concept_violation": set(),  # Future: Phase 84
+}
+
+
 def run_structural_audit(
     ctx: Dict[str, Any],
     max_findings: int = 20,
+    scope: Optional[str] = None,
+    category: Optional[str] = None,
 ) -> List[StructuralFinding]:
     """Run the structural-only audit and return up to max_findings findings.
 
@@ -281,6 +297,8 @@ def run_structural_audit(
             - observations: List[Dict] — observation records for cross-referencing
             - total_files: int — total file count (for context)
         max_findings: Maximum findings to return (default 20).
+        scope: Optional file or directory path to limit scan to.
+        category: Optional category filter ("coupling", "cycles", "hub_concentration").
 
     Returns:
         List of StructuralFinding sorted by risk_score descending, deduplicated
@@ -291,9 +309,19 @@ def run_structural_audit(
     concepts: List[Dict[str, Any]] = ctx.get("concepts", []) or []
     observations: List[Dict[str, Any]] = ctx.get("observations", []) or []
 
+    # Apply scope filter — limit to files under the given path prefix
+    if scope:
+        hub_files = [(fp, deg) for fp, deg in hub_files if fp.startswith(scope)]
+        cycles = [c for c in cycles if any(fp.startswith(scope) for fp in c)]
+
+    # Determine which finding types to generate based on category filter
+    allowed_types = _CATEGORY_TO_FINDING_TYPE.get(category) if category else None
+
     all_findings: List[StructuralFinding] = []
-    all_findings.extend(_detect_coupling_hotspots(hub_files, concepts, observations))
-    all_findings.extend(_detect_import_cycles(cycles, concepts, observations))
+    if allowed_types is None or "coupling_hotspot" in allowed_types:
+        all_findings.extend(_detect_coupling_hotspots(hub_files, concepts, observations))
+    if allowed_types is None or "import_cycle" in allowed_types:
+        all_findings.extend(_detect_import_cycles(cycles, concepts, observations))
 
     # Final dedup pass by (finding_type, file_path) — keeps highest risk_score
     deduped: Dict[Tuple[str, str], StructuralFinding] = {}

@@ -1947,9 +1947,11 @@ class MCPServer:
             "modules": modules,
             "concepts": concepts,
             "observations": observations,
-            "total_files": len(hub_files),
+            "total_files": len(hub_files),  # Approximate — hub query returns top-k only
         }
-        findings = run_structural_audit(ctx, max_findings=max_findings)
+        findings = run_structural_audit(
+            ctx, max_findings=max_findings, scope=scope, category=category,
+        )
 
         # Format as dicts
         findings_dicts = []
@@ -2092,8 +2094,10 @@ class MCPServer:
             f"- High risk: {summary.get('high_risk', 0)}",
         ]
         if result_dict.get("stale_data_warning"):
-            md_lines.append("\n⚠ Some files were not found in the CoDRAG index. "
-                            "Consider re-running the build pipeline.")
+            md_lines.append(
+                "\n> Looks like you have stale data, "
+                "CoDRAG recommends running enrichment again."
+            )
 
         # Show top high-risk findings
         high_risk = [

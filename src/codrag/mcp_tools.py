@@ -219,8 +219,7 @@ _CORE_TOOLS = [
                 "category": {
                     "type": "string",
                     "description": "(scan) Filter structural findings by type.",
-                    "enum": ["coupling", "cycles", "hub_concentration", "concept_violation",
-                             "size", "architecture", "quality", "coverage", "naming", "testing"],
+                    "enum": ["coupling", "cycles", "hub_concentration", "concept_violation"],
                 },
                 "synthesize": {
                     "type": "boolean",

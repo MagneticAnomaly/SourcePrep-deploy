@@ -82,3 +82,11 @@ def test_enrich_to_dict_no_message_when_fresh():
     result = enrich_findings(findings, ctx)
     d = result.to_dict()
     assert "message" not in d
+
+
+def test_enrich_summary_has_key_insight():
+    findings = [_make_finding()]
+    ctx = _make_context()
+    result = enrich_findings(findings, ctx)
+    assert "key_insight" in result.summary
+    assert "server.py" in result.summary["key_insight"]

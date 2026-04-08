@@ -102,3 +102,27 @@ def test_structural_max_findings_param():
         ctx["cycles"].append([f"src/mod{i}.py", f"src/mod{i+1}.py"])
     findings = run_structural_audit(ctx, max_findings=5)
     assert len(findings) <= 5
+
+
+def test_structural_scope_filters_to_prefix():
+    ctx = _make_mock_context()
+    ctx["hub_files"].append(("lib/external.py", 40))
+    ctx["cycles"].append(["lib/x.py", "lib/y.py"])
+    findings = run_structural_audit(ctx, scope="src/")
+    paths = [f.file_path for f in findings]
+    for p in paths:
+        assert p.startswith("src/"), f"Finding {p} should be under src/"
+
+
+def test_structural_category_coupling_only():
+    ctx = _make_mock_context()
+    findings = run_structural_audit(ctx, category="coupling")
+    for f in findings:
+        assert f.finding_type == "coupling_hotspot"
+
+
+def test_structural_category_cycles_only():
+    ctx = _make_mock_context()
+    findings = run_structural_audit(ctx, category="cycles")
+    for f in findings:
+        assert f.finding_type == "import_cycle"

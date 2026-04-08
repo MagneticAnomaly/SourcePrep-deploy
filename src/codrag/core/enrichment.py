@@ -156,11 +156,26 @@ def enrich_findings(
     enriched_count = sum(1 for f in enriched_findings if f.codrag is not None)
     unenriched_count = len(enriched_findings) - enriched_count
 
+    # Generate key_insight from highest-risk finding
+    key_insight = ""
+    enriched_with_scores = [f for f in enriched_findings if f.codrag is not None]
+    if enriched_with_scores:
+        top = max(enriched_with_scores, key=lambda f: f.codrag["risk_score"])
+        tc = top.codrag
+        if tc["risk_score"] >= _HIGH_RISK_THRESHOLD:
+            key_insight = (
+                f"{top.file} is the highest-risk finding "
+                f"({tc['hub_status']} hub, {tc['dependents']} dependents"
+                + (f", {len(tc['concepts'])} related concepts" if tc["concepts"] else "")
+                + ")."
+            )
+
     summary: Dict = {
         "total": len(enriched_findings),
         "enriched": enriched_count,
         "unenriched": unenriched_count,
         "high_risk": high_risk_count,
+        "key_insight": key_insight,
     }
 
     return EnrichmentResult(
