@@ -972,6 +972,10 @@ class PipelineOrchestrator:
 
     def clear_project(self, project_id: str) -> None:
         """Remove all pipeline state for a project."""
+        # Phase 89 WS4: Cancel running builds before clearing state.
+        # This ensures scheduler locks are released (via WS2 cancel fix).
+        self.cancel_fast_sync(project_id)
+        self.cancel_deep_enrichment(project_id)
         with self._lock:
             keys = [k for k in self._runs if k[0] == project_id]
             for k in keys:
@@ -1847,6 +1851,17 @@ class PipelineOrchestrator:
                 journal.run_cancelled(run.journal_run_id)
             except Exception:
                 logger.debug("Journal cancel write failed", exc_info=True)
+
+        # Phase 89 WS2: Release scheduler lock so other projects can proceed.
+        # The _on_build_transition FAILED handler may also release, so check
+        # is_held_by() to prevent double-release.
+        if current_str and pipeline_scheduler.is_held_by(project_id):
+            stage = StageId(current_str)
+            _release_node = getattr(run, '_current_node_id', None)
+            next_entry = pipeline_scheduler.release(project_id, stage, _release_node)
+            if next_entry:
+                self._resume_queued_pipeline(next_entry.project_id, next_entry.stage)
+
         return True
 
     def _pause_group(self, project_id: str, group: str) -> bool:
@@ -1902,6 +1917,16 @@ class PipelineOrchestrator:
 
         # PAUSING → PAUSED
         run.transition(Event.STAGE_FLUSHED)
+
+        # Phase 89 WS3: Release scheduler lock so other projects can run
+        # while this pipeline is paused. Resume will re-acquire via
+        # _advance_pipeline() → scheduler.acquire().
+        if current_str and pipeline_scheduler.is_held_by(project_id):
+            stage = StageId(current_str)
+            _release_node = getattr(run, '_current_node_id', None)
+            next_entry = pipeline_scheduler.release(project_id, stage, _release_node)
+            if next_entry:
+                self._resume_queued_pipeline(next_entry.project_id, next_entry.stage)
 
         # Emit SSE so the frontend sees the PAUSED state immediately
         # (the build_orchestrator's FAILED event only triggers pipeline_status
