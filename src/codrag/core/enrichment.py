@@ -183,3 +183,32 @@ def enrich_findings(
         summary=summary,
         stale_data_warning=stale_data_warning,
     )
+
+
+def enrich_sarif(
+    sarif_data: Dict,
+    context: Dict[str, Dict],
+    max_findings: int = 200,
+) -> Dict:
+    """Enrich SARIF input with CoDRAG structural context.
+
+    Orchestrates: parse SARIF → convert to simple → enrich → convert back to SARIF.
+
+    Args:
+        sarif_data: Raw SARIF dict (version 2.0 or 2.1.0)
+        context: File path → structural context mapping (same as enrich_findings)
+        max_findings: Maximum findings to process
+
+    Returns:
+        Enriched SARIF dict with CoDRAG property bags injected.
+    """
+    from codrag.core.sarif import parse_sarif, sarif_to_simple, enriched_to_sarif
+
+    sarif_input = parse_sarif(sarif_data)
+    simple_findings = sarif_to_simple(sarif_input)
+
+    # Enrich using the standard pipeline
+    result = enrich_findings(simple_findings, context, max_findings=max_findings)
+
+    # Convert enriched results back to SARIF
+    return enriched_to_sarif(sarif_input, result)

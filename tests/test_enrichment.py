@@ -90,3 +90,35 @@ def test_enrich_summary_has_key_insight():
     result = enrich_findings(findings, ctx)
     assert "key_insight" in result.summary
     assert "server.py" in result.summary["key_insight"]
+
+
+def test_enrich_sarif_round_trip():
+    from codrag.core.enrichment import enrich_sarif
+    sarif_input = {
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {"driver": {"name": "ruff", "rules": []}},
+            "results": [{
+                "ruleId": "C901",
+                "level": "warning",
+                "message": {"text": "Function too complex"},
+                "locations": [{"physicalLocation": {"artifactLocation": {"uri": "src/server.py"}, "region": {"startLine": 42}}}],
+            }],
+        }],
+    }
+    ctx = _make_context()  # Already defined in the test file
+    result = enrich_sarif(sarif_input, ctx)
+
+    # Should be valid SARIF
+    assert result["version"] == "2.1.0"
+    assert len(result["runs"]) == 1
+
+    # Result should have CoDRAG property bags
+    enriched_result = result["runs"][0]["results"][0]
+    assert "properties" in enriched_result
+    assert "codrag" in enriched_result["properties"]
+    assert enriched_result["properties"]["codrag"]["dependents"] == 23
+
+    # Run should have summary
+    assert "properties" in result["runs"][0]
+    assert "codrag" in result["runs"][0]["properties"]
