@@ -633,13 +633,20 @@ function StageRow({
 
         {/* Stats Text OR Active Progress Bar */}
         {isRunning ? (
-          <div className="h-[13px] flex items-center w-full pr-8">
-            <StageProgressBar
-              progress={stage.progress}
-              className="h-1.5 mt-0 w-full"
-              color={isRerunning ? "bg-purple-500" : "bg-blue-500"}
-              rerun={stage.rerun ? stage.rerun : undefined}
-            />
+          <div className="flex flex-col gap-0.5 w-full pr-8">
+            <div className="h-[13px] flex items-center w-full">
+              <StageProgressBar
+                progress={stage.progress}
+                className="h-1.5 mt-0 w-full"
+                color={isRerunning ? "bg-purple-500" : "bg-blue-500"}
+                rerun={stage.rerun ? stage.rerun : undefined}
+              />
+            </div>
+            {stage.stats && (
+              <p className="text-[10px] text-blue-400/60 truncate leading-tight">
+                {stage.stats}
+              </p>
+            )}
           </div>
         ) : isPaused ? (
           <p className="text-[10px] text-amber-400/70 truncate leading-tight">
@@ -800,7 +807,13 @@ export function GraphEnrichmentPipeline({
   // 3. Fast Catalogue (Fast)
   const catalogueState = computeAugmentState(trace, augmentation, augmenting, validating, fastKnowledgeBuilding);
   const catalogueStats = (() => {
-    if (catalogueState === 'running') return 'Augmenting...';
+    if (catalogueState === 'running') {
+      // Show file progress so the user knows it's alive at 99%
+      const cur = augmentation?.progress_current ?? 0;
+      const tot = augmentation?.progress_total ?? 0;
+      if (tot > 0) return `${cur.toLocaleString()} / ${tot.toLocaleString()} files`;
+      return 'Augmenting...';
+    }
     if (catalogueState === 'disabled') return 'Waiting for graph';
     if (catalogueState === 'not_built') return 'Ready to catalogue';
     if (!augmentation) return '';
@@ -837,7 +850,12 @@ export function GraphEnrichmentPipeline({
   // 4. Epistemic Enrichment (Thinking)
   const enrichmentState = computeEpistemicState(trace, augmentation, epistemic, epistemicRunning, clusterRunning, atlasRunning, deepeningRunning, deepKnowledgeBuilding);
   const enrichmentStats = (() => {
-    if (enrichmentState === 'running') return 'Enriching...';
+    if (enrichmentState === 'running') {
+      const cur = epistemic?.progress_current ?? 0;
+      const tot = epistemic?.progress_total ?? 0;
+      if (tot > 0) return `${cur.toLocaleString()} / ${tot.toLocaleString()} files`;
+      return 'Enriching...';
+    }
     if (enrichmentState === 'disabled') return 'Waiting for catalogue';
     if (enrichmentState === 'not_built') return 'Ready to enrich';
     if (!epistemic) return '';
