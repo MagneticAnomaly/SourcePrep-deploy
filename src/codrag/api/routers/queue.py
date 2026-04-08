@@ -80,17 +80,21 @@ def _build_queue_item(
     elapsed = round(now - started_at, 1) if started_at else None
 
     priority = pipeline_scheduler.get_priority(project_id)
-    workers, node_id = pipeline_scheduler.concurrent_workers_for_project(project_id)
+    workers, node_id = pipeline_scheduler.concurrent_workers_for_project(
+        project_id, stage=current_stage,
+    )
 
-    # Determine if this stage is running in swarm mode.
-    # Swarm-capable stages use coordinator → fan-out → synthesis when
-    # the model supports it and swarm_enabled is True.
+    # Phase 82: Determine swarm mode from actual model capability,
+    # not just stage name.
     is_swarm = False
-    _SWARM_STAGES = {"group_reasoning", "clustering", "atlas"}
-    if current_stage in _SWARM_STAGES:
+    if current_stage:
         try:
-            from codrag.services.settings_store import settings
-            is_swarm = bool(settings.get("swarm_enabled", True))
+            from codrag.services.pipeline.scheduler import SWARM_CAPABLE_STAGES, is_swarm_active_for_stage
+            from codrag.api.routers._llm_helpers import resolve_model_for_stage
+            if current_stage in SWARM_CAPABLE_STAGES:
+                resolved = resolve_model_for_stage(project_id, current_stage)
+                if resolved:
+                    is_swarm = is_swarm_active_for_stage(current_stage, *resolved)
         except Exception:
             pass
 
