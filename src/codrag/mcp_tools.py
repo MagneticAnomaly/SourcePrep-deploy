@@ -204,22 +204,11 @@ _CORE_TOOLS = [
                     "default": "scan",
                 },
                 "findings": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "file": {"type": "string", "description": "File path"},
-                            "line": {"type": "integer", "description": "Line number"},
-                            "message": {"type": "string", "description": "Finding message"},
-                            "severity": {"type": "string", "description": "warning/error/info"},
-                            "tool": {"type": "string", "description": "Source tool (ruff, eslint, etc.)"},
-                        },
-                        "required": ["file", "message"],
-                    },
                     "description": (
-                        "External findings to enrich. When provided, CoDRAG annotates each "
-                        "finding with structural context (dependents, hub status, concepts, "
-                        "risk score). Omit to get CoDRAG's own structural findings."
+                        "External findings to enrich with CoDRAG structural context. "
+                        "Pass an array of objects [{file, message, line?, severity?, tool?}] "
+                        "for simple enrichment, or a SARIF dict ({version, runs}) for "
+                        "SARIF-in/SARIF-out enrichment. Omit to get CoDRAG's own structural findings."
                     ),
                 },
                 "scope": {

@@ -3752,7 +3752,7 @@ class MCPServer:
                         k=args.get("k", 8),
                         max_chars=args.get("max_chars", 15000),
                         trace_expand=True,
-                        compression="signatures",
+                        compression="lod",
                         exclude_paths=args.get("exclude_paths") or None,
                         role=args.get("role"),
                         working_dir=args.get("working_dir"),

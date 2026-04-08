@@ -23,7 +23,7 @@ class Alert:
 
 
 class AlertQueue:
-    """Thread-safe in-memory alert queue."""
+    """In-memory alert queue (single-threaded, used from async context)."""
 
     def __init__(self, max_per_drain: int = 3):
         self._queue: deque[Alert] = deque(maxlen=100)
@@ -40,14 +40,19 @@ class AlertQueue:
         return True
 
     def drain(self) -> List[Alert]:
-        """Pop up to max_per_drain alerts, sorted by severity (review > warn > inform)."""
+        """Pop up to max_per_drain alerts, sorted by severity (review > warn > inform).
+
+        Alerts beyond max_per_drain are re-queued for the next drain.
+        """
         severity_order = {"review": 0, "warn": 1, "inform": 2}
-        # Collect all pending
         pending = list(self._queue)
         self._queue.clear()
-        # Sort by severity
         pending.sort(key=lambda a: severity_order.get(a.severity, 99))
-        return pending[:self.max_per_drain]
+        result = pending[:self.max_per_drain]
+        # Re-queue alerts that didn't make the cut
+        for alert in pending[self.max_per_drain:]:
+            self._queue.append(alert)
+        return result
 
     def pending_count(self) -> int:
         return len(self._queue)
