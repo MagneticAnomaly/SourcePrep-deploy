@@ -1337,11 +1337,22 @@ class MCPServer:
                 "name": n.get("name", ""),
                 "kind": n.get("kind", ""),
                 "path": n.get("file_path", n.get("path", "")),
-                "line": n.get("start_line", n.get("line")),
-                # Phase 83 P0: Include code context for symbol results
-                "qualified_name": n.get("qualified_name", n.get("name", "")),
-                "signature": n.get("signature", ""),
-                "docstring": (n.get("docstring", "") or "")[:200],
+                "line": (n.get("span") or {}).get("start_line", n.get("start_line", n.get("line"))),
+                # Phase 83/90: Include code context — fields may be top-level or in metadata
+                "qualified_name": (
+                    n.get("qualified_name")
+                    or (n.get("metadata") or {}).get("qualname")
+                    or n.get("name", "")
+                ),
+                "signature": (
+                    n.get("signature")
+                    or (n.get("metadata") or {}).get("signature", "")
+                ),
+                "docstring": (
+                    n.get("docstring")
+                    or (n.get("metadata") or {}).get("docstring", "")
+                    or ""
+                )[:200],
             }
             formatted.append(entry)
 
@@ -1915,17 +1926,17 @@ class MCPServer:
         hub_files: List[Tuple[str, int]] = []
         try:
             hub_data = await self._api_get(
-                f"/projects/{project_id}/trace/hub-files?k=50"
+                f"/projects/{project_id}/trace/hub_files?k=50"
             )
             for hf in (hub_data.get("hub_files", []) if isinstance(hub_data, dict) else []):
-                fp = hf.get("file_path", "")
+                fp = hf.get("path", hf.get("file_path", ""))
                 deg = hf.get("in_degree", 0)
                 if fp:
                     hub_files.append((fp, deg))
         except Exception as e:
             logger.debug("Failed to fetch hub files for structural audit: %s", e)
 
-        # Gather import cycles from existing audit findings
+        # Gather import cycles — try legacy audit findings first, fall back to atlas
         cycles: List[List[str]] = []
         try:
             findings_data = await self._api_get(
@@ -1941,7 +1952,20 @@ class MCPServer:
                     if cycle:
                         cycles.append(cycle)
         except Exception as e:
-            logger.debug("Failed to fetch cycles for structural audit: %s", e)
+            logger.debug("Failed to fetch cycles from audit findings: %s", e)
+
+        # Fallback: read cycles from atlas graph_stats if legacy audit has none
+        if not cycles:
+            try:
+                atlas_data = await self._api_get(f"/projects/{project_id}/atlas")
+                if isinstance(atlas_data, dict):
+                    graph_stats = atlas_data.get("graph_stats", {})
+                    atlas_cycles = graph_stats.get("cycles", [])
+                    for c in atlas_cycles:
+                        if isinstance(c, (list, tuple)) and len(c) >= 2:
+                            cycles.append(list(c))
+            except Exception as e:
+                logger.debug("Failed to fetch cycles from atlas: %s", e)
 
         # Gather modules
         modules: List[Dict[str, Any]] = []
@@ -2000,6 +2024,20 @@ class MCPServer:
 
         # Build markdown
         md_lines = [f"## Structural Audit ({len(findings_dicts)} findings)\n"]
+
+        # Data availability indicator (helps diagnose 0-findings situations)
+        if not findings_dicts:
+            md_lines.append("**Data availability:**")
+            md_lines.append(f"- Hub files loaded: {len(hub_files)}")
+            md_lines.append(f"- Import cycles loaded: {len(cycles)}")
+            md_lines.append(f"- Concepts loaded: {len(concepts)}")
+            md_lines.append(f"- Observations loaded: {len(observations)}")
+            if not hub_files:
+                md_lines.append("\n> No hub file data available. The trace graph may not be built yet, or the hub_files API returned no results.")
+            if not cycles:
+                md_lines.append("> No cycle data available. Run a legacy audit or rebuild the atlas to populate cycle information.")
+            md_lines.append("")
+
         severity_counts: Dict[str, int] = {}
         for fd in findings_dicts:
             sev = fd["severity"]
