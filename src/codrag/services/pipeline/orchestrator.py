@@ -1581,6 +1581,10 @@ class PipelineOrchestrator:
                 project_id, matching_run.group, stage.value,
             )
 
+            # Phase 89: Capture the old node BEFORE advance changes _current_node_id.
+            # This is needed for the release-after-advance at the bottom of this method.
+            _old_release_node = getattr(matching_run, '_current_node_id', None)
+
             # --- Post-completion bookkeeping (outside orchestrator lock) ---
             try:
                 # Phase 44C: release model via state machine
@@ -1807,9 +1811,11 @@ class PipelineOrchestrator:
         # This ensures the pipeline always holds at least one lock during
         # stage transitions, eliminating the race window where ghost guard
         # or dequeued pipelines could interfere.
+        # Uses _old_release_node (captured before advance) and stage-aware
+        # release — if advance overwrote active_stages on the same node,
+        # release() is a no-op (correct: new stage already holds the slot).
         if new_phase == BuildPhase.COMPLETED:
-            _release_node = getattr(matching_run, '_current_node_id', None) if matching_run else None
-            _deferred_resume = pipeline_scheduler.release(project_id, stage, _release_node)
+            _deferred_resume = pipeline_scheduler.release(project_id, stage, _old_release_node)
             if _deferred_resume:
                 self._resume_queued_pipeline(_deferred_resume.project_id, _deferred_resume.stage)
             try:

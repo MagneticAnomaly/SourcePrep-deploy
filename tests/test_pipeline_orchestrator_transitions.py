@@ -95,3 +95,58 @@ class TestSchedulerLockLifecycle:
         status = sched.status()
         node = status["nodes"]["cloud:ep-1"]
         assert node["current_load"] == 2
+
+
+class TestStageAwareRelease:
+    """Phase 89: Verify stage-aware release prevents CRITICAL-1 bug.
+
+    When advance overwrites active_stages on the same node, releasing
+    the OLD stage should be a no-op (not remove the NEW stage's lock).
+    """
+
+    def test_release_old_stage_after_overwrite_is_noop(self):
+        """Release for old stage is no-op when advance overwrote the entry."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+
+        # Stage N: enrichment
+        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        assert sched.is_held_by("proj-a") is True
+
+        # Advance overwrites to group_reasoning (same node)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+
+        # Release the OLD stage (enrichment) — should be no-op
+        result = sched.release("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        assert result is None  # No dequeue because nothing was actually released
+
+        # Project STILL holds the new stage's lock
+        assert sched.is_held_by("proj-a") is True
+
+    def test_release_current_stage_works(self):
+        """Release for the current stage correctly removes the lock."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        sched.release("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        assert sched.is_held_by("proj-a") is False
+
+    def test_cross_node_release_works(self):
+        """Cross-node transition: old node released, new node held."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.configure_embedding_concurrency(2)
+
+        # Stage on embedding node
+        sched.acquire("proj-a", StageId.KNOWLEDGE)  # goes to __embedding__
+        assert sched.is_held_by("proj-a") is True
+
+        # Advance to LLM node
+        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+
+        # Release old (embedding) node — different node, stage matches
+        sched.release("proj-a", StageId.KNOWLEDGE)  # __embedding__
+
+        # Still held on LLM node
+        assert sched.is_held_by("proj-a") is True

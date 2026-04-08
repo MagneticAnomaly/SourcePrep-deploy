@@ -106,8 +106,19 @@ class ComputeSlot:
         self.active_stages[project_id] = stage_id
         return True
 
-    def release(self, project_id: str) -> bool:
-        """Release a slot. Returns True if it was held."""
+    def release(self, project_id: str, expected_stage: str | None = None) -> bool:
+        """Release a slot. Returns True if it was held.
+
+        Phase 89: When ``expected_stage`` is provided, only releases if
+        the stored stage matches. This prevents a release for a completed
+        stage from accidentally removing a newer stage's lock when
+        ``active_stages`` was overwritten by ``acquire()`` during a
+        same-node transition.
+        """
+        if expected_stage is not None:
+            current = self.active_stages.get(project_id)
+            if current != expected_stage:
+                return False  # Stage was overwritten by advance — don't release
         return self.active_stages.pop(project_id, None) is not None
 
 
@@ -528,11 +539,14 @@ class PipelineScheduler:
         resolved = self._resolve_node_for_stage(stage, node_id)
         with self._lock:
             slot = self._get_slot(resolved)
-            released = slot.release(project_id)
+            # Phase 89: Pass stage value so ComputeSlot.release() can verify
+            # the stored stage matches. Prevents releasing a newer stage's
+            # lock after a same-node advance overwrote active_stages.
+            released = slot.release(project_id, expected_stage=stage.value)
             if released:
                 logger.info(
-                    "Scheduler: %s released slot on %s (%d/%d dynamic cap)",
-                    project_id, slot.node_id,
+                    "Scheduler: %s released slot on %s for %s (%d/%d dynamic cap)",
+                    project_id, slot.node_id, stage.value,
                     slot.current_load, slot.dynamic_capacity,
                 )
             # Check if there's a queued pipeline waiting for this node
