@@ -273,7 +273,7 @@ Each concept should capture knowledge that isn't obvious from reading the code i
 
 ## Output Format
 
-Respond with ONLY a JSON object (no markdown fencing):
+Respond with ONLY a JSON object. No markdown fencing, no reasoning tags, no preamble — start directly with the opening brace:
 {{
   "concepts": [
     {{
@@ -296,60 +296,121 @@ Respond with ONLY a JSON object (no markdown fencing):
 }}"""
 
     # LLMClient.generate returns (text, token_count)
+    # Budget needs headroom for thinking models that emit <think> tags
+    # before the JSON. kimi-k2.5 uses ~2500 tokens for reasoning.
     text, _tokens = llm.generate(
         prompt=prompt,
         json_mode=True,
         temperature=0.3,
-        num_predict=4000,
+        num_predict=8000,
     )
     return text
 
 
+def _strip_reasoning_tags(text: str) -> str:
+    """Strip <think>...</think> or similar reasoning tags from LLM output."""
+    import re
+    # Remove <think>...</think> blocks (greedy — may span many lines)
+    cleaned = re.sub(r'<think>[\s\S]*?</think>\s*', '', text)
+    # Also handle unclosed <think> tag (reasoning ran into output)
+    cleaned = re.sub(r'<think>[\s\S]*$', '', cleaned) if '<think>' in cleaned else cleaned
+    return cleaned.strip()
+
+
+def _repair_truncated_json(text: str) -> str:
+    """Attempt to repair JSON truncated by token limits.
+
+    Strategy: find the last complete object in the concepts/questions array
+    by looking for '}, {' or '}\n  ]' boundaries, then close all open brackets.
+    """
+    import re
+
+    # Find the last complete array element: '},' or '}\n' followed by more content
+    # This handles truncation mid-object
+    last_obj_end = -1
+    for m in re.finditer(r'\}\s*[,\]]', text):
+        last_obj_end = m.start() + 1  # position after the }
+
+    if last_obj_end == -1:
+        # No complete objects found — try simpler approach
+        last_complete = text.rfind('}')
+        if last_complete == -1:
+            return text
+        last_obj_end = last_complete + 1
+
+    candidate = text[:last_obj_end]
+
+    # Close all open brackets/braces
+    opens_bracket = candidate.count('[') - candidate.count(']')
+    opens_brace = candidate.count('{') - candidate.count('}')
+    candidate += ']' * max(0, opens_bracket)
+    candidate += '}' * max(0, opens_brace)
+    return candidate
+
+
 def _parse_llm_response(raw: str) -> Dict[str, Any]:
     """Parse the LLM response into structured concepts and questions."""
+    import re
+
+    # Strip reasoning tags (e.g., <think>...</think> from thinking models)
+    text = _strip_reasoning_tags(raw)
+
     # Strip markdown code fences if present
-    text = raw.strip()
+    text = text.strip()
     if text.startswith("```"):
-        # Remove first line (```json or ```)
         lines = text.split("\n")
         text = "\n".join(lines[1:])
         if text.endswith("```"):
             text = text[:-3]
         text = text.strip()
 
+    # Try direct parse first
     try:
         parsed = json.loads(text)
         if isinstance(parsed, dict):
-            # Validate structure
-            concepts = parsed.get("concepts", [])
-            questions = parsed.get("questions", [])
-
-            # Filter valid concepts
-            valid_concepts = []
-            for c in concepts:
-                if isinstance(c, dict) and c.get("title") and c.get("content"):
-                    valid_concepts.append(c)
-
-            # Filter valid questions
-            valid_questions = []
-            for q in questions:
-                if isinstance(q, dict) and q.get("question"):
-                    valid_questions.append(q)
-
-            return {
-                "concepts": valid_concepts,
-                "questions": valid_questions,
-            }
+            return _validate_parsed(parsed)
     except json.JSONDecodeError as e:
-        logger.warning("Failed to parse concept seeder response as JSON: %s", e)
-        # Try to find JSON in the response
-        import re
-        match = re.search(r'\{[\s\S]*\}', text)
-        if match:
+        logger.debug("Direct JSON parse failed: %s", e)
+
+    # Try to extract JSON from surrounding text
+    match = re.search(r'\{[\s\S]*\}', text)
+    if match:
+        try:
+            parsed = json.loads(match.group())
+            if isinstance(parsed, dict):
+                return _validate_parsed(parsed)
+        except json.JSONDecodeError:
+            # JSON is likely truncated — try repair
+            repaired = _repair_truncated_json(match.group())
             try:
-                return json.loads(match.group())
+                parsed = json.loads(repaired)
+                if isinstance(parsed, dict):
+                    logger.info("Recovered %d concepts from truncated JSON",
+                               len(parsed.get("concepts", [])))
+                    return _validate_parsed(parsed)
             except json.JSONDecodeError:
-                pass
+                logger.debug("JSON repair also failed")
 
     logger.warning("Could not parse LLM response for concept seeding")
     return {"concepts": [], "questions": []}
+
+
+def _validate_parsed(parsed: Dict[str, Any]) -> Dict[str, Any]:
+    """Validate and filter parsed concept/question data."""
+    concepts = parsed.get("concepts", [])
+    questions = parsed.get("questions", [])
+
+    valid_concepts = []
+    for c in concepts:
+        if isinstance(c, dict) and c.get("title") and c.get("content"):
+            valid_concepts.append(c)
+
+    valid_questions = []
+    for q in questions:
+        if isinstance(q, dict) and q.get("question"):
+            valid_questions.append(q)
+
+    return {
+        "concepts": valid_concepts,
+        "questions": valid_questions,
+    }
