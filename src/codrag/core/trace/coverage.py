@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import tempfile
+import threading
 from datetime import datetime, timezone
 from fnmatch import fnmatch
 from pathlib import Path
@@ -22,6 +23,9 @@ from codrag.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES, DEFAULT_EXCLUDE_
 from .utils import _detect_language, _to_posix
 
 logger = logging.getLogger(__name__)
+
+# Prevent concurrent backfill writes from clobbering each other
+_backfill_lock = threading.Lock()
 
 
 def compute_trace_coverage(
@@ -83,7 +87,16 @@ def compute_trace_coverage(
             "**/*.log",
             "**/.DS_Store",
         ])
-        exclude_globs.extend(DEFAULT_EXCLUDE_FILE_GLOBS)
+    else:
+        # User-provided exclude_globs — make a mutable copy
+        exclude_globs = list(exclude_globs)
+    # Phase 89: Always include system-level file exclusions (e.g. AGENTS.md).
+    # These are CoDRAG-generated files that should never appear as "untraced".
+    # Previously only added when exclude_globs was None, causing AGENTS.md
+    # files to show as permanently untraced when project had custom excludes.
+    for pattern in DEFAULT_EXCLUDE_FILE_GLOBS:
+        if pattern not in exclude_globs:
+            exclude_globs.append(pattern)
     if user_exclude_globs is None:
         user_exclude_globs = []
 
@@ -132,6 +145,8 @@ def compute_trace_coverage(
                             "(Rust engine files not in manifest)",
                             len(traced_paths),
                         )
+                        # Compute hashes for the missing files
+                        new_hashes: Dict[str, str] = {}
                         for rel_path in traced_paths:
                             full = repo_root / rel_path
                             if not full.exists():
@@ -145,26 +160,65 @@ def compute_trace_coverage(
                                     source = full.read_text(encoding="utf-8", errors="ignore")
                             except Exception:
                                 source = ""
-                            manifest_hashes[rel_path] = stable_file_hash(source)
+                            new_hashes[rel_path] = stable_file_hash(source)
 
-                        # Persist so this backfill only runs once per new file set
-                        manifest["file_hashes"] = manifest_hashes
-                        tmp_manifest = tempfile.NamedTemporaryFile(
-                            mode="w", suffix=".json", dir=str(Path(index_dir)),
-                            delete=False, encoding="utf-8",
-                        )
-                        try:
-                            json.dump(manifest, tmp_manifest, indent=2, sort_keys=True)
-                            tmp_manifest.flush()
-                            os.fsync(tmp_manifest.fileno())
-                            tmp_manifest.close()
-                            os.rename(tmp_manifest.name, manifest_path)
-                            logger.info("Backfilled %d file_hashes into manifest (total: %d)", len(traced_paths), len(manifest_hashes))
-                        except Exception:
+                        # Persist with lock to avoid clobbering concurrent
+                        # writes (e.g. TraceBuilder._compute_file_hashes
+                        # writing a more complete set at the same time).
+                        if not _backfill_lock.acquire(blocking=False):
+                            # Another backfill is already writing — skip.
+                            # Our in-memory manifest_hashes still has the
+                            # new entries so this call's coverage calc is
+                            # correct; the next call will persist if needed.
+                            manifest_hashes.update(new_hashes)
+                            logger.info(
+                                "Backfill skipped write (another writer active) — "
+                                "%d hashes computed in-memory only",
+                                len(new_hashes),
+                            )
+                        else:
                             try:
-                                os.unlink(tmp_manifest.name)
-                            except OSError:
-                                pass
+                                # Re-read manifest to merge with any hashes
+                                # the builder wrote since our initial read.
+                                try:
+                                    with open(manifest_path, "r", encoding="utf-8") as rf:
+                                        fresh_manifest = json.load(rf)
+                                    fresh_hashes = fresh_manifest.get("file_hashes") or {}
+                                except Exception:
+                                    fresh_manifest = manifest
+                                    fresh_hashes = manifest_hashes
+
+                                # Merge: start with fresh on-disk hashes,
+                                # overlay our new backfill entries.
+                                merged_hashes = dict(fresh_hashes)
+                                merged_hashes.update(new_hashes)
+                                fresh_manifest["file_hashes"] = merged_hashes
+
+                                # Update our in-memory view too
+                                manifest_hashes.update(fresh_hashes)
+                                manifest_hashes.update(new_hashes)
+
+                                tmp_manifest = tempfile.NamedTemporaryFile(
+                                    mode="w", suffix=".json", dir=str(Path(index_dir)),
+                                    delete=False, encoding="utf-8",
+                                )
+                                try:
+                                    json.dump(fresh_manifest, tmp_manifest, indent=2, sort_keys=True)
+                                    tmp_manifest.flush()
+                                    os.fsync(tmp_manifest.fileno())
+                                    tmp_manifest.close()
+                                    os.rename(tmp_manifest.name, manifest_path)
+                                    logger.info(
+                                        "Backfilled %d file_hashes into manifest (total: %d)",
+                                        len(new_hashes), len(merged_hashes),
+                                    )
+                                except Exception:
+                                    try:
+                                        os.unlink(tmp_manifest.name)
+                                    except OSError:
+                                        pass
+                            finally:
+                                _backfill_lock.release()
                 except Exception as e:
                     logger.warning("file_hashes backfill failed: %s", e)
         except Exception:

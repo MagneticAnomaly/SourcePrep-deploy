@@ -449,11 +449,20 @@ class ResumeStrategy:
             exclude_globs = pcfg.get("exclude_globs") or None
             max_file_bytes = int(pcfg.get("max_file_bytes") or 500_000)
 
+            # Phase 89: Pass user_exclude_globs from trace config, matching
+            # the API endpoint at trace_routes/query.py. Without this,
+            # AGENTS.md and other excluded files appear as "untraced" in the
+            # coverage gap check, triggering infinite rebuild loops.
+            trace_cfg = pcfg.get("trace") if isinstance(pcfg, dict) else None
+            trace_ignore = (trace_cfg or {}).get("ignore_patterns", [])
+            user_exclude_globs = [str(p) for p in trace_ignore] if isinstance(trace_ignore, list) else []
+
             coverage = compute_trace_coverage(
                 repo_root=repo_root,
                 index_dir=idx_dir,
                 include_globs=include_globs,
                 exclude_globs=exclude_globs,
+                user_exclude_globs=user_exclude_globs,
                 max_file_bytes=max_file_bytes,
             )
             summary = coverage.get("summary", {})
