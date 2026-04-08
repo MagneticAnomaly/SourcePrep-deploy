@@ -97,6 +97,14 @@ export function useFileSystem(selectedProjectId: string | null, deps: UseFileSys
   })
   const [pinnedFiles, setPinnedFiles] = useState<PinnedTextFile[]>([])
 
+  // ── Reset on project change ─────────────────────────────────
+  // Phase 89: Clear stale file tree from previous project to prevent
+  // cross-project data contamination during project switch.
+  useEffect(() => {
+    setFileTree([])
+    setPathWeights({})
+  }, [selectedProjectId])
+
   // ── File tree handlers ──────────────────────────────────────
 
   const fetchFileTree = useCallback(async (projId: string, signal?: AbortSignal) => {

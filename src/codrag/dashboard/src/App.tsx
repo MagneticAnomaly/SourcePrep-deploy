@@ -391,18 +391,20 @@ function App() {
     isHydrating: hydration.isHydrating,
   })
 
-  const fetchAtlas = useCallback(async () => {
-    if (!selectedProjectId) return
+  const fetchAtlas = useCallback(async (signal?: AbortSignal) => {
+    if (!selectedProjectId || signal?.aborted) return
     try {
       const data = await api.getAtlas(selectedProjectId)
+      if (signal?.aborted) return  // Don't update state if project switched
       setAtlasStatus(data)
     } catch { /* Atlas not available yet */ }
   }, [api, selectedProjectId])
 
-  const fetchProvenance = useCallback(async () => {
-    if (!selectedProjectId) return
+  const fetchProvenance = useCallback(async (signal?: AbortSignal) => {
+    if (!selectedProjectId || signal?.aborted) return
     try {
       const data = await api.getPipelineProvenance(selectedProjectId)
+      if (signal?.aborted) return  // Don't update state if project switched
       setPipelineProvenance(data)
     } catch { /* Provenance not available yet */ }
   }, [api, selectedProjectId])
@@ -649,8 +651,8 @@ function App() {
     setPipelineProvenance(null)
     void refreshWatchStatus(pid)
     void fetchDeepAnalysisStatus()
-    void fetchAtlas()
-    void fetchProvenance()
+    void fetchAtlas(signal)
+    void fetchProvenance(signal)
     api.getProjectActivity(pid, 12)
       .then((data) => { if (!signal.aborted) setActivityData(data) })
       .catch(() => { })
@@ -664,9 +666,12 @@ function App() {
 
   useEffect(() => {
     if (!selectedProjectId || !anyPipelineRunning || hydration.isHydrating) return
-    const interval = setInterval(() => { void fetchProvenance() }, 10_000)
+    const signal = hydration.signal
+    const interval = setInterval(() => {
+      if (!signal.aborted) void fetchProvenance(signal)
+    }, 10_000)
     return () => clearInterval(interval)
-  }, [selectedProjectId, anyPipelineRunning, fetchProvenance])
+  }, [selectedProjectId, anyPipelineRunning, fetchProvenance, hydration.signal])
 
   // ── Project limit ───────────────────────────────────────────
   // Free tier: hard cap of 1 total project.
@@ -945,6 +950,7 @@ function App() {
         {selectedProject ? (
           <div className="w-full space-y-6">
             <ModularDashboard
+              key={selectedProjectId}
               panelDefinitions={allPanelDefs}
               panelContent={panelContent}
               panelDetails={panelDetails}
