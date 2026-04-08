@@ -131,13 +131,54 @@ npm workspaces managed by Turbo:
 
 This project ships its own MCP server. See AGENTS.md for tool-calling details and the current project_id. When the CoDRAG daemon is running, these tools are available and **should be actively used during development**:
 
-- `codrag` — Call at the start of every task. Returns structural overview: module map, hub files, focus areas, cross-cutting concerns. This is your primary orientation tool.
-- `codrag_search` — Semantic code search. Prefer this over grep when you need to understand how code connects structurally, not just find a string match.
-- `codrag_impact` — Dependency impact analysis. Call before modifying files with many dependents to understand blast radius.
-- `codrag_audit` — Codebase health and tech debt analysis.
-- `codrag_observe` — Cross-session memory and notes.
+| Tool | When to Use |
+|------|-------------|
+| `codrag` | **START of every task.** Returns structural overview: module map, hub files, focus areas, cross-cutting concerns. Also surfaces immune system alerts (warnings from antibodies). |
+| `codrag_search` | Find code by meaning, not just string match. **Auto-classifies your query** — "where is X" routes to symbol lookup, "why X" routes to concepts, "who imports X" routes to trace graph. Use the `intent` param to override if needed. |
+| `codrag_impact` | **BEFORE editing hub files.** Shows blast radius — what depends on a file and what breaks if you change it. Filters stdlib/external noise automatically. |
+| `codrag_audit` | **Dual-mode tool.** (1) Call with no args for structural findings — coupling hotspots, import cycles, concept violations. (2) Pass `findings=[...]` to enrich external lint results (ruff, eslint, semgrep) with structural context. Accepts SARIF dicts for SARIF-in/SARIF-out enrichment. Use `action="antibodies"` to see immune system defenses. |
+| `codrag_observe` | Save/retrieve cross-session notes and observations. Observations about decisions or patterns may be promoted to concepts. |
+| `codrag_concepts` | Record/query business rationale and design decisions. Concepts have testable assertions, anchors to files, and linked documentation. Constraint concepts auto-generate immune system antibodies. |
 
-All CoDRAG tools are read-only and safe to auto-approve. They complement (not replace) direct file reads, grep, and git — use the right tool for the job. CoDRAG excels at structural relationships and semantic intent; grep excels at exact string matching.
+All CoDRAG tools are read-only and safe to auto-approve.
+
+### Audit Enrichment Workflow
+
+When auditing code, use CoDRAG to make lint findings smarter:
+
+```
+1. Run your linter:    ruff check src/ --output-format json
+2. Enrich findings:    codrag_audit(findings=[{file, line, message, severity, tool}])
+3. CoDRAG adds:        dependent count, hub status, related concepts, risk score, recommendation
+```
+
+For GitHub Code Scanning / semgrep / CodeQL users, pass SARIF directly:
+```
+codrag_audit(findings={SARIF dict})  →  enriched SARIF with properties.codrag on each result
+```
+
+### Search Intent Classification
+
+`codrag_search` automatically detects what you're asking:
+
+| Query Pattern | Auto-Detected Intent | What Happens |
+|--------------|---------------------|-------------|
+| "where is X", "find X" | LOCATE | Symbol lookup — returns path, signature, line number |
+| "how does X work" | EXPLAIN | Semantic search with trace expansion |
+| "why does X use Y" | RATIONALE | Concepts-first, falls back to semantic search |
+| "who imports X" | TRACE | Graph traversal via `codrag_impact` |
+| "example of using X" | EXAMPLE | Semantic search for usage patterns |
+| "what's in X directory" | DISCOVER | Module overview with expanded context |
+
+Override with `intent` param if auto-detection gets it wrong: `codrag_search(query="...", intent="locate")`
+
+### Immune System (Antibodies)
+
+CoDRAG derives runtime defenses from constraint/architecture concepts. When a concept says "Pi Agent must never import LLM libraries", CoDRAG creates an antibody that fires when that constraint is violated. Alerts surface in `codrag()` ambient context.
+
+- View antibodies: `codrag_audit(action="antibodies")`
+- Antibodies are derived from concepts with assertions and anchors
+- All alerts are informational — nothing is blocked
 
 **Dogfooding note:** Every call to these tools is also a test of the product. If results are unhelpful, incomplete, or wrong, that is actionable product feedback — mention it.
 
@@ -145,7 +186,7 @@ All CoDRAG tools are read-only and safe to auto-approve. They complement (not re
 
 CoDRAG has two MCP server implementations. Understanding the difference prevents confusion:
 
-- **Server mode** (`src/codrag/mcp/server.py`, default) — Proxies to the running daemon at :8400. Full-featured: multi-project support, ambient context (atlas, hub files, modules), all 5 tools + aliases, adaptive context budgets per client, role-based atlas projection. **Use this when the daemon is running.**
+- **Server mode** (`src/codrag/mcp/server.py`, default) — Proxies to the running daemon at :8400. Full-featured: multi-project support, ambient context (atlas, hub files, modules), all 6 tools + aliases, adaptive context budgets per client, role-based atlas projection. **Use this when the daemon is running.**
 - **Direct mode** (`src/codrag/mcp_direct.py`, `--mode direct`) — Runs CodeIndex/TraceIndex in-process, no daemon required. Simpler single-project setup but has drifted behind server mode. The `codrag` no-arg ambient context call is broken in direct mode (routes to search-context which requires a query). Only handles a subset of tools.
 
 The wrapper script (`codrag-mcp-wrapper.sh`) and `.claude/mcp.json` / `.cursor/mcp.json` should default to server mode. Direct mode is a valid feature (daemon-free MCP) but needs parity work to match server mode's tool dispatch.
@@ -158,7 +199,7 @@ A core CoDRAG feature is generating AGENTS.md files that tell AI agents about th
 
 1. **`src/codrag/core/rules_generator.py`** — Main orchestrator. `write_rules_file()` detects target IDEs and dispatches to per-IDE writers. `_build_managed_content()` generates the unified content block shared across all targets (Cursor, Windsurf, Claude Code, Copilot, etc.).
 2. **`_write_agents_md()`** (rules_generator.py:760) — Writes to `AGENTS.md` at the client project root. Uses `<!-- codrag-managed-start/end -->` markers to splice managed content while preserving user additions.
-3. **`src/codrag/mcp_tools.py`** — Defines the 5 core MCP tool schemas (name, description, parameters, annotations). These are served via `mcp/server.py` `handle_tools_list()` and are the source of truth for what tools exist.
+3. **`src/codrag/mcp_tools.py`** — Defines the 6 core MCP tool schemas (name, description, parameters, annotations). These are served via `mcp/server.py` `handle_tools_list()` and are the source of truth for what tools exist.
 4. **`src/codrag/core/atlas/`** — Generates the "Codebase Atlas" section: project identity, stack summary, workspace map, cross-cutting concerns, hub files.
 
 ### What Goes Into a Generated AGENTS.md
@@ -176,7 +217,7 @@ The generated AGENTS.md is meant to be the first thing an AI agent reads when it
 
 | What | Where |
 |------|-------|
-| Tool schemas (the 5 tools) | `src/codrag/mcp_tools.py` |
+| Tool schemas (the 6 tools) | `src/codrag/mcp_tools.py` |
 | Tool handlers (execution) | `src/codrag/mcp/server.py` |
 | AGENTS.md content template | `src/codrag/core/rules_generator.py` `_build_managed_content()` |
 | AGENTS.md file writer | `src/codrag/core/rules_generator.py` `_write_agents_md()` |
@@ -197,10 +238,10 @@ codrag_project_id: 1d6f0b35-45cb-427b-ae9d-aac3c6371a4b
 ## Tools
 | Tool | When to Use |
 |------|-------------|
-| `codrag` | START of every task — structural overview, modules, hub files |
-| `codrag_search` | Find code by meaning, not just string match |
+| `codrag` | START of every task — structural overview, modules, hub files, immune system alerts |
+| `codrag_search` | Find code by meaning, not just string match. Auto-classifies intent (LOCATE/EXPLAIN/RATIONALE/TRACE). |
 | `codrag_impact` | BEFORE editing — check what depends on a file |
-| `codrag_audit` | Codebase health, tech debt, refactoring guidance |
+| `codrag_audit` | Structural findings OR enrich external lint findings with `findings` param. `action="antibodies"` for immune system. |
 | `codrag_observe` | Save/retrieve cross-session notes |
 | `codrag_concepts` | Record/query business rationale and design decisions |
 
