@@ -63,8 +63,23 @@ If the large model isn't configured, clustering silently skips with `skipped: Tr
 
 The UI correctly reflects the backend state — modules genuinely don't exist. The "revert" appearance is accurate but confusing. The user sees completed pipeline but incomplete stages because a prerequisite (large model) wasn't met.
 
-### Recommended fixes
+### Updated Analysis (second pass)
 
-1. **Backend:** When a stage is skipped due to missing model, the pipeline should surface this clearly in the status (e.g., `phase: "skipped"` instead of `"completed"`)
-2. **UI:** Add a `'skipped'` StageState that shows a distinct visual (e.g., grey with skip icon and tooltip explaining why)
-3. **UI:** Show model availability warnings in the pipeline panel before running deep enrichment
+The pipeline metadata reveals a deeper issue: enrichment, group_reasoning, and clustering all have `status: "pending"` with **no worker_result**. Only atlas (stage 4), deepening (stage 5), and deep_knowledge (stage 6) ran. This means the first 3 deep stages were skipped by the incremental detection — their data existed from a prior run.
+
+But **clustering has NEVER produced `trace_modules.jsonl` across any run.** The pipeline skips it each time because either:
+1. The large model wasn't available/enabled when clustering ran
+2. The worker caught RuntimeError ("no model") and returned `skipped: True`
+3. The incremental detector sees the manifest file exists and skips the stage
+
+The embedding model IS configured and working. The issue is specifically the **large/Thinking model slot** being `enabled: false` while `configured: true, status: connected`. This is confusing — the model exists and is reachable, but the slot is disabled.
+
+### Recommended fixes (revised)
+
+1. **Backend (P0): Don't start deep enrichment if required model slots are disabled.** The pipeline orchestrator should pre-check that all required model slots for the stage group are enabled before starting. If not, fail immediately with a clear error message (not silently skip).
+
+2. **Backend (P1): Don't treat "skipped due to no model" as successful completion.** When a worker returns `skipped: True, reason: "no_llm"`, the orchestrator should transition to FAILED with a clear error, not advance to the next stage.
+
+3. **UI (P1): Show model slot requirements in the deep enrichment section.** Before the "Run" button, show which model slots are needed and their status. Disable the Run button if required slots aren't enabled.
+
+4. **UI (P2): Distinguish "never ran" from "ran successfully" in stage status.** The current compute functions can't tell the difference between "stage ran and produced 0 modules" vs "stage was silently skipped".
