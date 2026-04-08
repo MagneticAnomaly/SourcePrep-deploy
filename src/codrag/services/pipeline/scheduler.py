@@ -921,6 +921,8 @@ class PipelineScheduler:
                     "max_concurrent": slot.max_concurrent,
                     "dynamic_capacity": slot.dynamic_capacity,
                     "current_load": slot.current_load,
+                    "aimd_mode": getattr(slot, 'mode', 'jumpstart'),
+                    "current_limit": slot.current_limit,
                     "active": dict(slot.active_stages),
                     "queued": [
                         {

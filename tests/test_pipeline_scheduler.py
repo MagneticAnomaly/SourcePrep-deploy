@@ -913,3 +913,16 @@ class TestConcurrentWorkersSwarmAware:
                 "proj-a", stage="group_reasoning",
             )
         assert workers == 1
+
+
+class TestSchedulerStatusAIMD:
+
+    def test_status_includes_aimd_fields(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        status = sched.status()
+        node = status["nodes"]["cloud:ep-1"]
+        assert "aimd_mode" in node
+        assert "current_limit" in node
+        assert node["aimd_mode"] == "jumpstart"
+        assert node["current_limit"] == 5  # default
