@@ -155,6 +155,33 @@ class ResumeStrategy:
                                     stage.value, output_file, opath.stat().st_size,
                                 )
 
+                    # Phase 81: Generic output-file check for non-stub manifests.
+                    # A manifest can exist even when the worker returned
+                    # skipped:true (e.g. clustering skipped due to missing LLM).
+                    # Without this, the resume detector thinks the stage is
+                    # complete and skips it on every subsequent run.
+                    output_file = STAGE_OUTPUT_FILE.get(stage)
+                    if output_file:
+                        opath = idx_dir / output_file
+                        if not opath.exists() or opath.stat().st_size == 0:
+                            logger.warning(
+                                "Stage %s has manifest but output %s is "
+                                "missing/empty — treating as incomplete",
+                                stage.value, output_file,
+                            )
+                            stage_decisions.append({
+                                "stage": stage.value,
+                                "decision": "INCOMPLETE",
+                                "reason": (
+                                    f"Manifest exists but {output_file} "
+                                    f"missing/empty (stage may have been skipped)"
+                                ),
+                            })
+                            ResumeStrategy._log_resume_decisions(
+                                project_id, stages, i, stage_decisions, skip_mtime_cascade, pfl_fn
+                            )
+                            return i
+
                     # Structural: verify trace_nodes.jsonl exists
                     if stage == StageId.STRUCTURAL:
                         nodes_path = idx_dir / "trace_nodes.jsonl"
