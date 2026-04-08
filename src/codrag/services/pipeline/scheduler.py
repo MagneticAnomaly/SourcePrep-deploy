@@ -43,6 +43,28 @@ from .stages import QueueType, STAGE_QUEUE_TYPE, StageId
 
 logger = logging.getLogger(__name__)
 
+# Stages that can use swarm orchestration (coordinator → fan-out → synthesis).
+# Shared constant — imported by queue.py and llm.py routers to avoid duplication.
+SWARM_CAPABLE_STAGES: frozenset = frozenset({"group_reasoning", "clustering", "atlas"})
+
+
+def is_swarm_active_for_stage(stage: str, provider: str, model: str) -> bool:
+    """Check if a stage would use swarm orchestration with the given model.
+
+    Mirrors the decision in GroupReasoningEngine.run(), ClusterSynthesizer,
+    and AtlasGenerator — minus the min_groups check (not available at query time).
+    """
+    if stage not in SWARM_CAPABLE_STAGES:
+        return False
+    try:
+        from codrag.core.swarm_registry import get_swarm_tier
+        from codrag.services.settings_store import settings
+        tier = get_swarm_tier(provider, model)
+        return tier.can_coordinate and bool(settings.get("swarm_enabled", True))
+    except Exception:
+        return False
+
+
 # Providers that are always cloud — never compete for local VRAM.
 CLOUD_PROVIDERS = {"openai", "anthropic", "google", "azure-openai"}
 
@@ -847,18 +869,32 @@ class PipelineScheduler:
             return None
 
     def concurrent_workers_for_project(
-        self, project_id: str,
+        self, project_id: str, stage: Optional[str] = None,
     ) -> Tuple[int, Optional[str]]:
         """Return (concurrent_worker_count, node_id) for a project.
 
         Used by the AI Gateway UI to display how many parallel LLM
         calls a stage is making.  Returns (1, None) if the project
         isn't found in any active slot.
+
+        Phase 82: When ``stage`` is a swarm-capable stage and the
+        model supports swarm, returns the full undivided budget
+        instead of the weighted fair-share.
         """
         with self._lock:
             for nid, slot in self._slots.items():
                 if project_id not in slot.active_stages:
                     continue
+                # Phase 82: Check if this is an active swarm stage
+                if stage and stage in SWARM_CAPABLE_STAGES:
+                    try:
+                        from codrag.services.pipeline._model_resolution import resolve_model_for_stage
+                        resolved = resolve_model_for_stage(project_id, stage)
+                        if resolved and is_swarm_active_for_stage(stage, *resolved):
+                            budget = max(1, slot.dynamic_capacity - 1)
+                            return budget, nid
+                    except Exception:
+                        pass  # Fall through to weighted share
                 return self._weighted_share(slot, project_id), nid
         return 1, None
 
@@ -872,6 +908,8 @@ class PipelineScheduler:
                     "max_concurrent": slot.max_concurrent,
                     "dynamic_capacity": slot.dynamic_capacity,
                     "current_load": slot.current_load,
+                    "aimd_mode": slot.mode,
+                    "current_limit": slot.current_limit,
                     "active": dict(slot.active_stages),
                     "queued": [
                         {

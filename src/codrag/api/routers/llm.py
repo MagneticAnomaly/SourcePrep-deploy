@@ -598,16 +598,23 @@ def get_llm_slots_status() -> Dict[str, Any]:
 
         # Enrich running tasks with concurrent worker count from scheduler
         try:
-            from codrag.services.pipeline.scheduler import pipeline_scheduler
-            _SWARM_STAGES = {"group_reasoning", "clustering", "atlas"}
+            from codrag.services.pipeline.scheduler import (
+                pipeline_scheduler, SWARM_CAPABLE_STAGES, is_swarm_active_for_stage,
+            )
+            from codrag.services.pipeline._model_resolution import resolve_model_for_stage
             for rt in running_tasks:
                 workers, node_id = pipeline_scheduler.concurrent_workers_for_project(
-                    rt["project_id"]
+                    rt["project_id"], stage=rt.get("stage"),
                 )
                 rt["concurrent_workers"] = workers
                 rt["compute_node"] = node_id
-                # Flag swarm-capable stages
-                rt["is_swarm"] = rt.get("stage", "") in _SWARM_STAGES
+                # Phase 82: Model-aware swarm flag
+                rt["is_swarm"] = False
+                stage = rt.get("stage", "")
+                if stage in SWARM_CAPABLE_STAGES:
+                    resolved = resolve_model_for_stage(rt["project_id"], stage)
+                    if resolved:
+                        rt["is_swarm"] = is_swarm_active_for_stage(stage, *resolved)
         except Exception:
             pass  # Scheduler not available — leave defaults
 
@@ -633,6 +640,7 @@ def get_llm_slots_status() -> Dict[str, Any]:
                 "model_slot": req["model_slot"] or "large_model",
                 "concurrent_workers": 1,
                 "compute_node": "local",
+                "is_swarm": False,
             })
     except Exception:
         pass  # Non-critical
