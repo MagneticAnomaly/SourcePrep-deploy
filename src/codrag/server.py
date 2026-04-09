@@ -72,10 +72,21 @@ async def lifespan(app: FastAPI):
 
     logger.info("CoDRAG EventBus initialized")
     yield
-    # Shutdown: checkpoint and close the settings store
+    # Shutdown: close all SQLite stores so WAL can be checkpointed cleanly.
+    # Order doesn't matter — each store checkpoints its own connection.
+    from codrag.services.concept_store import concept_store as _concept_store
+    _concept_store.close()
+    from codrag.services.observation_store import observation_store as _obs_store
+    _obs_store.close()
+    from codrag.services.token_telemetry import telemetry as _telemetry
+    _telemetry.close()
+    from codrag.services.pipeline_history import history as _history
+    _history.close()
+    from codrag.services.pipeline_journal import journal as _journal
+    _journal.close()
     from codrag.services.settings_store import settings as _settings_store
     _settings_store.close()
-    logger.info("Settings store closed")
+    logger.info("All SQLite stores closed")
 
 
 app = FastAPI(
