@@ -72,7 +72,10 @@ async def lifespan(app: FastAPI):
 
     logger.info("CoDRAG EventBus initialized")
     yield
-    # Shutdown: nothing to clean up currently
+    # Shutdown: checkpoint and close the settings store
+    from codrag.services.settings_store import settings as _settings_store
+    _settings_store.close()
+    logger.info("Settings store closed")
 
 
 app = FastAPI(
