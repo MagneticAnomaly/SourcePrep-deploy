@@ -106,6 +106,10 @@ main() {
 
     # Start CoDRAG Daemon
     log_info "Starting CoDRAG daemon on port $DAEMON_PORT..."
+    # Kill orphaned daemon processes that may not be listening on a port
+    pkill -f "codrag.cli serve" 2>/dev/null || true
+    pkill -f "codrag serve" 2>/dev/null || true
+    sleep 1
     PYTHONPATH="$PROJECT_ROOT/src" python3.11 -m codrag.cli serve --port $DAEMON_PORT &
     DAEMON_PID=$!
     sleep 2
