@@ -63,16 +63,23 @@ class SettingsStore:
                 str(db_path),
                 check_same_thread=False,
                 isolation_level="DEFERRED",
+                timeout=10,
             )
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.execute("PRAGMA synchronous=NORMAL")
+            # Recover any stale WAL from prior crash (industry pattern: Firefox, VS Code)
+            self._conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
             self._create_tables()
             logger.info("Settings store initialized: %s", db_path)
 
     def close(self) -> None:
-        """Close the database connection."""
+        """Close the database connection, checkpointing WAL first."""
         with self._lock:
             if self._conn:
+                try:
+                    self._conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                except Exception:
+                    pass  # Best-effort on shutdown
                 self._conn.close()
                 self._conn = None
 
