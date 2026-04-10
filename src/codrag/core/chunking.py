@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Dict, Generator, List, Optional, Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .embedder import Embedder
 
 from .ids import stable_code_chunk_id, stable_markdown_chunk_id
 
@@ -104,6 +107,102 @@ def _split_long_text(text: str, max_chars: int) -> List[str]:
     return chunks
 
 
+def _split_sentences(text: str) -> List[str]:
+    """Split text into sentences at punctuation and paragraph boundaries."""
+    paragraphs = re.split(r"\n\n+", text)
+    sentences: List[str] = []
+    for para in paragraphs:
+        parts = re.split(r"(?<=[.!?])\s+", para.strip())
+        sentences.extend(p.strip() for p in parts if p.strip())
+    return sentences
+
+
+def _semantic_split(
+    text: str,
+    max_chars: int,
+    embedder: "Embedder",
+    min_chars: int = 350,
+) -> List[str]:
+    """Split oversized text at semantic boundaries using embedding similarity.
+
+    Uses the Savitzky-Golay filter to find natural topic boundaries in
+    the embedding similarity curve between adjacent sentences.
+
+    Falls back to _split_long_text() when there aren't enough sentences
+    for meaningful signal processing (< 5 sentences).
+    """
+    import numpy as np
+    from .sg_filter import find_boundaries
+
+    sentences = _split_sentences(text)
+
+    if len(sentences) < 5:
+        return _split_long_text(text, max_chars)
+
+    results = embedder.embed_batch(sentences)
+    vectors = np.array([r.vector for r in results], dtype=np.float32)
+
+    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+    norms = np.where(norms == 0, 1e-8, norms)
+    normed = vectors / norms
+
+    similarities = np.array([
+        float(np.dot(normed[i], normed[i + 1]))
+        for i in range(len(normed) - 1)
+    ], dtype=np.float64)
+
+    boundaries = find_boundaries(similarities, percentile_threshold=20.0, min_distance=2)
+
+    if not boundaries:
+        return _split_long_text(text, max_chars)
+
+    # Group sentences at boundaries
+    groups: List[List[str]] = []
+    prev = 0
+    for b in boundaries:
+        group = sentences[prev:b + 1]
+        if group:
+            groups.append(group)
+        prev = b + 1
+    if prev < len(sentences):
+        groups.append(sentences[prev:])
+
+    # Merge small groups with neighbors
+    merged: List[str] = []
+    pending = ""
+    for group in groups:
+        chunk_text = " ".join(group)
+        if pending:
+            candidate = pending + " " + chunk_text
+            if len(candidate) <= max_chars:
+                pending = candidate
+                continue
+            else:
+                merged.append(pending)
+                pending = ""
+
+        if len(chunk_text) < min_chars:
+            pending = chunk_text
+        else:
+            merged.append(chunk_text)
+
+    if pending:
+        if merged and len(merged[-1]) + len(pending) + 1 <= max_chars:
+            merged[-1] = merged[-1] + " " + pending
+        else:
+            merged.append(pending)
+
+    # Post-process: recursively split any oversized chunks
+    final: List[str] = []
+    for chunk in merged:
+        if len(chunk) > int(max_chars * 1.5):
+            final.extend(_split_long_text(chunk, max_chars))
+        else:
+            final.append(chunk)
+
+    return final if final else _split_long_text(text, max_chars)
+
+
 def chunk_markdown(
     text: str,
     source_path: str,
@@ -111,6 +210,7 @@ def chunk_markdown(
     name: Optional[str] = None,
     max_chars: int = 1800,
     min_chars: int = 350,
+    embedder: Optional["Embedder"] = None,
 ) -> List[Chunk]:
     """
     Chunk markdown text by headings with size limits.
@@ -190,7 +290,11 @@ def chunk_markdown(
             idx += 1
             continue
 
-        for part in _split_long_text(section_text, max_chars):
+        if embedder is not None:
+            split_parts = _semantic_split(section_text, max_chars, embedder, min_chars)
+        else:
+            split_parts = _split_long_text(section_text, max_chars)
+        for part in split_parts:
             emit(part, section_meta, idx)
             idx += 1
 
