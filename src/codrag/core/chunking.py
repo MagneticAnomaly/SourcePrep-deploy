@@ -139,7 +139,10 @@ def _semantic_split(
     if len(sentences) < 5:
         return _split_long_text(text, max_chars)
 
-    results = embedder.embed_batch(sentences)
+    try:
+        results = embedder.embed_batch(sentences)
+    except Exception:
+        return _split_long_text(text, max_chars)
     vectors = np.array([r.vector for r in results], dtype=np.float32)
 
     norms = np.linalg.norm(vectors, axis=1, keepdims=True)
