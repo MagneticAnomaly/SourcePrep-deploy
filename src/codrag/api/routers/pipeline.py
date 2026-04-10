@@ -1,23 +1,24 @@
 """
-CoDRAG Pipeline Router — Phase 24 (SM-6) + Phase 25 (Crash Protection) + Phase 76 (Rebuild)
-=============================================================================================
+CoDRAG Pipeline Router — Phase 24 (SM-6) + Phase 25 (Crash Protection) + Phase 76 (Rebuild) + Phase 96 (3×5)
+=============================================================================================================
 
-Exposes the 8-stage pipeline orchestrator via HTTP endpoints.
+Exposes the 15-stage pipeline orchestrator via HTTP endpoints.
 
 **Endpoints:**
-  - POST /projects/{id}/pipeline/fast     — run Fast Sync (stages 1-4)
-  - POST /projects/{id}/pipeline/deep     — run Deep Enrichment (stages 5-8)
-  - POST /projects/{id}/pipeline/all      — run all stages (fast → deep)
-  - POST /projects/{id}/pipeline/rebuild  — rebuild all stages from scratch (Phase 76)
-  - GET  /projects/{id}/pipeline/status   — pipeline status (8-stage, two-group)
-  - POST /projects/{id}/pipeline/cancel   — cancel a running group
-  - GET  /pipeline/crashed                — all crashed runs (Phase 25)
-  - POST /pipeline/resume                 — resume a crashed run (Phase 25)
-  - POST /pipeline/discard                — discard a crashed run (Phase 25)
+  - POST /projects/{id}/pipeline/fast      — run Fast Sync (stages 1-5)
+  - POST /projects/{id}/pipeline/deep      — run Deep Enrichment (stages 6-10)
+  - POST /projects/{id}/pipeline/finalize  — run Finalize (stages 11-15)
+  - POST /projects/{id}/pipeline/all       — run all stages (fast → deep → finalize)
+  - POST /projects/{id}/pipeline/rebuild   — rebuild all stages from scratch (Phase 76)
+  - GET  /projects/{id}/pipeline/status    — pipeline status (15-stage, three-group)
+  - POST /projects/{id}/pipeline/cancel    — cancel a running group
+  - GET  /pipeline/crashed                 — all crashed runs (Phase 25)
+  - POST /pipeline/resume                  — resume a crashed run (Phase 25)
+  - POST /pipeline/discard                 — discard a crashed run (Phase 25)
 
 **Replaces:**
-  The old ``/engine/status`` endpoint (7-stage model) with the new 8-stage,
-  two-group model that matches the UI's ``GraphEnrichmentPipeline.tsx``.
+  The old ``/engine/status`` endpoint (7-stage model) with the new 15-stage,
+  three-group model that matches the UI's ``GraphEnrichmentPipeline.tsx``.
 """
 
 from __future__ import annotations
@@ -46,19 +47,19 @@ _status_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="pipelin
 # ── Request models ───────────────────────────────────────────────
 
 class CancelRequest(BaseModel):
-    group: str = "fast_sync"  # "fast_sync" or "deep_enrichment"
+    group: str = "fast_sync"  # "fast_sync", "deep_enrichment", or "finalize"
 
 
 class PauseRequest(BaseModel):
-    group: str = "fast_sync"  # "fast_sync" or "deep_enrichment"
+    group: str = "fast_sync"  # "fast_sync", "deep_enrichment", or "finalize"
 
 
 class ResumeGroupRequest(BaseModel):
-    group: str = "fast_sync"  # "fast_sync" or "deep_enrichment"
+    group: str = "fast_sync"  # "fast_sync", "deep_enrichment", or "finalize"
 
 
 class SwapModelRequest(BaseModel):
-    group: str = "deep_enrichment"  # "fast_sync" or "deep_enrichment"
+    group: str = "deep_enrichment"  # "fast_sync", "deep_enrichment", or "finalize"
 
 
 class ResumeRequest(BaseModel):
@@ -145,6 +146,25 @@ def pipeline_run_deep(project_id: str) -> Dict[str, Any]:
     return ok({"started": True, "group": "deep_enrichment"})
 
 
+@router.post("/projects/{project_id}/pipeline/finalize")
+def pipeline_run_finalize(project_id: str) -> Dict[str, Any]:
+    """Run Finalize group (stages 11-15): Atlas, Rules, Concepts, Audit, Antibodies."""
+    from codrag.services.project_helpers import require_project_writable
+    require_project_writable(project_id)
+
+    from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+    started = pipeline_orchestrator.run_finalize(project_id)
+
+    if not started:
+        raise ApiException(
+            status_code=409,
+            code="PIPELINE_UP_TO_DATE",
+            message="Finalize is already up-to-date or is already running",
+        )
+
+    return ok({"started": True, "group": "finalize"})
+
+
 @router.post("/projects/{project_id}/pipeline/all")
 def pipeline_run_all(project_id: str) -> Dict[str, Any]:
     """Run all stages: Fast Sync (1-4) then Deep Enrichment (5-8)."""
@@ -193,7 +213,7 @@ def pipeline_rebuild(project_id: str) -> Dict[str, Any]:
 
 @router.get("/projects/{project_id}/pipeline/status")
 async def pipeline_status(project_id: str) -> Dict[str, Any]:
-    """Get the full 11-stage pipeline status (two-group model).
+    """Get the full 15-stage pipeline status (three-group model).
 
     Returns both group-level run status and per-stage build slot status.
     Also includes legacy per-stage data fetched from existing sources
@@ -382,6 +402,46 @@ async def pipeline_status(project_id: str) -> Dict[str, Any]:
                 "routing": False,
             }
 
+        # Rules status
+        rules_status: Dict[str, Any] = {"generated": False, "stale": False}
+        try:
+            from pathlib import Path as _Path
+            agents_md = _Path(proj.path) / "AGENTS.md"
+            rules_status["generated"] = agents_md.exists()
+        except Exception:
+            pass
+
+        # Concepts status
+        concepts_status: Dict[str, Any] = {"seeded": False, "count": 0}
+        try:
+            from codrag.services.concept_store import concept_store
+            cstats = concept_store.get_stats(project_id)
+            concepts_status = {"seeded": cstats["total"] > 0, "count": cstats["total"]}
+        except Exception:
+            pass
+
+        # Audit status
+        audit_status: Dict[str, Any] = {"exists": False, "finding_count": 0}
+        try:
+            audit_path = idx_dir / "audit_findings.json"
+            if audit_path.exists():
+                adata = _json.loads(audit_path.read_text())
+                audit_status = {
+                    "exists": True,
+                    "finding_count": len(adata.get("findings", [])),
+                }
+        except Exception:
+            pass
+
+        # Antibodies status
+        antibodies_status: Dict[str, Any] = {"count": 0}
+        try:
+            from codrag.services.antibody_store import antibody_store
+            ab_list = antibody_store.list_antibodies(project_id)
+            antibodies_status = {"count": len(ab_list)}
+        except Exception:
+            pass
+
         # Pipeline orchestrator group-level status
         from codrag.services.pipeline_orchestrator import pipeline_orchestrator
         pipeline_state = pipeline_orchestrator.status(project_id)
@@ -415,6 +475,10 @@ async def pipeline_status(project_id: str) -> Dict[str, Any]:
             "atlas": atlas_status,
             "deepening": deepening_status,
             "deep_knowledge": deep_knowledge_status,  # Separate status with deep_chunks_embedded field
+            "rules": rules_status,
+            "concepts": concepts_status,
+            "audit": audit_status,
+            "antibodies": antibodies_status,
         }
         for stage_key, slot_info in slot_stages.items():
             if stage_key in stage_data and isinstance(slot_info, dict):
@@ -475,6 +539,7 @@ async def pipeline_status(project_id: str) -> Dict[str, Any]:
         return ok({
             "fast_sync": pipeline_state.get("fast_sync"),
             "deep_enrichment": pipeline_state.get("deep_enrichment"),
+            "finalize": pipeline_state.get("finalize"),
             "stages": stage_data,
             "any_running": pipeline_state.get("any_running", False),
             "crashed_runs": crashed_runs,
@@ -498,11 +563,13 @@ def pipeline_cancel(project_id: str, req: CancelRequest) -> Dict[str, Any]:
         cancelled = pipeline_orchestrator.cancel_fast_sync(project_id)
     elif req.group == "deep_enrichment":
         cancelled = pipeline_orchestrator.cancel_deep_enrichment(project_id)
+    elif req.group == "finalize":
+        cancelled = pipeline_orchestrator.cancel_finalize(project_id)
     else:
         raise ApiException(
             status_code=400,
             code="INVALID_GROUP",
-            message=f"Unknown group: {req.group}. Must be 'fast_sync' or 'deep_enrichment'.",
+            message=f"Unknown group: {req.group}. Must be 'fast_sync', 'deep_enrichment', or 'finalize'.",
         )
 
     if not cancelled:
@@ -531,11 +598,13 @@ def pipeline_pause(project_id: str, req: PauseRequest) -> Dict[str, Any]:
         paused = pipeline_orchestrator.pause_fast_sync(project_id)
     elif req.group == "deep_enrichment":
         paused = pipeline_orchestrator.pause_deep_enrichment(project_id)
+    elif req.group == "finalize":
+        paused = pipeline_orchestrator.pause_finalize(project_id)
     else:
         raise ApiException(
             status_code=400,
             code="INVALID_GROUP",
-            message=f"Unknown group: {req.group}. Must be 'fast_sync' or 'deep_enrichment'.",
+            message=f"Unknown group: {req.group}. Must be 'fast_sync', 'deep_enrichment', or 'finalize'.",
         )
 
     if not paused:
@@ -583,11 +652,11 @@ def pipeline_swap_model(project_id: str, req: SwapModelRequest) -> Dict[str, Any
     from codrag.server import _require_project
     _require_project(project_id)
 
-    if req.group not in ("fast_sync", "deep_enrichment"):
+    if req.group not in ("fast_sync", "deep_enrichment", "finalize"):
         raise ApiException(
             status_code=400,
             code="INVALID_GROUP",
-            message=f"Unknown group: {req.group}. Must be 'fast_sync' or 'deep_enrichment'.",
+            message=f"Unknown group: {req.group}. Must be 'fast_sync', 'deep_enrichment', or 'finalize'.",
         )
 
     from codrag.services.pipeline_orchestrator import pipeline_orchestrator

@@ -944,6 +944,10 @@ class PipelineOrchestrator:
         """Cancel the Deep Enrichment group."""
         return self._cancel_group(project_id, "deep_enrichment")
 
+    def cancel_finalize(self, project_id: str) -> bool:
+        """Cancel the Finalize group."""
+        return self._cancel_group(project_id, "finalize")
+
     def pause_fast_sync(self, project_id: str) -> bool:
         """Pause the Fast Sync group.  The current stage flushes partial
         results and stops.  Resume with ``resume_paused()``."""
@@ -952,6 +956,10 @@ class PipelineOrchestrator:
     def pause_deep_enrichment(self, project_id: str) -> bool:
         """Pause the Deep Enrichment group."""
         return self._pause_group(project_id, "deep_enrichment")
+
+    def pause_finalize(self, project_id: str) -> bool:
+        """Pause the Finalize group."""
+        return self._pause_group(project_id, "finalize")
 
     def resume_paused(self, project_id: str, group: str) -> bool:
         """Resume a paused pipeline group from the stage it was paused at.
