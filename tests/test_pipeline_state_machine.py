@@ -656,3 +656,40 @@ class TestStageSnapshotOnSM:
         assert len(errors) == 0
         snaps = sm.get_stage_snapshots()
         assert len(snaps) == 5
+
+
+# ── Finalize group tests ───────────────────────────────────────
+
+
+def make_finalize_sm():
+    return make_sm(
+        stages=["atlas", "rules", "concepts", "audit", "antibodies"],
+        group="finalize",
+    )
+
+
+class TestFinalizeGroup:
+    """Test finalize group state machine behavior."""
+
+    def test_finalize_sm_has_5_stages(self):
+        sm = make_finalize_sm()
+        assert len(sm.stages) == 5
+
+    def test_finalize_lifecycle(self):
+        sm = make_finalize_sm()
+        sm.transition(Event.START)
+        assert sm.state == PipelineState.RUNNING
+        for _ in range(5):
+            sm.transition(Event.STAGE_COMPLETED)
+        sm.transition(Event.ALL_STAGES_DONE)
+        assert sm.state == PipelineState.COMPLETED
+
+    def test_finalize_pause_resume(self):
+        sm = make_finalize_sm()
+        sm.transition(Event.START)
+        sm.transition(Event.PAUSE)
+        assert sm.state == PipelineState.PAUSING
+        sm.transition(Event.STAGE_FLUSHED)
+        assert sm.state == PipelineState.PAUSED
+        sm.transition(Event.RESUME)
+        assert sm.state == PipelineState.RUNNING
