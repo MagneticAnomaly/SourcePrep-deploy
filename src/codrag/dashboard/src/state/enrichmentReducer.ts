@@ -32,9 +32,11 @@ export interface EnrichmentState {
   /** Pipeline group is paused (phase === 'paused' | 'pausing' | legacy 'failed') */
   fastPaused: boolean
   deepPaused: boolean
+  finalizePaused: boolean
   /** Explicit stage ID where the pipeline was paused (from backend current_stage) */
   fastPausedStage: string | undefined
   deepPausedStage: string | undefined
+  finalizePausedStage: string | undefined
 }
 
 export const initialEnrichmentState: EnrichmentState = {
@@ -61,8 +63,10 @@ export const initialEnrichmentState: EnrichmentState = {
   groupReasoningStatus: { enabled: false, group_count: 0, analyzed: 0 },
   fastPaused: false,
   deepPaused: false,
+  finalizePaused: false,
   fastPausedStage: undefined,
   deepPausedStage: undefined,
+  finalizePausedStage: undefined,
 }
 
 // ── Actions ───────────────────────────────────────────────────
@@ -82,7 +86,7 @@ export type EnrichmentAction =
   // Sync all running flags at once (from SSE or initial hydration)
   | { type: 'SYNC_RUNNING'; inferredEdgesRunning: boolean; augmenting: boolean; validating: boolean; epistemicRunning: boolean; groupReasoningRunning: boolean; clusterRunning: boolean; atlasRunning: boolean; deepeningRunning: boolean; fastKnowledgeBuilding: boolean; deepKnowledgeBuilding: boolean }
   // Sync paused flags (from pipeline phase: paused | pausing | legacy failed)
-  | { type: 'SYNC_PAUSED'; fastPaused: boolean; deepPaused: boolean; fastPausedStage?: string; deepPausedStage?: string }
+  | { type: 'SYNC_PAUSED'; fastPaused: boolean; deepPaused: boolean; finalizePaused: boolean; fastPausedStage?: string; deepPausedStage?: string; finalizePausedStage?: string }
   // Manual stage start (optimistic UI feedback)
   | { type: 'STAGE_STARTED'; stage: StageName }
   // Manual stage failure (revert optimistic flag)
@@ -92,6 +96,8 @@ export type EnrichmentAction =
   | { type: 'FAST_FAILED' }
   | { type: 'DEEP_COMPLETED' }
   | { type: 'DEEP_FAILED' }
+  | { type: 'FINALIZE_COMPLETED' }
+  | { type: 'FINALIZE_FAILED' }
   // Merge slot_progress (with baseline) from pipeline status polling
   | { type: 'AUGMENTATION_PROGRESS'; payload: { progress_current: number; progress_total: number; progress_baseline: number } }
   | { type: 'EPISTEMIC_PROGRESS'; payload: { progress_current: number; progress_total: number; progress_baseline: number } }
@@ -156,8 +162,10 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
         ...state,
         fastPaused: action.fastPaused,
         deepPaused: action.deepPaused,
+        finalizePaused: action.finalizePaused,
         fastPausedStage: action.fastPausedStage,
         deepPausedStage: action.deepPausedStage,
+        finalizePausedStage: action.finalizePausedStage,
       }
 
     // ── Optimistic stage start ──
@@ -200,6 +208,13 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
         ...state,
         epistemicRunning: false, groupReasoningRunning: false, clusterRunning: false, atlasRunning: false, deepeningRunning: false, deepKnowledgeBuilding: false, deepPaused: false, deepPausedStage: undefined,
         epistemicStatus: { ...state.epistemicStatus, progress_current: undefined, progress_total: undefined, progress_baseline: undefined },
+      }
+
+    case 'FINALIZE_COMPLETED':
+    case 'FINALIZE_FAILED':
+      return {
+        ...state,
+        finalizePaused: false, finalizePausedStage: undefined,
       }
 
     // ── Full reset ──

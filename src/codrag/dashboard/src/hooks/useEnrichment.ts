@@ -187,7 +187,16 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     }
   }, [api, selectedProjectId])
 
-  const handlePausePipeline = useCallback(async (group: 'fast_sync' | 'deep_enrichment') => {
+  const handleRunFinalize = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      await api.runPipelineFinalize(selectedProjectId)
+    } catch (e) {
+      onErrorRef.current(e instanceof Error ? e.message : 'Finalize pipeline encountered an issue.', 'warning')
+    }
+  }, [api, selectedProjectId])
+
+  const handlePausePipeline = useCallback(async (group: 'fast_sync' | 'deep_enrichment' | 'finalize') => {
     if (!selectedProjectId) return
     try {
       await api.pausePipeline(selectedProjectId, group)
@@ -196,17 +205,19 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
         type: 'SYNC_PAUSED',
         fastPaused: group === 'fast_sync' ? true : state.fastPaused,
         deepPaused: group === 'deep_enrichment' ? true : state.deepPaused,
+        finalizePaused: group === 'finalize' ? true : state.finalizePaused,
         // We don't know the exact stage client-side at pause time;
         // the SSE event will fill it in when the backend confirms.
         fastPausedStage: group === 'fast_sync' ? undefined : state.fastPausedStage,
         deepPausedStage: group === 'deep_enrichment' ? undefined : state.deepPausedStage,
+        finalizePausedStage: group === 'finalize' ? undefined : state.finalizePausedStage,
       })
     } catch (e) {
       onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t pause pipeline.', 'warning')
     }
-  }, [api, selectedProjectId, state.fastPaused, state.deepPaused])
+  }, [api, selectedProjectId, state.fastPaused, state.deepPaused, state.finalizePaused])
 
-  const handleResumePipeline = useCallback(async (group: 'fast_sync' | 'deep_enrichment') => {
+  const handleResumePipeline = useCallback(async (group: 'fast_sync' | 'deep_enrichment' | 'finalize') => {
     if (!selectedProjectId) return
     try {
       await api.resumePipeline(selectedProjectId, group)
@@ -215,13 +226,15 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
         type: 'SYNC_PAUSED',
         fastPaused: group === 'fast_sync' ? false : state.fastPaused,
         deepPaused: group === 'deep_enrichment' ? false : state.deepPaused,
+        finalizePaused: group === 'finalize' ? false : state.finalizePaused,
         fastPausedStage: group === 'fast_sync' ? undefined : state.fastPausedStage,
         deepPausedStage: group === 'deep_enrichment' ? undefined : state.deepPausedStage,
+        finalizePausedStage: group === 'finalize' ? undefined : state.finalizePausedStage,
       })
     } catch (e) {
       onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t resume pipeline.', 'warning')
     }
-  }, [api, selectedProjectId, state.fastPaused, state.deepPaused])
+  }, [api, selectedProjectId, state.fastPaused, state.deepPaused, state.finalizePaused])
 
   const handleSwapModel = useCallback(async (group?: 'fast_sync' | 'deep_enrichment') => {
     if (!selectedProjectId) return
@@ -320,12 +333,17 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
         || (ps.fast_sync?.phase === 'failed' && (ps.fast_sync?.error || '').includes('Paused by user'))
       const deepIsPaused = ps.deep_enrichment?.phase === 'paused' || ps.deep_enrichment?.phase === 'pausing'
         || (ps.deep_enrichment?.phase === 'failed' && (ps.deep_enrichment?.error || '').includes('Paused by user'))
+      const fin = ps.finalize
+      const finalizeIsPaused = fin?.phase === 'paused' || fin?.phase === 'pausing'
+        || (fin?.phase === 'failed' && (fin?.error || '').includes('Paused by user'))
       dispatch({
         type: 'SYNC_PAUSED',
         fastPaused: fastIsPaused,
         deepPaused: deepIsPaused,
+        finalizePaused: finalizeIsPaused || false,
         fastPausedStage: fastIsPaused ? ps.fast_sync?.current_stage ?? undefined : undefined,
         deepPausedStage: deepIsPaused ? ps.deep_enrichment?.current_stage ?? undefined : undefined,
+        finalizePausedStage: finalizeIsPaused ? fin?.current_stage ?? undefined : undefined,
       })
     }).catch(() => { /* silent — SSE will provide updates */ })
 
@@ -373,12 +391,17 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       || (fast?.phase === 'failed' && (fast?.error || '').includes('Paused by user'))
     const deepIsPausedSSE = deep?.phase === 'paused' || deep?.phase === 'pausing'
       || (deep?.phase === 'failed' && (deep?.error || '').includes('Paused by user'))
+    const finSSE = pipelineEvent.finalize
+    const finalizeIsPausedSSE = finSSE?.phase === 'paused' || finSSE?.phase === 'pausing'
+      || (finSSE?.phase === 'failed' && (finSSE?.error || '').includes('Paused by user'))
     dispatch({
       type: 'SYNC_PAUSED',
       fastPaused: fastIsPausedSSE,
       deepPaused: deepIsPausedSSE,
+      finalizePaused: finalizeIsPausedSSE || false,
       fastPausedStage: fastIsPausedSSE ? fast?.current_stage ?? undefined : undefined,
       deepPausedStage: deepIsPausedSSE ? deep?.current_stage ?? undefined : undefined,
+      finalizePausedStage: finalizeIsPausedSSE ? finSSE?.current_stage ?? undefined : undefined,
     })
 
     // ── Detect transitions for status refresh ──
@@ -500,6 +523,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     handleRunDeepening,
     handleRunKnowledgeBuild,
     handleRunDeepEnrichment,
+    handleRunFinalize,
     handlePausePipeline,
     handleResumePipeline,
     handleSwapModel,

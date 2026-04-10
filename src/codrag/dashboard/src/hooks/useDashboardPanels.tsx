@@ -57,6 +57,10 @@ import {
   type ScopeStatus,
   type TokenBudgetData,
   type AtlasStatus,
+  type RulesStatus,
+  type ConceptsStatus,
+  type AuditPipelineStatus,
+  type AntibodiesStatus,
   GoalpostsPanel,
   AdvisorPanel,
   RoadmapPanel,
@@ -168,14 +172,22 @@ export interface PanelEnrichmentProps {
   deepKnowledgeBuilding: boolean
   handleRunKnowledgeBuild: () => void
   handleRunDeepEnrichment: () => void
-  handlePausePipeline: (group: 'fast_sync' | 'deep_enrichment') => void
-  handleResumePipeline: (group: 'fast_sync' | 'deep_enrichment') => void
+  handleRunFinalize: () => void
+  handlePausePipeline: (group: 'fast_sync' | 'deep_enrichment' | 'finalize') => void
+  handleResumePipeline: (group: 'fast_sync' | 'deep_enrichment' | 'finalize') => void
   fastPaused: boolean
   deepPaused: boolean
+  finalizePaused: boolean
   /** Explicit stage ID where fast sync was paused (from backend SSE) */
   fastPausedStage?: string
   /** Explicit stage ID where deep enrichment was paused (from backend SSE) */
   deepPausedStage?: string
+  /** Explicit stage ID where finalize was paused (from backend SSE) */
+  finalizePausedStage?: string
+  rulesStatus?: RulesStatus
+  conceptsStatus?: ConceptsStatus
+  auditPipelineStatus?: AuditPipelineStatus
+  antibodiesStatus?: AntibodiesStatus
   groupReasoningStatus: { enabled: boolean; group_count: number; analyzed: number; running?: boolean; slot_phase?: string; progress_current?: number; progress_total?: number }
 }
 
@@ -816,6 +828,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           onRunKnowledgeBuild={p.handleRunKnowledgeBuild}
           onRunFastSync={p.handleRunFastSync}
           onRunDeepEnrichment={p.handleRunDeepEnrichment}
+          onRunFinalize={p.handleRunFinalize}
           onDestroyGraph={p.handleDestroyGraph}
           onOpenDeepSettings={p.onOpenDeepSettings}
           augmenting={p.augmenting}
@@ -832,8 +845,14 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           onResumePipeline={p.handleResumePipeline}
           fastPaused={p.fastPaused}
           deepPaused={p.deepPaused}
+          finalizePaused={p.finalizePaused}
           fastPausedStage={p.fastPausedStage}
           deepPausedStage={p.deepPausedStage}
+          finalizePausedStage={p.finalizePausedStage}
+          rulesStatus={p.rulesStatus}
+          conceptsStatus={p.conceptsStatus}
+          auditPipelineStatus={p.auditPipelineStatus}
+          antibodiesStatus={p.antibodiesStatus}
           autoConfig={p.enrichmentAutoConfig}
           onAutoConfigChange={p.handleEnrichmentAutoConfigChange}
           isPro={p.isPro}
