@@ -558,7 +558,7 @@ class CodeIndex:
 
             # Normal processing for small files
             if file_path.suffix.lower() in (".md", ".markdown"):
-                chunks = chunk_markdown(raw, source_path=rel_path)
+                chunks = chunk_markdown(raw, source_path=rel_path, embedder=self.embedder)
             else:
                 chunks = chunk_code(raw, source_path=rel_path)
 
