@@ -563,8 +563,10 @@ class CodeIndex:
                 chunks = chunk_code(raw, source_path=rel_path)
 
             # Phase 73: Inject meta-chunk for multi-chunk files.
+            file_synopsis = ""
             if len(chunks) > 1:
                 synopsis = extract_file_synopsis(raw, rel_path)
+                file_synopsis = synopsis  # Save for Tier 1 context
                 meta_chunk_id = stable_file_hash(rel_path + ":meta_synopsis")
                 meta_text = self._format_chunk_for_embedding(
                     Chunk(
@@ -592,7 +594,7 @@ class CodeIndex:
                     chunks_code += 1
 
             for ch in chunks:
-                text_for_embed = self._format_chunk_for_embedding(ch, file_hash)
+                text_for_embed = self._format_chunk_for_embedding(ch, file_hash, file_synopsis=file_synopsis)
                 emb = self.embedder.embed(text_for_embed).vector
 
                 doc = {
@@ -1837,8 +1839,9 @@ class CodeIndex:
         result["module_injected"] = top_name
         return result
 
-    def _format_chunk_for_embedding(self, chunk: Chunk, file_hash: str) -> str:
-        """Format a chunk for embedding."""
+    def _format_chunk_for_embedding(self, chunk: Chunk, file_hash: str,
+                                     file_synopsis: str = "") -> str:
+        """Format a chunk for embedding, optionally with file-level context."""
         meta = chunk.metadata
         bits: List[str] = []
         if meta.get("name"):
@@ -1846,6 +1849,9 @@ class CodeIndex:
         bits.append(f"Path: {meta.get('source_path', '')}")
         if meta.get("section"):
             bits.append(f"Section: {meta['section']}")
+        # P2 Tier 1: prepend file synopsis for contextual awareness
+        if file_synopsis and meta.get("section") != "META_SYNOPSIS":
+            bits.append(f"File context: {file_synopsis}")
         bits.append(f"Hash: {file_hash}")
         bits.append("")
         bits.append(chunk.content)
