@@ -5,9 +5,10 @@ import { ConfirmDialog } from '../primitives/ConfirmDialog';
 import { SlidingSwitch2, SlidingSwitch3 } from '../primitives/SlidingSwitch';
 import {
   GitBranch, Brain, ShieldCheck, Play, AlertTriangle, CheckCircle2,
-  Circle, Clock, Loader2, Layers, Network, Database, Trash2, Code2, Map, Eye, Pause
+  Circle, Clock, Loader2, Layers, Network, Database, Trash2, Code2, Map, Eye, Pause,
+  FileText, Lightbulb, ClipboardCheck, Shield
 } from 'lucide-react';
-import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, InferredEdgesStatus, AtlasStatus, StageProvenance } from '../../types';
+import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, InferredEdgesStatus, AtlasStatus, StageProvenance, RulesStatus, ConceptsStatus, AuditPipelineStatus, AntibodiesStatus } from '../../types';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -19,7 +20,10 @@ export interface TraceStageInfo {
   last_build_at: string | null;
 }
 
-export type EnrichmentStageId = 'structural' | 'inferred_edges' | 'catalogue' | 'validation' | 'knowledge' | 'enrichment' | 'group_reasoning' | 'clustering' | 'atlas' | 'deepening' | 'deep_knowledge';
+export type EnrichmentStageId =
+  | 'structural' | 'inferred_edges' | 'catalogue' | 'validation' | 'knowledge'
+  | 'enrichment' | 'group_reasoning' | 'clustering' | 'deepening' | 'deep_knowledge'
+  | 'atlas' | 'rules' | 'concepts' | 'audit' | 'antibodies';
 
 export type DeepEnrichmentMode = 'manual' | 'auto' | 'scheduled' | 'threshold';
 
@@ -63,9 +67,9 @@ export interface GraphEnrichmentPipelineProps {
   /** Open the settings drawer to the Deep Enrichment configuration */
   onOpenDeepSettings?: () => void;
   /** Pause the currently running pipeline group (flush partial results + stop) */
-  onPausePipeline?: (group: 'fast_sync' | 'deep_enrichment') => void;
+  onPausePipeline?: (group: 'fast_sync' | 'deep_enrichment' | 'finalize') => void;
   /** Resume a paused pipeline group */
-  onResumePipeline?: (group: 'fast_sync' | 'deep_enrichment') => void;
+  onResumePipeline?: (group: 'fast_sync' | 'deep_enrichment' | 'finalize') => void;
   /** True if the fast sync group is paused */
   fastPaused?: boolean;
   /** True if the deep enrichment group is paused */
@@ -99,6 +103,21 @@ export interface GraphEnrichmentPipelineProps {
   staleCounts?: { total: number; stale: number };
   /** Phase 49: per-stage provenance data keyed by output filename or stage_id */
   provenance?: Record<string, StageProvenance>;
+  // ── Finalize group (Phase 96) ──
+  /** Status of rules generation stage */
+  rulesStatus?: RulesStatus;
+  /** Status of concept seeding stage */
+  conceptsStatus?: ConceptsStatus;
+  /** Status of audit pipeline stage */
+  auditPipelineStatus?: AuditPipelineStatus;
+  /** Status of antibody derivation stage */
+  antibodiesStatus?: AntibodiesStatus;
+  /** Run the Finalize group (manual trigger) */
+  onRunFinalize?: () => void;
+  /** True if the finalize group is paused */
+  finalizePaused?: boolean;
+  /** Explicit stage ID where finalize was paused */
+  finalizePausedStage?: string;
   /** True while the project is switching and initial data hasn't loaded yet */
   projectLoading?: boolean;
   className?: string;
@@ -154,6 +173,10 @@ const STAGE_OUTPUT_KEY: Record<EnrichmentStageId, string | null> = {
   atlas: null,
   deepening: 'trace_epistemic.jsonl',
   deep_knowledge: null,
+  rules: null,
+  concepts: null,
+  audit: null,
+  antibodies: null,
 };
 
 function lookupProvenance(
@@ -557,8 +580,8 @@ function StageRow({
 }: {
   stage: EnrichmentStage;
   isPaused: boolean;
-  onPause?: (group: "fast_sync" | "deep_enrichment") => void;
-  onResume?: (group: "fast_sync" | "deep_enrichment") => void;
+  onPause?: (group: "fast_sync" | "deep_enrichment" | "finalize") => void;
+  onResume?: (group: "fast_sync" | "deep_enrichment" | "finalize") => void;
   showDetails?: boolean;
 }) {
   const s = STATE_STYLES[stage.state];
@@ -568,7 +591,9 @@ function StageRow({
 
   const group = ['structural', 'inferred_edges', 'catalogue', 'validation', 'knowledge'].includes(stage.id)
     ? 'fast_sync'
-    : 'deep_enrichment';
+    : ['enrichment', 'group_reasoning', 'clustering', 'deepening', 'deep_knowledge'].includes(stage.id)
+    ? 'deep_enrichment'
+    : 'finalize';
 
   return (
     <div
@@ -735,12 +760,20 @@ export function GraphEnrichmentPipeline({
   deepPaused: deepPausedProp,
   fastPausedStage,
   deepPausedStage,
+  rulesStatus,
+  conceptsStatus,
+  auditPipelineStatus,
+  antibodiesStatus,
+  onRunFinalize,
+  finalizePaused: finalizePausedProp,
+  finalizePausedStage,
   provenance,
   projectLoading,
   className,
 }: GraphEnrichmentPipelineProps) {
   const fastPaused = fastPausedProp ?? false;
   const deepPaused = deepPausedProp ?? false;
+  const finalizePaused = finalizePausedProp ?? false;
 
   // ── Phase 49: Details toggle (persisted to localStorage) ──────
   const [showDetails, setShowDetails] = useState(() => {
@@ -1001,7 +1034,6 @@ export function GraphEnrichmentPipeline({
         : (clusteringState === 'running' ? 0 : undefined),
       rerun: clusteringState === 'running' ? computeStageRerun(modules?.progress_baseline, modules?.progress_total) : undefined,
     },
-    { id: 'atlas', label: 'Atlas Building', icon: Map, modelTag: 'Thinking', state: atlasState, stats: atlasStats, rerun: atlasState === 'running' ? computeStageRerun(undefined, undefined) : undefined },
     { id: 'deepening', label: 'Continuous Deepening', icon: Network, state: deepeningState, stats: deepeningStats, progress: deepeningState === 'running' ? (deepeningProgress ?? 0) : undefined, rerun: deepeningState === 'running' ? computeStageRerun(undefined, undefined) : undefined },
     {
       id: 'deep_knowledge', label: 'Deep Knowledge Embedding', icon: Database,
@@ -1012,14 +1044,39 @@ export function GraphEnrichmentPipeline({
     },
   ];
 
+  const finalizeStages: EnrichmentStage[] = [
+    { id: 'atlas', label: 'Atlas Building', icon: Map, modelTag: 'Thinking', state: atlasState, stats: atlasStats, rerun: atlasState === 'running' ? computeStageRerun(undefined, undefined) : undefined },
+    {
+      id: 'rules', label: 'Rules Generation', icon: FileText, modelTag: 'CPU',
+      state: rulesStatus?.generated ? 'complete' : 'not_built',
+      stats: rulesStatus?.generated ? 'Generated' : 'Not generated',
+    },
+    {
+      id: 'concepts', label: 'Concept Seeding', icon: Lightbulb, modelTag: 'Thinking',
+      state: conceptsStatus?.seeded ? 'complete' : 'not_built',
+      stats: conceptsStatus?.seeded ? `${conceptsStatus.count} concepts` : 'Not seeded',
+    },
+    {
+      id: 'audit', label: 'Structural Audit', icon: ClipboardCheck, modelTag: 'LLM',
+      state: auditPipelineStatus?.exists ? 'complete' : 'not_built',
+      stats: auditPipelineStatus?.exists ? `${auditPipelineStatus.finding_count} findings` : 'Not run',
+    },
+    {
+      id: 'antibodies', label: 'Immune System', icon: Shield, modelTag: 'CPU',
+      state: antibodiesStatus?.count ? 'complete' : 'not_built',
+      stats: antibodiesStatus?.count ? `${antibodiesStatus.count} antibodies` : 'Not derived',
+    },
+  ];
+
   // ── Phase 49: inject provenance into each stage ─────────
-  for (const stage of [...fastStages, ...deepStages]) {
+  for (const stage of [...fastStages, ...deepStages, ...finalizeStages]) {
     stage.provenance = lookupProvenance(stage.id, provenance);
   }
 
   // ── Group running state ──────────────────────────────────
   const fastRunning = fastStages.some(s => s.state === 'running');
   const deepRunning = deepStages.some(s => s.state === 'running');
+  const finalizeRunning = finalizeStages.some(s => s.state === 'running');
 
   // ── Toggle helpers ─────────────────────────────────────────
 
@@ -1033,7 +1090,7 @@ export function GraphEnrichmentPipeline({
 
   // ── Progress ───────────────────────────────────────────────
 
-  const allStates = [...fastStages, ...deepStages].map(s => s.state);
+  const allStates = [...fastStages, ...deepStages, ...finalizeStages].map(s => s.state);
   const completedStages = allStates.filter(s => s === 'complete').length;
   const overallProgress = completedStages / allStates.length * 100;
   const roundedProgress = Math.round(overallProgress);
@@ -1225,6 +1282,65 @@ export function GraphEnrichmentPipeline({
               stage={stage}
               onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
               onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('deep_enrichment') : undefined}
+              isPaused={isStagePaused}
+              showDetails={showDetails}
+            />
+          );
+        })}
+      </div>
+
+      {/* Divider between groups */}
+      <div className="border-t border-border" />
+
+      {/* ── Finalize Group ──────────────────────────── */}
+      <div className="flex items-center justify-between py-1.5 px-1">
+        <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Finalize</span>
+        <div className="flex items-center gap-2">
+          {finalizePaused && onResumePipeline && !finalizeRunning && (
+            <button
+              onClick={() => onResumePipeline('finalize')}
+              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+              title="Resume from where it paused"
+            >
+              <Play className="w-3.5 h-3.5" />
+              Resume
+            </button>
+          )}
+          {onRunFinalize && !finalizePaused && (
+            <button
+              onClick={inactive ? undefined : onRunFinalize}
+              disabled={finalizeRunning || limitReached || inactive}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
+                (finalizeRunning || limitReached || inactive)
+                  ? "border-border bg-surface text-text-subtle cursor-not-allowed"
+                  : "border-success/40 bg-success/10 text-success hover:bg-success/20"
+              )}
+            >
+              <Play className="w-3.5 h-3.5" />
+              {finalizeRunning ? 'Running\u2026' : 'Run'}
+            </button>
+          )}
+          <SlidingSwitch2
+            value={cfg.finalize === 'auto'}
+            onChange={onAutoConfigChange ? (v: boolean) => onAutoConfigChange({ ...cfg, finalize: v ? 'auto' : 'manual' }) : undefined}
+            disabled={inactive}
+            disabledReason={inactive ? "Project is inactive" : undefined}
+          />
+        </div>
+      </div>
+      <div className="flex flex-col gap-0.5 ml-1">
+        {finalizeStages.map((stage, idx) => {
+          const isStagePaused = finalizePausedStage
+            ? !!(finalizePaused && !finalizeRunning && stage.id === finalizePausedStage)
+            : !!(finalizePaused && !finalizeRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
+              finalizeStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
+          return (
+            <StageRow
+              key={stage.id}
+              stage={stage}
+              onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
+              onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('finalize') : undefined}
               isPaused={isStagePaused}
               showDetails={showDetails}
             />
