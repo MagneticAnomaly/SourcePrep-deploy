@@ -55,16 +55,22 @@ logger = logging.getLogger(__name__)
 
 
 class PipelineOrchestrator:
-    """Sequences the 11-stage pipeline in two groups.
+    """Sequences the 15-stage pipeline in three groups.
 
     Uses BuildOrchestrator (SM-4) for individual stage execution and
     listens for completion events to advance the pipeline.
+
+    Groups:
+    - Fast Sync (stages 1-5): structural, catalogue, embeddings, clustering, topics
+    - Deep Enrichment (stages 6-10): augmentation, deep knowledge, deepening, epistemic, cross-ref
+    - Finalize (stages 11-15): atlas, rules, concepts, audit, antibodies
 
     Usage::
 
         pipeline.run_fast_sync("proj-1")
         pipeline.run_deep_enrichment("proj-1")
-        pipeline.run_all("proj-1")  # fast sync then deep enrichment
+        pipeline.run_finalize("proj-1")
+        pipeline.run_all("proj-1")  # fast sync → deep enrichment → finalize
 
         status = pipeline.status("proj-1")
     """
@@ -90,6 +96,8 @@ class PipelineOrchestrator:
         self._changed_paths: Dict[str, set[str]] = {}
         # Explicit chain flag: run_all() sets this so deep_enrichment chains after fast_sync
         self._chain_deep: Dict[str, bool] = {}
+        # Explicit chain flag: run_all() sets this so finalize chains after deep_enrichment
+        self._chain_finalize: Dict[str, bool] = {}
         # Phase 89: Track force_from_start for chain propagation to deep enrichment
         self._force_from_start_runs: set[str] = set()
     def _get_file_logger(self, project_id: str):
@@ -634,6 +642,38 @@ class PipelineOrchestrator:
             )
         return self._start_group(project_id, "deep_enrichment", DEEP_ENRICHMENT_STAGES, resume_from=resume)
 
+    def run_finalize(self, project_id: str, force_from_start: bool = False) -> bool:
+        """Start the Finalize group (stages 11-15).
+
+        Runs Atlas, Rules, Concepts, Audit, Antibodies.
+        Auto-detects resume point from disk state.
+        """
+        from .stages import FINALIZE_STAGES
+        # Don't start finalize while enrich is active
+        with self._lock:
+            enrich_run = self._runs.get((project_id, "deep_enrichment"))
+            if enrich_run and enrich_run.is_active:
+                logger.info(
+                    "[%s] Skipping finalize — enrich is still active (stage=%s)",
+                    project_id, enrich_run.current_stage,
+                )
+                return False
+
+        resume = 0 if force_from_start else self._detect_resume_point(
+            project_id, FINALIZE_STAGES, skip_mtime_cascade=True,
+        )
+        if resume >= len(FINALIZE_STAGES):
+            logger.info("All finalize stages complete for %s — nothing to do", project_id)
+            return False
+
+        if resume > 0:
+            logger.info(
+                "Resuming finalize for %s from stage %d/%d (%s)",
+                project_id, resume, len(FINALIZE_STAGES),
+                FINALIZE_STAGES[resume].value,
+            )
+        return self._start_group(project_id, "finalize", FINALIZE_STAGES, resume_from=resume)
+
     def run_deepening_only(self, project_id: str) -> bool:
         """Run ONLY the Continuous Deepening and Deep Knowledge stages. Useful for retriggers."""
         from .stages import StageId
@@ -752,11 +792,13 @@ class PipelineOrchestrator:
         }
 
     def run_all(self, project_id: str, force_from_start: bool = False) -> bool:
-        """Start Fast Sync, then chain Deep Enrichment after it completes.
+        """Start Fast Sync, then chain Deep Enrichment, then Finalize.
 
         Phase 61B: If fast_sync is already up-to-date (returns False),
         directly calls run_deep_enrichment() instead of relying on the
         completion-handler chain — which never fires if fast_sync didn't run.
+
+        Phase 96: Also chains finalize after deep enrichment completes.
         """
         # Start fast sync; deep enrichment will be chained via the listener
         with self._lock:
@@ -764,8 +806,9 @@ class PipelineOrchestrator:
             run = self._runs.get(key)
             if run and run.is_active:
                 return False
-            # Mark that deep should chain after fast
+            # Mark that deep should chain after fast, and finalize after deep
             self._chain_deep[project_id] = True
+            self._chain_finalize[project_id] = True
         fast_started = self.run_fast_sync(project_id, force_from_start=force_from_start)
         if fast_started:
             return True  # Deep will chain via completion handler
@@ -803,6 +846,7 @@ class PipelineOrchestrator:
         with self._lock:
             fast_run = self._runs.get((project_id, "fast_sync"))
             deep_run = self._runs.get((project_id, "deep_enrichment"))
+            fin_run = self._runs.get((project_id, "finalize"))
 
         # Also get individual stage statuses from the build orchestrator
         stage_statuses = {}
@@ -814,17 +858,20 @@ class PipelineOrchestrator:
         return {
             "fast_sync": fast_run.to_dict() if fast_run else None,
             "deep_enrichment": deep_run.to_dict() if deep_run else None,
+            "finalize": fin_run.to_dict() if fin_run else None,
             "stages": stage_statuses,
             "any_running": (
                 (fast_run.is_active if fast_run else False) or
-                (deep_run.is_active if deep_run else False)
+                (deep_run.is_active if deep_run else False) or
+                (fin_run.is_active if fin_run else False)
             ),
             "run_mode": "incremental" if project_id in self._incremental_runs else None,
             # Phase 72 Stage 4: Include stage snapshots for lock-free status reads.
-            # Combines snapshots from both group runs (fast_sync + deep_enrichment).
+            # Combines snapshots from all group runs (fast_sync + deep_enrichment + finalize).
             "stage_snapshots": {
                 **({k: v.to_dict() for k, v in fast_run.get_stage_snapshots().items()} if fast_run else {}),
                 **({k: v.to_dict() for k, v in deep_run.get_stage_snapshots().items()} if deep_run else {}),
+                **({k: v.to_dict() for k, v in fin_run.get_stage_snapshots().items()} if fin_run else {}),
             },
             **self._get_branch_info(project_id),
         }
@@ -1107,6 +1154,18 @@ class PipelineOrchestrator:
         except Exception:
             return False
 
+    @staticmethod
+    def _is_finalize_auto(project_id: str) -> bool:
+        """Check if finalize should auto-chain after enrich."""
+        try:
+            from codrag.services.settings_store import settings
+            config = settings.get("pipeline_config") or {}
+            fin_mode = (config.get("finalize") or {}).get("mode", "manual")
+            enrich_mode = (config.get("deep_enrichment") or {}).get("mode", "manual")
+            return fin_mode == "auto" or enrich_mode == "auto"
+        except Exception:
+            return False
+
     def _start_group(
         self, project_id: str, group: str, stages: List[StageId],
         chain_deep: bool = False, resume_from: int = 0,
@@ -1339,12 +1398,37 @@ class PipelineOrchestrator:
             # when the user explicitly clicks Rebuild.
             if run.group == "deep_enrichment":
                 self._trigger_code_index_build(run.project_id, pfl)
-                # Phase 74: Auto-seed concepts from pipeline data
-                PostFlightActions.trigger_concept_seeding(run.project_id, pfl)
+                # Phase 74: Concept seeding now handled by Stage 13 (CONCEPTS) in Finalize group
             # Phase 48 (P48-F5): After deep enrichment completes in auto mode,
             # check if deepening has converged. If not, re-trigger.
             if run.group == "deep_enrichment":
                 self._maybe_retrigger_deepening(run.project_id, pfl)
+
+            # Chain finalize after enrich if configured or explicitly requested
+            if run.group == "deep_enrichment":
+                should_chain_fin = False
+                if self._chain_finalize.pop(run.project_id, False):
+                    should_chain_fin = True
+                if not should_chain_fin:
+                    is_auto = self._is_finalize_auto(run.project_id)
+                    if is_auto:
+                        should_chain_fin = True
+                if should_chain_fin:
+                    logger.info(
+                        "Chaining finalize for %s after enrich completed",
+                        run.project_id,
+                    )
+                    try:
+                        self.run_finalize(run.project_id)
+                    except Exception:
+                        logger.debug(
+                            "Finalize chain failed for %s (non-fatal)",
+                            run.project_id, exc_info=True,
+                        )
+
+            # Log finalize group completion
+            if run.group == "finalize":
+                logger.info("Finalize complete for %s", run.project_id)
 
             # Chain deep enrichment after fast sync if configured or explicitly requested
             if run.group == "fast_sync":
@@ -1674,8 +1758,9 @@ class PipelineOrchestrator:
                     self._generate_preliminary_atlas_and_rules(project_id)
                     self._prune_stale_derivative_files(project_id, pfl)
                     self._sync_downstream_manifest_mtimes(project_id, pfl)
-                elif stage == StageId.ATLAS:
-                    self._regenerate_rules_with_full_atlas(project_id)
+                # Phase 96: Rules regen after ATLAS is now handled by Stage 12 (RULES) in Finalize group
+                # elif stage == StageId.ATLAS:
+                #     self._regenerate_rules_with_full_atlas(project_id)
 
                 # Phase 70B: Write guard
                 self._write_guard_check(matching_run, stage, pfl)
