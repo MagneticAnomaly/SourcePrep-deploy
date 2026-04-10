@@ -6,6 +6,10 @@ import type {
   DeepeningStatus,
   KnowledgeEmbeddingStatus,
   AtlasStatus,
+  RulesStatus,
+  ConceptsStatus,
+  AuditPipelineStatus,
+  AntibodiesStatus,
 } from '@codrag/ui'
 
 // ── State ─────────────────────────────────────────────────────
@@ -37,6 +41,11 @@ export interface EnrichmentState {
   fastPausedStage: string | undefined
   deepPausedStage: string | undefined
   finalizePausedStage: string | undefined
+  // Finalize stage statuses (Phase 96)
+  rulesStatus?: RulesStatus
+  conceptsStatus?: ConceptsStatus
+  auditPipelineStatus?: AuditPipelineStatus
+  antibodiesStatus?: AntibodiesStatus
 }
 
 export const initialEnrichmentState: EnrichmentState = {
@@ -98,6 +107,8 @@ export type EnrichmentAction =
   | { type: 'DEEP_FAILED' }
   | { type: 'FINALIZE_COMPLETED' }
   | { type: 'FINALIZE_FAILED' }
+  // Finalize stage statuses (Phase 96)
+  | { type: 'FINALIZE_STATUSES'; rules?: RulesStatus; concepts?: ConceptsStatus; audit?: AuditPipelineStatus; antibodies?: AntibodiesStatus }
   // Merge slot_progress (with baseline) from pipeline status polling
   | { type: 'AUGMENTATION_PROGRESS'; payload: { progress_current: number; progress_total: number; progress_baseline: number } }
   | { type: 'EPISTEMIC_PROGRESS'; payload: { progress_current: number; progress_total: number; progress_baseline: number } }
@@ -218,6 +229,15 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
       }
 
     // ── Full reset ──
+    case 'FINALIZE_STATUSES':
+      return {
+        ...state,
+        rulesStatus: action.rules ?? state.rulesStatus,
+        conceptsStatus: action.concepts ?? state.conceptsStatus,
+        auditPipelineStatus: action.audit ?? state.auditPipelineStatus,
+        antibodiesStatus: action.antibodies ?? state.antibodiesStatus,
+      }
+
     case 'DESTROYED':
       return { ...initialEnrichmentState }
 

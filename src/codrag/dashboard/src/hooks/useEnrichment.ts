@@ -116,6 +116,14 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
           progress_baseline: enr.progress_baseline ?? 0,
         }})
       }
+      // Phase 96: hydrate finalize stage statuses
+      dispatch({
+        type: 'FINALIZE_STATUSES',
+        rules: ps.stages?.rules as any,
+        concepts: ps.stages?.concepts as any,
+        audit: ps.stages?.audit as any,
+        antibodies: ps.stages?.antibodies as any,
+      })
     } catch { /* silent */ }
   }, [api, selectedProjectId])
 

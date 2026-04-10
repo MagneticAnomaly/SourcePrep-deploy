@@ -738,6 +738,10 @@ function App() {
       deepPausedStage,
       finalizePausedStage,
       groupReasoningStatus,
+      rulesStatus,
+      conceptsStatus,
+      auditPipelineStatus,
+      antibodiesStatus,
     },
     llm: {
       llmConfig, llmSlotsStatus, llmConfigDirty,
