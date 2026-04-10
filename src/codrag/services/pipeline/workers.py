@@ -136,6 +136,14 @@ class WorkerFactory:
             base_worker = WorkerFactory._atlas_worker(project_id)
         elif stage == StageId.DEEPENING:
             base_worker = WorkerFactory._deepening_worker(project_id)
+        elif stage == StageId.RULES:
+            base_worker = WorkerFactory._rules_worker(project_id)
+        elif stage == StageId.CONCEPTS:
+            base_worker = WorkerFactory._concepts_worker(project_id)
+        elif stage == StageId.AUDIT:
+            base_worker = WorkerFactory._audit_worker(project_id)
+        elif stage == StageId.ANTIBODIES:
+            base_worker = WorkerFactory._antibodies_worker(project_id)
         else:
             raise ValueError(f"Unknown stage: {stage}")
 
@@ -788,6 +796,254 @@ class WorkerFactory:
                 "converged": bool(result.convergence),
                 "_model_info": _capture_model_info(llm_client),
                 "_stage_timing": {"started_at": _t0, "elapsed": time.time() - _t0},
+            }
+        return worker
+
+    @staticmethod
+    def _rules_worker(project_id: str):
+        """Generate/update IDE rules files (AGENTS.md, .cursor/, etc.)."""
+        def worker(slot: BuildSlot, progress_cb: Callable) -> Dict[str, Any]:
+            from codrag.core.atlas import CodebaseAtlas
+            from codrag.core.project_registry import project_index_dir
+            from codrag.core.rules_generator import write_rules_file
+            from codrag.services.project_helpers import require_project
+            from codrag.services.pipeline.manifest_store import ManifestStore
+            from pathlib import Path
+
+            project = require_project(project_id)
+            idx_dir = project_index_dir(project)
+            log_cb = WorkerFactory._logged_progress("Rules", progress_cb, project.name)
+
+            _t0 = time.time()
+            log_cb("Loading atlas", 0, 3)
+
+            atlas = CodebaseAtlas(idx_dir)
+            doc = atlas.load()
+
+            if not doc or not doc.content:
+                log_cb("No atlas — writing structural rules", 1, 3)
+                write_rules_file(
+                    project_path=Path(project.path),
+                    project_name=project.name or project_id,
+                    atlas_content=None,
+                    is_preliminary=True,
+                    ide="auto",
+                    project_id=project_id,
+                )
+                log_cb("Done", 3, 3)
+                return {
+                    "stage": "rules",
+                    "skipped": False,
+                    "mode": "structural",
+                    "_stage_timing": {
+                        "started_at": _t0,
+                        "elapsed": time.time() - _t0,
+                    },
+                }
+
+            log_cb("Generating rules files", 1, 3)
+            store = ManifestStore(Path(idx_dir))
+            stats = store.read_graph_stats()
+            if doc.file_count:
+                stats.setdefault("node_count", doc.file_count)
+
+            pcfg = project.config or {}
+            included_paths = pcfg.get("included_paths") or []
+
+            write_rules_file(
+                project_path=Path(project.path),
+                project_name=project.name or project_id,
+                atlas_content=doc.content,
+                included_paths=included_paths if included_paths else None,
+                is_preliminary=False,
+                stats=stats,
+                ide="auto",
+                project_id=project_id,
+            )
+
+            log_cb("Writing atlas signal", 2, 3)
+            from codrag.services.pipeline.post_flight import PostFlightActions
+            PostFlightActions.write_atlas_signal(idx_dir)
+
+            log_cb("Done", 3, 3)
+            return {
+                "stage": "rules",
+                "skipped": False,
+                "mode": doc.mode,
+                "atlas_chars": doc.char_count,
+                "_stage_timing": {
+                    "started_at": _t0,
+                    "elapsed": time.time() - _t0,
+                },
+            }
+        return worker
+
+    @staticmethod
+    def _concepts_worker(project_id: str):
+        """Seed concepts from atlas + modules + audit data."""
+        def worker(slot: BuildSlot, progress_cb: Callable) -> Dict[str, Any]:
+            from codrag.core.concept_seeder import seed_concepts
+            from codrag.services.concept_store import concept_store
+
+            log_cb = WorkerFactory._logged_progress("Concepts", progress_cb, "")
+            _t0 = time.time()
+
+            stats = concept_store.get_stats(project_id)
+            if stats["total"] > 0:
+                log_cb(
+                    f"{stats['total']} concepts already exist — skipping",
+                    1, 1,
+                )
+                return {
+                    "stage": "concepts",
+                    "skipped": True,
+                    "existing_count": stats["total"],
+                    "_stage_timing": {
+                        "started_at": _t0,
+                        "elapsed": time.time() - _t0,
+                    },
+                }
+
+            log_cb("Seeding concepts from pipeline data", 0, 1)
+            result = seed_concepts(project_id)
+            concepts_created = result.get("concepts_created", 0)
+            questions_created = result.get("questions_created", 0)
+            log_cb(
+                f"{concepts_created} concepts, {questions_created} questions",
+                1, 1,
+            )
+
+            llm_client = None
+            try:
+                llm_client = WorkerFactory._get_llm_client_for_task("concepts")
+            except RuntimeError:
+                pass
+
+            return {
+                "stage": "concepts",
+                "skipped": False,
+                "status": result.get("status"),
+                "concepts_created": concepts_created,
+                "questions_created": questions_created,
+                "_model_info": (
+                    _capture_model_info(llm_client) if llm_client else {}
+                ),
+                "_stage_timing": {
+                    "started_at": _t0,
+                    "elapsed": time.time() - _t0,
+                },
+            }
+        return worker
+
+    @staticmethod
+    def _audit_worker(project_id: str):
+        """Run structural audit analyzers + LLM synthesis."""
+        def worker(slot: BuildSlot, progress_cb: Callable) -> Dict[str, Any]:
+            from codrag.core.audit.runner import run_audit
+            from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
+            from pathlib import Path
+
+            project = require_project(project_id)
+            idx_dir = project_index_dir(project)
+            log_cb = WorkerFactory._logged_progress(
+                "Audit", progress_cb, project.name,
+            )
+
+            _t0 = time.time()
+            log_cb("Running structural analyzers", 0, 2)
+
+            result = run_audit(
+                index_dir=Path(idx_dir),
+                project_root=Path(project.path),
+                progress_callback=lambda phase, cur, tot: log_cb(
+                    phase, cur, tot,
+                ),
+            )
+
+            finding_count = (
+                len(result.findings) if result.findings else 0
+            )
+            log_cb(
+                f"Tier 1 complete — {finding_count} findings", 1, 2,
+            )
+
+            tier2_ok = False
+            try:
+                from codrag.core.audit.synthesizer import AuditSynthesizer
+                llm_client = WorkerFactory._get_llm_client_for_task("audit")
+                synth = AuditSynthesizer(llm_client)
+                log_cb("Running LLM synthesis", 1, 2)
+                synth.synthesize(result, Path(idx_dir))
+                tier2_ok = True
+            except Exception as e:
+                logger.info("[Audit] Tier 2 synthesis skipped: %s", e)
+
+            log_cb("Done", 2, 2)
+            return {
+                "stage": "audit",
+                "skipped": False,
+                "finding_count": finding_count,
+                "tier2": tier2_ok,
+                "errors": result.errors if result.errors else [],
+                "_stage_timing": {
+                    "started_at": _t0,
+                    "elapsed": time.time() - _t0,
+                },
+            }
+        return worker
+
+    @staticmethod
+    def _antibodies_worker(project_id: str):
+        """Derive immune system antibodies from concepts."""
+        def worker(slot: BuildSlot, progress_cb: Callable) -> Dict[str, Any]:
+            from codrag.core.antibody_derivation import (
+                derive_antibodies_for_project,
+            )
+            from codrag.services.antibody_store import antibody_store
+            from codrag.services.concept_store import concept_store
+
+            log_cb = WorkerFactory._logged_progress(
+                "Antibodies", progress_cb, "",
+            )
+            _t0 = time.time()
+
+            log_cb("Loading concepts", 0, 2)
+            concepts = concept_store.list_concepts(project_id)
+
+            if not concepts:
+                log_cb("No concepts — skipping", 1, 1)
+                return {
+                    "stage": "antibodies",
+                    "skipped": True,
+                    "reason": "no_concepts",
+                    "_stage_timing": {
+                        "started_at": _t0,
+                        "elapsed": time.time() - _t0,
+                    },
+                }
+
+            log_cb("Deriving antibodies", 1, 2)
+            antibodies = derive_antibodies_for_project(concepts)
+
+            saved = 0
+            for ab in antibodies:
+                try:
+                    antibody_store.save(project_id, ab)
+                    saved += 1
+                except Exception as e:
+                    logger.debug("Failed to save antibody: %s", e)
+
+            log_cb(f"{saved} antibodies derived", 2, 2)
+            return {
+                "stage": "antibodies",
+                "skipped": False,
+                "derived": len(antibodies),
+                "saved": saved,
+                "_stage_timing": {
+                    "started_at": _t0,
+                    "elapsed": time.time() - _t0,
+                },
             }
         return worker
 
