@@ -23,12 +23,14 @@ export type EnrichmentStageId = 'structural' | 'inferred_edges' | 'catalogue' | 
 
 export type DeepEnrichmentMode = 'manual' | 'auto' | 'scheduled' | 'threshold';
 
-/** Two-group auto/manual config */
+/** Three-group auto/manual config */
 export interface EnrichmentAutoConfig {
   /** Auto-run for fast stages (Structural, Catalogue, Validation, Knowledge Embedding) */
   fastSync: boolean;
   /** Mode for deep stages (Epistemic, Clustering, Deepening, Deep Knowledge Embedding) */
   deepEnrichment: DeepEnrichmentMode;
+  /** Mode for finalize stages (Atlas, Rules, Concepts, Audit, Antibodies) */
+  finalize: 'manual' | 'auto';
 }
 
 export interface GraphEnrichmentPipelineProps {
@@ -501,6 +503,7 @@ function computeDeepKnowledgeState(
 const DEFAULT_AUTO_CONFIG: EnrichmentAutoConfig = {
   fastSync: true,
   deepEnrichment: 'manual',
+  finalize: 'manual',
 };
 
 // ── Components ───────────────────────────────────────────────
