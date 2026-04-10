@@ -325,13 +325,28 @@ class KnowledgeIndex:
                             if not summary:
                                 continue
 
+                            # Synthesize contextual prefix from epistemic metadata
+                            context_parts = []
+                            layer = entry.get("architecture_layer")
+                            if layer and layer != "unknown":
+                                context_parts.append(f"Architecture: {layer} layer")
+                            subsystem = entry.get("subsystem")
+                            if subsystem:
+                                context_parts.append(f"Subsystem: {subsystem}")
+                            patterns = entry.get("design_patterns")
+                            if patterns:
+                                context_parts.append(f"Patterns: {', '.join(patterns)}")
+
                             # Construct rich text representation for embedding
-                            text_parts = [
+                            text_parts = []
+                            if context_parts:
+                                text_parts.append(f"Context: {'. '.join(context_parts)}")
+                            text_parts.extend([
                                 f"File: {node_id}",
                                 f"Domain: {', '.join(entry.get('domain_tags', []))}",
                                 f"Layer: {entry.get('architecture_layer', 'unknown')}",
                                 f"Summary: {summary}"
-                            ]
+                            ])
                             content = self._sanitize_text("\n".join(text_parts))
 
                             docs.append({

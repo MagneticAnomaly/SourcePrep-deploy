@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import tempfile
+from pathlib import Path
+
 from codrag.core.chunking import Chunk
 from codrag.core.index import CodeIndex
 
@@ -51,3 +55,82 @@ class TestTier1SynopsisPrefix:
             file_synopsis="File: index.py\nPurpose: search"
         )
         assert "File context:" not in result
+
+
+class TestTier2EpistemicContext:
+    """P2 Tier 2: epistemic metadata synthesized as context prefix."""
+
+    def _make_epistemic_file(self, tmpdir: Path, entries: list) -> Path:
+        path = tmpdir / "trace_epistemic.jsonl"
+        with open(path, "w") as f:
+            for entry in entries:
+                f.write(json.dumps(entry) + "\n")
+        return path
+
+    def _make_augmented_file(self, tmpdir: Path, entries: list) -> Path:
+        path = tmpdir / "trace_augmented.jsonl"
+        with open(path, "w") as f:
+            for entry in entries:
+                f.write(json.dumps(entry) + "\n")
+        return path
+
+    def test_epistemic_context_in_document_content(self):
+        """Epistemic docs should include synthesized context prefix."""
+        from codrag.core.knowledge import KnowledgeIndex
+        from codrag.core.embedder import FakeEmbedder
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            idx_dir = Path(tmpdir)
+            self._make_augmented_file(idx_dir, [
+                {"node_id": "src/foo.py", "summary": "Handles requests", "role": "handler"},
+            ])
+            self._make_epistemic_file(idx_dir, [
+                {
+                    "node_id": "src/foo.py",
+                    "extended_summary": "Request handler for the API gateway",
+                    "domain_tags": ["api", "networking"],
+                    "architecture_layer": "presentation",
+                    "subsystem": "gateway",
+                    "design_patterns": ["adapter", "facade"],
+                },
+            ])
+
+            ki = KnowledgeIndex(index_dir=idx_dir, embedder=FakeEmbedder())
+            result = ki.build()
+
+            assert result["count"] > 0
+            ep_docs = [d for d in ki._documents if d["type"] == "epistemic"]
+            assert len(ep_docs) == 1
+            content = ep_docs[0]["content"]
+            assert "presentation" in content.lower() or "Architecture" in content
+            assert "gateway" in content.lower() or "Subsystem" in content
+            assert "adapter" in content.lower() or "Patterns" in content
+
+    def test_missing_fields_graceful(self):
+        """Epistemic entry with missing optional fields should still work."""
+        from codrag.core.knowledge import KnowledgeIndex
+        from codrag.core.embedder import FakeEmbedder
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            idx_dir = Path(tmpdir)
+            self._make_augmented_file(idx_dir, [
+                {"node_id": "src/bar.py", "summary": "Utility functions", "role": "util"},
+            ])
+            self._make_epistemic_file(idx_dir, [
+                {
+                    "node_id": "src/bar.py",
+                    "extended_summary": "Collection of utility functions",
+                    "domain_tags": ["utilities"],
+                    "architecture_layer": "infrastructure",
+                    # No subsystem, no design_patterns
+                },
+            ])
+
+            ki = KnowledgeIndex(index_dir=idx_dir, embedder=FakeEmbedder())
+            result = ki.build()
+
+            ep_docs = [d for d in ki._documents if d["type"] == "epistemic"]
+            assert len(ep_docs) == 1
+            content = ep_docs[0]["content"]
+            assert "infrastructure" in content.lower() or "Architecture" in content
+            assert "None" not in content
