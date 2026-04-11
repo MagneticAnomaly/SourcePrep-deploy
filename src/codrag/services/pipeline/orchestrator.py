@@ -2400,9 +2400,9 @@ class PipelineOrchestrator:
     def _generate_preliminary_atlas_and_rules(self, project_id: str) -> None:
         """Delegates to PostFlightActions.generate_preliminary_atlas_and_rules."""
         PostFlightActions.generate_preliminary_atlas_and_rules(project_id)
-    def _regenerate_rules_with_full_atlas(self, project_id: str) -> None:
-        """Delegates to PostFlightActions.regenerate_rules_with_full_atlas."""
-        PostFlightActions.regenerate_rules_with_full_atlas(project_id)
+    # Phase 96E: _regenerate_rules_with_full_atlas removed — superseded by
+    # the RULES stage (stage 12) in the Finalize group.  The delegate was
+    # already commented out at its only call site.
     def _trigger_code_index_build(self, project_id: str, pfl: Any = None) -> None:
         """Delegates to PostFlightActions.trigger_code_index_build."""
         PostFlightActions.trigger_code_index_build(project_id, pfl)

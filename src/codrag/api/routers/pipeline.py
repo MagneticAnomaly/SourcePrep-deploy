@@ -167,7 +167,12 @@ def pipeline_run_finalize(project_id: str) -> Dict[str, Any]:
 
 @router.post("/projects/{project_id}/pipeline/all")
 def pipeline_run_all(project_id: str) -> Dict[str, Any]:
-    """Run all stages: Fast Sync (1-4) then Deep Enrichment (5-8)."""
+    """Run all 15 stages: Sync (1-5) → Enrich (6-10) → Finalize (11-15).
+
+    Phase 96E: chains all three groups end-to-end. fast_sync and
+    deep_enrichment chain via explicit_run_all, and deep_enrichment
+    chains to finalize via _chain_finalize.
+    """
     from codrag.services.project_helpers import require_project_writable
     require_project_writable(project_id)
 

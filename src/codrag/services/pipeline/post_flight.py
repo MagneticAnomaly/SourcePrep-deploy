@@ -296,49 +296,7 @@ class PostFlightActions:
         timer.daemon = True
         timer.start()
 
-    @staticmethod
-    def trigger_concept_seeding(project_id: str, pfl: Any = None) -> None:
-        """Auto-seed concepts after deep enrichment completes.
-
-        Phase 74: Runs the concept seeder in a background daemon thread
-        so it doesn't block the orchestrator's state machine transitions.
-        Only seeds if no concepts exist yet for the project.
-        """
-        def _seed():
-            try:
-                from codrag.services.concept_store import concept_store
-
-                stats = concept_store.get_stats(project_id)
-                if stats["total"] > 0:
-                    logger.debug(
-                        "Skipping auto-seed for %s — %d concepts already exist",
-                        project_id, stats["total"],
-                    )
-                    return
-
-                from codrag.core.concept_seeder import seed_concepts
-
-                logger.info("Phase 74: Auto-seeding concepts for %s", project_id)
-                if pfl:
-                    pfl.log("concepts", "Auto-seeding concepts...")
-                result = seed_concepts(project_id)
-                logger.info(
-                    "Phase 74: Concept seeding result for %s: %s",
-                    project_id, result.get("status"),
-                )
-                if pfl:
-                    pfl.log(
-                        "concepts",
-                        f"Concepts: {result.get('concepts_created', 0)} seeds, "
-                        f"{result.get('questions_created', 0)} questions",
-                    )
-            except Exception as e:
-                logger.debug(
-                    "Phase 74: Concept auto-seeding failed for %s (non-fatal): %s",
-                    project_id, e, exc_info=True,
-                )
-                if pfl:
-                    pfl.log("concepts", f"Concept auto-seeding failed: {e}")
-
-        t = threading.Thread(target=_seed, daemon=True, name=f"concept-seed-{project_id[:8]}")
-        t.start()
+    # Phase 96E: trigger_concept_seeding removed — the CONCEPTS stage
+    # (stage 13) in the Finalize group now handles concept seeding
+    # synchronously as a proper pipeline stage.  Concept workers are
+    # defined in workers.py:_concepts_worker.

@@ -228,8 +228,102 @@ class TestDeepEnrichment:
             assert len(deep["stage_results"]) == len(DEEP_ENRICHMENT_STAGES)
 
 
+class TestFinalize:
+    """Phase 96E: Test finalize group (stages 11-15) — atlas, rules,
+    concepts, audit, antibodies."""
+
+    def test_run_finalize_starts(self, pipeline):
+        with patch(
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            return_value=_instant_worker,
+        ):
+            started = pipeline.run_finalize("proj-fin")
+            assert started is True
+
+    def test_finalize_sequences_all_5_stages(self, pipeline):
+        """Verify run_finalize executes all 5 stages in order and reaches
+        the completed phase. This is the Phase 96E sequential validation —
+        96F will add swarm-based optimization on top."""
+        executed: list[str] = []
+
+        def worker_factory(project_id, stage):
+            def worker(slot, progress_cb):
+                executed.append(stage.value)
+                return {"ok": True}
+            return worker
+
+        with patch(
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            side_effect=worker_factory,
+        ), patch(
+            "codrag.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
+            return_value=(False, ""),
+        ):
+            pipeline.run_finalize("proj-fin")
+            deadline = time.monotonic() + 10.0
+            while time.monotonic() < deadline:
+                status = pipeline.status("proj-fin")
+                fin = status.get("finalize")
+                if fin and fin["phase"] in ("completed", "failed"):
+                    break
+                time.sleep(0.1)
+
+            status = pipeline.status("proj-fin")
+            fin = status.get("finalize")
+            assert fin is not None, "Finalize group missing from status"
+            assert fin["phase"] == "completed", (
+                f"Finalize stuck in '{fin['phase']}' at stage "
+                f"{fin.get('current_stage', '?')} "
+                f"(idx {fin.get('current_stage_index', '?')})"
+            )
+            # Sequential: atlas → rules → concepts → audit → antibodies
+            assert executed == ["atlas", "rules", "concepts", "audit", "antibodies"], (
+                f"Stages ran out of order: {executed}"
+            )
+            for stage in ["atlas", "rules", "concepts", "audit", "antibodies"]:
+                assert fin["stage_results"].get(stage) == "completed", (
+                    f"Stage {stage} not marked completed"
+                )
+
+    def test_finalize_freshness_skip_releases_slot(self, pipeline):
+        """96A regression check in the finalize context: freshness-skipped
+        stages must release their scheduler slot so the next stage proceeds."""
+        skip_stage = "audit"
+
+        def worker_factory(project_id, stage):
+            def worker(slot, progress_cb):
+                return {"ok": True}
+            return worker
+
+        def skip_if(pid, stage, inc, pfl=None):
+            return (True, "test") if stage.value == skip_stage else (False, "")
+
+        with patch(
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            side_effect=worker_factory,
+        ), patch(
+            "codrag.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
+            side_effect=skip_if,
+        ):
+            pipeline.run_finalize("proj-fin-skip")
+            deadline = time.monotonic() + 10.0
+            while time.monotonic() < deadline:
+                status = pipeline.status("proj-fin-skip")
+                fin = status.get("finalize")
+                if fin and fin["phase"] in ("completed", "failed"):
+                    break
+                time.sleep(0.1)
+
+            fin = pipeline.status("proj-fin-skip").get("finalize")
+            assert fin["phase"] == "completed", (
+                f"Finalize stuck in '{fin['phase']}' — "
+                f"freshness skip leaked scheduler slot in finalize group"
+            )
+            assert fin["stage_results"][skip_stage] == "skipped"
+
+
 class TestRunAll:
-    """Test run_all (fast sync then deep enrichment chained)."""
+    """Test run_all (sync → enrich → finalize chained through all 15 stages)."""
 
     def test_run_all_chains_deep_after_fast(self, pipeline):
         with patch(
@@ -248,6 +342,57 @@ class TestRunAll:
             assert fast["phase"] == "completed"
             assert deep is not None
             assert deep["phase"] == "completed"
+
+    def test_run_all_chains_all_three_groups(self, pipeline):
+        """Phase 96E: run_all should chain through sync → enrich → finalize
+        with all 15 stages reaching completion."""
+        executed: list[str] = []
+
+        def worker_factory(project_id, stage):
+            def worker(slot, progress_cb):
+                executed.append(stage.value)
+                return {"ok": True}
+            return worker
+
+        with patch(
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            side_effect=worker_factory,
+        ), patch(
+            "codrag.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
+            return_value=(False, ""),
+        ):
+            started = pipeline.run_all("proj-all-three")
+            assert started is True
+
+            deadline = time.monotonic() + 20.0
+            while time.monotonic() < deadline:
+                status = pipeline.status("proj-all-three")
+                fast = (status.get("fast_sync") or {}).get("phase")
+                deep = (status.get("deep_enrichment") or {}).get("phase")
+                fin = (status.get("finalize") or {}).get("phase")
+                if (fast == "completed" and deep == "completed"
+                        and fin == "completed"):
+                    break
+                time.sleep(0.1)
+
+            status = pipeline.status("proj-all-three")
+            assert status["fast_sync"]["phase"] == "completed"
+            assert status["deep_enrichment"]["phase"] == "completed"
+            fin = status.get("finalize")
+            assert fin is not None, "Finalize group never started — chain broken"
+            assert fin["phase"] == "completed", f"Finalize: {fin['phase']}"
+            # Expect all 15 stages to have executed
+            expected_stages = [
+                # Sync (5)
+                "structural", "inferred_edges", "catalogue", "validation", "knowledge",
+                # Enrich (5) — no Atlas in this group per Phase 96 reorganization
+                "enrichment", "group_reasoning", "clustering", "deepening", "deep_knowledge",
+                # Finalize (5)
+                "atlas", "rules", "concepts", "audit", "antibodies",
+            ]
+            assert executed == expected_stages, (
+                f"Expected 15 stages in order, got {len(executed)}: {executed}"
+            )
 
 
 class TestAutoChainDeepEnrichment:
