@@ -37,6 +37,10 @@ export interface GraphStructurePanelProps {
   untracedFiles: TraceCoverageFile[];
   /** Stale files (traced but content changed) */
   staleFiles: TraceCoverageFile[];
+  /** Traced files (already in the graph). F-53: surfaced in the Queue tab
+   *  empty state so the user can see what's currently in scope when there's
+   *  no pending work, instead of just rendering "All files traced". */
+  tracedFiles?: TraceCoverageFile[];
   /** Excluded files (excluded by user-configured patterns) */
   excludedFiles: TraceCoverageFile[];
   /** Whether trace is currently building */
@@ -375,6 +379,7 @@ export function GraphStructurePanel({
   knowledgeStatus,
   untracedFiles,
   staleFiles,
+  tracedFiles = [],
   excludedFiles = [],
   building,
   progress,
@@ -528,11 +533,29 @@ export function GraphStructurePanel({
         {activeTab === 'queue' && (
           <div className="p-2 space-y-1">
             {queueCount === 0 && !loading ? (
-              <div className="flex flex-col items-center justify-center py-8 text-text-muted">
-                <FileCode className="w-8 h-8 mb-2 opacity-30" />
-                <p className="text-xs font-medium">All files traced</p>
-                <p className="text-[10px] mt-1">No pending or stale files</p>
-              </div>
+              // F-53: when nothing is pending/stale, surface the currently
+              // traced files so the user can see what's actually in scope.
+              // The daemon already returns this list via /trace/coverage's
+              // `traced` field — the panel just wasn't displaying it.
+              tracedFiles.length > 0 ? (
+                <CollapsibleSection
+                  title="Traced"
+                  count={tracedFiles.length}
+                  icon={FileCode}
+                  iconColor="text-success"
+                  defaultOpen={true}
+                >
+                  {tracedFiles.map((f) => (
+                    <FileRow key={f.path} file={f} timeField="modified" compact={compact} />
+                  ))}
+                </CollapsibleSection>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-text-muted">
+                  <FileCode className="w-8 h-8 mb-2 opacity-30" />
+                  <p className="text-xs font-medium">No files in scope</p>
+                  <p className="text-[10px] mt-1">Adjust include patterns or build the trace index</p>
+                </div>
+              )
             ) : (
               <>
                 <CollapsibleSection

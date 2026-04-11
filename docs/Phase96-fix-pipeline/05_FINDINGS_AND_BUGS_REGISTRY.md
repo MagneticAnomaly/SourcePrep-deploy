@@ -69,8 +69,9 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-50 | `/projects/{id}/search` `trace_expand` skipped when `trace.enabled=false`, even with built graph on disk — same root-cause class | ✅ FIXED | (this commit) |
 | F-51 | Write guard blocks Danger Zone Rebuild — `force_from_start=True` not honored, shrinkage check fires anyway | ✅ FIXED | (this commit) |
 | F-52 | `force_from_start=True` silently undone by backup-restore-then-redetect path — Danger Zone Rebuild completed in 0.0s without doing any work | ✅ FIXED | (this commit) |
+| F-53 | Graph Scope Queue tab renders empty when no untraced/stale files — daemon returns `traced` array but dashboard never displays it; coverage fetch also gated on `trace.enabled` | ✅ FIXED | (this commit) |
 
-Total: **52 findings**, **42 fixed**, **5 open**, **2 deferred**, **2 not-a-bug**. (F-51 + F-52 closed F-33: the Danger Zone "Rebuild" button now actually rebuilds.)
+Total: **53 findings**, **43 fixed**, **5 open**, **2 deferred**, **2 not-a-bug**. (F-53 closed: Graph Scope Queue now lists traced files when nothing is pending.)
 
 ---
 

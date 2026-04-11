@@ -875,6 +875,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         knowledgeStatus={p.knowledgeStatus}
         untracedFiles={p.traceCoverage.untraced}
         staleFiles={p.traceCoverage.stale}
+        tracedFiles={p.traceCoverage.traced}
         excludedFiles={p.traceCoverage.excluded}
         building={p.traceStatus.building || p.traceCoverage.building || p.inferredEdgesRunning || p.augmenting || p.validating || p.fastKnowledgeBuilding}
         progress={p.findActiveTask('trace_build')}

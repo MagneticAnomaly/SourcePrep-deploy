@@ -25,6 +25,9 @@ export interface TraceCoverage {
   summary: { total: number; traced: number; pending_embedding?: number; untraced: number; stale: number; excluded: number; coverage_pct: number; last_build_at: string | null } | null
   untraced: TraceCoverageFile[]
   stale: TraceCoverageFile[]
+  // F-53: surface the daemon's `traced` array so the Graph Scope panel can
+  // show what's currently in scope when there's no pending/stale work.
+  traced: TraceCoverageFile[]
   excluded: TraceCoverageFile[]
   building: boolean
   loading: boolean
@@ -149,7 +152,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 },
   })
   const [traceCoverage, setTraceCoverage] = useState<TraceCoverage>({
-    summary: null, untraced: [], stale: [], excluded: [], building: false, loading: false,
+    summary: null, untraced: [], stale: [], traced: [], excluded: [], building: false, loading: false,
   })
 
   // ── Self-hydrate on project change (SM-1 Phase A4) ──────────
@@ -158,7 +161,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   useEffect(() => {
     // Reset trace state immediately to prevent cross-project contamination
     setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
-    setTraceCoverage({ summary: null, untraced: [], stale: [], excluded: [], building: false, loading: false })
+    setTraceCoverage({ summary: null, untraced: [], stale: [], traced: [], excluded: [], building: false, loading: false })
     setProjectLoading(true)
 
     if (!selectedProjectId) { setProjectLoading(false); return }
@@ -182,11 +185,18 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
             engine: data.engine,
           })
           setProjectLoading(false)
-          // Fetch coverage if trace is enabled.
+          // Fetch coverage if trace data exists on disk.
           // Phase 72: Fetch the lightweight summary first (from cache, <1s) to
           // populate the progress bars immediately.  Then fetch the full coverage
           // (which includes file lists for Queue/Patterns tabs) in the background.
-          if (enabled && pid) {
+          //
+          // F-53: was previously gated on `enabled` only. Same root-cause class
+          // as F-39 / F-49 — `enabled` is the auto-build preference, not the
+          // data-presence flag. Now we fetch coverage when EITHER enabled or
+          // exists is true so the Graph Scope panel populates for projects
+          // that have a built graph but the auto-build flag was never flipped.
+          const traceExists = data.exists ?? false
+          if ((enabled || traceExists) && pid) {
             setTraceCoverage(prev => ({ ...prev, loading: true }))
             // Fast path — summary only (cached on server, returns instantly)
             api.getTraceCoverageSummary(pid).then((summ) => {
@@ -206,6 +216,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
                 summary: cov.summary,
                 untraced: cov.untraced,
                 stale: cov.stale,
+                traced: (cov as any).traced ?? [],
                 excluded: cov.excluded ?? (cov as any).ignored ?? [],
                 building: cov.building,
                 loading: false,
@@ -255,13 +266,16 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   // ── Fetch functions ─────────────────────────────────────────
 
   const fetchTraceCoverage = useCallback(() => {
-    if (!selectedProjectId || !traceStatus.enabled) return
+    // F-53: gate on data presence, not the auto-build preference.
+    // Same root-cause class as F-39 / F-49.
+    if (!selectedProjectId || (!traceStatus.enabled && !traceStatus.exists)) return
     setTraceCoverage(prev => ({ ...prev, loading: true }))
     api.getTraceCoverage(selectedProjectId).then((data) => {
       setTraceCoverage({
         summary: data.summary,
         untraced: data.untraced,
         stale: data.stale,
+        traced: (data as any).traced ?? [],
         excluded: data.excluded ?? (data as any).ignored ?? [],
         building: data.building,
         loading: false,
@@ -493,14 +507,14 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     try {
       await api.destroyGraph(selectedProjectId)
       setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
-      setTraceCoverage({ summary: null, untraced: [], stale: [], excluded: [], building: false, loading: false })
+      setTraceCoverage({ summary: null, untraced: [], stale: [], traced: [], excluded: [], building: false, loading: false })
       resetEnrichmentRef.current?.()
       resetAtlasRef.current?.()
       resetDeepAnalysisRef.current()
       void refreshStatusRef.current(selectedProjectId)
       setTimeout(() => {
         api.getTraceCoverage(selectedProjectId).then((data) => {
-          setTraceCoverage({ summary: data.summary, untraced: data.untraced, stale: data.stale, excluded: data.excluded ?? [], building: false, loading: false })
+          setTraceCoverage({ summary: data.summary, untraced: data.untraced, stale: data.stale, traced: (data as any).traced ?? [], excluded: data.excluded ?? [], building: false, loading: false })
         }).catch(() => { })
       }, 300)
     } catch (e) {
@@ -513,7 +527,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     try {
       await api.destroyIndex(selectedProjectId)
       setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
-      setTraceCoverage({ summary: null, untraced: [], stale: [], excluded: [], building: false, loading: false })
+      setTraceCoverage({ summary: null, untraced: [], stale: [], traced: [], excluded: [], building: false, loading: false })
       resetEnrichmentRef.current?.()
       resetAtlasRef.current?.()
       resetDeepAnalysisRef.current()
@@ -525,7 +539,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       setTimeout(() => {
         refreshFileTreeRef.current?.(selectedProjectId)
         api.getTraceCoverage(selectedProjectId).then((data) => {
-          setTraceCoverage({ summary: data.summary, untraced: data.untraced, stale: data.stale, excluded: data.excluded ?? [], building: false, loading: false })
+          setTraceCoverage({ summary: data.summary, untraced: data.untraced, stale: data.stale, traced: (data as any).traced ?? [], excluded: data.excluded ?? [], building: false, loading: false })
         }).catch(() => { })
       }, 300)
     } catch (e) {
