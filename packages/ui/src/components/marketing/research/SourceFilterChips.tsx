@@ -24,14 +24,13 @@ export interface SourceFilterChipsProps {
 
 export function SourceFilterChips({ active, onChange, available, className }: SourceFilterChipsProps) {
   return (
-    <div role="tablist" aria-label="Filter sources by type" className={cn('flex flex-wrap gap-2', className)}>
+    <div role="group" aria-label="Filter sources by type" className={cn('flex flex-wrap gap-2', className)}>
       {FILTERS.filter((f) => f.value === 'all' || available.has(f.value as SourceType)).map((f) => {
         const isActive = active === f.value;
         return (
           <button
             key={f.value}
             type="button"
-            role="tab"
             aria-pressed={isActive}
             onClick={() => onChange(f.value)}
             className={cn(
