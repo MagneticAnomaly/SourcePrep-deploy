@@ -199,3 +199,62 @@ class TestCoordinatorTimeout:
 
         assert result is not None
         assert len(worker_calls) == 2
+
+
+class TestSwarmThinkFalse:
+    """Phase 96F follow-up (F-29): coordinator and synthesis LLM calls
+    must pass think=False so reasoning models don't consume their
+    response budget on chain-of-thought."""
+
+    def test_coordinator_passes_think_false(self):
+        llm = MagicMock()
+        llm.generate.return_value = (
+            '{"assignments": [{"item_id": "item-0", '
+            '"analysis_angle": "test", "priority_concerns": []}]}',
+            10,
+        )
+
+        orch = SwarmOrchestrator(
+            llm=llm,
+            coordinator_timeout_s=10.0,
+            synthesis_timeout_s=10.0,
+        )
+
+        plan, _tokens = orch._coordinate(_make_items(1), "prompt {group_summaries}")
+        assert plan is not None
+
+        # Verify llm.generate was called with think=False
+        call_kwargs = llm.generate.call_args.kwargs
+        assert call_kwargs.get("think") is False, (
+            f"Coordinator must pass think=False, got {call_kwargs.get('think')}"
+        )
+
+    def test_synthesis_passes_think_false(self):
+        llm = MagicMock()
+        llm.generate.return_value = ('{"summary": "ok"}', 5)
+
+        orch = SwarmOrchestrator(
+            llm=llm,
+            coordinator_timeout_s=10.0,
+            synthesis_timeout_s=10.0,
+        )
+
+        # Build a fake worker_results list with one successful entry
+        from codrag.core.swarm_orchestrator import WorkerResult
+        results = [
+            WorkerResult(
+                item_id="item-0",
+                raw_output='{"x": 1}',
+                parsed={"x": 1},
+                success=True,
+            ),
+        ]
+
+        result, _tokens = orch._synthesize(results, "prompt {worker_outputs}")
+        assert result is not None
+
+        # Verify llm.generate was called with think=False
+        call_kwargs = llm.generate.call_args.kwargs
+        assert call_kwargs.get("think") is False, (
+            f"Synthesis must pass think=False, got {call_kwargs.get('think')}"
+        )

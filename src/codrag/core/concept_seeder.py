@@ -365,11 +365,17 @@ def seed_concepts_swarm(project_id: str) -> Dict[str, Any]:
         )
 
         try:
+            # Phase 96F follow-up (F-29): force think=False so reasoning
+            # models (kimi-k2.5:cloud etc.) don't consume the response
+            # budget on the thinking field.  Per-module concept extraction
+            # is a structured-output task that doesn't need chain-of-
+            # thought reasoning.
             text, _tokens = llm.generate(
                 prompt=worker_prompt,
                 json_mode=True,
                 temperature=0.3,
                 num_predict=4000,
+                think=False,
             )
             return text
         except Exception:

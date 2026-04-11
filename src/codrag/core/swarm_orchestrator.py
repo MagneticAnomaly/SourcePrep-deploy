@@ -155,6 +155,17 @@ class SwarmOrchestrator:
         to forcibly cancel a thread blocked on a network read.  In
         practice this is fine because the LLMClient itself has a
         request-level timeout, just longer than ours.
+
+        Phase 96F follow-up (F-29): Forces ``think=False`` for swarm
+        coordinator and synthesis calls.  Reasoning models like
+        kimi-k2.5:cloud consume their ``num_predict`` budget on the
+        ``thinking`` field and produce empty ``response`` output when
+        the budget is small (≤2048 tokens).  Swarm coordinator and
+        synthesis prompts are short structured JSON requests that
+        don't benefit from chain-of-thought reasoning, so disabling
+        thinking is both faster and avoids the empty-response failure
+        mode.  Reasoning-heavy stages (deepening, group_reasoning
+        analysis) keep their thinking enabled at the worker level.
         """
         with ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"swarm-{phase}") as pool:
             future = pool.submit(
@@ -163,6 +174,7 @@ class SwarmOrchestrator:
                 system=system,
                 json_mode=True,
                 temperature=temperature,
+                think=False,
             )
             try:
                 return future.result(timeout=timeout_s)
