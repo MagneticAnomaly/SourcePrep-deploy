@@ -28,6 +28,12 @@ from codrag.api.envelope import ApiException, ok
 
 logger = logging.getLogger(__name__)
 
+
+def _get_store():
+    from codrag.services.settings_store import settings
+    return settings
+
+
 router = APIRouter(tags=["settings"])
 
 
@@ -564,9 +570,9 @@ def get_admin_policy() -> Dict[str, Any]:
 
     try:
         store = _get_store()
-        active_id = store.get_global("active_project")
+        active_id = store.get("active_project")
         if active_id:
-            proj_root = store.get_project(active_id, "root_path")
+            proj_root = store.project_get(active_id, "root_path")
             if proj_root:
                 from pathlib import Path
                 from codrag.core.team_config import load_admin_policy
@@ -640,10 +646,10 @@ def get_security_health() -> Dict[str, Any]:
 
     try:
         store = _get_store()
-        active_id = store.get_global("active_project")
+        active_id = store.get("active_project")
         project_root = None
         if active_id:
-            root = store.get_project(active_id, "root_path")
+            root = store.project_get(active_id, "root_path")
             if root:
                 from pathlib import Path
                 project_root = Path(root)
@@ -666,10 +672,10 @@ def export_security_report() -> Dict[str, Any]:
 
     try:
         store = _get_store()
-        active_id = store.get_global("active_project")
+        active_id = store.get("active_project")
         project_root = None
         if active_id:
-            root = store.get_project(active_id, "root_path")
+            root = store.project_get(active_id, "root_path")
             if root:
                 from pathlib import Path
                 project_root = Path(root)
@@ -818,7 +824,7 @@ def get_batch_estimate() -> Dict[str, Any]:
     file_count = 0
     try:
         store = _get_store()
-        active_id = store.get_global("active_project")
+        active_id = store.get("active_project")
         if active_id:
             from codrag.core.project_registry import get_project, project_index_dir
             from codrag.core.trace import TraceIndex

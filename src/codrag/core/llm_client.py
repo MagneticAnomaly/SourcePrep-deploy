@@ -515,7 +515,7 @@ class LLMClient:
                 active_id = None
                 try:
                     from codrag.services.settings_store import settings
-                    active_id = settings.get_global("active_project")
+                    active_id = settings.get("active_project")
                 except Exception:
                     pass
                 if active_id:
@@ -523,7 +523,7 @@ class LLMClient:
                         proj_root = None
                         try:
                             from codrag.services.settings_store import settings as _s
-                            proj_root = _s.get_project(active_id, "root_path")
+                            proj_root = _s.project_get(active_id, "root_path")
                         except Exception:
                             pass
                         if proj_root:

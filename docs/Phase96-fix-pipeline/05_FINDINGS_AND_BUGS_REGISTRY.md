@@ -1,6 +1,6 @@
 # Phase 96: Findings and Bugs Registry
 
-**Last updated:** 2026-04-11 (F-11, F-28, F-36, F-37, F-38 closed)
+**Last updated:** 2026-04-11 (F-11, F-14, F-28, F-36, F-37, F-38 closed)
 **Status:** Living document — appended as new findings emerge
 
 This is the canonical record of every issue, bug, anomaly, or noteworthy
@@ -30,7 +30,7 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-11 | Dashboard polling storm exhausts FastAPI thread pool | ✅ FIXED (client-side reduction) | (this commit) |
 | F-12 | Daemon "logs die off" symptom | ✅ EXPLAINED | (was F-11 manifestation) |
 | F-13 | MCP server disconnects during operation | ✅ EXPLAINED | (was F-11 manifestation) |
-| F-14 | `SettingsStore.get_global` AttributeError (recurring log error) | 🟡 OPEN | — |
+| F-14 | `SettingsStore.get_global` AttributeError (recurring log error) | ✅ FIXED | (this commit) |
 | F-15 | Pre-existing test failures in budget/journal tests | 🟡 OPEN (out of scope) | — |
 | F-16 | 15-stage merge has no parallel wave dispatch | 🟢 DEFERRED to 96G | (decision in 03_) |
 | F-17 | Sequential finalize completes correctly | ✅ VALIDATED | `b2abf504` |
@@ -56,7 +56,7 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-37 | `antibody_store.init()` never called — saves silently failed at DEBUG level | ✅ FIXED | (this commit) |
 | F-38 | Antibodies worker passed `Concept` dataclass to `derive_antibodies_for_project` (expects dicts) | ✅ FIXED | (this commit) |
 
-Total: **39 findings**, **27 fixed**, **6 open**, **2 deferred**, **2 not-a-bug**.
+Total: **39 findings**, **28 fixed**, **5 open**, **2 deferred**, **2 not-a-bug**.
 
 ---
 
@@ -203,7 +203,7 @@ Worst offenders fixed in this commit:
 
 ### F-14 — `SettingsStore.get_global` AttributeError
 
-**Status:** 🟡 OPEN
+**Status:** ✅ FIXED
 
 **Symptom:** Recurring error in daemon logs:
 ```
@@ -211,9 +211,15 @@ ERROR:codrag.api.routers.settings:Security health check failed:
   'SettingsStore' object has no attribute 'get_global'
 ```
 
-**Root cause:** A router calls a method that doesn't exist on `SettingsStore`. Non-fatal (logged only, doesn't crash).
+**Root cause:** Two non-existent methods were being called on the `SettingsStore` singleton in 9 places across `src/codrag/api/routers/settings.py` and `src/codrag/core/llm_client.py`:
+- `store.get_global("active_project")` — should be `store.get("active_project")`. The store has a `.get()` method for global settings; there is no `.get_global()`.
+- `store.get_project(active_id, "root_path")` — should be `store.project_get(active_id, "root_path")`. The store uses `project_get`/`project_set`/`project_delete` for the per-project namespace; there is no `.get_project()` (that name belongs to `ProjectRegistry`, a different class).
 
-**Action:** Track separately. Out of scope for Phase 96 but should be cleaned up.
+Every call site was wrapped in `try/except Exception: logger.warning(...)`, so the bug failed silently as recurring log noise instead of breaking functionality. The actual functionality (loading admin policy, redact patterns, etc.) was never working — it was always falling through to the default permissive policy.
+
+**Fix:** Renamed all 9 call sites to the correct method names. Both modules import cleanly and the routers no longer raise `AttributeError`.
+
+**Validation:** Smoke imports of both modules succeed. 37 settings_store tests pass; the 2 WAL-mode failures (`test_close_checkpoints_wal`, `test_wal_checkpoint_on_init_recovers_stale_wal`) reproduce on origin/main without these changes — pre-existing F-15 territory, related to the SettingsStore using `journal_mode=DELETE` to dodge USB-drive WAL corruption.
 
 ---
 
