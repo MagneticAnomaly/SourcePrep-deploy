@@ -365,26 +365,27 @@ class AutoRebuildWatcher:
 
     @staticmethod
     def _is_relevant(rel_posix: str, include_globs: List[str], exclude_globs: List[str]) -> bool:
-        p = Path(rel_posix)
-
-        for pat in exclude_globs:
+        # F-40: pathlib.Path.match() does NOT support the recursive ** wildcard
+        # the way fnmatch/gitignore-style globs do — for example:
+        #   Path(".claude/worktrees/x/y.py").match("**/.claude/**") -> False
+        # That broke every directory-level exclude pattern (.claude, .git,
+        # .codrag, node_modules, etc.) and let the watcher report changes
+        # in worktrees as "relevant", which then triggered delta builds that
+        # walked the duplicated repo.  Use pathspec (gitwildmatch) instead —
+        # the rest of the codebase already uses it for the same purpose.
+        import pathspec
+        if exclude_globs:
             try:
-                if p.match(pat):
+                if pathspec.PathSpec.from_lines("gitignore", exclude_globs).match_file(rel_posix):
                     return False
             except Exception:
-                continue
-
+                pass
         if not include_globs:
             return True
-
-        for pat in include_globs:
-            try:
-                if p.match(pat):
-                    return True
-            except Exception:
-                continue
-
-        return False
+        try:
+            return pathspec.PathSpec.from_lines("gitignore", include_globs).match_file(rel_posix)
+        except Exception:
+            return False
 
     # ── Phase 48-F8: Periodic Coverage Gap Detection ──────────
 

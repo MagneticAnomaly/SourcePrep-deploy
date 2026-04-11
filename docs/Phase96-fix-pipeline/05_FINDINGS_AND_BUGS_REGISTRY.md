@@ -56,10 +56,10 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-37 | `antibody_store.init()` never called — saves silently failed at DEBUG level | ✅ FIXED | (this commit) |
 | F-38 | Antibodies worker passed `Concept` dataclass to `derive_antibodies_for_project` (expects dicts) | ✅ FIXED | (this commit) |
 | F-39 | `project_trace_status` short-circuits to empty stub when `config.trace.enabled=False`, ignoring on-disk graph | ✅ FIXED | (this commit) |
-| F-40 | `.claude/worktrees/` not excluded from CoDRAG self-indexing — duplicates entire repo into the index | 🟡 OPEN | — |
+| F-40 | `AutoRebuildWatcher._is_relevant` used `Path.match()` which doesn't honor `**` — directory excludes silently broken | ✅ FIXED | (this commit) |
 | F-41 | `/system/pipeline-queue` blocks under long-running stage (holds scheduler lock?) — `/health` stays fast but queue hangs 30s+ | 🟡 OPEN | — |
 
-Total: **42 findings**, **33 fixed**, **4 open**, **2 deferred**, **2 not-a-bug**. (F-39 fixed; F-40 and F-41 added during CoDRAG self-swarm validation.)
+Total: **42 findings**, **34 fixed**, **3 open**, **2 deferred**, **2 not-a-bug**. (F-39 + F-40 fixed; F-41 added during CoDRAG self-swarm validation.)
 
 ---
 
@@ -499,23 +499,61 @@ antibodies = derive_antibodies_for_project(concept_dicts)
 
 ---
 
-### F-40 — `.claude/worktrees/` not excluded from CoDRAG self-indexing
+### F-40 — `AutoRebuildWatcher._is_relevant` glob matching silently broken for directories
 
-**Status:** 🟡 OPEN
+**Status:** ✅ FIXED
 
-**Symptom:** During the CoDRAG self-swarm validation (task #17), the pipeline log filled up with `Indexing .claude/worktrees/busy-swirles/AGENTS.md`, `Indexing .claude/worktrees/busy-swirles/CLAUDE.md`, `Indexing .claude/worktrees/busy-swirles/backend_config.py`, and so on — a complete walk of every file inside an active git worktree.
+**Symptom:** During the CoDRAG self-swarm validation (task #17), the pipeline log filled up with:
+```
+[codrag.services.build_manager] Indexing .claude/worktrees/busy-swirles/AGENTS.md
+[codrag.services.build_manager] Indexing .claude/worktrees/busy-swirles/CLAUDE.md
+[codrag.services.build_manager] Indexing .claude/worktrees/busy-swirles/backend_config.py
+...
+```
 
-**Why this matters:** `.claude/worktrees/` is where Claude Code stages parallel-task worktrees. Each worktree is a near-complete copy of the repo. Indexing them duplicates every file (~600 source files × N worktrees) into the CoDRAG index, which:
-- Inflates `total_chunks` and `total_files` counts (the daemon now reports 661 chunks but should be 2-3× higher with worktrees)
-- Pollutes semantic search results (every symbol matches multiple times)
-- Triggers spurious "stale" markers because worktree files are constantly changing
-- Wastes embedding compute (each duplicate embedded separately)
+`.claude/worktrees/` is where Claude Code stages parallel-task git worktrees. Each worktree is a near-complete copy of the repo. The CoDRAG project's policy correctly listed `**/.claude/**` in `exclude_globs`, and `.claude` is also in `DEFAULT_EXCLUDE_DIR_NAMES` — but the watcher was reporting these files as "relevant" anyway and triggering delta builds that walked the duplicated repo.
 
-**Suspected cause:** The default `.codragignore` / exclude patterns don't list `.claude/worktrees/`. They should, alongside `.git/`, `node_modules/`, etc.
+**Root cause:** `AutoRebuildWatcher._is_relevant` (in `src/codrag/core/watcher.py`) used `pathlib.Path.match()` to check exclude patterns. **`Path.match()` does NOT support the recursive `**` wildcard the way fnmatch / gitignore-style globs do** — every directory-level exclude pattern silently failed to match.
 
-**Fix:** Add `.claude/worktrees/` to the default exclude list in `core/codragignore.py` (or wherever the baseline ignore patterns live). Existing projects need to manually delete the worktree-derived chunks or rebuild from scratch.
+Verified empirically:
+```python
+>>> Path(".claude/worktrees/busy-swirles/backend_config.py").match("**/.claude/**")
+False
+>>> Path(".claude/worktrees/busy-swirles/backend_config.py").match(".claude/**")
+False
+>>> import pathspec
+>>> pathspec.PathSpec.from_lines("gitignore", ["**/.claude/**"]).match_file(...)
+True   # ✓
+```
 
-**Related:** F-38 in the registry's `feedback_agents_md_in_graph.md` memory note ("CoDRAG-generated files are noise in the trace graph"). Same family of bug — the index is absorbing files it shouldn't.
+This silently broke `.claude/`, `.git/`, `.codrag/`, `.venv/`, `node_modules/`, and **every other directory exclude in every project's policy**. Files inside those dirs were being reported as relevant, triggering repeat builds. The build_manager DID filter correctly when called directly (CodeIndex.build uses pathspec internally), but the watcher's pre-filter let bad paths through, and the delta-build path took those paths as `roots` and re-indexed them.
+
+**Fix:** Replace `Path.match()` with `pathspec.PathSpec.from_lines("gitignore", ...)`. The rest of the codebase already uses pathspec for exactly this — the watcher was an outlier. Switched from the deprecated `gitwildmatch` dialect to `gitignore` to silence the deprecation warning.
+
+```python
+# BEFORE
+for pat in exclude_globs:
+    if Path(rel_posix).match(pat):  # silently fails on **/...
+        return False
+
+# AFTER
+import pathspec
+if exclude_globs:
+    if pathspec.PathSpec.from_lines("gitignore", exclude_globs).match_file(rel_posix):
+        return False
+```
+
+**Tests:** New `tests/test_watcher_relevance.py` with 19 cases covering:
+- 4 `.claude/worktrees/...` paths (the original bug)
+- 7 other default-exclude directories (`.git`, `.codrag`, `.venv`, `node_modules`, including a nested `src/foo/node_modules/...`)
+- 5 normal include paths (`.py`, `.md`, `.ts`, `.tsx`, plus a `.sh` that's excluded by include_globs)
+- Lock files, empty include_globs, empty both lists
+
+All 19 pass. Full watcher test suite (31 tests across `test_watcher_relevance`, `test_watcher_staleness`, `test_immune_watcher`) is green.
+
+**Existing projects** still have polluted indexes from the broken watcher. Workaround: rebuild from scratch (`Knowledge Base Status → Rebuild`) to drop the worktree-derived chunks. The watcher will no longer re-add them.
+
+**Related:** This fix structurally subsumes the memory note about AGENTS.md being noise in the trace graph — every dotfile dir-exclude now actually works.
 
 ---
 
