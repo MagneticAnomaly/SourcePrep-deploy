@@ -924,8 +924,11 @@ class TestSchedulerStatusAIMD:
         node = status["nodes"]["cloud:ep-1"]
         assert "aimd_mode" in node
         assert "current_limit" in node
-        assert node["aimd_mode"] == "jumpstart"
-        assert node["current_limit"] == 5  # default
+        # Phase 96B: ComputeSlot now initializes at configured max_concurrent
+        # (the previous default of current_limit=5 capped Ollama providers at 5
+        # because jumpstart was gated on rate-limit headers they don't send).
+        assert node["aimd_mode"] == "congestion_avoidance"
+        assert node["current_limit"] == 10  # matches configured max_concurrent
 
 
 class TestIsHeldBy:
@@ -947,3 +950,292 @@ class TestIsHeldBy:
         sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
         sched.release("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
         assert sched.is_held_by("proj-a") is False
+
+
+# ── Phase 91: Swarm Window Tests ─────────────────────────────────
+
+
+class TestSwarmWindow:
+    """Test swarm window lifecycle: open, block, drain, close, cooldown."""
+
+    def test_open_swarm_window_blocks_other_projects(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+
+        opened = sched.open_swarm_window("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        assert opened is True
+
+        # proj-c should be blocked from acquiring
+        assert sched.acquire("proj-c", StageId.CATALOGUE, "cloud:ep-1") is False
+
+    def test_swarm_owner_not_blocked(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+
+        sched.open_swarm_window("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+
+        # Same project should still be able to acquire (stage transition)
+        assert sched.can_start("proj-a", StageId.CLUSTERING, "cloud:ep-1") is True
+
+    def test_close_swarm_window_unblocks(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+
+        sched.open_swarm_window("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        assert sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1") is False
+
+        sched.close_swarm_window()
+        assert sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1") is True
+
+    def test_swarm_cooldown_blocks_reopen(self):
+        sched = PipelineScheduler()
+        sched._swarm_cooldown_seconds = 0.5  # Short for testing
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+
+        sched.open_swarm_window("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        sched.close_swarm_window()
+
+        # Immediately try to reopen — should be blocked by cooldown
+        opened = sched.open_swarm_window("proj-b", StageId.CLUSTERING, "cloud:ep-1")
+        assert opened is False
+
+        # Wait for cooldown
+        time.sleep(0.6)
+        sched.acquire("proj-b", StageId.CLUSTERING, "cloud:ep-1")
+        opened = sched.open_swarm_window("proj-b", StageId.CLUSTERING, "cloud:ep-1")
+        assert opened is True
+
+    def test_drain_targets_tracked(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-c", StageId.CATALOGUE, "cloud:ep-1")
+
+        sched.open_swarm_window("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+
+        window = sched.get_swarm_window()
+        assert window is not None
+        assert "proj-b" in window["drain_targets"]
+        assert "proj-c" in window["drain_targets"]
+        assert "proj-a" not in window["drain_targets"]
+
+    def test_drain_target_removed_on_release(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+
+        sched.open_swarm_window("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        assert "proj-b" in sched.get_swarm_window()["drain_targets"]
+
+        sched.release("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+        assert "proj-b" not in sched.get_swarm_window()["drain_targets"]
+
+    def test_drain_timeout_returns_expired(self):
+        sched = PipelineScheduler()
+        sched._drain_timeout_seconds = 0  # Instant timeout for testing
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+
+        sched.open_swarm_window("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+
+        timed_out = sched.check_drain_timeouts()
+        assert "proj-b" in timed_out
+
+    def test_swarm_window_auto_closes_on_owner_release(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+
+        sched.open_swarm_window("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        assert sched.is_swarm_window_active()
+
+        sched.release("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        assert not sched.is_swarm_window_active()
+
+    def test_swarm_dequeue_blocked_during_window(self):
+        """Non-swarm projects should NOT be dequeued while swarm window is active."""
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+
+        sched.open_swarm_window("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+
+        # Enqueue a non-swarm project
+        sched.enqueue("proj-c", StageId.CATALOGUE, "cloud:ep-1")
+
+        # Release proj-b (a drain target, not the swarm owner) — should NOT
+        # dequeue proj-c because the swarm window is still active.
+        result = sched.release("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+        assert result is None  # proj-c stays queued — blocked by swarm
+        assert len(sched._queues["cloud:ep-1"]) == 1  # proj-c still in queue
+
+    def test_swarm_owner_timeout_tracked(self):
+        """S3: Swarm window should have a mechanism to detect owner hangs.
+
+        Currently check_drain_timeouts only checks drain targets, not
+        the swarm owner itself. This test verifies that the swarm window
+        exposes enough state for the orchestrator to implement a max
+        swarm duration check.
+        """
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+
+        sched.open_swarm_window("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        window = sched.get_swarm_window()
+        assert window is not None
+        assert "started_at" in window
+        assert window["started_at"] > 0
+        # The orchestrator can use started_at + drain_timeout to detect owner hangs
+
+
+class TestSwarmOverExclusive:
+    """Test that swarm tier > exclusive tier."""
+
+    def test_swarm_blocks_exclusive_project(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        sched.set_priority("proj-b", "exclusive")
+
+        sched.open_swarm_window("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+
+        # Even exclusive proj-b should be blocked
+        assert sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1") is False
+
+
+class TestLowResourceGuardrails:
+    """Test that low-resource systems disable swarm and flatten boost."""
+
+    def test_weighted_share_flattened_at_low_capacity(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 3)
+        # Force current_limit to match (AIMD default is 5, clamped by post_init)
+        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-b", StageId.CATALOGUE, "cloud:ep-1")
+        sched.set_priority("proj-a", "boost")
+
+        slot = sched._slots["cloud:ep-1"]
+        # With capacity 3 and 2 active: budget = max(1, 3-1) = 2
+        # Low-resource: equal split regardless of boost
+        share_a = sched._weighted_share(slot, "proj-a")
+        share_b = sched._weighted_share(slot, "proj-b")
+        assert share_a == share_b  # Boost has no effect at low capacity
+
+    def test_get_max_dynamic_capacity(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.configure_node("local:ep-2", 3)
+        # Phase 96B: dynamic_capacity = min(max_concurrent, current_limit)
+        # where current_limit is now initialized to max_concurrent (was 5).
+        # cloud: min(10, 10) = 10, local: min(3, 3) = 3, max = 10.
+        assert sched._get_max_dynamic_capacity() == 10
+
+    def test_full_budget_for_swarm_returns_none_below_min_workers(self):
+        sched = PipelineScheduler()
+        # Phase 96B: budget = dynamic_capacity (no N-1 headroom).
+        # With max=2, budget=2 < min_workers 3 → None.
+        sched.configure_node("cloud:ep-1", 2)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+
+        result = sched.full_budget_for_swarm("ollama", project_id="proj-a")
+        assert result is None  # Budget 2 < min_workers 3
+
+    def test_is_swarm_active_disabled_at_low_capacity(self):
+        """S4: is_swarm_active_for_stage returns False when capacity <= 3."""
+        from codrag.services.pipeline.scheduler import (
+            is_swarm_active_for_stage,
+            pipeline_scheduler as singleton,
+        )
+        # Configure the singleton with low capacity
+        old_slots = dict(singleton._slots)
+        try:
+            singleton._slots.clear()
+            singleton.configure_node("cloud:test-low", 3)
+            # capacity=3, current_limit clamped to 3 → dynamic_capacity=3
+            # 0 < 3 <= 3 → should disable swarm
+            result = is_swarm_active_for_stage("group_reasoning", "ollama", "kimi-k2.5:cloud")
+            assert result is False
+        finally:
+            singleton._slots = old_slots
+
+
+class TestCapacityBroadcast:
+    """Test capacity change event bus."""
+
+    def test_listener_receives_callback(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+
+        received = []
+        sched.on_capacity_change("proj-a", "cloud:ep-1", lambda budget: received.append(budget))
+
+        sched._broadcast_capacity_change("cloud:ep-1", "test")
+        assert len(received) == 1
+        assert received[0] > 0
+
+    def test_listener_cleanup_on_release(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+
+        received = []
+        sched.on_capacity_change("proj-a", "cloud:ep-1", lambda budget: received.append(budget))
+
+        sched.release("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+
+        # Listener should be unregistered
+        assert "proj-a:cloud:ep-1" not in sched._capacity_listeners
+
+    def test_cleanup_function_works(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+
+        cleanup = sched.on_capacity_change("proj-a", "cloud:ep-1", lambda b: None)
+        assert "proj-a:cloud:ep-1" in sched._capacity_listeners
+
+        cleanup()
+        assert "proj-a:cloud:ep-1" not in sched._capacity_listeners
+
+
+class TestStatusSwarmFields:
+    """Test that status() includes Phase 91 swarm fields."""
+
+    def test_status_has_swarm_fields(self):
+        sched = PipelineScheduler()
+        status = sched.status()
+        assert "swarm_window" in status
+        assert "swarm_cooldown_remaining" in status
+        assert "drain_timeout_seconds" in status
+        assert status["swarm_window"] is None
+        assert status["drain_timeout_seconds"] == 600
+
+    def test_status_swarm_window_populated(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        sched.open_swarm_window("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+
+        status = sched.status()
+        assert status["swarm_window"] is not None
+        assert status["swarm_window"]["project_id"] == "proj-a"
+        assert status["swarm_window"]["stage"] == "group_reasoning"
+
+    def test_clean_locks_clears_swarm_window(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        sched.open_swarm_window("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+
+        sched.clean_locks()
+        assert not sched.is_swarm_window_active()
