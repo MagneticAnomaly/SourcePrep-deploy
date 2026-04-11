@@ -434,18 +434,6 @@ export const RESEARCH_SOURCES: ResearchSource[] = [
     spotlight: false,
   },
   {
-    id: 'codegraph',
-    type: 'paper',
-    title: 'CodeGraph: Code-Centric Knowledge Graphs for LLM-based Code Analysis',
-    venue: 'arXiv 2023',
-    year: 2023,
-    url: 'https://arxiv.org/abs/2308.09687',
-    arxivId: '2308.09687',
-    usage: 'Early validation of graph-centric code understanding \u2014 shaped CoDRAG\u2019s TraceIndex node/edge model.',
-    problemArea: 'chunking',
-    spotlight: false,
-  },
-  {
     id: 'repoagent',
     type: 'paper',
     title: 'RepoAgent: An LLM-Powered Open-Source Framework for Repository-level Code Documentation Generation',
