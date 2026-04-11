@@ -10,7 +10,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from codrag.services.build_orchestrator import (
     BuildOrchestrator,
@@ -100,6 +100,53 @@ class PipelineOrchestrator:
         self._chain_finalize: Dict[str, bool] = {}
         # Phase 89: Track force_from_start for chain propagation to deep enrichment
         self._force_from_start_runs: set[str] = set()
+        # Phase 91: Drain timeout checker (runs every 30s while swarm window is active)
+        self._drain_timer: Optional[threading.Timer] = None
+
+    def _start_drain_timer(self) -> None:
+        """Start a periodic timer to check for drain timeouts."""
+        self._stop_drain_timer()
+        # Weak ref to self prevents timer from keeping orchestrator alive
+        import weakref
+        weak_self = weakref.ref(self)
+
+        def _check():
+            strong_self = weak_self()
+            if strong_self is None:
+                return  # Orchestrator was garbage collected
+            try:
+                timed_out = pipeline_scheduler.check_drain_timeouts()
+                for pid in timed_out:
+                    logger.warning(
+                        "Phase 91: Drain timeout — force-cancelling %s", pid,
+                    )
+                    try:
+                        strong_self.cancel(pid)
+                    except Exception:
+                        logger.warning(
+                            "Phase 91: Failed to cancel drained project %s",
+                            pid, exc_info=True,
+                        )
+            except Exception:
+                logger.debug("Phase 91: Drain timeout check failed", exc_info=True)
+            # Reschedule if swarm window is still active
+            if pipeline_scheduler.is_swarm_window_active():
+                strong_self._drain_timer = threading.Timer(30.0, _check)
+                strong_self._drain_timer.daemon = True
+                strong_self._drain_timer.start()
+            else:
+                strong_self._drain_timer = None
+
+        self._drain_timer = threading.Timer(30.0, _check)
+        self._drain_timer.daemon = True
+        self._drain_timer.start()
+
+    def _stop_drain_timer(self) -> None:
+        """Stop the drain timeout checker."""
+        if self._drain_timer:
+            self._drain_timer.cancel()
+            self._drain_timer = None
+
     def _get_file_logger(self, project_id: str):
         """Get or create a PipelineFileLogger for a project."""
         if project_id not in self._file_loggers:
@@ -586,6 +633,21 @@ class PipelineOrchestrator:
         that has hours of LLM reasoning is destructive and should NEVER
         happen automatically.
         """
+        # Phase 93: Don't start deep enrichment while fast_sync is active.
+        # _start_group already has a cross-group guard (line ~1229), but that
+        # check can miss timing windows when fast_sync and deep_enrichment
+        # are triggered from different threads (e.g., recovery vs auto-run).
+        # This early check provides defense-in-depth.
+        with self._lock:
+            fast_run = self._runs.get((project_id, "fast_sync"))
+            if fast_run and fast_run.is_active:
+                logger.info(
+                    "[%s] Skipping deep enrichment — fast_sync is still active "
+                    "(stage=%s). Deep enrichment will chain after fast_sync completes.",
+                    project_id, fast_run.current_stage,
+                )
+                return False
+
         # Check if the preceding fast_sync was incremental.
         is_incremental = project_id in self._incremental_runs
         self._incremental_runs.discard(project_id)
@@ -840,6 +902,15 @@ class PipelineOrchestrator:
             })
         except Exception:
             logger.debug("Pipeline status SSE emit failed (non-fatal)", exc_info=True)
+
+    def has_active_run(self, project_id: str) -> bool:
+        """Check if a project has any active (non-paused) pipeline runs."""
+        with self._lock:
+            return any(
+                run.is_active
+                for key, run in self._runs.items()
+                if key[0] == project_id
+            )
 
     def status(self, project_id: str) -> Dict[str, Any]:
         """Get pipeline status for a project."""
@@ -1127,6 +1198,34 @@ class PipelineOrchestrator:
                 break
 
         return pipeline_scheduler.resolve_node_for_model(provider, model, endpoint_id)
+
+    def _resolve_model_for_stage(
+        self, project_id: str, stage: StageId,
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Return (provider, model) for a stage's configured LLM.
+
+        Used by Phase 91 swarm window to check if the model supports swarm.
+        """
+        slot_name = STAGE_MODEL_SLOT.get(stage)
+        if not slot_name:
+            return None, None
+        try:
+            from codrag.services.settings_store import settings
+            llm_config = settings.get("llm_config") or {}
+        except Exception:
+            return None, None
+        slot_key = f"{slot_name}_model"
+        slot_config = llm_config.get(slot_key, {})
+        model = slot_config.get("model", "")
+        endpoint_id = slot_config.get("endpoint_id")
+        if not endpoint_id:
+            return None, None
+        provider = "ollama"
+        for ep in llm_config.get("saved_endpoints", []):
+            if ep.get("id") == endpoint_id:
+                provider = ep.get("provider", "ollama")
+                break
+        return provider, model
 
     def _is_cloud_node(self, node_id: Optional[str]) -> bool:
         """Check if a node ID refers to a cloud compute node."""
@@ -1582,6 +1681,21 @@ class PipelineOrchestrator:
         # Stash node_id so _on_build_transition can release on the correct node
         run._current_node_id = node_id  # type: ignore[attr-defined]
 
+        # Phase 91: Open swarm window if this is a swarm-eligible stage.
+        # This blocks other projects from acquiring slots on this node,
+        # letting running stages drain naturally before swarm takes over.
+        from .scheduler import SWARM_CAPABLE_STAGES, is_swarm_active_for_stage
+        if stage.value in SWARM_CAPABLE_STAGES:
+            try:
+                _provider, _model = self._resolve_model_for_stage(run.project_id, stage)
+                if _provider and _model and is_swarm_active_for_stage(stage.value, _provider, _model):
+                    opened = pipeline_scheduler.open_swarm_window(run.project_id, stage, node_id)
+                    if opened:
+                        self._start_drain_timer()
+                    # If cooldown blocked it, stage runs with normal budget — fine
+            except Exception:
+                logger.debug("Phase 91: swarm window check failed for %s/%s", run.project_id, stage.value, exc_info=True)
+
         # VRAM lifecycle: only LOCAL LLM stages need model acquire/unload.
         # Cloud endpoints are always ready — no VRAM contention.
         # Embedding stages use NativeEmbedder (ONNX/CoreML/CUDA) — independent.
@@ -1934,6 +2048,17 @@ class PipelineOrchestrator:
                     exc_info=True,
                 )
 
+        # Phase 94: Release old stage's scheduler slot BEFORE advancing.
+        # The Phase 89 pattern (release AFTER advance) caused a self-deadlock
+        # when the next stage uses the same compute node as the completed stage:
+        # _advance_pipeline() tries to acquire a slot on the same node that the
+        # completed stage still holds, fails, and parks the pipeline in QUEUED
+        # state permanently.  Releasing first ensures the slot is available for
+        # the same pipeline's next stage.
+        _deferred_resume = None
+        if new_phase == BuildPhase.COMPLETED:
+            _deferred_resume = pipeline_scheduler.release(project_id, stage, _old_release_node)
+
         # Advance outside the lock
         if matching_run and matching_run.is_active and not _abort:
             try:
@@ -1954,17 +2079,10 @@ class PipelineOrchestrator:
                     detail=f"Failed to advance after {stage.value if stage else '?'}: {exc}",
                 )
 
-        # Phase 89: Release old stage's scheduler slot AFTER advance.
-        # This ensures the pipeline always holds at least one lock during
-        # stage transitions, eliminating the race window where ghost guard
-        # or dequeued pipelines could interfere.
-        # Uses _old_release_node (captured before advance) and stage-aware
-        # release — if advance overwrote active_stages on the same node,
-        # release() is a no-op (correct: new stage already holds the slot).
-        if new_phase == BuildPhase.COMPLETED:
-            _deferred_resume = pipeline_scheduler.release(project_id, stage, _old_release_node)
-            if _deferred_resume:
-                self._resume_queued_pipeline(_deferred_resume.project_id, _deferred_resume.stage)
+        # Resume any pipeline that was waiting for the slot we just released.
+        # Done after advance so the current pipeline gets first crack at the slot.
+        if _deferred_resume:
+            self._resume_queued_pipeline(_deferred_resume.project_id, _deferred_resume.stage)
             try:
                 from codrag.core.events import get_event_bus
                 get_event_bus().emit("queue_changed", {
@@ -2315,19 +2433,21 @@ class PipelineOrchestrator:
                     break
 
         if matching_sm is None:
+            # Phase 93: Drop orphaned queue entries instead of re-enqueuing.
+            # The old re-enqueue logic created an infinite loop: dequeue →
+            # no SM → re-enqueue → dequeue → repeat, blocking all other
+            # queued pipelines from ever getting a compute slot.
+            # An entry with no state machine is a ghost from a cancelled/
+            # completed/recovered run — it will never be resumable.
             logger.warning(
                 "Scheduler: dequeued %s/%s but no QUEUED state machine found — "
-                "re-enqueuing to avoid losing the entry",
+                "dropping orphaned entry (no state machine to resume)",
                 project_id, stage.value,
             )
-            # Re-enqueue so the entry isn't lost
             try:
-                pipeline_scheduler.enqueue(project_id, stage)
+                pipeline_scheduler.release(project_id, stage)
             except Exception:
-                logger.error(
-                    "Scheduler: failed to re-enqueue lost entry %s/%s",
-                    project_id, stage.value,
-                )
+                pass  # Already released or never acquired
             return
 
         # Transition QUEUED → RUNNING
@@ -2513,6 +2633,22 @@ class PipelineOrchestrator:
             if pfl:
                 pfl.log(stage.value, f"SKIPPED (freshness): {reason}")
             run.stage_results[stage.value] = "skipped"
+
+            # Phase 96: Release the scheduler slot acquired for this stage
+            # BEFORE advancing.  Without this release, the slot is held
+            # forever (no worker was launched, so _on_build_transition will
+            # never fire to release it).  This mirrors the release-before-
+            # advance pattern from the normal completion path (line ~1967).
+            _release_node = getattr(run, '_current_node_id', None)
+            if pipeline_scheduler.is_held_by(run.project_id):
+                _deferred = pipeline_scheduler.release(
+                    run.project_id, stage, _release_node,
+                )
+                if _deferred:
+                    self._resume_queued_pipeline(
+                        _deferred.project_id, _deferred.stage,
+                    )
+
             # Manually advance stage index (not via transition, since this
             # isn't a STAGE_COMPLETED event — it's a skip). The caller
             # (_advance_pipeline) will start the next stage.
@@ -2528,6 +2664,18 @@ class PipelineOrchestrator:
         """Delegates to RecoveryManager.try_restore_stage_from_backup."""
         restored = RecoveryManager.try_restore_stage_from_backup(run, stage, pfl)
         if restored:
+            # Phase 96: Release the scheduler slot acquired for this stage
+            # BEFORE advancing.  Same pattern as freshness skip above —
+            # no worker was launched, so the slot must be released manually.
+            _release_node = getattr(run, '_current_node_id', None)
+            if pipeline_scheduler.is_held_by(run.project_id):
+                _deferred = pipeline_scheduler.release(
+                    run.project_id, stage, _release_node,
+                )
+                if _deferred:
+                    self._resume_queued_pipeline(
+                        _deferred.project_id, _deferred.stage,
+                    )
             self._advance_pipeline(run)
         return restored
 

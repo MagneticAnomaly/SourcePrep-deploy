@@ -59,3 +59,16 @@ class TestSemanticSplitWithEmbedder:
         for ch in chunks:
             assert ch.metadata["source_path"] == "doc.md"
             assert "section" in ch.metadata
+
+    def test_oversized_group_post_processed(self):
+        """Groups exceeding max_chars * 1.5 should be recursively split."""
+        # Create text where semantic boundaries produce one huge group
+        # by having many similar sentences (no topic shift)
+        text = "# Title\n\n" + "The same topic repeated in slightly different words. " * 80
+        embedder = FakeEmbedder(dim=384)
+        chunks = chunk_markdown(text, source_path="test.md", max_chars=500, embedder=embedder)
+        # Should produce multiple chunks even if SG finds no boundaries
+        assert len(chunks) >= 2
+        for ch in chunks:
+            # No chunk should exceed max_chars * 1.5 (the post-processing threshold)
+            assert len(ch.content) <= 500 * 1.5 + 50  # small margin for joining

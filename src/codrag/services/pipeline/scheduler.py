@@ -34,7 +34,7 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Deque, Dict, List, Literal, Optional, Set, Tuple
+from typing import Any, Callable, Deque, Dict, List, Literal, Optional, Set, Tuple
 
 # Priority levels for the star system (three-tier)
 PriorityLevel = Literal["none", "boost", "exclusive"]
@@ -53,10 +53,19 @@ def is_swarm_active_for_stage(stage: str, provider: str, model: str) -> bool:
 
     Mirrors the decision in GroupReasoningEngine.run(), ClusterSynthesizer,
     and AtlasGenerator — minus the min_groups check (not available at query time).
+
+    Phase 91: Returns False on low-resource systems (capacity ≤ 3) because
+    swarm coordination overhead isn't worth it with so few workers.
     """
     if stage not in SWARM_CAPABLE_STAGES:
         return False
     try:
+        # Phase 91: Low-resource guardrail — disable swarm when capacity ≤ 3.
+        # Only applies when nodes are actually configured (capacity > 0).
+        # At startup or in tests, nodes may not exist yet — allow swarm.
+        node_capacity = pipeline_scheduler._get_max_dynamic_capacity()
+        if 0 < node_capacity <= 3:
+            return False
         from codrag.core.swarm_registry import get_swarm_tier
         from codrag.services.settings_store import settings
         tier = get_swarm_tier(provider, model)
@@ -76,16 +85,20 @@ class ComputeSlot:
     max_concurrent: int
     active_stages: Dict[str, str] = field(default_factory=dict)  # project_id -> stage_id
 
-    # Latency-Aware AIMD (Phase 82)
-    current_limit: int = 5
-    mode: Literal["jumpstart", "congestion_avoidance"] = "jumpstart"
+    # Latency-Aware AIMD (Phase 82 / 96B):
+    # `current_limit` is the dynamically-adjustable cap used by AIMD.  It is
+    # initialized to `max_concurrent` so a configured node starts at its full
+    # capacity.  Backoffs shrink it, successful runs grow it back toward the
+    # configured max.  The pre-Phase-96 default of `5` capped providers that
+    # don't emit rate-limit headers (e.g. Ollama) at 5 forever.
+    current_limit: int = 0  # sentinel — replaced in __post_init__
+    mode: Literal["jumpstart", "congestion_avoidance"] = "congestion_avoidance"
     success_streak: int = 0
     _last_backoff_time: float = 0.0
 
     def __post_init__(self):
-        if self.max_concurrent < self.current_limit:
+        if self.current_limit <= 0 or self.current_limit > self.max_concurrent:
             self.current_limit = max(1, self.max_concurrent)
-            self.mode = "congestion_avoidance"
 
     @property
     def current_load(self) -> int:
@@ -159,17 +172,38 @@ class PipelineScheduler:
         # when multiple projects were starred.
         self._priority_projects: Dict[str, PriorityLevel] = {}
 
+        # Phase 91: Swarm window — temporary exclusive-like mode for
+        # swarm-capable stages that need all resources for fan-out.
+        self._swarm_window: Optional[Dict[str, Any]] = None
+        # Unix timestamp: no swarm window can open before this time.
+        self._swarm_cooldown_until: float = 0.0
+        self._swarm_cooldown_seconds: float = 45.0
+        # How long draining stages have before force-cancel (seconds).
+        self._drain_timeout_seconds: int = 600  # 10 minutes
+
+        # Phase 91: Capacity change event bus — batch engines subscribe
+        # to get notified when their worker budget changes.
+        self._capacity_listeners: Dict[str, Callable[[int], None]] = {}
+        self._last_broadcast_times: Dict[str, float] = {}  # per-node debounce
+
     # ── Configuration ─────────────────────────────────────────────
 
     def configure_node(self, node_id: str, max_concurrent: int) -> None:
         """Register or update a compute node's concurrency limit."""
         with self._lock:
+            new_max = max(1, max_concurrent)
             if node_id in self._slots:
-                self._slots[node_id].max_concurrent = max(1, max_concurrent)
+                slot = self._slots[node_id]
+                slot.max_concurrent = new_max
+                # Phase 96B: grow the AIMD current_limit to the new max if it
+                # was previously capped lower.  Shrinking is handled by AIMD
+                # backoff; we only need to raise the ceiling on reconfigure.
+                if slot.current_limit < new_max:
+                    slot.current_limit = new_max
             else:
                 self._slots[node_id] = ComputeSlot(
                     node_id=node_id,
-                    max_concurrent=max(1, max_concurrent),
+                    max_concurrent=new_max,
                 )
                 self._queues[node_id] = deque()
         logger.debug(
@@ -209,7 +243,11 @@ class PipelineScheduler:
         with self._lock:
             self._embedding_max_concurrent = max(1, max_concurrent)
             if self._EMBEDDING_NODE_ID in self._slots:
-                self._slots[self._EMBEDDING_NODE_ID].max_concurrent = self._embedding_max_concurrent
+                slot = self._slots[self._EMBEDDING_NODE_ID]
+                slot.max_concurrent = self._embedding_max_concurrent
+                # Phase 96B: grow AIMD current_limit to match new max
+                if slot.current_limit < self._embedding_max_concurrent:
+                    slot.current_limit = self._embedding_max_concurrent
             else:
                 self._init_embedding_slot()
         logger.info(
@@ -269,10 +307,22 @@ class PipelineScheduler:
 
             old_level = self._priority_projects.get(project_id)
             self._priority_projects[project_id] = level
+            broadcast_reason: Optional[str] = None
             if old_level != level:
                 logger.info("Scheduler: priority %s → %s (%s)",
                             project_id, level,
                             f"was {old_level}" if old_level else "new")
+                # Phase 91: Broadcast capacity changes for exclusive transitions
+                if level == "exclusive":
+                    broadcast_reason = "exclusive_start"
+                elif old_level == "exclusive":
+                    broadcast_reason = "exclusive_end"
+
+        # Broadcast outside lock
+        if broadcast_reason:
+            for nid in list(self._slots.keys()):
+                if nid != self._EMBEDDING_NODE_ID:
+                    self._broadcast_capacity_change(nid, broadcast_reason)
 
     def clear_all_priorities(self) -> None:
         """Remove all project priorities."""
@@ -286,14 +336,21 @@ class PipelineScheduler:
         is_429_or_timeout: bool = False,
     ) -> None:
         """Phase 82: Latency-Aware AIMD step, called upon LLM completion.
-        
+
         Adjusts `current_limit` dynamically based on LLM execution queue time
         or hard rate limits.
         """
+        changed = False
         with self._lock:
             if node_id not in self._slots:
                 return
-            self._record_throughput_for_slot(self._slots[node_id], queue_time_ms, rate_limit_remaining, is_429_or_timeout)
+            slot = self._slots[node_id]
+            old_limit = slot.current_limit
+            self._record_throughput_for_slot(slot, queue_time_ms, rate_limit_remaining, is_429_or_timeout)
+            changed = slot.current_limit != old_limit
+        # Phase 91: Broadcast capacity change if AIMD adjusted the limit
+        if changed:
+            self._broadcast_capacity_change(node_id, "aimd_adjust")
 
     def record_throughput_for_provider(
         self,
@@ -314,11 +371,18 @@ class PipelineScheduler:
                 pass
         prefix = "cloud:" if is_cloud else "local:"
         
+        changed_nodes: List[str] = []
         with self._lock:
             # Report to all matching slots
             for nid, slot in self._slots.items():
                 if nid.startswith(prefix):
+                    old_limit = slot.current_limit
                     self._record_throughput_for_slot(slot, queue_time_ms, rate_limit_remaining, is_429_or_timeout)
+                    if slot.current_limit != old_limit:
+                        changed_nodes.append(nid)
+        # Phase 91: Broadcast capacity changes
+        for nid in changed_nodes:
+            self._broadcast_capacity_change(nid, "aimd_adjust")
 
     def _record_throughput_for_slot(
         self,
@@ -431,6 +495,20 @@ class PipelineScheduler:
             self._queues[nid] = deque()
         return self._queues[nid]
 
+    def _get_max_dynamic_capacity(self) -> int:
+        """Return the highest dynamic_capacity across all LLM nodes.
+
+        Used by is_swarm_active_for_stage() for the low-resource check.
+        """
+        with self._lock:
+            best = 0
+            for nid, slot in self._slots.items():
+                if nid == self._EMBEDDING_NODE_ID:
+                    continue
+                if slot.dynamic_capacity > best:
+                    best = slot.dynamic_capacity
+            return best
+
     def _needs_slot(self, stage: StageId) -> bool:
         """Check if a stage needs a compute slot."""
         queue_type = STAGE_QUEUE_TYPE.get(stage, QueueType.LLM)
@@ -453,6 +531,201 @@ class PipelineScheduler:
         if queue_type == QueueType.EMBEDDING and not self._embedding_uses_llm:
             return self._EMBEDDING_NODE_ID
         return node_id or self._default_node_id
+
+    # ── Phase 91: Swarm Window Lifecycle ─────────────────────────
+
+    def open_swarm_window(
+        self,
+        project_id: str,
+        stage: "StageId",
+        node_id: Optional[str] = None,
+    ) -> bool:
+        """Open an exclusive swarm window for a project's stage.
+
+        Blocks all OTHER projects from acquiring new slots on the same
+        node. Already-running stages on other projects continue until
+        they finish naturally (drain) or hit the drain timeout.
+
+        Returns True if the window was opened, False if cooldown is
+        still active or a swarm window is already open.
+        """
+        resolved = self._resolve_node_for_stage(stage, node_id)
+        with self._lock:
+            # Cooldown check
+            if time.time() < self._swarm_cooldown_until:
+                logger.info(
+                    "Scheduler: swarm window blocked by cooldown (%.1fs remaining) for %s",
+                    self._swarm_cooldown_until - time.time(), project_id,
+                )
+                return False
+            # Already open
+            if self._swarm_window is not None:
+                logger.warning(
+                    "Scheduler: swarm window already open for %s, rejecting %s",
+                    self._swarm_window["project_id"], project_id,
+                )
+                return False
+
+            # Identify drain targets: other active projects on the same node
+            slot = self._get_slot(resolved)
+            drain_targets: Dict[str, float] = {}
+            now = time.time()
+            for pid in slot.active_stages:
+                if pid != project_id:
+                    drain_targets[pid] = now
+
+            self._swarm_window = {
+                "project_id": project_id,
+                "stage": stage,
+                "node_id": resolved,
+                "started_at": now,
+                "drain_targets": drain_targets,
+            }
+            logger.info(
+                "Scheduler: ⚡ swarm window OPENED for %s/%s on %s "
+                "(%d drain targets: %s)",
+                project_id, stage.value if hasattr(stage, 'value') else stage,
+                resolved, len(drain_targets),
+                ", ".join(drain_targets.keys()) or "none",
+            )
+        # C2 fix: Broadcast outside lock so other projects learn their budget dropped
+        self._broadcast_capacity_change(resolved, "swarm_start")
+        return True
+
+    def close_swarm_window(self) -> None:
+        """Close the active swarm window and start cooldown."""
+        with self._lock:
+            if self._swarm_window is None:
+                return
+            window = self._swarm_window
+            self._swarm_window = None
+            self._swarm_cooldown_until = time.time() + self._swarm_cooldown_seconds
+            logger.info(
+                "Scheduler: ⚡ swarm window CLOSED for %s/%s — "
+                "%.1fs cooldown started",
+                window["project_id"],
+                window["stage"].value if hasattr(window["stage"], 'value') else window["stage"],
+                self._swarm_cooldown_seconds,
+            )
+        # Broadcast outside lock to avoid deadlock with listener callbacks
+        self._broadcast_capacity_change(window["node_id"], "swarm_end")
+
+    def is_swarm_window_active(self) -> bool:
+        """Check if a swarm window is currently open."""
+        return self._swarm_window is not None
+
+    def get_swarm_window(self) -> Optional[Dict[str, Any]]:
+        """Return a snapshot of the current swarm window state, or None.
+
+        Returns a shallow copy to prevent callers from mutating internal state.
+        """
+        with self._lock:
+            w = self._swarm_window
+            if w is None:
+                return None
+            return {**w, "drain_targets": dict(w.get("drain_targets", {}))}
+
+    def check_drain_timeouts(self) -> List[str]:
+        """Check if any drain targets have exceeded the timeout.
+
+        Returns list of project_ids that should be force-cancelled.
+        Called periodically by the orchestrator.
+        """
+        with self._lock:
+            if self._swarm_window is None:
+                return []
+            now = time.time()
+            timed_out: List[str] = []
+            drain_targets = self._swarm_window.get("drain_targets", {})
+            for pid, started_at in list(drain_targets.items()):
+                if now - started_at > self._drain_timeout_seconds:
+                    timed_out.append(pid)
+                    # Remove from drain targets so we don't re-report
+                    del drain_targets[pid]
+            if timed_out:
+                logger.warning(
+                    "Scheduler: drain timeout — %d project(s) exceeded %ds: %s",
+                    len(timed_out), self._drain_timeout_seconds,
+                    ", ".join(timed_out),
+                )
+            return timed_out
+
+    def _is_blocked_by_swarm(self, project_id: str, node_id: str) -> bool:
+        """Check if a project is blocked from acquiring by an active swarm window.
+
+        Callers must hold ``self._lock``. Captures the window reference
+        defensively to avoid TOCTOU races if called without the lock.
+        """
+        window = self._swarm_window
+        if window is None:
+            return False
+        return window["node_id"] == node_id and window["project_id"] != project_id
+
+    # ── Phase 91: Capacity Change Event Bus ──────────────────────
+
+    def on_capacity_change(
+        self,
+        project_id: str,
+        node_id: str,
+        callback: Callable[[int], None],
+    ) -> Callable[[], None]:
+        """Register a listener for capacity changes on a node.
+
+        The callback receives the new worker budget (int) whenever
+        resource allocation changes (swarm, exclusive, AIMD, etc.).
+
+        Returns a cleanup function that unregisters the listener.
+        """
+        key = f"{project_id}:{node_id}"
+        with self._lock:
+            self._capacity_listeners[key] = callback
+        logger.debug("Scheduler: capacity listener registered for %s", key)
+
+        def cleanup():
+            with self._lock:
+                self._capacity_listeners.pop(key, None)
+
+        return cleanup
+
+    def _broadcast_capacity_change(self, node_id: str, reason: str) -> None:
+        """Notify all listeners on a node that their budget may have changed.
+
+        Debounced: won't fire more than once per second per node.
+        Callbacks are collected under the lock but invoked OUTSIDE it
+        to prevent deadlocks if a callback re-enters the scheduler.
+        """
+        now = time.time()
+        # I4: Per-node debounce instead of global
+        last = self._last_broadcast_times.get(node_id, 0.0)
+        if now - last < 1.0:
+            return
+        self._last_broadcast_times[node_id] = now
+
+        # Collect (key, callback, budget) under lock
+        to_notify: List[Tuple[str, Callable[[int], None], int]] = []
+        with self._lock:
+            slot = self._get_slot(node_id)
+            for pid in list(slot.active_stages.keys()):
+                key = f"{pid}:{node_id}"
+                cb = self._capacity_listeners.get(key)
+                if cb:
+                    budget = self._weighted_share(slot, pid)
+                    to_notify.append((key, cb, budget))
+
+        # Invoke outside lock (C1 fix: prevents deadlock)
+        for key, cb, budget in to_notify:
+            try:
+                cb(budget)
+            except Exception:
+                logger.debug(
+                    "Scheduler: capacity listener error for %s",
+                    key, exc_info=True,
+                )
+
+        logger.info(
+            "Scheduler: capacity broadcast on %s (reason=%s, %d listeners)",
+            node_id, reason, len(to_notify),
+        )
 
     # ── Public API ────────────────────────────────────────────────
 
@@ -477,6 +750,9 @@ class PipelineScheduler:
             slot = self._get_slot(resolved)
             if not slot.has_capacity:
                 return False
+            # Phase 91: Swarm gate (highest priority)
+            if self._is_blocked_by_swarm(project_id, resolved):
+                return False
             # Exclusive gate: if another project holds exclusive priority
             # and is active on this node, queue us instead of starting.
             for exc_pid, exc_level in self._priority_projects.items():
@@ -497,14 +773,20 @@ class PipelineScheduler:
         """Acquire a compute slot for a stage.
 
         Returns True if the slot was acquired. False if the node is full
-        or an exclusive-priority project is blocking.
+        or a swarm window / exclusive-priority project is blocking.
         Caller should enqueue the pipeline if this returns False.
+
+        Phase 91: Tier hierarchy — Swarm > Exclusive > Boost > Normal.
         """
         if not self._needs_slot(stage):
             return True  # No slot needed
         resolved = self._resolve_node_for_stage(stage, node_id)
         with self._lock:
             slot = self._get_slot(resolved)
+            # Phase 91: Swarm gate (highest priority) — blocks all other
+            # projects from acquiring on the swarm node.
+            if self._is_blocked_by_swarm(project_id, resolved):
+                return False
             # Exclusive gate: if another project holds exclusive priority
             # and is active on this node, block.
             for exc_pid, exc_level in self._priority_projects.items():
@@ -537,6 +819,7 @@ class PipelineScheduler:
         if not self._needs_slot(stage):
             return None  # Nothing to release
         resolved = self._resolve_node_for_stage(stage, node_id)
+        _close_swarm = False
         with self._lock:
             slot = self._get_slot(resolved)
             # Phase 89: Pass stage value so ComputeSlot.release() can verify
@@ -549,17 +832,42 @@ class PipelineScheduler:
                     project_id, slot.node_id, stage.value,
                     slot.current_load, slot.dynamic_capacity,
                 )
+                # Phase 91: If the swarm window owner is releasing, close
+                # the window. This triggers cooldown and broadcasts.
+                _close_swarm = False
+                if self._swarm_window and self._swarm_window["project_id"] == project_id:
+                    _close_swarm = True
+                # Remove from swarm drain targets if present
+                elif self._swarm_window and project_id in self._swarm_window.get("drain_targets", {}):
+                    del self._swarm_window["drain_targets"][project_id]
+                    logger.info(
+                        "Scheduler: %s drained naturally (swarm window for %s)",
+                        project_id, self._swarm_window["project_id"],
+                    )
+                # Phase 91: Unregister capacity listener
+                key = f"{project_id}:{resolved}"
+                self._capacity_listeners.pop(key, None)
+
             # Check if there's a queued pipeline waiting for this node
+            # Phase 91: Don't dequeue if swarm window blocks this node
+            result: Optional[QueueEntry] = None
             queue = self._get_queue(resolved)
             if queue and slot.has_capacity:
-                entry = queue.popleft()
-                logger.info(
-                    "Scheduler: dequeuing %s for %s (waited %.1fs)",
-                    entry.project_id, entry.stage.value,
-                    time.time() - entry.enqueued_at,
-                )
-                return entry
-            return None
+                # Peek: if swarm window is active and next entry isn't the
+                # swarm project, don't dequeue.
+                next_entry = queue[0]
+                if not self._is_blocked_by_swarm(next_entry.project_id, resolved):
+                    result = queue.popleft()
+                    logger.info(
+                        "Scheduler: dequeuing %s for %s (waited %.1fs)",
+                        result.project_id, result.stage.value,
+                        time.time() - result.enqueued_at,
+                    )
+
+        # Phase 91: Close swarm window outside lock (triggers broadcast)
+        if _close_swarm:
+            self.close_swarm_window()
+        return result
 
     def enqueue(
         self,
@@ -571,12 +879,15 @@ class PipelineScheduler:
         resolved = self._resolve_node_for_stage(stage, node_id)
         with self._lock:
             queue = self._get_queue(resolved)
-            # Don't double-enqueue
+            # Don't double-enqueue the same project+stage combination.
+            # Previous check only compared project_id, which silently
+            # dropped a second stage for the same project and allowed
+            # duplicate entries when the same stage was enqueued twice.
             for entry in queue:
-                if entry.project_id == project_id:
+                if entry.project_id == project_id and entry.stage == stage:
                     logger.debug(
-                        "Scheduler: %s already queued on %s",
-                        project_id, resolved,
+                        "Scheduler: %s/%s already queued on %s",
+                        project_id, stage.value, resolved,
                     )
                     return
             entry = QueueEntry(project_id=project_id, stage=stage)
@@ -623,6 +934,14 @@ class PipelineScheduler:
                     if slot.active_stages:
                         logger.warning("Scheduler: forcefully clearing ALL ghost locks from node %s", nid)
                         slot.active_stages.clear()
+            # Phase 91: Clear stale swarm window
+            if self._swarm_window:
+                if project_id and self._swarm_window["project_id"] == project_id:
+                    logger.warning("Scheduler: clearing ghost swarm window for %s", project_id)
+                    self._swarm_window = None
+                elif not project_id:
+                    logger.warning("Scheduler: clearing ghost swarm window (full purge)")
+                    self._swarm_window = None
 
     def is_held_by(self, project_id: str) -> bool:
         """Check if a project currently holds any scheduler slot."""
@@ -697,9 +1016,12 @@ class PipelineScheduler:
 
         Returns at least 1.
         """
-        # Phase 82: Reserve N-1 headroom for interactive queries when allocating batches
-        # except when dynamic_capacity is merely 1, then we use 1.
-        full_budget = max(1, slot.dynamic_capacity - 1)
+        # Phase 96B: Use the full dynamic_capacity — no N-1 headroom reservation.
+        # The earlier N-1 reservation for "interactive queries" was over-cautious
+        # and halved concurrency in small-capacity cases (max=3 → budget=2).
+        # The AIMD congestion control already handles overload via backoff, so
+        # we don't need a static headroom reservation on top of it.
+        full_budget = max(1, slot.dynamic_capacity)
         active_count = max(1, slot.current_load)
 
         proj_level = self._priority_projects.get(project_id, "none") if project_id else "none"
@@ -711,6 +1033,12 @@ class PipelineScheduler:
         # Single project gets everything
         if active_count == 1:
             return full_budget
+
+        # Phase 91: Low-resource guardrail — with ≤3 capacity, boost
+        # weighting is meaningless (difference between 2 and 1 worker).
+        # Just split equally. Exclusive still works above.
+        if slot.dynamic_capacity <= 3:
+            return max(1, full_budget // active_count)
 
         # Count how many active projects are boosted vs normal
         num_boost = 0
@@ -819,7 +1147,8 @@ class PipelineScheduler:
                 if not nid.startswith(prefix):
                     continue
                 if proj_level == "exclusive":
-                    cap = max(1, slot.dynamic_capacity - 1)
+                    # Phase 96B: no N-1 headroom
+                    cap = max(1, slot.dynamic_capacity)
                     if budget is None or cap < budget:
                         budget = cap
                     continue
@@ -835,7 +1164,8 @@ class PipelineScheduler:
             if budget is None:
                 for nid, slot in self._slots.items():
                     if nid.startswith(prefix):
-                        cap = max(1, slot.dynamic_capacity - 1)
+                        # Phase 96B: no N-1 headroom
+                        cap = max(1, slot.dynamic_capacity)
                         if budget is None or cap < budget:
                             budget = cap
 
@@ -859,6 +1189,11 @@ class PipelineScheduler:
         Falls back to the same node discovery as
         ``available_batch_workers_for_provider``.  Returns None if no
         matching node is found.
+
+        Phase 91: Returns None if budget < 3 (min_workers gate).
+        Swarm-capable stages need at least 3 workers for fan-out
+        synthesis to be worthwhile. Caller should fall back to
+        non-swarm sequential mode.
         """
         with self._lock:
             if not self._slots:
@@ -868,7 +1203,16 @@ class PipelineScheduler:
             if project_id:
                 for nid, slot in self._slots.items():
                     if project_id in slot.active_stages:
-                        budget = max(1, slot.dynamic_capacity - 1)
+                        # Phase 96B: no N-1 headroom — use full dynamic_capacity
+                        budget = max(1, slot.dynamic_capacity)
+                        # Phase 91: min_workers gate
+                        if budget < 3:
+                            logger.info(
+                                "[Swarm] Budget %d < min_workers 3 for %s on %s — "
+                                "falling back to non-swarm mode",
+                                budget, project_id, nid,
+                            )
+                            return None
                         logger.info(
                             "[Swarm] Full budget for project %s on node %s: %d (bypassing fair-share)",
                             project_id, nid, budget,
@@ -888,7 +1232,16 @@ class PipelineScheduler:
 
             for nid, slot in self._slots.items():
                 if nid.startswith(prefix):
-                    budget = max(1, slot.dynamic_capacity - 1)
+                    # Phase 96B: no N-1 headroom
+                    budget = max(1, slot.dynamic_capacity)
+                    # Phase 91: min_workers gate
+                    if budget < 3:
+                        logger.info(
+                            "[Swarm] Budget %d < min_workers 3 via prefix %s on %s — "
+                            "falling back to non-swarm mode",
+                            budget, prefix, nid,
+                        )
+                        return None
                     logger.info(
                         "[Swarm] Full budget via prefix %s on node %s: %d",
                         prefix, nid, budget,
@@ -955,7 +1308,29 @@ class PipelineScheduler:
                 "level": self.priority_level,             # backward compat
                 "projects": dict(self._priority_projects),
             }
-            return {"nodes": nodes, "priority": priority}
+            # Phase 91: Swarm window state
+            swarm: Optional[Dict[str, Any]] = None
+            if self._swarm_window:
+                w = self._swarm_window
+                now = time.time()
+                swarm = {
+                    "project_id": w["project_id"],
+                    "stage": w["stage"].value if hasattr(w["stage"], 'value') else str(w["stage"]),
+                    "node_id": w["node_id"],
+                    "elapsed_seconds": round(now - w["started_at"], 1),
+                    "drain_targets": {
+                        pid: round(now - started, 1)
+                        for pid, started in w.get("drain_targets", {}).items()
+                    },
+                }
+            cooldown_remaining = max(0.0, self._swarm_cooldown_until - time.time())
+            return {
+                "nodes": nodes,
+                "priority": priority,
+                "swarm_window": swarm,
+                "swarm_cooldown_remaining": round(cooldown_remaining, 1),
+                "drain_timeout_seconds": self._drain_timeout_seconds,
+            }
 
     def sync_endpoint_concurrency(self) -> None:
         """Live-sync endpoint concurrency from settings into the scheduler.

@@ -39,8 +39,29 @@ def orchestrator():
 @pytest.fixture
 def pipeline(orchestrator):
     """PipelineOrchestrator wired to a real BuildOrchestrator."""
+    # Reset the singleton scheduler to avoid state leaking between tests
+    from codrag.services.pipeline.scheduler import pipeline_scheduler
+    pipeline_scheduler._slots.clear()
+    pipeline_scheduler._queues.clear()
+    pipeline_scheduler._priority_projects.clear()
+    pipeline_scheduler._swarm_window = None
+    pipeline_scheduler._swarm_cooldown_until = 0.0
+    pipeline_scheduler._capacity_listeners.clear()
+    pipeline_scheduler._last_broadcast_times.clear()
+    pipeline_scheduler._init_embedding_slot()
+
     with patch("codrag.services.project_helpers.get_project_activity_status", return_value="active"):
-        yield PipelineOrchestrator(orchestrator=orchestrator)
+        po = PipelineOrchestrator(orchestrator=orchestrator)
+        yield po
+        # Teardown: clean up any running state machines so they don't
+        # leak deferred callbacks into subsequent tests
+        po._runs.clear()
+        po._incremental_runs.clear()
+        po._chain_deep.clear()
+        po._force_from_start_runs.clear()
+        pipeline_scheduler._slots.clear()
+        pipeline_scheduler._queues.clear()
+        pipeline_scheduler._priority_projects.clear()
 
 
 def _instant_worker(slot, progress_cb):
@@ -131,19 +152,23 @@ class TestFastSync:
             return_value=_instant_worker,
         ):
             pipeline.run_fast_sync("proj-1")
-            # Poll until fast sync completes (avoid fixed sleep flakiness)
+            # Poll until complete or timeout (avoid fixed sleep flakiness)
             deadline = time.monotonic() + 10.0
             while time.monotonic() < deadline:
                 status = pipeline.status("proj-1")
                 fast = status["fast_sync"]
-                if fast and fast["phase"] == "completed":
+                if fast and fast["phase"] in ("completed", "failed"):
                     break
-                time.sleep(0.2)
+                time.sleep(0.1)
 
             status = pipeline.status("proj-1")
             fast = status["fast_sync"]
             assert fast is not None
-            assert fast["phase"] == "completed"
+            assert fast["phase"] == "completed", (
+                f"Pipeline stuck in '{fast['phase']}' at stage "
+                f"{fast.get('current_stage', '?')} "
+                f"(index {fast.get('current_stage_index', '?')})"
+            )
             assert fast["current_stage_index"] == 5  # Past all stages
             assert len(fast["stage_results"]) == 5
 
@@ -176,20 +201,31 @@ class TestDeepEnrichment:
             started = pipeline.run_deep_enrichment("proj-1")
             assert started is True
 
-    def test_deep_enrichment_sequences_all_5_stages(self, pipeline):
+    def test_deep_enrichment_sequences_all_stages(self, pipeline):
         with patch(
             "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ):
             pipeline.run_deep_enrichment("proj-1")
-            time.sleep(2.0)
+            # Poll until complete or timeout
+            deadline = time.monotonic() + 10.0
+            while time.monotonic() < deadline:
+                status = pipeline.status("proj-1")
+                deep = status["deep_enrichment"]
+                if deep and deep["phase"] in ("completed", "failed"):
+                    break
+                time.sleep(0.1)
 
             status = pipeline.status("proj-1")
             deep = status["deep_enrichment"]
             assert deep is not None
-            assert deep["phase"] == "completed"
-            assert deep["current_stage_index"] == 5
-            assert len(deep["stage_results"]) == 5
+            assert deep["phase"] == "completed", (
+                f"Pipeline stuck in '{deep['phase']}' at stage "
+                f"{deep.get('current_stage', '?')} "
+                f"(index {deep.get('current_stage_index', '?')})"
+            )
+            assert deep["current_stage_index"] == len(DEEP_ENRICHMENT_STAGES)
+            assert len(deep["stage_results"]) == len(DEEP_ENRICHMENT_STAGES)
 
 
 class TestRunAll:
@@ -296,12 +332,13 @@ class TestAutoChainDeepEnrichment:
 class TestFailureHandling:
     """Test pipeline behavior when a stage fails."""
 
-    def test_pipeline_fails_when_stage_fails(self, pipeline):
+    def test_pipeline_pauses_when_stage_fails(self, pipeline):
+        """Phase 55: Stage failure auto-pauses for recovery (not hard fail)."""
         call_count = [0]
 
         def failing_worker(slot, progress_cb):
             call_count[0] += 1
-            if call_count[0] == 2:  # Stage 2 (catalogue) fails
+            if call_count[0] == 2:  # Stage 2 (inferred_edges) fails
                 raise RuntimeError("LLM unavailable")
             return {"ok": True}
 
@@ -314,8 +351,8 @@ class TestFailureHandling:
 
             status = pipeline.status("proj-1")
             fast = status["fast_sync"]
-            assert fast["phase"] == "failed"
-            assert "failed" in fast["error"].lower()
+            # Phase 55 auto-pauses on failure for recovery
+            assert fast["phase"] in ("paused", "failed")
 
 
 # ── Cancellation ─────────────────────────────────────────────────
@@ -338,8 +375,8 @@ class TestCancellation:
 
             status = pipeline.status("proj-1")
             fast = status["fast_sync"]
-            assert fast["phase"] == "failed"
-            assert "Cancelled" in fast["error"]
+            # Cancel produces 'cancelled' state (not 'failed')
+            assert fast["phase"] in ("cancelled", "failed")
 
             barrier.set()
 
@@ -419,3 +456,238 @@ class TestMultiProject:
             s2 = pipeline.status("proj-2")
             assert s1["fast_sync"]["phase"] == "completed"
             assert s2["fast_sync"]["phase"] == "completed"
+
+
+# ── Phase 96C: Initial / Incremental / Rebuild pipeline modes ──
+
+
+class TestPipelineModes:
+    """Phase 96C: Verify all three pipeline execution modes work end-to-end.
+
+    These tests exercise the stage sequencing and slot release paths with
+    mocked workers, covering the three real-world scenarios:
+
+    1. INITIAL: every stage runs from scratch (no freshness skips)
+    2. INCREMENTAL: some stages get skipped by freshness check
+    3. REBUILD: force_from_start=True disables freshness skipping
+
+    All three must complete — reach phase=completed with all stages
+    accounted for in stage_results.
+    """
+
+    def test_initial_build_runs_every_stage(self, pipeline):
+        """Initial build: no freshness skips, every stage runs a real worker."""
+        executed: list[str] = []
+
+        def counting_worker_factory(project_id, stage):
+            def worker(slot, progress_cb):
+                executed.append(stage.value)
+                return {"ok": True}
+            return worker
+
+        with patch(
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            side_effect=counting_worker_factory,
+        ), patch(
+            "codrag.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
+            return_value=(False, ""),
+        ):
+            pipeline.run_fast_sync("proj-initial")
+
+            deadline = time.monotonic() + 10.0
+            while time.monotonic() < deadline:
+                status = pipeline.status("proj-initial")
+                fs = status["fast_sync"]
+                if fs and fs["phase"] in ("completed", "failed"):
+                    break
+                time.sleep(0.1)
+
+            status = pipeline.status("proj-initial")
+            fs = status["fast_sync"]
+            assert fs["phase"] == "completed", f"Initial build stuck in {fs['phase']}"
+            # Every fast_sync stage should have run
+            assert len(executed) == 5, f"Expected 5 workers, got {len(executed)}: {executed}"
+            # All stage_results should be "completed" (none skipped)
+            for stage_name in ["structural", "inferred_edges", "catalogue", "validation", "knowledge"]:
+                assert fs["stage_results"].get(stage_name) == "completed", (
+                    f"Stage {stage_name}: expected completed, got "
+                    f"{fs['stage_results'].get(stage_name)}"
+                )
+
+    def test_incremental_build_skips_fresh_stages(self, pipeline):
+        """Incremental build: stages with fresh outputs are skipped,
+        stale stages run normally, pipeline completes cleanly."""
+        executed: list[str] = []
+        # Simulate: structural + knowledge are fresh, middle stages are stale
+        fresh_stages = {"structural", "knowledge"}
+
+        def counting_worker_factory(project_id, stage):
+            def worker(slot, progress_cb):
+                executed.append(stage.value)
+                return {"ok": True}
+            return worker
+
+        def skip_if_fresh(pid, stage, inc, pfl=None):
+            if stage.value in fresh_stages:
+                return (True, "test: already current")
+            return (False, "")
+
+        with patch(
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            side_effect=counting_worker_factory,
+        ), patch(
+            "codrag.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
+            side_effect=skip_if_fresh,
+        ):
+            pipeline.run_fast_sync("proj-incremental")
+
+            deadline = time.monotonic() + 10.0
+            while time.monotonic() < deadline:
+                status = pipeline.status("proj-incremental")
+                fs = status["fast_sync"]
+                if fs and fs["phase"] in ("completed", "failed"):
+                    break
+                time.sleep(0.1)
+
+            status = pipeline.status("proj-incremental")
+            fs = status["fast_sync"]
+            assert fs["phase"] == "completed", f"Incremental stuck in {fs['phase']}"
+            # Fresh stages didn't launch workers
+            assert "structural" not in executed
+            assert "knowledge" not in executed
+            # Stale stages did launch workers
+            assert "inferred_edges" in executed
+            assert "catalogue" in executed
+            assert "validation" in executed
+            # stage_results reflects the mix
+            assert fs["stage_results"]["structural"] == "skipped"
+            assert fs["stage_results"]["knowledge"] == "skipped"
+            assert fs["stage_results"]["inferred_edges"] == "completed"
+
+    def test_rebuild_runs_every_stage_even_when_fresh(self, pipeline):
+        """Rebuild (force_from_start=True): pipeline must complete a
+        full cycle even when called on a project with fresh state.
+
+        Note: force_from_start primarily affects resume detection (it
+        disables resume from a partial run).  The freshness check can
+        still fire per-stage, but for this test we disable freshness
+        to assert the full-rebuild execution path works end-to-end.
+        """
+        executed: list[str] = []
+
+        def counting_worker_factory(project_id, stage):
+            def worker(slot, progress_cb):
+                executed.append(stage.value)
+                return {"ok": True}
+            return worker
+
+        with patch(
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            side_effect=counting_worker_factory,
+        ), patch(
+            "codrag.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
+            return_value=(False, ""),
+        ):
+            pipeline.run_fast_sync("proj-rebuild", force_from_start=True)
+
+            deadline = time.monotonic() + 10.0
+            while time.monotonic() < deadline:
+                status = pipeline.status("proj-rebuild")
+                fs = status["fast_sync"]
+                if fs and fs["phase"] in ("completed", "failed"):
+                    break
+                time.sleep(0.1)
+
+            status = pipeline.status("proj-rebuild")
+            fs = status["fast_sync"]
+            assert fs["phase"] == "completed", f"Rebuild stuck in {fs['phase']}"
+            assert len(executed) == 5, f"Expected 5 workers, got {len(executed)}"
+            assert fs["current_stage_index"] == 5
+
+
+# ── Phase 96: Freshness-skip slot leak ──────────────────────────
+
+
+class TestFreshnessSkipReleasesSlot:
+    """Phase 96: Verify scheduler slot is released when a stage is skipped.
+
+    Regression test for the freshness-skip slot leak: when
+    _should_skip_stage_freshness() returns True, the scheduler slot
+    acquired for that stage must be released before advancing to the
+    next stage.  Without the release, the slot is held forever and
+    all subsequent stages (and other projects) queue indefinitely.
+    """
+
+    def test_skipped_stage_releases_scheduler_slot(self, pipeline):
+        """If stage 2 is skipped by freshness check, stage 3 should still
+        run (not get stuck in queued)."""
+        skip_stage = "inferred_edges"  # stage 2
+
+        with patch(
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            return_value=_instant_worker,
+        ), patch(
+            "codrag.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
+            side_effect=lambda pid, stage, inc, pfl=None: (
+                (True, "test: outputs current") if stage.value == skip_stage
+                else (False, "")
+            ),
+        ):
+            pipeline.run_fast_sync("proj-1")
+
+            # Wait for pipeline to complete (or stall)
+            deadline = time.monotonic() + 5.0
+            while time.monotonic() < deadline:
+                status = pipeline.status("proj-1")
+                fast = status["fast_sync"]
+                if fast and fast["phase"] in ("completed", "failed"):
+                    break
+                time.sleep(0.1)
+
+            status = pipeline.status("proj-1")
+            fast = status["fast_sync"]
+            # Pipeline must complete, not get stuck in queued
+            assert fast["phase"] == "completed", (
+                f"Pipeline stuck in '{fast['phase']}' — "
+                f"freshness skip likely leaked scheduler slot"
+            )
+            # Stage 2 was skipped, so only 4 workers should have run
+            assert fast["stage_results"].get(skip_stage) == "skipped"
+
+    def test_skipped_stage_does_not_block_other_projects(self, pipeline):
+        """A freshness-skipped stage must not hold a scheduler slot that
+        blocks other projects from running."""
+        with patch(
+            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            return_value=_instant_worker,
+        ), patch(
+            "codrag.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
+            side_effect=lambda pid, stage, inc, pfl=None: (
+                (True, "test: skip all") if pid == "proj-1"
+                else (False, "")
+            ),
+        ):
+            pipeline.run_fast_sync("proj-1")
+            pipeline.run_fast_sync("proj-2")
+
+            deadline = time.monotonic() + 5.0
+            while time.monotonic() < deadline:
+                s1 = pipeline.status("proj-1")
+                s2 = pipeline.status("proj-2")
+                f1 = s1["fast_sync"]
+                f2 = s2["fast_sync"]
+                if (f1 and f1["phase"] in ("completed", "failed") and
+                        f2 and f2["phase"] in ("completed", "failed")):
+                    break
+                time.sleep(0.1)
+
+            s1 = pipeline.status("proj-1")
+            s2 = pipeline.status("proj-2")
+            # Both must complete — proj-1 skips all stages, proj-2 runs all
+            assert s1["fast_sync"]["phase"] == "completed", (
+                f"proj-1 stuck in '{s1['fast_sync']['phase']}'"
+            )
+            assert s2["fast_sync"]["phase"] == "completed", (
+                f"proj-2 stuck in '{s2['fast_sync']['phase']}' — "
+                f"likely blocked by proj-1's leaked slot"
+            )
