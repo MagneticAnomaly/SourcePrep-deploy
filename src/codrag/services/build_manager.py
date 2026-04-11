@@ -535,7 +535,12 @@ class BuildManager:
         pm = get_progress_manager()
         task_id = pm.start_task("knowledge_build", project.id)
 
-        def progress_callback(msg: str, current: int, total: int):
+        def progress_callback(msg: str, current: int, total: int, baseline: int = 0):
+            # F-44: accept and ignore baseline.  ProgressManager.update only
+            # accepts (current, total); the baseline is exposed via the
+            # /pipeline/status slot_progress path, not via the SSE progress
+            # event.  This wrapper just needs to swallow the 4th arg so the
+            # knowledge worker (which now passes baseline) doesn't TypeError.
             pm.update(task_id, msg, current, total)
 
         try:

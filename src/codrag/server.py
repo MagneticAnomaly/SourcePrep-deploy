@@ -362,6 +362,16 @@ def _is_project_trace_building(project_id: str) -> bool:
 def _is_project_knowledge_building(project_id: str) -> bool:
     return _bm.is_project_knowledge_building(project_id)
 
+def _start_project_knowledge_build(project: Project) -> bool:
+    """F-45: thin wrapper around build_manager.start_project_knowledge_build.
+
+    The /projects/{id}/knowledge/build router (knowledge.py:79) imported this
+    name from codrag.server but it never existed, so every call to that
+    endpoint returned 500 with ImportError. Adding the wrapper restores the
+    endpoint without changing the build_manager API.
+    """
+    return _bm.start_project_knowledge_build(project)
+
 def _start_project_build(project: Project, roots, include_globs, exclude_globs, max_file_bytes: int, hard_limit_bytes: int, use_gitignore: bool = False, included_paths=None) -> bool:
     return _bm.start_project_build(project, roots, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes, use_gitignore, included_paths=included_paths)
 
