@@ -10,18 +10,25 @@ from codrag.services.build_orchestrator import BuildType
 
 
 class StageId(str, enum.Enum):
-    """The 11 pipeline stages, matching the UI's EnrichmentStageId."""
+    """The 15 pipeline stages in 3 groups of 5."""
+    # ── Sync (1-5) ──
     STRUCTURAL = "structural"
     INFERRED_EDGES = "inferred_edges"
     CATALOGUE = "catalogue"
     VALIDATION = "validation"
     KNOWLEDGE = "knowledge"
+    # ── Enrich (6-10) ──
     ENRICHMENT = "enrichment"
     GROUP_REASONING = "group_reasoning"
     CLUSTERING = "clustering"
-    ATLAS = "atlas"
     DEEPENING = "deepening"
     DEEP_KNOWLEDGE = "deep_knowledge"
+    # ── Finalize (11-15) ──
+    ATLAS = "atlas"
+    RULES = "rules"
+    CONCEPTS = "concepts"
+    AUDIT = "audit"
+    ANTIBODIES = "antibodies"
 
 
 # Map StageId → BuildType for dispatch to the orchestrator
@@ -37,6 +44,10 @@ STAGE_BUILD_TYPE: Dict[StageId, BuildType] = {
     StageId.ATLAS: BuildType.ATLAS,
     StageId.DEEPENING: BuildType.DEEPENING,
     StageId.DEEP_KNOWLEDGE: BuildType.KNOWLEDGE,  # Same build type, re-runs with richer data
+    StageId.RULES: BuildType.RULES,
+    StageId.CONCEPTS: BuildType.CONCEPTS,
+    StageId.AUDIT: BuildType.AUDIT,
+    StageId.ANTIBODIES: BuildType.ANTIBODIES,
 }
 
 FAST_SYNC_STAGES: List[StageId] = [
@@ -46,14 +57,23 @@ FAST_SYNC_STAGES: List[StageId] = [
     StageId.VALIDATION,
     StageId.KNOWLEDGE,
 ]
+SYNC_STAGES = FAST_SYNC_STAGES
 
-DEEP_ENRICHMENT_STAGES: List[StageId] = [
+ENRICH_STAGES: List[StageId] = [
     StageId.ENRICHMENT,
     StageId.GROUP_REASONING,
     StageId.CLUSTERING,
-    StageId.ATLAS,
     StageId.DEEPENING,
     StageId.DEEP_KNOWLEDGE,
+]
+DEEP_ENRICHMENT_STAGES = ENRICH_STAGES
+
+FINALIZE_STAGES: List[StageId] = [
+    StageId.ATLAS,
+    StageId.RULES,
+    StageId.CONCEPTS,
+    StageId.AUDIT,
+    StageId.ANTIBODIES,
 ]
 
 
@@ -73,6 +93,10 @@ STAGE_INPUT_FILES: Dict[StageId, List[str]] = {
     StageId.ATLAS:           ["trace_modules.jsonl"],
     StageId.DEEPENING:       ["trace_epistemic.jsonl", "trace_modules.jsonl"],
     StageId.DEEP_KNOWLEDGE:  ["trace_epistemic.jsonl", "trace_modules.jsonl"],
+    StageId.RULES:           [],
+    StageId.CONCEPTS:        [],
+    StageId.AUDIT:           ["trace_nodes.jsonl", "trace_edges.jsonl", "trace_epistemic.jsonl"],
+    StageId.ANTIBODIES:      [],
 }
 
 # Which stages are deterministic / cheap to re-run (Rust/embedding only)
@@ -88,6 +112,10 @@ STAGE_IS_DETERMINISTIC: Dict[StageId, bool] = {
     StageId.ATLAS:           False,  # LLM
     StageId.DEEPENING:       False,  # LLM
     StageId.DEEP_KNOWLEDGE:  True,   # Embedding only
+    StageId.RULES:           True,
+    StageId.CONCEPTS:        False,
+    StageId.AUDIT:           False,
+    StageId.ANTIBODIES:      True,
 }
 
 
@@ -107,6 +135,10 @@ STAGE_TASK_ID: Dict[StageId, Optional[str]] = {
     StageId.ATLAS:           "atlas",
     StageId.DEEPENING:       "deepening",
     StageId.DEEP_KNOWLEDGE:  None,      # embedding only
+    StageId.RULES:           None,
+    StageId.CONCEPTS:        "concepts",
+    StageId.AUDIT:           "audit",
+    StageId.ANTIBODIES:      None,
 }
 
 # ── Queue Type Mapping (Phase 45) ─────────────────────────────────
@@ -139,6 +171,10 @@ STAGE_QUEUE_TYPE: Dict[StageId, QueueType] = {
     StageId.ATLAS:           QueueType.LLM,
     StageId.DEEPENING:       QueueType.LLM,
     StageId.DEEP_KNOWLEDGE:  QueueType.EMBEDDING,
+    StageId.RULES:           QueueType.RUST,
+    StageId.CONCEPTS:        QueueType.LLM,
+    StageId.AUDIT:           QueueType.LLM,
+    StageId.ANTIBODIES:      QueueType.RUST,
 }
 
 
@@ -159,6 +195,10 @@ STAGE_MANIFEST_FILE: Dict[StageId, str] = {
     StageId.ATLAS:           "atlas_manifest.json",
     StageId.DEEPENING:       "deepening_manifest.json",
     StageId.DEEP_KNOWLEDGE:  "deep_knowledge_manifest.json",
+    StageId.RULES:           "rules_manifest.json",
+    StageId.CONCEPTS:        "concepts_manifest.json",
+    StageId.AUDIT:           "audit_manifest.json",
+    StageId.ANTIBODIES:      "antibodies_manifest.json",
 }
 
 # ── Stage Output Files (Phase 49) ────────────────────────────────
@@ -177,6 +217,10 @@ STAGE_OUTPUT_FILE: Dict[StageId, Optional[str]] = {
     StageId.ATLAS:           None,
     StageId.DEEPENING:       "trace_epistemic.jsonl",
     StageId.DEEP_KNOWLEDGE:  None,
+    StageId.RULES:           None,
+    StageId.CONCEPTS:        None,
+    StageId.AUDIT:           None,
+    StageId.ANTIBODIES:      None,
 }
 
 # ── Confidence Field per Stage (Phase 49) ────────────────────────
@@ -194,6 +238,10 @@ STAGE_CONFIDENCE_FIELD: Dict[StageId, Optional[str]] = {
     StageId.ATLAS:           None,
     StageId.DEEPENING:       "epistemic_confidence",
     StageId.DEEP_KNOWLEDGE:  None,
+    StageId.RULES:           None,
+    StageId.CONCEPTS:        None,
+    StageId.AUDIT:           None,
+    StageId.ANTIBODIES:      None,
 }
 
 STAGE_MODEL_SLOT: Dict[StageId, Optional[str]] = {
@@ -208,4 +256,14 @@ STAGE_MODEL_SLOT: Dict[StageId, Optional[str]] = {
     StageId.ATLAS:          "large",
     StageId.DEEPENING:      "large",
     StageId.DEEP_KNOWLEDGE: None,
+    StageId.RULES:          None,
+    StageId.CONCEPTS:       "large",
+    StageId.AUDIT:          "large",
+    StageId.ANTIBODIES:     None,
 }
+
+FINALIZE_WAVES: List[List[StageId]] = [
+    [StageId.ATLAS],
+    [StageId.RULES, StageId.CONCEPTS, StageId.AUDIT],
+    [StageId.ANTIBODIES],
+]

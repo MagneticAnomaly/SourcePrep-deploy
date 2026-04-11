@@ -449,6 +449,38 @@ export interface AtlasStatus {
 }
 
 // ============================================================
+// Phase 96 - Finalize Stage Status Types
+// ============================================================
+
+/** Stage 12: Rules file generation status */
+export interface RulesStatus {
+  generated: boolean;
+  stale: boolean;
+  mode?: string;
+  atlas_chars?: number;
+}
+
+/** Stage 13: Concept seeding status */
+export interface ConceptsStatus {
+  seeded: boolean;
+  count: number;
+  questions?: number;
+}
+
+/** Stage 14: Structural audit status */
+export interface AuditPipelineStatus {
+  exists: boolean;
+  finding_count: number;
+  tier2?: boolean;
+}
+
+/** Stage 15: Antibody derivation status */
+export interface AntibodiesStatus {
+  count: number;
+  firing?: number;
+}
+
+// ============================================================
 // Phase 49 - Process Metadata & Data Provenance
 // ============================================================
 
@@ -990,6 +1022,7 @@ export interface AgentStatus {
 export interface PipelineStatus {
   fast_sync: PipelineGroupRun | null;
   deep_enrichment: PipelineGroupRun | null;
+  finalize: PipelineGroupRun | null;
   stages: {
     structural: any;
     inferred_edges: any;
@@ -999,9 +1032,13 @@ export interface PipelineStatus {
     enrichment: any;
     group_reasoning: any;
     clustering: any;
-    atlas: any;
     deepening: any;
     deep_knowledge: any;
+    atlas: any;
+    rules: RulesStatus;
+    concepts: ConceptsStatus;
+    audit: AuditPipelineStatus;
+    antibodies: AntibodiesStatus;
   };
   any_running: boolean;
   /** Phase 25: crashed pipeline runs awaiting user action */

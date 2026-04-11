@@ -20,7 +20,9 @@ from codrag.services.build_orchestrator import (
 )
 from codrag.services.pipeline_orchestrator import (
     DEEP_ENRICHMENT_STAGES,
+    ENRICH_STAGES,
     FAST_SYNC_STAGES,
+    FINALIZE_STAGES,
     STAGE_BUILD_TYPE,
     PipelineOrchestrator,
     PipelineRunPhase,
@@ -84,12 +86,27 @@ def test_fast_sync_has_5_stages():
     assert FAST_SYNC_STAGES[-1] == StageId.KNOWLEDGE
 
 
-def test_deep_enrichment_stages():
-    # Deep enrichment currently has 6 stages (includes Atlas).
-    # Will become 5 when Atlas moves to Finalize group.
-    assert len(DEEP_ENRICHMENT_STAGES) >= 5
-    assert DEEP_ENRICHMENT_STAGES[0] == StageId.ENRICHMENT
-    assert DEEP_ENRICHMENT_STAGES[-1] == StageId.DEEP_KNOWLEDGE
+def test_enrich_has_5_stages():
+    assert len(ENRICH_STAGES) == 5
+    assert ENRICH_STAGES[0] == StageId.ENRICHMENT
+    assert ENRICH_STAGES[-1] == StageId.DEEP_KNOWLEDGE
+
+
+def test_finalize_has_5_stages():
+    assert len(FINALIZE_STAGES) == 5
+    assert FINALIZE_STAGES[0] == StageId.ATLAS
+    assert FINALIZE_STAGES[-1] == StageId.ANTIBODIES
+
+
+def test_all_15_stages_have_build_type_mapping():
+    for stage in list(StageId):
+        assert stage in STAGE_BUILD_TYPE, f"Missing build type for {stage}"
+    assert len(StageId) == 15
+
+
+def test_backward_compat_aliases():
+    from codrag.services.pipeline.stages import DEEP_ENRICHMENT_STAGES, ENRICH_STAGES
+    assert DEEP_ENRICHMENT_STAGES is ENRICH_STAGES
 
 
 def test_all_stages_have_build_type_mapping():

@@ -69,6 +69,10 @@ class BuildType(str, enum.Enum):
     GROUP_REASONING = "group_reasoning"
     ATLAS = "atlas"
     DEEPENING = "deepening"
+    RULES = "rules"
+    CONCEPTS = "concepts"
+    AUDIT = "audit"
+    ANTIBODIES = "antibodies"
 
 
 # ── Build Phases (State Machine) ─────────────────────────────────

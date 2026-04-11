@@ -168,9 +168,9 @@ export const FullPipelineRunning: Story = {
 
 // ── Group-level controls stories ────────────────────────────
 
-const manualConfig: EnrichmentAutoConfig = { fastSync: false, deepEnrichment: 'manual' };
-const autoConfig: EnrichmentAutoConfig = { fastSync: true, deepEnrichment: 'auto' };
-const scheduledConfig: EnrichmentAutoConfig = { fastSync: true, deepEnrichment: 'scheduled' };
+const manualConfig: EnrichmentAutoConfig = { fastSync: false, deepEnrichment: 'manual', finalize: 'manual' };
+const autoConfig: EnrichmentAutoConfig = { fastSync: true, deepEnrichment: 'auto', finalize: 'manual' };
+const scheduledConfig: EnrichmentAutoConfig = { fastSync: true, deepEnrichment: 'scheduled', finalize: 'manual' };
 
 export const ManualWithRunButtons: Story = {
   name: 'Manual — Run Buttons Visible',
