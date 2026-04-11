@@ -533,7 +533,7 @@ After (same project, post-restart):
 ```
 Dashboard: 68 Code, 593 Docs, 21.5k Graph, 661 Total. The Graph Enrichment panel shows the full enrichment pipeline with stage names, and Module Synthesis even reports "602 modules · 602 files".
 
-**Side note:** The Knowledge Sources panel still renders empty for CoDRAG. That looks like a separate scope-pattern issue (the trace scope filter is empty for this project) and is tracked as a follow-up rather than a regression of this fix.
+**Knowledge Sources panel:** Initially appeared empty in the first post-fix capture, but a longer Playwright wait (~8s) showed it populating correctly with `codrag_data`, `docs`, `engine`, `logs`, `overnight_results`, `packages`, etc. The empty render was just the pre-fetch state — the panel reads from `useFileSystem.fetchFileTree`, which fires asynchronously after `selectedProjectId` changes. Not a separate bug.
 
 ---
 
