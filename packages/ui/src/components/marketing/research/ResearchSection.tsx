@@ -28,7 +28,7 @@ export function ResearchSection({
     <section
       id={id}
       className={cn(
-        'scroll-mt-24 py-12 first:pt-0 border-b border-border last:border-b-0',
+        'scroll-mt-20 py-12 first:pt-0 border-b border-border last:border-b-0',
         className,
       )}
     >
