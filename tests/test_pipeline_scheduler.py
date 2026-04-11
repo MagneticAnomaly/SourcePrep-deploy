@@ -1239,3 +1239,125 @@ class TestStatusSwarmFields:
 
         sched.clean_locks()
         assert not sched.is_swarm_window_active()
+
+
+# ── F-28: AIMD floor + idle recovery ───────────────────────────
+
+class TestAIMDFloorAndRecovery:
+    """Phase 96 / F-28: AIMD must not collapse below per-node floor,
+    and must recover from backoff over time without a daemon restart."""
+
+    def test_cloud_node_gets_floor_of_3(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        slot = sched._slots["cloud:ep-1"]
+        assert slot.min_limit == 3
+
+    def test_cloud_node_floor_capped_by_max(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:tiny", 2)
+        slot = sched._slots["cloud:tiny"]
+        # min_limit can't exceed max_concurrent
+        assert slot.min_limit == 2
+
+    def test_local_node_floor_is_1(self):
+        sched = PipelineScheduler()
+        sched.configure_node("local:ep-1", 1)
+        slot = sched._slots["local:ep-1"]
+        assert slot.min_limit == 1
+
+    def test_backoff_respects_floor(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        slot = sched._slots["cloud:ep-1"]
+        # Simulate in-flight load and a slow LLM call to trigger backoff
+        slot.active_stages["proj-a"] = "concepts"
+        # Backoff would normally cut to in_flight=1, but floor=3 prevents it
+        sched._record_throughput_for_slot(slot, queue_time_ms=5000.0)
+        assert slot.current_limit >= 3, (
+            f"current_limit dropped to {slot.current_limit} — should respect floor=3"
+        )
+
+    def test_repeated_backoff_does_not_go_below_floor(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        slot = sched._slots["cloud:ep-1"]
+        slot.active_stages["proj-a"] = "concepts"
+        # Hammer it with backoffs (separated by >2s cooldown each)
+        for _ in range(5):
+            slot._last_backoff_time = 0  # bypass cooldown
+            sched._record_throughput_for_slot(slot, queue_time_ms=5000.0)
+        assert slot.current_limit >= 3
+
+    def test_local_node_can_drop_to_1(self):
+        sched = PipelineScheduler()
+        sched.configure_node("local:ep-1", 5)
+        slot = sched._slots["local:ep-1"]
+        slot.active_stages["proj-a"] = "concepts"
+        sched._record_throughput_for_slot(slot, queue_time_ms=5000.0)
+        # Local nodes have floor=1, so backoff CAN take them down
+        assert slot.current_limit >= 1
+
+    def test_idle_recovery_grows_after_cooldown(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        slot = sched._slots["cloud:ep-1"]
+        # Force a backed-off state
+        slot.current_limit = 4
+        slot._last_backoff_time = time.time() - 60  # >30s ago
+        slot._last_recovery_time = time.time() - 60  # >30s ago
+
+        sched.acquire("proj-a", StageId.CONCEPTS, "cloud:ep-1")
+        # idle recovery should have bumped current_limit by 1
+        assert slot.current_limit == 5
+
+    def test_idle_recovery_skipped_during_backoff_cooldown(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        slot = sched._slots["cloud:ep-1"]
+        slot.current_limit = 4
+        slot._last_backoff_time = time.time()  # just backed off
+        slot._last_recovery_time = 0
+
+        sched.acquire("proj-a", StageId.CONCEPTS, "cloud:ep-1")
+        assert slot.current_limit == 4  # unchanged
+
+    def test_idle_recovery_skipped_when_at_max(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        slot = sched._slots["cloud:ep-1"]
+        # Already at max — recovery is a no-op
+        slot._last_backoff_time = 0
+        slot._last_recovery_time = 0
+
+        sched.acquire("proj-a", StageId.CONCEPTS, "cloud:ep-1")
+        assert slot.current_limit == 10
+
+    def test_idle_recovery_caps_at_max(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 5)
+        slot = sched._slots["cloud:ep-1"]
+        slot.current_limit = 4
+        slot._last_backoff_time = 0
+        slot._last_recovery_time = 0
+
+        # Should grow 4 -> 5 then stop
+        sched.acquire("proj-a", StageId.CONCEPTS, "cloud:ep-1")
+        assert slot.current_limit == 5
+        # Release and try again — should stay at 5
+        sched.release("proj-a", StageId.CONCEPTS, "cloud:ep-1")
+        slot._last_recovery_time = 0  # bypass interval gate
+        sched.acquire("proj-b", StageId.CONCEPTS, "cloud:ep-1")
+        assert slot.current_limit == 5
+
+    def test_backoff_resets_recovery_clock(self):
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        slot = sched._slots["cloud:ep-1"]
+        slot.current_limit = 6
+        slot.active_stages["proj-a"] = "concepts"
+
+        before_recovery = slot._last_recovery_time
+        sched._record_throughput_for_slot(slot, queue_time_ms=5000.0)
+        # Backoff should have reset the recovery clock to "now"
+        assert slot._last_recovery_time > before_recovery

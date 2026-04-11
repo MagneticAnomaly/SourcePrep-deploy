@@ -1,6 +1,6 @@
 # Phase 96: Findings and Bugs Registry
 
-**Last updated:** 2026-04-11 (F-11, F-36, F-37, F-38 closed)
+**Last updated:** 2026-04-11 (F-11, F-28, F-36, F-37, F-38 closed)
 **Status:** Living document — appended as new findings emerge
 
 This is the canonical record of every issue, bug, anomaly, or noteworthy
@@ -44,7 +44,7 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-25 | SwarmOrchestrator `_coordinate` has no timeout (relies on 600s LLM timeout) | ✅ FIXED | `c91184a5` |
 | F-26 | SwarmOrchestrator `execute()` aborts whole swarm on coordinator fail | ✅ FIXED | `c91184a5` |
 | F-27 | SwarmOrchestrator `_synthesize` has no timeout | ✅ FIXED | `c91184a5` |
-| F-28 | AIMD doesn't recover from backoff (current_limit stays low until restart) | 🟡 OPEN | task #16 |
+| F-28 | AIMD doesn't recover from backoff (current_limit stays low until restart) | ✅ FIXED | (this commit) |
 | F-29 | Thinking-model swallows num_predict budget on `thinking` field | 🟡 OPEN | task #23 |
 | F-30 | Vite proxy connection accumulation (60+ ESTABLISHED to daemon) | 🟡 OPEN (manifestation of F-11) | — |
 | F-31 | SQLite "database is locked" warnings on busy daemon | 🟡 OPEN (Phase 92 partial) | — |
@@ -56,7 +56,7 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-37 | `antibody_store.init()` never called — saves silently failed at DEBUG level | ✅ FIXED | (this commit) |
 | F-38 | Antibodies worker passed `Concept` dataclass to `derive_antibodies_for_project` (expects dicts) | ✅ FIXED | (this commit) |
 
-Total: **39 findings**, **26 fixed**, **7 open**, **2 deferred**, **2 not-a-bug**.
+Total: **39 findings**, **27 fixed**, **6 open**, **2 deferred**, **2 not-a-bug**.
 
 ---
 
@@ -321,7 +321,34 @@ Scheduler: restored priority for 1 project(s): 7230f731...=exclusive
 
 ### F-28 — AIMD doesn't recover from backoff
 
-**Status:** 🟡 OPEN (task #16)
+**Status:** ✅ FIXED
+
+**Resolution:** Two changes in `src/codrag/services/pipeline/scheduler.py`:
+
+1. **Per-node floor (`min_limit`)**: Cloud nodes (`cloud:*` prefix) get a `min_limit=3` (or `max_concurrent` if smaller). The multiplicative-decrease path now uses `max(slot.min_limit, ...)` instead of `max(1, ...)`. A single slow LLM call can no longer collapse the budget below the SwarmOrchestrator's min_workers threshold.
+
+2. **Time-based idle recovery**: Added `_maybe_idle_recover()` called from `acquire()`. If the slot has been past the backoff cooldown (30s) and past the recovery interval (30s) and is still below `max_concurrent`, grow `current_limit` by 1. Piggybacks on natural pipeline activity — no extra threads. Self-regulating: if pipelines are queued waiting for capacity, acquire() is called frequently → recovery happens; if nothing's running, no recovery is needed anyway.
+
+3. **Backoff resets recovery clock**: When a backoff fires it sets `_last_recovery_time = now`, ensuring the next recovery tick is at least 30s after the most recent congestion signal.
+
+**Tests** (`tests/test_pipeline_scheduler.py`, new `TestAIMDFloorAndRecovery` class, 11 cases):
+- `test_cloud_node_gets_floor_of_3`
+- `test_cloud_node_floor_capped_by_max` (small cloud nodes can't have floor>max)
+- `test_local_node_floor_is_1`
+- `test_backoff_respects_floor`
+- `test_repeated_backoff_does_not_go_below_floor`
+- `test_local_node_can_drop_to_1`
+- `test_idle_recovery_grows_after_cooldown`
+- `test_idle_recovery_skipped_during_backoff_cooldown`
+- `test_idle_recovery_skipped_when_at_max`
+- `test_idle_recovery_caps_at_max`
+- `test_backoff_resets_recovery_clock`
+
+All 118 scheduler tests pass (107 pre-existing + 11 new).
+
+---
+
+### F-28 (original investigation notes — preserved)
 
 **Symptom:** When the AIMD multiplicative-decrease fires (due to long latency or 429), `current_limit` halves repeatedly (10 → 5 → 2 → 1) and **never recovers** without a daemon restart. The additive-increase path that's supposed to grow it back is gated on conditions that don't fire when the system is idle.
 

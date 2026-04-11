@@ -100,13 +100,27 @@ class ComputeSlot:
     # configured max.  The pre-Phase-96 default of `5` capped providers that
     # don't emit rate-limit headers (e.g. Ollama) at 5 forever.
     current_limit: int = 0  # sentinel — replaced in __post_init__
+    # F-28: floor for AIMD multiplicative decrease.  Cloud nodes set this
+    # to 3 so swarm fan-out (which needs ≥3 workers) keeps working even
+    # after a single slow LLM call triggers backoff.  Local nodes default
+    # to 1 since they're often single-GPU and can legitimately need to
+    # serialize.
+    min_limit: int = 1
     mode: Literal["jumpstart", "congestion_avoidance"] = "congestion_avoidance"
     success_streak: int = 0
     _last_backoff_time: float = 0.0
+    # F-28: idle recovery — last time the slot's current_limit was
+    # incremented by the recovery path (vs. by an LLM success).  Reset
+    # whenever a backoff fires.  Used to gate recovery to ≥30s cadence.
+    _last_recovery_time: float = 0.0
 
     def __post_init__(self):
         if self.current_limit <= 0 or self.current_limit > self.max_concurrent:
             self.current_limit = max(1, self.max_concurrent)
+        if self.min_limit < 1:
+            self.min_limit = 1
+        if self.min_limit > self.max_concurrent:
+            self.min_limit = self.max_concurrent
 
     @property
     def current_load(self) -> int:
@@ -212,6 +226,7 @@ class PipelineScheduler:
                 self._slots[node_id] = ComputeSlot(
                     node_id=node_id,
                     max_concurrent=new_max,
+                    min_limit=self._compute_min_limit(node_id, new_max),
                 )
                 self._queues[node_id] = deque()
         logger.debug(
@@ -422,19 +437,23 @@ class PipelineScheduler:
                 slot.mode = "congestion_avoidance"
                 slot.success_streak = 0
 
-                # Multiplicative Decrease: Half limit, or current in-flight
+                # Multiplicative Decrease: Half limit, or current in-flight,
+                # but never below the per-node floor (F-28).
                 in_flight = slot.current_load
-                new_limit = max(1, min(slot.current_limit // 2, in_flight))
+                new_limit = max(slot.min_limit, min(slot.current_limit // 2, in_flight))
 
                 if slot.current_limit > new_limit:
                     logger.warning(
                         "Scheduler: Node %s congested (queue_ms=%.1f, 429/timeout=%s). "
-                        "Backing off limit %d -> %d",
+                        "Backing off limit %d -> %d (floor=%d)",
                         slot.node_id, queue_time_ms, is_429_or_timeout,
-                        slot.current_limit, new_limit,
+                        slot.current_limit, new_limit, slot.min_limit,
                     )
                     slot.current_limit = new_limit
                 slot._last_backoff_time = now
+                # Reset recovery clock — idle recovery shouldn't fire
+                # immediately after a fresh backoff.
+                slot._last_recovery_time = now
         else:
             # Step 3: Additive Increase or Jumpstart (no congestion detected)
             slot.success_streak += 1
@@ -489,12 +508,62 @@ class PipelineScheduler:
         """Get or create a compute slot for a node."""
         nid = node_id or self._default_node_id
         if nid not in self._slots:
+            max_c = self._default_max_concurrent
             self._slots[nid] = ComputeSlot(
                 node_id=nid,
-                max_concurrent=self._default_max_concurrent,
+                max_concurrent=max_c,
+                min_limit=self._compute_min_limit(nid, max_c),
             )
             self._queues[nid] = deque()
         return self._slots[nid]
+
+    def _compute_min_limit(self, node_id: str, max_concurrent: int) -> int:
+        """F-28: per-node floor for AIMD.
+
+        Cloud nodes get a floor of 3 (or max_concurrent if smaller) so
+        a single slow LLM call cannot collapse the swarm budget below
+        the SwarmOrchestrator min_workers threshold and force fallback
+        to non-swarm execution.  Local nodes stay at 1 since they are
+        often single-GPU and can legitimately need to serialize.
+        """
+        if node_id.startswith("cloud:"):
+            return min(3, max(1, max_concurrent))
+        return 1
+
+    # F-28: idle recovery cadence and cooldown after a backoff before
+    # recovery is allowed to fire.
+    _IDLE_RECOVERY_INTERVAL_S = 30.0
+    _BACKOFF_COOLDOWN_S = 30.0
+
+    def _maybe_idle_recover(self, slot: ComputeSlot) -> None:
+        """Grow ``slot.current_limit`` by 1 if it's been idle long enough.
+
+        Caller MUST hold ``self._lock``.
+
+        The Phase-82 AIMD additive-increase path only fires when an LLM
+        call completes successfully — if a single slow call backs the
+        slot off and then no more LLM activity happens for a while
+        (e.g. between stages), the slot stays stuck at the reduced cap
+        until the daemon restarts.  This time-based recovery closes the
+        gap by growing on every acquire() call once the cooldown has
+        elapsed, with no extra threads.
+        """
+        if slot.current_limit >= slot.max_concurrent:
+            return
+        now = time.time()
+        if now - slot._last_backoff_time < self._BACKOFF_COOLDOWN_S:
+            return
+        if now - slot._last_recovery_time < self._IDLE_RECOVERY_INTERVAL_S:
+            return
+        new_limit = min(slot.max_concurrent, slot.current_limit + 1)
+        if new_limit > slot.current_limit:
+            logger.info(
+                "Scheduler: Node %s idle recovery %d -> %d (max=%d, floor=%d)",
+                slot.node_id, slot.current_limit, new_limit,
+                slot.max_concurrent, slot.min_limit,
+            )
+            slot.current_limit = new_limit
+            slot._last_recovery_time = now
 
     def _get_queue(self, node_id: Optional[str] = None) -> Deque[QueueEntry]:
         """Get or create a queue for a node."""
@@ -791,6 +860,11 @@ class PipelineScheduler:
         resolved = self._resolve_node_for_stage(stage, node_id)
         with self._lock:
             slot = self._get_slot(resolved)
+            # F-28: idle recovery — if no backoff has fired in the last
+            # 30s and the slot is below max_concurrent, grow current_limit
+            # by 1.  This piggybacks on natural pipeline activity instead
+            # of needing a separate ticker thread.
+            self._maybe_idle_recover(slot)
             # Phase 91: Swarm gate (highest priority) — blocks all other
             # projects from acquiring on the swarm node.
             if self._is_blocked_by_swarm(project_id, resolved):
