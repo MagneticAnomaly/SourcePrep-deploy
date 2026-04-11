@@ -797,21 +797,25 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
     # Resolve trace index for trace expansion
     # Phase 34: trace_expand defaults to True. Gracefully degrade if
     # the feature gate blocks it (free tier) or trace isn't available.
+    #
+    # F-50: previously gated on config.trace.enabled — same root-cause class
+    # as F-39 / F-42 / F-49.  trace.enabled is the auto-build preference,
+    # not a data-presence flag, so a project with a built trace graph but
+    # enabled=false would silently fall back to non-expanded search results.
+    # Now we just check ti.exists() — if the data is on disk, expand search
+    # with it regardless of the auto-build preference.
     trace_idx = None
     if req.trace_expand:
         try:
             require_feature("mcp_trace_expand")
-            cfg = proj.config or {}
-            trace_cfg = cfg.get("trace") if isinstance(cfg, dict) else None
-            if bool((trace_cfg or {}).get("enabled", False)):
-                try:
-                    ti = _srv()._get_project_srv()._trace_index(proj)
-                    if ti.exists():
-                        if not ti.is_loaded():
-                            ti.load()
-                        trace_idx = ti
-                except Exception:
-                    pass  # Graceful: fall back to non-expanded context
+            try:
+                ti = _srv()._get_project_srv()._trace_index(proj)
+                if ti.exists():
+                    if not ti.is_loaded():
+                        ti.load()
+                    trace_idx = ti
+            except Exception:
+                pass  # Graceful: fall back to non-expanded context
         except FeatureGateError:
             pass  # Phase 34: default-on means graceful fallback for free tier
 

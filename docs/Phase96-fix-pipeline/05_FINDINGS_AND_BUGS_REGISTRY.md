@@ -66,8 +66,9 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-47 | `/pipeline/fast` gate doesn't recognize `phase=cancelled` — cancelled deep_enrichment runs block all subsequent fast_sync attempts until daemon restart | 🟡 OPEN | — |
 | F-48 | `/pipeline/rebuild` timed out >5s on rust_repo — endpoint may be doing synchronous work that should be backgrounded | 🟡 OPEN | — |
 | F-49 | 5 trace READ endpoints (`/trace/coverage`, `/trace/search` × 2, `/trace/node`, `/trace/neighbors`) raise `TRACE_DISABLED` when `config.trace.enabled=False`, ignoring on-disk graph — disconnects Graph Scope panel | ✅ FIXED | (this commit) |
+| F-50 | `/projects/{id}/search` `trace_expand` skipped when `trace.enabled=false`, even with built graph on disk — same root-cause class | ✅ FIXED | (this commit) |
 
-Total: **49 findings**, **38 fixed**, **6 open**, **2 deferred**, **2 not-a-bug**. (F-49 added when Eric reported "Graph Scope window is no longer connected" — third instance of the F-39 root-cause class.)
+Total: **50 findings**, **39 fixed**, **6 open**, **2 deferred**, **2 not-a-bug**. (F-50 surfaced during the trace.enabled audit — fourth and final instance of the F-39 root-cause class.)
 
 ---
 
@@ -876,6 +877,54 @@ WRITE GUARD BLOCKED stage structural for ...
 3. Investigate why the parser produces fewer nodes today (parser version drift).
 
 **Workaround:** Use `/pipeline/finalize` directly for Phase 96 testing — it skips structural and starts at atlas.
+
+---
+
+## `config.trace.enabled` audit (post F-39 / F-42 / F-49 / F-50)
+
+Eric asked us to make sure `config.trace.enabled` is still functioning as designed after the F-39 / F-42 / F-49 / F-50 round of fixes. **The flag's design intent is "auto-build preference" — it controls whether the watcher and auto-trigger paths kick off builds, NOT whether on-disk data is served to readers.** Every use of the flag in the codebase now falls into one of two correct categories:
+
+### KEEP — Auto-build / write-side gates (correctly respect the flag)
+
+| File | Line | Purpose |
+|---|---|---|
+| `services/pipeline/workers.py` | 303-314 | Post-build update_project: if a manual structural build succeeded, flip enabled=true so the watcher will pick up future changes. F-46 area. |
+| `api/routers/projects/watch.py` | 111 | Watcher trigger gate — only auto-fast-sync when enabled=true. **Without this, every project would auto-build on file changes regardless of preference.** |
+| `api/routers/projects/crud.py` | 383 | `_activate_project`: only start the watcher / auto-sync setup for trace-enabled projects. |
+| `api/routers/settings.py` | 308 | "Auto-mode activated" trigger: only run fast_sync for trace-enabled projects when global auto-mode is flipped on. |
+| `api/routers/settings.py` | 332 | Same, for deep enrichment auto-mode. |
+| `api/routers/trace_routes/query.py` | 55 | `/trace/build` POST gate — refuses to build trace when explicitly disabled. The only TRACE_DISABLED gate that survived F-49. |
+| `server.py` | 846 | Startup auto-run: only auto-build trace-enabled projects on daemon start. |
+| `dashboard/src/hooks/useTraceSystem.ts` | 328 | `handleRunFastSync`: when the user clicks "Run Fast Sync", auto-flip trace.enabled=true so the watcher takes over going forward. |
+
+### KEEP — Status display fields (expose the flag value, don't gate on it)
+
+| File | Line | Purpose |
+|---|---|---|
+| `api/routers/pipeline.py` | 253 | Returns `{"enabled": ..., "exists": ..., "stats": ...}` so clients can show both the preference and the data state. |
+| `api/routers/knowledge.py` | 120 | Same shape, /engine/status endpoint. |
+| `mcp/tool_hi.py` | 82 | MCP `codrag` tool extracts the flag for the orientation summary. |
+| `cli.py` | 497 | CLI `status` command displays "Enabled but Not Built" / "Disabled" / "Ready" tri-state correctly using both `exists` and `enabled`. |
+| `core/team_config.py` | 74, 133 | `trace_enabled_default` — team-config feature flag for new projects. |
+
+### FIXED — read-side false negatives that conflated preference with data presence
+
+| ID | File | Fix |
+|---|---|---|
+| F-39 | `services/project_helpers.py::project_trace_status` | Always probe disk via `trace_idx.status()`, expose `enabled` as a separate field. |
+| F-42 | `packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx` (6 sites) | Every `compute*State()` function now gates on `!trace.exists && !trace.enabled` instead of `!trace.enabled` alone. |
+| F-49 | `api/routers/trace_routes/query.py` (5 sites) | Removed `TRACE_DISABLED` gate from /trace/coverage, /trace/search × 2, /trace/node, /trace/neighbors. The TRACE_NOT_BUILT check below already covers "no data on disk". |
+| F-50 | `api/routers/projects/search.py:806` | `trace_expand` no longer gated on `enabled` — checks `ti.exists()` directly. |
+
+### Borderline (not fixed, intentional design semantics preserved)
+
+| File | Line | Why we left it alone |
+|---|---|---|
+| `services/project_helpers.py::check_index_staleness` | 455 | Picks `built_at` reference: trace_manifest if enabled=true, else legacy index stats. Changing this would alter staleness semantics in subtle ways (e.g., projects with both trace data AND legacy index could flip to a different staleness reading). The current behavior is "the staleness check uses the build artifact you've opted into". If a future fix is wanted, change to `prefer trace_manifest if it exists, else fall back to legacy`. |
+
+### Net result
+
+The flag's contract is now consistent: **`enabled` means "auto-rebuild on", `exists` means "data on disk is queryable"**. Read endpoints serve disk; write/auto-build endpoints respect the preference. The Graph Scope panel reconnects, the dashboard pipeline panel renders complete stages green, and `trace_expand` search works on built graphs even with the auto-build flag off.
 
 ---
 

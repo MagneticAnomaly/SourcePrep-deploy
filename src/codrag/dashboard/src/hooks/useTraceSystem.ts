@@ -323,8 +323,11 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   const handleRunFastSync = useCallback(async () => {
     if (!selectedProjectId) return
     try {
-      // Ensure trace is enabled in project config before launching pipeline
-      // (project_trace_status returns exists:false when trace.enabled is false)
+      // Auto-enable trace in project config when launching the pipeline.
+      // F-39 fixed the daemon-side false-negative on `exists`, so this is no
+      // longer needed for status correctness — but we still flip the flag so
+      // the watcher and the auto-trigger paths (which DO gate on enabled by
+      // design) pick up future file changes.
       if (!deps.projectConfig?.trace?.enabled) {
         const newConfig = { ...deps.projectConfig, trace: { ...deps.projectConfig?.trace, enabled: true } }
         deps.setProjectConfig(newConfig)
