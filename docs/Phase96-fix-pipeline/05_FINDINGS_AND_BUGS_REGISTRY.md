@@ -687,22 +687,69 @@ All 19 pass. Full watcher test suite (31 tests across `test_watcher_relevance`, 
 
 ---
 
-### F-41 — `/system/pipeline-queue` blocks during long-running stage
+### F-41 — `/pipeline/status` and `/system/pipeline-queue` block during long-running stage
 
-**Status:** 🟡 OPEN
+**Status:** 🟡 OPEN — root cause identified, fix sketched
 
-**Symptom:** During the CoDRAG finalize swarm test, `/health` continued responding in 1-7ms (validating F-11 + F-36 fixes), but `/system/pipeline-queue` started timing out at 30s+. The daemon was technically alive but the queue endpoint was wedged.
+**Symptom:** During any sufficiently long pipeline run (concept seeding fan-out, knowledge embedding on a USB drive, multi-stage incremental fast_sync), `/health` continues responding in 1-7ms, but `/pipeline/status` and `/system/pipeline-queue` start timing out at 30s+. Eventually `/health` itself wedges and the daemon needs a manual restart.
 
-**Suspected cause:** The pipeline-queue handler holds the scheduler lock to walk all nodes and produce the response. If a long-running stage (concept seeding fan-out, in this case) holds the scheduler lock for an extended period — perhaps via `acquire()` waiting on something blocking — the queue endpoint waits behind it.
+**Mechanism (identified during F-44 live validation):**
 
-**Why this is distinct from F-11:** F-11 was about request *stacking* exhausting the FastAPI thread pool. This is about a single request blocking on a contended scheduler lock. Different mechanism, similar surface symptom.
+`PipelineOrchestrator.status()` at `services/pipeline/orchestrator.py:932` does this:
 
-**Diagnostic plan:**
-- Add `py-spy dump` capture to the troubleshoot harness to inspect what `/system/pipeline-queue` is waiting on next time it wedges
-- Check whether the scheduler lock can be split (read-only "snapshot" vs. write-only "mutate")
-- Or: have `pipeline-queue` build its response from a snapshot taken during the broadcast, instead of walking the live state under lock
+```python
+def status(self, project_id: str) -> Dict[str, Any]:
+    with self._lock:                          # 1. PipelineOrchestrator lock
+        fast_run = self._runs.get(...)
+        deep_run = self._runs.get(...)
+        fin_run  = self._runs.get(...)
 
-**Workaround:** Restart the daemon. Confirmed to clear the wedge.
+    stage_statuses = {}
+    for stage_id in list(StageId):              # 15 iterations
+        bt = STAGE_BUILD_TYPE[stage_id]
+        slot = self._orchestrator.status(...)   # 2. BuildOrchestrator lock per call
+        stage_statuses[stage_id.value] = slot.to_dict()
+```
+
+The loop acquires `BuildOrchestrator._lock` 15 separate times. While most of those acquisitions are individually fast, ANY one of them can block if the pipeline is mid-stage and another caller is holding the same lock for any reason (state transition, slot creation, zombie check). With 15 sequential lock acquisitions per status call AND the dashboard polling status every few seconds AND multiple groups (fast/deep/finalize) running, contention is essentially guaranteed.
+
+The pipeline-status FastAPI handler runs in its own ThreadPoolExecutor (max 4 workers), so this isn't FastAPI thread pool exhaustion (F-11 territory). It's contention on the actual orchestrator locks. When all 4 status executor threads are blocked, subsequent status requests pile up, and eventually the daemon's main FastAPI thread pool fills with awaiting status calls.
+
+**Why this is distinct from F-11:** F-11 was about request *stacking* exhausting the FastAPI thread pool. F-41 is about a single request blocking on a contended internal lock — different mechanism, similar surface symptom.
+
+**Fix sketch (not yet implemented — risks deadlock if rushed):**
+
+Option A — single-call snapshot read:
+```python
+def status_snapshot(self, project_id: str) -> Dict[str, Any]:
+    """Lock-free read from cached stage_snapshots already maintained by workers."""
+    # PipelineGroupStateMachine already maintains _stage_snapshots that are
+    # updated by progress_cb. Read those instead of walking BuildOrchestrator slots.
+    ...
+```
+
+Option B — bounded lock acquisition with stale fallback:
+```python
+acquired = self._orchestrator._lock.acquire(timeout=2.0)
+if not acquired:
+    return self._last_known_slot_state[stage_id]  # cached
+try:
+    ...
+finally:
+    self._orchestrator._lock.release()
+```
+
+Option C — split BuildOrchestrator lock into read/write:
+- `_state_lock`: held briefly during transitions
+- Snapshot data lives outside the lock and is updated atomically
+
+Option A is least invasive. Option C is the cleanest long-term fix.
+
+**Workaround:** Restart the daemon. Confirmed to clear the wedge every time.
+
+**Live observations:**
+- During F-44 validation (incremental fast_sync, 65.6s), `/pipeline/status` started timing out around the 25-second mark mid-catalogue. By 60s the daemon needed a restart.
+- During the original F-35 misdiagnosis era (rust_repo finalize swarm), the same pattern hit — was originally attributed to FastAPI thread pool (F-11) but the underlying lock contention is separate.
 
 ---
 
