@@ -53,10 +53,12 @@ def add_project(req: AddProjectRequest) -> Dict[str, Any]:
         raise ApiException(status_code=400, code="VALIDATION_ERROR", message=f"Invalid mode: {req.mode}")
 
     # Check project count limit for current tier
+    from codrag.services.project_helpers import get_project_activity_status
     reg = _srv()._get_registry()
-    existing_count = len(reg.list_projects())
+    active_count = sum(1 for p in reg.list_projects() if get_project_activity_status(p.id) == "active")
     max_projects = get_feature_limit("projects_max")
-    if existing_count >= max_projects:
+    
+    if active_count >= max_projects:
         lic = get_license()
         raise FeatureGateError(
             feature="projects_max",
@@ -353,6 +355,26 @@ def _deactivate_project(project_id: str) -> None:
     except Exception as exc:
         logger.warning("Failed to cancel pipelines for %s: %s", project_id, exc)
 
+    # Phase 96 follow-up: Clear runtime scheduler priority for the project
+    # being deactivated. The persisted priority_level in the project config
+    # is preserved — it will reapply when the project is reactivated. But
+    # the runtime _priority_projects entry must be removed so the project's
+    # exclusive/boost flag doesn't continue affecting other projects'
+    # acquisition behavior while it's inactive.
+    try:
+        from codrag.services.pipeline.scheduler import pipeline_scheduler
+        if project_id in pipeline_scheduler.priority_projects:
+            pipeline_scheduler.set_priority(project_id, "none")
+            logger.info(
+                "Cleared runtime priority for deactivated project %s "
+                "(persisted priority_level remains in project config)",
+                project_id,
+            )
+    except Exception as exc:
+        logger.warning(
+            "Failed to clear scheduler priority for %s: %s", project_id, exc,
+        )
+
 
 def _activate_project(proj: Project) -> None:
     """Start watcher and trigger auto-sync for a project being activated."""
@@ -360,6 +382,26 @@ def _activate_project(proj: Project) -> None:
     trace_cfg = cfg.get("trace") if isinstance(cfg, dict) else None
     trace_enabled = bool((trace_cfg or {}).get("enabled", False))
     fast_sync_auto = bool(cfg.get("fast_sync_auto", False))
+
+    # Phase 96 follow-up: Re-apply persisted priority level when the
+    # project is activated. _deactivate_project clears the runtime
+    # priority but preserves priority_level in the project config so
+    # this restore is symmetric.
+    try:
+        from codrag.services.pipeline.scheduler import pipeline_scheduler
+        priority_level = cfg.get("priority_level")
+        if not priority_level and cfg.get("is_starred"):
+            priority_level = "boost"
+        if priority_level and priority_level != "none":
+            pipeline_scheduler.set_priority(proj.id, priority_level)
+            logger.info(
+                "Restored runtime priority %s for activated project %s",
+                priority_level, proj.id,
+            )
+    except Exception as exc:
+        logger.warning(
+            "Failed to restore scheduler priority for %s: %s", proj.id, exc,
+        )
 
     # Start watcher if fast_sync is set to auto
     if fast_sync_auto:
@@ -453,6 +495,12 @@ def _persist_included_paths(proj, paths: List[str]):
 @router.delete("/projects/{project_id}")
 def delete_project(project_id: str, purge: bool = False) -> Dict[str, Any]:
     reg = _srv()._get_registry()
+    
+    # Enforce purge=True for Free tier
+    lic = get_license()
+    if lic.tier < Tier.MONTHLY:
+        purge = True
+        
     try:
         reg.remove_project(project_id, purge=bool(purge))
     except ProjectNotFound:
@@ -473,6 +521,54 @@ def delete_project(project_id: str, purge: bool = False) -> Dict[str, Any]:
         _srv()._project_trace_build_threads.pop(project_id, None)
 
     return ok({"removed": True, "purged": bool(purge)})
+
+
+@router.post("/projects/{project_id}/archive")
+def archive_project(project_id: str) -> Dict[str, Any]:
+    """Archive a project (Free tier explicit lock)"""
+    proj = _srv()._require_project(project_id)
+    reg = _srv()._get_registry()
+    
+    new_config = dict(proj.config)
+    new_config["archived"] = True
+    new_config["active"] = False
+    
+    updated = reg.update_project(proj.id, config=new_config)
+    _deactivate_project(project_id)
+    
+    return ok({"project": _srv()._project_to_dict(updated)})
+
+
+@router.post("/projects/{project_id}/unarchive")
+def unarchive_project(project_id: str) -> Dict[str, Any]:
+    """Unarchive a project (requires Pro tier or available Free slots)"""
+    proj = _srv()._require_project(project_id)
+    reg = _srv()._get_registry()
+    
+    lic = get_license()
+    
+    # On Free tier, check if we have room
+    if lic.tier < Tier.MONTHLY:
+        from codrag.services.project_helpers import get_project_activity_status
+        active_count = sum(1 for p in reg.list_projects() if get_project_activity_status(p.id) == "active")
+        max_projects = get_feature_limit("projects_max")
+        
+        if active_count >= max_projects:
+            raise ApiException(
+                status_code=403,
+                code="PROJECTS_MAX_REACHED",
+                message=f"You have reached the maximum of {max_projects} active projects.",
+                hint="Upgrade to Pro to unlock unlimited active projects.",
+            )
+            
+    new_config = dict(proj.config)
+    new_config["archived"] = False
+    new_config["active"] = True
+    
+    updated = reg.update_project(proj.id, config=new_config)
+    _activate_project(updated)
+    
+    return ok({"project": _srv()._project_to_dict(updated)})
 
 
 @router.post("/projects/validate-pointers")

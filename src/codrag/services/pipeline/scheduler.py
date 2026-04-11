@@ -1469,16 +1469,29 @@ class PipelineScheduler:
             # ── Restore saved priority from project configs ───────────
             # Phase 72B: Restore ALL starred projects, not just the first one.
             # The old `break` caused only one project to get priority on restart.
+            #
+            # Phase 96 follow-up: Only restore priority for ACTIVE projects.
+            # An inactive project's exclusive flag was leaking through restart
+            # and silently affecting active projects' acquisition behavior
+            # (the holder isn't running anything, but its presence in
+            # _priority_projects skews wave calculations and makes the user
+            # think exclusive is "stuck on").
             try:
                 from codrag.core.project_registry import ProjectRegistry
                 registry = ProjectRegistry()
                 restored_count = 0
+                skipped_inactive = 0
                 for proj in registry.list_projects():
                     pcfg = proj.config if isinstance(proj.config, dict) else {}
                     level = pcfg.get("priority_level")
                     if not level and pcfg.get("is_starred"):
                         level = "boost"
                     if level and level != "none":
+                        # Skip if the project is marked inactive — its
+                        # priority shouldn't affect anyone else.
+                        if pcfg.get("active") is False:
+                            skipped_inactive += 1
+                            continue
                         self.set_priority(proj.id, level)
                         restored_count += 1
                 if restored_count > 0:
@@ -1486,6 +1499,13 @@ class PipelineScheduler:
                         "Scheduler: restored priority for %d project(s): %s",
                         restored_count,
                         ", ".join(f"{pid}={lvl}" for pid, lvl in self._priority_projects.items()),
+                    )
+                if skipped_inactive > 0:
+                    logger.info(
+                        "Scheduler: skipped %d inactive project(s) during "
+                        "priority restore (their priority is preserved in "
+                        "config and will reapply on activation)",
+                        skipped_inactive,
                     )
             except Exception:
                 logger.debug("Scheduler: could not restore priority from project configs", exc_info=True)
