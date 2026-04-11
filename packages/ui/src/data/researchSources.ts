@@ -1,5 +1,3 @@
-// packages/ui/src/data/researchSources.ts
-
 export type SourceType = 'paper' | 'repo' | 'blog' | 'spec' | 'book';
 export type ProblemArea = 'retrieval' | 'compression' | 'chunking' | 'concepts';
 
@@ -18,13 +16,16 @@ export interface ResearchSource {
   arxivId?: string;
   /** One sentence, used in the appendix card */
   usage: string;
-  /** 2-3 sentence editorial blurb. Required if spotlight === true. */
+  /** Required editorial blurb (2–3 sentences recommended). Must be set when spotlight === true. */
   spotlightProse?: string;
   problemArea: ProblemArea;
   spotlight: boolean;
 }
 
 export const RESEARCH_SOURCES: ResearchSource[] = [];
+
+const REQUIRED_FIELDS = ['id', 'title', 'url', 'usage', 'problemArea', 'type'] as const;
+const KEBAB_CASE_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 /**
  * Throws on any data shape error so Storybook and `next build` fail loudly
@@ -33,9 +34,16 @@ export const RESEARCH_SOURCES: ResearchSource[] = [];
 export function validateResearchSources(sources: ResearchSource[]): void {
   const seen = new Set<string>();
   for (const s of sources) {
-    if (!s.id || !s.title || !s.url || !s.usage || !s.problemArea || !s.type) {
+    for (const field of REQUIRED_FIELDS) {
+      if (!s[field]) {
+        throw new Error(
+          `[researchSources] entry "${s.id ?? '(no id)'}" missing required field "${field}"`,
+        );
+      }
+    }
+    if (!KEBAB_CASE_RE.test(s.id)) {
       throw new Error(
-        `[researchSources] entry "${s.id ?? '(no id)'}" missing required field`,
+        `[researchSources] id "${s.id}" must be kebab-case (lowercase alphanumerics separated by single hyphens)`,
       );
     }
     if (seen.has(s.id)) {
@@ -45,10 +53,9 @@ export function validateResearchSources(sources: ResearchSource[]): void {
     if (s.spotlight && (!s.spotlightProse || s.spotlightProse.trim().length === 0)) {
       throw new Error(`[researchSources] spotlight "${s.id}" missing spotlightProse`);
     }
-    if (!/^[a-z0-9-]+$/.test(s.id)) {
-      throw new Error(`[researchSources] id "${s.id}" must be kebab-case`);
-    }
   }
 }
 
+// Runs on every import — intentional. Storybook startup and `next build` should
+// abort loudly if data drifts. Cost is microseconds at 56 entries.
 validateResearchSources(RESEARCH_SOURCES);
