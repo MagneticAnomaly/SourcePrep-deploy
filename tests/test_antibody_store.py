@@ -72,3 +72,31 @@ def test_delete(store):
     store.save("proj-1", _make_antibody())
     store.delete("ab-1")
     assert store.get("ab-1") is None
+
+
+def test_save_many_persists_all(store):
+    abs_ = [_make_antibody(f"ab-{i}", f"Guard {i}") for i in range(5)]
+    saved = store.save_many("proj-1", abs_)
+    assert saved == 5
+    assert len(store.list_antibodies("proj-1")) == 5
+
+
+def test_save_many_empty_returns_zero(store):
+    assert store.save_many("proj-1", []) == 0
+
+
+def test_save_many_uses_one_commit(store):
+    abs_ = [_make_antibody(f"ab-{i}", f"Guard {i}") for i in range(5)]
+    statements: list[str] = []
+    store._conn.set_trace_callback(lambda sql: statements.append(sql))
+    try:
+        store.save_many("proj-1", abs_)
+    finally:
+        store._conn.set_trace_callback(None)
+    commit_count = sum(1 for s in statements if s.strip().upper() == "COMMIT")
+    assert commit_count == 1, f"Expected 1 COMMIT, got {commit_count}: {statements}"
+
+
+def test_busy_timeout_is_30s(store):
+    timeout_ms = store._conn.execute("PRAGMA busy_timeout").fetchone()[0]
+    assert timeout_ms == 30000

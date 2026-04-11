@@ -1,6 +1,6 @@
 # Phase 96: Findings and Bugs Registry
 
-**Last updated:** 2026-04-11
+**Last updated:** 2026-04-11 (F-36, F-37, F-38 closed)
 **Status:** Living document — appended as new findings emerge
 
 This is the canonical record of every issue, bug, anomaly, or noteworthy
@@ -52,9 +52,11 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-33 | rust_repo structural rebuild produces fewer nodes than existing file (write guard blocks) | 🟡 OPEN (Phase 70B working as designed but inconvenient for fixture) | — |
 | F-34 | Swarm window cooldown (45s) blocks re-opening but doesn't reduce batch budget | ✅ NOT-A-BUG (cooldown only blocks new windows; budget query still returns full) | — |
 | F-35 | "Daemon-runtime swarm hang" — was actually F-11 polling storm | 🔵 NOT-A-BUG (misdiagnosis, see entry) | — |
-| F-36 | SQLite "database is locked" blocks swarm concept saves (26 generated, 0 saved) | 🟡 OPEN — **NEW**, blocks concept persistence | — |
+| F-36 | SQLite "database is locked" blocks swarm concept saves (26 generated, 0 saved) | ✅ FIXED | (this commit) |
+| F-37 | `antibody_store.init()` never called — saves silently failed at DEBUG level | ✅ FIXED | (this commit) |
+| F-38 | Antibodies worker passed `Concept` dataclass to `derive_antibodies_for_project` (expects dicts) | ✅ FIXED | (this commit) |
 
-Total: **36 findings**, **22 fixed**, **10 open**, **2 deferred**, **2 not-a-bug**.
+Total: **39 findings**, **25 fixed**, **8 open**, **2 deferred**, **2 not-a-bug**.
 
 ---
 
@@ -366,7 +368,61 @@ The five hypotheses listed in the original F-35 entry are now moot. None of them
 
 ### F-36 — SQLite "database is locked" blocks concept saves
 
-**Status:** 🟡 OPEN — **NEW**, blocks concept persistence
+**Status:** ✅ FIXED
+
+**Resolution:** Combined fix shipped in this commit:
+1. Added `concept_store.save_many(project_id, concepts)` that batches all saves in a single transaction with retry-on-locked wrapper (3 attempts, exponential backoff).
+2. Bumped `concept_store` connection `timeout` 10s → 30s and added `PRAGMA busy_timeout=30000`.
+3. **Decisive fix:** moved `concept_store` to its own dedicated `codrag_concepts.db` file with one-shot migration in `server.py`. The first attempt (batching + busy_timeout alone) still failed because 6 stores share `codrag_settings.db` on the slow USB drive in DELETE journal mode — cross-store contention took longer than 30s. Eliminating the shared writer lock removed the failure mode entirely.
+4. Updated `concept_seeder` swarm path to call `save_many` with per-concept fallback.
+
+**Validation:** End-to-end finalize on rust_repo via `scripts/troubleshoot.sh` + `troubleshoot_f35_swarm_hang.py`:
+- Run 1 (cold): swarm fan-out → 25 concepts persisted (was 0/26 before fix)
+- Run 2 (warm, freshness skip): full finalize completes in 2.3s, antibodies stage saves 10/10
+- 22 unit tests pass: `tests/test_concept_store_save_many.py` (11) + `tests/test_antibody_store.py` (11)
+
+---
+
+### F-37 — `antibody_store.init()` never called
+
+**Status:** ✅ FIXED
+
+**Symptom:** Surfaced after F-36 fix when finalize completed end-to-end for the first time. The antibodies stage reported `derived: 10, saved: 0` — no antibodies were ever persisted.
+
+**Root cause:** `antibody_store.init(db_path)` was never called from anywhere in the codebase. `_require_conn()` raised `RuntimeError("AntibodyStore not initialized")` on every save call, but the worker caught the exception at `logger.debug` level so it was completely silent.
+
+**Resolution:**
+1. Added `antibody_store.init(_antibody_store_db_path)` to `server.py` startup.
+2. Used a dedicated `codrag_antibodies.db` file (same pattern as F-36 concepts) to avoid cross-store contention.
+3. Bumped antibody_store `timeout` 10s → 30s, added `PRAGMA busy_timeout=30000`.
+4. Added `antibody_store.save_many()` batch method (single executemany + commit).
+5. Updated `_antibodies_worker` to call `save_many` with per-item fallback and surfaced failures at WARNING level.
+
+**Validation:** F-37 fix run after F-36: `derived: 10, saved: 10, elapsed: 5ms` (was 103s with per-save commits hitting busy_timeout 10× before going to dedicated db).
+
+---
+
+### F-38 — Antibodies worker passed Concept dataclass to dict-expecting derive function
+
+**Status:** ✅ FIXED
+
+**Symptom:** First post-F-36 validation crashed with `'Concept' object has no attribute 'get'` in `antibody_derivation.suggest_antibody`. Surfaced because before F-36 the worker never reached the antibodies stage with non-empty concepts.
+
+**Root cause:** `concept_store.list_concepts()` returns `Concept` dataclass instances. `derive_antibodies_for_project(concepts: List[Dict[str, Any]])` expects dicts and calls `concept.get(...)` on each.
+
+**Resolution:** Convert at the worker boundary in `_antibodies_worker`:
+```python
+concept_dicts = [c.to_dict() if hasattr(c, "to_dict") else c for c in concepts]
+antibodies = derive_antibodies_for_project(concept_dicts)
+```
+
+`Concept.to_dict()` already exposes the required `id`, `title`, `content`, `category`, `anchors`, `assertion` fields.
+
+---
+
+### F-36 (original investigation notes — preserved)
+
+**Status (historical):** Was OPEN before this commit.
 
 **Symptom:** During the F-35 isolation test, the swarm path successfully generated 26 concepts via fan-out + raw merge fallback, but **0 of them were saved to the ConceptStore**:
 

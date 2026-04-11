@@ -417,21 +417,35 @@ def seed_concepts_swarm(project_id: str) -> Dict[str, Any]:
             "%d worker outputs", len(final_concepts), len(result.worker_results),
         )
 
-    for c in final_concepts:
-        try:
-            concept_store.save(
-                project_id=project_id,
-                title=c.get("title", "Untitled"),
-                content=c.get("content", ""),
-                category=c.get("category", "technical"),
-                status="seed",
-                confidence=c.get("confidence", 0.7),
-                anchors=c.get("anchors", []),
-                tags=c.get("tags", []),
-            )
-            concepts_created += 1
-        except Exception as e:
-            logger.warning("Failed to save concept '%s': %s", c.get("title"), e)
+    # Phase 96 / F-36: batch the concept saves into a single transaction
+    # via concept_store.save_many() instead of N independent save() calls.
+    # The previous N-call pattern hit SQLITE_BUSY against pipeline_journal,
+    # pipeline_metadata, observation_store, and audit_log writes that
+    # share the same database during finalize.  save_many holds the writer
+    # lock once for the whole batch and includes a retry-on-locked wrapper.
+    try:
+        saved, _skipped = concept_store.save_many(project_id, final_concepts)
+        concepts_created = saved
+    except Exception as e:
+        logger.warning(
+            "save_many failed for %s, falling back to per-concept saves: %s",
+            project_id, e,
+        )
+        for c in final_concepts:
+            try:
+                concept_store.save(
+                    project_id=project_id,
+                    title=c.get("title", "Untitled"),
+                    content=c.get("content", ""),
+                    category=c.get("category", "technical"),
+                    status="seed",
+                    confidence=c.get("confidence", 0.7),
+                    anchors=c.get("anchors", []),
+                    tags=c.get("tags", []),
+                )
+                concepts_created += 1
+            except Exception as e2:
+                logger.warning("Failed to save concept '%s': %s", c.get("title"), e2)
 
     for q in final_questions:
         try:

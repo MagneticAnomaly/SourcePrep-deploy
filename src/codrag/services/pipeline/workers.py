@@ -1070,15 +1070,26 @@ class WorkerFactory:
                 }
 
             log_cb("Deriving antibodies", 1, 2)
-            antibodies = derive_antibodies_for_project(concepts)
+            concept_dicts = [
+                c.to_dict() if hasattr(c, "to_dict") else c
+                for c in concepts
+            ]
+            antibodies = derive_antibodies_for_project(concept_dicts)
 
             saved = 0
-            for ab in antibodies:
-                try:
-                    antibody_store.save(project_id, ab)
-                    saved += 1
-                except Exception as e:
-                    logger.debug("Failed to save antibody: %s", e)
+            try:
+                saved = antibody_store.save_many(project_id, antibodies)
+            except Exception as e:
+                logger.warning(
+                    "save_many failed for antibodies, falling back to per-item saves: %s",
+                    e,
+                )
+                for ab in antibodies:
+                    try:
+                        antibody_store.save(project_id, ab)
+                        saved += 1
+                    except Exception as e2:
+                        logger.warning("Failed to save antibody %s: %s", ab.id, e2)
 
             log_cb(f"{saved} antibodies derived", 2, 2)
             return {

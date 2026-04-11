@@ -72,6 +72,27 @@ async def lifespan(app: FastAPI):
 
     logger.info("CoDRAG EventBus initialized")
     yield
+    # Phase 93: Write clean shutdown markers for projects with no active runs.
+    # On next startup, auto_recover_stale_pipelines will see these markers and
+    # skip recovery — incomplete deep enrichment manifests are steady-state,
+    # not interrupted. Projects WITH active runs get NO marker, so recovery
+    # triggers correctly after a graceful stop mid-pipeline.
+    try:
+        from codrag.services.pipeline.recovery import RecoveryManager
+        from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+        from codrag.services.project_helpers import get_registry
+        registry = get_registry()
+        for project in registry.list_projects():
+            if not pipeline_orchestrator.has_active_run(project.id):
+                RecoveryManager.write_clean_shutdown_marker(project.id)
+                logger.debug("Clean shutdown marker written for %s", project.id)
+            else:
+                # Clear any existing marker for active-run projects so that
+                # if the daemon subsequently crashes, recovery will trigger.
+                RecoveryManager.read_and_clear_clean_shutdown_marker(project.id)
+                logger.debug("Clean shutdown marker cleared for %s (active run)", project.id)
+    except Exception:
+        logger.debug("Failed to write clean shutdown markers", exc_info=True)
     # Shutdown: close all SQLite stores so WAL can be checkpointed cleanly.
     # Order doesn't matter — each store checkpoints its own connection.
     from codrag.services.concept_store import concept_store as _concept_store
@@ -687,8 +708,89 @@ def configure(
     _obs_store.init(db_path)
 
     # Initialize concept store (Phase 74: Epistemic Concepts)
+    # Phase 96 / F-36: Use a dedicated concepts.db file instead of the
+    # shared codrag_settings.db.  When the swarm path saves 26+ concepts
+    # in tight succession during finalize, the writer-lock contention
+    # against pipeline_journal, pipeline_history, observation_store, and
+    # antibody_store (all sharing settings.db) caused SQLITE_BUSY for
+    # >30 seconds straight.  Eliminating cross-store contention removes
+    # the entire failure mode — concept_store now has its own writer
+    # lock that only contends with itself.
     from codrag.services.concept_store import concept_store as _concept_store
-    _concept_store.init(db_path)
+    _concept_store_db_path = db_path.parent / "codrag_concepts.db"
+
+    # One-shot migration: if the dedicated file doesn't exist yet but
+    # the shared settings.db has a concepts table, copy the concepts
+    # rows over so existing data isn't lost.  Subsequent boots skip
+    # this when the dedicated file already exists.
+    if not _concept_store_db_path.exists() and db_path.exists():
+        try:
+            import sqlite3 as _sqlite_migrate
+            _src = _sqlite_migrate.connect(str(db_path), timeout=10)
+            _has_concepts = _src.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='concepts'"
+            ).fetchone()
+            if _has_concepts:
+                logger.info(
+                    "Phase 96/F-36: migrating concepts from %s to %s",
+                    db_path, _concept_store_db_path,
+                )
+                _concept_store.init(_concept_store_db_path)
+                _rows = _src.execute("SELECT * FROM concepts").fetchall()
+                _migrated = 0
+                for _r in _rows:
+                    try:
+                        _concept_store._conn.execute(
+                            "INSERT OR IGNORE INTO concepts VALUES ("
+                            + ",".join("?" * len(_r))
+                            + ")",
+                            tuple(_r),
+                        )
+                        _migrated += 1
+                    except Exception:
+                        pass
+                # Migrate questions too
+                try:
+                    _q_rows = _src.execute("SELECT * FROM concept_questions").fetchall()
+                    for _qr in _q_rows:
+                        try:
+                            _concept_store._conn.execute(
+                                "INSERT OR IGNORE INTO concept_questions VALUES ("
+                                + ",".join("?" * len(_qr))
+                                + ")",
+                                tuple(_qr),
+                            )
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+                _concept_store._conn.commit()
+                logger.info(
+                    "Phase 96/F-36: migrated %d concept rows", _migrated,
+                )
+            _src.close()
+        except Exception as e:
+            logger.warning(
+                "Phase 96/F-36: concept migration skipped: %s — "
+                "starting with empty concepts.db", e,
+            )
+            try:
+                _concept_store.init(_concept_store_db_path)
+            except Exception:
+                pass
+    else:
+        _concept_store.init(_concept_store_db_path)
+
+    # Initialize antibody store (Phase 80: Immune System)
+    # F-37: previously never initialized — antibody saves silently failed
+    # because the worker catches RuntimeError at DEBUG level.
+    # Uses a dedicated antibodies.db file for the same reason concept_store
+    # got one (F-36): per-save commits on the shared settings.db hit
+    # writer-lock contention against pipeline_journal et al.
+    from codrag.services.antibody_store import antibody_store as _antibody_store
+    _antibody_store_db_path = db_path.parent / "codrag_antibodies.db"
+    _antibody_store.init(_antibody_store_db_path)
+
     from codrag.services.pipeline_orchestrator import pipeline_orchestrator as _pipeline
     crashed = _pipeline.startup_recovery()
     if crashed:
@@ -789,14 +891,28 @@ def configure(
                 # Check if deep enrichment needs to run (has graph but incomplete)
                 needs_deep = False
                 if has_graph and not is_stale and deep_mode == "auto":
-                    from codrag.core.epistemic_enrichment import EpistemicEnricher
-                    from codrag.core.project_registry import project_index_dir
-                    llm = _get_llm_client_for_task("enrichment")
-                    idx_dir = project_index_dir(proj)
-                    enricher = EpistemicEnricher(llm=llm, repo_root=Path(proj.path), index_dir=idx_dir)
-                    pending = enricher.get_pending_nodes(trace_idx)
-                    if pending:
-                        needs_deep = True
+                    # Phase 93: If this project shut down cleanly with no active
+                    # runs, pending enrichment nodes are steady-state — don't
+                    # auto-trigger deep enrichment. Without this check, projects
+                    # at 4% enrichment (42k pending nodes) get ghost deep
+                    # enrichment runs on every daemon restart.
+                    from codrag.services.pipeline.recovery import RecoveryManager
+                    was_clean = RecoveryManager.check_clean_shutdown_marker(proj.id)
+                    if was_clean:
+                        logger.info(
+                            "Startup auto-run: skipping deep enrichment for %s "
+                            "(clean shutdown marker — pending nodes are steady-state)",
+                            proj.name,
+                        )
+                    else:
+                        from codrag.core.epistemic_enrichment import EpistemicEnricher
+                        from codrag.core.project_registry import project_index_dir
+                        llm = _get_llm_client_for_task("enrichment")
+                        idx_dir = project_index_dir(proj)
+                        enricher = EpistemicEnricher(llm=llm, repo_root=Path(proj.path), index_dir=idx_dir)
+                        pending = enricher.get_pending_nodes(trace_idx)
+                        if pending:
+                            needs_deep = True
 
                 started = False
                 if needs_fast_sync and fast_auto and deep_mode == "auto":

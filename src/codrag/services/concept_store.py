@@ -216,11 +216,22 @@ class ConceptStore:
                 str(db_path),
                 check_same_thread=False,
                 isolation_level="DEFERRED",
-                timeout=10,
+                # Phase 96 / F-36: Bumped from 10s to 30s.  The previous
+                # 10s timeout fired during sustained busy periods (e.g.
+                # swarm finalize writes 26+ concepts in tight succession
+                # while pipeline_journal, pipeline_metadata, observation_
+                # store, audit_log are all writing to the same DB).
+                # 30s gives the busy_timeout enough room to wait through
+                # cross-store contention without raising SQLITE_BUSY.
+                timeout=30,
             )
             self._conn.row_factory = sqlite3.Row
-            self._conn.execute("PRAGMA journal_mode=WAL")
+            self._conn.execute("PRAGMA journal_mode=DELETE")
             self._conn.execute("PRAGMA synchronous=NORMAL")
+            # Phase 96 / F-36: Explicit busy_timeout pragma reinforces
+            # the connection-level timeout above.  SQLite uses the
+            # smaller of the two; setting both keeps behavior explicit.
+            self._conn.execute("PRAGMA busy_timeout=30000")
             self._create_tables()
             logger.info("Concept store initialized: %s", db_path)
 
@@ -437,6 +448,201 @@ class ConceptStore:
 
         logger.debug("Saved concept %s for %s: %s", concept_id, project_id, title)
         return concept_id
+
+    def save_many(
+        self,
+        project_id: str,
+        concepts: List[Dict[str, Any]],
+    ) -> tuple[int, int]:
+        """Phase 96 / F-36: Batch-save N concepts in a single transaction.
+
+        Resolves the SQLITE_BUSY contention that hit the swarm path:
+        previously each save() call opened its own transaction, and 26
+        rapid-fire transactions during a finalize stage collided with
+        cross-store writes (pipeline_journal, pipeline_metadata, etc.)
+        Now all concepts in one swarm batch land in a single BEGIN..
+        COMMIT pair, holding the writer lock once for the whole batch.
+
+        Each concept dict should have at minimum ``title`` and
+        ``content`` keys.  Optional keys: ``category``, ``status``,
+        ``confidence``, ``anchors``, ``tags``, ``cluster_id``,
+        ``assertion``, ``doc_links``.
+
+        Returns (saved_count, skipped_count).  Concepts with empty
+        title or content are skipped (logged at WARNING).  Concepts
+        whose title matches an existing non-archived entry for the
+        project are updated in place (same dedup behavior as save()).
+
+        Wraps the entire batch in a retry loop for transient SQLITE_BUSY:
+        if the batch fails because of database lock, it sleeps briefly
+        and retries up to 3 times.
+        """
+        if not concepts:
+            return (0, 0)
+
+        conn = self._require_conn()
+
+        # Pre-validate and normalize so the transaction body is fast.
+        normalized: List[Dict[str, Any]] = []
+        skipped = 0
+        for raw in concepts:
+            title = (raw.get("title") or "").strip()
+            content = (raw.get("content") or "").strip()
+            if not title or not content:
+                skipped += 1
+                logger.warning(
+                    "save_many skipped a concept with empty title or content",
+                )
+                continue
+            if len(content) > MAX_CONCEPT_CHARS:
+                content = content[:MAX_CONCEPT_CHARS]
+            category = raw.get("category", "technical")
+            if category not in VALID_CATEGORIES:
+                category = "technical"
+            status = raw.get("status", "seed")
+            if status not in VALID_STATUSES:
+                status = "seed"
+            normalized.append({
+                "title": title,
+                "content": content,
+                "category": category,
+                "status": status,
+                "confidence": float(raw.get("confidence") or 0.0),
+                "anchors_json": json.dumps(raw.get("anchors") or []),
+                "tags_json": json.dumps(raw.get("tags") or []),
+                "cluster_id": raw.get("cluster_id"),
+                "assertion": raw.get("assertion") or "",
+                "doc_links_json": json.dumps(raw.get("doc_links") or []),
+            })
+
+        if not normalized:
+            return (0, skipped)
+
+        saved = 0
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                with self._lock:
+                    saved = self._save_many_locked(conn, project_id, normalized)
+                break  # success
+            except sqlite3.OperationalError as e:
+                if "locked" not in str(e).lower() or attempt == max_retries - 1:
+                    logger.error(
+                        "save_many failed after %d attempts: %s",
+                        attempt + 1, e,
+                    )
+                    raise
+                wait = 0.25 * (2 ** attempt)  # 0.25, 0.5, 1.0
+                logger.warning(
+                    "save_many hit database lock (attempt %d/%d) — "
+                    "retrying in %.2fs",
+                    attempt + 1, max_retries, wait,
+                )
+                time.sleep(wait)
+
+        logger.info(
+            "save_many: saved %d concept(s), skipped %d for project %s",
+            saved, skipped, project_id,
+        )
+        return (saved, skipped)
+
+    def _save_many_locked(
+        self,
+        conn: sqlite3.Connection,
+        project_id: str,
+        normalized: List[Dict[str, Any]],
+    ) -> int:
+        """Inner save_many body — assumes self._lock is held.
+
+        Performs the entire batch in one transaction.  Concepts whose
+        title matches an existing non-archived entry are updated;
+        the rest are inserted with new UUIDs.
+        """
+        saved = 0
+        now = time.time()
+
+        # Eviction: count how many we'll add and pre-evict if needed.
+        cur_count = conn.execute(
+            "SELECT COUNT(*) AS cnt FROM concepts WHERE project_id = ?",
+            (project_id,),
+        ).fetchone()["cnt"]
+        projected = cur_count + len(normalized)
+        if projected > MAX_CONCEPTS_PER_PROJECT:
+            self._evict_oldest(
+                conn, project_id, projected - MAX_CONCEPTS_PER_PROJECT,
+            )
+
+        for entry in normalized:
+            title = entry["title"]
+            content = entry["content"]
+
+            # Dedup: title match against existing non-archived
+            existing = conn.execute(
+                """SELECT id FROM concepts
+                   WHERE project_id = ? AND title = ? AND status != 'archived'
+                   LIMIT 1""",
+                (project_id, title),
+            ).fetchone()
+
+            if existing:
+                conn.execute(
+                    """UPDATE concepts
+                       SET content = ?, category = ?, confidence = ?,
+                           anchors = ?, tags = ?, cluster_id = ?,
+                           updated_at = ?, stale = 0, stale_reason = NULL,
+                           valid_from = ?, valid_to = NULL,
+                           assertion = ?, doc_links = ?, superseded_by = NULL
+                       WHERE id = ?""",
+                    (
+                        content, entry["category"], entry["confidence"],
+                        entry["anchors_json"], entry["tags_json"],
+                        entry["cluster_id"], now, now,
+                        entry["assertion"], entry["doc_links_json"],
+                        existing["id"],
+                    ),
+                )
+                try:
+                    conn.execute(
+                        "DELETE FROM concepts_fts WHERE id = ?",
+                        (existing["id"],),
+                    )
+                    conn.execute(
+                        "INSERT INTO concepts_fts (title, content, id) "
+                        "VALUES (?, ?, ?)",
+                        (title, content, existing["id"]),
+                    )
+                except sqlite3.OperationalError:
+                    pass
+            else:
+                concept_id = uuid.uuid4().hex[:12]
+                conn.execute(
+                    """INSERT INTO concepts
+                       (id, project_id, title, content, category, status,
+                        confidence, anchors, tags, cluster_id, created_at,
+                        stale, valid_from, assertion, doc_links, superseded_by)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, NULL)""",
+                    (
+                        concept_id, project_id, title, content,
+                        entry["category"], entry["status"], entry["confidence"],
+                        entry["anchors_json"], entry["tags_json"],
+                        entry["cluster_id"], now, now,
+                        entry["assertion"], entry["doc_links_json"],
+                    ),
+                )
+                try:
+                    conn.execute(
+                        "INSERT INTO concepts_fts (title, content, id) "
+                        "VALUES (?, ?, ?)",
+                        (title, content, concept_id),
+                    )
+                except sqlite3.OperationalError:
+                    pass
+            saved += 1
+
+        # Single commit for the whole batch — this is the whole point
+        # of save_many vs N independent save() calls.
+        conn.commit()
+        return saved
 
     def update(
         self,

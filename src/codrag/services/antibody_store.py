@@ -56,11 +56,12 @@ class AntibodyStore:
                 str(db_path),
                 check_same_thread=False,
                 isolation_level="DEFERRED",
-                timeout=10,
+                timeout=30,
             )
             self._conn.row_factory = sqlite3.Row
-            self._conn.execute("PRAGMA journal_mode=WAL")
+            self._conn.execute("PRAGMA journal_mode=DELETE")
             self._conn.execute("PRAGMA synchronous=NORMAL")
+            self._conn.execute("PRAGMA busy_timeout=30000")
             self._create_tables()
             logger.info("Antibody store initialized: %s", db_path)
 
@@ -131,6 +132,45 @@ class AntibodyStore:
                 ),
             )
             conn.commit()
+
+    def save_many(self, project_id: str, antibodies: List[Antibody]) -> int:
+        """Batch-save antibodies in a single transaction.
+
+        F-37: per-antibody commits hit writer-lock contention on the
+        shared settings.db (each save took ~10s busy_timeout). One
+        transaction holds the lock once for the whole batch.
+        """
+        if not antibodies:
+            return 0
+        conn = self._require_conn()
+        rows = [
+            (
+                ab.id,
+                project_id,
+                ab.name,
+                ab.source_concept_id,
+                json.dumps(ab.trigger.to_dict()),
+                json.dumps(ab.response.to_dict()),
+                ab.severity.value,
+                ab.status,
+                ab.created_at,
+                ab.last_triggered,
+                ab.trigger_count,
+                ab.dismiss_count,
+            )
+            for ab in antibodies
+        ]
+        with self._lock:
+            conn.executemany(
+                """INSERT OR REPLACE INTO antibodies
+                   (id, project_id, name, source_concept_id,
+                    trigger_json, response_json, severity, status,
+                    created_at, last_triggered, trigger_count, dismiss_count)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                rows,
+            )
+            conn.commit()
+        return len(rows)
 
     def update_status(self, antibody_id: str, status: str) -> bool:
         """Update the status of an antibody. Returns True if it existed."""
