@@ -103,18 +103,6 @@ export const RESEARCH_SOURCES: ResearchSource[] = [
     spotlight: false,
   },
   {
-    id: 'context-discipline-correlation',
-    type: 'paper',
-    title: 'Context Discipline and Performance Correlation',
-    venue: 'arXiv 2025',
-    year: 2025,
-    url: 'https://arxiv.org/abs/2601.11564',
-    arxivId: '2601.11564',
-    usage: 'Documents latency cliffs past ~15K words \u2014 informs CoDRAG\u2019s per-client char-budget caps.',
-    problemArea: 'retrieval',
-    spotlight: false,
-  },
-  {
     id: 'rag-survey',
     type: 'paper',
     title: 'Retrieval-Augmented Code Generation: A Survey',
