@@ -3,6 +3,8 @@ export { FeatureBlocks, codragFeatures, marketingFeatures, type FeatureBlocksPro
 export { TierComparison, tierComparisonFeatures, type TierComparisonProps, type TierFeature } from './TierComparison';
 export { TechStackMatrix, techStackComponents, type TechStackMatrixProps, type StackComponent } from './TechStackMatrix';
 export { CompetitorMatrix, type CompetitorMatrixProps } from './CompetitorMatrix';
+export { DetailPageLayout } from './DetailPageLayout';
+export type { DetailPageLayoutProps, DetailPageSection } from './DetailPageLayout';
 export {
   SourceCard,
   SourceSpotlight,
