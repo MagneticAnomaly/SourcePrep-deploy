@@ -165,8 +165,10 @@ export { PanelChrome, DashboardGrid, PanelPicker, ModularDashboard, useLayoutPer
 export type { PanelChromeProps, DashboardGridProps, PanelPickerProps, ModularDashboardProps, PanelContentMap, DashboardLayoutApi } from './components/layout';
 
 // Components - Marketing & Site (Phase 12)
-export { MarketingHero, FeatureBlocks, codragFeatures, marketingFeatures, TierComparison, tierComparisonFeatures, TechStackMatrix, techStackComponents, CompetitorMatrix } from './components/marketing';
-export type { MarketingHeroProps, FeatureBlocksProps, Feature, TierComparisonProps, TierFeature, TechStackMatrixProps, StackComponent, CompetitorMatrixProps } from './components/marketing';
+export { MarketingHero, FeatureBlocks, codragFeatures, marketingFeatures, TierComparison, tierComparisonFeatures, TechStackMatrix, techStackComponents, CompetitorMatrix, SourceCard, SourceSpotlight, ResearchHero, SourceFilterChips, ResearchAppendix, ResearchSection } from './components/marketing';
+export type { MarketingHeroProps, FeatureBlocksProps, Feature, TierComparisonProps, TierFeature, TechStackMatrixProps, StackComponent, CompetitorMatrixProps, SourceCardProps, SourceSpotlightProps, ResearchHeroProps, SourceFilterChipsProps, FilterValue, ResearchAppendixProps, ResearchSectionProps } from './components/marketing';
+export { RESEARCH_SOURCES, validateResearchSources } from './data/researchSources';
+export type { ResearchSource, SourceType, ProblemArea } from './data/researchSources';
 export { SiteHeader, SiteFooter, XIcon } from './components/site';
 export type { SiteHeaderProps, SiteFooterProps, NavLink, FooterSection, FooterLink } from './components/site';
 
