@@ -51,9 +51,10 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-32 | Pipeline log "Batch synthesis failed" markers in module summaries | 🔵 NOT-A-BUG (data quality from older clustering run) | — |
 | F-33 | rust_repo structural rebuild produces fewer nodes than existing file (write guard blocks) | 🟡 OPEN (Phase 70B working as designed but inconvenient for fixture) | — |
 | F-34 | Swarm window cooldown (45s) blocks re-opening but doesn't reduce batch budget | ✅ NOT-A-BUG (cooldown only blocks new windows; budget query still returns full) | — |
-| F-35 | Daemon-runtime swarm call hangs even with `think=false` (works in isolation) | 🟡 OPEN — **NEW**, blocks 96F end-to-end validation | (see entry below) |
+| F-35 | "Daemon-runtime swarm hang" — was actually F-11 polling storm | 🔵 NOT-A-BUG (misdiagnosis, see entry) | — |
+| F-36 | SQLite "database is locked" blocks swarm concept saves (26 generated, 0 saved) | 🟡 OPEN — **NEW**, blocks concept persistence | — |
 
-Total: **35 findings**, **22 fixed**, **10 open**, **2 deferred**, **1 not-a-bug**.
+Total: **36 findings**, **22 fixed**, **10 open**, **2 deferred**, **2 not-a-bug**.
 
 ---
 
@@ -338,7 +339,71 @@ This is confusing — same code path, same model, different behavior in daemon v
 
 ### F-35 — Daemon-runtime swarm call hangs even with think=false
 
-**Status:** 🟡 OPEN — **NEW FINDING**
+**Status:** 🔵 NOT-A-BUG — **MISDIAGNOSIS, was actually F-11**
+
+**Resolution:** Reproduced in isolation against `scripts/troubleshoot.sh` (daemon-only, no dashboard). Result: full finalize completed in **163 seconds with the daemon never hanging once**:
+
+```
+[Swarm/Concepts] Fan-out: 5 modules across 10 workers (model=kimi-k2.5:cloud)
+[Swarm] Coordinator planned 5 assignments (707 tokens)         (16s)
+[Swarm] Fan-out complete: 5/5 workers succeeded                (65s)
+[Swarm] Synthesis complete (6277 tokens)                       (71s)
+Pipeline finalize completed in 163.1s
+```
+
+`/health` responded in 2-6ms throughout the entire 163-second swarm run. No thread pool exhaustion, no daemon hang.
+
+**The "hang" we observed earlier with `scripts/dev.sh` was 100% F-11** (dashboard polling storm). With the dashboard polling `/health`, `/llm/slots/status`, `/projects/{id}/...` at multiple polls per second while swarm workers held LLM connections, the FastAPI thread pool exhausted and the daemon appeared hung — but the underlying swarm machinery was working correctly the whole time.
+
+**Lessons:**
+1. **Always test runtime bugs in isolation first.** `scripts/troubleshoot.sh` (added in this session) starts daemon-only without dashboard. Use it for any reproduction work.
+2. **Don't trust "daemon hung" symptoms when the dashboard is running** — they almost always come from F-11.
+3. **Three of our previous "hang" finds were probably this same issue.** The 11+ minute coordinator hang on rust_repo earlier today was real (thinking-mode budget exhaustion, F-29). But the subsequent "always hangs" pattern was F-11 amplifying a slower-than-expected LLM call.
+
+The five hypotheses listed in the original F-35 entry are now moot. None of them was the cause.
+
+---
+
+### F-36 — SQLite "database is locked" blocks concept saves
+
+**Status:** 🟡 OPEN — **NEW**, blocks concept persistence
+
+**Symptom:** During the F-35 isolation test, the swarm path successfully generated 26 concepts via fan-out + raw merge fallback, but **0 of them were saved to the ConceptStore**:
+
+```
+[Swarm/Concepts] Synthesis empty; merged 26 concepts from 5 worker outputs
+[Swarm/Concepts] Complete for 0c50e42e-...: 0 concepts, 0 questions, 5/5 workers succeeded
+```
+
+Daemon log shows 26 individual save warnings:
+```
+WARNING:codrag.core.concept_seeder:Failed to save concept 'Deactivation as soft-delete...': database is locked
+WARNING:codrag.core.concept_seeder:Failed to save concept 'Single-file domain model...': database is locked
+... (20+ more)
+```
+
+**Root cause hypothesis:** SQLite WAL mode + multiple concurrent writers. The concept_store uses the same SQLite database (`codrag_settings.db`) as several other components:
+- pipeline_journal (writes run start/end events)
+- pipeline_history (records completed runs)
+- pipeline_metadata (writes heartbeats every 60s)
+- observation_store
+- concept_store
+- audit_log
+- settings_store
+
+During a swarm finalize, multiple of these are writing simultaneously. SQLite serializes writes via a single writer lock; under contention, BEGIN IMMEDIATE returns SQLITE_BUSY → "database is locked".
+
+**Phase 92 partial fix:** Phase 92 added WAL checkpoint on startup/shutdown and increased connection-level timeouts to 10s. That helps but doesn't eliminate contention during sustained busy periods.
+
+**Why this is now visible:** Before Phase 96F, swarm wasn't producing 26 concepts in a tight loop. Sequential `seed_concepts` did one big save call per concept. Now the swarm fallback path saves 26 in a row, hitting the database lock window every time.
+
+**Fix options:**
+1. **Batch the concept saves** — `concept_store.save_many()` that wraps all 26 in a single transaction. Reduces lock contention from N transactions to 1.
+2. **Bump SQLite busy_timeout** for the concept_store connection from 10s to 30s.
+3. **Retry-on-locked wrapper** around save() — sleep 100-500ms and retry up to 3 times.
+4. **Move concept_store to its own SQLite file** — separate from settings/journal/history. Eliminates cross-table contention.
+
+**Recommended:** Combination of (1) batch save + (3) retry wrapper as defense-in-depth. (4) is the cleanest long-term fix but bigger refactor.
 
 **Symptom:** Identical LLMClient code path takes 1.3s in standalone Python but >90s when invoked from inside the daemon's concept_seeder swarm worker. Multiple simultaneous worker calls (10 parallel) hang the daemon entirely.
 
@@ -422,14 +487,14 @@ WRITE GUARD BLOCKED stage structural for ...
 
 | ID | Title | Priority |
 |---|---|---|
-| F-35 | Daemon-runtime swarm hang (works in isolation) | **CRITICAL** — blocks 96F end-to-end validation |
-| F-11 | Dashboard polling storm exhausts thread pool | **HIGH** — blocks dashboard reliability (related to F-35) |
-| F-29 | Thinking-model swallows num_predict budget | ⚠️ partial fix shipped (`c4e9fe68`); see F-35 for daemon hang |
+| F-11 | Dashboard polling storm exhausts thread pool | **CRITICAL** — root cause of "daemon hang" symptoms; was misdiagnosed as F-35 |
+| F-36 | SQLite database lock blocks swarm concept saves | **HIGH** — 26 concepts generated, 0 persisted |
+| F-29 | Thinking-model swallows num_predict budget | ✅ fix shipped (`c4e9fe68`); validated in F-35 isolation test |
 | F-28 | AIMD doesn't recover from backoff | MEDIUM — needs daemon restart workaround |
 | F-14 | `SettingsStore.get_global` AttributeError | LOW — non-fatal log noise |
 | F-15 | Pre-existing budget/journal test failures | LOW — out of scope |
 | F-30 | Vite proxy connection accumulation | (manifestation of F-11) |
-| F-31 | SQLite "database is locked" warnings | LOW — Phase 92 partial fix |
+| F-31 | SQLite "database is locked" warnings | (now folded into F-36) |
 | F-33 | rust_repo structural rebuild blocked by write guard | LOW — workaround exists |
 
 ---
