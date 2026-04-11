@@ -60,9 +60,13 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-41 | `/system/pipeline-queue` blocks under long-running stage (holds scheduler lock?) — `/health` stays fast but queue hangs 30s+ | 🟡 OPEN | — |
 | F-42 | `GraphEnrichmentPipeline` panel: every stage gated on `trace.enabled` (auto-build flag) instead of `trace.exists` — completed stages rendered as "Disabled" / "Waiting for X" | ✅ FIXED | (this commit) |
 | F-43 | Index build progress callback fires at file START, leaving bar "stuck" at previous % during slow file (e.g. 7s+ on a big markdown file) — UX shows no progression | 🟡 OPEN | — |
-| F-44 | 2-tone incremental progress bar dead code: 14/15 stage workers never pass `baseline` to `progress_cb`, so `slot_progress.baseline` stays 0 and `StageProgressBar` always renders single-tone | 🟡 OPEN | — |
+| F-44 | 2-tone incremental progress bar dead code: 14/15 stage workers never pass `baseline` to `progress_cb`, so `slot_progress.baseline` stays 0 and `StageProgressBar` always renders single-tone | 🟡 PARTIAL — knowledge stage wired (`73c33828`); 6 stages remain | (this commit) |
+| F-45 | `_start_project_knowledge_build` import fails — name doesn't exist in `codrag.server`, every `/knowledge/build` request returned 500 | ✅ FIXED | (this commit) |
+| F-46 | Structural worker tries to mutate frozen `Project` dataclass — `FrozenInstanceError`, blocks all `/pipeline/fast` runs | ✅ FIXED | (this commit) |
+| F-47 | `/pipeline/fast` gate doesn't recognize `phase=cancelled` — cancelled deep_enrichment runs block all subsequent fast_sync attempts until daemon restart | 🟡 OPEN | — |
+| F-48 | `/pipeline/rebuild` timed out >5s on rust_repo — endpoint may be doing synchronous work that should be backgrounded | 🟡 OPEN | — |
 
-Total: **45 findings**, **35 fixed**, **5 open**, **2 deferred**, **2 not-a-bug**. (F-43 + F-44 added during progress bar verification — see below.)
+Total: **48 findings**, **37 fixed**, **6 open**, **2 deferred**, **2 not-a-bug**. (F-43 + F-44 added during progress bar verification; F-45 + F-46 + F-47 + F-48 surfaced while validating F-44 end-to-end.)
 
 ---
 
