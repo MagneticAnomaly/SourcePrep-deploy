@@ -49,7 +49,7 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-30 | Vite proxy connection accumulation (60+ ESTABLISHED to daemon) | ✅ FIXED via F-11 | (in-flight guards eliminate stacking) |
 | F-31 | SQLite "database is locked" warnings on busy daemon | ✅ FIXED via F-36/F-37 | (concept_store + antibody_store moved to dedicated DB files) |
 | F-32 | Pipeline log "Batch synthesis failed" markers in module summaries | 🔵 NOT-A-BUG (data quality from older clustering run) | — |
-| F-33 | rust_repo structural rebuild produces fewer nodes than existing file (write guard blocks) | 🟡 OPEN (Phase 70B working as designed but inconvenient for fixture) | — |
+| F-33 | rust_repo structural rebuild produces fewer nodes than existing file (write guard blocks) | ✅ FIXED via F-51 + F-52 | (Danger Zone Rebuild now bypasses write guard) |
 | F-34 | Swarm window cooldown (45s) blocks re-opening but doesn't reduce batch budget | ✅ NOT-A-BUG (cooldown only blocks new windows; budget query still returns full) | — |
 | F-35 | "Daemon-runtime swarm hang" — was actually F-11 polling storm | 🔵 NOT-A-BUG (misdiagnosis, see entry) | — |
 | F-36 | SQLite "database is locked" blocks swarm concept saves (26 generated, 0 saved) | ✅ FIXED | (this commit) |
@@ -67,8 +67,10 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-48 | `/pipeline/rebuild` timed out >5s on rust_repo — endpoint may be doing synchronous work that should be backgrounded | 🟡 OPEN | — |
 | F-49 | 5 trace READ endpoints (`/trace/coverage`, `/trace/search` × 2, `/trace/node`, `/trace/neighbors`) raise `TRACE_DISABLED` when `config.trace.enabled=False`, ignoring on-disk graph — disconnects Graph Scope panel | ✅ FIXED | (this commit) |
 | F-50 | `/projects/{id}/search` `trace_expand` skipped when `trace.enabled=false`, even with built graph on disk — same root-cause class | ✅ FIXED | (this commit) |
+| F-51 | Write guard blocks Danger Zone Rebuild — `force_from_start=True` not honored, shrinkage check fires anyway | ✅ FIXED | (this commit) |
+| F-52 | `force_from_start=True` silently undone by backup-restore-then-redetect path — Danger Zone Rebuild completed in 0.0s without doing any work | ✅ FIXED | (this commit) |
 
-Total: **50 findings**, **39 fixed**, **6 open**, **2 deferred**, **2 not-a-bug**. (F-50 surfaced during the trace.enabled audit — fourth and final instance of the F-39 root-cause class.)
+Total: **52 findings**, **42 fixed**, **5 open**, **2 deferred**, **2 not-a-bug**. (F-51 + F-52 closed F-33: the Danger Zone "Rebuild" button now actually rebuilds.)
 
 ---
 

@@ -590,9 +590,17 @@ class PipelineOrchestrator:
                     "resume_point": resume,
                     "resume_stage": FAST_SYNC_STAGES[resume].value,
                 })
-        elif not incremental:
+        elif not incremental and not force_from_start:
             # Phase 60D: Before starting from scratch, check for backups.
             # ASSUME data exists somewhere — check backups before rebuilding.
+            #
+            # F-52: Skip the backup-restore path entirely when the caller
+            # passed force_from_start=True (Danger Zone "Rebuild" button).
+            # Restoring from backup and re-detecting the resume point silently
+            # undoes the user's explicit "throw away the existing data and
+            # start over" request — every prior Phase 60D restore-then-resume
+            # cycle would land at stage 5/5 (all done) and the rebuild would
+            # complete in 0.0s without doing any work.
             restored = self._try_restore_from_backup(project_id, FAST_SYNC_STAGES, pfl)
             if restored:
                 # Backup restored — re-detect resume point from the restored data
@@ -608,6 +616,15 @@ class PipelineOrchestrator:
                         "reason": "No stages complete on disk AND no backup found — starting from scratch",
                         "resume_point": 0,
                     })
+        elif force_from_start:
+            # F-52: explicit log so the pipeline file logger captures the
+            # decision to skip backup restoration on user-triggered rebuild.
+            if pfl:
+                pfl.decision("mode_selection", "force_from_start_skip_backup", {
+                    "group": "fast_sync",
+                    "reason": "Caller requested force_from_start=True — skipping backup restore",
+                    "resume_point": 0,
+                })
         if incremental:
             # Track that this is an incremental run so that:
             # 1. _detect_resume_point skips mtime cascade for deep_enrichment
@@ -2692,6 +2709,13 @@ class PipelineOrchestrator:
         Compares post-stage file state against the pre-flight snapshot.
         Raises _WriteGuardBlocked if data would be lost. The pipeline
         should only grow the graph, never shrink it.
+
+        F-33 / F-51: When the user explicitly triggered a force-from-start
+        rebuild (e.g. by clicking Rebuild from the Danger Zone), the write
+        guard's "shrinkage = data loss" assumption is wrong: the user
+        WANTS to throw away the old data and start fresh, including
+        accepting fewer nodes if the parser/scope produces them. We
+        log the would-be block but allow it through in that mode.
         """
         try:
             from codrag.services.pipeline_integrity import (
@@ -2717,7 +2741,25 @@ class PipelineOrchestrator:
             )
 
             if blocked:
-                # Attempt auto-recovery before giving up
+                # F-33 / F-51: explicit user-triggered rebuild bypasses
+                # the shrinkage block.  The Danger Zone "Rebuild" button
+                # passes force_from_start=True to run_all() which adds
+                # the project_id to _force_from_start_runs for the
+                # duration of the run.
+                if run.project_id in self._force_from_start_runs:
+                    logger.warning(
+                        "Write guard: BYPASSED for stage %s/%s — "
+                        "force-from-start rebuild allows shrinkage (%s)",
+                        stage.value, run.project_id, reason,
+                    )
+                    if pfl:
+                        pfl.log(
+                            stage.value,
+                            f"Write guard: BYPASSED (force rebuild): {reason}",
+                        )
+                    return
+
+                # Otherwise, attempt auto-recovery before giving up
                 recovered = self._attempt_write_guard_recovery(
                     run, stage, post_files, reason, pfl,
                 )
