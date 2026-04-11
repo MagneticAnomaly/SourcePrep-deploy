@@ -59,8 +59,10 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-40 | `AutoRebuildWatcher._is_relevant` used `Path.match()` which doesn't honor `**` — directory excludes silently broken | ✅ FIXED | (this commit) |
 | F-41 | `/system/pipeline-queue` blocks under long-running stage (holds scheduler lock?) — `/health` stays fast but queue hangs 30s+ | 🟡 OPEN | — |
 | F-42 | `GraphEnrichmentPipeline` panel: every stage gated on `trace.enabled` (auto-build flag) instead of `trace.exists` — completed stages rendered as "Disabled" / "Waiting for X" | ✅ FIXED | (this commit) |
+| F-43 | Index build progress callback fires at file START, leaving bar "stuck" at previous % during slow file (e.g. 7s+ on a big markdown file) — UX shows no progression | 🟡 OPEN | — |
+| F-44 | 2-tone incremental progress bar dead code: 14/15 stage workers never pass `baseline` to `progress_cb`, so `slot_progress.baseline` stays 0 and `StageProgressBar` always renders single-tone | 🟡 OPEN | — |
 
-Total: **43 findings**, **35 fixed**, **3 open**, **2 deferred**, **2 not-a-bug**. (F-39 + F-40 + F-42 fixed; F-41 added during CoDRAG self-swarm validation.)
+Total: **45 findings**, **35 fixed**, **5 open**, **2 deferred**, **2 not-a-bug**. (F-43 + F-44 added during progress bar verification — see below.)
 
 ---
 
@@ -497,6 +499,84 @@ antibodies = derive_antibodies_for_project(concept_dicts)
 ```
 
 `Concept.to_dict()` already exposes the required `id`, `title`, `content`, `category`, `anchors`, `assertion` fields.
+
+---
+
+### F-43 — Index build progress bar appears stuck on slow files
+
+**Status:** 🟡 OPEN
+
+**Symptom:** When the user clicks **Rebuild** on a project, the bar in `IndexStatusCard` (top of card) appears stuck at one percentage (e.g. `20%` for `AGENTS.md`) for many seconds, then suddenly sweeps through the remaining files in well under a second. Eric: "the UI is updating faster and not hanging, but also it never really loads the current state and looks to be in a broken state."
+
+**Verified via SSE listener** (`/tmp/sse_listener.py`) — force rebuild on rust_repo, listening on `/events`:
+```
+[ 1.62s]  20% Indexing AGENTS.md          ← file 1 starts
+[10.16s]  40% Indexing README.md          ← AGENTS.md took 8.5s, file 2 starts
+[10.36s]  60% Indexing src/main.rs        ← +0.2s
+[10.56s]  80% Indexing src/models.rs      ← +0.2s
+[10.96s] 100% Indexing src/service.rs     ← +0.4s
+```
+
+So the daemon IS sending one event per file with correct percentages. But the callback fires at the *start* of each file's processing (`src/codrag/core/index.py:463`):
+```python
+for i, file_path in enumerate(filtered_files):
+    rel_path = ...
+    if progress_callback:
+        progress_callback(rel_path, i + 1, total_files)
+    # ... reading + chunking + embedding happens AFTER
+```
+
+This means a slow file leaves the bar at the *previous* percentage for the entire duration. For `AGENTS.md`, the bar reads `20% (1/5)` for 8.5 seconds — looks frozen even though the daemon is correctly working through file 1.
+
+**Fix options (none shipped yet):**
+1. **Move callback to end of loop** — bar shows "completed N files" instead of "starting file N+1". Still has the slow-file freeze, but at least the bar updates after long work.
+2. **Sub-file progress** — emit progress per *chunk*, not per file. A 50-chunk file fires 50 events instead of 1.
+3. **Heartbeat events** — emit a "still working on N" event every 2-3 seconds during a slow file so the bar doesn't appear frozen.
+
+(2) is the most user-visible but most invasive. (3) is the smallest fix.
+
+---
+
+### F-44 — 2-tone incremental progress bar is dead code in 14/15 stages
+
+**Status:** 🟡 OPEN
+
+**Symptom:** Eric: "test the incremental and you should see 2-toned progress bars". On an incremental build (where some files are reused from cache and some are new), the dashboard's `StageProgressBar` *should* render a green section (already-done) plus an orange section (currently being re-processed). Instead, every stage renders single-tone blue regardless.
+
+**Root cause:** The 2-tone path in `StageProgressBar` activates only when the `rerun` prop is set, which the panel computes via `computeStageRerun(progress_baseline, progress_total)`. The dashboard reads `progress_baseline` from `/projects/{id}/pipeline/status → stages.{name}.slot_progress.baseline`, which the daemon populates from `BuildSlot.progress_baseline`. That field is updated by `progress_cb(message, current, total, baseline=N)` in `services/build_orchestrator.py:353`:
+
+```python
+def progress_cb(message: str, current: int, total: int, baseline: int = 0) -> None:
+    slot.progress_message = message
+    slot.progress_current = current
+    slot.progress_total = total
+    if baseline > 0:
+        slot.progress_baseline = baseline
+```
+
+`baseline` defaults to 0. **The only file in the entire codebase that ever passes `baseline > 0` is `src/codrag/core/epistemic_enrichment.py:781`.** Every other worker calls `progress_cb(msg, cur, tot)` with no fourth arg.
+
+So 14 of the 15 stages in the Graph Enrichment panel always have `baseline = 0` → `computeStageRerun` returns undefined → `StageProgressBar` always renders single-tone. The 2-tone capability is implemented end-to-end in the UI but never reaches it.
+
+**Stages that should support 2-tone (when their work has reuse semantics):**
+- Structural Graph (rust trace builder reuses unchanged file ASTs)
+- Edge Discovery (reuses cached edges per source file)
+- Fast Catalogue (reuses cached node augmentations)
+- Knowledge Embedding (reuses cached embeddings)
+- Module Synthesis (reuses cached module summaries)
+- Concepts (skips already-seeded modules)
+- Audit (reuses cached findings)
+
+**Fix sketch:** Each of these workers tracks "items already complete from prior runs" — surface that count as `baseline` in the `progress_cb` call:
+```python
+log_cb("Augmenting nodes", current=processed, total=total_nodes, baseline=already_augmented)
+```
+
+Then `_logged_progress` (already supports a 4th `baseline` arg) forwards to the orchestrator's `progress_cb`, the slot field updates, the API exposes it, and the UI's existing 2-tone code path activates.
+
+This is a one-line change per worker (~7 workers), but each requires understanding the worker's reuse semantics so the baseline number is correct.
+
+**Demo path:** The cleanest stage to wire up first is probably `_knowledge_worker` (knowledge embedding) since it has clear "X cached chunks + Y new chunks = Z total" semantics. After fixing one stage, the user can see a real 2-tone bar.
 
 ---
 
