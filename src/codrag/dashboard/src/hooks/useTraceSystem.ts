@@ -720,11 +720,24 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   }, [api, selectedProjectId, shouldAutoWatch])
 
   // ── Polling: trace coverage during build ─────────────────────
+  // F-11: bumped 3s -> 8s with document.hidden pause + in-flight guard.
+  // /trace/coverage does a filesystem scan; previously this could
+  // pile up requests when multiple stages were running concurrently.
   useEffect(() => {
     if (!selectedProjectId || !traceStatus.building || deps.isHydrating) return
-    const interval = setInterval(() => { fetchTraceCoverage() }, 3000)
+    let inFlight = false
+    const tick = async () => {
+      if (document.hidden || inFlight) return
+      inFlight = true
+      try {
+        await fetchTraceCoverage()
+      } finally {
+        inFlight = false
+      }
+    }
+    const interval = setInterval(tick, 8000)
     return () => clearInterval(interval)
-  }, [selectedProjectId, traceStatus.building, fetchTraceCoverage])
+  }, [selectedProjectId, traceStatus.building, fetchTraceCoverage, deps.isHydrating])
 
   // ── Return ──────────────────────────────────────────────────
 

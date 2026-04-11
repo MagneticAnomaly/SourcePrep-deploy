@@ -198,13 +198,16 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     // initiate it ourselves (handleBuild already has its own poll loop).
     if (!ps?.building || buildingProjects.has(selectedProjectId)) return
 
-    const poll = setInterval(async () => {
+    // F-11: bumped 2s -> 5s, added document.hidden pause + in-flight guard.
+    let inFlight = false
+    const tick = async () => {
+      if (document.hidden || inFlight) return
+      inFlight = true
       try {
         const status = await api.getProjectStatus(selectedProjectId)
         setProjectStatuses((prev) => ({ ...prev, [selectedProjectId]: status }))
         if (!status.building) {
           clearInterval(poll)
-          // Transient complete state for 5s
           setTransientCompleteProjects((prev) => new Set(prev).add(selectedProjectId))
           setTimeout(() => {
             setTransientCompleteProjects((prev) => {
@@ -217,8 +220,11 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
         }
       } catch {
         // Silently ignore poll errors
+      } finally {
+        inFlight = false
       }
-    }, 2000)
+    }
+    const poll = setInterval(tick, 5000)
 
     return () => clearInterval(poll)
   }, [api, selectedProjectId, projectStatuses, buildingProjects])
@@ -240,6 +246,29 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
       throw e
     }
   }, [api])
+
+  const handleArchiveProject = useCallback(async (projectId: string) => {
+    try {
+      const { project } = await api.archiveProject(projectId)
+      setSelectedProjectId((prev) => prev === projectId ? null : prev)
+      await refreshProjects()
+      return project
+    } catch (e) {
+      onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t archive project.', 'error')
+      throw e
+    }
+  }, [api, refreshProjects])
+
+  const handleUnarchiveProject = useCallback(async (projectId: string) => {
+    try {
+      const { project } = await api.unarchiveProject(projectId)
+      await refreshProjects()
+      return project
+    } catch (e) {
+      onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t unarchive project.', 'error')
+      throw e
+    }
+  }, [api, refreshProjects])
 
   const handleDeleteProject = useCallback(async (projectId: string, purge: boolean = false) => {
     try {
@@ -507,6 +536,8 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     refreshStatus,
     // Actions
     handleAddProject,
+    handleArchiveProject,
+    handleUnarchiveProject,
     handleDeleteProject,
     handleBuild,
     handleSaveConfig,

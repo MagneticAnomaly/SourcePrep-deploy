@@ -103,7 +103,7 @@ function App() {
 
     // Start polling once connected (StartupScreen handles the initial wait)
     if (isConnected) {
-      interval = setInterval(checkHealth, 2000)
+      interval = setInterval(checkHealth, 5000)
       checkHealth()
       document.addEventListener('visibilitychange', onVisibilityChange)
     }
@@ -510,16 +510,26 @@ function App() {
   }, [api, selectedProjectId])
 
 
-  // Poll scheduler status every 5s when connected
+  // Poll scheduler status when connected.
+  // F-11: bumped 5s -> 10s and added document.hidden pause +
+  // in-flight guard to stop request stacking when the daemon is busy.
   useEffect(() => {
     if (!isConnected) return
-    const poll = () => {
-      api.getSchedulerStatus()
-        .then(setSchedulerStatus)
-        .catch(() => { })
+    let inFlight = false
+    const poll = async () => {
+      if (document.hidden || inFlight) return
+      inFlight = true
+      try {
+        const s = await api.getSchedulerStatus()
+        setSchedulerStatus(s)
+      } catch {
+        // ignore
+      } finally {
+        inFlight = false
+      }
     }
-    poll()
-    const interval = setInterval(poll, 5000)
+    void poll()
+    const interval = setInterval(poll, 10000)
     return () => clearInterval(interval)
   }, [isConnected, api])
 
@@ -720,11 +730,22 @@ function App() {
   useEffect(() => {
     if (!selectedProjectId || !anyPipelineRunning || hydration.isHydrating) return
     const signal = hydration.signal
-    const interval = setInterval(() => {
-      if (!signal.aborted) void fetchProvenance(signal)
-    }, 10_000)
+    // F-11: bumped 10s -> 15s, added document.hidden pause +
+    // in-flight guard. /pipeline/provenance is an expensive
+    // aggregation endpoint that combines all stages.
+    let inFlight = false
+    const tick = async () => {
+      if (document.hidden || inFlight || signal.aborted) return
+      inFlight = true
+      try {
+        await fetchProvenance(signal)
+      } finally {
+        inFlight = false
+      }
+    }
+    const interval = setInterval(tick, 15_000)
     return () => clearInterval(interval)
-  }, [selectedProjectId, anyPipelineRunning, fetchProvenance, hydration.signal])
+  }, [selectedProjectId, anyPipelineRunning, fetchProvenance, hydration.signal, hydration.isHydrating])
 
   // ── Project limit ───────────────────────────────────────────
   // Free tier: hard cap of 1 total project.

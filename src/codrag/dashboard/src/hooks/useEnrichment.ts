@@ -488,14 +488,29 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     const anyRunning = inferredEdgesRunning || augmenting || epistemicRunning || groupReasoningRunning || clusterRunning || atlasRunning || deepeningRunning || fastKnowledgeBuilding || deepKnowledgeBuilding
     if (!anyRunning) return
 
-    const interval = setInterval(() => {
-      if (state.inferredEdgesRunning || state.atlasRunning || state.groupReasoningRunning || state.augmenting || state.epistemicRunning) void refreshStageDataFromPipeline()
-      if (state.augmenting) void fetchAugmentationStatus()
-      if (state.epistemicRunning || state.clusterRunning || state.deepeningRunning) void fetchEpistemicStatus()
-      if (state.clusterRunning) void fetchModuleStatus()
-      if (state.deepeningRunning) void fetchDeepeningStatus()
-      if (state.fastKnowledgeBuilding || state.deepKnowledgeBuilding) void fetchKnowledgeStatus()
-    }, 3000)
+    // F-11: bumped 3s -> 5s, added document.hidden pause and an
+    // in-flight guard. Previously this could fan out to 5 concurrent
+    // status fetches every 3s on top of every other dashboard poller,
+    // exhausting the daemon's anyio thread pool (40 slots) during
+    // active enrichment and masquerading as a "swarm hang".
+    let inFlight = false
+    const tick = async () => {
+      if (document.hidden || inFlight) return
+      inFlight = true
+      try {
+        const calls: Promise<unknown>[] = []
+        if (state.inferredEdgesRunning || state.atlasRunning || state.groupReasoningRunning || state.augmenting || state.epistemicRunning) calls.push(refreshStageDataFromPipeline())
+        if (state.augmenting) calls.push(fetchAugmentationStatus())
+        if (state.epistemicRunning || state.clusterRunning || state.deepeningRunning) calls.push(fetchEpistemicStatus())
+        if (state.clusterRunning) calls.push(fetchModuleStatus())
+        if (state.deepeningRunning) calls.push(fetchDeepeningStatus())
+        if (state.fastKnowledgeBuilding || state.deepKnowledgeBuilding) calls.push(fetchKnowledgeStatus())
+        await Promise.allSettled(calls)
+      } finally {
+        inFlight = false
+      }
+    }
+    const interval = setInterval(tick, 5000)
 
     return () => clearInterval(interval)
   }, [

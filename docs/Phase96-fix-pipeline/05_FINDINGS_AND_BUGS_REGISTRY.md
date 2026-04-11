@@ -1,6 +1,6 @@
 # Phase 96: Findings and Bugs Registry
 
-**Last updated:** 2026-04-11 (F-36, F-37, F-38 closed)
+**Last updated:** 2026-04-11 (F-11, F-36, F-37, F-38 closed)
 **Status:** Living document — appended as new findings emerge
 
 This is the canonical record of every issue, bug, anomaly, or noteworthy
@@ -27,7 +27,7 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-08 | Wrong terminal states (paused vs failed, cancelled vs failed) | ✅ FIXED | `997c579d` (test expectations) |
 | F-09 | Test isolation: scheduler singleton state leaking | ✅ FIXED | `997c579d` |
 | F-10 | Queue API returns terminal-state ghost entries | ✅ FIXED | `59c9d770` |
-| F-11 | Dashboard polling storm exhausts FastAPI thread pool | 🟡 OPEN (96D.5) | — |
+| F-11 | Dashboard polling storm exhausts FastAPI thread pool | ✅ FIXED (client-side reduction) | (this commit) |
 | F-12 | Daemon "logs die off" symptom | ✅ EXPLAINED | (was F-11 manifestation) |
 | F-13 | MCP server disconnects during operation | ✅ EXPLAINED | (was F-11 manifestation) |
 | F-14 | `SettingsStore.get_global` AttributeError (recurring log error) | 🟡 OPEN | — |
@@ -56,7 +56,7 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-37 | `antibody_store.init()` never called — saves silently failed at DEBUG level | ✅ FIXED | (this commit) |
 | F-38 | Antibodies worker passed `Concept` dataclass to `derive_antibodies_for_project` (expects dicts) | ✅ FIXED | (this commit) |
 
-Total: **39 findings**, **25 fixed**, **8 open**, **2 deferred**, **2 not-a-bug**.
+Total: **39 findings**, **26 fixed**, **7 open**, **2 deferred**, **2 not-a-bug**.
 
 ---
 
@@ -155,7 +155,34 @@ This was over-cautious. AIMD already handles overload via backoff — static hea
 
 ### F-11 — Dashboard polling storm exhausts FastAPI thread pool
 
-**Status:** 🟡 OPEN (Phase 96D.5)
+**Status:** ✅ FIXED (client-side reduction shipped this commit)
+
+**Resolution:** Client-side polling reduction. Inventory before fix: 14+ pollers, several at 2-3s, most without `document.hidden` pause and none with in-flight guards. During active enrichment + trace build, the cumulative request rate exceeded the daemon's 40-slot anyio thread pool, masquerading as a "swarm hang" (F-35 was originally misdiagnosed as exactly this).
+
+Worst offenders fixed in this commit:
+
+| Poller | Before | After | Changes |
+|---|---|---|---|
+| Health check (`App.tsx`) | 2s | 5s | already had visibility pause |
+| Scheduler status (`App.tsx`) | 5s | 10s | + visibility pause + in-flight guard |
+| Pipeline queue (`SidebarPipelineQueue`) | 5s | 10s | + visibility pause + in-flight guard (SSE re-fetch retained) |
+| Enrichment status combo (`useEnrichment`, 5 endpoints) | 3s | 5s | + visibility pause + in-flight guard wrapping `Promise.allSettled` |
+| Trace coverage (`useTraceSystem`) | 3s | 8s | + visibility pause + in-flight guard |
+| Project status (`useProjectManager`) | 2s | 5s | + visibility pause + in-flight guard |
+| Provenance (`App.tsx`) | 10s | 15s | + visibility pause + in-flight guard |
+| Opportunities/agent (`useOpportunitiesSystem`) | 30s | 30s | + visibility pause |
+
+**The two key patterns:**
+1. **In-flight guard**: every poller now skips its tick if the previous request is still in flight. This alone prevents the 60+ TCP connection accumulation observed in F-30 — if the daemon is slow, the pollers throttle themselves automatically instead of stacking.
+2. **`document.hidden` pause**: backgrounded dashboards now contribute zero traffic. Previously, multi-tab users multiplied the polling rate by N tabs.
+
+**What's NOT in this fix:** A shared `usePoller` helper to centralize the pattern across all hooks (would touch ~15 files). The deeper architectural fix (server-side rate limiting / SSE-only status streams) is deferred. For now, the inventoried worst offenders are bounded.
+
+**Validation:** TypeScript compiles cleanly for all 6 modified files (only 3 pre-existing unrelated `EnrichmentAutoConfig` schema errors in `useTraceSystem.ts:114-139` remain). Live end-to-end validation against `scripts/dev.sh` (which runs the dashboard alongside the daemon) is the next step before declaring the polling storm gone — open as task #29.
+
+---
+
+### F-11 (original investigation notes — preserved)
 
 **Symptom:** When a long-running LLM call holds a worker, the dashboard's repeated polling of `/health`, `/system/pipeline-queue`, `/projects/{id}/pipeline/status`, `/llm/slots/status`, and several other endpoints exhausts FastAPI's default 40-thread anyio worker pool. New requests queue indefinitely. The daemon appears "hung" but is actually just waiting on thread pool capacity.
 

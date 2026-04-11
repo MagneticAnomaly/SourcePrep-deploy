@@ -29,10 +29,14 @@ export interface OpportunitiesSummary {
   critical: number
   warning: number
   info: number
+  actionable_count: number
   last_refresh: string | null
   by_priority: Record<string, number>
   by_category: Record<string, number>
   by_source: Record<string, number>
+  by_analyzer: Record<string, number>
+  by_severity: Record<string, number>
+  top_analyzers: { analyzer: string; count: number }[]
 }
 
 export interface UseOpportunitiesSystemReturn {
@@ -106,7 +110,14 @@ export function useOpportunitiesSystem(
       .then(([opps, sum]) => {
         if (signal?.aborted) return
         setItems(opps.items || [])
-        setSummary(sum)
+        // Merge missing fields to satisfy UI interface, as old daemons might omit them
+        setSummary(sum ? {
+          ...sum,
+          actionable_count: (sum as any).actionable_count ?? 0,
+          by_analyzer: (sum as any).by_analyzer ?? {},
+          by_severity: (sum as any).by_severity ?? {},
+          top_analyzers: (sum as any).top_analyzers ?? []
+        } : null)
       })
       .catch((e) => {
         if (signal?.aborted) return
@@ -137,8 +148,13 @@ export function useOpportunitiesSystem(
     // Initial fetch
     fetchAgent()
 
-    // Poll every 30s (agent runs are async, user wants to see updates)
-    agentPollRef.current = setInterval(fetchAgent, 30_000)
+    // Poll every 30s (agent runs are async, user wants to see updates).
+    // F-11: skip when tab is hidden so backgrounded dashboards don't
+    // contribute to the polling storm.
+    agentPollRef.current = setInterval(() => {
+      if (document.hidden) return
+      fetchAgent()
+    }, 30_000)
 
     return () => {
       if (agentPollRef.current) clearInterval(agentPollRef.current)

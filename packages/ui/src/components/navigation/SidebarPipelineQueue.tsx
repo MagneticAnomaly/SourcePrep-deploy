@@ -97,7 +97,11 @@ export function SidebarPipelineQueue({
   const pollRef = useRef<ReturnType<typeof setInterval>>();
   const mountedRef = useRef(true);
 
+  const inFlightRef = useRef(false);
   const fetchQueue = useCallback(async () => {
+    // F-11: in-flight guard prevents request stacking when daemon is busy
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     try {
       const res = await fetch(`${baseUrl}/system/pipeline-queue`, {
         headers: { Accept: 'application/json' },
@@ -110,14 +114,21 @@ export function SidebarPipelineQueue({
       }
     } catch {
       // Silently fail — daemon may be down
+    } finally {
+      inFlightRef.current = false;
     }
   }, [baseUrl]);
 
-  // Poll every 5s
+  // F-11: bumped 5s -> 10s and added document.hidden pause.
+  // SSE queue_changed events still trigger immediate re-fetch
+  // (via the queueVersion effect below) so latency stays low.
   useEffect(() => {
     mountedRef.current = true;
     fetchQueue();
-    pollRef.current = setInterval(fetchQueue, 5000);
+    const tick = () => {
+      if (!document.hidden) fetchQueue();
+    };
+    pollRef.current = setInterval(tick, 10000);
     return () => {
       mountedRef.current = false;
       if (pollRef.current) clearInterval(pollRef.current);
