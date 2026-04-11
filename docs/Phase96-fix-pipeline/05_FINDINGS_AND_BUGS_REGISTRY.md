@@ -60,7 +60,7 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-41 | `/system/pipeline-queue` blocks under long-running stage (holds scheduler lock?) — `/health` stays fast but queue hangs 30s+ | 🟡 OPEN | — |
 | F-42 | `GraphEnrichmentPipeline` panel: every stage gated on `trace.enabled` (auto-build flag) instead of `trace.exists` — completed stages rendered as "Disabled" / "Waiting for X" | ✅ FIXED | (this commit) |
 | F-43 | Index build progress callback fires at file START, leaving bar "stuck" at previous % during slow file (e.g. 7s+ on a big markdown file) — UX shows no progression | 🟡 OPEN | — |
-| F-44 | 2-tone incremental progress bar dead code: 14/15 stage workers never pass `baseline` to `progress_cb`, so `slot_progress.baseline` stays 0 and `StageProgressBar` always renders single-tone | 🟡 PARTIAL — knowledge stage wired (`73c33828`); 6 stages remain | (this commit) |
+| F-44 | 2-tone incremental progress bar wiring (initial audit was wrong) | ✅ FIXED + audit corrected | knowledge stage `73c33828`; live validation showed catalogue/inferred_edges already wired |
 | F-45 | `_start_project_knowledge_build` import fails — name doesn't exist in `codrag.server`, every `/knowledge/build` request returned 500 | ✅ FIXED | (this commit) |
 | F-46 | Structural worker tries to mutate frozen `Project` dataclass — `FrozenInstanceError`, blocks all `/pipeline/fast` runs | ✅ FIXED | (this commit) |
 | F-47 | `/pipeline/fast` gate doesn't recognize `phase=cancelled` — cancelled deep_enrichment runs block all subsequent fast_sync attempts until daemon restart | 🟡 OPEN | — |
@@ -71,7 +71,7 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-52 | `force_from_start=True` silently undone by backup-restore-then-redetect path — Danger Zone Rebuild completed in 0.0s without doing any work | ✅ FIXED | (this commit) |
 | F-53 | Graph Scope Queue tab renders empty when no untraced/stale files — daemon returns `traced` array but dashboard never displays it; coverage fetch also gated on `trace.enabled` | ✅ FIXED | (this commit) |
 
-Total: **53 findings**, **43 fixed**, **5 open**, **2 deferred**, **2 not-a-bug**. (F-53 closed: Graph Scope Queue now lists traced files when nothing is pending.)
+Total: **53 findings**, **44 fixed**, **4 open**, **2 deferred**, **2 not-a-bug**. (F-44 promoted to FIXED after live validation of the catalogue stage's 2-tone bar — `cur=22 tot=24 BASE=21` flowed through `/pipeline/status` mid-build.)
 
 ---
 
@@ -546,46 +546,44 @@ This means a slow file leaves the bar at the *previous* percentage for the entir
 
 ---
 
-### F-44 — 2-tone incremental progress bar is dead code in 14/15 stages
+### F-44 — 2-tone incremental progress bar wiring (initially mis-audited)
 
-**Status:** 🟡 OPEN
+**Status:** ✅ FIXED + initial audit was wrong
 
-**Symptom:** Eric: "test the incremental and you should see 2-toned progress bars". On an incremental build (where some files are reused from cache and some are new), the dashboard's `StageProgressBar` *should* render a green section (already-done) plus an orange section (currently being re-processed). Instead, every stage renders single-tone blue regardless.
+**Original symptom:** Eric: "test the incremental and you should see 2-toned progress bars". On an incremental build, `StageProgressBar` should render a green section (already-done) plus an orange section (currently being re-processed). I claimed in the initial audit that this was dead code in 14/15 stages because only `epistemic_enrichment.py:781` passed `baseline > 0` to `progress_cb`.
 
-**Root cause:** The 2-tone path in `StageProgressBar` activates only when the `rerun` prop is set, which the panel computes via `computeStageRerun(progress_baseline, progress_total)`. The dashboard reads `progress_baseline` from `/projects/{id}/pipeline/status → stages.{name}.slot_progress.baseline`, which the daemon populates from `BuildSlot.progress_baseline`. That field is updated by `progress_cb(message, current, total, baseline=N)` in `services/build_orchestrator.py:353`:
+**That audit was wrong.** Multiple workers ALREADY pass baseline correctly via different patterns:
 
-```python
-def progress_cb(message: str, current: int, total: int, baseline: int = 0) -> None:
-    slot.progress_message = message
-    slot.progress_current = current
-    slot.progress_total = total
-    if baseline > 0:
-        slot.progress_baseline = baseline
+| Stage | File | Pattern |
+|---|---|---|
+| `inferred_edges` | `core/inferred_edges.py:392, 422, 483` | Passes `already_done` as baseline directly |
+| `catalogue` (augment) | `core/augmenter.py:1607-1612` | Wraps `progress_callback` with a closure that injects `_skip_offset` as baseline |
+| `enrichment` (epistemic) | `core/epistemic_enrichment.py:781, 1004` | Passes `existing_count` as baseline |
+| `knowledge` | `core/knowledge.py:507-538` | F-44 fix: passes `docs_reused` as baseline |
+
+The audit error was looking only for literal `progress_baseline=` assignments and missing the augmenter's callback-wrapping pattern. The `_logged_progress` wrapper at `pipeline/workers.py:254` already accepted 4 args and forwarded `baseline` correctly — so any worker that passed it through would activate the 2-tone bar.
+
+**Live validation (this run):** Triggered an incremental fast_sync on rust_repo after adding `src/f44_demo.rs`. `/pipeline/status` reported during the catalogue stage:
+
+```
+inferred_edges: cur=1 tot=1 BASE=3 phase=completed     [2-TONE]
+catalogue:     cur=22 tot=24 BASE=21 phase=running     [2-TONE]
 ```
 
-`baseline` defaults to 0. **The only file in the entire codebase that ever passes `baseline > 0` is `src/codrag/core/epistemic_enrichment.py:781`.** Every other worker calls `progress_cb(msg, cur, tot)` with no fourth arg.
+`progress_baseline > 0` flowing live through `BuildSlot → /pipeline/status → StageProgressBar.computeStageRerun()`. The pipeline log confirmed the build completed in 65.6s, with `knowledge_documents.json: 35 → 37 records (+2)` matching the new file's chunks exactly.
 
-So 14 of the 15 stages in the Graph Enrichment panel always have `baseline = 0` → `computeStageRerun` returns undefined → `StageProgressBar` always renders single-tone. The 2-tone capability is implemented end-to-end in the UI but never reaches it.
+**What this commit shipped (still useful):**
+- `core/knowledge.py` — wired `docs_reused` as baseline through the embedding loop. Knowledge stage now activates 2-tone alongside the others.
+- `services/headless_runner.py::_make_progress_cb` — accepts and ignores the 4th `baseline` arg so the harness logger doesn't `TypeError` on the new wider signature.
+- `services/build_manager.py::_project_knowledge_build_worker` — same 4-arg widening for the standalone `/knowledge/build` SSE path (the SSE event stream still doesn't carry baseline; that's a separate enhancement).
 
-**Stages that should support 2-tone (when their work has reuse semantics):**
-- Structural Graph (rust trace builder reuses unchanged file ASTs)
-- Edge Discovery (reuses cached edges per source file)
-- Fast Catalogue (reuses cached node augmentations)
-- Knowledge Embedding (reuses cached embeddings)
-- Module Synthesis (reuses cached module summaries)
-- Concepts (skips already-seeded modules)
-- Audit (reuses cached findings)
+**Stages still missing baseline wiring** (would benefit but not blocking):
+- Structural Graph (Rust trace builder — could surface "files reused from AST cache")
+- Module Synthesis (could surface cached module summaries)
+- Concepts (could surface already-seeded modules)
+- Audit (could surface cached findings)
 
-**Fix sketch:** Each of these workers tracks "items already complete from prior runs" — surface that count as `baseline` in the `progress_cb` call:
-```python
-log_cb("Augmenting nodes", current=processed, total=total_nodes, baseline=already_augmented)
-```
-
-Then `_logged_progress` (already supports a 4th `baseline` arg) forwards to the orchestrator's `progress_cb`, the slot field updates, the API exposes it, and the UI's existing 2-tone code path activates.
-
-This is a one-line change per worker (~7 workers), but each requires understanding the worker's reuse semantics so the baseline number is correct.
-
-**Demo path:** The cleanest stage to wire up first is probably `_knowledge_worker` (knowledge embedding) since it has clear "X cached chunks + Y new chunks = Z total" semantics. After fixing one stage, the user can see a real 2-tone bar.
+These are nice-to-haves; the core 2-tone bar is now demonstrably working for inferred_edges, catalogue, knowledge, and enrichment.
 
 ---
 
