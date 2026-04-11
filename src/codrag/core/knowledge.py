@@ -479,7 +479,18 @@ class KnowledgeIndex:
         for idx, vec in reused_vectors.items():
             vectors[idx] = vec
 
-        # Embed new/changed docs in batches
+        # Embed new/changed docs in batches.
+        #
+        # F-44: report progress as cumulative work over the *full* document
+        # set (cached + new), with baseline = docs_reused.  This activates
+        # the 2-tone progress bar in StageProgressBar:
+        #   - green section width  = baseline / total = docs_reused / docs_total
+        #   - orange section width = (total - baseline) / total = docs_new / docs_total
+        #   - orange brightness    = batch_start / docs_new (current rerun progress)
+        # Before this change, only (current=batch_start, total=docs_new) were
+        # reported, so the dashboard could only render a single-tone "embedding
+        # X of Y new docs" bar that ignored the cached portion entirely.
+        docs_total = len(docs)
         if docs_to_embed:
             batch_size = 32
             for batch_start in range(0, len(docs_to_embed), batch_size):
@@ -487,7 +498,16 @@ class KnowledgeIndex:
                 texts = [docs[i]["content"] for i in batch_indices]
 
                 if progress_callback:
-                    progress_callback("embedding", batch_start, len(docs_to_embed))
+                    # current = cumulative docs accounted for (cached + embedded so far)
+                    # total   = full document count (so the bar represents the entire build)
+                    # baseline = number of docs reused from cache (the green portion)
+                    progress_callback(
+                        f"Embedding {batch_start}/{len(docs_to_embed)} new "
+                        f"({docs_reused} reused)",
+                        docs_reused + batch_start,
+                        docs_total,
+                        docs_reused,
+                    )
 
                 try:
                     batch_vectors = self.embedder.embed_batch(texts)
@@ -496,8 +516,26 @@ class KnowledgeIndex:
                 except Exception as e:
                     logger.error(f"Failed to embed batch {batch_start}/{len(docs_to_embed)}: {e}")
                     raise
+
+            # Final emit at the end of the embedding loop so the bar lands on
+            # 100% before the index is written.
+            if progress_callback:
+                progress_callback(
+                    f"Embedded {len(docs_to_embed)} new docs ({docs_reused} reused)",
+                    docs_total,
+                    docs_total,
+                    docs_reused,
+                )
         elif progress_callback:
-            progress_callback("embedding", 0, 0)
+            # Pure noop build (everything cached) — the entire bar should
+            # render as solid green.  baseline == total triggers donePercent=100,
+            # stalePercent=0 in StageProgressBar.
+            progress_callback(
+                f"All {docs_reused} docs reused (no embedding needed)",
+                docs_total,
+                docs_total,
+                docs_reused,
+            )
 
         embeddings = np.array(vectors, dtype=np.float32)
 

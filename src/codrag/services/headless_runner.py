@@ -526,10 +526,19 @@ class HeadlessRunner:
 
         def _make_progress_cb(sid: str) -> Callable:
             """Factory to avoid closure-capture-by-reference bug in loops."""
-            def progress_cb(message: str, current: int, total: int) -> None:
+            def progress_cb(message: str, current: int, total: int, baseline: int = 0) -> None:
+                # F-44: accept and ignore baseline so workers can pass it through
+                # uniformly. The headless harness only logs, so the cached/new
+                # split isn't visible here, but we track it for consistency.
                 if total > 0:
                     pct = int(current / total * 100)
-                    logger.info("  [%s %d%%] %s (%d/%d)", sid, pct, message, current, total)
+                    if baseline > 0:
+                        logger.info(
+                            "  [%s %d%%] %s (%d/%d, %d baseline)",
+                            sid, pct, message, current, total, baseline,
+                        )
+                    else:
+                        logger.info("  [%s %d%%] %s (%d/%d)", sid, pct, message, current, total)
             return progress_cb
 
         total_start = time.time()
