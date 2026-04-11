@@ -56,8 +56,10 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-37 | `antibody_store.init()` never called — saves silently failed at DEBUG level | ✅ FIXED | (this commit) |
 | F-38 | Antibodies worker passed `Concept` dataclass to `derive_antibodies_for_project` (expects dicts) | ✅ FIXED | (this commit) |
 | F-39 | `project_trace_status` short-circuits to empty stub when `config.trace.enabled=False`, ignoring on-disk graph | ✅ FIXED | (this commit) |
+| F-40 | `.claude/worktrees/` not excluded from CoDRAG self-indexing — duplicates entire repo into the index | 🟡 OPEN | — |
+| F-41 | `/system/pipeline-queue` blocks under long-running stage (holds scheduler lock?) — `/health` stays fast but queue hangs 30s+ | 🟡 OPEN | — |
 
-Total: **40 findings**, **32 fixed**, **2 open**, **2 deferred**, **2 not-a-bug**.
+Total: **42 findings**, **33 fixed**, **4 open**, **2 deferred**, **2 not-a-bug**. (F-39 fixed; F-40 and F-41 added during CoDRAG self-swarm validation.)
 
 ---
 
@@ -179,7 +181,23 @@ Worst offenders fixed in this commit:
 
 **What's NOT in this fix:** A shared `usePoller` helper to centralize the pattern across all hooks (would touch ~15 files). The deeper architectural fix (server-side rate limiting / SSE-only status streams) is deferred. For now, the inventoried worst offenders are bounded.
 
-**Validation:** TypeScript compiles cleanly for all 6 modified files (only 3 pre-existing unrelated `EnrichmentAutoConfig` schema errors in `useTraceSystem.ts:114-139` remain). Live end-to-end validation against `scripts/dev.sh` (which runs the dashboard alongside the daemon) is the next step before declaring the polling storm gone — open as task #29.
+**Validation:** TypeScript compiles cleanly for all 6 modified files (only 3 pre-existing unrelated `EnrichmentAutoConfig` schema errors in `useTraceSystem.ts:114-139` remain).
+
+**Live validation (added later via Playwright):** Drove the dashboard with headless Chromium against the running `scripts/dev.sh` stack while sampling `lsof -nP -iTCP:8400 -sTCP:ESTABLISHED` once per second for 60s, including a click-into the CoDRAG project to start per-project polling. Results:
+
+```
+samples:           57
+duration_s:        60
+min_connections:    4
+max_connections:   20
+p50_connections:    6
+p95_connections:   18
+mean_connections:  7.8
+samples_above_20:   0  (was the threshold)
+samples_above_40:   0  (was the historical broken baseline midpoint)
+```
+
+The historical broken baseline observed during the F-35 misdiagnosis was 60+ ESTABLISHED connections that never drained. After the fix the steady-state max never exceeded 20, the median sat at 6, and zero samples exceeded the threshold. **F-11 fully validated end-to-end.**
 
 ---
 
@@ -478,6 +496,45 @@ antibodies = derive_antibodies_for_project(concept_dicts)
 ```
 
 `Concept.to_dict()` already exposes the required `id`, `title`, `content`, `category`, `anchors`, `assertion` fields.
+
+---
+
+### F-40 — `.claude/worktrees/` not excluded from CoDRAG self-indexing
+
+**Status:** 🟡 OPEN
+
+**Symptom:** During the CoDRAG self-swarm validation (task #17), the pipeline log filled up with `Indexing .claude/worktrees/busy-swirles/AGENTS.md`, `Indexing .claude/worktrees/busy-swirles/CLAUDE.md`, `Indexing .claude/worktrees/busy-swirles/backend_config.py`, and so on — a complete walk of every file inside an active git worktree.
+
+**Why this matters:** `.claude/worktrees/` is where Claude Code stages parallel-task worktrees. Each worktree is a near-complete copy of the repo. Indexing them duplicates every file (~600 source files × N worktrees) into the CoDRAG index, which:
+- Inflates `total_chunks` and `total_files` counts (the daemon now reports 661 chunks but should be 2-3× higher with worktrees)
+- Pollutes semantic search results (every symbol matches multiple times)
+- Triggers spurious "stale" markers because worktree files are constantly changing
+- Wastes embedding compute (each duplicate embedded separately)
+
+**Suspected cause:** The default `.codragignore` / exclude patterns don't list `.claude/worktrees/`. They should, alongside `.git/`, `node_modules/`, etc.
+
+**Fix:** Add `.claude/worktrees/` to the default exclude list in `core/codragignore.py` (or wherever the baseline ignore patterns live). Existing projects need to manually delete the worktree-derived chunks or rebuild from scratch.
+
+**Related:** F-38 in the registry's `feedback_agents_md_in_graph.md` memory note ("CoDRAG-generated files are noise in the trace graph"). Same family of bug — the index is absorbing files it shouldn't.
+
+---
+
+### F-41 — `/system/pipeline-queue` blocks during long-running stage
+
+**Status:** 🟡 OPEN
+
+**Symptom:** During the CoDRAG finalize swarm test, `/health` continued responding in 1-7ms (validating F-11 + F-36 fixes), but `/system/pipeline-queue` started timing out at 30s+. The daemon was technically alive but the queue endpoint was wedged.
+
+**Suspected cause:** The pipeline-queue handler holds the scheduler lock to walk all nodes and produce the response. If a long-running stage (concept seeding fan-out, in this case) holds the scheduler lock for an extended period — perhaps via `acquire()` waiting on something blocking — the queue endpoint waits behind it.
+
+**Why this is distinct from F-11:** F-11 was about request *stacking* exhausting the FastAPI thread pool. This is about a single request blocking on a contended scheduler lock. Different mechanism, similar surface symptom.
+
+**Diagnostic plan:**
+- Add `py-spy dump` capture to the troubleshoot harness to inspect what `/system/pipeline-queue` is waiting on next time it wedges
+- Check whether the scheduler lock can be split (read-only "snapshot" vs. write-only "mutate")
+- Or: have `pipeline-queue` build its response from a snapshot taken during the broadcast, instead of walking the live state under lock
+
+**Workaround:** Restart the daemon. Confirmed to clear the wedge.
 
 ---
 
