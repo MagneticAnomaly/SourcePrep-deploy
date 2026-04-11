@@ -460,8 +460,17 @@ class CodeIndex:
             rel_path = str(file_path.relative_to(repo_root))
             role = classify_rel_path(rel_path)
 
+            # F-43: emit a "starting file i+1" event with current=i (i files
+            # already done), so the bar percent reflects WORK COMPLETED not
+            # files-touched.  Without this, the bar jumped to (i+1)/total at
+            # the start of each file even though that file had not been read
+            # or embedded yet — making slow files (e.g. AGENTS.md taking 8s
+            # to embed) look like the bar was "stuck at 20%" for the entire
+            # processing time.  Now the bar stays at i/total during the
+            # current file's work, then a matching "completed" event at the
+            # end of the loop iteration advances it to (i+1)/total.
             if progress_callback:
-                progress_callback(rel_path, i + 1, total_files)
+                progress_callback(f"Indexing {rel_path}", i, total_files)
 
             # Check size for summarization vs full indexing
             file_size = 0
@@ -613,6 +622,19 @@ class CodeIndex:
                     chunks_docs += 1
                 else:
                     chunks_code += 1
+
+            # F-43: emit a "completed file" event after the file's chunks
+            # are embedded.  Pairs with the "Indexing {rel_path}" event at
+            # the top of the loop body, so the bar advances honestly:
+            #   t=0:    Indexing AGENTS.md   0/5 (0%)
+            #   t=8.5s: Indexed AGENTS.md    1/5 (20%)   <- file 1 actually done
+            #   t=8.5s: Indexing README.md   1/5 (20%)
+            #   t=8.7s: Indexed README.md    2/5 (40%)
+            # Files that error out and hit `continue` do not fire this
+            # event — that is intentional, the next file's start event
+            # keeps the bar honest about how many files are actually done.
+            if progress_callback:
+                progress_callback(f"Indexed {rel_path}", i + 1, total_files)
 
         if not docs:
             raise RuntimeError("No documents indexed")

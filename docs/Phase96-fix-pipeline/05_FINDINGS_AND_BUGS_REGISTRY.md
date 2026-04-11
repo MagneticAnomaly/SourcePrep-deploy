@@ -74,8 +74,9 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-55 | Three more stores still shared `codrag_settings.db` (`pipeline_history`, `token_telemetry`, `observation_store`) → "database is locked" warning + intermittent settings save failures | ✅ FIXED | (this commit) |
 | F-56 | Manual/Auto/Schedule mode global instead of per-project — switching projects carried over the previous project's mode and triggered cross-project Phase 81 auto-pauses | ✅ FIXED | (this commit) |
 | F-47 | `/pipeline/fast` gate doesn't recognize `phase=cancelled` — cancelled deep_enrichment runs block all subsequent fast_sync attempts until daemon restart | ✅ FIXED | (this commit) |
+| F-43 | Index build progress callback fired with `(i+1)/total` at file START — bar appeared "stuck" at the previous % during slow files | ✅ FIXED | (this commit) |
 
-Total: **56 findings**, **48 fixed**, **3 open**, **2 deferred**, **2 not-a-bug**. (F-47 closed: cancelled deep_enrichment phase no longer blocks fast_sync gate.)
+Total: **56 findings**, **49 fixed**, **2 open**, **2 deferred**, **2 not-a-bug**. (F-43 closed: index build progress now emits start + completion events per file, bar honestly reflects work done instead of jumping ahead at file start.)
 
 ---
 
