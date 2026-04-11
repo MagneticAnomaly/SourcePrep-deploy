@@ -20,14 +20,16 @@ export interface SourceCardProps {
 export function SourceCard({ source, className }: SourceCardProps) {
   const badge = TYPE_BADGES[source.type];
   const citation = [source.authors, source.venue, source.year].filter(Boolean).join(' \u00b7 ');
+  const accessibleName = `${badge.label}: ${source.title} (opens in new tab)`;
 
   return (
     <a
       href={source.url}
       target="_blank"
       rel="noopener noreferrer"
+      aria-label={accessibleName}
       className={cn(
-        'group flex flex-col rounded-lg border border-border bg-surface p-4 transition-all hover:border-primary/40 hover:shadow-md',
+        'group flex flex-col rounded-lg border border-border bg-surface p-4 transition-colors hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
         className,
       )}
     >
@@ -42,7 +44,6 @@ export function SourceCard({ source, className }: SourceCardProps) {
       </h4>
       {citation && <p className="text-xs text-text-muted mb-2">{citation}</p>}
       <p className="text-xs text-text-muted leading-relaxed mt-auto">{source.usage}</p>
-      <span className="sr-only">(opens in new tab)</span>
     </a>
   );
 }
