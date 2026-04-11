@@ -1,6 +1,6 @@
 # Phase 96: Findings and Bugs Registry
 
-**Last updated:** 2026-04-11 (F-11, F-14, F-28, F-36, F-37, F-38 closed)
+**Last updated:** 2026-04-11 (F-11, F-14, F-28, F-29, F-30, F-31, F-36, F-37, F-38 closed; only F-15 and F-33 remain open, both deferred)
 **Status:** Living document — appended as new findings emerge
 
 This is the canonical record of every issue, bug, anomaly, or noteworthy
@@ -45,9 +45,9 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-26 | SwarmOrchestrator `execute()` aborts whole swarm on coordinator fail | ✅ FIXED | `c91184a5` |
 | F-27 | SwarmOrchestrator `_synthesize` has no timeout | ✅ FIXED | `c91184a5` |
 | F-28 | AIMD doesn't recover from backoff (current_limit stays low until restart) | ✅ FIXED | (this commit) |
-| F-29 | Thinking-model swallows num_predict budget on `thinking` field | 🟡 OPEN | task #23 |
-| F-30 | Vite proxy connection accumulation (60+ ESTABLISHED to daemon) | 🟡 OPEN (manifestation of F-11) | — |
-| F-31 | SQLite "database is locked" warnings on busy daemon | 🟡 OPEN (Phase 92 partial) | — |
+| F-29 | Thinking-model swallows num_predict budget on `thinking` field | ✅ FIXED | `c4e9fe68` (think=false) — daemon hang caveat resolved by F-11 |
+| F-30 | Vite proxy connection accumulation (60+ ESTABLISHED to daemon) | ✅ FIXED via F-11 | (in-flight guards eliminate stacking) |
+| F-31 | SQLite "database is locked" warnings on busy daemon | ✅ FIXED via F-36/F-37 | (concept_store + antibody_store moved to dedicated DB files) |
 | F-32 | Pipeline log "Batch synthesis failed" markers in module summaries | 🔵 NOT-A-BUG (data quality from older clustering run) | — |
 | F-33 | rust_repo structural rebuild produces fewer nodes than existing file (write guard blocks) | 🟡 OPEN (Phase 70B working as designed but inconvenient for fixture) | — |
 | F-34 | Swarm window cooldown (45s) blocks re-opening but doesn't reduce batch budget | ✅ NOT-A-BUG (cooldown only blocks new windows; budget query still returns full) | — |
@@ -56,7 +56,7 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-37 | `antibody_store.init()` never called — saves silently failed at DEBUG level | ✅ FIXED | (this commit) |
 | F-38 | Antibodies worker passed `Concept` dataclass to `derive_antibodies_for_project` (expects dicts) | ✅ FIXED | (this commit) |
 
-Total: **39 findings**, **28 fixed**, **5 open**, **2 deferred**, **2 not-a-bug**.
+Total: **39 findings**, **31 fixed**, **2 open**, **2 deferred**, **2 not-a-bug**.
 
 ---
 
@@ -371,7 +371,7 @@ All 118 scheduler tests pass (107 pre-existing + 11 new).
 
 ### F-29 — Thinking-model swallows num_predict budget on `thinking` field
 
-**Status:** ⚠️ PARTIALLY FIXED in `c4e9fe68` — **think=false works in isolation but daemon-runtime hang persists. See F-35.**
+**Status:** ✅ FIXED in `c4e9fe68` (think=false). The "daemon-runtime hang" caveat noted below was a misdiagnosis (F-35 → F-11) and has been resolved by the F-11 dashboard polling reduction. The think=false fix was always correct and sufficient.
 
 **Symptom:** Direct test of kimi-k2.5:cloud with `num_predict=50`:
 ```json
