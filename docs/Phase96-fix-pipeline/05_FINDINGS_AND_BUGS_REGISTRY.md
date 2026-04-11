@@ -64,7 +64,7 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-45 | `_start_project_knowledge_build` import fails — name doesn't exist in `codrag.server`, every `/knowledge/build` request returned 500 | ✅ FIXED | (this commit) |
 | F-46 | Structural worker tries to mutate frozen `Project` dataclass — `FrozenInstanceError`, blocks all `/pipeline/fast` runs | ✅ FIXED | (this commit) |
 | F-47 | `/pipeline/fast` gate doesn't recognize `phase=cancelled` — cancelled deep_enrichment runs block all subsequent fast_sync attempts until daemon restart | 🟡 OPEN | — |
-| F-48 | `/pipeline/rebuild` timed out >5s on rust_repo — endpoint may be doing synchronous work that should be backgrounded | 🟡 OPEN | — |
+| F-48 | `/pipeline/rebuild` timed out >5s on rust_repo — endpoint may be doing synchronous work that should be backgrounded | ✅ FIXED via F-46/F-51/F-52 | — |
 | F-49 | 5 trace READ endpoints (`/trace/coverage`, `/trace/search` × 2, `/trace/node`, `/trace/neighbors`) raise `TRACE_DISABLED` when `config.trace.enabled=False`, ignoring on-disk graph — disconnects Graph Scope panel | ✅ FIXED | (this commit) |
 | F-50 | `/projects/{id}/search` `trace_expand` skipped when `trace.enabled=false`, even with built graph on disk — same root-cause class | ✅ FIXED | (this commit) |
 | F-51 | Write guard blocks Danger Zone Rebuild — `force_from_start=True` not honored, shrinkage check fires anyway | ✅ FIXED | (this commit) |
@@ -76,7 +76,7 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-47 | `/pipeline/fast` gate doesn't recognize `phase=cancelled` — cancelled deep_enrichment runs block all subsequent fast_sync attempts until daemon restart | ✅ FIXED | (this commit) |
 | F-43 | Index build progress callback fired with `(i+1)/total` at file START — bar appeared "stuck" at the previous % during slow files | ✅ FIXED | (this commit) |
 
-Total: **56 findings**, **49 fixed**, **2 open**, **2 deferred**, **2 not-a-bug**. (F-43 closed: index build progress now emits start + completion events per file, bar honestly reflects work done instead of jumping ahead at file start.)
+Total: **56 findings**, **50 fixed**, **2 open**, **2 deferred**, **2 not-a-bug**. (F-48 no longer reproduces — `/pipeline/rebuild` returns 200 immediately; the original 5s timeout was caused by F-46 frozen-dataclass or F-52 backup-restore loop, both fixed earlier this cycle. Remaining open: F-15 pre-existing tests deferred, F-41 lock contention mechanism documented but fix not yet shipped.)
 
 ---
 
