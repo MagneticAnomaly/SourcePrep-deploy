@@ -72,8 +72,9 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-53 | Graph Scope Queue tab renders empty when no untraced/stale files — daemon returns `traced` array but dashboard never displays it; coverage fetch also gated on `trace.enabled` | ✅ FIXED | (this commit) |
 | F-54 | `/pipeline/finalize` hangs 30s on `journal.start_run()` — pipeline_journal still shared `codrag_settings.db` (same pattern F-36 fixed for concept_store and F-37 for antibody_store) | ✅ FIXED | (this commit) |
 | F-55 | Three more stores still shared `codrag_settings.db` (`pipeline_history`, `token_telemetry`, `observation_store`) → "database is locked" warning + intermittent settings save failures | ✅ FIXED | (this commit) |
+| F-56 | Manual/Auto/Schedule mode global instead of per-project — switching projects carried over the previous project's mode and triggered cross-project Phase 81 auto-pauses | ✅ FIXED | (this commit) |
 
-Total: **55 findings**, **46 fixed**, **4 open**, **2 deferred**, **2 not-a-bug**. (F-55 closed: every store that was sharing `codrag_settings.db` now has its own dedicated file. settings_store is now the sole owner of its file, eliminating cross-store writer contention completely.)
+Total: **56 findings**, **47 fixed**, **4 open**, **2 deferred**, **2 not-a-bug**. (F-56 closed: enrichmentAutoConfig now lives in per-project config instead of a global setting. Also closes the F-15 family TS errors in useTraceSystem.ts because the EnrichmentAutoConfig type required a `finalize` field that the dashboard never set.)
 
 ---
 

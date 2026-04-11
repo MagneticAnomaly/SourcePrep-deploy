@@ -114,14 +114,37 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     } catch { return false }
   })
   const [enrichmentAutoConfig, setEnrichmentAutoConfig] = useState<EnrichmentAutoConfig>(
-    { fastSync: true, deepEnrichment: 'manual' }
+    // F-56: include the required `finalize` field. Pre-existing TS errors
+    // here were because Phase 96E added the field to the interface but the
+    // 4 setEnrichmentAutoConfig call sites in this hook never set it.
+    { fastSync: true, deepEnrichment: 'manual', finalize: 'manual' }
   )
 
   // Phase 25: Crash Protection
   const [crashedRuns, setCrashedRuns] = useState<CrashedPipelineRun[]>([])
 
-  // Load enrichment auto config from backend settings (Phase 24)
+  // F-56: Per-project enrichment auto config.
+  //
+  // Originally `enrichmentAutoConfig` was loaded ONCE on mount from the
+  // GLOBAL `pipeline_config` setting and never refreshed on project switch.
+  // That meant flipping Manual/Auto on project A also showed Auto on project
+  // B because the state was shared.
+  //
+  // Fix: read from `project.config.auto_config` first (per-project), fall
+  // back to the global `pipeline_config` for migration. Persist back to
+  // the project config on every change.
   useEffect(() => {
+    const projAuto = (deps.projectConfig as any)?.auto_config
+    if (projAuto && typeof projAuto === 'object') {
+      setEnrichmentAutoConfig({
+        fastSync: projAuto.fastSync ?? projAuto.fast_sync ?? true,
+        deepEnrichment:
+          projAuto.deepEnrichment ?? projAuto.deep_enrichment ?? 'manual',
+        finalize: projAuto.finalize ?? 'manual',
+      })
+      return
+    }
+    // No per-project config yet — fall back to the global default once.
     let cancelled = false
     api.getSetting('pipeline_config').then((result: { key: string; value: any }) => {
       if (cancelled) return
@@ -130,10 +153,11 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
         setEnrichmentAutoConfig({
           fastSync: pc.fast_sync?.auto ?? true,
           deepEnrichment: pc.deep_enrichment?.mode ?? 'manual',
+          finalize: pc.finalize?.mode ?? 'manual',
         })
       }
     }).catch(() => {
-      // Fall back to localStorage for migration
+      // Final fallback for fresh installs
       try {
         const stored = localStorage.getItem('codrag_enrichment_auto_config')
         if (stored) {
@@ -142,12 +166,13 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
           setEnrichmentAutoConfig({
             fastSync: parsed.fastSync ?? true,
             deepEnrichment: (deep === 'manual' || deep === 'auto' || deep === 'scheduled') ? deep : 'manual',
+            finalize: parsed.finalize === 'auto' ? 'auto' : 'manual',
           })
         }
       } catch { /* ignore */ }
     })
     return () => { cancelled = true }
-  }, [api])
+  }, [api, selectedProjectId, deps.projectConfig])
   const [traceStatus, setTraceStatus] = useState<TraceStatus>({
     enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 },
   })
@@ -389,12 +414,30 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     const prevFastSync = enrichmentAutoConfig.fastSync
     const prevDeep = enrichmentAutoConfig.deepEnrichment
     setEnrichmentAutoConfig(config)
-    // Persist to backend settings (Phase 24)
+    // F-56: persist to the SELECTED PROJECT'S config so each project has
+    // its own Manual/Auto state. Was previously persisted only to the
+    // global pipeline_config setting which all projects shared.
+    if (selectedProjectId && deps.projectConfig) {
+      const newProjectConfig = {
+        ...deps.projectConfig,
+        auto_config: {
+          fastSync: config.fastSync,
+          deepEnrichment: config.deepEnrichment,
+          finalize: config.finalize,
+        },
+      }
+      deps.setProjectConfig(newProjectConfig)
+      deps.setConfigDirty(true)
+      api.updateProject(selectedProjectId, { config: newProjectConfig }).catch(() => { /* silent */ })
+    }
+    // Also keep the global pipeline_config in sync as a default for new
+    // projects (and so the auto-trigger paths in settings.py:308/332 still
+    // see a sane default for any project that lacks its own auto_config).
     api.updatePipelineConfig({
       fast_sync_auto: config.fastSync,
       deep_enrichment_mode: config.deepEnrichment,
     }).catch(() => { /* silent */ })
-    // Keep localStorage as fallback
+    // Keep localStorage as a final fallback
     localStorage.setItem('codrag_enrichment_auto_config', JSON.stringify(config))
     // Sync the legacy indexAutoRebuild flag so the watcher hydration
     // effect (which checks both flags) works correctly on page reload.
