@@ -717,17 +717,23 @@ def configure(
     _journal_db_path = db_path.parent / "codrag_pipeline_journal.db"
     _journal.init(_journal_db_path)
 
-    # Initialize pipeline run history (Phase 49: Process Info)
+    # Initialize pipeline run history (Phase 49: Process Info).
+    # F-55: dedicated codrag_pipeline_history.db (was sharing codrag_settings.db).
     from codrag.services.pipeline_history import history as _history
-    _history.init(db_path)
+    _history_db_path = db_path.parent / "codrag_pipeline_history.db"
+    _history.init(_history_db_path)
 
-    # Initialize token telemetry (Phase 56: AI Gateway Phase 2)
+    # Initialize token telemetry (Phase 56: AI Gateway Phase 2).
+    # F-55: dedicated codrag_token_telemetry.db (was sharing codrag_settings.db).
     from codrag.services.token_telemetry import telemetry as _telemetry
-    _telemetry.init(db_path)
+    _telemetry_db_path = db_path.parent / "codrag_token_telemetry.db"
+    _telemetry.init(_telemetry_db_path)
 
-    # Initialize observation store (Phase 39: Session Continuity)
+    # Initialize observation store (Phase 39: Session Continuity).
+    # F-55: dedicated codrag_observations.db (was sharing codrag_settings.db).
     from codrag.services.observation_store import observation_store as _obs_store
-    _obs_store.init(db_path)
+    _obs_store_db_path = db_path.parent / "codrag_observations.db"
+    _obs_store.init(_obs_store_db_path)
 
     # Initialize concept store (Phase 74: Epistemic Concepts)
     # Phase 96 / F-36: Use a dedicated concepts.db file instead of the

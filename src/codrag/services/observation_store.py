@@ -139,11 +139,12 @@ class ObservationStore:
                 str(db_path),
                 check_same_thread=False,
                 isolation_level="DEFERRED",
-                timeout=10,
+                timeout=30,
             )
             self._conn.row_factory = sqlite3.Row
-            self._conn.execute("PRAGMA journal_mode=WAL")
+            self._conn.execute("PRAGMA journal_mode=DELETE")
             self._conn.execute("PRAGMA synchronous=NORMAL")
+            self._conn.execute("PRAGMA busy_timeout=30000")
             self._create_tables()
             logger.info("Observation store initialized: %s", db_path)
 

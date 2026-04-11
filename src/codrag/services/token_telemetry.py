@@ -125,10 +125,11 @@ class TokenTelemetryStore:
                 # autocommit — WAL handles durability; avoids blocking the
                 # lock with a commit() on every pipeline INSERT.
                 isolation_level=None,
-                timeout=10,
+                timeout=30,
             )
             self._conn.row_factory = sqlite3.Row
-            self._conn.execute("PRAGMA journal_mode=WAL")
+            self._conn.execute("PRAGMA journal_mode=DELETE")
+            self._conn.execute("PRAGMA busy_timeout=30000")
             self._create_tables()
 
     def close(self) -> None:
