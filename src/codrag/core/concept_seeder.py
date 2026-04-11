@@ -1,21 +1,32 @@
 """
-CoDRAG Concept Seeder — Phase 74 (Epistemic Concepts)
-=====================================================
+CoDRAG Concept Seeder — Phase 74 (Epistemic Concepts) + Phase 96F (Swarm)
+=========================================================================
 
 LLM-powered concept extraction from existing pipeline outputs.
-Reads atlas, module synthesis, and audit data to generate 20-40
-concept seeds that capture the "why" behind the codebase.
+Reads atlas, module synthesis, and audit data to generate concept seeds
+that capture the "why" behind the codebase.
 
-**Design:**
-  - Single LLM call with a focused prompt (≤4000 input chars)
-  - Uses the ``large_model`` slot (thinking model) for quality
-  - Generates structured JSON with title, content, category, anchors
-  - Also generates 5-8 clarifying questions for uncovered areas
-  - Filters modules to ≥5 files to avoid noise from trivial subsystems
+**Two execution paths:**
+
+1. **Swarm path** (`seed_concepts_swarm`, Phase 96F):
+   - Decomposes work into per-module units (one WorkItem per module)
+   - Coordinator assigns analysis_angle per module
+   - Workers fan out across all available LLM workers (10 on Ollama cloud)
+   - Synthesizer merges + dedupes + extracts cross-module invariants
+   - Used when: ≥3 modules exist, model supports swarm, scheduler budget ≥3
+   - Throughput: ~9x faster than sequential when conditions met
+
+2. **Sequential path** (`seed_concepts`, original Phase 74):
+   - Single LLM call with a global context prompt
+   - Used as fallback when swarm conditions aren't met
+   - Always available, single-worker
 
 **Usage:**
   ``from codrag.core.concept_seeder import seed_concepts``
-  ``result = seed_concepts(project_id)``
+  ``result = seed_concepts(project_id)``  # auto-routes to swarm or sequential
+
+To force the sequential path (e.g., for tests):
+  ``result = seed_concepts(project_id, prefer_swarm=False)``
 """
 
 from __future__ import annotations
@@ -30,9 +41,51 @@ logger = logging.getLogger(__name__)
 # Minimum files for a module to be included in seeding context
 MIN_MODULE_FILES = 5
 
+# Phase 96F: Minimum modules for swarm fan-out (matches scheduler's
+# min_workers floor of 3 to avoid coordinator/synthesizer overhead
+# when there isn't enough work to parallelize).
+MIN_MODULES_FOR_SWARM = 3
 
-def seed_concepts(project_id: str) -> Dict[str, Any]:
-    """Run the full concept seeding pipeline for a project.
+
+def seed_concepts(project_id: str, *, prefer_swarm: bool = True) -> Dict[str, Any]:
+    """Run the concept seeding pipeline for a project.
+
+    Phase 96F: When ``prefer_swarm`` is True (default), tries the swarm
+    fan-out path first (per-module decomposition + parallel workers).
+    Falls back to the sequential single-call path when swarm conditions
+    aren't met (insufficient modules, model doesn't support swarm,
+    scheduler budget too low, or any error during swarm setup).
+
+    Args:
+        project_id: The project to seed concepts for.
+        prefer_swarm: If True, attempt swarm path first. Tests and edge
+            cases can pass False to force the sequential path.
+
+    Returns a summary dict with concepts_created, questions_created,
+    status, and a 'mode' field indicating "swarm" or "sequential".
+    """
+    if prefer_swarm:
+        try:
+            return seed_concepts_swarm(project_id)
+        except _SwarmFallback as fallback:
+            logger.info(
+                "Concept seeding falling back to sequential: %s",
+                fallback,
+            )
+        except Exception:
+            logger.warning(
+                "Concept seeding swarm path raised, falling back to sequential",
+                exc_info=True,
+            )
+    return _seed_concepts_sequential(project_id)
+
+
+class _SwarmFallback(RuntimeError):
+    """Internal sentinel: swarm path determined sequential is the right choice."""
+
+
+def _seed_concepts_sequential(project_id: str) -> Dict[str, Any]:
+    """Sequential single-LLM-call concept seeding (Phase 74 original).
 
     1. Load atlas + modules + audit context
     2. Assemble a focused prompt
@@ -123,10 +176,332 @@ def seed_concepts(project_id: str) -> Dict[str, Any]:
 
     return {
         "status": "success",
+        "mode": "sequential",
         "concepts_created": concepts_created,
         "questions_created": questions_created,
         "message": f"Generated {concepts_created} concept seeds and "
                    f"{questions_created} clarifying questions.",
+    }
+
+
+# ── Phase 96F: Swarm path ────────────────────────────────────────
+
+
+def seed_concepts_swarm(project_id: str) -> Dict[str, Any]:
+    """Swarm-based concept seeding with per-module fan-out.
+
+    Decomposition: each module (≥MIN_MODULE_FILES files) becomes one
+    WorkItem. Coordinator assigns analysis_angle per module. Workers
+    generate per-module concepts in parallel. Synthesizer merges,
+    dedupes, and extracts cross-module invariants + clarifying questions.
+
+    Raises:
+        _SwarmFallback: when conditions for swarm aren't met (caller
+            should fall back to sequential).
+    """
+    from codrag.services.concept_store import concept_store
+    from codrag.services.project_helpers import require_project
+    from codrag.core.project_registry import project_index_dir
+    from codrag.core.swarm_orchestrator import (
+        SwarmOrchestrator, WorkItem, WorkerAssignment,
+    )
+
+    project = require_project(project_id)
+    index_dir = project_index_dir(project)
+
+    # 1. Get LLM client (need it for both swarm checks and execution)
+    llm = _get_seeder_llm()
+    if llm is None:
+        raise _SwarmFallback("no LLM model configured")
+
+    # 2. Check if model supports swarm via the scheduler's registry
+    try:
+        from codrag.services.pipeline.scheduler import is_swarm_active_for_stage
+        if not is_swarm_active_for_stage("concepts", llm.provider, llm.model):
+            raise _SwarmFallback(
+                f"model {llm.provider}/{llm.model} not swarm-capable for concepts"
+            )
+    except _SwarmFallback:
+        raise
+    except Exception as e:
+        raise _SwarmFallback(f"swarm capability check failed: {e}")
+
+    # 3. Determine concurrency budget from the scheduler
+    concurrency = 1
+    try:
+        from codrag.services.pipeline.scheduler import pipeline_scheduler
+        full = pipeline_scheduler.full_budget_for_swarm(
+            llm.provider, llm.model, project_id=project_id,
+        )
+        if full is None:
+            raise _SwarmFallback("scheduler returned None for swarm budget (likely below min_workers)")
+        concurrency = full
+    except _SwarmFallback:
+        raise
+    except Exception as e:
+        raise _SwarmFallback(f"could not get scheduler budget: {e}")
+
+    # 4. Load modules and build per-module work items
+    modules = _load_modules_for_swarm(index_dir)
+    if len(modules) < MIN_MODULES_FOR_SWARM:
+        raise _SwarmFallback(
+            f"only {len(modules)} modules with ≥{MIN_MODULE_FILES} files "
+            f"(need ≥{MIN_MODULES_FOR_SWARM} for swarm)"
+        )
+
+    # Cap fan-out at the configured concurrency
+    if len(modules) > concurrency:
+        logger.info(
+            "[Swarm/Concepts] %d modules > %d workers — workers will process "
+            "modules in batches", len(modules), concurrency,
+        )
+
+    items: List[WorkItem] = []
+    for mod in modules:
+        item_id = f"module:{mod.get('module_id', mod.get('name', 'unknown'))}"
+        summary = _build_module_summary(mod)
+        full_context = json.dumps(_build_module_context(mod))
+        items.append(WorkItem(id=item_id, summary=summary, full_context=full_context))
+
+    logger.info(
+        "[Swarm/Concepts] Fan-out: %d modules across %d workers (model=%s)",
+        len(items), concurrency, llm.model,
+    )
+
+    # 5. Run the swarm
+    project_name = project.name
+    orch = SwarmOrchestrator(llm=llm, concurrency=concurrency)
+
+    coordinator_prompt = (
+        "You are coordinating concept extraction across {n} subsystems of "
+        "the codebase \"{project}\".\n\n"
+        "Subsystems:\n{{group_summaries}}\n\n"
+        "For EACH subsystem, choose an analysis_angle that suits its nature:\n"
+        "- Pipeline/orchestration → \"control flow and coordination\"\n"
+        "- Data/storage → \"data model and persistence boundaries\"\n"
+        "- API/router → \"interface contracts and validation\"\n"
+        "- Worker/processor → \"input transformation and side effects\"\n"
+        "- Config/settings → \"constraint propagation and defaults\"\n"
+        "- Test/eval → \"guarantees being verified\"\n"
+        "- UI/component → \"user interaction patterns and state shape\"\n\n"
+        "Also pick 1-3 priority_concerns per subsystem (specific risks "
+        "or knowledge gaps to focus the analysis on).\n\n"
+        "Respond with JSON only:\n"
+        '{{"assignments": [{{"item_id": "module:...", '
+        '"analysis_angle": "...", "priority_concerns": ["...", "..."]}}]}}'
+    ).format(n=len(items), project=project_name)
+
+    synthesis_prompt = (
+        "Below are concepts extracted from {n} parallel subsystem analyses "
+        "of \"{project}\".\n\n"
+        "{{worker_outputs}}\n\n"
+        "Your tasks:\n"
+        "1. DEDUPLICATE: merge concepts with similar titles or overlapping "
+        "content. Prefer the more specific version.\n"
+        "2. CROSS-MODULE PATTERNS: identify concepts that span multiple "
+        "subsystems and elevate them.\n"
+        "3. GLOBAL INVARIANTS: generate 3-5 high-level concepts about the "
+        "codebase as a whole (architectural decisions, hidden contracts, "
+        "trade-offs that span subsystems).\n"
+        "4. CLARIFYING QUESTIONS: generate 5-8 questions about areas "
+        "where the \"why\" is still unclear.\n\n"
+        "Respond with JSON only:\n"
+        '{{"concepts": [{{"title": "...", "content": "...", '
+        '"category": "architecture|domain|product|epistemic|process|brand|'
+        'security|technical|pattern|constraint|decision", '
+        '"confidence": 0.5-1.0, "anchors": ["..."], "tags": ["..."], '
+        '"scope": "module|cross-module|global"}}], '
+        '"questions": [{{"question": "...", "context": "...", '
+        '"suggested_category": "...", "target_module": "..."}}]}}'
+    ).format(n=len(items), project=project_name)
+
+    def worker_fn(item: WorkItem, assignment: WorkerAssignment) -> Optional[str]:
+        # Each worker generates concepts for ONE module with a focused prompt.
+        try:
+            module_data = json.loads(item.full_context)
+        except Exception:
+            module_data = {}
+
+        worker_prompt = (
+            "You are analyzing the \"{name}\" subsystem of the codebase "
+            "\"{project}\".\n\n"
+            "Module data:\n{ctx}\n\n"
+            "Analysis angle: {angle}\n"
+            "Priority concerns: {concerns}\n\n"
+            "Generate 3-8 concept seeds that capture the WHY of this "
+            "subsystem. Focus on design rationale, hidden constraints, "
+            "trade-offs, and business decisions that aren't obvious from "
+            "reading the code itself.\n\n"
+            "Each concept must be SPECIFIC to this subsystem (not generic "
+            "statements). Anchor concepts to specific files in member_files.\n\n"
+            "Respond with JSON only:\n"
+            '{{"concepts": [{{"title": "...", "content": "2-4 sentences", '
+            '"category": "architecture|domain|product|epistemic|process|brand|'
+            'security|technical|pattern|constraint|decision", '
+            '"confidence": 0.5-1.0, "anchors": ["..."], "tags": ["..."]}}]}}'
+        ).format(
+            name=module_data.get("name", item.id),
+            project=project_name,
+            ctx=item.full_context[:2500],
+            angle=assignment.analysis_angle or "comprehensive analysis",
+            concerns=", ".join(assignment.priority_concerns) or "none specified",
+        )
+
+        try:
+            text, _tokens = llm.generate(
+                prompt=worker_prompt,
+                json_mode=True,
+                temperature=0.3,
+                num_predict=4000,
+            )
+            return text
+        except Exception:
+            logger.warning("Concept worker failed for %s", item.id, exc_info=True)
+            return None
+
+    result = orch.execute(
+        items=items,
+        coordinator_prompt=coordinator_prompt,
+        worker_fn=worker_fn,
+        synthesis_prompt=synthesis_prompt,
+    )
+
+    if result is None:
+        raise _SwarmFallback("swarm orchestrator returned None")
+
+    # 6. Save concepts and questions from synthesis
+    concepts_created = 0
+    questions_created = 0
+
+    synthesized = result.synthesis or {}
+    final_concepts = synthesized.get("concepts", [])
+    final_questions = synthesized.get("questions", [])
+
+    # If synthesis failed but workers succeeded, fall back to merging
+    # raw worker outputs (best-effort dedupe by title).
+    if not final_concepts and result.worker_results:
+        seen_titles: set[str] = set()
+        for wr in result.worker_results:
+            if not wr.success or not wr.parsed:
+                continue
+            for c in wr.parsed.get("concepts", []):
+                title = (c.get("title") or "").strip().lower()
+                if title and title not in seen_titles:
+                    seen_titles.add(title)
+                    final_concepts.append(c)
+        logger.info(
+            "[Swarm/Concepts] Synthesis empty; merged %d concepts from "
+            "%d worker outputs", len(final_concepts), len(result.worker_results),
+        )
+
+    for c in final_concepts:
+        try:
+            concept_store.save(
+                project_id=project_id,
+                title=c.get("title", "Untitled"),
+                content=c.get("content", ""),
+                category=c.get("category", "technical"),
+                status="seed",
+                confidence=c.get("confidence", 0.7),
+                anchors=c.get("anchors", []),
+                tags=c.get("tags", []),
+            )
+            concepts_created += 1
+        except Exception as e:
+            logger.warning("Failed to save concept '%s': %s", c.get("title"), e)
+
+    for q in final_questions:
+        try:
+            concept_store.save_question(
+                project_id=project_id,
+                question=q.get("question", ""),
+                context=q.get("context", ""),
+                suggested_category=q.get("suggested_category", "technical"),
+                target_module=q.get("target_module"),
+            )
+            questions_created += 1
+        except Exception as e:
+            logger.warning("Failed to save question: %s", e)
+
+    successful_workers = sum(1 for wr in result.worker_results if wr.success)
+    logger.info(
+        "[Swarm/Concepts] Complete for %s: %d concepts, %d questions, "
+        "%d/%d workers succeeded",
+        project_id, concepts_created, questions_created,
+        successful_workers, len(result.worker_results),
+    )
+
+    return {
+        "status": "success",
+        "mode": "swarm",
+        "concepts_created": concepts_created,
+        "questions_created": questions_created,
+        "modules_analyzed": len(items),
+        "workers_succeeded": successful_workers,
+        "workers_total": len(result.worker_results),
+        "message": f"Swarm-generated {concepts_created} concept seeds and "
+                   f"{questions_created} clarifying questions across "
+                   f"{len(items)} subsystems.",
+    }
+
+
+def _load_modules_for_swarm(index_dir: Path) -> List[Dict[str, Any]]:
+    """Load modules from trace_modules.jsonl with ≥MIN_MODULE_FILES files."""
+    modules: List[Dict[str, Any]] = []
+    modules_path = index_dir / "trace_modules.jsonl"
+    if not modules_path.exists():
+        return modules
+    try:
+        with open(modules_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    mod = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                file_count = mod.get(
+                    "file_count",
+                    len(mod.get("member_files", mod.get("files", []))),
+                )
+                if file_count >= MIN_MODULE_FILES:
+                    modules.append(mod)
+    except Exception as e:
+        logger.debug("Failed to load modules for swarm: %s", e)
+    # Sort by file count, biggest first
+    modules.sort(
+        key=lambda m: m.get(
+            "file_count", len(m.get("member_files", m.get("files", []))),
+        ),
+        reverse=True,
+    )
+    return modules
+
+
+def _build_module_summary(mod: Dict[str, Any]) -> str:
+    """Build a one-line summary of a module for the coordinator."""
+    name = mod.get("name", mod.get("module_id", "unnamed"))
+    file_count = mod.get(
+        "file_count", len(mod.get("member_files", mod.get("files", []))),
+    )
+    summary = (mod.get("summary") or "")[:120]
+    return f"{name} ({file_count} files): {summary}"
+
+
+def _build_module_context(mod: Dict[str, Any]) -> Dict[str, Any]:
+    """Build a focused per-module context dict for a worker."""
+    files = mod.get("member_files", mod.get("files", []))
+    return {
+        "name": mod.get("name", mod.get("module_id", "unnamed")),
+        "summary": (mod.get("summary") or "")[:500],
+        "domain_tags": mod.get("domain_tags", []),
+        "file_count": len(files),
+        "member_files": files[:25],  # cap to keep prompts small
+        "internal_dependencies": mod.get("internal_dependencies", []),
+        "external_dependencies": mod.get("external_dependencies", []),
+        "data_flow": (mod.get("data_flow") or "")[:300],
+        "component_status": mod.get("component_status", "unknown"),
     }
 
 

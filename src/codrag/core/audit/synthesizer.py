@@ -31,11 +31,25 @@ class AuditSynthesizer:
         result: AuditResult,
         ctx: AuditContext,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
+        *,
+        concurrency: Optional[int] = None,
     ) -> List[AuditDocument]:
         """Generate all report documents from findings.
 
         Returns a list of AuditDocument objects. Each document is
         independently generated — if one fails, others still succeed.
+
+        Phase 96F: When ``concurrency`` is provided and > 1, the 5
+        document generators run in parallel via a ThreadPoolExecutor.
+        Concurrency is sourced from the scheduler's swarm budget when
+        the audit stage runs inside a swarm window.  Falls back to
+        sequential execution when concurrency is None or 1, when only
+        one generator is present, or when threading isn't applicable.
+
+        Audit's "swarm" shape is parallel-fixed-fan-out: there are 5
+        independent document generators, no coordinator/synthesizer
+        decomposition needed (unlike concepts which decomposes work
+        per-module).  ThreadPoolExecutor is the right primitive here.
         """
         generators = [
             ("AUDIT_SUMMARY", "Audit Summary", self._gen_summary),
@@ -45,6 +59,24 @@ class AuditSynthesizer:
             ("TECH_DEBT_REPORT", "Tech Debt Report", self._gen_tech_debt),
         ]
 
+        if concurrency and concurrency > 1 and len(generators) > 1:
+            return self._synthesize_parallel(
+                generators, result, ctx,
+                concurrency=concurrency,
+                progress_callback=progress_callback,
+            )
+        return self._synthesize_sequential(
+            generators, result, ctx, progress_callback=progress_callback,
+        )
+
+    def _synthesize_sequential(
+        self,
+        generators: List,
+        result: AuditResult,
+        ctx: AuditContext,
+        progress_callback: Optional[Callable[[str, int, int], None]] = None,
+    ) -> List[AuditDocument]:
+        """Sequential synthesis path — original Phase 43 behavior."""
         documents: List[AuditDocument] = []
         total = len(generators)
 
@@ -52,28 +84,103 @@ class AuditSynthesizer:
             if progress_callback:
                 progress_callback("audit_synthesizing", i, total)
 
-            try:
-                content = gen_fn(result, ctx)
-                doc = AuditDocument(
-                    name=name,
-                    title=title,
-                    content=content,
-                    generated_at=datetime.now(timezone.utc).isoformat(),
-                    finding_count=result.finding_count,
-                    char_count=len(content),
-                )
-                documents.append(doc)
-                logger.info("Generated %s (%d chars)", name, len(content))
-            except Exception as e:
-                logger.warning("Failed to generate %s: %s", name, e)
-                # Create a fallback structural document
-                fallback = self._structural_fallback(name, title, result, ctx)
-                documents.append(fallback)
+            doc = self._run_generator(name, title, gen_fn, result, ctx)
+            documents.append(doc)
 
         if progress_callback:
             progress_callback("audit_synthesizing", total, total)
 
         return documents
+
+    def _synthesize_parallel(
+        self,
+        generators: List,
+        result: AuditResult,
+        ctx: AuditContext,
+        *,
+        concurrency: int,
+        progress_callback: Optional[Callable[[str, int, int], None]] = None,
+    ) -> List[AuditDocument]:
+        """Phase 96F: Parallel synthesis using ThreadPoolExecutor.
+
+        Each of the 5 (or N) document generators runs in its own thread.
+        Order is preserved in the output list — results are placed at
+        their original index regardless of completion order.
+
+        Concurrency is capped at min(concurrency, len(generators)) so we
+        don't spawn idle threads.
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        total = len(generators)
+        max_workers = min(concurrency, total)
+        documents: List[Optional[AuditDocument]] = [None] * total
+
+        logger.info(
+            "[Audit/Swarm] Parallel synthesis: %d generators across %d workers",
+            total, max_workers,
+        )
+
+        if progress_callback:
+            progress_callback("audit_synthesizing", 0, total)
+
+        completed = 0
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_idx = {
+                executor.submit(self._run_generator, name, title, gen_fn, result, ctx): i
+                for i, (name, title, gen_fn) in enumerate(generators)
+            }
+            for future in as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                try:
+                    documents[idx] = future.result()
+                except Exception as e:
+                    # _run_generator already catches generator errors and
+                    # returns a fallback. Reaching here means a deeper
+                    # failure — emit a minimal stub.
+                    name, title, _ = generators[idx]
+                    logger.error(
+                        "Audit generator %s raised at the future level: %s",
+                        name, e, exc_info=True,
+                    )
+                    documents[idx] = self._structural_fallback(name, title, result, ctx)
+                completed += 1
+                if progress_callback:
+                    progress_callback("audit_synthesizing", completed, total)
+
+        # All slots filled (None should be impossible at this point but defensive cast)
+        return [d for d in documents if d is not None]
+
+    def _run_generator(
+        self,
+        name: str,
+        title: str,
+        gen_fn: Callable,
+        result: AuditResult,
+        ctx: AuditContext,
+    ) -> AuditDocument:
+        """Run a single document generator and wrap as an AuditDocument.
+
+        Catches generator exceptions and returns a structural fallback
+        document so partial failures don't kill the whole synthesis.
+        Extracted from synthesize_all in Phase 96F so it can be reused
+        by both sequential and parallel paths.
+        """
+        try:
+            content = gen_fn(result, ctx)
+            doc = AuditDocument(
+                name=name,
+                title=title,
+                content=content,
+                generated_at=datetime.now(timezone.utc).isoformat(),
+                finding_count=result.finding_count,
+                char_count=len(content),
+            )
+            logger.info("Generated %s (%d chars)", name, len(content))
+            return doc
+        except Exception as e:
+            logger.warning("Failed to generate %s: %s", name, e)
+            return self._structural_fallback(name, title, result, ctx)
 
     # ── Individual generators ────────────────────────────────────
 

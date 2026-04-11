@@ -969,15 +969,59 @@ class WorkerFactory:
             )
 
             tier2_ok = False
+            tier2_mode = "skipped"
+            tier2_doc_count = 0
             try:
-                from codrag.core.audit.synthesizer import AuditSynthesizer
+                from codrag.core.audit.synthesizer import (
+                    AuditSynthesizer, save_documents,
+                )
+                from codrag.core.audit.runner import load_audit_context
                 llm_client = WorkerFactory._get_llm_client_for_task("audit")
-                synth = AuditSynthesizer(llm_client)
-                log_cb("Running LLM synthesis", 1, 2)
-                synth.synthesize(result, Path(idx_dir))
+                synth = AuditSynthesizer(llm_client, project_name=project.name)
+
+                # Phase 96F: Source concurrency from the scheduler.  When
+                # the audit stage runs inside a swarm window (it is in
+                # SWARM_CAPABLE_STAGES), full_budget_for_swarm returns
+                # the full per-node worker budget instead of fair-share.
+                tier2_concurrency = 1
+                try:
+                    from codrag.services.pipeline.scheduler import pipeline_scheduler
+                    full = pipeline_scheduler.full_budget_for_swarm(
+                        llm_client.provider, llm_client.model,
+                        project_id=project_id,
+                    )
+                    if full is not None:
+                        tier2_concurrency = full
+                except Exception:
+                    logger.debug(
+                        "[Audit] swarm budget lookup failed, using sequential",
+                        exc_info=True,
+                    )
+
+                log_cb(
+                    f"Running LLM synthesis ({tier2_concurrency} workers)",
+                    1, 2,
+                )
+
+                # Synthesizer needs an AuditContext for finding formatting.
+                # Reload it cheaply (Tier 1 already loaded the same data).
+                ctx = load_audit_context(
+                    Path(idx_dir),
+                    Path(project.path),
+                )
+                documents = synth.synthesize_all(
+                    result, ctx,
+                    progress_callback=lambda phase, cur, tot: log_cb(
+                        phase, cur, tot,
+                    ),
+                    concurrency=tier2_concurrency,
+                )
+                save_documents(documents, Path(idx_dir))
+                tier2_doc_count = len(documents)
                 tier2_ok = True
+                tier2_mode = "parallel" if tier2_concurrency > 1 else "sequential"
             except Exception as e:
-                logger.info("[Audit] Tier 2 synthesis skipped: %s", e)
+                logger.info("[Audit] Tier 2 synthesis skipped: %s", e, exc_info=True)
 
             log_cb("Done", 2, 2)
             return {
@@ -985,6 +1029,8 @@ class WorkerFactory:
                 "skipped": False,
                 "finding_count": finding_count,
                 "tier2": tier2_ok,
+                "tier2_mode": tier2_mode,
+                "tier2_doc_count": tier2_doc_count,
                 "errors": result.errors if result.errors else [],
                 "_stage_timing": {
                     "started_at": _t0,

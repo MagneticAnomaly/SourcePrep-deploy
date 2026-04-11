@@ -45,7 +45,15 @@ logger = logging.getLogger(__name__)
 
 # Stages that can use swarm orchestration (coordinator → fan-out → synthesis).
 # Shared constant — imported by queue.py and llm.py routers to avoid duplication.
-SWARM_CAPABLE_STAGES: frozenset = frozenset({"group_reasoning", "clustering", "atlas"})
+# Phase 96F: concepts and audit join the swarm-capable set so the
+# orchestrator opens a swarm window for them.  Their workers route
+# internally to a SwarmOrchestrator-based path when the model supports
+# swarm and there is enough work to fan out, falling back to sequential
+# otherwise.
+SWARM_CAPABLE_STAGES: frozenset = frozenset({
+    "group_reasoning", "clustering", "atlas",
+    "concepts", "audit",
+})
 
 
 def is_swarm_active_for_stage(stage: str, provider: str, model: str) -> bool:
