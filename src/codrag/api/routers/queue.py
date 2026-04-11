@@ -41,7 +41,9 @@ _PHASE_ORDER = {
 }
 
 # States to exclude from queue display
-_EXCLUDED_STATES = {"completed", "idle"}
+# Phase 96D: cancelled and failed are also terminal — they should clear from
+# the active queue instead of lingering as "Pending" entries.
+_EXCLUDED_STATES = {"completed", "idle", "cancelled", "failed"}
 
 
 # ── Request models ──────────────────────────────────────────────
@@ -152,15 +154,23 @@ def get_queue() -> dict[str, Any]:
         )
 
     # 2. Queued entries from scheduler (not already in orchestrator)
+    # Phase 93: Track which project_ids have orchestrator entries so we
+    # can skip scheduler duplicates. The orchestrator state machine already
+    # represents the queued stage — adding the scheduler's raw queue entry
+    # for the same project creates confusing duplicates in the UI.
+    seen_pids: set[str] = {pid for pid, _ in seen}
+
     nodes = sched_status.get("nodes", {})
     for _node_id, node_info in nodes.items():
         for entry in node_info.get("queued", []):
             qpid = entry["project_id"]
+            if qpid in seen_pids:
+                continue  # Already represented by an orchestrator entry
             # Queued entries don't have a group in scheduler; use stage to infer
-            qgroup = "queued"
-            key = (qpid, qgroup)
+            key = (qpid, entry.get("stage", "queued"))
             if key not in seen:
                 seen.add(key)
+                seen_pids.add(qpid)
                 items.append(
                     _build_queue_item(
                         project_id=qpid,
