@@ -37,7 +37,7 @@ export function AnimatedCLI({
   const [typingText, setTypingText] = useState('');
   const [typingMeta, setTypingMeta] = useState<{ className: string; prefix?: string } | null>(null);
   const [showCursor, setShowCursor] = useState(true);
-  const [isRunning, setIsRunning] = useState(autoPlay);
+  const [isRunning] = useState(autoPlay);
   const lineIdRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 

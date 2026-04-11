@@ -31,7 +31,7 @@ export function AnimatedIDE({
 }: AnimatedIDEProps) {
   // Global script state
   const [currentEventIdx, setCurrentEventIdx] = useState(0);
-  const [isRunning, setIsRunning] = useState(autoPlay);
+  const [isRunning] = useState(autoPlay);
   const [isTyping, setIsTyping] = useState(false);
 
   // Editor State
@@ -109,7 +109,7 @@ export function AnimatedIDE({
             type: 'tool',
             toolName: activeToolInfo.name,
             content: `Show Details v\n${event.text}`,
-            toolStatus: event.status ?? 'success'
+            toolStatus: event.status === 'info' ? 'success' : (event.status ?? 'success')
           });
           setActiveToolInfo(null);
         }

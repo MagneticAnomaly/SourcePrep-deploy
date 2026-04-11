@@ -69,7 +69,7 @@ const mockKnowledge: KnowledgeEmbeddingStatus = {
 };
 
 const makeFile = (path: string, lang: string): TraceCoverageFile => ({
-  path, language: lang, modified: hourAgo, created: now,
+  path, language: lang, size: 1024, modified: hourAgo, created: now,
 });
 
 const untracedFiles: TraceCoverageFile[] = [
