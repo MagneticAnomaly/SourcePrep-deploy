@@ -39,7 +39,15 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 # Minimum files for a module to be included in seeding context
+# (sequential path — keeps prompt focused on substantial subsystems)
 MIN_MODULE_FILES = 5
+
+# Phase 96F: Swarm path uses a lower per-module file threshold so that
+# small/single-file modules still participate in the fan-out.  The
+# whole point of swarm decomposition is maximum parallelism — filtering
+# out trivial modules reduces fan-out without saving prompt budget
+# (each worker only loads its own module, not the full atlas).
+MIN_MODULE_FILES_FOR_SWARM = 1
 
 # Phase 96F: Minimum modules for swarm fan-out (matches scheduler's
 # min_workers floor of 3 to avoid coordinator/synthesizer overhead
@@ -245,8 +253,8 @@ def seed_concepts_swarm(project_id: str) -> Dict[str, Any]:
     modules = _load_modules_for_swarm(index_dir)
     if len(modules) < MIN_MODULES_FOR_SWARM:
         raise _SwarmFallback(
-            f"only {len(modules)} modules with ≥{MIN_MODULE_FILES} files "
-            f"(need ≥{MIN_MODULES_FOR_SWARM} for swarm)"
+            f"only {len(modules)} modules with ≥{MIN_MODULE_FILES_FOR_SWARM} "
+            f"files (need ≥{MIN_MODULES_FOR_SWARM} for swarm)"
         )
 
     # Cap fan-out at the configured concurrency
@@ -446,7 +454,13 @@ def seed_concepts_swarm(project_id: str) -> Dict[str, Any]:
 
 
 def _load_modules_for_swarm(index_dir: Path) -> List[Dict[str, Any]]:
-    """Load modules from trace_modules.jsonl with ≥MIN_MODULE_FILES files."""
+    """Load modules from trace_modules.jsonl for swarm decomposition.
+
+    Phase 96F: Uses MIN_MODULE_FILES_FOR_SWARM (default 1) instead of
+    the sequential-path MIN_MODULE_FILES (default 5).  Swarm wants
+    maximum fan-out, so any module with at least one file becomes a
+    work unit.
+    """
     modules: List[Dict[str, Any]] = []
     modules_path = index_dir / "trace_modules.jsonl"
     if not modules_path.exists():
@@ -465,7 +479,7 @@ def _load_modules_for_swarm(index_dir: Path) -> List[Dict[str, Any]]:
                     "file_count",
                     len(mod.get("member_files", mod.get("files", []))),
                 )
-                if file_count >= MIN_MODULE_FILES:
+                if file_count >= MIN_MODULE_FILES_FOR_SWARM:
                     modules.append(mod)
     except Exception as e:
         logger.debug("Failed to load modules for swarm: %s", e)

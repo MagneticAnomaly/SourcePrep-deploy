@@ -11,6 +11,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from codrag.core.context_config import PipelineTask, compute_optimal_settings
+from codrag.core.llm_client import TASK_MAX_CHARS
 from typing import Any, Callable, Dict, List, Optional
 
 from .models import AuditContext, AuditDocument, AuditResult, Finding

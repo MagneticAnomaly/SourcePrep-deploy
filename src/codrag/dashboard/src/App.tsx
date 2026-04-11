@@ -212,7 +212,7 @@ function App() {
     selectedProjectId, selectedProject, projectStatus, projectSummaries,
     projectConfig, configDirty, transientCompleteProjects,
     setSelectedProjectId, refreshProjects, refreshStatus,
-    handleAddProject, handleDeleteProject, handleBuild,
+    handleAddProject, handleArchiveProject, handleUnarchiveProject, handleDeleteProject, handleBuild,
     handleSaveConfig, handleProjectConfigChange, handleDetectStack,
     handleToggleActive, handleToggleStar, handleCyclePriority,
     setProjectConfig, setConfigDirty,
@@ -333,6 +333,14 @@ function App() {
     deepeningStatus, deepeningRunning,
     knowledgeStatus, fastKnowledgeBuilding, deepKnowledgeBuilding,
     groupReasoningStatus,
+    // Phase 96F: Finalize stage statuses (rules / concepts / audit / antibodies).
+    // These come from the enrichment reducer state spread.  Without them in the
+    // destructure list the dashboard crashes with "rulesStatus is not defined"
+    // when GraphEnrichmentPipeline tries to render the Finalize group.
+    rulesStatus,
+    conceptsStatus,
+    auditPipelineStatus,
+    antibodiesStatus,
     handleRunAugmentation, handleRunEpistemic, handleRunModuleSynthesis,
     handleRunDeepening, handleRunKnowledgeBuild,
     handleRunDeepEnrichment,
@@ -609,7 +617,25 @@ function App() {
             if (prefs.bg_image !== undefined) setBgImage(prefs.bg_image)
           }
           if (globalCfg.module_layout?.version) {
-            try { localStorage.setItem('codrag_dashboard_layout', JSON.stringify(globalCfg.module_layout)) } catch { /* storage full */ }
+            // Only write backend layout to localStorage if localStorage
+            // doesn't already have a NEWER layout. localStorage may contain
+            // unsaved changes from a previous session (e.g. if the backend
+            // auto-save failed due to SQLite lock contention).
+            let localIsNewer = false
+            try {
+              const existingRaw = localStorage.getItem('codrag_dashboard_layout')
+              if (existingRaw) {
+                const existing = JSON.parse(existingRaw)
+                if (existing?.savedAt && existing.savedAt > (globalCfg.module_layout.savedAt ?? 0)) {
+                  localIsNewer = true
+                  // Push the fresher local layout to the backend to sync
+                  api.updateGlobalConfig({ module_layout: existing }).catch(() => { })
+                }
+              }
+            } catch { /* parse error — overwrite with backend */ }
+            if (!localIsNewer) {
+              try { localStorage.setItem('codrag_dashboard_layout', JSON.stringify(globalCfg.module_layout)) } catch { /* storage full */ }
+            }
           }
         } catch { /* Global config not available — use defaults */ }
         void fetchLLMSlotsStatus()
@@ -622,14 +648,39 @@ function App() {
 
   // ── Auto-save dashboard layout to backend ───────────────────
   const layoutInitialMount = useRef(true)
+  const dashboardLayoutRef = useRef(dashboardLayout)
+  dashboardLayoutRef.current = dashboardLayout
+
   useEffect(() => {
     if (!dashboardLayout) return
     if (layoutInitialMount.current) { layoutInitialMount.current = false; return }
     const timeout = setTimeout(() => {
-      api.updateGlobalConfig({ module_layout: dashboardLayout }).catch(() => { })
+      api.updateGlobalConfig({ module_layout: dashboardLayout }).catch((err) => {
+        console.warn('[Layout] Backend save failed — layout is safe in localStorage:', err?.message ?? err)
+      })
     }, 1000)
     return () => clearTimeout(timeout)
   }, [api, dashboardLayout])
+
+  // Flush layout to backend on tab close so the backend stays in sync.
+  // fetch with keepalive survives page unload and supports PUT.
+  useEffect(() => {
+    const flushToBackend = () => {
+      const layout = dashboardLayoutRef.current
+      if (!layout) return
+      try {
+        const url = `${api.baseUrl.replace(/\/$/, '')}/global/config`
+        fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ module_layout: layout }),
+          keepalive: true,
+        }).catch(() => { /* best effort */ })
+      } catch { /* best effort */ }
+    }
+    window.addEventListener('beforeunload', flushToBackend)
+    return () => window.removeEventListener('beforeunload', flushToBackend)
+  }, [api.baseUrl])
 
   // ── Refresh project status when scope orchestrator signals a build ──
   useEffect(() => {
@@ -686,7 +737,7 @@ function App() {
   const { panelContent, panelDetails, allPanelDefs, PINNED_PREFIX: pinnedPrefix } = useDashboardPanels({
     // Cross-cutting
     projectStatus, selectedProject, selectedProjectId, projectConfig, isPro, limitReached: isOverProjectLimit,
-    inactive: selectedProject?.config?.active === false || selectedProject?.activity_status === 'inactive' || selectedProject?.activity_status === 'frozen' || selectedProject?.activity_status === 'locked',
+    inactive: selectedProject?.config?.active === false || selectedProject?.activity_status === 'inactive' || selectedProject?.activity_status === 'locked',
     scopeStatus: selectedProjectId ? scopeEvents[selectedProjectId] : undefined,
     logs, clearLogs, findActiveTask, handleBuild,
     transientComplete: selectedProjectId ? transientCompleteProjects.has(selectedProjectId) : false,
@@ -933,6 +984,8 @@ function App() {
                 onProjectSelect={setSelectedProjectId}
                 onAddProject={() => setAddModalOpen(true)}
                 onDeleteProject={handleDeleteProject}
+                onArchiveProject={handleArchiveProject}
+                onUnarchiveProject={handleUnarchiveProject}
                 onToggleActive={(projectId: string, active: boolean, touch?: boolean) => {
                   handleToggleActive(projectId, active, touch)
                 }}
