@@ -301,14 +301,20 @@ class WorkerFactory:
             logger.info("[%s/Structural] Complete — %d nodes", project.name, trace_idx.node_count())
 
             # Ensure trace.enabled=true in project config so status endpoint
-            # reports exists correctly (belt-and-suspenders with frontend fix)
+            # reports exists correctly (belt-and-suspenders with frontend fix).
+            #
+            # F-46: Project is a frozen dataclass — direct attribute assignment
+            # raises FrozenInstanceError and tanks the entire fast_sync run.
+            # The persisted config update via project_registry.update_project
+            # is the source of truth; the in-memory project instance is just
+            # a snapshot that the next status read will refresh from disk, so
+            # we don't need to mutate it locally at all.
             cfg = project.config if isinstance(project.config, dict) else {}
             trace_cfg = cfg.get("trace") if isinstance(cfg.get("trace"), dict) else {}
             if not trace_cfg.get("enabled"):
                 import copy
                 new_cfg = copy.deepcopy(cfg)
                 new_cfg.setdefault("trace", {})["enabled"] = True
-                project.config = new_cfg
                 try:
                     from codrag.core.project_registry import get_registry
                     get_registry().update_project(project.id, config=new_cfg)
