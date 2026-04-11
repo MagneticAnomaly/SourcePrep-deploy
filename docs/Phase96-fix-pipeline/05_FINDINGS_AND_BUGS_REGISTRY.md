@@ -58,8 +58,9 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-39 | `project_trace_status` short-circuits to empty stub when `config.trace.enabled=False`, ignoring on-disk graph | ✅ FIXED | (this commit) |
 | F-40 | `AutoRebuildWatcher._is_relevant` used `Path.match()` which doesn't honor `**` — directory excludes silently broken | ✅ FIXED | (this commit) |
 | F-41 | `/system/pipeline-queue` blocks under long-running stage (holds scheduler lock?) — `/health` stays fast but queue hangs 30s+ | 🟡 OPEN | — |
+| F-42 | `GraphEnrichmentPipeline` panel: every stage gated on `trace.enabled` (auto-build flag) instead of `trace.exists` — completed stages rendered as "Disabled" / "Waiting for X" | ✅ FIXED | (this commit) |
 
-Total: **42 findings**, **34 fixed**, **3 open**, **2 deferred**, **2 not-a-bug**. (F-39 + F-40 fixed; F-41 added during CoDRAG self-swarm validation.)
+Total: **43 findings**, **35 fixed**, **3 open**, **2 deferred**, **2 not-a-bug**. (F-39 + F-40 + F-42 fixed; F-41 added during CoDRAG self-swarm validation.)
 
 ---
 
@@ -496,6 +497,48 @@ antibodies = derive_antibodies_for_project(concept_dicts)
 ```
 
 `Concept.to_dict()` already exposes the required `id`, `title`, `content`, `category`, `anchors`, `assertion` fields.
+
+---
+
+### F-42 — `GraphEnrichmentPipeline` panel ignores `trace.exists`, gates everything on `trace.enabled`
+
+**Status:** ✅ FIXED
+
+**Symptom:** Eric: "the pipeline shows a bunch of tasks that look to be incomplete before other complete stages. that's impossible, I believe these states are actually complete." For the CoDRAG project (21,531 trace nodes, 65,124 edges, 602 modules, atlas built, all on-disk artifacts present), the dashboard's Graph Enrichment panel rendered:
+
+- Structural Graph: **Disabled**
+- Edge Discovery: **Waiting for graph**
+- Fast Catalogue: **Waiting for graph**
+- Relationship Validation: **Waiting for catalogue**
+- Knowledge Embedding: **Waiting for catalogue**
+- Deep Reasoning: **Waiting for catalogue**
+
+…even though every one of those stages had complete data on disk.
+
+**Root cause:** Same family as F-39, but on the dashboard side. Every `compute*State` function in `packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx` started with:
+```typescript
+if (!trace.enabled) return 'disabled';
+```
+
+`trace.enabled` is the **auto-build preference flag**, not "data exists". When a project has `config.trace.enabled=False` (the CoDRAG default — its config is just `{"active": true}`), every downstream stage short-circuited to `disabled` regardless of actual on-disk state. F-39 fixed the daemon side so `trace.exists=true` is reported correctly, but the dashboard was still gating on the wrong field.
+
+**Fix:** Replace `if (!trace.enabled) return 'disabled'` with `if (!trace.exists && !trace.enabled) return 'disabled'` in 4 functions, and simplify the two functions that already had `!trace.enabled || !trace.exists` to just `!trace.exists`. Six call sites total in `compute{Trace,InferredEdges,Augment,Validation,Epistemic,FastKnowledge}State`.
+
+**Validation (live, via Playwright):** Re-captured the dashboard for CoDRAG after rebuilding the dashboard. Every stage in Graph Enrichment now renders as ✓ complete:
+- Structural Graph ✓
+- Edge Discovery ✓
+- Fast Catalogue ✓
+- Relationship Validation ✓
+- Knowledge Embedding ✓
+- Deep Reasoning ✓
+- Group Reasoning ✓ (Analyzed)
+- Module Synthesis ✓ (602 modules)
+- Continuous Deepening ✓
+- Deep Knowledge Embedding ✓
+
+This was the surface expression of "the dashboard looks broken / never loads the current state" — the data was there, the dashboard just refused to admit it.
+
+**Family note:** F-39 (daemon-side trace status) + F-42 (dashboard-side trace stage rendering) together close the entire "fully-built project shows as needing initialization" failure mode. Both bugs were the same conceptual error (treating an auto-build preference flag as a data-presence flag), at different layers of the stack.
 
 ---
 

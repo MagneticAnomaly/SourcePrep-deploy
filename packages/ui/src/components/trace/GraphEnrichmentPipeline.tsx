@@ -303,7 +303,12 @@ function computeTraceState(
   validating?: boolean,
   fastKnowledgeBuilding?: boolean
 ): StageState {
-  if (!trace.enabled) return 'disabled';
+  // F-42: trace.enabled is the auto-build preference, not the
+  // data-presence flag.  Gate on trace.exists so we don't render
+  // a fully-built graph as "Disabled" just because auto-rebuild
+  // happens to be off.  Same root-cause class as F-39 (which fixed
+  // the daemon side; this fixes the dashboard side).
+  if (!trace.exists && !trace.enabled) return 'disabled';
   // Pipeline is sequential: if any later fast stage is running,
   // Structural has definitely finished.  Show green immediately.
   if (inferredEdgesRunning || augmenting || validating || fastKnowledgeBuilding) return 'complete';
@@ -320,7 +325,8 @@ function computeInferredEdgesState(
   validating?: boolean,
   fastKnowledgeBuilding?: boolean
 ): StageState {
-  if (!trace.enabled) return 'disabled';
+  // F-42: see computeTraceState
+  if (!trace.exists && !trace.enabled) return 'disabled';
   // Pipeline is sequential: if a later stage is running, Edge Discovery finished.
   if (augmenting || validating || fastKnowledgeBuilding) return 'complete';
   // SSE running flags are always fresh — check before stale API data.
@@ -342,7 +348,8 @@ function computeAugmentState(
   fastKnowledgeBuilding?: boolean
 ): StageState {
   if (augmenting) return 'running';
-  if (!trace.enabled || !trace.exists) return 'disabled';
+  // F-42: gate on data presence, not the auto-build preference
+  if (!trace.exists) return 'disabled';
   // Pipeline is sequential: if a later stage is running, Catalogue finished.
   if (validating || fastKnowledgeBuilding) return 'complete';
   if (!aug || !aug.enabled) return 'not_built';
@@ -359,7 +366,8 @@ function computeValidationState(
   validating?: boolean,
   fastKnowledgeBuilding?: boolean
 ): StageState {
-  if (!trace.enabled) return 'disabled';
+  // F-42: see computeTraceState
+  if (!trace.exists && !trace.enabled) return 'disabled';
 
   // A later stage is running → Validation must have finished.
   if (fastKnowledgeBuilding) {
@@ -400,7 +408,8 @@ function computeEpistemicState(
   deepeningRunning?: boolean,
   deepKnowledgeBuilding?: boolean
 ): StageState {
-  if (!trace.enabled) return 'disabled';
+  // F-42: see computeTraceState
+  if (!trace.exists && !trace.enabled) return 'disabled';
   // SSE flags are always fresh — check them before stale status data
   if (clusterRunning || atlasRunning || deepeningRunning || deepKnowledgeBuilding) return 'complete';
   if (running || ep?.running) return 'running';
@@ -486,7 +495,8 @@ function computeFastKnowledgeState(
   building?: boolean,
   augmenting?: boolean
 ): StageState {
-  if (!trace.enabled || !trace.exists) return 'disabled';
+  // F-42: gate on data presence, not the auto-build preference
+  if (!trace.exists) return 'disabled';
   // During incremental catalogue run, keep knowledge green if it was
   // previously complete (has embedded chunks already).
   if (augmenting) {
