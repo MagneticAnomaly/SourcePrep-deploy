@@ -82,10 +82,27 @@ def pipeline_run_fast(project_id: str) -> Dict[str, Any]:
     started = pipeline_orchestrator.run_fast_sync(project_id)
 
     if not started:
-        # Check if we skipped due to incomplete deep enrichment
+        # Check if we skipped due to incomplete deep enrichment.
+        #
+        # F-47: a CANCELLED deep_enrichment run still has current_stage set
+        # (it's just frozen at wherever it was killed) but is_active=False
+        # and phase='cancelled'. Without checking the phase, the gate would
+        # report "deep enrichment is still in progress" forever and refuse
+        # every subsequent fast_sync until the daemon was restarted. The
+        # phase guard treats cancelled / failed / completed as "done with
+        # this run, fast_sync may proceed".
         status = pipeline_orchestrator.status(project_id)
         deep_run = status.get("deep_enrichment")
-        if deep_run and (deep_run.get("is_active") or (deep_run.get("current_stage") and deep_run.get("current_stage") != "deep_knowledge")):
+        deep_phase = deep_run.get("phase") if deep_run else None
+        deep_finished = deep_phase in ("cancelled", "failed", "completed", None)
+        if (
+            deep_run
+            and not deep_finished
+            and (
+                deep_run.get("is_active")
+                or (deep_run.get("current_stage") and deep_run.get("current_stage") != "deep_knowledge")
+            )
+        ):
             raise ApiException(
                 status_code=409,
                 code="PIPELINE_INCOMPLETE",
