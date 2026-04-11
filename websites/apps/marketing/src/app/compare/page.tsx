@@ -24,6 +24,21 @@ export default function ComparePage() {
         </div>
 
         <CompetitorMatrix mobileVariant="detailed" />
+
+        <aside className="mt-16 rounded-2xl border border-border bg-surface p-6 max-w-3xl mx-auto text-center">
+          <p className="text-[11px] font-mono font-semibold uppercase tracking-widest text-primary mb-2">
+            Bibliography
+          </p>
+          <p className="text-text-muted leading-relaxed mb-3">
+            We&rsquo;ve actually read the papers and source for every tool on this page. Here&rsquo;s the working list.
+          </p>
+          <a
+            href="/research"
+            className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+          >
+            See our research →
+          </a>
+        </aside>
       </div>
     </main>
   );
