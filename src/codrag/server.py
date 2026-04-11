@@ -701,9 +701,21 @@ def configure(
     except Exception:
         logger.debug("Pointer validation failed (non-fatal)", exc_info=True)
 
-    # Initialize pipeline journal + crash recovery (Phase 25)
+    # Initialize pipeline journal + crash recovery (Phase 25).
+    #
+    # F-54: dedicated codrag_pipeline_journal.db file (same pattern as
+    # F-36 concept_store and F-37 antibody_store).  Without this, the
+    # journal shares codrag_settings.db with settings_store et al, and
+    # journal.start_run() during /pipeline/finalize blocks for 30+s on
+    # SQLite "database is locked".  Symptom: clicking the Finalize Run
+    # button (or auto-mode triggering finalize) silently never starts
+    # the pipeline because the API call hangs and the dashboard times
+    # out.  Moving to a dedicated file eliminates the cross-store
+    # writer-lock contention exactly the same way F-36 fixed concept
+    # saves.
     from codrag.services.pipeline_journal import journal as _journal
-    _journal.init(db_path)
+    _journal_db_path = db_path.parent / "codrag_pipeline_journal.db"
+    _journal.init(_journal_db_path)
 
     # Initialize pipeline run history (Phase 49: Process Info)
     from codrag.services.pipeline_history import history as _history

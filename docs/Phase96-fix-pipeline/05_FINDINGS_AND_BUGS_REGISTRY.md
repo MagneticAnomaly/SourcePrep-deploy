@@ -70,8 +70,9 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-51 | Write guard blocks Danger Zone Rebuild — `force_from_start=True` not honored, shrinkage check fires anyway | ✅ FIXED | (this commit) |
 | F-52 | `force_from_start=True` silently undone by backup-restore-then-redetect path — Danger Zone Rebuild completed in 0.0s without doing any work | ✅ FIXED | (this commit) |
 | F-53 | Graph Scope Queue tab renders empty when no untraced/stale files — daemon returns `traced` array but dashboard never displays it; coverage fetch also gated on `trace.enabled` | ✅ FIXED | (this commit) |
+| F-54 | `/pipeline/finalize` hangs 30s on `journal.start_run()` — pipeline_journal still shared `codrag_settings.db` (same pattern F-36 fixed for concept_store and F-37 for antibody_store) | ✅ FIXED | (this commit) |
 
-Total: **53 findings**, **44 fixed**, **4 open**, **2 deferred**, **2 not-a-bug**. (F-44 promoted to FIXED after live validation of the catalogue stage's 2-tone bar — `cur=22 tot=24 BASE=21` flowed through `/pipeline/status` mid-build.)
+Total: **54 findings**, **45 fixed**, **4 open**, **2 deferred**, **2 not-a-bug**. (F-54 closed: pipeline_journal moved to dedicated SQLite file, unblocking `/pipeline/finalize` which had been silently hanging on the contended `codrag_settings.db`.)
 
 ---
 
