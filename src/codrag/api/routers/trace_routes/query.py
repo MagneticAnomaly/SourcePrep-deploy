@@ -150,15 +150,14 @@ async def trace_coverage_project(project_id: str) -> Dict[str, Any]:
     from codrag.server import _require_project, _is_project_trace_building
     proj = _require_project(project_id)
 
+    # F-49: this is a READ endpoint — serve disk data regardless of the
+    # auto-build preference flag.  Same root-cause class as F-39 (daemon
+    # status), F-42 (dashboard pipeline panel): trace.enabled means
+    # "auto-rebuild on", not "data exists".  Removing the gate stops the
+    # Graph Scope panel from disconnecting on every project that has a
+    # built graph but no auto-build flag.
     cfg = proj.config or {}
     trace_cfg = cfg.get("trace") if isinstance(cfg, dict) else None
-    if not bool((trace_cfg or {}).get("enabled", False)):
-        raise ApiException(
-            status_code=409,
-            code="TRACE_DISABLED",
-            message="Trace is disabled for this project",
-            hint="Enable trace in project settings.",
-        )
 
     # Check cache freshness
     cache_age = _time.time() - _coverage_cache_ts.get(project_id, 0)
@@ -254,6 +253,10 @@ def update_trace_ignore(project_id: str, req: TraceIgnoreRequest) -> Dict[str, A
     reg = _get_registry()
     reg.update_project(proj.id, config=cfg)
 
+    # Invalidate coverage cache so next fetch reflects new exclusions
+    _coverage_cache.pop(project_id, None)
+    _coverage_cache_ts.pop(project_id, None)
+
     # P48-F34: If a pipeline is running, trigger hot scope reload so the
     # new patterns take effect immediately (pause → rebuild trace → resume).
     reload_result = None
@@ -283,16 +286,9 @@ def search_trace_project(project_id: str, query: str, kind: Optional[str] = None
     if not query.strip():
         raise ApiException(status_code=400, code="VALIDATION_ERROR", message="query is required")
 
-    cfg = proj.config or {}
-    trace_cfg = cfg.get("trace") if isinstance(cfg, dict) else None
-    if not bool((trace_cfg or {}).get("enabled", False)):
-        raise ApiException(
-            status_code=409,
-            code="TRACE_DISABLED",
-            message="Trace is disabled for this project",
-            hint="Enable trace in project settings and build the trace index.",
-        )
-    
+    # F-49: read endpoint — TRACE_NOT_BUILT below already covers the
+    # "no data on disk" case; the auto-build preference flag isn't a
+    # data-presence check (see F-39, F-42).
     trace_idx = _get_project_trace_index(proj)
     if not trace_idx.exists():
         raise ApiException(
@@ -301,10 +297,10 @@ def search_trace_project(project_id: str, query: str, kind: Optional[str] = None
             message="Trace index has not been built yet",
             hint="Run a trace build first.",
         )
-    
+
     if not trace_idx.is_loaded():
         trace_idx.load()
-    
+
     results = trace_idx.search_nodes(query, kind=kind, limit=min(limit, 100))
     return ok({"nodes": results})
 
@@ -317,16 +313,7 @@ def trace_search_project(project_id: str, req: TraceSearchRequest) -> Dict[str, 
     if not str(req.query or "").strip():
         raise ApiException(status_code=400, code="VALIDATION_ERROR", message="query is required")
 
-    cfg = proj.config or {}
-    trace_cfg = cfg.get("trace") if isinstance(cfg, dict) else None
-    if not bool((trace_cfg or {}).get("enabled", False)):
-        raise ApiException(
-            status_code=409,
-            code="TRACE_DISABLED",
-            message="Trace is disabled for this project",
-            hint="Enable trace in project settings and build the trace index.",
-        )
-
+    # F-49: read endpoint — see trace_search above
     trace_idx = _get_project_trace_index(proj)
     if not trace_idx.exists():
         raise ApiException(
@@ -360,16 +347,7 @@ def get_trace_node(project_id: str, node_id: str) -> Dict[str, Any]:
     from codrag.server import _require_project, _get_project_trace_index
     proj = _require_project(project_id)
 
-    cfg = proj.config or {}
-    trace_cfg = cfg.get("trace") if isinstance(cfg, dict) else None
-    if not bool((trace_cfg or {}).get("enabled", False)):
-        raise ApiException(
-            status_code=409,
-            code="TRACE_DISABLED",
-            message="Trace is disabled for this project",
-            hint="Enable trace in project settings and build the trace index.",
-        )
-    
+    # F-49: read endpoint — see trace_search above
     trace_idx = _get_project_trace_index(proj)
     if not trace_idx.exists():
         raise ApiException(status_code=409, code="TRACE_NOT_BUILT", message="Trace index has not been built yet")
@@ -399,23 +377,14 @@ def get_trace_node_neighbors(
     from codrag.server import _require_project, _get_project_trace_index
     proj = _require_project(project_id)
 
-    cfg = proj.config or {}
-    trace_cfg = cfg.get("trace") if isinstance(cfg, dict) else None
-    if not bool((trace_cfg or {}).get("enabled", False)):
-        raise ApiException(
-            status_code=409,
-            code="TRACE_DISABLED",
-            message="Trace is disabled for this project",
-            hint="Enable trace in project settings and build the trace index.",
-        )
-    
+    # F-49: read endpoint — see trace_search above
     trace_idx = _get_project_trace_index(proj)
     if not trace_idx.exists():
         raise ApiException(status_code=409, code="TRACE_NOT_BUILT", message="Trace index has not been built yet")
-    
+
     if not trace_idx.is_loaded():
         trace_idx.load()
-    
+
     node = trace_idx.get_node(node_id)
     if node is None:
         raise ApiException(status_code=404, code="NODE_NOT_FOUND", message=f"Node not found: {node_id}")

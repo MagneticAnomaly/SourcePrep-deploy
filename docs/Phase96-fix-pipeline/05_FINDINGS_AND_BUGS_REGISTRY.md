@@ -65,8 +65,9 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-46 | Structural worker tries to mutate frozen `Project` dataclass — `FrozenInstanceError`, blocks all `/pipeline/fast` runs | ✅ FIXED | (this commit) |
 | F-47 | `/pipeline/fast` gate doesn't recognize `phase=cancelled` — cancelled deep_enrichment runs block all subsequent fast_sync attempts until daemon restart | 🟡 OPEN | — |
 | F-48 | `/pipeline/rebuild` timed out >5s on rust_repo — endpoint may be doing synchronous work that should be backgrounded | 🟡 OPEN | — |
+| F-49 | 5 trace READ endpoints (`/trace/coverage`, `/trace/search` × 2, `/trace/node`, `/trace/neighbors`) raise `TRACE_DISABLED` when `config.trace.enabled=False`, ignoring on-disk graph — disconnects Graph Scope panel | ✅ FIXED | (this commit) |
 
-Total: **48 findings**, **37 fixed**, **6 open**, **2 deferred**, **2 not-a-bug**. (F-43 + F-44 added during progress bar verification; F-45 + F-46 + F-47 + F-48 surfaced while validating F-44 end-to-end.)
+Total: **49 findings**, **38 fixed**, **6 open**, **2 deferred**, **2 not-a-bug**. (F-49 added when Eric reported "Graph Scope window is no longer connected" — third instance of the F-39 root-cause class.)
 
 ---
 
