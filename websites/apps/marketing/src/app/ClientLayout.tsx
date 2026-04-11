@@ -32,6 +32,7 @@ const footerSections = [
     title: 'Company',
     links: [
       { label: 'FAQ', href: '/faq' },
+      { label: 'Research', href: '/research' },
       { label: 'Support', href: SUPPORT_URL },
     ],
   },
