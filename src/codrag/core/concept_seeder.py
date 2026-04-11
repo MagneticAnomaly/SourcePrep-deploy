@@ -277,8 +277,17 @@ def seed_concepts_swarm(project_id: str) -> Dict[str, Any]:
     )
 
     # 5. Run the swarm
+    # Phase 96F follow-up: Use shorter coordinator/synthesis timeouts than
+    # the default 120/180s.  Concept extraction prompts are small and
+    # should respond fast — a hung kimi-k2.5:cloud coordinator burned 11+
+    # minutes during initial validation before being killed.
     project_name = project.name
-    orch = SwarmOrchestrator(llm=llm, concurrency=concurrency)
+    orch = SwarmOrchestrator(
+        llm=llm,
+        concurrency=concurrency,
+        coordinator_timeout_s=90.0,
+        synthesis_timeout_s=120.0,
+    )
 
     coordinator_prompt = (
         "You are coordinating concept extraction across {n} subsystems of "

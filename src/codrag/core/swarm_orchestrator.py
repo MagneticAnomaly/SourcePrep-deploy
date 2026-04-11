@@ -10,7 +10,11 @@ from __future__ import annotations
 import json
 import logging
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    TimeoutError as FuturesTimeoutError,
+    as_completed,
+)
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -95,11 +99,84 @@ class SwarmResult:
 
 
 class SwarmOrchestrator:
-    """Generic three-phase swarm executor."""
+    """Generic three-phase swarm executor.
 
-    def __init__(self, llm: LLMClient, concurrency: int = 10) -> None:
+    Phase 96F: Coordinator and synthesis phases now respect their own
+    short timeouts (default 120s and 180s) instead of inheriting the
+    LLMClient's "large slot" 600s timeout.  A hung coordinator falls
+    back to an empty plan — the fan-out path already handles missing
+    assignments by giving each worker a default analysis angle, so the
+    workers can still produce output even when the coordinator can't.
+    """
+
+    # Phase 96F: timeout defaults — these are shorter than LLMClient
+    # large-slot timeout (600s) because coordinator/synthesis prompts
+    # are tiny and should respond fast.  A hung coordinator was the
+    # root cause of the mini-redis-rust finalize stall during live
+    # validation — kimi-k2.5:cloud took 11+ minutes on a ~3KB prompt
+    # before being killed.
+    DEFAULT_COORDINATOR_TIMEOUT_S: float = 120.0
+    DEFAULT_SYNTHESIS_TIMEOUT_S: float = 180.0
+
+    def __init__(
+        self,
+        llm: LLMClient,
+        concurrency: int = 10,
+        *,
+        coordinator_timeout_s: Optional[float] = None,
+        synthesis_timeout_s: Optional[float] = None,
+    ) -> None:
         self.llm = llm
         self.concurrency = max(1, concurrency)
+        self.coordinator_timeout_s = (
+            coordinator_timeout_s
+            if coordinator_timeout_s is not None
+            else self.DEFAULT_COORDINATOR_TIMEOUT_S
+        )
+        self.synthesis_timeout_s = (
+            synthesis_timeout_s
+            if synthesis_timeout_s is not None
+            else self.DEFAULT_SYNTHESIS_TIMEOUT_S
+        )
+
+    def _llm_call_with_timeout(
+        self,
+        prompt: str,
+        system: str,
+        temperature: float,
+        timeout_s: float,
+        phase: str,
+    ) -> Tuple[Optional[str], int]:
+        """Run an LLM call in a worker thread with a hard timeout.
+
+        Returns (text, tokens) on success, (None, 0) on timeout or
+        exception.  The underlying thread is allowed to keep running
+        until the LLM call returns naturally — Python provides no way
+        to forcibly cancel a thread blocked on a network read.  In
+        practice this is fine because the LLMClient itself has a
+        request-level timeout, just longer than ours.
+        """
+        with ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"swarm-{phase}") as pool:
+            future = pool.submit(
+                self.llm.generate,
+                prompt=prompt,
+                system=system,
+                json_mode=True,
+                temperature=temperature,
+            )
+            try:
+                return future.result(timeout=timeout_s)
+            except FuturesTimeoutError:
+                logger.warning(
+                    "[Swarm/%s] LLM call timed out after %.0fs — falling back",
+                    phase, timeout_s,
+                )
+                return None, 0
+            except Exception:
+                logger.warning(
+                    "[Swarm/%s] LLM call raised", phase, exc_info=True,
+                )
+                return None, 0
 
     # -- Phase 1: Coordinate ------------------------------------------------
 
@@ -110,23 +187,25 @@ class SwarmOrchestrator:
     ) -> Tuple[Optional[CoordinatorPlan], int]:
         """Single LLM call to decompose work into scoped assignments.
 
-        Returns (plan, token_count). Plan is None on any failure.
+        Returns (plan, token_count).  Plan is None on any failure
+        (timeout, parse error, empty assignments).  Callers should
+        proceed with fan-out anyway — the fan-out path handles missing
+        assignments by giving each worker a default analysis angle.
         """
         summaries = "\n".join(
             f"- {item.id}: {item.summary}" for item in items
         )
         prompt = coordinator_prompt.replace("{group_summaries}", summaries)
 
-        try:
-            text, tokens = self.llm.generate(
-                prompt=prompt,
-                system=COORDINATOR_SYSTEM,
-                json_mode=True,
-                temperature=0.4,
-            )
-        except Exception:
-            logger.warning("Coordinator LLM call failed", exc_info=True)
-            return None, 0
+        text, tokens = self._llm_call_with_timeout(
+            prompt=prompt,
+            system=COORDINATOR_SYSTEM,
+            temperature=0.4,
+            timeout_s=self.coordinator_timeout_s,
+            phase="coordinator",
+        )
+        if text is None:
+            return None, tokens
 
         parsed = _parse_json_response(text)
         if not parsed:
@@ -222,8 +301,10 @@ class SwarmOrchestrator:
     ) -> Tuple[Optional[Dict[str, Any]], int]:
         """Single LLM call to aggregate successful worker results.
 
-        Returns (parsed_result, token_count). Result is None on failure
-        or if no workers succeeded.
+        Returns (parsed_result, token_count). Result is None on failure,
+        timeout, or if no workers succeeded.  Callers (e.g.
+        concept_seeder) should fall back to merging raw worker outputs
+        when synthesis returns None.
         """
         successful = [r for r in worker_results if r.success and r.parsed]
         if not successful:
@@ -236,16 +317,15 @@ class SwarmOrchestrator:
         )
         prompt = synthesis_prompt.replace("{worker_outputs}", outputs)
 
-        try:
-            text, tokens = self.llm.generate(
-                prompt=prompt,
-                system=SYNTHESIS_SYSTEM,
-                json_mode=True,
-                temperature=0.5,
-            )
-        except Exception:
-            logger.warning("Synthesis LLM call failed", exc_info=True)
-            return None, 0
+        text, tokens = self._llm_call_with_timeout(
+            prompt=prompt,
+            system=SYNTHESIS_SYSTEM,
+            temperature=0.5,
+            timeout_s=self.synthesis_timeout_s,
+            phase="synthesis",
+        )
+        if text is None:
+            return None, tokens
 
         parsed = _parse_json_response(text)
         if not parsed:
@@ -265,14 +345,29 @@ class SwarmOrchestrator:
         synthesis_prompt: str,
         progress_fn: Optional[Callable[[int, int], None]] = None,
     ) -> Optional[SwarmResult]:
-        """Run all three phases. Returns None if coordinator fails."""
+        """Run all three phases.
+
+        Phase 96F: When the coordinator fails or times out, fan-out
+        still runs with default per-worker assignments.  Only the
+        synthesis phase is allowed to leave a None synthesis on the
+        result — callers handle that by merging raw worker outputs.
+        Returns None only when there are zero items to process.
+        """
+        if not items:
+            return None
+
         t0 = time.monotonic()
         stats = SwarmStats(total_items=len(items))
 
-        # Phase 1: Coordinate
+        # Phase 1: Coordinate (with timeout, may return empty plan)
         plan, coordinator_tokens = self._coordinate(items, coordinator_prompt)
         if plan is None:
-            return None
+            logger.info(
+                "[Swarm] Coordinator failed/timed out — proceeding with "
+                "default assignments for %d items",
+                len(items),
+            )
+            plan = CoordinatorPlan(assignments=[])  # fan-out fills defaults
         stats.coordinator_tokens = coordinator_tokens
 
         # Phase 2: Fan-out
