@@ -51,8 +51,9 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-32 | Pipeline log "Batch synthesis failed" markers in module summaries | 🔵 NOT-A-BUG (data quality from older clustering run) | — |
 | F-33 | rust_repo structural rebuild produces fewer nodes than existing file (write guard blocks) | 🟡 OPEN (Phase 70B working as designed but inconvenient for fixture) | — |
 | F-34 | Swarm window cooldown (45s) blocks re-opening but doesn't reduce batch budget | ✅ NOT-A-BUG (cooldown only blocks new windows; budget query still returns full) | — |
+| F-35 | Daemon-runtime swarm call hangs even with `think=false` (works in isolation) | 🟡 OPEN — **NEW**, blocks 96F end-to-end validation | (see entry below) |
 
-Total: **34 findings**, **22 fixed**, **9 open**, **2 deferred**, **1 not-a-bug**.
+Total: **35 findings**, **22 fixed**, **10 open**, **2 deferred**, **1 not-a-bug**.
 
 ---
 
@@ -307,30 +308,73 @@ Scheduler: restored priority for 1 project(s): 7230f731...=exclusive
 
 ### F-29 — Thinking-model swallows num_predict budget on `thinking` field
 
-**Status:** 🟡 OPEN (task #23) — **next fix target**
+**Status:** ⚠️ PARTIALLY FIXED in `c4e9fe68` — **think=false works in isolation but daemon-runtime hang persists. See F-35.**
 
 **Symptom:** Direct test of kimi-k2.5:cloud with `num_predict=50`:
 ```json
 {
   "model": "kimi-k2.5",
   "response": "",
-  "thinking": "The user is asking me to say hello. This is a very simple, straightforward request. I should respond with a friendly greeting...",
+  "thinking": "The user is asking me to say hello. This is a very simple, straightforward request...",
   "done_reason": "length"
 }
 ```
 
 **Root cause:** kimi-k2.5 (and other reasoning models) use a `thinking` field for chain-of-thought reasoning before producing the actual `response`. When `num_predict` is too small to fit both, the model exhausts the budget on thinking and produces empty output.
 
-**Impact on Phase 96F:** All swarm-capable stages (group_reasoning, clustering, atlas, concepts, audit) use the `large` model slot. If that slot is configured with a thinking model and the prompt has a low `num_predict` budget, the LLM call returns empty and either parses as failure or appears to hang as the LLMClient retries.
+**Fix shipped (`c4e9fe68`):**
+1. `swarm_orchestrator.py::_llm_call_with_timeout` passes `think=False` in coordinator and synthesis LLM calls.
+2. `concept_seeder.py` per-module worker also passes `think=False`.
+3. Tests in `test_swarm_orchestrator_timeout.py::TestSwarmThinkFalse` lock in the behavior.
 
-**Discovery during live validation:** Concepts swarm coordinator on rust_repo timed out at 90s. Direct Ollama test confirmed the model returned empty `response` with `done_reason: "length"`. Not a Phase 96F bug — would affect sequential paths identically.
+**Validation in isolation:**
+- Direct Ollama POST with `think: false`: returns in 1.0-3.5s with valid JSON, empty `thinking` field
+- Direct LLMClient `generate(think=False)`: returns in 1.3s with the same valid output
+- Daemon swarm call with `think=False` (via concept_seeder swarm path): **still hangs past 90s timeout**
 
-**Fix options:**
-1. **Disable thinking mode for swarm short prompts:** Pass `think: false` in Ollama options for the coordinator and worker LLM calls. Forces the model to skip the reasoning phase. Best for short structured-output prompts.
-2. **Allocate a much larger num_predict:** Bump from 2048 to e.g. 6000+ so thinking + output both fit. Wastes tokens on simple prompts.
-3. **Detect thinking models and route swarm coordinator to a non-thinking slot:** Most complex, requires per-model metadata.
+This is confusing — same code path, same model, different behavior in daemon vs standalone. See F-35 for the daemon-runtime hang investigation. The think=false fix is **correct** but **insufficient** to fully unblock end-to-end finalize execution.
 
-**Recommended:** Option 1 (`think: false`) for swarm-style short structured prompts. The reasoning-heavy stages (deepening, group_reasoning, clustering) keep thinking mode for quality. Concepts and audit coordinator+worker calls produce structured JSON and don't need thinking.
+---
+
+### F-35 — Daemon-runtime swarm call hangs even with think=false
+
+**Status:** 🟡 OPEN — **NEW FINDING**
+
+**Symptom:** Identical LLMClient code path takes 1.3s in standalone Python but >90s when invoked from inside the daemon's concept_seeder swarm worker. Multiple simultaneous worker calls (10 parallel) hang the daemon entirely.
+
+**Reproduction:**
+1. Restart daemon via `scripts/dev.sh`
+2. Trigger `POST /projects/{rust_repo_id}/pipeline/finalize`
+3. Concepts stage starts swarm fan-out: `[Swarm/Concepts] Fan-out: 5 modules across 10 workers`
+4. Coordinator LLM call hangs past 90s timeout (which fires correctly per F-25)
+5. After timeout, fan-out spawns 10 worker LLM calls, each hangs the same way
+6. Daemon thread pool exhausts, all subsequent /health, /pipeline/status, etc. return ReadTimeout
+7. Daemon must be restarted to recover
+
+**What we know:**
+- LLMClient `generate(think=False)` works in standalone Python (1.3s response)
+- Direct httpx POST to Ollama `/api/generate` with the same payload works (3.5s response)
+- The same daemon was healthy before triggering finalize — `/health` returns 200 instantly
+- The daemon's logger goes silent after the swarm starts — no stdout output for minutes
+- Daemon process is in `S` (sleeping) state with 0.1% CPU during the hang
+- Not GIL contention (process is sleeping, not spinning)
+
+**Hypotheses (untested):**
+1. **Connection pool exhaustion in `requests` library** — the LLMClient uses `requests.post(stream=True)`, and 10 simultaneous streaming connections to the same Ollama endpoint might hit a `urllib3` connection pool default of 10. The 11th would block waiting for a free slot, even though we only have 10 workers.
+2. **Daemon thread interaction with `OutputMonitor`** — the streaming read loop calls `OutputMonitor.feed()` which might acquire a lock that's contended across worker threads.
+3. **Ollama Cloud server-side rate limiting** — kimi-k2.5:cloud might serialize requests from the same client. 10 simultaneous calls get queued and effectively serialized, with each taking the model's full latency.
+4. **Asyncio/threading interaction with anyio's thread pool** — the SwarmOrchestrator spawns its own ThreadPoolExecutor, but the inner LLMClient calls go through `requests` which should be GIL-friendly. There might be subtle interaction with FastAPI's asyncio event loop.
+5. **Logging deadlock** — the daemon's structured logger might be lock-contended when 10 swarm workers + 5+ FastAPI threads all log simultaneously.
+
+**Diagnostic plan (next session):**
+- Reduce swarm worker concurrency to 2 (instead of 10) and see if the hang goes away → confirms hypothesis #1 (connection pool) or #3 (rate limiting)
+- Add `urllib3` pool sizing to LLMClient: `requests.adapters.HTTPAdapter(pool_connections=20, pool_maxsize=50)`
+- Run the swarm with `--debug-llm` or attach `py-spy dump` during the hang to see what threads are doing
+- Test with a non-cloud model (local Ollama) to isolate cloud-specific behavior
+
+**Workaround:** Daemon must be restarted via `scripts/dev.sh --kill && scripts/dev.sh` between every finalize attempt.
+
+**Impact:** Phase 96F end-to-end validation is blocked until this is resolved. The 96F machinery itself is correct (verified by tests, by direct LLMClient calls, by the coordinator timeout firing correctly). The blocker is somewhere in the daemon-vs-standalone runtime difference.
 
 ---
 
@@ -378,8 +422,9 @@ WRITE GUARD BLOCKED stage structural for ...
 
 | ID | Title | Priority |
 |---|---|---|
-| F-11 | Dashboard polling storm exhausts thread pool | **HIGH** — blocks dashboard reliability |
-| F-29 | Thinking-model swallows num_predict budget | **HIGH** — blocks swarm end-to-end completion |
+| F-35 | Daemon-runtime swarm hang (works in isolation) | **CRITICAL** — blocks 96F end-to-end validation |
+| F-11 | Dashboard polling storm exhausts thread pool | **HIGH** — blocks dashboard reliability (related to F-35) |
+| F-29 | Thinking-model swallows num_predict budget | ⚠️ partial fix shipped (`c4e9fe68`); see F-35 for daemon hang |
 | F-28 | AIMD doesn't recover from backoff | MEDIUM — needs daemon restart workaround |
 | F-14 | `SettingsStore.get_global` AttributeError | LOW — non-fatal log noise |
 | F-15 | Pre-existing budget/journal test failures | LOW — out of scope |
