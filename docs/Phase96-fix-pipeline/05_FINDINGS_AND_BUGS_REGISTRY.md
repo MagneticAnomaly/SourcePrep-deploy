@@ -1,6 +1,6 @@
 # Phase 96: Findings and Bugs Registry
 
-**Last updated:** 2026-04-11 (F-11, F-14, F-28, F-29, F-30, F-31, F-36, F-37, F-38 closed; only F-15 and F-33 remain open, both deferred)
+**Last updated:** 2026-04-11 (F-11, F-14, F-28, F-29, F-30, F-31, F-36, F-37, F-38, F-39 closed; only F-15 and F-33 remain open, both deferred)
 **Status:** Living document — appended as new findings emerge
 
 This is the canonical record of every issue, bug, anomaly, or noteworthy
@@ -55,8 +55,9 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-36 | SQLite "database is locked" blocks swarm concept saves (26 generated, 0 saved) | ✅ FIXED | (this commit) |
 | F-37 | `antibody_store.init()` never called — saves silently failed at DEBUG level | ✅ FIXED | (this commit) |
 | F-38 | Antibodies worker passed `Concept` dataclass to `derive_antibodies_for_project` (expects dicts) | ✅ FIXED | (this commit) |
+| F-39 | `project_trace_status` short-circuits to empty stub when `config.trace.enabled=False`, ignoring on-disk graph | ✅ FIXED | (this commit) |
 
-Total: **39 findings**, **31 fixed**, **2 open**, **2 deferred**, **2 not-a-bug**.
+Total: **40 findings**, **32 fixed**, **2 open**, **2 deferred**, **2 not-a-bug**.
 
 ---
 
@@ -477,6 +478,62 @@ antibodies = derive_antibodies_for_project(concept_dicts)
 ```
 
 `Concept.to_dict()` already exposes the required `id`, `title`, `content`, `category`, `anchors`, `assertion` fields.
+
+---
+
+### F-39 — `project_trace_status` short-circuits to empty stub when config flag is False
+
+**Status:** ✅ FIXED
+
+**Symptom:** Eric reported "I see issues with the codrag data after I ran scripts/dev.sh — it says initialize but I know it's been built in .codrag". The dashboard was showing CoDRAG with the "Initialize Trace Graph" panel and Knowledge Base Status reading 0 Code / 0 Docs / 0 Graph / 0 Total / "No project loaded", even though `.codrag/trace_nodes.jsonl` (8.6 MB, 21,531 lines) and `trace_edges.jsonl` (31,459 lines) had been written that morning.
+
+**Root cause:** `services/project_helpers.py::project_trace_status()` checked `project.config.trace.enabled` and short-circuited to an empty stub if the flag was False — without ever consulting `TraceIndex.status()` or the on-disk files. The CoDRAG project's config is `{"active": true}` with no `trace` key, so `enabled` came out False, and the daemon advertised the project as having no graph.
+
+```python
+# BEFORE
+enabled = bool((trace_cfg or {}).get("enabled", False))
+if not enabled:
+    return {"enabled": False, "exists": False, "counts": {"nodes": 0, "edges": 0}, ...}
+trace_idx = bm.get_project_trace_index(project)
+status = trace_idx.status()
+```
+
+This short-circuit also masked the same condition for any project where the user (or a pipeline run) built the graph but never flipped the config flag to True. `TraceIndex.status()` itself correctly probes the disk and reports counts; the daemon just never called it.
+
+**Resolution:** Always probe the on-disk index via `trace_idx.status()` and merge the config flag in as the `enabled` field separately. The flag now means "auto-build preference" — existing data is reported regardless.
+
+```python
+# AFTER
+enabled = bool((trace_cfg or {}).get("enabled", False))
+try:
+    trace_idx = bm.get_project_trace_index(project)
+    status = trace_idx.status()
+except Exception as e:
+    return {"enabled": enabled, "exists": False, ..., "last_error": str(e)}
+status["enabled"] = enabled
+status["building"] = bm.is_project_trace_building(project.id)
+return status
+```
+
+**Validation (live, via Playwright + curl):**
+
+Before:
+```json
+"trace": {"enabled": false, "exists": false, "counts": {"nodes": 0, "edges": 0}}
+```
+Dashboard: "Initialize Trace Graph", 0 / 0 / 0 / 0, "No project loaded".
+
+After (same project, post-restart):
+```json
+"trace": {
+  "enabled": false, "exists": true, "building": false,
+  "counts": {"nodes": 21531, "edges": 32562},
+  "engine": "python", "degraded": false, ...
+}
+```
+Dashboard: 68 Code, 593 Docs, 21.5k Graph, 661 Total. The Graph Enrichment panel shows the full enrichment pipeline with stage names, and Module Synthesis even reports "602 modules · 602 files".
+
+**Side note:** The Knowledge Sources panel still renders empty for CoDRAG. That looks like a separate scope-pattern issue (the trace scope filter is empty for this project) and is tracked as a follow-up rather than a regression of this fix.
 
 ---
 

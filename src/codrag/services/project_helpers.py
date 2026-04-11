@@ -338,24 +338,40 @@ def project_index_status(
 
 
 def project_trace_status(project: Project) -> Dict[str, Any]:
+    """Return trace status for a project.
+
+    F-39: previously short-circuited to an empty stub when
+    ``config.trace.enabled`` was False, even if the trace files
+    existed on disk.  That left the dashboard showing "Initialize
+    Trace Graph" for projects that already had a fully-built graph
+    (e.g. CoDRAG itself: 21k nodes, 31k edges in trace_nodes.jsonl
+    but ``trace.enabled`` was never flipped to True).
+
+    Now we always probe the on-disk index via ``trace_idx.status()``
+    and treat the config flag purely as the auto-build preference.
+    Existing data is reported regardless of the flag; ``enabled``
+    is the config value so the dashboard can still show whether
+    auto-rebuilds are on.
+    """
     from codrag.services.build_manager import build_manager as bm
     cfg = project.config or {}
     trace_cfg = cfg.get("trace") if isinstance(cfg, dict) else None
     enabled = bool((trace_cfg or {}).get("enabled", False))
 
-    if not enabled:
+    try:
+        trace_idx = bm.get_project_trace_index(project)
+        status = trace_idx.status()
+    except Exception as e:
         return {
-            "enabled": False,
+            "enabled": enabled,
             "exists": False,
             "building": False,
             "counts": {"nodes": 0, "edges": 0},
             "last_build_at": None,
-            "last_error": None,
+            "last_error": str(e),
         }
 
-    trace_idx = bm.get_project_trace_index(project)
-    status = trace_idx.status()
-    status["enabled"] = True
+    status["enabled"] = enabled
     status["building"] = bm.is_project_trace_building(project.id)
     return status
 
