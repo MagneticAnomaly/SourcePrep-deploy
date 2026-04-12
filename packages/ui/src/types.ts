@@ -848,6 +848,10 @@ export interface ProjectConfig {
   graph_engine?: GraphEngineConfig;
   advanced?: ProjectAdvancedConfig;
   max_branch_backups?: number; // Phase 60B
+  /** F-65: Per-project Auto/Manual/Sched state for pipeline groups */
+  auto_config?: { fastSync?: boolean; deepEnrichment?: string; finalize?: string };
+  /** F-56: Per-project deep analysis schedule */
+  deep_analysis_schedule?: Record<string, unknown>;
 }
 
 /**

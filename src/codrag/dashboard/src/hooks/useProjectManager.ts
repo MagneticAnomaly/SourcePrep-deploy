@@ -176,6 +176,11 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
           use_gitignore: cfg.use_gitignore ?? prev.use_gitignore,
           trace: cfg.trace ?? prev.trace,
           auto_rebuild: cfg.auto_rebuild ?? prev.auto_rebuild,
+          // F-65: pass through server-managed fields so per-project
+          // Auto/Manual config and deep analysis schedule are available
+          // to useTraceSystem and useDeepAnalysis hooks.
+          auto_config: cfg.auto_config ?? (prev as any).auto_config,
+          deep_analysis_schedule: cfg.deep_analysis_schedule ?? (prev as any).deep_analysis_schedule,
         }))
         setConfigDirty(false)
       }
