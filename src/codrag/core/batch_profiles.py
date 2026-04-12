@@ -347,6 +347,25 @@ def get_batch_concurrency(provider: str, node_id: str | None = None, model: str 
     """
     provider_lower = provider.lower().strip()
 
+    # F-59 WORKAROUND: Force sequential execution for cloud models.
+    # Concurrent requests.post() calls in daemon worker threads hang
+    # indefinitely (works fine standalone — suspected asyncio/GIL
+    # interaction in uvicorn). Until the HTTP client is replaced with
+    # httpx (see docs/Phase79_Swarm/07_Rework/SWARM_HANG_INVESTIGATION.md),
+    # cloud models must run sequentially.
+    #
+    # This affects: group_reasoning, concept_seeder, cluster, atlas
+    # Non-cloud (local Ollama) models are not affected.
+    _is_cloud = provider_lower not in _LOCAL_PROVIDERS
+    if not _is_cloud and model:
+        _is_cloud = is_cloud_model_via_ollama(provider_lower, model or "")
+    if _is_cloud:
+        logger.info(
+            "Batch concurrency: 1 (F-59 workaround — cloud models forced sequential, provider=%s, model=%s)",
+            provider_lower, model,
+        )
+        return 1
+
     # Read the calling project's ID from the telemetry context so the
     # scheduler can give the priority ⭐ project the full cloud budget.
     calling_project_id: str | None = None
