@@ -736,20 +736,29 @@ class EpistemicEnricher:
                 logger.warning("Batched epistemic code failed for %d items: %s", len(items), e)
                 return []
 
-        # Dispatch code batches concurrently
+        # Dispatch code batches (sequentially for concurrency=1 to avoid thread accumulation)
         _cancelled = False
-        with ThreadPoolExecutor(max_workers=min(_concurrency, len(code_batches) or 1)) as pool:
-            future_to_items = {
-                pool.submit(_call_code_batch, items): items
-                for items in code_batches
-            }
-            for future in as_completed(future_to_items):
-                items = future_to_items[future]
-                try:
-                    results_list = future.result()
-                except Exception as e:
-                    logger.warning("Code batch future failed: %s", e)
-                    results_list = []
+
+        def _iter_epi_code_results():
+            if _concurrency <= 1 or len(code_batches) <= 1:
+                for batch_items in code_batches:
+                    try:
+                        yield batch_items, _call_code_batch(batch_items)
+                    except Exception as e:
+                        logger.warning("Code batch failed: %s", e)
+                        yield batch_items, []
+            else:
+                with ThreadPoolExecutor(max_workers=min(_concurrency, len(code_batches))) as pool:
+                    fmap = {pool.submit(_call_code_batch, items): items for items in code_batches}
+                    for future in as_completed(fmap):
+                        batch_items = fmap[future]
+                        try:
+                            yield batch_items, future.result()
+                        except Exception as e:
+                            logger.warning("Code batch future failed: %s", e)
+                            yield batch_items, []
+
+        for items, results_list in _iter_epi_code_results():
 
                 for idx, item in enumerate(items):
                     nid = item["_node_id"]
@@ -852,19 +861,27 @@ class EpistemicEnricher:
                 logger.warning("Batched epistemic doc failed for %d items: %s", len(items), e)
                 return []
 
-        # Dispatch doc batches concurrently
-        with ThreadPoolExecutor(max_workers=min(_concurrency, len(doc_batches) or 1)) as pool:
-            future_to_items = {
-                pool.submit(_call_doc_batch, items): items
-                for items in doc_batches
-            }
-            for future in as_completed(future_to_items):
-                items = future_to_items[future]
-                try:
-                    results_list = future.result()
-                except Exception as e:
-                    logger.warning("Doc batch future failed: %s", e)
-                    results_list = []
+        # Dispatch doc batches (sequentially for concurrency=1 to avoid thread accumulation)
+        def _iter_epi_doc_results():
+            if _concurrency <= 1 or len(doc_batches) <= 1:
+                for batch_items in doc_batches:
+                    try:
+                        yield batch_items, _call_doc_batch(batch_items)
+                    except Exception as e:
+                        logger.warning("Doc batch failed: %s", e)
+                        yield batch_items, []
+            else:
+                with ThreadPoolExecutor(max_workers=min(_concurrency, len(doc_batches))) as pool:
+                    fmap = {pool.submit(_call_doc_batch, items): items for items in doc_batches}
+                    for future in as_completed(fmap):
+                        batch_items = fmap[future]
+                        try:
+                            yield batch_items, future.result()
+                        except Exception as e:
+                            logger.warning("Doc batch future failed: %s", e)
+                            yield batch_items, []
+
+        for items, results_list in _iter_epi_doc_results():
 
                 for idx, item in enumerate(items):
                     nid = item["_node_id"]

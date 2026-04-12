@@ -333,21 +333,30 @@ class InferredEdgesAnalyzer:
                     logger.warning("Batched inferred edges failed for %d items: %s", len(items), e)
                     return None  # Distinguish from empty parse
 
-            # Dispatch batches concurrently
+            # Dispatch batches (sequentially for concurrency=1 to avoid thread accumulation)
             done_batches = 0
             _CHECKPOINT_INTERVAL = 10  # Save manifest + edges every N batches
-            with ThreadPoolExecutor(max_workers=min(_concurrency, len(all_batches) or 1)) as pool:
-                future_to_items = {
-                    pool.submit(_call_edge_batch, items): items
-                    for items in all_batches
-                }
-                for future in as_completed(future_to_items):
-                    items = future_to_items[future]
-                    try:
-                        results_list = future.result()
-                    except Exception as e:
-                        logger.warning("Edge batch future failed: %s", e)
-                        results_list = None
+
+            def _iter_edge_batch_results():
+                if _concurrency <= 1 or len(all_batches) <= 1:
+                    for batch_items in all_batches:
+                        try:
+                            yield batch_items, _call_edge_batch(batch_items)
+                        except Exception as e:
+                            logger.warning("Edge batch failed: %s", e)
+                            yield batch_items, None
+                else:
+                    with ThreadPoolExecutor(max_workers=min(_concurrency, len(all_batches))) as pool:
+                        fmap = {pool.submit(_call_edge_batch, items): items for items in all_batches}
+                        for future in as_completed(fmap):
+                            batch_items = fmap[future]
+                            try:
+                                yield batch_items, future.result()
+                            except Exception as e:
+                                logger.warning("Edge batch future failed: %s", e)
+                                yield batch_items, None
+
+            for items, results_list in _iter_edge_batch_results():
 
                     if results_list is None:
                         failed += len(items)

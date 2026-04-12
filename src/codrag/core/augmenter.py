@@ -1148,28 +1148,44 @@ class TraceAugmenter:
                 stage_name="symbol",
             )
 
-        # Dispatch batches concurrently
+        # Dispatch batches concurrently (or sequentially for concurrency=1)
         checkpoint_interval = _get_checkpoint_interval()
 
-        with ThreadPoolExecutor(max_workers=min(_concurrency, len(batches) or 1)) as pool:
-            future_to_items = {
-                pool.submit(_call_symbol_batch, items): items
-                for items in batches
-            }
-            for future in as_completed(future_to_items):
-                # Cooperative cancellation between batches
-                if cancel_token and cancel_token.is_cancelled:
-                    logger.info("Symbol batching paused/cancelled at %d/%d — flushing", done, total_work)
-                    self._write_augmentations(augmented)
-                    pool.shutdown(wait=False, cancel_futures=True)
-                    cancel_token.raise_if_cancelled()
+        def _iter_batch_results():
+            """Yield (items, reordered) pairs — sequential or concurrent."""
+            if _concurrency <= 1 or len(batches) <= 1:
+                # Sequential fast-path: no ThreadPoolExecutor needed.
+                # Prevents thread accumulation for cloud models (F-59).
+                for batch_items in batches:
+                    if cancel_token and cancel_token.is_cancelled:
+                        logger.info("Symbol batching paused/cancelled at %d/%d — flushing", done, total_work)
+                        self._write_augmentations(augmented)
+                        cancel_token.raise_if_cancelled()
+                    try:
+                        yield batch_items, _call_symbol_batch(batch_items)
+                    except Exception as e:
+                        logger.warning("Symbol batch failed: %s", e)
+                        yield batch_items, [None] * len(batch_items)
+            else:
+                with ThreadPoolExecutor(max_workers=min(_concurrency, len(batches))) as pool:
+                    future_to_items = {
+                        pool.submit(_call_symbol_batch, items): items
+                        for items in batches
+                    }
+                    for future in as_completed(future_to_items):
+                        if cancel_token and cancel_token.is_cancelled:
+                            logger.info("Symbol batching paused/cancelled at %d/%d — flushing", done, total_work)
+                            self._write_augmentations(augmented)
+                            pool.shutdown(wait=False, cancel_futures=True)
+                            cancel_token.raise_if_cancelled()
+                        batch_items = future_to_items[future]
+                        try:
+                            yield batch_items, future.result()
+                        except Exception as e:
+                            logger.warning("Symbol batch future failed: %s", e)
+                            yield batch_items, [None] * len(batch_items)
 
-                items = future_to_items[future]
-                try:
-                    reordered = future.result()
-                except Exception as e:
-                    logger.warning("Symbol batch future failed: %s", e)
-                    reordered = [None] * len(items)
+        for items, reordered in _iter_batch_results():
 
                 for idx, item in enumerate(items):
                     node = item["_node"]
@@ -1309,19 +1325,30 @@ class TraceAugmenter:
                 stage_name="code_file",
             )
 
-        # Dispatch batches concurrently
-        with ThreadPoolExecutor(max_workers=min(_concurrency, len(code_batches) or 1)) as pool:
-            future_to_items = {
-                pool.submit(_call_code_batch, items): items
-                for items in code_batches
-            }
-            for future in as_completed(future_to_items):
-                items = future_to_items[future]
-                try:
-                    results_list = future.result()
-                except Exception as e:
-                    logger.warning("Code batch future failed: %s", e)
-                    results_list = [None] * len(items)
+        # Dispatch batches concurrently (or sequentially for concurrency=1)
+        def _iter_code_batch_results():
+            if _concurrency <= 1 or len(code_batches) <= 1:
+                for batch_items in code_batches:
+                    try:
+                        yield batch_items, _call_code_batch(batch_items)
+                    except Exception as e:
+                        logger.warning("Code batch failed: %s", e)
+                        yield batch_items, [None] * len(batch_items)
+            else:
+                with ThreadPoolExecutor(max_workers=min(_concurrency, len(code_batches))) as pool:
+                    future_to_items = {
+                        pool.submit(_call_code_batch, items): items
+                        for items in code_batches
+                    }
+                    for future in as_completed(future_to_items):
+                        batch_items = future_to_items[future]
+                        try:
+                            yield batch_items, future.result()
+                        except Exception as e:
+                            logger.warning("Code batch future failed: %s", e)
+                            yield batch_items, [None] * len(batch_items)
+
+        for items, results_list in _iter_code_batch_results():
 
                 for idx, item in enumerate(items):
                     node = item["_node"]
@@ -1415,18 +1442,29 @@ class TraceAugmenter:
                 stage_name="doc_file",
             )
 
-        with ThreadPoolExecutor(max_workers=min(_concurrency, len(doc_batches) or 1)) as pool:
-            future_to_items = {
-                pool.submit(_call_doc_batch, items): items
-                for items in doc_batches
-            }
-            for future in as_completed(future_to_items):
-                items = future_to_items[future]
-                try:
-                    results_list = future.result()
-                except Exception as e:
-                    logger.warning("Doc batch future failed: %s", e)
-                    results_list = [None] * len(items)
+        def _iter_doc_batch_results():
+            if _concurrency <= 1 or len(doc_batches) <= 1:
+                for batch_items in doc_batches:
+                    try:
+                        yield batch_items, _call_doc_batch(batch_items)
+                    except Exception as e:
+                        logger.warning("Doc batch failed: %s", e)
+                        yield batch_items, [None] * len(batch_items)
+            else:
+                with ThreadPoolExecutor(max_workers=min(_concurrency, len(doc_batches))) as pool:
+                    future_to_items = {
+                        pool.submit(_call_doc_batch, items): items
+                        for items in doc_batches
+                    }
+                    for future in as_completed(future_to_items):
+                        batch_items = future_to_items[future]
+                        try:
+                            yield batch_items, future.result()
+                        except Exception as e:
+                            logger.warning("Doc batch future failed: %s", e)
+                            yield batch_items, [None] * len(batch_items)
+
+        for items, results_list in _iter_doc_batch_results():
 
                 for idx, item in enumerate(items):
                     node = item["_node"]
