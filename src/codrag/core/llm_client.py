@@ -622,7 +622,7 @@ class LLMClient:
             payload: Dict[str, Any] = {
                 "model": self.model,
                 "prompt": prompt,
-                "stream": True,
+                "stream": False,   # F-59 part 5: must match requests stream=False
                 "options": options,
             }
             # Pass think=True/False to enable/disable reasoning mode.
@@ -1058,7 +1058,7 @@ class LLMClient:
             "model": self.model,
             "input": input_val,
             "temperature": temperature,
-            "stream": True,
+            "stream": False,   # F-59 part 5: must match requests stream=False
             "max_output_tokens": num_predict,
         }
 
