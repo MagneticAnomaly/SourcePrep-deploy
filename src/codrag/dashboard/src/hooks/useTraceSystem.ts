@@ -123,16 +123,19 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   // Phase 25: Crash Protection
   const [crashedRuns, setCrashedRuns] = useState<CrashedPipelineRun[]>([])
 
-  // F-56: Per-project enrichment auto config.
+  // F-56 / F-65: Per-project enrichment auto config.
   //
-  // Originally `enrichmentAutoConfig` was loaded ONCE on mount from the
-  // GLOBAL `pipeline_config` setting and never refreshed on project switch.
-  // That meant flipping Manual/Auto on project A also showed Auto on project
-  // B because the state was shared.
+  // Each project stores its own Manual/Auto/Sched state in
+  // project.config.auto_config. The global pipeline_config is ONLY used
+  // as a default for projects that have never been toggled (migration).
   //
-  // Fix: read from `project.config.auto_config` first (per-project), fall
-  // back to the global `pipeline_config` for migration. Persist back to
-  // the project config on every change.
+  // F-65: The previous implementation fell through to the global config
+  // on every project switch because deps.projectConfig is briefly
+  // undefined during hydration. The async global fetch would resolve
+  // and overwrite the per-project config that arrived moments later.
+  // Fix: only fall back to global on the FIRST mount (no selectedProjectId
+  // change), and skip the global fallback entirely when switching projects.
+  const prevProjectIdRef = useRef<string | null>(null)
   useEffect(() => {
     const projAuto = (deps.projectConfig as any)?.auto_config
     if (projAuto && typeof projAuto === 'object') {
@@ -142,9 +145,22 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
           projAuto.deepEnrichment ?? projAuto.deep_enrichment ?? 'manual',
         finalize: projAuto.finalize ?? 'manual',
       })
+      prevProjectIdRef.current = selectedProjectId
       return
     }
-    // No per-project config yet — fall back to the global default once.
+    // No per-project auto_config yet. Only fall back to global on first
+    // mount OR if this is the same project (config just hasn't loaded yet).
+    // When SWITCHING projects, wait for the per-project config to arrive
+    // instead of loading the global (which is the LAST project's state).
+    if (selectedProjectId && selectedProjectId !== prevProjectIdRef.current) {
+      // Project switched — reset to safe defaults while we wait for
+      // the per-project config to arrive via deps.projectConfig.
+      prevProjectIdRef.current = selectedProjectId
+      setEnrichmentAutoConfig({ fastSync: true, deepEnrichment: 'manual', finalize: 'manual' })
+      return
+    }
+    prevProjectIdRef.current = selectedProjectId
+    // Same project or first mount — try global as migration fallback
     let cancelled = false
     api.getSetting('pipeline_config').then((result: { key: string; value: any }) => {
       if (cancelled) return
@@ -156,21 +172,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
           finalize: pc.finalize?.mode ?? 'manual',
         })
       }
-    }).catch(() => {
-      // Final fallback for fresh installs
-      try {
-        const stored = localStorage.getItem('codrag_enrichment_auto_config')
-        if (stored) {
-          const parsed = JSON.parse(stored)
-          const deep = parsed.deepEnrichment
-          setEnrichmentAutoConfig({
-            fastSync: parsed.fastSync ?? true,
-            deepEnrichment: (deep === 'manual' || deep === 'auto' || deep === 'scheduled') ? deep : 'manual',
-            finalize: parsed.finalize === 'auto' ? 'auto' : 'manual',
-          })
-        }
-      } catch { /* ignore */ }
-    })
+    }).catch(() => { /* ignore */ })
     return () => { cancelled = true }
   }, [api, selectedProjectId, deps.projectConfig])
   const [traceStatus, setTraceStatus] = useState<TraceStatus>({
