@@ -75,8 +75,12 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-56 | Manual/Auto/Schedule mode global instead of per-project — switching projects carried over the previous project's mode and triggered cross-project Phase 81 auto-pauses | ✅ FIXED | (this commit) |
 | F-47 | `/pipeline/fast` gate doesn't recognize `phase=cancelled` — cancelled deep_enrichment runs block all subsequent fast_sync attempts until daemon restart | ✅ FIXED | (this commit) |
 | F-43 | Index build progress callback fired with `(i+1)/total` at file START — bar appeared "stuck" at the previous % during slow files | ✅ FIXED | (this commit) |
+| F-59 | Swarm hang — 4-layer onion: coordinator zombie thread, urllib3 pool exhaustion, shared Session blocking, iter_lines() hang on cloud models | ✅ FIXED | `0ee05575` (5 commits) |
+| F-60 | Finalize stage statuses not hydrated on project switch — concepts/rules/audit/antibodies show "Not seeded" even when complete | ✅ FIXED | `2c523e2a` |
+| F-61 | Finalize running state not detected during hydration — switching to project mid-finalize shows static "Not seeded" instead of spinner | ✅ FIXED | `2c523e2a` |
+| F-62 | `/system/pipeline-queue` endpoint hangs indefinitely during swarm execution — lock contention between swarm worker threads and sync queue builder | ✅ FIXED | `2c523e2a` |
 
-Total: **56 findings**, **51 fixed**, **1 open** (F-15 partially closed: settings_store WAL tests now skip on DELETE-mode stores), **2 deferred**, **2 not-a-bug**. The 2 settings_store WAL tests now correctly skip on the production DELETE-mode codebase. The remaining F-15 failures (resume_strategy, mcp_server, queue_router, trace_builder_globs, team_sync_integration, etc.) are pre-existing test rot from earlier phases and are out of Phase 96 scope.
+Total: **62 findings**, **57 fixed**, **1 open** (F-15 partially closed: settings_store WAL tests now skip on DELETE-mode stores), **2 deferred**, **2 not-a-bug**. The 2 settings_store WAL tests now correctly skip on the production DELETE-mode codebase. The remaining F-15 failures (resume_strategy, mcp_server, queue_router, trace_builder_globs, team_sync_integration, etc.) are pre-existing test rot from earlier phases and are out of Phase 96 scope.
 
 ---
 
