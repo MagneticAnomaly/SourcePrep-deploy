@@ -167,28 +167,45 @@ class SwarmOrchestrator:
         mode.  Reasoning-heavy stages (deepening, group_reasoning
         analysis) keep their thinking enabled at the worker level.
         """
-        with ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"swarm-{phase}") as pool:
-            future = pool.submit(
-                self.llm.generate,
-                prompt=prompt,
-                system=system,
-                json_mode=True,
-                temperature=temperature,
-                think=False,
+        # F-59: DO NOT use `with ThreadPoolExecutor(...) as pool:` here.
+        # The `with` block's __exit__ calls pool.shutdown(wait=True), which
+        # blocks until the submitted future completes — even after our timeout
+        # fires.  If the LLM call takes 10+ minutes at the HTTP level (the
+        # default httpx/requests timeout), the zombie thread holds a urllib3
+        # connection slot for that entire time.  When fan-out then starts 10
+        # workers on a default pool of 10, the zombie's slot makes it 11
+        # concurrent requests → the 10th worker blocks forever on the
+        # connection pool.  THIS WAS THE ROOT CAUSE OF THE SWARM HANG.
+        #
+        # Fix: use pool.shutdown(wait=False) on timeout so the zombie thread
+        # runs in the background without blocking the coordinator return.
+        # The thread will eventually time out at the HTTP level and die.
+        pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"swarm-{phase}")
+        future = pool.submit(
+            self.llm.generate,
+            prompt=prompt,
+            system=system,
+            json_mode=True,
+            temperature=temperature,
+            think=False,
+        )
+        try:
+            result = future.result(timeout=timeout_s)
+            pool.shutdown(wait=False)
+            return result
+        except FuturesTimeoutError:
+            logger.warning(
+                "[Swarm/%s] LLM call timed out after %.0fs — falling back",
+                phase, timeout_s,
             )
-            try:
-                return future.result(timeout=timeout_s)
-            except FuturesTimeoutError:
-                logger.warning(
-                    "[Swarm/%s] LLM call timed out after %.0fs — falling back",
-                    phase, timeout_s,
-                )
-                return None, 0
-            except Exception:
-                logger.warning(
-                    "[Swarm/%s] LLM call raised", phase, exc_info=True,
-                )
-                return None, 0
+            pool.shutdown(wait=False)
+            return None, 0
+        except Exception:
+            logger.warning(
+                "[Swarm/%s] LLM call raised", phase, exc_info=True,
+            )
+            pool.shutdown(wait=False)
+            return None, 0
 
     # -- Phase 1: Coordinate ------------------------------------------------
 
