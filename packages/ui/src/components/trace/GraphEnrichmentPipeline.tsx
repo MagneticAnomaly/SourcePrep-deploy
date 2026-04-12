@@ -118,6 +118,10 @@ export interface GraphEnrichmentPipelineProps {
   finalizePaused?: boolean;
   /** Explicit stage ID where finalize was paused */
   finalizePausedStage?: string;
+  /** F-58: whether the finalize group is actively running (from SSE) */
+  finalizeGroupRunning?: boolean;
+  /** F-58: which finalize stage is currently running (from SSE current_stage) */
+  finalizeCurrentStage?: string;
   /** True while the project is switching and initial data hasn't loaded yet */
   projectLoading?: boolean;
   className?: string;
@@ -777,6 +781,8 @@ export function GraphEnrichmentPipeline({
   onRunFinalize,
   finalizePaused: finalizePausedProp,
   finalizePausedStage,
+  finalizeGroupRunning = false,
+  finalizeCurrentStage: finalizeCurrentStageId,
   provenance,
   projectLoading,
   className,
@@ -1054,27 +1060,56 @@ export function GraphEnrichmentPipeline({
     },
   ];
 
+  // F-58: helper to determine finalize stage state.  The pipeline
+  // orchestrator reports which stage is currently running via SSE
+  // (finalizeGroupRunning + finalizeCurrentStageId).  Previously
+  // all 5 finalize stages were binary (complete or not_built) with
+  // no running indicator, so the user saw "Not generated / Not seeded /
+  // Not run / Not derived" the entire time the pipeline was working.
+  //
+  // Now: when the finalize group is running and the current stage
+  // matches this stage's ID, show 'running'. Stages BEFORE the current
+  // one that aren't marked complete keep 'not_built' (they haven't run
+  // yet). Stages AFTER the current one that ARE complete stay 'complete'.
+  const finStageState = (stageId: string, dataComplete: boolean): StageState => {
+    if (dataComplete) return 'complete';
+    if (finalizeGroupRunning && finalizeCurrentStageId === stageId) return 'running';
+    // If the group is running and we're past this stage, treat as complete
+    // (the pipeline is sequential — if we're on stage 3, stages 1-2 are done)
+    if (finalizeGroupRunning && finalizeCurrentStageId) {
+      const order = ['atlas', 'rules', 'concepts', 'audit', 'antibodies'];
+      const currentIdx = order.indexOf(finalizeCurrentStageId);
+      const thisIdx = order.indexOf(stageId);
+      if (thisIdx >= 0 && currentIdx >= 0 && thisIdx < currentIdx) return 'complete';
+    }
+    return 'not_built';
+  };
+
   const finalizeStages: EnrichmentStage[] = [
-    { id: 'atlas', label: 'Atlas Building', icon: Map, modelTag: 'Thinking', state: atlasState, stats: atlasStats, rerun: atlasState === 'running' ? computeStageRerun(undefined, undefined) : undefined },
+    { id: 'atlas', label: 'Atlas Building', icon: Map, modelTag: 'Thinking',
+      state: finStageState('atlas', !!atlas?.exists),
+      stats: atlasStats,
+      rerun: finStageState('atlas', !!atlas?.exists) === 'running' ? computeStageRerun(undefined, undefined) : undefined,
+    },
     {
       id: 'rules', label: 'Rules Generation', icon: FileText, modelTag: 'CPU',
-      state: rulesStatus?.generated ? 'complete' : 'not_built',
-      stats: rulesStatus?.generated ? 'Generated' : 'Not generated',
+      state: finStageState('rules', !!rulesStatus?.generated),
+      stats: rulesStatus?.generated ? 'Generated' : finStageState('rules', false) === 'running' ? 'Generating...' : 'Not generated',
     },
     {
       id: 'concepts', label: 'Concept Seeding', icon: Lightbulb, modelTag: 'Thinking',
-      state: conceptsStatus?.seeded ? 'complete' : 'not_built',
-      stats: conceptsStatus?.seeded ? `${conceptsStatus.count} concepts` : 'Not seeded',
+      state: finStageState('concepts', !!conceptsStatus?.seeded),
+      stats: conceptsStatus?.seeded ? `${conceptsStatus.count} concepts` : finStageState('concepts', false) === 'running' ? 'Seeding...' : 'Not seeded',
     },
     {
       id: 'audit', label: 'Structural Audit', icon: ClipboardCheck, modelTag: 'LLM',
-      state: auditPipelineStatus?.exists ? 'complete' : 'not_built',
-      stats: auditPipelineStatus?.exists ? `${auditPipelineStatus.finding_count} findings` : 'Not run',
+      state: finStageState('audit', !!auditPipelineStatus?.exists),
+      stats: auditPipelineStatus?.exists ? `${auditPipelineStatus.finding_count} findings` : finStageState('audit', false) === 'running' ? 'Auditing...' : 'Not run',
     },
     {
       id: 'antibodies', label: 'Immune System', icon: Shield, modelTag: 'CPU',
-      state: antibodiesStatus?.count ? 'complete' : 'not_built',
-      stats: antibodiesStatus?.count ? `${antibodiesStatus.count} antibodies` : 'Not derived',
+      state: finStageState('antibodies', !!(antibodiesStatus?.count)),
+      stats: antibodiesStatus?.count ? `${antibodiesStatus.count} antibodies` : finStageState('antibodies', false) === 'running' ? 'Deriving...' : 'Not derived',
     },
   ];
 

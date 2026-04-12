@@ -41,6 +41,11 @@ export interface EnrichmentState {
   fastPausedStage: string | undefined
   deepPausedStage: string | undefined
   finalizePausedStage: string | undefined
+  // F-58: finalize running state (was completely missing — stages 11-15
+  // showed "Not generated / Not seeded / Not run / Not derived" even while
+  // the pipeline was actively processing them)
+  finalizeRunning: boolean
+  finalizeCurrentStage: string | undefined
   // Finalize stage statuses (Phase 96)
   rulesStatus?: RulesStatus
   conceptsStatus?: ConceptsStatus
@@ -73,6 +78,8 @@ export const initialEnrichmentState: EnrichmentState = {
   fastPaused: false,
   deepPaused: false,
   finalizePaused: false,
+  finalizeRunning: false,
+  finalizeCurrentStage: undefined,
   fastPausedStage: undefined,
   deepPausedStage: undefined,
   finalizePausedStage: undefined,
@@ -107,6 +114,8 @@ export type EnrichmentAction =
   | { type: 'DEEP_FAILED' }
   | { type: 'FINALIZE_COMPLETED' }
   | { type: 'FINALIZE_FAILED' }
+  // F-58: finalize running state
+  | { type: 'FINALIZE_RUNNING'; running: boolean; currentStage?: string }
   // Finalize stage statuses (Phase 96)
   | { type: 'FINALIZE_STATUSES'; rules?: RulesStatus; concepts?: ConceptsStatus; audit?: AuditPipelineStatus; antibodies?: AntibodiesStatus }
   // Merge slot_progress (with baseline) from pipeline status polling
@@ -221,11 +230,19 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
         epistemicStatus: { ...state.epistemicStatus, progress_current: undefined, progress_total: undefined, progress_baseline: undefined },
       }
 
+    case 'FINALIZE_RUNNING':
+      return {
+        ...state,
+        finalizeRunning: action.running,
+        finalizeCurrentStage: action.running ? action.currentStage : undefined,
+      }
+
     case 'FINALIZE_COMPLETED':
     case 'FINALIZE_FAILED':
       return {
         ...state,
         finalizePaused: false, finalizePausedStage: undefined,
+        finalizeRunning: false, finalizeCurrentStage: undefined,
       }
 
     // ── Full reset ──

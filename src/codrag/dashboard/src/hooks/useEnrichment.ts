@@ -412,6 +412,16 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       finalizePausedStage: finalizeIsPausedSSE ? finSSE?.current_stage ?? undefined : undefined,
     })
 
+    // F-58: detect finalize running state and current stage so the
+    // GraphEnrichmentPipeline can show a spinner + "Running..." on the
+    // active finalize stage instead of static "Not generated / Not seeded".
+    const finalizeIsRunning = finSSE?.phase === 'running'
+    dispatch({
+      type: 'FINALIZE_RUNNING',
+      running: !!finalizeIsRunning,
+      currentStage: finalizeIsRunning ? finSSE?.current_stage ?? undefined : undefined,
+    })
+
     // ── Detect transitions for status refresh ──
 
     const prevFastPhase = prev?.fast_sync?.phase
@@ -473,6 +483,17 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     }
     if (deep?.phase === 'failed' && prevDeepWasActive) {
       dispatch({ type: 'DEEP_FAILED' })
+    }
+
+    // F-58: finalize completed → refresh finalize stage statuses
+    const prevFinPhase = prev?.finalize?.phase
+    const prevFinWasActive = prevFinPhase === 'running' || prevFinPhase === 'queued' || prevFinPhase === 'pausing'
+    if (finSSE?.phase === 'completed' && prevFinWasActive) {
+      dispatch({ type: 'FINALIZE_COMPLETED' })
+      void refreshStageDataFromPipeline()
+    }
+    if (finSSE?.phase === 'failed' && prevFinWasActive) {
+      dispatch({ type: 'FINALIZE_FAILED' })
     }
   }, [pipelineEvent, selectedProjectId,
     fetchAugmentationStatus, fetchKnowledgeStatus,

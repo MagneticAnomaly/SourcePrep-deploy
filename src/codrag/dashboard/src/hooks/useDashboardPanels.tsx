@@ -184,6 +184,10 @@ export interface PanelEnrichmentProps {
   deepPausedStage?: string
   /** Explicit stage ID where finalize was paused (from backend SSE) */
   finalizePausedStage?: string
+  /** F-58: whether the finalize group is actively running */
+  finalizeRunning?: boolean
+  /** F-58: which finalize stage is currently active */
+  finalizeCurrentStage?: string
   rulesStatus?: RulesStatus
   conceptsStatus?: ConceptsStatus
   auditPipelineStatus?: AuditPipelineStatus
@@ -849,6 +853,8 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           fastPausedStage={p.fastPausedStage}
           deepPausedStage={p.deepPausedStage}
           finalizePausedStage={p.finalizePausedStage}
+          finalizeGroupRunning={p.finalizeRunning}
+          finalizeCurrentStage={p.finalizeCurrentStage}
           rulesStatus={p.rulesStatus}
           conceptsStatus={p.conceptsStatus}
           auditPipelineStatus={p.auditPipelineStatus}
