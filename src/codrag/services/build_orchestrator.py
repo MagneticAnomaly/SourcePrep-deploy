@@ -236,6 +236,28 @@ class BuildOrchestrator:
             self._check_zombie(slot)
             return slot
 
+    def snapshot(self, project_id: str, build_type: BuildType) -> Optional[BuildSlot]:
+        """F-41: Lock-free read of an existing build slot.
+
+        Returns None if no slot exists for (project_id, build_type) yet.
+        Does NOT create a slot, does NOT run zombie detection, does NOT
+        acquire ``self._lock``.
+
+        Read-only callers (e.g. ``/pipeline/status``) should use this
+        instead of ``status()`` to avoid contending with worker threads
+        that briefly hold the lock for state transitions. The trade-off:
+        a thread that just died will keep its stale ``RUNNING`` phase
+        in the snapshot until the next ``status()``-side caller runs
+        zombie detection — that's a minor UX nit, far better than
+        wedging the daemon for 30+ seconds when 15 sequential
+        ``status()`` calls pile up behind an active worker.
+
+        Field reads on ``BuildSlot`` are individually atomic under the
+        Python GIL, so a snapshot taken without the lock may briefly
+        observe a transitional state but never a torn write.
+        """
+        return self._slots.get((project_id, build_type))
+
     def is_active(self, project_id: str, build_type: BuildType) -> bool:
         """Check if a build is queued or running."""
         with self._lock:

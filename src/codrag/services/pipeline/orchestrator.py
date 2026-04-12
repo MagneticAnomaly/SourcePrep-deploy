@@ -936,12 +936,37 @@ class PipelineOrchestrator:
             deep_run = self._runs.get((project_id, "deep_enrichment"))
             fin_run = self._runs.get((project_id, "finalize"))
 
-        # Also get individual stage statuses from the build orchestrator
+        # F-41: walk the 15 stages via lock-free snapshots instead of
+        # ``BuildOrchestrator.status()``.  The previous implementation
+        # acquired ``BuildOrchestrator._lock`` 15 separate times in this
+        # loop — and while each acquisition is individually fast, ANY
+        # one of them could block while a worker thread held the lock
+        # for a state transition.  With the dashboard polling
+        # ``/pipeline/status`` every few seconds AND multiple groups
+        # running concurrently, contention was essentially guaranteed,
+        # leading to /pipeline/status timeouts and (eventually) full
+        # daemon wedge as the status executor pool filled with awaiting
+        # callers.
+        #
+        # ``snapshot()`` does not create slots, so for stages that have
+        # never run we synthesize a minimal IDLE entry — equivalent to
+        # what ``status()`` would have produced via _get_or_create_slot.
         stage_statuses = {}
         for stage_id in list(StageId):
             bt = STAGE_BUILD_TYPE[stage_id]
-            slot = self._orchestrator.status(project_id, bt)
-            stage_statuses[stage_id.value] = slot.to_dict()
+            slot = self._orchestrator.snapshot(project_id, bt)
+            if slot is None:
+                stage_statuses[stage_id.value] = {
+                    "project_id": project_id,
+                    "build_type": bt.value,
+                    "phase": "idle",
+                    "started_at": None,
+                    "finished_at": None,
+                    "error": None,
+                    "duration_seconds": None,
+                }
+            else:
+                stage_statuses[stage_id.value] = slot.to_dict()
 
         return {
             "fast_sync": fast_run.to_dict() if fast_run else None,

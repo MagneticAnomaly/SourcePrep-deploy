@@ -57,7 +57,7 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-38 | Antibodies worker passed `Concept` dataclass to `derive_antibodies_for_project` (expects dicts) | ✅ FIXED | (this commit) |
 | F-39 | `project_trace_status` short-circuits to empty stub when `config.trace.enabled=False`, ignoring on-disk graph | ✅ FIXED | (this commit) |
 | F-40 | `AutoRebuildWatcher._is_relevant` used `Path.match()` which doesn't honor `**` — directory excludes silently broken | ✅ FIXED | (this commit) |
-| F-41 | `/system/pipeline-queue` blocks under long-running stage (holds scheduler lock?) — `/health` stays fast but queue hangs 30s+ | 🟡 OPEN | — |
+| F-41 | `/system/pipeline-queue` and `/pipeline/status` block under long-running stage — 15× sequential lock acquisitions in `PipelineOrchestrator.status()` contend with worker thread state transitions | ✅ FIXED | (this commit) |
 | F-42 | `GraphEnrichmentPipeline` panel: every stage gated on `trace.enabled` (auto-build flag) instead of `trace.exists` — completed stages rendered as "Disabled" / "Waiting for X" | ✅ FIXED | (this commit) |
 | F-43 | Index build progress callback fires at file START, leaving bar "stuck" at previous % during slow file (e.g. 7s+ on a big markdown file) — UX shows no progression | 🟡 OPEN | — |
 | F-44 | 2-tone incremental progress bar wiring (initial audit was wrong) | ✅ FIXED + audit corrected | knowledge stage `73c33828`; live validation showed catalogue/inferred_edges already wired |
@@ -76,7 +76,7 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-47 | `/pipeline/fast` gate doesn't recognize `phase=cancelled` — cancelled deep_enrichment runs block all subsequent fast_sync attempts until daemon restart | ✅ FIXED | (this commit) |
 | F-43 | Index build progress callback fired with `(i+1)/total` at file START — bar appeared "stuck" at the previous % during slow files | ✅ FIXED | (this commit) |
 
-Total: **56 findings**, **50 fixed**, **2 open**, **2 deferred**, **2 not-a-bug**. (F-48 no longer reproduces — `/pipeline/rebuild` returns 200 immediately; the original 5s timeout was caused by F-46 frozen-dataclass or F-52 backup-restore loop, both fixed earlier this cycle. Remaining open: F-15 pre-existing tests deferred, F-41 lock contention mechanism documented but fix not yet shipped.)
+Total: **56 findings**, **51 fixed**, **1 open**, **2 deferred**, **2 not-a-bug**. (F-41 closed via Option A: lock-free `BuildOrchestrator.snapshot()`. Live validation: 109 `/pipeline/status` samples during a build with p50=9ms, p95=16ms, max=2.77s, zero errors — was 30s+ timeout pre-fix. Only F-15 deferred pre-existing tests remain open.)
 
 ---
 
