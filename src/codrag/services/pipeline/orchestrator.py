@@ -420,6 +420,27 @@ class PipelineOrchestrator:
 
     # ── Public API ─────────────────────────────────────────────
 
+    def _check_project_active(self, project_id: str) -> bool:
+        """F-69: Check if project is active before starting any pipeline.
+
+        Returns False (and logs) if inactive. This is defense-in-depth
+        on top of the ActiveProjectGuard — the guard only fires on the
+        START transition, but some callers (auto-run, watcher, Phase 61B
+        direct-call) bypass _start_group's guard timing.
+        """
+        try:
+            from codrag.services.project_helpers import get_project_activity_status
+            status = get_project_activity_status(project_id)
+            if status != "active":
+                logger.info(
+                    "Pipeline blocked for %s: project is %s",
+                    project_id[:8], status,
+                )
+                return False
+        except Exception:
+            pass
+        return True
+
     def run_fast_sync(self, project_id: str, force_from_start: bool = False) -> bool:
         """Start the Fast Sync group (stages 1-5).
 
@@ -434,6 +455,8 @@ class PipelineOrchestrator:
            rebuild — this should only be called from the "Destroy Graph"
            UI action, never automatically.
         """
+        if not self._check_project_active(project_id):
+            return False
         incremental = False
         # Phase 60D: Always skip mtime cascade — if data exists, USE IT.
         # Content-aware staleness in _detect_resume_point handles edge cases.
@@ -664,6 +687,8 @@ class PipelineOrchestrator:
         that has hours of LLM reasoning is destructive and should NEVER
         happen automatically.
         """
+        if not self._check_project_active(project_id):
+            return False
         # Phase 93: Don't start deep enrichment while fast_sync is active.
         # _start_group already has a cross-group guard (line ~1229), but that
         # check can miss timing windows when fast_sync and deep_enrichment
@@ -742,6 +767,8 @@ class PipelineOrchestrator:
         Runs Atlas, Rules, Concepts, Audit, Antibodies.
         Auto-detects resume point from disk state.
         """
+        if not self._check_project_active(project_id):
+            return False
         from .stages import FINALIZE_STAGES
         # Don't start finalize while enrich is active or paused (F-64)
         with self._lock:
