@@ -453,9 +453,19 @@ class GroupReasoningEngine:
                 concurrency = get_batch_concurrency(self.llm.provider, model=self.llm.model)
             except Exception:
                 concurrency = 1
+        # F-59: Cap concurrency for cloud-proxied models.
+        is_cloud = ":cloud" in self.llm.model.lower() or self.llm.provider in ("openai", "anthropic", "google")
+        if is_cloud and concurrency > 3:
+            logger.info("[GroupReasoning] Capping concurrency %d → 3 for cloud model %s", concurrency, self.llm.model)
+            concurrency = 3
         logger.info("[Swarm] Using concurrency=%d for fan-out", concurrency)
 
-        orch = SwarmOrchestrator(llm=self.llm, concurrency=concurrency)
+        orch = SwarmOrchestrator(
+            llm=self.llm,
+            concurrency=concurrency,
+            coordinator_timeout_s=10.0 if is_cloud else 90.0,
+            synthesis_timeout_s=120.0,
+        )
 
         # Build WorkItem list
         items: List[WorkItem] = []
