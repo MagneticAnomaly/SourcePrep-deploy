@@ -392,13 +392,16 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     }
 
     try {
-      // Get the existing project config first since we need to preserve other settings
-      const { project } = await api.getProject(projectId);
+      // F-69: When deactivating, cancel running pipelines FIRST (fire-and-forget).
+      // The pipeline cancel is async — the UI toggle is already optimistic.
+      if (!active) {
+        api.cancelPipeline(projectId, 'fast_sync').catch(() => {});
+        api.cancelPipeline(projectId, 'deep_enrichment').catch(() => {});
+        api.cancelPipeline(projectId, 'finalize').catch(() => {});
+      }
+      // Send the active flag directly — F-63 merge preserves other config fields
       const res = await api.updateProject(projectId, {
-        config: {
-          ...(project.config || {}),
-          active,
-        },
+        config: { active },
         touch, // If true, bumps updated_at (needed for Free tier slot stealing)
       });
       // Refresh to ensure we have the authoritative state

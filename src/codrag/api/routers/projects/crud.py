@@ -254,22 +254,24 @@ def update_project(project_id: str, req: UpdateProjectRequest) -> Dict[str, Any]
                 else:
                     warning_msg = f"It is recommended to use {max_active_int} or fewer active projects because it can be performance invasive."
 
-    # F-63: Preserve server-managed config fields that the client doesn't know
-    # about.  The dashboard sends the full config on every save, but it doesn't
-    # include trace.ignore_patterns (managed by POST /trace/ignore) or other
-    # server-side fields.  Without this merge, every PUT /projects overwrites
-    # the config and drops ignore_patterns, causing exclude selections to vanish.
+    # F-63/F-69: Merge incoming config with existing config.
+    # The dashboard may send a partial config (e.g. just { active: false }
+    # from the toggle, or just auto_config from the mode selector).
+    # Without merging, partial updates wipe existing fields.
+    #
+    # Strategy: start from existing config, overlay incoming fields.
+    # This preserves ignore_patterns, auto_config, deep_analysis_schedule,
+    # and all other fields the client didn't explicitly set.
     if req.config is not None:
         old_cfg = old_proj.config if isinstance(old_proj.config, dict) else {}
-        old_trace = old_cfg.get("trace") or {}
-        new_trace = req.config.get("trace") or {}
-        # Merge ignore_patterns from existing config if client didn't send them
-        if "ignore_patterns" not in new_trace and old_trace.get("ignore_patterns"):
-            merged_trace = {**new_trace, "ignore_patterns": old_trace["ignore_patterns"]}
-            req.config = {**req.config, "trace": merged_trace}
-        # Merge auto_config from existing if client didn't send it
-        if "auto_config" not in req.config and "auto_config" in old_cfg:
-            req.config["auto_config"] = old_cfg["auto_config"]
+        # Shallow merge: existing config as base, incoming fields overlay
+        merged = {**old_cfg, **req.config}
+        # Deep merge for trace (preserve ignore_patterns if not sent)
+        if "trace" in req.config:
+            old_trace = old_cfg.get("trace") or {}
+            new_trace = req.config.get("trace") or {}
+            merged["trace"] = {**old_trace, **new_trace}
+        req.config = merged
 
     try:
         updated = reg.update_project(
