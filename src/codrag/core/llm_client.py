@@ -383,17 +383,28 @@ class LLMClient:
         self.always_on = always_on
         self.debug_mode = debug_mode
 
-        # F-59: use a requests.Session with a larger urllib3 connection
-        # pool.  The default pool_maxsize=10 causes deadlocks when 10
-        # concurrent swarm workers + a zombie coordinator thread all try
-        # to connect to the same Ollama host.  20 pool slots gives
-        # comfortable headroom for 10 workers + 1 coordinator + margin.
+        # F-59: thread-local Sessions for concurrent swarm workers.
+        #
+        # The original global Session approach deadlocked because:
+        # 1. pool_maxsize=10 (default) with 10 workers + 1 zombie = 11 requests
+        # 2. Even with pool_maxsize=20 + pool_block=False, the shared Session
+        #    exhibited blocking under concurrent use
+        #
+        # Fix: use thread-local Sessions. Each worker thread gets its own
+        # Session (and its own connection pool) via threading.local().
+        # No contention possible since each thread owns its connection.
+        import threading as _threading
+        self._thread_local = _threading.local()
+
+    @property
+    def _session(self):
+        """Thread-local requests.Session — each thread gets its own."""
         import requests as _requests
-        from requests.adapters import HTTPAdapter
-        self._session = _requests.Session()
-        adapter = HTTPAdapter(pool_connections=20, pool_maxsize=20)
-        self._session.mount("http://", adapter)
-        self._session.mount("https://", adapter)
+        s = getattr(self._thread_local, 'session', None)
+        if s is None:
+            s = _requests.Session()
+            self._thread_local.session = s
+        return s
 
     def _record_telemetry(self, prompt_tokens: int, completion_tokens: int, total_tokens: int) -> None:
         """Record token usage if a telemetry context is active.

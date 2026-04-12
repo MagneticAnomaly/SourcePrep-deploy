@@ -275,6 +275,7 @@ class SwarmOrchestrator:
         results: List[WorkerResult] = []
 
         def _run_worker(item: WorkItem) -> WorkerResult:
+            logger.info("[Swarm] Worker starting: %s", item.id[:40])
             assignment = plan.get_assignment(item.id)
             if assignment is None:
                 assignment = WorkerAssignment(
@@ -283,6 +284,7 @@ class SwarmOrchestrator:
                 )
             try:
                 raw = worker_fn(item, assignment)
+                logger.info("[Swarm] Worker returned: %s len=%d", item.id[:40], len(raw or ""))
                 if raw is None:
                     return WorkerResult(
                         item_id=item.id, raw_output="", success=False
@@ -305,12 +307,17 @@ class SwarmOrchestrator:
         max_workers = min(self.concurrency, total) if total > 0 else 1
         done_count = 0
 
+        logger.info("[Swarm] Starting fan-out: %d items, %d workers", total, max_workers)
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
             futures = {pool.submit(_run_worker, item): item for item in items}
             for future in as_completed(futures):
                 result = future.result()
                 results.append(result)
                 done_count += 1
+                logger.info(
+                    "[Swarm] Worker %d/%d done: %s success=%s",
+                    done_count, total, result.item_id[:40], result.success,
+                )
                 if progress_fn is not None:
                     progress_fn(done_count, total)
 
@@ -400,7 +407,9 @@ class SwarmOrchestrator:
         stats.coordinator_tokens = coordinator_tokens
 
         # Phase 2: Fan-out
+        logger.info("[Swarm] Entering fan-out phase (%d items)", len(items))
         worker_results = self._fan_out(items, plan, worker_fn, progress_fn)
+        logger.info("[Swarm] Fan-out returned: %d results", len(worker_results))
 
         for r in worker_results:
             if r.success:
@@ -409,9 +418,12 @@ class SwarmOrchestrator:
                 stats.workers_failed += 1
 
         # Phase 3: Synthesize
+        logger.info("[Swarm] Entering synthesis phase (%d/%d succeeded)",
+                    stats.workers_succeeded, len(worker_results))
         synthesis, synthesis_tokens = self._synthesize(
             worker_results, synthesis_prompt
         )
+        logger.info("[Swarm] Synthesis returned (tokens=%d)", synthesis_tokens)
         stats.synthesis_tokens = synthesis_tokens
 
         stats.wall_clock_seconds = time.monotonic() - t0
