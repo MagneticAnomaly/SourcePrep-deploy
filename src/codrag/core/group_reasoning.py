@@ -454,17 +454,23 @@ class GroupReasoningEngine:
             except Exception:
                 concurrency = 1
         # F-59: Cap concurrency for cloud-proxied models.
-        is_cloud = ":cloud" in self.llm.model.lower() or self.llm.provider in ("openai", "anthropic", "google")
+        from codrag.core.llm_client import _is_cloud_endpoint
+        is_cloud = _is_cloud_endpoint(self.llm)
         if is_cloud and concurrency > 3:
             logger.info("[GroupReasoning] Capping concurrency %d → 3 for cloud model %s", concurrency, self.llm.model)
             concurrency = 3
         logger.info("[Swarm] Using concurrency=%d for fan-out", concurrency)
 
+        # F-59 rework: cloud models process requests sequentially and
+        # use the large-slot 600s HTTP timeout.  Set per-worker and
+        # overall wall-time caps so the swarm doesn't appear to hang.
         orch = SwarmOrchestrator(
             llm=self.llm,
             concurrency=concurrency,
             coordinator_timeout_s=10.0 if is_cloud else 90.0,
             synthesis_timeout_s=120.0,
+            worker_timeout_s=120.0 if is_cloud else 300.0,
+            max_wall_time_s=600.0 if is_cloud else 1800.0,
         )
 
         # Build WorkItem list

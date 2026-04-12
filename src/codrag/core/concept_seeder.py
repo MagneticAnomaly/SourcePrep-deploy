@@ -262,7 +262,9 @@ def seed_concepts_swarm(project_id: str) -> Dict[str, Any]:
     # workers all hitting a concurrency-1 endpoint, requests 2-10 queue
     # for 30-60s each, triggering read timeouts before they even start.
     # Cap at 3 as a safe default for most cloud tiers.
-    if ":cloud" in llm.model.lower() or llm.provider in ("openai", "anthropic", "google"):
+    from codrag.core.llm_client import _is_cloud_endpoint
+    is_cloud_model = _is_cloud_endpoint(llm)
+    if is_cloud_model:
         cloud_max = 3
         if concurrency > cloud_max:
             logger.info(
@@ -301,12 +303,16 @@ def seed_concepts_swarm(project_id: str) -> Dict[str, Any]:
     # phase even with think=False), adding 90s of dead time before workers
     # start.  The per-module fallback assignments ("perform standard
     # architectural analysis") work well enough for concept extraction.
-    is_cloud_model = ":cloud" in llm.model.lower() or llm.provider in ("openai", "anthropic", "google")
+    # F-59 rework: cloud models process requests sequentially and
+    # use the large-slot 600s HTTP timeout.  Set per-worker and
+    # overall wall-time caps so the swarm doesn't appear to hang.
     orch = SwarmOrchestrator(
         llm=llm,
         concurrency=concurrency,
         coordinator_timeout_s=10.0 if is_cloud_model else 90.0,  # skip fast on cloud
         synthesis_timeout_s=120.0,
+        worker_timeout_s=120.0 if is_cloud_model else 300.0,
+        max_wall_time_s=600.0 if is_cloud_model else 1800.0,
     )
 
     coordinator_prompt = (

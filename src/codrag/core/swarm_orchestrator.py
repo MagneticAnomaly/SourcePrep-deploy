@@ -11,9 +11,10 @@ import json
 import logging
 import time
 from concurrent.futures import (
+    FIRST_COMPLETED,
     ThreadPoolExecutor,
     TimeoutError as FuturesTimeoutError,
-    as_completed,
+    wait,
 )
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -118,6 +119,15 @@ class SwarmOrchestrator:
     DEFAULT_COORDINATOR_TIMEOUT_S: float = 120.0
     DEFAULT_SYNTHESIS_TIMEOUT_S: float = 180.0
 
+    # F-59 rework: per-worker and overall fan-out timeouts.
+    # Cloud models process requests sequentially (1 at a time for free tier).
+    # With 155 groups × 5-10 min per group, fan-out could run for hours
+    # without these caps.  Workers that exceed the per-worker timeout are
+    # marked as failed; the fan-out returns partial results when the
+    # overall timeout fires.
+    DEFAULT_WORKER_TIMEOUT_S: float = 180.0
+    DEFAULT_MAX_WALL_TIME_S: float = 900.0  # 15 minutes total
+
     def __init__(
         self,
         llm: LLMClient,
@@ -125,6 +135,8 @@ class SwarmOrchestrator:
         *,
         coordinator_timeout_s: Optional[float] = None,
         synthesis_timeout_s: Optional[float] = None,
+        worker_timeout_s: Optional[float] = None,
+        max_wall_time_s: Optional[float] = None,
     ) -> None:
         self.llm = llm
         self.concurrency = max(1, concurrency)
@@ -137,6 +149,16 @@ class SwarmOrchestrator:
             synthesis_timeout_s
             if synthesis_timeout_s is not None
             else self.DEFAULT_SYNTHESIS_TIMEOUT_S
+        )
+        self.worker_timeout_s = (
+            worker_timeout_s
+            if worker_timeout_s is not None
+            else self.DEFAULT_WORKER_TIMEOUT_S
+        )
+        self.max_wall_time_s = (
+            max_wall_time_s
+            if max_wall_time_s is not None
+            else self.DEFAULT_MAX_WALL_TIME_S
         )
 
     def _llm_call_with_timeout(
@@ -170,19 +192,28 @@ class SwarmOrchestrator:
         # F-59: DO NOT use `with ThreadPoolExecutor(...) as pool:` here.
         # The `with` block's __exit__ calls pool.shutdown(wait=True), which
         # blocks until the submitted future completes — even after our timeout
-        # fires.  If the LLM call takes 10+ minutes at the HTTP level (the
-        # default httpx/requests timeout), the zombie thread holds a urllib3
-        # connection slot for that entire time.  When fan-out then starts 10
-        # workers on a default pool of 10, the zombie's slot makes it 11
-        # concurrent requests → the 10th worker blocks forever on the
-        # connection pool.  THIS WAS THE ROOT CAUSE OF THE SWARM HANG.
+        # fires.
         #
-        # Fix: use pool.shutdown(wait=False) on timeout so the zombie thread
-        # runs in the background without blocking the coordinator return.
-        # The thread will eventually time out at the HTTP level and die.
+        # F-59 rework: on timeout, close the worker thread's HTTP Session
+        # to abort the zombie's in-flight request and free the cloud queue
+        # slot.  We can't use self.llm.close_session() because that only
+        # reaches the *calling* thread's thread-local Session, not the
+        # zombie's.  Instead, the wrapper captures the Session reference
+        # so we can close it from any thread.
+        zombie_session_ref: List = []  # mutable container to capture from closure
+
+        def _generate_and_capture(**kwargs):
+            """Wrapper that captures the thread-local Session for cleanup."""
+            # Force Session creation by touching the property, then capture it.
+            _ = self.llm._session
+            s = getattr(self.llm._thread_local, 'session', None)
+            if s is not None:
+                zombie_session_ref.append(s)
+            return self.llm.generate(**kwargs)
+
         pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"swarm-{phase}")
         future = pool.submit(
-            self.llm.generate,
+            _generate_and_capture,
             prompt=prompt,
             system=system,
             json_mode=True,
@@ -191,21 +222,28 @@ class SwarmOrchestrator:
         )
         try:
             result = future.result(timeout=timeout_s)
-            pool.shutdown(wait=False)
             return result
         except FuturesTimeoutError:
             logger.warning(
                 "[Swarm/%s] LLM call timed out after %.0fs — falling back",
                 phase, timeout_s,
             )
-            pool.shutdown(wait=False)
+            # Close the zombie thread's Session to abort the in-flight HTTP
+            # request and free the Ollama cloud queue slot.
+            if zombie_session_ref:
+                try:
+                    zombie_session_ref[0].close()
+                    logger.info("[Swarm/%s] Closed zombie HTTP session", phase)
+                except Exception:
+                    pass
             return None, 0
         except Exception:
             logger.warning(
                 "[Swarm/%s] LLM call raised", phase, exc_info=True,
             )
-            pool.shutdown(wait=False)
             return None, 0
+        finally:
+            pool.shutdown(wait=False)
 
     # -- Phase 1: Coordinate ------------------------------------------------
 
@@ -269,10 +307,27 @@ class SwarmOrchestrator:
         plan: CoordinatorPlan,
         worker_fn: Callable[[WorkItem, WorkerAssignment], Optional[str]],
         progress_fn: Optional[Callable[[int, int], None]] = None,
+        t0: Optional[float] = None,
     ) -> List[WorkerResult]:
-        """Run worker_fn in parallel for each item."""
+        """Run worker_fn in parallel for each item.
+
+        F-59 rework: two timeout layers protect against hangs.
+
+        1. **Stall detection** (``worker_timeout_s``): If no worker
+           completes for ``worker_timeout_s`` seconds, the fan-out
+           assumes the cloud endpoint is stuck and aborts.  Uses
+           ``wait(FIRST_COMPLETED)`` so the timeout is measured between
+           completions, not per-worker.  (``as_completed`` + per-future
+           timeout doesn't work — it only yields *done* futures, so
+           ``future.result(timeout=X)`` returns instantly.)
+
+        2. **Wall-time cap** (``max_wall_time_s``): Absolute elapsed
+           time from the start of ``execute()``.  Prevents 155 groups
+           on a 1-at-a-time cloud endpoint from running for hours.
+        """
         total = len(items)
         results: List[WorkerResult] = []
+        fan_start = t0 or time.monotonic()
 
         def _run_worker(item: WorkItem) -> WorkerResult:
             logger.info("[Swarm] Worker starting: %s", item.id[:40])
@@ -306,25 +361,81 @@ class SwarmOrchestrator:
 
         max_workers = min(self.concurrency, total) if total > 0 else 1
         done_count = 0
+        stall_aborted = False
 
-        logger.info("[Swarm] Starting fan-out: %d items, %d workers", total, max_workers)
-        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        logger.info(
+            "[Swarm] Starting fan-out: %d items, %d workers, "
+            "stall_timeout=%.0fs, max_wall=%.0fs",
+            total, max_workers, self.worker_timeout_s, self.max_wall_time_s,
+        )
+        pool = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="swarm-fanout")
+        try:
             futures = {pool.submit(_run_worker, item): item for item in items}
-            for future in as_completed(futures):
-                result = future.result()
-                results.append(result)
-                done_count += 1
-                logger.info(
-                    "[Swarm] Worker %d/%d done: %s success=%s",
-                    done_count, total, result.item_id[:40], result.success,
-                )
-                if progress_fn is not None:
-                    progress_fn(done_count, total)
+            pending = set(futures.keys())
+
+            while pending:
+                # Compute remaining wall time
+                elapsed = time.monotonic() - fan_start
+                remaining_wall = self.max_wall_time_s - elapsed
+                if remaining_wall <= 0:
+                    logger.warning(
+                        "[Swarm] Wall-time cap (%.0fs) exceeded after %.0fs — "
+                        "aborting %d pending workers, returning %d partial results",
+                        self.max_wall_time_s, elapsed, len(pending), done_count,
+                    )
+                    for f in pending:
+                        f.cancel()
+                    break
+
+                # Wait for the next completion, with stall detection.
+                # Timeout is the LESSER of stall timeout and remaining wall time.
+                wait_timeout = min(self.worker_timeout_s, remaining_wall)
+                done_set, pending = wait(pending, timeout=wait_timeout, return_when=FIRST_COMPLETED)
+
+                if not done_set:
+                    # No worker completed in wait_timeout seconds — stall.
+                    stall_aborted = True
+                    logger.warning(
+                        "[Swarm] Stall detected: no worker completed in %.0fs — "
+                        "aborting %d pending workers, returning %d partial results",
+                        wait_timeout, len(pending), done_count,
+                    )
+                    for f in pending:
+                        f.cancel()
+                    break
+
+                # Collect completed results
+                for future in done_set:
+                    try:
+                        result = future.result()  # already done, returns instantly
+                    except Exception:
+                        item = futures[future]
+                        logger.warning(
+                            "Worker future raised for %s", item.id, exc_info=True
+                        )
+                        result = WorkerResult(
+                            item_id=item.id, raw_output="", success=False
+                        )
+
+                    results.append(result)
+                    done_count += 1
+                    logger.info(
+                        "[Swarm] Worker %d/%d done: %s success=%s (%.0fs elapsed)",
+                        done_count, total, result.item_id[:40], result.success,
+                        time.monotonic() - fan_start,
+                    )
+                    if progress_fn is not None:
+                        progress_fn(done_count, total)
+        finally:
+            pool.shutdown(wait=False)
 
         succeeded = sum(1 for r in results if r.success)
         logger.info(
-            "[Swarm] Fan-out complete: %d/%d workers succeeded",
-            succeeded, total,
+            "[Swarm] Fan-out complete: %d/%d succeeded, %d pending abandoned%s, "
+            "%.0fs elapsed",
+            succeeded, total, total - done_count,
+            " (stall)" if stall_aborted else "",
+            time.monotonic() - fan_start,
         )
         return results
 
@@ -406,9 +517,9 @@ class SwarmOrchestrator:
             plan = CoordinatorPlan(assignments=[])  # fan-out fills defaults
         stats.coordinator_tokens = coordinator_tokens
 
-        # Phase 2: Fan-out
+        # Phase 2: Fan-out (t0 passed for overall wall-time tracking)
         logger.info("[Swarm] Entering fan-out phase (%d items)", len(items))
-        worker_results = self._fan_out(items, plan, worker_fn, progress_fn)
+        worker_results = self._fan_out(items, plan, worker_fn, progress_fn, t0=t0)
         logger.info("[Swarm] Fan-out returned: %d results", len(worker_results))
 
         for r in worker_results:

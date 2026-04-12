@@ -150,7 +150,46 @@ uvicorn event loop
 
 **Recommendation:** Start with Option A (httpx) — it's the most targeted fix with the least architectural disruption. If httpx also hangs, it proves the issue is at a deeper level (GIL/asyncio interaction) and Option B (subprocess) is needed.
 
-## Files to Modify
+## F-59 Rework: Root Cause Found and Fixed (2026-04-12)
+
+**Status: RESOLVED — The hang was not a threading/requests bug.**
+
+### Actual Root Cause
+
+The "hang" was caused by **three compounding factors**, none of which are a bug in `requests` or `urllib3`:
+
+1. **600s HTTP timeout on the large slot.** Group reasoning and concept seeding use the `large` LLM slot, which has `timeout=600.0` (10 minutes). Workers that hit a slow or unresponsive cloud endpoint sit silently for up to 10 minutes before timing out. With no per-worker timeout in `_fan_out`, the only timeout was the HTTP read timeout.
+
+2. **Sequential cloud processing.** Ollama Cloud (free tier) processes 1 request at a time. With 3 concurrent workers, requests queue and process sequentially. Each `kimi-k2.5:cloud` call with `think=True` and `num_predict=8192` (effective 24576 tokens) takes 5-10 minutes. Three workers = 15-30 minutes of silence before any "Worker done" log appears.
+
+3. **Zombie coordinator connections.** When the coordinator futures timeout fires (10s), `pool.shutdown(wait=False)` abandons the thread but its `requests.Session` holds an ESTABLISHED TCP connection to Ollama for up to 600s. This zombie occupies a cloud queue slot, further delaying workers.
+
+**Combined effect:** 155 groups × sequential cloud processing × 600s timeouts = hours of apparent hang with zero progress logging.
+
+### Diagnostic Evidence
+
+A diagnostic script simulating exact daemon threading conditions (asyncio event loop + build thread + nested ThreadPoolExecutor) proved:
+- **All workers return successfully** — no threading deadlock or requests/urllib3 bug
+- **Cloud processes requests sequentially** for `think=True` workloads (27s, 53s, 101s for 3 workers with `num_predict=2048`)
+- **Extrapolated real-world timing:** `num_predict=8192` (effective 24576) × 155 groups = 7-19 hours
+
+### Fixes Applied
+
+| Fix | File | What |
+|-----|------|------|
+| Per-worker timeout | `swarm_orchestrator.py` | `worker_timeout_s` (120s cloud, 300s local) — workers that exceed this are marked failed |
+| Overall wall-time cap | `swarm_orchestrator.py` | `max_wall_time_s` (600s cloud, 1800s local) — fan-out returns partial results when exceeded |
+| Zombie session cleanup | `swarm_orchestrator.py` + `llm_client.py` | `close_session()` on coordinator/synthesis timeout — kills zombie TCP connections |
+| Caller-side timeouts | `group_reasoning.py`, `concept_seeder.py`, `atlas/generator.py` | All SwarmOrchestrator callers now pass `worker_timeout_s` and `max_wall_time_s` |
+| Test fix | `test_swarm_orchestrator.py` | Fixed incorrect test that expected `None` on coordinator failure (fan-out runs with defaults) |
+
+### What Was NOT Needed
+
+- **httpx migration** — `requests` works correctly; the issue was timeout configuration, not HTTP library bugs
+- **Subprocess isolation** — no GIL or asyncio interaction bug found
+- **asyncio.to_thread()** — the threading model (Thread + ThreadPoolExecutor) works correctly
+
+## Files to Modify (Historical)
 
 | File | What | Why |
 |------|------|-----|

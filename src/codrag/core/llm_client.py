@@ -48,6 +48,19 @@ def _is_cloud_model(model: str) -> bool:
     return ":cloud" in model.lower()
 
 
+_CLOUD_PROVIDERS = frozenset(("openai", "anthropic", "google"))
+
+
+def _is_cloud_endpoint(llm: "LLMClient") -> bool:
+    """Return True if the LLMClient targets a cloud-hosted endpoint.
+
+    Checks both the model tag (``kimi-k2.5:cloud``) and the provider
+    (OpenAI, Anthropic, Google APIs are always cloud).  Used by swarm
+    callers to set shorter timeouts for sequential cloud processing.
+    """
+    return _is_cloud_model(llm.model) or llm.provider in _CLOUD_PROVIDERS
+
+
 # ── Output safety guards ──────────────────────────────────────────────
 
 class OutputMonitor:
@@ -405,6 +418,7 @@ class LLMClient:
             s = _requests.Session()
             self._thread_local.session = s
         return s
+
 
     def _record_telemetry(self, prompt_tokens: int, completion_tokens: int, total_tokens: int) -> None:
         """Record token usage if a telemetry context is active.

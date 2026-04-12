@@ -304,7 +304,10 @@ class TestFullExecution:
         assert result.stats.synthesis_tokens == 200
         assert result.stats.wall_clock_seconds > 0
 
-    def test_coordinator_failure_returns_none(self) -> None:
+    def test_coordinator_failure_falls_through_to_fanout(self) -> None:
+        """When the coordinator AND synthesis fail, fan-out still runs
+        with default assignments.  execute() returns None only for empty
+        item lists."""
         items = _make_items(2)
         llm = MagicMock()
         llm.generate.side_effect = RuntimeError("LLM always fails")
@@ -320,4 +323,8 @@ class TestFullExecution:
             synthesis_prompt="Synthesize:\n{worker_outputs}",
         )
 
-        assert result is None
+        assert result is not None
+        assert result.coordinator_plan is not None
+        assert len(result.coordinator_plan.assignments) == 0  # empty fallback
+        assert result.stats.workers_succeeded == 2  # workers ran with defaults
+        assert result.synthesis is None  # synthesis also failed
