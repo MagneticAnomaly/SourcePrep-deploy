@@ -1999,7 +1999,11 @@ class PipelineOrchestrator:
                 if stage == StageId.STRUCTURAL:
                     self._generate_preliminary_atlas_and_rules(project_id)
                     self._prune_stale_derivative_files(project_id, pfl)
-                    self._sync_downstream_manifest_mtimes(project_id, pfl)
+                    # F-67: Skip mtime sync during force_from_start rebuilds.
+                    # The sync touches all downstream manifests, making the
+                    # freshness check skip them — defeating the rebuild purpose.
+                    if project_id not in self._force_from_start_runs:
+                        self._sync_downstream_manifest_mtimes(project_id, pfl)
                 # Phase 96: Rules regen after ATLAS is now handled by Stage 12 (RULES) in Finalize group
                 # elif stage == StageId.ATLAS:
                 #     self._regenerate_rules_with_full_atlas(project_id)
