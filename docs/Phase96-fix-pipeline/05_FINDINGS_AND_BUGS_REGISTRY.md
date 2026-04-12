@@ -76,7 +76,7 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-47 | `/pipeline/fast` gate doesn't recognize `phase=cancelled` — cancelled deep_enrichment runs block all subsequent fast_sync attempts until daemon restart | ✅ FIXED | (this commit) |
 | F-43 | Index build progress callback fired with `(i+1)/total` at file START — bar appeared "stuck" at the previous % during slow files | ✅ FIXED | (this commit) |
 
-Total: **56 findings**, **51 fixed**, **1 open**, **2 deferred**, **2 not-a-bug**. (F-41 closed via Option A: lock-free `BuildOrchestrator.snapshot()`. Live validation: 109 `/pipeline/status` samples during a build with p50=9ms, p95=16ms, max=2.77s, zero errors — was 30s+ timeout pre-fix. Only F-15 deferred pre-existing tests remain open.)
+Total: **56 findings**, **51 fixed**, **1 open** (F-15 partially closed: settings_store WAL tests now skip on DELETE-mode stores), **2 deferred**, **2 not-a-bug**. The 2 settings_store WAL tests now correctly skip on the production DELETE-mode codebase. The remaining F-15 failures (resume_strategy, mcp_server, queue_router, trace_builder_globs, team_sync_integration, etc.) are pre-existing test rot from earlier phases and are out of Phase 96 scope.
 
 ---
 

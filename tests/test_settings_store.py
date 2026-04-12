@@ -284,10 +284,31 @@ def test_uninitialized_store_raises():
 
 
 # ── WAL checkpoint and timeout ──────────────────────────────────
+#
+# F-15 closure: settings_store now uses journal_mode=DELETE (per the
+# project's USB-drive WAL-corruption memory note — DELETE works
+# reliably on the 4TB-BAD volume where codrag_data lives, WAL does
+# not). The two WAL-mode tests below are skipped on DELETE-mode
+# stores; they assert WAL-specific behavior (the .db-wal file) that
+# does not exist in DELETE mode and cannot be made to pass without
+# regressing the production journal-mode choice.
+
+
+def _store_uses_wal(tmp_path) -> bool:
+    """Probe the actual journal_mode the store opens with."""
+    s = SettingsStore()
+    s.init(tmp_path / "_probe.db")
+    try:
+        row = s._conn.execute("PRAGMA journal_mode").fetchone()
+        return (row[0] if row else "").lower() == "wal"
+    finally:
+        s.close()
 
 
 def test_wal_checkpoint_on_init_recovers_stale_wal(tmp_path):
     """After an unclean shutdown (no close()), a new store should recover via WAL checkpoint."""
+    if not _store_uses_wal(tmp_path):
+        pytest.skip("settings_store uses DELETE journal mode (USB-drive reliability) — WAL recovery test does not apply")
     db_path = tmp_path / "settings.db"
 
     # Simulate unclean shutdown: write data, don't close
@@ -309,6 +330,8 @@ def test_wal_checkpoint_on_init_recovers_stale_wal(tmp_path):
 
 def test_close_checkpoints_wal(tmp_path):
     """close() should checkpoint WAL, resulting in zeroed WAL file."""
+    if not _store_uses_wal(tmp_path):
+        pytest.skip("settings_store uses DELETE journal mode (USB-drive reliability) — WAL checkpoint test does not apply")
     db_path = tmp_path / "settings.db"
 
     store = SettingsStore()
