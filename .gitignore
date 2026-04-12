@@ -106,3 +106,6 @@ src/codrag/dashboard/src-tauri/.tauri/
 
 # Local reference files (not for repo)
 plausible-tags.txt
+
+# Git worktrees (isolated workspaces — never tracked)
+.claude/worktrees/

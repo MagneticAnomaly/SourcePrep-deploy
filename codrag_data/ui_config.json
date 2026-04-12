@@ -228,7 +228,7 @@
     "test_persist": true
   },
   "deep_analysis": {
-    "mode": "auto",
+    "mode": "manual",
     "threshold_percent": 20,
     "frequency": "weekly",
     "day_of_week": 0,
@@ -237,7 +237,7 @@
     "budget_max_minutes": 30,
     "budget_max_items": 100,
     "priority": "lowest_confidence",
-    "budget_enabled": false,
+    "budget_enabled": true,
     "schedule_threshold_enabled": true,
     "schedule_time_enabled": true
   },
@@ -251,10 +251,10 @@
   },
   "pipeline_config": {
     "fast_sync": {
-      "auto": true
+      "auto": false
     },
     "deep_enrichment": {
-      "mode": "auto",
+      "mode": "manual",
       "schedule": {
         "frequency": "weekly",
         "day_of_week": 0,
@@ -281,31 +281,31 @@
     "bg_image": null
   },
   "module_layout": {
-    "version": 17,
+    "version": 20,
     "panels": [
       {
-        "id": "file-tree",
+        "id": "usage-guide",
         "visible": true,
-        "height": 14,
-        "collapsed": false,
+        "height": 21,
+        "collapsed": true,
         "x": 0,
         "y": 0,
         "w": 4
       },
       {
-        "id": "usage-guide",
+        "id": "trace-pipeline",
         "visible": true,
-        "height": 18,
-        "collapsed": true,
+        "height": 23,
+        "collapsed": false,
         "x": 4,
         "y": 0,
         "w": 4
       },
       {
-        "id": "trace",
+        "id": "file-tree",
         "visible": true,
-        "height": 13,
-        "collapsed": true,
+        "height": 15,
+        "collapsed": false,
         "x": 8,
         "y": 0,
         "w": 4
@@ -315,16 +315,7 @@
         "visible": true,
         "height": 21,
         "collapsed": false,
-        "x": 8,
-        "y": 2,
-        "w": 4
-      },
-      {
-        "id": "trace-pipeline",
-        "visible": true,
-        "height": 24,
-        "collapsed": false,
-        "x": 4,
+        "x": 0,
         "y": 2,
         "w": 4
       },
@@ -333,116 +324,35 @@
         "visible": true,
         "height": 8,
         "collapsed": false,
-        "x": 0,
-        "y": 14,
-        "w": 4
-      },
-      {
-        "id": "llm-status",
-        "visible": true,
-        "height": 9,
-        "collapsed": false,
-        "x": 0,
-        "y": 22,
-        "w": 4
-      },
-      {
-        "id": "index-health",
-        "visible": true,
-        "height": 13,
-        "collapsed": false,
         "x": 8,
-        "y": 23,
-        "w": 4
-      },
-      {
-        "id": "atlas",
-        "visible": true,
-        "height": 16,
-        "collapsed": false,
-        "x": 0,
-        "y": 31,
-        "w": 4
-      },
-      {
-        "id": "results",
-        "visible": true,
-        "height": 9,
-        "collapsed": false,
-        "x": 8,
-        "y": 36,
+        "y": 15,
         "w": 4
       },
       {
         "id": "log-console",
         "visible": true,
-        "height": 14,
+        "height": 13,
         "collapsed": false,
         "x": 4,
-        "y": 45,
+        "y": 23,
         "w": 8
       },
       {
-        "id": "context-options",
+        "id": "atlas",
         "visible": true,
-        "height": 7,
-        "collapsed": true,
-        "x": 0,
-        "y": 47,
-        "w": 4
-      },
-      {
-        "id": "context-output",
-        "visible": true,
-        "height": 10,
-        "collapsed": true,
-        "x": 0,
-        "y": 49,
-        "w": 4
-      },
-      {
-        "id": "agent-scope",
-        "visible": true,
-        "height": 11,
+        "height": 13,
         "collapsed": false,
         "x": 0,
-        "y": 51,
+        "y": 23,
         "w": 4
       },
       {
-        "id": "token-budget",
-        "visible": true,
-        "height": 6,
-        "collapsed": true,
-        "x": 4,
-        "y": 59,
-        "w": 4
-      },
-      {
-        "id": "deep-analysis",
-        "visible": true,
-        "height": 12,
-        "collapsed": true,
-        "x": 8,
-        "y": 59,
-        "w": 4
-      },
-      {
-        "id": "search",
+        "id": "index-health",
         "visible": true,
         "height": 8,
-        "collapsed": true,
-        "x": 4,
-        "y": 61,
-        "w": 4
-      },
-      {
-        "id": "agent-ops",
-        "visible": true,
-        "height": 9,
         "collapsed": false,
-        "x": 0,
-        "y": 62,
+        "x": 8,
+        "y": 36,
         "w": 4
       },
       {
@@ -451,21 +361,120 @@
         "height": 8,
         "collapsed": false,
         "x": 4,
-        "y": 63,
+        "y": 36,
+        "w": 4
+      },
+      {
+        "id": "agent-ops",
+        "visible": true,
+        "height": 12,
+        "collapsed": true,
+        "x": 0,
+        "y": 36,
+        "w": 4
+      },
+      {
+        "id": "agent-scope",
+        "visible": true,
+        "height": 11,
+        "collapsed": true,
+        "x": 0,
+        "y": 38,
+        "w": 4
+      },
+      {
+        "id": "concepts",
+        "visible": true,
+        "height": 37,
+        "collapsed": true,
+        "x": 4,
+        "y": 44,
         "w": 8
       },
       {
         "id": "audit",
         "visible": true,
         "height": 21,
-        "collapsed": false,
+        "collapsed": true,
         "x": 4,
-        "y": 71,
+        "y": 46,
         "w": 8
       },
       {
+        "id": "trace",
+        "visible": false,
+        "height": 13,
+        "collapsed": false,
+        "x": 8,
+        "y": 0,
+        "w": 4
+      },
+      {
+        "id": "search",
+        "visible": false,
+        "height": 8,
+        "collapsed": true,
+        "x": 0,
+        "y": 57,
+        "w": 4
+      },
+      {
+        "id": "token-budget",
+        "visible": false,
+        "height": 6,
+        "collapsed": true,
+        "x": 4,
+        "y": 52,
+        "w": 4
+      },
+      {
+        "id": "deep-analysis",
+        "visible": false,
+        "height": 12,
+        "collapsed": true,
+        "x": 8,
+        "y": 52,
+        "w": 4
+      },
+      {
+        "id": "results",
+        "visible": false,
+        "height": 9,
+        "collapsed": false,
+        "x": 8,
+        "y": 33,
+        "w": 4
+      },
+      {
+        "id": "context-options",
+        "visible": false,
+        "height": 7,
+        "collapsed": true,
+        "x": 0,
+        "y": 38,
+        "w": 4
+      },
+      {
+        "id": "context-output",
+        "visible": false,
+        "height": 10,
+        "collapsed": true,
+        "x": 0,
+        "y": 40,
+        "w": 4
+      },
+      {
+        "id": "llm-status",
+        "visible": false,
+        "height": 9,
+        "collapsed": false,
+        "x": 0,
+        "y": 22,
+        "w": 4
+      },
+      {
         "id": "opportunities",
-        "visible": true,
+        "visible": false,
         "height": 30,
         "collapsed": true,
         "x": 0,
@@ -474,7 +483,7 @@
       },
       {
         "id": "goalposts",
-        "visible": true,
+        "visible": false,
         "height": 22,
         "collapsed": true,
         "x": 0,
@@ -483,7 +492,7 @@
       },
       {
         "id": "spaghetti",
-        "visible": true,
+        "visible": false,
         "height": 28,
         "collapsed": true,
         "x": 0,
@@ -492,7 +501,7 @@
       },
       {
         "id": "health_scanner",
-        "visible": true,
+        "visible": false,
         "height": 16,
         "collapsed": true,
         "x": 0,
@@ -501,7 +510,7 @@
       },
       {
         "id": "roadmap",
-        "visible": true,
+        "visible": false,
         "height": 19,
         "collapsed": true,
         "x": 0,
@@ -510,7 +519,7 @@
       },
       {
         "id": "advisor",
-        "visible": true,
+        "visible": false,
         "height": 12,
         "collapsed": true,
         "x": 0,
@@ -535,11 +544,12 @@
         "y": 40,
         "w": 12
       }
-    ]
+    ],
+    "savedAt": 1775936824286
   },
   "compute_nodes": [
     {
-      "id": "node_ac4fff5d",
+      "id": "node_2944f980",
       "name": "Local Machine",
       "type": "local",
       "hardware_profile": "apple_silicon",

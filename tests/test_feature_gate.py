@@ -92,9 +92,9 @@ class TestLicenseFromEnv:
 
 
 class TestFeatureChecks:
-    def test_free_cannot_auto_rebuild(self):
+    def test_free_can_auto_rebuild(self):
         os.environ["CODRAG_TIER"] = "free"
-        assert check_feature("auto_rebuild") is False
+        assert check_feature("auto_rebuild") is True
 
     def test_monthly_can_auto_rebuild(self):
         os.environ["CODRAG_TIER"] = "monthly"
@@ -112,9 +112,9 @@ class TestFeatureChecks:
         os.environ["CODRAG_TIER"] = "free"
         assert check_feature("mcp_tools") is True
 
-    def test_free_cannot_mcp_trace_expand(self):
+    def test_free_can_mcp_trace_expand(self):
         os.environ["CODRAG_TIER"] = "free"
-        assert check_feature("mcp_trace_expand") is False
+        assert check_feature("mcp_trace_expand") is True
 
     def test_monthly_can_mcp_trace_expand(self):
         os.environ["CODRAG_TIER"] = "monthly"
@@ -124,9 +124,9 @@ class TestFeatureChecks:
         os.environ["CODRAG_TIER"] = "free"
         assert check_feature("nonexistent_feature") is True
 
-    def test_free_cannot_auto_trace(self):
+    def test_free_can_auto_trace(self):
         os.environ["CODRAG_TIER"] = "free"
-        assert check_feature("auto_trace") is False
+        assert check_feature("auto_trace") is True
 
     def test_monthly_can_auto_trace(self):
         os.environ["CODRAG_TIER"] = "monthly"
@@ -134,9 +134,9 @@ class TestFeatureChecks:
 
 
 class TestProjectLimits:
-    def test_free_limit_is_1(self):
+    def test_free_limit_is_3(self):
         os.environ["CODRAG_TIER"] = "free"
-        assert get_feature_limit("projects_max") == 1
+        assert get_feature_limit("projects_max") == 3
 
     def test_monthly_limit_is_999(self):
         os.environ["CODRAG_TIER"] = "monthly"
@@ -159,10 +159,10 @@ class TestRequireFeature:
     def test_require_gated_feature_raises(self):
         os.environ["CODRAG_TIER"] = "free"
         with pytest.raises(FeatureGateError) as exc_info:
-            require_feature("auto_rebuild")
-        assert exc_info.value.feature == "auto_rebuild"
+            require_feature("team_config")
+        assert exc_info.value.feature == "team_config"
         assert exc_info.value.current_tier == "free"
-        assert exc_info.value.required_tier == "pro"
+        assert exc_info.value.required_tier == "team"
         assert "codrag.io/pricing" in str(exc_info.value)
 
 class TestLicenseToDict:
@@ -195,9 +195,9 @@ class TestLicenseEndpoint:
         assert res.status_code == 200
         data = res.json()["data"]
         assert data["license"]["tier"] == "free"
-        assert data["features"]["auto_rebuild"] is False
+        assert data["features"]["auto_rebuild"] is True
         assert data["features"]["trace_index"] is True
-        assert data["features"]["projects_max"] == 1
+        assert data["features"]["projects_max"] == 3
 
     def test_license_endpoint_perpetual(self):
         os.environ["CODRAG_TIER"] = "perpetual"
@@ -214,44 +214,23 @@ class TestLicenseEndpoint:
 
 
 class TestWatcherGate:
-    """Test that the watcher endpoint is gated behind MONTHLY+ tier."""
+    """Test that the watcher endpoint is available to all tiers (fully unlocked)."""
 
-    def test_free_cannot_start_watch(self):
+    def test_free_can_auto_rebuild(self):
         os.environ["CODRAG_TIER"] = "free"
-        from codrag.server import app
-        from starlette.testclient import TestClient
+        assert check_feature("auto_rebuild") is True
 
-        client = TestClient(app)
-        # Need a project first — create one at PERPETUAL tier, then downgrade
-        os.environ["CODRAG_TIER"] = "perpetual"
-        clear_license_cache()
-        import tempfile, json
-        with tempfile.TemporaryDirectory() as tmp:
-            res = client.post("/projects", json={"path": tmp, "name": "gate-test"})
-            if res.status_code != 200:
-                pytest.skip("Could not create project for gate test")
-            pid = res.json()["data"]["project"]["id"]
-
-            # Now downgrade to free and try to start watch
-            os.environ["CODRAG_TIER"] = "free"
-            clear_license_cache()
-            res = client.post(f"/projects/{pid}/watch/start")
-            assert res.status_code == 403
-            assert res.json()["error"]["code"] == "FEATURE_GATED"
-            assert "auto_rebuild" in res.json()["error"]["details"]["feature"]
-
-            # Cleanup
-            os.environ["CODRAG_TIER"] = "perpetual"
-            clear_license_cache()
-            client.delete(f"/projects/{pid}")
+    def test_team_config_still_gated(self):
+        os.environ["CODRAG_TIER"] = "free"
+        assert check_feature("team_config") is False
 
 
 class TestTraceExpandGate:
-    """Test that trace_expand is gated behind MONTHLY+ tier."""
+    """Test that trace_expand is available to all tiers (fully unlocked)."""
 
-    def test_free_trace_expand_returns_403(self):
+    def test_free_trace_expand_allowed(self):
         os.environ["CODRAG_TIER"] = "free"
-        assert check_feature("mcp_trace_expand") is False
+        assert check_feature("mcp_trace_expand") is True
 
     def test_monthly_trace_expand_allowed(self):
         os.environ["CODRAG_TIER"] = "monthly"

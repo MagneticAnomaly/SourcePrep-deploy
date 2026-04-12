@@ -19,6 +19,11 @@ interface UseLayoutPersistenceReturn {
   removePanel: (panelId: string) => void;
 }
 
+/** Stamp the current time on a layout so we can resolve local-vs-backend conflicts. */
+function stamp(layout: DashboardLayout): DashboardLayout {
+  return { ...layout, savedAt: Date.now() };
+}
+
 function loadLayout(key: string): DashboardLayout | null {
   try {
     const stored = localStorage.getItem(key);
@@ -56,6 +61,9 @@ function migrateLayout(layout: DashboardLayout): DashboardLayout {
   const upgradedLayout = {
     ...layout,
     version: DEFAULT_LAYOUT.version,
+    // Preserve existing savedAt if present; stamp only if missing so the
+    // migrated layout won't be overwritten by stale backend data on init.
+    savedAt: layout.savedAt ?? Date.now(),
     panels: isOutdated ? layout.panels.map(p => ({
       ...p,
       // Provide backwards compatibility fixes for individual panels here if needed
@@ -104,47 +112,47 @@ export function useLayoutPersistence(
   // Safety net: flush on tab close and visibility change (mobile background)
   useEffect(() => {
     const flush = () => saveLayout(storageKey, layoutRef.current);
+    const onVisibilityChange = () => { if (document.hidden) flush(); };
     window.addEventListener('beforeunload', flush);
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) flush();
-    });
+    document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
       window.removeEventListener('beforeunload', flush);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [storageKey]);
 
   const updateLayout = useCallback((newLayout: DashboardLayout) => {
-    setLayoutState(newLayout);
+    setLayoutState(stamp(newLayout));
   }, []);
 
   const togglePanelVisibility = useCallback((panelId: string) => {
     setLayoutState((current) => {
       const exists = current.panels.some((p) => p.id === panelId);
       if (exists) {
-        return {
+        return stamp({
           ...current,
           panels: current.panels.map((p) =>
             p.id === panelId ? { ...p, visible: !p.visible } : p
           ),
-        };
+        });
       }
       // Panel not yet in layout — add it as visible
       const maxY = current.panels.reduce((m, p) => {
         const py = (p.y ?? 0) + (p.visible ? p.height : 0);
         return py > m ? py : m;
       }, 0);
-      return {
+      return stamp({
         ...current,
         panels: [
           ...current.panels,
           { id: panelId, visible: true, height: 8, collapsed: false, x: 0, y: maxY, w: 12 },
         ],
-      };
+      });
     });
   }, []);
 
   const togglePanelCollapsed = useCallback((panelId: string) => {
-    setLayoutState((current) => ({
+    setLayoutState((current) => stamp({
       ...current,
       panels: current.panels.map((p) => {
         if (p.id !== panelId) return p;
@@ -161,15 +169,15 @@ export function useLayoutPersistence(
   }, []);
 
   const resetLayout = useCallback(() => {
-    setLayoutState(DEFAULT_LAYOUT);
+    setLayoutState(stamp(DEFAULT_LAYOUT));
   }, []);
 
   const reflowLayout = useCallback(() => {
-    setLayoutState((current) => reflowLayoutUtil(current));
+    setLayoutState((current) => stamp(reflowLayoutUtil(current)));
   }, []);
 
   const setPanelHeight = useCallback((panelId: string, height: number) => {
-    setLayoutState((current) => ({
+    setLayoutState((current) => stamp({
       ...current,
       panels: current.panels.map((p) =>
         p.id === panelId ? { ...p, height: Math.max(1, height) } : p
@@ -182,19 +190,19 @@ export function useLayoutPersistence(
       const exists = current.panels.some((p) => p.id === panelId);
       if (exists) {
         // Already exists — just make it visible
-        return {
+        return stamp({
           ...current,
           panels: current.panels.map((p) =>
             p.id === panelId ? { ...p, visible: true, collapsed: false } : p
           ),
-        };
+        });
       }
       // Add new panel entry as visible
       const maxY = current.panels.reduce((m, p) => {
         const py = (p.y ?? 0) + (p.visible ? p.height : 0);
         return py > m ? py : m;
       }, 0);
-      return {
+      return stamp({
         ...current,
         panels: [
           ...current.panels,
@@ -208,12 +216,12 @@ export function useLayoutPersistence(
             w: options?.w ?? 12,
           },
         ],
-      };
+      });
     });
   }, []);
 
   const removePanel = useCallback((panelId: string) => {
-    setLayoutState((current) => ({
+    setLayoutState((current) => stamp({
       ...current,
       panels: current.panels.filter((p) => p.id !== panelId),
     }));

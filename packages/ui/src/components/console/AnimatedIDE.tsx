@@ -14,7 +14,7 @@ interface ChatMessage {
   type: 'user' | 'agent' | 'tool';
   content: string;
   toolName?: string;
-  toolStatus?: 'running' | 'success' | 'error';
+  toolStatus?: 'running' | 'success' | 'error' | 'info';
 }
 
 /**
@@ -31,7 +31,7 @@ export function AnimatedIDE({
 }: AnimatedIDEProps) {
   // Global script state
   const [currentEventIdx, setCurrentEventIdx] = useState(0);
-  const [isRunning, setIsRunning] = useState(autoPlay);
+  const [isRunning] = useState(autoPlay);
   const [isTyping, setIsTyping] = useState(false);
 
   // Editor State
@@ -93,7 +93,12 @@ export function AnimatedIDE({
         break;
 
       case 'agent_thinking': {
-        const timer = setTimeout(() => advance(), event.durationMs);
+        addMessage({ type: 'agent', content: '...' });
+        const timer = setTimeout(() => {
+          // Remove the thinking placeholder
+          setChatHistory(prev => prev.filter(m => m.content !== '...'));
+          advance();
+        }, event.durationMs);
         return () => clearTimeout(timer);
       }
 
@@ -132,16 +137,16 @@ export function AnimatedIDE({
         }
         break;
 
-      case 'code_edit':
+      case 'code_edit': {
         setActiveFile(event.filePath);
         if (event.newContent) {
             setFileContent(event.newContent);
         } else if (event.diffText) {
-            // Very simplified diff application simulation
             setFileContent(event.diffText);
         }
-        const timer2 = setTimeout(() => advance(), event.durationMs);
-        return () => clearTimeout(timer2);
+        const editTimer = setTimeout(() => advance(), event.durationMs);
+        return () => clearTimeout(editTimer);
+      }
 
       case 'pause': {
         const timer = setTimeout(() => advance(), event.durationMs);
@@ -246,7 +251,12 @@ export function AnimatedIDE({
                             {msg.content}
                         </div>
                     )}
-                    {msg.type === 'agent' && (
+                    {msg.type === 'agent' && msg.content === '...' && (
+                        <div className="text-[#8b8b8b] self-start w-full leading-relaxed italic animate-pulse text-xs">
+                            Thinking…
+                        </div>
+                    )}
+                    {msg.type === 'agent' && msg.content !== '...' && (
                         <div className="text-[#cccccc] self-start w-full leading-relaxed whitespace-pre-wrap">
                             {msg.content}
                         </div>
@@ -273,7 +283,7 @@ export function AnimatedIDE({
                 </div>
             )}
 
-            {isTyping && currentEventIdx < script.events.length && script.events[currentEventIdx].type === 'agent_output' && (
+            {isTyping && activeTypingText && script.events[currentEventIdx]?.type === 'agent_output' && (
                 <div className="text-[#cccccc] self-start w-full leading-relaxed whitespace-pre-wrap">
                     {activeTypingText}<span className="animate-pulse">|</span>
                 </div>

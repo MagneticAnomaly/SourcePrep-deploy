@@ -76,12 +76,12 @@ export default function Page() {
               <span className="text-text-muted ml-1">forever</span>
             </div>
             <p className="mt-3 text-sm text-text-muted">
-              Try CoDRAG on a single project. See how much better your AI output gets.
+              Try CoDRAG on up to 3 projects. Experience the magic of real-time structural intelligence.
             </p>
             <ul className="mt-6 space-y-3 text-sm flex-1">
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>1 active project</span>
+                <span>3 active projects</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
@@ -100,8 +100,8 @@ export default function Page() {
                 <span>Dashboard GUI</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-text-subtle mt-0.5">&#10005;</span>
-                <span className="text-text-muted">Manual builds only (no auto-rebuild or scheduling)</span>
+                <span className="text-success mt-0.5">&#10003;</span>
+                <span>Full automation (watcher, scheduling, pipelines)</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>

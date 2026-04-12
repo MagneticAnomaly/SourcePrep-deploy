@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 import shutil
-import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -46,12 +45,79 @@ def _resolve_idx_dir(project_id: str) -> Path | None:
         return None
 
 
+_CLEAN_SHUTDOWN_FILENAME = ".pipeline_clean_shutdown"
+
+
 class RecoveryManager:
     """Pipeline crash recovery, checkpoint creation, and backup restoration.
 
     Stateless methods that operate on disk state and ManifestStore.
     The orchestrator owns the lifecycle and passes in state as needed.
     """
+
+    # ── Clean Shutdown Markers ─────────────────────────────────
+
+    @staticmethod
+    def write_clean_shutdown_marker(project_id: str) -> bool:
+        """Write a marker indicating this project shut down cleanly (no active runs).
+
+        Called during graceful server shutdown for projects that have NO active
+        pipeline runs. On next startup, auto_recover_stale_pipelines checks for
+        this marker — if present, incomplete deep enrichment manifests are
+        steady-state (not interrupted), so recovery is skipped.
+
+        Returns True if the marker was written successfully.
+        """
+        idx_dir = _resolve_idx_dir(project_id)
+        if idx_dir is None:
+            return False
+        try:
+            marker_path = idx_dir / _CLEAN_SHUTDOWN_FILENAME
+            marker_path.write_text(str(time.time()))
+            return True
+        except Exception:
+            logger.debug(
+                "Failed to write clean shutdown marker for %s",
+                project_id, exc_info=True,
+            )
+            return False
+
+    @staticmethod
+    def check_clean_shutdown_marker(project_id: str) -> bool:
+        """Check if a clean shutdown marker exists (read-only, does NOT remove).
+
+        Use this when multiple code paths need to check the marker. The marker
+        is only cleared by read_and_clear_clean_shutdown_marker() in the
+        recovery code path.
+        """
+        idx_dir = _resolve_idx_dir(project_id)
+        if idx_dir is None:
+            return False
+        return (idx_dir / _CLEAN_SHUTDOWN_FILENAME).exists()
+
+    @staticmethod
+    def read_and_clear_clean_shutdown_marker(project_id: str) -> bool:
+        """Check if a clean shutdown marker exists and remove it.
+
+        Returns True if the marker existed (clean shutdown), False otherwise
+        (crash or first run). Safe under concurrent calls — the second caller
+        gets False from the except branch if the file was already removed.
+        """
+        idx_dir = _resolve_idx_dir(project_id)
+        if idx_dir is None:
+            return False
+        marker_path = idx_dir / _CLEAN_SHUTDOWN_FILENAME
+        if not marker_path.exists():
+            return False
+        try:
+            marker_path.unlink()
+            return True
+        except Exception:
+            logger.debug(
+                "Failed to clear clean shutdown marker for %s",
+                project_id, exc_info=True,
+            )
+            return False
 
     # ── Checkpointing ──────────────────────────────────────────
 
@@ -614,6 +680,27 @@ class RecoveryManager:
                 logger.debug("Phase 61B: manifest age summary failed for %s", pid, exc_info=True)
 
             # Step 3: Auto-trigger deep enrichment if manifests are stale
+            # Phase 93: Clean shutdown guard — if the daemon shut down
+            # gracefully and this project had no active runs, its incomplete
+            # deep enrichment manifests are steady-state, not an interruption.
+            # Skip the deep enrichment trigger (but Steps 1-2 above still run
+            # for diagnostics and stale metadata cleanup).
+            was_clean = RecoveryManager.check_clean_shutdown_marker(pid)
+            if was_clean:
+                logger.info(
+                    "Phase 93: Clean shutdown marker found for %s — "
+                    "skipping deep enrichment auto-recovery "
+                    "(incomplete manifests are steady-state)",
+                    pid,
+                )
+                if pfl:
+                    pfl.selfheal(
+                        "auto_recover",
+                        "Skipped — clean shutdown marker present",
+                        {"project_id": pid},
+                    )
+                continue
+
             try:
                 if not is_deep_auto_fn(pid):
                     if pfl:
@@ -647,13 +734,22 @@ class RecoveryManager:
                             StageId.DEEP_KNOWLEDGE,  # shares knowledge_* with KNOWLEDGE
                         }
                         if stage in _SHARED_OUTPUT_STAGES:
+                            # Phase 93: A missing manifest for a shared-output
+                            # stage means it hasn't been run yet — that's normal
+                            # steady-state, not a crash recovery scenario. Only
+                            # declare stale if this was an interrupted run (no
+                            # clean shutdown marker, which is checked above).
+                            # Without this fix, DEEPENING/DEEP_KNOWLEDGE always
+                            # have missing manifests for projects that completed
+                            # enrichment but never ran deepening, causing ghost
+                            # recovery runs on every daemon restart.
                             logger.info(
-                                "Phase 72D: Stage %s manifest missing — skipping "
-                                "stub creation (shares output with prior stage)",
+                                "Phase 72D/93: Stage %s manifest missing — "
+                                "shared-output stage not yet run (steady-state, "
+                                "not stale)",
                                 stage.value,
                             )
-                            deep_stale = True
-                            break
+                            continue
 
                         output_file = STAGE_OUTPUT_FILE.get(stage)
                         data_path = (idx_dir / output_file) if output_file else None
@@ -751,38 +847,42 @@ class RecoveryManager:
                             {"project_id": pid, "reason": "deep_manifests_stale_vs_structural_after_touch"},
                         )
 
-                    # Delay to let the server fully initialize
-                    def _delayed_recover(_pid=pid, _pfl=pfl):
-                        try:
-                            time.sleep(10)
-                            started = run_deep_enrichment_fn(_pid)
-                            logger.info(
-                                "Phase 61B: Auto-recovery deep enrichment for %s: started=%s",
-                                _pid,
-                                started,
+                    # Phase 93: Run recovery synchronously instead of in a
+                    # delayed thread. The old 10s sleep(10) + daemon thread
+                    # caused a race condition: the state machine didn't exist
+                    # in _runs yet when the UI polled status, producing
+                    # contradictory running/not-running state and missing logs.
+                    # Synchronous execution ensures the state machine and file
+                    # logger are created before any status query can arrive.
+                    # Note: run_deep_enrichment_fn returns quickly — it creates
+                    # a state machine and spawns a worker thread, it does NOT
+                    # block on the actual enrichment work.
+                    try:
+                        started = run_deep_enrichment_fn(pid)
+                        logger.info(
+                            "Phase 61B: Auto-recovery deep enrichment for %s: started=%s",
+                            pid,
+                            started,
+                        )
+                        if pfl:
+                            pfl.selfheal(
+                                "auto_recover",
+                                f"run_deep_enrichment returned {started}",
+                                {"project_id": pid, "started": started},
                             )
-                            if _pfl:
-                                _pfl.selfheal(
-                                    "auto_recover",
-                                    f"run_deep_enrichment returned {started}",
-                                    {"project_id": _pid, "started": started},
-                                )
-                        except Exception as e:
-                            logger.warning(
-                                "Phase 61B: Auto-recovery failed for %s: %s",
-                                _pid,
-                                e,
-                                exc_info=True,
+                    except Exception as e:
+                        logger.warning(
+                            "Phase 61B: Auto-recovery failed for %s: %s",
+                            pid,
+                            e,
+                            exc_info=True,
+                        )
+                        if pfl:
+                            pfl.selfheal(
+                                "auto_recover",
+                                f"Recovery FAILED: {e}",
+                                {"project_id": pid, "error": str(e)},
                             )
-                            if _pfl:
-                                _pfl.selfheal(
-                                    "auto_recover",
-                                    f"Recovery FAILED: {e}",
-                                    {"project_id": _pid, "error": str(e)},
-                                )
-
-                    t = threading.Thread(target=_delayed_recover, daemon=True)
-                    t.start()
                 else:
                     if pfl:
                         pfl.selfheal(

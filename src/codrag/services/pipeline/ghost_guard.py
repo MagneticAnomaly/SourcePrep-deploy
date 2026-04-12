@@ -94,6 +94,37 @@ def purge_ghost_locks(
         scheduler.clean_locks(project_id)
         purged += 1
 
+    # Phase 93: Also purge orphaned QUEUE entries (not just active locks).
+    # A queued entry with no matching state machine will bounce forever
+    # in _resume_queued_pipeline (dequeue → no SM → drop), blocking other
+    # pipelines. Proactively cancel them here.
+    if pipeline_orch is not None:
+        queued_projects: set[str] = set()
+        for node_info in nodes.values():
+            for entry in node_info.get("queued", []):
+                queued_projects.add(entry["project_id"])
+
+        for qpid in queued_projects:
+            if qpid in locked_projects:
+                continue  # Already handled above (has active lock)
+            try:
+                ps = pipeline_orch.status(qpid)
+                has_queued_sm = any(
+                    g.get("phase") == "queued"
+                    for g in [ps.get("fast_sync", {}), ps.get("deep_enrichment", {})]
+                    if isinstance(g, dict)
+                )
+                if not has_queued_sm:
+                    logger.warning(
+                        "Ghost Guard: project %s has queued scheduler entries "
+                        "but no QUEUED state machine — cancelling orphaned entries",
+                        qpid,
+                    )
+                    scheduler.cancel(qpid)
+                    purged += 1
+            except Exception:
+                pass
+
     if purged > 0:
         event_bus.emit("queue_changed", {
             "reason": "ghost_purged",

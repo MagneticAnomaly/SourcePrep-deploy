@@ -76,8 +76,7 @@ export default function Page() {
 
           <AnchorHeading id="licensing" level="h2" className="mt-8">Licensing</AnchorHeading>
           <p>
-            CoDRAG is <span className="font-semibold text-text">free to use</span> with 1 active project. To unlock additional projects
-            and advanced features, purchase a license at{' '}
+            CoDRAG is <span className="font-semibold text-text">free to use</span> with up to 3 active projects and all features included. To unlock unlimited projects, purchase a license at{' '}
             <a href="https://codrag.io/pricing" className="text-primary hover:underline">codrag.io/pricing</a>.
           </p>
           <p className="text-sm text-text-muted mt-2">

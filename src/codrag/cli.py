@@ -408,6 +408,55 @@ def reset_graph(
             console.print(f"  [red]- {e}[/red]")
 
 
+@app.command("prune")
+def prune(
+    project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID (optional if inside project dir)"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
+    port: int = typer.Option(8400, "--port", help="Server port"),
+) -> None:
+    """
+    Prune orphan enrichments from the index.
+
+    Removes entries in trace_epistemic.jsonl, trace_augmented.jsonl, and
+    knowledge_documents.json that reference nodes no longer in the trace graph.
+    Reclaims disk space and fixes inflated progress metrics.
+    """
+    base = _base_url(host, port)
+    pid = _resolve_project(base, project_id)
+
+    # Get the project's index directory from the daemon
+    proj_data = _get_json(f"{base}/projects/{pid}")
+    proj_path = proj_data.get("path", "")
+    mode = proj_data.get("mode", "standalone")
+
+    if mode == "embedded":
+        idx_dir = Path(proj_path) / ".codrag"
+    else:
+        from codrag.core.project_registry import codrag_data_dir
+        idx_dir = codrag_data_dir() / "projects" / pid
+
+    if not idx_dir.exists():
+        console.print("[yellow]No index directory found.[/yellow]")
+        raise typer.Exit(1)
+
+    from codrag.core.trace import prune_orphan_enrichments
+    result = prune_orphan_enrichments(idx_dir)
+
+    if result.get("skipped"):
+        console.print(f"[yellow]Skipped: {result.get('reason', 'unknown')}[/yellow]")
+        raise typer.Exit(0)
+
+    total = result.get("total_pruned", 0)
+    if total == 0:
+        console.print("[green]No orphan enrichments found — index is clean.[/green]")
+    else:
+        console.print(f"[green]Pruned {total} orphan enrichments:[/green]")
+        for key in ("epistemic", "augmented", "knowledge"):
+            info = result.get(key, {})
+            if info.get("pruned", 0) > 0:
+                console.print(f"  {key}: {info['pruned']} removed, {info['kept']} kept")
+
+
 @app.command()
 def reset(
     project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID (optional if inside project dir)"),

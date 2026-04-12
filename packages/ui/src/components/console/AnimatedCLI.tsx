@@ -37,7 +37,7 @@ export function AnimatedCLI({
   const [typingText, setTypingText] = useState('');
   const [typingMeta, setTypingMeta] = useState<{ className: string; prefix?: string } | null>(null);
   const [showCursor, setShowCursor] = useState(true);
-  const [isRunning, setIsRunning] = useState(autoPlay);
+  const [isRunning] = useState(autoPlay);
   const lineIdRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -98,9 +98,10 @@ export function AnimatedCLI({
       }
 
       case 'tool_call': {
-        addLine(`⚡ ${event.tool}(${event.args})`, 'text-[#79c0ff]');
+        const argsDisplay = event.args ? `(${event.args})` : '()';
+        addLine(`⚡ ${event.tool}${argsDisplay}`, 'text-[#79c0ff] font-semibold');
         if (event.statusText) {
-          addLine(`  ${event.statusText}`, 'text-[#8b949e] text-xs');
+          addLine(`  ${event.statusText}`, 'text-[#8b949e] text-xs italic');
         }
         const timer = setTimeout(() => advance(), event.durationMs);
         return () => clearTimeout(timer);

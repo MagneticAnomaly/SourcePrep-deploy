@@ -146,11 +146,42 @@ class PipelineJournal:
                 timeout=30,
             )
             self._conn.row_factory = sqlite3.Row
-            self._conn.execute("PRAGMA journal_mode=WAL")
+            self._conn.execute("PRAGMA journal_mode=DELETE")
             self._conn.execute("PRAGMA synchronous=NORMAL")
             self._conn.execute("PRAGMA busy_timeout=30000")
             self._create_tables()
+            # Immediately mark stale "running" entries as crashed while we
+            # hold the only active connection — prevents zombie heartbeat
+            # rows from blocking writes on other connections later.
+            self._cleanup_zombies_on_init()
             logger.info("Pipeline journal initialized: %s", db_path)
+
+    def _cleanup_zombies_on_init(self) -> None:
+        """Mark any 'running' pipeline_runs with stale heartbeats as crashed.
+
+        Called during init() so we clean up before other stores open
+        connections and before crash recovery tries its own writes.
+        """
+        assert self._conn is not None
+        try:
+            cutoff = time.time() - HEARTBEAT_TIMEOUT_S
+            cur = self._conn.execute(
+                "UPDATE pipeline_runs SET status = 'crashed', "
+                "error = 'Process terminated (cleaned on restart)' "
+                "WHERE status = 'running' AND (last_heartbeat IS NULL OR last_heartbeat < ?)",
+                (cutoff,),
+            )
+            self._conn.commit()
+            if cur.rowcount > 0:
+                logger.warning(
+                    "Journal init: marked %d zombie pipeline run(s) as crashed",
+                    cur.rowcount,
+                )
+        except Exception:
+            try:
+                self._conn.rollback()
+            except Exception:
+                pass
 
     def close(self) -> None:
         """Close the database and stop all heartbeat threads."""

@@ -325,20 +325,19 @@ def epistemic_status_project(project_id: str) -> Dict[str, Any]:
             "avg_confidence": 0.0,
         }
     else:
-        display_count = 0
         avg_conf = 0.0
         if manifest_path.exists():
             try:
                 with open(manifest_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    quality = data.get("quality", {})
-                    display_count = quality.get("processed", 0)
-                    avg_conf = quality.get("avg_confidence", 0.0)
+                    avg_conf = data.get("quality", {}).get("avg_confidence", 0.0)
             except Exception: pass
-        
-        if display_count == 0:
-            count = _fast_count(epistemic_path)
-            display_count = min(count, total_file_nodes) if total_file_nodes > 0 else count
+
+        # GS-4: derive enriched count from disk, not manifest counter.
+        # The manifest's "processed" is a monotonic running total that
+        # includes orphan entries for files no longer in the graph.
+        disk_count = _fast_count(epistemic_path)
+        display_count = min(disk_count, total_file_nodes) if total_file_nodes > 0 else disk_count
 
         result = {
             "enabled": True,

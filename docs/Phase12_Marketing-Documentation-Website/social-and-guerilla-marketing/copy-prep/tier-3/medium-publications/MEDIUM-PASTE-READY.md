@@ -79,7 +79,7 @@ Three things about how CoDRAG is built that matter if you care about where your 
 
 **Open standard.** CoDRAG connects to editors via MCP — the Model Context Protocol. It's not an IDE plugin that locks you in. Your index, your weights, and the AI's learned observations survive if you switch from Cursor to Windsurf tomorrow.
 
-**Perpetual license.** There's a free tier (1 project, manual builds). Pro is $79 one-time — not a subscription. You own it. It works offline forever after activation. We fund development through that, not telemetry, not data monetization, not token markup on cloud API calls.
+**Perpetual license.** There's a free tier (3 projects, all features). Pro is $79 one-time — not a subscription. You own it. It works offline forever after activation. We fund development through that, not telemetry, not data monetization, not token markup on cloud API calls.
 
 ---
 

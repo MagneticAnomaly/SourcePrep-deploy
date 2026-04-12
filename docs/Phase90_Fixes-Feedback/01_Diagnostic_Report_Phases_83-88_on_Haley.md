@@ -4,7 +4,7 @@
 **Context:** Phases 83-88 are fully implemented and deployed. The daemon is freshly restarted. All changes are retrieval-layer (MCP server, new audit analyzers, schema extensions). No pipeline rebuild is needed. Yet testing against the Haley/LinuxBrain project shows some features working perfectly and others returning empty results. This doc traces each issue to its root cause.
 
 ---
-
+ok 
 ## What's Working vs What's Not
 
 | Feature | Phase | Result on Haley | Verdict |

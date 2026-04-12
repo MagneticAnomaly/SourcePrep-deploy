@@ -47,15 +47,46 @@ fn get_daemon_config(config: tauri::State<'_, AppConfig>) -> DaemonConfig {
     }
 }
 
+// ── Dev-Only Commands ────────────────────────────────────────────────────────
+#[cfg(debug_assertions)]
+#[tauri::command]
+fn trigger_mock_event() {
+    println!("[Dev] Mock event triggered");
+}
+
 fn main() {
   let ipc_token = Uuid::new_v4().to_string();
   let token_clone = ipc_token.clone();
 
-  let app = tauri::Builder::default()
+  let mut builder = tauri::Builder::default()
     .manage(SidecarState { child: Mutex::new(None) })
-    .manage(AppConfig { token: ipc_token })
-    .invoke_handler(tauri::generate_handler![get_daemon_config])
+    .manage(AppConfig { token: ipc_token });
+
+  // Conditionally register commands
+  #[cfg(debug_assertions)]
+  {
+      builder = builder.invoke_handler(tauri::generate_handler![
+          get_daemon_config,
+          trigger_mock_event,
+      ]);
+  }
+  
+  #[cfg(not(debug_assertions))]
+  {
+      builder = builder.invoke_handler(tauri::generate_handler![
+          get_daemon_config,
+      ]);
+  }
+
+  let app = builder
     .setup(move |app| {
+        // Conditionally open devtools on startup
+        #[cfg(debug_assertions)]
+        {
+            let window = app.get_window("main").unwrap();
+            window.open_devtools();
+        }
+
         let port = 8400;
         let mut launch_sidecar = true;
 

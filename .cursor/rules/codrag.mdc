@@ -5,7 +5,7 @@ alwaysApply: true
 
 # --- CoDRAG-managed (auto-generated, do not edit above USER ADDITIONS) ---
 
-Last updated: 2026-04-07T22:42:12Z
+Last updated: 2026-04-11T15:22:38Z
 
 codrag_project_id: 1d6f0b35-45cb-427b-ae9d-aac3c6371a4b
 
@@ -14,15 +14,27 @@ codrag_project_id: 1d6f0b35-45cb-427b-ae9d-aac3c6371a4b
 ## Tools
 | Tool | When to Use |
 |------|-------------|
-| `codrag` | START of every task — structural overview, modules, hub files |
-| `codrag_search` | Find code by meaning, not just string match |
+| `codrag` | START of every task — structural overview, modules, hub files, immune system alerts |
+| `codrag_search` | Find code by meaning, not just string match. Auto-classifies intent (LOCATE, EXPLAIN, RATIONALE, TRACE, EXAMPLE, DISCOVER). |
 | `codrag_impact` | BEFORE editing — check what depends on a file |
-| `codrag_audit` | Codebase health, tech debt, refactoring guidance |
+| `codrag_audit` | Structural findings (coupling, cycles, concept violations) OR enrich external lint findings with `findings` param. Use `action="antibodies"` for immune system. |
 | `codrag_observe` | Save/retrieve cross-session notes |
 | `codrag_concepts` | Record/query business rationale and design decisions |
 
 Call `codrag` first. Call `codrag_impact` before modifying hub files.
 All read-only tools are safe to auto-approve.
+
+### Audit Enrichment
+Enrich external lint/analysis findings with structural context:
+```
+codrag_audit(findings=[{file, line, message, severity, tool}])
+```
+CoDRAG adds: dependent count, hub status, concepts, risk score, recommendation.
+Also accepts SARIF dicts for SARIF-in/SARIF-out enrichment.
+
+### Search Intent
+`codrag_search` auto-detects query intent: "where is X" → symbol lookup,
+"why X" → concepts, "who imports X" → trace graph. Override with `intent` param if needed.
 
 For specific code lookups, use `codrag_search` with a natural language query.
 CoDRAG understands structural relationships — use it instead of
@@ -44,22 +56,6 @@ Webview Ui (packages/vscode/webview-ui, 14 files): React-based code navigation a
 Paperclip Plugin Codrag (packages/paperclip-plugin-codrag, 12 files): Paperclip design tool plugin with TypeScript configuration system
 
 CROSS-CUTTING: Five entry points anchor the graph: enterprise components, CLI, Rust walker, MCP server, architecture components. Shared domains across segments: ui, dashboard, typescript, project-management, vscode-extension. Hub dependencies: typing 223 edges, pathlib 168 edges, logging 156 edges, json 153 edges. Import chains link UI components through backend_config.py to pipeline orchestrator and scheduler; CLI chains through server to project registry, rules generator, watcher, and trace builder. 124 import cycles present. Directory dependencies: docs, engine, packages, public, scripts, src each expose symbols to other segments.
-
-## Focus Areas
-- docs/Phase62_Pi-research/02_CoDRAG_Epistemology.md
-- docs/Phase62_Pi-research/10_Universal_Adapter_Architecture.md
-- docs/Phase62_Pi-research/11_Autonomous_Agent_Scenarios.md
-- docs/Phase62_Pi-research/Paperclip + Sequential Thinking MCP + Superpowers Integration.md
-- docs/Phase64_prep-for-agents+paperclip
-- docs/Phase65_PushingTasksToPaperclip
-- docs/Phase66_Pi-Agent
-- docs/Phase67_AGENTS
-- src/codrag/core/llm_client.py
-- src/codrag/core/model_awareness.py
-- src/codrag/core/model_readiness.py
-- src/codrag/core/scheduler.py
-- src/codrag/core/watcher.py
-Call `codrag` for detailed content from these areas.
 
 If `codrag` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.

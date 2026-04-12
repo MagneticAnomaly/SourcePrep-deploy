@@ -273,8 +273,8 @@ StoreKit receipt check. The real cost is App Sandbox compliance testing.
 | 2. **Download** | Goes to codrag.io/download, clicks "Download for Mac" | Browser downloads `.dmg` from GitHub Releases |
 | 3. **Install** | Opens `.dmg`, drags to Applications | Standard macOS install. Gatekeeper passes (notarized). |
 | 4. **Launch** | Opens CoDRAG from Applications | Tauri app starts, launches Python sidecar daemon on port 8400 |
-| 5. **Use (Free)** | Adds 1 project, connects MCP, uses CoDRAG | Free tier: 1 project, manual indexing. No account needed. |
-| 6. **Hit limit** | Tries to add a 2nd project | Dashboard shows "Upgrade to Pro" with link to codrag.io/pricing |
+| 5. **Use (Free)** | Adds 3 projects, connects MCP, uses CoDRAG | Free tier: 3 projects, fully automated syncing. No account needed. |
+| 6. **Hit limit** | Tries to add a 4th project | Dashboard shows "Upgrade to Pro" with link to codrag.io/pricing |
 | 7. **Buy** | Clicks link → codrag.io/pricing → Lemon Squeezy checkout | LS processes payment, handles tax. Webhook fires. |
 | 8. **Receive key** | Gets email with license key | api.codrag.io generates Ed25519 license upon webhook receipt |
 | 9. **Activate** | Pastes key into CoDRAG → Settings → License | App calls `POST api.codrag.io/activate` with the LS key |
@@ -352,7 +352,7 @@ purchases of digital items or services."
 
 | Tier | Price | Duration | Projects | Key Features |
 |:---|:---|:---|:---|:---|
-| **Free** | $0 | Forever | 1 | Semantic search, manual indexing, basic MCP |
+| **Free** | $0 | Forever | 3 | Full automation, semantic search, full MCP suite |
 | **Monthly** | $7/mo | Subscription | Unlimited | Real-time watchers, full MCP, auto-rebuild, CLaRa compression |
 | **Perpetual** | $79 | One-time license | Unlimited | Everything in Monthly, never expires, offline activation |
 | **Team** | $15/seat/mo | Subscription | Unlimited | Shared config, centralized policy, license management |

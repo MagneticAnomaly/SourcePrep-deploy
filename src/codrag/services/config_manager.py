@@ -388,8 +388,8 @@ def load_ui_config(config: Dict[str, Any]) -> Dict[str, Any]:
             data = store_data
         else:
             data = _load_json_fallback(config)
-    except RuntimeError:
-        # Settings store not initialized — fall back to JSON
+    except Exception:
+        # Settings store not initialized or DB locked — fall back to JSON
         data = _load_json_fallback(config)
 
     if data:
@@ -469,8 +469,10 @@ def save_ui_config(config: Dict[str, Any], cfg: Dict[str, Any]) -> None:
         from codrag.services.settings_store import settings
 
         settings.import_from_dict(cfg)
-    except RuntimeError:
-        pass  # Store not initialized — skip
+    except Exception as e:
+        # Catch ALL exceptions (OperationalError for DB lock, RuntimeError
+        # for uninitialized store, etc.) — the JSON fallback below MUST run.
+        logger.warning("SQLite config save failed (JSON fallback will handle): %s", e)
 
     # Also write to JSON for backward compat
     path = ui_config_path(config)

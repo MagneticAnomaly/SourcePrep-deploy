@@ -62,6 +62,14 @@ export class MockApiClient implements ApiClient {
     return { removed: true, purged: false };
   }
 
+  async archiveProject(): Promise<any> {
+    return { project: MOCK_PROJECT };
+  }
+
+  async unarchiveProject(): Promise<any> {
+    return { project: MOCK_PROJECT };
+  }
+
   async getProjectStatus(): Promise<any> {
     return MOCK_STATUS;
   }

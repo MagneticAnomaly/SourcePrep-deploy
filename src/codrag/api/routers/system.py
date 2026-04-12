@@ -183,7 +183,12 @@ def get_global_config_v2() -> Dict[str, Any]:
 
 @router.put("/global/config")
 async def update_global_config_v2(req: Request) -> Dict[str, Any]:
-    """Update global UI configuration (merge update)."""
+    """Update global UI configuration (merge update).
+
+    Runs the blocking SQLite load/save in a thread pool so the asyncio
+    event loop stays responsive during lock contention.
+    """
+    import asyncio
     from codrag.server import (
         _load_ui_config, _save_ui_config, _deep_merge,
         _index, _project_indexes,
@@ -197,31 +202,39 @@ async def update_global_config_v2(req: Request) -> Dict[str, Any]:
     if not isinstance(data, dict):
         raise ApiException(status_code=400, code="VALIDATION_ERROR", message="Config must be a JSON object")
 
-    current = _load_ui_config()
+    def _do_save() -> Dict[str, Any]:
+        current = _load_ui_config()
 
-    old_emb = (current.get("llm_config") or {}).get("embedding") or {}
-    new_emb = (data.get("llm_config") or {}).get("embedding") or {}
-    embedding_changed = new_emb and (
-        new_emb.get("source") != old_emb.get("source")
-        or new_emb.get("endpoint_id") != old_emb.get("endpoint_id")
-        or new_emb.get("model") != old_emb.get("model")
-    )
+        old_emb = (current.get("llm_config") or {}).get("embedding") or {}
+        new_emb = (data.get("llm_config") or {}).get("embedding") or {}
+        embedding_changed = new_emb and (
+            new_emb.get("source") != old_emb.get("source")
+            or new_emb.get("endpoint_id") != old_emb.get("endpoint_id")
+            or new_emb.get("model") != old_emb.get("model")
+        )
 
-    _deep_merge(current, data)
-    _save_ui_config(current)
+        _deep_merge(current, data)
+        _save_ui_config(current)
 
-    # Phase 72: Live-sync endpoint concurrency into the scheduler
-    # when the global config (which includes saved_endpoints) changes.
+        # Phase 72: Live-sync endpoint concurrency into the scheduler
+        try:
+            from codrag.services.pipeline.scheduler import pipeline_scheduler
+            pipeline_scheduler.sync_endpoint_concurrency()
+        except Exception:
+            pass
+
+        if embedding_changed:
+            import codrag.server as _srv
+            _srv._index = None
+            _srv._project_indexes.clear()
+            logger.info("Embedding config changed — cleared cached indexes")
+
+        return current
+
     try:
-        from codrag.services.pipeline.scheduler import pipeline_scheduler
-        pipeline_scheduler.sync_endpoint_concurrency()
-    except Exception:
-        pass
-
-    if embedding_changed:
-        import codrag.server as _srv
-        _srv._index = None
-        _srv._project_indexes.clear()
-        logger.info("Embedding config changed — cleared cached indexes")
+        current = await asyncio.get_event_loop().run_in_executor(None, _do_save)
+    except Exception as e:
+        logger.exception("Failed to save global config")
+        raise ApiException(status_code=500, code="CONFIG_SAVE_ERROR", message=f"Failed to save config: {e}")
 
     return ok(current)

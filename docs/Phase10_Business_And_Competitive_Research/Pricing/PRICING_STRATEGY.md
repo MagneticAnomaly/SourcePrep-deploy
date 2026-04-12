@@ -20,13 +20,9 @@ Precedents: TablePlus, Sublime Text, JetBrains.
 ### Free Tier (The Hook)
 - **Price:** $0
 - **Limits:** 
-  - **1 active project** (indexed repo).
-  - Standard keyword/embedding search only.
-- **Constraints:** 
-  - **No Trace Index** (structural signals/call graphs).
-  - Standard MCP tools only.
-  - Manual re-indexing (no real-time watcher).
-- **Purpose:** Evaluation, students, "Hello World".
+  - **3 active projects** (indexed repos).
+- **Features:** All features included — Trace Index, real-time watcher, full MCP suite, automation.
+- **Purpose:** Compete with open-source, build trust, drive adoption.
 
 ### Starter Tier (The Bridge)
 - **Price:** **$29** / 4-months (Pass).
@@ -75,9 +71,9 @@ Target: Regulated industries (Banking, Defense) requiring air-gapped/governed us
 
 | Feature | Free | Starter | Pro | Team | Enterprise |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Project Limit** | 1 Repo | 3 Repos | Unlimited | Unlimited | Unlimited |
-| **Indexing** | Basic (Manual) | Real-time | **Trace Index** | Shared Configs | Governed Policy |
-| **MCP Tools** | Standard | Standard | Full Suite | Full Suite | Full Suite |
+| **Project Limit** | 3 Repos | 3 Repos | Unlimited | Unlimited | Unlimited |
+| **Indexing** | Full (Real-time) | Full (Real-time) | Full (Real-time) | Shared Configs | Governed Policy |
+| **MCP Tools** | Full Suite | Full Suite | Full Suite | Full Suite | Full Suite |
 | **Deployment** | Local | Local | Local | Local + Config Sync | Air-gapped / Managed |
 | **Support** | Community | Community | Email | Priority | SLA |
 

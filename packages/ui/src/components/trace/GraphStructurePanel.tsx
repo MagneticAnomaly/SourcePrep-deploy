@@ -205,10 +205,9 @@ function DeepCoverageBar({
   moduleStatus?: ModuleStatus;
   knowledgeStatus?: KnowledgeEmbeddingStatus;
 }) {
-  // Show accurate enrichment progress based on actual enriched node count.
-  // Use total_nodes (all kinds) since enrichment processes all node types, not just files.
-  // Fallback chain: total_nodes → augmentation total → file nodes → enriched (last resort).
-  const total = epistemic.total_nodes || augmentation?.total_nodes || epistemic.total_file_nodes || epistemic.enriched_nodes;
+  // Epistemic enrichment only produces file: entries — use total_file_nodes as denominator.
+  // total_nodes includes sections/symbols/external_modules that are never enriched.
+  const total = epistemic.total_file_nodes || augmentation?.total_nodes || epistemic.total_nodes || epistemic.enriched_nodes;
   const enriched = Math.min(epistemic.enriched_nodes, total);
   
   if (total === 0) return null;

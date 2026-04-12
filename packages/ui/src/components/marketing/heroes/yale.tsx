@@ -14,25 +14,25 @@ export function YaleHero({ isBetaMode }: { isBetaMode: boolean }) {
               <Command className="w-4 h-4" /> Magnetic Anomaly llc
             </span>
           </div>
-          <div className="col-span-12 md:col-span-6">
+          <div className="col-span-12 md:col-span-7 md:pr-[1.5em]">
             <h1
-              className="font-heading text-5xl md:text-6xl font-medium text-text pt-[0.25em] md:pt-0 leading-[1.05] md:leading-tight tracking-tight mb-8"
-              style={{ fontFamily: "var(--font-heading, 'IBM Plex Sans', system-ui, Helvetica, Arial, sans-serif)" }}
+              className="font-heading text-5xl md:text-6xl font-medium text-text pt-[0.25em] md:pt-0 tracking-tight mb-8"
+              style={{ fontFamily: "var(--font-heading, 'IBM Plex Sans', system-ui, Helvetica, Arial, sans-serif)", lineHeight: '1.1' }}
             >
               Give your AI access to the epistemic context it needs to understand your codebase.
             </h1>
           </div>
-          <div className="col-span-12 md:col-span-3 flex flex-col justify-end items-start md:items-end">
+          <div className="col-span-12 md:col-span-2 flex flex-col justify-end items-start md:items-end md:pr-[1.5em]">
             <span className="font-mono text-xs text-text-muted mb-2">RELEASE 2026.1</span>
-            <span className="font-mono text-xs text-text-muted">MACOS / WINDOWS / LINUX</span>
+            <span className="font-mono text-xs text-text-muted">MAC / WIN / LINUX</span>
           </div>
         </div>
 
         <div className="grid grid-cols-12 gap-x-6 pt-12">
-          {/* Column 1: Description */} 
+          {/* Column 1: Description */}
           <div className="col-span-12 md:col-span-3 md:col-start-4">
             <p className="font-sans text-base text-text leading-relaxed mb-6" >
-              A Rust-powered local index that pairs perfectly with privacy-first inference like Ollama Cloud, delivering structural knowledge to any agentic tool.
+              An MCP server that maps your entire codebase — imports, call chains, symbol hierarchies — and delivers deep structural intelligence to Claude Code, Antigravity, Cursor, Paperclip and any MCP-compatible tool.
             </p>
             <a href="#" className="font-sans font-medium text-primary hover:underline underline-offset-4 decoration-2 flex items-center gap-1">
               Documentation <ArrowRight className="w-3 h-3" />
@@ -42,7 +42,7 @@ export function YaleHero({ isBetaMode }: { isBetaMode: boolean }) {
           {/* Column 2: Specs */}
           <div className="col-span-12 md:col-span-3 mt-8 md:mt-0">
             <div className="flex flex-col gap-4 pl-6 border-l border-border">
-              
+
               <div className="flex items-baseline justify-between gap-4">
                 <span className="font-mono text-xs text-text-muted shrink-0">Index</span>
                 <span className="font-mono text-sm text-text font-bold text-right">Vector + Graph</span>
@@ -57,7 +57,7 @@ export function YaleHero({ isBetaMode }: { isBetaMode: boolean }) {
                 <span className="font-mono text-xs text-text-muted shrink-0">Compression</span>
                 <span className="font-mono text-sm text-text font-bold text-right">3–20× (Smart)</span>
               </div>
-              
+
               <div className="flex items-baseline justify-between gap-4">
                 <span className="font-mono text-xs text-text-muted shrink-0">Integrations</span>
                 <span className="font-mono text-sm text-text font-bold text-right">MCP Native</span>
@@ -67,7 +67,7 @@ export function YaleHero({ isBetaMode }: { isBetaMode: boolean }) {
                 <span className="font-mono text-xs text-text-muted shrink-0">Latency</span>
                 <span className="font-mono text-sm text-text font-bold text-right">&lt;100ms</span>
               </div>
-              
+
             </div>
           </div>
 

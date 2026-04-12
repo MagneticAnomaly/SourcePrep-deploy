@@ -135,14 +135,14 @@ The extension enforces the **exact same tier limits** as the daemon/dashboard:
 
 | Feature | Behavior |
 |:---|:---|
-| **Projects** | 1 active project max (daemon enforces) |
+| **Projects** | 3 active projects max (daemon enforces) |
 | **Search** | Standard keyword/embedding search |
 | **Context assembly** | ✅ Full |
-| **Trace Index** | ❌ Disabled — shows "Upgrade to Pro" in panel |
-| **Real-time watcher** | ❌ Disabled — shows "Pro" badge, manual rebuild only |
+| **Trace Index** | ✅ Full |
+| **Real-time watcher** | ✅ Full |
 | **MCP tools** | Standard set |
 | **File tree / pin** | ✅ Full |
-| **Build** | ✅ Manual trigger only |
+| **Build** | ✅ Full (manual + auto) |
 
 ### Pro Tier ($79 perpetual)
 

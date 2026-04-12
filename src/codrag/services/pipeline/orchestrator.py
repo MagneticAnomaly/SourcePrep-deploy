@@ -636,6 +636,20 @@ class PipelineOrchestrator:
                 "will add new/stale files without full rebuild",
                 project_id,
             )
+        # GS-2/GS-3: prune orphan enrichments before running stages.
+        # Only when data exists (resume > 0) and not a full rebuild.
+        if resume > 0 and not force_from_start:
+            try:
+                from codrag.core.trace import prune_orphan_enrichments
+                from codrag.services.project_helpers import require_project
+                from codrag.core.project_registry import project_index_dir
+                proj = require_project(project_id)
+                prune_result = prune_orphan_enrichments(project_index_dir(proj))
+                if prune_result.get("total_pruned", 0) > 0 and pfl:
+                    pfl.log("fast_sync", f"Pruned {prune_result['total_pruned']} orphan enrichments")
+            except Exception:
+                logger.debug("Pre-build orphan prune failed (non-fatal)", exc_info=True)
+
         return self._start_group(project_id, "fast_sync", FAST_SYNC_STAGES, resume_from=resume)
 
     def run_deep_enrichment(self, project_id: str, force_from_start: bool = False) -> bool:

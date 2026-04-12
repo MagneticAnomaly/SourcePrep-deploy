@@ -90,7 +90,7 @@ def start_project_watch(
     def trigger_build(paths: List[str]) -> bool:
         from codrag.services.project_helpers import get_project_activity_status
         status = get_project_activity_status(proj.id)
-        if status in ("frozen", "locked", "inactive"):
+        if status in ("locked", "inactive"):
             logger.debug("Auto-rebuild skipped for %s — project is %s", proj.id, status)
             return False
 

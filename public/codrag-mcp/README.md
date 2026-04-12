@@ -70,7 +70,7 @@ winget install MagneticAnomaly.CoDRAG
 
 Or download directly from [codrag.io/download](https://codrag.io/download).
 
-*The core engine is free for personal use (1 active project). See [codrag.io/pricing](https://codrag.io/pricing) for Pro/Team tiers.*
+*Free for personal and commercial use (3 active projects, all features). See [codrag.io/pricing](https://codrag.io/pricing) for unlimited projects and Team/Enterprise tiers.*
 
 ### Step 2: Start the Daemon and Index a Project
 

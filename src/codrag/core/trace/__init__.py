@@ -35,6 +35,7 @@ from .utils import _detect_language, _to_posix, _is_relevant
 from .builder import TraceBuilder, build_trace
 from .index import TraceIndex
 from .coverage import compute_trace_coverage
+from .maintenance import prune_orphan_enrichments
 
 # Analyzers are internal but re-exported for backward compat
 from .analyzers import PythonAnalyzer, SwiftAnalyzer, GenericRegexAnalyzer, JSAnalyzer
@@ -58,4 +59,5 @@ __all__ = [
     "_detect_language",
     "_to_posix",
     "_is_relevant",
+    "prune_orphan_enrichments",
 ]

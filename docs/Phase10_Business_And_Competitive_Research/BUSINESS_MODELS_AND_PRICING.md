@@ -102,7 +102,7 @@ We have selected a **Perpetual License** model for individuals and a **Seat-Base
 - Creates trust with privacy-conscious developers.
 
 **The Strategy (The "Context Drug" Ladder):**
-- **Free:** 1 project, manual builds only (The Hook).
+- **Free:** 3 projects, all features (The Hook).
 - **Pro — monthly:** $7/mo, unlimited projects, full automation (The Bridge).
 - **Pro — one-time:** $79, all Pro features, never expires (Ownership).
 - **Team:** $15/seat/mo, headless CI/CD indexing, shared trace graph (Standardization).
@@ -114,9 +114,9 @@ See the detailed strategy in: [Pricing/PRICING_STRATEGY.md](Pricing/PRICING_STRA
 > both "Pro" — feature-identical, differing only in billing model.
 
 ## Decision outputs
-- **Adoption funnel:** Free (1 project) → Pro Monthly ($7/mo) → Pro Perpetual ($79) → Team ($15/seat/mo).
+- **Adoption funnel:** Free (3 projects) → Pro Monthly ($7/mo) → Pro Perpetual ($79) → Team ($15/seat/mo).
 - **Packaging:**
-    - **Free:** 1 active project, manual builds.
+    - **Free:** 3 active projects, all features.
     - **Pro (Monthly / Perpetual):** Unlimited projects, full automation, full MCP, trace-aware context.
     - **Team:** Everything in Pro + headless CI/CD indexer, shared trace graph via S3, delta sync.
     - **Enterprise:** Everything in Team + air-gapped deployment, SSO/SCIM, audit logging.

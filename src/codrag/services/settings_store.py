@@ -65,7 +65,7 @@ class SettingsStore:
                 isolation_level="DEFERRED",
                 timeout=10,
             )
-            self._conn.execute("PRAGMA journal_mode=WAL")
+            self._conn.execute("PRAGMA journal_mode=DELETE")
             self._conn.execute("PRAGMA synchronous=NORMAL")
             # Recover any stale WAL from prior crash (industry pattern: Firefox, VS Code)
             self._conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
@@ -173,14 +173,18 @@ class SettingsStore:
         conn = self._require_conn()
         now = time.time()
         with self._lock:
-            conn.executemany(
-                "INSERT OR REPLACE INTO settings (namespace, key, value, updated_at) VALUES (?, ?, ?, ?)",
-                [
-                    (namespace, k, json.dumps(v, default=str), now)
-                    for k, v in items.items()
-                ],
-            )
-            conn.commit()
+            try:
+                conn.executemany(
+                    "INSERT OR REPLACE INTO settings (namespace, key, value, updated_at) VALUES (?, ?, ?, ?)",
+                    [
+                        (namespace, k, json.dumps(v, default=str), now)
+                        for k, v in items.items()
+                    ],
+                )
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
 
     def get_namespaces(self) -> List[str]:
         """List all namespaces that have settings."""
@@ -257,21 +261,29 @@ class SettingsStore:
         now = time.time()
         serialized = json.dumps(value, default=str)
         with self._lock:
-            conn.execute(
-                "INSERT OR REPLACE INTO settings (namespace, key, value, updated_at) VALUES (?, ?, ?, ?)",
-                (namespace, key, serialized, now),
-            )
-            conn.commit()
+            try:
+                conn.execute(
+                    "INSERT OR REPLACE INTO settings (namespace, key, value, updated_at) VALUES (?, ?, ?, ?)",
+                    (namespace, key, serialized, now),
+                )
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
         self._notify(namespace, key, value)
 
     def _delete(self, namespace: str, key: str) -> bool:
         conn = self._require_conn()
         with self._lock:
-            cur = conn.execute(
-                "DELETE FROM settings WHERE namespace = ? AND key = ?",
-                (namespace, key),
-            )
-            conn.commit()
+            try:
+                cur = conn.execute(
+                    "DELETE FROM settings WHERE namespace = ? AND key = ?",
+                    (namespace, key),
+                )
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
         deleted = cur.rowcount > 0
         if deleted:
             self._notify(namespace, key, None)

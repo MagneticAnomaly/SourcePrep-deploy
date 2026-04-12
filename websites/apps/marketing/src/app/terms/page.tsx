@@ -83,7 +83,7 @@ export default function Page() {
                     <div className="border border-border p-6 rounded-sm">
                        <h3 className="font-bold text-text mb-2">Free Tier</h3>
                        <p className="text-sm text-text-muted">
-                         Provided at no cost for personal/commercial use. Limited to one active project with manual indexing.
+                         Provided at no cost for personal/commercial use. Includes up to three active projects with all features.
                        </p>
                     </div>
 

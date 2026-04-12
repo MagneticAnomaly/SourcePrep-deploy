@@ -51,8 +51,8 @@ Understand code structure with graph-based analysis.
 
 ## License
 
-- **Free Tier**: 1 active project, standard semantic search.
-- **Pro Tier**: Unlimited projects, Trace Index, Real-time Watcher.
+- **Free Tier**: 3 active projects, all features included.
+- **Pro Tier**: Unlimited projects.
 
 [Upgrade to Pro](https://codrag.io/pricing) to unlock advanced features.
 

@@ -49,13 +49,12 @@ export interface CodeChunk {
  * Project summary for list display
  */
 /**
- * Project activity status (Phase 41)
+ * Project activity status (Phase 97)
  * - active: full functionality
  * - inactive: Pro explicit deactivation (manual-only)
- * - frozen: Free tier read-only (can search stale index)
- * - locked: Free tier completely inert
+ * - locked: archived or over Free tier limit
  */
-export type ActivityStatus = 'active' | 'inactive' | 'frozen' | 'locked';
+export type ActivityStatus = 'active' | 'inactive' | 'locked';
 
 export type PriorityLevel = 'none' | 'boost' | 'exclusive';
 

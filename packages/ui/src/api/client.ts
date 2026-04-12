@@ -19,7 +19,7 @@ import type {
   SearchResponse,
   WatchActionResponse,
 } from './types';
-import type { LLMStatus, LicenseStatus, Project, ProjectStatus, TraceCoverage, TraceCoverageSummary, TraceStatus, WatchStatus, GlobalConfig, ModelStatusResult, ModelReadinessStatus, AugmentationStatus, DeepAnalysisRunStatus, LLMSlotsStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, GraphEngineStatus, PipelineStatus, CrashedPipelineRun, AssignmentMode, LLMAssignmentBlock } from '../types';
+import type { LLMStatus, LicenseStatus, Project, ProjectSummary, ProjectStatus, TraceCoverage, TraceCoverageSummary, TraceStatus, WatchStatus, GlobalConfig, ModelStatusResult, ModelReadinessStatus, AugmentationStatus, DeepAnalysisRunStatus, LLMSlotsStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, GraphEngineStatus, PipelineStatus, CrashedPipelineRun, AssignmentMode, LLMAssignmentBlock } from '../types';
 
 export interface FileTreeNode {
   name: string;
@@ -43,10 +43,12 @@ export interface ApiClient {
   getProject(projectId: string): Promise<{ project: Project }>;
   updateProject(projectId: string, request: UpdateProjectRequest): Promise<UpdateProjectResponse>;
   deleteProject(projectId: string, purge?: boolean): Promise<DeleteProjectResponse>;
+  archiveProject(projectId: string): Promise<{ project: ProjectSummary }>;
+  unarchiveProject(projectId: string): Promise<{ project: ProjectSummary }>;
 
   // Project status & build
   getProjectStatus(projectId: string): Promise<ProjectStatus>;
-  buildProject(projectId: string, full?: boolean, includedPaths?: string[]): Promise<BuildProjectResponse>;
+  buildProject(projectId: string, force?: boolean, includedPaths?: string[]): Promise<BuildProjectResponse>;
 
   // Search & context
   search(projectId: string, request: SearchRequest): Promise<SearchResponse>;
@@ -365,9 +367,23 @@ export class CodragApiClient implements ApiClient {
   }
 
   async deleteProject(projectId: string, purge = false): Promise<DeleteProjectResponse> {
-    return this.requestEnvelope<DeleteProjectResponse>(`/projects/${encodeURIComponent(projectId)}`, {
+    const url = `/projects/${projectId}${purge ? '?purge=true' : ''}`;
+    return this.requestEnvelope<DeleteProjectResponse>(url, {
       method: 'DELETE',
-      query: { purge },
+    });
+  }
+
+  async archiveProject(projectId: string): Promise<{ project: ProjectSummary }> {
+    const url = `/projects/${projectId}/archive`;
+    return this.requestEnvelope<{ project: ProjectSummary }>(url, {
+      method: 'POST',
+    });
+  }
+
+  async unarchiveProject(projectId: string): Promise<{ project: ProjectSummary }> {
+    const url = `/projects/${projectId}/unarchive`;
+    return this.requestEnvelope<{ project: ProjectSummary }>(url, {
+      method: 'POST',
     });
   }
 

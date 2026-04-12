@@ -1,0 +1,254 @@
+"use client";
+
+import { DetailPageLayout } from '@codrag/ui';
+import { Zap, Brain, GitBranch, CheckCircle, BookOpen, Layers, Network, Map, Cpu, Sparkles, RefreshCw, FileText, Lightbulb, ClipboardCheck, Shield, ArrowRight } from 'lucide-react';
+
+const SECTIONS = [
+  { id: 'journey', label: 'The Journey' },
+  { id: 'sync', label: 'Sync (1–5)' },
+  { id: 'enrich', label: 'Enrich (6–10)' },
+  { id: 'finalize', label: 'Finalize (11–15)' },
+  { id: 'always-running', label: 'Always Running' },
+];
+
+const SYNC_STAGES = [
+  {
+    number: 1,
+    name: 'STRUCTURAL',
+    icon: <GitBranch className="w-4 h-4" />,
+    description: 'Rust engine parses every file via tree-sitter. Extracts imports, symbols, call sites. Builds the trace graph.',
+  },
+  {
+    number: 2,
+    name: 'INFERRED_EDGES',
+    icon: <Network className="w-4 h-4" />,
+    description: 'Analyzes git history for co-occurrence patterns. Files that change together get weighted edges.',
+  },
+  {
+    number: 3,
+    name: 'CATALOGUE',
+    icon: <BookOpen className="w-4 h-4" />,
+    description: 'Fast model catalogues every file with a one-line summary and tags.',
+  },
+  {
+    number: 4,
+    name: 'VALIDATION',
+    icon: <CheckCircle className="w-4 h-4" />,
+    description: 'Integrity check. Verifies graph consistency, flags orphan nodes.',
+  },
+  {
+    number: 5,
+    name: 'KNOWLEDGE',
+    icon: <Zap className="w-4 h-4" />,
+    description: 'First LLM pass. Enriches key nodes with semantic descriptions and builds the search index.',
+  },
+];
+
+const ENRICH_STAGES = [
+  {
+    number: 6,
+    name: 'DEEP_REASONING',
+    icon: <Brain className="w-4 h-4" />,
+    description: 'Epistemic scoring — layers, domains, confidence ratings for every node in graph context.',
+  },
+  {
+    number: 7,
+    name: 'GROUP_REASONING',
+    icon: <Cpu className="w-4 h-4" />,
+    description: 'LLM consensus across related nodes. Identifies patterns and architectural themes.',
+  },
+  {
+    number: 8,
+    name: 'MODULE_SYNTHESIS',
+    icon: <Layers className="w-4 h-4" />,
+    description: 'Module boundary discovery. Groups files into logical subsystems.',
+  },
+  {
+    number: 9,
+    name: 'DEEPENING',
+    icon: <Sparkles className="w-4 h-4" />,
+    description: 'Iterative epistemic refinement with full graph context available.',
+  },
+  {
+    number: 10,
+    name: 'DEEP_KNOWLEDGE',
+    icon: <Brain className="w-4 h-4" />,
+    description: 'Re-embed everything with enriched data. The search index now reflects deep understanding.',
+  },
+];
+
+const FINALIZE_STAGES = [
+  {
+    number: 11,
+    name: 'ATLAS',
+    icon: <Map className="w-4 h-4" />,
+    description: 'Generates the architectural overview — segments, hub files, cross-cutting concerns, workspace map.',
+  },
+  {
+    number: 12,
+    name: 'RULES',
+    icon: <FileText className="w-4 h-4" />,
+    description: 'Generates IDE rules files — AGENTS.md, .cursor/, .windsurf/ — so your editors know about the MCP tools.',
+  },
+  {
+    number: 13,
+    name: 'CONCEPTS',
+    icon: <Lightbulb className="w-4 h-4" />,
+    description: 'Seeds concepts from atlas, modules, and audit findings. The "why" behind the architecture.',
+  },
+  {
+    number: 14,
+    name: 'AUDIT',
+    icon: <ClipboardCheck className="w-4 h-4" />,
+    description: 'Runs structural analyzers — coupling hotspots, import cycles, hub concentration, quality gaps.',
+  },
+  {
+    number: 15,
+    name: 'ANTIBODIES',
+    icon: <Shield className="w-4 h-4" />,
+    description: 'Derives immune system defenses from concept assertions. Constraint violations surface as alerts.',
+  },
+];
+
+function StageCard({ stage, variant }: { stage: typeof SYNC_STAGES[number]; variant: 'light' | 'primary' | 'accent' }) {
+  const styles = {
+    light: 'border-border bg-surface',
+    primary: 'border-primary/30 bg-primary/5',
+    accent: 'border-[#3fb950]/30 bg-[#3fb950]/5',
+  };
+  const badgeStyles = {
+    light: 'bg-background border-border text-text-muted',
+    primary: 'bg-background border-primary/30 text-primary',
+    accent: 'bg-background border-[#3fb950]/30 text-[#3fb950]',
+  };
+
+  return (
+    <div className={`flex items-start gap-4 rounded-lg border px-5 py-4 ${styles[variant]}`}>
+      <div className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full border text-xs font-bold font-mono ${badgeStyles[variant]}`}>
+        {stage.number}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-primary">{stage.icon}</span>
+          <span className="font-mono font-bold text-sm text-text">{stage.name}</span>
+        </div>
+        <p className="text-sm text-text-muted">{stage.description}</p>
+      </div>
+    </div>
+  );
+}
+
+export default function GraphEnrichmentPage() {
+  return (
+    <DetailPageLayout
+      title="Graph Enrichment"
+      subtitle="How It Works"
+      description="A 15-stage pipeline in three groups of five transforms raw source files into a rich structural knowledge graph — from Rust parsing to deep LLM reasoning to architectural synthesis."
+      badge="Pipeline"
+      sections={SECTIONS}
+      docsUrl="https://docs.codrag.io/concepts/graph-enrichment"
+      docsLabel="Learn more in the docs"
+    >
+      {/* The Journey */}
+      <section id="journey">
+        <h2 className="text-2xl font-semibold text-text mb-4">The Journey</h2>
+        <p className="text-text-muted leading-relaxed mb-4">
+          When CoDRAG indexes your codebase, a 15-stage pipeline runs in three groups of five.
+          The first five stages <strong className="text-text">sync</strong> instantly — Rust parsing, graph building, and first-pass annotation in seconds.
+          The next five <strong className="text-text">enrich</strong> in the background — deep LLM reasoning that progressively deepens understanding.
+          The final five <strong className="text-text">finalize</strong> — producing the atlas, rules files, concepts, audit findings, and immune system defenses that your tools actually consume.
+        </p>
+        <div className="grid sm:grid-cols-3 gap-4">
+          <div className="rounded-lg border border-border bg-surface p-4">
+            <div className="text-primary mb-2"><Zap className="w-5 h-5" /></div>
+            <h3 className="font-medium text-sm text-text mb-1">Sync — Seconds</h3>
+            <p className="text-xs text-text-muted">Stages 1–5. Rust parsing, graph building, search index. No LLM wait.</p>
+          </div>
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+            <div className="text-primary mb-2"><Brain className="w-5 h-5" /></div>
+            <h3 className="font-medium text-sm text-text mb-1">Enrich — Background</h3>
+            <p className="text-xs text-text-muted">Stages 6–10. Deep LLM reasoning, module discovery, epistemic scoring.</p>
+          </div>
+          <div className="rounded-lg border border-[#3fb950]/30 bg-[#3fb950]/5 p-4">
+            <div className="text-[#3fb950] mb-2"><Shield className="w-5 h-5" /></div>
+            <h3 className="font-medium text-sm text-text mb-1">Finalize — Deliver</h3>
+            <p className="text-xs text-text-muted">Stages 11–15. Atlas, rules, concepts, audit, antibodies. Parallel where possible.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Sync Stages */}
+      <section id="sync">
+        <h2 className="text-2xl font-semibold text-text mb-2">Sync (Stages 1–5)</h2>
+        <p className="text-text-muted leading-relaxed mb-6">
+          Completes in seconds with minimal LLM use. Your agents get structural context immediately.
+        </p>
+        <div className="space-y-3">
+          {SYNC_STAGES.map((stage) => (
+            <StageCard key={stage.number} stage={stage} variant="light" />
+          ))}
+        </div>
+      </section>
+
+      {/* Divider */}
+      <div className="flex items-center gap-4 py-2">
+        <div className="flex-1 h-px bg-border" />
+        <span className="text-xs font-mono text-text-muted uppercase tracking-widest px-2">LLM Deep Enrichment</span>
+        <div className="flex-1 h-px bg-border" />
+      </div>
+
+      {/* Enrich Stages */}
+      <section id="enrich">
+        <h2 className="text-2xl font-semibold text-text mb-2">Enrich (Stages 6–10)</h2>
+        <p className="text-text-muted leading-relaxed mb-6">
+          Runs in the background with full LLM passes. Each stage builds on the previous, producing progressively richer structural understanding. Supports swarm mode — multiple LLM workers processing nodes in parallel.
+        </p>
+        <div className="space-y-3">
+          {ENRICH_STAGES.map((stage) => (
+            <StageCard key={stage.number} stage={stage} variant="primary" />
+          ))}
+        </div>
+      </section>
+
+      {/* Divider */}
+      <div className="flex items-center gap-4 py-2">
+        <div className="flex-1 h-px bg-border" />
+        <span className="text-xs font-mono text-text-muted uppercase tracking-widest px-2">Synthesis &amp; Delivery</span>
+        <div className="flex-1 h-px bg-border" />
+      </div>
+
+      {/* Finalize Stages */}
+      <section id="finalize">
+        <h2 className="text-2xl font-semibold text-text mb-2">Finalize (Stages 11–15)</h2>
+        <p className="text-text-muted leading-relaxed mb-6">
+          Produces the deliverables your tools actually consume — the atlas document, IDE rules files, seeded concepts, audit findings, and immune system defenses.
+          Stages 12–14 run in parallel after Atlas completes, then Antibodies derives from Concepts last.
+        </p>
+        <div className="space-y-3">
+          {FINALIZE_STAGES.map((stage) => (
+            <StageCard key={stage.number} stage={stage} variant="accent" />
+          ))}
+        </div>
+      </section>
+
+      {/* Always Running */}
+      <section id="always-running">
+        <h2 className="text-2xl font-semibold text-text mb-4">Always Running</h2>
+        <p className="text-text-muted leading-relaxed mb-6">
+          The file watcher detects changes and triggers incremental rebuilds. Sync stages re-run in seconds.
+          Enrich and Finalize queue in the background. Your agents always get fresh structural context.
+        </p>
+        <div className="rounded-lg border border-border bg-surface p-5 flex items-start gap-4">
+          <div className="text-primary flex-shrink-0 mt-0.5"><RefreshCw className="w-5 h-5" /></div>
+          <div>
+            <h3 className="font-medium text-sm text-text mb-1">Incremental Rebuilds</h3>
+            <p className="text-sm text-text-muted">
+              Only changed files re-enter the pipeline. The graph is patched, not rebuilt from scratch.
+              Hub files and structural relationships update in real time.
+            </p>
+          </div>
+        </div>
+      </section>
+    </DetailPageLayout>
+  );
+}

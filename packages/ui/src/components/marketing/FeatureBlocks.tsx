@@ -1,7 +1,8 @@
 import { Badge, Card, Text } from '@tremor/react';
-import { 
-  Search, GitBranch, RefreshCw, Plug, 
-  AlertTriangle, Lightbulb, TrendingUp, SlidersHorizontal, Shrink, Brain, Shield, Waypoints, Users, Activity
+import {
+  Search, GitBranch, RefreshCw, Plug,
+  AlertTriangle, Lightbulb, TrendingUp, SlidersHorizontal, Shrink, Brain, Shield, Waypoints, Users, Activity,
+  BookOpen, MessageSquare
 } from 'lucide-react';
 
 export interface Feature {
@@ -43,11 +44,10 @@ function FeatureCards({ features }: { features: Feature[] }) {
           </>
         );
 
-        const className = `border bg-surface transition-all hover:shadow-lg hover:-translate-y-1 block h-full p-6 rounded-lg text-left ${
-          feature.highlight
-            ? 'border-primary/50 bg-gradient-to-br from-primary/5 to-transparent'
-            : 'border-border'
-        }`;
+        const className = `border bg-surface transition-all hover:shadow-lg hover:-translate-y-1 block h-full p-6 rounded-lg text-left ${feature.highlight
+          ? 'border-primary/50 bg-gradient-to-br from-primary/5 to-transparent'
+          : 'border-border'
+          }`;
 
         if (feature.href) {
           return (
@@ -111,11 +111,10 @@ function BentoGrid({ features }: { features: Feature[] }) {
         return (
           <div
             key={feature.title}
-            className={`rounded-2xl border p-6 transition-all hover:shadow-lg ${
-              feature.highlight
-                ? 'border-primary/50 bg-gradient-to-br from-primary/10 to-primary/5'
-                : 'border-border bg-surface'
-            } ${isLarge ? 'col-span-2 row-span-2' : ''}`}
+            className={`rounded-2xl border p-6 transition-all hover:shadow-lg ${feature.highlight
+              ? 'border-primary/50 bg-gradient-to-br from-primary/10 to-primary/5'
+              : 'border-border bg-surface'
+              } ${isLarge ? 'col-span-2 row-span-2' : ''}`}
           >
             <div className={isLarge ? 'text-primary [&>svg]:w-12 [&>svg]:h-12' : 'text-primary [&>svg]:w-8 [&>svg]:h-8'}>
               {feature.icon}
@@ -139,106 +138,106 @@ function BentoGrid({ features }: { features: Feature[] }) {
 }
 
 export const codragFeatures: Feature[] = [
-  // Tier 1: Epistemic Understanding
+  // Tier 1: Structural Intelligence
   {
     icon: <GitBranch className="w-8 h-8" />,
     title: 'Structural Code Graph',
-    description: 'Goes beyond vector search. A Rust engine meticulously traces your DB and codebase to map imports, call graphs, and symbol hierarchies — giving agents the what, why, when, and how.',
+    description: 'Goes beyond vector search. A Rust engine traces your codebase to map imports, call graphs, and symbol hierarchies — giving agents the what, why, when, and how.',
     badge: 'Built-in',
     highlight: true,
   },
   {
     icon: <Brain className="w-8 h-8" />,
-    title: 'Graph Enrichment',
-    description: 'A 9-stage pipeline that deepens understanding over time. A Fast model catalogues every file, then a Thinking model reasons about each node in graph context — crystallizing knowledge as your architecture evolves.',
+    title: 'Graph Enrichment Pipeline',
+    description: 'A multi-stage pipeline deepens understanding over time — from Rust parsing to deep LLM reasoning to architectural synthesis. Supports swarm mode for parallel LLM processing.',
     badge: 'Pro',
-    href: 'https://docs.codrag.io/concepts/graph-enrichment',
-    external: true,
+    href: '/graph-enrichment',
   },
   {
     icon: <Activity className="w-8 h-8" />,
-    title: 'AutoAudit V2 — Autonomous Codebase Health',
-    description: 'Transform static codebase intelligence into an active taskmaster. Run audits that map architecture bottlenecks and tech debt, then instantly hand off the context assembly to agentic tools for a perfect refactor.',
-    badge: 'New',
+    title: 'Audit Enrichment',
+    description: 'Supercharge your existing linters. Feed findings from ruff, semgrep, or CodeQL into CoDRAG and get them back enriched with structural context — dependent count, hub status, risk score, and related concepts. Outputs SARIF for CI integration.',
     highlight: true,
   },
 
   // Tier 2: Agentic Leverage
   {
     icon: <Users className="w-8 h-8" />,
-    title: 'Role-Aware Context — The right view for every agent',
-    description: 'Different agents need different slices of your codebase. A security reviewer sees auth boundaries; a UI agent sees design tokens. CoDRAG automatically shapes context delivery around the role of the agent asking.',
-    badge: 'New',
+    title: 'Role-Aware Context',
+    description: 'Different agents need different slices. A security reviewer sees auth boundaries; a UI agent sees design tokens. CoDRAG shapes context delivery around the role of the agent asking.',
     highlight: true,
   },
   {
     icon: <Waypoints className="w-8 h-8" />,
-    title: 'Smarter Retrieval — Atlas Routing',
-    description: 'CoDRAG maps your codebase into subsystem segments at build time. When your AI asks for context, the Atlas routes the query to the correct architectural neighborhood before the search even starts.',
-    badge: 'New',
+    title: 'Atlas Routing',
+    description: 'Your codebase is mapped into subsystem segments at build time. When an agent asks for context, the Atlas routes the query to the correct architectural neighborhood before search begins.',
     highlight: true,
   },
   {
     icon: <SlidersHorizontal className="w-8 h-8" />,
-    title: 'Path Weights — Sophisticated Signal Steering',
-    description: 'Elegant signal steering for power users. Boost your style-guide to 1.5× or dial down vendor directories to 0.5×. You control the priority of the structural context.',
-    badge: 'New',
-    highlight: true,
+    title: 'Path Weights',
+    description: 'Fine-grained signal control. Boost your style-guide to 1.5× or suppress vendor directories to 0.5×. You steer what your agents prioritize.',
   },
   {
     icon: <Search className="w-8 h-8" />,
     title: 'Instant Context Assembly',
-    description: 'One call assembles citation-rich, graph-backed context for any LLM. Budget-aware chunking fits the exact right code into your prompt window — even for sprawling repositories.',
+    description: 'One call assembles citation-rich, graph-backed context for any LLM. Budget-aware chunking fits the right code into your prompt window — even for sprawling repositories.',
   },
 
   // Tier 3: The Enablers
   {
     icon: <Shrink className="w-8 h-8" />,
     title: 'Smart Context Compression',
-    description: 'Intelligently shrinks the payload without losing structural integrity. Code files are compressed keeping full source for top results and signatures for mid-relevance, delivering significantly higher signal per token.',
+    description: 'Intelligently shrinks the payload without losing structural integrity. Full source for top results, signatures for mid-relevance — delivering 3–20× more signal per token.',
     badge: 'Built-in',
   },
   {
     icon: <Shield className="w-8 h-8" />,
-    title: 'Privacy by Design — Sovereign Context',
-    description: 'Your codebase index is built and managed completely locally. When it\'s time for AI reasoning, you control the network: route context securely to Ollama Cloud (recommended), or bring your own frontier APIs.',
+    title: 'Any LLM, Your Choice',
+    description: 'Works with Ollama Kimi2.5 (recommended), local models via Ollama, or frontier APIs like Claude and GPT. Swarm mode runs multiple LLM workers in parallel for faster enrichment.',
   },
   {
     icon: <RefreshCw className="w-8 h-8" />,
     title: 'Always-Fresh Index',
-    description: 'A real-time file watcher detects edits and rebuilds incrementally in Rust — so your search results and AI context are never stale.',
+    description: 'A real-time file watcher detects edits and rebuilds incrementally in Rust — so search results and AI context are never stale.',
   },
   {
     icon: <Plug className="w-8 h-8" />,
-    title: 'Native MCP Integration',
-    description: 'Plug-and-play connectivity. CoDRAG natively connects to Paperclip, Cursor, Windsurf, VS Code, and Claude Desktop to supercharge any agentic workflow.',
+    title: 'Native MCP Server',
+    description: 'CoDRAG is an MCP server. Connect it to Claude Code, Antigravity, Cursor, VS Code, or any tool that supports the Model Context Protocol.',
     badge: 'MCP',
   },
+
+  // Tier 4: Knowledge Persistence
   {
-    icon: <Users className="w-8 h-8" />,
-    title: 'Team Sync — Build Once, Share Instantly',
-    description: 'A headless Docker image runs the full enrichment pipeline in CI/CD. The epistemic graph is uploaded to S3-compatible storage, letting every developer download instant context syncs.',
-    badge: 'Team',
-    href: 'https://docs.codrag.io/guides/team-sync',
-    external: true,
+    icon: <MessageSquare className="w-8 h-8" />,
+    title: 'Persistent Agent Memory',
+    description: 'Observations about decisions, bugs, and patterns persist across sessions — linked to specific files. When those files change, linked observations are flagged [STALE] so your AI knows to re-evaluate.',
+    highlight: true,
+  },
+  {
+    icon: <BookOpen className="w-8 h-8" />,
+    title: 'Concept System',
+    description: 'Record the "why" behind your architecture — business rationale, design decisions, constraints. Concepts have testable assertions that auto-generate immune system rules, catching violations before they ship.',
+    highlight: true,
   },
 ];
 
 export const marketingFeatures: Feature[] = [
   {
     icon: <AlertTriangle className="w-8 h-8" />,
-    title: 'The Problem: Naive Search Fails Agents',
-    description: 'Monorepos with 100k files. Thousands of markdown docs. Basic vector search grabs random files without understanding how code connects, flooding your agent\'s context window with noise and causing hallucinations.',
+    title: 'The Problem: Naive search finds "Where" and has to figure out the rest',
+    description: 'Large repos with 100k files with thousands or many large markdown docs can be challenge. Basic vector search grabs random files without understanding how code connects, flooding your agent\'s context window with noise and causing hallucinations.',
     highlight: true,
   },
   {
     icon: <Lightbulb className="w-8 h-8" />,
-    title: 'The Fix: Deep Epistemic Tracing',
-    description: 'CoDRAG\'s engine traces your entire database and codebase — mapping semantics, symbols, and call hierarchies. It delivers a graph of structurally aware context, precisely scoped for the agent\'s specific role.',
+    title: 'The Fix: Structural Tracing + Enrichment',
+    description: 'CoDRAG\'s Rust engine traces your entire codebase — mapping imports, call graphs, symbols, and hierarchies. Then it iterates though enriching it\'s understanding. It delivers structurally-aware context precisely scoped an agent\'s request or for each agent\'s role.',
   },
   {
     icon: <TrendingUp className="w-8 h-8" />,
-    title: 'The Result: Agents With A Brain',
-    description: 'Connect your autonomous tools to Paperclip and watch them instantly understand their tasks. By providing the "what, why, when, and how", CoDRAG gives your agents the sophisticated awareness they need to actually do the work.',
+    title: 'The Result: Agents That Understand Architecture and Concepts',
+    description: 'Connect the CoDRAG MCP server to Claude Code, Antigravity, or Cursor and watch your AI instantly understand the codebase. By providing the "what, why, when, and how", agents get the structural awareness they need to make grep more stategic, your audit infomed or design more structually aware.',
   },
 ];

@@ -272,9 +272,19 @@ def update_trace_ignore(project_id: str, req: TraceIgnoreRequest) -> Dict[str, A
     except Exception:
         logger.debug("Hot scope reload failed (non-fatal)", exc_info=True)
 
+    # GS-2/GS-3: prune orphan enrichments after scope change
+    prune_result = None
+    try:
+        from codrag.core.trace import prune_orphan_enrichments
+        idx_dir = project_index_dir(proj)
+        prune_result = prune_orphan_enrichments(idx_dir)
+    except Exception:
+        logger.debug("Orphan prune after scope change failed (non-fatal)", exc_info=True)
+
     return ok({
         "ignore_patterns": current_patterns,
         "scope_reloaded": reload_result.get("reloaded", False) if reload_result else False,
+        "orphans_pruned": prune_result.get("total_pruned", 0) if prune_result else 0,
     })
 
 

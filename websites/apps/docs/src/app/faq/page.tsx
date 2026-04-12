@@ -73,8 +73,8 @@ export default function Page() {
           <div>
             <AnchorHeading id="free-tier" level="h2" className="text-xl font-semibold text-text">Is there a free tier?</AnchorHeading>
             <p className="mt-2 text-text-muted leading-relaxed">
-              <span className="font-semibold text-text">Yes.</span> The Free tier allows you to use CoDRAG with 1 active project and manual indexing. 
-              Upgrading to Pro unlocks unlimited projects, the real-time file watcher, and advanced automation features.
+              <span className="font-semibold text-text">Yes.</span> The Free tier includes 3 active projects with all features — real-time sync, the full enrichment pipeline, and trace-aware MCP.
+              Upgrading to Pro unlocks unlimited projects.
             </p>
           </div>
 

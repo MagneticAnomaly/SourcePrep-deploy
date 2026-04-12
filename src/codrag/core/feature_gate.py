@@ -2,7 +2,7 @@
 Feature gating for CoDRAG tiers.
 
 Tiers:
-  - free:       1 project, manual builds only, no watcher
+  - free:       3 projects, all features (project limit only)
   - monthly:    full Pro features, $7/month subscription
   - perpetual:  full Pro features, $79 one-time license (never expires)
   - team:       perpetual + shared config, centralized policy
@@ -41,26 +41,26 @@ class Tier(IntEnum):
 # Note: MONTHLY and PERPETUAL are feature-identical. MONTHLY has an expiry date.
 FEATURE_TIERS = {
     "projects_max": {
-        Tier.FREE: 1,
+        Tier.FREE: 3,
         Tier.MONTHLY: 999,
         Tier.PERPETUAL: 999,
         Tier.TEAM: 999,
         Tier.ENTERPRISE: 999,
     },
-    "auto_rebuild": Tier.MONTHLY,       # File watcher
-    "auto_trace": Tier.MONTHLY,         # Auto-rebuild triggers trace
+    "auto_rebuild": Tier.FREE,          # File watcher
+    "auto_trace": Tier.FREE,            # Auto-rebuild triggers trace
     "trace_index": Tier.FREE,           # Manual trace build (everyone gets to try it)
     "trace_search": Tier.FREE,          # Search the trace graph
     "mcp_tools": Tier.FREE,             # MCP tools (basic)
-    "mcp_trace_expand": Tier.MONTHLY,   # Trace-aware context expansion via MCP
+    "mcp_trace_expand": Tier.FREE,      # Trace-aware context expansion via MCP
     "path_weights": Tier.FREE,          # Path weight overrides
-    "multi_repo_agent": Tier.MONTHLY,   # Multi-repo agent mode
+    "multi_repo_agent": Tier.FREE,      # Multi-repo agent mode
     "team_config": Tier.TEAM,           # Shared team configuration
     "audit_log": Tier.ENTERPRISE,       # Audit logging
     # Phase 24: Pipeline automation gates
-    "auto_fast_sync": Tier.MONTHLY,     # Auto Fast Sync on file changes
-    "auto_deep_enrichment": Tier.MONTHLY,  # Auto/scheduled Deep Enrichment
-    "auto_scope_rebuild": Tier.MONTHLY, # Auto Knowledge Scope rebuild on selection change
+    "auto_fast_sync": Tier.FREE,        # Auto Fast Sync on file changes
+    "auto_deep_enrichment": Tier.FREE,  # Auto/scheduled Deep Enrichment
+    "auto_scope_rebuild": Tier.FREE,    # Auto Knowledge Scope rebuild on selection change
 }
 
 

@@ -93,7 +93,7 @@ export interface GraphEnrichmentPipelineProps {
   autoConfig?: EnrichmentAutoConfig;
   /** Called when auto config changes */
   onAutoConfigChange?: (config: EnrichmentAutoConfig) => void;
-  /** Whether the user has a pro/paid plan (controls toggle availability) */
+  /** Whether the user has a pro/paid plan (used by ProjectList for slot management; automation is unlocked for all tiers) */
   isPro?: boolean;
   /** Whether the user is over their project limit */
   limitReached?: boolean;
@@ -754,7 +754,7 @@ export function GraphEnrichmentPipeline({
   deepKnowledgeBuilding = false,
   autoConfig,
   onAutoConfigChange,
-  isPro = false,
+  isPro: _isPro = false,
   limitReached = false,
   inactive = false,
   // Per-stage handlers kept in props interface but not used directly;
@@ -811,9 +811,9 @@ export function GraphEnrichmentPipeline({
 
   // ── Resolve auto config ───────────────────────────────────
   const cfg = autoConfig ?? DEFAULT_AUTO_CONFIG;
-  // Free users are forced to Manual regardless of stored config
-  const fastAuto = isPro ? cfg.fastSync : false;
-  const deepMode = isPro ? cfg.deepEnrichment : 'manual' as DeepEnrichmentMode;
+  // All tiers have automation — isPro only affects project slot management
+  const fastAuto = cfg.fastSync;
+  const deepMode = cfg.deepEnrichment;
 
   // ── Compute stage states ──────────────────────────────────
 
@@ -1200,8 +1200,8 @@ export function GraphEnrichmentPipeline({
           <SlidingSwitch2
             value={fastAuto}
             onChange={onAutoConfigChange ? setFastSync : undefined}
-            disabled={!isPro || inactive}
-            disabledReason={inactive ? "Project is inactive" : "Upgrade to Pro to enable auto-sync"}
+            disabled={inactive}
+            disabledReason={inactive ? "Project is inactive" : undefined}
           />
         </div>
       </div>
@@ -1274,8 +1274,8 @@ export function GraphEnrichmentPipeline({
             value={deepMode}
             options={DEEP_MODE_OPTIONS}
             onChange={onAutoConfigChange ? setDeepMode : undefined}
-            disabled={!isPro || inactive}
-            disabledReason={inactive ? "Project is inactive" : "Upgrade to Pro to enable deep enrichment"}
+            disabled={inactive}
+            disabledReason={inactive ? "Project is inactive" : undefined}
           />
         </div>
       </div>

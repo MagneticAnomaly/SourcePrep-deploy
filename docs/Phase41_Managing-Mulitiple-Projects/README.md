@@ -103,11 +103,11 @@ and continue working all 10 forever — undermining the entire pricing model.
 
 | Slot | Count | Behavior | How determined |
 |---|---|---|---|
-| **Active** | 1 | Full functionality: build, search, trace, pipeline, MCP, watcher | Most recently used project (by `updated_at`) |
-| **Frozen** | 2 | Read-only: can view existing trace data, search works on stale index, no rebuild/pipeline | 2nd and 3rd most recent by `updated_at` |
-| **Locked** | All others | Not visible in MCP, no data served, project exists in registry but completely inert | 4th+ by `updated_at` |
+| **Active** | 3 | Full functionality: build, search, trace, pipeline, MCP, watcher | 3 most recently used projects (by `updated_at`) |
+| **Frozen** | 2 | Read-only: can view existing trace data, search works on stale index, no rebuild/pipeline | 4th and 5th most recent by `updated_at` |
+| **Locked** | All others | Not visible in MCP, no data served, project exists in registry but completely inert | 6th+ by `updated_at` |
 
-**Advertised as: "1 active project"** — the 2 frozen slots are a grace period, not a feature.
+**Advertised as: "3 active projects"** — the 2 frozen slots are a grace period, not a feature.
 
 **Anti-abuse logic**:
 - Active project is auto-determined by `updated_at` timestamp (most recent wins)

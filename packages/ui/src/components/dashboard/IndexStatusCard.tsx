@@ -83,8 +83,8 @@ export function IndexStatusCard({
   inactive = false,
 }: IndexStatusCardProps) {
   const showAutoToggle = onAutoRebuildChange !== undefined;
-  // Free users are forced to Manual regardless of stored value
-  const isAuto = isPro ? (autoRebuild ?? false) : false;
+  // All tiers have automation — isPro only affects project slot management
+  const isAuto = autoRebuild ?? false;
 
   // Debug: trace disabled state for rebuild button
   if (!isAuto && onBuild && stats.loaded && (building || limitReached || inactive)) {
@@ -149,8 +149,8 @@ export function IndexStatusCard({
           <SlidingSwitch2
             value={isAuto}
             onChange={onAutoRebuildChange}
-            disabled={!isPro}
-            disabledReason="Upgrade to Pro to enable auto-rebuild"
+            disabled={inactive}
+            disabledReason={inactive ? "Project is inactive" : undefined}
           />
         )}
 

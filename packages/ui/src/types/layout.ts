@@ -19,6 +19,10 @@ export interface PanelConfig {
 export interface DashboardLayout {
   version: number;
   panels: PanelConfig[];
+  /** Unix ms timestamp of last user-initiated layout change. Used to resolve
+   *  conflicts between localStorage (may have unsaved changes) and backend
+   *  (may be stale if a save failed). */
+  savedAt?: number;
 }
 
 /**

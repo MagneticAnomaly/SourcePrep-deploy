@@ -12,7 +12,6 @@ from codrag.services.project_helpers import (
     get_free_tier_slots,
     get_project_activity_status,
     _FREE_ACTIVE_SLOTS,
-    _FREE_FROZEN_SLOTS,
 )
 
 
@@ -71,11 +70,11 @@ class TestFreeTierSlots:
         ]
         slots = get_free_tier_slots(projects)
         assert slots["p1"] == "active"
-        assert slots["p2"] == "frozen"
-        assert slots["p3"] == "frozen"
+        assert slots["p2"] == "active"
+        assert slots["p3"] == "active"
 
-    def test_four_projects_one_locked(self):
-        """4th project is locked."""
+    def test_four_projects_one_frozen(self):
+        """4th project is frozen (was locked with 1-slot, now frozen with 3-slot)."""
         projects = [
             _make_project("p1", updated_at="2026-02-28T12:00:00"),
             _make_project("p2", updated_at="2026-02-27T12:00:00"),
@@ -84,8 +83,8 @@ class TestFreeTierSlots:
         ]
         slots = get_free_tier_slots(projects)
         assert slots["p1"] == "active"
-        assert slots["p2"] == "frozen"
-        assert slots["p3"] == "frozen"
+        assert slots["p2"] == "active"
+        assert slots["p3"] == "active"
         assert slots["p4"] == "locked"
 
     def test_many_projects(self):
@@ -96,11 +95,9 @@ class TestFreeTierSlots:
         ]
         slots = get_free_tier_slots(projects)
         active_count = sum(1 for s in slots.values() if s == "active")
-        frozen_count = sum(1 for s in slots.values() if s == "frozen")
         locked_count = sum(1 for s in slots.values() if s == "locked")
-        assert active_count == _FREE_ACTIVE_SLOTS  # 1
-        assert frozen_count == _FREE_FROZEN_SLOTS   # 2
-        assert locked_count == 7
+        assert active_count == _FREE_ACTIVE_SLOTS  # 3
+        assert locked_count == 7  # 10 total - 3 active
 
     def test_empty_projects(self):
         slots = get_free_tier_slots([])
@@ -115,18 +112,31 @@ class TestFreeTierSlots:
         ]
         slots = get_free_tier_slots(projects)
         assert slots["new"] == "active"
-        assert slots["mid"] == "frozen"
-        assert slots["old"] == "frozen"
+        assert slots["mid"] == "active"
+        assert slots["old"] == "active"
 
     def test_two_projects(self):
-        """With 2 projects, 1 active + 1 frozen, none locked."""
+        """With 2 projects, both active, none frozen or locked."""
         projects = [
             _make_project("p1", updated_at="2026-02-28T12:00:00"),
             _make_project("p2", updated_at="2026-02-27T12:00:00"),
         ]
         slots = get_free_tier_slots(projects)
         assert slots["p1"] == "active"
-        assert slots["p2"] == "frozen"
+        assert slots["p2"] == "active"
+
+    def test_archived_projects_are_locked(self):
+        projects = [
+            _make_project("archived", updated_at="2026-02-28T12:00:00", config={"archived": True}),
+            _make_project("p1", updated_at="2026-02-27T12:00:00"),
+            _make_project("p2", updated_at="2026-02-26T12:00:00"),
+            _make_project("p3", updated_at="2026-02-25T12:00:00"),
+        ]
+        slots = get_free_tier_slots(projects)
+        assert slots["archived"] == "locked"
+        assert slots["p1"] == "active"
+        assert slots["p2"] == "active"
+        assert slots["p3"] == "active"
 
 
 # ── get_project_activity_status (unified) ────────────────────
@@ -199,11 +209,12 @@ class TestProjectActivityStatus:
         orig = ph.get_registry
         mock_reg = MagicMock()
         mock_reg.list_projects.return_value = projects
+        mock_reg.get_project.side_effect = lambda x: next((p for p in projects if p.id == x), None)
         ph.get_registry = lambda: mock_reg
         try:
             assert get_project_activity_status("newest") == "active"
-            assert get_project_activity_status("middle") == "frozen"
-            assert get_project_activity_status("oldest") == "frozen"
+            assert get_project_activity_status("middle") == "active"
+            assert get_project_activity_status("oldest") == "active"
             assert get_project_activity_status("ancient") == "locked"
         finally:
             ph.get_registry = orig
@@ -245,11 +256,4 @@ class TestProjectActivityStatus:
 
 class TestSlotConstants:
     def test_free_active_slots(self):
-        assert _FREE_ACTIVE_SLOTS == 1
-
-    def test_free_frozen_slots(self):
-        assert _FREE_FROZEN_SLOTS == 2
-
-    def test_total_visible_slots(self):
-        """Active + frozen = 3 most recent projects visible."""
-        assert _FREE_ACTIVE_SLOTS + _FREE_FROZEN_SLOTS == 3
+        assert _FREE_ACTIVE_SLOTS == 3
