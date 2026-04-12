@@ -96,7 +96,14 @@ def _build_trace_index(project_id: str, repo_root: Path) -> None:
     builder.build()
 
 
-def test_trace_node_and_neighbors_require_trace_enabled(client: TestClient, tmp_path: Path) -> None:
+def test_trace_node_and_neighbors_when_trace_disabled_and_no_data(client: TestClient, tmp_path: Path) -> None:
+    """F-49: read endpoints no longer gate on `trace.enabled` — they serve
+    disk data regardless of the auto-build preference flag.  When
+    `enabled=false` AND no trace data exists on disk, the response is now
+    `TRACE_NOT_BUILT` (was `TRACE_DISABLED`).  See registry F-49 / F-50 for
+    rationale: `enabled` is the auto-rebuild preference, not a data-presence
+    flag, so read access should not be gated on it.
+    """
     repo_root = tmp_path / "repo"
     repo_root.mkdir(parents=True, exist_ok=True)
     (repo_root / "a.py").write_text("def alpha():\n    return 1\n")
@@ -110,13 +117,13 @@ def test_trace_node_and_neighbors_require_trace_enabled(client: TestClient, tmp_
     assert res.status_code == 409
     body = res.json()
     assert body["success"] is False
-    assert body["error"]["code"] == "TRACE_DISABLED"
+    assert body["error"]["code"] == "TRACE_NOT_BUILT"
 
     res2 = client.get(f"/projects/{project_id}/trace/neighbors/{node_id}")
     assert res2.status_code == 409
     body2 = res2.json()
     assert body2["success"] is False
-    assert body2["error"]["code"] == "TRACE_DISABLED"
+    assert body2["error"]["code"] == "TRACE_NOT_BUILT"
 
 
 def test_trace_search_node_and_neighbors_endpoints(client: TestClient, tmp_path: Path) -> None:
