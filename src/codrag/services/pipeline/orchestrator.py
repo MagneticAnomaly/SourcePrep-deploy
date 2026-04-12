@@ -671,11 +671,12 @@ class PipelineOrchestrator:
         # This early check provides defense-in-depth.
         with self._lock:
             fast_run = self._runs.get((project_id, "fast_sync"))
-            if fast_run and fast_run.is_active:
+            # F-64: also block when fast_sync is PAUSED — it will resume
+            if fast_run and (fast_run.is_active or fast_run.is_paused):
                 logger.info(
-                    "[%s] Skipping deep enrichment — fast_sync is still active "
+                    "[%s] Skipping deep enrichment — fast_sync is %s "
                     "(stage=%s). Deep enrichment will chain after fast_sync completes.",
-                    project_id, fast_run.current_stage,
+                    project_id, fast_run.state.value, fast_run.current_stage,
                 )
                 return False
 
@@ -742,13 +743,13 @@ class PipelineOrchestrator:
         Auto-detects resume point from disk state.
         """
         from .stages import FINALIZE_STAGES
-        # Don't start finalize while enrich is active
+        # Don't start finalize while enrich is active or paused (F-64)
         with self._lock:
             enrich_run = self._runs.get((project_id, "deep_enrichment"))
-            if enrich_run and enrich_run.is_active:
+            if enrich_run and (enrich_run.is_active or enrich_run.is_paused):
                 logger.info(
-                    "[%s] Skipping finalize — enrich is still active (stage=%s)",
-                    project_id, enrich_run.current_stage,
+                    "[%s] Skipping finalize — enrich is %s (stage=%s)",
+                    project_id, enrich_run.state.value, enrich_run.current_stage,
                 )
                 return False
 
@@ -1349,12 +1350,17 @@ class PipelineOrchestrator:
             if existing and existing.is_active:
                 return False
 
-            # Block if ANY other group for the same project is running.
+            # Block if ANY other group for the same project is active or paused.
+            # F-64: PAUSED groups still own the project's files and will resume.
+            # Starting a concurrent group while another is paused causes both
+            # to run simultaneously when the paused group resumes, corrupting
+            # shared pipeline state (e.g. knowledge embedding + deep reasoning
+            # running at the same time).
             for run_key, run_obj in self._runs.items():
-                if run_key[0] == project_id and run_key[1] != group and run_obj.is_active:
+                if run_key[0] == project_id and run_key[1] != group and (run_obj.is_active or run_obj.is_paused):
                     logger.warning(
-                        "Cannot start %s/%s — %s is already active for this project",
-                        project_id, group, run_key[1],
+                        "Cannot start %s/%s — %s is %s for this project",
+                        project_id, group, run_key[1], run_obj.state.value,
                     )
                     return False
 
