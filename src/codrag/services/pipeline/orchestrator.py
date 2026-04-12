@@ -936,10 +936,16 @@ class PipelineOrchestrator:
             logger.debug("Pipeline status SSE emit failed (non-fatal)", exc_info=True)
 
     def has_active_run(self, project_id: str) -> bool:
-        """Check if a project has any active (non-paused) pipeline runs."""
+        """Check if a project has any active or paused pipeline runs.
+
+        F-67: PAUSED runs are included because they still own the project's
+        files and will resume.  Without this, a graceful shutdown during a
+        paused pipeline writes a clean-shutdown marker, causing the startup
+        auto-run to skip recovery and lose the paused run's progress.
+        """
         with self._lock:
             return any(
-                run.is_active
+                run.is_active or run.is_paused
                 for key, run in self._runs.items()
                 if key[0] == project_id
             )
@@ -1821,6 +1827,30 @@ class PipelineOrchestrator:
         # exists from a previous run (e.g., branch snapshot, prior build).
         if self._try_restore_stage_from_backup(run, stage, pfl):
             return  # stage data restored from backup, skip running it
+
+        # F-67: Invalidate old manifest BEFORE worker starts.
+        # If the daemon crashes mid-stage, the old manifest from a prior
+        # run would still exist.  On restart, detect_resume_point sees it
+        # and thinks the stage completed — losing all incremental progress.
+        # By removing the manifest at stage START, a crash leaves no manifest,
+        # so detect_resume_point correctly detects the stage as incomplete
+        # and resumes from it.
+        try:
+            from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
+            _proj = require_project(run.project_id)
+            _idx_dir = Path(project_index_dir(_proj))
+            _manifest_file = STAGE_MANIFEST_FILE.get(stage)
+            if _manifest_file:
+                _manifest_path = _idx_dir / _manifest_file
+                if _manifest_path.exists():
+                    _manifest_path.unlink()
+                    logger.info(
+                        "F-67: Removed stale manifest %s before starting stage %s",
+                        _manifest_file, stage.value,
+                    )
+        except Exception:
+            logger.debug("F-67: manifest invalidation failed (non-fatal)", exc_info=True)
 
         # Phase 61B: Start heartbeat timer for this stage.
         # Writes to pipeline_run_metadata.json every 60s so the watchdog
