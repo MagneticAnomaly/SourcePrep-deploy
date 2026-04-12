@@ -240,6 +240,47 @@ and integrates naturally with uvicorn's event loop. httpx is already a dependenc
 | `src/codrag/api/routers/pipeline.py` | Status executor (4 threads, persistent) |
 | `src/codrag/api/routers/trace_routes/query.py` | Status executor (4 threads, persistent) |
 
+## Post-Fix Verification (2026-04-12 19:45)
+
+### Sequential fast-path migration results
+
+After migrating 6 batched TPE usages (augmenter ×3, epistemic ×2, inferred_edges ×1)
+to sequential fast-paths when `concurrency <= 1`:
+
+| Metric | Before fix | After fix | Target |
+|--------|-----------|-----------|--------|
+| Peak threads | 71 | 62 | <30 |
+| GIL waiters (post-pipeline) | 64 | 51 | <10 |
+| Pipeline status endpoint | intermittent timeout | intermittent timeout | <100ms |
+
+**Finding:** The sequential fast-paths help (~13% reduction) but the remaining 51
+zombie threads come from **daemon infrastructure**, not LLM pipeline stages:
+
+- All `_get_llm_concurrency()` settings return 1 (sequential)
+- All `get_batch_concurrency()` returns 1 for cloud (F-59 workaround)
+- Pipeline stages with `concurrency=1` already use sequential code paths
+- Pipeline finishes (`any_running: False`, queue empty) but 51 threads persist
+- The persistent threads are from `threading.Thread(daemon=True)` spawns in:
+  - `api/routers/trace_routes/enrichment.py` (5 endpoints × 1 thread each)
+  - `services/build_manager.py` (4 thread types)
+  - `core/model_readiness.py` (preload threads)
+  - `api/routers/settings.py` (auto-run trigger threads)
+  - `services/pipeline/resume.py` (retrigger thread)
+
+### Next step: daemon thread lifecycle management
+
+The remaining thread accumulation is not from ThreadPoolExecutors but from bare
+`threading.Thread(daemon=True)` spawns that never terminate. Each pipeline run, trace
+enrichment request, model readiness check, and settings save spawns a new daemon thread
+that runs once and then blocks waiting for the GIL (Python daemon threads don't terminate
+until the process exits).
+
+Fix options:
+1. **Thread reuse**: Use a shared thread pool for all daemon-spawned background tasks
+2. **Fire-and-forget with cleanup**: Ensure daemon threads exit after their work completes
+3. **asyncio migration**: Convert background tasks to `asyncio.create_task()` which
+   doesn't create OS threads
+
 ## Diagnostic Scripts
 
 - `scripts/diag_daemon_cloud.py` — Tests cloud model calls through the running daemon
