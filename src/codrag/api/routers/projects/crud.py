@@ -254,10 +254,27 @@ def update_project(project_id: str, req: UpdateProjectRequest) -> Dict[str, Any]
                 else:
                     warning_msg = f"It is recommended to use {max_active_int} or fewer active projects because it can be performance invasive."
 
+    # F-63: Preserve server-managed config fields that the client doesn't know
+    # about.  The dashboard sends the full config on every save, but it doesn't
+    # include trace.ignore_patterns (managed by POST /trace/ignore) or other
+    # server-side fields.  Without this merge, every PUT /projects overwrites
+    # the config and drops ignore_patterns, causing exclude selections to vanish.
+    if req.config is not None:
+        old_cfg = old_proj.config if isinstance(old_proj.config, dict) else {}
+        old_trace = old_cfg.get("trace") or {}
+        new_trace = req.config.get("trace") or {}
+        # Merge ignore_patterns from existing config if client didn't send them
+        if "ignore_patterns" not in new_trace and old_trace.get("ignore_patterns"):
+            merged_trace = {**new_trace, "ignore_patterns": old_trace["ignore_patterns"]}
+            req.config = {**req.config, "trace": merged_trace}
+        # Merge auto_config from existing if client didn't send it
+        if "auto_config" not in req.config and "auto_config" in old_cfg:
+            req.config["auto_config"] = old_cfg["auto_config"]
+
     try:
         updated = reg.update_project(
-            project_id, 
-            name=req.name, 
+            project_id,
+            name=req.name,
             config=req.config,
             touch=req.touch,
         )
