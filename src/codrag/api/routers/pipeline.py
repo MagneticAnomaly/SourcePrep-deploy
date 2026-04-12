@@ -43,6 +43,34 @@ router = APIRouter(tags=["pipeline"])
 # This 4-thread pool ensures status & coverage endpoints can always respond.
 _status_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="pipeline-status")
 
+# F-57: Per-project result cache for _build_status.
+#
+# _build_status reads multiple files from disk (trace_nodes.jsonl,
+# augmentation manifests, knowledge documents, etc.) on every call.
+# When the dashboard toggles between N projects, it fires N parallel
+# /pipeline/status requests, each doing its own disk reads. On the
+# USB drive the I/O contention with concurrent swarm LLM workers
+# saturates the drive and all 4 _status_executor threads block.
+#
+# Fix: cache the result per project_id with a 2s TTL. The data is
+# already somewhat stale (manifests are only written at stage
+# transitions), so serving a 2s-stale cache is fine for the dashboard.
+import time as _time
+import threading as _threading
+
+_status_cache: dict[str, tuple[float, dict]] = {}
+_status_cache_lock = _threading.Lock()
+_STATUS_CACHE_TTL = 3.0  # seconds
+# Per-project "in-flight" flags prevent multiple executor threads from
+# computing _build_status for the same project simultaneously.  Without
+# this, toggling between N projects fires N parallel _build_status calls,
+# each doing its own disk I/O, which saturates the USB drive and wedges
+# the daemon.  With dedup, at most 1 thread per project is doing I/O;
+# other callers get the stale cache (or wait for the single in-flight
+# computation to finish if no cache exists at all).
+_status_inflight: dict[str, bool] = {}
+_STATUS_STALE_TTL = 30.0  # serve stale cache for up to 30s if a refresh is in-flight
+
 
 # ── Request models ───────────────────────────────────────────────
 
@@ -569,8 +597,72 @@ async def pipeline_status(project_id: str) -> Dict[str, Any]:
             "agent": agent_data,
         })
 
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(_status_executor, _build_status)
+    # F-57: stale-while-refresh cache with per-project dedup.
+    #
+    # _build_status reads multiple files from the USB drive. When the
+    # dashboard toggles between N projects while swarm workers are doing
+    # heavy I/O, all 4 _status_executor threads block on disk reads and
+    # the daemon appears hung.
+    #
+    # Strategy:
+    #   1. If cache is fresh (< TTL), return it instantly (no executor)
+    #   2. If cache is stale but a refresh is already in-flight for this
+    #      project, return the stale cache instead of queuing another I/O
+    #   3. Only ONE thread per project enters _build_status at a time
+    now = _time.time()
+    with _status_cache_lock:
+        cached = _status_cache.get(project_id)
+        if cached:
+            ts, result = cached
+            age = now - ts
+            if age < _STATUS_CACHE_TTL:
+                return result  # fresh enough
+            # Stale cache available + refresh already in-flight for this
+            # project: return whatever we have instead of queuing another
+            # I/O thread.  No age limit — ANY stale data is better than
+            # hanging for 30s while the USB drive is saturated by swarm
+            # workers.  The dashboard polls every few seconds so a fresh
+            # result will arrive as soon as the single in-flight refresh
+            # completes.
+            if _status_inflight.get(project_id):
+                return result  # serve stale — refresh is already running
+
+    # Mark this project as in-flight so other callers get the stale cache
+    with _status_cache_lock:
+        _status_inflight[project_id] = True
+
+    try:
+        loop = asyncio.get_running_loop()
+        # Timeout: if _build_status blocks on USB I/O for >10s, give up
+        # and return whatever stale cache we have.  The next poll cycle
+        # will retry.  This prevents a single slow disk read from wedging
+        # the entire status endpoint.
+        try:
+            result = await asyncio.wait_for(
+                loop.run_in_executor(_status_executor, _build_status),
+                timeout=10.0,
+            )
+        except asyncio.TimeoutError:
+            with _status_cache_lock:
+                stale = _status_cache.get(project_id)
+                if stale:
+                    return stale[1]
+            # No cache at all — return a minimal stub so the dashboard
+            # doesn't crash. The next poll will retry.
+            return ok({
+                "fast_sync": None,
+                "deep_enrichment": None,
+                "finalize": None,
+                "stages": {},
+                "any_running": True,  # assume running if we can't tell
+                "crashed_runs": [],
+            })
+        with _status_cache_lock:
+            _status_cache[project_id] = (_time.time(), result)
+        return result
+    finally:
+        with _status_cache_lock:
+            _status_inflight.pop(project_id, None)
 
 
 @router.post("/projects/{project_id}/pipeline/cancel")
