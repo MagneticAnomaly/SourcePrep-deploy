@@ -528,6 +528,18 @@ class RecoveryManager:
         for project in projects:
             pid = project.id
 
+            # F-65/F-69: Skip inactive/frozen/locked projects.
+            # Without this, deactivated projects get PAUSED state machines
+            # hydrated on every restart, and the auto-recovery path may
+            # start them — blocking the scheduler for active projects.
+            try:
+                from codrag.services.project_helpers import get_project_activity_status
+                activity = get_project_activity_status(pid)
+                if activity != "active":
+                    continue
+            except Exception:
+                pass
+
             # Skip if any group is already active
             if is_run_active_fn(pid):
                 continue

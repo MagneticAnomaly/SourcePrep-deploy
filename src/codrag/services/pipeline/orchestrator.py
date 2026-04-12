@@ -1951,6 +1951,12 @@ class PipelineOrchestrator:
                         break
 
         if matching_run is None or stage is None:
+            logger.debug(
+                "[F-69 DEBUG] _on_build_transition: no matching run for %s/%s (phase=%s). "
+                "Active runs: %s",
+                project_id, build_type.value, new_phase.value,
+                [(k, r.state.value, r.current_stage) for k, r in self._runs.items() if k[0] == project_id],
+            )
             return
 
         if new_phase == BuildPhase.COMPLETED:
