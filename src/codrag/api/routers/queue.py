@@ -124,12 +124,37 @@ def _sort_key(item: dict[str, Any]) -> int:
 
 
 @router.get("")
-def get_queue() -> dict[str, Any]:
+async def get_queue() -> dict[str, Any]:
     """Aggregated cross-project queue state.
 
     Merges orchestrator run metadata with scheduler slots/queues.
     Purges ghost locks on every read.
+
+    F-62: Made async with timeout.  The synchronous version blocked
+    when swarm workers held locks that ``purge_ghost_locks()`` or
+    ``pipeline_scheduler.concurrent_workers_for_project()`` also
+    needed.  Now runs in a thread with a 3s timeout — if it can't
+    build the queue state in time, returns an empty queue rather
+    than hanging the frontend polling loop.
     """
+    import asyncio
+
+    def _build_queue():
+        return _build_queue_sync()
+
+    try:
+        loop = asyncio.get_running_loop()
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, _build_queue),
+            timeout=3.0,
+        )
+    except (asyncio.TimeoutError, Exception):
+        logger.debug("Pipeline queue timed out — returning empty", exc_info=True)
+        return ok({"queue": [], "scheduler": {}, "ghost_locks_purged": 0})
+
+
+def _build_queue_sync() -> dict[str, Any]:
+    """Synchronous queue builder — extracted for timeout wrapper."""
     ghost_count = purge_ghost_locks()
     sched_status = pipeline_scheduler.status()
 

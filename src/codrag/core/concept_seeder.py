@@ -296,10 +296,16 @@ def seed_concepts_swarm(project_id: str) -> Dict[str, Any]:
     # should respond fast — a hung kimi-k2.5:cloud coordinator burned 11+
     # minutes during initial validation before being killed.
     project_name = project.name
+    # F-59: Skip coordinator for cloud models. The coordinator LLM call
+    # takes 90s to time out on kimi-k2.5:cloud (which has a long thinking
+    # phase even with think=False), adding 90s of dead time before workers
+    # start.  The per-module fallback assignments ("perform standard
+    # architectural analysis") work well enough for concept extraction.
+    is_cloud_model = ":cloud" in llm.model.lower() or llm.provider in ("openai", "anthropic", "google")
     orch = SwarmOrchestrator(
         llm=llm,
         concurrency=concurrency,
-        coordinator_timeout_s=90.0,
+        coordinator_timeout_s=10.0 if is_cloud_model else 90.0,  # skip fast on cloud
         synthesis_timeout_s=120.0,
     )
 

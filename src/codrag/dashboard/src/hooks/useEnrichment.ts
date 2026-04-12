@@ -301,6 +301,15 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       const ACTIVE_PHASES = new Set(['running', 'queued', 'pausing', 'recovering'])
       const fastActive = ACTIVE_PHASES.has(ps.fast_sync?.phase ?? '')
       const deepActive = ACTIVE_PHASES.has(ps.deep_enrichment?.phase ?? '')
+      const finActive = ACTIVE_PHASES.has(ps.finalize?.phase ?? '')
+      // F-61: Hydrate finalize running state on project switch.
+      // Without this, switching to a project mid-finalize shows static
+      // "Not seeded" instead of a running spinner on the active stage.
+      dispatch({
+        type: 'FINALIZE_RUNNING',
+        running: finActive,
+        currentStage: finActive ? ps.finalize?.current_stage ?? undefined : undefined,
+      })
       dispatch({
         type: 'SYNC_RUNNING',
         inferredEdgesRunning: fastActive && (ps.fast_sync?.current_stage === 'inferred_edges' || false),
@@ -334,6 +343,17 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       if (ps.stages?.deep_knowledge) {
         dispatch({ type: 'KNOWLEDGE_STATUS', payload: ps.stages.deep_knowledge })
       }
+      // F-60: Hydrate finalize stage statuses on initial load.
+      // Without this, concepts/rules/audit/antibodies show as "Not seeded"
+      // even when they're complete — the data was only populated via
+      // refreshStageDataFromPipeline() which is event-driven, not on hydration.
+      dispatch({
+        type: 'FINALIZE_STATUSES',
+        rules: ps.stages?.rules as any,
+        concepts: ps.stages?.concepts as any,
+        audit: ps.stages?.audit as any,
+        antibodies: ps.stages?.antibodies as any,
+      })
       // Hydrate paused flags on initial load.
       // Check 'paused' (state machine), 'pausing' (intermediate — worker flushing),
       // and legacy 'failed' + error (build_orchestrator layer).
