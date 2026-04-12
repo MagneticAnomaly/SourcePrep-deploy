@@ -257,6 +257,20 @@ def seed_concepts_swarm(project_id: str) -> Dict[str, Any]:
             f"files (need ≥{MIN_MODULES_FOR_SWARM} for swarm)"
         )
 
+    # F-59: Cap concurrency for cloud-proxied models.  The cloud endpoint
+    # serializes requests (Free=1, Pro=3, Max=10 concurrent).  With 10
+    # workers all hitting a concurrency-1 endpoint, requests 2-10 queue
+    # for 30-60s each, triggering read timeouts before they even start.
+    # Cap at 3 as a safe default for most cloud tiers.
+    if ":cloud" in llm.model.lower() or llm.provider in ("openai", "anthropic", "google"):
+        cloud_max = 3
+        if concurrency > cloud_max:
+            logger.info(
+                "[Swarm/Concepts] Capping concurrency %d → %d for cloud model %s",
+                concurrency, cloud_max, llm.model,
+            )
+            concurrency = cloud_max
+
     # Cap fan-out at the configured concurrency
     if len(modules) > concurrency:
         logger.info(
