@@ -109,3 +109,6 @@ plausible-tags.txt
 
 # Git worktrees (isolated workspaces — never tracked)
 .claude/worktrees/
+
+# Archived one-off scripts (patches, debug, benchmarks, research)
+archive/

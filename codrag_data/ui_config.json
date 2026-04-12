@@ -251,7 +251,7 @@
   },
   "pipeline_config": {
     "fast_sync": {
-      "auto": false
+      "auto": true
     },
     "deep_enrichment": {
       "mode": "manual",
@@ -549,7 +549,7 @@
   },
   "compute_nodes": [
     {
-      "id": "node_2944f980",
+      "id": "node_18c94996",
       "name": "Local Machine",
       "type": "local",
       "hardware_profile": "apple_silicon",
