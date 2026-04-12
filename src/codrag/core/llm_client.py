@@ -648,25 +648,41 @@ class LLMClient:
             
             t0 = time.monotonic()
             
-            # Use stream=True so Ollama sends token-by-token.  This lets
-            # the requests read-timeout fire if the model stalls (stream=False
-            # holds the connection open with zero data until done, making
-            # timeouts impossible).
+            # F-59 part 4: use stream=False for cloud-proxied models.
+            #
+            # Cloud models (kimi-k2.5:cloud etc.) proxy through Ollama Cloud
+            # which buffers the entire response and sends it as one batch —
+            # NOT token-by-token NDJSON streaming.  With stream=True,
+            # resp.iter_lines() hangs indefinitely after the response body
+            # is received because the chunked-transfer decoder waits for
+            # more chunks that never arrive.  The connection shows as
+            # TIME_WAIT (TCP FIN sent) but iter_lines() doesn't see EOF.
+            #
+            # stream=False tells requests to buffer the full response body
+            # before returning, then we split into NDJSON lines ourselves.
+            # This is safe for all Ollama models since the response format
+            # (NDJSON with a final {"done":true} line) is the same either
+            # way — we just parse it from a string instead of a socket.
+            #
+            # The read timeout (self.timeout) still applies to stream=False:
+            # requests will raise Timeout if no data arrives within the
+            # timeout period.  For local models that genuinely stream
+            # token-by-token, this means the timeout is per the ENTIRE
+            # response (not per-token), which is acceptable since we set
+            # timeout=60s and most responses complete in <30s.
             #
             # Retry on 429 (Too Many Requests) with exponential backoff.
-            # Cloud models via Ollama (:cloud suffix) proxy to upstream APIs
-            # that rate-limit; sequential batches can exhaust the limit.
             _resp = None
             for _attempt in range(self._MAX_429_RETRIES + 1):
                 try:
-                    _resp = self._session.post(url, json=payload, timeout=(30, self.timeout), stream=True)
+                    _resp = self._session.post(url, json=payload, timeout=(30, self.timeout), stream=False)
                     if _resp.status_code != 429:
                         break
                     _resp.close()
                 except requests.exceptions.Timeout:
                     self._record_throughput(is_429_or_timeout=True)
                     raise
-                
+
                 if _attempt < self._MAX_429_RETRIES:
                     self._record_throughput(is_429_or_timeout=True)
                     _wait = 5 * (_attempt + 1)  # 5s, 10s
@@ -677,8 +693,8 @@ class LLMClient:
                     time.sleep(_wait)
             resp = _resp
             resp.raise_for_status()
-            # Accumulate streamed NDJSON chunks into a single response,
-            # with OutputMonitor guarding against repetition loops.
+            # Parse the complete NDJSON response body.
+            # Each line is a JSON object; the final one has "done": true.
             monitor = OutputMonitor(max_chars=max_chars) if max_chars else None
             text_parts = []
             thinking_parts = []
@@ -686,14 +702,16 @@ class LLMClient:
             total_exec_ms = 0.0
             aborted = False
             abort_reason = ""
-            for raw_line in resp.iter_lines(decode_unicode=True):
-                if not raw_line:
+            for raw_line in resp.text.splitlines():
+                if not raw_line.strip():
                     continue
-                chunk = json.loads(raw_line)
+                try:
+                    chunk = json.loads(raw_line)
+                except json.JSONDecodeError:
+                    continue
                 resp_chunk = chunk.get("response", "")
                 text_parts.append(resp_chunk)
                 thinking_parts.append(chunk.get("thinking", ""))
-                # Feed response chunks (not thinking) to the monitor
                 if monitor and resp_chunk:
                     should_abort, reason = monitor.feed(resp_chunk)
                     if should_abort:
@@ -704,13 +722,10 @@ class LLMClient:
                 if chunk.get("done"):
                     eval_count = chunk.get("eval_count", 0)
                     prompt_eval_count = chunk.get("prompt_eval_count", 0)
-                    
-                    # Phase 82: Duration metrics in ns -> ms
                     eval_duration_ns = chunk.get("eval_duration", 0)
                     prompt_eval_duration_ns = chunk.get("prompt_eval_duration", 0)
                     load_duration_ns = chunk.get("load_duration", 0)
                     total_exec_ms = (eval_duration_ns + prompt_eval_duration_ns + load_duration_ns) / 1000000.0
-                    
                     tokens = eval_count + prompt_eval_count
                     self._record_telemetry(prompt_eval_count, eval_count, tokens)
                     break
@@ -1059,9 +1074,10 @@ class LLMClient:
         if system and isinstance(input_val, str):
             payload["system_prompt"] = system
 
-        resp = self._session.post(url, json=payload, timeout=(30, self.timeout), stream=True)
+        # F-59 part 4: stream=False to avoid iter_lines() hang (same fix
+        # as the Ollama path above — cloud-proxied models don't stream).
+        resp = self._session.post(url, json=payload, timeout=(30, self.timeout), stream=False)
         if resp.status_code == 400:
-            # Log the full error body for debugging
             try:
                 err_body = resp.text[:500]
             except Exception:
@@ -1072,7 +1088,7 @@ class LLMClient:
             )
         resp.raise_for_status()
 
-        # Parse SSE stream
+        # Parse SSE response body (no longer streaming)
         monitor = OutputMonitor(max_chars=max_chars) if max_chars else None
         text_parts: list = []
         thinking_parts: list = []
@@ -1082,7 +1098,7 @@ class LLMClient:
         aborted = False
         abort_reason = ""
 
-        for raw_line in resp.iter_lines(decode_unicode=True):
+        for raw_line in resp.text.splitlines():
             if not raw_line:
                 continue
             # SSE lines are prefixed with "data: "
