@@ -281,7 +281,13 @@ function App() {
     fetchDeepAnalysisStatus,
     budgetUsage,
     tokenUsageData,
-  } = useDeepAnalysis(selectedProjectId, { onError: (msg, variant) => showToast(msg, variant) })
+  } = useDeepAnalysis(selectedProjectId, {
+    onError: (msg, variant) => showToast(msg, variant),
+    // F-56: per-project deep analysis schedule scoping.
+    projectConfig,
+    setProjectConfig,
+    setConfigDirty,
+  })
 
   // ── Audit system (Phase 43) ────────────────────────────────
   const audit = useAuditSystem(hydration.hydratedProjectId, { signal: hydration.signal, isHydrating: hydration.isHydrating })

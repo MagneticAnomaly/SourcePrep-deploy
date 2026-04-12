@@ -8,13 +8,23 @@ import {
 
 interface UseDeepAnalysisOptions {
   onError?: (msg: string, variant?: 'error' | 'warning' | 'info' | 'success') => void
+  /** F-56: per-project config so the schedule is scoped to the selected project. */
+  projectConfig?: any
+  setProjectConfig?: (config: any) => void
+  setConfigDirty?: (dirty: boolean) => void
 }
 
 /** Manages deep analysis schedule, run/cancel actions, status polling, and auto-save to backend. */
-export function useDeepAnalysis(selectedProjectId: string | null, { onError }: UseDeepAnalysisOptions = {}) {
+export function useDeepAnalysis(selectedProjectId: string | null, { onError, projectConfig, setProjectConfig, setConfigDirty }: UseDeepAnalysisOptions = {}) {
   const api = useApiClient()
   const onErrorRef = useRef(onError)
   onErrorRef.current = onError
+  const projectConfigRef = useRef(projectConfig)
+  projectConfigRef.current = projectConfig
+  const setProjectConfigRef = useRef(setProjectConfig)
+  setProjectConfigRef.current = setProjectConfig
+  const setConfigDirtyRef = useRef(setConfigDirty)
+  setConfigDirtyRef.current = setConfigDirty
 
   // ── State ───────────────────────────────────────────────────
   const DEFAULT_SCHEDULE: DeepAnalysisSchedule = {
@@ -35,27 +45,47 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError }: U
   const [budgetUsage, setBudgetUsage] = useState<TokenBudgetData | null>(null)
   const [tokenUsageData, setTokenUsageData] = useState<Record<string, { prompt_tokens: number; completion_tokens: number; total_tokens: number }> | null>(null)
 
-  // ── Load saved settings from backend on init ─────────────────
+  // ── Load saved settings (per-project, fall back to global) ───
+  //
+  // F-56: deep_analysis_schedule is now scoped per-project, same pattern
+  // as enrichmentAutoConfig in useTraceSystem.ts. The previous load only
+  // ran on mount and read from the GLOBAL pipeline_config, so switching
+  // projects carried over the previous project's schedule. The auto-save
+  // effect below also wrote only to the global setting, so changing
+  // schedule on project A also changed it on project B.
+  //
+  // New behavior:
+  //   - Read from project.config.deep_analysis_schedule first
+  //   - Fall back to global ui_config.deep_analysis + pipeline_config.deep_enrichment.mode
+  //     for migration of projects that have never had a per-project schedule
+  //   - Persist to project.config.deep_analysis_schedule on every change
+  //     (the global write below in the auto-save effect is kept as a default
+  //     for new projects + so the daemon-side auto-trigger logic in
+  //     api/routers/settings.py:308/332 still has a sane fallback).
   useEffect(() => {
+    const projSched = (projectConfig as any)?.deep_analysis_schedule
+    if (projSched && typeof projSched === 'object') {
+      setDeepAnalysisSchedule({ ...DEFAULT_SCHEDULE, ...projSched })
+      return
+    }
+    // No per-project schedule yet — load global default once
     let cancelled = false
     Promise.all([
       api.getGlobalConfig().catch(() => null),
       api.getSetting('pipeline_config').catch(() => null),
     ]).then(([cfg, pcResult]: [any, any]) => {
       if (cancelled) return
-      // Load schedule details from deep_analysis (ui_config)
       const saved = cfg?.deep_analysis
       if (saved && typeof saved === 'object') {
         setDeepAnalysisSchedule((prev) => ({ ...prev, ...saved }))
       }
-      // Prefer pipeline_config mode as authoritative (backend reads this)
       const pcMode = (pcResult?.value?.deep_enrichment || {}).mode
       if (pcMode === 'manual' || pcMode === 'auto' || pcMode === 'scheduled') {
         setDeepAnalysisSchedule((prev) => prev.mode !== pcMode ? { ...prev, mode: pcMode } : prev)
       }
     }).catch(() => { /* silent — use defaults */ })
     return () => { cancelled = true }
-  }, [api])
+  }, [api, selectedProjectId, projectConfig])
 
   // ── Reset per-project state on project switch ───────────────
   useEffect(() => {
@@ -135,9 +165,26 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError }: U
       return
     }
     const timeout = setTimeout(() => {
-      // Save full schedule to global config (ui_config)
+      // F-56: persist schedule to the SELECTED PROJECT'S config first.
+      // Was previously only saved to the global ui_config + pipeline_config
+      // which all projects shared.
+      const pid = selectedProjectId
+      const pCfg = projectConfigRef.current
+      if (pid && pCfg) {
+        const newProjectConfig: any = {
+          ...pCfg,
+          deep_analysis_schedule: deepAnalysisSchedule,
+        }
+        setProjectConfigRef.current?.(newProjectConfig)
+        setConfigDirtyRef.current?.(true)
+        api.updateProject(pid, { config: newProjectConfig }).catch(() => { /* silent */ })
+      }
+      // Save full schedule to global config (ui_config) — kept as a default
+      // for new projects.
       api.updateGlobalConfig({ deep_analysis: deepAnalysisSchedule }).catch(() => {})
-      // Sync to pipeline_config so backend has all schedule data
+      // Sync to pipeline_config so the daemon-side auto-trigger paths
+      // (api/routers/settings.py:308/332) still see a sane default for
+      // any project that lacks its own deep_analysis_schedule.
       api.updatePipelineConfig({
         deep_enrichment_mode: deepAnalysisSchedule.mode,
         schedule_frequency: deepAnalysisSchedule.frequency,
@@ -152,7 +199,7 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError }: U
       }).catch(() => {})
     }, 500)
     return () => clearTimeout(timeout)
-  }, [api, deepAnalysisSchedule])
+  }, [api, deepAnalysisSchedule, selectedProjectId])
 
   return {
     deepAnalysisSchedule,
