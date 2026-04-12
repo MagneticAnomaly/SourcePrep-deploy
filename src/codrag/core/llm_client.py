@@ -383,6 +383,18 @@ class LLMClient:
         self.always_on = always_on
         self.debug_mode = debug_mode
 
+        # F-59: use a requests.Session with a larger urllib3 connection
+        # pool.  The default pool_maxsize=10 causes deadlocks when 10
+        # concurrent swarm workers + a zombie coordinator thread all try
+        # to connect to the same Ollama host.  20 pool slots gives
+        # comfortable headroom for 10 workers + 1 coordinator + margin.
+        import requests as _requests
+        from requests.adapters import HTTPAdapter
+        self._session = _requests.Session()
+        adapter = HTTPAdapter(pool_connections=20, pool_maxsize=20)
+        self._session.mount("http://", adapter)
+        self._session.mount("https://", adapter)
+
     def _record_telemetry(self, prompt_tokens: int, completion_tokens: int, total_tokens: int) -> None:
         """Record token usage if a telemetry context is active.
         
@@ -636,7 +648,7 @@ class LLMClient:
             _resp = None
             for _attempt in range(self._MAX_429_RETRIES + 1):
                 try:
-                    _resp = requests.post(url, json=payload, timeout=(30, self.timeout), stream=True)
+                    _resp = self._session.post(url, json=payload, timeout=(30, self.timeout), stream=True)
                     if _resp.status_code != 429:
                         break
                     _resp.close()
@@ -771,7 +783,7 @@ class LLMClient:
             rate_limit_remaining = None
             for _attempt in range(self._MAX_429_RETRIES + 1):
                 try:
-                    _resp = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
+                    _resp = self._session.post(url, json=payload, headers=headers, timeout=self.timeout)
                     
                     # Parse OpenAI ratelimit headers
                     srem = _resp.headers.get("x-ratelimit-remaining-requests")
@@ -839,7 +851,7 @@ class LLMClient:
             rate_limit_remaining = None
             for _attempt in range(self._MAX_429_RETRIES + 1):
                 try:
-                    _resp = requests.post(url, json=payload, headers=headers, timeout=self.timeout)
+                    _resp = self._session.post(url, json=payload, headers=headers, timeout=self.timeout)
                     
                     # Parse Anthropic ratelimit headers
                     srem = _resp.headers.get("anthropic-ratelimit-requests-remaining")
@@ -912,7 +924,7 @@ class LLMClient:
             url = f"{self.endpoint_url}/openai/deployments/{self.model}/chat/completions"
             params = {"api-version": "2024-02-01"}
 
-            resp = requests.post(url, json=payload, headers=headers, params=params, timeout=self.timeout)
+            resp = self._session.post(url, json=payload, headers=headers, params=params, timeout=self.timeout)
             resp.raise_for_status()
             data = resp.json()
 
@@ -956,7 +968,7 @@ class LLMClient:
 
             url = f"{self.endpoint_url}/v1beta/models/{self.model}:generateContent"
             params = {"key": self.api_key} if self.api_key else {}
-            resp = requests.post(url, json=payload, params=params, timeout=self.timeout)
+            resp = self._session.post(url, json=payload, params=params, timeout=self.timeout)
             resp.raise_for_status()
             data = resp.json()
 
@@ -1036,7 +1048,7 @@ class LLMClient:
         if system and isinstance(input_val, str):
             payload["system_prompt"] = system
 
-        resp = requests.post(url, json=payload, timeout=(30, self.timeout), stream=True)
+        resp = self._session.post(url, json=payload, timeout=(30, self.timeout), stream=True)
         if resp.status_code == 400:
             # Log the full error body for debugging
             try:
@@ -1142,30 +1154,30 @@ class LLMClient:
                 from codrag.core.model_readiness import lmstudio_server_reachable
                 return lmstudio_server_reachable(self.endpoint_url)
             elif self.provider == "ollama":
-                resp = requests.get(f"{self.endpoint_url}/api/tags", timeout=5)
+                resp = self._session.get(f"{self.endpoint_url}/api/tags", timeout=5)
                 return resp.status_code == 200
             elif self.provider in ("openai", "openai-compatible"):
                 headers = {}
                 if self.api_key:
                     headers["Authorization"] = f"Bearer {self.api_key}"
-                resp = requests.get(f"{self.endpoint_url}/v1/models", headers=headers, timeout=5)
+                resp = self._session.get(f"{self.endpoint_url}/v1/models", headers=headers, timeout=5)
                 return resp.status_code == 200
             elif self.provider == "anthropic":
                 headers = {"anthropic-version": "2023-06-01"}
                 if self.api_key:
                     headers["x-api-key"] = self.api_key
-                resp = requests.get(f"{self.endpoint_url}/v1/models", headers=headers, timeout=5)
+                resp = self._session.get(f"{self.endpoint_url}/v1/models", headers=headers, timeout=5)
                 return resp.status_code == 200
             elif self.provider == "google":
                 params = {"key": self.api_key} if self.api_key else {}
-                resp = requests.get(f"{self.endpoint_url}/v1beta/models", params=params, timeout=5)
+                resp = self._session.get(f"{self.endpoint_url}/v1beta/models", params=params, timeout=5)
                 return resp.status_code == 200
             elif self.provider == "azure-openai":
                 headers = {}
                 if self.api_key:
                     headers["api-key"] = self.api_key
                 url = f"{self.endpoint_url}/openai/deployments?api-version=2024-02-01"
-                resp = requests.get(url, headers=headers, timeout=5)
+                resp = self._session.get(url, headers=headers, timeout=5)
                 return resp.status_code == 200
             return False
         except Exception:
@@ -1193,7 +1205,7 @@ class LLMClient:
             return True  # No-op for cloud providers
 
         try:
-            resp = requests.post(
+            resp = self._session.post(
                 f"{self.endpoint_url}/api/generate",
                 json={
                     "model": self.model,
