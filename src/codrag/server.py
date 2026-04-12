@@ -838,19 +838,22 @@ def configure(
         import time
         time.sleep(3)  # Let server fully initialize
         try:
+            # F-65: global config is now only a fallback — per-project auto_config
+            # is the source of truth.  But we still need the global check to decide
+            # whether to scan projects at all.  If ANY project could have auto mode,
+            # we must scan.  So we check the global as a hint but don't skip if it
+            # says manual — individual projects may have auto_config overrides.
             from codrag.services.settings_store import settings as _ss
             pc = _ss.get("pipeline_config") or {}
-            fast_auto = (pc.get("fast_sync") or {}).get("auto", False)
-            deep_mode = (pc.get("deep_enrichment") or {}).get("mode", "manual")
+            global_fast_auto = (pc.get("fast_sync") or {}).get("auto", False)
+            global_deep_mode = (pc.get("deep_enrichment") or {}).get("mode", "manual")
 
             logger.info(
                 "Startup auto-run check: fast_sync.auto=%s, deep_enrichment.mode=%s",
-                fast_auto, deep_mode,
+                global_fast_auto, global_deep_mode,
             )
 
-            if not fast_auto and deep_mode != "auto":
-                logger.info("Startup auto-run: nothing to auto-run (both disabled)")
-                return
+            # Don't skip — always scan projects since per-project overrides exist
 
             from codrag.services.pipeline_orchestrator import pipeline_orchestrator as _po
             from codrag.services.project_helpers import (
@@ -880,23 +883,27 @@ def configure(
             # to prevent the thread from blocking forever on a slow model.
             MAX_WAIT_PER_PROJECT = 120  # seconds to wait before moving to next
             for proj in projects:
+                # F-65: Read per-project auto_config, fall back to global
+                pcfg = proj.config if isinstance(proj.config, dict) else {}
+                proj_auto = pcfg.get("auto_config") or {}
+                fast_auto = proj_auto.get("fastSync", proj_auto.get("fast_sync", global_fast_auto))
+                deep_mode = proj_auto.get("deepEnrichment", proj_auto.get("deep_enrichment", global_deep_mode))
+
                 # Phase 45 Fix: Check if project is actually stale or incomplete before running
                 from codrag.services.build_manager import build_manager as _bm
                 from codrag.services.project_helpers import check_index_staleness
-                
+
                 idx = _bm.get_project_index(proj)
                 staleness = check_index_staleness(proj, idx)
                 is_stale = staleness.get("is_stale", True)
-                
+
                 trace_idx = _bm.get_project_trace_index(proj)
                 has_graph = trace_idx is not None and trace_idx.node_count() > 0
-                
+
                 needs_fast_sync = is_stale or not has_graph
 
                 # Phase 48-F8: Even if we have a graph and it's not "stale"
                 # by mtime, check if there are untraced files on disk.
-                # This catches cases where the Rust engine failed (0 nodes)
-                # or files were added while the server was down.
                 if not needs_fast_sync and has_graph:
                     try:
                         gap = _po.check_coverage_gap(proj.id)
@@ -919,11 +926,6 @@ def configure(
                 # Check if deep enrichment needs to run (has graph but incomplete)
                 needs_deep = False
                 if has_graph and not is_stale and deep_mode == "auto":
-                    # Phase 93: If this project shut down cleanly with no active
-                    # runs, pending enrichment nodes are steady-state — don't
-                    # auto-trigger deep enrichment. Without this check, projects
-                    # at 4% enrichment (42k pending nodes) get ghost deep
-                    # enrichment runs on every daemon restart.
                     from codrag.services.pipeline.recovery import RecoveryManager
                     was_clean = RecoveryManager.check_clean_shutdown_marker(proj.id)
                     if was_clean:

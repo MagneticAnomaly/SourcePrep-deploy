@@ -1311,10 +1311,23 @@ class PipelineOrchestrator:
     def _is_deep_enrichment_auto(project_id: str) -> bool:
         """Check if deep enrichment should auto-chain after fast sync.
 
+        F-65: reads per-project auto_config first, falls back to global.
         Returns True if either:
-        - deep_enrichment.mode is 'auto', OR
-        - fast_sync.auto is True (user expectation: AUTO runs the full pipeline)
+        - deepEnrichment is 'auto' in project config, OR
+        - fastSync is True (user expectation: AUTO runs the full pipeline)
         """
+        try:
+            from codrag.services.project_helpers import require_project
+            proj = require_project(project_id)
+            pcfg = proj.config if isinstance(proj.config, dict) else {}
+            auto_cfg = pcfg.get("auto_config")
+            if auto_cfg and isinstance(auto_cfg, dict):
+                deep = auto_cfg.get("deepEnrichment", auto_cfg.get("deep_enrichment", "manual"))
+                fast = auto_cfg.get("fastSync", auto_cfg.get("fast_sync", False))
+                return deep == "auto" or bool(fast)
+        except Exception:
+            pass
+        # Fallback to global config
         try:
             from codrag.services.settings_store import settings
             config = settings.get("pipeline_config") or {}
@@ -1326,7 +1339,22 @@ class PipelineOrchestrator:
 
     @staticmethod
     def _is_finalize_auto(project_id: str) -> bool:
-        """Check if finalize should auto-chain after enrich."""
+        """Check if finalize should auto-chain after enrich.
+
+        F-65: reads per-project auto_config first, falls back to global.
+        """
+        try:
+            from codrag.services.project_helpers import require_project
+            proj = require_project(project_id)
+            pcfg = proj.config if isinstance(proj.config, dict) else {}
+            auto_cfg = pcfg.get("auto_config")
+            if auto_cfg and isinstance(auto_cfg, dict):
+                fin = auto_cfg.get("finalize", "manual")
+                deep = auto_cfg.get("deepEnrichment", auto_cfg.get("deep_enrichment", "manual"))
+                return fin == "auto" or deep == "auto"
+        except Exception:
+            pass
+        # Fallback to global config
         try:
             from codrag.services.settings_store import settings
             config = settings.get("pipeline_config") or {}
