@@ -516,6 +516,75 @@ class RecoveryManager:
 
         return result
 
+    @staticmethod
+    def startup_selfheal_all(
+        get_file_logger_fn: Callable[[str], Any] | None = None,
+    ) -> dict[str, dict[str, Any]]:
+        """Run selfheal for all active projects at daemon startup.
+
+        Returns dict of project_id -> selfheal result.
+        """
+        results: dict[str, dict[str, Any]] = {}
+        try:
+            from codrag.services.project_helpers import get_registry
+
+            registry = get_registry()
+            projects = registry.list_projects()
+        except Exception:
+            logger.debug("Cannot list projects for startup selfheal", exc_info=True)
+            return results
+
+        all_groups = [FAST_SYNC_STAGES, DEEP_ENRICHMENT_STAGES]
+        try:
+            from .stages import FINALIZE_STAGES
+            all_groups.append(FINALIZE_STAGES)
+        except ImportError:
+            pass
+
+        for project in projects:
+            pid = project.id
+
+            # Skip inactive/frozen/locked projects
+            try:
+                from codrag.services.project_helpers import get_project_activity_status
+                activity = get_project_activity_status(pid)
+                if activity != "active":
+                    continue
+            except Exception:
+                pass  # Can't determine status — proceed
+
+            pfl = get_file_logger_fn(pid) if get_file_logger_fn else None
+
+            project_result: dict[str, Any] = {}
+            for stages in all_groups:
+                group_name = (
+                    "fast_sync" if stages is FAST_SYNC_STAGES
+                    else "deep_enrichment" if stages is DEEP_ENRICHMENT_STAGES
+                    else "finalize"
+                )
+                group_result = RecoveryManager.selfheal_group(pid, stages, pfl=pfl)
+                if group_result.get("resurrected", 0) > 0:
+                    project_result[group_name] = group_result
+                    logger.info(
+                        "Startup selfheal for %s/%s: %d resurrected",
+                        pid, group_name, group_result["resurrected"],
+                    )
+
+            if project_result:
+                results[pid] = project_result
+
+        if results:
+            total = sum(
+                r.get("resurrected", 0)
+                for pr in results.values()
+                for r in pr.values()
+            )
+            logger.info(
+                "Startup selfheal complete: %d projects healed, %d total stages resurrected",
+                len(results), total,
+            )
+        return results
+
     # ── Crashed run management ─────────────────────────────────
 
     @staticmethod
@@ -597,6 +666,7 @@ class RecoveryManager:
         hydrate_fn: Callable[[], None],
         auto_recover_fn: Callable[[], None],
         set_crashed_runs: Callable[[list], None],
+        selfheal_fn: Callable[[], None] | None = None,
     ) -> list[Any]:
         """Called once on daemon startup. Detects crashed runs and
         hydrates PAUSED state machines for incomplete pipeline work.
@@ -664,6 +734,13 @@ class RecoveryManager:
             auto_recover_fn()
         except Exception:
             logger.debug("Phase 61B auto-recovery failed", exc_info=True)
+
+        # Phase 98: Startup selfheal — resurrect incomplete stages from backups
+        if selfheal_fn:
+            try:
+                selfheal_fn()
+            except Exception:
+                logger.debug("Startup selfheal failed (non-fatal)", exc_info=True)
 
         return journal_results
 

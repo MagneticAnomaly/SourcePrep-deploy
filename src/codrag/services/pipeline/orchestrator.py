@@ -458,6 +458,10 @@ class PipelineOrchestrator:
         if not self._check_project_active(project_id):
             return False
         incremental = False
+        # Phase 98: Selfheal pre-flight — resurrect missing stage data from backups
+        if not force_from_start:
+            self._selfheal_group(project_id, FAST_SYNC_STAGES)
+
         # Phase 60D: Always skip mtime cascade — if data exists, USE IT.
         # Content-aware staleness in _detect_resume_point handles edge cases.
         resume = 0 if force_from_start else self._detect_resume_point(
@@ -708,6 +712,10 @@ class PipelineOrchestrator:
                     project_id,
                 )
 
+        # Phase 98: Selfheal pre-flight — resurrect missing stage data from backups
+        if not force_from_start:
+            self._selfheal_group(project_id, DEEP_ENRICHMENT_STAGES)
+
         # Phase 60D: Always skip mtime cascade.  If data exists, it's valid.
         # Workers handle incremental updates internally.
         resume = 0 if force_from_start else self._detect_resume_point(
@@ -770,6 +778,10 @@ class PipelineOrchestrator:
                     project_id, enrich_run.state.value, enrich_run.current_stage,
                 )
                 return False
+
+        # Phase 98: Selfheal pre-flight — resurrect missing stage data from backups
+        if not force_from_start:
+            self._selfheal_group(project_id, FINALIZE_STAGES)
 
         resume = 0 if force_from_start else self._detect_resume_point(
             project_id, FINALIZE_STAGES, skip_mtime_cascade=True,
@@ -1313,6 +1325,17 @@ class PipelineOrchestrator:
         return node_id is not None and node_id.startswith("cloud:")
 
     # ── Internal ───────────────────────────────────────────────
+
+    def _selfheal_group(
+        self, project_id: str, stages: list, force_from_start: bool = False,
+    ) -> dict:
+        """Pre-flight selfheal: resurrect missing stage data from backups."""
+        pfl = self._get_file_logger(project_id)
+        return RecoveryManager.selfheal_group(
+            project_id, stages,
+            force_from_start=force_from_start,
+            pfl=pfl,
+        )
 
     def _detect_resume_point(
         self,
@@ -3104,6 +3127,9 @@ class PipelineOrchestrator:
             hydrate_fn=self._hydrate_paused_runs_from_disk,
             auto_recover_fn=self._auto_recover_stale_pipelines,
             set_crashed_runs=lambda runs: setattr(self, '_crashed_runs', runs),
+            selfheal_fn=lambda: RecoveryManager.startup_selfheal_all(
+                get_file_logger_fn=self._get_file_logger,
+            ),
         )
 
     def _hydrate_paused_runs_from_disk(self) -> None:
