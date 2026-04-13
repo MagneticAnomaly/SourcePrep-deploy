@@ -686,27 +686,62 @@ class LLMClient:
             # timeout=60s and most responses complete in <30s.
             #
             # Retry on 429 (Too Many Requests) with exponential backoff.
-            _resp = None
-            for _attempt in range(self._MAX_429_RETRIES + 1):
+            # F-59 rework: Use subprocess curl for cloud-proxied models.
+            # requests.post() blocks indefinitely in daemon build threads
+            # for cloud models (works fine standalone, works fine via curl).
+            # Root cause unknown — suspected interaction between requests/
+            # urllib3 and uvicorn's thread pool. curl returns in 8-18s for
+            # the same calls that hang forever with requests.
+            #
+            # For local models, requests.post() works fine — keep it.
+            _is_cloud_model = ":cloud" in self.model.lower()
+            if _is_cloud_model:
+                import subprocess as _sp
+                _curl_timeout = int(self.timeout) + 30  # extra margin
                 try:
-                    _resp = self._session.post(url, json=payload, timeout=(30, self.timeout), stream=False)
-                    if _resp.status_code != 429:
-                        break
-                    _resp.close()
-                except requests.exceptions.Timeout:
-                    self._record_throughput(is_429_or_timeout=True)
-                    raise
-
-                if _attempt < self._MAX_429_RETRIES:
-                    self._record_throughput(is_429_or_timeout=True)
-                    _wait = 5 * (_attempt + 1)  # 5s, 10s
-                    logger.info(
-                        "429 rate-limited by %s — retry %d/%d in %ds",
-                        self.model, _attempt + 1, self._MAX_429_RETRIES, _wait,
+                    _curl_result = _sp.run(
+                        ["curl", "-s", "--max-time", str(_curl_timeout),
+                         "-H", "Content-Type: application/json",
+                         "-d", json.dumps(payload),
+                         url],
+                        capture_output=True, text=True, timeout=_curl_timeout + 10,
                     )
-                    time.sleep(_wait)
-            resp = _resp
-            resp.raise_for_status()
+                    if _curl_result.returncode != 0:
+                        raise RuntimeError(f"curl failed: {_curl_result.stderr[:200]}")
+                    # Create a mock response object with .text and .status_code
+                    class _CurlResponse:
+                        status_code = 200
+                        text = _curl_result.stdout
+                        def raise_for_status(self): pass
+                        def close(self): pass
+                    resp = _CurlResponse()
+                except _sp.TimeoutExpired:
+                    self._record_throughput(is_429_or_timeout=True)
+                    raise TimeoutError(f"curl timeout after {_curl_timeout}s for {self.model}")
+                except Exception as e:
+                    raise RuntimeError(f"curl call failed for {self.model}: {e}")
+            else:
+                _resp = None
+                for _attempt in range(self._MAX_429_RETRIES + 1):
+                    try:
+                        _resp = self._session.post(url, json=payload, timeout=(30, self.timeout), stream=False)
+                        if _resp.status_code != 429:
+                            break
+                        _resp.close()
+                    except requests.exceptions.Timeout:
+                        self._record_throughput(is_429_or_timeout=True)
+                        raise
+
+                    if _attempt < self._MAX_429_RETRIES:
+                        self._record_throughput(is_429_or_timeout=True)
+                        _wait = 5 * (_attempt + 1)  # 5s, 10s
+                        logger.info(
+                            "429 rate-limited by %s — retry %d/%d in %ds",
+                            self.model, _attempt + 1, self._MAX_429_RETRIES, _wait,
+                        )
+                        time.sleep(_wait)
+                resp = _resp
+                resp.raise_for_status()
             # Parse the complete NDJSON response body.
             # Each line is a JSON object; the final one has "done": true.
             monitor = OutputMonitor(max_chars=max_chars) if max_chars else None
