@@ -18,6 +18,8 @@ Experimental-essay content plan for CoDRAG. Each essay is an experiment you actu
 - [`21_knowing_that_vs_knowing_how.md`](./21_knowing_that_vs_knowing_how.md) — **Article A drafted** (~1950 words). Knowing-that vs knowing-how for AI coding tools. Opening anecdote is a placeholder; needs real moment from your direct experience before publishing.
 - [`22_hub_file_problem.md`](./22_hub_file_problem.md) — **Article B: TODO stub.** Blocked on running the essay #02 hub-file experiment on a real test repo. Draft when `02_hub_raw_output.md` lands.
 - [`23_contextual_retrieval.md`](./23_contextual_retrieval.md) — **Article C drafted** (~2000 words). Close read of Anthropic's September 2024 Contextual Retrieval post. Self-contained; verify the 35/49/67% figures against the post before publishing.
+- [`24_more_context_not_more_knowledge.md`](./24_more_context_not_more_knowledge.md) — **Article E drafted** (~2050 words). Three-paper research spine (Liu, Chen, Chroma) on why long context degrades reasoning. Three practical prompt habits.
+- [`25_code_is_a_graph.md`](./25_code_is_a_graph.md) — **Article D drafted** (~2100 words). Capstone piece: four years of convergent research on graph-based code retrieval. Ferrante 1987 callback. Aider and Sourcegraph cited alongside CoDRAG.
 
 ## Voice guide
 
