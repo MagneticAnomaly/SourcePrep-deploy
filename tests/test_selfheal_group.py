@@ -11,6 +11,9 @@ import pytest
 from codrag.services.pipeline.manifest_store import ManifestStore
 from codrag.services.pipeline.recovery import RecoveryManager, _write_selfheal_stub
 from codrag.services.pipeline.stages import (
+    DEEP_ENRICHMENT_STAGES,
+    FAST_SYNC_STAGES,
+    FINALIZE_STAGES,
     STAGE_MANIFEST_FILE,
     STAGE_OUTPUT_FILE,
     StageId,
@@ -25,6 +28,14 @@ def idx_dir(tmp_path: Path) -> Path:
     idx = tmp_path / "idx"
     idx.mkdir()
     return idx
+
+
+@pytest.fixture()
+def golden_dir(idx_dir: Path) -> Path:
+    """Create (and return) the golden checkpoint directory inside idx_dir."""
+    golden = idx_dir / ".checkpoints" / "_golden"
+    golden.mkdir(parents=True, exist_ok=True)
+    return golden
 
 
 @pytest.fixture()
@@ -222,3 +233,73 @@ class TestSelfhealGroup:
 
         assert result["still_missing"] == 1
         assert result["resurrected"] == 0
+
+
+class TestSwissCheeseRecovery:
+    """Integration test: swiss cheese pipeline state gets recovered."""
+
+    def test_swiss_cheese_partial_resurrection(self, idx_dir: Path, golden_dir: Path) -> None:
+        """Multiple missing stages across all 3 groups — golden has some, not all.
+
+        Simulates the screenshot scenario:
+        - Fast Sync: stages 0-3 complete, stage 4 (KNOWLEDGE) missing
+        - Deep Enrichment: stages 0-2 complete, stages 3-4 missing (DEEPENING, DEEP_KNOWLEDGE)
+        - Finalize: stage 0 (ATLAS) complete, stages 1-4 missing
+
+        Golden checkpoint has data for KNOWLEDGE manifest and DEEPENING output.
+        After selfheal: KNOWLEDGE and DEEPENING resurrected, others still missing.
+        """
+        # Fast Sync: stages 0-3 complete, stage 4 (KNOWLEDGE) missing
+        for stage in FAST_SYNC_STAGES[:4]:
+            _write_manifest(idx_dir, stage)
+
+        # Deep Enrichment: stages 0-2 complete, stages 3-4 missing
+        for stage in DEEP_ENRICHMENT_STAGES[:3]:
+            _write_manifest(idx_dir, stage)
+
+        # Finalize: stage 0 (ATLAS) complete, stages 1-4 missing
+        _write_manifest(idx_dir, FINALIZE_STAGES[0])
+
+        # Golden has KNOWLEDGE manifest (KNOWLEDGE has no output file, just manifest)
+        _write_manifest(golden_dir, StageId.KNOWLEDGE)
+        # Golden has DEEPENING output file (trace_epistemic.jsonl — shared with ENRICHMENT)
+        deepening_output = STAGE_OUTPUT_FILE[StageId.DEEPENING]  # "trace_epistemic.jsonl"
+        assert deepening_output is not None
+        (golden_dir / deepening_output).write_bytes(b"x" * 2048)
+
+        with patch(
+            "codrag.services.pipeline.recovery._resolve_idx_dir",
+            return_value=idx_dir,
+        ):
+            # Selfheal fast sync
+            fs_result = RecoveryManager.selfheal_group("test", FAST_SYNC_STAGES)
+            assert fs_result["already_complete"] == 4
+            assert fs_result["resurrected"] == 1  # KNOWLEDGE from golden manifest
+            assert fs_result["still_missing"] == 0
+
+            # Selfheal deep enrichment
+            de_result = RecoveryManager.selfheal_group("test", DEEP_ENRICHMENT_STAGES)
+            assert de_result["already_complete"] == 3
+            assert de_result["resurrected"] >= 1  # DEEPENING from golden output
+            # DEEP_KNOWLEDGE has no output file and no golden manifest
+            assert de_result["still_missing"] >= 1
+
+            # Selfheal finalize
+            fin_result = RecoveryManager.selfheal_group("test", FINALIZE_STAGES)
+            assert fin_result["already_complete"] == 1  # ATLAS
+            # No golden data for RULES, CONCEPTS, AUDIT, ANTIBODIES
+            assert fin_result["still_missing"] == 4
+
+    def test_all_stages_complete_is_noop(self, idx_dir: Path) -> None:
+        """When all stages are complete, selfheal does nothing."""
+        for stage in [*FAST_SYNC_STAGES, *DEEP_ENRICHMENT_STAGES, *FINALIZE_STAGES]:
+            _write_manifest(idx_dir, stage)
+
+        with patch(
+            "codrag.services.pipeline.recovery._resolve_idx_dir",
+            return_value=idx_dir,
+        ):
+            for stages in [FAST_SYNC_STAGES, DEEP_ENRICHMENT_STAGES, FINALIZE_STAGES]:
+                result = RecoveryManager.selfheal_group("test", stages)
+                assert result["resurrected"] == 0
+                assert result["still_missing"] == 0
