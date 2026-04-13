@@ -695,63 +695,31 @@ class LLMClient:
             #
             # For local models, requests.post() works fine — keep it.
             _is_cloud_model = ":cloud" in self.model.lower()
-            logger.info("[F-59 curl] model=%s, is_cloud=%s, timeout=%s", self.model, _is_cloud_model, self.timeout)
-            if _is_cloud_model:
-                import subprocess as _sp
-                _curl_timeout = min(int(self.timeout), 120) + 30  # cap at 150s max
-                logger.info("[F-59 curl] Starting curl subprocess (timeout=%ds)", _curl_timeout)
+            # F-74: The "cloud model hang" was caused by _record_throughput()
+            # deadlocking on pipeline_scheduler._lock, NOT by requests.post().
+            # With the non-blocking lock fix, requests.post() works fine for
+            # all models including cloud-proxied ones.
+            _resp = None
+            for _attempt in range(self._MAX_429_RETRIES + 1):
                 try:
-                    _curl_result = _sp.run(
-                        ["curl", "-s", "--max-time", str(_curl_timeout),
-                         "-H", "Content-Type: application/json",
-                         "-d", json.dumps(payload),
-                         url],
-                        capture_output=True, text=True, timeout=_curl_timeout + 10,
-                    )
-                    logger.info("[F-59 curl] curl returned: rc=%d, stdout=%d chars, stderr=%s",
-                                _curl_result.returncode, len(_curl_result.stdout), _curl_result.stderr[:100] if _curl_result.stderr else "")
-                    if _curl_result.returncode != 0:
-                        raise RuntimeError(f"curl failed (rc={_curl_result.returncode}): {_curl_result.stderr[:200]}")
-                    if not _curl_result.stdout.strip():
-                        raise RuntimeError("curl returned empty response")
-                    # Create a mock response object with .text and .status_code
-                    class _CurlResponse:
-                        status_code = 200
-                        text = _curl_result.stdout
-                        def raise_for_status(self): pass
-                        def close(self): pass
-                    resp = _CurlResponse()
-                except _sp.TimeoutExpired:
-                    logger.warning("[F-59 curl] curl TIMEOUT after %ds", _curl_timeout)
+                    _resp = self._session.post(url, json=payload, timeout=(30, self.timeout), stream=False)
+                    if _resp.status_code != 429:
+                        break
+                    _resp.close()
+                except requests.exceptions.Timeout:
                     self._record_throughput(is_429_or_timeout=True)
-                    raise TimeoutError(f"curl timeout after {_curl_timeout}s for {self.model}")
-                except RuntimeError:
                     raise
-                except Exception as e:
-                    logger.warning("[F-59 curl] curl EXCEPTION: %s", e)
-                    raise RuntimeError(f"curl call failed for {self.model}: {e}")
-            else:
-                _resp = None
-                for _attempt in range(self._MAX_429_RETRIES + 1):
-                    try:
-                        _resp = self._session.post(url, json=payload, timeout=(30, self.timeout), stream=False)
-                        if _resp.status_code != 429:
-                            break
-                        _resp.close()
-                    except requests.exceptions.Timeout:
-                        self._record_throughput(is_429_or_timeout=True)
-                        raise
 
-                    if _attempt < self._MAX_429_RETRIES:
-                        self._record_throughput(is_429_or_timeout=True)
-                        _wait = 5 * (_attempt + 1)  # 5s, 10s
-                        logger.info(
-                            "429 rate-limited by %s — retry %d/%d in %ds",
-                            self.model, _attempt + 1, self._MAX_429_RETRIES, _wait,
-                        )
-                        time.sleep(_wait)
-                resp = _resp
-                resp.raise_for_status()
+                if _attempt < self._MAX_429_RETRIES:
+                    self._record_throughput(is_429_or_timeout=True)
+                    _wait = 5 * (_attempt + 1)  # 5s, 10s
+                    logger.info(
+                        "429 rate-limited by %s — retry %d/%d in %ds",
+                        self.model, _attempt + 1, self._MAX_429_RETRIES, _wait,
+                    )
+                    time.sleep(_wait)
+            resp = _resp
+            resp.raise_for_status()
             # Parse the complete NDJSON response body.
             # Each line is a JSON object; the final one has "done": true.
             monitor = OutputMonitor(max_chars=max_chars) if max_chars else None
@@ -794,13 +762,7 @@ class LLMClient:
             t1 = time.monotonic()
             wall_time_ms = (t1 - t0) * 1000.0
             queue_time_ms = max(0.0, wall_time_ms - total_exec_ms)
-            # F-74: _record_throughput acquires pipeline_scheduler._lock which
-            # can deadlock against dashboard polling threads holding the same lock.
-            # Make it non-blocking: skip if lock can't be acquired immediately.
-            try:
-                self._record_throughput(queue_time_ms=queue_time_ms)
-            except Exception:
-                pass  # Non-critical telemetry — never block the pipeline
+            self._record_throughput(queue_time_ms=queue_time_ms)
             
             text = "".join(text_parts)
             thinking = "".join(thinking_parts)
@@ -834,7 +796,6 @@ class LLMClient:
                 text, _warnings = validate_llm_output(text)
             except Exception:
                 pass
-            logger.info("[F-59 curl] generate() returning: %d chars", len(text))
             return text, tokens
 
         elif effective_provider in ("openai", "openai-compatible"):
