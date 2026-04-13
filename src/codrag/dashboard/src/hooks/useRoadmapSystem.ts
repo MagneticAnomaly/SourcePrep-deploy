@@ -58,9 +58,11 @@ export function useRoadmapSystem(
   const startPolling = useCallback(() => {
     if (!selectedProjectId) return
     if (pollRef.current) clearInterval(pollRef.current)
+    let rmInFlight = false
     pollRef.current = setInterval(() => {
-      if (isHydratingRef.current) return
-      api.getRoadmap(selectedProjectId)
+      if (isHydratingRef.current || document.hidden || rmInFlight) return
+      rmInFlight = true
+      api.getRoadmap(selectedProjectId).finally(() => { rmInFlight = false })
         .then((s) => {
           setState(s)
           if (!s.generating && !s.scanning) {

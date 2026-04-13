@@ -21,6 +21,9 @@ export interface UseEnrichmentDeps {
   signal?: AbortSignal
   /** True while hydration is in progress — suppress polls */
   isHydrating?: boolean
+  /** Phase 98: Whether the Graph Enrichment panel is visible in the layout.
+   *  When false, progress polling is completely disabled (SSE still updates state). */
+  enrichmentPanelVisible?: boolean
 }
 
 // ── Hook ──────────────────────────────────────────────────────
@@ -521,41 +524,55 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     refreshStageDataFromPipeline])
 
   // ── Polling: progress bar updates while stages are running ──
+  //
+  // Phase 98: Panel-aware adaptive polling.
+  //   Panel OPEN  + running → 1s  (progress bars need fast updates)
+  //   Panel OPEN  + idle    → 10s (check for new runs)
+  //   Panel CLOSED           → OFF (SSE still updates state)
+  //   Tab hidden             → OFF
 
   useEffect(() => {
     if (!selectedProjectId) return
     if (deps.isHydrating) return
+
+    const panelVisible = deps.enrichmentPanelVisible !== false // default true for backward compat
+    if (!panelVisible) return // Panel closed → no polling
+
     const { inferredEdgesRunning, augmenting, epistemicRunning, groupReasoningRunning, clusterRunning, atlasRunning, deepeningRunning, fastKnowledgeBuilding, deepKnowledgeBuilding } = state
     const anyRunning = inferredEdgesRunning || augmenting || epistemicRunning || groupReasoningRunning || clusterRunning || atlasRunning || deepeningRunning || fastKnowledgeBuilding || deepKnowledgeBuilding
-    if (!anyRunning) return
 
-    // F-11: bumped 3s -> 5s, added document.hidden pause and an
-    // in-flight guard. Previously this could fan out to 5 concurrent
-    // status fetches every 3s on top of every other dashboard poller,
-    // exhausting the daemon's anyio thread pool (40 slots) during
-    // active enrichment and masquerading as a "swarm hang".
+    // Adaptive interval: 1s when running (progress bars), 10s when idle
+    const pollMs = anyRunning ? 1000 : 10000
+
     let inFlight = false
     const tick = async () => {
       if (document.hidden || inFlight) return
       inFlight = true
       try {
         const calls: Promise<unknown>[] = []
-        if (state.inferredEdgesRunning || state.atlasRunning || state.groupReasoningRunning || state.augmenting || state.epistemicRunning) calls.push(refreshStageDataFromPipeline())
-        if (state.augmenting) calls.push(fetchAugmentationStatus())
-        if (state.epistemicRunning || state.clusterRunning || state.deepeningRunning) calls.push(fetchEpistemicStatus())
-        if (state.clusterRunning) calls.push(fetchModuleStatus())
-        if (state.deepeningRunning) calls.push(fetchDeepeningStatus())
-        if (state.fastKnowledgeBuilding || state.deepKnowledgeBuilding) calls.push(fetchKnowledgeStatus())
+        // When running: fetch stage-specific data for progress bars
+        if (anyRunning) {
+          if (state.inferredEdgesRunning || state.atlasRunning || state.groupReasoningRunning || state.augmenting || state.epistemicRunning) calls.push(refreshStageDataFromPipeline())
+          if (state.augmenting) calls.push(fetchAugmentationStatus())
+          if (state.epistemicRunning || state.clusterRunning || state.deepeningRunning) calls.push(fetchEpistemicStatus())
+          if (state.clusterRunning) calls.push(fetchModuleStatus())
+          if (state.deepeningRunning) calls.push(fetchDeepeningStatus())
+          if (state.fastKnowledgeBuilding || state.deepKnowledgeBuilding) calls.push(fetchKnowledgeStatus())
+        } else {
+          // Idle: just refresh pipeline status for state changes
+          calls.push(refreshStageDataFromPipeline())
+        }
         await Promise.allSettled(calls)
       } finally {
         inFlight = false
       }
     }
-    const interval = setInterval(tick, 5000)
+    const interval = setInterval(tick, pollMs)
 
     return () => clearInterval(interval)
   }, [
     selectedProjectId,
+    deps.enrichmentPanelVisible,
     state.inferredEdgesRunning,
     state.augmenting,
     state.epistemicRunning,

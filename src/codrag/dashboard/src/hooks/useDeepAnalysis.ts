@@ -129,7 +129,10 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError, pro
     try {
       await api.runDeepAnalysis(selectedProjectId)
       // Poll for progress updates (every 2s for responsive UI)
+      let daInFlight = false
       const poll = setInterval(async () => {
+        if (document.hidden || daInFlight) return
+        daInFlight = true
         try {
           const status = await api.getDeepAnalysisStatus(selectedProjectId)
           setDeepAnalysisStatus(status)
@@ -140,6 +143,8 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError, pro
         } catch {
           clearInterval(poll)
           setDeepAnalysisRunning(false)
+        } finally {
+          daInFlight = false
         }
       }, 2000)
     } catch (e) {

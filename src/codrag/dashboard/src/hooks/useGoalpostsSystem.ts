@@ -53,9 +53,11 @@ export function useGoalpostsSystem(
         // Clear any existing poll before starting a new one
         if (pollRef.current) clearInterval(pollRef.current)
         // Poll for completion
+        let gpInFlight = false
         pollRef.current = setInterval(() => {
-          if (isHydratingRef.current) return
-          api.getGoalposts(selectedProjectId)
+          if (isHydratingRef.current || document.hidden || gpInFlight) return
+          gpInFlight = true
+          api.getGoalposts(selectedProjectId).finally(() => { gpInFlight = false })
             .then((s) => {
               setState(s)
               if (!s.generating) {

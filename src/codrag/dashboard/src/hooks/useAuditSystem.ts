@@ -74,9 +74,11 @@ export function useAuditSystem(
       .then(() => {
         if (pollRef.current) clearInterval(pollRef.current)
         // Poll for completion
+        let auditInFlight = false
         pollRef.current = setInterval(() => {
-          if (isHydratingRef.current) return
-          api.getAuditStatus(selectedProjectId)
+          if (isHydratingRef.current || document.hidden || auditInFlight) return
+          auditInFlight = true
+          api.getAuditStatus(selectedProjectId).finally(() => { auditInFlight = false })
             .then((s) => {
               setAuditStatus(s)
               if (!s.running) {
