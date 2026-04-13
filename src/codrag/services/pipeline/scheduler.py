@@ -175,7 +175,14 @@ class PipelineScheduler:
     _EMBEDDING_NODE_ID = "__embedding__"
 
     def __init__(self) -> None:
-        self._lock = threading.Lock()
+        # F-74: MUST be RLock (reentrant), not Lock.
+        # _broadcast_capacity_change() acquires self._lock internally
+        # but is called from methods that already hold it (e.g. release(),
+        # acquire()). With a non-reentrant Lock, this self-deadlocks.
+        # This was the ROOT CAUSE of the "cloud model daemon hang" —
+        # every LLM stage that completed tried to release its scheduler
+        # slot, which called _broadcast_capacity_change, which deadlocked.
+        self._lock = threading.RLock()
         # node_id -> ComputeSlot
         self._slots: Dict[str, ComputeSlot] = {}
         # node_id -> FIFO queue of waiting pipelines
