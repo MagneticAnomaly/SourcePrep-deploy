@@ -760,43 +760,40 @@ class EpistemicEnricher:
 
         for items, results_list in _iter_epi_code_results():
 
-                for idx, item in enumerate(items):
-                    nid = item["_node_id"]
-                    parsed = results_list[idx] if idx < len(results_list) else None
-                    if parsed:
-                        arch = parsed.get("architecture_layer", "unknown")
-                        if arch not in VALID_ARCHITECTURE_LAYERS:
-                            arch = "unknown"
-                        entry = EpistemicEntry(
-                            node_id=nid,
-                            extended_summary=str(parsed.get("extended_summary", ""))[:1000],
-                            domain_tags=[str(t) for t in parsed.get("domain_tags", [])][:6],
-                            architecture_layer=arch,
-                            subsystem=parsed.get("subsystem"),
-                            design_patterns=parsed.get("design_patterns"),
-                            cross_references=parsed.get("cross_references"),
-                            tech_debt=parsed.get("tech_debt"),
-                            staleness_risk=parsed.get("staleness_risk"),
-                            epistemic_confidence=max(0.0, min(1.0, float(parsed.get("epistemic_confidence", 0.5)))),
-                            pass_number=2,
-                            enriched_at=datetime.now(timezone.utc).isoformat(),
-                            model=self.llm.model,
-                        )
-                        enriched[nid] = entry
-                        done += 1
-                    else:
-                        failed += 1
-                if progress_callback:
-                    progress_callback("epistemic_enrichment", current_progress + done + failed, total_progress, progress_baseline)
+            for idx, item in enumerate(items):
+                nid = item["_node_id"]
+                parsed = results_list[idx] if idx < len(results_list) else None
+                if parsed:
+                    arch = parsed.get("architecture_layer", "unknown")
+                    if arch not in VALID_ARCHITECTURE_LAYERS:
+                        arch = "unknown"
+                    entry = EpistemicEntry(
+                        node_id=nid,
+                        extended_summary=str(parsed.get("extended_summary", ""))[:1000],
+                        domain_tags=[str(t) for t in parsed.get("domain_tags", [])][:6],
+                        architecture_layer=arch,
+                        subsystem=parsed.get("subsystem"),
+                        design_patterns=parsed.get("design_patterns"),
+                        cross_references=parsed.get("cross_references"),
+                        tech_debt=parsed.get("tech_debt"),
+                        staleness_risk=parsed.get("staleness_risk"),
+                        epistemic_confidence=max(0.0, min(1.0, float(parsed.get("epistemic_confidence", 0.5)))),
+                        pass_number=2,
+                        enriched_at=datetime.now(timezone.utc).isoformat(),
+                        model=self.llm.model,
+                    )
+                    enriched[nid] = entry
+                    done += 1
+                else:
+                    failed += 1
+            if progress_callback:
+                progress_callback("epistemic_enrichment", current_progress + done + failed, total_progress, progress_baseline)
 
-                # Cooperative cancel check after each completed batch
-                if cancel_token and cancel_token.is_cancelled:
-                    logger.info("Epistemic code batch cancelled after %d done, %d failed — returning early", done, failed)
-                    _cancelled = True
-                    # Cancel remaining queued futures
-                    for f in future_to_items:
-                        f.cancel()
-                    break
+            # Cooperative cancel check after each completed batch
+            if cancel_token and cancel_token.is_cancelled:
+                logger.info("Epistemic code batch cancelled after %d done, %d failed — returning early", done, failed)
+                _cancelled = True
+                break
 
         if _cancelled:
             return done, failed
@@ -883,44 +880,42 @@ class EpistemicEnricher:
 
         for items, results_list in _iter_epi_doc_results():
 
-                for idx, item in enumerate(items):
-                    nid = item["_node_id"]
-                    parsed = results_list[idx] if idx < len(results_list) else None
-                    if parsed:
-                        arch = parsed.get("architecture_layer", "documentation")
-                        if arch not in VALID_ARCHITECTURE_LAYERS:
-                            arch = "documentation"
-                        entry = EpistemicEntry(
-                            node_id=nid,
-                            extended_summary=str(parsed.get("extended_summary", ""))[:1000],
-                            domain_tags=[str(t) for t in parsed.get("domain_tags", [])][:6],
-                            architecture_layer=arch,
-                            subsystem=parsed.get("subsystem"),
-                            design_patterns=parsed.get("design_patterns"),
-                            cross_references=parsed.get("cross_references"),
-                            tech_debt=parsed.get("tech_debt"),
-                            staleness_risk=parsed.get("staleness_risk"),
-                            epistemic_confidence=max(0.0, min(1.0, float(parsed.get("epistemic_confidence", 0.5)))),
-                            pass_number=2,
-                            enriched_at=datetime.now(timezone.utc).isoformat(),
-                            model=self.llm.model,
-                            doc_type=parsed.get("doc_type"),
-                            doc_status=parsed.get("doc_status"),
-                            decision_chains=parsed.get("decision_chains"),
-                        )
-                        enriched[nid] = entry
-                        done += 1
-                    else:
-                        failed += 1
-                if progress_callback:
-                    progress_callback("epistemic_enrichment", current_progress + done + failed, total_progress)
+            for idx, item in enumerate(items):
+                nid = item["_node_id"]
+                parsed = results_list[idx] if idx < len(results_list) else None
+                if parsed:
+                    arch = parsed.get("architecture_layer", "documentation")
+                    if arch not in VALID_ARCHITECTURE_LAYERS:
+                        arch = "documentation"
+                    entry = EpistemicEntry(
+                        node_id=nid,
+                        extended_summary=str(parsed.get("extended_summary", ""))[:1000],
+                        domain_tags=[str(t) for t in parsed.get("domain_tags", [])][:6],
+                        architecture_layer=arch,
+                        subsystem=parsed.get("subsystem"),
+                        design_patterns=parsed.get("design_patterns"),
+                        cross_references=parsed.get("cross_references"),
+                        tech_debt=parsed.get("tech_debt"),
+                        staleness_risk=parsed.get("staleness_risk"),
+                        epistemic_confidence=max(0.0, min(1.0, float(parsed.get("epistemic_confidence", 0.5)))),
+                        pass_number=2,
+                        enriched_at=datetime.now(timezone.utc).isoformat(),
+                        model=self.llm.model,
+                        doc_type=parsed.get("doc_type"),
+                        doc_status=parsed.get("doc_status"),
+                        decision_chains=parsed.get("decision_chains"),
+                    )
+                    enriched[nid] = entry
+                    done += 1
+                else:
+                    failed += 1
+            if progress_callback:
+                progress_callback("epistemic_enrichment", current_progress + done + failed, total_progress)
 
-                # Cooperative cancel check after each completed batch
-                if cancel_token and cancel_token.is_cancelled:
-                    logger.info("Epistemic doc batch cancelled after %d done, %d failed — returning early", done, failed)
-                    for f in future_to_items:
-                        f.cancel()
-                    break
+            # Cooperative cancel check after each completed batch
+            if cancel_token and cancel_token.is_cancelled:
+                logger.info("Epistemic doc batch cancelled after %d done, %d failed — returning early", done, failed)
+                break
 
         return done, failed
 

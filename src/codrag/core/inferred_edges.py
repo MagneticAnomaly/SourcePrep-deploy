@@ -358,58 +358,58 @@ class InferredEdgesAnalyzer:
 
             for items, results_list in _iter_edge_batch_results():
 
-                    if results_list is None:
-                        failed += len(items)
-                        done_batches += 1
-                        continue
-
-                    for idx, item in enumerate(items):
-                        fp = item["file_path"]
-                        parsed = results_list[idx] if idx < len(results_list) else None
-                        if parsed:
-                            raw_edges = parsed.get("edges", [])
-                            for re_item in raw_edges:
-                                edges_found += 1
-                                conf = _parse_confidence(re_item.get("confidence"), 0.0)
-                                if conf < min_confidence:
-                                    skipped_low += 1
-                                    continue
-                                target = re_item.get("target_file", "")
-                                existing_set = edge_targets.get(fp, set()) | inferred_targets.get(fp, set())
-                                if target in existing_set:
-                                    skipped_dup += 1
-                                    continue
-                                edge = InferredEdge(
-                                    source_file=fp,
-                                    target_file=target,
-                                    kind=re_item.get("kind", "calls"),
-                                    evidence=re_item.get("evidence", ""),
-                                    confidence=conf,
-                                    model=self.llm.model,
-                                )
-                                new_edges.append(edge)
-                                edges_written += 1
-                                inferred_targets.setdefault(fp, set()).add(target)
-
-                            if item["_content_hash"]:
-                                new_manifest[fp] = item["_content_hash"]
-                        else:
-                            failed += 1
-
+                if results_list is None:
+                    failed += len(items)
                     done_batches += 1
-                    if progress_callback:
-                        progress_callback("Inferring edges", min(done_batches * batch_size, total_work) + already_done, len(code_files), already_done)
+                    continue
 
-                    # Phase 60D-6: Periodic checkpoint so manifest + edges
-                    # survive server restarts mid-run.
-                    if done_batches % _CHECKPOINT_INTERVAL == 0:
-                        self._write_edges(new_edges)
-                        self._save_manifest(new_manifest)
-                        new_edges = []  # Already flushed
-                        logger.info(
-                            "Checkpoint: %d batches done, %d hashes saved, %d edges flushed",
-                            done_batches, len(new_manifest), edges_written,
-                        )
+                for idx, item in enumerate(items):
+                    fp = item["file_path"]
+                    parsed = results_list[idx] if idx < len(results_list) else None
+                    if parsed:
+                        raw_edges = parsed.get("edges", [])
+                        for re_item in raw_edges:
+                            edges_found += 1
+                            conf = _parse_confidence(re_item.get("confidence"), 0.0)
+                            if conf < min_confidence:
+                                skipped_low += 1
+                                continue
+                            target = re_item.get("target_file", "")
+                            existing_set = edge_targets.get(fp, set()) | inferred_targets.get(fp, set())
+                            if target in existing_set:
+                                skipped_dup += 1
+                                continue
+                            edge = InferredEdge(
+                                source_file=fp,
+                                target_file=target,
+                                kind=re_item.get("kind", "calls"),
+                                evidence=re_item.get("evidence", ""),
+                                confidence=conf,
+                                model=self.llm.model,
+                            )
+                            new_edges.append(edge)
+                            edges_written += 1
+                            inferred_targets.setdefault(fp, set()).add(target)
+
+                        if item["_content_hash"]:
+                            new_manifest[fp] = item["_content_hash"]
+                    else:
+                        failed += 1
+
+                done_batches += 1
+                if progress_callback:
+                    progress_callback("Inferring edges", min(done_batches * batch_size, total_work) + already_done, len(code_files), already_done)
+
+                # Phase 60D-6: Periodic checkpoint so manifest + edges
+                # survive server restarts mid-run.
+                if done_batches % _CHECKPOINT_INTERVAL == 0:
+                    self._write_edges(new_edges)
+                    self._save_manifest(new_manifest)
+                    new_edges = []  # Already flushed
+                    logger.info(
+                        "Checkpoint: %d batches done, %d hashes saved, %d edges flushed",
+                        done_batches, len(new_manifest), edges_written,
+                    )
 
         else:
             # Local model: sequential or concurrent

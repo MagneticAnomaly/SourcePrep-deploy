@@ -1187,49 +1187,49 @@ class TraceAugmenter:
 
         for items, reordered in _iter_batch_results():
 
-                for idx, item in enumerate(items):
-                    node = item["_node"]
-                    nid = item["_node_id"]
-                    file_path = item["file_path"]
-                    parsed = reordered[idx] if idx < len(reordered) else None
+            for idx, item in enumerate(items):
+                node = item["_node"]
+                nid = item["_node_id"]
+                file_path = item["file_path"]
+                parsed = reordered[idx] if idx < len(reordered) else None
 
-                    if parsed:
-                        role = parsed.get("role", "internal")
-                        if role not in VALID_ROLES:
-                            role = "internal"
-                        summary = str(parsed.get("summary", "")).strip()[:500]
-                        if not summary:
-                            name = node.get("name", os.path.basename(file_path))
-                            sym_type = node.get("metadata", {}).get("symbol_type", "symbol")
-                            summary = f"{sym_type.capitalize()} '{name}' in {file_path}"
-                        entry = AugmentationEntry(
-                            node_id=nid,
-                            summary=summary,
-                            role=role,
-                            confidence=_parse_confidence(parsed.get("confidence"), 0.7),
-                            augmented_at=datetime.now(timezone.utc).isoformat(),
-                            model=self.llm.model,
-                            file_hash=file_hashes.get(file_path),
-                        )
-                        augmented[nid] = entry
-                        result.augmented += 1
-                    else:
-                        entry = self._synthetic_entry(node, file_hashes, reason="batch_parse_failure")
-                        augmented[nid] = entry
-                        result.synthetic += 1
-                    done += 1
+                if parsed:
+                    role = parsed.get("role", "internal")
+                    if role not in VALID_ROLES:
+                        role = "internal"
+                    summary = str(parsed.get("summary", "")).strip()[:500]
+                    if not summary:
+                        name = node.get("name", os.path.basename(file_path))
+                        sym_type = node.get("metadata", {}).get("symbol_type", "symbol")
+                        summary = f"{sym_type.capitalize()} '{name}' in {file_path}"
+                    entry = AugmentationEntry(
+                        node_id=nid,
+                        summary=summary,
+                        role=role,
+                        confidence=_parse_confidence(parsed.get("confidence"), 0.7),
+                        augmented_at=datetime.now(timezone.utc).isoformat(),
+                        model=self.llm.model,
+                        file_hash=file_hashes.get(file_path),
+                    )
+                    augmented[nid] = entry
+                    result.augmented += 1
+                else:
+                    entry = self._synthetic_entry(node, file_hashes, reason="batch_parse_failure")
+                    augmented[nid] = entry
+                    result.synthetic += 1
+                done += 1
 
-                if progress_callback:
-                    progress_callback("augment_symbols", done, total_work)
+            if progress_callback:
+                progress_callback("augment_symbols", done, total_work)
 
-                # Checkpoint after each batch completes
-                if done % checkpoint_interval < len(items):
-                    self._write_augmentations(augmented)
+            # Checkpoint after each batch completes
+            if done % checkpoint_interval < len(items):
+                self._write_augmentations(augmented)
 
-                logger.info(
-                    "Batched symbol augmentation: %d/%d done (batch of %d -> %d parsed)",
-                    done, total_work, len(items), len(reordered),
-                )
+            logger.info(
+                "Batched symbol augmentation: %d/%d done (batch of %d -> %d parsed)",
+                done, total_work, len(items), len(reordered),
+            )
 
         return done
 
@@ -1350,45 +1350,44 @@ class TraceAugmenter:
 
         for items, results_list in _iter_code_batch_results():
 
-                for idx, item in enumerate(items):
-                    node = item["_node"]
-                    nid = item["_node_id"]
-                    fp = item["file_path"]
-                    parsed = results_list[idx] if idx < len(results_list) else None
+            for idx, item in enumerate(items):
+                node = item["_node"]
+                nid = item["_node_id"]
+                fp = item["file_path"]
+                parsed = results_list[idx] if idx < len(results_list) else None
 
-                    if parsed:
-                        entry = AugmentationEntry(
-                            node_id=nid,
-                            summary=str(parsed.get("summary", ""))[:500],
-                            role=parsed.get("role", self._infer_role_from_path(fp)),
-                            confidence=_parse_confidence(parsed.get("confidence"), 0.7),
-                            augmented_at=datetime.now(timezone.utc).isoformat(),
-                            model=self.llm.model,
-                            file_hash=file_hashes.get(fp),
-                            related_files=parsed.get("related_files", [])[:5],
-                        )
-                        augmented[nid] = entry
-                        result.augmented += 1
-                    else:
-                        entry = self._synthetic_entry(node, file_hashes, reason="batch_parse_failure")
-                        augmented[nid] = entry
-                        result.synthetic += 1
-                    done += 1
+                if parsed:
+                    entry = AugmentationEntry(
+                        node_id=nid,
+                        summary=str(parsed.get("summary", ""))[:500],
+                        role=parsed.get("role", self._infer_role_from_path(fp)),
+                        confidence=_parse_confidence(parsed.get("confidence"), 0.7),
+                        augmented_at=datetime.now(timezone.utc).isoformat(),
+                        model=self.llm.model,
+                        file_hash=file_hashes.get(fp),
+                        related_files=parsed.get("related_files", [])[:5],
+                    )
+                    augmented[nid] = entry
+                    result.augmented += 1
+                else:
+                    entry = self._synthetic_entry(node, file_hashes, reason="batch_parse_failure")
+                    augmented[nid] = entry
+                    result.synthetic += 1
+                done += 1
 
-                if progress_callback:
-                    progress_callback("augment_files", done, total_work)
+            if progress_callback:
+                progress_callback("augment_files", done, total_work)
 
-                logger.info(
-                    "Batched file augmentation: %d/%d done (batch of %d → %d parsed)",
-                    done, total_work, len(items), len(results_list),
-                )
+            logger.info(
+                "Batched file augmentation: %d/%d done (batch of %d → %d parsed)",
+                done, total_work, len(items), len(results_list),
+            )
 
-                # Cooperative cancel check between batches
-                if cancel_token and cancel_token.is_cancelled:
-                    logger.info("File batching paused/cancelled at %d/%d — flushing", done, total_work)
-                    self._write_augmentations(augmented)
-                    pool.shutdown(wait=False, cancel_futures=True)
-                    cancel_token.raise_if_cancelled()
+            # Cooperative cancel check between batches
+            if cancel_token and cancel_token.is_cancelled:
+                logger.info("File batching paused/cancelled at %d/%d — flushing", done, total_work)
+                self._write_augmentations(augmented)
+                cancel_token.raise_if_cancelled()
 
         # Process doc files in batches (smaller batch size, concurrent dispatch)
         doc_batch_size = max(1, batch_size // 5)  # Docs are bigger
@@ -1466,42 +1465,41 @@ class TraceAugmenter:
 
         for items, results_list in _iter_doc_batch_results():
 
-                for idx, item in enumerate(items):
-                    node = item["_node"]
-                    nid = item["_node_id"]
-                    fp = item["file_path"]
-                    parsed = results_list[idx] if idx < len(results_list) else None
+            for idx, item in enumerate(items):
+                node = item["_node"]
+                nid = item["_node_id"]
+                fp = item["file_path"]
+                parsed = results_list[idx] if idx < len(results_list) else None
 
-                    if parsed:
-                        entry = AugmentationEntry(
-                            node_id=nid,
-                            summary=str(parsed.get("summary", ""))[:500],
-                            role="documentation",
-                            confidence=_parse_confidence(parsed.get("confidence"), 0.7),
-                            augmented_at=datetime.now(timezone.utc).isoformat(),
-                            model=self.llm.model,
-                            file_hash=file_hashes.get(fp),
-                            related_files=parsed.get("related_files", [])[:5],
-                            doc_type=parsed.get("doc_type"),
-                            doc_status=parsed.get("doc_status"),
-                        )
-                        augmented[nid] = entry
-                        result.augmented += 1
-                    else:
-                        entry = self._synthetic_entry(node, file_hashes, reason="batch_parse_failure")
-                        augmented[nid] = entry
-                        result.synthetic += 1
-                    done += 1
+                if parsed:
+                    entry = AugmentationEntry(
+                        node_id=nid,
+                        summary=str(parsed.get("summary", ""))[:500],
+                        role="documentation",
+                        confidence=_parse_confidence(parsed.get("confidence"), 0.7),
+                        augmented_at=datetime.now(timezone.utc).isoformat(),
+                        model=self.llm.model,
+                        file_hash=file_hashes.get(fp),
+                        related_files=parsed.get("related_files", [])[:5],
+                        doc_type=parsed.get("doc_type"),
+                        doc_status=parsed.get("doc_status"),
+                    )
+                    augmented[nid] = entry
+                    result.augmented += 1
+                else:
+                    entry = self._synthetic_entry(node, file_hashes, reason="batch_parse_failure")
+                    augmented[nid] = entry
+                    result.synthetic += 1
+                done += 1
 
-                if progress_callback:
-                    progress_callback("augment_files", done, total_work)
+            if progress_callback:
+                progress_callback("augment_files", done, total_work)
 
-                # Cooperative cancel check between doc batches
-                if cancel_token and cancel_token.is_cancelled:
-                    logger.info("Doc batching paused/cancelled at %d/%d — flushing", done, total_work)
-                    self._write_augmentations(augmented)
-                    pool.shutdown(wait=False, cancel_futures=True)
-                    cancel_token.raise_if_cancelled()
+            # Cooperative cancel check between doc batches
+            if cancel_token and cancel_token.is_cancelled:
+                logger.info("Doc batching paused/cancelled at %d/%d — flushing", done, total_work)
+                self._write_augmentations(augmented)
+                cancel_token.raise_if_cancelled()
 
         # Phase 53: Process unstructured narrative files (simpler prompt, no batching)
         if narrative_files:
