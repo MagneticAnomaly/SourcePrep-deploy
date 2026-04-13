@@ -303,3 +303,90 @@ class TestSwissCheeseRecovery:
                 result = RecoveryManager.selfheal_group("test", stages)
                 assert result["resurrected"] == 0
                 assert result["still_missing"] == 0
+
+
+class TestSharedOutputSafety:
+    """Verify selfheal handles shared output files correctly."""
+
+    @pytest.mark.usefixtures("_patch_resolve")
+    def test_deepening_orphan_not_claimed_from_enrichment_output(
+        self, idx_dir: Path,
+    ) -> None:
+        """DEEPENING shares trace_epistemic.jsonl with ENRICHMENT.
+
+        If ENRICHMENT completed (output exists) but DEEPENING never ran,
+        selfheal must NOT claim DEEPENING is complete based on the orphan
+        output — that file belongs to ENRICHMENT, not DEEPENING.
+        """
+        # ENRICHMENT completed: manifest + output
+        _write_manifest(idx_dir, StageId.ENRICHMENT)
+        _write_output(idx_dir, StageId.ENRICHMENT, size=4096)
+
+        # DEEPENING has no manifest (never ran)
+        # trace_epistemic.jsonl exists on disk (from ENRICHMENT) but should NOT
+        # be claimed as DEEPENING's orphan output.
+        result = RecoveryManager.selfheal_group("test", [StageId.DEEPENING])
+
+        # DEEPENING should be still_missing, NOT resurrected via orphan detection
+        assert result["resurrected"] == 0
+        assert result["still_missing"] == 1
+
+    @pytest.mark.usefixtures("_patch_resolve")
+    def test_deep_knowledge_orphan_not_claimed(self, idx_dir: Path) -> None:
+        """DEEP_KNOWLEDGE shares output with KNOWLEDGE — same protection."""
+        _write_manifest(idx_dir, StageId.KNOWLEDGE)
+
+        result = RecoveryManager.selfheal_group("test", [StageId.DEEP_KNOWLEDGE])
+
+        assert result["resurrected"] == 0
+        assert result["still_missing"] == 1
+
+
+class TestOrphanOutputDetection:
+    """Verify orphan output detection (output exists, manifest missing)."""
+
+    @pytest.mark.usefixtures("_patch_resolve")
+    def test_orphan_output_gets_stub_manifest(self, idx_dir: Path) -> None:
+        """Output file exists but no manifest — selfheal writes a stub."""
+        # Write output file directly (no manifest)
+        _write_output(idx_dir, StageId.CATALOGUE, size=4096)
+
+        result = RecoveryManager.selfheal_group("test", [StageId.CATALOGUE])
+
+        assert result["resurrected"] == 1
+        assert result["still_missing"] == 0
+
+        # Verify stub manifest was written
+        store = ManifestStore(idx_dir)
+        assert store.provenance_exists(StageId.CATALOGUE)
+        data = store.read_provenance(StageId.CATALOGUE)
+        assert data["restored"] is True
+        assert data["source"] == "selfheal"
+        assert data["backup_type"] == "orphan_output"
+
+
+class TestManifestOnlyResurrection:
+    """Verify stages with no output file get selfheal stubs (not raw copies)."""
+
+    @pytest.mark.usefixtures("_patch_resolve")
+    def test_manifest_only_stage_gets_stub_not_raw_copy(
+        self, idx_dir: Path, golden_dir: Path,
+    ) -> None:
+        """For stages like KNOWLEDGE (output=None), backup manifest should
+        produce a selfheal stub, not a raw copy of the backup manifest."""
+        # Golden has a manifest for KNOWLEDGE with original data
+        original_data = {"stage_id": "knowledge", "model": "ollama/nomic", "completed": True}
+        _write_manifest(golden_dir, StageId.KNOWLEDGE, data=original_data)
+
+        result = RecoveryManager.selfheal_group("test", [StageId.KNOWLEDGE])
+
+        assert result["resurrected"] == 1
+
+        # The manifest on disk should be a selfheal stub, NOT the original data
+        store = ManifestStore(idx_dir)
+        data = store.read_provenance(StageId.KNOWLEDGE)
+        assert data["restored"] is True
+        assert data["source"] == "selfheal"
+        assert data["backup_type"] == "golden"
+        # Original fields should NOT be present
+        assert "model" not in data

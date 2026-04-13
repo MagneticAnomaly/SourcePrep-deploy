@@ -21,6 +21,7 @@ from .manifest_store import ManifestStore
 from .stages import (
     DEEP_ENRICHMENT_STAGES,
     FAST_SYNC_STAGES,
+    FINALIZE_STAGES,
     STAGE_MANIFEST_FILE,
     STAGE_OUTPUT_FILE,
     StageId,
@@ -395,6 +396,23 @@ class RecoveryManager:
         except Exception:
             pass
 
+        # Build ordered backup source list ONCE (not per-stage)
+        backup_sources: list[tuple[str, Path]] = []
+        golden_dir = idx_dir / ".checkpoints" / "_golden"
+        if golden_dir.is_dir():
+            backup_sources.append(("golden", golden_dir))
+        cp_root = idx_dir / ".checkpoints"
+        if cp_root.is_dir():
+            for cp_dir in sorted(cp_root.iterdir(), reverse=True):
+                if cp_dir.is_dir() and not cp_dir.name.startswith("_"):
+                    backup_sources.append(("run_checkpoint", cp_dir))
+        if branch_snapshot_dir is not None:
+            backup_sources.append(("branch_snapshot", branch_snapshot_dir))
+
+        # Shared-output stages: orphan detection must be skipped because
+        # the output file belongs to an earlier stage, not this one.
+        _SHARED_OUTPUT_STAGES = {StageId.DEEPENING, StageId.DEEP_KNOWLEDGE}
+
         for stage in stages:
             stage_detail: dict[str, Any] = {"stage": stage.value}
 
@@ -408,8 +426,8 @@ class RecoveryManager:
             output_file = STAGE_OUTPUT_FILE.get(stage)
             manifest_file = STAGE_MANIFEST_FILE.get(stage)
 
-            # 2. Orphan output: file exists on disk but no manifest
-            if output_file:
+            # 2. Orphan output: file exists on disk but no manifest.
+            if output_file and stage not in _SHARED_OUTPUT_STAGES:
                 orphan_path = idx_dir / output_file
                 if orphan_path.is_file() and orphan_path.stat().st_size > 1024:
                     _write_selfheal_stub(store, stage, "orphan_output")
@@ -427,28 +445,6 @@ class RecoveryManager:
 
             # 3. Try backup sources in priority order
             found = False
-
-            # Build ordered list of (source_label, source_dir) to check
-            backup_sources: list[tuple[str, Path]] = []
-
-            # Golden checkpoint
-            golden_dir = idx_dir / ".checkpoints" / "_golden"
-            if golden_dir.is_dir():
-                backup_sources.append(("golden", golden_dir))
-
-            # Run checkpoints (sorted reverse = most recent first)
-            cp_root = idx_dir / ".checkpoints"
-            if cp_root.is_dir():
-                for cp_dir in sorted(cp_root.iterdir(), reverse=True):
-                    if not cp_dir.is_dir():
-                        continue
-                    if cp_dir.name.startswith("_"):
-                        continue
-                    backup_sources.append(("run_checkpoint", cp_dir))
-
-            # Branch snapshot
-            if branch_snapshot_dir is not None:
-                backup_sources.append(("branch_snapshot", branch_snapshot_dir))
 
             for source_label, source_dir in backup_sources:
                 if output_file is not None:
@@ -470,11 +466,13 @@ class RecoveryManager:
                         break
                 else:
                     # Stage with no output file (validation, knowledge, etc.):
-                    # look for the manifest file itself in the backup
+                    # look for the manifest file itself in the backup.
+                    # Write a selfheal stub (not a raw copy) so the manifest
+                    # is consistently tagged as restored.
                     if manifest_file:
                         src_manifest = source_dir / manifest_file
                         if src_manifest.is_file() and src_manifest.stat().st_size > 10:
-                            shutil.copy2(str(src_manifest), str(idx_dir / manifest_file))
+                            _write_selfheal_stub(store, stage, source_label)
                             resurrected += 1
                             found = True
                             stage_detail["status"] = "resurrected"
@@ -534,12 +532,7 @@ class RecoveryManager:
             logger.debug("Cannot list projects for startup selfheal", exc_info=True)
             return results
 
-        all_groups = [FAST_SYNC_STAGES, DEEP_ENRICHMENT_STAGES]
-        try:
-            from .stages import FINALIZE_STAGES
-            all_groups.append(FINALIZE_STAGES)
-        except ImportError:
-            pass
+        all_groups = [FAST_SYNC_STAGES, DEEP_ENRICHMENT_STAGES, FINALIZE_STAGES]
 
         for project in projects:
             pid = project.id
