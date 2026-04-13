@@ -638,9 +638,13 @@ async def pipeline_status(project_id: str) -> Dict[str, Any]:
         # will retry.  This prevents a single slow disk read from wedging
         # the entire status endpoint.
         try:
+            # F-70: Reduced from 10s to 2s. During active cloud model calls,
+            # the executor threads are blocked and the 10s timeout caused the
+            # dashboard to appear frozen for long periods. With 2s, stale cache
+            # is returned quickly and SSE events provide real-time updates.
             result = await asyncio.wait_for(
                 loop.run_in_executor(_status_executor, _build_status),
-                timeout=10.0,
+                timeout=2.0,
             )
         except asyncio.TimeoutError:
             with _status_cache_lock:

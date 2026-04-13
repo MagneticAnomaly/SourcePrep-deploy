@@ -59,8 +59,14 @@ class HealthResponse(BaseModel):
 # ── Health & root ────────────────────────────────────────────────
 
 @router.get("/health", response_model=HealthResponse)
-def health() -> HealthResponse:
-    """Health check endpoint."""
+async def health() -> HealthResponse:
+    """Health check endpoint.
+
+    F-70: Made async so it runs directly on the event loop without
+    needing a thread pool slot. When cloud model calls block all
+    thread pool slots, sync endpoints timeout — but the dashboard
+    polls /health to detect if the daemon is alive.
+    """
     return HealthResponse(status="ok", version=__version__)
 
 
