@@ -67,6 +67,19 @@ async def lifespan(app: FastAPI):
         if ns_logger.level > logging.INFO:
             ns_logger.setLevel(logging.INFO)
 
+    # F-70: Increase the default anyio thread pool from 40 to 100.
+    # Cloud model calls block threads for minutes. With build workers,
+    # recovery, SSE, and dashboard polling all sharing the default pool,
+    # 40 threads is not enough — API status endpoints timeout during
+    # active LLM calls, causing "Loading project..." to stick.
+    try:
+        import anyio
+        limiter = anyio.to_thread.current_default_thread_limiter()
+        limiter.total_tokens = 100
+        logger.info("Increased anyio thread pool to %d", limiter.total_tokens)
+    except Exception:
+        logger.debug("Could not increase anyio thread pool", exc_info=True)
+
     # Initialize ProgressManager (ensure it's created)
     get_progress_manager()
 

@@ -13,6 +13,12 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Query
 
+# F-70: Dedicated thread pool for API status endpoints.
+# The default anyio pool (40 threads) gets exhausted by build workers
+# and cloud model calls. This pool is ONLY for fast status reads so
+# they never compete with long-running LLM calls.
+_api_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="api-status")
+
 from codrag.api.envelope import ApiException, ok
 from codrag.core.events import get_event_bus, get_progress_manager
 from codrag.core.project_registry import project_index_dir
@@ -35,20 +41,17 @@ async def trace_status_project(project_id: str) -> Dict[str, Any]:
     import asyncio
     from codrag.server import _require_project, _project_trace_status
     proj = _require_project(project_id)
-    # F-70: Use asyncio.wait_for with timeout instead of blocking on the
-    # default thread pool. When cloud model calls occupy all thread pool
-    # slots, this endpoint would hang forever, causing "Loading project..."
-    # to stick in the dashboard.
+    # F-70: Use dedicated _api_executor instead of the default anyio pool.
+    # The default pool gets exhausted by build workers and cloud model calls,
+    # causing "Loading project..." to stick in the dashboard.
     loop = asyncio.get_running_loop()
     try:
         result = await asyncio.wait_for(
-            loop.run_in_executor(None, _project_trace_status, proj),
+            loop.run_in_executor(_api_executor, _project_trace_status, proj),
             timeout=3.0,
         )
         return ok(result)
     except asyncio.TimeoutError:
-        # Return minimal status so the dashboard doesn't get stuck.
-        # The next poll will retry.
         from codrag.services.build_manager import build_manager
         trace_idx = build_manager.get_project_trace_index(proj)
         return ok({
