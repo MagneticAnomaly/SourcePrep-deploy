@@ -695,9 +695,11 @@ class LLMClient:
             #
             # For local models, requests.post() works fine — keep it.
             _is_cloud_model = ":cloud" in self.model.lower()
+            logger.info("[F-59 curl] model=%s, is_cloud=%s, timeout=%s", self.model, _is_cloud_model, self.timeout)
             if _is_cloud_model:
                 import subprocess as _sp
-                _curl_timeout = int(self.timeout) + 30  # extra margin
+                _curl_timeout = min(int(self.timeout), 120) + 30  # cap at 150s max
+                logger.info("[F-59 curl] Starting curl subprocess (timeout=%ds)", _curl_timeout)
                 try:
                     _curl_result = _sp.run(
                         ["curl", "-s", "--max-time", str(_curl_timeout),
@@ -706,8 +708,12 @@ class LLMClient:
                          url],
                         capture_output=True, text=True, timeout=_curl_timeout + 10,
                     )
+                    logger.info("[F-59 curl] curl returned: rc=%d, stdout=%d chars, stderr=%s",
+                                _curl_result.returncode, len(_curl_result.stdout), _curl_result.stderr[:100] if _curl_result.stderr else "")
                     if _curl_result.returncode != 0:
-                        raise RuntimeError(f"curl failed: {_curl_result.stderr[:200]}")
+                        raise RuntimeError(f"curl failed (rc={_curl_result.returncode}): {_curl_result.stderr[:200]}")
+                    if not _curl_result.stdout.strip():
+                        raise RuntimeError("curl returned empty response")
                     # Create a mock response object with .text and .status_code
                     class _CurlResponse:
                         status_code = 200
@@ -716,9 +722,13 @@ class LLMClient:
                         def close(self): pass
                     resp = _CurlResponse()
                 except _sp.TimeoutExpired:
+                    logger.warning("[F-59 curl] curl TIMEOUT after %ds", _curl_timeout)
                     self._record_throughput(is_429_or_timeout=True)
                     raise TimeoutError(f"curl timeout after {_curl_timeout}s for {self.model}")
+                except RuntimeError:
+                    raise
                 except Exception as e:
+                    logger.warning("[F-59 curl] curl EXCEPTION: %s", e)
                     raise RuntimeError(f"curl call failed for {self.model}: {e}")
             else:
                 _resp = None
@@ -779,11 +789,18 @@ class LLMClient:
                     self._record_telemetry(prompt_eval_count, eval_count, tokens)
                     break
             resp.close()
-            
+            logger.info("[F-59 curl] Parsing complete: %d text parts, %d tokens, aborted=%s", len(text_parts), tokens, aborted)
+
             t1 = time.monotonic()
             wall_time_ms = (t1 - t0) * 1000.0
             queue_time_ms = max(0.0, wall_time_ms - total_exec_ms)
-            self._record_throughput(queue_time_ms=queue_time_ms)
+            # F-74: _record_throughput acquires pipeline_scheduler._lock which
+            # can deadlock against dashboard polling threads holding the same lock.
+            # Make it non-blocking: skip if lock can't be acquired immediately.
+            try:
+                self._record_throughput(queue_time_ms=queue_time_ms)
+            except Exception:
+                pass  # Non-critical telemetry — never block the pipeline
             
             text = "".join(text_parts)
             thinking = "".join(thinking_parts)
@@ -817,6 +834,7 @@ class LLMClient:
                 text, _warnings = validate_llm_output(text)
             except Exception:
                 pass
+            logger.info("[F-59 curl] generate() returning: %d chars", len(text))
             return text, tokens
 
         elif effective_provider in ("openai", "openai-compatible"):

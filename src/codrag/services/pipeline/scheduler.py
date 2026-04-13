@@ -394,15 +394,26 @@ class PipelineScheduler:
                 pass
         prefix = "cloud:" if is_cloud else "local:"
         
+        # F-74: Use non-blocking lock acquisition. This method is called from
+        # the build thread after every LLM response. If the dashboard's polling
+        # threads hold self._lock (via status() or available_batch_workers()),
+        # a blocking acquire here deadlocks the entire pipeline — the build
+        # thread waits for the lock, the polling thread waits for the build
+        # thread to release the BuildOrchestrator, creating a circular wait.
         changed_nodes: List[str] = []
-        with self._lock:
-            # Report to all matching slots
+        acquired = self._lock.acquire(blocking=False)
+        if not acquired:
+            logger.debug("record_throughput: skipped (lock busy)")
+            return
+        try:
             for nid, slot in self._slots.items():
                 if nid.startswith(prefix):
                     old_limit = slot.current_limit
                     self._record_throughput_for_slot(slot, queue_time_ms, rate_limit_remaining, is_429_or_timeout)
                     if slot.current_limit != old_limit:
                         changed_nodes.append(nid)
+        finally:
+            self._lock.release()
         # Phase 91: Broadcast capacity changes
         for nid in changed_nodes:
             self._broadcast_capacity_change(nid, "aimd_adjust")
