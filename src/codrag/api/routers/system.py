@@ -64,6 +64,54 @@ def health() -> HealthResponse:
     return HealthResponse(status="ok", version=__version__)
 
 
+@router.get("/system/threads")
+def thread_dump() -> dict:
+    """Dump all Python threads with their stack traces.
+
+    Diagnostic endpoint for debugging thread accumulation and GIL
+    contention.  Returns thread count, per-thread stacks, and a
+    summary of thread name prefixes.
+    """
+    import sys
+    import threading
+    import traceback
+
+    threads = threading.enumerate()
+    stacks = sys._current_frames()
+
+    thread_list = []
+    name_counts: dict = {}
+    for t in threads:
+        # Count by name prefix (e.g. "llm-pool_0" → "llm-pool")
+        prefix = t.name.rsplit("_", 1)[0] if "_" in t.name else t.name
+        # Also strip trailing digits for "build-xxx-trace" → "build"
+        if prefix.startswith("build-"):
+            prefix = "build-*"
+        name_counts[prefix] = name_counts.get(prefix, 0) + 1
+
+        frame = stacks.get(t.ident)
+        stack_lines = []
+        if frame:
+            stack_lines = traceback.format_stack(frame)
+            # Truncate to last 8 frames for readability
+            if len(stack_lines) > 8:
+                stack_lines = ["  ... (truncated)\n"] + stack_lines[-8:]
+
+        thread_list.append({
+            "name": t.name,
+            "ident": t.ident,
+            "daemon": t.daemon,
+            "alive": t.is_alive(),
+            "stack": "".join(stack_lines).rstrip(),
+        })
+
+    return {
+        "thread_count": len(threads),
+        "summary": dict(sorted(name_counts.items(), key=lambda x: -x[1])),
+        "threads": thread_list,
+    }
+
+
 @router.get("/")
 def root() -> dict:
     """Root endpoint with API info."""
