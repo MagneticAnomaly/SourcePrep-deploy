@@ -453,11 +453,33 @@ def mode_switch(req: ModeSwitchRequest) -> Dict[str, Any]:
 # ═════════════════════════════════════════════════════════════════
 
 @router.get("/llm/slots/status")
-def get_llm_slots_status() -> Dict[str, Any]:
+async def get_llm_slots_status() -> Dict[str, Any]:
     """Check connectivity for all configured model slots (embedding, small, large, code).
-    
+
+    F-70: Made async with 3s timeout. The sync version made HTTP requests
+    to check each slot's connectivity, which blocked during active cloud
+    model calls — causing the AI Gateway to show empty in the dashboard.
+
     Returns per-slot status with endpoint reachability and model availability.
     """
+    import asyncio
+
+    def _build_slots_status():
+        return _build_llm_slots_sync()
+
+    try:
+        loop = asyncio.get_running_loop()
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, _build_slots_status),
+            timeout=3.0,
+        )
+    except (asyncio.TimeoutError, Exception):
+        # Return cached or minimal status so AI Gateway isn't empty
+        return ok({"slots": [], "timeout": True})
+
+
+def _build_llm_slots_sync() -> Dict[str, Any]:
+    """Synchronous slots status builder — extracted for timeout wrapper."""
     from codrag.server import _load_ui_config
     ui_cfg = _load_ui_config()
     llm_cfg = ui_cfg.get("llm_config") or {}
