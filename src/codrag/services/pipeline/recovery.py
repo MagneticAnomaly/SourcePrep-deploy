@@ -10,6 +10,7 @@ PipelineGroupStateMachine for state transitions.
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import time
 from collections.abc import Callable
@@ -30,6 +31,16 @@ from .state_machine import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _write_selfheal_stub(store: ManifestStore, stage: StageId, source: str) -> None:
+    """Write a selfheal stub manifest for a resurrected stage."""
+    store.write_provenance(stage, {
+        "restored": True,
+        "source": "selfheal",
+        "backup_type": source,
+        "restored_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    })
 
 
 def _resolve_idx_dir(project_id: str) -> Path | None:
@@ -332,6 +343,178 @@ class RecoveryManager:
                 exc_info=True,
             )
         return False
+
+    # ── Selfheal group scan ───────────────────────────────────
+
+    @staticmethod
+    def selfheal_group(
+        project_id: str,
+        stages: list[StageId],
+        force_from_start: bool = False,
+        pfl: Any = None,
+    ) -> dict[str, Any]:
+        """Scan pipeline stages for missing manifests and resurrect from backups.
+
+        Tries backup sources in priority order:
+          1. Golden checkpoint
+          2. Run checkpoints (most recent first)
+          3. Branch snapshot
+
+        Returns a summary dict with resurrected/already_complete/still_missing counts.
+        """
+        # Dev flag: disable selfheal entirely
+        if os.environ.get("CODRAG_SELFHEAL", "1") == "0":
+            return {"disabled": True, "resurrected": 0}
+
+        # Force rebuild: skip selfheal
+        if force_from_start:
+            return {"skipped_force_rebuild": True, "resurrected": 0}
+
+        idx_dir = _resolve_idx_dir(project_id)
+        if idx_dir is None:
+            return {"resurrected": 0, "already_complete": 0, "still_missing": len(stages), "checked": len(stages), "details": []}
+
+        store = ManifestStore(idx_dir)
+
+        resurrected = 0
+        already_complete = 0
+        still_missing = 0
+        details: list[dict[str, Any]] = []
+
+        # Resolve branch snapshot directory (graceful failure)
+        branch_snapshot_dir: Path | None = None
+        try:
+            from codrag.services.branch_backup_manager import read_branch_state, SNAPSHOTS_DIR
+            state = read_branch_state(idx_dir)
+            branch = state.get("branch")
+            if branch:
+                from codrag.services.branch_backup_manager import _sanitize_branch_name
+                snap_dir = idx_dir / SNAPSHOTS_DIR / _sanitize_branch_name(branch)
+                if snap_dir.is_dir():
+                    branch_snapshot_dir = snap_dir
+        except Exception:
+            pass
+
+        for stage in stages:
+            stage_detail: dict[str, Any] = {"stage": stage.value}
+
+            # 1. Already has manifest -> skip
+            if store.provenance_exists(stage):
+                already_complete += 1
+                stage_detail["status"] = "already_complete"
+                details.append(stage_detail)
+                continue
+
+            output_file = STAGE_OUTPUT_FILE.get(stage)
+            manifest_file = STAGE_MANIFEST_FILE.get(stage)
+
+            # 2. Orphan output: file exists on disk but no manifest
+            if output_file:
+                orphan_path = idx_dir / output_file
+                if orphan_path.is_file() and orphan_path.stat().st_size > 1024:
+                    _write_selfheal_stub(store, stage, "orphan_output")
+                    resurrected += 1
+                    stage_detail["status"] = "resurrected"
+                    stage_detail["source"] = "orphan_output"
+                    details.append(stage_detail)
+                    if pfl:
+                        pfl.selfheal(
+                            "resurrect",
+                            f"Stage {stage.value}: orphan output found, wrote stub manifest",
+                            {"stage": stage.value, "source": "orphan_output"},
+                        )
+                    continue
+
+            # 3. Try backup sources in priority order
+            found = False
+
+            # Build ordered list of (source_label, source_dir) to check
+            backup_sources: list[tuple[str, Path]] = []
+
+            # Golden checkpoint
+            golden_dir = idx_dir / ".checkpoints" / "_golden"
+            if golden_dir.is_dir():
+                backup_sources.append(("golden", golden_dir))
+
+            # Run checkpoints (sorted reverse = most recent first)
+            cp_root = idx_dir / ".checkpoints"
+            if cp_root.is_dir():
+                for cp_dir in sorted(cp_root.iterdir(), reverse=True):
+                    if not cp_dir.is_dir():
+                        continue
+                    if cp_dir.name.startswith("_"):
+                        continue
+                    backup_sources.append(("run_checkpoint", cp_dir))
+
+            # Branch snapshot
+            if branch_snapshot_dir is not None:
+                backup_sources.append(("branch_snapshot", branch_snapshot_dir))
+
+            for source_label, source_dir in backup_sources:
+                if output_file is not None:
+                    # Stage with output file: check for the output file in backup
+                    src_path = source_dir / output_file
+                    if src_path.is_file() and src_path.stat().st_size > 1024:
+                        shutil.copy2(str(src_path), str(idx_dir / output_file))
+                        _write_selfheal_stub(store, stage, source_label)
+                        resurrected += 1
+                        found = True
+                        stage_detail["status"] = "resurrected"
+                        stage_detail["source"] = source_label
+                        if pfl:
+                            pfl.selfheal(
+                                "resurrect",
+                                f"Stage {stage.value}: restored from {source_label}",
+                                {"stage": stage.value, "source": source_label, "backup_dir": str(source_dir)},
+                            )
+                        break
+                else:
+                    # Stage with no output file (validation, knowledge, etc.):
+                    # look for the manifest file itself in the backup
+                    if manifest_file:
+                        src_manifest = source_dir / manifest_file
+                        if src_manifest.is_file() and src_manifest.stat().st_size > 10:
+                            shutil.copy2(str(src_manifest), str(idx_dir / manifest_file))
+                            resurrected += 1
+                            found = True
+                            stage_detail["status"] = "resurrected"
+                            stage_detail["source"] = source_label
+                            if pfl:
+                                pfl.selfheal(
+                                    "resurrect",
+                                    f"Stage {stage.value}: manifest restored from {source_label}",
+                                    {"stage": stage.value, "source": source_label, "backup_dir": str(source_dir)},
+                                )
+                            break
+
+            if not found:
+                still_missing += 1
+                stage_detail["status"] = "still_missing"
+                if pfl:
+                    pfl.selfheal(
+                        "no_backup",
+                        f"Stage {stage.value}: no backup found",
+                        {"stage": stage.value},
+                    )
+
+            details.append(stage_detail)
+
+        result: dict[str, Any] = {
+            "resurrected": resurrected,
+            "already_complete": already_complete,
+            "still_missing": still_missing,
+            "checked": len(stages),
+            "details": details,
+        }
+
+        if pfl:
+            pfl.selfheal(
+                "selfheal_group_complete",
+                f"Selfheal scan: {resurrected} resurrected, {already_complete} complete, {still_missing} missing",
+                result,
+            )
+
+        return result
 
     # ── Crashed run management ─────────────────────────────────
 
