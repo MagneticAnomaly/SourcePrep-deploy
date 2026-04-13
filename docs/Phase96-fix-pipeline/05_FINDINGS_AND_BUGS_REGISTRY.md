@@ -80,7 +80,15 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-61 | Finalize running state not detected during hydration — switching to project mid-finalize shows static "Not seeded" instead of spinner | ✅ FIXED | `2c523e2a` |
 | F-62 | `/system/pipeline-queue` endpoint hangs indefinitely during swarm execution — lock contention between swarm worker threads and sync queue builder | ✅ FIXED | `2c523e2a` |
 
-Total: **62 findings**, **57 fixed**, **1 open** (F-15 partially closed: settings_store WAL tests now skip on DELETE-mode stores), **2 deferred**, **2 not-a-bug**. The 2 settings_store WAL tests now correctly skip on the production DELETE-mode codebase. The remaining F-15 failures (resume_strategy, mcp_server, queue_router, trace_builder_globs, team_sync_integration, etc.) are pre-existing test rot from earlier phases and are out of Phase 96 scope.
+| F-63 | PUT /projects drops `ignore_patterns` and `auto_config` — Exclude Tree selections vanish on every config save | ✅ FIXED | `f9c3f6d6` |
+| F-64 | PAUSED pipeline groups allow concurrent group starts — Knowledge Embedding + Deep Reasoning run simultaneously | ✅ FIXED | `b04314c1` |
+| F-65 | Manual/Auto toggles revert to global on project switch — `useProjectManager` dropped `auto_config` during hydration + backend auto-run read global not per-project | ✅ FIXED | `2e93ad88`, `47e989da` |
+| F-66 | Two-tone progress bar baseline lost on page refresh | 🟡 OPEN | — |
+| F-67 | Daemon restart loses incremental progress — old manifests falsely claim completion + mtime sync defeats rebuild | ✅ FIXED | `1bc783ed`, `9dc9091f` |
+| F-68 | No "interrupted incremental" concept in recovery — should show "Resume" not "Run" | 🟡 OPEN | — |
+| F-69 | Inactive projects bypass all pipeline guards — recovery hydration + auto-run + watcher all ignore active status | ✅ FIXED | `784d6831`, `467d7b5e`, `0980b492` |
+
+Total: **69 findings**, **63 fixed**, **3 open** (F-15 test rot, F-66 two-tone persistence, F-68 resume UX), **2 deferred**, **2 not-a-bug**. The 2 settings_store WAL tests now correctly skip on the production DELETE-mode codebase. The remaining F-15 failures (resume_strategy, mcp_server, queue_router, trace_builder_globs, team_sync_integration, etc.) are pre-existing test rot from earlier phases and are out of Phase 96 scope.
 
 ---
 
