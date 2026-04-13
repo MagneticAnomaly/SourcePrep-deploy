@@ -93,6 +93,11 @@ class StageManifest:
     # Errors (if any)
     errors: Optional[List[Dict[str, str]]] = None
     # [{node_id, error, detail}]
+
+    # F-66: Incremental baseline — items that existed before this run.
+    # Used by the dashboard to render 2-tone progress bars that persist
+    # across page refresh and daemon restart.
+    incremental_baseline: Optional[int] = None
     
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to dict for JSON output."""
@@ -145,7 +150,11 @@ class StageManifest:
         # Errors
         if self.errors:
             d["errors"] = self.errors
-        
+
+        # F-66: Incremental baseline
+        if self.incremental_baseline is not None and self.incremental_baseline > 0:
+            d["incremental_baseline"] = self.incremental_baseline
+
         return d
     
     @classmethod

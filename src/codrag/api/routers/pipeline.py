@@ -561,6 +561,34 @@ async def pipeline_status(project_id: str) -> Dict[str, Any]:
                 if snap_data.get("avg_confidence", 0) > 0:
                     stage_data[snap_key]["snapshot_avg_confidence"] = snap_data["avg_confidence"]
 
+        # F-66: Read incremental_baseline from manifests for completed stages.
+        # When the page refreshes, the in-memory slot progress (with baseline)
+        # is gone. The manifest persists the baseline so 2-tone bars survive.
+        from codrag.services.pipeline.stages import STAGE_MANIFEST_FILE as _SMF, StageId as _StageId
+        _stage_id_values = {s.value for s in _StageId}
+        for stage_key, stage_info in stage_data.items():
+            if not isinstance(stage_info, dict):
+                continue
+            if stage_info.get("progress_baseline", 0) > 0:
+                continue  # Already have baseline from live slot progress
+            if stage_key not in _stage_id_values:
+                continue
+            manifest_file = _SMF.get(_StageId(stage_key))
+            if not manifest_file:
+                continue
+            mpath = idx_dir / manifest_file
+            if mpath.exists():
+                try:
+                    mdata = _json.loads(mpath.read_text(encoding="utf-8"))
+                    baseline = mdata.get("incremental_baseline", 0)
+                    if baseline and baseline > 0:
+                        stage_info["progress_baseline"] = baseline
+                        sp = stage_info.get("slot_progress")
+                        if sp and isinstance(sp, dict):
+                            sp["baseline"] = baseline
+                except Exception:
+                    pass
+
         # Phase 25: include crashed runs so the UI can show recovery banner
         crashed_runs = pipeline_orchestrator.get_crashed_runs(project_id)
 

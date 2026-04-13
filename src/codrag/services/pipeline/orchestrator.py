@@ -3276,6 +3276,12 @@ class PipelineOrchestrator:
                     except Exception as e:
                         logger.warning("Failed to inject embedding model info: %s", e)
 
+            # F-66: Persist progress baseline in manifest so 2-tone bars
+            # survive page refresh and daemon restart.  The baseline is the
+            # count of items that existed before THIS incremental run started.
+            if slot and slot.progress_baseline > 0:
+                manifest.incremental_baseline = slot.progress_baseline
+
             # Quality metrics from output file
             output_file = STAGE_OUTPUT_FILE.get(stage)
             conf_field = STAGE_CONFIDENCE_FIELD.get(stage)
