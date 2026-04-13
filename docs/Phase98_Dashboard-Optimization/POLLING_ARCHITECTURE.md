@@ -121,6 +121,49 @@ def on_stage_completed(project_id, stage):
     emit_sse("pipeline_status", {project_id, ...full_stage_data...})
 ```
 
+## Panel-Aware Adaptive Polling
+
+The polling interval adapts based on what's visible AND what's happening:
+
+```
+┌─────────────────────────────────────────────────────┐
+│ Graph Enrichment Panel                               │
+│                                                      │
+│  OPEN + stage RUNNING  → 1s  (progress bars moving) │
+│  OPEN + idle           → 10s (check for new runs)   │
+│  COLLAPSED/CLOSED      → 0   (no enrichment polls)  │
+├─────────────────────────────────────────────────────┤
+│ Project-Level (sidebar status, queue)                │
+│                                                      │
+│  Selected + any running → 5s                         │
+│  Selected + idle        → 30s                        │
+│  Unselected active      → SSE-only (0 polling)      │
+│  Inactive               → 0                          │
+├─────────────────────────────────────────────────────┤
+│ Heavy Panels (Audit, Concepts, Atlas, etc.)          │
+│                                                      │
+│  Panel VISIBLE → hydrate once, then SSE-driven      │
+│  Panel HIDDEN  → 0                                   │
+├─────────────────────────────────────────────────────┤
+│ Tab hidden (document.hidden)                         │
+│                                                      │
+│  ALL polling → 0                                     │
+│  SSE stays connected (reconnect on visibility)      │
+└─────────────────────────────────────────────────────┘
+```
+
+Implementation: each hook receives a `panelVisible` boolean from the layout system.
+The `useEnrichment` hook adjusts its interval:
+
+```typescript
+const pollInterval = useMemo(() => {
+  if (document.hidden) return null;           // tab hidden → no polling
+  if (!enrichmentPanelOpen) return null;       // panel closed → no polling  
+  if (anyStageRunning) return 1000;            // running → 1s
+  return 10000;                                // idle → 10s
+}, [enrichmentPanelOpen, anyStageRunning]);
+```
+
 ## document.hidden Protocol
 
 ALL pollers must respect `document.hidden`:
