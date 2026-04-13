@@ -481,21 +481,12 @@ class PipelineOrchestrator:
             })
 
         if resume >= len(FAST_SYNC_STAGES):
-            # [Goal 5] Priority Inversion Check: If deep enrichment is INCOMPLETE,
-            # DO NOT trigger new/stale queue processing. We must finish the pipeline first.
-            from codrag.services.pipeline.stages import DEEP_ENRICHMENT_STAGES
-            deep_resume = self._detect_resume_point(project_id, DEEP_ENRICHMENT_STAGES, skip_mtime_cascade=True)
-            if deep_resume < len(DEEP_ENRICHMENT_STAGES):
-                logger.info(
-                    "Pipeline incomplete (deep resume=%d/%d) for %s — skipping new/stale queue so it can finish",
-                    deep_resume, len(DEEP_ENRICHMENT_STAGES), project_id,
-                )
-                if pfl:
-                    pfl.decision("mode_selection", "skip_queue_pipeline_incomplete", {
-                        "group": "fast_sync",
-                        "reason": f"Deep enrichment is incomplete ({deep_resume}/{len(DEEP_ENRICHMENT_STAGES)}) — prioritizing pipeline completion",
-                    })
-                return False
+            # Phase 98: Priority inversion guard REMOVED. Selfheal + chain-forward
+            # now handle incomplete deep enrichment naturally. The old guard
+            # (Goal 5) blocked incremental runs when deep enrichment was
+            # incomplete — but with selfheal resurrecting backup data and
+            # chain-forward resuming from the first missing stage, blocking
+            # is no longer needed.
 
             # Phase 53: All manifests exist — but are there stale files?
             try:
