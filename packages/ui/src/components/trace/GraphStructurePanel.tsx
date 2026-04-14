@@ -12,14 +12,10 @@ import {
   Loader2,
   ChevronDown,
   ChevronRight,
-  FolderTree as FolderTreeIcon,
-  Maximize2,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../primitives/Button';
 import { ProgressIndicator } from '../status/ProgressIndicator';
-import { FolderTree } from '../project/FolderTree';
-import type { TreeNode } from '../project/FolderTree';
 import type { TraceCoverageFile, TraceCoverageSummary, TaskProgress, EpistemicStatus, AugmentationStatus, ModuleStatus, KnowledgeEmbeddingStatus } from '../../types';
 
 export interface GraphStructurePanelProps {
@@ -61,16 +57,6 @@ export interface GraphStructurePanelProps {
   onRefresh: () => void;
   /** Whether the trace graph has been initialized */
   traceExists?: boolean;
-  /** File tree data for exclude tree tab */
-  fileTree?: TreeNode[];
-  /** Paths currently excluded from trace */
-  excludedPaths?: Set<string>;
-  /** Toggle a path's exclusion (converts to trace ignore pattern) */
-  onToggleExclude?: (paths: string[], action: 'add' | 'remove') => void;
-  /** Lazy-load children for depth-truncated folders */
-  onLoadChildren?: (path: string) => Promise<TreeNode[]>;
-  /** Called when user wants to expand the exclude tree to full-screen details view */
-  onExpandExcludeTree?: () => void;
   className?: string;
 }
 
@@ -412,14 +398,9 @@ export function GraphStructurePanel({
   onRemoveExcludePattern,
   onRefresh,
   traceExists = false,
-  fileTree,
-  excludedPaths,
-  onToggleExclude,
-  onLoadChildren,
-  onExpandExcludeTree,
   className,
 }: GraphStructurePanelProps) {
-  const [activeTab, setActiveTab] = useState<'queue' | 'patterns' | 'exclude-tree'>('queue');
+  const [activeTab, setActiveTab] = useState<'queue' | 'patterns'>('queue');
   const [excludeInput, setExcludeInput] = useState('');
   const [compact, setCompact] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -526,24 +507,6 @@ export function GraphStructurePanel({
             {excludedFiles.length > 0 && (
               <span className="text-[10px] bg-text-subtle/15 text-text-subtle px-1.5 py-0.5 rounded-full font-mono">
                 {excludedFiles.length}
-              </span>
-            )}
-          </span>
-        </button>
-        <button
-          className={cn(
-            'flex-1 text-xs font-medium py-2 px-3 transition-colors border-b-2',
-            activeTab === 'exclude-tree'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-text-muted hover:text-text'
-          )}
-          onClick={() => setActiveTab('exclude-tree')}
-        >
-          <span className="flex items-center justify-center gap-1.5">
-            Exclude Tree
-            {excludedPaths && excludedPaths.size > 0 && (
-              <span className="text-[10px] bg-primary/15 text-primary px-1.5 py-0.5 rounded-full font-mono">
-                {excludedPaths.size}
               </span>
             )}
           </span>
@@ -698,42 +661,6 @@ export function GraphStructurePanel({
           </div>
         )}
 
-        {activeTab === 'exclude-tree' && (
-          <div className="p-2 flex flex-col h-full">
-            <div className="flex items-center justify-between px-2 mb-2">
-              <span className="text-xs text-text-muted">Select files and folders to exclude from tracing</span>
-              {onExpandExcludeTree && (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="h-6 w-6 shrink-0"
-                  onClick={onExpandExcludeTree}
-                  title="Expand to full view"
-                >
-                  <Maximize2 className="w-3.5 h-3.5" />
-                </Button>
-              )}
-            </div>
-            {fileTree && fileTree.length > 0 ? (
-              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-                <FolderTree
-                  data={fileTree}
-                  compact
-                  mode="exclude"
-                  includedPaths={excludedPaths}
-                  onToggleInclude={onToggleExclude}
-                  onLoadChildren={onLoadChildren}
-                />
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-text-muted">
-                <FolderTreeIcon className="w-8 h-8 mb-2 opacity-30" />
-                <p className="text-xs font-medium">No file tree data</p>
-                <p className="text-[10px] mt-1">Build the trace index to browse files</p>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Footer with last build time */}

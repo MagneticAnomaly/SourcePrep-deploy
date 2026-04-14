@@ -1,13 +1,11 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { FolderTree as FolderTreeIcon, EyeOff, RefreshCw, AlertCircle, Clock } from 'lucide-react';
+import { FolderTree as FolderTreeIcon, RefreshCw, AlertCircle, Clock } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { FolderTree } from './FolderTree';
 import type { TreeNode } from './FolderTree';
 import { FilePreviewPane } from './FilePreviewPane';
 import { Badge } from '@tremor/react';
 import type { ScopeStatus } from '../../types';
-
-export type FileExplorerTab = 'knowledge' | 'exclude';
 
 export interface FileExplorerDetailProps {
   treeData: TreeNode[];
@@ -26,12 +24,12 @@ export interface FileExplorerDetailProps {
   onWeightChange?: (path: string, weight: number | null) => void;
   /** Called when a depth-truncated folder is expanded — returns children to merge into the tree */
   onLoadChildren?: (path: string) => Promise<TreeNode[]>;
-  /** Paths excluded from trace (for exclude tab) */
+  /** Paths excluded from trace */
   excludedPaths?: Set<string>;
   /** Toggle a path's exclusion from trace */
   onToggleExclude?: (paths: string[], action: 'add' | 'remove') => void;
-  /** Which tab to show initially */
-  initialTab?: FileExplorerTab;
+  /** Always-ignored glob patterns (rendered as strikethrough, non-interactive) */
+  alwaysIgnoredPatterns?: string[];
   /** Initial width of the tree pane in pixels (default 384 = w-96) */
   initialTreeWidth?: number;
   className?: string;
@@ -51,11 +49,10 @@ export function FileExplorerDetail({
   onLoadChildren,
   excludedPaths,
   onToggleExclude,
-  initialTab = 'knowledge',
+  alwaysIgnoredPatterns,
   initialTreeWidth = 768,
   className,
 }: FileExplorerDetailProps) {
-  const [activeTab, setActiveTab] = useState<FileExplorerTab>(initialTab);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileLoading, setFileLoading] = useState(false);
@@ -127,7 +124,10 @@ export function FileExplorerDetail({
     document.body.style.userSelect = 'none';
   }, []);
 
-  const handleNodeClick = useCallback(
+  // Row click in 'detail' variant → preview file in the viewer pane.
+  // This replaces the old Eye hover button; clicking any file row loads its
+  // content into FilePreviewPane on the right.
+  const handlePreviewFile = useCallback(
     async (node: TreeNode, path: string) => {
       if (node.type !== 'file') return;
 
@@ -163,94 +163,52 @@ export function FileExplorerDetail({
       >
         <div className="hidden md:block h-full overflow-y-auto custom-scrollbar" style={{ width: treeWidth }}>
           <div className="p-4">
-            {/* Tabs for Knowledge Sources / Exclude from Trace */}
-            {(onToggleExclude || excludedPaths) && (
-              <div className="flex border-b border-border mb-3 -mx-2">
-                <button
-                  className={cn(
-                    'flex-1 text-xs font-medium py-2 px-3 transition-colors border-b-2 flex items-center justify-center gap-1.5',
-                    activeTab === 'knowledge'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-text-muted hover:text-text'
-                  )}
-                  onClick={() => setActiveTab('knowledge')}
-                >
-                  <FolderTreeIcon className="w-3.5 h-3.5" />
-                  Knowledge Sources
-                </button>
-                <button
-                  className={cn(
-                    'flex-1 text-xs font-medium py-2 px-3 transition-colors border-b-2 flex items-center justify-center gap-1.5',
-                    activeTab === 'exclude'
-                      ? 'border-error text-error'
-                      : 'border-transparent text-text-muted hover:text-text'
-                  )}
-                  onClick={() => setActiveTab('exclude')}
-                >
-                  <EyeOff className="w-3.5 h-3.5" />
-                  Exclude from Trace
-                  {excludedPaths && excludedPaths.size > 0 && (
-                    <span className="text-[10px] bg-error/15 text-error px-1.5 py-0.5 rounded-full font-mono">
-                      {excludedPaths.size}
-                    </span>
-                  )}
-                </button>
-              </div>
-            )}
+            <h3 className="text-sm font-semibold text-text mb-3 flex items-center gap-2">
+              <FolderTreeIcon className="w-4 h-4" />
+              Scope
+              {statusBadge}
+              {excludedPaths && excludedPaths.size > 0 && (
+                <span className="text-[10px] bg-error/15 text-error px-1.5 py-0.5 rounded-full font-mono">
+                  {excludedPaths.size} excluded
+                </span>
+              )}
+            </h3>
 
-            {!onToggleExclude && !excludedPaths && (
-              <h3 className="text-sm font-semibold text-text mb-3 flex items-center gap-2">
-                <FolderTreeIcon className="w-4 h-4" />
-                Knowledge Scope
-                {statusBadge}
-              </h3>
-            )}
-
-            {activeTab === 'knowledge' && (
-              <FolderTree
-                data={treeData}
-                compact
-                includedPaths={includedPaths}
-                onToggleInclude={onToggleInclude}
-                onNodeClick={handleNodeClick}
-                pathWeights={pathWeights}
-                onWeightChange={onWeightChange}
-                onLoadChildren={onLoadChildren}
-              />
-            )}
-
-            {activeTab === 'exclude' && (
-              <>
-                <p className="text-xs text-text-muted mb-3">Select files and folders to exclude from the structural trace.</p>
-                <FolderTree
-                  data={treeData}
-                  compact
-                  mode="exclude"
-                  includedPaths={excludedPaths}
-                  onToggleInclude={onToggleExclude}
-                  onNodeClick={handleNodeClick}
-                  onLoadChildren={onLoadChildren}
-                />
-              </>
-            )}
+            <FolderTree
+              data={treeData}
+              compact
+              variant="detail"
+              onPreviewFile={handlePreviewFile}
+              includedPaths={includedPaths}
+              onToggleInclude={onToggleInclude}
+              pathWeights={pathWeights}
+              onWeightChange={onWeightChange}
+              excludedPaths={excludedPaths}
+              onToggleExclude={onToggleExclude}
+              alwaysIgnoredPatterns={alwaysIgnoredPatterns}
+              onLoadChildren={onLoadChildren}
+            />
           </div>
         </div>
         {/* Mobile: full width, no resize */}
         <div className="md:hidden p-4">
           <h3 className="text-sm font-semibold text-text mb-3 flex items-center gap-2">
             <FolderTreeIcon className="w-4 h-4" />
-            {activeTab === 'exclude' ? 'Exclude from Trace' : 'Knowledge Scope'}
-            {activeTab === 'knowledge' && statusBadge}
+            Scope
+            {statusBadge}
           </h3>
           <FolderTree
             data={treeData}
             compact
-            mode={activeTab === 'exclude' ? 'exclude' : 'include'}
-            includedPaths={activeTab === 'exclude' ? excludedPaths : includedPaths}
-            onToggleInclude={activeTab === 'exclude' ? onToggleExclude : onToggleInclude}
-            onNodeClick={handleNodeClick}
-            pathWeights={activeTab === 'exclude' ? undefined : pathWeights}
-            onWeightChange={activeTab === 'exclude' ? undefined : onWeightChange}
+            variant="detail"
+            onPreviewFile={handlePreviewFile}
+            includedPaths={includedPaths}
+            onToggleInclude={onToggleInclude}
+            pathWeights={pathWeights}
+            onWeightChange={onWeightChange}
+            excludedPaths={excludedPaths}
+            onToggleExclude={onToggleExclude}
+            alwaysIgnoredPatterns={alwaysIgnoredPatterns}
             onLoadChildren={onLoadChildren}
           />
         </div>

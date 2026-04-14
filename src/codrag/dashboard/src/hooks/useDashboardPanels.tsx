@@ -80,6 +80,25 @@ import type { UseConceptSystemReturn } from './useConceptSystem'
 
 const PINNED_PREFIX = 'pinned:'
 
+// Mirror of src/codrag/core/repo_profile.py DEFAULT_EXCLUDE_FILE_GLOBS.
+// Files matching these patterns render in the Scope tree as "always-ignored"
+// (strikethrough, no include/exclude icons) because they're AI-assistant rule
+// files that should stay available to agents but out of the index.
+const DEFAULT_ALWAYS_IGNORED_GLOBS: string[] = [
+  '**/AGENTS.md',
+  '**/codrag_data/ui_config.json',
+  '**/CLAUDE.md',
+  '**/.cursor/rules/*.mdc',
+  '**/.cursorrules',
+  '**/.windsurfrules',
+  '**/.windsurf/rules/*.md',
+  '**/.github/copilot-instructions.md',
+  '**/GEMINI.md',
+  '**/.clinerules',
+  '**/.roorules',
+  '**/.qwencoderules',
+]
+
 // ── Sub-interfaces (grouped by domain hook) ──────────────────
 
 export interface PanelSearchProps {
@@ -360,10 +379,12 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
   // On restart/reload, we read these patterns back and extract the folder-level
   // entries (patterns that DON'T end in "/**") so the FolderTree checkboxes
   // render correctly.
-  const projectTraceConfig = p.projectConfig?.trace as Record<string, unknown> | undefined
-  const persistedIgnorePatterns = (projectTraceConfig as any)?.ignore_patterns as string[] | undefined
+  const persistedIgnorePatterns = p.projectConfig?.trace?.ignore_patterns
+  // Stable key for the effect's dependency array. Using `.length` would miss
+  // pattern swaps of the same cardinality (e.g. replace "a" with "b").
+  const ignorePatternKey = persistedIgnorePatterns?.join('|') ?? ''
   useEffect(() => {
-    if (!persistedIgnorePatterns || !Array.isArray(persistedIgnorePatterns) || persistedIgnorePatterns.length === 0) return
+    if (!persistedIgnorePatterns || persistedIgnorePatterns.length === 0) return
     setLocalExcludedPaths(prev => {
       const merged = new Set(prev)
       for (const pattern of persistedIgnorePatterns) {
@@ -380,7 +401,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
       return merged
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.selectedProject?.id, persistedIgnorePatterns?.length])
+  }, [p.selectedProject?.id, ignorePatternKey])
 
   // Sync server-side excluded paths into local state (additive merge)
   useEffect(() => {
@@ -696,8 +717,11 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onToggleInclude={p.handleToggleInclude}
         pathWeights={p.pathWeights}
         onWeightChange={p.handlePathWeightChange}
+        excludedPaths={excludedPaths}
+        onToggleExclude={handleToggleExclude}
+        alwaysIgnoredPatterns={DEFAULT_ALWAYS_IGNORED_GLOBS}
         onLoadChildren={p.handleLoadChildren}
-        title="Knowledge Sources"
+        title="Scope"
         bare
       />
     ),
@@ -892,10 +916,6 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onRemoveExcludePattern={p.handleRemoveExcludePattern}
         onRefresh={p.fetchTraceCoverage}
         traceExists={p.traceStatus.exists}
-        fileTree={p.fileTree}
-        excludedPaths={excludedPaths}
-        onToggleExclude={handleToggleExclude}
-        onLoadChildren={p.handleLoadChildren}
       />
     ),
     // graph-engine removed — consolidated into trace-pipeline (Graph Enrichment)
@@ -1261,7 +1281,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onLoadChildren={p.handleLoadChildren}
         excludedPaths={excludedPaths}
         onToggleExclude={handleToggleExclude}
-        initialTab="knowledge"
+        alwaysIgnoredPatterns={DEFAULT_ALWAYS_IGNORED_GLOBS}
       />
     ),
     'graph-structure': (
@@ -1279,7 +1299,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onLoadChildren={p.handleLoadChildren}
         excludedPaths={excludedPaths}
         onToggleExclude={handleToggleExclude}
-        initialTab="exclude"
+        alwaysIgnoredPatterns={DEFAULT_ALWAYS_IGNORED_GLOBS}
       />
     ),
     'enterprise-admin': (

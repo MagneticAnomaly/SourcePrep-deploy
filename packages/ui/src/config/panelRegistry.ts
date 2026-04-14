@@ -127,8 +127,8 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
   },
   {
     id: 'file-tree',
-    title: 'Knowledge Sources',
-    description: 'Browse the indexed file tree. Toggle inclusion, adjust path weights, and pin files for preview.',
+    title: 'Scope',
+    description: 'Manage which files CoDRAG indexes. Include files in the RAG knowledge base with optional per-path weights, or exclude files from the trace graph and knowledge entirely.',
     icon: FolderTree,
     minHeight: 6,
     defaultHeight: 10,
@@ -177,7 +177,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
   {
     id: 'graph-structure',
     title: 'Graph Scope',
-    description: 'Manage the inventory of files: Queue, Excluded, and Stale items.',
+    description: 'Pipeline file inventory: the Queue of pending/stale work and the active exclude Patterns.',
     icon: Database,
     minHeight: 6,
     defaultHeight: 10,

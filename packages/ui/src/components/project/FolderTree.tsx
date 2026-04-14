@@ -1,5 +1,17 @@
 import { useState, useCallback, useEffect } from 'react';
-import { ChevronRight, ChevronDown, Folder, FolderOpen, File, FileText, Loader2, Eye } from 'lucide-react';
+import {
+  ChevronRight,
+  ChevronDown,
+  Folder,
+  FolderOpen,
+  File,
+  FileText,
+  Loader2,
+  Square,
+  CheckSquare,
+  MinusSquare,
+  Ban,
+} from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../primitives/Button';
 
@@ -41,35 +53,116 @@ function isPathOrAncestorIncluded(path: string, includedPaths: Set<string>): boo
   return false;
 }
 
+/** Check if a path or any of its ancestor folders is in the excluded set */
+function isPathOrAncestorExcluded(path: string, excludedPaths: Set<string>): boolean {
+  if (excludedPaths.has(path)) return true;
+  const parts = path.split('/');
+  for (let i = 1; i < parts.length; i++) {
+    if (excludedPaths.has(parts.slice(0, i).join('/'))) return true;
+  }
+  return false;
+}
+
 /** Check selection state of a folder's children */
 function getFolderSelectionState(
-  node: TreeNode, 
-  basePath: string, 
+  node: TreeNode,
+  basePath: string,
   includedPaths: Set<string>
 ): 'none' | 'partial' | 'all' {
   if (!node.children || node.children.length === 0) return 'none';
-  
+
   const selectableChildren = node.children.filter(c => c.status !== 'ignored');
   if (selectableChildren.length === 0) return 'none';
-  
+
   let selectedCount = 0;
   const currentPath = basePath ? `${basePath}/${node.name}` : node.name;
-  
+
   for (const child of selectableChildren) {
     const childPath = `${currentPath}/${child.name}`;
     if (isPathOrAncestorIncluded(childPath, includedPaths)) {
       selectedCount++;
     } else if (child.type === 'folder') {
-      // Check if folder has any selected descendants
       const childState = getFolderSelectionState(child, currentPath, includedPaths);
       if (childState === 'all') selectedCount++;
       else if (childState === 'partial') return 'partial';
     }
   }
-  
+
   if (selectedCount === 0) return 'none';
   if (selectedCount === selectableChildren.length) return 'all';
   return 'partial';
+}
+
+/** Check exclude state of a folder's children */
+function getFolderExcludeState(
+  node: TreeNode,
+  basePath: string,
+  excludedPaths: Set<string>
+): 'none' | 'partial' | 'all' {
+  if (!node.children || node.children.length === 0) return 'none';
+  const currentPath = basePath ? `${basePath}/${node.name}` : node.name;
+
+  let excludedCount = 0;
+  for (const child of node.children) {
+    const childPath = `${currentPath}/${child.name}`;
+    if (isPathOrAncestorExcluded(childPath, excludedPaths)) {
+      excludedCount++;
+    } else if (child.type === 'folder') {
+      const childState = getFolderExcludeState(child, currentPath, excludedPaths);
+      if (childState === 'all') excludedCount++;
+      else if (childState === 'partial') return 'partial';
+    }
+  }
+
+  if (excludedCount === 0) return 'none';
+  if (excludedCount === node.children.length) return 'all';
+  return 'partial';
+}
+
+/** Match a path against a minimal glob pattern subset used by DEFAULT_EXCLUDE_FILE_GLOBS.
+ *  Supports: leading `**​/` (match at any depth), literal path segments, and a
+ *  trailing `*.ext` pattern on the basename. Directory segments are matched as
+ *  path components, not substrings — so pattern `**​/.cursor/rules/*.mdc` won't
+ *  falsely match `a.cursor/rules/x.mdc`. */
+function pathMatchesGlob(path: string, raw: string): boolean {
+  const pathSegs = path.split('/');
+  const fileName = pathSegs[pathSegs.length - 1] ?? '';
+
+  const stripped = raw.startsWith('**/') ? raw.slice(3) : raw;
+  const patternSegs = stripped.split('/');
+  const lastPat = patternSegs[patternSegs.length - 1];
+
+  // Basename gate: the pattern's last segment must match the path's basename
+  const basenameMatches =
+    (lastPat.startsWith('*.') && fileName.endsWith(lastPat.slice(1))) ||
+    (!lastPat.includes('*') && fileName === lastPat);
+  if (!basenameMatches) return false;
+
+  // Directory gate: the pattern's directory segments must appear contiguously
+  // somewhere in the path's directory segments (so `**​/.cursor/rules/` needs
+  // `.cursor` followed by `rules` as actual segments, not as a substring).
+  const dirPat = patternSegs.slice(0, -1);
+  if (dirPat.length === 0) return true;
+
+  const dirPath = pathSegs.slice(0, -1);
+  if (dirPath.length < dirPat.length) return false;
+
+  outer: for (let start = 0; start <= dirPath.length - dirPat.length; start++) {
+    for (let j = 0; j < dirPat.length; j++) {
+      if (dirPath[start + j] !== dirPat[j]) continue outer;
+    }
+    return true;
+  }
+  return false;
+}
+
+/** Returns true if the path matches any always-ignored glob pattern */
+function isAlwaysIgnored(path: string, patterns: string[]): boolean {
+  if (!patterns || patterns.length === 0) return false;
+  for (const pattern of patterns) {
+    if (pathMatchesGlob(path, pattern)) return true;
+  }
+  return false;
 }
 
 /** Collect descendant paths that have explicit weight overrides */
@@ -111,18 +204,24 @@ function getEffectiveWeight(
 export interface FolderTreeProps {
   data: TreeNode[];
   compact?: boolean;
-  /** Visual mode: 'include' for Knowledge Sources (default), 'exclude' for trace exclusions */
-  mode?: 'include' | 'exclude';
-  /** Paths included in the RAG index (or excluded from trace when mode='exclude') */
+  /** Paths included in the RAG index */
   includedPaths?: Set<string>;
-  /** Called when user toggles inclusion of paths (array for bulk operations) */
+  /** Called when user toggles knowledge inclusion */
   onToggleInclude?: (paths: string[], action: 'add' | 'remove') => void;
-  /** Called when user clicks a node (for navigation/preview) */
-  onNodeClick?: (node: TreeNode, path: string) => void;
   /** Per-path weight overrides (0.0–2.0, default 1.0). Folder weights propagate to children. */
   pathWeights?: Record<string, number>;
   /** Called when user changes weight. null removes the override (inherits parent weight). */
   onWeightChange?: (path: string, weight: number | null) => void;
+  /** Paths excluded from the trace graph (and knowledge) */
+  excludedPaths?: Set<string>;
+  /** Called when user toggles trace exclusion */
+  onToggleExclude?: (paths: string[], action: 'add' | 'remove') => void;
+  /** Display variant: 'panel' = row click is no-op; 'detail' = row click previews file */
+  variant?: 'panel' | 'detail';
+  /** Called when a file row is clicked in 'detail' variant */
+  onPreviewFile?: (node: TreeNode, path: string) => void;
+  /** Always-ignored glob patterns (rendered as status='ignored', non-interactive) */
+  alwaysIgnoredPatterns?: string[];
   /** Called when a depth-truncated folder is expanded — returns children to merge into the tree */
   onLoadChildren?: (path: string) => Promise<TreeNode[]>;
   className?: string;
@@ -132,12 +231,15 @@ interface TreeItemProps {
   node: TreeNode;
   depth?: number;
   path?: string;
-  mode?: 'include' | 'exclude';
+  variant?: 'panel' | 'detail';
   includedPaths?: Set<string>;
   onToggleInclude?: (paths: string[], action: 'add' | 'remove') => void;
-  onNodeClick?: (node: TreeNode, path: string) => void;
   pathWeights?: Record<string, number>;
   onWeightChange?: (path: string, weight: number | null) => void;
+  excludedPaths?: Set<string>;
+  onToggleExclude?: (paths: string[], action: 'add' | 'remove') => void;
+  onPreviewFile?: (node: TreeNode, path: string) => void;
+  alwaysIgnoredPatterns?: string[];
   expandedPaths: Set<string>;
   onToggleExpand: (path: string) => void;
   onLoadChildren?: (path: string) => Promise<TreeNode[]>;
@@ -176,7 +278,6 @@ function WeightEditor({
     const parsed = parseFloat(inputValue);
     if (isNaN(parsed)) return;
     const clamped = Math.max(0, Math.min(2, Math.round(parsed * 10) / 10));
-    // For folders: clear child overrides first if requested
     if (isFolder && overrideChildren && hasChildOverrides) {
       for (const childPath of childOverridePaths) {
         onWeightChange(childPath, null);
@@ -277,45 +378,55 @@ function WeightEditor({
   );
 }
 
-function TreeItem({ node, depth = 0, path = '', mode = 'include', includedPaths, onToggleInclude, onNodeClick, pathWeights, onWeightChange, expandedPaths, onToggleExpand, onLoadChildren, loadingPaths, onSetLoading, onMergeChildren }: TreeItemProps) {
-  const isExcludeMode = mode === 'exclude';
+function TreeItem({
+  node,
+  depth = 0,
+  path = '',
+  variant = 'panel',
+  includedPaths,
+  onToggleInclude,
+  pathWeights,
+  onWeightChange,
+  excludedPaths,
+  onToggleExclude,
+  onPreviewFile,
+  alwaysIgnoredPatterns,
+  expandedPaths,
+  onToggleExpand,
+  onLoadChildren,
+  loadingPaths,
+  onSetLoading,
+  onMergeChildren,
+}: TreeItemProps) {
   const currentPath = path ? `${path}/${node.name}` : node.name;
   const expanded = expandedPaths.has(currentPath);
   const hasChildren = node.children && node.children.length > 0;
   const isFolder = node.type === 'folder';
   const isLazyLoadable = isFolder && !hasChildren && node.has_children;
   const isLoading = loadingPaths.has(currentPath);
+
+  // Include state
   const isIncluded = includedPaths ? isPathOrAncestorIncluded(currentPath, includedPaths) : (node.selected ?? false);
-  const isIgnored = node.status === 'ignored';
-  const isSelectable = !isIgnored;
-  
-  // For folders, check if partially selected (some children selected but not all)
-  const folderSelectionState = isFolder && includedPaths 
-    ? getFolderSelectionState(node, path, includedPaths) 
+  const folderSelectionState = isFolder && includedPaths
+    ? getFolderSelectionState(node, path, includedPaths)
     : 'none';
-  const isPartiallySelected = isFolder && folderSelectionState === 'partial';
-  const isFolderFullySelected = isFolder && (isIncluded || folderSelectionState === 'all');
+  const isFolderPartiallyIncluded = isFolder && folderSelectionState === 'partial';
+  const isFolderFullyIncluded = isFolder && (isIncluded || folderSelectionState === 'all');
+
+  // Exclude state
+  const isExcluded = excludedPaths ? isPathOrAncestorExcluded(currentPath, excludedPaths) : false;
+  const folderExcludeState = isFolder && excludedPaths
+    ? getFolderExcludeState(node, path, excludedPaths)
+    : 'none';
+  const isFolderPartiallyExcluded = isFolder && folderExcludeState === 'partial';
+  const isFolderFullyExcluded = isFolder && (isExcluded || folderExcludeState === 'all');
+
+  // Always-ignored (glob-pattern match)
+  const isAlwaysIgnoredNode = isAlwaysIgnored(currentPath, alwaysIgnoredPatterns ?? []);
+  const isIgnored = node.status === 'ignored' || isAlwaysIgnoredNode;
 
   const { weight: effectiveWeight, inherited: isWeightInherited, source: weightSource } =
     getEffectiveWeight(currentPath, pathWeights ?? {});
-
-  const handleRowClick = () => {
-    if (!isSelectable || !onToggleInclude) return;
-    
-    // Check if the item is effectively selected (either directly or via an ancestor)
-    const isEffectivelyIncluded = isIncluded;
-    
-    if (isFolder) {
-      // For folders: toggle the folder path itself
-      // If fully selected (directly or via ancestor) -> remove
-      // If partial or none -> add (select all)
-      const shouldSelect = !isEffectivelyIncluded && folderSelectionState !== 'all';
-      onToggleInclude([currentPath], shouldSelect ? 'add' : 'remove');
-    } else {
-      // For files: just toggle this file
-      onToggleInclude([currentPath], isEffectivelyIncluded ? 'remove' : 'add');
-    }
-  };
 
   // Auto-load children for folders restored as "expanded" from localStorage
   // but whose children haven't been fetched yet (beyond API depth limit).
@@ -331,9 +442,9 @@ function TreeItem({ node, depth = 0, path = '', mode = 'include', includedPaths,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expanded, isLazyLoadable]);
 
-  const handleExpandToggle = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    // Lazy-load children for depth-truncated folders
+  // Core expand/collapse logic shared by the chevron button and row click.
+  // Handles lazy-loading for depth-truncated folders.
+  const performExpandToggle = () => {
     if (isLazyLoadable && !expanded && onLoadChildren && !isLoading) {
       onSetLoading(currentPath, true);
       onLoadChildren(currentPath).then((children) => {
@@ -347,34 +458,69 @@ function TreeItem({ node, depth = 0, path = '', mode = 'include', includedPaths,
     onToggleExpand(currentPath);
   };
 
-  // Determine icon based on type and inclusion state
+  const handleExpandToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    performExpandToggle();
+  };
+
+  // Row click: folders expand/collapse; files preview in 'detail', no-op in 'panel'
+  const handleRowClick = () => {
+    if (isAlwaysIgnoredNode || isIgnored) return;
+    if (isFolder) {
+      performExpandToggle();
+      return;
+    }
+    if (variant === 'detail' && onPreviewFile) {
+      onPreviewFile(node, currentPath);
+    }
+  };
+
+  const handleIncludeClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onToggleInclude || isAlwaysIgnoredNode || isIgnored) return;
+
+    const effectivelyIncluded = isIncluded || isFolderFullyIncluded;
+    if (effectivelyIncluded) {
+      onToggleInclude([currentPath], 'remove');
+      return;
+    }
+    // Mutual exclusion: un-exclude first if currently excluded
+    if (excludedPaths && isPathOrAncestorExcluded(currentPath, excludedPaths) && onToggleExclude) {
+      onToggleExclude([currentPath], 'remove');
+    }
+    onToggleInclude([currentPath], 'add');
+  };
+
+  const handleExcludeClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onToggleExclude || isAlwaysIgnoredNode || isIgnored) return;
+
+    const effectivelyExcluded = isExcluded || isFolderFullyExcluded;
+    if (effectivelyExcluded) {
+      onToggleExclude([currentPath], 'remove');
+      return;
+    }
+    // Mutual exclusion: un-include first if currently included
+    if (includedPaths && isPathOrAncestorIncluded(currentPath, includedPaths) && onToggleInclude) {
+      onToggleInclude([currentPath], 'remove');
+    }
+    onToggleExclude([currentPath], 'add');
+  };
+
   const FolderIcon = expanded ? FolderOpen : Folder;
   const FileIcon = isIncluded ? FileText : File;
-  
-  // Effective inclusion for display (folder is "included" if it or all its children are)
-  const effectivelyIncluded = isFolder ? (isIncluded || isFolderFullySelected) : isIncluded;
 
-  // For ancestor-included items, treat as included for status display
-  const isIncludedForStatus = isIncluded;
-
-  // Derive effective status:
-  // - indexed but unselected → pending_removal (will be removed on next rebuild)
-  // - included file with no explicit status → pending
-  // - otherwise use node.status
-  const effectiveStatus: FileStatus | undefined = 
-    (node.status === 'indexed' && !isIncludedForStatus) ? 'pending_removal'
+  // Derive effective status (existing logic, only relevant when included)
+  const effectiveStatus: FileStatus | undefined =
+    (node.status === 'indexed' && !isIncluded) ? 'pending_removal'
     : node.status ? node.status
-    : (isIncludedForStatus && !isFolder) ? 'pending'
+    : (isIncluded && !isFolder) ? 'pending'
     : undefined;
 
-  // Collect child paths with explicit weight overrides (for folder weight bulk operations)
   const childOverridePaths = isFolder ? collectChildWeightPaths(node, path, pathWeights ?? {}) : [];
 
-  // Show weight editor on included folders or included/pending files
-  const showFolderWeight = isFolder && !isIgnored && (effectivelyIncluded || isPartiallySelected);
-
-  // Only show status badge for ignored items, included items with pending/indexed, or pending_removal
-  const showStatus = isIgnored || effectiveStatus === 'pending_removal' || (isIncluded && effectiveStatus && effectiveStatus !== 'error');
+  const showFolderWeight = isFolder && !isIgnored && (isFolderFullyIncluded || isFolderPartiallyIncluded);
+  const showStatus = isIncluded && effectiveStatus && effectiveStatus !== 'error';
 
   return (
     <div>
@@ -382,33 +528,35 @@ function TreeItem({ node, depth = 0, path = '', mode = 'include', includedPaths,
         className={cn(
           'group flex items-center gap-1 rounded-md px-2 py-1 my-px transition-colors',
           depth > 0 && 'ml-4',
-          // Hover state only for selectable items
-          isSelectable && 'hover:bg-surface-raised cursor-pointer',
-          // Ignored items are dimmed and not interactive
-          isIgnored && 'opacity-50 cursor-default',
-          // Selected/included items get a subtle background
-          isIncluded && !isIgnored && (isExcludeMode ? 'bg-error/8' : 'bg-primary/5'),
-          effectiveWeight < 1 && effectiveWeight > 0 && (showFolderWeight || (isIncluded && (effectiveStatus === 'indexed' || effectiveStatus === 'pending'))) && 'opacity-75',
-          effectiveWeight === 0 && (showFolderWeight || (isIncluded && (effectiveStatus === 'indexed' || effectiveStatus === 'pending'))) && 'opacity-40'
+          // Always-ignored: no hover, no cursor
+          isAlwaysIgnoredNode && 'cursor-default',
+          // Selectable items hover
+          !isAlwaysIgnoredNode && !isIgnored && 'hover:bg-surface-raised',
+          // Cursor behavior
+          !isAlwaysIgnoredNode && !isIgnored && variant === 'detail' && !isFolder && 'cursor-pointer',
+          !isAlwaysIgnoredNode && !isIgnored && isFolder && 'cursor-pointer',
+          !isAlwaysIgnoredNode && !isIgnored && variant === 'panel' && !isFolder && 'cursor-default',
+          // Node-status ignored (from backend)
+          isIgnored && !isAlwaysIgnoredNode && 'opacity-50 cursor-default',
+          // Included background
+          isIncluded && !isIgnored && !isExcluded && 'bg-primary/5',
+          // Excluded background
+          isExcluded && !isIgnored && 'bg-error/8',
+          // Weight opacity (only for included)
+          isIncluded && effectiveWeight < 1 && effectiveWeight > 0 && 'opacity-75',
+          isIncluded && effectiveWeight === 0 && 'opacity-40'
         )}
         onClick={handleRowClick}
-        title={isIgnored 
-          ? 'This item is excluded from indexing' 
-          : isExcludeMode
-            ? isFolder
-              ? (effectivelyIncluded || isPartiallySelected)
-                ? 'Click to un-exclude this folder from trace'
-                : 'Click to exclude this folder from trace'
-              : isIncluded
-                ? 'Click to un-exclude this file from trace'
-                : 'Click to exclude this file from trace'
-          : isFolder
-            ? (effectivelyIncluded || isPartiallySelected) 
-              ? 'Click to remove folder and all contents from RAG index'
-              : 'Click to add folder and all contents to RAG index'
-            : isIncluded 
-              ? 'Click to remove from RAG index' 
-              : 'Click to add to RAG index'
+        title={
+          isAlwaysIgnoredNode
+            ? 'Always available to AI assistants — excluded from indexing.'
+            : isIgnored
+              ? 'This item is excluded from indexing'
+              : isFolder
+                ? (expanded ? 'Click to collapse' : 'Click to expand')
+                : variant === 'detail'
+                  ? 'Click to preview'
+                  : ''
         }
       >
         {isFolder ? (
@@ -424,110 +572,150 @@ function TreeItem({ node, depth = 0, path = '', mode = 'include', includedPaths,
           <span className="w-5" />
         )}
 
-        {/* Icon indicates inclusion state */}
+        {/* File/folder icon reflects include/exclude state */}
         <span
           className={cn(
             'flex items-center justify-center w-5 h-5 transition-colors shrink-0',
-            isIgnored 
+            isAlwaysIgnoredNode
               ? 'text-text-subtle/50'
-              : effectivelyIncluded 
-                ? (isExcludeMode ? 'text-error' : 'text-primary')
-                : isPartiallySelected
-                  ? (isExcludeMode ? 'text-error/60' : 'text-primary/60')
-                  : 'text-text-subtle'
+              : isIgnored
+                ? 'text-text-subtle/50'
+                : isExcluded
+                  ? 'text-error'
+                  : (isFolderFullyIncluded || isIncluded)
+                    ? 'text-primary'
+                    : isFolderPartiallyIncluded
+                      ? 'text-primary/60'
+                      : 'text-text-subtle'
           )}
         >
-          {isFolder 
+          {isFolder
             ? <FolderIcon className={cn(
-                'w-4 h-4', 
-                effectivelyIncluded && !isIgnored && (isExcludeMode ? 'fill-error/20' : 'fill-primary/20'),
-                isPartiallySelected && !isIgnored && (isExcludeMode ? 'fill-error/10' : 'fill-primary/10')
+                'w-4 h-4',
+                isFolderFullyIncluded && !isIgnored && !isExcluded && 'fill-primary/20',
+                isFolderPartiallyIncluded && !isIgnored && !isExcluded && 'fill-primary/10',
+                isExcluded && !isIgnored && 'fill-error/20'
               )} />
-            : <FileIcon className={cn('w-4 h-4', isIncluded && !isIgnored && (isExcludeMode ? 'fill-error/20' : 'fill-primary/20'))} />
+            : <FileIcon className={cn(
+                'w-4 h-4',
+                isIncluded && !isIgnored && !isExcluded && 'fill-primary/20',
+                isExcluded && !isIgnored && 'fill-error/20'
+              )} />
           }
         </span>
 
         <span className={cn(
-          "text-sm ml-1 truncate transition-all",
-          isIgnored
-            ? "text-text-subtle font-mono"
-            : isExcludeMode && (effectivelyIncluded || isPartiallySelected)
-              ? "text-error font-mono line-through decoration-error/60"
-              : (effectivelyIncluded || isPartiallySelected)
-                ? "text-text font-semibold font-mono" 
-                : isFolder 
-                  ? "text-text font-medium" 
-                  : "text-text-muted font-mono"
+          'text-sm ml-1 truncate transition-all font-mono',
+          isAlwaysIgnoredNode
+            ? 'text-text-subtle line-through decoration-text-subtle/60'
+            : isIgnored
+              ? 'text-text-subtle'
+              : isExcluded
+                ? 'text-error line-through decoration-error/60'
+                : (isIncluded || isFolderPartiallyIncluded)
+                  ? 'text-text font-semibold'
+                  : isFolder
+                    ? 'text-text font-medium'
+                    : 'text-text-muted'
         )}>
           {node.name}
         </span>
 
-        {/* View file button — only for files when onNodeClick is provided */}
-        {!isFolder && onNodeClick && (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 text-text-subtle hover:text-primary transition-opacity shrink-0"
-            onClick={(e: React.MouseEvent) => { e.stopPropagation(); onNodeClick(node, currentPath); }}
-            title="View file"
-          >
-            <Eye className="w-3.5 h-3.5" />
-          </Button>
-        )}
+        {/* Right side: chunks, status, weight, include checkbox, exclude icon */}
+        <span className="ml-auto flex items-center gap-1.5 shrink-0">
+          {/* Chunk count — only when included and indexed */}
+          {isIncluded && node.chunks !== undefined && effectiveStatus === 'indexed' && (
+            <span className="text-xs text-text-subtle">
+              {node.chunks} chunks
+            </span>
+          )}
 
-        {/* Right side: chunk count, status badge, then weight - hidden entirely in exclude mode */}
-        {!isExcludeMode && (
-          <span className="ml-auto flex items-center gap-2 shrink-0">
-            {/* Chunk count for indexed items */}
-            {node.chunks !== undefined && effectiveStatus === 'indexed' && (
-              <span className="text-xs text-text-subtle">
-                {node.chunks} chunks
-              </span>
-            )}
-            
-            {/* Status badge: show for ignored items or included items with pending/indexed status */}
-            {showStatus && effectiveStatus && (
-              <span
-                className={cn(
-                  "flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full",
-                  `${statusColors[effectiveStatus]}/20`
-                )}
-              >
-                <span className={cn("w-1.5 h-1.5 rounded-full", statusColors[effectiveStatus])} />
-                <span className="text-text-subtle hidden sm:inline">{statusLabels[effectiveStatus]}</span>
-              </span>
-            )}
+          {/* Status badge — only when included with pending/indexed status */}
+          {showStatus && effectiveStatus && (
+            <span
+              className={cn(
+                'flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full',
+                `${statusColors[effectiveStatus]}/20`
+              )}
+            >
+              <span className={cn('w-1.5 h-1.5 rounded-full', statusColors[effectiveStatus])} />
+              <span className="text-text-subtle hidden sm:inline">{statusLabels[effectiveStatus]}</span>
+            </span>
+          )}
 
-            {/* Weight editor: for indexed/pending files OR included folders */}
-            {(showFolderWeight || ((effectiveStatus === 'indexed' || effectiveStatus === 'pending') && isIncluded)) && (
-              <WeightEditor
-                effectiveWeight={effectiveWeight}
-                isInherited={isWeightInherited}
-                inheritedFrom={weightSource}
-                onWeightChange={onWeightChange}
-                currentPath={currentPath}
-                isFolder={isFolder}
-                childOverridePaths={childOverridePaths}
-              />
-            )}
-          </span>
-        )}
+          {/* Weight editor — only when included */}
+          {(showFolderWeight || (isIncluded && (effectiveStatus === 'indexed' || effectiveStatus === 'pending'))) && (
+            <WeightEditor
+              effectiveWeight={effectiveWeight}
+              isInherited={isWeightInherited}
+              inheritedFrom={weightSource}
+              onWeightChange={onWeightChange}
+              currentPath={currentPath}
+              isFolder={isFolder}
+              childOverridePaths={childOverridePaths}
+            />
+          )}
+
+          {/* Include checkbox — hidden for always-ignored files */}
+          {!isAlwaysIgnoredNode && onToggleInclude && (
+            <button
+              onClick={handleIncludeClick}
+              className={cn(
+                'p-0.5 rounded transition-colors',
+                (isIncluded || isFolderFullyIncluded)
+                  ? 'text-primary hover:text-primary/80'
+                  : isFolderPartiallyIncluded
+                    ? 'text-primary/60 hover:text-primary'
+                    : 'text-text-subtle/40 hover:text-text-subtle'
+              )}
+              title={(isIncluded || isFolderFullyIncluded) ? 'Remove from knowledge scope' : 'Add to knowledge scope'}
+            >
+              {(isIncluded || isFolderFullyIncluded)
+                ? <CheckSquare className="w-4 h-4" />
+                : isFolderPartiallyIncluded
+                  ? <MinusSquare className="w-4 h-4" />
+                  : <Square className="w-4 h-4" />
+              }
+            </button>
+          )}
+
+          {/* Exclude icon — hidden for always-ignored files */}
+          {!isAlwaysIgnoredNode && onToggleExclude && (
+            <button
+              onClick={handleExcludeClick}
+              className={cn(
+                'p-0.5 rounded transition-colors',
+                (isExcluded || isFolderFullyExcluded)
+                  ? 'text-error hover:text-error/80'
+                  : isFolderPartiallyExcluded
+                    ? 'text-error/60 hover:text-error'
+                    : 'text-text-subtle/40 hover:text-text-subtle'
+              )}
+              title={(isExcluded || isFolderFullyExcluded) ? 'Remove trace exclusion' : 'Exclude from trace and knowledge'}
+            >
+              <Ban className={cn('w-4 h-4', (isExcluded || isFolderFullyExcluded) && 'fill-error/10')} />
+            </button>
+          )}
+        </span>
       </div>
 
       {hasChildren && expanded && (
         <div className="border-l border-border-subtle ml-[1.1rem]">
           {node.children!.map((child, i) => (
-            <TreeItem 
-              key={`${child.name}-${i}`} 
-              node={child} 
+            <TreeItem
+              key={`${child.name}-${i}`}
+              node={child}
               depth={depth + 1}
               path={currentPath}
-              mode={mode}
+              variant={variant}
               includedPaths={includedPaths}
               onToggleInclude={onToggleInclude}
-              onNodeClick={onNodeClick}
               pathWeights={pathWeights}
               onWeightChange={onWeightChange}
+              excludedPaths={excludedPaths}
+              onToggleExclude={onToggleExclude}
+              onPreviewFile={onPreviewFile}
+              alwaysIgnoredPatterns={alwaysIgnoredPatterns}
               expandedPaths={expandedPaths}
               onToggleExpand={onToggleExpand}
               onLoadChildren={onLoadChildren}
@@ -547,20 +735,22 @@ const EXPANDED_STORAGE_KEY = 'codrag_tree_expanded';
 export function FolderTree({
   data,
   compact,
-  mode = 'include',
   includedPaths,
   onToggleInclude,
-  onNodeClick,
   pathWeights,
   onWeightChange,
+  excludedPaths,
+  onToggleExclude,
+  variant = 'panel',
+  onPreviewFile,
+  alwaysIgnoredPatterns,
   onLoadChildren,
   className,
 }: FolderTreeProps) {
-  const storageKey = mode === 'exclude' ? `${EXPANDED_STORAGE_KEY}_exclude` : EXPANDED_STORAGE_KEY;
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => {
     if (typeof window === 'undefined') return new Set();
     try {
-      const stored = localStorage.getItem(storageKey);
+      const stored = localStorage.getItem(EXPANDED_STORAGE_KEY);
       return stored ? new Set(JSON.parse(stored)) : new Set();
     } catch { return new Set(); }
   });
@@ -581,11 +771,11 @@ export function FolderTree({
       if (next.has(path)) next.delete(path);
       else next.add(path);
       if (typeof window !== 'undefined') {
-        localStorage.setItem(storageKey, JSON.stringify([...next]));
+        localStorage.setItem(EXPANDED_STORAGE_KEY, JSON.stringify([...next]));
       }
       return next;
     });
-  }, [storageKey]);
+  }, []);
 
   const handleSetLoading = useCallback((path: string, loading: boolean) => {
     setLoadingPaths((prev) => {
@@ -597,12 +787,10 @@ export function FolderTree({
 
   const handleMergeChildren = useCallback((path: string, children: TreeNode[]) => {
     setMergedData((prev) => {
-      // Deep-clone and merge children into the node at path
       function mergeInto(nodes: TreeNode[], segments: string[], idx: number): TreeNode[] {
         return nodes.map((n) => {
           if (n.name === segments[idx]) {
             if (idx === segments.length - 1) {
-              // Found target — set children, clear has_children flag
               return { ...n, children, has_children: undefined };
             }
             if (n.children) {
@@ -623,12 +811,15 @@ export function FolderTree({
         <TreeItem
           key={`${node.name}-${i}`}
           node={node}
-          mode={mode}
+          variant={variant}
           includedPaths={includedPaths}
           onToggleInclude={onToggleInclude}
-          onNodeClick={onNodeClick}
           pathWeights={pathWeights}
           onWeightChange={onWeightChange}
+          excludedPaths={excludedPaths}
+          onToggleExclude={onToggleExclude}
+          onPreviewFile={onPreviewFile}
+          alwaysIgnoredPatterns={alwaysIgnoredPatterns}
           expandedPaths={expandedPaths}
           onToggleExpand={handleToggleExpand}
           onLoadChildren={onLoadChildren}
@@ -657,7 +848,6 @@ export const sampleFileTree: TreeNode[] = [
         name: 'codrag',
         type: 'folder',
         children: [
-          // These are selected and indexed
           { name: 'server.py', type: 'file', status: 'indexed', chunks: 24 },
           { name: 'cli.py', type: 'file', status: 'indexed', chunks: 18 },
           { name: '__init__.py', type: 'file', status: 'indexed', chunks: 2 },
@@ -666,10 +856,8 @@ export const sampleFileTree: TreeNode[] = [
             type: 'folder',
             children: [
               { name: 'registry.py', type: 'file', status: 'indexed', chunks: 31 },
-              // Selected but still indexing
               { name: 'embedding.py', type: 'file', status: 'pending' },
               { name: 'trace.py', type: 'file', status: 'indexed', chunks: 45 },
-              // Error during indexing
               { name: 'watcher.py', type: 'file', status: 'error' },
             ],
           },
@@ -691,9 +879,7 @@ export const sampleFileTree: TreeNode[] = [
     children: [
       { name: 'ARCHITECTURE.md', type: 'file', status: 'indexed', chunks: 42 },
       { name: 'API.md', type: 'file', status: 'indexed', chunks: 38 },
-      // Just selected, waiting to be indexed
       { name: 'ROADMAP.md', type: 'file', status: 'pending' },
-      // Was indexed but user removed it — shows "Removing" until next rebuild
       { name: 'CHANGELOG.md', type: 'file', status: 'indexed', chunks: 12 },
     ],
   },
@@ -710,7 +896,6 @@ export const sampleFileTree: TreeNode[] = [
     name: 'tests',
     type: 'folder',
     children: [
-      // These are not selected (no status) - user can click to add
       { name: 'test_registry.py', type: 'file' },
       { name: 'test_search.py', type: 'file' },
       { name: 'conftest.py', type: 'file' },
