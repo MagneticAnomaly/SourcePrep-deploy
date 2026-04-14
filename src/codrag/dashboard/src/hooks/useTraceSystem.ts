@@ -345,16 +345,25 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     setTraceStatus(prev => ({ ...prev, enabled: true }))
   }, [api, selectedProjectId, deps.projectConfig, deps.setProjectConfig, deps.setConfigDirty])
 
-  const handleAddExcludePattern = useCallback((pattern: string) => {
+  // Accept either a single pattern or an array. Multiple patterns are sent
+  // in a SINGLE /trace/ignore request to avoid read-modify-write races on
+  // the backend — two concurrent single-pattern POSTs both read the same
+  // config snapshot, append their pattern, and write; the second write wins
+  // and the first pattern is lost on refresh.
+  const handleAddExcludePattern = useCallback((pattern: string | string[]) => {
     if (!selectedProjectId) return
-    api.updateTraceIgnore(selectedProjectId, 'add', [pattern]).then(() => {
+    const patterns = Array.isArray(pattern) ? pattern : [pattern]
+    if (patterns.length === 0) return
+    api.updateTraceIgnore(selectedProjectId, 'add', patterns).then(() => {
       fetchTraceCoverage()
     }).catch(() => { })
   }, [api, selectedProjectId, fetchTraceCoverage])
 
-  const handleRemoveExcludePattern = useCallback((pattern: string) => {
+  const handleRemoveExcludePattern = useCallback((pattern: string | string[]) => {
     if (!selectedProjectId) return
-    api.updateTraceIgnore(selectedProjectId, 'remove', [pattern]).then(() => {
+    const patterns = Array.isArray(pattern) ? pattern : [pattern]
+    if (patterns.length === 0) return
+    api.updateTraceIgnore(selectedProjectId, 'remove', patterns).then(() => {
       fetchTraceCoverage()
     }).catch(() => { })
   }, [api, selectedProjectId, fetchTraceCoverage])
