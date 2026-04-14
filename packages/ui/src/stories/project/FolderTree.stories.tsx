@@ -288,3 +288,103 @@ export const FullHeight: Story = {
     ),
   ],
 };
+
+const mergedScopeTree: TreeNode[] = [
+  {
+    name: 'src',
+    type: 'folder',
+    children: [
+      { name: 'app.ts', type: 'file', status: 'indexed', chunks: 14 },
+      { name: 'router.ts', type: 'file', status: 'indexed', chunks: 9 },
+      { name: 'legacy.ts', type: 'file' },
+    ],
+  },
+  {
+    name: 'tests',
+    type: 'folder',
+    children: [
+      { name: 'e2e.spec.ts', type: 'file' },
+      { name: 'unit.spec.ts', type: 'file' },
+    ],
+  },
+  // Files that match always-ignored globs — rendered with strikethrough,
+  // no include/exclude toggles.
+  { name: 'AGENTS.md', type: 'file' },
+  { name: 'CLAUDE.md', type: 'file' },
+  { name: '.cursorrules', type: 'file' },
+];
+
+const alwaysIgnored = [
+  '**/AGENTS.md',
+  '**/CLAUDE.md',
+  '**/GEMINI.md',
+  '**/.cursorrules',
+  '**/.cursor/rules/*.mdc',
+];
+
+export const MergedScope: Story = {
+  render: () => {
+    const [includedPaths, setIncludedPaths] = useState<Set<string>>(new Set(['src', 'src/app.ts', 'src/router.ts']));
+    const [excludedPaths, setExcludedPaths] = useState<Set<string>>(new Set(['tests']));
+
+    const toggleInclude = (paths: string[], action: 'add' | 'remove') => {
+      setIncludedPaths((prev) => {
+        const next = new Set(prev);
+        for (const p of paths) (action === 'add' ? next.add(p) : next.delete(p));
+        return next;
+      });
+    };
+    const toggleExclude = (paths: string[], action: 'add' | 'remove') => {
+      setExcludedPaths((prev) => {
+        const next = new Set(prev);
+        for (const p of paths) (action === 'add' ? next.add(p) : next.delete(p));
+        return next;
+      });
+    };
+
+    return (
+      <div className="space-y-4 max-w-xl">
+        <div className="p-3 bg-surface-raised rounded-lg border border-border">
+          <div className="text-xs text-text-subtle mb-1">Merged Scope Tree (Phase 98)</div>
+          <div className="text-sm text-text-muted space-y-1">
+            <div>• <strong>☑ Include checkbox</strong> (primary) — adds to RAG knowledge</div>
+            <div>• <strong>🚫 Exclude icon</strong> (error/red) — removes from trace + knowledge</div>
+            <div>• Checking one auto-unchecks the other (mutual exclusion)</div>
+            <div>• <span className="line-through text-text-subtle">AGENTS.md / CLAUDE.md</span> — always-ignored, not toggleable</div>
+            <div>• Row click = expand/collapse (folders) or no-op (files in panel variant)</div>
+          </div>
+        </div>
+        <div className="text-xs text-text-subtle flex gap-4">
+          <span>{includedPaths.size} included</span>
+          <span className="text-error">{excludedPaths.size} excluded</span>
+        </div>
+        <FolderTree
+          data={mergedScopeTree}
+          includedPaths={includedPaths}
+          onToggleInclude={toggleInclude}
+          excludedPaths={excludedPaths}
+          onToggleExclude={toggleExclude}
+          alwaysIgnoredPatterns={alwaysIgnored}
+        />
+      </div>
+    );
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: `
+**Merged Scope Tree** demonstrates the four row states after the include/exclude unification:
+
+| State | Include | Exclude | Name |
+|-------|---------|---------|------|
+| **Default** | ☐ | ☐ | normal |
+| **Included** | ☑ | ☐ | **bold**, primary tint |
+| **Excluded** | ☐ | 🚫 | ~~strikethrough~~ red tint |
+| **Always-ignored** | — | — | ~~strikethrough~~ subtle |
+
+Mutual exclusion is enforced in the component: checking include on an excluded path auto-un-excludes, and vice versa.
+        `,
+      },
+    },
+  },
+};

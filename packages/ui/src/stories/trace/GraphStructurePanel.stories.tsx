@@ -7,7 +7,7 @@ const meta: Meta<typeof GraphStructurePanel> = {
   component: GraphStructurePanel,
   parameters: {
     layout: 'fullscreen',
-    docs: { description: { component: 'Code Graph structure panel showing trace coverage (file-level and deep enrichment), untraced/stale file queues, exclude pattern management, and an interactive exclude tree.' } },
+    docs: { description: { component: 'Code Graph structure panel showing trace coverage (file-level and deep enrichment), untraced/stale file queues, and exclude pattern management. Per-path include/exclude now lives in the Scope panel (FolderTreePanel).' } },
   },
   decorators: [
     (Story) => (

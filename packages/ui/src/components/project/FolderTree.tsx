@@ -120,34 +120,39 @@ function getFolderExcludeState(
 }
 
 /** Match a path against a minimal glob pattern subset used by DEFAULT_EXCLUDE_FILE_GLOBS.
- *  Supports: leading `**​/`, literal segments, and trailing `*.ext` on the basename. */
+ *  Supports: leading `**​/` (match at any depth), literal path segments, and a
+ *  trailing `*.ext` pattern on the basename. Directory segments are matched as
+ *  path components, not substrings — so pattern `**​/.cursor/rules/*.mdc` won't
+ *  falsely match `a.cursor/rules/x.mdc`. */
 function pathMatchesGlob(path: string, raw: string): boolean {
-  const fileName = path.split('/').pop() ?? '';
-  let pattern = raw.startsWith('**/') ? raw.slice(3) : raw;
+  const pathSegs = path.split('/');
+  const fileName = pathSegs[pathSegs.length - 1] ?? '';
 
-  // No separator, no wildcard → exact basename match
-  if (!pattern.includes('/') && !pattern.includes('*')) {
-    return fileName === pattern;
-  }
+  const stripped = raw.startsWith('**/') ? raw.slice(3) : raw;
+  const patternSegs = stripped.split('/');
+  const lastPat = patternSegs[patternSegs.length - 1];
 
-  // No separator, extension wildcard → basename extension match
-  if (!pattern.includes('/') && pattern.startsWith('*.')) {
-    return fileName.endsWith(pattern.slice(1));
-  }
+  // Basename gate: the pattern's last segment must match the path's basename
+  const basenameMatches =
+    (lastPat.startsWith('*.') && fileName.endsWith(lastPat.slice(1))) ||
+    (!lastPat.includes('*') && fileName === lastPat);
+  if (!basenameMatches) return false;
 
-  // Has separator → match a literal sub-path followed by either a fixed
-  // basename or an extension wildcard
-  if (pattern.includes('/')) {
-    const segs = pattern.split('/');
-    const last = segs[segs.length - 1];
-    const dirPart = segs.slice(0, -1).join('/') + '/';
-    if (!path.includes(dirPart)) return false;
-    if (last.includes('*')) {
-      return last.startsWith('*.') && fileName.endsWith(last.slice(1));
+  // Directory gate: the pattern's directory segments must appear contiguously
+  // somewhere in the path's directory segments (so `**​/.cursor/rules/` needs
+  // `.cursor` followed by `rules` as actual segments, not as a substring).
+  const dirPat = patternSegs.slice(0, -1);
+  if (dirPat.length === 0) return true;
+
+  const dirPath = pathSegs.slice(0, -1);
+  if (dirPath.length < dirPat.length) return false;
+
+  outer: for (let start = 0; start <= dirPath.length - dirPat.length; start++) {
+    for (let j = 0; j < dirPat.length; j++) {
+      if (dirPath[start + j] !== dirPat[j]) continue outer;
     }
-    return fileName === last;
+    return true;
   }
-
   return false;
 }
 
@@ -423,18 +428,6 @@ function TreeItem({
   const { weight: effectiveWeight, inherited: isWeightInherited, source: weightSource } =
     getEffectiveWeight(currentPath, pathWeights ?? {});
 
-  // Row click: folders expand/collapse; files preview in 'detail', no-op in 'panel'
-  const handleRowClick = () => {
-    if (isAlwaysIgnoredNode || isIgnored) return;
-    if (isFolder) {
-      handleExpandToggle({ stopPropagation: () => {} } as React.MouseEvent);
-      return;
-    }
-    if (variant === 'detail' && onPreviewFile) {
-      onPreviewFile(node, currentPath);
-    }
-  };
-
   // Auto-load children for folders restored as "expanded" from localStorage
   // but whose children haven't been fetched yet (beyond API depth limit).
   useEffect(() => {
@@ -449,8 +442,9 @@ function TreeItem({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expanded, isLazyLoadable]);
 
-  const handleExpandToggle = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  // Core expand/collapse logic shared by the chevron button and row click.
+  // Handles lazy-loading for depth-truncated folders.
+  const performExpandToggle = () => {
     if (isLazyLoadable && !expanded && onLoadChildren && !isLoading) {
       onSetLoading(currentPath, true);
       onLoadChildren(currentPath).then((children) => {
@@ -462,6 +456,23 @@ function TreeItem({
       return;
     }
     onToggleExpand(currentPath);
+  };
+
+  const handleExpandToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    performExpandToggle();
+  };
+
+  // Row click: folders expand/collapse; files preview in 'detail', no-op in 'panel'
+  const handleRowClick = () => {
+    if (isAlwaysIgnoredNode || isIgnored) return;
+    if (isFolder) {
+      performExpandToggle();
+      return;
+    }
+    if (variant === 'detail' && onPreviewFile) {
+      onPreviewFile(node, currentPath);
+    }
   };
 
   const handleIncludeClick = (e: React.MouseEvent) => {
