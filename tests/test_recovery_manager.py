@@ -136,6 +136,25 @@ class TestStartupRecovery:
 
         assert call_order == ["hydrate", "auto_recover"]
 
+    def test_selfheal_runs_before_hydrate(self):
+        """Selfheal must run BEFORE hydrate so resume detection sees
+        resurrected manifests for orphan outputs (e.g. group_reasoning
+        output exists but manifest was deleted by F-67).
+        """
+        call_order = []
+
+        with patch("codrag.services.pipeline_journal.journal") as mock_journal:
+            mock_journal.recover_crashed_runs.return_value = []
+
+            RecoveryManager.startup_recovery(
+                hydrate_fn=lambda: call_order.append("hydrate"),
+                auto_recover_fn=lambda: call_order.append("auto_recover"),
+                set_crashed_runs=lambda runs: None,
+                selfheal_fn=lambda: call_order.append("selfheal"),
+            )
+
+        assert call_order == ["selfheal", "hydrate", "auto_recover"]
+
     def test_continues_on_hydrate_failure(self):
         """If hydrate fails, auto_recover should still run."""
         call_order = []

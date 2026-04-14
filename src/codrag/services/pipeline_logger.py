@@ -78,12 +78,30 @@ class PipelineFileLogger:
         codrag_root = logging.getLogger("codrag")
         codrag_root.addHandler(self._file_handler)
 
+        self._prune_old_logs()
+
         self._write_event("run_start", data={
             "group": group,
             "stages": stages,
             "project_id": project_id,
             "log_file": str(self.log_path),
         })
+
+    def _prune_old_logs(self, max_logs: int = 50) -> None:
+        """Keep only the `max_logs` most recent log files to prevent unbounded growth."""
+        try:
+            log_files = sorted(
+                self.logs_dir.glob("pipeline_*.log"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True
+            )
+            for old_log in log_files[max_logs:]:
+                try:
+                    old_log.unlink()
+                except Exception as e:
+                    logger.debug("Failed to prune old log %s: %s", old_log, e)
+        except Exception as e:
+            logger.debug("Log pruning failed: %s", e)
 
     def end_run(self, result: str = "completed", error: Optional[str] = None) -> None:
         """Called when the pipeline run finishes."""

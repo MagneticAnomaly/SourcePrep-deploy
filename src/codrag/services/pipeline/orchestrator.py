@@ -3328,6 +3328,34 @@ class PipelineOrchestrator:
                     manifest.output_files = {
                         output_file: get_file_metadata(output_path),
                     }
+            elif stage in (StageId.KNOWLEDGE, StageId.DEEP_KNOWLEDGE):
+                # F-76: KNOWLEDGE stages have no confidence-annotated output
+                # file (they produce an embedding index, not a JSONL). Without
+                # a quality block the API can't surface historical completion
+                # counts and the UI stays grey after a daemon restart even
+                # though knowledge_embeddings.npy is on disk. Synthesize
+                # quality from the worker result so that
+                # deepening_manifest.json parity is achieved.
+                try:
+                    total = 0
+                    if isinstance(worker_result, dict):
+                        total = int(worker_result.get("count", 0) or 0)
+                    if total > 0:
+                        manifest.quality = {
+                            "total_items": total,
+                            "processed": total,
+                            "skipped": 0,
+                            "failed": 0,
+                            "success_rate": 1.0,
+                        }
+                        elapsed = manifest.elapsed_seconds or 0
+                        if elapsed > 0:
+                            manifest.throughput = compute_throughput(total, elapsed)
+                except Exception:
+                    logger.debug(
+                        "F-76: failed to synthesize knowledge quality block for %s (non-fatal)",
+                        stage.value, exc_info=True,
+                    )
 
             # Save manifest — Phase 72: use ManifestStore for atomic writes
             manifest_filename = STAGE_MANIFEST_FILE.get(stage, f"{stage.value}_manifest.json")

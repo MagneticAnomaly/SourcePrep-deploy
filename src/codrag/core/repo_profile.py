@@ -66,6 +66,7 @@ DEFAULT_EXCLUDE_FILE_NAMES: Set[str] = {
 DEFAULT_EXCLUDE_FILE_GLOBS: Sequence[str] = (
     # CoDRAG-generated
     "**/AGENTS.md",
+    "**/codrag_data/ui_config.json",
     # Claude Code
     "**/CLAUDE.md",
     # Cursor

@@ -255,6 +255,16 @@ class ResumeStrategy:
                                 output_file = "atlas.json"
                                 if opath.exists() and opath.stat().st_size > 1024:
                                     has_existing_output = True
+                            elif stage == StageId.DEEP_KNOWLEDGE:
+                                # DEEP_KNOWLEDGE has no STAGE_OUTPUT_FILE entry
+                                # (it re-embeds into the shared knowledge index).
+                                # Treat knowledge_embeddings.npy as its completion
+                                # marker so mtime cascades don't force a re-run
+                                # when the embeddings already exist on disk.
+                                opath = idx_dir / "knowledge_embeddings.npy"
+                                output_file = "knowledge_embeddings.npy"
+                                if opath.exists() and opath.stat().st_size > 1024:
+                                    has_existing_output = True
 
                             if has_existing_output:
                                 store.touch_provenance_mtime(stage, baseline_mtime)
@@ -567,7 +577,7 @@ class ResumeStrategy:
 
         import pathspec
 
-        from codrag.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
+        from codrag.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES, DEFAULT_EXCLUDE_FILE_GLOBS
         from codrag.core.trace.builder import TraceBuilder
         from codrag.core.trace.utils import _is_relevant
 
@@ -580,13 +590,29 @@ class ResumeStrategy:
             except Exception:
                 pass
 
+        trace_cfg = pcfg.get("trace") if isinstance(pcfg, dict) else None
+        trace_ignore = (trace_cfg or {}).get("ignore_patterns", [])
+        user_exclude_globs = [str(p) for p in trace_ignore] if isinstance(trace_ignore, list) else []
+
         default_builder = TraceBuilder(
             repo_root=repo_root,
             index_dir=idx_dir,
+            include_globs=pcfg.get("include_globs") or None,
+            exclude_globs=pcfg.get("exclude_globs") or None,
             max_file_bytes=max_file_bytes,
         )
         include_globs = default_builder.include_globs
         exclude_globs = default_builder.exclude_globs
+        
+        # Ensure DEFAULT_EXCLUDE_FILE_GLOBS and user_exclude_globs are respected
+        # identically to compute_trace_coverage
+        exclude_globs = list(exclude_globs)
+        for pattern in DEFAULT_EXCLUDE_FILE_GLOBS:
+            if pattern not in exclude_globs:
+                exclude_globs.append(pattern)
+        for pattern in user_exclude_globs:
+            if pattern not in exclude_globs:
+                exclude_globs.append(pattern)
 
         updated = 0
         new_hashes = dict(old_hashes)

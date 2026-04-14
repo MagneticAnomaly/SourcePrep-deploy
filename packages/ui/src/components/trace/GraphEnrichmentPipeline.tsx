@@ -479,6 +479,15 @@ function computeDeepeningState(
   // SSE flags are always fresh — check them before stale status data
   if (deepKnowledgeBuilding) return 'complete';
   if (running || deep?.running) return 'running';
+
+  // F-76: If deepening itself has historical data (backend sourced this from
+  // deepening_manifest.json), show complete regardless of upstream runtime
+  // state. Upstream stages' runtime fields can flip to 0 during an
+  // incremental re-run, but deepening's own persisted result is authoritative.
+  if (deep && deep.total_scored > 0 && (deep.settled_ratio ?? 0) >= 0.50) {
+    return 'complete';
+  }
+
   // Cold state checks
   if (!ep || !ep.enabled || ep.enriched_nodes === 0) return 'disabled';
   if (!mod || !mod.enabled || mod.module_count === 0) return 'disabled';
@@ -501,6 +510,16 @@ function computeFastKnowledgeState(
 ): StageState {
   // F-42: gate on data presence, not the auto-build preference
   if (!trace.exists) return 'disabled';
+  if (building) return 'running';
+
+  // F-76: If the knowledge index itself has embedded chunks (either from the
+  // current run or from the manifest fallback), stay green. Upstream aug
+  // fields can reset to 0 during a structural re-run but the existing
+  // knowledge_embeddings.npy on disk is still valid.
+  if (know && know.enabled && know.chunks_embedded > 0) {
+    return 'complete';
+  }
+
   // During incremental catalogue run, keep knowledge green if it was
   // previously complete (has embedded chunks already).
   if (augmenting) {
@@ -510,7 +529,6 @@ function computeFastKnowledgeState(
     return 'disabled';  // Initial build — knowledge hasn't run yet
   }
   if (!aug || !aug.enabled || aug.augmented_nodes === 0) return 'disabled';
-  if (building) return 'running';
   // Don't show as running just because know?.running is true — that could be the deep build
   if (!know || !know.enabled) return 'not_built';
   if (know.chunks_embedded === 0) return 'not_built';
@@ -524,15 +542,19 @@ function computeDeepKnowledgeState(
   know?: KnowledgeEmbeddingStatus,
   building?: boolean
 ): StageState {
+  if (building) return 'running';
+
+  // F-76: If deep_chunks_embedded is non-zero (including the manifest
+  // fallback from the backend), stay green even if upstream runtime fields
+  // are stale mid-rebuild. The embeddings on disk are still valid.
+  const deepChunks = know?.deep_chunks_embedded ?? 0;
+  if (deepChunks > 0) return 'complete';
+
   if (!ep || !ep.enabled || ep.enriched_nodes === 0) return 'disabled';
   if (!mod || !mod.enabled || mod.module_count === 0) return 'disabled';
   // Deepening (Stage 7) must have run before Deep Knowledge (Stage 8) can be complete
   if (!deep || deep.total_scored === 0) return 'disabled';
-  if (building) return 'running';
-  // Use deep_chunks_embedded to distinguish Stage 8 from Stage 4 (Fast Sync)
-  const deepChunks = know?.deep_chunks_embedded ?? 0;
-  if (!know || deepChunks === 0) return 'not_built';
-  return 'complete';
+  return 'not_built';
 }
 
 // ── Stage Groups ─────────────────────────────────────────────
@@ -1085,15 +1107,22 @@ export function GraphEnrichmentPipeline({
     return 'not_built';
   };
 
+  // F-77: Atlas and Rules require real upstream content to count as
+  // "complete". Otherwise placeholder atlas.json / rules files from a
+  // fresh project (where deep enrichment never ran) show a green check
+  // with "Waiting for modules" sub-text — which is contradictory.
+  const atlasDone = !!atlas?.exists && (modules?.module_count ?? 0) > 0;
+  const rulesDone = !!rulesStatus?.generated && (modules?.module_count ?? 0) > 0;
+
   const finalizeStages: EnrichmentStage[] = [
     { id: 'atlas', label: 'Atlas Building', icon: Map, modelTag: 'Thinking',
-      state: finStageState('atlas', !!atlas?.exists),
+      state: finStageState('atlas', atlasDone),
       stats: atlasStats,
-      rerun: finStageState('atlas', !!atlas?.exists) === 'running' ? computeStageRerun(undefined, undefined) : undefined,
+      rerun: finStageState('atlas', atlasDone) === 'running' ? computeStageRerun(undefined, undefined) : undefined,
     },
     {
       id: 'rules', label: 'Rules Generation', icon: FileText, modelTag: 'CPU',
-      state: finStageState('rules', !!rulesStatus?.generated),
+      state: finStageState('rules', rulesDone),
       stats: rulesStatus?.generated ? 'Generated' : finStageState('rules', false) === 'running' ? 'Generating...' : 'Not generated',
     },
     {

@@ -224,17 +224,40 @@ function DeepCoverageBar({
     (knowledgeStatus?.deep_chunks_embedded ?? 0) > 0 &&
     !pipelineRunning;
 
-  // Determine display values based on completion state
-  // If not deepComplete, the "enriched" nodes are technically still "in-progress" relative to the full pipeline.
-  const displayEnriched = deepComplete ? enriched : 0;
-  
-  // If running or incomplete, show everything as in-progress (Cyan)
-  // This includes nodes that are already enriched (Stage 5) but waiting for Stage 8,
-  // plus nodes that aren't even enriched yet (if running).
-  const rawPending = Math.max(0, total - enriched);
-  const displayInProgress = deepComplete 
-    ? (pipelineRunning ? rawPending : 0)
-    : (pipelineRunning ? total : enriched); // If running, everything is IP. If stalled/partial, enriched nodes are IP.
+  // F-76: Two-tone bar uses the incremental baseline as the stable
+  // "previously complete" count during an active rebuild. Without this,
+  // pipelineRunning collapses the entire bar to the in-progress color even
+  // though only a handful of new items actually need work.
+  //
+  // Priority for the baseline:
+  //   1. epistemic.progress_baseline (live slot progress, set by scheduler)
+  //   2. epistemic.incremental_baseline (persisted in manifest, survives restart)
+  //   3. enriched (the current enriched count, which is the historical ceiling)
+  const incBaseline = Math.min(
+    total,
+    epistemic.progress_baseline ??
+      epistemic.incremental_baseline ??
+      enriched,
+  );
+
+  let displayEnriched: number;
+  let displayInProgress: number;
+
+  if (deepComplete) {
+    // Pipeline idle and fully done — show all enriched as violet, pending as zero.
+    displayEnriched = enriched;
+    displayInProgress = 0;
+  } else if (pipelineRunning) {
+    // Active rebuild — keep the previously-complete baseline as violet so the
+    // bar stays mostly full, and only show the true delta as cyan/in-progress.
+    displayEnriched = incBaseline;
+    displayInProgress = Math.max(0, total - incBaseline);
+  } else {
+    // Stalled/partial (not running, not fully complete) — mark enriched items
+    // as in-progress so the user sees the pipeline is incomplete.
+    displayEnriched = 0;
+    displayInProgress = enriched;
+  }
 
   const enrichedPct = (displayEnriched / total) * 100;
   const inProgressPct = (displayInProgress / total) * 100;

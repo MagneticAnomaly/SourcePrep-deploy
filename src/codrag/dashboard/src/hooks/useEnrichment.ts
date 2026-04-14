@@ -44,44 +44,62 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
   const onFastCompletedRef = useRef(deps.onFastCompleted)
   onFastCompletedRef.current = deps.onFastCompleted
 
+  // F-77: Track the latest selected project synchronously so in-flight
+  // fetches can detect a project switch between `await` and `dispatch`.
+  // Without this guard, a slow /pipeline/status response for project A
+  // dispatches onto project B's reducer state and the UI shows A's live
+  // progress bar (e.g. CoDRAG's 26k catalogue count) on B's panel.
+  const latestProjectIdRef = useRef<string | null>(selectedProjectId)
+  latestProjectIdRef.current = selectedProjectId
+
   // ── Fetch functions ─────────────────────────────────────────
 
   const fetchAugmentationStatus = useCallback(async () => {
     if (!selectedProjectId) return
+    const pid = selectedProjectId
     try {
-      const status = await api.getAugmentStatus(selectedProjectId)
+      const status = await api.getAugmentStatus(pid)
+      if (latestProjectIdRef.current !== pid) return
       dispatch({ type: 'AUGMENTATION_STATUS', payload: status })
     } catch { /* silent */ }
   }, [api, selectedProjectId])
 
   const fetchEpistemicStatus = useCallback(async () => {
     if (!selectedProjectId) return
+    const pid = selectedProjectId
     try {
-      const status = await api.getEpistemicStatus(selectedProjectId)
+      const status = await api.getEpistemicStatus(pid)
+      if (latestProjectIdRef.current !== pid) return
       dispatch({ type: 'EPISTEMIC_STATUS', payload: status })
     } catch { /* silent */ }
   }, [api, selectedProjectId])
 
   const fetchModuleStatus = useCallback(async () => {
     if (!selectedProjectId) return
+    const pid = selectedProjectId
     try {
-      const status = await api.getModuleStatus(selectedProjectId)
+      const status = await api.getModuleStatus(pid)
+      if (latestProjectIdRef.current !== pid) return
       dispatch({ type: 'MODULE_STATUS', payload: status })
     } catch { /* silent */ }
   }, [api, selectedProjectId])
 
   const fetchDeepeningStatus = useCallback(async () => {
     if (!selectedProjectId) return
+    const pid = selectedProjectId
     try {
-      const status = await api.getDeepeningStatus(selectedProjectId)
+      const status = await api.getDeepeningStatus(pid)
+      if (latestProjectIdRef.current !== pid) return
       dispatch({ type: 'DEEPENING_STATUS', payload: status })
     } catch { /* silent */ }
   }, [api, selectedProjectId])
 
   const fetchKnowledgeStatus = useCallback(async () => {
     if (!selectedProjectId) return
+    const pid = selectedProjectId
     try {
-      const status = await api.getKnowledgeStatus(selectedProjectId)
+      const status = await api.getKnowledgeStatus(pid)
+      if (latestProjectIdRef.current !== pid) return
       dispatch({ type: 'KNOWLEDGE_STATUS', payload: status })
     } catch { /* silent */ }
   }, [api, selectedProjectId])
@@ -90,8 +108,11 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
   // by fetching the full pipeline status and extracting stage data.
   const refreshStageDataFromPipeline = useCallback(async () => {
     if (!selectedProjectId) return
+    const pid = selectedProjectId
     try {
-      const ps = await api.getPipelineStatus(selectedProjectId)
+      const ps = await api.getPipelineStatus(pid)
+      // F-77: Guard against project switch during the in-flight fetch.
+      if (latestProjectIdRef.current !== pid) return
       if (ps.stages?.inferred_edges) {
         dispatch({ type: 'INFERRED_EDGES_STATUS', payload: ps.stages.inferred_edges })
       }

@@ -398,6 +398,9 @@ export interface EpistemicStatus {
   progress_current?: number;
   progress_total?: number;
   progress_baseline?: number;
+  /** F-76: Baseline count persisted in the manifest, used for two-tone
+   * progress bars across page refresh and daemon restart. */
+  incremental_baseline?: number;
 }
 
 /**

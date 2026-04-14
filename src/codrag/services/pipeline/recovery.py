@@ -716,6 +716,18 @@ class RecoveryManager:
         except Exception:
             logger.debug("Journal crash recovery failed", exc_info=True)
 
+        # Phase 98: Startup selfheal FIRST — resurrect incomplete stages from
+        # backups/orphan outputs BEFORE resume detection runs. Without this,
+        # hydrate_fn's resume detector sees missing manifests (F-67 deletes
+        # them at stage start; if the daemon restarts mid-stage the output
+        # file is stranded with no manifest) and pins the PAUSED state machine
+        # at the wrong resume point even though the stage's data is on disk.
+        if selfheal_fn:
+            try:
+                selfheal_fn()
+            except Exception:
+                logger.debug("Startup selfheal failed (non-fatal)", exc_info=True)
+
         # Phase 2: Disk-state hydration
         try:
             hydrate_fn()
@@ -727,13 +739,6 @@ class RecoveryManager:
             auto_recover_fn()
         except Exception:
             logger.debug("Phase 61B auto-recovery failed", exc_info=True)
-
-        # Phase 98: Startup selfheal — resurrect incomplete stages from backups
-        if selfheal_fn:
-            try:
-                selfheal_fn()
-            except Exception:
-                logger.debug("Startup selfheal failed (non-fatal)", exc_info=True)
 
         return journal_results
 

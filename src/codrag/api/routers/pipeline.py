@@ -341,6 +341,27 @@ async def pipeline_status(project_id: str) -> Dict[str, Any]:
         knowledge_status["building"] = is_know_building
         knowledge_status["running"] = is_know_building
 
+        # F-76: If runtime state reports 0 chunks but the manifest records a
+        # historical run (daemon just restarted mid-rebuild, KnowledgeIndex
+        # hasn't reloaded from disk yet), fall back to the manifest so the UI
+        # keeps showing green instead of resetting to grey.
+        if knowledge_status.get("chunks_embedded", 0) == 0:
+            know_manifest = idx_dir / "knowledge_manifest.json"
+            if know_manifest.exists():
+                try:
+                    km = _json.loads(know_manifest.read_text(encoding="utf-8"))
+                    hist_total = int(
+                        (km.get("quality") or {}).get("total_items")
+                        or km.get("count")
+                        or 0
+                    )
+                    if hist_total > 0:
+                        knowledge_status["enabled"] = True
+                        knowledge_status["chunks_embedded"] = hist_total
+                        knowledge_status["from_manifest"] = True
+                except Exception:
+                    pass
+
         # Phase 48 (P48-F4): Create separate deep_knowledge_status.
         deep_knowledge_status = dict(knowledge_status)
         deepening_path = idx_dir / "trace_epistemic.jsonl"
@@ -352,6 +373,20 @@ async def pipeline_status(project_id: str) -> Dict[str, Any]:
         deep_knowledge_status["deep_chunks_embedded"] = (
             knowledge_status.get("chunks_embedded", 0) if deep_has_run else 0
         )
+        # F-76: Also fall back to deep_knowledge_manifest for deep stage.
+        if deep_knowledge_status["deep_chunks_embedded"] == 0 and deep_has_run:
+            dk_manifest = idx_dir / "deep_knowledge_manifest.json"
+            if dk_manifest.exists():
+                try:
+                    dm = _json.loads(dk_manifest.read_text(encoding="utf-8"))
+                    hist_total = int(
+                        (dm.get("quality") or {}).get("total_items") or 0
+                    )
+                    if hist_total > 0:
+                        deep_knowledge_status["deep_chunks_embedded"] = hist_total
+                        deep_knowledge_status["from_manifest"] = True
+                except Exception:
+                    pass
 
         # 5. Epistemic enrichment — read directly from files
         # Phase 60D-5: Inline read avoids pipeline_orchestrator.status() lock
@@ -375,6 +410,12 @@ async def pipeline_status(project_id: str) -> Dict[str, Any]:
                 if quality.get("processed", 0) > 0:
                     epistemic_status["enriched_nodes"] = quality["processed"]
                 epistemic_status["avg_confidence"] = quality.get("avg_confidence", 0.0)
+                # F-76: Surface incremental_baseline so the two-tone progress
+                # bar renders correctly after a daemon restart or page refresh
+                # (live slot progress_baseline is gone by then).
+                inc_base = data.get("incremental_baseline")
+                if isinstance(inc_base, int) and inc_base > 0:
+                    epistemic_status["incremental_baseline"] = inc_base
             except Exception:
                 pass
 
