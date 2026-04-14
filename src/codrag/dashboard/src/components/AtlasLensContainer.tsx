@@ -1,10 +1,12 @@
 /**
  * Dashboard-scoped wrapper that hooks AtlasLensPanel up to the Phase 104
- * fetchers and mutators. Keeping the hook wiring here (not in @codrag/ui)
- * so the shared UI package stays free of project-specific dependencies.
+ * fetchers and mutators.
+ *
+ * Keeps the hook wiring + project-specific lookups here so @codrag/ui
+ * stays free of dashboard dependencies.
  */
-import { useCallback, useEffect, useState } from 'react';
-import { AtlasLensPanel } from '@codrag/ui';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AtlasLensPanel, type RoleVectorPayload } from '@codrag/ui';
 import { useAtlasLens } from '../hooks/useAtlasLens';
 import { useRoleOverrides } from '../hooks/useRoleOverrides';
 
@@ -13,33 +15,50 @@ export interface AtlasLensContainerProps {
   className?: string;
 }
 
-/**
- * Built-in role → default max_chars budget. Keep this in lockstep with
- * ``src/codrag/core/atlas/role_vectors.py``'s BUILT_IN_ROLES so the
- * slider's "default" tick anchors correctly. If the backend ever exposes
- * these defaults as an endpoint we should switch to that — tracked as a
- * follow-on in docs/Phase104_SubAtlas/README.md.
- */
-const BUILT_IN_DEFAULT_MAX_CHARS: Record<string, number> = {
-  ceo: 1500,
-  cto: 2500,
-  architect: 3000,
-  engineering: 4000,
-  security: 3500,
-  design: 3500,
-  qa: 3500,
-  devops: 3500,
-  pm: 2500,
-};
-
 export function AtlasLensContainer({ projectId, className }: AtlasLensContainerProps) {
-  const { atlasStatus, role, setRole, regenerate, regenerating, refresh } = useAtlasLens(projectId);
-  const { putMaxChars, resetRole, unpinConcept } = useRoleOverrides(projectId);
+  const {
+    atlasStatus, role, setRole, regenerate, regenerating, refresh,
+    error: atlasError,
+  } = useAtlasLens(projectId);
+  const {
+    putMaxChars, resetRole, unpinConcept,
+    error: overrideError,
+  } = useRoleOverrides(projectId);
+
+  // Built-in roles loaded once from the backend so the dropdown and the
+  // slider's default tick stay in sync with role_vectors.py without a
+  // hardcoded copy in TypeScript.
+  const [builtinRoles, setBuiltinRoles] = useState<RoleVectorPayload[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/roles');
+        if (!res.ok) return;
+        const body = await res.json();
+        const data = body?.data ?? body;
+        if (!cancelled) setBuiltinRoles(data?.roles ?? []);
+      } catch {
+        /* best effort — panel still works with empty dropdown */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const roleOptions = useMemo(
+    () => builtinRoles.map(r => ({ id: r.role_id, label: r.display_name })),
+    [builtinRoles],
+  );
+
+  const defaultMaxCharsByRole = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const r of builtinRoles) map[r.role_id] = r.max_chars;
+    return map;
+  }, [builtinRoles]);
 
   // Cache concept id → title so the pinned-list renders readable labels.
-  // We fetch lazily as new IDs appear (typically a handful per project).
+  // Lazy-fetched as new IDs appear in the override map.
   const [conceptTitles, setConceptTitles] = useState<Record<string, string>>({});
-
   useEffect(() => {
     if (!projectId) return;
     const ids = atlasStatus?.override?.pinned_concept_ids ?? [];
@@ -69,13 +88,13 @@ export function AtlasLensContainer({ projectId, className }: AtlasLensContainerP
     return () => { cancelled = true; };
   }, [projectId, atlasStatus?.override?.pinned_concept_ids, conceptTitles]);
 
-  const getDefaultMaxChars = useCallback((roleId: string) => {
-    return BUILT_IN_DEFAULT_MAX_CHARS[roleId];
-  }, []);
+  const getDefaultMaxChars = useCallback(
+    (roleId: string) => defaultMaxCharsByRole[roleId],
+    [defaultMaxCharsByRole],
+  );
 
   const handleCommitMaxChars = useCallback(async (roleId: string, maxChars: number) => {
     await putMaxChars(roleId, maxChars);
-    // Re-fetch the role projection so the preview reflects the new budget.
     await refresh();
   }, [putMaxChars, refresh]);
 
@@ -89,23 +108,45 @@ export function AtlasLensContainer({ projectId, className }: AtlasLensContainerP
     await refresh();
   }, [unpinConcept, refresh]);
 
-  const resolveConceptTitle = useCallback((conceptId: string) => {
-    return conceptTitles[conceptId];
-  }, [conceptTitles]);
+  const resolveConceptTitle = useCallback(
+    (conceptId: string) => conceptTitles[conceptId],
+    [conceptTitles],
+  );
+
+  const getSegmentContent = useCallback(
+    (segmentId: string) => atlasStatus?.segments?.find(s => s.segment_id === segmentId)?.content,
+    [atlasStatus?.segments],
+  );
+
+  // Prefer override-mutation errors (the thing the user just attempted)
+  // over atlas-fetch errors when both are present.
+  const error = overrideError ?? atlasError;
 
   return (
-    <AtlasLensPanel
-      atlas={atlasStatus}
-      role={role}
-      onRoleChange={setRole}
-      regenerating={regenerating}
-      onRegenerate={regenerate}
-      getDefaultMaxChars={getDefaultMaxChars}
-      onCommitMaxChars={handleCommitMaxChars}
-      onResetOverride={handleResetOverride}
-      onUnpinConcept={handleUnpinConcept}
-      resolveConceptTitle={resolveConceptTitle}
-      className={className}
-    />
+    <div className="relative h-full">
+      {error && (
+        <div
+          role="alert"
+          className="absolute top-0 right-0 z-10 max-w-sm text-[11px] rounded border border-red-500/40 bg-red-500/10 px-2 py-1 text-red-400 m-2"
+        >
+          {error}
+        </div>
+      )}
+      <AtlasLensPanel
+        atlas={atlasStatus}
+        role={role}
+        onRoleChange={setRole}
+        roleOptions={roleOptions.length > 0 ? roleOptions : undefined}
+        regenerating={regenerating}
+        onRegenerate={regenerate}
+        getSegmentContent={getSegmentContent}
+        getDefaultMaxChars={getDefaultMaxChars}
+        onCommitMaxChars={handleCommitMaxChars}
+        onResetOverride={handleResetOverride}
+        onUnpinConcept={handleUnpinConcept}
+        resolveConceptTitle={resolveConceptTitle}
+        className={className}
+      />
+    </div>
   );
 }

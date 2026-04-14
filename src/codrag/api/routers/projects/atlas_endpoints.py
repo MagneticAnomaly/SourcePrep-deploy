@@ -20,7 +20,11 @@ router = APIRouter(tags=["projects"])
 
 
 def _serialize_segments(atlas) -> list[dict[str, Any]]:
-    """Return segment metadata for the dashboard sub-atlas tree.
+    """Return segment metadata + content for the dashboard sub-atlas tree.
+
+    Content is included so the SubAtlasTree can render per-segment previews
+    without a second round trip. Typical segment is ~1-3 KB, so even a
+    many-segment project adds only a few dozen KB to the payload.
 
     Per-segment staleness inherits atlas-level staleness for v1; segments
     do not carry individual stale flags today. Phase 104 follow-on will
@@ -40,6 +44,7 @@ def _serialize_segments(atlas) -> list[dict[str, Any]]:
             "mode": seg.mode,
             "generated_at": seg.generated_at,
             "stale": atlas_stale,
+            "content": seg.content,
         })
     return segments
 

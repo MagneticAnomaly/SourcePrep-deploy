@@ -575,6 +575,19 @@ export class MockApiClient implements ApiClient {
     return this.getAtlas(_projectId);
   }
 
+  // ── Built-in Roles (Phase 104) ─────────────────────────────────
+
+  async listBuiltinRoles() {
+    const roles: import('../types').RoleVectorPayload[] = [
+      { role_id: 'architect', display_name: 'Software Architect', layer_weights: { business_logic: 0.9, infrastructure: 0.7 }, domain_affinity: ['architecture'], centrality_weight: 0.85, detail_level: 0.6, max_chars: 3000 },
+      { role_id: 'ceo', display_name: 'CEO', layer_weights: { business_logic: 0.7, documentation: 0.8 }, domain_affinity: ['strategy'], centrality_weight: 0.9, detail_level: 0.2, max_chars: 1500 },
+      { role_id: 'cto', display_name: 'CTO', layer_weights: { business_logic: 0.8, infrastructure: 0.7 }, domain_affinity: ['architecture'], centrality_weight: 0.85, detail_level: 0.4, max_chars: 2500 },
+      { role_id: 'engineering', display_name: 'Software Engineer', layer_weights: { business_logic: 0.9, data: 0.7 }, domain_affinity: ['pipeline'], centrality_weight: 0.4, detail_level: 0.8, max_chars: 4000 },
+      { role_id: 'security', display_name: 'Security', layer_weights: { business_logic: 0.7, infrastructure: 0.6 }, domain_affinity: ['security'], centrality_weight: 0.6, detail_level: 0.7, max_chars: 3500 },
+    ];
+    return { roles, count: roles.length };
+  }
+
   // ── Role Overrides (Phase 104) ─────────────────────────────────
 
   // Keyed by projectId → role → override; lives on the instance so tests

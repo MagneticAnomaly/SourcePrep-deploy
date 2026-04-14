@@ -446,6 +446,9 @@ export interface AtlasSegmentStatus {
   mode?: 'llm' | 'structural';
   generated_at?: string;
   stale?: boolean;
+  /** Full rendered segment content. Sent inline on GET /atlas so the
+   *  sub-atlas tree can preview a segment without a second round trip. */
+  content?: string;
 }
 
 /**

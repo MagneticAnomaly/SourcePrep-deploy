@@ -169,6 +169,9 @@ export interface ApiClient {
   getAtlas(projectId: string, role?: string): Promise<import('../types').AtlasStatus>;
   regenerateAtlas(projectId: string): Promise<import('../types').AtlasStatus>;
 
+  // Built-in Roles (Phase 104)
+  listBuiltinRoles(): Promise<{ roles: import('../types').RoleVectorPayload[]; count: number }>;
+
   // Role Overrides (Phase 104)
   listRoleOverrides(projectId: string): Promise<{ overrides: import('../types').RoleOverride[]; count: number }>;
   getRoleOverride(projectId: string, roleId: string): Promise<{ override: import('../types').RoleOverride | null }>;
@@ -1150,6 +1153,12 @@ export class CodragApiClient implements ApiClient {
     return this.requestEnvelope<import('../types').AtlasStatus>(`/projects/${encodeURIComponent(projectId)}/atlas/regenerate`, {
       method: 'POST',
     });
+  }
+
+  // ── Built-in Roles (Phase 104) ─────────────────────────────────
+
+  async listBuiltinRoles(): Promise<{ roles: import('../types').RoleVectorPayload[]; count: number }> {
+    return this.requestEnvelope('/roles');
   }
 
   // ── Role Overrides (Phase 104) ─────────────────────────────────

@@ -29,6 +29,7 @@ class _FakeSegment:
     char_count: int
     mode: str = "structural"
     generated_at: str = "2026-04-14T00:00:00Z"
+    content: str = ""
 
 
 @dataclass
@@ -118,7 +119,25 @@ def test_serialize_segments_returns_expected_fields():
         "mode": "structural",
         "generated_at": "2026-04-14T00:00:00Z",
         "stale": False,
+        "content": "",
     }
+
+
+def test_serialize_segments_includes_content_for_preview():
+    atlas = _FakeAtlas(
+        segments=[
+            _FakeSegment(
+                segment_id="s1",
+                segment_name="core",
+                dir_path="src/codrag/core",
+                file_count=10,
+                char_count=100,
+                content="[CORE]\nindexing + embedding pipeline",
+            ),
+        ],
+    )
+    out = _serialize_segments(atlas)
+    assert out[0]["content"] == "[CORE]\nindexing + embedding pipeline"
 
 
 def test_serialize_segments_inherits_atlas_level_staleness():
