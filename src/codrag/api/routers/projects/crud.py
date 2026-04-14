@@ -490,6 +490,10 @@ def get_included_paths(project_id: str) -> Dict[str, Any]:
 def _persist_included_paths(proj, paths: List[str]):
     """Persist included_paths to project config in SQLite.
 
+    Uses mutate_config for atomic read-modify-write so concurrent writers
+    (e.g. POST /trace/ignore racing on an exclude-click that also triggers
+    a mutual-exclusion un-include) cannot clobber each other's fields.
+
     If a pipeline is running, triggers a hot scope reload so the new
     include/exclude scope takes effect immediately.
     """
@@ -497,9 +501,10 @@ def _persist_included_paths(proj, paths: List[str]):
     normalized = sorted(set(str(p) for p in paths if p))
 
     reg = _srv()._get_registry()
-    new_config = dict(proj.config)
-    new_config["included_paths"] = normalized
-    updated = reg.update_project(proj.id, config=new_config)
+    updated = reg.mutate_config(
+        proj.id,
+        lambda cfg: {**cfg, "included_paths": normalized},
+    )
 
     # P48-F34: Hot scope reload if pipeline is running
     try:

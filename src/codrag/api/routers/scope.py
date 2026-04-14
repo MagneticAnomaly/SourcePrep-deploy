@@ -121,17 +121,19 @@ def scope_add_files(project_id: str, req: ScopeFilesRequest) -> Dict[str, Any]:
             message="No file paths provided",
         )
 
-    # Persist: add paths to the canonical included_paths set in project config
-    current = set(proj.config.get("included_paths", []))
-    for p in req.paths:
-        if p:
-            current.add(p)
-            # Remove descendants — parent covers them
-            prefix = p + "/"
-            current = {x for x in current if not x.startswith(prefix) or x == p}
-    new_config = dict(proj.config)
-    new_config["included_paths"] = sorted(current)
-    _get_registry().update_project(project_id, config=new_config)
+    # Atomic RMW to avoid racing with concurrent /trace/ignore or
+    # /included_paths writers that would overwrite our field.
+    def _apply_add(cfg):
+        current = set(cfg.get("included_paths", []))
+        for p in req.paths:
+            if p:
+                current.add(p)
+                prefix = p + "/"
+                current = {x for x in current if not x.startswith(prefix) or x == p}
+        return {**cfg, "included_paths": sorted(current)}
+    _get_registry().mutate_config(project_id, _apply_add)
+    # Re-read for response
+    current = set((_get_registry().get_project(project_id).config or {}).get("included_paths", []))
 
     from codrag.services.scope_orchestrator import scope_orchestrator
     _ensure_build_fn_registered(project_id)
@@ -160,16 +162,18 @@ def scope_remove_files(project_id: str, req: ScopeFilesRequest) -> Dict[str, Any
             message="No file paths provided",
         )
 
-    # Persist: remove paths from the canonical included_paths set in project config
-    current = set(proj.config.get("included_paths", []))
-    for p in req.paths:
-        current.discard(p)
-        # Also remove descendants
-        prefix = p + "/"
-        current = {x for x in current if not x.startswith(prefix)}
-    new_config = dict(proj.config)
-    new_config["included_paths"] = sorted(current)
-    _get_registry().update_project(project_id, config=new_config)
+    # Atomic RMW to avoid racing with concurrent /trace/ignore or
+    # /included_paths writers that would overwrite our field.
+    def _apply_remove(cfg):
+        current = set(cfg.get("included_paths", []))
+        for p in req.paths:
+            current.discard(p)
+            prefix = p + "/"
+            current = {x for x in current if not x.startswith(prefix)}
+        return {**cfg, "included_paths": sorted(current)}
+    _get_registry().mutate_config(project_id, _apply_remove)
+    # Re-read for response
+    current = set((_get_registry().get_project(project_id).config or {}).get("included_paths", []))
 
     from codrag.services.scope_orchestrator import scope_orchestrator
     _ensure_build_fn_registered(project_id)

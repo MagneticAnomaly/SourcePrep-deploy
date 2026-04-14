@@ -245,6 +245,63 @@ class ProjectRegistry:
             raise ProjectNotFound(project_id)
         return updated
 
+    def mutate_config(
+        self,
+        project_id: str,
+        mutator: "Any",
+        *,
+        touch: bool = True,
+    ) -> Project:
+        """Atomically read-modify-write the project's config.
+
+        The read, the mutator call, and the write all happen inside a single
+        SQLite transaction, so concurrent RMW endpoints (e.g.
+        PUT /included_paths and POST /trace/ignore) cannot clobber each
+        other's fields by writing based on a stale snapshot.
+
+        `mutator(current_config: dict) -> dict` returns the new config to
+        persist. The function should not mutate its input in place; return
+        a new dict (or a deep-copied + modified one) to keep callers honest.
+
+        Uses `BEGIN IMMEDIATE` to acquire a reserved lock before the SELECT
+        so that two concurrent mutators cannot both read v1 and each write
+        over the other. With Python's default deferred isolation the first
+        SELECT does not take a write lock, which would let the race persist.
+        """
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT config FROM projects WHERE id = ?",
+                (str(project_id),),
+            ).fetchone()
+            if row is None:
+                raise ProjectNotFound(project_id)
+            current_cfg: Dict[str, Any] = {}
+            raw = row[0]
+            if raw:
+                try:
+                    loaded = json.loads(raw)
+                    if isinstance(loaded, dict):
+                        current_cfg = loaded
+                except (json.JSONDecodeError, TypeError):
+                    current_cfg = {}
+            new_cfg = mutator(current_cfg) or {}
+            now = _now_iso() if touch else None
+            if now is None:
+                conn.execute(
+                    "UPDATE projects SET config = ? WHERE id = ?",
+                    (json.dumps(new_cfg), str(project_id)),
+                )
+            else:
+                conn.execute(
+                    "UPDATE projects SET config = ?, updated_at = ? WHERE id = ?",
+                    (json.dumps(new_cfg), now, str(project_id)),
+                )
+        updated = self.get_project(project_id)
+        if updated is None:
+            raise ProjectNotFound(project_id)
+        return updated
+
     def remove_project(self, project_id: str, *, purge: bool = False) -> None:
         proj = self.get_project(project_id)
         if proj is None:
