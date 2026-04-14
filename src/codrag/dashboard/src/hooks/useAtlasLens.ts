@@ -4,7 +4,7 @@
  * Coordinates three reads:
  *   1. GET /projects/{id}/atlas           — root + segments
  *   2. GET /projects/{id}/atlas?role=X    — projection + applied_role + override
- *   3. POST /projects/{id}/atlas/regenerate on demand
+ *   3. POST /projects/{id}/pipeline/stages/atlas/run on demand (Phase 105a)
  *
  * Role changes are debounced so rapid clicks through the role list don't
  * swamp the daemon; reuses the AbortSignal cancellation pattern from the
