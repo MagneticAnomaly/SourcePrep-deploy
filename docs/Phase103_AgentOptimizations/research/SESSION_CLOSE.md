@@ -9,7 +9,7 @@
 |---|---|---|---|
 | R1 | Context layout / position | **Deferred** | null-by-construction in current scorer; needs LLM-eval layer (Phase 104) |
 | R2 | Default budget sweep | **Deferred** | same; substring scorer is monotonic in size |
-| R3 | Knowledge-honing validation | **Measured + calibrated** | thesis partially validated; calibration Runs 06–11 produced per-role wins |
+| R3 | Knowledge-honing validation | **Measured + calibrated** | Runs 01→12; **3 roles beat A on 24-query aggregate** (eng, arch, researcher); 9 clean role-aligned wins, 2 recovered regressions, 0 losses; **3 new non-dev roles added** (assistant/OpenClaw, pm, researcher) |
 | R4 | Universal client API | **Shipped** | `task` param + IDF role inference; 66% soft precision, 25% safe abstention |
 | R5 | Concept activation | **Shipped** | 10 seeds → active; clog = missing `assertion`, not anchors |
 | R6 | Temporal validity | **Shipped** | `reviewed_at` + `review_status` columns added; idempotent migration |
