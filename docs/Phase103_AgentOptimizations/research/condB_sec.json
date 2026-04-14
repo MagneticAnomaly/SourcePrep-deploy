@@ -1,0 +1,204 @@
+{
+  "summary": {
+    "total": 10,
+    "passed": 0,
+    "avg_score": 0.1633333333333333,
+    "mode": "atlas",
+    "condition": "B",
+    "role": "security"
+  },
+  "results": [
+    {
+      "query_id": "gq-001",
+      "query": "how does the atomic build mechanism work",
+      "passed": false,
+      "file_hits": 0,
+      "file_misses": 1,
+      "keyword_hits": 1,
+      "keyword_misses": 2,
+      "top_k_files": [],
+      "expected_files": [
+        "src/codrag/core/index.py"
+      ],
+      "score": 0.25,
+      "details": "Missing files: ['src/codrag/core/index.py']; Missing keywords: ['_swap_index_dir', 'atomic']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2289
+    },
+    {
+      "query_id": "gq-002",
+      "query": "what error codes does the API return",
+      "passed": false,
+      "file_hits": 0,
+      "file_misses": 1,
+      "keyword_hits": 1,
+      "keyword_misses": 1,
+      "top_k_files": [],
+      "expected_files": [
+        "src/codrag/server.py"
+      ],
+      "score": 0.3333333333333333,
+      "details": "Missing files: ['src/codrag/server.py']; Missing keywords: ['ApiException']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2289
+    },
+    {
+      "query_id": "gq-003",
+      "query": "how are primer files detected and boosted",
+      "passed": false,
+      "file_hits": 0,
+      "file_misses": 2,
+      "keyword_hits": 0,
+      "keyword_misses": 3,
+      "top_k_files": [],
+      "expected_files": [
+        "src/codrag/core/index.py",
+        "src/codrag/core/repo_policy.py"
+      ],
+      "score": 0.0,
+      "details": "Missing files: ['src/codrag/core/index.py', 'src/codrag/core/repo_policy.py']; Missing keywords: ['primer', 'boost', 'AGENTS.md']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2289
+    },
+    {
+      "query_id": "gq-004",
+      "query": "how does the file watcher detect changes",
+      "passed": false,
+      "file_hits": 0,
+      "file_misses": 1,
+      "keyword_hits": 0,
+      "keyword_misses": 3,
+      "top_k_files": [],
+      "expected_files": [
+        "src/codrag/core/watcher.py"
+      ],
+      "score": 0.0,
+      "details": "Missing files: ['src/codrag/core/watcher.py']; Missing keywords: ['watchdog', 'FileSystemEventHandler', 'on_modified']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2289
+    },
+    {
+      "query_id": "gq-005",
+      "query": "how are embeddings generated from code",
+      "passed": false,
+      "file_hits": 0,
+      "file_misses": 1,
+      "keyword_hits": 0,
+      "keyword_misses": 3,
+      "top_k_files": [],
+      "expected_files": [
+        "src/codrag/core/embedder.py"
+      ],
+      "score": 0.0,
+      "details": "Missing files: ['src/codrag/core/embedder.py']; Missing keywords: ['embed', 'OllamaEmbedder', 'encode']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2289
+    },
+    {
+      "query_id": "gq-006",
+      "query": "how does trace index build the code graph",
+      "passed": false,
+      "file_hits": 0,
+      "file_misses": 1,
+      "keyword_hits": 1,
+      "keyword_misses": 3,
+      "top_k_files": [],
+      "expected_files": [
+        "src/codrag/core/trace.py"
+      ],
+      "score": 0.2,
+      "details": "Missing files: ['src/codrag/core/trace.py']; Missing keywords: ['TraceIndex', 'nodes', 'edges']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2289
+    },
+    {
+      "query_id": "gq-007",
+      "query": "what MCP tools are exposed to AI assistants",
+      "passed": false,
+      "file_hits": 0,
+      "file_misses": 2,
+      "keyword_hits": 2,
+      "keyword_misses": 1,
+      "top_k_files": [],
+      "expected_files": [
+        "src/codrag/mcp_server.py",
+        "src/codrag/mcp_tools.py"
+      ],
+      "score": 0.4,
+      "details": "Missing files: ['src/codrag/mcp_server.py', 'src/codrag/mcp_tools.py']; Missing keywords: ['tool']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2289
+    },
+    {
+      "query_id": "gq-008",
+      "query": "how is the project registry persisted",
+      "passed": false,
+      "file_hits": 0,
+      "file_misses": 1,
+      "keyword_hits": 1,
+      "keyword_misses": 2,
+      "top_k_files": [],
+      "expected_files": [
+        "src/codrag/core/project_registry.py"
+      ],
+      "score": 0.25,
+      "details": "Missing files: ['src/codrag/core/project_registry.py']; Missing keywords: ['sqlite', 'INSERT']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2289
+    },
+    {
+      "query_id": "gq-009",
+      "query": "how does context assembly work with char limits",
+      "passed": false,
+      "file_hits": 0,
+      "file_misses": 1,
+      "keyword_hits": 0,
+      "keyword_misses": 3,
+      "top_k_files": [],
+      "expected_files": [
+        "src/codrag/core/index.py"
+      ],
+      "score": 0.0,
+      "details": "Missing files: ['src/codrag/core/index.py']; Missing keywords: ['assemble_context', 'max_chars', 'budget']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2289
+    },
+    {
+      "query_id": "gq-010",
+      "query": "how are search results scored and ranked",
+      "passed": false,
+      "file_hits": 0,
+      "file_misses": 1,
+      "keyword_hits": 1,
+      "keyword_misses": 3,
+      "top_k_files": [],
+      "expected_files": [
+        "src/codrag/core/index.py"
+      ],
+      "score": 0.2,
+      "details": "Missing files: ['src/codrag/core/index.py']; Missing keywords: ['score', 'similarity', 'boost']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2289
+    }
+  ]
+}

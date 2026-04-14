@@ -3715,12 +3715,43 @@ class MCPServer:
         try:
             # ── Primary tools (new consolidated set) ────────────────
             if name in ("codrag", "codrag_context", "codrag_"):
+                # Phase 103 R4: resolve task → role before dispatch.
+                # If caller passed an explicit role, always use it.
+                # Otherwise, if they passed a task, try to infer role;
+                # fall back to uniform atlas when inference is weak.
+                explicit_role = args.get("role")
+                task_text = args.get("task")
+                resolved_role = explicit_role
+                inference_meta: Dict[str, Any] = {}
+                if not explicit_role and task_text:
+                    try:
+                        from codrag.core.atlas.role_resolver import infer_role_from_task
+                        inferred, score = infer_role_from_task(task_text)
+                        if inferred is not None:
+                            resolved_role = inferred
+                            inference_meta = {
+                                "role_source": "inferred",
+                                "inference_score": round(score, 2),
+                                "inferred_from_task": task_text[:120],
+                            }
+                        else:
+                            inference_meta = {
+                                "role_source": "default",
+                                "inference_score": round(score, 2),
+                            }
+                    except Exception as _e:
+                        logger.debug("R4 task->role inference failed: %s", _e)
+
                 result = await self.tool_context(
                     max_chars=args.get("max_chars", 0),  # 0 = adaptive budget (OPP-W5)
-                    role=args.get("role"),  # Phase 64A: role-based atlas projection
+                    role=resolved_role,  # Phase 64A + 103 R4: explicit or inferred
                     working_dir=args.get("working_dir"),  # Phase 80: L2 scoped context
                     project_override=project_override,
                 )
+                # Attach inference metadata so clients can see what happened
+                if isinstance(result, dict) and inference_meta:
+                    result.setdefault("r4_meta", {}).update(inference_meta)
+
                 # Set AFTER tool_context so first-call orientation boost fires
                 self._codrag_called = True
 

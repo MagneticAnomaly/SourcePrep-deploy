@@ -207,12 +207,20 @@ BUILT_IN_ROLES: Dict[str, RoleVector] = {
             "documentation": 0.3, "build": 0.3, "unknown": 0.2,
         },
         domain_affinity=[
-            "architecture", "api", "pipeline", "orchestration", "state-management",
+            # Intent markers — engineering builds service-layer + pipeline systems
+            "architecture", "pipeline", "orchestration", "state-management",
             "data-persistence", "error-handling", "concurrency",
+            # Service-layer engines (embedder, augmenter, enrichment) — Run 12 calibration
+            "embeddings", "vector-search", "llm-integration", "retrieval",
+            "trace-augmentation", "semantic-analysis", "pipeline-stage",
+            "llm-orchestration", "epistemic-analysis", "knowledge-representation",
+            # Engineering-flavored compound terms
+            "service-layer", "factory-pattern", "embedder", "augmenter",
+            "pipeline-orchestration", "incremental-builds",
         ],
-        centrality_weight=0.5,
+        centrality_weight=0.4,  # surface niche service files over centrality hubs
         detail_level=0.8,
-        max_chars=3500,
+        max_chars=4000,  # budget parity with A's neutral baseline (also 4000)
     ),
 
     "architect": RoleVector(
@@ -224,11 +232,26 @@ BUILT_IN_ROLES: Dict[str, RoleVector] = {
             "documentation": 0.6, "build": 0.4, "unknown": 0.1,
         },
         domain_affinity=[
-            "architecture", "api", "pipeline", "orchestration", "integration",
-            "scalability", "security", "infrastructure", "design-patterns",
+            # Intent markers
+            "architecture", "integration", "scalability", "infrastructure",
+            "design-patterns",
+            # Data-driven additions (compound terms confirmed present as tags)
+            "entry-point", "bootstrap",
+            "daemon", "daemon-architecture", "daemon-lifecycle",
+            "cli", "mcp", "fastapi", "rag",
+            "pipeline-orchestration", "llm-orchestration",
+            "architecture-audit", "audit-architecture",
+            "api",
+            # Run 09: hub/dependency/cross-cutting graph vocabulary for gq-a04
+            "dependency-graph", "dependency-analysis", "dependency-management",
+            "dependency-extraction", "dependency-injection", "dependency-inference",
+            "graph-analysis", "code-graph", "trace-graph", "graph-construction",
+            "graph-algorithms", "graph-traversal", "graph-engine",
+            "knowledge-graph", "cross-platform", "cross-cutting",
+            "import-cycle", "centrality", "hub-file",
         ],
-        centrality_weight=0.8,
-        detail_level=0.5,
+        centrality_weight=0.6,  # was 0.8; reduced to surface entry points + leaves, not only hubs
+        detail_level=0.8,        # Run 07: 0.7→0.8 crosses manager→practitioner boundary (<=0.7 is manager, role-unscored)
         max_chars=3000,
     ),
 
@@ -308,16 +331,28 @@ BUILT_IN_ROLES: Dict[str, RoleVector] = {
         role_id="security",
         display_name="Security Engineer",
         layer_weights={
-            "presentation": 0.2, "business_logic": 0.5, "data": 0.7,
+            # Run 08: presentation 0.2→0.5 to surface API-layer security (envelopes, middleware, auth routes)
+            "presentation": 0.5, "business_logic": 0.5, "data": 0.7,
             "infrastructure": 0.6, "configuration": 0.7, "testing": 0.4,
             "documentation": 0.3, "build": 0.3, "unknown": 0.1,
         },
         domain_affinity=[
-            "security", "auth", "authentication", "authorization", "encryption",
-            "token", "permission", "credential", "data-handling", "vulnerability",
+            # Intent markers (broad; always useful)
+            "security", "authentication", "authorization", "encryption",
+            "permission", "credential", "vulnerability",
+            # Data-driven additions (compound terms confirmed present in
+            # trace_epistemic tag universe as of Phase 103 R3 calibration)
+            "admin-policy", "security-policy", "policy-enforcement",
+            "access-control", "role-based-access-control",
+            "input-sanitization", "cryptography", "cryptographic-hashing",
+            "session-management", "credentials", "cors",
+            "security-audit", "audit-logging", "audit-trail",
+            # Run 08: API-layer security surface (error envelopes, auth middleware, exception filters)
+            "api-design", "response-envelope", "error-handling",
+            "exception-handling", "middleware", "fastapi",
         ],
         centrality_weight=0.6,
-        detail_level=0.7,
+        detail_level=0.8,  # Run 07: 0.7→0.8 crosses manager→practitioner boundary (<=0.7 is manager, role-unscored)
         max_chars=2500,
     ),
 
@@ -411,6 +446,93 @@ BUILT_IN_ROLES: Dict[str, RoleVector] = {
         centrality_weight=0.5,
         detail_level=0.7,
         max_chars=2500,
+    ),
+
+    # ── Personal Assistant / Coordination (Phase 103 broadening) ────
+    # CoDRAG isn't only a dev tool. AI agents like OpenClaw operate as
+    # personal assistants — focused on plans, decisions, MVP specs, todo
+    # lists, and project memory rather than code. These roles serve those
+    # non-dev agent personas reading the same codebase atlas.
+
+    "assistant": RoleVector(
+        role_id="assistant",
+        display_name="Personal Assistant",
+        # Heavy documentation lens — assistants live in plans/specs/notes,
+        # not code. Some business_logic for understanding what the project
+        # actually does. Minimal infra/build awareness.
+        layer_weights={
+            "presentation": 0.3, "business_logic": 0.4, "data": 0.2,
+            "infrastructure": 0.1, "configuration": 0.2, "testing": 0.1,
+            "documentation": 0.95, "build": 0.1, "unknown": 0.2,
+        },
+        domain_affinity=[
+            # Planning artifacts (the assistant's primary deliverables)
+            "planning", "implementation-plan", "roadmap", "milestone",
+            "specification", "spec", "mvp", "requirements",
+            "phase", "deliverable", "scope",
+            # Decisions, tracking, action items
+            "decision-log", "todo", "task", "action-item",
+            "status", "tracking", "blocker",
+            # Agent-coordination vocabulary (OpenClaw-relevant)
+            "agent-architecture", "agent-orchestration",
+            "context-engineering", "knowledge-management",
+            "tacit-knowledge", "memory",
+            # User-facing intent
+            "user-facing", "onboarding", "feature",
+        ],
+        centrality_weight=0.3,  # specs/decisions live in leaves, not graph hubs
+        detail_level=0.8,        # practitioner — file-level role-scored selection
+        max_chars=4000,
+    ),
+
+    "pm": RoleVector(
+        role_id="pm",
+        display_name="Project Manager",
+        # Project managers track operational state — phases, dependencies,
+        # blockers — not the strategic vision (that's `product`).
+        layer_weights={
+            "presentation": 0.3, "business_logic": 0.4, "data": 0.2,
+            "infrastructure": 0.2, "configuration": 0.2, "testing": 0.2,
+            "documentation": 0.9, "build": 0.2, "unknown": 0.1,
+        },
+        domain_affinity=[
+            "project-management", "roadmap", "milestone", "deliverable",
+            "phase", "deadline", "tracking", "status",
+            "scheduling", "scope", "blocker",
+            "dependency-management", "release-management", "rollout",
+            "implementation-plan", "team-coordination",
+            "agile", "sprint", "kanban", "retrospective",
+            "tech-debt", "technical-debt",
+        ],
+        centrality_weight=0.5,
+        detail_level=0.8,
+        max_chars=3500,
+    ),
+
+    "researcher": RoleVector(
+        role_id="researcher",
+        display_name="Research Analyst",
+        # Research/analysis — comparisons, evaluations, methodology. Cares
+        # about both code (what was built/measured) and docs (findings).
+        layer_weights={
+            "presentation": 0.2, "business_logic": 0.5, "data": 0.5,
+            "infrastructure": 0.2, "configuration": 0.2, "testing": 0.4,
+            "documentation": 0.9, "build": 0.2, "unknown": 0.1,
+        },
+        domain_affinity=[
+            "research", "research-engine", "research-strategy",
+            "evaluation", "benchmark", "comparison", "ablation",
+            "hypothesis", "finding", "experiment",
+            "metrics", "measurement", "analysis", "literature",
+            "survey", "methodology", "calibration",
+            # CoDRAG-research-adjacent vocabulary
+            "ai-agent", "agent-architecture", "knowledge-graph",
+            "epistemic-analysis", "context-engineering",
+            "code-intelligence", "graph-rag",
+        ],
+        centrality_weight=0.4,
+        detail_level=0.8,
+        max_chars=4000,
     ),
 
     # ── Learning / Onboarding ────────────────────────────────────────

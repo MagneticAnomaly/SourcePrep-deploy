@@ -1,0 +1,524 @@
+{
+  "summary": {
+    "total": 24,
+    "passed": 11,
+    "avg_score": 0.3944444444444444,
+    "mode": "atlas",
+    "condition": "B",
+    "role": "security"
+  },
+  "results": [
+    {
+      "query_id": "gq-001",
+      "query": "how does the atomic build mechanism work",
+      "passed": true,
+      "file_hits": 1,
+      "file_misses": 0,
+      "keyword_hits": 1,
+      "keyword_misses": 2,
+      "top_k_files": [
+        "src/codrag/core/index.py"
+      ],
+      "expected_files": [
+        "src/codrag/core/index.py"
+      ],
+      "score": 0.5,
+      "details": "Missing keywords: ['_swap_index_dir', 'atomic']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-002",
+      "query": "what error codes does the API return",
+      "passed": false,
+      "file_hits": 1,
+      "file_misses": 0,
+      "keyword_hits": 0,
+      "keyword_misses": 2,
+      "top_k_files": [
+        "src/codrag/server.py"
+      ],
+      "expected_files": [
+        "src/codrag/server.py"
+      ],
+      "score": 0.3333333333333333,
+      "details": "Missing keywords: ['ApiException', 'code']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-003",
+      "query": "how are primer files detected and boosted",
+      "passed": false,
+      "file_hits": 2,
+      "file_misses": 0,
+      "keyword_hits": 0,
+      "keyword_misses": 3,
+      "top_k_files": [
+        "src/codrag/core/index.py",
+        "src/codrag/core/repo_policy.py"
+      ],
+      "expected_files": [
+        "src/codrag/core/index.py",
+        "src/codrag/core/repo_policy.py"
+      ],
+      "score": 0.4,
+      "details": "Missing keywords: ['primer', 'boost', 'AGENTS.md']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-004",
+      "query": "how does the file watcher detect changes",
+      "passed": false,
+      "file_hits": 1,
+      "file_misses": 0,
+      "keyword_hits": 0,
+      "keyword_misses": 3,
+      "top_k_files": [
+        "src/codrag/core/watcher.py"
+      ],
+      "expected_files": [
+        "src/codrag/core/watcher.py"
+      ],
+      "score": 0.25,
+      "details": "Missing keywords: ['watchdog', 'FileSystemEventHandler', 'on_modified']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-005",
+      "query": "how are embeddings generated from code",
+      "passed": true,
+      "file_hits": 1,
+      "file_misses": 0,
+      "keyword_hits": 1,
+      "keyword_misses": 2,
+      "top_k_files": [
+        "src/codrag/core/embedder.py"
+      ],
+      "expected_files": [
+        "src/codrag/core/embedder.py"
+      ],
+      "score": 0.5,
+      "details": "Missing keywords: ['OllamaEmbedder', 'encode']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-006",
+      "query": "how does trace index build the code graph",
+      "passed": false,
+      "file_hits": 1,
+      "file_misses": 0,
+      "keyword_hits": 1,
+      "keyword_misses": 3,
+      "top_k_files": [
+        "src/codrag/core/trace.py"
+      ],
+      "expected_files": [
+        "src/codrag/core/trace.py"
+      ],
+      "score": 0.4,
+      "details": "Missing keywords: ['TraceIndex', 'nodes', 'edges']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-007",
+      "query": "what MCP tools are exposed to AI assistants",
+      "passed": true,
+      "file_hits": 2,
+      "file_misses": 0,
+      "keyword_hits": 1,
+      "keyword_misses": 2,
+      "top_k_files": [
+        "src/codrag/mcp_server.py",
+        "src/codrag/mcp_tools.py"
+      ],
+      "expected_files": [
+        "src/codrag/mcp_server.py",
+        "src/codrag/mcp_tools.py"
+      ],
+      "score": 0.6,
+      "details": "Missing keywords: ['tool', 'context']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-008",
+      "query": "how is the project registry persisted",
+      "passed": true,
+      "file_hits": 1,
+      "file_misses": 0,
+      "keyword_hits": 1,
+      "keyword_misses": 2,
+      "top_k_files": [
+        "src/codrag/core/project_registry.py"
+      ],
+      "expected_files": [
+        "src/codrag/core/project_registry.py"
+      ],
+      "score": 0.5,
+      "details": "Missing keywords: ['projects', 'INSERT']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-009",
+      "query": "how does context assembly work with char limits",
+      "passed": false,
+      "file_hits": 1,
+      "file_misses": 0,
+      "keyword_hits": 0,
+      "keyword_misses": 3,
+      "top_k_files": [
+        "src/codrag/core/index.py"
+      ],
+      "expected_files": [
+        "src/codrag/core/index.py"
+      ],
+      "score": 0.25,
+      "details": "Missing keywords: ['assemble_context', 'max_chars', 'budget']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-010",
+      "query": "how are search results scored and ranked",
+      "passed": false,
+      "file_hits": 1,
+      "file_misses": 0,
+      "keyword_hits": 1,
+      "keyword_misses": 3,
+      "top_k_files": [
+        "src/codrag/core/index.py"
+      ],
+      "expected_files": [
+        "src/codrag/core/index.py"
+      ],
+      "score": 0.4,
+      "details": "Missing keywords: ['score', 'similarity', 'boost']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-a01",
+      "query": "which modules orchestrate the build pipeline end to end",
+      "passed": true,
+      "file_hits": 1,
+      "file_misses": 0,
+      "keyword_hits": 2,
+      "keyword_misses": 2,
+      "top_k_files": [
+        "src/codrag/services/pipeline"
+      ],
+      "expected_files": [
+        "src/codrag/services/pipeline"
+      ],
+      "score": 0.6,
+      "details": "Missing keywords: ['orchestrator', 'stage']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-a02",
+      "query": "what service layer handles embedding generation and augmentation",
+      "passed": true,
+      "file_hits": 1,
+      "file_misses": 0,
+      "keyword_hits": 1,
+      "keyword_misses": 2,
+      "top_k_files": [
+        "src/codrag/services"
+      ],
+      "expected_files": [
+        "src/codrag/services"
+      ],
+      "score": 0.5,
+      "details": "Missing keywords: ['augmenter', 'service']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-a03",
+      "query": "what are the architectural entry points to the system",
+      "passed": true,
+      "file_hits": 2,
+      "file_misses": 0,
+      "keyword_hits": 3,
+      "keyword_misses": 1,
+      "top_k_files": [
+        "src/codrag/cli.py",
+        "src/codrag/server.py"
+      ],
+      "expected_files": [
+        "src/codrag/cli.py",
+        "src/codrag/server.py"
+      ],
+      "score": 0.8333333333333334,
+      "details": "Missing keywords: ['entry']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-a04",
+      "query": "which hub files anchor the overall dependency graph",
+      "passed": false,
+      "file_hits": 1,
+      "file_misses": 0,
+      "keyword_hits": 0,
+      "keyword_misses": 4,
+      "top_k_files": [
+        "src/codrag/core"
+      ],
+      "expected_files": [
+        "src/codrag/core"
+      ],
+      "score": 0.2,
+      "details": "Missing keywords: ['hub', 'edges', 'dependency', 'cross-cutting']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-a05",
+      "query": "where does the codebase enforce admin policy and permission checks",
+      "passed": true,
+      "file_hits": 2,
+      "file_misses": 0,
+      "keyword_hits": 2,
+      "keyword_misses": 2,
+      "top_k_files": [
+        "src/codrag/core/admin_policy.py",
+        "src/codrag/api"
+      ],
+      "expected_files": [
+        "src/codrag/core/admin_policy.py",
+        "src/codrag/api"
+      ],
+      "score": 0.6666666666666666,
+      "details": "Missing keywords: ['permission', 'allowlist']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-a06",
+      "query": "how is the API envelope structured for error handling and auth",
+      "passed": true,
+      "file_hits": 2,
+      "file_misses": 0,
+      "keyword_hits": 3,
+      "keyword_misses": 1,
+      "top_k_files": [
+        "src/codrag/core/api_envelope.py",
+        "src/codrag/api"
+      ],
+      "expected_files": [
+        "src/codrag/core/api_envelope.py",
+        "src/codrag/api"
+      ],
+      "score": 0.8333333333333334,
+      "details": "Missing keywords: ['exception']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-a07",
+      "query": "which packages compose the dashboard user interface",
+      "passed": true,
+      "file_hits": 2,
+      "file_misses": 0,
+      "keyword_hits": 1,
+      "keyword_misses": 3,
+      "top_k_files": [
+        "packages/ui",
+        "src/codrag/dashboard"
+      ],
+      "expected_files": [
+        "packages/ui",
+        "src/codrag/dashboard"
+      ],
+      "score": 0.5,
+      "details": "Missing keywords: ['dashboard', 'component', 'react']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-a08",
+      "query": "how does the VS Code extension integrate with the daemon",
+      "passed": false,
+      "file_hits": 0,
+      "file_misses": 1,
+      "keyword_hits": 0,
+      "keyword_misses": 4,
+      "top_k_files": [],
+      "expected_files": [
+        "packages/vscode"
+      ],
+      "score": 0.0,
+      "details": "Missing files: ['packages/vscode']; Missing keywords: ['vscode', 'extension', 'webview', 'daemon']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-a09",
+      "query": "what implementation plans and MVP specifications are documented",
+      "passed": false,
+      "file_hits": 0,
+      "file_misses": 1,
+      "keyword_hits": 1,
+      "keyword_misses": 3,
+      "top_k_files": [],
+      "expected_files": [
+        "docs"
+      ],
+      "score": 0.2,
+      "details": "Missing files: ['docs']; Missing keywords: ['plan', 'phase', 'mvp']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-a10",
+      "query": "how are agent decisions tracked and remembered across sessions",
+      "passed": false,
+      "file_hits": 1,
+      "file_misses": 1,
+      "keyword_hits": 1,
+      "keyword_misses": 3,
+      "top_k_files": [
+        "src/codrag/core"
+      ],
+      "expected_files": [
+        "docs",
+        "src/codrag/core"
+      ],
+      "score": 0.3333333333333333,
+      "details": "Missing files: ['docs']; Missing keywords: ['decision', 'memory', 'context']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-a11",
+      "query": "what phases and milestones exist in the project roadmap",
+      "passed": false,
+      "file_hits": 0,
+      "file_misses": 1,
+      "keyword_hits": 0,
+      "keyword_misses": 3,
+      "top_k_files": [],
+      "expected_files": [
+        "docs"
+      ],
+      "score": 0.0,
+      "details": "Missing files: ['docs']; Missing keywords: ['phase', 'milestone', 'roadmap']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-a12",
+      "query": "what technical debt and remediation plans are tracked",
+      "passed": false,
+      "file_hits": 1,
+      "file_misses": 1,
+      "keyword_hits": 0,
+      "keyword_misses": 4,
+      "top_k_files": [
+        "src/codrag/services"
+      ],
+      "expected_files": [
+        "docs",
+        "src/codrag/services"
+      ],
+      "score": 0.16666666666666666,
+      "details": "Missing files: ['docs']; Missing keywords: ['debt', 'remediation', 'tracking', 'tech']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-a13",
+      "query": "what evaluation harnesses measure agent performance and benchmarks",
+      "passed": false,
+      "file_hits": 0,
+      "file_misses": 2,
+      "keyword_hits": 0,
+      "keyword_misses": 4,
+      "top_k_files": [],
+      "expected_files": [
+        "tests/eval",
+        "docs/Phase103"
+      ],
+      "score": 0.0,
+      "details": "Missing files: ['tests/eval', 'docs/Phase103']; Missing keywords: ['evaluation', 'benchmark', 'harness', 'metric']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    },
+    {
+      "query_id": "gq-a14",
+      "query": "what research has been done on agent context management and code intelligence",
+      "passed": true,
+      "file_hits": 1,
+      "file_misses": 1,
+      "keyword_hits": 2,
+      "keyword_misses": 2,
+      "top_k_files": [
+        "src/codrag/core/atlas"
+      ],
+      "expected_files": [
+        "docs/Phase103",
+        "src/codrag/core/atlas"
+      ],
+      "score": 0.5,
+      "details": "Missing files: ['docs/Phase103']; Missing keywords: ['context', 'atlas']",
+      "mode": "atlas",
+      "condition": "B",
+      "role": "security",
+      "atlas_chars": 2450
+    }
+  ]
+}
