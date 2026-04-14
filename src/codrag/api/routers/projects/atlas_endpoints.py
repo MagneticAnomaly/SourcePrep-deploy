@@ -100,25 +100,22 @@ def _load_role_extras(
 def _build_atlas_response(
     atlas,
     doc,
+    project_id: str,
     *,
     role: str | None = None,
-    stale_override: bool | None = None,
-    project_id: str | None = None,
 ) -> dict[str, Any]:
-    """Build a consistent atlas response payload used by GET and regenerate.
+    """Build the atlas response payload served by GET /projects/{id}/atlas.
 
     Args:
-        atlas:          CodebaseAtlas instance (already loaded).
-        doc:            Root AtlasDocument from atlas.load() or generate_segmented()[0].
-        role:           If provided, attach role projection under `role_atlas`.
-        stale_override: If set, use this for the `stale` field (regenerate just
-                        finished, so it's freshly False regardless of is_stale()).
-        project_id:     Required when ``role`` is set for Phase 104 override
-                        lookup. GET passes it through; regenerate passes None
-                        since it does not compute a role projection.
+        atlas:      CodebaseAtlas instance (already loaded).
+        doc:        Root AtlasDocument from atlas.load().
+        project_id: Project id — used to look up role overrides when ``role``
+                    is set.
+        role:       If provided, attach role projection under ``role_atlas``
+                    and the applied-lens fields under ``applied_role`` /
+                    ``override``.
     """
     display_content, display_chars = atlas.get_display_content()
-    stale = atlas.is_stale() if stale_override is None else stale_override
 
     payload: dict[str, Any] = {
         "exists": True,
@@ -129,22 +126,14 @@ def _build_atlas_response(
         "file_count": doc.file_count,
         "module_count": doc.module_count,
         "char_count": display_chars or doc.char_count,
-        "stale": stale,
+        "stale": atlas.is_stale(),
         "segmented": atlas.has_segments(),
         "segments": _serialize_segments(atlas),
     }
 
     if role:
         try:
-            if project_id is not None:
-                role_vector, override, pinned = _load_role_extras(project_id, role)
-            else:
-                # No project_id — legacy callers (regenerate). Resolve the
-                # role without touching the override store.
-                from codrag.core.atlas.role_resolver import resolve_role
-                role_vector = resolve_role(role)
-                override = None
-                pinned = []
+            role_vector, override, pinned = _load_role_extras(project_id, role)
 
             role_atlas = atlas.get_role_atlas(
                 role,
@@ -190,4 +179,4 @@ def get_atlas(
             "segments": [],
         })
 
-    return ok(_build_atlas_response(atlas, doc, role=role, project_id=project_id))
+    return ok(_build_atlas_response(atlas, doc, project_id, role=role))

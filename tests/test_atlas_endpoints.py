@@ -3,9 +3,9 @@ Tests for the atlas_endpoints helpers — Phase 104.
 
 Covers:
 - _serialize_segments: empty when atlas has no segments; populated otherwise.
-- _build_atlas_response: includes segments key in all cases; stale_override
-  bypasses is_stale(); role branch attaches role_atlas when projection succeeds
-  and role_atlas_error when it fails.
+- _build_atlas_response: includes segments key in all cases; role branch
+  attaches role_atlas when projection succeeds and role_atlas_error when it
+  fails.
 """
 from __future__ import annotations
 
@@ -158,7 +158,7 @@ def test_serialize_segments_inherits_atlas_level_staleness():
 def test_build_response_always_includes_segments_key():
     atlas = _FakeAtlas(segments=[], stale=False)
     doc = _FakeDoc()
-    resp = _build_atlas_response(atlas, doc)
+    resp = _build_atlas_response(atlas, doc, "proj-1")
     assert "segments" in resp
     assert resp["segments"] == []
     assert resp["segmented"] is False
@@ -171,18 +171,10 @@ def test_build_response_populates_segments_when_present():
         stale=False,
     )
     doc = _FakeDoc()
-    resp = _build_atlas_response(atlas, doc)
+    resp = _build_atlas_response(atlas, doc, "proj-1")
     assert resp["segmented"] is True
     assert len(resp["segments"]) == 1
     assert resp["segments"][0]["segment_id"] == "a"
-
-
-def test_build_response_stale_override_wins_over_is_stale():
-    atlas = _FakeAtlas(segments=[], stale=True)
-    doc = _FakeDoc()
-    # stale_override=False (simulating post-regenerate) beats is_stale()==True.
-    resp = _build_atlas_response(atlas, doc, stale_override=False)
-    assert resp["stale"] is False
 
 
 def test_build_response_role_attaches_role_atlas():
@@ -191,7 +183,7 @@ def test_build_response_role_attaches_role_atlas():
         role_atlas="[Software Engineer View]\nmodules...",
     )
     doc = _FakeDoc()
-    resp = _build_atlas_response(atlas, doc, role="engineering")
+    resp = _build_atlas_response(atlas, doc, "proj-1", role="engineering")
     assert resp["role"] == "engineering"
     assert resp["role_atlas"].startswith("[Software Engineer View]")
     assert resp["role_atlas_chars"] == len(resp["role_atlas"])
@@ -204,7 +196,7 @@ def test_build_response_role_failure_returns_error_not_projection():
         role_error=RuntimeError("no enrichment data"),
     )
     doc = _FakeDoc()
-    resp = _build_atlas_response(atlas, doc, role="engineering")
+    resp = _build_atlas_response(atlas, doc, "proj-1", role="engineering")
     assert resp["role_atlas_error"] == "no enrichment data"
     assert "role_atlas" not in resp
 
@@ -212,7 +204,7 @@ def test_build_response_role_failure_returns_error_not_projection():
 def test_build_response_uses_display_content_when_available():
     atlas = _FakeAtlas(display=("concatenated display", 999))
     doc = _FakeDoc(content="root only", char_count=50)
-    resp = _build_atlas_response(atlas, doc)
+    resp = _build_atlas_response(atlas, doc, "proj-1")
     assert resp["content"] == "concatenated display"
     assert resp["char_count"] == 999
 
@@ -220,7 +212,7 @@ def test_build_response_uses_display_content_when_available():
 def test_build_response_falls_back_to_doc_content_when_no_display():
     atlas = _FakeAtlas(display=("", 0))
     doc = _FakeDoc(content="root only", char_count=50)
-    resp = _build_atlas_response(atlas, doc)
+    resp = _build_atlas_response(atlas, doc, "proj-1")
     assert resp["content"] == "root only"
     assert resp["char_count"] == 50
 
