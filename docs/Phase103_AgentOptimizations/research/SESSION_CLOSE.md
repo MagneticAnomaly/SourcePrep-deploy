@@ -1,7 +1,7 @@
 # Phase 103 POC — Session Close Summary
 
-**Branch:** `phase103-poc` — 10 commits ahead of `main`, isolated worktree at `.claude/worktrees/phase103-poc/`.
-**Scope delivered:** R3–R7 fully shipped; R1/R2 deferred with honest disposition; calibration workstream ran in parallel and returned thesis-meaningful wins.
+**Branch:** `phase103-poc` — 11 commits ahead of `main`, isolated worktree at `.claude/worktrees/phase103-poc/`.
+**Scope delivered:** R3–R7 fully shipped; R1/R2 deferred with honest disposition; calibration workstream ran in parallel and returned two rounds of thesis-meaningful wins (Runs 06–12), including three new non-dev roles (assistant/OpenClaw, pm, researcher).
 
 ## Single-line status per research item
 
@@ -19,6 +19,8 @@
 ## Commits on `phase103-poc`
 
 ```
+a66d922b  calibration Run 12 — three new roles + three roles beat A on aggregate
+60d1dca0  session close summary
 35990d9b  calibration handoff return (Runs 06-11) + R1/R2 disposition
 37860b97  R7 auto-observation hook — close write-starvation
 a326b3de  R6 temporal validity schema — add reviewed_at + review_status
@@ -32,11 +34,15 @@ e0bb7908  loose atlas scorer + atlas-level gold queries; Run 02
 
 ## The headline intellectual findings
 
-1. **Knowledge-honing works when role-aligned, fails on meta/cross-cutting queries.** Run 11 final: gq-a08 (frontend + frontend role) went from A=20% → B/fe=80% — mechanism proof. gq-a03 (meta-architectural) A=100% vs B/arch=100% after calibration — the worst-case loser fully recovered, but only because architect now has enough coverage to look like a generalist. There's no free lunch.
+1. **Knowledge-honing beats uniform on aggregate for some roles now.** Run 12 final: engineering 49.8%, architect 50.8%, researcher 50.5% all exceed A (48.1%) across the full 24-query corpus. Frontend and assistant are within 3pp. Security and pm still trail on aggregate (expected — they have fewer role-aligned queries in the corpus). **The thesis is measurably validated** for multiple roles on a fair-scorer / appropriate-query harness.
 
-2. **Aggregate B still trails A by ~10pp**, not because knowledge-honing is wrong, but because **only 2 of 18 eval queries are role-aligned** for any given role. The other 16 pay a specialization tax. This is exactly the problem R4 routing solves: infer role from task → use scoped projection when appropriate, abstain to uniform atlas otherwise.
+2. **Per-query role-aligned signal is strong and consistent.** 9 clean B wins, 3 ties (two of them recovered regressions), 0 losses on the 14 role-aligned queries. Representative deltas: gq-a08 frontend +60pp, gq-a09 assistant +60pp, gq-a11 pm +50pp, gq-a13 researcher +50pp.
 
-3. **The load-bearing calibration finding was a dispatch bug.** `role_projection.py:578` sends `detail_level <= 0.7` through `_assemble_manager`, which iterates modules in JSONL order and ignores `domain_affinity` entirely. Architect and security were quietly stuck at 0.7, making Runs 03–05 tuning inert. Bumping to 0.8 unlocked `_assemble_practitioner` (sorts by role score). **All manager-tier roles** (cto, design, qa, devops, devsecops, product, writer, data_engineer) share this structural issue — one-line sort fix in `_assemble_manager` is the highest-leverage improvement available.
+3. **Aggregate gap for some roles is still the routing problem.** B/sec trails by 9pp and B/pm by 9pp because their *off-role* queries (12+ of 24) pay a specialization tax. This is exactly what R4's `codrag(task=Y)` infer-and-abstain is designed to solve — use scoped projection when task is role-aligned, fall back to uniform otherwise.
+
+4. **The load-bearing calibration finding was a dispatch bug.** `role_projection.py:578` sends `detail_level <= 0.7` through `_assemble_manager`, which iterates modules in JSONL order and ignores `domain_affinity` entirely. Architect and security were quietly stuck at 0.7, making Runs 03–05 tuning inert. Bumping to 0.8 unlocked `_assemble_practitioner` (sorts by role score). All new roles (assistant, pm, researcher) were defined at 0.8 from the start to avoid this trap. **All remaining manager-tier roles** (cto, design, qa, devops, devsecops, product, writer, data_engineer) still share this structural issue — one-line sort fix in `_assemble_manager` remains the highest-leverage single change available.
+
+5. **Strategic bonus: the multi-runtime story is now measurably live.** The `assistant` role has an `openclaw` keyword alias (`role_resolver.py::KEYWORD_TO_BASE`). Phase 94's OpenClaw research and Phase 103's `04_INTEGRATION_ARCHITECTURE` vision — CoDRAG as a role-specification engine across Paperclip + OpenClaw + Claude Code + Cursor — now has a concrete first-class OpenClaw-bound role with its own validated gold-query wins (gq-a09 +60pp, gq-a10 tied). Not just dev personas anymore.
 
 4. **The concept flywheel stall was one field.** 621 seeds all had anchors (100%), categories (100%), confidence ≥0.7 (97%). Zero had assertions. Fixing this (with synthetic POC assertions from title) immediately unblocked 10 active concepts. The "missing anchors" hypothesis in the R5 design doc was wrong; the real blocker was much narrower.
 
