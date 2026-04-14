@@ -90,16 +90,20 @@ interface FolderTreePanelProps {
 
 ### Modified: `FileExplorerDetail` (`packages/ui/src/components/project/FileExplorerDetail.tsx`)
 
+The current component exports a `FileExplorerTab = 'knowledge' | 'exclude'` type, an `initialTab` prop, and renders a Knowledge/Exclude tab bar. This work removes all three:
+
 - Remove the Knowledge/Exclude tab bar entirely.
 - Render one `FolderTree` with `variant='detail'` and both include + exclude props.
 - Row click triggers file preview (via `onPreviewFile`).
-- The `FileExplorerTab` type and `initialTab` prop are removed.
+- Remove the `FileExplorerTab` export and the `initialTab` prop.
 
 ### Modified: `GraphStructurePanel` (`packages/ui/src/components/trace/GraphStructurePanel.tsx`)
 
+Current `activeTab` state is `'queue' | 'patterns' | 'exclude'`. This work removes the exclude branch:
+
 - Remove the "Exclude Tree" tab and all related props (`fileTree`, `excludedPaths`, `onToggleExclude`, `onLoadChildren`, `onExpandExcludeTree`).
 - Keep Queue + Patterns tabs only.
-- The `activeTab` state type becomes `'queue' | 'patterns'`.
+- Narrow the `activeTab` state type to `'queue' | 'patterns'`.
 
 ### Modified: `panelRegistry.ts`
 
@@ -180,15 +184,16 @@ Clicking the include checkbox on a partially-included folder → fully includes 
 
 ### Always-ignored files
 
-Files matching patterns in `DEFAULT_EXCLUDE_FILE_GLOBS` (from `src/codrag/core/repo_profile.py:66-86`) render as `status: 'ignored'`. This list:
+Files matching patterns in `DEFAULT_EXCLUDE_FILE_GLOBS` (from `src/codrag/core/repo_profile.py:66-87`) render as `status: 'ignored'`. The authoritative list (all patterns are glob-prefixed with `**/`):
 
-- `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`
-- `.cursorrules`, `.cursorignore`, `.windsurfrules`, `.clinerules`, `.roorules`, `.clineignore`, `.qwencoderules`
-- `.cursor/rules/*.mdc`, `.windsurf/rules/*.md`, `.github/copilot-instructions.md`
+- `**/AGENTS.md`, `**/CLAUDE.md`, `**/GEMINI.md`
+- `**/codrag_data/ui_config.json`
+- `**/.cursorrules`, `**/.windsurfrules`, `**/.clinerules`, `**/.roorules`, `**/.qwencoderules`
+- `**/.cursor/rules/*.mdc`, `**/.windsurf/rules/*.md`, `**/.github/copilot-instructions.md`
 
 These render with **strikethrough text** (not dimmed/disabled — they should be visible, just clearly "not yours to toggle"). No include/exclude icons are shown. Tooltip: "Always available to AI assistants — excluded from indexing."
 
-**Delivery mechanism:** The tree receives `alwaysIgnoredPatterns: string[]` as a prop. The component matches each node's path against these patterns (using a simple glob matcher). This keeps the backend authoritative — the dashboard fetches the list from the project config or a new lightweight endpoint, and the UI just renders accordingly.
+**Delivery mechanism:** The tree receives `alwaysIgnoredPatterns: string[]` as a prop. The component matches each node's path against these patterns using a minimal glob matcher that must handle: `**/` prefix (match at any depth), literal segments (e.g. `.cursor/rules/`), and trailing `*.ext` (extension match on the basename). The dashboard fetches the list verbatim from the project config API so the backend stays authoritative — no hardcoded duplicate on the frontend.
 
 ## Data Flow
 
@@ -200,7 +205,7 @@ useDashboardPanels.tsx
 ├── p.pathWeights           → from useFileSystem (localStorage + API)
 ├── p.handleToggleInclude   → useFileSystem.handleToggleInclude → api.updateIncludedPaths
 ├── p.handlePathWeightChange → useFileSystem.handlePathWeightChange → api.updatePathWeights
-├── excludedPaths           → local optimistic state (useDashboardPanels ~line 493)
+├── excludedPaths           → local optimistic state (useDashboardPanels ~line 350, `localExcludedPaths`)
 ├── handleToggleExclude     → converts path to glob patterns → p.handleAddExcludePattern / p.handleRemoveExcludePattern
 └── p.fileTree              → from useFileSystem (shared tree data)
 ```
@@ -231,7 +236,7 @@ This logic lives in the component, not in `useFileSystem` or `useDashboardPanels
 
 ### Wiring change in `useDashboardPanels.tsx`
 
-The `panelContent['file-tree']` block (currently ~line 687-698) changes from:
+The `panelContent['file-tree']` block (currently ~line 691-703) changes from:
 
 ```tsx
 <FolderTreePanel
@@ -266,7 +271,7 @@ To:
 />
 ```
 
-The `panelContent['graph-structure']` block (~line 869-893) drops `fileTree`, `excludedPaths`, `onToggleExclude`, `onLoadChildren`, and `onExpandExcludeTree`.
+The `panelContent['graph-structure']` block (~line 875-899) drops `fileTree`, `excludedPaths`, `onToggleExclude`, `onLoadChildren`, and `onExpandExcludeTree`.
 
 ## Known Bug: Exclude Persistence
 

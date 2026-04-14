@@ -36,14 +36,19 @@
 The exclude tree's state (trace ignore patterns) is reportedly lost on backend restart. Before merging the trees, this must work reliably — otherwise the merged "Scope" panel's exclude side is broken on reload.
 
 **Files:**
-- Investigate: `src/codrag/dashboard/src/hooks/useDashboardPanels.tsx:353-379`
-- Investigate: `src/codrag/dashboard/src/hooks/useTraceSystem.ts:346-358`
-- Investigate: `src/codrag/dashboard/src/hooks/useProjectManager.ts:168-182`
-- Investigate: `src/codrag/api/routers/trace_routes/query.py:227-288`
+- Investigate: `src/codrag/dashboard/src/hooks/useDashboardPanels.tsx:350-398` (state + hydration effects)
+- Investigate: `src/codrag/dashboard/src/hooks/useProjectManager.ts:170-185` (trace field spread into projectConfig)
+- Investigate: `src/codrag/api/routers/trace_routes/query.py:248-310` (POST/DELETE `/projects/{id}/trace/ignore`)
+- Confirm TS type for `trace` in `useProjectManager` / shared types — see `(projectTraceConfig as any)?.ignore_patterns` cast at useDashboardPanels.tsx:364
 
-**Context:** The backend endpoint (`/projects/{id}/trace/ignore`) does persist patterns to SQLite via `reg.update_project()`. The frontend re-hydrates from `p.projectConfig?.trace?.ignore_patterns` on load. The re-hydration effect (useDashboardPanels lines 359-379) skips patterns ending in `/**` and those with wildcards — it only keeps clean folder/file paths. The issue may be a race condition where `localExcludedPaths` is initialized empty and the hydration effect either doesn't fire or fires before config is available.
+**Context:** A pre-merge audit has already confirmed the backend persists correctly — `query.py:275` writes `trace.ignore_patterns` back to the project config via `reg.update_project()`. So the bug is frontend, not backend. Two concrete smells are already identified:
 
-- [ ] **Step 1: Reproduce the bug**
+1. **Fragile hydration dep.** The hydration `useEffect` (useDashboardPanels.tsx:365–383) depends on `[p.selectedProject?.id, persistedIgnorePatterns?.length]`. Keying on array length means swapping one excluded pattern for another (same length) silently fails to re-hydrate.
+2. **Missing TS type.** `persistedIgnorePatterns` is pulled through an `as any` cast (useDashboardPanels.tsx:363–364) because the `trace` field in `projectConfig` doesn't declare `ignore_patterns`. If the API response ever omits the field, TypeScript can't warn us.
+
+Fix A (dep-stabilization) is the primary fix. The type fix is bundled so we never silently regress again. Fix B (API response / `useProjectManager` spread) is a fallback — only apply if Step 1's DB check shows patterns in SQLite but `projectConfig.trace.ignore_patterns` is empty at runtime.
+
+- [ ] **Step 1: Reproduce the bug and narrow**
 
 Start the backend, add some excludes via the Exclude Tree tab, verify they appear in the UI. Restart the backend daemon (`codrag serve`), reload the dashboard, check if excludes are still visible.
 
@@ -59,48 +64,69 @@ for p in reg.list_projects():
 "
 ```
 
-Expected: The patterns should be in the DB. If they are, the bug is frontend re-hydration. If they aren't, the bug is backend persistence.
+The patterns should appear in the DB. Use this to decide the fix surface:
+- **DB has patterns, UI does NOT re-hydrate** → fix is Fix A (the expected path).
+- **DB has patterns, UI DOES re-hydrate on first load but loses them after a second restart** → still Fix A (stale dep).
+- **DB has no patterns** → bug is backend; stop and investigate `query.py:248-310` — Fix B path does not apply and the plan needs revision.
 
-- [ ] **Step 2: Check the hydration dependency array**
+- [ ] **Step 2: Confirm the TS type gap and the fragile dep**
 
-In `useDashboardPanels.tsx` around line 359, the hydration `useEffect` depends on `[p.selectedProject?.id, persistedIgnorePatterns?.length]`. The `.length` dependency is suspicious — if the patterns array changes but has the same length, the effect won't re-fire. Also check if `persistedIgnorePatterns` is derived correctly from `projectTraceConfig`.
+In `useDashboardPanels.tsx:363-383`, confirm the two smells:
 
-Read the exact code:
 ```typescript
-// useDashboardPanels.tsx ~line 353-379
-const projectTraceConfig = p.projectConfig?.trace
+// Line 363-364 — the `as any` cast is the TS type gap
+const projectTraceConfig = p.projectConfig?.trace as Record<string, unknown> | undefined
 const persistedIgnorePatterns = (projectTraceConfig as any)?.ignore_patterns as string[] | undefined
+
+// Line 383 — `.length` as dep is the fragile dep
+}, [p.selectedProject?.id, persistedIgnorePatterns?.length])
 ```
 
-The `as any` cast suggests `trace` might not have `ignore_patterns` in its TypeScript type definition. Check if `useProjectManager` actually puts `ignore_patterns` into `projectConfig.trace` when it loads from the API.
+Also grep the shared types for the `trace` config shape — expect to find a type like `ProjectTraceConfig` that is missing `ignore_patterns?: string[]`. If no such type exists yet, it needs to be added (declared once, imported where needed).
 
-- [ ] **Step 3: Fix the re-hydration**
+- [ ] **Step 3: Apply Fix A — stabilize the hydration dep and add the TS type**
 
-Based on investigation, apply the fix. Most likely one of:
+This is the primary fix. It removes the two smells in one change.
 
-**A. Dependency array fix** — if the issue is stale deps:
+First, locate the `trace` config type declaration (likely in `src/codrag/dashboard/src/types.ts` or a shared `packages/ui` types file). Extend it:
+
 ```typescript
-// Change dependency from .length to a stable serialized value:
-const ignorePatternKey = persistedIgnorePatterns?.join(',') ?? ''
+export interface ProjectTraceConfig {
+  enabled?: boolean
+  ignore_patterns?: string[]
+  // ...any other existing fields
+}
+```
+
+Then update `useDashboardPanels.tsx` to key the effect on a stable serialization and drop the `as any` cast:
+
+```typescript
+const projectTraceConfig = p.projectConfig?.trace
+const persistedIgnorePatterns = projectTraceConfig?.ignore_patterns
+const ignorePatternKey = persistedIgnorePatterns?.join('|') ?? ''
 
 useEffect(() => {
-  if (!persistedIgnorePatterns || !Array.isArray(persistedIgnorePatterns) || persistedIgnorePatterns.length === 0) return
-  setLocalExcludedPaths(() => {
-    const paths = new Set<string>()
+  if (!persistedIgnorePatterns || persistedIgnorePatterns.length === 0) return
+  setLocalExcludedPaths(prev => {
+    const merged = new Set(prev)
     for (const pattern of persistedIgnorePatterns) {
       if (pattern.endsWith('/**')) continue
       if (pattern.includes('*') || pattern.includes('?')) continue
       const clean = pattern.replace(/\/$/, '')
-      if (clean) paths.add(clean)
+      if (clean) merged.add(clean)
     }
-    return paths
+    if (merged.size === prev.size) return prev
+    return merged
   })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [p.selectedProject?.id, ignorePatternKey])
 ```
 
-**B. Config loading fix** — if `trace.ignore_patterns` isn't being set in `projectConfig`:
+Note: we preserve the additive-merge semantics (`prev` → `merged`) that already exist in the code rather than rebuilding from scratch — this avoids clobbering optimistic updates that haven't yet round-tripped to the server.
 
-In `useProjectManager.ts` (~line 172), verify the `trace` field is being spread correctly:
+- [ ] **Step 3b: Fix B (only if Step 1 showed DB has patterns but `projectConfig.trace.ignore_patterns` is empty at runtime)**
+
+Verify `useProjectManager.ts:177` spreads the `trace` field intact:
 ```typescript
 setProjectConfig((prev) => ({
   ...prev,
@@ -108,7 +134,7 @@ setProjectConfig((prev) => ({
 }))
 ```
 
-The `cfg.trace` must include `ignore_patterns`. Check the API response shape from `api.getProject()`.
+And that `cfg.trace` arrives from the API with `ignore_patterns` populated. If the API response shape strips `ignore_patterns`, the fix is in `api.getProject()` / the backend serializer — in that case, this task needs re-scoping and should not block merged-tree work.
 
 - [ ] **Step 4: Verify the fix**
 
@@ -843,7 +869,7 @@ const DEFAULT_ALWAYS_IGNORED_PATTERNS = [
 
 - [ ] **Step 2: Update the `file-tree` panel content**
 
-Find the `'file-tree'` entry (~line 687-698) and add exclude props + alwaysIgnoredPatterns:
+Find the `'file-tree'` entry (~line 691-703) and add exclude props + alwaysIgnoredPatterns:
 
 ```typescript
 'file-tree': (
@@ -866,7 +892,7 @@ Find the `'file-tree'` entry (~line 687-698) and add exclude props + alwaysIgnor
 
 - [ ] **Step 3: Remove exclude props from `graph-structure` panel content**
 
-Find the `'graph-structure'` entry (~line 869-893) and remove the tree-related props:
+Find the `'graph-structure'` entry (~line 875-899) and remove the tree-related props:
 
 ```typescript
 'graph-structure': (
