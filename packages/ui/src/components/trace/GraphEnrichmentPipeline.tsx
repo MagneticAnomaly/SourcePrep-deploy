@@ -305,7 +305,9 @@ function computeTraceState(
   inferredEdgesRunning?: boolean,
   augmenting?: boolean,
   validating?: boolean,
-  fastKnowledgeBuilding?: boolean
+  fastKnowledgeBuilding?: boolean,
+  ie?: InferredEdgesStatus,
+  aug?: AugmentationStatus
 ): StageState {
   // F-42: trace.enabled is the auto-build preference, not the
   // data-presence flag.  Gate on trace.exists so we don't render
@@ -315,7 +317,17 @@ function computeTraceState(
   if (!trace.exists && !trace.enabled) return 'disabled';
   // Pipeline is sequential: if any later fast stage is running,
   // Structural has definitely finished.  Show green immediately.
+  // F-86: Also check API-derived signals (ie.running, aug progress
+  // mid-stage) for the case where the SSE SYNC_RUNNING dispatch
+  // lags behind /pipeline/status polling. Without these, Structural
+  // kept its spinning icon for several seconds after Edge Discovery
+  // had clearly started, because the SSE-derived flag hadn't flipped.
   if (inferredEdgesRunning || augmenting || validating || fastKnowledgeBuilding) return 'complete';
+  if (ie?.running) return 'complete';
+  const augInProgress = aug && aug.progress_current != null &&
+    aug.progress_total != null && aug.progress_total > 0 &&
+    aug.progress_current < aug.progress_total;
+  if (augInProgress) return 'complete';
   if (trace.building) return 'running';
   if (!trace.exists) return 'not_built';
   return 'complete';
@@ -381,14 +393,21 @@ function computeValidationState(
   if (validating) return 'running';
   if (!trace.exists) return 'disabled';
 
-  // During an incremental catalogue run, keep validation green if it
-  // was previously complete (augmented_nodes is substantial).
+  // During an incremental catalogue run, keep validation green ONLY if
+  // its own progress is complete (at or near 100%). Previously the
+  // heuristic read "if augmentation is >=50%, assume validation ran" —
+  // which lit validation green at 74% catalogue progress even on a
+  // fresh rebuild that hadn't reached validation yet (F-79).
   if (augmenting) {
-    if (aug && aug.augmented_nodes > 0 && aug.total_nodes > 0 &&
-        aug.augmented_nodes >= aug.total_nodes * 0.5) {
-      return 'complete';  // Was complete before, stay green during incremental add
+    if (
+      aug &&
+      aug.augmented_nodes > 0 &&
+      aug.total_nodes > 0 &&
+      aug.augmented_nodes >= aug.total_nodes
+    ) {
+      return 'complete';
     }
-    return 'disabled';  // Initial build — validation hasn't run yet
+    return 'disabled';
   }
 
   // Validation runs after catalogue (augmentation).
@@ -846,7 +865,10 @@ export function GraphEnrichmentPipeline({
   // ── Compute stage states ──────────────────────────────────
 
   // 1. Structural Graph (Rust)
-  const structuralState = computeTraceState(trace, inferredEdgesRunning, augmenting, validating, fastKnowledgeBuilding);
+  const structuralState = computeTraceState(
+    trace, inferredEdgesRunning, augmenting, validating, fastKnowledgeBuilding,
+    inferredEdges, augmentation,
+  );
   // structuralStats text matches the state from computeTraceState:
   // - 'running' with counts=0: stage active OR API hasn't refreshed yet
   // - 'running' with counts>0: actively building (shows live counts)

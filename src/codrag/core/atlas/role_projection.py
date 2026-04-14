@@ -568,6 +568,17 @@ def project_atlas_for_role(
             return f"[Role: {role.display_name}]\n\n{atlas_content}"
         return f"[Role: {role.display_name}] No codebase data available."
 
+    # Drop CoDRAG-generated / AI-tool instruction files from projection
+    # results. These are already excluded at the walker level via
+    # repo_profile.DEFAULT_EXCLUDE_FILE_NAMES, but older index builds can
+    # still contain them — filter here so stale indexes don't leak
+    # meta-content into the role atlas. Cheap post-scoring filter.
+    from codrag.core.repo_profile import DEFAULT_EXCLUDE_FILE_NAMES
+    scored = [
+        (fp, entry, score) for fp, entry, score in scored
+        if Path(fp).name not in DEFAULT_EXCLUDE_FILE_NAMES
+    ]
+
     # Extract identity/stack from atlas
     identity = _extract_identity(atlas_content)
     stack = _extract_stack(atlas_content)

@@ -7,6 +7,20 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
+# F-81: Ensure the daemon watchdog and all dev-server children die when
+# dev.sh exits (Ctrl-C, SIGTERM, normal exit). Without this the watchdog
+# survives the script teardown and keeps respawning the daemon.
+cleanup_all() {
+    # Disable the trap so we don't recurse
+    trap - EXIT INT TERM HUP
+    # Tell watchdog to stop gracefully (so it doesn't re-spawn daemon)
+    touch /tmp/codrag_daemon_stop 2>/dev/null || true
+    pkill -f "daemon_watchdog.sh" 2>/dev/null || true
+    # Kill all our direct children (dashboard, storybook, websites)
+    pkill -P $$ 2>/dev/null || true
+}
+trap cleanup_all EXIT INT TERM HUP
+
 # Port definitions
 DAEMON_PORT=8400
 DASHBOARD_PORT=5174
@@ -112,14 +126,21 @@ main() {
     pkill -f "codrag.cli serve" 2>/dev/null || true
     pkill -f "codrag serve" 2>/dev/null || true
     pkill -f "codrag mcp" 2>/dev/null || true
+    pkill -f "daemon_watchdog.sh" 2>/dev/null || true
     sleep 1
-    PYTHONPATH="$PROJECT_ROOT/src" python3.11 -m codrag.cli serve --port $DAEMON_PORT &
+    # F-81: Launch under a watchdog so crash tracebacks are captured
+    # (/tmp/codrag_daemon_logs/daemon_<ts>.log) and the daemon respawns
+    # automatically. history.log records every spawn/exit with exit code
+    # + last 40 lines of that run's log so you can see WHY it died.
+    # Bails after 5 consecutive fast crashes (<30s uptime) to avoid thrash.
+    PROJECT_ROOT="$PROJECT_ROOT" DAEMON_PORT="$DAEMON_PORT" \
+      "$PROJECT_ROOT/scripts/daemon_watchdog.sh" &
     DAEMON_PID=$!
-    sleep 2
+    sleep 3
     if kill -0 $DAEMON_PID 2>/dev/null; then
-        log_success "CoDRAG daemon running (PID: $DAEMON_PID)"
+        log_success "CoDRAG daemon running under watchdog (PID: $DAEMON_PID, logs: /tmp/codrag_daemon_logs/)"
     else
-        log_error "CoDRAG daemon failed to start"
+        log_error "CoDRAG daemon watchdog failed to start"
     fi
     echo ""
 
@@ -174,6 +195,8 @@ main() {
 case "${1:-}" in
     --kill|kill)
         log_info "Killing all dev services..."
+        # Stop the watchdog first so it doesn't immediately respawn the daemon
+        pkill -f "daemon_watchdog.sh" 2>/dev/null || true
         kill_port $DAEMON_PORT
         kill_port $DASHBOARD_PORT
         kill_port $STORYBOOK_PORT

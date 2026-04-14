@@ -35,6 +35,7 @@ TRACE_FILES = [
     "trace_modules_manifest.json",
     "trace_group_reasoning.jsonl",
     "group_reasoning_manifest.json",
+    "trace_cluster_swarm_synthesis.json",
     "validation_manifest.json",
     "deepening_manifest.json",
     "deep_knowledge_manifest.json",
@@ -50,6 +51,13 @@ TRACE_FILES = [
     # caused the resume detector to think skipped stages were complete.
     "atlas_updated.signal",
     "pipeline_run_metadata.json",
+    # F-78: Finalize-group manifests (stages 12-15). Previously orphaned
+    # by full-reset so stub manifests survived; selfheal then resurrected
+    # them from existing output data and the UI showed phantom greens.
+    "rules_manifest.json",
+    "concepts_manifest.json",
+    "audit_manifest.json",
+    "antibodies_manifest.json",
 ]
 
 INDEX_FILES = [

@@ -514,6 +514,28 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       dispatch({ type: 'FAST_FAILED' })
     }
 
+    // F-84: Rebuild cancellation — when phase transitions from paused
+    // (or running/pausing) directly to cancelled, the backend has
+    // reverted to pre-rebuild data. Fully refresh so stages flip from
+    // paused styling back to green based on the restored data.
+    const prevAnyActive =
+      prevFastPhase === 'running' || prevFastPhase === 'pausing' || prevFastPhase === 'paused' ||
+      prevDeepPhase === 'running' || prevDeepPhase === 'pausing' || prevDeepPhase === 'paused'
+    const cancelledNow =
+      fast?.phase === 'cancelled' || deep?.phase === 'cancelled' ||
+      (fast?.phase === undefined && prevFastPhase === 'paused') ||
+      (deep?.phase === undefined && prevDeepPhase === 'paused')
+    if (prevAnyActive && cancelledNow) {
+      dispatch({ type: 'FAST_FAILED' })   // clears fast running+paused flags
+      dispatch({ type: 'DEEP_FAILED' })   // clears deep running+paused flags
+      void fetchAugmentationStatus()
+      void fetchEpistemicStatus()
+      void fetchModuleStatus()
+      void fetchDeepeningStatus()
+      void fetchKnowledgeStatus()
+      void refreshStageDataFromPipeline()
+    }
+
     // Deep enrichment completed → refresh deep-stage statuses
     const prevDeepWasActive = prevDeepPhase === 'running' || prevDeepPhase === 'queued' || prevDeepPhase === 'pausing'
     if (deep?.phase === 'completed' && prevDeepWasActive) {
@@ -552,6 +574,55 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
   //   Panel CLOSED           → OFF (SSE still updates state)
   //   Tab hidden             → OFF
 
+  // F-80: Keep running-flag state and fetchers in refs so the polling
+  // effect only re-registers when the project or panel-visibility changes.
+  // Previously the effect depended on every individual state.*Running
+  // boolean and every useCallback fetcher — so the interval was torn
+  // down and recreated on nearly every SYNC_RUNNING / progress dispatch.
+  // Under rapid SSE updates the new setInterval never got to fire before
+  // the next dispatch cleared it, causing the UI to freeze mid-run until
+  // a full page refresh. Now the interval runs the full lifetime of the
+  // panel, and `tick` reads live state through stable refs.
+  const runningStateRef = useRef({
+    inferredEdgesRunning: state.inferredEdgesRunning,
+    augmenting: state.augmenting,
+    epistemicRunning: state.epistemicRunning,
+    groupReasoningRunning: state.groupReasoningRunning,
+    clusterRunning: state.clusterRunning,
+    atlasRunning: state.atlasRunning,
+    deepeningRunning: state.deepeningRunning,
+    fastKnowledgeBuilding: state.fastKnowledgeBuilding,
+    deepKnowledgeBuilding: state.deepKnowledgeBuilding,
+  })
+  runningStateRef.current = {
+    inferredEdgesRunning: state.inferredEdgesRunning,
+    augmenting: state.augmenting,
+    epistemicRunning: state.epistemicRunning,
+    groupReasoningRunning: state.groupReasoningRunning,
+    clusterRunning: state.clusterRunning,
+    atlasRunning: state.atlasRunning,
+    deepeningRunning: state.deepeningRunning,
+    fastKnowledgeBuilding: state.fastKnowledgeBuilding,
+    deepKnowledgeBuilding: state.deepKnowledgeBuilding,
+  }
+  const tickCount = useRef(0)
+  const fetchersRef = useRef({
+    fetchAugmentationStatus,
+    fetchEpistemicStatus,
+    fetchModuleStatus,
+    fetchDeepeningStatus,
+    fetchKnowledgeStatus,
+    refreshStageDataFromPipeline,
+  })
+  fetchersRef.current = {
+    fetchAugmentationStatus,
+    fetchEpistemicStatus,
+    fetchModuleStatus,
+    fetchDeepeningStatus,
+    fetchKnowledgeStatus,
+    refreshStageDataFromPipeline,
+  }
+
   useEffect(() => {
     if (!selectedProjectId) return
     if (deps.isHydrating) return
@@ -559,57 +630,47 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     const panelVisible = deps.enrichmentPanelVisible !== false // default true for backward compat
     if (!panelVisible) return // Panel closed → no polling
 
-    const { inferredEdgesRunning, augmenting, epistemicRunning, groupReasoningRunning, clusterRunning, atlasRunning, deepeningRunning, fastKnowledgeBuilding, deepKnowledgeBuilding } = state
-    const anyRunning = inferredEdgesRunning || augmenting || epistemicRunning || groupReasoningRunning || clusterRunning || atlasRunning || deepeningRunning || fastKnowledgeBuilding || deepKnowledgeBuilding
-
-    // Adaptive interval: 1s when running (progress bars), 10s when idle
-    const pollMs = anyRunning ? 1000 : 10000
+    // Fixed 1s cadence — tick itself skips work when nothing is running
+    // (the individual fetchers already no-op when their stage isn't active).
+    // A stable 1s interval is simpler than an adaptive one and, critically,
+    // avoids tearing down setInterval on every state flip.
+    const POLL_MS = 1000
 
     let inFlight = false
     const tick = async () => {
       if (document.hidden || inFlight) return
       inFlight = true
       try {
+        const rs = runningStateRef.current
+        const fx = fetchersRef.current
+        const anyRunning =
+          rs.inferredEdgesRunning || rs.augmenting || rs.epistemicRunning ||
+          rs.groupReasoningRunning || rs.clusterRunning || rs.atlasRunning ||
+          rs.deepeningRunning || rs.fastKnowledgeBuilding || rs.deepKnowledgeBuilding
+
         const calls: Promise<unknown>[] = []
-        // When running: fetch stage-specific data for progress bars
         if (anyRunning) {
-          if (state.inferredEdgesRunning || state.atlasRunning || state.groupReasoningRunning || state.augmenting || state.epistemicRunning) calls.push(refreshStageDataFromPipeline())
-          if (state.augmenting) calls.push(fetchAugmentationStatus())
-          if (state.epistemicRunning || state.clusterRunning || state.deepeningRunning) calls.push(fetchEpistemicStatus())
-          if (state.clusterRunning) calls.push(fetchModuleStatus())
-          if (state.deepeningRunning) calls.push(fetchDeepeningStatus())
-          if (state.fastKnowledgeBuilding || state.deepKnowledgeBuilding) calls.push(fetchKnowledgeStatus())
+          if (rs.inferredEdgesRunning || rs.atlasRunning || rs.groupReasoningRunning || rs.augmenting || rs.epistemicRunning) calls.push(fx.refreshStageDataFromPipeline())
+          if (rs.augmenting) calls.push(fx.fetchAugmentationStatus())
+          if (rs.epistemicRunning || rs.clusterRunning || rs.deepeningRunning) calls.push(fx.fetchEpistemicStatus())
+          if (rs.clusterRunning) calls.push(fx.fetchModuleStatus())
+          if (rs.deepeningRunning) calls.push(fx.fetchDeepeningStatus())
+          if (rs.fastKnowledgeBuilding || rs.deepKnowledgeBuilding) calls.push(fx.fetchKnowledgeStatus())
         } else {
-          // Idle: just refresh pipeline status for state changes
-          calls.push(refreshStageDataFromPipeline())
+          // Idle — coarse refresh every ~10 ticks (10s) to catch new runs
+          if ((tickCount.current++ % 10) === 0) {
+            calls.push(fx.refreshStageDataFromPipeline())
+          }
         }
-        await Promise.allSettled(calls)
+        if (calls.length) await Promise.allSettled(calls)
       } finally {
         inFlight = false
       }
     }
-    const interval = setInterval(tick, pollMs)
+    const interval = setInterval(tick, POLL_MS)
 
     return () => clearInterval(interval)
-  }, [
-    selectedProjectId,
-    deps.enrichmentPanelVisible,
-    state.inferredEdgesRunning,
-    state.augmenting,
-    state.epistemicRunning,
-    state.groupReasoningRunning,
-    state.clusterRunning,
-    state.atlasRunning,
-    state.deepeningRunning,
-    state.fastKnowledgeBuilding,
-    state.deepKnowledgeBuilding,
-    fetchAugmentationStatus,
-    fetchEpistemicStatus,
-    fetchModuleStatus,
-    fetchDeepeningStatus,
-    fetchKnowledgeStatus,
-    refreshStageDataFromPipeline,
-  ])
+  }, [selectedProjectId, deps.enrichmentPanelVisible, deps.isHydrating])
 
 
 

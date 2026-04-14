@@ -229,7 +229,7 @@ The generated AGENTS.md is meant to be the first thing an AI agent reads when it
 <!-- codrag-managed-start -->
 # CoDRAG Integration
 
-Last updated: 2026-04-14T04:09:35Z
+Last updated: 2026-04-14T15:14:39Z
 
 codrag_project_id: 1d6f0b35-45cb-427b-ae9d-aac3c6371a4b
 

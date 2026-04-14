@@ -6,11 +6,13 @@
  * Status states for index/build indicators
  * These are the core states that appear throughout the UI
  */
-export type StatusState = 
+export type StatusState =
   | 'fresh'      // Index is up-to-date
   | 'stale'      // Changes detected, rebuild needed
   | 'building'   // Build in progress
   | 'pending'    // Build queued
+  | 'paused'     // User/system paused — resumable
+  | 'cancelled'  // User cancelled — terminal
   | 'error'      // Build failed or error state
   | 'disabled';  // Feature disabled
 

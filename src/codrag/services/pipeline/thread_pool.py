@@ -53,6 +53,7 @@ logger = logging.getLogger(__name__)
 _DEFAULT_POOL_SIZE = 6
 
 _pool: Optional[ThreadPoolExecutor] = None
+_pool_size: int = 0  # Cached — avoids accessing ThreadPoolExecutor._max_workers (private)
 _pool_lock = threading.Lock()
 
 
@@ -75,7 +76,7 @@ def _get_pool_size() -> int:
 
 def _ensure_pool() -> ThreadPoolExecutor:
     """Lazily create the shared pool on first access."""
-    global _pool
+    global _pool, _pool_size
     if _pool is not None:
         return _pool
     with _pool_lock:
@@ -86,6 +87,7 @@ def _ensure_pool() -> ThreadPoolExecutor:
             max_workers=size,
             thread_name_prefix="llm-pool",
         )
+        _pool_size = size
         logger.info("[LLM Pool] Created shared pool with %d workers", size)
         return _pool
 
@@ -100,7 +102,8 @@ class _LLMPoolProxy:
 
     @property
     def max_workers(self) -> int:
-        return _ensure_pool()._max_workers
+        _ensure_pool()  # force lazy init
+        return _pool_size
 
     def submit(self, fn: Callable, *args: Any, **kwargs: Any) -> Future:
         """Submit a callable to the shared pool.
@@ -159,8 +162,8 @@ def run_parallel(
     pool = _ensure_pool()
     # Limit in-flight submissions to min(concurrency, pool_size, len(items))
     effective = min(
-        concurrency if concurrency > 0 else pool._max_workers,
-        pool._max_workers,
+        concurrency if concurrency > 0 else _pool_size,
+        _pool_size,
         len(items),
     )
 

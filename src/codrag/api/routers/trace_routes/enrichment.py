@@ -1026,7 +1026,13 @@ def index_destroy_project(project_id: str) -> Dict[str, Any]:
                 errors.append(f"{fname}: {e}")
 
     # 2. Remove subdirectories that contain recovery/cache artifacts
-    for subdir_name in [".checkpoints", "backups", "logs", "atlas_segments", "atlas_roles"]:
+    # F-78: Added .branch_snapshots (selfheal's 3rd backup source) and
+    # audit/ (stores persisted audit findings). Without these, a "full
+    # reset" leaves data that selfheal or the audit system can resurrect.
+    for subdir_name in [
+        ".checkpoints", ".branch_snapshots", "backups", "logs",
+        "atlas_segments", "atlas_roles", "audit",
+    ]:
         subdir = idx_dir / subdir_name
         if subdir.is_dir():
             try:
@@ -1057,6 +1063,47 @@ def index_destroy_project(project_id: str) -> Dict[str, Any]:
         journal.clear_project(project_id)
     except Exception:
         pass
+
+    # F-78: Clear project rows from all SQLite stores. Previously only
+    # the pipeline_journal was cleared, so concepts, observations,
+    # historical runs, and antibodies survived a "full reset" and caused
+    # phantom finalize manifest regeneration on the next pipeline run.
+    try:
+        from codrag.services.concept_store import concept_store
+        concept_store.clear_project(project_id)
+    except Exception:
+        logger.debug("concept_store.clear_project failed (non-fatal)", exc_info=True)
+    try:
+        from codrag.services.observation_store import observation_store
+        observation_store.clear_project(project_id)
+    except Exception:
+        logger.debug("observation_store.clear_project failed (non-fatal)", exc_info=True)
+    try:
+        from codrag.services.pipeline_history import pipeline_history
+        pipeline_history.clear_project(project_id)
+    except Exception:
+        logger.debug("pipeline_history.clear_project failed (non-fatal)", exc_info=True)
+    try:
+        from codrag.services.antibody_store import antibody_store
+        if hasattr(antibody_store, "clear_project"):
+            antibody_store.clear_project(project_id)
+    except Exception:
+        logger.debug("antibody_store.clear_project failed (non-fatal)", exc_info=True)
+    try:
+        from codrag.services.scope_orchestrator import scope_orchestrator
+        scope_orchestrator.clear_project(project_id)
+    except Exception:
+        logger.debug("scope_orchestrator.clear_project failed (non-fatal)", exc_info=True)
+    try:
+        from codrag.services.build_orchestrator import build_orchestrator
+        build_orchestrator.clear_project(project_id)
+    except Exception:
+        logger.debug("build_orchestrator.clear_project failed (non-fatal)", exc_info=True)
+    try:
+        from codrag.services.build_manager import build_manager
+        build_manager.clear_project(project_id)
+    except Exception:
+        logger.debug("build_manager.clear_project failed (non-fatal)", exc_info=True)
 
     # 6. Clear all in-memory caches
     _project_indexes.pop(project_id, None)

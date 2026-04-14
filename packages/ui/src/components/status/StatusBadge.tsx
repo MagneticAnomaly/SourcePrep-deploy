@@ -9,29 +9,37 @@ export interface StatusBadgeProps {
 }
 
 const statusConfig: Record<StatusState, { label: string; classes: string }> = {
-  fresh: { 
-    label: 'Fresh', 
-    classes: 'bg-success-muted text-success border-success/20' 
+  fresh: {
+    label: 'Fresh',
+    classes: 'bg-success-muted text-success border-success/20'
   },
-  stale: { 
-    label: 'Stale', 
-    classes: 'bg-warning-muted text-warning border-warning/20' 
+  stale: {
+    label: 'Stale',
+    classes: 'bg-warning-muted text-warning border-warning/20'
   },
-  building: { 
-    label: 'Building', 
-    classes: 'bg-info-muted text-info border-info/20 animate-pulse' 
+  building: {
+    label: 'Building',
+    classes: 'bg-info-muted text-info border-info/20 animate-pulse'
   },
-  pending: { 
-    label: 'Pending', 
-    classes: 'bg-surface-raised text-text-muted border-border' 
+  pending: {
+    label: 'Pending',
+    classes: 'bg-surface-raised text-text-muted border-border'
   },
-  error: { 
-    label: 'Error', 
-    classes: 'bg-error-muted text-error border-error/20' 
+  paused: {
+    label: 'Paused',
+    classes: 'bg-amber-500/10 text-amber-500 border-amber-500/30'
   },
-  disabled: { 
-    label: 'Disabled', 
-    classes: 'bg-surface-raised text-text-subtle border-border opacity-60' 
+  cancelled: {
+    label: 'Cancelled',
+    classes: 'bg-surface-raised text-text-muted border-border line-through'
+  },
+  error: {
+    label: 'Error',
+    classes: 'bg-error-muted text-error border-error/20'
+  },
+  disabled: {
+    label: 'Disabled',
+    classes: 'bg-surface-raised text-text-subtle border-border opacity-60'
   },
 };
 

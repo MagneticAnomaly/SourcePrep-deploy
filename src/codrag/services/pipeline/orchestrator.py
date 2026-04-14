@@ -2264,11 +2264,24 @@ class PipelineOrchestrator:
                 pass
 
     def _cancel_group(self, project_id: str, group: str) -> bool:
-        """Cancel a running group using state machine events."""
+        """Cancel a running group using state machine events.
+
+        F-84: If the group being cancelled was a REBUILD (force_from_start),
+        restore the project's data files from the most recent pre-rebuild
+        backup. Without this, cancelling mid-rebuild leaves the index in a
+        torn state (fresh structural + stale deep enrichment). The branch
+        snapshot captured at fast_sync start holds the pre-rebuild state.
+        """
+        was_rebuild = project_id in self._force_from_start_runs
         with self._lock:
             key = (project_id, group)
             run = self._runs.get(key)
             if not run:
+                # Still handle rebuild flag cleanup + revert if caller is
+                # dismissing a zombie cancelled card.
+                if was_rebuild:
+                    self._force_from_start_runs.discard(project_id)
+                    self._revert_rebuild_to_backup(project_id)
                 return False
 
             current_str = run.current_stage
@@ -2304,7 +2317,69 @@ class PipelineOrchestrator:
             if next_entry:
                 self._resume_queued_pipeline(next_entry.project_id, next_entry.stage)
 
+        # F-84: Rebuild revert — restore pre-rebuild snapshot after cancelling.
+        # Runs after scheduler release so the restored data isn't clobbered
+        # by a queued worker starting immediately.
+        if was_rebuild:
+            self._force_from_start_runs.discard(project_id)
+            self._revert_rebuild_to_backup(project_id)
+
         return True
+
+    def _revert_rebuild_to_backup(self, project_id: str) -> None:
+        """Restore a project's pipeline data from the most recent backup.
+
+        Called when the user cancels a rebuild (force_from_start) before
+        it completed. The branch snapshot captured at fast_sync start
+        holds the pre-rebuild state; selfheal's backup sources (golden,
+        run checkpoints, branch snapshot) cover everything the rebuild
+        might have touched. Best-effort — logs but doesn't raise.
+        """
+        pfl = self._get_file_logger(project_id)
+        all_stages = list(FAST_SYNC_STAGES) + list(DEEP_ENRICHMENT_STAGES) + list(FINALIZE_STAGES)
+        try:
+            restored = RecoveryManager.try_restore_from_backup(
+                project_id, all_stages, pfl,
+            )
+            if pfl:
+                pfl.log(
+                    "cancel_revert",
+                    f"Rebuild cancelled — restore_from_backup={'ok' if restored else 'no_backup'}",
+                )
+            logger.info(
+                "[%s] Rebuild cancelled: restore_from_backup=%s",
+                project_id, restored,
+            )
+        except Exception:
+            logger.warning(
+                "[%s] Rebuild revert failed (non-fatal) — state left as-is",
+                project_id, exc_info=True,
+            )
+
+        # F-84: Drop stale state-machine entries so the UI's
+        # `deep_enrichment.phase=cancelled` / `paused` cards disappear.
+        # Without this the SidebarPipelineQueue keeps showing the
+        # cancelled run forever and the GraphEnrichmentPipeline panel
+        # keeps the per-stage paused styling. The backup data on disk is
+        # now authoritative — the stale state machines have nothing to
+        # contribute and would confuse resume detection.
+        try:
+            with self._lock:
+                stale_keys = [k for k in self._runs.keys() if k[0] == project_id]
+                for k in stale_keys:
+                    del self._runs[k]
+        except Exception:
+            logger.debug("Failed to clear stale runs after revert", exc_info=True)
+
+        # F-84: Emit fresh pipeline_status + queue_changed SSE events so the
+        # dashboard re-fetches and clears the paused/cancelled UI state.
+        try:
+            from codrag.core.events import get_event_bus
+            bus = get_event_bus()
+            self._emit_pipeline_status(project_id)
+            bus.emit("queue_changed", {"reason": "rebuild_cancelled", "project_id": project_id})
+        except Exception:
+            logger.debug("SSE emit after revert failed (non-fatal)", exc_info=True)
 
     def _pause_group(self, project_id: str, group: str) -> bool:
         """Pause a running group using state machine events.
@@ -2796,6 +2871,18 @@ class PipelineOrchestrator:
     ) -> bool:
         """Delegates to ResumeStrategy.should_skip_stage_freshness."""
         is_incremental = run.project_id in self._incremental_runs
+        # F-82: Rebuild (force_from_start) must never skip a stage on
+        # freshness grounds. The Rebuild button is the only place where
+        # we deliberately want to overwrite existing data — each stage
+        # must re-run end-to-end and swap its output atomically. Previously
+        # freshness-skip fired for any stage whose output mtime was newer
+        # than its inputs, causing Edge Discovery / Fast Catalogue /
+        # Validation to no-op on rebuild when prior data existed.
+        is_rebuild = run.project_id in self._force_from_start_runs
+        if is_rebuild:
+            if pfl:
+                pfl.log(stage.value, "Freshness check bypassed (rebuild / force_from_start)")
+            return False
         should_skip, reason = ResumeStrategy.should_skip_stage_freshness(
             run.project_id, stage, is_incremental, pfl,
         )
@@ -2833,6 +2920,16 @@ class PipelineOrchestrator:
         pfl: Any = None,
     ) -> bool:
         """Delegates to RecoveryManager.try_restore_stage_from_backup."""
+        # F-82: Rebuild must never restore from backup. The Rebuild button
+        # is the only path where we intentionally overwrite existing data —
+        # each stage must re-run end-to-end. Without this guard, Edge
+        # Discovery / Fast Catalogue / Validation silently get restored
+        # from _golden or branch snapshot and the rebuild is a no-op for
+        # those stages.
+        if run.project_id in self._force_from_start_runs:
+            if pfl:
+                pfl.log(stage.value, "Backup restore skipped (rebuild / force_from_start)")
+            return False
         restored = RecoveryManager.try_restore_stage_from_backup(run, stage, pfl)
         if restored:
             # Phase 96: Release the scheduler slot acquired for this stage

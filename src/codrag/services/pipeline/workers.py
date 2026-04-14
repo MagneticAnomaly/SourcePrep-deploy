@@ -305,21 +305,26 @@ class WorkerFactory:
             #
             # F-46: Project is a frozen dataclass — direct attribute assignment
             # raises FrozenInstanceError and tanks the entire fast_sync run.
-            # The persisted config update via project_registry.update_project
-            # is the source of truth; the in-memory project instance is just
-            # a snapshot that the next status read will refresh from disk, so
-            # we don't need to mutate it locally at all.
-            cfg = project.config if isinstance(project.config, dict) else {}
-            trace_cfg = cfg.get("trace") if isinstance(cfg.get("trace"), dict) else {}
-            if not trace_cfg.get("enabled"):
-                import copy
-                new_cfg = copy.deepcopy(cfg)
-                new_cfg.setdefault("trace", {})["enabled"] = True
-                try:
-                    from codrag.core.project_registry import get_registry
-                    get_registry().update_project(project.id, config=new_cfg)
-                except Exception:
-                    pass  # Non-fatal: frontend also sets this
+            # F-85: Re-read config from the registry right before the update
+            # instead of writing back the worker's stale snapshot. Previously,
+            # if the user edited ignore_patterns / exclude globs in the UI
+            # while Fast Sync was running, this block would clobber those
+            # edits with the pre-run config when structural finished. Now
+            # we fetch-merge-write, and skip entirely when trace.enabled is
+            # already set in the current persisted config.
+            try:
+                from codrag.core.project_registry import get_registry
+                registry = get_registry()
+                fresh = registry.get_project(project.id)
+                fresh_cfg = (fresh.config if fresh and isinstance(fresh.config, dict) else {}) or {}
+                fresh_trace = fresh_cfg.get("trace") if isinstance(fresh_cfg.get("trace"), dict) else {}
+                if not fresh_trace.get("enabled"):
+                    import copy
+                    new_cfg = copy.deepcopy(fresh_cfg)
+                    new_cfg.setdefault("trace", {})["enabled"] = True
+                    registry.update_project(project.id, config=new_cfg)
+            except Exception:
+                pass  # Non-fatal: frontend also sets this
 
             return {
                 "stage": "structural",

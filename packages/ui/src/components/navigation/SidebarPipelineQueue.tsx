@@ -59,10 +59,15 @@ function formatDuration(seconds: number | null | undefined): string {
 }
 
 function phaseToStatus(phase: string): StatusState {
+  // F-83: 'paused' used to map to 'stale' which read as "dead" and
+  // confused users into dismissing actively-resumable runs. A paused
+  // pipeline is explicitly restartable — label it as such.
   switch (phase) {
     case 'running': return 'building';
     case 'queued': return 'pending';
-    case 'paused': return 'stale';
+    case 'pausing':
+    case 'paused': return 'paused';
+    case 'cancelled': return 'cancelled';
     case 'failed': return 'error';
     default: return 'pending';
   }
@@ -283,8 +288,8 @@ export function SidebarPipelineQueue({
                       variant="ghost"
                       size="icon-sm"
                       onClick={() => handleResume(item)}
-                      className="h-5 w-5 text-text-muted hover:text-green-500"
-                      title="Resume"
+                      className="h-5 w-5 text-amber-500 hover:text-green-500"
+                      title="Resume this paused run"
                     >
                       <Play className="w-3 h-3" />
                     </Button>
@@ -303,13 +308,16 @@ export function SidebarPipelineQueue({
                     <Star className={cn('w-3 h-3', item.priority !== 'none' && 'fill-current')} />
                   </Button>
 
+                  {/* F-83: Always show a close/dismiss button for non-running items
+                      so users have a clear out. Paused → Cancel (stops run).
+                      Cancelled/failed → Dismiss (clears the stale card). */}
                   {item.phase !== 'failed' && (
                     <Button
                       variant="ghost"
                       size="icon-sm"
                       onClick={() => handleCancel(item)}
                       className="h-5 w-5 text-text-muted hover:text-red-500 ml-auto"
-                      title="Cancel"
+                      title={item.phase === 'paused' ? 'Cancel (discard run)' : item.phase === 'cancelled' ? 'Dismiss' : 'Cancel'}
                     >
                       <X className="w-3 h-3" />
                     </Button>

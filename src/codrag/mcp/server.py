@@ -1151,7 +1151,13 @@ class MCPServer:
                 )
                 if isinstance(atlas_data, dict):
                     role_content = atlas_data.get("role_atlas", "")
-                    role_content = self._truncate_section(role_content, 2000, "role atlas")
+                    # The daemon already caps at role.max_chars (2500-4000 per role).
+                    # The MCP-side cap is a safety bound keyed to client budget;
+                    # previously hardcoded at 2000, which truncated roles configured
+                    # for 3000-4000 chars. Use max(4000, 10% of client budget) so
+                    # the full role projection passes through on every client tier.
+                    role_cap = max(4000, self._base_budget_for_client() // 10)
+                    role_content = self._truncate_section(role_content, role_cap, "role atlas")
                     if role_content:
                         md_parts.append("\n---\n")
                         md_parts.append(role_content)
