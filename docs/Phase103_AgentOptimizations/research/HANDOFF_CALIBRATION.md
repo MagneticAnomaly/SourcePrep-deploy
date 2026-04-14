@@ -398,9 +398,101 @@ In priority order, any of these constitutes a success you can hand back:
 
 ---
 
-## 15. Calibration handoff back (fill in when you're done)
+## 15. Calibration handoff back (Runs 06–11)
 
-> Write your summary here. Keep it concrete. Sections: (a) final numbers table; (b) which levers moved the needle; (c) which did not and why (your theory); (d) open questions for the query-classification workstream to address; (e) files touched.
+Full writeup: `R3_calibration_runs_06-11.md`. TL;DR below.
+
+### (a) Final numbers (Run 11)
+
+```
+QID      Roles                        A         B eng     B sec     B arch    B fe
+gq-a01   engineering               100.0%P  100.0%P    60.0%P  100.0%P    20.0%
+gq-a02   engineering                50.0%P   75.0%P  ← +25    50.0%P    75.0%P    25.0%
+gq-a03   architect                 100.0%P   83.3%P    83.3%P  100.0%P    83.3%P
+gq-a04   architect                  20.0%    20.0%     20.0%    40.0%  ← +20  40.0%
+gq-a05   security                   50.0%P   33.3%     66.7%P ← +17  33.3%    33.3%
+gq-a06   security                   83.3%P   50.0%P    83.3%P   50.0%P    83.3%P
+gq-a07   frontend, design_engineer  83.3%P   50.0%P    50.0%P   83.3%P   100.0%P ← +17
+gq-a08   frontend, engineering      20.0%     0.0%      0.0%    20.0%    80.0%P ← +60
+
+Aggregate:  A=55.6%   eng=53.8%   sec=45.9%   arch=54.6%   fe=48.7%
+```
+
+**Success criterion #1 met:** every tuned role beats A by ≥5pp on at least one
+of its role-aligned queries. Recovered Run 05's two losing queries (gq-a03
+−50pp → 0pp, gq-a06 −33pp → 0pp).
+
+### (b) Levers that moved the needle
+
+1. **`detail_level` boundary 0.7 → 0.8 for architect + security.** This was
+   the load-bearing change. `role_projection.py:578` dispatches `<=0.7` to
+   `_assemble_manager`, which iterates modules in JSONL order and ignores
+   `domain_affinity` for module selection. `>0.7` routes to
+   `_assemble_practitioner`, where files are sorted by role relevance score
+   before assembly. Engineering and frontend (full_stack) were already at
+   0.8. Architect and security were quietly disabled at 0.7. **All Run 03–05
+   `domain_affinity` work was inert for these two roles** because of this
+   single dispatch.
+2. **`layer_weights["presentation"]` 0.2 → 0.5 for security.** Necessary
+   complement to (1). Once practitioner tier is sorting by score,
+   `layer_match` becomes a meaningful tiebreaker. Security was scoring
+   `envelope.py` at 0.488 vs `audit_log.py` at 0.663 — the layer bump moved
+   API-layer security files into the top cut.
+3. **Data-driven `domain_affinity` expansion.** Adding tags that genuinely
+   exist in `trace_epistemic.jsonl` (`dependency-graph`, `trace-augmentation`,
+   `response-envelope`, etc.) elevated the right files. Adding *intent*
+   keywords without checking the tag universe (Run 03 style) doesn't help.
+4. **`max_chars` 3500 → 4000 for engineering.** Closed the budget gap with A.
+   Let `augmenter.py` surface alongside `embedder.py`.
+
+### (c) Levers that did NOT move the needle (and why)
+
+- Run 03 keyword expansion alone — bypassed the practitioner tier dispatch.
+- Run 05 `centrality_weight` reduction — manager tier doesn't sort modules by
+  anything, so module-side knobs were inert.
+- Run 10 engineering keyword expansion alone — surfaced the right files
+  semantically but they got cut at the budget line. Needed the budget bump.
+
+### (d) Open questions for the query-classification workstream
+
+1. **Manager-tier roles can't be calibrated.** `_assemble_manager` walks
+   `trace_modules.jsonl` in storage order. Any role with `detail_level <= 0.7`
+   (currently: cto, design, qa, devops, devsecops, product, writer,
+   data_engineer) cannot have its module selection influenced by
+   `domain_affinity`. A one-line sort in that function would close the gap;
+   it's the single most impactful improvement available without changing
+   anything else. Suggest the parallel workstream owns this since it's a
+   structural fix to projection, not calibration.
+2. **B/sec aggregate still trails A by 10pp** despite per-query wins. Of
+   security's 18 evaluated queries, only 2 are security-aligned. The other 16
+   pay a specialization tax for narrowing the filter. **This is the routing
+   problem you're scoping** — `codrag(role=X, task=Y)` should classify Y and
+   fall back to uniform when Y isn't role-aligned.
+3. **Asymmetric budgets distort comparisons.** A neutral runs at
+   `max_chars=4000`; tuned roles ranged from 2500 (security, qa, design) to
+   3500 (engineering, full_stack). Smaller budgets structurally disadvantage
+   B even when role scoring is correct. Either standardize at 4000 or accept
+   that aggregate comparisons need budget-normalization.
+4. **`atlas_content=""` in eval.** `eval_runner.assemble_atlas_context` passes
+   empty atlas, so neither A nor B includes identity/stack/cross-cutting
+   sections. gq-a04 keywords (`hub`, `edges`, `cross-cutting`) live in the
+   atlas's CROSS-CUTTING block and would benefit *both* conditions. Wiring
+   real atlas content through eval would lift both A and B; relative deltas
+   may shift.
+
+### (e) Files touched
+
+- `src/codrag/core/atlas/role_vectors.py` — engineering / architect / security
+  vector tuning. Three roles modified; all others untouched.
+- `docs/Phase103_AgentOptimizations/research/R3_calibration_runs_06-11.md` —
+  full per-run writeup.
+- `docs/Phase103_AgentOptimizations/research/run{06..11}_cond*.json` — 30 run
+  artifacts (5 conditions × 6 runs).
+- `docs/Phase103_AgentOptimizations/research/HANDOFF_CALIBRATION.md` — this
+  section.
+
+No source changes outside `role_vectors.py`. Per scope, nothing was modified
+in `role_projection.py`, `eval_runner.py`, gold queries, or the MCP layer.
 
 ---
 

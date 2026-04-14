@@ -209,10 +209,14 @@ BUILT_IN_ROLES: Dict[str, RoleVector] = {
         domain_affinity=[
             "architecture", "api", "pipeline", "orchestration", "state-management",
             "data-persistence", "error-handling", "concurrency",
+            # Run 10: surface service-layer engines (embedder, augmenter, enrichment) for gq-a02
+            "embeddings", "vector-search", "llm-integration", "retrieval",
+            "trace-augmentation", "semantic-analysis", "pipeline-stage",
+            "llm-orchestration", "epistemic-analysis", "knowledge-representation",
         ],
         centrality_weight=0.5,
         detail_level=0.8,
-        max_chars=3500,
+        max_chars=4000,  # Run 11: 3500→4000 to match A's budget; lets augmenter/embedder/enrichment all surface
     ),
 
     "architect": RoleVector(
@@ -234,9 +238,16 @@ BUILT_IN_ROLES: Dict[str, RoleVector] = {
             "pipeline-orchestration", "llm-orchestration",
             "architecture-audit", "audit-architecture",
             "api",
+            # Run 09: hub/dependency/cross-cutting graph vocabulary for gq-a04
+            "dependency-graph", "dependency-analysis", "dependency-management",
+            "dependency-extraction", "dependency-injection", "dependency-inference",
+            "graph-analysis", "code-graph", "trace-graph", "graph-construction",
+            "graph-algorithms", "graph-traversal", "graph-engine",
+            "knowledge-graph", "cross-platform", "cross-cutting",
+            "import-cycle", "centrality", "hub-file",
         ],
         centrality_weight=0.6,  # was 0.8; reduced to surface entry points + leaves, not only hubs
-        detail_level=0.7,        # was 0.5; practitioner tier for more detailed atlas content
+        detail_level=0.8,        # Run 07: 0.7→0.8 crosses manager→practitioner boundary (<=0.7 is manager, role-unscored)
         max_chars=3000,
     ),
 
@@ -316,7 +327,8 @@ BUILT_IN_ROLES: Dict[str, RoleVector] = {
         role_id="security",
         display_name="Security Engineer",
         layer_weights={
-            "presentation": 0.2, "business_logic": 0.5, "data": 0.7,
+            # Run 08: presentation 0.2→0.5 to surface API-layer security (envelopes, middleware, auth routes)
+            "presentation": 0.5, "business_logic": 0.5, "data": 0.7,
             "infrastructure": 0.6, "configuration": 0.7, "testing": 0.4,
             "documentation": 0.3, "build": 0.3, "unknown": 0.1,
         },
@@ -331,9 +343,12 @@ BUILT_IN_ROLES: Dict[str, RoleVector] = {
             "input-sanitization", "cryptography", "cryptographic-hashing",
             "session-management", "credentials", "cors",
             "security-audit", "audit-logging", "audit-trail",
+            # Run 08: API-layer security surface (error envelopes, auth middleware, exception filters)
+            "api-design", "response-envelope", "error-handling",
+            "exception-handling", "middleware", "fastapi",
         ],
         centrality_weight=0.6,
-        detail_level=0.7,
+        detail_level=0.8,  # Run 07: 0.7→0.8 crosses manager→practitioner boundary (<=0.7 is manager, role-unscored)
         max_chars=2500,
     ),
 
