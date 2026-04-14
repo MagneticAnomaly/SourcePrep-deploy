@@ -256,23 +256,36 @@ def update_trace_ignore(project_id: str, req: TraceIgnoreRequest) -> Dict[str, A
     if not req.patterns:
         raise ApiException(status_code=400, code="VALIDATION_ERROR", message="patterns list is required")
 
-    cfg = dict(proj.config or {})
-    trace_cfg = dict(cfg.get("trace") or {})
-    current_patterns: List[str] = list(trace_cfg.get("ignore_patterns") or [])
-
-    if req.action == "add":
-        for p in req.patterns:
-            p = str(p).strip()
-            if p and p not in current_patterns:
-                current_patterns.append(p)
-    else:
-        remove_set = set(str(p).strip() for p in req.patterns)
-        current_patterns = [p for p in current_patterns if p not in remove_set]
-
-    trace_cfg["ignore_patterns"] = current_patterns
-    cfg["trace"] = trace_cfg
     reg = _get_registry()
-    reg.update_project(proj.id, config=cfg)
+
+    # Atomic read-modify-write: if another endpoint (e.g. PUT
+    # /included_paths) writes to this project's config concurrently, the
+    # old `proj.config` snapshot + full-config replace pattern would
+    # silently drop one side's field. mutate_config reads and writes
+    # inside a single SQLite transaction, so only trace.ignore_patterns
+    # is touched here and concurrent writers' fields survive.
+    def _apply(current_cfg: Dict[str, Any]) -> Dict[str, Any]:
+        new_cfg = dict(current_cfg)
+        trace_cfg = dict(new_cfg.get("trace") or {})
+        current_patterns: List[str] = list(trace_cfg.get("ignore_patterns") or [])
+        if req.action == "add":
+            for p in req.patterns:
+                p = str(p).strip()
+                if p and p not in current_patterns:
+                    current_patterns.append(p)
+        else:
+            remove_set = set(str(p).strip() for p in req.patterns)
+            current_patterns = [p for p in current_patterns if p not in remove_set]
+        trace_cfg["ignore_patterns"] = current_patterns
+        new_cfg["trace"] = trace_cfg
+        return new_cfg
+
+    reg.mutate_config(proj.id, _apply)
+    # Re-read to surface the final pattern list in the response
+    updated = reg.get_project(proj.id)
+    current_patterns = list(
+        ((updated.config if updated else {}) or {}).get("trace", {}).get("ignore_patterns") or []
+    )
 
     # Invalidate coverage cache so next fetch reflects new exclusions
     _coverage_cache.pop(project_id, None)
