@@ -286,6 +286,7 @@ class ProjectRegistry:
                 except (json.JSONDecodeError, TypeError):
                     current_cfg = {}
             new_cfg = mutator(current_cfg) or {}
+
             now = _now_iso() if touch else None
             if now is None:
                 conn.execute(
