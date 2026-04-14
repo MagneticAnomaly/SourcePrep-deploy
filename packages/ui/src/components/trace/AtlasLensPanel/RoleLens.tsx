@@ -3,12 +3,25 @@ import { Eye, Layers, Sliders } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import type { AtlasStatus, RoleVectorPayload } from '../../../types';
 import { BudgetBar } from './BudgetBar';
+import { BudgetSlider } from './BudgetSlider';
+import { PinnedConceptsList } from './PinnedConceptsList';
 
 export interface RoleLensProps {
   atlas: AtlasStatus | null;
   role: string | null;
   roleOptions: { id: string; label: string }[];
   onRoleChange: (role: string | null) => void;
+  /** Built-in default budget for the current role. Parent resolves it
+   *  from the role_vectors defaults so the slider can anchor correctly
+   *  even when an override is active. */
+  defaultMaxChars?: number;
+  /** Optional write affordances — when present, the lens becomes
+   *  interactive. Leave undefined for a read-only preview (Step 6). */
+  onCommitMaxChars?: (maxChars: number) => void;
+  onResetOverride?: () => void;
+  onUnpinConcept?: (conceptId: string) => void;
+  /** Resolves pinned concept IDs to readable titles. */
+  resolveConceptTitle?: (conceptId: string) => string | undefined;
   className?: string;
 }
 
@@ -35,12 +48,18 @@ export function RoleLens({
   role,
   roleOptions,
   onRoleChange,
+  defaultMaxChars,
+  onCommitMaxChars,
+  onResetOverride,
+  onUnpinConcept,
+  resolveConceptTitle,
   className,
 }: RoleLensProps) {
   const applied = atlas?.applied_role;
   const override = atlas?.override;
   const projection = atlas?.role_atlas ?? '';
   const error = atlas?.role_atlas_error;
+  const interactive = Boolean(onCommitMaxChars);
 
   return (
     <div className={cn('space-y-3', className)}>
@@ -100,24 +119,21 @@ export function RoleLens({
               Applied lens
             </div>
 
-            <BudgetBar
-              value={applied.max_chars}
-              defaultValue={
-                // If an override is set, reconstruct the default from the
-                // override-less baseline — we know the role_id, and the
-                // default per role is stable at the role_vectors level.
-                // Approximate: when no override, default == applied. When
-                // override is present, default comes from the override's
-                // own record of the prior value, which we do not store
-                // here — fall back to applied.max_chars if unavailable.
-                override?.max_chars && applied.max_chars === override.max_chars
-                  ? // Best effort: show a tick at current applied until
-                    // Step 7 wires the real built-in resolver into the UI.
-                    applied.max_chars
-                  : applied.max_chars
-              }
-              ceiling={8000}
-            />
+            {interactive && onCommitMaxChars ? (
+              <BudgetSlider
+                value={applied.max_chars}
+                defaultValue={defaultMaxChars ?? applied.max_chars}
+                hasOverride={Boolean(override?.max_chars && override.max_chars !== (defaultMaxChars ?? applied.max_chars))}
+                onCommit={onCommitMaxChars}
+                onReset={onResetOverride ?? (() => {})}
+              />
+            ) : (
+              <BudgetBar
+                value={applied.max_chars}
+                defaultValue={defaultMaxChars ?? applied.max_chars}
+                ceiling={8000}
+              />
+            )}
 
             <div>
               <div className="text-text-muted mb-1 inline-flex items-center gap-1">
@@ -180,16 +196,19 @@ export function RoleLens({
               </span>
             </div>
 
-            {override?.pinned_concept_ids && override.pinned_concept_ids.length > 0 && (
-              <div className="pt-1 border-t border-border">
-                <div className="text-text-muted">
-                  Pinned concepts:{' '}
-                  <span className="font-medium text-text">
-                    {override.pinned_concept_ids.length}
-                  </span>
-                </div>
+            <div className="pt-1 border-t border-border space-y-1.5">
+              <div className="text-text-muted">
+                Pinned concepts{' '}
+                <span className="font-medium text-text">
+                  ({override?.pinned_concept_ids?.length ?? 0})
+                </span>
               </div>
-            )}
+              <PinnedConceptsList
+                pinnedIds={override?.pinned_concept_ids ?? []}
+                resolveTitle={resolveConceptTitle}
+                onUnpin={interactive ? onUnpinConcept : undefined}
+              />
+            </div>
           </div>
         </div>
       )}

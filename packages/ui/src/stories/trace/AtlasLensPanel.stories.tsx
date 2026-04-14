@@ -137,3 +137,52 @@ export const RoleProjectionError: Story = {
     />
   ),
 };
+
+function InteractiveHarness() {
+  const [role, setRole] = useState<string | null>('engineering');
+  const [maxChars, setMaxChars] = useState(4000);
+  const [pinnedIds, setPinnedIds] = useState<string[]>(['c-auth-decision', 'c-pipeline-rule']);
+
+  const atlas: AtlasStatus = {
+    ...baseAtlas,
+    role: role ?? undefined,
+    role_atlas: role
+      ? `[${role} View]\n\nBudget: ${maxChars.toLocaleString()} chars\nPinned: ${pinnedIds.length} concepts\n\n(Mock projection.)`
+      : undefined,
+    role_atlas_chars: role ? 120 + pinnedIds.length * 30 : undefined,
+    applied_role: role
+      ? {
+          ...roleAtlas.applied_role!,
+          role_id: role,
+          max_chars: maxChars,
+        }
+      : undefined,
+    override: role && (maxChars !== 4000 || pinnedIds.length > 0)
+      ? { role_id: role, max_chars: maxChars, pinned_concept_ids: pinnedIds, updated_at: Date.now() / 1000 }
+      : null,
+  };
+
+  return (
+    <div style={{ height: 700, maxWidth: 900 }}>
+      <AtlasLensPanel
+        atlas={atlas}
+        role={role}
+        onRoleChange={setRole}
+        onRegenerate={() => alert('regenerate')}
+        getDefaultMaxChars={() => 4000}
+        onCommitMaxChars={(_r, chars) => setMaxChars(chars)}
+        onResetOverride={() => { setMaxChars(4000); setPinnedIds([]); }}
+        onUnpinConcept={(_r, id) => setPinnedIds((prev) => prev.filter(x => x !== id))}
+        resolveConceptTitle={(id) => ({
+          'c-auth-decision': 'JWT Auth Decision',
+          'c-pipeline-rule': 'Pipeline Sequencing Rule',
+        }[id])}
+      />
+    </div>
+  );
+}
+
+export const InteractiveTuning: Story = {
+  name: 'Interactive tuning (Step 7)',
+  render: () => <InteractiveHarness />,
+};

@@ -15,6 +15,12 @@ export interface AtlasLensPanelProps {
   regenerating?: boolean;
   onRegenerate?: () => void;
   getSegmentContent?: (segmentId: string) => string | undefined;
+  /** Step 7 — interactive affordances. Undefined → read-only panel. */
+  getDefaultMaxChars?: (roleId: string) => number | undefined;
+  onCommitMaxChars?: (roleId: string, maxChars: number) => void;
+  onResetOverride?: (roleId: string) => void;
+  onUnpinConcept?: (roleId: string, conceptId: string) => void;
+  resolveConceptTitle?: (conceptId: string) => string | undefined;
   className?: string;
 }
 
@@ -49,6 +55,11 @@ export function AtlasLensPanel({
   regenerating,
   onRegenerate,
   getSegmentContent,
+  getDefaultMaxChars,
+  onCommitMaxChars,
+  onResetOverride,
+  onUnpinConcept,
+  resolveConceptTitle,
   className,
 }: AtlasLensPanelProps) {
   if (!atlas || !atlas.exists) {
@@ -89,6 +100,17 @@ export function AtlasLensPanel({
         role={role}
         roleOptions={roleOptions}
         onRoleChange={onRoleChange}
+        defaultMaxChars={role ? getDefaultMaxChars?.(role) : undefined}
+        onCommitMaxChars={role && onCommitMaxChars
+          ? (chars) => onCommitMaxChars(role, chars)
+          : undefined}
+        onResetOverride={role && onResetOverride
+          ? () => onResetOverride(role)
+          : undefined}
+        onUnpinConcept={role && onUnpinConcept
+          ? (conceptId) => onUnpinConcept(role, conceptId)
+          : undefined}
+        resolveConceptTitle={resolveConceptTitle}
       />
     </div>
   );

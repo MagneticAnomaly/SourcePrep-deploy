@@ -8,3 +8,7 @@ export { RoleLens } from './RoleLens';
 export type { RoleLensProps } from './RoleLens';
 export { BudgetBar } from './BudgetBar';
 export type { BudgetBarProps } from './BudgetBar';
+export { BudgetSlider } from './BudgetSlider';
+export type { BudgetSliderProps } from './BudgetSlider';
+export { PinnedConceptsList } from './PinnedConceptsList';
+export type { PinnedConceptsListProps, PinnedConceptLite } from './PinnedConceptsList';
