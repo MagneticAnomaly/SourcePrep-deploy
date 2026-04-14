@@ -1041,10 +1041,36 @@ class PipelineOrchestrator:
 
     def status(self, project_id: str) -> dict[str, Any]:
         """Get pipeline status for a project."""
+        from .stages import FINALIZE_STAGES
+        finalize_stage_values = {s.value for s in FINALIZE_STAGES}
+
         with self._lock:
             fast_run = self._runs.get((project_id, "fast_sync"))
             deep_run = self._runs.get((project_id, "deep_enrichment"))
             fin_run = self._runs.get((project_id, "finalize"))
+
+            # Phase 105a (C1): Expose solo finalize-stage runs through the
+            # `finalize` slot so existing downstream consumers (useEnrichment.ts,
+            # SSE pipeline_status events, the Graph Enrichment panel) pick them
+            # up unchanged.  run_single_stage() registers runs under the stage
+            # value as the group key — e.g. (pid, "atlas") — so they are
+            # invisible to the three hardcoded lookups above.
+            #
+            # Strategy: if the traditional `finalize` group is absent (or
+            # inactive), scan all _runs keys for this project that match a
+            # finalize-stage value and pick the first active/paused one.
+            # Prefer the traditional group run when both coexist (should not
+            # happen, but defensive).
+            solo_runs: list[Any] = []
+            if not (fin_run and (fin_run.is_active or fin_run.is_paused)):
+                for (pid, group), run in self._runs.items():
+                    if pid == project_id and group in finalize_stage_values:
+                        solo_runs.append(run)
+                # Use the first active solo run, falling back to paused, then any.
+                active_solo = next((r for r in solo_runs if r.is_active), None)
+                paused_solo = next((r for r in solo_runs if r.is_paused), None)
+                if active_solo or paused_solo:
+                    fin_run = active_solo or paused_solo
 
         # F-41: walk the 15 stages via lock-free snapshots instead of
         # ``BuildOrchestrator.status()``.  The previous implementation
@@ -1090,11 +1116,15 @@ class PipelineOrchestrator:
             ),
             "run_mode": "incremental" if project_id in self._incremental_runs else None,
             # Phase 72 Stage 4: Include stage snapshots for lock-free status reads.
-            # Combines snapshots from all group runs (fast_sync + deep_enrichment + finalize).
+            # Combines snapshots from all group runs (fast_sync + deep_enrichment +
+            # finalize + any solo finalize-stage runs).
             "stage_snapshots": {
                 **({k: v.to_dict() for k, v in fast_run.get_stage_snapshots().items()} if fast_run else {}),
                 **({k: v.to_dict() for k, v in deep_run.get_stage_snapshots().items()} if deep_run else {}),
                 **({k: v.to_dict() for k, v in fin_run.get_stage_snapshots().items()} if fin_run else {}),
+                # Merge snapshots from all solo runs so stage_snapshots["atlas"] etc.
+                # are always populated regardless of which finalize variant is in fin_run.
+                **({k: v.to_dict() for r in solo_runs for k, v in r.get_stage_snapshots().items()}),
             },
             **self._get_branch_info(project_id),
         }

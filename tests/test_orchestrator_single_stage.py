@@ -114,3 +114,36 @@ def test_run_single_stage_force_bypasses_selfheal_and_resume(pipeline):
         pipeline.run_single_stage("proj-1", StageId.ATLAS, force=True)
 
     selfheal.assert_not_called()
+
+
+def test_status_reflects_active_solo_run(pipeline):
+    """status() must expose solo runs so the UI can display them.
+
+    Reads through the `finalize` slot so downstream consumers that
+    already subscribe to finalize status don't need to know about
+    solo runs specifically.
+
+    Note: _runs stores PipelineGroupStateMachine instances (not PipelineRun
+    worker objects), so the mock is spec'd against PipelineGroupStateMachine.
+    """
+    from codrag.services.pipeline.state_machine import PipelineGroupStateMachine
+    solo_run = MagicMock(spec=PipelineGroupStateMachine)
+    solo_run.is_active = True
+    solo_run.is_paused = False
+    solo_run.is_complete = False
+    solo_run.state = MagicMock(value="running")
+    solo_run.phase = "running"
+    solo_run.current_stage = "atlas"
+    solo_run.to_dict.return_value = {
+        "state": "running",
+        "phase": "running",
+        "current_stage": "atlas",
+        "is_active": True,
+    }
+    solo_run.get_stage_snapshots.return_value = {}
+    pipeline._runs[("proj-1", "atlas")] = solo_run
+
+    status = pipeline.status("proj-1")
+    assert status["finalize"] is not None
+    assert status["finalize"]["current_stage"] == "atlas"
+    assert status["any_running"] is True
