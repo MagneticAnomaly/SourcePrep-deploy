@@ -2167,34 +2167,53 @@ class CodebaseAtlas:
         manifest_path = self.index_dir / "atlas_segments_manifest.json"
         return manifest_path.exists() and self.segments_dir.exists()
 
-    def get_role_atlas(self, role: str) -> str:
+    def get_role_atlas(
+        self,
+        role: str,
+        *,
+        overrides: Optional[Any] = None,
+        pinned_concepts: Optional[List[Dict[str, Any]]] = None,
+    ) -> str:
         """Return a role-filtered sub-atlas.
 
-        Checks the cache first (atlas_roles/{role_id}.txt), then falls
-        back to live generation.  No LLM calls — pure Python scoring
-        + assembly.
+        When no overrides or pinned concepts are supplied, the cached
+        copy (``atlas_roles/{role_id}.txt``) is returned if present.
+        Any override forces a live projection since the cache represents
+        the default RoleVector shape.
 
         Args:
             role: Free-form role name (e.g. "CEO", "design engineer",
                   "Senior QA Lead", "security").
+            overrides: Optional ``RoleOverride`` layered on top of the
+                built-in RoleVector (Phase 104). ``None`` → use defaults.
+            pinned_concepts: Optional list of ``{"title", "content"}``
+                concept dicts rendered as a preamble before the projection.
 
         Returns:
             A role-appropriate sub-atlas string, compressed to the
             role's character budget.
         """
-        # Try cached version first
-        cached = self.load_cached_role_atlas(role)
-        if cached:
-            return cached
+        # Cache is only valid for the default role vector — any override
+        # or pin necessarily invalidates it.
+        if not overrides and not pinned_concepts:
+            cached = self.load_cached_role_atlas(role)
+            if cached:
+                return cached
 
-        # Live generation fallback
+        # Live generation
         from .role_projection import project_atlas_for_role
         from .role_resolver import resolve_role
 
         role_vector = resolve_role(role)
         doc = self.load()
         base_content = doc.content if doc else ""
-        return project_atlas_for_role(role_vector, self.index_dir, base_content)
+        return project_atlas_for_role(
+            role_vector,
+            self.index_dir,
+            base_content,
+            overrides=overrides,
+            pinned_concepts=pinned_concepts,
+        )
 
     def cache_role_atlases(self) -> Dict[str, int]:
         """Pre-generate and cache role sub-atlases for all built-in roles.

@@ -71,7 +71,9 @@ class _FakeAtlas:
     def get_display_content(self):
         return self._display
 
-    def get_role_atlas(self, role: str) -> str:
+    def get_role_atlas(self, role: str, *, overrides=None, pinned_concepts=None) -> str:
+        # Phase 104: accept (and ignore for the fake) the override kwargs
+        # so helper tests don't need to re-create role_overrides_store.
         if self._role_error:
             raise self._role_error
         return self._role_atlas or ""
