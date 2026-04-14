@@ -56,7 +56,6 @@ KEYWORD_TO_BASE: Dict[str, str] = {
     "interaction": "design",
     "motion": "design",
     "brand": "design",
-    "researcher": "design",          # UX Researcher → design
     # ── Security ─────────────────────────────────────────────────
     "security": "security",
     "sec": "security",
@@ -94,13 +93,28 @@ KEYWORD_TO_BASE: Dict[str, str] = {
     "administrator": "devops",
     # ── Product / Project ────────────────────────────────────────
     "product": "product",
-    "pm": "product",
-    "program": "product",
-    "project": "product",
-    "scrum": "product",
-    "agile": "product",
+    "pm": "pm",                        # operational PM (was → product, now dedicated)
+    "program": "pm",
+    "project": "pm",
+    "scrum": "pm",
+    "tpm": "pm",                       # Technical PM
+    "delivery": "pm",
+    # ── Personal Assistant / Coordination (Phase 103 broadening) ─
+    "assistant": "assistant",
+    "secretary": "assistant",
+    "pa": "assistant",
+    "ea": "assistant",                 # Executive Assistant
+    "coordinator": "assistant",
+    "openclaw": "assistant",           # OpenClaw routes here
+    "todo": "assistant",
+    "planner": "assistant",
+    # ── Research / Analysis ──────────────────────────────────────
+    "researcher": "researcher",        # was → design (UX); now dedicated research role
+    "research": "researcher",
+    "analyst": "researcher",
+    "evaluator": "researcher",
+    "agile": "pm",                     # agile is operational, → pm
     "owner": "product",
-    "analyst": "product",
     "business": "product",
     "strategist": "product",
     "growth": "product",

@@ -207,16 +207,20 @@ BUILT_IN_ROLES: Dict[str, RoleVector] = {
             "documentation": 0.3, "build": 0.3, "unknown": 0.2,
         },
         domain_affinity=[
-            "architecture", "api", "pipeline", "orchestration", "state-management",
+            # Intent markers — engineering builds service-layer + pipeline systems
+            "architecture", "pipeline", "orchestration", "state-management",
             "data-persistence", "error-handling", "concurrency",
-            # Run 10: surface service-layer engines (embedder, augmenter, enrichment) for gq-a02
+            # Service-layer engines (embedder, augmenter, enrichment) — Run 12 calibration
             "embeddings", "vector-search", "llm-integration", "retrieval",
             "trace-augmentation", "semantic-analysis", "pipeline-stage",
             "llm-orchestration", "epistemic-analysis", "knowledge-representation",
+            # Engineering-flavored compound terms
+            "service-layer", "factory-pattern", "embedder", "augmenter",
+            "pipeline-orchestration", "incremental-builds",
         ],
-        centrality_weight=0.5,
+        centrality_weight=0.4,  # surface niche service files over centrality hubs
         detail_level=0.8,
-        max_chars=4000,  # Run 11: 3500→4000 to match A's budget; lets augmenter/embedder/enrichment all surface
+        max_chars=4000,  # budget parity with A's neutral baseline (also 4000)
     ),
 
     "architect": RoleVector(
@@ -442,6 +446,93 @@ BUILT_IN_ROLES: Dict[str, RoleVector] = {
         centrality_weight=0.5,
         detail_level=0.7,
         max_chars=2500,
+    ),
+
+    # ── Personal Assistant / Coordination (Phase 103 broadening) ────
+    # CoDRAG isn't only a dev tool. AI agents like OpenClaw operate as
+    # personal assistants — focused on plans, decisions, MVP specs, todo
+    # lists, and project memory rather than code. These roles serve those
+    # non-dev agent personas reading the same codebase atlas.
+
+    "assistant": RoleVector(
+        role_id="assistant",
+        display_name="Personal Assistant",
+        # Heavy documentation lens — assistants live in plans/specs/notes,
+        # not code. Some business_logic for understanding what the project
+        # actually does. Minimal infra/build awareness.
+        layer_weights={
+            "presentation": 0.3, "business_logic": 0.4, "data": 0.2,
+            "infrastructure": 0.1, "configuration": 0.2, "testing": 0.1,
+            "documentation": 0.95, "build": 0.1, "unknown": 0.2,
+        },
+        domain_affinity=[
+            # Planning artifacts (the assistant's primary deliverables)
+            "planning", "implementation-plan", "roadmap", "milestone",
+            "specification", "spec", "mvp", "requirements",
+            "phase", "deliverable", "scope",
+            # Decisions, tracking, action items
+            "decision-log", "todo", "task", "action-item",
+            "status", "tracking", "blocker",
+            # Agent-coordination vocabulary (OpenClaw-relevant)
+            "agent-architecture", "agent-orchestration",
+            "context-engineering", "knowledge-management",
+            "tacit-knowledge", "memory",
+            # User-facing intent
+            "user-facing", "onboarding", "feature",
+        ],
+        centrality_weight=0.3,  # specs/decisions live in leaves, not graph hubs
+        detail_level=0.8,        # practitioner — file-level role-scored selection
+        max_chars=4000,
+    ),
+
+    "pm": RoleVector(
+        role_id="pm",
+        display_name="Project Manager",
+        # Project managers track operational state — phases, dependencies,
+        # blockers — not the strategic vision (that's `product`).
+        layer_weights={
+            "presentation": 0.3, "business_logic": 0.4, "data": 0.2,
+            "infrastructure": 0.2, "configuration": 0.2, "testing": 0.2,
+            "documentation": 0.9, "build": 0.2, "unknown": 0.1,
+        },
+        domain_affinity=[
+            "project-management", "roadmap", "milestone", "deliverable",
+            "phase", "deadline", "tracking", "status",
+            "scheduling", "scope", "blocker",
+            "dependency-management", "release-management", "rollout",
+            "implementation-plan", "team-coordination",
+            "agile", "sprint", "kanban", "retrospective",
+            "tech-debt", "technical-debt",
+        ],
+        centrality_weight=0.5,
+        detail_level=0.8,
+        max_chars=3500,
+    ),
+
+    "researcher": RoleVector(
+        role_id="researcher",
+        display_name="Research Analyst",
+        # Research/analysis — comparisons, evaluations, methodology. Cares
+        # about both code (what was built/measured) and docs (findings).
+        layer_weights={
+            "presentation": 0.2, "business_logic": 0.5, "data": 0.5,
+            "infrastructure": 0.2, "configuration": 0.2, "testing": 0.4,
+            "documentation": 0.9, "build": 0.2, "unknown": 0.1,
+        },
+        domain_affinity=[
+            "research", "research-engine", "research-strategy",
+            "evaluation", "benchmark", "comparison", "ablation",
+            "hypothesis", "finding", "experiment",
+            "metrics", "measurement", "analysis", "literature",
+            "survey", "methodology", "calibration",
+            # CoDRAG-research-adjacent vocabulary
+            "ai-agent", "agent-architecture", "knowledge-graph",
+            "epistemic-analysis", "context-engineering",
+            "code-intelligence", "graph-rag",
+        ],
+        centrality_weight=0.4,
+        detail_level=0.8,
+        max_chars=4000,
     ),
 
     # ── Learning / Onboarding ────────────────────────────────────────

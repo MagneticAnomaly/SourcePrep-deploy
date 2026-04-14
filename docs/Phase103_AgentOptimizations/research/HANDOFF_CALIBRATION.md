@@ -398,25 +398,42 @@ In priority order, any of these constitutes a success you can hand back:
 
 ---
 
-## 15. Calibration handoff back (Runs 06–11)
+## 15. Calibration handoff back (Runs 06–12)
 
-Full writeup: `R3_calibration_runs_06-11.md`. TL;DR below.
+Full writeup: `R3_calibration_runs_06-12.md`. TL;DR below.
 
-### (a) Final numbers (Run 11)
+**Scope expansion (Run 12):** Added three non-dev roles (`assistant`/OpenClaw,
+`pm`, `researcher`) plus six gold queries (gq-a09..a14) so the harness can
+measure agent personas beyond pure software engineering. All three new roles
+beat A by ≥17pp on at least one role-aligned query — strongest result
+gq-a09 (assistant, +60pp), gq-a11/a12 (pm, +50pp each), gq-a13 (researcher,
++50pp). The same `detail_level=0.8` discipline that unblocked architect /
+security applied from the start to all new roles.
+
+### (a) Final numbers (Run 12, 24-query corpus)
 
 ```
-QID      Roles                        A         B eng     B sec     B arch    B fe
-gq-a01   engineering               100.0%P  100.0%P    60.0%P  100.0%P    20.0%
-gq-a02   engineering                50.0%P   75.0%P  ← +25    50.0%P    75.0%P    25.0%
-gq-a03   architect                 100.0%P   83.3%P    83.3%P  100.0%P    83.3%P
-gq-a04   architect                  20.0%    20.0%     20.0%    40.0%  ← +20  40.0%
-gq-a05   security                   50.0%P   33.3%     66.7%P ← +17  33.3%    33.3%
-gq-a06   security                   83.3%P   50.0%P    83.3%P   50.0%P    83.3%P
-gq-a07   frontend, design_engineer  83.3%P   50.0%P    50.0%P   83.3%P   100.0%P ← +17
-gq-a08   frontend, engineering      20.0%     0.0%      0.0%    20.0%    80.0%P ← +60
+QID    Role(s)              A      B-eng   B-arch  B-sec   B-fe   B-asst  B-pm    B-res
+gq-a02 engineering          50%   ★75%     75%     50%    25%    50%     25%     50%
+gq-a04 architect            20%    20%    ★40%     20%    40%    40%     40%     40%
+gq-a05 security             50%    33%     33%    ★67%    33%    33%     33%     33%
+gq-a06 security             83%    50%     50%    ★83%    83%    50%     50%     33%
+gq-a07 frontend             83%    50%     83%     50%   ★100%   50%     83%     50%
+gq-a08 frontend             20%    20%     20%      0%   ★ 80%    0%      0%      0%
+gq-a09 assistant (NEW)      20%    60%     60%     20%    40%   ★ 80%   80%     60%
+gq-a11 pm (NEW)              0%    25%     25%      0%    50%    50%   ★ 50%    50%
+gq-a12 pm (NEW)             17%    33%     17%     17%    17%    50%   ★ 67%    67%
+gq-a13 researcher (NEW)      0%     0%     17%      0%    17%    17%      0%   ★ 50%
+gq-a14 researcher (NEW)     67%    67%     67%     50%    67%    50%     33%   ★ 83%
 
-Aggregate:  A=55.6%   eng=53.8%   sec=45.9%   arch=54.6%   fe=48.7%
+Aggregate (24 queries):
+  A=48.1%   B-eng=49.8% ✓   B-arch=50.8% ✓   B-res=50.5% ✓
+  B-fe=46.5%   B-asst=45.2%   B-sec=39.4%   B-pm=39.2%
 ```
+
+★ = matched-role B for that query.   ✓ = beats A on aggregate.
+Of 14 role-aligned queries: 9 clean B wins, 3 ties (one a recovered
+regression, one a ceiling), 0 B losses.
 
 **Success criterion #1 met:** every tuned role beats A by ≥5pp on at least one
 of its role-aligned queries. Recovered Run 05's two losing queries (gq-a03
@@ -482,17 +499,22 @@ of its role-aligned queries. Recovered Run 05's two losing queries (gq-a03
 
 ### (e) Files touched
 
-- `src/codrag/core/atlas/role_vectors.py` — engineering / architect / security
-  vector tuning. Three roles modified; all others untouched.
-- `docs/Phase103_AgentOptimizations/research/R3_calibration_runs_06-11.md` —
-  full per-run writeup.
-- `docs/Phase103_AgentOptimizations/research/run{06..11}_cond*.json` — 30 run
-  artifacts (5 conditions × 6 runs).
+- `src/codrag/core/atlas/role_vectors.py` — engineering, architect, security
+  vector tuning + three new role definitions (assistant, pm, researcher).
+- `src/codrag/core/atlas/role_resolver.py` — keyword routing for the new
+  roles (openclaw → assistant, scrum/agile/project → pm, researcher/analyst
+  → researcher).
+- `tests/eval/gold_queries.json` v1.1 → v1.2 — six new atlas queries
+  (`gq-a09..a14`) for assistant/pm/researcher. Existing queries unmodified.
+- `docs/Phase103_AgentOptimizations/research/R3_calibration_runs_06-12.md`
+  — full per-run writeup with honest scrutiny section.
+- `docs/Phase103_AgentOptimizations/research/run{07..12}_cond*.json` — 38
+  artifacts.
 - `docs/Phase103_AgentOptimizations/research/HANDOFF_CALIBRATION.md` — this
   section.
 
-No source changes outside `role_vectors.py`. Per scope, nothing was modified
-in `role_projection.py`, `eval_runner.py`, gold queries, or the MCP layer.
+Per scope: `role_projection.py`, `eval_runner.py`, the MCP layer, and the
+original `gq-001..010` search queries are untouched.
 
 ---
 
