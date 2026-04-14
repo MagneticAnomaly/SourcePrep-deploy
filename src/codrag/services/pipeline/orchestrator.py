@@ -8,14 +8,12 @@ import logging
 import os
 import threading
 import time
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 from codrag.services.build_orchestrator import (
     BuildOrchestrator,
     BuildPhase,
-    BuildSlot,
     BuildType,
     build_orchestrator,
 )
@@ -25,31 +23,33 @@ class _WriteGuardBlocked(Exception):
     """Raised when the write guard detects data loss and blocks pipeline advancement."""
     pass
 
-from .stages import (
-    StageId,
-    STAGE_BUILD_TYPE,
-    FAST_SYNC_STAGES,
-    DEEP_ENRICHMENT_STAGES,
-    STAGE_TASK_ID,
-    STAGE_MODEL_SLOT,
-    QueueType,
-    STAGE_QUEUE_TYPE,
-    STAGE_MANIFEST_FILE,
-    STAGE_OUTPUT_FILE,
-    STAGE_CONFIDENCE_FIELD,
-)
-from .scheduler import pipeline_scheduler
-from .workers import PipelineRunPhase, PipelineRun, WorkerFactory
-from .state_machine import (
-    PipelineGroupStateMachine,
-    PipelineState,
-    Event,
-    ActiveProjectGuard,
-)
+from datetime import UTC
+
 from .manifest_store import ManifestStore
 from .post_flight import PostFlightActions
 from .recovery import RecoveryManager
 from .resume import ResumeStrategy
+from .scheduler import pipeline_scheduler
+from .stages import (
+    DEEP_ENRICHMENT_STAGES,
+    FAST_SYNC_STAGES,
+    STAGE_BUILD_TYPE,
+    STAGE_CONFIDENCE_FIELD,
+    STAGE_MANIFEST_FILE,
+    STAGE_MODEL_SLOT,
+    STAGE_OUTPUT_FILE,
+    STAGE_QUEUE_TYPE,
+    STAGE_TASK_ID,
+    QueueType,
+    StageId,
+)
+from .state_machine import (
+    ActiveProjectGuard,
+    Event,
+    PipelineGroupStateMachine,
+    PipelineState,
+)
+from .workers import WorkerFactory
 
 logger = logging.getLogger(__name__)
 
@@ -75,33 +75,33 @@ class PipelineOrchestrator:
         status = pipeline.status("proj-1")
     """
 
-    def __init__(self, orchestrator: Optional[BuildOrchestrator] = None) -> None:
+    def __init__(self, orchestrator: BuildOrchestrator | None = None) -> None:
         self._orchestrator = orchestrator or build_orchestrator
         self._lock = threading.Lock()
         # Active pipeline runs: (project_id, group) → state machine
-        self._runs: Dict[tuple[str, str], PipelineGroupStateMachine] = {}
+        self._runs: dict[tuple[str, str], PipelineGroupStateMachine] = {}
         # Default guard: block START for inactive projects
         self._default_guard = ActiveProjectGuard()
         # Per-project pipeline file loggers
-        self._file_loggers: Dict[str, Any] = {}
+        self._file_loggers: dict[str, Any] = {}
         # Register for build completion events
         self._orchestrator.add_listener(self._on_build_transition)
         # Phase 25: cached crashed runs discovered at startup
-        self._crashed_runs: List[Any] = []
+        self._crashed_runs: list[Any] = []
         # Phase 49: per-run metadata objects
-        self._run_metadata: Dict[tuple[str, str], Any] = {}  # (project_id, group) → PipelineRunMetadata
+        self._run_metadata: dict[tuple[str, str], Any] = {}  # (project_id, group) → PipelineRunMetadata
         # Phase 53: track which projects are in incremental mode
         self._incremental_runs: set[str] = set()
         # Phase 53+: changed file paths for incremental structural rebuilds
-        self._changed_paths: Dict[str, set[str]] = {}
+        self._changed_paths: dict[str, set[str]] = {}
         # Explicit chain flag: run_all() sets this so deep_enrichment chains after fast_sync
-        self._chain_deep: Dict[str, bool] = {}
+        self._chain_deep: dict[str, bool] = {}
         # Explicit chain flag: run_all() sets this so finalize chains after deep_enrichment
-        self._chain_finalize: Dict[str, bool] = {}
+        self._chain_finalize: dict[str, bool] = {}
         # Phase 89: Track force_from_start for chain propagation to deep enrichment
         self._force_from_start_runs: set[str] = set()
         # Phase 91: Drain timeout checker (runs every 30s while swarm window is active)
-        self._drain_timer: Optional[threading.Timer] = None
+        self._drain_timer: threading.Timer | None = None
 
     def _start_drain_timer(self) -> None:
         """Start a periodic timer to check for drain timeouts."""
@@ -151,8 +151,8 @@ class PipelineOrchestrator:
         """Get or create a PipelineFileLogger for a project."""
         if project_id not in self._file_loggers:
             try:
-                from codrag.services.project_helpers import require_project
                 from codrag.core.project_registry import project_index_dir
+                from codrag.services.project_helpers import require_project
                 project = require_project(project_id)
                 idx_dir = project_index_dir(project)
                 from codrag.services.pipeline_logger import PipelineFileLogger
@@ -166,12 +166,12 @@ class PipelineOrchestrator:
     def _persist_incremental_flag(project_id: str, is_incremental: bool) -> None:
         """Persist the incremental run flag to disk so it survives daemon restart."""
         try:
-            from codrag.services.project_helpers import require_project
             from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
             project = require_project(project_id)
             idx_dir = Path(project_index_dir(project))
             state_path = idx_dir / "pipeline_state.json"
-            state: Dict[str, Any] = {}
+            state: dict[str, Any] = {}
             if state_path.exists():
                 try:
                     state = json.loads(state_path.read_text())
@@ -187,8 +187,8 @@ class PipelineOrchestrator:
     def _read_and_clear_incremental_flag(project_id: str) -> bool:
         """Read the persisted incremental flag and clear it atomically."""
         try:
-            from codrag.services.project_helpers import require_project
             from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
             project = require_project(project_id)
             idx_dir = Path(project_index_dir(project))
             state_path = idx_dir / "pipeline_state.json"
@@ -208,8 +208,8 @@ class PipelineOrchestrator:
     def _sync_downstream_manifest_mtimes(project_id: str, pfl: Any = None) -> None:
         """Touch all downstream manifest files to match structural mtime."""
         try:
-            from codrag.services.project_helpers import require_project
             from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
 
             project = require_project(project_id)
             idx_dir = Path(project_index_dir(project))
@@ -304,8 +304,8 @@ class PipelineOrchestrator:
     def _touch_stale_deep_manifests(project_id: str) -> None:
         """Touch deep enrichment manifests so they match the catalogue mtime."""
         try:
-            from codrag.services.project_helpers import require_project
             from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
 
             project = require_project(project_id)
             idx_dir = Path(project_index_dir(project))
@@ -329,8 +329,8 @@ class PipelineOrchestrator:
         not present in the current trace_nodes.jsonl.
         """
         try:
-            from codrag.services.project_helpers import require_project
             from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
 
             project = require_project(project_id)
             idx_dir = Path(project_index_dir(project))
@@ -343,7 +343,7 @@ class PipelineOrchestrator:
 
             # Build set of valid file paths from current trace graph
             valid_paths: set[str] = set()
-            with open(nodes_path, "r") as f:
+            with open(nodes_path) as f:
                 for line in f:
                     line = line.strip()
                     if not line:
@@ -362,7 +362,7 @@ class PipelineOrchestrator:
             # Read existing inferred edges and keep only those with valid refs
             kept = []
             pruned = 0
-            with open(inferred_path, "r") as f:
+            with open(inferred_path) as f:
                 for line in f:
                     line = line.strip()
                     if not line:
@@ -582,7 +582,7 @@ class PipelineOrchestrator:
                     if pfl:
                         pfl.decision("mode_selection", "skip_up_to_date", {
                             "group": "fast_sync",
-                            "reason": f"All stages complete, 0 stale, 0 untraced",
+                            "reason": "All stages complete, 0 stale, 0 untraced",
                             "coverage_pct": gap.get("coverage_pct", 0),
                         })
                     return False
@@ -658,9 +658,9 @@ class PipelineOrchestrator:
         # Only when data exists (resume > 0) and not a full rebuild.
         if resume > 0 and not force_from_start:
             try:
+                from codrag.core.project_registry import project_index_dir
                 from codrag.core.trace import prune_orphan_enrichments
                 from codrag.services.project_helpers import require_project
-                from codrag.core.project_registry import project_index_dir
                 proj = require_project(project_id)
                 prune_result = prune_orphan_enrichments(project_index_dir(proj))
                 if prune_result.get("total_pruned", 0) > 0 and pfl:
@@ -798,13 +798,69 @@ class PipelineOrchestrator:
             )
         return self._start_group(project_id, "finalize", FINALIZE_STAGES, resume_from=resume)
 
+    def run_single_stage(
+        self,
+        project_id: str,
+        stage_id: StageId,
+        *,
+        force: bool = False,
+    ) -> bool:
+        """Queue a single finalize stage through the orchestrator (Phase 105a).
+
+        Routes the same path as run_finalize but with a one-element stage
+        list and the stage_id as the group identity. This gives solo runs
+        first-class presence in the queue, journal, history, and UI stage
+        state.
+
+        Args:
+            project_id: Project to run against.
+            stage_id: A StageId from FINALIZE_STAGES. Sync/enrich stages
+                are rejected — they must run via their group-level methods.
+            force: Skip the selfheal pre-flight.
+
+        Returns:
+            True when queued; False when rejected (project inactive, another
+            group active, or orchestrator otherwise declined).
+
+        Raises:
+            ValueError: stage_id is not a finalize stage.
+        """
+        from .stages import FINALIZE_STAGES
+        if stage_id not in FINALIZE_STAGES:
+            raise ValueError(
+                f"{stage_id!r} is not a finalize stage; use run_fast_sync / "
+                "run_deep_enrichment for sync/enrich stages."
+            )
+
+        if not self._check_project_active(project_id):
+            return False
+
+        # Don't start a solo finalize stage while enrich is active or
+        # paused — same guard as run_finalize.
+        with self._lock:
+            enrich_run = self._runs.get((project_id, "deep_enrichment"))
+            if enrich_run and (enrich_run.is_active or enrich_run.is_paused):
+                logger.info(
+                    "[%s] Skipping solo %s — enrich is %s (stage=%s)",
+                    project_id, stage_id.value, enrich_run.state.value,
+                    enrich_run.current_stage,
+                )
+                return False
+
+        if not force:
+            self._selfheal_group(project_id, [stage_id])
+
+        return self._start_group(
+            project_id, stage_id.value, [stage_id], resume_from=0,
+        )
+
     def run_deepening_only(self, project_id: str) -> bool:
         """Run ONLY the Continuous Deepening and Deep Knowledge stages. Useful for retriggers."""
         from .stages import StageId
         stages = [StageId.DEEPENING, StageId.DEEP_KNOWLEDGE]
         return self._start_group(project_id, "deep_enrichment", stages)
 
-    def swap_model(self, project_id: str, group: str) -> Dict[str, Any]:
+    def swap_model(self, project_id: str, group: str) -> dict[str, Any]:
         """Pause the running stage, then resume with fresh LLM config.
 
         Workers call _get_llm_client_for_task() at stage start, so after
@@ -838,7 +894,7 @@ class PipelineOrchestrator:
             "resumed": resumed,
         }
 
-    def hot_scope_reload(self, project_id: str) -> Dict[str, Any]:
+    def hot_scope_reload(self, project_id: str) -> dict[str, Any]:
         """Pause the running pipeline, rebuild the trace graph with current
         include/exclude patterns, then resume.
 
@@ -980,7 +1036,7 @@ class PipelineOrchestrator:
                 if key[0] == project_id
             )
 
-    def status(self, project_id: str) -> Dict[str, Any]:
+    def status(self, project_id: str) -> dict[str, Any]:
         """Get pipeline status for a project."""
         with self._lock:
             fast_run = self._runs.get((project_id, "fast_sync"))
@@ -1044,7 +1100,7 @@ class PipelineOrchestrator:
         """Cancel the Fast Sync group."""
         return self._cancel_group(project_id, "fast_sync")
 
-    def _get_branch_info(self, project_id: str) -> Dict[str, Any]:
+    def _get_branch_info(self, project_id: str) -> dict[str, Any]:
         """Get branch-aware backup info for a project (Phase 60B).
 
         Returns keys to merge into the pipeline status dict:
@@ -1064,14 +1120,15 @@ class PipelineOrchestrator:
                 return data
 
         try:
+            from datetime import datetime
+
+            from codrag.core.project_registry import project_index_dir
             from codrag.services.branch_backup_manager import (
                 detect_current_branch,
                 list_snapshots,
                 read_branch_state,
             )
             from codrag.services.project_helpers import require_project
-            from codrag.core.project_registry import project_index_dir
-            from datetime import datetime, timezone
             project = require_project(project_id)
             idx_dir = Path(project_index_dir(project))
 
@@ -1084,7 +1141,7 @@ class PipelineOrchestrator:
             if state and state.get("transition_from") and state.get("switched_at"):
                 try:
                     switched = datetime.fromisoformat(state["switched_at"])
-                    age_s = (datetime.now(timezone.utc) - switched).total_seconds()
+                    age_s = (datetime.now(UTC) - switched).total_seconds()
                     if age_s > 300:  # 5 minutes
                         state = {k: v for k, v in state.items() if k != "transition_from"}
                 except Exception:
@@ -1158,7 +1215,7 @@ class PipelineOrchestrator:
         self._advance_pipeline(run)
         return True
 
-    def force_reset_stale_runs(self, project_id: str, max_age_seconds: float = 600) -> List[str]:
+    def force_reset_stale_runs(self, project_id: str, max_age_seconds: float = 600) -> list[str]:
         """Force-reset pipeline runs whose current stage worker has crashed.
 
         Returns list of groups that were reset.  This is a recovery mechanism
@@ -1172,7 +1229,7 @@ class PipelineOrchestrator:
         large repos.
         """
         import time as _time
-        reset_groups: List[str] = []
+        reset_groups: list[str] = []
         with self._lock:
             for key, run in list(self._runs.items()):
                 if key[0] != project_id:
@@ -1234,7 +1291,7 @@ class PipelineOrchestrator:
         return ResumeStrategy.refresh_manifest_hashes(project_id)
 
     @staticmethod
-    def check_coverage_gap(project_id: str, include_paths: bool = False) -> Dict[str, Any]:
+    def check_coverage_gap(project_id: str, include_paths: bool = False) -> dict[str, Any]:
         """Delegates to ResumeStrategy.check_coverage_gap."""
         return ResumeStrategy.check_coverage_gap(project_id, include_paths)
     def _maybe_retrigger_for_coverage(
@@ -1258,7 +1315,7 @@ class PipelineOrchestrator:
         )
     def _resolve_node_for_stage(
         self, project_id: str, stage: StageId,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Resolve which compute node handles this stage's model.
 
         Walks the chain:  stage → model slot → endpoint → provider + model → node_id.
@@ -1294,7 +1351,7 @@ class PipelineOrchestrator:
 
     def _resolve_model_for_stage(
         self, project_id: str, stage: StageId,
-    ) -> Tuple[Optional[str], Optional[str]]:
+    ) -> tuple[str | None, str | None]:
         """Return (provider, model) for a stage's configured LLM.
 
         Used by Phase 91 swarm window to check if the model supports swarm.
@@ -1320,7 +1377,7 @@ class PipelineOrchestrator:
                 break
         return provider, model
 
-    def _is_cloud_node(self, node_id: Optional[str]) -> bool:
+    def _is_cloud_node(self, node_id: str | None) -> bool:
         """Check if a node ID refers to a cloud compute node."""
         return node_id is not None and node_id.startswith("cloud:")
 
@@ -1340,7 +1397,7 @@ class PipelineOrchestrator:
     def _detect_resume_point(
         self,
         project_id: str,
-        stages: List[StageId],
+        stages: list[StageId],
         skip_mtime_cascade: bool = False,
     ) -> int:
         """Delegates to ResumeStrategy.detect_resume_point."""
@@ -1406,7 +1463,7 @@ class PipelineOrchestrator:
             return False
 
     def _start_group(
-        self, project_id: str, group: str, stages: List[StageId],
+        self, project_id: str, group: str, stages: list[StageId],
         chain_deep: bool = False, resume_from: int = 0,
     ) -> bool:
         """Start a group of stages sequentially.
@@ -1445,11 +1502,12 @@ class PipelineOrchestrator:
                 mode = "incremental"
             else:
                 try:
-                    from codrag.core.project_registry import project_index_dir
-                    from codrag.services.project_helpers import require_project
-                    from codrag.services.pipeline.stages import STAGE_OUTPUT_FILE
                     from pathlib import Path
-                    
+
+                    from codrag.core.project_registry import project_index_dir
+                    from codrag.services.pipeline.stages import STAGE_OUTPUT_FILE
+                    from codrag.services.project_helpers import require_project
+
                     if stages:
                         proj_idx = Path(project_index_dir(require_project(project_id)))
                         first_stage = stages[0]
@@ -1502,10 +1560,11 @@ class PipelineOrchestrator:
 
         # Phase 49: create run metadata
         try:
-            from codrag.services.pipeline_metadata import (
-                create_run_metadata, save_run_metadata,
-            )
             from codrag.core.project_registry import project_index_dir
+            from codrag.services.pipeline_metadata import (
+                create_run_metadata,
+                save_run_metadata,
+            )
             from codrag.services.project_helpers import require_project
             project = require_project(project_id)
             idx_dir = project_index_dir(project)
@@ -1541,9 +1600,9 @@ class PipelineOrchestrator:
         # (fast_sync) to avoid double-snapshotting when run_all() chains.
         if group == "fast_sync":
             try:
+                from codrag.core.project_registry import project_index_dir
                 from codrag.services.branch_backup_manager import check_branch_transition
                 from codrag.services.project_helpers import require_project
-                from codrag.core.project_registry import project_index_dir
                 project = require_project(project_id)
                 max_backups = (project.config or {}).get("max_branch_backups", 3)
                 transition = check_branch_transition(
@@ -1974,8 +2033,8 @@ class PipelineOrchestrator:
         # Phase 72: Minimal lock scope — only lookup and state transition
         # inside the lock. All I/O, scheduler release, and callbacks run
         # outside to prevent deadlocks and status endpoint blocking.
-        stage: Optional[StageId] = None
-        matching_run: Optional[PipelineGroupStateMachine] = None
+        stage: StageId | None = None
+        matching_run: PipelineGroupStateMachine | None = None
 
         with self._lock:
             for key, run in self._runs.items():
@@ -2167,7 +2226,6 @@ class PipelineOrchestrator:
                 if node_count == 0:
                     # Quick check: does the project directory have relevant files?
                     from codrag.services.project_helpers import require_project
-                    from codrag.core.project_registry import project_index_dir
                     _proj = require_project(project_id)
                     _repo = Path(_proj.path)
                     if _repo.is_dir():
@@ -2498,13 +2556,13 @@ class PipelineOrchestrator:
         Prevents two models from occupying VRAM simultaneously.
         Non-fatal: logs warnings on failure but never blocks the pipeline.
         """
-        from codrag.server import _get_model_identity_for_task, _get_llm_client_for_task
+        from codrag.server import _get_llm_client_for_task, _get_model_identity_for_task
 
         next_task = STAGE_TASK_ID.get(next_stage)
         next_identity = _get_model_identity_for_task(next_task) if next_task else None
 
         # Determine the previous stage's model identity
-        prev_task: Optional[str] = None
+        prev_task: str | None = None
         prev_identity = None
         if run.current_stage_index > 0:
             prev_stage = StageId(run.stages[run.current_stage_index - 1])
@@ -2536,7 +2594,7 @@ class PipelineOrchestrator:
         Called when a pipeline group finishes to free VRAM for the next
         group or for the user's own work.
         """
-        from codrag.server import _get_model_identity_for_task, _get_llm_client_for_task
+        from codrag.server import _get_llm_client_for_task, _get_model_identity_for_task
 
         # Collect unique model identities used by this group
         identities_seen: dict = {}  # identity → task_id (for client resolution)
@@ -2578,8 +2636,8 @@ class PipelineOrchestrator:
                 return  # Run completed/failed/paused — stop
             try:
                 from codrag.core.project_registry import project_index_dir
-                from codrag.services.project_helpers import require_project
                 from codrag.services.pipeline_metadata import update_heartbeat
+                from codrag.services.project_helpers import require_project
                 project = require_project(run.project_id)
                 idx_dir = project_index_dir(project)
                 update_heartbeat(idx_dir)
@@ -2627,7 +2685,7 @@ class PipelineOrchestrator:
             pfl=pfl,
         )
     @staticmethod
-    def _read_graph_stats_from_manifest(idx_dir) -> Dict[str, Any]:
+    def _read_graph_stats_from_manifest(idx_dir) -> dict[str, Any]:
         """Read node/edge counts from trace_manifest.json for rules file stats.
 
         Delegates to ManifestStore. Non-fatal — returns zeros on any error.
@@ -2723,7 +2781,7 @@ class PipelineOrchestrator:
                     if matching_sm.can_transition(Event.ENQUEUE):
                         matching_sm.transition(
                             Event.ENQUEUE,
-                            detail=f"re-enqueued after _advance_pipeline failure",
+                            detail="re-enqueued after _advance_pipeline failure",
                         )
                 except Exception:
                     logger.error(
@@ -2770,11 +2828,11 @@ class PipelineOrchestrator:
         # Phase 72D: Golden checkpoint + pruning
         try:
             from codrag.core.project_registry import project_index_dir
-            from codrag.services.project_helpers import require_project
             from codrag.services.pipeline_checkpoint import (
                 create_golden_checkpoint,
                 prune_old_checkpoints,
             )
+            from codrag.services.project_helpers import require_project
 
             project = require_project(run.project_id)
             idx_dir = Path(project_index_dir(project))
@@ -2818,7 +2876,7 @@ class PipelineOrchestrator:
         """
         try:
             worker_result = getattr(slot, "result", None) or {}
-            snapshot_data: Dict[str, Any] = {
+            snapshot_data: dict[str, Any] = {
                 "exists": True,
                 "running": False,
             }
@@ -2851,11 +2909,11 @@ class PipelineOrchestrator:
         except Exception:
             logger.debug("Stage snapshot update failed for %s (non-fatal)", stage.value, exc_info=True)
 
-    def _get_or_create_manifest_store(self, project_id: str) -> Optional[ManifestStore]:
+    def _get_or_create_manifest_store(self, project_id: str) -> ManifestStore | None:
         """Get a ManifestStore for a project, creating if needed."""
         try:
-            from codrag.services.project_helpers import require_project
             from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
             project = require_project(project_id)
             return ManifestStore(Path(project_index_dir(project)))
         except Exception:
@@ -2969,10 +3027,11 @@ class PipelineOrchestrator:
         log the would-be block but allow it through in that mode.
         """
         try:
-            from codrag.services.pipeline_integrity import (
-                integrity_guard, STAGE_DATA_FILES,
-            )
             from codrag.core.project_registry import project_index_dir
+            from codrag.services.pipeline_integrity import (
+                STAGE_DATA_FILES,
+                integrity_guard,
+            )
             from codrag.services.project_helpers import require_project
 
             project = require_project(run.project_id)
@@ -3031,7 +3090,7 @@ class PipelineOrchestrator:
         self,
         run: PipelineGroupStateMachine,
         stage: StageId,
-        post_files: Dict[str, Any],
+        post_files: dict[str, Any],
         reason: str,
         pfl: Any = None,
     ) -> bool:
@@ -3081,9 +3140,9 @@ class PipelineOrchestrator:
 
         # LLM stage — try checkpoint restore
         try:
+            from codrag.core.project_registry import project_index_dir
             from codrag.services.pipeline_checkpoint import restore_checkpoint
             from codrag.services.pipeline_journal import journal
-            from codrag.core.project_registry import project_index_dir
             from codrag.services.project_helpers import require_project
 
             project = require_project(run.project_id)
@@ -3132,8 +3191,8 @@ class PipelineOrchestrator:
         Non-fatal: logged at DEBUG/INFO, never blocks the pipeline.
         """
         try:
-            from codrag.services.pipeline_integrity import integrity_guard
             from codrag.core.project_registry import project_index_dir
+            from codrag.services.pipeline_integrity import integrity_guard
             from codrag.services.project_helpers import require_project
             project = require_project(run.project_id)
             idx_dir = Path(project_index_dir(project))
@@ -3157,7 +3216,7 @@ class PipelineOrchestrator:
                 pfl.log(
                     stage.value,
                     f"Integrity PRE-FLIGHT: {file_info}"
-                    + (f" [INCREMENTAL]" if is_incremental else " [INITIAL]"),
+                    + (" [INCREMENTAL]" if is_incremental else " [INITIAL]"),
                 )
         except Exception:
             logger.debug(
@@ -3178,8 +3237,8 @@ class PipelineOrchestrator:
         debugging of data loss issues.
         """
         try:
-            from codrag.services.pipeline_integrity import integrity_guard
             from codrag.core.project_registry import project_index_dir
+            from codrag.services.pipeline_integrity import integrity_guard
             from codrag.services.project_helpers import require_project
             project = require_project(run.project_id)
             idx_dir = Path(project_index_dir(project))
@@ -3218,7 +3277,7 @@ class PipelineOrchestrator:
 
     # ── Phase 25: Crash Recovery ──────────────────────────────────
 
-    def startup_recovery(self) -> List[Any]:
+    def startup_recovery(self) -> list[Any]:
         """Delegates to RecoveryManager.startup_recovery with orchestrator callbacks."""
         return RecoveryManager.startup_recovery(
             hydrate_fn=self._hydrate_paused_runs_from_disk,
@@ -3279,7 +3338,7 @@ class PipelineOrchestrator:
             run_deep_enrichment_fn=self.run_deep_enrichment,
         )
 
-    def get_crashed_runs(self, project_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_crashed_runs(self, project_id: str | None = None) -> list[dict[str, Any]]:
         """Delegates to RecoveryManager.get_crashed_runs."""
         return RecoveryManager.get_crashed_runs(project_id)
 
@@ -3306,14 +3365,16 @@ class PipelineOrchestrator:
         blocks the pipeline if metadata writing fails.
         """
         try:
-            from codrag.core.stage_manifest import (
-                create_stage_manifest, save_stage_manifest,
-            )
-            from codrag.core.provenance import (
-                aggregate_quality_metrics, get_file_metadata,
-                compute_throughput, aggregate_model_breakdown,
-            )
             from codrag.core.project_registry import project_index_dir
+            from codrag.core.provenance import (
+                aggregate_model_breakdown,
+                aggregate_quality_metrics,
+                compute_throughput,
+                get_file_metadata,
+            )
+            from codrag.core.stage_manifest import (
+                create_stage_manifest,
+            )
             from codrag.services.project_helpers import require_project
 
             project = require_project(run.project_id)
@@ -3332,15 +3393,14 @@ class PipelineOrchestrator:
                 # Timing from worker
                 timing = worker_result.get("_stage_timing", {})
                 if timing:
-                    from datetime import datetime, timezone
+                    from datetime import datetime
                     started_epoch = timing.get("started_at", 0)
                     if started_epoch:
                         manifest.started_at = datetime.fromtimestamp(
-                            started_epoch, tz=timezone.utc
+                            started_epoch, tz=UTC
                         ).isoformat()
                     manifest.elapsed_seconds = timing.get("elapsed")
-                    from datetime import datetime as dt2
-                    manifest.finished_at = datetime.now(timezone.utc).isoformat()
+                    manifest.finished_at = datetime.now(UTC).isoformat()
 
                 # Model info from worker
                 model_info = worker_result.get("_model_info")
@@ -3479,10 +3539,11 @@ class PipelineOrchestrator:
     ) -> None:
         """Update the in-memory run metadata after a stage completes."""
         try:
-            from codrag.services.pipeline_metadata import (
-                mark_stage_completed, save_run_metadata,
-            )
             from codrag.core.project_registry import project_index_dir
+            from codrag.services.pipeline_metadata import (
+                mark_stage_completed,
+                save_run_metadata,
+            )
             from codrag.services.project_helpers import require_project
 
             key = (run.project_id, run.group)
@@ -3506,10 +3567,12 @@ class PipelineOrchestrator:
     def _finalize_run_metadata(self, run: PipelineGroupStateMachine, status: str) -> None:
         """Finalize run metadata on completion/failure and record in history."""
         try:
-            from codrag.services.pipeline_metadata import (
-                finalize_run_metadata, save_run_metadata, METADATA_FILENAME,
-            )
             from codrag.core.project_registry import project_index_dir
+            from codrag.services.pipeline_metadata import (
+                METADATA_FILENAME,
+                finalize_run_metadata,
+                save_run_metadata,
+            )
             from codrag.services.project_helpers import require_project
 
             key = (run.project_id, run.group)
