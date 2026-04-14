@@ -1,6 +1,6 @@
 {
-  "version": "1.0",
-  "description": "Gold queries for evaluating CoDRAG search quality",
+  "version": "1.1",
+  "description": "Gold queries for CoDRAG search + atlas evaluation. Queries gq-001..gq-010 are search-level (function names, specific file paths). Queries gq-a01.. are atlas-level (module/workflow granularity) and include a `roles` field for condition-B pairing in Phase 103 R3.",
   "queries": [
     {
       "id": "gq-001",
@@ -81,6 +81,82 @@
       "expected_keywords": ["search", "score", "similarity", "boost"],
       "category": "core",
       "difficulty": "hard"
+    },
+
+    {
+      "id": "gq-a01",
+      "query": "which modules orchestrate the build pipeline end to end",
+      "expected_files": ["src/codrag/services/pipeline"],
+      "expected_keywords": ["pipeline", "orchestrator", "stage", "build"],
+      "category": "atlas",
+      "difficulty": "medium",
+      "roles": ["engineering"]
+    },
+    {
+      "id": "gq-a02",
+      "query": "what service layer handles embedding generation and augmentation",
+      "expected_files": ["src/codrag/services"],
+      "expected_keywords": ["embedder", "augmenter", "service"],
+      "category": "atlas",
+      "difficulty": "easy",
+      "roles": ["engineering"]
+    },
+
+    {
+      "id": "gq-a03",
+      "query": "what are the architectural entry points to the system",
+      "expected_files": ["src/codrag/cli.py", "src/codrag/server.py"],
+      "expected_keywords": ["entry", "cli", "mcp", "server"],
+      "category": "atlas",
+      "difficulty": "medium",
+      "roles": ["architect"]
+    },
+    {
+      "id": "gq-a04",
+      "query": "which hub files anchor the overall dependency graph",
+      "expected_files": ["src/codrag/core"],
+      "expected_keywords": ["hub", "edges", "dependency", "cross-cutting"],
+      "category": "atlas",
+      "difficulty": "hard",
+      "roles": ["architect"]
+    },
+
+    {
+      "id": "gq-a05",
+      "query": "where does the codebase enforce admin policy and permission checks",
+      "expected_files": ["src/codrag/core/admin_policy.py", "src/codrag/api"],
+      "expected_keywords": ["admin", "policy", "permission", "allowlist"],
+      "category": "atlas",
+      "difficulty": "medium",
+      "roles": ["security"]
+    },
+    {
+      "id": "gq-a06",
+      "query": "how is the API envelope structured for error handling and auth",
+      "expected_files": ["src/codrag/core/api_envelope.py", "src/codrag/api"],
+      "expected_keywords": ["envelope", "error", "exception", "api"],
+      "category": "atlas",
+      "difficulty": "medium",
+      "roles": ["security"]
+    },
+
+    {
+      "id": "gq-a07",
+      "query": "which packages compose the dashboard user interface",
+      "expected_files": ["packages/ui", "src/codrag/dashboard"],
+      "expected_keywords": ["dashboard", "ui", "component", "react"],
+      "category": "atlas",
+      "difficulty": "easy",
+      "roles": ["frontend", "design_engineer"]
+    },
+    {
+      "id": "gq-a08",
+      "query": "how does the VS Code extension integrate with the daemon",
+      "expected_files": ["packages/vscode"],
+      "expected_keywords": ["vscode", "extension", "webview", "daemon"],
+      "category": "atlas",
+      "difficulty": "medium",
+      "roles": ["frontend", "engineering"]
     }
   ]
 }
