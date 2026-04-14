@@ -160,8 +160,8 @@ export interface PanelTraceProps {
   handleEnableTrace: () => void
   handleTraceAll: () => void
   handleRetraceStale: () => void
-  handleAddExcludePattern: (pattern: string) => void
-  handleRemoveExcludePattern: (pattern: string) => void
+  handleAddExcludePattern: (pattern: string | string[]) => void
+  handleRemoveExcludePattern: (pattern: string | string[]) => void
   fetchTraceCoverage: () => void
   handleRunFastSync: () => void
   handleDestroyGraph: () => void
@@ -499,17 +499,21 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         return next
       })
 
-      // 2. Fire API calls in background (persist to backend)
+      // 2. Fire a SINGLE API call with all patterns for this toggle.
+      // We must not issue one POST per pattern — the /trace/ignore
+      // endpoint does read-modify-write on the project config, so
+      // concurrent POSTs race and the second write clobbers the first,
+      // causing "exclude vanishes after refresh".
+      const addBatch: string[] = []
+      const removeBatch: string[] = []
       for (const rawPath of paths) {
         const cleanPath = rawPath.replace(/\/$/, '')
-        if (action === 'add') {
-          p.handleAddExcludePattern(cleanPath)
-          p.handleAddExcludePattern(`${cleanPath}/**`)
-        } else {
-          p.handleRemoveExcludePattern(cleanPath)
-          p.handleRemoveExcludePattern(`${cleanPath}/**`)
-        }
+        const bucket = action === 'add' ? addBatch : removeBatch
+        bucket.push(cleanPath)
+        bucket.push(`${cleanPath}/**`)
       }
+      if (addBatch.length > 0) p.handleAddExcludePattern(addBatch)
+      if (removeBatch.length > 0) p.handleRemoveExcludePattern(removeBatch)
     },
     [p.handleAddExcludePattern, p.handleRemoveExcludePattern, p.fileTree]
   )
