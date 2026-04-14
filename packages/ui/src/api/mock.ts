@@ -527,9 +527,9 @@ export class MockApiClient implements ApiClient {
 
   // ── Codebase Atlas (Phase 29) ──────────────────────────────────
 
-  async getAtlas(_projectId: string): Promise<import('../types').AtlasStatus> {
+  async getAtlas(_projectId: string, role?: string): Promise<import('../types').AtlasStatus> {
     const now = new Date().toISOString();
-    return {
+    const base: import('../types').AtlasStatus = {
       exists: true,
       content: 'Python/TypeScript monorepo. Core engine (src/codrag/core/) handles indexing, embedding, and search. API layer (src/codrag/api/) exposes FastAPI endpoints. Dashboard (packages/ui/) is a React + Tremor app. MCP server (src/codrag/mcp_server.py) bridges AI tools. Enrichment pipeline: trace → augment → validate → enrich → cluster → atlas → deepen → knowledge.',
       mode: 'structural',
@@ -546,10 +546,110 @@ export class MockApiClient implements ApiClient {
         { segment_id: 'seg_websites', segment_name: 'websites', dir_path: 'websites', file_count: 73, char_count: 800, mode: 'structural', generated_at: now, stale: false },
       ],
     };
+    if (role) {
+      const storage = this._mockRoleOverrides.get(_projectId) || new Map();
+      const override = storage.get(role) || null;
+      const defaultMaxChars = role === 'ceo' ? 1500 : role === 'architect' ? 2500 : 4000;
+      const maxChars = override?.max_chars ?? defaultMaxChars;
+      return {
+        ...base,
+        role,
+        role_atlas: `[${role} View]\n\nMock role-filtered projection (${maxChars} char budget). Real backend selects files scored against the role vector.`,
+        role_atlas_chars: 120,
+        applied_role: {
+          role_id: role,
+          display_name: role.charAt(0).toUpperCase() + role.slice(1),
+          layer_weights: { presentation: 0.5, business_logic: 0.9, data: 0.7, infrastructure: 0.4, configuration: 0.4, testing: 0.5, documentation: 0.3, build: 0.3, unknown: 0.2 },
+          domain_affinity: ['architecture', 'pipeline'],
+          centrality_weight: 0.4,
+          detail_level: 0.8,
+          max_chars: maxChars,
+        },
+        override: override,
+      };
+    }
+    return base;
   }
 
   async regenerateAtlas(_projectId: string): Promise<import('../types').AtlasStatus> {
     return this.getAtlas(_projectId);
+  }
+
+  // ── Role Overrides (Phase 104) ─────────────────────────────────
+
+  // Keyed by projectId → role → override; lives on the instance so tests
+  // or Storybook can mutate between renders.
+  private _mockRoleOverrides: Map<string, Map<string, import('../types').RoleOverride>> = new Map();
+
+  async listRoleOverrides(projectId: string) {
+    const perRole = this._mockRoleOverrides.get(projectId);
+    const overrides = perRole ? Array.from(perRole.values()) : [];
+    return { overrides, count: overrides.length };
+  }
+
+  async getRoleOverride(projectId: string, roleId: string) {
+    const override = this._mockRoleOverrides.get(projectId)?.get(roleId) || null;
+    return { override };
+  }
+
+  async putRoleOverride(projectId: string, roleId: string, body: { max_chars?: number | null }) {
+    const perRole = this._mockRoleOverrides.get(projectId) || new Map();
+    const existing = perRole.get(roleId) || {
+      role_id: roleId,
+      pinned_concept_ids: [],
+      updated_at: Date.now() / 1000,
+    };
+    const next: import('../types').RoleOverride = {
+      ...existing,
+      max_chars: body.max_chars ?? existing.max_chars,
+      updated_at: Date.now() / 1000,
+    };
+    perRole.set(roleId, next);
+    this._mockRoleOverrides.set(projectId, perRole);
+    return { override: next };
+  }
+
+  async deleteRoleOverride(projectId: string, roleId: string) {
+    const perRole = this._mockRoleOverrides.get(projectId);
+    const deleted = perRole?.delete(roleId) ?? false;
+    return { deleted };
+  }
+
+  async pinConceptToRole(projectId: string, roleId: string, conceptId: string) {
+    const perRole = this._mockRoleOverrides.get(projectId) || new Map();
+    const existing = perRole.get(roleId) || {
+      role_id: roleId,
+      pinned_concept_ids: [],
+      updated_at: Date.now() / 1000,
+    };
+    if (!existing.pinned_concept_ids.includes(conceptId)) {
+      existing.pinned_concept_ids = [...existing.pinned_concept_ids, conceptId];
+    }
+    existing.updated_at = Date.now() / 1000;
+    perRole.set(roleId, existing);
+    this._mockRoleOverrides.set(projectId, perRole);
+    return { pinned_concept_ids: existing.pinned_concept_ids };
+  }
+
+  async unpinConceptFromRole(projectId: string, roleId: string, conceptId: string) {
+    const perRole = this._mockRoleOverrides.get(projectId);
+    const existing = perRole?.get(roleId);
+    if (!existing) return { pinned_concept_ids: [] };
+    existing.pinned_concept_ids = existing.pinned_concept_ids.filter(id => id !== conceptId);
+    return { pinned_concept_ids: existing.pinned_concept_ids };
+  }
+
+  async getRolesPinningConcept(projectId: string, conceptId: string) {
+    const perRole = this._mockRoleOverrides.get(projectId);
+    if (!perRole) return { role_ids: [], count: 0 };
+    const roles: string[] = [];
+    for (const [roleId, override] of perRole) {
+      if (override.pinned_concept_ids.includes(conceptId)) {
+        roles.push(roleId);
+      }
+    }
+    roles.sort();
+    return { role_ids: roles, count: roles.length };
   }
 
   // ── Settings Store ────────────────────────────────────────

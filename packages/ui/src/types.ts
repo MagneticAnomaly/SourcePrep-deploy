@@ -449,6 +449,31 @@ export interface AtlasSegmentStatus {
 }
 
 /**
+ * Shape of a RoleVector for the `applied_role` field on atlas responses
+ * (Phase 104). Matches RoleVector.to_dict() from role_vectors.py.
+ */
+export interface RoleVectorPayload {
+  role_id: string;
+  display_name: string;
+  layer_weights: Record<string, number>;
+  domain_affinity: string[];
+  centrality_weight: number;
+  detail_level: number;
+  max_chars: number;
+}
+
+/**
+ * Persistent per-role override layered on top of the built-in RoleVector
+ * (Phase 104). Unset fields fall through to the built-in defaults.
+ */
+export interface RoleOverride {
+  role_id: string;
+  max_chars?: number | null;
+  pinned_concept_ids: string[];
+  updated_at: number;
+}
+
+/**
  * Codebase Atlas status (Phase 29, extended for Phase 104 sub-atlases)
  */
 export interface AtlasStatus {
@@ -470,6 +495,10 @@ export interface AtlasStatus {
   role_atlas?: string;
   role_atlas_chars?: number;
   role_atlas_error?: string;
+  /** Phase 104 — effective role vector after any override is merged in */
+  applied_role?: RoleVectorPayload;
+  /** Phase 104 — the override that was applied, or null */
+  override?: RoleOverride | null;
 }
 
 // ============================================================
