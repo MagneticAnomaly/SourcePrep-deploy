@@ -78,6 +78,12 @@ def test_upsert_accepts_none_max_chars():
     assert req.max_chars is None
 
 
+def test_upsert_accepts_boundary_values():
+    # Boundaries (200 and 20000) must be inclusive.
+    assert ep.RoleOverrideUpsertRequest(max_chars=200).max_chars == 200
+    assert ep.RoleOverrideUpsertRequest(max_chars=20000).max_chars == 20000
+
+
 # ── GET flows ───────────────────────────────────────────────────────
 
 

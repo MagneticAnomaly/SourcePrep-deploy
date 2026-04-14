@@ -166,10 +166,21 @@ def test_pin_concept_first_time(store: RoleOverridesStore):
 
 def test_pin_concept_is_idempotent_but_updates_timestamp(
     store: RoleOverridesStore,
+    monkeypatch,
 ):
+    import codrag.services.role_overrides_store as mod
+
+    monkeypatch.setattr(mod.time, "time", lambda: 100.0)
     store.pin_concept("proj-1", "engineering", "c1")
+
+    monkeypatch.setattr(mod.time, "time", lambda: 200.0)
     pinned = store.pin_concept("proj-1", "engineering", "c1")
+
+    # List stays a single-element idempotent list.
     assert pinned == ["c1"]
+    # But the underlying timestamp should have bumped from 100 → 200.
+    raw = store._store().project_get("proj-1", "role_pins/engineering")
+    assert raw["c1"] == 200.0
 
 
 def test_pin_preserves_insertion_order(store: RoleOverridesStore):

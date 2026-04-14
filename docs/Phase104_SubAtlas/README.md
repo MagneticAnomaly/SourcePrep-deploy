@@ -88,33 +88,23 @@ Cancellation and debouncing reuse the existing `useHydrationController` pattern 
 | `GET /projects/{id}/atlas?role=X` | Add `applied_role: RoleVectorPayload` — the effective RoleVector (built-in merged with override). |
 | `GET /projects/{id}/role-overrides` | **New.** Returns all per-role overrides for the project. |
 | `GET /projects/{id}/role-overrides/{role}` | **New.** Returns single role's override or `null`. |
-| `PUT /projects/{id}/role-overrides/{role}` | **New.** Upserts `{max_chars?, pinned_concept_ids?}`. |
-| `DELETE /projects/{id}/role-overrides/{role}` | **New.** Removes override (role reverts to built-in). |
-| `POST /projects/{id}/concepts/{concept_id}/pin` | **New.** Body: `{role: string}`. Reverse unpin via DELETE on same path. |
+| `PUT /projects/{id}/role-overrides/{role}` | **New.** Upserts `{max_chars?}`. Pins are managed via the separate pin endpoints below so optimistic UI updates don't have to rewrite the whole override. |
+| `DELETE /projects/{id}/role-overrides/{role}` | **New.** Removes override AND all pinned concepts for the role. |
+| `POST /projects/{id}/role-overrides/{role}/pin` | **New.** Body: `{concept_id: string}`. Role-rooted URL keeps the role-lens panel (the primary caller) self-contained. |
+| `DELETE /projects/{id}/role-overrides/{role}/pin/{concept_id}` | **New.** Unpins a concept from the role. |
 
 ### Persistence
 
-Role overrides and concept↔role pins live in **the existing project settings SQLite DB** (`codrag_data/codrag_settings.db`). Two new tables:
+Role overrides and concept↔role pins live in **the existing project settings SQLite DB** (`codrag_data/codrag_settings.db`). The original plan called for two new tables; implementation found a cleaner path — reuse the existing `settings_store` namespaced key/value layer:
 
-```sql
-CREATE TABLE role_overrides (
-  project_id TEXT NOT NULL,
-  role_id    TEXT NOT NULL,
-  max_chars  INTEGER,
-  updated_at TEXT NOT NULL,
-  PRIMARY KEY (project_id, role_id)
-);
-
-CREATE TABLE concept_role_pins (
-  project_id TEXT NOT NULL,
-  concept_id TEXT NOT NULL,
-  role_id    TEXT NOT NULL,
-  pinned_at  TEXT NOT NULL,
-  PRIMARY KEY (project_id, concept_id, role_id)
-);
+```
+project/<pid>/role_overrides/<role_id>  → {max_chars, updated_at}
+project/<pid>/role_pins/<role_id>       → {concept_id: pinned_at, ...}
 ```
 
-Rationale over a JSON file: SQLite gives us WAL-safe writes (with the known USB-mode fallback already in place), joinable queries for the projection step, free audit timestamps, and no drift with the other settings tables. Also sidesteps file-lock contention when the dashboard and the MCP server both read this path during a projection.
+This keeps the change at zero new schema, reuses the WAL-safe lifecycle (including the DELETE-mode fallback on USB drives), and lets project cleanup (`settings.project_clear(pid)`) sweep overrides automatically. Listing all overrides for a project is a namespace scan with a prefix filter.
+
+**Known limitation (v1):** pin-map writes are read-modify-write. Two concurrent pin/unpin operations on the same role could lose a write. For a single human at the UI this never fires. If we ever drive pins from an automated loop, swap to a row-per-pin table or add an atomic-update helper to `settings_store`.
 
 ### Projection integration
 
