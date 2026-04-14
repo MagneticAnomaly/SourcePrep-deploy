@@ -254,32 +254,50 @@ def update_project(project_id: str, req: UpdateProjectRequest) -> Dict[str, Any]
                 else:
                     warning_msg = f"It is recommended to use {max_active_int} or fewer active projects because it can be performance invasive."
 
-    # F-63/F-69: Merge incoming config with existing config.
-    # The dashboard may send a partial config (e.g. just { active: false }
-    # from the toggle, or just auto_config from the mode selector).
-    # Without merging, partial updates wipe existing fields.
+    # F-63/F-69/F-86: Merge incoming config with existing config atomically.
     #
-    # Strategy: start from existing config, overlay incoming fields.
-    # This preserves ignore_patterns, auto_config, deep_analysis_schedule,
-    # and all other fields the client didn't explicitly set.
-    if req.config is not None:
-        old_cfg = old_proj.config if isinstance(old_proj.config, dict) else {}
-        # Shallow merge: existing config as base, incoming fields overlay
-        merged = {**old_cfg, **req.config}
-        # Deep merge for trace (preserve ignore_patterns if not sent)
-        if "trace" in req.config:
-            old_trace = old_cfg.get("trace") or {}
-            new_trace = req.config.get("trace") or {}
+    # The dashboard fires PUT /projects/{id} frequently with a partial
+    # snapshot of its cached projectConfig (auto_config changes, active
+    # toggle, etc.). Without an atomic merge, two problems happen:
+    #   1. Partial updates would wipe fields the client didn't send.
+    #   2. The client's cached `trace.ignore_patterns` is stale relative
+    #      to whatever POST /trace/ignore (the dedicated endpoint that
+    #      owns that field) just wrote — so accepting it here would
+    #      silently revert the user's just-added exclude.
+    #
+    # Strategy: route the whole merge through ProjectRegistry.mutate_config
+    # so the read+write happens inside a single SQLite transaction with
+    # BEGIN IMMEDIATE. trace.ignore_patterns is treated as authoritative
+    # in the DB — incoming values for that key are dropped on the floor.
+    # Any other trace fields (enabled, paused) are deep-merged.
+    incoming_config = req.config
+    incoming_name = req.name
+
+    def _merge(old_cfg: Dict[str, Any]) -> Dict[str, Any]:
+        if incoming_config is None:
+            return old_cfg
+        old_dict = old_cfg if isinstance(old_cfg, dict) else {}
+        merged = {**old_dict, **incoming_config}
+        if "trace" in incoming_config:
+            old_trace = old_dict.get("trace") or {}
+            new_trace = dict(incoming_config.get("trace") or {})
+            # ignore_patterns is owned by POST /trace/ignore — never let a
+            # generic PUT clobber it with a stale snapshot.
+            new_trace.pop("ignore_patterns", None)
             merged["trace"] = {**old_trace, **new_trace}
-        req.config = merged
+        return merged
 
     try:
-        updated = reg.update_project(
-            project_id,
-            name=req.name,
-            config=req.config,
-            touch=req.touch,
-        )
+        if incoming_config is not None:
+            updated = reg.mutate_config(project_id, _merge, touch=req.touch)
+            if incoming_name is not None:
+                updated = reg.update_project(project_id, name=incoming_name, touch=req.touch)
+        else:
+            updated = reg.update_project(
+                project_id,
+                name=incoming_name,
+                touch=req.touch,
+            )
     except ProjectNotFound:
         raise ApiException(
             status_code=404,
