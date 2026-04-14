@@ -224,11 +224,19 @@ BUILT_IN_ROLES: Dict[str, RoleVector] = {
             "documentation": 0.6, "build": 0.4, "unknown": 0.1,
         },
         domain_affinity=[
-            "architecture", "api", "pipeline", "orchestration", "integration",
-            "scalability", "security", "infrastructure", "design-patterns",
+            # Intent markers
+            "architecture", "integration", "scalability", "infrastructure",
+            "design-patterns",
+            # Data-driven additions (compound terms confirmed present as tags)
+            "entry-point", "bootstrap",
+            "daemon", "daemon-architecture", "daemon-lifecycle",
+            "cli", "mcp", "fastapi", "rag",
+            "pipeline-orchestration", "llm-orchestration",
+            "architecture-audit", "audit-architecture",
+            "api",
         ],
-        centrality_weight=0.8,
-        detail_level=0.5,
+        centrality_weight=0.6,  # was 0.8; reduced to surface entry points + leaves, not only hubs
+        detail_level=0.7,        # was 0.5; practitioner tier for more detailed atlas content
         max_chars=3000,
     ),
 
@@ -313,8 +321,16 @@ BUILT_IN_ROLES: Dict[str, RoleVector] = {
             "documentation": 0.3, "build": 0.3, "unknown": 0.1,
         },
         domain_affinity=[
-            "security", "auth", "authentication", "authorization", "encryption",
-            "token", "permission", "credential", "data-handling", "vulnerability",
+            # Intent markers (broad; always useful)
+            "security", "authentication", "authorization", "encryption",
+            "permission", "credential", "vulnerability",
+            # Data-driven additions (compound terms confirmed present in
+            # trace_epistemic tag universe as of Phase 103 R3 calibration)
+            "admin-policy", "security-policy", "policy-enforcement",
+            "access-control", "role-based-access-control",
+            "input-sanitization", "cryptography", "cryptographic-hashing",
+            "session-management", "credentials", "cors",
+            "security-audit", "audit-logging", "audit-trail",
         ],
         centrality_weight=0.6,
         detail_level=0.7,

@@ -141,37 +141,47 @@ def evaluate_query(
 def _neutral_role_vector(max_chars: int = 4000):
     """Build a neutral RoleVector for condition A (uniform atlas baseline).
 
-    The scoring engine multiplies by layer_weights and matches against
-    domain_affinity — both being empty would zero every file, producing
-    an empty atlas. True neutrality = maximum uniform weight on every
-    layer, broad domain set covering every built-in role's union.
+    DESIGN NOTE (post-Run 03 methodology fix): earlier versions derived
+    the neutral domain_affinity as the union of all BUILT_IN_ROLES.
+    This made condition A drift every time any role's keyword list was
+    tuned — confounding A-vs-B comparisons because tuning role X's
+    domain_affinity also strengthened A's, which should be fixed.
 
-    This approximates 'no role filter applied' — the natural A-baseline
-    for the R3 2×2 factorial.
+    The neutral role now uses a small, stable, codebase-universal domain
+    set derived from the highest-frequency tags actually present across
+    all files (not from any role definition). This isolates the uniform
+    baseline from role-tuning work and lets Run N+1 vs Run N on a single
+    role be cleanly attributable to that role's calibration.
+
+    Layer weights stay uniform at 1.0. Centrality neutral at 0.5. Detail
+    full at 1.0. Budget matches practitioner tier so A never loses on
+    pure size.
     """
-    from codrag.core.atlas.role_vectors import RoleVector, BUILT_IN_ROLES
+    from codrag.core.atlas.role_vectors import RoleVector
 
-    # Every architecture layer weighted equally at 1.0
     all_layers = {
         "presentation": 1.0, "business_logic": 1.0, "data": 1.0,
         "infrastructure": 1.0, "configuration": 1.0, "testing": 1.0,
         "documentation": 1.0, "build": 1.0, "unknown": 1.0,
     }
 
-    # Union of domain affinities across all built-in roles
-    all_domains: List[str] = []
-    seen = set()
-    for rv in BUILT_IN_ROLES.values():
-        for d in rv.domain_affinity:
-            if d not in seen:
-                seen.add(d)
-                all_domains.append(d)
+    # Stable, codebase-universal terms. Chosen as the top-frequency
+    # tags observed in trace_epistemic.jsonl for CoDRAG (ui, testing, mcp,
+    # react, typescript, documentation, python, security, pipeline-
+    # orchestration, cli, dashboard, configuration, rag). NOT sourced
+    # from BUILT_IN_ROLES — so role calibration work below does not
+    # leak into the uniform baseline.
+    neutral_domains = [
+        "ui", "testing", "mcp", "react", "typescript", "documentation",
+        "python", "pipeline-orchestration", "cli", "dashboard",
+        "configuration", "rag", "fastapi", "indexing", "storybook",
+    ]
 
     return RoleVector(
         role_id="_neutral",
         display_name="Neutral (uniform baseline)",
         layer_weights=all_layers,
-        domain_affinity=all_domains,
+        domain_affinity=neutral_domains,
         centrality_weight=0.5,
         detail_level=1.0,
         max_chars=max_chars,
