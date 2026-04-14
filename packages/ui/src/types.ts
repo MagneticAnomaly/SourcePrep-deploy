@@ -435,7 +435,21 @@ export interface DeepeningStatus {
 }
 
 /**
- * Codebase Atlas status (Phase 29)
+ * Per-segment metadata for the sub-atlas tree (Phase 104).
+ */
+export interface AtlasSegmentStatus {
+  segment_id: string;
+  segment_name: string;
+  dir_path: string;
+  file_count: number;
+  char_count: number;
+  mode?: 'llm' | 'structural';
+  generated_at?: string;
+  stale?: boolean;
+}
+
+/**
+ * Codebase Atlas status (Phase 29, extended for Phase 104 sub-atlases)
  */
 export interface AtlasStatus {
   exists: boolean;
@@ -448,8 +462,14 @@ export interface AtlasStatus {
   char_count?: number;
   stale?: boolean;
   segmented?: boolean;
+  segments?: AtlasSegmentStatus[];
   routing?: boolean;
   running?: boolean;
+  /** Phase 64A — role-filtered sub-atlas, when ?role= is supplied */
+  role?: string;
+  role_atlas?: string;
+  role_atlas_chars?: number;
+  role_atlas_error?: string;
 }
 
 // ============================================================

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from codrag.api.routers.projects import atlas_endpoints as atlas_endpoints_module
 from codrag.api.routers.projects.atlas_endpoints import (
     _build_atlas_response,
     _serialize_segments,
@@ -201,3 +202,84 @@ def test_build_response_falls_back_to_doc_content_when_no_display():
     resp = _build_atlas_response(atlas, doc)
     assert resp["content"] == "root only"
     assert resp["char_count"] == 50
+
+
+# ── Route-level smoke tests ──────────────────────────────────────────
+
+
+def test_get_atlas_route_when_no_atlas_returns_exists_false_with_empty_segments(monkeypatch):
+    """The doc-is-None branch of the GET route is not covered by helper tests.
+
+    Ensures the route returns the short payload shape (exists/content/stale/
+    segments) rather than calling the helper when there is no cached atlas.
+    """
+    class _NullAtlas:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def load(self):
+            return None
+
+    # Fake the required service pieces — route only needs _require_project
+    # to succeed and a CodebaseAtlas that returns None from load().
+    class _FakeProject:
+        path = "/tmp/fake"
+
+    class _FakeSrv:
+        def _require_project(self, pid):
+            return _FakeProject()
+
+    monkeypatch.setattr(atlas_endpoints_module, "_srv", lambda: _FakeSrv())
+    monkeypatch.setattr(atlas_endpoints_module, "project_index_dir", lambda _p: "/tmp/idx")
+
+    # The function imports CodebaseAtlas lazily inside the handler — patch the
+    # symbol that the import resolves to.
+    import codrag.core.atlas as atlas_pkg
+    monkeypatch.setattr(atlas_pkg, "CodebaseAtlas", _NullAtlas)
+
+    body = atlas_endpoints_module.get_atlas("proj-id", role=None)
+    # ok() wraps under {"success": True, "data": ...}
+    data = body["data"] if "data" in body else body
+    assert data["exists"] is False
+    assert data["content"] is None
+    assert data["stale"] is True
+    assert data["segments"] == []
+
+
+def test_get_atlas_route_when_atlas_exists_returns_full_payload(monkeypatch):
+    """Happy path — route calls the helper, response has segments key."""
+    loaded_doc = _FakeDoc()
+    fake = _FakeAtlas(
+        segments=[_FakeSegment("s1", "S1", "s1", 10, 100)],
+        stale=False,
+    )
+
+    class _AtlasFactory:
+        def __init__(self, *args, **kwargs):
+            self._inner = fake
+
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
+
+        def load(self):
+            return loaded_doc
+
+    class _FakeProject:
+        path = "/tmp/fake"
+
+    class _FakeSrv:
+        def _require_project(self, pid):
+            return _FakeProject()
+
+    monkeypatch.setattr(atlas_endpoints_module, "_srv", lambda: _FakeSrv())
+    monkeypatch.setattr(atlas_endpoints_module, "project_index_dir", lambda _p: "/tmp/idx")
+
+    import codrag.core.atlas as atlas_pkg
+    monkeypatch.setattr(atlas_pkg, "CodebaseAtlas", _AtlasFactory)
+
+    body = atlas_endpoints_module.get_atlas("proj-id", role=None)
+    data = body["data"] if "data" in body else body
+    assert data["exists"] is True
+    assert data["segmented"] is True
+    assert len(data["segments"]) == 1
+    assert data["segments"][0]["segment_id"] == "s1"

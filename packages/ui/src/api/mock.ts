@@ -528,16 +528,23 @@ export class MockApiClient implements ApiClient {
   // ── Codebase Atlas (Phase 29) ──────────────────────────────────
 
   async getAtlas(_projectId: string): Promise<import('../types').AtlasStatus> {
+    const now = new Date().toISOString();
     return {
       exists: true,
       content: 'Python/TypeScript monorepo. Core engine (src/codrag/core/) handles indexing, embedding, and search. API layer (src/codrag/api/) exposes FastAPI endpoints. Dashboard (packages/ui/) is a React + Tremor app. MCP server (src/codrag/mcp_server.py) bridges AI tools. Enrichment pipeline: trace → augment → validate → enrich → cluster → atlas → deepen → knowledge.',
       mode: 'structural',
       model: 'structural',
-      generated_at: new Date().toISOString(),
+      generated_at: now,
       file_count: 547,
       module_count: 8,
       char_count: 312,
       stale: false,
+      segmented: true,
+      segments: [
+        { segment_id: 'seg_src_codrag', segment_name: 'src/codrag', dir_path: 'src/codrag', file_count: 323, char_count: 2100, mode: 'structural', generated_at: now, stale: false },
+        { segment_id: 'seg_packages_ui', segment_name: 'packages/ui', dir_path: 'packages/ui', file_count: 291, char_count: 1800, mode: 'structural', generated_at: now, stale: false },
+        { segment_id: 'seg_websites', segment_name: 'websites', dir_path: 'websites', file_count: 73, char_count: 800, mode: 'structural', generated_at: now, stale: false },
+      ],
     };
   }
 
