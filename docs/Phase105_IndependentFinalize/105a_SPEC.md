@@ -140,8 +140,7 @@ _start_group(pid, "atlas", [StageId.ATLAS])
 
 - **Invalid stage_id (sync/enrich)** — 400 Bad Request, code `INVALID_STAGE_ID`.
 - **Non-existent stage_id string** — 400, code `INVALID_STAGE_ID`.
-- **Another group is running** — 409 Conflict, code `PIPELINE_GROUP_ACTIVE`.
-- **Stage is up-to-date, force=False** — 409, code `STAGE_UP_TO_DATE`. UI shows a non-modal note.
+- **Another group is running** — 409 Conflict, code `PIPELINE_GROUP_ACTIVE`. This single 409 code also covers the "stage up-to-date" and "project inactive" cases in 105a; the orchestrator returns `False` for all three and the HTTP layer maps them to one code for simplicity. If UI differentiation becomes valuable (e.g., "you can't regenerate because nothing changed" vs "another run is active"), split into distinct codes in a follow-up.
 - **Project not found or not writable** — 404, code `PROJECT_NOT_FOUND`.
 - **Worker raises mid-run** — orchestrator handles per existing error paths; history row marks terminal state as `error`; UI renders the error badge.
 
