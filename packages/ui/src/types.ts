@@ -848,7 +848,7 @@ export interface ProjectConfig {
   priority_level?: PriorityLevel;
   hard_limit_bytes?: number;
   use_gitignore: boolean;
-  trace: { enabled: boolean; paused?: boolean };
+  trace: { enabled: boolean; paused?: boolean; ignore_patterns?: string[] };
   auto_rebuild: { enabled: boolean; debounce_ms?: number };
   graph_engine?: GraphEngineConfig;
   advanced?: ProjectAdvancedConfig;

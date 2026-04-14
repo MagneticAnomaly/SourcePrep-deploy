@@ -360,10 +360,12 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
   // On restart/reload, we read these patterns back and extract the folder-level
   // entries (patterns that DON'T end in "/**") so the FolderTree checkboxes
   // render correctly.
-  const projectTraceConfig = p.projectConfig?.trace as Record<string, unknown> | undefined
-  const persistedIgnorePatterns = (projectTraceConfig as any)?.ignore_patterns as string[] | undefined
+  const persistedIgnorePatterns = p.projectConfig?.trace?.ignore_patterns
+  // Stable key for the effect's dependency array. Using `.length` would miss
+  // pattern swaps of the same cardinality (e.g. replace "a" with "b").
+  const ignorePatternKey = persistedIgnorePatterns?.join('|') ?? ''
   useEffect(() => {
-    if (!persistedIgnorePatterns || !Array.isArray(persistedIgnorePatterns) || persistedIgnorePatterns.length === 0) return
+    if (!persistedIgnorePatterns || persistedIgnorePatterns.length === 0) return
     setLocalExcludedPaths(prev => {
       const merged = new Set(prev)
       for (const pattern of persistedIgnorePatterns) {
@@ -380,7 +382,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
       return merged
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.selectedProject?.id, persistedIgnorePatterns?.length])
+  }, [p.selectedProject?.id, ignorePatternKey])
 
   // Sync server-side excluded paths into local state (additive merge)
   useEffect(() => {
