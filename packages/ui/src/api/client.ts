@@ -167,7 +167,9 @@ export interface ApiClient {
 
   // Codebase Atlas (Phase 29, extended Phase 104)
   getAtlas(projectId: string, role?: string): Promise<import('../types').AtlasStatus>;
-  regenerateAtlas(projectId: string): Promise<import('../types').AtlasStatus>;
+
+  // Pipeline stage triggers (Phase 105a)
+  runPipelineStage(projectId: string, stageId: string, opts?: { force?: boolean }): Promise<{ started: boolean; group: string }>;
 
   // Built-in Roles (Phase 104)
   listBuiltinRoles(): Promise<{ roles: import('../types').RoleVectorPayload[]; count: number }>;
@@ -1149,10 +1151,18 @@ export class CodragApiClient implements ApiClient {
     return this.requestEnvelope<import('../types').AtlasStatus>(`/projects/${pid}/atlas${qs}`);
   }
 
-  async regenerateAtlas(projectId: string): Promise<import('../types').AtlasStatus> {
-    return this.requestEnvelope<import('../types').AtlasStatus>(`/projects/${encodeURIComponent(projectId)}/atlas/regenerate`, {
-      method: 'POST',
-    });
+  async runPipelineStage(
+    projectId: string,
+    stageId: string,
+    opts: { force?: boolean } = {},
+  ): Promise<{ started: boolean; group: string }> {
+    const pid = encodeURIComponent(projectId);
+    const sid = encodeURIComponent(stageId);
+    const qs = opts.force ? '?force=true' : '';
+    return this.requestEnvelope(
+      `/projects/${pid}/pipeline/stages/${sid}/run${qs}`,
+      { method: 'POST' },
+    );
   }
 
   // ── Built-in Roles (Phase 104) ─────────────────────────────────

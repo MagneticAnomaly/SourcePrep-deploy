@@ -571,8 +571,12 @@ export class MockApiClient implements ApiClient {
     return base;
   }
 
-  async regenerateAtlas(_projectId: string): Promise<import('../types').AtlasStatus> {
-    return this.getAtlas(_projectId);
+  async runPipelineStage(
+    _projectId: string,
+    stageId: string,
+    _opts: { force?: boolean } = {},
+  ): Promise<{ started: boolean; group: string }> {
+    return { started: true, group: stageId };
   }
 
   // ── Built-in Roles (Phase 104) ─────────────────────────────────
