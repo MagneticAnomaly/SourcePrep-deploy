@@ -1,10 +1,9 @@
 """
-Atlas-related project endpoints — get atlas, regenerate atlas.
+Atlas-related project endpoints — get atlas.
 """
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Query
@@ -192,42 +191,3 @@ def get_atlas(
         })
 
     return ok(_build_atlas_response(atlas, doc, role=role, project_id=project_id))
-
-
-@router.post("/projects/{project_id}/atlas/regenerate")
-def regenerate_atlas(project_id: str) -> dict[str, Any]:
-    """Manually trigger Atlas regeneration."""
-    from codrag.core.atlas import CodebaseAtlas
-
-    proj = _srv()._require_project(project_id)
-    idx_dir = project_index_dir(proj)
-
-    # Try to use task-assigned LLM; fall back to structural atlas.
-    # Atlas synthesis is a heavy task — increase timeout to 180s.
-    llm_client = None
-    try:
-        from codrag.server import _get_llm_client_for_task
-        llm_client = _get_llm_client_for_task("atlas")
-        if llm_client and not llm_client.is_available():
-            llm_client = None
-    except Exception:
-        llm_client = None
-
-    if llm_client:
-        llm_client.timeout = 180.0
-
-    project_root = Path(proj.path) if proj.path else None
-    atlas = CodebaseAtlas(idx_dir, llm=llm_client, project_root=project_root)
-
-    # Try segmented generation first; falls back to single atlas internally.
-    root_doc, _seg_docs = atlas.generate_segmented()
-
-    if not root_doc.content:
-        return ok({
-            "exists": False,
-            "content": None,
-            "stale": False,
-            "segments": [],
-        })
-
-    return ok(_build_atlas_response(atlas, root_doc, stale_override=False))
