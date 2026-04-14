@@ -623,24 +623,33 @@ function TreeItem({
 
         {/* Right side: chunks, status, weight, include checkbox, exclude icon */}
         <span className="ml-auto flex items-center gap-1.5 shrink-0">
-          {/* Chunk count — only when included and indexed */}
-          {isIncluded && node.chunks !== undefined && effectiveStatus === 'indexed' && (
+          {/* Chunk count — only in detail variant (panel is too narrow) */}
+          {variant === 'detail' && isIncluded && node.chunks !== undefined && effectiveStatus === 'indexed' && (
             <span className="text-xs text-text-subtle">
               {node.chunks} chunks
             </span>
           )}
 
-          {/* Status badge — only when included with pending/indexed status */}
+          {/* Status indicator — full pill in detail variant, just a colored
+              dot in panel variant (with a tooltip carrying the label). The
+              full badge crowds filenames in the compact panel view. */}
           {showStatus && effectiveStatus && (
-            <span
-              className={cn(
-                'flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full',
-                `${statusColors[effectiveStatus]}/20`
-              )}
-            >
-              <span className={cn('w-1.5 h-1.5 rounded-full', statusColors[effectiveStatus])} />
-              <span className="text-text-subtle hidden sm:inline">{statusLabels[effectiveStatus]}</span>
-            </span>
+            variant === 'detail' ? (
+              <span
+                className={cn(
+                  'flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full',
+                  `${statusColors[effectiveStatus]}/20`
+                )}
+              >
+                <span className={cn('w-1.5 h-1.5 rounded-full', statusColors[effectiveStatus])} />
+                <span className="text-text-subtle hidden sm:inline">{statusLabels[effectiveStatus]}</span>
+              </span>
+            ) : (
+              <span
+                className={cn('w-2 h-2 rounded-full shrink-0', statusColors[effectiveStatus])}
+                title={statusLabels[effectiveStatus]}
+              />
+            )
           )}
 
           {/* Weight editor — only when included */}
