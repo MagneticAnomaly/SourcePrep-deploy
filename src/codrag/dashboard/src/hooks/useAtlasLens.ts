@@ -23,7 +23,7 @@ export interface UseAtlasLensReturn {
   role: string | null;
   setRole: (next: string | null) => void;
   refresh: () => Promise<void>;
-  regenerate: () => Promise<void>;
+  runAtlasStage: () => Promise<void>;
 }
 
 function unwrap<T = unknown>(body: { data?: T } | T): T {
@@ -130,20 +130,24 @@ export function useAtlasLens(
     }
   }, [role, fetchForRole, fetchBase]);
 
-  const regenerate = useCallback(async () => {
+  const runAtlasStage = useCallback(async () => {
     if (!projectId) return;
     setRegenerating(true);
     setError(null);
     try {
       const res = await fetch(
-        `/projects/${encodeURIComponent(projectId)}/atlas/regenerate`,
+        `/projects/${encodeURIComponent(projectId)}/pipeline/stages/atlas/run`,
         { method: 'POST' },
       );
       if (!res.ok) {
-        throw new Error(`regenerate failed: ${res.status}`);
+        // 409 is "another group active" or "up-to-date" — surface to user.
+        const body = await res.json().catch(() => ({}));
+        const msg = body?.error?.message ?? `run atlas failed: ${res.status}`;
+        throw new Error(msg);
       }
       // Re-fetch so we show the fresh atlas + (if a role is active) the
-      // updated role projection.
+      // updated role projection. The orchestrator owns the pipeline panel's
+      // stage-state update via its own channel.
       await refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -160,6 +164,6 @@ export function useAtlasLens(
     role,
     setRole,
     refresh,
-    regenerate,
+    runAtlasStage,
   };
 }

@@ -17,7 +17,7 @@ export interface AtlasLensContainerProps {
 
 export function AtlasLensContainer({ projectId, className }: AtlasLensContainerProps) {
   const {
-    atlasStatus, role, setRole, regenerate, regenerating, refresh,
+    atlasStatus, role, setRole, runAtlasStage, regenerating, refresh,
     error: atlasError,
   } = useAtlasLens(projectId);
   const {
@@ -138,7 +138,7 @@ export function AtlasLensContainer({ projectId, className }: AtlasLensContainerP
         onRoleChange={setRole}
         roleOptions={roleOptions.length > 0 ? roleOptions : undefined}
         regenerating={regenerating}
-        onRegenerate={regenerate}
+        onRegenerate={runAtlasStage}
         getSegmentContent={getSegmentContent}
         getDefaultMaxChars={getDefaultMaxChars}
         onCommitMaxChars={handleCommitMaxChars}
