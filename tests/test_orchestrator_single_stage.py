@@ -26,7 +26,7 @@ def test_run_single_stage_rejects_non_finalize_stages(pipeline):
 def test_run_single_stage_calls_start_group_with_single_element(pipeline):
     """The method should delegate to _start_group with a one-stage list."""
     with patch.object(pipeline, "_check_project_active", return_value=True), \
-         patch.object(pipeline, "_selfheal_group") as selfheal, \
+         patch.object(pipeline, "_selfheal_group"), \
          patch.object(pipeline, "_start_group", return_value=True) as start_group:
         assert pipeline.run_single_stage("proj-1", StageId.ATLAS) is True
 
@@ -45,6 +45,23 @@ def test_run_single_stage_refuses_when_enrich_active(pipeline):
     enrich_run.current_stage = "deepening"
     with patch.object(pipeline, "_check_project_active", return_value=True):
         pipeline._runs[("proj-1", "deep_enrichment")] = enrich_run
+        assert pipeline.run_single_stage("proj-1", StageId.ATLAS) is False
+
+
+def test_run_single_stage_refuses_when_fast_sync_active(pipeline):
+    """Must not launch a solo finalize while fast_sync is active/paused.
+
+    Solo finalize stages expect a quiescent pipeline — stricter than
+    run_finalize's enrich-only guard because solo runs are opportunistic.
+    """
+    from codrag.services.pipeline_orchestrator import PipelineRun
+    fast_run = MagicMock(spec=PipelineRun)
+    fast_run.is_active = True
+    fast_run.is_paused = False
+    fast_run.state = MagicMock(value="running")
+    fast_run.current_stage = "structural"
+    with patch.object(pipeline, "_check_project_active", return_value=True):
+        pipeline._runs[("proj-1", "fast_sync")] = fast_run
         assert pipeline.run_single_stage("proj-1", StageId.ATLAS) is False
 
 

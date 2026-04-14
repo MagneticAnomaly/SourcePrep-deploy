@@ -835,17 +835,20 @@ class PipelineOrchestrator:
         if not self._check_project_active(project_id):
             return False
 
-        # Don't start a solo finalize stage while enrich is active or
-        # paused — same guard as run_finalize.
+        # Don't start a solo finalize stage while sync OR enrich is active
+        # or paused — solo finalize runs expect a quiescent pipeline. Stricter
+        # than run_finalize's enrich-only guard on purpose: solo runs are
+        # opportunistic, not part of the mainline pipeline sequence.
         with self._lock:
-            enrich_run = self._runs.get((project_id, "deep_enrichment"))
-            if enrich_run and (enrich_run.is_active or enrich_run.is_paused):
-                logger.info(
-                    "[%s] Skipping solo %s — enrich is %s (stage=%s)",
-                    project_id, stage_id.value, enrich_run.state.value,
-                    enrich_run.current_stage,
-                )
-                return False
+            for blocking_group in ("fast_sync", "deep_enrichment"):
+                other = self._runs.get((project_id, blocking_group))
+                if other and (other.is_active or other.is_paused):
+                    logger.info(
+                        "[%s] Skipping solo %s — %s is %s (stage=%s)",
+                        project_id, stage_id.value, blocking_group,
+                        other.state.value, other.current_stage,
+                    )
+                    return False
 
         if not force:
             self._selfheal_group(project_id, [stage_id])
