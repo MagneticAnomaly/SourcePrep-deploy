@@ -65,6 +65,23 @@ def test_run_single_stage_refuses_when_fast_sync_active(pipeline):
         assert pipeline.run_single_stage("proj-1", StageId.ATLAS) is False
 
 
+def test_run_single_stage_refuses_when_fast_sync_paused(pipeline):
+    """Paused (not active) fast_sync must also block a solo finalize.
+
+    The guard is `is_active or is_paused` — exercising the paused-only
+    branch ensures a paused pipeline still protects downstream state.
+    """
+    from codrag.services.pipeline_orchestrator import PipelineRun
+    fast_run = MagicMock(spec=PipelineRun)
+    fast_run.is_active = False
+    fast_run.is_paused = True
+    fast_run.state = MagicMock(value="paused")
+    fast_run.current_stage = "structural"
+    with patch.object(pipeline, "_check_project_active", return_value=True):
+        pipeline._runs[("proj-1", "fast_sync")] = fast_run
+        assert pipeline.run_single_stage("proj-1", StageId.ATLAS) is False
+
+
 def test_run_single_stage_refuses_when_project_inactive(pipeline):
     """Inactive projects cannot start anything."""
     with patch.object(pipeline, "_check_project_active", return_value=False):

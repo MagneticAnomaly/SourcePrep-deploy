@@ -36,7 +36,7 @@ def run_single_stage(
     Returns True when queued, False when rejected (up-to-date + not forced).
 
     Raises ValueError if stage_id is not in FINALIZE_STAGES.
-    Raises RuntimeError-subclass if a sync or enrich run is active.
+    Returns False if a sync or enrich run is active (same contract as run_finalize).
     """
 ```
 
