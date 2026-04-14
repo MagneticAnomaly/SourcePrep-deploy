@@ -146,7 +146,7 @@ export { useAdminPolicy } from './hooks/useAdminPolicy';
 
 // Components - Project
 export { FolderTree, sampleFileTree, ProjectSettingsPanel, FolderTreePanel, PinnedTextFilesPanel, AddProjectModal, FilePreviewPane, FileExplorerDetail, CodeViewer } from './components/project';
-export type { FolderTreeProps, TreeNode, FileStatus, ProjectSettingsPanelProps, FolderTreePanelProps, PinnedTextFilesPanelProps, PinnedTextFile, AddProjectModalProps, FilePreviewPaneProps, FileExplorerDetailProps, FileExplorerTab, CodeViewerProps } from './components/project';
+export type { FolderTreeProps, TreeNode, FileStatus, ProjectSettingsPanelProps, FolderTreePanelProps, PinnedTextFilesPanelProps, PinnedTextFile, AddProjectModalProps, FilePreviewPaneProps, FileExplorerDetailProps, CodeViewerProps } from './components/project';
 
 // Components - Agent Scopes & Operations (Phase 67 / Unified Surfaces)
 export { AgentScopePanel, AgentOpsPanel, MCPConnectionCard, PushSettings } from './components/agents';
