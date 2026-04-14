@@ -195,3 +195,23 @@ def test_unpin_missing_concept_is_noop(patch_module):
         "proj-1", "engineering", "never-pinned"
     )
     assert _data(envelope)["pinned_concept_ids"] == ["c1"]
+
+
+# ── Reverse query (Phase 104 Step 4) ────────────────────────────────
+
+
+def test_pinned_roles_empty_when_concept_never_pinned():
+    envelope = ep.list_roles_pinning_concept("proj-1", "c-never")
+    data = _data(envelope)
+    assert data["role_ids"] == []
+    assert data["count"] == 0
+
+
+def test_pinned_roles_returns_every_role_sorted(patch_module):
+    patch_module.pin_concept("proj-1", "engineering", "c1")
+    patch_module.pin_concept("proj-1", "security", "c1")
+    patch_module.pin_concept("proj-1", "ceo", "c1")
+    envelope = ep.list_roles_pinning_concept("proj-1", "c1")
+    data = _data(envelope)
+    assert data["role_ids"] == ["ceo", "engineering", "security"]
+    assert data["count"] == 3

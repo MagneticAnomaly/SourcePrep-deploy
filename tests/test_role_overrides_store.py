@@ -229,3 +229,62 @@ def test_get_ignores_non_dict_override_value(store: RoleOverridesStore):
         "proj-1", "role_overrides/engineering", "garbage"
     )
     assert store.get("proj-1", "engineering") is None
+
+
+# ── Reverse query + cleanup (Phase 104 Step 4) ──────────────────────
+
+
+def test_list_roles_pinning_concept_none(store: RoleOverridesStore):
+    assert store.list_roles_pinning_concept("proj-1", "c1") == []
+
+
+def test_list_roles_pinning_concept_returns_all_roles(store: RoleOverridesStore):
+    store.pin_concept("proj-1", "engineering", "c1")
+    store.pin_concept("proj-1", "security", "c1")
+    store.pin_concept("proj-1", "ceo", "other-concept")
+    roles = store.list_roles_pinning_concept("proj-1", "c1")
+    assert roles == ["engineering", "security"]  # sorted
+
+
+def test_list_roles_pinning_concept_scoped_to_project(store: RoleOverridesStore):
+    store.pin_concept("proj-1", "engineering", "c1")
+    store.pin_concept("proj-2", "engineering", "c1")
+    assert store.list_roles_pinning_concept("proj-1", "c1") == ["engineering"]
+
+
+def test_unpin_from_all_roles_cleans_up_every_role(store: RoleOverridesStore):
+    store.pin_concept("proj-1", "engineering", "c1")
+    store.pin_concept("proj-1", "security", "c1")
+    store.pin_concept("proj-1", "engineering", "c2")  # survivor
+
+    removed = store.unpin_concept_from_all_roles("proj-1", "c1")
+    assert removed == 2
+    assert store.list_roles_pinning_concept("proj-1", "c1") == []
+    # c2 survives on engineering.
+    assert store.list_pinned_concepts("proj-1", "engineering") == ["c2"]
+
+
+def test_unpin_from_all_roles_removes_empty_pin_map(store: RoleOverridesStore):
+    store.pin_concept("proj-1", "engineering", "c1")
+    store.unpin_concept_from_all_roles("proj-1", "c1")
+    # Empty pin key cleaned up.
+    raw = store._store().project_get("proj-1", "role_pins/engineering")
+    assert raw is None
+
+
+def test_unpin_from_all_roles_returns_zero_when_concept_never_pinned(
+    store: RoleOverridesStore,
+):
+    assert store.unpin_concept_from_all_roles("proj-1", "never-pinned") == 0
+
+
+def test_unpin_from_all_roles_preserves_override_entries(
+    store: RoleOverridesStore,
+):
+    store.upsert("proj-1", "engineering", max_chars=3500)
+    store.pin_concept("proj-1", "engineering", "c1")
+    store.unpin_concept_from_all_roles("proj-1", "c1")
+    # Override itself must survive — only the pin was deleted.
+    ov = store.get("proj-1", "engineering")
+    assert ov is not None
+    assert ov.max_chars == 3500

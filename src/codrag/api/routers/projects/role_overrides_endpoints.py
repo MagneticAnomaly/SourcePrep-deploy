@@ -130,3 +130,17 @@ def unpin_concept_from_role(
         project_id, role_id, concept_id
     )
     return ok({"pinned_concept_ids": pinned})
+
+
+@router.get("/projects/{project_id}/concepts/{concept_id}/pinned-roles")
+def list_roles_pinning_concept(project_id: str, concept_id: str) -> dict:
+    """Return role_ids currently pinning this concept.
+
+    Used by the concepts panel to show "pinned to: engineering, security"
+    badges without the UI having to list every role individually.
+    """
+    _require_project(project_id)
+    roles = role_overrides_store.list_roles_pinning_concept(
+        project_id, concept_id,
+    )
+    return ok({"role_ids": roles, "count": len(roles)})

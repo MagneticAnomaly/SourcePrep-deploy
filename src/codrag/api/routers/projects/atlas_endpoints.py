@@ -47,25 +47,36 @@ def _serialize_segments(atlas) -> list[dict[str, Any]]:
 def _load_role_extras(
     project_id: str,
     role: str,
-) -> tuple[Any, list[dict[str, Any]]]:
-    """Load the role override + pinned concept dicts for projection.
+) -> tuple[Any, Any, list[dict[str, Any]]]:
+    """Resolve the role + load override + pinned concept dicts for projection.
 
-    Returns ``(override, pinned_concepts_list)``. Both may be empty —
-    the projection layer handles that fine.
+    Returns ``(role_vector, override, pinned_concepts_list)``. The
+    ``role_vector`` is the canonical ``RoleVector`` resolved from the
+    free-form role argument — callers reuse it to avoid a second
+    ``resolve_role`` call. Any of the values may be empty/None when no
+    data is available.
     """
-    override = None
-    pinned_concepts: list[dict[str, Any]] = []
+    from codrag.core.atlas.role_resolver import resolve_role
+    from codrag.services.role_overrides_store import role_overrides_store
+
+    # Overrides are keyed by canonical role_id; resolve the free-form role
+    # argument to its built-in id so the UI and MCP agree.
     try:
-        from codrag.core.atlas.role_resolver import resolve_role
-        from codrag.services.role_overrides_store import role_overrides_store
-        # Overrides are keyed by canonical role_id; resolve the free-form
-        # role argument to its built-in id so the UI and MCP agree.
         role_vector = resolve_role(role)
+    except Exception as e:
+        logger.debug("Failed to resolve role '%s': %s", role, e)
+        raise
+
+    override = None
+    try:
         override = role_overrides_store.get(project_id, role_vector.role_id)
     except Exception as e:
-        logger.debug("Failed to load role override for %s/%s: %s", project_id, role, e)
-        return None, []
+        logger.debug(
+            "Failed to load role override for %s/%s: %s",
+            project_id, role_vector.role_id, e,
+        )
 
+    pinned_concepts: list[dict[str, Any]] = []
     if override and override.pinned_concept_ids:
         try:
             from codrag.services.concept_store import concept_store
@@ -74,22 +85,12 @@ def _load_role_extras(
                 if c is not None:
                     pinned_concepts.append({"title": c.title, "content": c.content})
         except Exception as e:
-            logger.debug("Failed to load pinned concepts for %s/%s: %s", project_id, role, e)
+            logger.debug(
+                "Failed to load pinned concepts for %s/%s: %s",
+                project_id, role_vector.role_id, e,
+            )
 
-    return override, pinned_concepts
-
-
-def _serialize_role_vector(rv) -> dict[str, Any]:
-    """Shape a RoleVector for the `applied_role` payload field."""
-    return {
-        "role_id": rv.role_id,
-        "display_name": rv.display_name,
-        "layer_weights": dict(rv.layer_weights),
-        "domain_affinity": list(rv.domain_affinity),
-        "centrality_weight": rv.centrality_weight,
-        "detail_level": rv.detail_level,
-        "max_chars": rv.max_chars,
-    }
+    return role_vector, override, pinned_concepts
 
 
 def _build_atlas_response(
@@ -130,11 +131,17 @@ def _build_atlas_response(
     }
 
     if role:
-        override = None
-        pinned: list[dict[str, Any]] = []
-        if project_id is not None:
-            override, pinned = _load_role_extras(project_id, role)
         try:
+            if project_id is not None:
+                role_vector, override, pinned = _load_role_extras(project_id, role)
+            else:
+                # No project_id — legacy callers (regenerate). Resolve the
+                # role without touching the override store.
+                from codrag.core.atlas.role_resolver import resolve_role
+                role_vector = resolve_role(role)
+                override = None
+                pinned = []
+
             role_atlas = atlas.get_role_atlas(
                 role,
                 overrides=override,
@@ -144,16 +151,12 @@ def _build_atlas_response(
             payload["role_atlas"] = role_atlas
             payload["role_atlas_chars"] = len(role_atlas)
 
-            # Applied RoleVector — built-in defaults merged with override.
-            # Constructed without calling resolve_role again by piggybacking
-            # on the path already walked in _load_role_extras when we have
-            # project_id; otherwise re-resolve here.
-            from codrag.core.atlas.role_resolver import resolve_role
-            rv = resolve_role(role)
+            # Applied RoleVector = built-in defaults merged with override.
+            applied = role_vector
             if override and override.max_chars is not None:
-                rv = rv.copy()
-                rv.max_chars = override.max_chars
-            payload["applied_role"] = _serialize_role_vector(rv)
+                applied = role_vector.copy()
+                applied.max_chars = override.max_chars
+            payload["applied_role"] = applied.to_dict()
             payload["override"] = override.to_dict() if override else None
         except Exception as e:
             logger.warning("Role projection failed for role=%s: %s", role, e)

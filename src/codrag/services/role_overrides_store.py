@@ -228,6 +228,50 @@ class RoleOverridesStore:
         items = sorted(raw.items(), key=lambda kv: float(kv[1] or 0.0))
         return [cid for cid, _ in items]
 
+    def list_roles_pinning_concept(
+        self, project_id: str, concept_id: str
+    ) -> list[str]:
+        """Return role_ids that currently pin ``concept_id``.
+
+        Reverse of ``list_pinned_concepts``. Used by the concepts panel
+        to show which roles use a given concept (Phase 104 — concept
+        badges on the concepts list).
+        """
+        all_settings = self._store().project_get_all(project_id) or {}
+        out: list[str] = []
+        for key, value in all_settings.items():
+            if not key.startswith(_PINS_KEY_PREFIX):
+                continue
+            if not isinstance(value, dict):
+                continue
+            if concept_id in value:
+                out.append(key[len(_PINS_KEY_PREFIX):])
+        return sorted(out)
+
+    def unpin_concept_from_all_roles(
+        self, project_id: str, concept_id: str
+    ) -> int:
+        """Remove ``concept_id`` from every role's pin map.
+
+        Used when a concept is deleted so stale IDs don't linger. Returns
+        the number of roles that were mutated.
+        """
+        all_settings = self._store().project_get_all(project_id) or {}
+        mutated = 0
+        for key, value in list(all_settings.items()):
+            if not key.startswith(_PINS_KEY_PREFIX):
+                continue
+            if not isinstance(value, dict) or concept_id not in value:
+                continue
+            value = dict(value)  # copy before mutating
+            del value[concept_id]
+            if value:
+                self._store().project_set(project_id, key, value)
+            else:
+                self._store().project_delete(project_id, key)
+            mutated += 1
+        return mutated
+
 
 # Module-level singleton — tests inject a fake via constructor arg.
 role_overrides_store = RoleOverridesStore()
