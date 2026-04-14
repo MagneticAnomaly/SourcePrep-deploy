@@ -47,8 +47,8 @@ export { SymbolSearchInput } from './trace/SymbolSearchInput';
 export { SymbolResultRow } from './trace/SymbolResultRow';
 export { NodeDetailPanel } from './trace/NodeDetailPanel';
 
-// Codebase Atlas (Phase 29)
-export { AtlasStatusCard } from './trace/AtlasStatusCard';
+// Codebase Atlas (Phase 29 + Phase 104 lens panel)
+export { AtlasLensPanel } from './trace/AtlasLensPanel';
 
 // LLM Service Components
 export { LLMStatusWidget } from './dashboard/LLMStatusWidget';

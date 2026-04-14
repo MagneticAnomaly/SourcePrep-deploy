@@ -25,9 +25,6 @@ export type { GraphEnrichmentPipelineProps, TraceStageInfo, EnrichmentStageId, E
 export { GraphStructurePanel } from './GraphStructurePanel';
 export type { GraphStructurePanelProps } from './GraphStructurePanel';
 
-export { AtlasStatusCard } from './AtlasStatusCard';
-export type { AtlasStatusCardProps } from './AtlasStatusCard';
-
 export { AtlasLensPanel, StatusStrip, SubAtlasTree, RoleLens, BudgetBar, BudgetSlider, PinnedConceptsList } from './AtlasLensPanel';
 export type {
   AtlasLensPanelProps,
