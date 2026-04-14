@@ -36,6 +36,16 @@ _CORE_TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
+                "task": {
+                    "type": "string",
+                    "description": (
+                        "(Phase 103 R4) Natural-language description of what you are about to do "
+                        "(e.g. 'review the auth middleware for security issues', 'fix the react "
+                        "dashboard panel'). When provided without an explicit `role`, CoDRAG infers "
+                        "the best-fitting role from the task text and returns a role-scoped atlas. "
+                        "If inference confidence is low, falls back to the uniform atlas gracefully."
+                    ),
+                },
                 "max_chars": {
                     "type": "integer",
                     "description": "(Advanced) Maximum characters in assembled context. Auto-sized for your AI tool if omitted.",
@@ -45,7 +55,8 @@ _CORE_TOOLS = [
                     "description": (
                         "Optional role to filter context for a specific audience "
                         "(e.g. 'ceo', 'design engineer', 'security', 'intern'). "
-                        "Returns a role-appropriate codebase view with matched detail level."
+                        "Returns a role-appropriate codebase view with matched detail level. "
+                        "When both `role` and `task` are provided, `role` wins."
                     ),
                 },
                 "working_dir": {

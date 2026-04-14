@@ -408,3 +408,123 @@ def apply_modifier(vector: RoleVector, modifier: str) -> RoleVector:
         )
 
     return v
+
+
+# ── Task → Role inference (Phase 103 R4) ─────────────────────────────
+
+def _build_role_term_idf() -> Dict[str, float]:
+    """Compute IDF-style weights for every domain_affinity term across roles.
+
+    Terms appearing in many role vectors (e.g. 'api' shows up in CEO,
+    CTO, architect, etc.) are poor discriminators for role inference
+    and should contribute less to the score. Terms appearing in one
+    or two roles (e.g. 'admin-policy', 'storybook', 'daemon-architecture')
+    are strong signals and should weigh more.
+
+    Weight formula: 1 / sqrt(n_roles_containing_term). Capped at 1.0
+    for terms unique to a single role. Called lazily on first use.
+    """
+    import math
+    counts: Dict[str, int] = {}
+    for rv in BUILT_IN_ROLES.values():
+        seen_in_role = set()
+        for term in rv.domain_affinity:
+            tn = re.sub(r"[-_]", " ", term.lower())
+            if tn in seen_in_role:
+                continue
+            seen_in_role.add(tn)
+            counts[tn] = counts.get(tn, 0) + 1
+    return {t: min(1.0, 1.0 / math.sqrt(n)) for t, n in counts.items()}
+
+
+_ROLE_TERM_IDF: Optional[Dict[str, float]] = None
+
+
+def infer_role_from_task(task: str, min_confidence: float = 0.9) -> Tuple[Optional[str], float]:
+    """Infer the best-matching built-in role for a free-form task description.
+
+    Scoring (Phase 103 R4 v2):
+      - Normalize hyphens/underscores to spaces in both task and terms so
+        compound domain terms like 'admin-policy' match 'admin policy'.
+      - Each (role, term) hit contributes IDF-style weight: terms present
+        in many roles score low (poor discriminators); terms unique to a
+        role score 1.0 (strong signal).
+      - Whole-word hits count fully; in-compound substring hits count 50%.
+
+    Returns None when confidence is below threshold so callers can fall
+    back to the uniform atlas rather than project through a guessed role.
+
+    Args:
+        task: Free-form task text.
+        min_confidence: IDF-weighted minimum score. Default 0.9 ≈ one
+            moderately-discriminative term or two weak ones.
+
+    Returns:
+        (role_id, score) when score >= min_confidence.
+        (None, best_score) otherwise.
+    """
+    if not task or not task.strip():
+        return (None, 0.0)
+
+    global _ROLE_TERM_IDF
+    if _ROLE_TERM_IDF is None:
+        _ROLE_TERM_IDF = _build_role_term_idf()
+    idf = _ROLE_TERM_IDF
+
+    def _norm(s: str) -> str:
+        return re.sub(r"[-_]", " ", s.lower())
+
+    task_norm = _norm(task)
+    task_words = set(re.findall(r"[a-z][a-z0-9]+", task_norm))
+
+    best_role: Optional[str] = None
+    best_score: float = 0.0
+
+    for role_id, rv in BUILT_IN_ROLES.items():
+        score = 0.0
+        for term in rv.domain_affinity:
+            tn = _norm(term)
+            w = idf.get(tn, 1.0)
+            if " " in tn:
+                if tn in task_norm:
+                    score += 1.0 * w
+            else:
+                if tn in task_words:
+                    score += 1.0 * w
+                elif len(tn) >= 4 and tn in task_norm:
+                    score += 0.5 * w
+        if score > best_score:
+            best_score = score
+            best_role = role_id
+
+    if best_score >= min_confidence:
+        return (best_role, best_score)
+    return (None, best_score)
+
+
+def resolve_role_from_task_or_slug(
+    role_slug: Optional[str] = None,
+    task: Optional[str] = None,
+) -> Tuple[RoleVector, str]:
+    """Unified entry point for Phase 103 R4 universal API.
+
+    Resolution order (first non-empty wins):
+      1. Explicit role_slug → resolve_role(slug) — always trusted.
+      2. Task → infer_role_from_task(task) — used when confident.
+      3. Neither / low confidence → caller decides (uniform atlas).
+
+    Returns (RoleVector, source) where source ∈
+        {"explicit", "inferred", "default"}.
+    """
+    if role_slug and role_slug.strip():
+        return (resolve_role(role_slug), "explicit")
+
+    if task and task.strip():
+        inferred, score = infer_role_from_task(task)
+        if inferred is not None:
+            return (resolve_role(inferred), "inferred")
+
+    # No strong signal — caller should treat as uniform/neutral.
+    # Return the engineering default to preserve existing callers that
+    # always expect a RoleVector, but flag the source as "default".
+    return (BUILT_IN_ROLES["engineering"].copy(), "default")
