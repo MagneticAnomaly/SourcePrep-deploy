@@ -263,7 +263,7 @@ def pipeline_run_single_stage(
             ),
         )
 
-    return ok({"started": True, "group": stage_id})
+    return ok({"started": True, "group": sid.value})
 
 
 @router.post("/projects/{project_id}/pipeline/all")

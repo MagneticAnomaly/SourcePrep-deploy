@@ -20,6 +20,10 @@ def client(tmp_path: Path) -> TestClient:
     server._project_trace_indexes.clear()
     with server._project_build_lock:
         server._project_build_threads.clear()
+        server._project_last_build_result.clear()
+        server._project_last_build_error.clear()
+    with server._project_trace_build_lock:
+        server._project_trace_build_threads.clear()
     return TestClient(app)
 
 
