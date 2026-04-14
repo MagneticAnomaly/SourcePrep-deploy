@@ -4,6 +4,16 @@
 
 This is the root-cause fix for the symptoms observed after Phase 104 shipped: pressing the Atlas "Regenerate" button updated the atlas card in isolation — no queue entry, no pipeline journal update, no last-run-date bump, no stage-state transition in the pipeline panel. The cause is that `/atlas/regenerate` is an in-process `atlas.generate_segmented()` call that completely bypasses the orchestrator. Phase 105 removes the bypass and generalizes the fix to every finalize stage that already has a UI trigger.
 
+**Three UI-triggerable finalize stages today, all affected by the same bypass bug:**
+
+| Stage | UI trigger | Current HTTP path | Same function as pipeline stage? |
+|---|---|---|---|
+| Atlas | `Regenerate` button (AtlasLensPanel) | `POST /atlas/regenerate` | Yes — both call `atlas.generate_segmented()`. |
+| Concepts | `Initialize Concepts` button (ConceptsPanel) | `POST /concepts/initialize` | Yes — both call `seed_concepts(project_id)`. |
+| Audit | `Run Audit` button (AuditPanel, HealthScannerPanel) | `POST /audit/run` (verify) | Yes — both call the same audit worker. |
+
+Rules and Antibodies (Immune System) are genuinely separate stages. Rules is code-only (no LLM, generates AGENTS.md-family files from atlas + concepts). Antibodies derives runtime checkers from constraint/architecture concepts via `derive_antibodies_for_project` — different data type, different function from concept seeding. Neither has a UI trigger today.
+
 ## The three-pipeline mental model
 
 ```
@@ -67,9 +77,11 @@ All four collapse into one cause: **bypassing the orchestrator**. Every fix conv
 ### Frontend
 
 1. **Match existing pipeline stage UI.** The Graph Enrichment Pipeline panel renders stages with per-stage status (idle / running / complete / stale / error), last-run timestamps, and per-stage Run buttons where provided. The atlas regenerate button and audit run button should look and behave like these — no bespoke "Regenerate" pill.
-2. **Only wire UI for stages that already have triggers.** Atlas and Audit (and the group-level Run Finalize). Rules, Concepts, and Antibodies get **no new UI surface** in Phase 105. Their backend trigger endpoints exist for MCP/agent callers but aren't exposed as buttons.
+2. **Rewire the three existing UI triggers.** Atlas, Concepts, and Audit all have UI trigger buttons today; all three bypass the orchestrator and exhibit the same four symptoms. Rewire each to the new per-stage endpoint.
 3. **AtlasLensPanel regenerate button rewrite.** Points at `/pipeline/stages/atlas/run` instead of `/atlas/regenerate`. Shows orchestrator-reported state (running, queued, last-run) pulled from the pipeline status endpoint rather than computing it locally.
 4. **Audit panel `onRunAudit` rewrite.** Same treatment — points at `/pipeline/stages/audit/run`.
+5. **Concepts panel `onInitialize` rewrite.** Points at `/pipeline/stages/concepts/run`. Also resolves the "already_initialized" block that currently prevents re-seeding (see Design Questions Q8 below).
+6. **No new UI for Rules and Antibodies.** Backend trigger endpoints exist for MCP/agent callers but no button is added in this phase.
 
 ### Prompt-cache optimization (Phase 105.5, captured here)
 
@@ -139,6 +151,16 @@ This lands as a follow-up commit after Phase 105 core, not blocking.
 
 7. **Regenerate button UX when the stage is already queued.** What does the button show? Disabled + "queued"? "Cancel"? Needs the same treatment the existing pipeline stage buttons have — verify what they do.
 
+8. **Concepts re-seed semantics.** The current `/concepts/initialize` endpoint blocks with `"already_initialized"` when concepts exist. Pipeline stage 13 (same underlying `seed_concepts(project_id)` call) presumably handles re-runs differently — verify. Options for the rewired trigger:
+   - **Replace mode** — delete existing seeds (status=seed only, preserve active/archived) and re-seed. Clean slate for seed regeneration.
+   - **Append mode** — add new seeds to whatever exists. Risk: duplicates if the seeder doesn't dedupe.
+   - **Merge mode** — re-seed, then dedupe by title or content hash against existing.
+   - **Abort with explicit flag** — keep the block but allow `force=true` to bypass.
+   
+   Should match what the pipeline stage does. Resolve during implementation.
+
+9. **Audit trigger verification.** Confirm `POST /audit/run` bypasses the orchestrator (we inferred this by analogy — worth spot-checking). If it already routes through the orchestrator, the rewrite is a no-op for audit.
+
 ## Success criteria
 
 - Pressing the atlas regenerate button results in a queue entry visible in the left panel within ~200ms.
@@ -166,7 +188,9 @@ This lands as a follow-up commit after Phase 105 core, not blocking.
 - `packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx` — per-stage Run buttons pattern to match.
 - `packages/ui/src/components/trace/AtlasLensPanel/StatusStrip.tsx` — regenerate button to rewire.
 - `packages/ui/src/components/audit/AuditPanel.tsx`, `HealthScannerPanel.tsx` — audit run button.
+- `packages/ui/src/components/concepts/ConceptsPanel.tsx` — `Initialize Concepts` button in EmptyState + `onInitialize` prop. Also used by the populated state (verify).
 - `src/codrag/dashboard/src/hooks/useAtlasLens.ts` — `regenerate()` implementation to rewire.
+- `src/codrag/dashboard/src/hooks/useConceptSystem.ts` — `handleInitialize` at `/projects/{id}/concepts/initialize` to rewire.
 
 ### Phase 96 reorg context
 - `docs/Phase96-fix-pipeline/UI+tweaks/PIPELINE_15_STAGE_REORGANIZATION.md` — original 3×5 reorg plan.
@@ -177,8 +201,9 @@ This lands as a follow-up commit after Phase 105 core, not blocking.
 2. HTTP endpoint `POST /pipeline/stages/{stage_id}/run` + tests.
 3. Dependency invalidation wiring (atlas → rules stale; concepts → antibodies stale) + tests.
 4. UI: atlas regenerate button rewired to new endpoint; status derived from pipeline state, not local.
-5. UI: audit run button rewired to new endpoint.
-6. Deprecate `/atlas/regenerate` (decide in-flight whether to redirect or remove).
-7. Phase 105.5 prompt-cache follow-up.
+5. UI: audit run button rewired to new endpoint (verify audit wasn't already orchestrated first).
+6. UI: concepts initialize button rewired; resolve re-seed semantic (Q8).
+7. Deprecate `/atlas/regenerate`, `/concepts/initialize`, `/audit/run` (decide in-flight whether to redirect or remove).
+8. Phase 105.5 prompt-cache follow-up.
 
 Each step ends at a checkpoint where the dev server still runs and tests pass.
