@@ -2117,6 +2117,11 @@ class CodebaseAtlas:
             hub_str = self._hub_str_with_evidence(hub_files[:5])
             sections.append(f"HUB FILES: {hub_str}")
 
+            # Phase 105: append Active zones line when evidence qualifies (parity with LLM path)
+            zones_line = self._hot_zones_line()
+            if zones_line:
+                sections.append(zones_line)
+
         # OPP-W4: Call chain visualization (longest import paths)
         call_chains = graph_stats.get("call_chains", [])
         if call_chains:
