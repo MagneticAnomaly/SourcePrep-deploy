@@ -238,7 +238,7 @@ def _scan_with_python(
 _STALE_WINDOW_DAYS = 180
 
 
-def _apply_churn_gate(nodes: List[RoadmapNode], project_root: Path) -> None:
+def _apply_churn_gate(nodes: list[RoadmapNode], project_root: Path) -> None:
     """Demote TODOs whose source file has not been touched in the window.
 
     Fails open: if evidence is unavailable (not a git repo, shallow clone,

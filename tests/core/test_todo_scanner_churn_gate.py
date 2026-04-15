@@ -37,15 +37,16 @@ def dogfood_repo(tmp_path):
     reset_cache()
     _init_repo(tmp_path)
 
-    # Live file: committed today
-    _commit(tmp_path, "src/live.py", "# TODO: still real\npass\n")
-
-    # Stale file: committed a year ago
-    year_ago = (datetime.now(timezone.utc) - timedelta(days=365)).isoformat()
+    # Stale file: committed first (oldest commit in graph) with a year-ago date
+    year_ago = (datetime.now(timezone.utc) - timedelta(days=365)).isoformat()  # noqa: UP017
     _commit(
         tmp_path, "src/stale.py", "# TODO: old thing\npass\n",
         date=year_ago, msg="old",
     )
+
+    # Live file: committed second (HEAD) with today's date
+    # git log --since walks from HEAD; HEAD must be recent so the walk proceeds
+    _commit(tmp_path, "src/live.py", "# TODO: still real\npass\n")
 
     yield tmp_path
     reset_cache()
