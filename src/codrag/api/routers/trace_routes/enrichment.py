@@ -1029,9 +1029,11 @@ def index_destroy_project(project_id: str) -> Dict[str, Any]:
     # F-78: Added .branch_snapshots (selfheal's 3rd backup source) and
     # audit/ (stores persisted audit findings). Without these, a "full
     # reset" leaves data that selfheal or the audit system can resurrect.
+    # Phase 105: git_evidence/ holds the on-disk churn/signature cache;
+    # must be removed so stale evidence doesn't survive a full reset.
     for subdir_name in [
         ".checkpoints", ".branch_snapshots", "backups", "logs",
-        "atlas_segments", "atlas_roles", "audit",
+        "atlas_segments", "atlas_roles", "audit", "git_evidence",
     ]:
         subdir = idx_dir / subdir_name
         if subdir.is_dir():
@@ -1109,6 +1111,15 @@ def index_destroy_project(project_id: str) -> Dict[str, Any]:
     _project_indexes.pop(project_id, None)
     _project_trace_indexes.pop(project_id, None)
     _project_knowledge_indexes.pop(project_id, None)
+
+    # Phase 105: git_evidence service holds a module-level singleton per
+    # project root. Drop it so the next call re-resolves against the (now
+    # empty) cache directory.
+    try:
+        from codrag.services.git_evidence_service import reset_cache as _reset_git_evidence_cache
+        _reset_git_evidence_cache()
+    except Exception:
+        logger.debug("git_evidence_service.reset_cache failed (non-fatal)", exc_info=True)
 
     logger.info(
         "Full reset for %s: deleted %d items, %d errors",
