@@ -196,13 +196,20 @@ def pipeline_run_deep(project_id: str) -> dict[str, Any]:
 
 
 @router.post("/projects/{project_id}/pipeline/finalize")
-def pipeline_run_finalize(project_id: str) -> dict[str, Any]:
-    """Run Finalize group (stages 11-15): Atlas, Rules, Concepts, Audit, Antibodies."""
+def pipeline_run_finalize(project_id: str, force: bool = False) -> dict[str, Any]:
+    """Run Finalize group (stages 11-15): Atlas, Rules, Concepts, Audit, Antibodies.
+
+    Phase 105b: ``?force=true`` bypasses the resume-point freshness skip
+    so all 5 stages re-run from scratch. Without it, an already-finalized
+    project no-ops with 409. The dashboard's manual Run button always
+    sends force=true; automated callers can omit for the
+    incremental/resume semantic.
+    """
     from codrag.services.project_helpers import require_project_writable
     require_project_writable(project_id)
 
     from codrag.services.pipeline_orchestrator import pipeline_orchestrator
-    started = pipeline_orchestrator.run_finalize(project_id)
+    started = pipeline_orchestrator.run_finalize(project_id, force_from_start=force)
 
     if not started:
         raise ApiException(

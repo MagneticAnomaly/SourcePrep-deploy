@@ -460,7 +460,7 @@ export class MockApiClient implements ApiClient {
     return { started: true, group: 'deep' };
   }
 
-  async runPipelineFinalize(_projectId: string): Promise<{ started: boolean; group: string }> {
+  async runPipelineFinalize(_projectId: string, _opts: { force?: boolean } = {}): Promise<{ started: boolean; group: string }> {
     return { started: true, group: 'finalize' };
   }
 

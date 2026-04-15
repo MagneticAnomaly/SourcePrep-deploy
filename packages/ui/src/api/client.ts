@@ -147,7 +147,7 @@ export interface ApiClient {
   // Pipeline Orchestrator (Phase 24 SM-6)
   runPipelineFast(projectId: string): Promise<{ started: boolean; group: string }>;
   runPipelineDeep(projectId: string): Promise<{ started: boolean; group: string }>;
-  runPipelineFinalize(projectId: string): Promise<{ started: boolean; group: string }>;
+  runPipelineFinalize(projectId: string, opts?: { force?: boolean }): Promise<{ started: boolean; group: string }>;
   runPipelineAll(projectId: string): Promise<{ started: boolean; group: string }>;
   rebuildPipeline(projectId: string): Promise<{ started: boolean; group: string; mode: string }>;
   getPipelineStatus(projectId: string): Promise<PipelineStatus>;
@@ -1055,10 +1055,15 @@ export class CodragApiClient implements ApiClient {
     });
   }
 
-  async runPipelineFinalize(projectId: string): Promise<{ started: boolean; group: string }> {
-    return this.requestEnvelope<{ started: boolean; group: string }>(`/projects/${projectId}/pipeline/finalize`, {
-      method: 'POST',
-    });
+  async runPipelineFinalize(
+    projectId: string,
+    opts: { force?: boolean } = {},
+  ): Promise<{ started: boolean; group: string }> {
+    const qs = opts.force ? '?force=true' : '';
+    return this.requestEnvelope<{ started: boolean; group: string }>(
+      `/projects/${projectId}/pipeline/finalize${qs}`,
+      { method: 'POST' },
+    );
   }
 
   async runPipelineAll(projectId: string): Promise<{ started: boolean; group: string }> {

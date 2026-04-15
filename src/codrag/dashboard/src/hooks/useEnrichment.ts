@@ -222,7 +222,11 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
   const handleRunFinalize = useCallback(async () => {
     if (!selectedProjectId) return
     try {
-      await api.runPipelineFinalize(selectedProjectId)
+      // Phase 105b: force=true so a manual Run actually re-runs all 5
+      // finalize stages even when the project's outputs are already
+      // current. Without this the click silently no-ops with 409
+      // PIPELINE_UP_TO_DATE on any previously-finalized project.
+      await api.runPipelineFinalize(selectedProjectId, { force: true })
     } catch (e) {
       onErrorRef.current(e instanceof Error ? e.message : 'Finalize pipeline encountered an issue.', 'warning')
     }

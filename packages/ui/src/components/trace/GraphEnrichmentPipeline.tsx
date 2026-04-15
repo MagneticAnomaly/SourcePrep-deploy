@@ -1407,7 +1407,10 @@ export function GraphEnrichmentPipeline({
               Resume
             </button>
           )}
-          {onRunFinalize && !finalizePaused && (
+          {/* Phase 105b: hide Run button when finalize mode is Auto, matching
+              the deep-enrichment pattern. In Auto mode, finalize chains
+              automatically after deep completes — manual Run is misleading. */}
+          {cfg.finalize === 'manual' && onRunFinalize && !finalizePaused && (
             <button
               onClick={inactive ? undefined : onRunFinalize}
               disabled={finalizeRunning || limitReached || inactive}
