@@ -126,7 +126,7 @@ export interface GraphEnrichmentPipelineProps {
 
 type StageState = 'disabled' | 'waiting' | 'queued' | 'running' | 'rerunning' | 'complete' | 'stale' | 'error' | 'idle' | 'not_built' | 'warning';
 
-interface EnrichmentStage {
+export interface EnrichmentStage {
   id: EnrichmentStageId;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
