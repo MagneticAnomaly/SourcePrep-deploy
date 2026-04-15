@@ -67,12 +67,22 @@ def purge_ghost_locks(
             continue  # Thread alive — lock is valid
 
         # Source 3: Is the pipeline state machine active?
+        # Phase 105b: include `finalize` slot so solo finalize runs
+        # (atlas/concepts/audit) — which surface through the finalize
+        # slot per the C1 fix in PipelineOrchestrator.status() — are
+        # treated as active. Without this, an active solo run with no
+        # build threads at the moment of purge would be incorrectly
+        # treated as orphaned.
         if pipeline_orch is not None:
             try:
                 ps = pipeline_orch.status(project_id)
                 pipeline_active = any(
                     g.get("is_active")
-                    for g in [ps.get("fast_sync", {}), ps.get("deep_enrichment", {})]
+                    for g in [
+                        ps.get("fast_sync", {}),
+                        ps.get("deep_enrichment", {}),
+                        ps.get("finalize", {}),
+                    ]
                     if isinstance(g, dict)
                 )
                 if pipeline_active:
@@ -109,9 +119,20 @@ def purge_ghost_locks(
                 continue  # Already handled above (has active lock)
             try:
                 ps = pipeline_orch.status(qpid)
+                # Phase 105b: include `finalize` slot — solo runs (atlas/
+                # concepts/audit) surface through the finalize slot per C1.
+                # Reproduced bug on rust_repo: solo concepts queued behind
+                # paperclip's swarm; the original two-group check missed
+                # the queued SM and Ghost Guard cancelled the legitimate
+                # scheduler entry within ~2s, leaving the SM stuck in
+                # QUEUED forever.
                 has_queued_sm = any(
                     g.get("phase") == "queued"
-                    for g in [ps.get("fast_sync", {}), ps.get("deep_enrichment", {})]
+                    for g in [
+                        ps.get("fast_sync", {}),
+                        ps.get("deep_enrichment", {}),
+                        ps.get("finalize", {}),
+                    ]
                     if isinstance(g, dict)
                 )
                 if not has_queued_sm:
