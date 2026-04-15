@@ -121,6 +121,14 @@ export interface GraphEnrichmentPipelineProps {
   finalizeCurrentStage?: string;
   /** True while the project is switching and initial data hasn't loaded yet */
   projectLoading?: boolean;
+  /** Phase 98: per-group collapse state. Defaults to all collapsed when omitted. */
+  fastCollapsed?: boolean;
+  deepCollapsed?: boolean;
+  finalizeCollapsed?: boolean;
+  /** Phase 98: per-group collapse toggles. When omitted, the chevron still renders but is a no-op.  */
+  onToggleFastCollapsed?: () => void;
+  onToggleDeepCollapsed?: () => void;
+  onToggleFinalizeCollapsed?: () => void;
   className?: string;
 }
 
@@ -828,6 +836,12 @@ export function GraphEnrichmentPipeline({
   finalizeCurrentStage: finalizeCurrentStageId,
   provenance,
   projectLoading,
+  fastCollapsed = true,
+  deepCollapsed = true,
+  finalizeCollapsed = true,
+  onToggleFastCollapsed,
+  onToggleDeepCollapsed,
+  onToggleFinalizeCollapsed,
   className,
 }: GraphEnrichmentPipelineProps) {
   const fastPaused = fastPausedProp ?? false;
