@@ -119,7 +119,8 @@ class CodebaseAtlas:
         if progress_callback:
             progress_callback("atlas_generation", 0, 3)
 
-        modules = self._load_modules()
+        full_modules = self._load_modules()
+        modules = full_modules  # capped-for-prompt view; fingerprint uses full
 
         if self.llm:
             from codrag.core.context_config import detect_available_vram_gb
@@ -203,8 +204,10 @@ class CodebaseAtlas:
             )
             return self.generate_structural()
 
-        # Compute fingerprint for staleness detection
-        fp = self._compute_fingerprint(modules, graph_stats)
+        # Compute fingerprint for staleness detection — MUST use the full
+        # module set (not the VRAM-capped prompt view) so is_stale() can
+        # reproduce the same value by reading modules fresh from disk.
+        fp = self._compute_fingerprint(full_modules, graph_stats)
         hub_hashes = self._compute_hub_hashes(hub_files, graph_stats)
 
         doc = AtlasDocument(
@@ -213,7 +216,7 @@ class CodebaseAtlas:
             model=self.llm.model if self.llm else "unknown",
             fingerprint=fp,
             file_count=graph_stats.get("file_count", 0),
-            module_count=len(modules),
+            module_count=len(full_modules),
             char_count=len(content),
             mode="llm",
             hub_file_hashes=hub_hashes,
@@ -225,7 +228,7 @@ class CodebaseAtlas:
         duration_ms = (time.monotonic() - start) * 1000
         logger.info(
             "Atlas generated: %d chars, %d modules, %.1fs",
-            len(content), len(modules), duration_ms / 1000,
+            len(content), len(full_modules), duration_ms / 1000,
         )
 
         if progress_callback:
@@ -240,7 +243,8 @@ class CodebaseAtlas:
         file counts, hub files, module domains.
         """
         graph_stats = self._load_graph_stats()
-        modules = self._load_modules()
+        full_modules = self._load_modules()
+        modules = full_modules  # capped-for-prompt view; fingerprint uses full
 
         if self.llm:
             from codrag.core.context_config import detect_available_vram_gb
@@ -262,7 +266,7 @@ class CodebaseAtlas:
                 graph_stats, modules, epistemic, hub_files,
             )
 
-        fp = self._compute_fingerprint(modules, graph_stats)
+        fp = self._compute_fingerprint(full_modules, graph_stats)
         hub_hashes = self._compute_hub_hashes(hub_files, graph_stats)
 
         doc = AtlasDocument(
@@ -271,7 +275,7 @@ class CodebaseAtlas:
             model="structural",
             fingerprint=fp,
             file_count=file_count,
-            module_count=len(modules),
+            module_count=len(full_modules),
             char_count=len(content),
             mode="structural",
             hub_file_hashes=hub_hashes,
@@ -522,7 +526,14 @@ class CodebaseAtlas:
                 self._identify_hubs(graph_stats),
             )
 
-        fp = self._compute_fingerprint(modules, graph_stats)
+        # Fingerprint must be computed from the FULL module list, not the
+        # VRAM-capped subset used for prompting. Otherwise is_stale() —
+        # which always reads the full set — will never match the saved
+        # fingerprint and the atlas reports stale immediately after a
+        # successful regen. (Observed on DebateHaus, 586 files, after
+        # force-regen with kimi-k2.5 LLM.)
+        full_modules = self._load_modules()
+        fp = self._compute_fingerprint(full_modules, graph_stats)
         hub_hashes = self._compute_hub_hashes(self._identify_hubs(graph_stats), graph_stats)
 
         doc = AtlasDocument(
@@ -531,7 +542,7 @@ class CodebaseAtlas:
             model=self.llm.model if self.llm else "structural",
             fingerprint=fp,
             file_count=graph_stats.get("file_count", 0),
-            module_count=len(modules),
+            module_count=len(full_modules),
             char_count=len(content),
             mode="llm" if self.llm else "structural",
             hub_file_hashes=hub_hashes,
