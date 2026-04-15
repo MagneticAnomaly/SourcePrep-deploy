@@ -181,6 +181,26 @@ class GitEvidence:
         churn = self.recent_churn_by_file(window_days=window_days)
         return path in churn
 
+    def classify_hub(
+        self, path: str, *, window_days: int | None = None,
+    ) -> HubLabel:
+        """Label a hub file based on churn in the window.
+
+        Returns one of: 'stable' | 'evolving' | 'fragile' | 'unknown'.
+        """
+        churn = self.recent_churn_by_file(window_days=window_days)
+        entry = churn.get(path)
+        if entry is None:
+            return "unknown"
+        if entry.commits < HUB_STABLE_MAX_COMMITS:
+            return "stable"
+        if entry.commits <= HUB_EVOLVING_MAX_COMMITS:
+            return "evolving"
+        # commits > HUB_EVOLVING_MAX_COMMITS
+        if entry.authors >= HUB_FRAGILE_MIN_AUTHORS:
+            return "fragile"
+        return "evolving"  # high churn, single/few authors → just evolving
+
     def _compute_churn(
         self, *, window_days: int,
     ) -> dict[str, FileChurn]:

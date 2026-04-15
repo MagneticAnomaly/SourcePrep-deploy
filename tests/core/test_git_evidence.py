@@ -163,3 +163,55 @@ def test_file_touched_in_window(tmp_path):
 
     assert evidence.file_touched_in_window("src/touched.py", window_days=30) is True
     assert evidence.file_touched_in_window("src/untouched.py", window_days=30) is False
+
+
+# ── classify_hub tests ───────────────────────────────────────────────
+
+def test_classify_hub_returns_unknown_for_untracked_path(tmp_path):
+    _init_repo(tmp_path)
+    _commit_file(tmp_path, "src/real.py", "pass\n")
+    evidence = GitEvidence(repo_root=tmp_path, cache_dir=tmp_path / ".cache")
+    assert evidence.classify_hub("src/missing.py") == "unknown"
+
+
+def test_classify_hub_stable_when_few_commits(tmp_path):
+    _init_repo(tmp_path)
+    _commit_file(tmp_path, "src/stable.py", "v = 1\n")
+    evidence = GitEvidence(repo_root=tmp_path, cache_dir=tmp_path / ".cache")
+    assert evidence.classify_hub("src/stable.py") == "stable"
+
+
+def test_classify_hub_evolving_when_moderate_churn(tmp_path):
+    _init_repo(tmp_path)
+    # 5 commits → within [3, 15] range → evolving
+    for i in range(5):
+        _commit_file(tmp_path, "src/evolving.py", f"v = {i}\n", message=f"c{i}")
+    evidence = GitEvidence(repo_root=tmp_path, cache_dir=tmp_path / ".cache")
+    assert evidence.classify_hub("src/evolving.py") == "evolving"
+
+
+def test_classify_hub_fragile_requires_high_churn_and_many_authors(tmp_path):
+    """> HUB_EVOLVING_MAX_COMMITS AND >= HUB_FRAGILE_MIN_AUTHORS -> fragile."""
+    _init_repo(tmp_path)
+    # 16 commits from 3 authors
+    authors = [
+        "Alice <alice@example.com>",
+        "Bob <bob@example.com>",
+        "Cara <cara@example.com>",
+    ]
+    for i in range(16):
+        _commit_file(
+            tmp_path, "src/fragile.py", f"v = {i}\n",
+            author=authors[i % 3], message=f"c{i}",
+        )
+    evidence = GitEvidence(repo_root=tmp_path, cache_dir=tmp_path / ".cache")
+    assert evidence.classify_hub("src/fragile.py") == "fragile"
+
+
+def test_classify_hub_evolving_when_high_churn_but_single_author(tmp_path):
+    """High churn + single author is 'evolving', not 'fragile' — someone working alone."""
+    _init_repo(tmp_path)
+    for i in range(16):
+        _commit_file(tmp_path, "src/solo.py", f"v = {i}\n", message=f"c{i}")
+    evidence = GitEvidence(repo_root=tmp_path, cache_dir=tmp_path / ".cache")
+    assert evidence.classify_hub("src/solo.py") == "evolving"
