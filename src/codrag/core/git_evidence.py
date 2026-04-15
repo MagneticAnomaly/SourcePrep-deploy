@@ -18,7 +18,6 @@ import threading
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional
 
 from codrag.core.repo_profile import (
     DEFAULT_EXCLUDE_DIR_NAMES,
@@ -107,6 +106,18 @@ class FileChurn:
     authors: int              # distinct authors in window
 
 
+# ── Internal accumulator for _parse_numstat ──────────────────────────
+
+@dataclass
+class _ChurnRow:
+    commits: int
+    lines_added: int
+    lines_removed: int
+    first_seen: datetime
+    last_seen: datetime
+    authors: set[str]
+
+
 # ── Main class (stubbed; Task 3 adds loading) ────────────────────────
 
 class GitEvidence:
@@ -140,8 +151,8 @@ class GitEvidence:
     # ── Primitives ────────────────────────────────────────────────────
 
     def recent_churn_by_file(
-        self, *, window_days: Optional[int] = None,
-    ) -> Dict[str, FileChurn]:
+        self, *, window_days: int | None = None,
+    ) -> dict[str, FileChurn]:
         """Return {path: FileChurn} for every file touched in the window.
 
         Returns empty dict on failure (not a git repo, shallow clone,
@@ -149,7 +160,7 @@ class GitEvidence:
         memory for the life of the instance; the on-disk cache is
         added in Task 6.
         """
-        window = window_days or self._default_window_days
+        window = window_days if window_days is not None else self._default_window_days
         with self._lock:
             if self._churn_cache is not None:
                 self._stats["cache_hits"] += 1
@@ -164,7 +175,7 @@ class GitEvidence:
         return dict(churn)
 
     def file_touched_in_window(
-        self, path: str, *, window_days: Optional[int] = None,
+        self, path: str, *, window_days: int | None = None,
     ) -> bool:
         """True iff `path` has any commit touching it in the window."""
         churn = self.recent_churn_by_file(window_days=window_days)
@@ -172,7 +183,7 @@ class GitEvidence:
 
     def _compute_churn(
         self, *, window_days: int,
-    ) -> Dict[str, FileChurn]:
+    ) -> dict[str, FileChurn]:
         """Invoke git log and parse into a churn map."""
         from codrag.agents.shared.git_client import GitClient
 
@@ -186,7 +197,7 @@ class GitEvidence:
         return self._parse_numstat(raw)
 
     @staticmethod
-    def _parse_numstat(raw: str) -> Dict[str, FileChurn]:
+    def _parse_numstat(raw: str) -> dict[str, FileChurn]:
         """Parse `git log --numstat` streamed output.
 
         Format per commit:
@@ -194,12 +205,10 @@ class GitEvidence:
             <added>\\t<removed>\\t<path>
             ...
         """
-        # Accumulator: list[object] rows avoid object-typed dict casts;
-        # each row is [commits, lines_added, lines_removed, first_seen, last_seen, authors].
-        acc: Dict[str, list[object]] = {}
+        files: dict[str, _ChurnRow] = {}
 
-        current_author: Optional[str] = None
-        current_date: Optional[datetime] = None
+        current_author: str | None = None
+        current_date: datetime | None = None
 
         for line in raw.splitlines():
             if line.startswith("COMMIT "):
@@ -233,40 +242,35 @@ class GitEvidence:
             except ValueError:
                 continue
 
-            if path not in acc:
-                acc[path] = [1, added, removed, current_date, current_date, {current_author}]
+            row = files.get(path)
+            if row is None:
+                files[path] = _ChurnRow(
+                    commits=1,
+                    lines_added=added,
+                    lines_removed=removed,
+                    first_seen=current_date,
+                    last_seen=current_date,
+                    authors={current_author},
+                )
             else:
-                row = acc[path]
-                assert isinstance(row[0], int)
-                assert isinstance(row[1], int)
-                assert isinstance(row[2], int)
-                assert isinstance(row[3], datetime)
-                assert isinstance(row[4], datetime)
-                assert isinstance(row[5], set)
-                row[0] += 1
-                row[1] += added
-                row[2] += removed
-                row[5].add(current_author)
-                if current_date < row[3]:
-                    row[3] = current_date
-                if current_date > row[4]:
-                    row[4] = current_date
+                row.commits += 1
+                row.lines_added += added
+                row.lines_removed += removed
+                row.authors.add(current_author)
+                if current_date < row.first_seen:
+                    row.first_seen = current_date
+                if current_date > row.last_seen:
+                    row.last_seen = current_date
 
-        result: Dict[str, FileChurn] = {}
-        for path, row in acc.items():
-            assert isinstance(row[0], int)
-            assert isinstance(row[1], int)
-            assert isinstance(row[2], int)
-            assert isinstance(row[3], datetime)
-            assert isinstance(row[4], datetime)
-            assert isinstance(row[5], set)
+        result: dict[str, FileChurn] = {}
+        for path, row in files.items():
             result[path] = FileChurn(
                 path=path,
-                commits=row[0],
-                lines_added=row[1],
-                lines_removed=row[2],
-                first_seen=row[3],
-                last_seen=row[4],
-                authors=len(row[5]),
+                commits=row.commits,
+                lines_added=row.lines_added,
+                lines_removed=row.lines_removed,
+                first_seen=row.first_seen,
+                last_seen=row.last_seen,
+                authors=len(row.authors),
             )
         return result

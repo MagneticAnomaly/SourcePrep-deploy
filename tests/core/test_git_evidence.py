@@ -4,9 +4,8 @@ from __future__ import annotations
 import dataclasses
 import os
 import subprocess
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Dict, Optional
 
 import pytest
 
@@ -93,7 +92,7 @@ def _commit_file(
     content: str,
     *,
     author: str = "Test User <test@example.com>",
-    date: Optional[str] = None,
+    date: str | None = None,
     message: str = "test commit",
 ) -> None:
     """Write a file, stage, and commit. `date` is ISO-8601 or None for now."""
