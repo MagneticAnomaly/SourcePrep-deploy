@@ -273,7 +273,13 @@ class GitEvidence:
         churn = self._compute_churn(window_days=window)
         # Only persist non-empty results to avoid caching failure states
         if churn:
-            self._save_disk_cache(churn, window_days=window)
+            try:
+                self._save_disk_cache(churn, window_days=window)
+            except OSError as e:
+                logger.warning(
+                    "git_evidence: failed to write disk cache for window=%d: %s",
+                    window, e,
+                )
 
         with self._lock:
             self._churn_caches[window] = churn

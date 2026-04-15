@@ -329,3 +329,21 @@ def test_multiple_windows_have_independent_caches(tmp_path):
     assert "src/foo.py" in churn_180
     assert 60 in ev._churn_caches
     assert 180 in ev._churn_caches
+
+
+def test_corrupt_churn_file_forces_rebuild(tmp_path):
+    """Corrupt JSON in churn file → _load_disk_cache returns None → rebuild."""
+    _init_repo(tmp_path)
+    _commit_file(tmp_path, "src/foo.py", "x\n")
+    cache_dir = tmp_path / ".cache"
+    ev1 = GitEvidence(repo_root=tmp_path, cache_dir=cache_dir)
+    ev1.recent_churn_by_file(window_days=30)
+
+    # Corrupt the churn file (valid JSON, wrong schema)
+    churn_path = cache_dir / "churn_30.json"
+    churn_path.write_text('{"src/foo.py": {"commits": "not-an-int"}}')
+
+    ev2 = GitEvidence(repo_root=tmp_path, cache_dir=cache_dir)
+    result = ev2.recent_churn_by_file(window_days=30)
+    assert "src/foo.py" in result  # rebuilt from git
+    assert ev2.stats()["refreshes"] == 1
