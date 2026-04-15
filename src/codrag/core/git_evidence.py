@@ -442,3 +442,39 @@ class GitEvidence:
                 authors=len(row.authors),
             )
         return result
+
+
+# ── Settings helpers ─────────────────────────────────────────────────
+
+_SETTINGS_ENABLED_KEY = "git_evidence.enabled"
+_SETTINGS_ATLAS_KEY = "git_evidence.atlas_decoration"
+
+
+def is_enabled() -> bool:
+    """Master flag. When False, consumers must fail open (no evidence).
+
+    Reads `settings.git_evidence.enabled` (default True). Any exception
+    from the settings store is treated as "enabled" so settings outages
+    never block evidence usage.
+    """
+    try:
+        from codrag.services.settings_store import settings
+        value = settings.get(_SETTINGS_ENABLED_KEY, True)
+    except Exception:
+        return True
+    return bool(value)
+
+
+def atlas_decoration_enabled() -> bool:
+    """Per-consumer flag for atlas hub labels + hot-zone line.
+
+    Reads `settings.git_evidence.atlas_decoration` (default True).
+    Independent of `is_enabled()` so atlas decoration can be turned
+    off without disabling TODO churn gating.
+    """
+    try:
+        from codrag.services.settings_store import settings
+        value = settings.get(_SETTINGS_ATLAS_KEY, True)
+    except Exception:
+        return True
+    return bool(value)
