@@ -260,3 +260,72 @@ def test_hot_zones_surfaces_when_three_or_more_qualify(tmp_path):
     # commits, so lex-ordered top 3 are alpha, beta, delta (or similar).
     assert all(z.startswith("src/") for z in zones)
     assert len(set(zones)) == 3   # no duplicates
+
+
+def test_cache_persists_across_instances(tmp_path):
+    _init_repo(tmp_path)
+    _commit_file(tmp_path, "src/foo.py", "x\n")
+
+    cache_dir = tmp_path / ".cache"
+    ev1 = GitEvidence(repo_root=tmp_path, cache_dir=cache_dir)
+    churn1 = ev1.recent_churn_by_file(window_days=30)
+
+    # Second instance reads the cache without re-running git
+    ev2 = GitEvidence(repo_root=tmp_path, cache_dir=cache_dir)
+    churn2 = ev2.recent_churn_by_file(window_days=30)
+
+    assert set(churn1.keys()) == set(churn2.keys())
+    # Confirm the second instance hit the on-disk cache
+    stats = ev2.stats()
+    assert stats["refreshes"] == 0
+
+
+def test_cache_invalidated_on_head_change(tmp_path):
+    _init_repo(tmp_path)
+    _commit_file(tmp_path, "src/foo.py", "x\n")
+
+    cache_dir = tmp_path / ".cache"
+    ev1 = GitEvidence(repo_root=tmp_path, cache_dir=cache_dir)
+    ev1.recent_churn_by_file(window_days=30)
+
+    # New commit → HEAD changes
+    _commit_file(tmp_path, "src/bar.py", "y\n")
+
+    ev2 = GitEvidence(repo_root=tmp_path, cache_dir=cache_dir)
+    churn = ev2.recent_churn_by_file(window_days=30)
+    assert "src/bar.py" in churn
+    stats = ev2.stats()
+    assert stats["refreshes"] == 1
+
+
+def test_refresh_clears_in_memory_caches(tmp_path):
+    _init_repo(tmp_path)
+    _commit_file(tmp_path, "src/foo.py", "x\n")
+    cache_dir = tmp_path / ".cache"
+
+    ev = GitEvidence(repo_root=tmp_path, cache_dir=cache_dir)
+    ev.recent_churn_by_file(window_days=30)
+    ev.refresh()
+
+    # After refresh, in-memory per-window caches are cleared
+    assert ev._churn_caches == {}
+
+
+def test_multiple_windows_have_independent_caches(tmp_path):
+    """Regression guard: callers with different windows must not collide.
+
+    Our own design uses 180d for TODO gating and 60d for atlas
+    classification. Both should work on the same GitEvidence instance.
+    """
+    _init_repo(tmp_path)
+    _commit_file(tmp_path, "src/foo.py", "x\n")
+    ev = GitEvidence(repo_root=tmp_path, cache_dir=tmp_path / ".cache")
+
+    churn_60 = ev.recent_churn_by_file(window_days=60)
+    churn_180 = ev.recent_churn_by_file(window_days=180)
+
+    # Same HEAD → same results, but in-memory caches should be independently populated
+    assert "src/foo.py" in churn_60
+    assert "src/foo.py" in churn_180
+    assert 60 in ev._churn_caches
+    assert 180 in ev._churn_caches

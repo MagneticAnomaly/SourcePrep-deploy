@@ -13,6 +13,7 @@ missing git binary, or subprocess errors.
 from __future__ import annotations
 
 import fnmatch
+import json
 import logging
 import threading
 from dataclasses import dataclass
@@ -136,7 +137,7 @@ class GitEvidence:
         self._default_window_days = default_window_days
         self._default_max_commits = default_max_commits
         self._lock = threading.Lock()
-        self._churn_cache: dict[str, FileChurn] | None = None
+        self._churn_caches: dict[int, dict[str, FileChurn]] = {}
         self._stats: dict[str, int] = {
             "cache_hits": 0,
             "cache_misses": 0,
@@ -148,6 +149,94 @@ class GitEvidence:
         with self._lock:
             return dict(self._stats)
 
+    # ── Cache management ──────────────────────────────────────────────
+
+    def refresh(self) -> None:
+        """Invalidate in-memory caches for every window.
+
+        On-disk cache is revalidated lazily by signature on next call.
+        """
+        with self._lock:
+            self._churn_caches.clear()
+
+    def _cache_signature(self, *, window_days: int) -> dict[str, object]:
+        """Build the signature used to validate on-disk cache."""
+        from codrag.agents.shared.git_client import GitClient
+        client = GitClient(self._repo_root)
+        head = client.rev_parse_head()
+        return {
+            "head_sha": head,
+            "window_days": window_days,
+            "max_commits": self._default_max_commits,
+            "repo_root": str(self._repo_root),
+            "schema_version": _SCHEMA_VERSION,
+        }
+
+    def _disk_cache_paths(self, *, window_days: int) -> tuple[Path, Path]:
+        """Return (signature_path, churn_path) for the given window."""
+        sig_path = self._cache_dir / f"signature_{window_days}.json"
+        churn_path = self._cache_dir / f"churn_{window_days}.json"
+        return sig_path, churn_path
+
+    def _load_disk_cache(
+        self, *, window_days: int,
+    ) -> dict[str, FileChurn] | None:
+        """Load churn from disk if signature matches. None otherwise."""
+        sig_path, churn_path = self._disk_cache_paths(window_days=window_days)
+        if not sig_path.exists() or not churn_path.exists():
+            return None
+        try:
+            on_disk_sig = json.loads(sig_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        expected_sig = self._cache_signature(window_days=window_days)
+        if on_disk_sig != expected_sig:
+            return None
+        try:
+            raw = json.loads(churn_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        result: dict[str, FileChurn] = {}
+        for path, d in raw.items():
+            try:
+                result[path] = FileChurn(
+                    path=path,
+                    commits=int(d["commits"]),
+                    lines_added=int(d["lines_added"]),
+                    lines_removed=int(d["lines_removed"]),
+                    first_seen=datetime.fromisoformat(d["first_seen"]),
+                    last_seen=datetime.fromisoformat(d["last_seen"]),
+                    authors=int(d["authors"]),
+                )
+            except (KeyError, ValueError, TypeError):
+                return None   # corrupt; force rebuild
+        return result
+
+    def _save_disk_cache(
+        self, churn: dict[str, FileChurn], *, window_days: int,
+    ) -> None:
+        """Write churn map and signature to disk atomically."""
+        self._cache_dir.mkdir(parents=True, exist_ok=True)
+        sig_path, churn_path = self._disk_cache_paths(window_days=window_days)
+        sig = self._cache_signature(window_days=window_days)
+        serializable = {
+            path: {
+                "commits": c.commits,
+                "lines_added": c.lines_added,
+                "lines_removed": c.lines_removed,
+                "first_seen": c.first_seen.isoformat(),
+                "last_seen": c.last_seen.isoformat(),
+                "authors": c.authors,
+            }
+            for path, c in churn.items()
+        }
+        tmp_churn = churn_path.with_suffix(".json.tmp")
+        tmp_sig = sig_path.with_suffix(".json.tmp")
+        tmp_churn.write_text(json.dumps(serializable, indent=2), encoding="utf-8")
+        tmp_sig.write_text(json.dumps(sig, indent=2), encoding="utf-8")
+        tmp_churn.replace(churn_path)
+        tmp_sig.replace(sig_path)
+
     # ── Primitives ────────────────────────────────────────────────────
 
     def recent_churn_by_file(
@@ -155,22 +244,39 @@ class GitEvidence:
     ) -> dict[str, FileChurn]:
         """Return {path: FileChurn} for every file touched in the window.
 
+        In-memory cache is keyed by window_days so multiple consumers
+        (e.g. TODO scanner at 180d, atlas at 60d) can share a single
+        GitEvidence instance without colliding.
+
         Returns empty dict on failure (not a git repo, shallow clone,
-        subprocess error, permission denied). Caches the result in
-        memory for the life of the instance; the on-disk cache is
-        added in Task 6.
+        subprocess error, permission denied).
         """
         window = window_days if window_days is not None else self._default_window_days
+
         with self._lock:
-            if self._churn_cache is not None:
+            cached = self._churn_caches.get(window)
+            if cached is not None:
                 self._stats["cache_hits"] += 1
-                return dict(self._churn_cache)
+                return dict(cached)
+
+        # Try disk cache (no git subprocess if valid)
+        disk = self._load_disk_cache(window_days=window)
+        if disk is not None:
+            with self._lock:
+                self._churn_caches[window] = disk
+                self._stats["cache_hits"] += 1
+            return dict(disk)
+
+        with self._lock:
             self._stats["cache_misses"] += 1
 
         churn = self._compute_churn(window_days=window)
+        # Only persist non-empty results to avoid caching failure states
+        if churn:
+            self._save_disk_cache(churn, window_days=window)
 
         with self._lock:
-            self._churn_cache = churn
+            self._churn_caches[window] = churn
             self._stats["refreshes"] += 1
         return dict(churn)
 
