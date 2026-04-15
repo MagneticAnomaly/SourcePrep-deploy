@@ -823,10 +823,7 @@ export class MockApiClient implements ApiClient {
     return { included_paths: includedPaths };
   }
 
-  // AutoAudit (Phase 43)
-  async triggerAudit(_projectId: string, _opts?: { synthesize?: boolean; categories?: string[] }): Promise<{ status: string; synthesize: boolean }> {
-    return { status: 'started', synthesize: _opts?.synthesize ?? false };
-  }
+  // AutoAudit (Phase 43 — triggerAudit removed Phase 105b)
   async getAuditStatus(_projectId: string): Promise<import('../types').AuditStatus> {
     return { running: false, error: null, has_results: false };
   }

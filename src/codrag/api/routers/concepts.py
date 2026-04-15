@@ -203,33 +203,14 @@ async def search_concepts(project_id: str, body: SearchConceptsRequest):
 # NOTE: This MUST be registered BEFORE the {concept_id} wildcard
 # route, otherwise FastAPI matches "initialize" as a concept_id.
 
-@router.post("/projects/{project_id}/concepts/initialize")
-async def initialize_concepts(project_id: str):
-    """Run the concept seeder to generate initial concept seeds.
-
-    This reads atlas, module, and audit data to extract 20-40 concept
-    seeds via LLM. Also generates 5-8 clarifying questions.
-    """
-    _require_project(project_id)
-    store = _get_store()
-
-    # Check if already initialized
-    stats = store.get_stats(project_id)
-    if stats["total"] > 0:
-        return ok({
-            "status": "already_initialized",
-            "total": stats["total"],
-            "message": "Concepts already exist. Delete them first to re-initialize.",
-        })
-
-    # Import and run seeder
-    try:
-        from codrag.core.concept_seeder import seed_concepts
-        result = seed_concepts(project_id)
-        return ok(result)
-    except Exception as e:
-        logger.error("Concept initialization failed for %s: %s", project_id, e, exc_info=True)
-        raise ApiException(500, "SEEDER_ERROR", f"Concept generation failed: {e}")
+# Phase 105b: the direct-call POST /projects/{id}/concepts/initialize
+# handler is deleted. Concept seeding now routes through the
+# orchestrator via POST /projects/{id}/pipeline/stages/concepts/run,
+# which gives the run queue, journal, history, and pipeline-panel
+# state parity with the other finalize stages. The old endpoint
+# additionally blocked with "already_initialized" once seeds existed,
+# preventing re-runs entirely; the orchestrator-backed seed_concepts
+# worker is idempotent and can run any number of times.
 
 
 # ── Questions ────────────────────────────────────────────────────

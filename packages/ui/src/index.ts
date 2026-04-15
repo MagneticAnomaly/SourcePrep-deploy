@@ -163,6 +163,10 @@ export type { WatchStatusIndicatorProps, WatchControlPanelProps } from './compon
 export { TraceStatusCard, TraceExplorer, TraceCoveragePanel, GraphEnrichmentPipeline, GraphStructurePanel, AtlasLensPanel, StatusStrip, SubAtlasTree, RoleLens, BudgetBar, BudgetSlider, PinnedConceptsList } from './components/trace';
 export type { TraceStatusCardProps, TraceExplorerProps, TraceCoveragePanelProps, GraphEnrichmentPipelineProps, TraceStageInfo, EnrichmentStageId, EnrichmentAutoConfig, DeepEnrichmentMode, GraphStructurePanelProps, AtlasLensPanelProps, StatusStripProps, SubAtlasTreeProps, RoleLensProps, BudgetBarProps, BudgetSliderProps, PinnedConceptsListProps } from './components/trace';
 
+// Components - Pipeline (Phase 105b — unified stage controls)
+export { StageRegenerateButton } from './components/pipeline';
+export type { StageRegenerateButtonProps } from './components/pipeline';
+
 // Components - Layout (Modular Dashboard - Phase 15)
 export { PanelChrome, DashboardGrid, PanelPicker, ModularDashboard, useLayoutPersistence } from './components/layout';
 export type { PanelChromeProps, DashboardGridProps, PanelPickerProps, ModularDashboardProps, PanelContentMap, DashboardLayoutApi } from './components/layout';

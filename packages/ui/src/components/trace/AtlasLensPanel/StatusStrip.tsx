@@ -1,7 +1,8 @@
 import { Badge } from '@tremor/react';
-import { Clock, Cpu, RefreshCw } from 'lucide-react';
+import { Clock, Cpu } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import type { AtlasStatus } from '../../../types';
+import { StageRegenerateButton } from '../../pipeline/StageRegenerateButton';
 
 export interface StatusStripProps {
   atlas: AtlasStatus | null;
@@ -39,18 +40,10 @@ export function StatusStrip({
           )}
         </div>
         {onRegenerate && (
-          <button
-            type="button"
-            onClick={onRegenerate}
-            disabled={regenerating}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs font-medium',
-              'hover:bg-surface-raised transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
-            )}
-          >
-            <RefreshCw className={cn('w-3.5 h-3.5', regenerating && 'animate-spin')} />
-            {regenerating ? 'Regenerating…' : 'Regenerate'}
-          </button>
+          <StageRegenerateButton
+            onRegenerate={onRegenerate}
+            regenerating={regenerating}
+          />
         )}
       </div>
 

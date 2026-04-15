@@ -12,6 +12,7 @@ import {
   Send,
   RefreshCw,
 } from 'lucide-react';
+import { StageRegenerateButton } from '../pipeline/StageRegenerateButton';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -58,6 +59,10 @@ export interface ConceptsPanelProps {
   loading: boolean;
   initializing: boolean;
   error: string | null;
+  /** Initialize OR regenerate — both paths now run through the
+   *  orchestrator-backed seed_concepts worker (Phase 105b). The panel
+   *  uses this callback for both the empty-state "Initialize Concepts"
+   *  button AND the populated-state "Regenerate" button. */
   onInitialize: () => void;
   onApprove: (id: string) => void;
   onArchive: (id: string) => void;
@@ -172,14 +177,20 @@ function EmptyState({ onInitialize, initializing }: { onInitialize: () => void; 
 
 // ── Stats Bar ────────────────────────────────────────────────────
 
-function StatsBar({ stats, onRefresh, loading }: { stats: ConceptStats; onRefresh?: () => void; loading?: boolean }) {
+function StatsBar({ stats, onRefresh, loading, onRegenerate, regenerating }: {
+  stats: ConceptStats;
+  onRefresh?: () => void;
+  loading?: boolean;
+  onRegenerate?: () => void;
+  regenerating?: boolean;
+}) {
   const items = [
     { label: 'Active', value: stats.active, color: '#34d399' },
     { label: 'Seeds', value: stats.seeds, color: '#fbbf24' },
     { label: 'Stale', value: stats.stale, color: '#f87171' },
   ];
   return (
-    <div style={{ display: 'flex', gap: '12px', padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+    <div style={{ display: 'flex', gap: '12px', padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', alignItems: 'center' }}>
       {items.map((item) => (
         <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: item.color }} />
@@ -211,6 +222,12 @@ function StatsBar({ stats, onRefresh, loading }: { stats: ConceptStats; onRefres
           >
             <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
           </button>
+        )}
+        {onRegenerate && (
+          <StageRegenerateButton
+            onRegenerate={onRegenerate}
+            regenerating={regenerating}
+          />
         )}
       </div>
     </div>
@@ -454,7 +471,15 @@ export function ConceptsPanel({
         <EmptyState onInitialize={onInitialize} initializing={initializing} />
       ) : (
         <>
-          {stats && <StatsBar stats={stats} onRefresh={onRefresh} loading={loading} />}
+          {stats && (
+            <StatsBar
+              stats={stats}
+              onRefresh={onRefresh}
+              loading={loading}
+              onRegenerate={onInitialize}
+              regenerating={initializing}
+            />
+          )}
 
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {concepts.slice(0, 20).map((c) => (

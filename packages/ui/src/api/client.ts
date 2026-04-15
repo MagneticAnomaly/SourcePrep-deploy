@@ -244,8 +244,8 @@ export interface ApiClient {
   removeScopeFiles(projectId: string, paths: string[]): Promise<any>;
   triggerScopeRebuild(projectId: string): Promise<any>;
 
-  // AutoAudit (Phase 43)
-  triggerAudit(projectId: string, opts?: { synthesize?: boolean; categories?: string[] }): Promise<{ status: string; synthesize: boolean }>;
+  // AutoAudit (Phase 43 — triggerAudit removed Phase 105b; use
+  // runPipelineStage(projectId, 'audit', {force: true}) instead)
   getAuditStatus(projectId: string): Promise<import('../types').AuditStatus>;
   getAuditFindings(projectId: string, opts?: { severity?: string; category?: string; limit?: number }): Promise<{ finding_count: number; total_finding_count: number; severity_counts: Record<string, number>; findings: import('../types').AuditFinding[] }>;
   getAuditReports(projectId: string): Promise<{ reports: import('../types').AuditReport[] }>;
@@ -1342,14 +1342,8 @@ export class CodragApiClient implements ApiClient {
     });
   }
 
-  // AutoAudit (Phase 43)
-
-  async triggerAudit(projectId: string, opts?: { synthesize?: boolean; categories?: string[] }): Promise<{ status: string; synthesize: boolean }> {
-    return this.requestEnvelope<{ status: string; synthesize: boolean }>(`/projects/${projectId}/audit`, {
-      method: 'POST',
-      body: { synthesize: opts?.synthesize ?? false, categories: opts?.categories },
-    });
-  }
+  // AutoAudit (Phase 43 — triggerAudit removed Phase 105b; audit runs
+  // route through POST /pipeline/stages/audit/run via runPipelineStage)
 
   async getAuditStatus(projectId: string): Promise<import('../types').AuditStatus> {
     return this.requestEnvelope<import('../types').AuditStatus>(`/projects/${projectId}/audit/status`);

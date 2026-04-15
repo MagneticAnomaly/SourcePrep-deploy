@@ -34,99 +34,20 @@ def _srv():
     return _s
 
 
-class AuditRequest(BaseModel):
-    synthesize: bool = False
-    categories: Optional[List[str]] = None
-
-
-# Track running audits per project
+# Phase 105b: the direct-call POST /projects/{id}/audit handler is
+# deleted. Audit runs now route through the orchestrator via
+# POST /projects/{id}/pipeline/stages/audit/run, which gives the run
+# queue, journal, history, and pipeline-panel state parity with the
+# other finalize stages. The status/findings/reports GET endpoints
+# below remain since they just read cached results from disk.
+#
+# _audit_threads / _audit_errors are kept as empty compat stubs so
+# GET /projects/{id}/audit/status retains its existing payload shape.
+# The new trigger path drives running-state through the pipeline
+# status endpoint; the dashboard's useAuditSystem hook reconciles
+# auditStatus.running from useStageRegenerate.
 _audit_threads: Dict[str, threading.Thread] = {}
 _audit_errors: Dict[str, str] = {}
-
-
-@router.post("/projects/{project_id}/audit")
-def trigger_audit(project_id: str, req: Optional[AuditRequest] = None) -> Dict[str, Any]:
-    """Trigger a codebase audit for a project.
-
-    Tier 1 (analyzers) always runs. Set ``synthesize=true`` to also
-    generate LLM-based report documents (Tier 2).
-    """
-    from codrag.services.project_helpers import require_project_writable
-    proj = require_project_writable(project_id)
-
-    # Check if already running
-    t = _audit_threads.get(proj.id)
-    if t is not None and t.is_alive():
-        return ok({"status": "already_running", "message": "An audit is already in progress."})
-
-    # Clear previous errors
-    _audit_errors.pop(proj.id, None)
-
-    synthesize = req.synthesize if req else False
-    categories = req.categories if req else None
-
-    from codrag.core.project_registry import project_index_dir
-    index_dir = project_index_dir(proj)
-
-    # Phase 65: Load user Exclude Tree patterns so the audit respects
-    # the same exclusions as the trace pipeline.
-    cfg = proj.config or {}
-    trace_cfg = cfg.get("trace") if isinstance(cfg, dict) else None
-    trace_ignore = (trace_cfg or {}).get("ignore_patterns", [])
-    extra_excludes = [str(p) for p in trace_ignore] if isinstance(trace_ignore, list) else []
-    project_excludes = cfg.get("exclude_globs") if isinstance(cfg, dict) else None
-    if isinstance(project_excludes, list):
-        extra_excludes.extend(str(g) for g in project_excludes if g)
-
-    def _run():
-        try:
-            from codrag.core.audit import run_audit, save_findings, save_documents
-            from codrag.core.audit.context import load_audit_context
-            from codrag.core.audit.synthesizer import AuditSynthesizer
-
-            result = run_audit(
-                index_dir=index_dir,
-                project_root=Path(proj.path),
-                categories=categories,
-                extra_exclude_globs=extra_excludes or None,
-            )
-            save_findings(result, index_dir)
-
-            if synthesize and result.findings:
-                from codrag.server import _get_llm_client_for_task
-                llm_client = _get_llm_client_for_task("audit")
-                if llm_client:
-                    ctx = load_audit_context(index_dir, Path(proj.path), extra_exclude_globs=extra_excludes or None)
-                    synth = AuditSynthesizer(
-                        llm_client=llm_client,
-                        project_name=proj.name or proj.id,
-                    )
-                    docs = synth.synthesize_all(result, ctx)
-                    save_documents(docs, index_dir)
-                    result.documents = docs
-
-                    # Update manifest with document info
-                    if result.manifest:
-                        result.manifest.documents = [d.name for d in docs]
-                        result.manifest.document_count = len(docs)
-                        save_findings(result, index_dir)
-                else:
-                    logger.info("No LLM configured — skipping Tier 2 synthesis")
-
-            logger.info("Audit complete for %s: %d findings", proj.id, result.finding_count)
-        except Exception as e:
-            logger.error("Audit failed for %s: %s", proj.id, e)
-            _audit_errors[proj.id] = str(e)
-
-    thread = threading.Thread(target=_run, daemon=True, name=f"audit-{proj.id}")
-    _audit_threads[proj.id] = thread
-    thread.start()
-
-    return ok({
-        "status": "started",
-        "synthesize": synthesize,
-        "message": "Audit started. Use GET /audit/status to check progress.",
-    })
 
 
 @router.get("/projects/{project_id}/audit/status")

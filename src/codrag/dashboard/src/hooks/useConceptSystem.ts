@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { ConceptItem, ConceptQuestionItem, ConceptStats } from '@codrag/ui';
+import { useStageRegenerate } from './useStageRegenerate';
 
 export interface UseConceptSystemReturn {
   concepts: ConceptItem[];
@@ -8,7 +9,7 @@ export interface UseConceptSystemReturn {
   loading: boolean;
   initializing: boolean;
   error: string | null;
-  handleInitialize: () => void;
+  handleInitialize: () => Promise<void>;
   handleApprove: (id: string) => void;
   handleArchive: (id: string) => void;
   handleDelete: (id: string) => void;
@@ -25,7 +26,6 @@ export function useConceptSystem(
   const [questions, setQuestions] = useState<ConceptQuestionItem[]>([]);
   const [stats, setStats] = useState<ConceptStats | null>(null);
   const [loading, setLoading] = useState(false);
-  const [initializing, setInitializing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchConcepts = useCallback(async () => {
@@ -82,30 +82,20 @@ export function useConceptSystem(
     }
   }, [projectId, fetchConcepts]);
 
-  const handleInitialize = useCallback(async () => {
-    if (!projectId || initializing) return;
-    setInitializing(true);
-    setError(null);
-    try {
-      const res = await fetch(`/projects/${projectId}/concepts/initialize`, {
-        method: 'POST',
-      });
-      const data = await res.json();
-      const result = data?.data ?? data;
-
-      if (result?.status === 'success') {
-        // Refresh after seeding
-        await fetchConcepts();
-      } else {
-        // Show error for any non-success status (llm_error, no_model, insufficient_data, etc.)
-        setError(result?.message || 'Initialization returned no results');
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Initialization failed');
-    } finally {
-      setInitializing(false);
-    }
-  }, [projectId, initializing, fetchConcepts]);
+  // Phase 105b: concept seeding routes through the orchestrator
+  // (POST /pipeline/stages/concepts/run?force=true) so it shares queue,
+  // journal, history, and pipeline-panel state with all other finalize
+  // stage triggers. Same handler serves both the empty-state "Initialize
+  // Concepts" button and the populated-state "Regenerate" button.
+  const {
+    regenerating: initializing,
+    error: regenerateError,
+    runStage: handleInitialize,
+  } = useStageRegenerate({
+    projectId,
+    stageId: 'concepts',
+    onComplete: fetchConcepts,
+  });
 
   const handleApprove = useCallback(async (id: string) => {
     if (!projectId) return;
@@ -190,7 +180,7 @@ export function useConceptSystem(
     stats,
     loading,
     initializing,
-    error,
+    error: error ?? regenerateError,
     handleInitialize,
     handleApprove,
     handleArchive,
