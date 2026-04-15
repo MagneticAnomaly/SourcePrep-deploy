@@ -1116,8 +1116,13 @@ export function GraphEnrichmentPipeline({
   // one that aren't marked complete keep 'not_built' (they haven't run
   // yet). Stages AFTER the current one that ARE complete stay 'complete'.
   const finStageState = (stageId: string, dataComplete: boolean): StageState => {
-    if (dataComplete) return 'complete';
+    // Phase 105b fix: check running BEFORE dataComplete. A stage that's
+    // mid-regenerate on a project with existing data (the common case
+    // after Phase 104 shipped) must not appear as "complete" while it's
+    // actively running — the user clicked Regenerate because they wanted
+    // to see it run.
     if (finalizeGroupRunning && finalizeCurrentStageId === stageId) return 'running';
+    if (dataComplete) return 'complete';
     // If the group is running and we're past this stage, treat as complete
     // (the pipeline is sequential — if we're on stage 3, stages 1-2 are done)
     if (finalizeGroupRunning && finalizeCurrentStageId) {
