@@ -1538,6 +1538,27 @@ class PipelineOrchestrator:
                     )
                     return False
 
+        # Phase 105b: if we're about to replace a terminal state machine
+        # (completed/failed/cancelled) with a new run for the same key,
+        # purge any ghost scheduler locks first. A stale slot or queue
+        # entry tied to the previous run can cause the new run's
+        # acquire() to fall through into QUEUED state without ever
+        # receiving the CAPACITY_AVAILABLE signal — the second-click
+        # hang observed on HomeColab solo atlas runs.
+        # purge_ghost_locks() is the same cross-check the queue endpoint
+        # runs on every read; it's safe to call more often.
+        if existing is not None and not existing.is_active and not existing.is_paused:
+            try:
+                from codrag.services.pipeline.ghost_guard import purge_ghost_locks
+                purge_ghost_locks()
+            except Exception:
+                logger.debug(
+                    "Ghost-lock purge failed before replacing terminal SM for %s",
+                    project_id, exc_info=True,
+                )
+
+        with self._lock:
+
             # Determine robust UI mode flag
             mode = "initial"
             if resume_from > 0:
