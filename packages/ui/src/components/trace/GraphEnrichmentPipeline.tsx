@@ -4,8 +4,9 @@ import { SlidingSwitch2, SlidingSwitch3 } from '../primitives/SlidingSwitch';
 import {
   GitBranch, Brain, ShieldCheck, Play, AlertTriangle, CheckCircle2,
   Circle, Clock, Loader2, Layers, Network, Database, Code2, Map, Eye, Pause,
-  FileText, Lightbulb, ClipboardCheck, Shield
+  FileText, Lightbulb, ClipboardCheck, Shield, ChevronDown, ChevronRight
 } from 'lucide-react';
+import { computeGroupRollup, type GroupRollup } from './pipelineRollup';
 import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, InferredEdgesStatus, AtlasStatus, StageProvenance, RulesStatus, ConceptsStatus, AuditPipelineStatus, AntibodiesStatus } from '../../types';
 
 // ── Types ────────────────────────────────────────────────────
@@ -636,6 +637,48 @@ function StateIcon({ state }: { state: StageState }) {
 }
 
 import { StageProgressBar } from './StageProgressBar';
+
+function ChevronButton({ collapsed, onClick }: { collapsed: boolean; onClick?: () => void }) {
+  const Icon = collapsed ? ChevronRight : ChevronDown;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="p-0.5 rounded hover:bg-surface-raised transition-colors text-text-subtle hover:text-text"
+      aria-label={collapsed ? 'Expand group' : 'Collapse group'}
+      title={collapsed ? 'Expand group' : 'Collapse group'}
+    >
+      <Icon className="w-3.5 h-3.5" />
+    </button>
+  );
+}
+
+function CondensedGroupRow({ rollup }: { rollup: GroupRollup }) {
+  const stateToStyle: Record<GroupRollup['state'], { bg: string; border: string; text: string; icon: React.ComponentType<{ className?: string }> }> = {
+    complete:  { bg: 'bg-success/10',  border: 'border-success/30',  text: 'text-success',    icon: CheckCircle2 },
+    disabled:  { bg: 'bg-surface',     border: 'border-border',      text: 'text-text-subtle', icon: Circle },
+    idle:      { bg: 'bg-surface-raised', border: 'border-border',   text: 'text-text-muted', icon: Clock },
+    running:   { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-400',   icon: Loader2 },
+    error:     { bg: 'bg-red-500/10',  border: 'border-red-500/30',  text: 'text-red-400',    icon: AlertTriangle },
+    mixed:     { bg: 'bg-amber-500/10', border: 'border-amber-500/30', text: 'text-amber-400', icon: AlertTriangle },
+  };
+  const s = stateToStyle[rollup.state];
+  const IconComponent = s.icon;
+  const isRunning = rollup.state === 'running';
+  return (
+    <div className="flex items-center gap-3 py-0.5 px-1 ml-1">
+      <div className={cn('w-8 h-8 rounded-full border flex items-center justify-center shrink-0', s.bg, s.border, s.text)}>
+        <IconComponent className={cn('w-4 h-4', isRunning && 'animate-spin')} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={cn('text-[10px] leading-tight truncate', s.text)}>{rollup.stats}</p>
+        {isRunning && typeof rollup.progress === 'number' && (
+          <StageProgressBar progress={rollup.progress} className="h-1.5 mt-1 w-full" color="bg-blue-500" />
+        )}
+      </div>
+    </div>
+  );
+}
 
 function StageRow({
   stage,
@@ -1274,6 +1317,7 @@ export function GraphEnrichmentPipeline({
       {/* ── Fast Sync Group ─────────────────────────── */}
       <div className="flex items-center justify-between py-1.5 px-1">
         <div className="flex items-center gap-2">
+          <ChevronButton collapsed={fastCollapsed} onClick={onToggleFastCollapsed} />
           <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Fast Sync</span>
           {fastAuto && (
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-success-muted/10 text-success border border-success-muted/20">
@@ -1320,32 +1364,39 @@ export function GraphEnrichmentPipeline({
           />
         </div>
       </div>
-      <div className="flex flex-col gap-0.5 ml-1">
-        {fastStages.map((stage, idx) => {
-          // Use explicit backend stage ID if available; fall back to heuristic
-          const isStagePaused = fastPausedStage
-            ? !!(fastPaused && !fastRunning && stage.id === fastPausedStage)
-            : !!(fastPaused && !fastRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
-              fastStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
-          return (
-            <StageRow
-              key={stage.id}
-              stage={stage}
-              isPaused={isStagePaused}
-              onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
-              onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('fast_sync') : undefined}
-              showDetails={showDetails}
-            />
-          );
-        })}
-      </div>
+      {fastCollapsed ? (
+        <CondensedGroupRow rollup={computeGroupRollup(fastStages)} />
+      ) : (
+        <div className="flex flex-col gap-0.5 ml-1">
+          {fastStages.map((stage, idx) => {
+            // Use explicit backend stage ID if available; fall back to heuristic
+            const isStagePaused = fastPausedStage
+              ? !!(fastPaused && !fastRunning && stage.id === fastPausedStage)
+              : !!(fastPaused && !fastRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
+                fastStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
+            return (
+              <StageRow
+                key={stage.id}
+                stage={stage}
+                isPaused={isStagePaused}
+                onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
+                onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('fast_sync') : undefined}
+                showDetails={showDetails}
+              />
+            );
+          })}
+        </div>
+      )}
 
       {/* Divider between groups */}
       <div className="border-t border-border" />
 
       {/* ── Deep Enrichment Group ───────────────────── */}
       <div className="flex items-center justify-between py-1.5 px-1">
-        <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Deep Enrichment</span>
+        <div className="flex items-center gap-2">
+          <ChevronButton collapsed={deepCollapsed} onClick={onToggleDeepCollapsed} />
+          <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Deep Enrichment</span>
+        </div>
         <div className="flex items-center gap-2">
           {deepPaused && onResumePipeline && !deepRunning && (
             <button
@@ -1394,32 +1445,39 @@ export function GraphEnrichmentPipeline({
           />
         </div>
       </div>
-      <div className="flex flex-col gap-0.5 ml-1">
-        {deepStages.map((stage, idx) => {
-          // Use explicit backend stage ID if available; fall back to heuristic
-          const isStagePaused = deepPausedStage
-            ? !!(deepPaused && !deepRunning && stage.id === deepPausedStage)
-            : !!(deepPaused && !deepRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
-              deepStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
-          return (
-            <StageRow
-              key={stage.id}
-              stage={stage}
-              onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
-              onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('deep_enrichment') : undefined}
-              isPaused={isStagePaused}
-              showDetails={showDetails}
-            />
-          );
-        })}
-      </div>
+      {deepCollapsed ? (
+        <CondensedGroupRow rollup={computeGroupRollup(deepStages)} />
+      ) : (
+        <div className="flex flex-col gap-0.5 ml-1">
+          {deepStages.map((stage, idx) => {
+            // Use explicit backend stage ID if available; fall back to heuristic
+            const isStagePaused = deepPausedStage
+              ? !!(deepPaused && !deepRunning && stage.id === deepPausedStage)
+              : !!(deepPaused && !deepRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
+                deepStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
+            return (
+              <StageRow
+                key={stage.id}
+                stage={stage}
+                onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
+                onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('deep_enrichment') : undefined}
+                isPaused={isStagePaused}
+                showDetails={showDetails}
+              />
+            );
+          })}
+        </div>
+      )}
 
       {/* Divider between groups */}
       <div className="border-t border-border" />
 
       {/* ── Finalize Group ──────────────────────────── */}
       <div className="flex items-center justify-between py-1.5 px-1">
-        <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Finalize</span>
+        <div className="flex items-center gap-2">
+          <ChevronButton collapsed={finalizeCollapsed} onClick={onToggleFinalizeCollapsed} />
+          <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Finalize</span>
+        </div>
         <div className="flex items-center gap-2">
           {finalizePaused && onResumePipeline && !finalizeRunning && (
             <button
@@ -1457,24 +1515,28 @@ export function GraphEnrichmentPipeline({
           />
         </div>
       </div>
-      <div className="flex flex-col gap-0.5 ml-1">
-        {finalizeStages.map((stage, idx) => {
-          const isStagePaused = finalizePausedStage
-            ? !!(finalizePaused && !finalizeRunning && stage.id === finalizePausedStage)
-            : !!(finalizePaused && !finalizeRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
-              finalizeStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
-          return (
-            <StageRow
-              key={stage.id}
-              stage={stage}
-              onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
-              onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('finalize') : undefined}
-              isPaused={isStagePaused}
-              showDetails={showDetails}
-            />
-          );
-        })}
-      </div>
+      {finalizeCollapsed ? (
+        <CondensedGroupRow rollup={computeGroupRollup(finalizeStages)} />
+      ) : (
+        <div className="flex flex-col gap-0.5 ml-1">
+          {finalizeStages.map((stage, idx) => {
+            const isStagePaused = finalizePausedStage
+              ? !!(finalizePaused && !finalizeRunning && stage.id === finalizePausedStage)
+              : !!(finalizePaused && !finalizeRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
+                finalizeStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
+            return (
+              <StageRow
+                key={stage.id}
+                stage={stage}
+                onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
+                onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('finalize') : undefined}
+                isPaused={isStagePaused}
+                showDetails={showDetails}
+              />
+            );
+          })}
+        </div>
+      )}
 
       {/* Footer / Summary */}
       <div className="pt-3 border-t border-border">
