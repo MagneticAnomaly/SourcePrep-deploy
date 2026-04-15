@@ -229,7 +229,7 @@ The generated AGENTS.md is meant to be the first thing an AI agent reads when it
 <!-- codrag-managed-start -->
 # CoDRAG Integration
 
-Last updated: 2026-04-14T15:14:39Z
+Last updated: 2026-04-14T23:52:02Z
 
 codrag_project_id: 1d6f0b35-45cb-427b-ae9d-aac3c6371a4b
 
@@ -268,22 +268,30 @@ Add to `.claude/settings.json`:
 
 Use `@` to browse CoDRAG resources (atlas, modules, audit). Use `/mcp__codrag__codrag-onboard` for guided orientation.
 
-<!-- codrag-atlas-hash:bd2cdbb1b9d4 -->
+<!-- codrag-atlas-hash:157d44e91ab9 -->
 ## Codebase Atlas
 
-IDENTITY: Codrag is a multi-segment AI coding assistant platform with a Model Context Protocol (MCP) server, Python backend services, React/TypeScript UI components, VS Code extension, and Rust-based code analysis engine.
+IDENTITY: Codrag is an AI-powered development workspace combining MCP server infrastructure, RAG indexing, React/TypeScript UI components, and VSCode extension tooling with marketing and documentation websites.
 
-STACK: Python 323 files, TypeScript/TSX 334 files, Rust 18 files, Markdown 569 files. React, Storybook, Paperclip. MCP, FastAPI, RAG pipeline. Build tools: dashboard build-system, test_ui_build.sh.
+STACK: Python, TypeScript, React, Next.js, Rust (engine/crates), Storybook, Paperclip design system, VSCode extension API, MCP protocol.
 
 WORKSPACE MAP:
-_root (1012 files): MCP server, Python services, testing infrastructure, marketing, UI coordination
-Ui (packages/ui, 291 files): Enterprise and architecture component libraries, Storybook documentation, TypeScript UI foundation
-Dashboard (src/codrag/dashboard, 42 files): Project management dashboard with state management and build-system integration
-Vscode (packages/vscode, 20 files): VS Code extension with daemon integration, RAG features, project management
-Webview Ui (packages/vscode/webview-ui, 14 files): React-based code navigation and context management within VS Code
-Paperclip Plugin Codrag (packages/paperclip-plugin-codrag, 12 files): Paperclip design tool plugin with TypeScript configuration system
+Root (_root, 1373 files): core testing, MCP server, Python RAG engine, marketing infrastructure
+Ui (packages/ui, 809 files): shared React/TypeScript UI component library with Storybook
+Marketing (websites/apps/marketing, 64 files): Next.js marketing site with documentation
+Docs (websites/apps/docs, 54 files): Next.js configuration and documentation site
+Dashboard (src/codrag/dashboard, 45 files): React/TypeScript dashboard UI with configuration
+Support (websites/apps/support, 29 files): Next.js support documentation site
+Vscode (packages/vscode, 20 files): VSCode extension with daemon integration and lifecycle management
+Payments (websites/apps/payments, 17 files): Next.js payments processing interface
+Webview Ui (packages/vscode/webview-ui, 14 files): VSCode extension webview UI with code navigation
+Paperclip Plugin Codrag (packages/paperclip-plugin-codrag, 12 files): Paperclip design system plugin with MCP integration
 
-CROSS-CUTTING: Five entry points anchor the graph: enterprise components, CLI, Rust walker, MCP server, architecture components. Shared domains across segments: ui, dashboard, typescript, project-management, vscode-extension. Hub dependencies: typing 223 edges, pathlib 168 edges, logging 156 edges, json 153 edges. Import chains link UI components through backend_config.py to pipeline orchestrator and scheduler; CLI chains through server to project registry, rules generator, watcher, and trace builder. 124 import cycles present. Directory dependencies: docs, engine, packages, public, scripts, src each expose symbols to other segments.
+CROSS-CUTTING: React (195 edges) and TypeScript dominate UI segments; Python MCP server at src/codrag/mcp/server.py with 409 .py files total; shared UI components flow from packages/ui to dashboard, marketing, docs, support; Next.js unifies all web apps; 161 import cycles concentrated in packages/ui goalposts components and MCP tool chains; ext:typing (261 edges) and ext:__future__ (239 edges) are highest-traffic Python dependencies; ext:pathlib (190 edges) and ext:logging (178 edges) shared across Python tooling; engine/crates/codrag-chunking provides Rust-based RAG infrastructure; five entry points anchor the system: UI components (goalposts, search), MCP server, Rust chunking engine, and Paperclip plugin UI.
+
+## Focus Areas
+- docs/Phase00_Initial-Concept/MCP.md
+Call `codrag` for detailed content from these areas.
 
 If `codrag` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.
