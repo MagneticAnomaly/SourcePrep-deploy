@@ -211,6 +211,11 @@ export interface PanelEnrichmentProps {
   auditPipelineStatus?: AuditPipelineStatus
   antibodiesStatus?: AntibodiesStatus
   groupReasoningStatus: { enabled: boolean; group_count: number; analyzed: number; running?: boolean; slot_phase?: string; progress_current?: number; progress_total?: number }
+  /** Phase 98: collapse state for pipeline stage groups */
+  fastCollapsed?: boolean;
+  deepCollapsed?: boolean;
+  finalizeCollapsed?: boolean;
+  onToggleGroupCollapsed?: (group: 'fast' | 'deep' | 'finalize') => void;
 }
 
 export interface PanelLLMProps {
@@ -895,6 +900,12 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
             stale: p.traceCoverage.summary?.stale ?? 0
           }}
           provenance={p.pipelineProvenance?.current_data}
+          fastCollapsed={p.fastCollapsed}
+          deepCollapsed={p.deepCollapsed}
+          finalizeCollapsed={p.finalizeCollapsed}
+          onToggleFastCollapsed={p.onToggleGroupCollapsed ? () => p.onToggleGroupCollapsed!('fast') : undefined}
+          onToggleDeepCollapsed={p.onToggleGroupCollapsed ? () => p.onToggleGroupCollapsed!('deep') : undefined}
+          onToggleFinalizeCollapsed={p.onToggleGroupCollapsed ? () => p.onToggleGroupCollapsed!('finalize') : undefined}
         />
       </div>
     ),
