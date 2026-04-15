@@ -530,10 +530,48 @@ def _python_scoring(
 
 # ── Main projection function ─────────────────────────────────────────
 
+def _format_pinned_block(
+    pinned_concepts: List[Dict[str, Any]],
+    budget: int,
+) -> str:
+    """Render a bounded 'Pinned for this role:' preamble.
+
+    Each concept is rendered as ``- **Title**: truncated content``.
+    Stops adding entries when the block would overflow ``budget`` chars.
+    Returns ``""`` if ``pinned_concepts`` is empty or ``budget`` is too small.
+    """
+    if not pinned_concepts or budget < 80:
+        return ""
+    header = "[Pinned for this role]\n"
+    lines: List[str] = []
+    remaining = budget - len(header) - 2  # trailing blank line
+    for c in pinned_concepts:
+        title = str(c.get("title") or "").strip()
+        content = str(c.get("content") or "").strip()
+        if not title:
+            continue
+        # Reserve ~120 chars per concept for the preview; truncate harder if tight.
+        max_preview = max(40, min(160, remaining // max(1, len(pinned_concepts))))
+        preview = content.replace("\n", " ")
+        if len(preview) > max_preview:
+            preview = preview[: max_preview - 1].rstrip() + "…"
+        entry = f"- **{title}**: {preview}\n" if preview else f"- **{title}**\n"
+        if len(entry) > remaining:
+            break
+        lines.append(entry)
+        remaining -= len(entry)
+    if not lines:
+        return ""
+    return header + "".join(lines) + "\n"
+
+
 def project_atlas_for_role(
     role: RoleVector,
     index_dir: Path,
     atlas_content: str = "",
+    *,
+    overrides: Optional[Any] = None,
+    pinned_concepts: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
     """Project the codebase atlas through a role-specific lens.
 
@@ -549,10 +587,37 @@ def project_atlas_for_role(
         role: The resolved RoleVector.
         index_dir: Path to the project's index directory.
         atlas_content: The full atlas content (for identity/stack extraction).
+        overrides: Optional ``RoleOverride`` (from ``role_overrides_store``)
+            whose ``max_chars`` replaces the role's default budget. Typed
+            loosely here so the projection layer doesn't pull the services
+            layer into its import graph.
+        pinned_concepts: Optional list of ``{"title": str, "content": str}``
+            dicts to render as a preamble before the scored projection.
+            Capped at 20% of the effective budget; honors a deterministic
+            insertion order when callers sort by pinned_at.
 
     Returns:
         A role-filtered sub-atlas string.
     """
+    # Apply max_chars override BEFORE any budget math.
+    if overrides is not None:
+        override_max = getattr(overrides, "max_chars", None)
+        if isinstance(override_max, int) and override_max > 0:
+            role = role.copy()
+            role.max_chars = override_max
+
+    # Reserve budget for the pinned block (up to 20% of effective budget).
+    pin_block = ""
+    if pinned_concepts:
+        pin_budget = role.max_chars // 5
+        pin_block = _format_pinned_block(pinned_concepts, pin_budget)
+        if pin_block:
+            # Shrink the role budget by the size of the pin block so the
+            # final output stays under the effective max_chars. Floor at 200
+            # so downstream assembly still has something to work with.
+            role = role.copy()
+            role.max_chars = max(200, role.max_chars - len(pin_block))
+
     modules = _load_modules(index_dir)
 
     # ── Try Rust fast path (Phase 64D) ───────────────────────────────
@@ -565,8 +630,8 @@ def project_atlas_for_role(
     if scored is None:
         # No data at all — return the full atlas with a role note
         if atlas_content:
-            return f"[Role: {role.display_name}]\n\n{atlas_content}"
-        return f"[Role: {role.display_name}] No codebase data available."
+            return pin_block + f"[Role: {role.display_name}]\n\n{atlas_content}"
+        return pin_block + f"[Role: {role.display_name}] No codebase data available."
 
     # Drop CoDRAG-generated / AI-tool instruction files from projection
     # results. These are already excluded at the walker level via
@@ -585,11 +650,12 @@ def project_atlas_for_role(
 
     # Route to detail-level-appropriate assembly
     if role.detail_level < 0.3:
-        return _assemble_executive(role, identity, stack, modules, scored)
+        body = _assemble_executive(role, identity, stack, modules, scored)
     elif role.detail_level <= 0.7:
-        return _assemble_manager(role, identity, stack, modules, scored)
+        body = _assemble_manager(role, identity, stack, modules, scored)
     else:
-        return _assemble_practitioner(role, identity, stack, modules, scored)
+        body = _assemble_practitioner(role, identity, stack, modules, scored)
+    return pin_block + body
 
 
 # ── Assembly functions ───────────────────────────────────────────────

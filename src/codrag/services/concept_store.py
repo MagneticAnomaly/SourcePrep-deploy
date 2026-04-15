@@ -728,16 +728,44 @@ class ConceptStore:
             return cur.rowcount > 0
 
     def delete(self, concept_id: str) -> bool:
-        """Delete a single concept.  Returns True if it existed."""
+        """Delete a single concept.  Returns True if it existed.
+
+        Phase 104: also cleans up any role pins referencing this concept
+        so anonymous MCP callers don't receive stale pin IDs.
+        """
         conn = self._require_conn()
         with self._lock:
+            # Look up project_id before deleting so we can scope the pin
+            # cleanup to the right project's settings namespace.
+            row = conn.execute(
+                "SELECT project_id FROM concepts WHERE id = ?", (concept_id,),
+            ).fetchone()
+            project_id = row["project_id"] if row else None
+
             cur = conn.execute("DELETE FROM concepts WHERE id = ?", (concept_id,))
             try:
                 conn.execute("DELETE FROM concepts_fts WHERE id = ?", (concept_id,))
             except sqlite3.OperationalError:
                 pass
             conn.commit()
-            return cur.rowcount > 0
+            deleted = cur.rowcount > 0
+
+        if deleted and project_id:
+            # Lazy import avoids a circular dependency between the two
+            # service stores at import time.
+            try:
+                from codrag.services.role_overrides_store import (
+                    role_overrides_store,
+                )
+                role_overrides_store.unpin_concept_from_all_roles(
+                    project_id, concept_id,
+                )
+            except Exception as e:
+                logger.debug(
+                    "Pin cleanup failed for concept %s in %s: %s",
+                    concept_id, project_id, e,
+                )
+        return deleted
 
     def clear_project(self, project_id: str) -> int:
         """Delete all concepts and questions for a project."""

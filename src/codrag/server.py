@@ -627,7 +627,9 @@ from codrag.api.routers.architecture import router as architecture_router
 from codrag.api.routers.mcp_setup import router as mcp_setup_router
 from codrag.api.routers.collaboration import router as collaboration_router
 from codrag.api.routers.queue import router as queue_router
+from codrag.api.routers.roles_endpoints import router as roles_router
 app.include_router(system_router)
+app.include_router(roles_router)
 app.include_router(license_router)
 app.include_router(trace_router)
 app.include_router(knowledge_router)

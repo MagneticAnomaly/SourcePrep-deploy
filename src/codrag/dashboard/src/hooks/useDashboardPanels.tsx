@@ -2,6 +2,7 @@ import { useMemo, useState, useCallback, useEffect } from 'react'
 import type { UseGoalpostsSystemReturn } from './useGoalpostsSystem'
 import type { UseRoadmapSystemReturn } from './useRoadmapSystem'
 import { FileText } from 'lucide-react'
+import { AtlasLensContainer } from '../components/AtlasLensContainer'
 import {
   IndexStatusCard,
   SearchPanel,
@@ -27,7 +28,6 @@ import {
   LogConsole,
   IndexHealthPanel,
   TokenBudgetPanel,
-  AtlasStatusCard,
   ActivityHeatmap,
   AuditPanel,
   SpaghettiFinderPanel,
@@ -955,9 +955,9 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
       />
     ),
     atlas: (
-      <AtlasStatusCard
-        atlas={atlas.atlasStatus}
-        className="h-full border-none shadow-none bg-transparent"
+      <AtlasLensContainer
+        projectId={p.selectedProjectId}
+        className="h-full"
       />
     ),
     'activity-heatmap': props.activityData ? (

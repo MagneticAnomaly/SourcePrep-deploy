@@ -165,9 +165,23 @@ export interface ApiClient {
   // Pipeline Provenance (Phase 49)
   getPipelineProvenance(projectId: string): Promise<import('../types').PipelineProvenance>;
 
-  // Codebase Atlas (Phase 29)
-  getAtlas(projectId: string): Promise<import('../types').AtlasStatus>;
-  regenerateAtlas(projectId: string): Promise<import('../types').AtlasStatus>;
+  // Codebase Atlas (Phase 29, extended Phase 104)
+  getAtlas(projectId: string, role?: string): Promise<import('../types').AtlasStatus>;
+
+  // Pipeline stage triggers (Phase 105a)
+  runPipelineStage(projectId: string, stageId: string, opts?: { force?: boolean }): Promise<{ started: boolean; group: string }>;
+
+  // Built-in Roles (Phase 104)
+  listBuiltinRoles(): Promise<{ roles: import('../types').RoleVectorPayload[]; count: number }>;
+
+  // Role Overrides (Phase 104)
+  listRoleOverrides(projectId: string): Promise<{ overrides: import('../types').RoleOverride[]; count: number }>;
+  getRoleOverride(projectId: string, roleId: string): Promise<{ override: import('../types').RoleOverride | null }>;
+  putRoleOverride(projectId: string, roleId: string, body: { max_chars?: number | null }): Promise<{ override: import('../types').RoleOverride }>;
+  deleteRoleOverride(projectId: string, roleId: string): Promise<{ deleted: boolean }>;
+  pinConceptToRole(projectId: string, roleId: string, conceptId: string): Promise<{ pinned_concept_ids: string[] }>;
+  unpinConceptFromRole(projectId: string, roleId: string, conceptId: string): Promise<{ pinned_concept_ids: string[] }>;
+  getRolesPinningConcept(projectId: string, conceptId: string): Promise<{ role_ids: string[]; count: number }>;
 
   // Settings Store (Phase 24)
   getSettings(): Promise<Record<string, any>>;
@@ -1131,14 +1145,101 @@ export class CodragApiClient implements ApiClient {
 
   // ── Codebase Atlas (Phase 29) ──────────────────────────────────
 
-  async getAtlas(projectId: string): Promise<import('../types').AtlasStatus> {
-    return this.requestEnvelope<import('../types').AtlasStatus>(`/projects/${encodeURIComponent(projectId)}/atlas`);
+  async getAtlas(projectId: string, role?: string): Promise<import('../types').AtlasStatus> {
+    const pid = encodeURIComponent(projectId);
+    const qs = role ? `?role=${encodeURIComponent(role)}` : '';
+    return this.requestEnvelope<import('../types').AtlasStatus>(`/projects/${pid}/atlas${qs}`);
   }
 
-  async regenerateAtlas(projectId: string): Promise<import('../types').AtlasStatus> {
-    return this.requestEnvelope<import('../types').AtlasStatus>(`/projects/${encodeURIComponent(projectId)}/atlas/regenerate`, {
-      method: 'POST',
-    });
+  async runPipelineStage(
+    projectId: string,
+    stageId: string,
+    opts: { force?: boolean } = {},
+  ): Promise<{ started: boolean; group: string }> {
+    const pid = encodeURIComponent(projectId);
+    const sid = encodeURIComponent(stageId);
+    const qs = opts.force ? '?force=true' : '';
+    return this.requestEnvelope(
+      `/projects/${pid}/pipeline/stages/${sid}/run${qs}`,
+      { method: 'POST' },
+    );
+  }
+
+  // ── Built-in Roles (Phase 104) ─────────────────────────────────
+
+  async listBuiltinRoles(): Promise<{ roles: import('../types').RoleVectorPayload[]; count: number }> {
+    return this.requestEnvelope('/roles');
+  }
+
+  // ── Role Overrides (Phase 104) ─────────────────────────────────
+
+  async listRoleOverrides(
+    projectId: string,
+  ): Promise<{ overrides: import('../types').RoleOverride[]; count: number }> {
+    return this.requestEnvelope(
+      `/projects/${encodeURIComponent(projectId)}/role-overrides`,
+    );
+  }
+
+  async getRoleOverride(
+    projectId: string,
+    roleId: string,
+  ): Promise<{ override: import('../types').RoleOverride | null }> {
+    return this.requestEnvelope(
+      `/projects/${encodeURIComponent(projectId)}/role-overrides/${encodeURIComponent(roleId)}`,
+    );
+  }
+
+  async putRoleOverride(
+    projectId: string,
+    roleId: string,
+    body: { max_chars?: number | null },
+  ): Promise<{ override: import('../types').RoleOverride }> {
+    return this.requestEnvelope(
+      `/projects/${encodeURIComponent(projectId)}/role-overrides/${encodeURIComponent(roleId)}`,
+      { method: 'PUT', body },
+    );
+  }
+
+  async deleteRoleOverride(
+    projectId: string,
+    roleId: string,
+  ): Promise<{ deleted: boolean }> {
+    return this.requestEnvelope(
+      `/projects/${encodeURIComponent(projectId)}/role-overrides/${encodeURIComponent(roleId)}`,
+      { method: 'DELETE' },
+    );
+  }
+
+  async pinConceptToRole(
+    projectId: string,
+    roleId: string,
+    conceptId: string,
+  ): Promise<{ pinned_concept_ids: string[] }> {
+    return this.requestEnvelope(
+      `/projects/${encodeURIComponent(projectId)}/role-overrides/${encodeURIComponent(roleId)}/pin`,
+      { method: 'POST', body: { concept_id: conceptId } },
+    );
+  }
+
+  async unpinConceptFromRole(
+    projectId: string,
+    roleId: string,
+    conceptId: string,
+  ): Promise<{ pinned_concept_ids: string[] }> {
+    return this.requestEnvelope(
+      `/projects/${encodeURIComponent(projectId)}/role-overrides/${encodeURIComponent(roleId)}/pin/${encodeURIComponent(conceptId)}`,
+      { method: 'DELETE' },
+    );
+  }
+
+  async getRolesPinningConcept(
+    projectId: string,
+    conceptId: string,
+  ): Promise<{ role_ids: string[]; count: number }> {
+    return this.requestEnvelope(
+      `/projects/${encodeURIComponent(projectId)}/concepts/${encodeURIComponent(conceptId)}/pinned-roles`,
+    );
   }
 
   // ── Settings Store (Phase 24) ─────────────────────────────────
