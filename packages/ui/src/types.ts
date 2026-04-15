@@ -1223,6 +1223,13 @@ export interface GlobalConfig {
     theme?: string;
     bg_image?: string | null;
   };
+  /** Phase 98: per-group collapse state for GraphEnrichmentPipeline.
+   *  All three default to `true` (collapsed) when absent. */
+  pipeline_ui?: {
+    fast_collapsed?: boolean;
+    deep_collapsed?: boolean;
+    finalize_collapsed?: boolean;
+  };
   module_layout?: import('./types/layout').DashboardLayout;
   developer_debug_mode?: boolean;
   developer_show_dev_panels?: boolean;
