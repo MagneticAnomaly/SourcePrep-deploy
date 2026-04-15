@@ -5,3 +5,20 @@ export { TechStackMatrix, techStackComponents, type TechStackMatrixProps, type S
 export { CompetitorMatrix, type CompetitorMatrixProps } from './CompetitorMatrix';
 export { DetailPageLayout } from './DetailPageLayout';
 export type { DetailPageLayoutProps, DetailPageSection } from './DetailPageLayout';
+export {
+  SourceCard,
+  SourceSpotlight,
+  ResearchHero,
+  SourceFilterChips,
+  ResearchAppendix,
+  ResearchSection,
+} from './research';
+export type {
+  SourceCardProps,
+  SourceSpotlightProps,
+  ResearchHeroProps,
+  SourceFilterChipsProps,
+  FilterValue,
+  ResearchAppendixProps,
+  ResearchSectionProps,
+} from './research';

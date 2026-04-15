@@ -114,7 +114,7 @@ export function AnimatedIDE({
             type: 'tool',
             toolName: activeToolInfo.name,
             content: `Show Details v\n${event.text}`,
-            toolStatus: event.status ?? 'success'
+            toolStatus: event.status === 'info' ? 'success' : (event.status ?? 'success')
           });
           setActiveToolInfo(null);
         }

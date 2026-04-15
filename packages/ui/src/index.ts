@@ -279,3 +279,22 @@ export { useEventStream } from './hooks/useEventStream';
 export * from './api';
 export { SyncStatusCard } from './components/team/SyncStatusCard';
 export type { SyncStatusCardProps } from './components/team/SyncStatusCard';
+export {
+  SourceCard,
+  SourceSpotlight,
+  ResearchHero,
+  SourceFilterChips,
+  ResearchAppendix,
+  ResearchSection,
+} from './components/marketing/research';
+export type {
+  SourceCardProps,
+  SourceSpotlightProps,
+  ResearchHeroProps,
+  SourceFilterChipsProps,
+  FilterValue,
+  ResearchAppendixProps,
+  ResearchSectionProps,
+} from './components/marketing/research';
+export { RESEARCH_SOURCES, validateResearchSources } from './data/researchSources';
+export type { ResearchSource, SourceType, ProblemArea } from './data/researchSources';
