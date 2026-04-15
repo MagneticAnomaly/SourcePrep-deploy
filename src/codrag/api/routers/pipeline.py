@@ -802,7 +802,12 @@ def pipeline_cancel(project_id: str, req: CancelRequest) -> dict[str, Any]:
     from codrag.server import _require_project
     _require_project(project_id)
 
-    from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+    from codrag.services.pipeline_orchestrator import FINALIZE_STAGES, pipeline_orchestrator
+
+    # Phase 105a (C2): Solo finalize-stage runs register under the stage's own
+    # value as the group key (e.g. "atlas", "concepts"). Extend the allowed set
+    # beyond the three canonical group names so cancel reaches those runs.
+    _solo_finalize_values = {s.value for s in FINALIZE_STAGES}
 
     if req.group == "fast_sync":
         cancelled = pipeline_orchestrator.cancel_fast_sync(project_id)
@@ -810,11 +815,17 @@ def pipeline_cancel(project_id: str, req: CancelRequest) -> dict[str, Any]:
         cancelled = pipeline_orchestrator.cancel_deep_enrichment(project_id)
     elif req.group == "finalize":
         cancelled = pipeline_orchestrator.cancel_finalize(project_id)
+    elif req.group in _solo_finalize_values:
+        # Solo run — delegate to the internal group cancel using the raw stage name.
+        cancelled = pipeline_orchestrator._cancel_group(project_id, req.group)
     else:
         raise ApiException(
             status_code=400,
             code="INVALID_GROUP",
-            message=f"Unknown group: {req.group}. Must be 'fast_sync', 'deep_enrichment', or 'finalize'.",
+            message=(
+                f"Unknown group: {req.group}. Must be 'fast_sync', 'deep_enrichment', "
+                f"'finalize', or a finalize stage name ({', '.join(sorted(_solo_finalize_values))})."
+            ),
         )
 
     if not cancelled:
@@ -837,7 +848,12 @@ def pipeline_pause(project_id: str, req: PauseRequest) -> dict[str, Any]:
     from codrag.server import _require_project
     _require_project(project_id)
 
-    from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+    from codrag.services.pipeline_orchestrator import FINALIZE_STAGES, pipeline_orchestrator
+
+    # Phase 105a (C2): Solo finalize-stage runs register under the stage's own
+    # value as the group key (e.g. "atlas", "concepts"). Extend the allowed set
+    # beyond the three canonical group names so pause reaches those runs.
+    _solo_finalize_values = {s.value for s in FINALIZE_STAGES}
 
     if req.group == "fast_sync":
         paused = pipeline_orchestrator.pause_fast_sync(project_id)
@@ -845,11 +861,17 @@ def pipeline_pause(project_id: str, req: PauseRequest) -> dict[str, Any]:
         paused = pipeline_orchestrator.pause_deep_enrichment(project_id)
     elif req.group == "finalize":
         paused = pipeline_orchestrator.pause_finalize(project_id)
+    elif req.group in _solo_finalize_values:
+        # Solo run — delegate to the internal group pause using the raw stage name.
+        paused = pipeline_orchestrator._pause_group(project_id, req.group)
     else:
         raise ApiException(
             status_code=400,
             code="INVALID_GROUP",
-            message=f"Unknown group: {req.group}. Must be 'fast_sync', 'deep_enrichment', or 'finalize'.",
+            message=(
+                f"Unknown group: {req.group}. Must be 'fast_sync', 'deep_enrichment', "
+                f"'finalize', or a finalize stage name ({', '.join(sorted(_solo_finalize_values))})."
+            ),
         )
 
     if not paused:

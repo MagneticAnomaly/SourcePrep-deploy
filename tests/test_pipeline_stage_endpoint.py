@@ -86,3 +86,49 @@ def test_post_stage_run_accepts_force_query_param(client, tmp_path):
     assert res.status_code == 200
     _args, kwargs = mock_run.call_args
     assert kwargs.get("force") is True
+
+
+def test_cancel_accepts_solo_finalize_group(client, tmp_path):
+    """A solo atlas run must be cancelable via POST /pipeline/cancel?group=atlas."""
+    pid = _add_embedded_project(client, tmp_path)
+    with patch(
+        "codrag.services.pipeline_orchestrator.pipeline_orchestrator._cancel_group",
+        return_value=True,
+    ) as mock_cancel:
+        res = client.post(f"/projects/{pid}/pipeline/cancel", json={"group": "atlas"})
+    assert res.status_code == 200
+    assert res.json()["data"]["cancelled"] is True
+    # Verify the orchestrator got called with the raw stage name.
+    args, _ = mock_cancel.call_args
+    assert args[1] == "atlas"
+
+
+def test_pause_accepts_solo_finalize_group(client, tmp_path):
+    """A solo atlas run must be pausable via POST /pipeline/pause?group=atlas."""
+    pid = _add_embedded_project(client, tmp_path)
+    with patch(
+        "codrag.services.pipeline_orchestrator.pipeline_orchestrator._pause_group",
+        return_value=True,
+    ) as mock_pause:
+        res = client.post(f"/projects/{pid}/pipeline/pause", json={"group": "atlas"})
+    assert res.status_code == 200
+    assert res.json()["data"]["paused"] is True
+    # Verify the orchestrator got called with the raw stage name.
+    args, _ = mock_pause.call_args
+    assert args[1] == "atlas"
+
+
+def test_cancel_unknown_group_returns_400(client, tmp_path):
+    """Groups not in the allow-list must return 400 INVALID_GROUP."""
+    pid = _add_embedded_project(client, tmp_path)
+    res = client.post(f"/projects/{pid}/pipeline/cancel", json={"group": "not_a_group"})
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == "INVALID_GROUP"
+
+
+def test_pause_unknown_group_returns_400(client, tmp_path):
+    """Groups not in the allow-list must return 400 INVALID_GROUP."""
+    pid = _add_embedded_project(client, tmp_path)
+    res = client.post(f"/projects/{pid}/pipeline/pause", json={"group": "not_a_group"})
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == "INVALID_GROUP"
