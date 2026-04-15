@@ -37,10 +37,13 @@ def test_returns_same_instance_for_repeated_calls(tmp_path):
     assert a is b
 
 
-def test_returns_none_when_disabled():
+def test_returns_none_when_disabled(tmp_path):
+    """Patches must target the symbol the service module actually imports."""
     reset_cache()
-    with patch("codrag.core.git_evidence.is_enabled", return_value=False):
-        assert get_git_evidence(Path("/tmp")) is None
+    _init_repo(tmp_path)
+    # Patch in the service namespace, not the origin module
+    with patch("codrag.services.git_evidence_service.is_enabled", return_value=False):
+        assert get_git_evidence(tmp_path) is None
 
 
 def test_reset_cache_clears_instances(tmp_path):
