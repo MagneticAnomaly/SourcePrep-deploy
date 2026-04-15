@@ -852,6 +852,15 @@ class PipelineOrchestrator:
 
         if not force:
             self._selfheal_group(project_id, [stage_id])
+        else:
+            # force=True must also bypass the per-stage freshness check
+            # (_should_skip_stage_freshness at line ~2972). Mirrors the
+            # Rebuild flow (_start_group F-82 path). The flag is cleared by
+            # the orchestrator when the run terminates. Without this,
+            # clicking Regenerate when outputs are newer than inputs
+            # silently no-ops in <50ms and looks like the button did
+            # nothing — exactly the symptom seen on HomeColab.
+            self._force_from_start_runs.add(project_id)
 
         return self._start_group(
             project_id, stage_id.value, [stage_id], resume_from=0,

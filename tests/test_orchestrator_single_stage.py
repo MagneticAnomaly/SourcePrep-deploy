@@ -116,6 +116,31 @@ def test_run_single_stage_force_bypasses_selfheal_and_resume(pipeline):
     selfheal.assert_not_called()
 
 
+def test_run_single_stage_force_adds_project_to_force_from_start_runs(pipeline):
+    """force=True must also bypass the stage-level freshness skip.
+
+    Without this, a solo run when outputs are newer than inputs
+    completes in ~20ms via _should_skip_stage_freshness, making the
+    Regenerate button visually no-op on projects whose atlas is
+    already current (HomeColab symptom observed 2026-04-14).
+    """
+    with patch.object(pipeline, "_check_project_active", return_value=True), \
+         patch.object(pipeline, "_selfheal_group"), \
+         patch.object(pipeline, "_start_group", return_value=True):
+        assert "proj-1" not in pipeline._force_from_start_runs
+        pipeline.run_single_stage("proj-1", StageId.ATLAS, force=True)
+        assert "proj-1" in pipeline._force_from_start_runs
+
+
+def test_run_single_stage_without_force_does_not_flag_force_from_start(pipeline):
+    """Default force=False must not pollute _force_from_start_runs."""
+    with patch.object(pipeline, "_check_project_active", return_value=True), \
+         patch.object(pipeline, "_selfheal_group"), \
+         patch.object(pipeline, "_start_group", return_value=True):
+        pipeline.run_single_stage("proj-1", StageId.ATLAS)
+        assert "proj-1" not in pipeline._force_from_start_runs
+
+
 def test_status_reflects_active_solo_run(pipeline):
     """status() must expose solo runs so the UI can display them.
 

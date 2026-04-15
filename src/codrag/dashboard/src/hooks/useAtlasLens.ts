@@ -135,8 +135,13 @@ export function useAtlasLens(
     setRegenerating(true);
     setError(null);
     try {
+      // `force=true` makes the Regenerate button semantically honest:
+      // the user explicitly asked for a rebuild, so bypass the pipeline's
+      // freshness-skip short-circuit. Without this, the orchestrator
+      // skips in ~20ms when outputs are already current and the button
+      // visually does nothing.
       const res = await fetch(
-        `/projects/${encodeURIComponent(projectId)}/pipeline/stages/atlas/run`,
+        `/projects/${encodeURIComponent(projectId)}/pipeline/stages/atlas/run?force=true`,
         { method: 'POST' },
       );
       if (!res.ok) {
