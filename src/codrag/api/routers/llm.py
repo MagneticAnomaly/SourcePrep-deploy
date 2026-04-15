@@ -590,7 +590,12 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
         registry = _get_reg()
         for project in registry.list_projects():
             ps = pipeline_orchestrator.status(project.id)
-            for group_name in ("fast_sync", "deep_enrichment"):
+            # Phase 105a: "finalize" covers both traditional finalize
+            # group runs AND solo runs like atlas/concepts/audit — the
+            # orchestrator's status() merges solo runs into the finalize
+            # slot so existing consumers (including this loop) pick them
+            # up unchanged.
+            for group_name in ("fast_sync", "deep_enrichment", "finalize"):
                 group_run = ps.get(group_name)
                 if group_run and group_run.get("is_active") and group_run.get("current_stage"):
                     stage_str = group_run["current_stage"]

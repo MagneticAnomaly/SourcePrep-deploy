@@ -34,6 +34,59 @@ function unwrap<T = unknown>(body: { data?: T } | T): T {
   return body as T;
 }
 
+/**
+ * Poll /pipeline/status until the atlas stage is no longer running.
+ *
+ * Solo finalize runs surface through the orchestrator's `finalize` slot
+ * (C1 fix), so we watch that key. The function resolves in three cases:
+ *   1. We observe the atlas stage active and then inactive (work ran).
+ *   2. We never observe it active for ~6s (orchestrator took the skip
+ *      path or the run is too fast to catch — either way, done).
+ *   3. We hit the 5-minute timeout (defensive).
+ *
+ * 1500ms cadence matches the existing llm-config polling feel.
+ */
+async function pollUntilAtlasStageDone(
+  projectId: string,
+  opts: { timeoutMs?: number; intervalMs?: number; initialGraceMs?: number } = {},
+): Promise<void> {
+  const timeoutMs = opts.timeoutMs ?? 5 * 60 * 1000;
+  const intervalMs = opts.intervalMs ?? 1500;
+  const initialGraceMs = opts.initialGraceMs ?? 6000;
+
+  const deadline = Date.now() + timeoutMs;
+  let sawRunning = false;
+  const startedAt = Date.now();
+
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(
+        `/projects/${encodeURIComponent(projectId)}/pipeline/status`,
+      );
+      if (!res.ok) return; // Give up on transient network failures.
+      const body = await res.json();
+      const data = unwrap<{ finalize?: { is_active?: boolean; current_stage?: string } }>(body);
+      const fin = data?.finalize;
+      const isAtlasActive = Boolean(
+        fin?.is_active && fin?.current_stage === 'atlas',
+      );
+      if (isAtlasActive) {
+        sawRunning = true;
+      } else if (sawRunning) {
+        // Run left the active state → done.
+        return;
+      } else if (Date.now() - startedAt >= initialGraceMs) {
+        // Never saw it active — orchestrator likely took the skip path
+        // or completed before our first poll. Don't block forever.
+        return;
+      }
+    } catch {
+      // Network blip — try again next tick.
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+}
+
 export function useAtlasLens(
   projectId: string | null,
   opts: { signal?: AbortSignal } = {},
@@ -150,9 +203,12 @@ export function useAtlasLens(
         const msg = body?.error?.message ?? `run atlas failed: ${res.status}`;
         throw new Error(msg);
       }
-      // Re-fetch so we show the fresh atlas + (if a role is active) the
-      // updated role projection. The orchestrator owns the pipeline panel's
-      // stage-state update via its own channel.
+      // The POST returns as soon as the orchestrator queues the job, not
+      // when the LLM work finishes. Poll pipeline status until the atlas
+      // stage leaves the running state, then refresh atlas data. Without
+      // this, the panel's stale badge and segment counts stay on the
+      // pre-regen values until the user manually reloads.
+      await pollUntilAtlasStageDone(projectId);
       await refresh();
     } catch (e) {
       setError((e as Error).message);
