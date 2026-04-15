@@ -136,6 +136,9 @@ function App() {
   const [bgImage, setBgImage] = useState<string | null>(() =>
     localStorage.getItem('codrag_bg_image') ?? null
   )
+  const [fastCollapsed, setFastCollapsed] = useState<boolean>(true);
+  const [deepCollapsed, setDeepCollapsed] = useState<boolean>(true);
+  const [finalizeCollapsed, setFinalizeCollapsed] = useState<boolean>(true);
   const [maxActiveProjects, setMaxActiveProjects] = useState<number | 'infinite'>('infinite')
   const [schedulerStatus, setSchedulerStatus] = useState<any>(null)
   const [computeNodes, setComputeNodes] = useState<any[]>([])
@@ -505,6 +508,22 @@ function App() {
     api.updateGlobalConfig(patch as any).catch(() => { })
   }, [api])
 
+  const handleToggleGroupCollapsed = useCallback((group: 'fast' | 'deep' | 'finalize') => {
+    let nextFast = fastCollapsed;
+    let nextDeep = deepCollapsed;
+    let nextFin = finalizeCollapsed;
+    if (group === 'fast') { nextFast = !fastCollapsed; setFastCollapsed(nextFast); }
+    if (group === 'deep') { nextDeep = !deepCollapsed; setDeepCollapsed(nextDeep); }
+    if (group === 'finalize') { nextFin = !finalizeCollapsed; setFinalizeCollapsed(nextFin); }
+    api.updateGlobalConfig({
+      pipeline_ui: {
+        fast_collapsed: nextFast,
+        deep_collapsed: nextDeep,
+        finalize_collapsed: nextFin,
+      },
+    } as any).catch(() => { });
+  }, [api, fastCollapsed, deepCollapsed, finalizeCollapsed])
+
   const handleDestroyAtlas = useCallback(async () => {
     if (!selectedProjectId) return
     try { await api.destroyAtlas(selectedProjectId) } catch (e) { console.error('destroyAtlas failed', e) }
@@ -636,6 +655,12 @@ function App() {
             if (prefs.mode) setUiMode(prefs.mode)
             if (prefs.theme) setUiTheme(prefs.theme)
             if (prefs.bg_image !== undefined) setBgImage(prefs.bg_image)
+          }
+          if (globalCfg.pipeline_ui) {
+            const pui = globalCfg.pipeline_ui;
+            if (typeof pui.fast_collapsed === 'boolean') setFastCollapsed(pui.fast_collapsed);
+            if (typeof pui.deep_collapsed === 'boolean') setDeepCollapsed(pui.deep_collapsed);
+            if (typeof pui.finalize_collapsed === 'boolean') setFinalizeCollapsed(pui.finalize_collapsed);
           }
           if (globalCfg.module_layout?.version) {
             // Only write backend layout to localStorage if localStorage
@@ -820,6 +845,10 @@ function App() {
       fastPausedStage,
       deepPausedStage,
       finalizePausedStage,
+      fastCollapsed,
+      deepCollapsed,
+      finalizeCollapsed,
+      onToggleGroupCollapsed: handleToggleGroupCollapsed,
       groupReasoningStatus,
       rulesStatus,
       conceptsStatus,
