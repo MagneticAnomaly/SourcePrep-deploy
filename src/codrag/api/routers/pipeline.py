@@ -225,13 +225,19 @@ def pipeline_run_finalize(project_id: str, force: bool = False) -> dict[str, Any
 def pipeline_run_single_stage(
     project_id: str,
     stage_id: str,
-    force: bool = False,
+    force: bool = True,
 ) -> dict[str, Any]:
     """Run a single finalize stage (stages 11-15) through the orchestrator.
 
     Rejects sync/enrich stages (they must use the group endpoints).
     Returns 409 when another group is active or the orchestrator
     otherwise declines.
+
+    `force` defaults to True: the Regenerate button is the explicit
+    user-driven path that replaces stage data (atomic swap at stage end),
+    so silently skipping when outputs are fresh would make the button
+    feel broken. Callers who want freshness-skip behaviour can pass
+    `force=false` explicitly.
     """
     from codrag.services.project_helpers import require_project_writable
     require_project_writable(project_id)
@@ -314,6 +320,16 @@ def pipeline_rebuild(project_id: str) -> dict[str, Any]:
     """
     from codrag.services.project_helpers import require_project_writable
     require_project_writable(project_id)
+
+    # Reset barrier: block selfheal and backup restore for the duration of
+    # the rebuild. force_from_start already bypasses most selfheal paths,
+    # but the barrier is defense-in-depth and covers any stage that slips
+    # through. Cleared when the finalize group completes.
+    try:
+        from codrag.services.pipeline.recovery import write_reset_barrier
+        write_reset_barrier(project_id, reason="rebuild")
+    except Exception:
+        pass
 
     from codrag.services.pipeline_orchestrator import pipeline_orchestrator
     started = pipeline_orchestrator.run_all(project_id, force_from_start=True)
@@ -431,18 +447,21 @@ async def pipeline_status(project_id: str) -> dict[str, Any]:
                     pass
 
         # Phase 48 (P48-F4): Create separate deep_knowledge_status.
+        # deep_chunks_embedded must reflect ONLY what the deep knowledge
+        # stage (10) produced — epistemic + module documents. Previously
+        # this was clobbered with knowledge_status["chunks_embedded"]
+        # (total of fast + deep) whenever deepening had run, which made
+        # stage 10 flip green the moment stage 5 added any fast chunks.
+        # KnowledgeIndex.status() already separates them via the
+        # deep_chunks_embedded field; just honour that.
         deep_knowledge_status = dict(knowledge_status)
-        deepening_path = idx_dir / "trace_epistemic.jsonl"
-        modules_path = idx_dir / "trace_modules.jsonl"
-        deep_has_run = (
-            deepening_path.exists() and deepening_path.stat().st_size > 0 and
-            modules_path.exists() and modules_path.stat().st_size > 0
+        deep_knowledge_status["deep_chunks_embedded"] = int(
+            knowledge_status.get("deep_chunks_embedded", 0) or 0
         )
-        deep_knowledge_status["deep_chunks_embedded"] = (
-            knowledge_status.get("chunks_embedded", 0) if deep_has_run else 0
-        )
-        # F-76: Also fall back to deep_knowledge_manifest for deep stage.
-        if deep_knowledge_status["deep_chunks_embedded"] == 0 and deep_has_run:
+        # F-76: If runtime count is 0 but deep_knowledge_manifest records
+        # a historical run (daemon restart mid-rebuild / page refresh),
+        # surface that count so the UI keeps showing green.
+        if deep_knowledge_status["deep_chunks_embedded"] == 0:
             dk_manifest = idx_dir / "deep_knowledge_manifest.json"
             if dk_manifest.exists():
                 try:
@@ -561,12 +580,20 @@ async def pipeline_status(project_id: str) -> dict[str, Any]:
                 "routing": False,
             }
 
-        # Rules status
+        # Rules status — driven by rules_manifest.json (the authoritative
+        # stage provenance), not AGENTS.md existence. AGENTS.md is a
+        # user-facing file that persists across scoped resets by design
+        # (it may be hand-edited and is often committed to git), so using
+        # it as the completion signal makes the rules stage appear green
+        # after Reset Finalize / Reset Enrichment. The manifest tracks
+        # whether the stage actually ran.
         rules_status: dict[str, Any] = {"generated": False, "stale": False}
         try:
             from pathlib import Path as _Path
-            agents_md = _Path(proj.path) / "AGENTS.md"
-            rules_status["generated"] = agents_md.exists()
+            manifest_exists = (idx_dir / "rules_manifest.json").is_file()
+            agents_md_exists = (_Path(proj.path) / "AGENTS.md").exists()
+            rules_status["generated"] = manifest_exists
+            rules_status["agents_md_exists"] = agents_md_exists
         except Exception:
             pass
 

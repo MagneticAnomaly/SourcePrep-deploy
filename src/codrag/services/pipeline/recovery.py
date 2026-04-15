@@ -58,6 +58,58 @@ def _resolve_idx_dir(project_id: str) -> Path | None:
 
 
 _CLEAN_SHUTDOWN_FILENAME = ".pipeline_clean_shutdown"
+_RESET_BARRIER_FILENAME = ".reset_barrier"
+
+
+def write_reset_barrier(project_id: str, reason: str) -> bool:
+    """Write a barrier that disables selfheal until the next finalize completes.
+
+    Reset All and Rebuild set this so selfheal cannot resurrect stage data
+    from orphan output files, golden checkpoints, or branch snapshots while
+    the project is in a known-clean state. Without the barrier, an aborted
+    prior run can leave a data file on disk that selfheal then claims as
+    "complete" via a stub manifest — starving downstream stages of real work.
+
+    Cleared by the orchestrator when the finalize group completes, because
+    at that point every stage has produced a genuine manifest.
+    """
+    idx_dir = _resolve_idx_dir(project_id)
+    if idx_dir is None:
+        return False
+    try:
+        idx_dir.mkdir(parents=True, exist_ok=True)
+        barrier = idx_dir / _RESET_BARRIER_FILENAME
+        barrier.write_text(f"{time.time()}\n{reason}\n")
+        logger.info("Reset barrier set for %s (reason=%s)", project_id, reason)
+        return True
+    except Exception:
+        logger.debug("Failed to write reset barrier for %s", project_id, exc_info=True)
+        return False
+
+
+def clear_reset_barrier(project_id: str) -> bool:
+    """Remove the reset barrier. Called on successful finalize completion."""
+    idx_dir = _resolve_idx_dir(project_id)
+    if idx_dir is None:
+        return False
+    barrier = idx_dir / _RESET_BARRIER_FILENAME
+    if not barrier.is_file():
+        return False
+    try:
+        barrier.unlink()
+        logger.info("Reset barrier cleared for %s", project_id)
+        return True
+    except Exception:
+        logger.debug("Failed to clear reset barrier for %s", project_id, exc_info=True)
+        return False
+
+
+def reset_barrier_active(project_id: str) -> bool:
+    """True if a reset barrier is in effect for this project."""
+    idx_dir = _resolve_idx_dir(project_id)
+    if idx_dir is None:
+        return False
+    return (idx_dir / _RESET_BARRIER_FILENAME).is_file()
 
 
 class RecoveryManager:
@@ -284,6 +336,17 @@ class RecoveryManager:
         if stage == StageId.STRUCTURAL:
             return False
 
+        # Reset barrier: block per-stage backup restore during the post-reset
+        # window. Matches the selfheal_group check so no resurrection path can
+        # bypass the barrier.
+        if reset_barrier_active(run.project_id):
+            if pfl:
+                pfl.log(
+                    stage.value,
+                    "Backup restore skipped (reset barrier active)",
+                )
+            return False
+
         try:
             from codrag.services.branch_backup_manager import (
                 check_stage_backup,
@@ -370,6 +433,21 @@ class RecoveryManager:
         # Force rebuild: skip selfheal
         if force_from_start:
             return {"skipped_force_rebuild": True, "resurrected": 0}
+
+        # Reset barrier: Reset All / Rebuild set this so selfheal cannot
+        # manufacture stub manifests from orphan outputs or backup sources
+        # until a genuine finalize run clears it. Without the barrier, a
+        # trace_epistemic.jsonl left over from an aborted prior run would
+        # be "resurrected" with a fake manifest, and deep reasoning stages
+        # would skip enrichment and consume the stale data.
+        if reset_barrier_active(project_id):
+            if pfl:
+                pfl.selfheal(
+                    "barrier_active",
+                    "Selfheal skipped: reset barrier active — awaiting genuine finalize",
+                    {"stages": [s.value for s in stages]},
+                )
+            return {"skipped_reset_barrier": True, "resurrected": 0}
 
         idx_dir = _resolve_idx_dir(project_id)
         if idx_dir is None:

@@ -9,7 +9,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from codrag.services.pipeline.manifest_store import ManifestStore
-from codrag.services.pipeline.recovery import RecoveryManager, _write_selfheal_stub
+from codrag.services.pipeline.recovery import (
+    RecoveryManager,
+    _RESET_BARRIER_FILENAME,
+    _write_selfheal_stub,
+    clear_reset_barrier,
+    reset_barrier_active,
+    write_reset_barrier,
+)
 from codrag.services.pipeline.stages import (
     DEEP_ENRICHMENT_STAGES,
     FAST_SYNC_STAGES,
@@ -390,3 +397,70 @@ class TestManifestOnlyResurrection:
         assert data["backup_type"] == "golden"
         # Original fields should NOT be present
         assert "model" not in data
+
+
+@pytest.mark.usefixtures("_patch_resolve")
+class TestResetBarrier:
+    """Barrier set by Reset All / Rebuild blocks selfheal until finalize."""
+
+    def test_barrier_blocks_orphan_output_resurrection(
+        self, idx_dir: Path, pfl: MagicMock,
+    ) -> None:
+        stage = StageId.ENRICHMENT
+        output_file = STAGE_OUTPUT_FILE[stage]
+        assert output_file is not None
+        (idx_dir / output_file).write_bytes(b"x" * 2048)
+        write_reset_barrier("test-proj", reason="full_reset")
+
+        result = RecoveryManager.selfheal_group(
+            project_id="test-proj", stages=[stage], pfl=pfl,
+        )
+
+        assert result == {"skipped_reset_barrier": True, "resurrected": 0}
+        store = ManifestStore(idx_dir)
+        assert not store.provenance_exists(stage)
+
+    def test_barrier_blocks_golden_resurrection(self, idx_dir: Path) -> None:
+        stage = StageId.ENRICHMENT
+        _make_golden(idx_dir, stage, size=2048)
+        write_reset_barrier("test-proj", reason="rebuild")
+
+        result = RecoveryManager.selfheal_group(
+            project_id="test-proj", stages=[stage],
+        )
+        assert result.get("skipped_reset_barrier") is True
+
+    def test_barrier_cleared_allows_selfheal(self, idx_dir: Path) -> None:
+        stage = StageId.ENRICHMENT
+        _make_golden(idx_dir, stage, size=2048)
+        write_reset_barrier("test-proj", reason="full_reset")
+        assert reset_barrier_active("test-proj") is True
+
+        clear_reset_barrier("test-proj")
+        assert reset_barrier_active("test-proj") is False
+
+        result = RecoveryManager.selfheal_group(
+            project_id="test-proj", stages=[stage],
+        )
+        assert result["resurrected"] == 1
+
+    def test_barrier_write_creates_sentinel_file(self, idx_dir: Path) -> None:
+        write_reset_barrier("test-proj", reason="full_reset")
+        barrier = idx_dir / _RESET_BARRIER_FILENAME
+        assert barrier.is_file()
+        content = barrier.read_text()
+        assert "full_reset" in content
+
+    def test_clear_returns_false_when_no_barrier(self, idx_dir: Path) -> None:
+        assert clear_reset_barrier("test-proj") is False
+
+    def test_force_from_start_precedes_barrier(self, idx_dir: Path) -> None:
+        """force_from_start check runs before barrier — both skip selfheal,
+        but force_from_start returns its own sentinel."""
+        write_reset_barrier("test-proj", reason="full_reset")
+        result = RecoveryManager.selfheal_group(
+            project_id="test-proj",
+            stages=[StageId.ENRICHMENT],
+            force_from_start=True,
+        )
+        assert result.get("skipped_force_rebuild") is True

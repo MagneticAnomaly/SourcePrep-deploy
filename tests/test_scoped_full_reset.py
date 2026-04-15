@@ -1,0 +1,276 @@
+"""Tests for scoped Danger-Zone resets:
+    DELETE /projects/{id}/enrichment/full-reset  (stages 6-15)
+    DELETE /projects/{id}/finalize/full-reset    (stages 11-15)
+
+Both must wipe their scoped files + dirs, leave fast-sync (stages 1-5)
+intact, and write the reset barrier so selfheal cannot resurrect.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+import codrag.server as server
+import codrag.services.project_helpers as ph
+from codrag.core.project_registry import ProjectRegistry
+from codrag.server import app
+
+
+@pytest.fixture()
+def client(tmp_path: Path) -> TestClient:
+    reg = ProjectRegistry(db_path=tmp_path / "registry.db")
+    server._registry = reg
+    ph._registry = reg
+    server._project_indexes.clear()
+    server._project_trace_indexes.clear()
+    with server._project_build_lock:
+        server._project_build_threads.clear()
+        server._project_last_build_result.clear()
+        server._project_last_build_error.clear()
+    with server._project_trace_build_lock:
+        server._project_trace_build_threads.clear()
+    return TestClient(app)
+
+
+def _add_embedded_project(client: TestClient, repo_root: Path) -> str:
+    res = client.post(
+        "/projects",
+        json={"path": str(repo_root), "name": "test", "mode": "embedded"},
+    )
+    assert res.status_code == 200
+    return str(res.json()["data"]["project"]["id"])
+
+
+def _idx_dir(client: TestClient, pid: str) -> Path:
+    from codrag.core.project_registry import project_index_dir
+    from codrag.services.project_helpers import require_project
+    return Path(project_index_dir(require_project(pid)))
+
+
+def _seed_checkpoint(idx_dir: Path) -> None:
+    """Populate .checkpoints/_golden/ with snapshot files that a scoped
+    reset must clear so selfheal can't resurrect them after the barrier
+    clears on the next finalize completion."""
+    golden = idx_dir / ".checkpoints" / "_golden"
+    golden.mkdir(parents=True, exist_ok=True)
+    (golden / "_meta.json").write_text("{}")
+    (golden / "atlas.json").write_text("{}")
+    (golden / "atlas_manifest.json").write_text("{}")
+    (golden / "trace_nodes.jsonl").write_text('{}\n')
+
+
+def _seed_full_project(idx_dir: Path) -> None:
+    """Populate idx_dir with every artifact from every stage group."""
+    # Fast sync (stages 1-5): must survive scoped resets
+    (idx_dir / "trace_manifest.json").write_text("{}")
+    (idx_dir / "trace_nodes.jsonl").write_text('{"id":"n1"}\n')
+    (idx_dir / "trace_edges.jsonl").write_text('{"src":"a","dst":"b"}\n')
+    (idx_dir / "trace_augmented.jsonl").write_text('{"id":"n1"}\n')
+    (idx_dir / "trace_augment_manifest.json").write_text("{}")
+    (idx_dir / "trace_inferred_edges.jsonl").write_text('{}\n')
+    (idx_dir / "trace_inferred_manifest.json").write_text("{}")
+
+    # Deep enrichment (stages 6-10)
+    (idx_dir / "trace_epistemic.jsonl").write_text('{}\n')
+    (idx_dir / "trace_epistemic_manifest.json").write_text("{}")
+    (idx_dir / "trace_group_reasoning.jsonl").write_text('{}\n')
+    (idx_dir / "group_reasoning_manifest.json").write_text("{}")
+    (idx_dir / "trace_modules.jsonl").write_text('{}\n')
+    (idx_dir / "trace_modules_manifest.json").write_text("{}")
+    (idx_dir / "deepening_manifest.json").write_text("{}")
+    (idx_dir / "deep_knowledge_manifest.json").write_text("{}")
+
+    # Finalize (stages 11-15)
+    (idx_dir / "atlas.json").write_text("{}")
+    (idx_dir / "atlas_manifest.json").write_text("{}")
+    (idx_dir / "atlas_routing.json").write_text("{}")
+    (idx_dir / "rules_manifest.json").write_text("{}")
+    (idx_dir / "concepts_manifest.json").write_text("{}")
+    (idx_dir / "audit_manifest.json").write_text("{}")
+    (idx_dir / "antibodies_manifest.json").write_text("{}")
+
+    (idx_dir / "atlas_roles").mkdir()
+    (idx_dir / "atlas_roles" / "role.json").write_text("{}")
+    (idx_dir / "audit").mkdir()
+    (idx_dir / "audit" / "findings.json").write_text("[]")
+
+
+def test_finalize_full_reset_wipes_finalize_only(client, tmp_path):
+    pid = _add_embedded_project(client, tmp_path)
+    idx_dir = _idx_dir(client, pid)
+    _seed_full_project(idx_dir)
+    _seed_checkpoint(idx_dir)
+
+    res = client.delete(f"/projects/{pid}/finalize/full-reset")
+    assert res.status_code == 200
+
+    # .checkpoints/ is blown away so _golden can't hold stale
+    # finalize-era data that selfheal could resurrect once the barrier
+    # clears on the next finalize completion.
+    assert not (idx_dir / ".checkpoints").exists()
+
+    # Fast sync survives
+    assert (idx_dir / "trace_nodes.jsonl").is_file()
+    assert (idx_dir / "trace_augmented.jsonl").is_file()
+    assert (idx_dir / "trace_inferred_edges.jsonl").is_file()
+
+    # Deep enrichment survives
+    assert (idx_dir / "trace_epistemic.jsonl").is_file()
+    assert (idx_dir / "trace_group_reasoning.jsonl").is_file()
+    assert (idx_dir / "trace_modules.jsonl").is_file()
+    assert (idx_dir / "deepening_manifest.json").is_file()
+    assert (idx_dir / "deep_knowledge_manifest.json").is_file()
+
+    # Finalize wiped
+    assert not (idx_dir / "atlas.json").exists()
+    assert not (idx_dir / "atlas_manifest.json").exists()
+    assert not (idx_dir / "rules_manifest.json").exists()
+    assert not (idx_dir / "concepts_manifest.json").exists()
+    assert not (idx_dir / "audit_manifest.json").exists()
+    assert not (idx_dir / "antibodies_manifest.json").exists()
+    assert not (idx_dir / "atlas_roles").exists()
+    assert not (idx_dir / "audit").exists()
+
+    # Reset barrier written
+    assert (idx_dir / ".reset_barrier").is_file()
+
+
+def test_enrichment_full_reset_wipes_deep_and_finalize(client, tmp_path):
+    pid = _add_embedded_project(client, tmp_path)
+    idx_dir = _idx_dir(client, pid)
+    _seed_full_project(idx_dir)
+    _seed_checkpoint(idx_dir)
+
+    res = client.delete(f"/projects/{pid}/enrichment/full-reset")
+    assert res.status_code == 200
+    assert not (idx_dir / ".checkpoints").exists()
+
+    # Fast sync survives
+    assert (idx_dir / "trace_nodes.jsonl").is_file()
+    assert (idx_dir / "trace_augmented.jsonl").is_file()
+    assert (idx_dir / "trace_inferred_edges.jsonl").is_file()
+    assert (idx_dir / "trace_manifest.json").is_file()
+
+    # Deep enrichment wiped
+    assert not (idx_dir / "trace_epistemic.jsonl").exists()
+    assert not (idx_dir / "trace_group_reasoning.jsonl").exists()
+    assert not (idx_dir / "trace_modules.jsonl").exists()
+    assert not (idx_dir / "deepening_manifest.json").exists()
+    assert not (idx_dir / "deep_knowledge_manifest.json").exists()
+
+    # Finalize wiped
+    assert not (idx_dir / "atlas.json").exists()
+    assert not (idx_dir / "rules_manifest.json").exists()
+    assert not (idx_dir / "concepts_manifest.json").exists()
+    assert not (idx_dir / "audit_manifest.json").exists()
+    assert not (idx_dir / "antibodies_manifest.json").exists()
+    assert not (idx_dir / "atlas_roles").exists()
+    assert not (idx_dir / "audit").exists()
+
+    # Reset barrier written
+    assert (idx_dir / ".reset_barrier").is_file()
+
+
+def test_scoped_reset_barrier_records_reason(client, tmp_path):
+    pid = _add_embedded_project(client, tmp_path)
+    idx_dir = _idx_dir(client, pid)
+    _seed_full_project(idx_dir)
+
+    client.delete(f"/projects/{pid}/enrichment/full-reset")
+    assert "enrichment_reset" in (idx_dir / ".reset_barrier").read_text()
+
+    # Clear and try the other scope
+    (idx_dir / ".reset_barrier").unlink()
+    _seed_full_project(idx_dir)
+    client.delete(f"/projects/{pid}/finalize/full-reset")
+    assert "finalize_reset" in (idx_dir / ".reset_barrier").read_text()
+
+
+def test_scoped_reset_clears_antibody_and_concept_stores(client, tmp_path, monkeypatch):
+    """Both scoped resets must clear antibody_store and concept_store or
+    the UI shows stale 'N antibodies' / 'N concepts' after the manifests
+    are gone. User-authored concepts are not distinguishable from
+    auto-generated ones — Reset means clean slate."""
+    pid = _add_embedded_project(client, tmp_path)
+    idx_dir = _idx_dir(client, pid)
+    _seed_full_project(idx_dir)
+
+    # Spy on the store methods — we don't need real data, just proof the
+    # scoped reset invokes clear_project with the right project_id.
+    from codrag.services import antibody_store as ab_mod
+    from codrag.services import concept_store as cc_mod
+
+    ab_calls: list[str] = []
+    cc_calls: list[str] = []
+    monkeypatch.setattr(
+        ab_mod.antibody_store, "clear_project",
+        lambda pid_: ab_calls.append(pid_) or 0,
+    )
+    monkeypatch.setattr(
+        cc_mod.concept_store, "clear_project",
+        lambda pid_: cc_calls.append(pid_) or 0,
+    )
+
+    res = client.delete(f"/projects/{pid}/enrichment/full-reset")
+    assert res.status_code == 200
+    assert ab_calls == [pid]
+    assert cc_calls == [pid]
+
+    # Re-arm and try the finalize scope
+    ab_calls.clear()
+    cc_calls.clear()
+    _seed_full_project(idx_dir)
+    res = client.delete(f"/projects/{pid}/finalize/full-reset")
+    assert res.status_code == 200
+    assert ab_calls == [pid]
+    assert cc_calls == [pid]
+
+
+def test_antibody_store_clear_project_deletes_rows(tmp_path):
+    """Direct unit test for antibody_store.clear_project — regression
+    guard against the hasattr() silent no-op we just fixed. Inserts
+    rows via raw SQL to sidestep the Antibody dataclass so this test
+    stays stable across antibody schema changes."""
+    from codrag.services.antibody_store import AntibodyStore
+
+    store = AntibodyStore()
+    store.init(tmp_path / "ab.db")
+
+    conn = store._conn
+    assert conn is not None
+    conn.execute(
+        "INSERT INTO antibodies (id, project_id, name, source_concept_id, "
+        "trigger_json, response_json, severity, status, created_at, "
+        "last_triggered, trigger_count, dismiss_count) VALUES "
+        "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        ("ab-1", "p1", "n", "c1", "{}", "{}", "warn", "active", 0.0, None, 0, 0),
+    )
+    conn.execute(
+        "INSERT INTO antibodies (id, project_id, name, source_concept_id, "
+        "trigger_json, response_json, severity, status, created_at, "
+        "last_triggered, trigger_count, dismiss_count) VALUES "
+        "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        ("ab-2", "p2", "n", "c2", "{}", "{}", "warn", "active", 0.0, None, 0, 0),
+    )
+    conn.commit()
+
+    # Sanity: both rows present
+    assert conn.execute(
+        "SELECT COUNT(*) FROM antibodies WHERE project_id = ?", ("p1",)
+    ).fetchone()[0] == 1
+    assert conn.execute(
+        "SELECT COUNT(*) FROM antibodies WHERE project_id = ?", ("p2",)
+    ).fetchone()[0] == 1
+
+    rows = store.clear_project("p1")
+    assert rows == 1
+    # p1 wiped, p2 untouched
+    assert conn.execute(
+        "SELECT COUNT(*) FROM antibodies WHERE project_id = ?", ("p1",)
+    ).fetchone()[0] == 0
+    assert conn.execute(
+        "SELECT COUNT(*) FROM antibodies WHERE project_id = ?", ("p2",)
+    ).fetchone()[0] == 1
+    store.close()

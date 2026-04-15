@@ -1468,10 +1468,13 @@ class PipelineOrchestrator:
     def _is_deep_enrichment_auto(project_id: str) -> bool:
         """Check if deep enrichment should auto-chain after fast sync.
 
-        F-65: reads per-project auto_config first, falls back to global.
-        Returns True if either:
-        - deepEnrichment is 'auto' in project config, OR
-        - fastSync is True (user expectation: AUTO runs the full pipeline)
+        Reads per-project auto_config first, falls back to global.
+        Independent of the fastSync toggle: users can run fast sync
+        automatically (on file change) and still want deep enrichment
+        to wait for the Run button.
+
+        Note: 'scheduled' is NOT auto-chain — scheduled runs fire on
+        their own cadence, not immediately after fast sync.
         """
         try:
             from codrag.services.project_helpers import require_project
@@ -1480,8 +1483,7 @@ class PipelineOrchestrator:
             auto_cfg = pcfg.get("auto_config")
             if auto_cfg and isinstance(auto_cfg, dict):
                 deep = auto_cfg.get("deepEnrichment", auto_cfg.get("deep_enrichment", "manual"))
-                fast = auto_cfg.get("fastSync", auto_cfg.get("fast_sync", False))
-                return deep == "auto" or bool(fast)
+                return deep == "auto"
         except Exception:
             pass
         # Fallback to global config
@@ -1489,16 +1491,18 @@ class PipelineOrchestrator:
             from codrag.services.settings_store import settings
             config = settings.get("pipeline_config") or {}
             deep_mode = (config.get("deep_enrichment") or {}).get("mode", "manual")
-            fast_auto = (config.get("fast_sync") or {}).get("auto", False)
-            return deep_mode == "auto" or fast_auto
+            return deep_mode == "auto"
         except Exception:
             return False
 
     @staticmethod
     def _is_finalize_auto(project_id: str) -> bool:
-        """Check if finalize should auto-chain after enrich.
+        """Check if finalize should auto-chain after deep enrichment.
 
-        F-65: reads per-project auto_config first, falls back to global.
+        Independent of the deepEnrichment toggle: users can have deep
+        enrichment running automatically and still want finalize to
+        wait for the Run button (common for manual concept review
+        before triggering atlas/audit/antibodies regeneration).
         """
         try:
             from codrag.services.project_helpers import require_project
@@ -1507,8 +1511,7 @@ class PipelineOrchestrator:
             auto_cfg = pcfg.get("auto_config")
             if auto_cfg and isinstance(auto_cfg, dict):
                 fin = auto_cfg.get("finalize", "manual")
-                deep = auto_cfg.get("deepEnrichment", auto_cfg.get("deep_enrichment", "manual"))
-                return fin == "auto" or deep == "auto"
+                return fin == "auto"
         except Exception:
             pass
         # Fallback to global config
@@ -1516,8 +1519,7 @@ class PipelineOrchestrator:
             from codrag.services.settings_store import settings
             config = settings.get("pipeline_config") or {}
             fin_mode = (config.get("finalize") or {}).get("mode", "manual")
-            enrich_mode = (config.get("deep_enrichment") or {}).get("mode", "manual")
-            return fin_mode == "auto" or enrich_mode == "auto"
+            return fin_mode == "auto"
         except Exception:
             return False
 
@@ -1793,6 +1795,17 @@ class PipelineOrchestrator:
             # Log finalize group completion
             if run.group == "finalize":
                 logger.info("Finalize complete for %s", run.project_id)
+                # Clear the reset barrier: every stage now has a genuine
+                # manifest, so subsequent selfheal runs can safely consider
+                # orphan outputs and backup sources again.
+                try:
+                    from codrag.services.pipeline.recovery import clear_reset_barrier
+                    clear_reset_barrier(run.project_id)
+                except Exception:
+                    logger.debug(
+                        "clear_reset_barrier failed (non-fatal) for %s",
+                        run.project_id, exc_info=True,
+                    )
 
             # Chain deep enrichment after fast sync if configured or explicitly requested
             if run.group == "fast_sync":

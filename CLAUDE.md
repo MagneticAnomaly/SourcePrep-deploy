@@ -229,7 +229,7 @@ The generated AGENTS.md is meant to be the first thing an AI agent reads when it
 <!-- codrag-managed-start -->
 # CoDRAG Integration
 
-Last updated: 2026-04-15T04:02:52Z | Full analysis in progress
+Last updated: 2026-04-15T18:01:05Z | Full analysis in progress
 
 codrag_project_id: 1d6f0b35-45cb-427b-ae9d-aac3c6371a4b
 
@@ -268,17 +268,17 @@ Add to `.claude/settings.json`:
 
 Use `@` to browse CoDRAG resources (atlas, modules, audit). Use `/mcp__codrag__codrag-onboard` for guided orientation.
 
-<!-- codrag-atlas-hash:1c8ff779c80d -->
+<!-- codrag-atlas-hash:329975c97af0 -->
 ## Codebase Atlas
 
 IDENTITY: CoDRAG
 STACK: .md 34%, .tsx 16%, .ts 16%, .py 13%, .js 12%, .json 5%, .css 2%, .html 1%
-STRUCTURE: 2345 files, 8840 nodes, 10832 edges
-EDGE TYPES: contains: 5800, imports: 5032
-CIRCULAR DEPS (3): src/codrag/core/audit/synthesizer.py <-> src/codrag/core/audit/__init__.py; src/codrag/api/routers/projects/__init__.py <-> src/codrag/api/routers/projects/__init__.py; src/codrag/api/routers/trace_routes/__init__.py <-> src/codrag/api/routers/trace_routes/__init__.py
-ENTRY POINTS: packages/ui/src/components/marketing/heroes/index.ts, src/codrag/__main__.py, docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/index.ts, packages/ui/src/components/viz/index.ts, packages/ui/src/components/team/index.ts
+STRUCTURE: 2350 files, 8884 nodes, 11286 edges
+EDGE TYPES: contains: 5837, imports: 5076, calls: 232, configures: 101, implements: 18
+CIRCULAR DEPS (52): docs/Phase68_revise-marketing/model-constants.ts <-> docs/Phase68_revise-marketing/model-constants.ts; engine/crates/codrag-chunking/src/lib.rs <-> engine/crates/codrag-chunking/src/lib.rs; engine/crates/codrag-graph/src/lib.rs <-> engine/crates/codrag-graph/src/lod.rs
+ENTRY POINTS: packages/ui/src/components/dashboard/index.ts, packages/ui/src/components/agents/index.ts, packages/ui/src/components/docs/index.ts, packages/ui/src/types/index.ts, engine/crates/codrag-parser/src/lib.rs
 SUBSYSTEMS:
-  _root/ (1262 files)
+  _root/ (1267 files)
   packages/ui/ (825 files)
   websites/apps/marketing/ (66 files)
   websites/apps/docs/ (54 files)
@@ -288,12 +288,13 @@ SUBSYSTEMS:
   websites/apps/payments/ (17 files)
   packages/vscode/webview-ui/ (14 files)
   packages/paperclip-plugin-codrag/ (12 files)
-TESTS: tests-old/ (7 files), specs/ (7 files), test_scheduler.py/ (1 files)
-HUB FILES: ext:typing (232 edges), ext:__future__ (227 edges), ext:react (198 edges), ext:logging (158 edges), ext:lucide-react (144 edges)
+TESTS: specs/ (7 files), tests-old/ (7 files), test_scheduler.py/ (1 files)
+HUB FILES: ext:typing (232 edges), ext:__future__ (229 edges), ext:react (198 edges), ext:logging (160 edges), ext:lucide-react (144 edges)
+Active zones: `packages/ui/src/`, `src/codrag/core/`, `src/codrag/dashboard/`, `src/codrag/services/`, `tests/`
 CALL CHAINS:
-  packages/ui/src/components/marketing/heroes/index.ts -> packages/ui/src/components/marketing/heroes/split.tsx -> packages/ui/src/components/marketing/heroes/studio.tsx -> sym:StudioHero@packages/ui/src/components/marketing/heroes/studio.tsx:15
-  src/codrag/__main__.py -> src/codrag/server.py -> ext:codrag.api.routers.agents
-  docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/index.ts -> docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/MarketingHero.tsx -> sym:FocusHero@docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/MarketingHero.tsx:557
+  packages/ui/src/components/agents/index.ts -> packages/ui/src/components/agents/AgentOpsPanel.tsx -> packages/ui/src/components/agents/MCPConnectionCard.tsx -> sym:MCPConnectionCardProps@packages/ui/src/components/agents/MCPConnectionCard.tsx:33
+  packages/ui/src/components/docs/index.ts -> packages/ui/src/components/docs/DocsLayout.tsx -> packages/ui/src/components/docs/DocsSidebarNav.tsx -> sym:DocNode@packages/ui/src/components/docs/DocsSidebarNav.tsx:2
+  packages/ui/src/components/dashboard/index.ts -> packages/ui/src/components/dashboard/IndexStatusCard.tsx -> sym:IndexStatusCard@packages/ui/src/components/dashboard/IndexStatusCard.tsx:68
 
 If `codrag` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.

@@ -58,6 +58,14 @@ export interface UseTraceSystemDeps {
   resetEnrichment?: () => void
   /** Reset atlas state (called during destroy) */
   resetAtlas?: () => void
+  /** Force a fresh hydration of enrichment statuses from the server.
+   *  Called after any mutation that the polling tick wouldn't pick up
+   *  (resets, one-off stage regenerations, etc). */
+  rehydrateEnrichment?: (projectId: string) => void
+  /** Re-fetch pipeline provenance (stage model/age/version labels).
+   *  Same refresh concern as rehydrateEnrichment — provenance is
+   *  fetched on pipeline events only, so resets leave it stale. */
+  fetchProvenance?: (signal?: AbortSignal) => Promise<void> | void
   /** Pause a running pipeline group (Phase 81: used when Auto→Manual toggle) */
   pausePipeline?: (group: 'fast_sync' | 'deep_enrichment') => Promise<void>
   /** AbortSignal from hydration controller — aborted on project switch */
@@ -99,6 +107,10 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   resetEnrichmentRef.current = deps.resetEnrichment
   const resetAtlasRef = useRef(deps.resetAtlas)
   resetAtlasRef.current = deps.resetAtlas
+  const rehydrateEnrichmentRef = useRef(deps.rehydrateEnrichment)
+  rehydrateEnrichmentRef.current = deps.rehydrateEnrichment
+  const fetchProvenanceRef = useRef(deps.fetchProvenance)
+  fetchProvenanceRef.current = deps.fetchProvenance
   const pausePipelineRef = useRef(deps.pausePipeline)
   pausePipelineRef.current = deps.pausePipeline
 
@@ -555,26 +567,9 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   }, [api])
 
   // ── Destroy handlers ────────────────────────────────────────
-
-  const handleDestroyGraph = useCallback(async () => {
-    if (!selectedProjectId) return
-    try {
-      await api.destroyGraph(selectedProjectId)
-      setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
-      setTraceCoverage({ summary: null, untraced: [], stale: [], traced: [], excluded: [], building: false, loading: false })
-      resetEnrichmentRef.current?.()
-      resetAtlasRef.current?.()
-      resetDeepAnalysisRef.current()
-      void refreshStatusRef.current(selectedProjectId)
-      setTimeout(() => {
-        api.getTraceCoverage(selectedProjectId).then((data) => {
-          setTraceCoverage({ summary: data.summary, untraced: data.untraced, stale: data.stale, traced: (data as any).traced ?? [], excluded: data.excluded ?? [], building: false, loading: false })
-        }).catch(() => { })
-      }, 300)
-    } catch (e) {
-      onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t destroy graph data.', 'error')
-    }
-  }, [api, selectedProjectId])
+  // Reset Graph removed — use handleDestroyIndex for a full clean wipe
+  // (now also writes a reset barrier that blocks selfheal resurrection
+  // until the next finalize completes).
 
   const handleDestroyIndex = useCallback(async () => {
     if (!selectedProjectId) return
@@ -589,12 +584,16 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       // Clear included paths and re-fetch the file tree so "Indexed" badges disappear
       clearIncludedPathsRef.current?.()
       void refreshStatusRef.current(selectedProjectId)
+      rehydrateEnrichmentRef.current?.(selectedProjectId)
+      void fetchProvenanceRef.current?.()
       // Re-fetch file tree after a short delay so backend caches are cleared
       setTimeout(() => {
         refreshFileTreeRef.current?.(selectedProjectId)
         api.getTraceCoverage(selectedProjectId).then((data) => {
           setTraceCoverage({ summary: data.summary, untraced: data.untraced, stale: data.stale, traced: (data as any).traced ?? [], excluded: data.excluded ?? [], building: false, loading: false })
         }).catch(() => { })
+        rehydrateEnrichmentRef.current?.(selectedProjectId)
+      void fetchProvenanceRef.current?.()
       }, 300)
     } catch (e) {
       onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t reset project data.', 'error')
@@ -607,6 +606,44 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       await api.rebuildPipeline(selectedProjectId)
     } catch (err) {
       console.error('Failed to trigger pipeline rebuild:', err)
+    }
+  }, [api, selectedProjectId])
+
+  // Scoped Danger-Zone resets — wipe stages 6-15 or 11-15 while
+  // leaving fast_sync (stages 1-5) intact. Both write a reset barrier
+  // server-side so selfheal cannot resurrect cleared stages until the
+  // next finalize run completes.
+
+  const handleDestroyEnrichmentFull = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      await api.destroyEnrichmentFull(selectedProjectId)
+      resetEnrichmentRef.current?.()
+      resetAtlasRef.current?.()
+      resetDeepAnalysisRef.current()
+      void refreshStatusRef.current(selectedProjectId)
+      // Re-pull every enrichment + finalize status from disk. Without
+      // this, stages 1-5 display the cleared state (the dispatch
+      // DESTROYED in resetEnrichment nuked their slices) until the user
+      // hard-refreshes or a polling tick fires — which it won't while
+      // everything is idle.
+      rehydrateEnrichmentRef.current?.(selectedProjectId)
+      void fetchProvenanceRef.current?.()
+    } catch (e) {
+      onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t reset enrichment data.', 'error')
+    }
+  }, [api, selectedProjectId])
+
+  const handleDestroyFinalizeFull = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      await api.destroyFinalizeFull(selectedProjectId)
+      resetAtlasRef.current?.()
+      void refreshStatusRef.current(selectedProjectId)
+      rehydrateEnrichmentRef.current?.(selectedProjectId)
+      void fetchProvenanceRef.current?.()
+    } catch (e) {
+      onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t reset finalize data.', 'error')
     }
   }, [api, selectedProjectId])
 
@@ -835,6 +872,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     // Config
     handleEnrichmentAutoConfigChange, handleIndexAutoRebuildChange,
     // Destroy
-    handleDestroyGraph, handleDestroyIndex, handleRebuildPipeline,
+    handleDestroyIndex, handleRebuildPipeline,
+    handleDestroyEnrichmentFull, handleDestroyFinalizeFull,
   }
 }

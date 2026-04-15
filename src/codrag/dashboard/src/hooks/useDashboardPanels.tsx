@@ -164,7 +164,6 @@ export interface PanelTraceProps {
   handleRemoveExcludePattern: (pattern: string | string[]) => void
   fetchTraceCoverage: () => void
   handleRunFastSync: () => void
-  handleDestroyGraph: () => void
 }
 
 export interface PanelEnrichmentProps {
@@ -861,7 +860,6 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           onRunFastSync={p.handleRunFastSync}
           onRunDeepEnrichment={p.handleRunDeepEnrichment}
           onRunFinalize={p.handleRunFinalize}
-          onDestroyGraph={p.handleDestroyGraph}
           onOpenDeepSettings={p.onOpenDeepSettings}
           augmenting={p.augmenting}
           validating={p.validating}

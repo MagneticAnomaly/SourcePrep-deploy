@@ -355,6 +355,7 @@ function App() {
     fastPaused, deepPaused, finalizePaused,
     fastPausedStage, deepPausedStage, finalizePausedStage,
     resetAll: resetEnrichment,
+    rehydrate: rehydrateEnrichment,
   } = useEnrichment(selectedProjectId, {
     onError: (msg, variant) => showToast(msg, variant),
     pipelineEvents,
@@ -371,6 +372,15 @@ function App() {
   // ── Pipeline Provenance (Phase 49) ──────────────────────────
   const [pipelineProvenance, setPipelineProvenance] = useState<PipelineProvenance | null>(null)
 
+  const fetchProvenance = useCallback(async (signal?: AbortSignal) => {
+    if (!selectedProjectId || signal?.aborted) return
+    try {
+      const data = await api.getPipelineProvenance(selectedProjectId)
+      if (signal?.aborted) return
+      setPipelineProvenance(data)
+    } catch { /* Provenance not available yet */ }
+  }, [api, selectedProjectId])
+
   // ── Trace system (hook) ───────────────────────────────────────
   const {
     projectLoading,
@@ -384,7 +394,8 @@ function App() {
     handleAddExcludePattern, handleRemoveExcludePattern,
     handleRunFastSync,
     handleEnrichmentAutoConfigChange, handleIndexAutoRebuildChange,
-    handleDestroyGraph, handleDestroyIndex, handleRebuildPipeline,
+    handleDestroyIndex, handleRebuildPipeline,
+    handleDestroyEnrichmentFull, handleDestroyFinalizeFull,
   } = useTraceSystem(selectedProjectId, {
     projectConfig,
     setProjectConfig,
@@ -402,6 +413,8 @@ function App() {
     clearIncludedPaths,
     resetEnrichment,
     resetAtlas: () => setAtlasStatus(null),
+    rehydrateEnrichment,
+    fetchProvenance,
     pausePipeline: handlePausePipeline,
     signal: hydration.signal,
     isHydrating: hydration.isHydrating,
@@ -416,14 +429,6 @@ function App() {
     } catch { /* Atlas not available yet */ }
   }, [api, selectedProjectId])
 
-  const fetchProvenance = useCallback(async (signal?: AbortSignal) => {
-    if (!selectedProjectId || signal?.aborted) return
-    try {
-      const data = await api.getPipelineProvenance(selectedProjectId)
-      if (signal?.aborted) return  // Don't update state if project switched
-      setPipelineProvenance(data)
-    } catch { /* Provenance not available yet */ }
-  }, [api, selectedProjectId])
 
   // ── Mode sync: keep panel switch ↔ settings dropdown in sync ──
   const handleSyncedEnrichmentAutoConfigChange = useCallback((newConfig: typeof enrichmentAutoConfig) => {
@@ -794,7 +799,7 @@ function App() {
       handleSearchTrace, handleGetTraceNode, handleGetTraceNeighbors,
       handleBuildTrace, handleEnableTrace,
       handleTraceAll, handleRetraceStale, handleAddExcludePattern, handleRemoveExcludePattern,
-      fetchTraceCoverage, handleRunFastSync, handleDestroyGraph,
+      fetchTraceCoverage, handleRunFastSync,
     },
     enrichment: {
       pipelineProvenance,
@@ -947,8 +952,9 @@ function App() {
         licenseLoading={licenseLoading}
         licenseError={licenseError}
         projectName={selectedProject?.name}
-        onDestroyGraph={handleDestroyGraph}
         onDestroyIndex={handleDestroyIndex}
+        onDestroyEnrichmentFull={handleDestroyEnrichmentFull}
+        onDestroyFinalizeFull={handleDestroyFinalizeFull}
         onRebuildPipeline={handleRebuildPipeline}
         onDestroyAtlas={handleDestroyAtlas}
         onDestroyGroupReasoning={handleDestroyGroupReasoning}

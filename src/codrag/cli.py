@@ -7,7 +7,6 @@ Usage:
     codrag list               List projects
     codrag build <id>         Build project index
     codrag search <id> <q>    Search project
-    codrag reset-graph        Reset trace graph (keeps embeddings)
     codrag reset              Full reset (delete all project data)
     codrag sync-headless      Run headless team sync (CI/CD)
     codrag ui                 Open dashboard
@@ -364,48 +363,6 @@ def delete(
 ) -> None:
     """Alias for 'remove'. Unregister a project (use --purge to also wipe index files)."""
     _do_remove(project_id, purge, host, port)
-
-
-@app.command("reset-graph")
-def reset_graph(
-    project_id: Optional[str] = typer.Option(None, "--project", "-p", help="Project ID (optional if inside project dir)"),
-    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
-    host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
-    port: int = typer.Option(8400, "--port", help="Server port"),
-) -> None:
-    """
-    Reset the trace graph for a project.
-
-    Permanently deletes: structural graph, augmentation, inferred edges,
-    epistemic enrichment, and cluster modules. Embeddings and search index
-    remain intact.
-    """
-    base = _base_url(host, port)
-    pid = _resolve_project(base, project_id)
-
-    if not yes:
-        console.print("[yellow]⚠ This will permanently delete the trace graph and all enrichment data.[/yellow]")
-        console.print("[dim]Embeddings and search will remain intact.[/dim]")
-        confirm = typer.confirm("Are you sure?")
-        if not confirm:
-            console.print("[dim]Cancelled.[/dim]")
-            raise typer.Exit(0)
-
-    data = _delete_json(f"{base}/projects/{pid}/trace/destroy")
-    deleted = data.get("deleted", [])
-    errors = data.get("errors", [])
-
-    if deleted:
-        console.print(f"[green]Graph reset: deleted {len(deleted)} files.[/green]")
-        for f in deleted:
-            console.print(f"  [dim]- {f}[/dim]")
-    else:
-        console.print("[yellow]No graph files found to delete.[/yellow]")
-
-    if errors:
-        console.print(f"[red]Errors ({len(errors)}):[/red]")
-        for e in errors:
-            console.print(f"  [red]- {e}[/red]")
 
 
 @app.command("prune")

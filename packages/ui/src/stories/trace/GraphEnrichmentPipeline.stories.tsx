@@ -266,7 +266,6 @@ export const FullPipeline10Stages: Story = {
     onAutoConfigChange: (cfg) => console.log('Config changed:', cfg),
     onRunFastSync: () => alert('Running Fast Sync...'),
     onRunDeepEnrichment: () => alert('Running Deep Enrichment...'),
-    onDestroyGraph: () => alert('Destroying graph...'),
     isPro: true,
   },
 };

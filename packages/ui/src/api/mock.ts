@@ -323,11 +323,15 @@ export class MockApiClient implements ApiClient {
     return { cancelled: true };
   }
 
-  async destroyGraph(): Promise<any> {
+  async destroyIndex(): Promise<any> {
     return { deleted: [], errors: [] };
   }
 
-  async destroyIndex(): Promise<any> {
+  async destroyEnrichmentFull(): Promise<any> {
+    return { deleted: [], errors: [] };
+  }
+
+  async destroyFinalizeFull(): Promise<any> {
     return { deleted: [], errors: [] };
   }
 

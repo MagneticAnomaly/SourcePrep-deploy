@@ -471,6 +471,77 @@ class TestAutoChainDeepEnrichment:
             assert deep is None
 
 
+class TestAutoModeIndependence:
+    """The three group toggles (fastSync / deepEnrichment / finalize) must
+    be independent. Auto-chaining each group must check only its own mode,
+    not infer auto from a neighbour's mode. Regression guard for the bug
+    where fastSync=auto forced deepEnrichment to auto-chain even when the
+    user had explicitly set deepEnrichment=manual."""
+
+    def test_deep_auto_false_when_only_fast_is_auto(self):
+        """fastSync=auto, deepEnrichment=manual → deep should NOT auto-chain."""
+        from codrag.services.pipeline.orchestrator import PipelineOrchestrator
+        fake_proj = MagicMock()
+        fake_proj.config = {
+            "auto_config": {"fastSync": True, "deepEnrichment": "manual", "finalize": "manual"},
+        }
+        with patch(
+            "codrag.services.project_helpers.require_project",
+            return_value=fake_proj,
+        ):
+            assert PipelineOrchestrator._is_deep_enrichment_auto("proj-1") is False
+
+    def test_deep_auto_true_when_deep_explicitly_auto(self):
+        from codrag.services.pipeline.orchestrator import PipelineOrchestrator
+        fake_proj = MagicMock()
+        fake_proj.config = {
+            "auto_config": {"fastSync": False, "deepEnrichment": "auto", "finalize": "manual"},
+        }
+        with patch(
+            "codrag.services.project_helpers.require_project",
+            return_value=fake_proj,
+        ):
+            assert PipelineOrchestrator._is_deep_enrichment_auto("proj-1") is True
+
+    def test_deep_auto_false_for_scheduled_mode(self):
+        """'scheduled' is not auto-chain — scheduled runs fire on their own cadence."""
+        from codrag.services.pipeline.orchestrator import PipelineOrchestrator
+        fake_proj = MagicMock()
+        fake_proj.config = {
+            "auto_config": {"deepEnrichment": "scheduled"},
+        }
+        with patch(
+            "codrag.services.project_helpers.require_project",
+            return_value=fake_proj,
+        ):
+            assert PipelineOrchestrator._is_deep_enrichment_auto("proj-1") is False
+
+    def test_finalize_auto_false_when_only_deep_is_auto(self):
+        """deepEnrichment=auto, finalize=manual → finalize should NOT auto-chain."""
+        from codrag.services.pipeline.orchestrator import PipelineOrchestrator
+        fake_proj = MagicMock()
+        fake_proj.config = {
+            "auto_config": {"deepEnrichment": "auto", "finalize": "manual"},
+        }
+        with patch(
+            "codrag.services.project_helpers.require_project",
+            return_value=fake_proj,
+        ):
+            assert PipelineOrchestrator._is_finalize_auto("proj-1") is False
+
+    def test_finalize_auto_true_when_finalize_explicitly_auto(self):
+        from codrag.services.pipeline.orchestrator import PipelineOrchestrator
+        fake_proj = MagicMock()
+        fake_proj.config = {
+            "auto_config": {"deepEnrichment": "manual", "finalize": "auto"},
+        }
+        with patch(
+            "codrag.services.project_helpers.require_project",
+            return_value=fake_proj,
+        ):
+            assert PipelineOrchestrator._is_finalize_auto("proj-1") is True
+
+
 # ── Failure handling ─────────────────────────────────────────────
 
 

@@ -3,6 +3,7 @@ import { useApiClient, type PipelineStatus } from '@codrag/ui'
 import {
   enrichmentReducer,
   initialEnrichmentState,
+  type EnrichmentAction,
 } from '../state/enrichmentReducer'
 
 // ── Dependencies ──────────────────────────────────────────────
@@ -27,6 +28,83 @@ export interface UseEnrichmentDeps {
 }
 
 // ── Hook ──────────────────────────────────────────────────────
+
+/**
+ * Pure helper that dispatches every slice derived from a PipelineStatus
+ * response. Extracted so the on-mount hydration and the external
+ * `rehydrate()` callback share one source of truth.
+ */
+function _hydratePipelineStatus(
+  ps: PipelineStatus,
+  dispatch: React.Dispatch<EnrichmentAction>,
+): void {
+  // "Active" includes transient states (queued between stages, pausing,
+  // recovering). During these phases the pipeline is still doing
+  // something — dropping all running flags would cause the UI to
+  // erroneously evaluate idle-state logic and show 0-item stages as
+  // "complete".
+  const ACTIVE_PHASES = new Set(['running', 'queued', 'pausing', 'recovering'])
+  const fastActive = ACTIVE_PHASES.has(ps.fast_sync?.phase ?? '')
+  const deepActive = ACTIVE_PHASES.has(ps.deep_enrichment?.phase ?? '')
+  const finActive = ACTIVE_PHASES.has(ps.finalize?.phase ?? '')
+  dispatch({
+    type: 'FINALIZE_RUNNING',
+    running: finActive,
+    currentStage: finActive ? ps.finalize?.current_stage ?? undefined : undefined,
+  })
+  dispatch({
+    type: 'SYNC_RUNNING',
+    inferredEdgesRunning: fastActive && (ps.fast_sync?.current_stage === 'inferred_edges' || false),
+    augmenting: fastActive && (ps.fast_sync?.current_stage === 'catalogue' || ps.fast_sync?.current_stage === 'augment' || false),
+    validating: fastActive && (ps.fast_sync?.current_stage === 'validation' || false),
+    epistemicRunning: deepActive && (ps.deep_enrichment?.current_stage === 'enrichment' || false),
+    groupReasoningRunning: deepActive && (ps.deep_enrichment?.current_stage === 'group_reasoning' || false),
+    clusterRunning: deepActive && (ps.deep_enrichment?.current_stage === 'clustering' || false),
+    atlasRunning: deepActive && (ps.deep_enrichment?.current_stage === 'atlas' || false),
+    deepeningRunning: deepActive && (ps.deep_enrichment?.current_stage === 'deepening' || false),
+    fastKnowledgeBuilding: fastActive && (ps.fast_sync?.current_stage === 'knowledge' || false),
+    deepKnowledgeBuilding: deepActive && (ps.deep_enrichment?.current_stage === 'deep_knowledge' || false),
+  })
+  if (ps.stages?.inferred_edges) {
+    dispatch({ type: 'INFERRED_EDGES_STATUS', payload: ps.stages.inferred_edges })
+  }
+  if (ps.stages?.atlas) {
+    dispatch({ type: 'ATLAS_STATUS', payload: ps.stages.atlas })
+  }
+  if (ps.stages?.group_reasoning) {
+    dispatch({ type: 'GROUP_REASONING_STATUS', payload: ps.stages.group_reasoning })
+  }
+  if (ps.stages?.deepening) {
+    dispatch({ type: 'DEEPENING_STATUS', payload: ps.stages.deepening })
+  }
+  if (ps.stages?.deep_knowledge) {
+    dispatch({ type: 'KNOWLEDGE_STATUS', payload: ps.stages.deep_knowledge })
+  }
+  dispatch({
+    type: 'FINALIZE_STATUSES',
+    rules: ps.stages?.rules as any,
+    concepts: ps.stages?.concepts as any,
+    audit: ps.stages?.audit as any,
+    antibodies: ps.stages?.antibodies as any,
+  })
+  const fastIsPaused = ps.fast_sync?.phase === 'paused' || ps.fast_sync?.phase === 'pausing'
+    || (ps.fast_sync?.phase === 'failed' && (ps.fast_sync?.error || '').includes('Paused by user'))
+  const deepIsPaused = ps.deep_enrichment?.phase === 'paused' || ps.deep_enrichment?.phase === 'pausing'
+    || (ps.deep_enrichment?.phase === 'failed' && (ps.deep_enrichment?.error || '').includes('Paused by user'))
+  const fin = ps.finalize
+  const finalizeIsPaused = fin?.phase === 'paused' || fin?.phase === 'pausing'
+    || (fin?.phase === 'failed' && (fin?.error || '').includes('Paused by user'))
+  dispatch({
+    type: 'SYNC_PAUSED',
+    fastPaused: fastIsPaused,
+    deepPaused: deepIsPaused,
+    finalizePaused: finalizeIsPaused || false,
+    fastPausedStage: fastIsPaused ? ps.fast_sync?.current_stage ?? undefined : undefined,
+    deepPausedStage: deepIsPaused ? ps.deep_enrichment?.current_stage ?? undefined : undefined,
+    finalizePausedStage: finalizeIsPaused ? fin?.current_stage ?? undefined : undefined,
+  })
+}
+
 
 /**
  * Manages the 6 enrichment stages: augmentation, epistemic, module synthesis,
@@ -323,6 +401,32 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
   }, [])
 
   // ── Hydration: fetch all statuses + pipeline flags on project change ──
+  //
+  // Extracted as a callable so reset handlers can trigger a full
+  // re-hydration after a mutation — otherwise per-stage status slices
+  // (augmentation/validation/knowledge labels) stay stale until the
+  // user hard-refreshes, because the polling tick only fires when
+  // something is running.
+
+  const rehydrate = useCallback((projectId: string, signal?: { aborted: boolean }) => {
+    // Fetch all enrichment statuses in parallel
+    Promise.allSettled([
+      api.getAugmentStatus(projectId),
+      api.getEpistemicStatus(projectId),
+      api.getModuleStatus(projectId),
+    ]).then(([aug, epi, mod]) => {
+      if (signal?.aborted) return
+      if (aug.status === 'fulfilled') dispatch({ type: 'AUGMENTATION_STATUS', payload: aug.value })
+      if (epi.status === 'fulfilled') dispatch({ type: 'EPISTEMIC_STATUS', payload: epi.value })
+      if (mod.status === 'fulfilled') dispatch({ type: 'MODULE_STATUS', payload: mod.value })
+    })
+
+    // Hydrate running flags + stage data from pipeline status
+    api.getPipelineStatus(projectId).then((ps: PipelineStatus) => {
+      if (signal?.aborted) return
+      _hydratePipelineStatus(ps, dispatch)
+    }).catch(() => { /* silent — SSE will provide updates */ })
+  }, [api])
 
   useEffect(() => {
     // Reset all enrichment state immediately to prevent cross-project contamination
@@ -347,86 +451,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     // Hydrate running flags + stage data from pipeline status
     api.getPipelineStatus(selectedProjectId).then((ps: PipelineStatus) => {
       if (signal?.aborted || unmounted) return
-      // "Active" includes transient states (queued between stages, pausing,
-      // recovering).  During these phases the pipeline is still "doing
-      // something" — dropping all running flags would cause the UI to
-      // erroneously evaluate idle-state logic and show 0-item stages as
-      // "complete".
-      const ACTIVE_PHASES = new Set(['running', 'queued', 'pausing', 'recovering'])
-      const fastActive = ACTIVE_PHASES.has(ps.fast_sync?.phase ?? '')
-      const deepActive = ACTIVE_PHASES.has(ps.deep_enrichment?.phase ?? '')
-      const finActive = ACTIVE_PHASES.has(ps.finalize?.phase ?? '')
-      // F-61: Hydrate finalize running state on project switch.
-      // Without this, switching to a project mid-finalize shows static
-      // "Not seeded" instead of a running spinner on the active stage.
-      dispatch({
-        type: 'FINALIZE_RUNNING',
-        running: finActive,
-        currentStage: finActive ? ps.finalize?.current_stage ?? undefined : undefined,
-      })
-      dispatch({
-        type: 'SYNC_RUNNING',
-        inferredEdgesRunning: fastActive && (ps.fast_sync?.current_stage === 'inferred_edges' || false),
-        augmenting: fastActive && (ps.fast_sync?.current_stage === 'catalogue' || ps.fast_sync?.current_stage === 'augment' || false),
-        validating: fastActive && (ps.fast_sync?.current_stage === 'validation' || false),
-        epistemicRunning: deepActive && (ps.deep_enrichment?.current_stage === 'enrichment' || false),
-        groupReasoningRunning: deepActive && (ps.deep_enrichment?.current_stage === 'group_reasoning' || false),
-        clusterRunning: deepActive && (ps.deep_enrichment?.current_stage === 'clustering' || false),
-        atlasRunning: deepActive && (ps.deep_enrichment?.current_stage === 'atlas' || false),
-        deepeningRunning: deepActive && (ps.deep_enrichment?.current_stage === 'deepening' || false),
-        fastKnowledgeBuilding: fastActive && (ps.fast_sync?.current_stage === 'knowledge' || false),
-        deepKnowledgeBuilding: deepActive && (ps.deep_enrichment?.current_stage === 'deep_knowledge' || false),
-      })
-      // Hydrate inferred_edges (no dedicated API endpoint — only in pipeline status)
-      if (ps.stages?.inferred_edges) {
-        dispatch({ type: 'INFERRED_EDGES_STATUS', payload: ps.stages.inferred_edges })
-      }
-      // Hydrate atlas status from pipeline (supplements App.tsx atlas fetch)
-      if (ps.stages?.atlas) {
-        dispatch({ type: 'ATLAS_STATUS', payload: ps.stages.atlas })
-      }
-      // Hydrate group reasoning (no dedicated API endpoint — only in pipeline status)
-      if (ps.stages?.group_reasoning) {
-        dispatch({ type: 'GROUP_REASONING_STATUS', payload: ps.stages.group_reasoning })
-      }
-      // Hydrate deepening and knowledge from pipeline status to ensure consistency
-      // and avoid legacy API module gates that returned 0 scored objects.
-      if (ps.stages?.deepening) {
-        dispatch({ type: 'DEEPENING_STATUS', payload: ps.stages.deepening })
-      }
-      if (ps.stages?.deep_knowledge) {
-        dispatch({ type: 'KNOWLEDGE_STATUS', payload: ps.stages.deep_knowledge })
-      }
-      // F-60: Hydrate finalize stage statuses on initial load.
-      // Without this, concepts/rules/audit/antibodies show as "Not seeded"
-      // even when they're complete — the data was only populated via
-      // refreshStageDataFromPipeline() which is event-driven, not on hydration.
-      dispatch({
-        type: 'FINALIZE_STATUSES',
-        rules: ps.stages?.rules as any,
-        concepts: ps.stages?.concepts as any,
-        audit: ps.stages?.audit as any,
-        antibodies: ps.stages?.antibodies as any,
-      })
-      // Hydrate paused flags on initial load.
-      // Check 'paused' (state machine), 'pausing' (intermediate — worker flushing),
-      // and legacy 'failed' + error (build_orchestrator layer).
-      const fastIsPaused = ps.fast_sync?.phase === 'paused' || ps.fast_sync?.phase === 'pausing'
-        || (ps.fast_sync?.phase === 'failed' && (ps.fast_sync?.error || '').includes('Paused by user'))
-      const deepIsPaused = ps.deep_enrichment?.phase === 'paused' || ps.deep_enrichment?.phase === 'pausing'
-        || (ps.deep_enrichment?.phase === 'failed' && (ps.deep_enrichment?.error || '').includes('Paused by user'))
-      const fin = ps.finalize
-      const finalizeIsPaused = fin?.phase === 'paused' || fin?.phase === 'pausing'
-        || (fin?.phase === 'failed' && (fin?.error || '').includes('Paused by user'))
-      dispatch({
-        type: 'SYNC_PAUSED',
-        fastPaused: fastIsPaused,
-        deepPaused: deepIsPaused,
-        finalizePaused: finalizeIsPaused || false,
-        fastPausedStage: fastIsPaused ? ps.fast_sync?.current_stage ?? undefined : undefined,
-        deepPausedStage: deepIsPaused ? ps.deep_enrichment?.current_stage ?? undefined : undefined,
-        finalizePausedStage: finalizeIsPaused ? fin?.current_stage ?? undefined : undefined,
-      })
+      _hydratePipelineStatus(ps, dispatch)
     }).catch(() => { /* silent — SSE will provide updates */ })
 
     return () => { unmounted = true }
@@ -728,5 +753,9 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     fetchKnowledgeStatus,
     // Reset
     resetAll,
+    // Force a fresh hydration from the server — call this after any
+    // mutation (reset, run-trigger, etc.) that the polling tick might
+    // not pick up because nothing is actively running.
+    rehydrate,
   }
 }

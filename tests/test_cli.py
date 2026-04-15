@@ -337,19 +337,6 @@ def test_list_connection_error(mock_get):
     assert result.exit_code != 0
 
 
-# ── reset-graph ──────────────────────────────────────────────────
-
-@patch("codrag.cli._delete_json")
-@patch("codrag.cli._get_json")
-def test_reset_graph_with_confirmation(mock_get, mock_delete):
-    mock_get.return_value = {"projects": [{"id": "p1", "name": "X", "path": "/x"}]}
-    mock_delete.return_value = {"deleted": ["trace_graph.json", "augmentation.json"], "errors": []}
-    result = runner.invoke(app, ["reset-graph", "--project", "p1", "--yes"])
-    assert result.exit_code == 0
-    assert "Graph reset" in result.output
-    assert "2 files" in result.output
-
-
 # ── reset ────────────────────────────────────────────────────────
 
 @patch("codrag.cli._delete_json")

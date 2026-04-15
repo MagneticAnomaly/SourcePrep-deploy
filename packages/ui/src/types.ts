@@ -432,6 +432,11 @@ export interface DeepeningStatus {
   max_score?: number;
   iteration?: number;
   max_iterations?: number;
+  /** Live slot progress fields (populated when running). Enables the
+   *  two-tone incremental progress bar instead of plain "blue running". */
+  progress_current?: number;
+  progress_total?: number;
+  progress_baseline?: number;
 }
 
 /**
@@ -963,6 +968,7 @@ export interface KnowledgeEmbeddingStatus {
   last_run_at: string | null;
   progress_current?: number;
   progress_total?: number;
+  progress_baseline?: number;
 }
 
 /**

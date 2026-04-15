@@ -1,11 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '../../lib/utils';
-import { Button } from '../primitives/Button';
-import { ConfirmDialog } from '../primitives/ConfirmDialog';
 import { SlidingSwitch2, SlidingSwitch3 } from '../primitives/SlidingSwitch';
 import {
   GitBranch, Brain, ShieldCheck, Play, AlertTriangle, CheckCircle2,
-  Circle, Clock, Loader2, Layers, Network, Database, Trash2, Code2, Map, Eye, Pause,
+  Circle, Clock, Loader2, Layers, Network, Database, Code2, Map, Eye, Pause,
   FileText, Lightbulb, ClipboardCheck, Shield
 } from 'lucide-react';
 import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, InferredEdgesStatus, AtlasStatus, StageProvenance, RulesStatus, ConceptsStatus, AuditPipelineStatus, AntibodiesStatus } from '../../types';
@@ -61,7 +59,6 @@ export interface GraphEnrichmentPipelineProps {
   onRunFastSync?: () => void;
   /** Run the entire Deep Enrichment set (manual trigger) */
   onRunDeepEnrichment?: () => void;
-  onDestroyGraph?: () => void;
   /** Group reasoning status (Stage 6b) */
   groupReasoning?: { enabled: boolean; group_count: number; analyzed: number; running?: boolean; slot_phase?: string; progress_current?: number; progress_total?: number; progress_baseline?: number };
   /** Open the settings drawer to the Deep Enrichment configuration */
@@ -393,12 +390,16 @@ function computeValidationState(
   if (validating) return 'running';
   if (!trace.exists) return 'disabled';
 
-  // During an incremental catalogue run, keep validation green ONLY if
-  // its own progress is complete (at or near 100%). Previously the
-  // heuristic read "if augmentation is >=50%, assume validation ran" —
-  // which lit validation green at 74% catalogue progress even on a
-  // fresh rebuild that hadn't reached validation yet (F-79).
+  // "Was previously complete" signal — validated_nodes / last_validate_at
+  // are persisted from the previous validation run and survive incremental
+  // re-runs. Use them instead of the (mutating) augmented_nodes ratio so
+  // that during a catalogue re-run the stage stays green from the prior
+  // pass rather than flipping to grey at 0%..99% and back.
+  const previouslyValidated = !!(aug && (aug.validated_nodes > 0 || aug.last_validate_at));
+
   if (augmenting) {
+    if (previouslyValidated) return 'complete';
+    // Fresh initial build — validation hasn't run yet at any %
     if (
       aug &&
       aug.augmented_nodes > 0 &&
@@ -409,6 +410,8 @@ function computeValidationState(
     }
     return 'disabled';
   }
+
+  if (previouslyValidated) return 'complete';
 
   // Validation runs after catalogue (augmentation).
   if (!aug || !aug.enabled || aug.augmented_nodes === 0) return 'disabled';
@@ -806,7 +809,6 @@ export function GraphEnrichmentPipeline({
   // group-level handlers trigger the full set.
   onRunFastSync,
   onRunDeepEnrichment,
-  onDestroyGraph,
   groupReasoning,
   onOpenDeepSettings,
   onPausePipeline,
@@ -1094,12 +1096,21 @@ export function GraphEnrichmentPipeline({
         : (clusteringState === 'running' ? 0 : undefined),
       rerun: clusteringState === 'running' ? computeStageRerun(modules?.progress_baseline, modules?.progress_total) : undefined,
     },
-    { id: 'deepening', label: 'Continuous Deepening', icon: Network, state: deepeningState, stats: deepeningStats, progress: deepeningState === 'running' ? (deepeningProgress ?? 0) : undefined, rerun: deepeningState === 'running' ? computeStageRerun(undefined, undefined) : undefined },
+    { id: 'deepening', label: 'Continuous Deepening', icon: Network,
+      state: deepeningState, stats: deepeningStats,
+      progress: deepeningState === 'running' ? (deepeningProgress ?? 0) : undefined,
+      rerun: deepeningState === 'running'
+        ? computeStageRerun(deepening?.progress_baseline, deepening?.progress_total)
+        : undefined,
+    },
     {
       id: 'deep_knowledge', label: 'Deep Knowledge Embedding', icon: Database,
       state: deepKnowledgeState, stats: deepKnowledgeStats,
       progress: deepKnowledgeState === 'running'
         ? (knowledge?.progress_total ? Math.min(100, Math.round((knowledge.progress_current ?? 0) / knowledge.progress_total * 100)) : 0)
+        : undefined,
+      rerun: deepKnowledgeState === 'running'
+        ? computeStageRerun(knowledge?.progress_baseline, knowledge?.progress_total)
         : undefined,
     },
   ];
@@ -1195,7 +1206,6 @@ export function GraphEnrichmentPipeline({
   const completedStages = allStates.filter(s => s === 'complete').length;
   const overallProgress = completedStages / allStates.length * 100;
   const roundedProgress = Math.round(overallProgress);
-  const anyStageRunning = allStates.some(s => s === 'running');
 
   // ── Hero state: trace not yet built ──────────────────────────
   const traceNotBuilt = !trace.exists && !trace.building;
@@ -1476,42 +1486,6 @@ export function GraphEnrichmentPipeline({
         />
       </div>
 
-      {/* Destroy Graph */}
-      {onDestroyGraph && structuralState !== 'disabled' && structuralState !== 'not_built' && (
-        <DestroyGraphAction
-          onConfirm={onDestroyGraph}
-          anyRunning={anyStageRunning}
-        />
-      )}
-    </div>
-  );
-}
-
-// ── Destroy Graph Confirmation ──────────────────────────────
-
-function DestroyGraphAction({ onConfirm, anyRunning }: { onConfirm: () => void; anyRunning: boolean }) {
-  const [confirming, setConfirming] = useState(false);
-
-  return (
-    <div className="mt-4 pt-3 border-t border-border">
-      <Button
-        variant="ghost"
-        size="sm"
-        className="w-full text-text-subtle hover:text-red-400 hover:bg-red-500/10"
-        onClick={() => setConfirming(true)}
-        disabled={anyRunning}
-      >
-        <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-        Destroy Graph
-      </Button>
-      <ConfirmDialog
-        open={confirming}
-        onConfirm={() => { setConfirming(false); onConfirm(); }}
-        onCancel={() => setConfirming(false)}
-        title="Destroy entire graph?"
-        description="This permanently deletes the structural graph, all augmentations, epistemic enrichment, cluster modules, and deepening data. You will need to rebuild from scratch."
-        confirmLabel="Yes, destroy"
-      />
     </div>
   );
 }

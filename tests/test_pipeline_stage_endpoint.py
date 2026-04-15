@@ -88,6 +88,36 @@ def test_post_stage_run_accepts_force_query_param(client, tmp_path):
     assert kwargs.get("force") is True
 
 
+def test_post_stage_run_defaults_to_force_true(client, tmp_path):
+    """Regenerate button path: no explicit `force` query param → force=True.
+
+    Without this default, freshness-skip can silently no-op the button
+    when outputs are newer than inputs.
+    """
+    pid = _add_embedded_project(client, tmp_path)
+    with patch(
+        "codrag.services.pipeline_orchestrator.pipeline_orchestrator.run_single_stage",
+        return_value=True,
+    ) as mock_run:
+        res = client.post(f"/projects/{pid}/pipeline/stages/atlas/run")
+    assert res.status_code == 200
+    _args, kwargs = mock_run.call_args
+    assert kwargs.get("force") is True
+
+
+def test_post_stage_run_explicit_force_false_is_honoured(client, tmp_path):
+    """Caller can still opt out of force via explicit ?force=false."""
+    pid = _add_embedded_project(client, tmp_path)
+    with patch(
+        "codrag.services.pipeline_orchestrator.pipeline_orchestrator.run_single_stage",
+        return_value=True,
+    ) as mock_run:
+        res = client.post(f"/projects/{pid}/pipeline/stages/atlas/run?force=false")
+    assert res.status_code == 200
+    _args, kwargs = mock_run.call_args
+    assert kwargs.get("force") is False
+
+
 def test_cancel_accepts_solo_finalize_group(client, tmp_path):
     """A solo atlas run must be cancelable via POST /pipeline/cancel?group=atlas."""
     pid = _add_embedded_project(client, tmp_path)

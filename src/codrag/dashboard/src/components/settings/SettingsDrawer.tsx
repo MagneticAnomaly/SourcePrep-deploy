@@ -93,8 +93,9 @@ export interface SettingsDrawerProps {
   licenseError: string | null
   // Project tab – danger zone
   projectName?: string
-  onDestroyGraph: () => void
   onDestroyIndex: () => void
+  onDestroyEnrichmentFull: () => void
+  onDestroyFinalizeFull: () => void
   onRebuildPipeline: () => void
   // Developer tab – selective resets
   onDestroyAtlas?: () => void
@@ -140,8 +141,9 @@ export function SettingsDrawer({
   licenseLoading,
   licenseError,
   projectName,
-  onDestroyGraph,
   onDestroyIndex,
+  onDestroyEnrichmentFull,
+  onDestroyFinalizeFull,
   onRebuildPipeline,
   onDestroyAtlas,
   onDestroyGroupReasoning,
@@ -172,17 +174,25 @@ export function SettingsDrawer({
       }, 100)
     }
   }, [open, scrollToDeepAnalysis])
-  const [confirmAction, setConfirmAction] = useState<'graph' | 'index' | 'rebuild' | 'atlas' | 'group_reasoning' | 'deep_enrichment' | null>(null)
+  const [confirmAction, setConfirmAction] = useState<
+    'index' | 'rebuild' | 'enrichment_full' | 'finalize_full' | 'atlas' | 'group_reasoning' | 'deep_enrichment' | null
+  >(null)
 
   const handleConfirmedAction = useCallback(() => {
-    if (confirmAction === 'graph') onDestroyGraph()
     if (confirmAction === 'index') onDestroyIndex()
     if (confirmAction === 'rebuild') onRebuildPipeline()
+    if (confirmAction === 'enrichment_full') onDestroyEnrichmentFull()
+    if (confirmAction === 'finalize_full') onDestroyFinalizeFull()
     if (confirmAction === 'atlas') onDestroyAtlas?.()
     if (confirmAction === 'group_reasoning') onDestroyGroupReasoning?.()
     if (confirmAction === 'deep_enrichment') onDestroyDeepEnrichment?.()
     setConfirmAction(null)
-  }, [confirmAction, onDestroyGraph, onDestroyIndex, onRebuildPipeline, onDestroyAtlas, onDestroyGroupReasoning, onDestroyDeepEnrichment])
+  }, [
+    confirmAction,
+    onDestroyIndex, onRebuildPipeline,
+    onDestroyEnrichmentFull, onDestroyFinalizeFull,
+    onDestroyAtlas, onDestroyGroupReasoning, onDestroyDeepEnrichment,
+  ])
 
   const runHealthTest = async () => {
     setHealthResult('Testing...')
@@ -269,32 +279,41 @@ export function SettingsDrawer({
                 <p className="text-xs text-text-muted mb-4">
                   These actions permanently delete project data and cannot be undone.
                 </p>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="p-3 rounded border border-warning/30 bg-warning/5 flex flex-col justify-between gap-3">
                     <div>
                       <p className="text-sm font-medium text-text">Rebuild Pipeline</p>
-                      <p className="text-xs text-text-muted mt-1">Re-runs all 11 stages from scratch. Data stays live during rebuild.</p>
+                      <p className="text-xs text-text-muted mt-1">Re-runs all stages from scratch. Data stays live during rebuild and is atomically swapped in when each stage finishes.</p>
                     </div>
                     <Button variant="outline" size="sm" onClick={() => setConfirmAction('rebuild')} className="w-full border-warning/40 text-warning hover:bg-warning/10">
                       Rebuild
                     </Button>
                   </div>
-                  <div className="p-3 rounded border border-border bg-surface-raised flex flex-col justify-between gap-3">
+                  <div className="p-3 rounded border border-error/30 bg-error/5 flex flex-col justify-between gap-3">
                     <div>
-                      <p className="text-sm font-medium text-text">Reset Graph</p>
-                      <p className="text-xs text-text-muted mt-1">Deletes trace graph and all enrichment data.</p>
+                      <p className="text-sm font-medium text-text">Reset All</p>
+                      <p className="text-xs text-text-muted mt-1">Wipes every project artifact — trace graph, embeddings, search index, enrichment, SQLite stores, checkpoints. Blocks selfheal until the next finalize completes.</p>
                     </div>
-                    <Button variant="destructive" size="sm" onClick={() => setConfirmAction('graph')} className="w-full">
-                      Reset
+                    <Button variant="destructive" size="sm" onClick={() => setConfirmAction('index')} className="w-full">
+                      Reset All
                     </Button>
                   </div>
                   <div className="p-3 rounded border border-error/30 bg-error/5 flex flex-col justify-between gap-3">
                     <div>
-                      <p className="text-sm font-medium text-text">Full Reset</p>
-                      <p className="text-xs text-text-muted mt-1">Deletes everything including search index.</p>
+                      <p className="text-sm font-medium text-text">Reset Enrichment</p>
+                      <p className="text-xs text-text-muted mt-1">Wipes stages 6-15 (deep enrichment + finalize). Fast sync stays intact, so the next run starts fresh at epistemic enrichment.</p>
                     </div>
-                    <Button variant="destructive" size="sm" onClick={() => setConfirmAction('index')} className="w-full">
-                      Reset All
+                    <Button variant="destructive" size="sm" onClick={() => setConfirmAction('enrichment_full')} className="w-full">
+                      Reset Enrichment
+                    </Button>
+                  </div>
+                  <div className="p-3 rounded border border-error/30 bg-error/5 flex flex-col justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-text">Reset Finalize</p>
+                      <p className="text-xs text-text-muted mt-1">Wipes stages 11-15 (atlas, rules, concepts, audit, antibodies). Enrichment and fast sync stay intact, so the next run starts fresh at atlas.</p>
+                    </div>
+                    <Button variant="destructive" size="sm" onClick={() => setConfirmAction('finalize_full')} className="w-full">
+                      Reset Finalize
                     </Button>
                   </div>
                 </div>
@@ -661,32 +680,36 @@ export function SettingsDrawer({
         onCancel={() => setConfirmAction(null)}
         title={
           confirmAction === 'rebuild' ? `Rebuild Pipeline for ${projectName || 'Project'}?`
-            : confirmAction === 'graph' ? `Reset Graph for ${projectName || 'Project'}?`
-            : confirmAction === 'atlas' ? `Reset Atlas for ${projectName || 'Project'}?`
-              : confirmAction === 'group_reasoning' ? `Reset Group Reasoning for ${projectName || 'Project'}?`
-                : confirmAction === 'deep_enrichment' ? `Reset Deep Enrichment for ${projectName || 'Project'}?`
-                  : `Full Reset for ${projectName || 'Project'}?`
+            : confirmAction === 'enrichment_full' ? `Reset Enrichment for ${projectName || 'Project'}?`
+              : confirmAction === 'finalize_full' ? `Reset Finalize for ${projectName || 'Project'}?`
+                : confirmAction === 'atlas' ? `Reset Atlas for ${projectName || 'Project'}?`
+                  : confirmAction === 'group_reasoning' ? `Reset Group Reasoning for ${projectName || 'Project'}?`
+                    : confirmAction === 'deep_enrichment' ? `Reset Deep Enrichment for ${projectName || 'Project'}?`
+                      : `Reset All for ${projectName || 'Project'}?`
         }
         description={
           confirmAction === 'rebuild'
-            ? 'This will re-run all 11 pipeline stages from scratch. Your existing data remains available throughout the rebuild — each stage atomically replaces its output when the new version is ready. This can take a long time for large codebases.'
-            : confirmAction === 'graph'
-            ? 'This will permanently delete the trace graph, all augmentation, epistemic enrichment, and cluster data. Embeddings and search will remain intact.'
-            : confirmAction === 'atlas'
-              ? 'This will permanently delete the atlas and routing data for this project. Other enrichment stages will remain intact.'
-              : confirmAction === 'group_reasoning'
-                ? 'This will permanently delete the group reasoning data for this project. Other enrichment stages will remain intact.'
-                : confirmAction === 'deep_enrichment'
-                  ? 'This will permanently delete ALL deep enrichment data (epistemic, group reasoning, modules, atlas, deepening, knowledge embeddings). Fast Sync stages (graph, augmentation, inferred edges) will remain intact.'
-                  : 'This will permanently delete ALL project data: embeddings, search index, trace graph, and all enrichment. You will need to rebuild everything from scratch.'
+            ? 'Re-runs every pipeline stage from scratch. Existing data stays live throughout — each stage atomically replaces its output when the new version is ready. Selfheal is blocked until finalize completes so no stale data resurrects.'
+            : confirmAction === 'enrichment_full'
+              ? 'Wipes stages 6-15 (deep enrichment and finalize): epistemic, group reasoning, modules, deepening, deep knowledge, atlas, rules, concepts, audit, and antibodies. Clears the concept and antibody SQLite stores so the UI reflects the clean slate. Fast sync (stages 1-5) and observations (user notes) are preserved. Export any hand-authored concepts first if you want to keep them.'
+              : confirmAction === 'finalize_full'
+                ? 'Wipes stages 11-15 (atlas, rules, concepts, audit, antibodies) and the concept + antibody SQLite stores so the UI reflects the clean slate. Fast sync, deep enrichment, and observations are preserved. Export any hand-authored concepts first if you want to keep them.'
+                : confirmAction === 'atlas'
+                  ? 'Permanently deletes the atlas and routing data for this project. Other enrichment stages remain intact.'
+                  : confirmAction === 'group_reasoning'
+                    ? 'Permanently deletes the group reasoning data for this project. Other enrichment stages remain intact.'
+                    : confirmAction === 'deep_enrichment'
+                      ? 'Permanently deletes ALL deep enrichment data (epistemic, group reasoning, modules, atlas, deepening, knowledge embeddings). Fast Sync stages (graph, augmentation, inferred edges) remain intact.'
+                      : 'Wipes every project artifact — embeddings, search index, trace graph, enrichment, SQLite stores, checkpoints, branch snapshots. Writes a reset barrier so selfheal cannot resurrect anything until the next finalize run completes.'
         }
         confirmLabel={
           confirmAction === 'rebuild' ? 'Start Rebuild'
-            : confirmAction === 'graph' ? 'Reset Graph'
-            : confirmAction === 'atlas' ? 'Reset Atlas'
-              : confirmAction === 'group_reasoning' ? 'Reset Group Reasoning'
-                : confirmAction === 'deep_enrichment' ? 'Reset Deep Enrichment'
-                  : 'Reset Everything'
+            : confirmAction === 'enrichment_full' ? 'Reset Enrichment'
+              : confirmAction === 'finalize_full' ? 'Reset Finalize'
+                : confirmAction === 'atlas' ? 'Reset Atlas'
+                  : confirmAction === 'group_reasoning' ? 'Reset Group Reasoning'
+                    : confirmAction === 'deep_enrichment' ? 'Reset Deep Enrichment'
+                      : 'Reset Everything'
         }
       />
     </div>

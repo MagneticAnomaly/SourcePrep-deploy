@@ -687,87 +687,12 @@ def deepening_run_project(project_id: str, req: DeepeningRunRequest) -> Dict[str
 
 
 # ═════════════════════════════════════════════════════════════════
-# Destroy (Graph & Index reset)
+# Destroy (full reset only — Reset Graph removed, see index/destroy)
 # ═════════════════════════════════════════════════════════════════
-
-@router.delete("/projects/{project_id}/trace/destroy")
-def trace_destroy_project(project_id: str) -> Dict[str, Any]:
-    """Permanently delete all trace graph data for a project.
-
-    Removes: structural graph, augmentation, inferred edges,
-    epistemic enrichment, cluster modules — everything produced
-    by the multi-pass pipeline.
-    """
-    from codrag.server import (
-        _require_project_writable, _is_project_trace_building, _project_trace_indexes,
-    )
-    proj = _require_project_writable(project_id)
-
-    # Refuse if any pipeline stage is currently running
-    if _is_project_trace_building(project_id):
-        raise ApiException(status_code=409, code="PIPELINE_RUNNING", message="Cannot destroy graph while trace build is running")
-
-    for state_map, label in [
-        (_deep_analysis_state, "deep analysis"),
-        (_epistemic_state, "epistemic enrichment"),
-        (_cluster_state, "cluster synthesis"),
-        (_deepening_state, "deepening loop"),
-    ]:
-        state = state_map.get(project_id)
-        if state and state.get("thread") and state["thread"].is_alive():
-            raise ApiException(
-                status_code=409,
-                code="PIPELINE_RUNNING",
-                message=f"Cannot destroy graph while {label} is running",
-            )
-
-    idx_dir = project_index_dir(proj)
-
-    # Backup before delete when debug mode is on
-    backup_path = _backup_files_if_debug(idx_dir, TRACE_FILES, "graph_reset")
-
-    deleted: list[str] = []
-    errors: list[str] = []
-
-    for fname in TRACE_FILES:
-        fp = idx_dir / fname
-        if fp.exists():
-            try:
-                fp.unlink()
-                deleted.append(fname)
-            except Exception as e:
-                errors.append(f"{fname}: {e}")
-
-    # Phase 81: Clean up directories that TRACE_FILES doesn't cover.
-    # Leftover dirs (atlas_roles, logs) can confuse subsequent pipeline runs.
-    import shutil
-    for dirname in ["atlas_roles", "logs"]:
-        dp = idx_dir / dirname
-        if dp.is_dir():
-            try:
-                shutil.rmtree(dp)
-                deleted.append(f"{dirname}/")
-            except Exception as e:
-                errors.append(f"{dirname}/: {e}")
-
-    # Clear in-memory caches
-    _project_trace_indexes.pop(project_id, None)
-
-    # Clear pipeline orchestrator state (cached file loggers, run history)
-    try:
-        from codrag.services.pipeline_orchestrator import pipeline_orchestrator
-        pipeline_orchestrator.clear_project(project_id)
-    except Exception:
-        pass
-
-    logger.info(
-        "Destroyed trace graph for %s: deleted %d files, %d errors",
-        project_id, len(deleted), len(errors),
-    )
-    result: Dict[str, Any] = {"deleted": deleted, "errors": errors}
-    if backup_path:
-        result["backup"] = backup_path
-    return ok(result)
+# Reset Graph was a strict subset of Reset All and made selfheal
+# harder to reason about. Use DELETE /projects/{id}/index/destroy
+# for a clean wipe; it now also writes a reset barrier that blocks
+# selfheal resurrection until the next finalize completes.
 
 
 # ── Selective Reset (Developer Tools — Phase 47) ─────────────────
@@ -936,12 +861,228 @@ def group_reasoning_destroy(project_id: str) -> Dict[str, Any]:
 
 @router.delete("/projects/{project_id}/deep-enrichment/destroy")
 def deep_enrichment_destroy(project_id: str) -> Dict[str, Any]:
-    """Delete all 6 deep enrichment stages for a project.
+    """Delete all 6 deep enrichment stages for a project (legacy/dev-tool surgical reset).
 
     Removes: epistemic, group reasoning, modules, atlas, deepening, and deep knowledge manifests.
     Preserves: structural graph, augmentation, inferred edges (fast sync stages).
+
+    NOTE: for a full Danger-Zone "Reset Enrichment" use
+    DELETE /projects/{id}/enrichment/full-reset — it also writes a reset
+    barrier, clears derived SQLite stores, and wipes finalize stages too.
     """
     return _selective_delete(project_id, DEEP_ENRICHMENT_FILES, "deep enrichment", dirs=DEEP_ENRICHMENT_DIRS)
+
+
+# ═════════════════════════════════════════════════════════════════
+# Scoped Danger-Zone resets (stages 6-15 or 11-15 only)
+# ═════════════════════════════════════════════════════════════════
+# Same safety level as index/destroy (watcher stop, SQLite cleanup,
+# reset barrier) but leave fast-sync (stages 1-5) untouched so the
+# next pipeline run picks up from the beginning of the reset group.
+
+FINALIZE_FILES = [
+    # Atlas (stage 11)
+    "atlas.json",
+    "atlas_prev.json",
+    "atlas_manifest.json",
+    "atlas_segments_manifest.json",
+    "atlas_routing.json",
+    "atlas_routing_embeddings.npy",
+    "atlas_updated.signal",
+    # Rules / Concepts / Audit / Antibodies (stages 12-15)
+    "rules_manifest.json",
+    "concepts_manifest.json",
+    "audit_manifest.json",
+    "antibodies_manifest.json",
+    # Shared pipeline run metadata — rewrite on next run
+    "pipeline_run_metadata.json",
+]
+
+FINALIZE_DIRS = ["atlas_roles", "atlas_segments", "audit"]
+
+# Reset Enrichment wipes deep_enrichment + finalize together, because
+# finalize outputs are derived from enrichment outputs — leaving them
+# behind would surface stale atlas/concepts data.
+ENRICHMENT_FULL_FILES = list(set(DEEP_ENRICHMENT_FILES + FINALIZE_FILES))
+ENRICHMENT_FULL_DIRS = list(set(DEEP_ENRICHMENT_DIRS + FINALIZE_DIRS))
+
+
+def _scoped_full_reset(
+    project_id: str,
+    *,
+    label: str,
+    file_list: list[str],
+    dir_list: list[str],
+    clear_antibodies: bool,
+    clear_concepts: bool,
+    barrier_reason: str,
+) -> Dict[str, Any]:
+    """Scoped counterpart to index_destroy_project.
+
+    Same safety level (orchestrator state clear, reset barrier write) but
+    scoped to the files / dirs / SQLite stores owned by the reset group.
+    Never wipes observation_store — those are user-authored cross-session
+    notes unrelated to any pipeline stage.
+    """
+    import shutil
+
+    from codrag.server import (
+        _require_project_writable, _is_project_trace_building,
+        _project_trace_indexes,
+    )
+    proj = _require_project_writable(project_id)
+
+    if _is_project_trace_building(project_id):
+        raise ApiException(
+            status_code=409, code="PIPELINE_RUNNING",
+            message=f"Cannot reset {label} while pipeline is running",
+        )
+
+    for state_map, state_label in [
+        (_deep_analysis_state, "deep analysis"),
+        (_epistemic_state, "epistemic enrichment"),
+        (_cluster_state, "cluster synthesis"),
+        (_deepening_state, "deepening loop"),
+    ]:
+        state = state_map.get(project_id)
+        if state and state.get("thread") and state["thread"].is_alive():
+            raise ApiException(
+                status_code=409, code="PIPELINE_RUNNING",
+                message=f"Cannot reset {label} while {state_label} is running",
+            )
+
+    idx_dir = project_index_dir(proj)
+    backup_path = _backup_files_if_debug(idx_dir, file_list, barrier_reason)
+
+    deleted: list[str] = []
+    errors: list[str] = []
+
+    for fname in file_list:
+        fp = idx_dir / fname
+        if fp.exists():
+            try:
+                fp.unlink()
+                deleted.append(fname)
+            except Exception as e:
+                errors.append(f"{fname}: {e}")
+
+    for dirname in dir_list:
+        dp = idx_dir / dirname
+        if dp.is_dir():
+            try:
+                shutil.rmtree(dp)
+                deleted.append(f"{dirname}/")
+            except Exception as e:
+                errors.append(f"{dirname}/: {e}")
+
+    # Wipe recovery checkpoints. _golden contains a snapshot of the
+    # previous successful deep_enrichment state (atlas/concepts/etc
+    # included), which survives a scoped reset by default. Barrier
+    # blocks selfheal while active, but barrier clears on finalize
+    # completion — and _golden is only refreshed at deep_enrichment
+    # completion. For Reset Finalize that leaves stale finalize-era
+    # data in _golden forever, which could be resurrected by selfheal
+    # after a mid-run crash once the barrier clears.
+    cp_dir = idx_dir / ".checkpoints"
+    if cp_dir.is_dir():
+        try:
+            shutil.rmtree(cp_dir)
+            deleted.append(".checkpoints/")
+        except Exception as e:
+            errors.append(f".checkpoints/: {e}")
+
+    # Clear orchestrator state for the affected groups. This does NOT
+    # stop the watcher — fast_sync is still valid and should keep running
+    # on file changes.
+    try:
+        from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+        pipeline_orchestrator.clear_project(project_id)
+    except Exception:
+        logger.debug("orchestrator.clear_project failed (non-fatal)", exc_info=True)
+
+    # Clear antibody store — fully derived from the antibodies stage, so
+    # the reset must wipe it or the UI shows stale "N antibodies" after
+    # the manifest is gone.
+    if clear_antibodies:
+        try:
+            from codrag.services.antibody_store import antibody_store
+            antibody_store.clear_project(project_id)
+        except Exception:
+            logger.debug("antibody_store.clear_project failed (non-fatal)", exc_info=True)
+
+    # Clear concept store — "Reset" means clean slate. Concepts have no
+    # source field so we can't distinguish pipeline-generated from
+    # user-authored; the Reset confirmation dialog warns about this and
+    # users who care about hand-authored concepts should export them
+    # before resetting.
+    if clear_concepts:
+        try:
+            from codrag.services.concept_store import concept_store
+            concept_store.clear_project(project_id)
+        except Exception:
+            logger.debug("concept_store.clear_project failed (non-fatal)", exc_info=True)
+
+    # In-memory trace index is still valid (fast_sync data) but the
+    # atlas/enrichment slices inside it are stale — drop it so the next
+    # load pulls from disk.
+    _project_trace_indexes.pop(project_id, None)
+
+    # Reset barrier: selfheal cannot resurrect from orphan output or
+    # backup sources until finalize re-runs end-to-end.
+    try:
+        from codrag.services.pipeline.recovery import write_reset_barrier
+        write_reset_barrier(project_id, reason=barrier_reason)
+    except Exception:
+        logger.debug("Reset barrier write failed (non-fatal)", exc_info=True)
+
+    logger.info(
+        "Scoped reset (%s) for %s: deleted %d items, %d errors",
+        label, project_id, len(deleted), len(errors),
+    )
+    result: Dict[str, Any] = {"deleted": deleted, "errors": errors}
+    if backup_path:
+        result["backup"] = backup_path
+    return ok(result)
+
+
+@router.delete("/projects/{project_id}/enrichment/full-reset")
+def enrichment_full_reset(project_id: str) -> Dict[str, Any]:
+    """Danger-Zone reset for stages 6-15 (enrichment + finalize).
+
+    Wipes every artifact produced by deep enrichment and finalize,
+    clears derived antibody data, and writes a reset barrier so selfheal
+    cannot resurrect the cleared stages until the next finalize completes.
+    Fast sync (stages 1-5) is left intact — the next pipeline run picks
+    up at the start of enrichment with fresh data.
+    """
+    return _scoped_full_reset(
+        project_id,
+        label="enrichment + finalize",
+        file_list=ENRICHMENT_FULL_FILES,
+        dir_list=ENRICHMENT_FULL_DIRS,
+        clear_antibodies=True,
+        clear_concepts=True,
+        barrier_reason="enrichment_reset",
+    )
+
+
+@router.delete("/projects/{project_id}/finalize/full-reset")
+def finalize_full_reset(project_id: str) -> Dict[str, Any]:
+    """Danger-Zone reset for stages 11-15 (finalize only).
+
+    Wipes atlas, rules, concepts, audit, antibodies artifacts and clears
+    derived antibody data. Fast sync + deep enrichment outputs are left
+    intact — the next pipeline run re-derives finalize from them.
+    """
+    return _scoped_full_reset(
+        project_id,
+        label="finalize",
+        file_list=FINALIZE_FILES,
+        dir_list=FINALIZE_DIRS,
+        clear_antibodies=True,
+        clear_concepts=True,
+        barrier_reason="finalize_reset",
+    )
 
 
 @router.delete("/projects/{project_id}/index/destroy")
@@ -1087,8 +1228,7 @@ def index_destroy_project(project_id: str) -> Dict[str, Any]:
         logger.debug("pipeline_history.clear_project failed (non-fatal)", exc_info=True)
     try:
         from codrag.services.antibody_store import antibody_store
-        if hasattr(antibody_store, "clear_project"):
-            antibody_store.clear_project(project_id)
+        antibody_store.clear_project(project_id)
     except Exception:
         logger.debug("antibody_store.clear_project failed (non-fatal)", exc_info=True)
     try:
@@ -1120,6 +1260,17 @@ def index_destroy_project(project_id: str) -> Dict[str, Any]:
         _reset_git_evidence_cache()
     except Exception:
         logger.debug("git_evidence_service.reset_cache failed (non-fatal)", exc_info=True)
+
+    # Reset barrier: selfheal and per-stage backup restore refuse to run
+    # until the next finalize group completes. Prevents orphan output files
+    # left by aborted prior runs from being resurrected with stub manifests
+    # that make downstream stages skip real work (the morning-bug that
+    # starved deep reasoning of real epistemic data).
+    try:
+        from codrag.services.pipeline.recovery import write_reset_barrier
+        write_reset_barrier(project_id, reason="full_reset")
+    except Exception:
+        logger.debug("Reset barrier write failed (non-fatal)", exc_info=True)
 
     logger.info(
         "Full reset for %s: deleted %d items, %d errors",

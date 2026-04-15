@@ -122,9 +122,12 @@ export interface ApiClient {
   runDeepAnalysis(projectId: string, opts?: { max_items?: number; max_tokens?: number; max_minutes?: number }): Promise<{ started: boolean; task_id: string }>;
   cancelDeepAnalysis(projectId: string): Promise<{ cancelled: boolean }>;
 
-  // Graph & index destruction
-  destroyGraph(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
+  // Index destruction (Reset All — destroyGraph removed as redundant subset)
   destroyIndex(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
+  // Scoped Danger-Zone resets — same safety as destroyIndex but keep
+  // fast_sync (stages 1-5) intact.
+  destroyEnrichmentFull(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
+  destroyFinalizeFull(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
   destroyAtlas(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
   destroyGroupReasoning(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
   destroyDeepEnrichment(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
@@ -953,15 +956,22 @@ export class CodragApiClient implements ApiClient {
   }
 
   // ── Graph Destruction ─────────────────────────────────────
+  // destroyGraph() removed — use destroyIndex() for a full clean wipe.
 
-  async destroyGraph(projectId: string): Promise<{ deleted: string[]; errors: string[] }> {
-    return this.requestEnvelope<{ deleted: string[]; errors: string[] }>(`/projects/${projectId}/trace/destroy`, {
+  async destroyIndex(projectId: string): Promise<{ deleted: string[]; errors: string[] }> {
+    return this.requestEnvelope<{ deleted: string[]; errors: string[] }>(`/projects/${projectId}/index/destroy`, {
       method: 'DELETE',
     });
   }
 
-  async destroyIndex(projectId: string): Promise<{ deleted: string[]; errors: string[] }> {
-    return this.requestEnvelope<{ deleted: string[]; errors: string[] }>(`/projects/${projectId}/index/destroy`, {
+  async destroyEnrichmentFull(projectId: string): Promise<{ deleted: string[]; errors: string[] }> {
+    return this.requestEnvelope<{ deleted: string[]; errors: string[] }>(`/projects/${projectId}/enrichment/full-reset`, {
+      method: 'DELETE',
+    });
+  }
+
+  async destroyFinalizeFull(projectId: string): Promise<{ deleted: string[]; errors: string[] }> {
+    return this.requestEnvelope<{ deleted: string[]; errors: string[] }>(`/projects/${projectId}/finalize/full-reset`, {
       method: 'DELETE',
     });
   }
