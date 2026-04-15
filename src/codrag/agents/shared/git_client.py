@@ -117,3 +117,49 @@ class GitClient:
         self.switch_branch(origin_branch)
 
         return sha
+
+    def rev_parse_head(self) -> str:
+        """Return the current HEAD SHA (full, 40 chars), or '' if not a repo."""
+        result = self._run(["rev-parse", "HEAD"], check=False)
+        if result.returncode != 0:
+            return ""
+        return result.stdout.strip()
+
+    def is_shallow_repo(self) -> bool:
+        """Return True if the repo is a shallow clone."""
+        result = self._run(["rev-parse", "--is-shallow-repository"], check=False)
+        if result.returncode != 0:
+            return False
+        return result.stdout.strip().lower() == "true"
+
+    def log_numstat_since(
+        self,
+        *,
+        since_days: int,
+        max_commits: int = 2000,
+    ) -> str:
+        """Return raw `git log --numstat` output for the window.
+
+        Format (streamed, newline-separated):
+            COMMIT <sha>|<author>|<iso_date>|<subject_first_80_chars>
+            <added>\\t<removed>\\t<path>
+            <added>\\t<removed>\\t<path>
+            ...
+
+        Returns empty string on failure (not-a-repo, shallow, permission).
+        Callers parse the output; this method is intentionally dumb.
+        """
+        result = self._run(
+            [
+                "log",
+                f"--since={since_days} days ago",
+                f"--max-count={max_commits}",
+                "--numstat",
+                "--no-merges",
+                "--format=COMMIT %H|%an|%aI|%s",
+            ],
+            check=False,
+        )
+        if result.returncode != 0:
+            return ""
+        return result.stdout
