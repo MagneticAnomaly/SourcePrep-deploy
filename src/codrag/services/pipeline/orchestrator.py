@@ -484,6 +484,16 @@ class PipelineOrchestrator:
                 "resume_point": 0,
             })
 
+        # F-87: Wipe worker-level content-hash caches so individual workers
+        # (InferredEdgesAnalyzer, EpistemicEnricher, KnowledgeIndex, etc.)
+        # can't silently skip per-file work based on hash match. F-82 stopped
+        # the orchestrator from skipping whole stages; this stops the workers
+        # from skipping most of their own work. Branch snapshot (taken at
+        # _start_group) and _golden checkpoint still hold the pre-rebuild
+        # data, so F-84 cancel-revert is unaffected.
+        if force_from_start:
+            self._wipe_rebuild_caches(project_id, pfl)
+
         if resume >= len(FAST_SYNC_STAGES):
             # Phase 98: Priority inversion guard REMOVED. Selfheal + chain-forward
             # now handle incomplete deep enrichment naturally. The old guard
@@ -715,6 +725,13 @@ class PipelineOrchestrator:
         # Phase 98: Selfheal pre-flight — resurrect missing stage data from backups
         if not force_from_start:
             self._selfheal_group(project_id, DEEP_ENRICHMENT_STAGES)
+
+        # F-87: If Deep Enrichment was started directly with force_from_start=True
+        # (not via the fast_sync chain, which already wiped), ensure the rebuild
+        # flag + deep-stage cache wipe happen here too.
+        if force_from_start:
+            self._force_from_start_runs.add(project_id)
+            self._wipe_rebuild_caches(project_id, self._get_file_logger(project_id))
 
         # Phase 60D: Always skip mtime cascade.  If data exists, it's valid.
         # Workers handle incremental updates internally.
@@ -2428,30 +2445,242 @@ class PipelineOrchestrator:
 
         return True
 
+    # F-87: Files whose presence lets a worker skip per-file LLM work via
+    # content-hash match. Wiped at rebuild start so each worker truly
+    # re-runs end-to-end. Excludes: repo_policy.json, project.json
+    # (user config), _branch_state.json, and anything outside the index
+    # dir. Branch snapshot + _golden checkpoint retain the pre-rebuild
+    # data for F-84 cancel-revert.
+    _REBUILD_WIPE_FILES = [
+        # Edge Discovery cache
+        "trace_inferred_edges.jsonl",
+        "trace_inferred_hashes.json",
+        "trace_inferred_manifest.json",
+        # Fast Catalogue / Validation output (force re-augmentation)
+        "trace_augmented.jsonl",
+        "trace_augment_manifest.json",
+        "validation_manifest.json",
+        # Knowledge Embedding (Fast Sync stage 5) — reuse_map comes from these
+        "knowledge_documents.json",
+        "knowledge_embeddings.npy",
+        "knowledge_manifest.json",
+        # Deep Reasoning
+        "trace_epistemic.jsonl",
+        "trace_epistemic_manifest.json",
+        # Group Reasoning
+        "trace_group_reasoning.jsonl",
+        "group_reasoning_manifest.json",
+        # Cluster Synthesis
+        "trace_modules.jsonl",
+        "trace_modules_manifest.json",
+        "trace_cluster_swarm_synthesis.json",
+        # Atlas + Deepening + Deep Knowledge
+        "atlas.json",
+        "atlas_prev.json",
+        "atlas_manifest.json",
+        "atlas_segments_manifest.json",
+        "atlas_routing.json",
+        "atlas_routing_embeddings.npy",
+        "atlas_updated.signal",
+        "deepening_manifest.json",
+        "deep_knowledge_manifest.json",
+        # Finalize manifests (so Finalize stages re-run too when rebuild
+        # chains through)
+        "rules_manifest.json",
+        "concepts_manifest.json",
+        "audit_manifest.json",
+        "antibodies_manifest.json",
+        # Pipeline run metadata (stale resume decisions)
+        "pipeline_run_metadata.json",
+    ]
+
+    def _wipe_rebuild_caches(self, project_id: str, pfl: Any = None) -> None:
+        """Remove worker-level caches at rebuild start (F-87).
+
+        Lets each stage's worker re-run end-to-end instead of short-
+        circuiting on content-hash matches. Preserves project config
+        (project.json, repo_policy.json) and all backup sources
+        (_golden, run checkpoints, branch snapshots).
+
+        Also clears stale in-memory orchestrator state so the UI doesn't
+        show ghost spinners from a paused/cancelled run when a fresh
+        rebuild starts (F-87 extension): per-project BuildSlot entries
+        and non-fast_sync state machine runs that would survive a
+        Rebuild button click otherwise.
+        """
+        try:
+            from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
+            project = require_project(project_id)
+            idx_dir = Path(project_index_dir(project))
+
+            # F-87c: Take a "pre_rebuild" checkpoint BEFORE wiping so
+            # F-84 cancel-revert always has a safety net — even for
+            # first-time rebuilds that have no _golden checkpoint yet.
+            # This is cheap (shutil.copy2 of a handful of jsonl files)
+            # and only runs for force_from_start rebuilds.
+            try:
+                from codrag.services.pipeline_checkpoint import create_checkpoint
+                import time as _time
+                pre_cp_id = f"pre_rebuild_{int(_time.time())}"
+                cp_path = create_checkpoint(idx_dir, pre_cp_id, "pre_rebuild")
+                if cp_path:
+                    logger.info(
+                        "[%s] F-87c: pre-rebuild checkpoint saved at %s",
+                        project_id, cp_path,
+                    )
+                    if pfl:
+                        pfl.decision("pre_rebuild_checkpoint", "saved", {
+                            "path": str(cp_path),
+                        })
+            except Exception:
+                logger.debug(
+                    "Pre-rebuild checkpoint failed (non-fatal) — "
+                    "revert will fall back to _golden/branch_snapshot",
+                    exc_info=True,
+                )
+
+            deleted = []
+            for fname in self._REBUILD_WIPE_FILES:
+                fpath = idx_dir / fname
+                if fpath.exists():
+                    try:
+                        fpath.unlink()
+                        deleted.append(fname)
+                    except Exception:
+                        pass
+            logger.info(
+                "[%s] F-87 rebuild cache wipe: removed %d files",
+                project_id, len(deleted),
+            )
+            if pfl and deleted:
+                pfl.decision("rebuild_cache_wipe", "wiped", {
+                    "count": len(deleted),
+                    "files": sorted(deleted)[:20],
+                })
+        except Exception:
+            logger.debug("F-87 cache wipe failed (non-fatal)", exc_info=True)
+
+        # F-87b: Clear stale BuildOrchestrator slots + other-group state
+        # machines so the UI doesn't keep showing a paused stage's spinner
+        # from a previous run. fast_sync itself gets a fresh state machine
+        # inside _start_group.
+        try:
+            self._orchestrator.clear_project(project_id)
+        except Exception:
+            logger.debug("clear_project on BuildOrchestrator failed (non-fatal)", exc_info=True)
+        try:
+            with self._lock:
+                # Drop deep_enrichment + finalize runs from a prior paused/cancelled
+                # state. fast_sync is about to be overwritten in _start_group so
+                # leave it alone — removing here would lose the new run's key.
+                doomed = [
+                    k for k in self._runs.keys()
+                    if k[0] == project_id and k[1] != "fast_sync"
+                ]
+                for k in doomed:
+                    del self._runs[k]
+        except Exception:
+            logger.debug("Stale run cleanup failed (non-fatal)", exc_info=True)
+
+        # F-87b: Emit pipeline_status so the UI sees the cleared state
+        # immediately instead of waiting for the next poll.
+        try:
+            self._emit_pipeline_status(project_id)
+        except Exception:
+            pass
+
     def _revert_rebuild_to_backup(self, project_id: str) -> None:
         """Restore a project's pipeline data from the most recent backup.
 
         Called when the user cancels a rebuild (force_from_start) before
-        it completed. The branch snapshot captured at fast_sync start
-        holds the pre-rebuild state; selfheal's backup sources (golden,
-        run checkpoints, branch snapshot) cover everything the rebuild
-        might have touched. Best-effort — logs but doesn't raise.
+        it completed. Uses the pre_rebuild_* checkpoint (created by
+        F-87c at rebuild start) if available, otherwise falls back to
+        _golden / run checkpoints / branch snapshot. Best-effort — logs
+        but doesn't raise.
+
+        F-87d: performs an UNCONDITIONAL overlay of the backup files
+        onto the index dir. The older `try_restore_from_backup` helper
+        was designed for crash recovery and preserves current files
+        that are larger than the backup — which is the wrong behavior
+        for cancel-revert, where partial rebuild data is exactly what
+        we want to discard.
         """
         pfl = self._get_file_logger(project_id)
-        all_stages = list(FAST_SYNC_STAGES) + list(DEEP_ENRICHMENT_STAGES) + list(FINALIZE_STAGES)
         try:
-            restored = RecoveryManager.try_restore_from_backup(
-                project_id, all_stages, pfl,
+            from codrag.core.project_registry import project_index_dir
+            from codrag.services.project_helpers import require_project
+            project = require_project(project_id)
+            idx_dir = Path(project_index_dir(project))
+
+            # Pick the best backup source for a hard revert.
+            # Priority: pre_rebuild_* (most recent) > _golden > run-* > branch_snapshot.
+            best = None
+            cp_root = idx_dir / ".checkpoints"
+            if cp_root.is_dir():
+                # pre_rebuild_* first — reverse-sorted by name picks newest timestamp.
+                pre_dirs = sorted(
+                    (d for d in cp_root.iterdir()
+                     if d.is_dir() and d.name.startswith("pre_rebuild_")),
+                    reverse=True,
+                )
+                if pre_dirs:
+                    best = pre_dirs[0]
+                elif (cp_root / "_golden").is_dir():
+                    best = cp_root / "_golden"
+                else:
+                    runs = sorted(
+                        (d for d in cp_root.iterdir()
+                         if d.is_dir() and d.name.startswith("run-")),
+                        reverse=True,
+                    )
+                    if runs:
+                        best = runs[0]
+            if best is None:
+                # Fall back to branch snapshot
+                try:
+                    from codrag.services.branch_backup_manager import (
+                        read_branch_state, _sanitize_branch_name, SNAPSHOTS_DIR,
+                    )
+                    state = read_branch_state(idx_dir)
+                    branch = state.get("branch")
+                    if branch:
+                        sd = idx_dir / SNAPSHOTS_DIR / _sanitize_branch_name(branch)
+                        if sd.is_dir():
+                            best = sd
+                except Exception:
+                    pass
+
+            if best is None:
+                logger.warning(
+                    "[%s] Rebuild revert: no backup source available",
+                    project_id,
+                )
+                if pfl:
+                    pfl.log("cancel_revert", "No backup source available")
+                return
+
+            import shutil
+            restored = []
+            for src in best.iterdir():
+                if not src.is_file():
+                    continue
+                dst = idx_dir / src.name
+                try:
+                    shutil.copy2(str(src), str(dst))
+                    restored.append(src.name)
+                except Exception:
+                    logger.debug("Revert copy failed: %s", src.name, exc_info=True)
+
+            logger.info(
+                "[%s] Rebuild revert: restored %d files from %s",
+                project_id, len(restored), best.name,
             )
             if pfl:
                 pfl.log(
                     "cancel_revert",
-                    f"Rebuild cancelled — restore_from_backup={'ok' if restored else 'no_backup'}",
+                    f"Reverted {len(restored)} files from {best.name}",
                 )
-            logger.info(
-                "[%s] Rebuild cancelled: restore_from_backup=%s",
-                project_id, restored,
-            )
         except Exception:
             logger.warning(
                 "[%s] Rebuild revert failed (non-fatal) — state left as-is",

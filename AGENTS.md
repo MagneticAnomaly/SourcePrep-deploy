@@ -3,7 +3,7 @@
 <!-- codrag-managed-start -->
 ## CoDRAG Integration
 
-Last updated: 2026-04-14T23:52:02Z
+Last updated: 2026-04-15T04:02:52Z | Full analysis in progress
 
 codrag_project_id: 1d6f0b35-45cb-427b-ae9d-aac3c6371a4b
 
@@ -54,30 +54,32 @@ To skip approval prompts for CoDRAG's read-only tools, add to your settings:
 ```
 In Claude Code: add to `.claude/settings.json`. In Cursor: add to MCP settings.
 
-<!-- codrag-atlas-hash:157d44e91ab9 -->
+<!-- codrag-atlas-hash:1c8ff779c80d -->
 ## Codebase Atlas
 
-IDENTITY: Codrag is an AI-powered development workspace combining MCP server infrastructure, RAG indexing, React/TypeScript UI components, and VSCode extension tooling with marketing and documentation websites.
-
-STACK: Python, TypeScript, React, Next.js, Rust (engine/crates), Storybook, Paperclip design system, VSCode extension API, MCP protocol.
-
-WORKSPACE MAP:
-Root (_root, 1373 files): core testing, MCP server, Python RAG engine, marketing infrastructure
-Ui (packages/ui, 809 files): shared React/TypeScript UI component library with Storybook
-Marketing (websites/apps/marketing, 64 files): Next.js marketing site with documentation
-Docs (websites/apps/docs, 54 files): Next.js configuration and documentation site
-Dashboard (src/codrag/dashboard, 45 files): React/TypeScript dashboard UI with configuration
-Support (websites/apps/support, 29 files): Next.js support documentation site
-Vscode (packages/vscode, 20 files): VSCode extension with daemon integration and lifecycle management
-Payments (websites/apps/payments, 17 files): Next.js payments processing interface
-Webview Ui (packages/vscode/webview-ui, 14 files): VSCode extension webview UI with code navigation
-Paperclip Plugin Codrag (packages/paperclip-plugin-codrag, 12 files): Paperclip design system plugin with MCP integration
-
-CROSS-CUTTING: React (195 edges) and TypeScript dominate UI segments; Python MCP server at src/codrag/mcp/server.py with 409 .py files total; shared UI components flow from packages/ui to dashboard, marketing, docs, support; Next.js unifies all web apps; 161 import cycles concentrated in packages/ui goalposts components and MCP tool chains; ext:typing (261 edges) and ext:__future__ (239 edges) are highest-traffic Python dependencies; ext:pathlib (190 edges) and ext:logging (178 edges) shared across Python tooling; engine/crates/codrag-chunking provides Rust-based RAG infrastructure; five entry points anchor the system: UI components (goalposts, search), MCP server, Rust chunking engine, and Paperclip plugin UI.
-
-## Focus Areas
-- docs/Phase00_Initial-Concept/MCP.md
-Call `codrag` for detailed content from these areas.
+IDENTITY: CoDRAG
+STACK: .md 34%, .tsx 16%, .ts 16%, .py 13%, .js 12%, .json 5%, .css 2%, .html 1%
+STRUCTURE: 2345 files, 8840 nodes, 10832 edges
+EDGE TYPES: contains: 5800, imports: 5032
+CIRCULAR DEPS (3): src/codrag/core/audit/synthesizer.py <-> src/codrag/core/audit/__init__.py; src/codrag/api/routers/projects/__init__.py <-> src/codrag/api/routers/projects/__init__.py; src/codrag/api/routers/trace_routes/__init__.py <-> src/codrag/api/routers/trace_routes/__init__.py
+ENTRY POINTS: packages/ui/src/components/marketing/heroes/index.ts, src/codrag/__main__.py, docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/index.ts, packages/ui/src/components/viz/index.ts, packages/ui/src/components/team/index.ts
+SUBSYSTEMS:
+  _root/ (1262 files)
+  packages/ui/ (825 files)
+  websites/apps/marketing/ (66 files)
+  websites/apps/docs/ (54 files)
+  src/codrag/dashboard/ (46 files)
+  websites/apps/support/ (29 files)
+  packages/vscode/ (20 files)
+  websites/apps/payments/ (17 files)
+  packages/vscode/webview-ui/ (14 files)
+  packages/paperclip-plugin-codrag/ (12 files)
+TESTS: tests-old/ (7 files), specs/ (7 files), test_scheduler.py/ (1 files)
+HUB FILES: ext:typing (232 edges), ext:__future__ (227 edges), ext:react (198 edges), ext:logging (158 edges), ext:lucide-react (144 edges)
+CALL CHAINS:
+  packages/ui/src/components/marketing/heroes/index.ts -> packages/ui/src/components/marketing/heroes/split.tsx -> packages/ui/src/components/marketing/heroes/studio.tsx -> sym:StudioHero@packages/ui/src/components/marketing/heroes/studio.tsx:15
+  src/codrag/__main__.py -> src/codrag/server.py -> ext:codrag.api.routers.agents
+  docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/index.ts -> docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/MarketingHero.tsx -> sym:FocusHero@docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/MarketingHero.tsx:557
 
 If `codrag` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.

@@ -113,6 +113,32 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       const ps = await api.getPipelineStatus(pid)
       // F-77: Guard against project switch during the in-flight fetch.
       if (latestProjectIdRef.current !== pid) return
+
+      // F-86b: Re-dispatch SYNC_RUNNING from polling too, not just SSE.
+      // The SSE pipeline_status event only fires on phase transitions
+      // (start/end). Mid-stage polling can see updated current_stage
+      // faster than SSE. Keeping the running flags in sync via both
+      // paths ensures "later stage started → earlier stage shows green"
+      // works regardless of SSE lag.
+      const ACTIVE = new Set(['running', 'queued', 'pausing', 'recovering'])
+      const fastActivePoll = ACTIVE.has(ps.fast_sync?.phase ?? '')
+      const deepActivePoll = ACTIVE.has(ps.deep_enrichment?.phase ?? '')
+      const fastStage = ps.fast_sync?.current_stage
+      const deepStage = ps.deep_enrichment?.current_stage
+      dispatch({
+        type: 'SYNC_RUNNING',
+        inferredEdgesRunning: fastActivePoll && fastStage === 'inferred_edges',
+        augmenting: fastActivePoll && (fastStage === 'augment' || fastStage === 'catalogue'),
+        validating: fastActivePoll && fastStage === 'validation',
+        epistemicRunning: deepActivePoll && deepStage === 'enrichment',
+        groupReasoningRunning: deepActivePoll && deepStage === 'group_reasoning',
+        clusterRunning: deepActivePoll && deepStage === 'clustering',
+        atlasRunning: deepActivePoll && deepStage === 'atlas',
+        deepeningRunning: deepActivePoll && deepStage === 'deepening',
+        fastKnowledgeBuilding: fastActivePoll && fastStage === 'knowledge',
+        deepKnowledgeBuilding: deepActivePoll && deepStage === 'deep_knowledge',
+      })
+
       if (ps.stages?.inferred_edges) {
         dispatch({ type: 'INFERRED_EDGES_STATUS', payload: ps.stages.inferred_edges })
       }

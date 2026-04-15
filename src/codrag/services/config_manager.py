@@ -345,6 +345,13 @@ def default_ui_config(config: Dict[str, Any]) -> Dict[str, Any]:
             "model": "",
             "always_on": False,
         },
+        "coordinator_model": {
+            "enabled": False,
+            "endpoint_id": "",
+            "model": "",
+            "always_on": False,
+            "inherit_from_large": True,
+        },
         "compression": {
             "enabled": False,
             "mode": "auto",

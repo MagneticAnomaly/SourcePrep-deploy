@@ -136,6 +136,8 @@ def scan_todos(
         if len(nodes) >= max_results:
             break
 
+    _apply_churn_gate(nodes, project_root)
+
     logger.info("TODO scanner: found %d annotations in %s", len(nodes), project_root)
     return nodes
 
@@ -229,6 +231,47 @@ def _scan_with_python(
                         break
 
     return results
+
+
+# ── Phase 105: churn gate ────────────────────────────────────────────
+
+_STALE_WINDOW_DAYS = 180
+
+
+def _apply_churn_gate(nodes: List[RoadmapNode], project_root: Path) -> None:
+    """Demote TODOs whose source file has not been touched in the window.
+
+    Fails open: if evidence is unavailable (not a git repo, shallow clone,
+    settings disabled, subprocess error), this is a no-op. Mutates nodes
+    in place.
+    """
+    try:
+        from codrag.services.git_evidence_service import get_git_evidence
+        evidence = get_git_evidence(project_root)
+    except Exception:
+        return
+    if evidence is None:
+        return
+
+    try:
+        churn = evidence.recent_churn_by_file(window_days=_STALE_WINDOW_DAYS)
+    except Exception:
+        return
+    if not churn:
+        return
+
+    suffix = f" [stale: file not touched in {_STALE_WINDOW_DAYS}d]"
+    for node in nodes:
+        # source_ref shape for todo_scan nodes is "<path>:<line>"
+        ref = node.source_ref or ""
+        path = ref.rsplit(":", 1)[0] if ":" in ref else ""
+        if not path:
+            continue
+        if path not in churn:
+            node.priority = "P3"
+            current_desc = node.description or ""
+            if suffix not in current_desc:
+                node.description = current_desc + suffix
 
 
 # ── Shared parser ────────────────────────────────────────────────────

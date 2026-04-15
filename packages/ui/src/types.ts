@@ -801,6 +801,11 @@ export interface LLMConfig {
   small_model: LLMSlotConfig;
   large_model: LLMSlotConfig;
   code_model: LLMSlotConfig;
+  /**
+   * Optional Swarm Coordinator model. When unset (or `inherit_from_large`),
+   * the swarm orchestrator falls back to `large_model` for planning/synthesis.
+   */
+  coordinator_model?: LLMSlotConfig & { inherit_from_large?: boolean };
   saved_endpoints: SavedEndpoint[];
   compute_nodes?: ComputeNode[];
   assignment_blocks?: LLMAssignmentBlock[];
@@ -811,7 +816,7 @@ export interface LLMConfig {
 /**
  * Model slot type for UI
  */
-export type ModelSlotType = 'embedding' | 'small' | 'large' | 'code';
+export type ModelSlotType = 'embedding' | 'small' | 'large' | 'code' | 'coordinator';
 
 /**
  * HuggingFace download status
@@ -1294,7 +1299,7 @@ export interface RunningTask {
   project_name: string;
   group: string;
   stage: string;
-  model_slot?: 'small' | 'large' | 'code' | null;
+  model_slot?: 'small' | 'large' | 'code' | 'coordinator' | null;
   /** How many parallel LLM calls this stage makes (from scheduler budget) */
   concurrent_workers?: number;
   /** Which compute node this project is running on (e.g. "cloud:default_ollama") */
@@ -1314,6 +1319,7 @@ export interface LLMSlotsStatus {
   small_model: LLMSlotStatus;
   large_model: LLMSlotStatus;
   code_model: LLMSlotStatus;
+  coordinator_model?: LLMSlotStatus;
   assignment_blocks?: LLMBlockStatus[];
 }
 

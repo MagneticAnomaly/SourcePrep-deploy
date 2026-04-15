@@ -31,7 +31,7 @@ export interface AIModelsSettingsProps {
   
   // Model operations
   onFetchModels: (endpointId: string, slot?: string) => Promise<string[]>;
-  onTestModel: (slotType: 'embedding' | 'small' | 'large' | 'code') => Promise<EndpointTestResult>;
+  onTestModel: (slotType: 'embedding' | 'small' | 'large' | 'code' | 'coordinator') => Promise<EndpointTestResult>;
   onClearTestResult?: (slot: string) => void;
   
   // HuggingFace operations
@@ -41,7 +41,7 @@ export interface AIModelsSettingsProps {
   availableModels?: Record<string, string[]>; // endpointId -> models
   modelDetails?: Record<string, Array<{ name: string; context_window?: string; cost_tier?: string }>>;
   loadingModels?: Record<string, boolean>;
-  testingSlot?: 'embedding' | 'small' | 'large' | 'code' | null;
+  testingSlot?: 'embedding' | 'small' | 'large' | 'code' | 'coordinator' | null;
   testResults?: Record<string, EndpointTestResult>;
   
   fileCount?: number;
@@ -87,6 +87,7 @@ const RECOMMENDED_MODELS: Record<string, string[]> = {
   small: ['qwen3:8b', 'qwen3:14b', 'gemma3:12b'],
   large: ['qwen3:8b', 'qwen3:14b', 'qwen3:30b', 'gemma3:12b'],
   code: ['qwen3-coder:30b', 'qwen2.5-coder:7b'],
+  coordinator: ['gemini-3-flash-preview:cloud', 'gpt-4o-mini', 'qwen3:30b'],
 };
 
 /** Check if a model name matches an entry in the available list (handles ':latest' suffix) */
@@ -613,7 +614,55 @@ export function AIModelsSettings({
   };
 
 
-  
+  // ── Swarm Coordinator handlers ─────────────────────────────
+  // The coordinator slot drives Phase 1 (planning) and Phase 3 (synthesis) of
+  // the Swarm pipeline. When `inherit_from_large` is true, the backend falls
+  // back to large_model. Toggling inherit is non-destructive — we preserve
+  // the user's previously picked endpoint/model so unchecking restores it.
+  const coordinatorSlot = config.coordinator_model ?? { enabled: false, inherit_from_large: true };
+  const coordinatorInherits = coordinatorSlot.inherit_from_large !== false;
+
+  const handleCoordinatorInheritChange = (inherit: boolean) => {
+    onClearTestResult?.('coordinator');
+    onConfigChange({
+      ...config,
+      coordinator_model: { ...coordinatorSlot, inherit_from_large: inherit },
+    });
+  };
+
+  const handleCoordinatorEndpointChange = async (endpointId: string) => {
+    onClearTestResult?.('coordinator');
+    if (!endpointId || endpointId === '__disconnect__') {
+      onConfigChange({
+        ...config,
+        coordinator_model: { ...coordinatorSlot, endpoint_id: undefined, model: undefined, enabled: false, inherit_from_large: true },
+      });
+      return;
+    }
+    onConfigChange({
+      ...config,
+      coordinator_model: { ...coordinatorSlot, endpoint_id: endpointId, model: undefined, enabled: true, inherit_from_large: false },
+    });
+    void onFetchModels(endpointId, 'coordinator_model');
+  };
+
+  const handleCoordinatorModelChange = (model: string) => {
+    onClearTestResult?.('coordinator');
+    onConfigChange({
+      ...config,
+      coordinator_model: { ...coordinatorSlot, model, enabled: true, inherit_from_large: false },
+    });
+  };
+
+  const handleCoordinatorAlwaysOnChange = (always_on: boolean) => {
+    onConfigChange({
+      ...config,
+      coordinator_model: { ...coordinatorSlot, always_on },
+    });
+  };
+
+
+
 
   // Determine status for each slot
   const getEmbeddingStatus = () => {
@@ -809,10 +858,10 @@ export function AIModelsSettings({
                 testingConnection={testingSlot === 'code'}
               />
 
-              {/* Thinking Model */}
+              {/* Thinking Model (also Swarm Worker) */}
               <ModelCard
                 title="Thinking Model"
-                description="Complex reasoning & summaries (Optional)"
+                description="Deep reasoning · Swarm worker (Optional)"
                 disabled={!config.small_model.model}
                 icon={
                   <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -836,6 +885,57 @@ export function AIModelsSettings({
                 testResult={testResults['large']}
                 testingConnection={testingSlot === 'large'}
               />
+
+              {/* Swarm Coordinator — routes planning/synthesis to a fast, JSON-reliable model */}
+              <div className="flex flex-col gap-2">
+                <div className="rounded-md border border-border/60 bg-surface-raised/40 px-3 py-2 text-[11px] text-text-muted leading-relaxed">
+                  <span className="font-medium text-text">Swarm Coordinator (Optional):</span>{' '}
+                  During Deep Enrichment, CoDRAG fans out per-file analysis to the Thinking Model
+                  (the Worker) and uses a separate model to plan clusters and synthesize domain modules.
+                  Assign a fast, JSON-reliable model here (e.g. Gemini Flash) to avoid token exhaustion
+                  on reasoning-heavy workers like Kimi. Leave inherited to use the Thinking Model for both.
+                </div>
+                <ModelCard
+                  title="Swarm Coordinator"
+                  description={coordinatorInherits ? 'Inheriting Thinking Model' : 'Cluster routing & large-context synthesis'}
+                  disabled={!config.large_model.model || coordinatorInherits}
+                  icon={
+                    <svg className="w-5 h-5 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2l2.39 4.84L20 8l-4 3.9.94 5.48L12 14.77l-4.94 2.6L8 11.9 4 8l5.61-1.16L12 2z" />
+                    </svg>
+                  }
+                  info="Routes large-context planning and synthesis to a fast, JSON-reliable model (e.g. Gemini Flash). If left inherited, the Thinking Model handles both worker and coordinator roles."
+                  infoLink="https://docs.codrag.io/guides/models"
+                  endpoint={coordinatorSlot.endpoint_id}
+                  model={coordinatorSlot.model}
+                  alwaysOn={coordinatorSlot.always_on}
+                  onAlwaysOnChange={handleCoordinatorAlwaysOnChange}
+                  endpoints={config.saved_endpoints}
+                  onEndpointChange={handleCoordinatorEndpointChange}
+                  availableModels={availableModels[coordinatorSlot.endpoint_id || ''] || []}
+                  modelDetails={modelDetails[coordinatorSlot.endpoint_id || '']}
+                  onModelChange={handleCoordinatorModelChange}
+                  onRefreshModels={() => coordinatorSlot.endpoint_id && onFetchModels(coordinatorSlot.endpoint_id)}
+                  loadingModels={loadingModels[coordinatorSlot.endpoint_id || '']}
+                  status={coordinatorInherits ? 'not-configured' : getSlotStatus(coordinatorSlot, 'coordinator')}
+                  onTest={() => onTestModel('coordinator')}
+                  testResult={testResults['coordinator']}
+                  testingConnection={testingSlot === 'coordinator'}
+                />
+                <label className={cn(
+                  'flex items-center gap-2 text-xs select-none pl-1',
+                  !config.large_model.model ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                )}>
+                  <input
+                    type="checkbox"
+                    className="w-3.5 h-3.5 rounded border-border bg-surface text-primary focus:ring-primary focus:ring-offset-surface cursor-pointer disabled:cursor-not-allowed"
+                    checked={coordinatorInherits}
+                    onChange={(e) => handleCoordinatorInheritChange(e.target.checked)}
+                    disabled={!config.large_model.model}
+                  />
+                  <span className="text-text-muted">Inherit from Thinking Model (recommended for simple setups)</span>
+                </label>
+              </div>
             </>
           ) : (
             <>
@@ -1002,6 +1102,7 @@ export function AIModelsSettings({
               <strong>Thinking:</strong> <a href="https://ollama.com/library/qwen3" target="_blank" rel="noreferrer" className="text-primary hover:underline">qwen3:8b</a> (5.2GB) — strong reasoning. Alt: qwen3:14b (9.3GB) or qwen3:30b MoE (19GB) for better quality
             </li>
             <li><strong>Code:</strong> <a href="https://ollama.com/library/qwen3-coder" target="_blank" rel="noreferrer" className="text-primary hover:underline">qwen3-coder:30b</a> MoE (19GB, 3.3B active) — best code model. Alt: qwen2.5-coder:7b (optional — falls back to Fast model)</li>
+            <li><strong>Swarm Coordinator:</strong> Gemini 3 Flash or any fast, JSON-reliable cloud model. Used to plan clusters and synthesize domain modules during Deep Enrichment. Optional — falls back to Thinking Model.</li>
             <li><strong>Compression:</strong> LLMLingua-2 prunes docs/markdown tokens; LOD extracts code at configurable detail levels</li>
           </ul>
         </div>
