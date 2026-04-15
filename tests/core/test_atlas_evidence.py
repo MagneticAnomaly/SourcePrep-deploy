@@ -1,6 +1,7 @@
 """Atlas decoration tests: hub labeling + hot zones + flag fallback."""
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from codrag.core.atlas.generator import (
@@ -50,3 +51,31 @@ def test_hot_zones_line_formats_paths_as_codespan():
     assert "src/foo/" in line
     assert "src/bar/" in line
     assert "src/baz/" in line
+
+
+def test_hub_str_with_evidence_returns_baseline_when_flag_off(monkeypatch):
+    """With decoration disabled, _hub_str_with_evidence returns the classic
+    `<name> (<n> edges)` format regardless of evidence availability.
+
+    Pins acceptance gate 9 (byte-for-byte baseline parity when flag off).
+    """
+    # Patch where the symbol is imported INTO the method — inside git_evidence module.
+    monkeypatch.setattr(
+        "codrag.core.git_evidence.atlas_decoration_enabled",
+        lambda: False,
+        raising=False,
+    )
+
+    from codrag.core.atlas.generator import CodebaseAtlas
+
+    # Build a minimal instance that exposes just the method we need.
+    atlas = MagicMock(spec=CodebaseAtlas)
+    atlas.project_root = Path("/nonexistent")
+    # Bind the real method to the mock instance
+    atlas._hub_str_with_evidence = CodebaseAtlas._hub_str_with_evidence.__get__(
+        atlas, CodebaseAtlas,
+    )
+
+    hubs = [("typing", 223), ("pathlib", 168)]
+    result = atlas._hub_str_with_evidence(hubs)
+    assert result == "typing (223 edges), pathlib (168 edges)"
