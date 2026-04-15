@@ -201,6 +201,42 @@ class GitEvidence:
             return "fragile"
         return "evolving"  # high churn, single/few authors → just evolving
 
+    def hot_zones(
+        self,
+        *,
+        top_n: int = 5,
+        window_days: int | None = None,
+        min_commits: int = 10,
+        depth: int = 3,
+    ) -> list[str]:
+        """Return directories with highest commit count in the window.
+
+        - Groups churn by parent directory at `depth` segments deep.
+        - Filters to directories with >= `min_commits` commits.
+        - Sorts descending by commit count, tie-break lex-ascending.
+        - Returns at most `top_n` entries.
+        - Returns [] if fewer than 3 qualifying directories (not worth
+          showing a "hot zones" banner).
+        """
+        churn = self.recent_churn_by_file(window_days=window_days)
+        if not churn:
+            return []
+
+        by_dir: dict[str, int] = {}
+        for path, entry in churn.items():
+            parts = path.split("/")
+            if len(parts) <= 1:
+                continue   # repo-root file, no directory
+            dir_path = "/".join(parts[: min(depth, len(parts) - 1)]) + "/"
+            by_dir[dir_path] = by_dir.get(dir_path, 0) + entry.commits
+
+        qualifying = [(d, c) for d, c in by_dir.items() if c >= min_commits]
+        if len(qualifying) < 3:
+            return []
+
+        qualifying.sort(key=lambda x: (-x[1], x[0]))
+        return [d for d, _ in qualifying[:top_n]]
+
     def _compute_churn(
         self, *, window_days: int,
     ) -> dict[str, FileChurn]:

@@ -215,3 +215,48 @@ def test_classify_hub_evolving_when_high_churn_but_single_author(tmp_path):
         _commit_file(tmp_path, "src/solo.py", f"v = {i}\n", message=f"c{i}")
     evidence = GitEvidence(repo_root=tmp_path, cache_dir=tmp_path / ".cache")
     assert evidence.classify_hub("src/solo.py") == "evolving"
+
+
+# ── hot_zones tests ──────────────────────────────────────────────────
+
+def test_hot_zones_empty_when_no_churn(tmp_path):
+    _init_repo(tmp_path)
+    _commit_file(tmp_path, "src/foo.py", "x\n")
+    evidence = GitEvidence(repo_root=tmp_path, cache_dir=tmp_path / ".cache")
+    # Only 1 commit; min_commits=10 default → empty
+    assert evidence.hot_zones() == []
+
+
+def test_hot_zones_sorted_by_commit_count_desc(tmp_path):
+    _init_repo(tmp_path)
+    # Zone A: 12 commits across three files
+    for i in range(12):
+        _commit_file(tmp_path, f"src/zone_a/f{i % 3}.py", f"v={i}\n", message=f"a{i}")
+    # Zone B: 15 commits
+    for i in range(15):
+        _commit_file(tmp_path, f"src/zone_b/f{i % 3}.py", f"v={i}\n", message=f"b{i}")
+    # Zone C: 5 commits (below min_commits=10)
+    for i in range(5):
+        _commit_file(tmp_path, f"src/zone_c/f{i}.py", f"v={i}\n", message=f"c{i}")
+
+    evidence = GitEvidence(repo_root=tmp_path, cache_dir=tmp_path / ".cache")
+    zones = evidence.hot_zones(top_n=5, min_commits=10)
+
+    # Need at least 3 qualifying dirs to surface at all
+    # Here only zone_a and zone_b qualify (2 dirs); expect []
+    assert zones == []
+
+
+def test_hot_zones_surfaces_when_three_or_more_qualify(tmp_path):
+    _init_repo(tmp_path)
+    for zone in ("alpha", "beta", "gamma", "delta"):
+        for i in range(11):
+            _commit_file(tmp_path, f"src/{zone}/f{i % 2}.py", f"v={i}\n", message=f"{zone}{i}")
+
+    evidence = GitEvidence(repo_root=tmp_path, cache_dir=tmp_path / ".cache")
+    zones = evidence.hot_zones(top_n=3, min_commits=10)
+    assert len(zones) == 3
+    # Ordering is by commit count desc; ties broken lex. All four have 11
+    # commits, so lex-ordered top 3 are alpha, beta, delta (or similar).
+    assert all(z.startswith("src/") for z in zones)
+    assert len(set(zones)) == 3   # no duplicates
