@@ -75,11 +75,15 @@ _STATUS_STALE_TTL = 30.0  # serve stale cache for up to 30s if a refresh is in-f
 # ── Request models ───────────────────────────────────────────────
 
 class CancelRequest(BaseModel):
-    group: str = "fast_sync"  # "fast_sync", "deep_enrichment", or "finalize"
+    # Accepts the three traditional groups + any finalize-stage value
+    # (atlas, rules, concepts, audit, antibodies) for solo runs.
+    group: str = "fast_sync"
 
 
 class PauseRequest(BaseModel):
-    group: str = "fast_sync"  # "fast_sync", "deep_enrichment", or "finalize"
+    # Accepts the three traditional groups + any finalize-stage value
+    # (atlas, rules, concepts, audit, antibodies) for solo runs.
+    group: str = "fast_sync"
 
 
 class ResumeGroupRequest(BaseModel):
