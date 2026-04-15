@@ -1,26 +1,24 @@
 """Unit tests for core/git_evidence.py."""
 from __future__ import annotations
 
-import subprocess
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import Dict, Optional
+import dataclasses
+from datetime import UTC, datetime
 
 import pytest
 
 from codrag.core.git_evidence import (
-    FileChurn,
-    GitEvidence,
-    HUB_STABLE_MAX_COMMITS,
     HUB_EVOLVING_MAX_COMMITS,
     HUB_FRAGILE_MIN_AUTHORS,
+    HUB_STABLE_MAX_COMMITS,
+    FileChurn,
+    GitEvidence,
     _is_excluded_path,
 )
 
 
 def test_filechurn_is_frozen_dataclass():
     """FileChurn must be immutable to be safe for caching."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     churn = FileChurn(
         path="src/foo.py",
         commits=5,
@@ -30,7 +28,7 @@ def test_filechurn_is_frozen_dataclass():
         last_seen=now,
         authors=2,
     )
-    with pytest.raises(Exception):  # FrozenInstanceError
+    with pytest.raises(dataclasses.FrozenInstanceError):
         churn.commits = 10  # type: ignore
 
 
@@ -52,6 +50,11 @@ def test_excluded_paths_includes_lockfiles_and_media():
     assert _is_excluded_path("CLAUDE.md") is True
     assert _is_excluded_path(".codrag/state.json") is True
     assert _is_excluded_path(".cursor/rules.mdc") is True
+
+    # Nested monorepo lockfiles (regression guard for fnmatch depth)
+    assert _is_excluded_path("packages/ui/package-lock.json") is True
+    assert _is_excluded_path("packages/vscode/yarn.lock") is True
+    assert _is_excluded_path("services/billing/deep/nested/poetry.lock") is True
 
 
 def test_excluded_paths_excludes_normal_source():

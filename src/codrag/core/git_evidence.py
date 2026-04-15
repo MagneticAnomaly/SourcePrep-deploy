@@ -13,13 +13,11 @@ missing git binary, or subprocess errors.
 from __future__ import annotations
 
 import fnmatch
-import json
 import logging
 import threading
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from codrag.core.repo_profile import (
     DEFAULT_EXCLUDE_DIR_NAMES,
@@ -40,19 +38,21 @@ HUB_FRAGILE_MIN_AUTHORS: int = 3
 
 # ── Exclusions ───────────────────────────────────────────────────────
 
-_LOCKFILE_GLOBS: List[str] = [
+# Lockfile basenames (matched at any depth)
+_LOCKFILE_BASENAMES: frozenset[str] = frozenset({
     "package-lock.json",
     "yarn.lock",
+    "pnpm-lock.yaml",
     "poetry.lock",
     "Cargo.lock",
-    "*.lock",
-    "*/package-lock.json",
-    "*/yarn.lock",
-    "*/poetry.lock",
-    "*/Cargo.lock",
-]
+    "composer.lock",
+    "Gemfile.lock",
+})
 
-_MEDIA_EXTS: List[str] = [
+# Catch-all glob for any other *.lock file
+_LOCKFILE_GLOBS: list[str] = ["*.lock"]
+
+_MEDIA_EXTS: list[str] = [
     ".png", ".jpg", ".jpeg", ".gif", ".svg", ".pdf",
     ".bin", ".ico", ".webp", ".mp4", ".mov",
 ]
@@ -74,6 +74,9 @@ def _is_excluded_path(rel_posix: str) -> bool:
     # File-level exclusions
     basename = parts[-1] if parts else rel_posix
     if basename in DEFAULT_EXCLUDE_FILE_NAMES:
+        return True
+
+    if basename in _LOCKFILE_BASENAMES:
         return True
 
     # Lockfile globs
@@ -121,14 +124,14 @@ class GitEvidence:
         self._default_window_days = default_window_days
         self._default_max_commits = default_max_commits
         self._lock = threading.Lock()
-        self._churn_cache: Optional[Dict[str, FileChurn]] = None
-        self._stats: Dict[str, int] = {
+        self._churn_cache: dict[str, FileChurn] | None = None
+        self._stats: dict[str, int] = {
             "cache_hits": 0,
             "cache_misses": 0,
             "refreshes": 0,
         }
 
-    def stats(self) -> Dict[str, int]:
+    def stats(self) -> dict[str, int]:
         """Return a snapshot of cache stats."""
         with self._lock:
             return dict(self._stats)
