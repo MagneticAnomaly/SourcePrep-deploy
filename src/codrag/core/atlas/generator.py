@@ -55,6 +55,50 @@ from .routing import (
 logger = logging.getLogger(__name__)
 
 
+# ── Phase 105: evidence-aware formatting helpers ─────────────────────
+
+
+def _format_hubs_with_labels(
+    hubs: list[tuple[str, int]],
+    classifier: Callable[[str], str],
+) -> str:
+    """Return a one-line hub description grouped by label, or fallback to
+    the raw `<name> (<n> edges)` format if all hubs classify as 'unknown'
+    (meaning no evidence available).
+
+    Labels only — no raw numbers emitted in the grouped form.
+    """
+    labeled: dict[str, list[str]] = {
+        "stable": [], "evolving": [], "fragile": [], "unknown": [],
+    }
+    for path, _edges in hubs:
+        label = classifier(path)
+        if label not in labeled:
+            label = "unknown"
+        labeled[label].append(path)
+
+    # All-unknown → emit today's format so no-evidence behavior is
+    # byte-identical to pre-phase-105 output
+    if len(labeled["unknown"]) == len(hubs):
+        return ", ".join(f"{p} ({d} edges)" for p, d in hubs)
+
+    parts: list[str] = []
+    for label in ("stable", "evolving", "fragile"):
+        names = labeled[label]
+        if names:
+            parts.append(f"{', '.join(names)} ({label})")
+    if labeled["unknown"]:
+        parts.append(", ".join(labeled["unknown"]))
+    return ", ".join(parts)
+
+
+def _build_hot_zones_line(zones: list[str]) -> str:
+    """Return the 'Active zones' line for cross_parts, or '' if no zones."""
+    if not zones:
+        return ""
+    return "Active zones: " + ", ".join(f"`{z}`" for z in zones)
+
+
 # ── Atlas Generator ──────────────────────────────────────────────────
 
 class CodebaseAtlas:
@@ -470,8 +514,14 @@ class CodebaseAtlas:
         hub_files = self._identify_hubs(graph_stats)
         cross_parts: List[str] = []
         if hub_files:
-            hub_str = ", ".join(f"{p} ({d} edges)" for p, d in hub_files[:5])
+            # Phase 105: decorate with evidence labels when available
+            hub_str = self._hub_str_with_evidence(hub_files[:5])
             cross_parts.append(f"Hub files: {hub_str}")
+
+            # Phase 105: append Active zones line when evidence qualifies
+            zones_line = self._hot_zones_line()
+            if zones_line:
+                cross_parts.append(zones_line)
 
         # Find domain tags shared across multiple segments
         tag_segments: Dict[str, int] = defaultdict(int)
@@ -1798,6 +1848,50 @@ class CodebaseAtlas:
         sorted_items = sorted(degrees.items(), key=lambda x: -x[1])
         return sorted_items[:top_n]
 
+    def _hub_str_with_evidence(
+        self, hubs: List[Tuple[str, int]],
+    ) -> str:
+        """Produce the hub-file one-liner, optionally labeled by churn."""
+        from codrag.core.git_evidence import atlas_decoration_enabled
+        if not atlas_decoration_enabled() or self.project_root is None:
+            return ", ".join(f"{p} ({d} edges)" for p, d in hubs)
+
+        try:
+            from codrag.services.git_evidence_service import get_git_evidence
+            evidence = get_git_evidence(self.project_root)
+        except Exception:
+            evidence = None
+        if evidence is None:
+            return ", ".join(f"{p} ({d} edges)" for p, d in hubs)
+
+        def _classify(p: str) -> str:
+            try:
+                return evidence.classify_hub(p)
+            except Exception:
+                return "unknown"
+
+        return _format_hubs_with_labels(hubs, _classify)
+
+    def _hot_zones_line(self) -> str:
+        """Produce the 'Active zones' line, or empty string."""
+        from codrag.core.git_evidence import atlas_decoration_enabled
+        if not atlas_decoration_enabled() or self.project_root is None:
+            return ""
+
+        try:
+            from codrag.services.git_evidence_service import get_git_evidence
+            evidence = get_git_evidence(self.project_root)
+        except Exception:
+            return ""
+        if evidence is None:
+            return ""
+
+        try:
+            zones = evidence.hot_zones(top_n=5, min_commits=10, depth=3)
+        except Exception:
+            return ""
+        return _build_hot_zones_line(zones)
+
     # ── Prompt Formatting ──────────────────────────────────────
 
     def _format_modules(self, modules: List[Dict[str, Any]]) -> str:
@@ -2019,7 +2113,8 @@ class CodebaseAtlas:
 
         # HUB FILES: Highest connectivity (available from Stage 1)
         if hub_files:
-            hub_str = ", ".join(f"{path} ({deg} edges)" for path, deg in hub_files[:5])
+            # Phase 105: decorate with evidence labels when available (parity with LLM path)
+            hub_str = self._hub_str_with_evidence(hub_files[:5])
             sections.append(f"HUB FILES: {hub_str}")
 
         # OPP-W4: Call chain visualization (longest import paths)
