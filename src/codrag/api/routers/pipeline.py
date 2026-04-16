@@ -507,6 +507,7 @@ async def pipeline_status(project_id: str) -> dict[str, Any]:
                 pass
 
         # 6. Cluster synthesis — read directly from files
+        modules_path = idx_dir / "trace_modules.jsonl"
         modules_count = _fast_line_count(modules_path)
         cluster_status: dict[str, Any] = {
             "enabled": modules_count > 0,
@@ -515,7 +516,11 @@ async def pipeline_status(project_id: str) -> dict[str, Any]:
             "running": False,
         }
 
-        # 7. Deepening — read directly from files
+        # 7. Deepening — read directly from files. The previous variable
+        # `deep_has_run` was removed when deep_knowledge_status was
+        # simplified; reconstruct the same gate locally so we don't read
+        # stale manifest data when neither deep stage has produced output.
+        deep_has_run = enriched_count > 0 and modules_count > 0
         deepening_status: dict[str, Any] = {"running": False, "total_scored": 0}
         if deep_has_run:
             deepening_manifest = idx_dir / "deepening_manifest.json"
