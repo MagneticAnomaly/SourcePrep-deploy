@@ -355,3 +355,24 @@ def test_legacy_single_llm_constructor_still_works() -> None:
     orch = SwarmOrchestrator(llm=legacy, concurrency=3)
     assert orch.coordinator_llm is legacy
     assert orch.worker_llm is legacy
+
+
+def test_coordinator_calls_use_coordinator_llm_only():
+    from codrag.core.swarm_orchestrator import SwarmOrchestrator, WorkItem
+    coord = MagicMock(name="coord")
+    coord.generate.return_value = ('{"assignments":[]}', 100)
+    worker = MagicMock(name="worker")
+    worker.generate.return_value = ('{"result":"ok"}', 200)
+
+    orch = SwarmOrchestrator(
+        coordinator_llm=coord, worker_llm=worker,
+        coordinator_timeout_s=5, synthesis_timeout_s=5,
+        worker_timeout_s=5, max_wall_time_s=15,
+    )
+    plan, _tokens = orch._coordinate(
+        items=[WorkItem(id="x", summary="s", full_context="c")],
+        coordinator_prompt="{group_summaries}",
+    )
+    # coord.generate must have been called; worker.generate must NOT.
+    assert coord.generate.called
+    assert not worker.generate.called

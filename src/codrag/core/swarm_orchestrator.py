@@ -190,6 +190,7 @@ class SwarmOrchestrator:
         temperature: float,
         timeout_s: float,
         phase: str,
+        llm: Optional[LLMClient] = None,
     ) -> Tuple[Optional[str], int]:
         """Run an LLM call in a worker thread with a hard timeout.
 
@@ -222,16 +223,17 @@ class SwarmOrchestrator:
         # reaches the *calling* thread's thread-local Session, not the
         # zombie's.  Instead, the wrapper captures the Session reference
         # so we can close it from any thread.
+        client = llm if llm is not None else self.worker_llm
         zombie_session_ref: List = []  # mutable container to capture from closure
 
         def _generate_and_capture(**kwargs):
             """Wrapper that captures the thread-local Session for cleanup."""
             # Force Session creation by touching the property, then capture it.
-            _ = self.llm._session
-            s = getattr(self.llm._thread_local, 'session', None)
+            _ = client._session
+            s = getattr(client._thread_local, 'session', None)
             if s is not None:
                 zombie_session_ref.append(s)
-            return self.llm.generate(**kwargs)
+            return client.generate(**kwargs)
 
         pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"swarm-{phase}")
         future = pool.submit(
@@ -292,6 +294,7 @@ class SwarmOrchestrator:
             temperature=0.4,
             timeout_s=self.coordinator_timeout_s,
             phase="coordinator",
+            llm=self.coordinator_llm,
         )
         if text is None:
             return None, tokens
@@ -492,6 +495,7 @@ class SwarmOrchestrator:
             temperature=0.5,
             timeout_s=self.synthesis_timeout_s,
             phase="synthesis",
+            llm=self.coordinator_llm,
         )
         if text is None:
             return None, tokens
