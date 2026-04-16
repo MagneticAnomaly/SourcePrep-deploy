@@ -78,6 +78,11 @@ STAGE_OUTPUTS: Dict[str, List[str]] = {
     ],
     "deepening":      ["trace_epistemic.jsonl", "trace_epistemic_manifest.json"],  # re-writes epistemic
     "deep_knowledge": [],  # Same atomic swap as knowledge
+    # Phase 114: Finalize tail — previously had no backup coverage
+    "rules":          ["rules_manifest.json"],
+    "concepts":       ["concepts_manifest.json"],
+    "audit":          ["audit_manifest.json"],
+    "antibodies":     ["antibodies_manifest.json"],
 }
 
 # Stages where a checkpoint is created before the stage runs.
@@ -89,12 +94,18 @@ CHECKPOINT_STAGES = {
     "inferred_edges",
     "catalogue",
     "validation",
+    "knowledge",
     "enrichment",
     "group_reasoning",
     "clustering",
     "atlas",
     "deepening",
     "deep_knowledge",
+    # Phase 114: Finalize tail — previously had no backup coverage
+    "rules",
+    "concepts",
+    "audit",
+    "antibodies",
 }
 
 
@@ -287,6 +298,11 @@ _GOLDEN_FILES = sorted(set(TRACE_FILES + [
     "deepening_manifest.json",
     "deep_knowledge_manifest.json",
     "knowledge_documents.json",
+    # Phase 114: Finalize tail manifests
+    "rules_manifest.json",
+    "concepts_manifest.json",
+    "audit_manifest.json",
+    "antibodies_manifest.json",
 ]))
 
 _GOLDEN_DIR_NAME = "_golden"

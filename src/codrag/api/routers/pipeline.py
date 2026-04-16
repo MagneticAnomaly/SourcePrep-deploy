@@ -24,6 +24,7 @@ Exposes the 15-stage pipeline orchestrator via HTTP endpoints.
 from __future__ import annotations
 
 import logging
+import shutil
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -100,6 +101,10 @@ class ResumeRequest(BaseModel):
 
 class DiscardRequest(BaseModel):
     run_id: str
+
+
+class StageRestoreRequest(BaseModel):
+    snapshot_id: str
 
 
 # ── Endpoints ────────────────────────────────────────────────────
@@ -756,6 +761,15 @@ async def pipeline_status(project_id: str) -> dict[str, Any]:
         except Exception:
             pass
 
+        from codrag.services.pipeline.recovery import read_reset_barrier
+        barrier_info = read_reset_barrier(project_id)
+        barrier_payload = {
+            "active": barrier_info is not None,
+            "age_seconds": barrier_info["age_seconds"] if barrier_info else None,
+            "reason": barrier_info["reason"] if barrier_info else None,
+            "written_at": barrier_info["written_at"] if barrier_info else None,
+        }
+
         return ok({
             "fast_sync": pipeline_state.get("fast_sync"),
             "deep_enrichment": pipeline_state.get("deep_enrichment"),
@@ -765,6 +779,7 @@ async def pipeline_status(project_id: str) -> dict[str, Any]:
             "crashed_runs": crashed_runs,
             "scheduler": scheduler_data,
             "agent": agent_data,
+            "barrier": barrier_payload,
         })
 
     # F-57: stale-while-refresh cache with per-project dedup.
@@ -1000,6 +1015,25 @@ def pipeline_force_reset(project_id: str) -> dict[str, Any]:
     return ok({"reset_groups": reset, "count": len(reset)})
 
 
+@router.delete("/projects/{project_id}/pipeline/reset-barrier")
+def clear_pipeline_reset_barrier(project_id: str) -> dict[str, Any]:
+    """Manually clear the reset barrier.
+
+    Intended for cases where a rebuild was interrupted before finalize
+    completed, leaving a barrier that silently blocks selfheal and
+    per-stage restore. Safe no-op when no barrier is active.
+    """
+    from codrag.services.pipeline.recovery import (
+        clear_reset_barrier,
+        read_reset_barrier,
+    )
+
+    barrier = read_reset_barrier(project_id)
+    previous_reason = barrier["reason"] if barrier else None
+    cleared = clear_reset_barrier(project_id)
+    return ok({"cleared": cleared, "previous_reason": previous_reason})
+
+
 # ── Phase 25: Crash Protection Endpoints ──────────────────────────────────
 
 @router.get("/pipeline/crashed")
@@ -1062,3 +1096,187 @@ def pipeline_budget_usage(project_id: str) -> dict[str, Any]:
             "window_resets_in": 0,
         }
     return ok(usage)
+
+
+# ── Phase 114: Pipeline Health Endpoint ──────────────────────────────
+
+@router.get("/projects/{project_id}/pipeline/health")
+def pipeline_health(project_id: str) -> dict[str, Any]:
+    """Aggregated health report: barrier + stages + journal + warnings."""
+    from codrag.services.pipeline.health import collect_pipeline_health
+    from codrag.services.project_helpers import require_project
+    from codrag.core.project_registry import project_index_dir
+
+    project = require_project(project_id)
+    idx_dir = project_index_dir(project)
+    return ok(collect_pipeline_health(project_id, idx_dir))
+
+
+# ── Phase 114: Stage Backups Endpoint ────────────────────────────────
+
+@router.get("/projects/{project_id}/pipeline/stages/{stage_id}/backups")
+async def list_stage_backups(project_id: str, stage_id: str) -> dict[str, Any]:
+    """List stable backups (golden + branch snapshots) for one stage.
+
+    Run checkpoints are ephemeral (pruned to 3) and intentionally excluded
+    from the Recover picker — users should only restore from backups that
+    are stable across restarts.
+
+    snapshot_id is the literal string "golden" for the single golden
+    backup (at .checkpoints/_golden/), otherwise the branch snapshot's
+    dir_name. Task 6 /pipeline/stages/{stage_id}/restore uses this to
+    distinguish backup kinds.
+    """
+    from datetime import datetime
+    from codrag.services.branch_backup_manager import list_snapshots
+    from codrag.services.pipeline.stages import StageId, stage_manifest_name
+    from codrag.services.project_helpers import require_project
+    from codrag.core.project_registry import project_index_dir
+
+    # 404 on unknown stage id.
+    try:
+        StageId(stage_id)
+    except ValueError:
+        raise ApiException(status_code=404, code="NOT_FOUND", message=f"unknown stage: {stage_id}")
+
+    project = require_project(project_id)
+    idx_dir = project_index_dir(project)
+    manifest = stage_manifest_name(stage_id)
+    backups: list[dict] = []
+
+    # Golden (at most one)
+    golden_manifest = idx_dir / ".checkpoints" / "_golden" / manifest
+    if golden_manifest.is_file():
+        stat = golden_manifest.stat()
+        backups.append({
+            "snapshot_id": "golden",
+            "kind": "golden",
+            "branch": None,
+            "created_at": stat.st_mtime,
+            "size_bytes": stat.st_size,
+            "file_count": 1,
+            "record_count": None,
+        })
+
+    # Branch snapshots
+    for snap in list_snapshots(idx_dir):
+        dir_name = snap.get("dir_name") or ""
+        snap_manifest = idx_dir / ".branch_snapshots" / dir_name / manifest
+        if not snap_manifest.is_file():
+            continue
+        # Convert ISO created_at → epoch float; fall back to manifest mtime.
+        created_at_raw = snap.get("created_at")
+        if isinstance(created_at_raw, str):
+            try:
+                created_at = datetime.fromisoformat(created_at_raw).timestamp()
+            except ValueError:
+                created_at = snap_manifest.stat().st_mtime
+        elif isinstance(created_at_raw, (int, float)):
+            created_at = float(created_at_raw)
+        else:
+            created_at = snap_manifest.stat().st_mtime
+
+        backups.append({
+            "snapshot_id": dir_name,
+            "kind": "branch",
+            "branch": snap.get("branch"),
+            "created_at": created_at,
+            "size_bytes": snap.get("size_bytes") or snap_manifest.stat().st_size,
+            "file_count": snap.get("file_count") or 1,
+            "record_count": None,
+        })
+
+    return ok({"stage_id": stage_id, "backups": backups})
+
+
+# ── Phase 114: Stage Restore Endpoint ────────────────────────────────
+
+@router.post("/projects/{project_id}/pipeline/stages/{stage_id}/restore")
+async def restore_stage_from_snapshot(
+    project_id: str,
+    stage_id: str,
+    req: StageRestoreRequest,
+) -> dict[str, Any]:
+    """Restore a single stage's manifest + outputs from a named snapshot.
+
+    Allowed snapshot_id values:
+      - "golden" : .checkpoints/_golden/
+      - "<branch_dir_name>" : .branch_snapshots/<branch_dir_name>/
+
+    Copies only the stage-owned files (manifest + the optional output file
+    listed in STAGE_OUTPUT_FILE); does NOT touch other stages. The reset
+    barrier is NOT consulted — the assumption is that the user is
+    deliberately overriding a broken/stub state via the Recover UI.
+    """
+    from codrag.services.pipeline.stages import StageId, STAGE_OUTPUT_FILE, stage_manifest_name
+    from codrag.services.project_helpers import require_project
+
+    # 404 on unknown stage id.
+    try:
+        sid = StageId(stage_id)
+    except ValueError:
+        raise ApiException(status_code=404, code="NOT_FOUND", message=f"unknown stage: {stage_id}")
+
+    project = require_project(project_id)
+    idx_dir = project_index_dir(project)
+
+    # Resolve source dir (golden sentinel vs. branch dir_name).
+    if req.snapshot_id == "golden":
+        src_root = idx_dir / ".checkpoints" / "_golden"
+        src_dir = src_root
+    else:
+        src_root = idx_dir / ".branch_snapshots"
+        src_dir = src_root / req.snapshot_id
+
+    # SECURITY: snapshot_id is user input joined into a filesystem path.
+    # Block path traversal (e.g. "../.checkpoints/_golden") by requiring
+    # the resolved source dir to live under its expected parent root.
+    try:
+        resolved_src = src_dir.resolve()
+        resolved_root = src_root.resolve()
+        if req.snapshot_id != "golden" and not resolved_src.is_relative_to(resolved_root):
+            raise ValueError("path escapes snapshot root")
+    except (OSError, ValueError):
+        raise ApiException(
+            status_code=400,
+            code="INVALID_PATH",
+            message=f"invalid snapshot_id: {req.snapshot_id}",
+            hint="snapshot_id must be 'golden' or a branch snapshot dir name (no path separators).",
+        )
+
+    if not src_dir.is_dir():
+        raise ApiException(
+            status_code=404,
+            code="NOT_FOUND",
+            message=f"snapshot not found: {req.snapshot_id}",
+        )
+
+    # Stage-owned files: manifest always included; add output file if present.
+    manifest = stage_manifest_name(stage_id)
+    output_file = STAGE_OUTPUT_FILE.get(sid)
+    files: list[str] = [manifest]
+    if output_file and output_file not in files:
+        files.append(output_file)
+
+    # At least the manifest must be present in the source.
+    if not (src_dir / manifest).is_file():
+        raise ApiException(
+            status_code=404,
+            code="NOT_FOUND",
+            message=f"snapshot {req.snapshot_id!r} has no data for stage {stage_id!r}",
+        )
+
+    restored_files: list[str] = []
+    for f in files:
+        src = src_dir / f
+        if src.is_file():
+            dst = idx_dir / f
+            shutil.copy2(src, dst)
+            restored_files.append(f)
+
+    return ok({
+        "restored": True,
+        "stage_id": stage_id,
+        "snapshot_id": req.snapshot_id,
+        "files_restored": restored_files,
+    })

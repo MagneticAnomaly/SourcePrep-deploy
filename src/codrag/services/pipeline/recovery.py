@@ -112,6 +112,44 @@ def reset_barrier_active(project_id: str) -> bool:
     return (idx_dir / _RESET_BARRIER_FILENAME).is_file()
 
 
+def read_reset_barrier(project_id: str) -> dict | None:
+    """Read the reset barrier contents. Returns None if inactive.
+
+    Returns {"written_at": float, "reason": str, "age_seconds": float}
+    when the barrier is active. written_at is epoch seconds from the
+    barrier file's first line; falls back to file mtime if the file
+    predates the written_at format.
+    """
+    idx_dir = _resolve_idx_dir(project_id)
+    if idx_dir is None:
+        return None
+    barrier = idx_dir / _RESET_BARRIER_FILENAME
+    if not barrier.is_file():
+        return None
+    try:
+        text = barrier.read_text().strip()
+        lines = text.split("\n")
+        written_at: float | None = None
+        reason = ""
+        if lines:
+            try:
+                written_at = float(lines[0])
+            except ValueError:
+                written_at = None
+            if len(lines) >= 2:
+                reason = lines[1].strip()
+        if written_at is None:
+            written_at = barrier.stat().st_mtime
+        return {
+            "written_at": written_at,
+            "reason": reason or "unknown",
+            "age_seconds": max(0.0, time.time() - written_at),
+        }
+    except Exception:
+        logger.debug("Failed to read reset barrier for %s", project_id, exc_info=True)
+        return None
+
+
 class RecoveryManager:
     """Pipeline crash recovery, checkpoint creation, and backup restoration.
 
