@@ -4,8 +4,7 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
-
-import pytest
+from unittest.mock import patch
 
 # Load batch modules directly from file to avoid codrag.core.__init__'s
 # heavy dependency chain (fastapi, etc.)
@@ -262,3 +261,34 @@ class TestBatchedResponseParser:
         response = json.dumps(["string_item", {"file": "a.py"}, 42, {"file": "b.py"}])
         results = BatchedResponseParser.parse(response)
         assert len(results) == 2
+
+
+# ── Plan-tier concurrency ──────────────────────────────────────────
+
+
+def test_cloud_concurrency_uses_plan_tier_max():
+    """F-59 is resolved — cloud models must no longer be hardcapped at 1."""
+    from codrag.core.batch_profiles import get_batch_concurrency
+    with patch("codrag.core.batch_profiles._get_plan_tier", return_value="max"):
+        result = get_batch_concurrency("ollama", model="kimi-k2.5:cloud")
+        assert result == 10
+
+
+def test_cloud_concurrency_uses_plan_tier_pro():
+    from codrag.core.batch_profiles import get_batch_concurrency
+    with patch("codrag.core.batch_profiles._get_plan_tier", return_value="pro"):
+        result = get_batch_concurrency("ollama", model="kimi-k2.5:cloud")
+        assert result == 3
+
+
+def test_cloud_concurrency_defaults_to_free_when_unset():
+    from codrag.core.batch_profiles import get_batch_concurrency
+    with patch("codrag.core.batch_profiles._get_plan_tier", return_value="free"):
+        result = get_batch_concurrency("ollama", model="kimi-k2.5:cloud")
+        assert result == 1
+
+
+def test_local_model_still_returns_one():
+    from codrag.core.batch_profiles import get_batch_concurrency
+    result = get_batch_concurrency("ollama", model="gemma3:12b")
+    assert result == 1

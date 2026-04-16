@@ -23,6 +23,20 @@ from typing import Dict, Optional
 logger = logging.getLogger(__name__)
 
 
+def _get_plan_tier() -> str:
+    """Resolve the current Ollama Cloud plan tier from settings.
+
+    Returns "free" when unset (safest default).  Overridden by tests via
+    patch.
+    """
+    try:
+        from codrag.services.config_manager import get_advanced_llm_settings
+        settings = get_advanced_llm_settings()
+        return settings.get("ollama_plan_tier", "free")
+    except Exception:
+        return "free"
+
+
 # ── Stage IDs (mirrors pipeline_orchestrator.StageId values) ──────
 
 class BatchStage(str, enum.Enum):
@@ -347,24 +361,23 @@ def get_batch_concurrency(provider: str, node_id: str | None = None, model: str 
     """
     provider_lower = provider.lower().strip()
 
-    # F-59 WORKAROUND: Force sequential execution for cloud models.
-    # Concurrent requests.post() calls in daemon worker threads hang
-    # indefinitely (works fine standalone — suspected asyncio/GIL
-    # interaction in uvicorn). Until the HTTP client is replaced with
-    # httpx (see docs/Phase79_Swarm/07_Rework/SWARM_HANG_INVESTIGATION.md),
-    # cloud models must run sequentially.
-    #
-    # This affects: group_reasoning, concept_seeder, cluster, atlas
-    # Non-cloud (local Ollama) models are not affected.
+    # Cloud models: use Ollama Cloud plan tier to cap concurrency.
+    # F-59 root cause (daemon hang from timeout misconfiguration) was
+    # resolved on 2026-04-12 — see docs/Phase79_Swarm/07_Rework/
+    # SWARM_HANG_INVESTIGATION.md.  Concurrent cloud requests now work
+    # end-to-end inside the daemon; the real limit is the plan tier.
     _is_cloud = provider_lower not in _LOCAL_PROVIDERS
     if not _is_cloud and model:
         _is_cloud = is_cloud_model_via_ollama(provider_lower, model or "")
     if _is_cloud:
+        from codrag.core.swarm_optimizer import PLAN_TIER_CONCURRENCY
+        tier = _get_plan_tier()
+        plan_concurrency = PLAN_TIER_CONCURRENCY.get(tier, 1)
         logger.info(
-            "Batch concurrency: 1 (F-59 workaround — cloud models forced sequential, provider=%s, model=%s)",
-            provider_lower, model,
+            "Batch concurrency: %d (plan tier=%s, provider=%s, model=%s)",
+            plan_concurrency, tier, provider_lower, model,
         )
-        return 1
+        return plan_concurrency
 
     # Read the calling project's ID from the telemetry context so the
     # scheduler can give the priority ⭐ project the full cloud budget.
