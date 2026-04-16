@@ -436,6 +436,7 @@ def _merge_config_data(cfg: Dict[str, Any], data: Dict[str, Any]) -> None:
         "trace",
         "auto_rebuild",
         "ui_preferences",
+        "pipeline_ui",
         "module_layout",
         "developer_debug_mode",
     ]:
