@@ -909,7 +909,12 @@ class CodebaseAtlas:
         # Phase 79: Swarm stages bypass the scheduler's fair-share division
         # to get the full concurrency budget. The stage still waits its turn
         # in the queue — only the worker parallelism is maximized.
-        # TODO(Phase79-DualModel): pass coordinator_model and worker_model separately
+        # Phase 112: plan-tier enforcement happens upstream in
+        # scheduler.full_budget_for_swarm() (slot.dynamic_capacity, plan-tier
+        # aware) and batch_profiles.get_batch_concurrency() (returns
+        # PLAN_TIER_CONCURRENCY[tier] for cloud).  No extra cap here — F-59
+        # (daemon hang from timeout misconfig) was resolved 2026-04-12; the
+        # real limit is the user's Ollama Cloud plan tier, enforced upstream.
         concurrency = 1
         try:
             from codrag.services.pipeline.scheduler import pipeline_scheduler
@@ -926,14 +931,8 @@ class CodebaseAtlas:
                 concurrency = get_batch_concurrency(self.llm.provider, model=self.llm.model)
             except Exception:
                 concurrency = 1
-        # F-59 rework: cap concurrency for cloud-proxied models (same as
-        # group_reasoning and concept_seeder).
         is_cloud = _is_cloud_endpoint(self.llm)
-        if is_cloud and concurrency > 3:
-            logger.info("[Swarm/Atlas] Capping concurrency %d → 3 for cloud model %s",
-                        concurrency, self.llm.model)
-            concurrency = 3
-        logger.info("[Swarm] Atlas using concurrency=%d for fan-out", concurrency)
+        logger.info("[Swarm] Atlas using concurrency=%d for fan-out (cloud=%s)", concurrency, is_cloud)
 
         # F-59 rework: set per-worker and wall-time caps to prevent
         # apparent hangs on sequential cloud endpoints.
