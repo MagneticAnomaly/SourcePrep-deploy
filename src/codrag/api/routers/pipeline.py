@@ -1091,3 +1091,17 @@ def pipeline_budget_usage(project_id: str) -> dict[str, Any]:
             "window_resets_in": 0,
         }
     return ok(usage)
+
+
+# ── Phase 114: Pipeline Health Endpoint ──────────────────────────────
+
+@router.get("/projects/{project_id}/pipeline/health")
+def pipeline_health(project_id: str) -> dict[str, Any]:
+    """Aggregated health report: barrier + stages + journal + warnings."""
+    from codrag.services.pipeline.health import collect_pipeline_health
+    from codrag.services.project_helpers import require_project
+    from codrag.core.project_registry import project_index_dir
+
+    project = require_project(project_id)
+    idx_dir = project_index_dir(project)
+    return ok(collect_pipeline_health(project_id, idx_dir))
