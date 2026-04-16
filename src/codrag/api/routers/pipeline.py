@@ -1105,3 +1105,76 @@ def pipeline_health(project_id: str) -> dict[str, Any]:
     project = require_project(project_id)
     idx_dir = project_index_dir(project)
     return ok(collect_pipeline_health(project_id, idx_dir))
+
+
+# ── Phase 114: Stage Backups Endpoint ────────────────────────────────
+
+@router.get("/projects/{project_id}/pipeline/stages/{stage_id}/backups")
+async def list_stage_backups(project_id: str, stage_id: str) -> dict[str, Any]:
+    """List stable backups (golden + branch snapshots) for one stage.
+
+    Run checkpoints are ephemeral (pruned to 3) and intentionally excluded
+    from the Recover picker — users should only restore from backups that
+    are stable across restarts.
+    """
+    from datetime import datetime
+    from codrag.services.branch_backup_manager import list_snapshots
+    from codrag.services.pipeline.health import _stage_manifest_name
+    from codrag.services.pipeline.stages import StageId
+    from codrag.services.project_helpers import require_project
+    from codrag.core.project_registry import project_index_dir
+
+    # 404 on unknown stage id.
+    try:
+        StageId(stage_id)
+    except ValueError:
+        raise ApiException(status_code=404, code="not_found", message=f"unknown stage: {stage_id}")
+
+    project = require_project(project_id)
+    idx_dir = project_index_dir(project)
+    manifest = _stage_manifest_name(stage_id)
+    backups: list[dict] = []
+
+    # Golden (at most one)
+    golden_manifest = idx_dir / ".checkpoints" / "_golden" / manifest
+    if golden_manifest.is_file():
+        stat = golden_manifest.stat()
+        backups.append({
+            "snapshot_id": "golden",
+            "kind": "golden",
+            "branch": None,
+            "created_at": stat.st_mtime,
+            "size_bytes": stat.st_size,
+            "file_count": 1,
+            "record_count": None,
+        })
+
+    # Branch snapshots
+    for snap in list_snapshots(idx_dir):
+        dir_name = snap.get("dir_name") or ""
+        snap_manifest = idx_dir / ".branch_snapshots" / dir_name / manifest
+        if not snap_manifest.is_file():
+            continue
+        # Convert ISO created_at → epoch float; fall back to manifest mtime.
+        created_at_raw = snap.get("created_at")
+        if isinstance(created_at_raw, str):
+            try:
+                created_at = datetime.fromisoformat(created_at_raw).timestamp()
+            except ValueError:
+                created_at = snap_manifest.stat().st_mtime
+        elif isinstance(created_at_raw, (int, float)):
+            created_at = float(created_at_raw)
+        else:
+            created_at = snap_manifest.stat().st_mtime
+
+        backups.append({
+            "snapshot_id": dir_name,
+            "kind": "branch",
+            "branch": snap.get("branch"),
+            "created_at": created_at,
+            "size_bytes": snap.get("size_bytes") or snap_manifest.stat().st_size,
+            "file_count": snap.get("file_count") or 1,
+            "record_count": None,
+        })
+
+    return ok({"stage_id": stage_id, "backups": backups})
