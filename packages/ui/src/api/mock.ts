@@ -1054,6 +1054,42 @@ export class MockApiClient implements ApiClient {
   async linkIssue(_projectId: string, _nodeId: string, _body: any) { return { linked: true }; }
   async unlinkIssue(_projectId: string, _nodeId: string, _issueId: string) { return { unlinked: true }; }
   async generateBriefing(_projectId: string, _nodeId: string, _scope?: string) { return { briefing: '' }; }
+
+  // Per-stage restore (Phase 114)
+  async listStageBackups(_projectId: string, stageId: string, _signal?: AbortSignal) {
+    return {
+      stage_id: stageId,
+      backups: [
+        {
+          snapshot_id: 'golden',
+          kind: 'golden' as const,
+          branch: null,
+          created_at: Date.now() / 1000 - 3600,
+          size_bytes: 4321,
+          file_count: 1,
+          record_count: null,
+        },
+        {
+          snapshot_id: 'main_2026-04-15T12-00-00',
+          kind: 'branch' as const,
+          branch: 'main',
+          created_at: Date.now() / 1000 - 86400,
+          size_bytes: 8765,
+          file_count: 2,
+          record_count: null,
+        },
+      ],
+    };
+  }
+
+  async restoreStageFromSnapshot(_projectId: string, stageId: string, snapshotId: string) {
+    return {
+      restored: true as const,
+      stage_id: stageId,
+      snapshot_id: snapshotId,
+      files_restored: ['atlas_manifest.json'],
+    };
+  }
 }
 
 export const createMockApiClient = (): ApiClient => new MockApiClient();

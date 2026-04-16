@@ -329,6 +329,10 @@ export interface ApiClient {
   linkIssue(projectId: string, nodeId: string, body: LinkIssueRequest): Promise<{ linked: boolean }>;
   unlinkIssue(projectId: string, nodeId: string, issueId: string): Promise<{ unlinked: boolean }>;
   generateBriefing(projectId: string, nodeId: string, scope?: 'module' | 'file'): Promise<{ briefing: string }>;
+
+  // Per-stage restore (Phase 114)
+  listStageBackups(projectId: string, stageId: string, signal?: AbortSignal): Promise<import('../types').StageBackupsResponse>;
+  restoreStageFromSnapshot(projectId: string, stageId: string, snapshotId: string): Promise<import('../types').StageRestoreResponse>;
 }
 
 export interface ApiClientConfig {
@@ -1691,6 +1695,34 @@ export class CodragApiClient implements ApiClient {
 
   async getCustodianManifest(projectId: string) {
     return this.requestEnvelope<{ entries: any[] }>(`/projects/${projectId}/agents/custodian/manifest`);
+  }
+
+  // ── Per-stage restore (Phase 114) ─────────────────────────────
+
+  async listStageBackups(
+    projectId: string,
+    stageId: string,
+    signal?: AbortSignal,
+  ): Promise<import('../types').StageBackupsResponse> {
+    const pid = encodeURIComponent(projectId);
+    const sid = encodeURIComponent(stageId);
+    return this.requestEnvelope<import('../types').StageBackupsResponse>(
+      `/projects/${pid}/pipeline/stages/${sid}/backups`,
+      { method: 'GET', signal },
+    );
+  }
+
+  async restoreStageFromSnapshot(
+    projectId: string,
+    stageId: string,
+    snapshotId: string,
+  ): Promise<import('../types').StageRestoreResponse> {
+    const pid = encodeURIComponent(projectId);
+    const sid = encodeURIComponent(stageId);
+    return this.requestEnvelope<import('../types').StageRestoreResponse>(
+      `/projects/${pid}/pipeline/stages/${sid}/restore`,
+      { method: 'POST', body: { snapshot_id: snapshotId } },
+    );
   }
 }
 
