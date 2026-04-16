@@ -1305,9 +1305,11 @@ class ClusterSynthesizer:
         # Phase 112: coord and worker decoupled — coord uses the
         # coordinator_llm slot (defaults to Gemini 3 Flash via inherit
         # fallback), worker uses self.llm (Kimi).  Resolves Phase79-DualModel.
-        is_cloud = getattr(self.llm, "provider", "") == "ollama" and ":cloud" in (
-            getattr(self.llm, "model", "") or ""
-        )
+        # Phase 112 fix 3: use shared _is_cloud_endpoint helper so
+        # non-Ollama cloud providers (openai/anthropic/google) also get
+        # the short cloud timeouts (matches atlas, concept_seeder, group_reasoning).
+        from codrag.core.llm_client import _is_cloud_endpoint
+        is_cloud = _is_cloud_endpoint(self.llm)
         orch = SwarmOrchestrator(
             coordinator_llm=WorkerFactory._get_coordinator_llm_client(),
             worker_llm=self.llm,

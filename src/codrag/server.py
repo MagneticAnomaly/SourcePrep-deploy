@@ -425,6 +425,13 @@ def _get_llm_client_for_slot(slot: str):
     # When the flag is True (default) or the coordinator slot is
     # unconfigured, fall back to the large-slot client — preserves the
     # legacy single-model swarm behavior.  See SWARM_UI_PLAN.md §2.
+    #
+    # Phase 112 fix 2: fail loud when both coordinator AND large are
+    # unconfigured so callers see the misconfiguration instead of the
+    # swarm silently timing out in the Planning phase.  SwarmOrchestrator
+    # still handles ``coordinator_llm=None`` (falls back to worker_llm),
+    # but that's for the legacy single-LLM construction path — it must
+    # not be reached via a misconfigured coordinator slot.
     if slot in ("coordinator", "coordinator_model"):
         inherit = slot_cfg.get("inherit_from_large", True)
         unconfigured = (
@@ -433,7 +440,15 @@ def _get_llm_client_for_slot(slot: str):
             or not slot_cfg.get("model")
         )
         if inherit or unconfigured:
-            return _get_llm_client_for_slot("large")
+            large_client = _get_llm_client_for_slot("large")
+            if large_client is None:
+                raise RuntimeError(
+                    "Coordinator slot unconfigured (or inherit_from_large=True) "
+                    "AND large-model slot is also unconfigured.  Configure the "
+                    "large model in Settings → AI Models, or assign an explicit "
+                    "coordinator model with inherit_from_large=False."
+                )
+            return large_client
 
     # A slot is functional when it has both endpoint_id and model configured.
     # The explicit 'enabled' flag is a UI toggle that may be stale from

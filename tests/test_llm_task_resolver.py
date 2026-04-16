@@ -414,13 +414,18 @@ class TestCoordinatorSlot:
         assert client is not None
         assert client.model == "kimi-k2.5:cloud"
 
-    def test_coordinator_returns_none_when_neither_configured(self):
-        """No coordinator, no large → None."""
+    def test_coordinator_raises_when_neither_configured(self):
+        """Phase 112 fix 2: No coordinator, no large → RuntimeError.
+        Silent None fallback was masking misconfiguration — swarm would
+        time out in the Planning phase with an empty plan.  Now it fails
+        loud so the user sees the bad config.
+        """
+        import pytest
         fake_ui_cfg = {"llm_config": {"saved_endpoints": []}}
         with patch("codrag.server._load_ui_config", return_value=fake_ui_cfg):
             from codrag.server import _get_llm_client_for_slot
-            client = _get_llm_client_for_slot("coordinator")
-        assert client is None
+            with pytest.raises(RuntimeError, match="Coordinator slot unconfigured"):
+                _get_llm_client_for_slot("coordinator")
 
     def test_coordinator_timeout_matches_large(self):
         """Coordinator slot uses 600s timeout (same as large — handles big synthesis payloads)."""

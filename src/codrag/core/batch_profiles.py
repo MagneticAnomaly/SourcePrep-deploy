@@ -421,10 +421,18 @@ def get_batch_concurrency(provider: str, node_id: str | None = None, model: str 
         pass
 
     # Fallback: hardcoded defaults (pre-Phase 56B behavior)
+    # Phase 112 fix 4: honor the user's Ollama Cloud plan tier even when
+    # the scheduler is unreachable.  Previously hardcoded 3 for cloud
+    # would exceed the Free tier (=1) limit and under-utilize Max (=10).
     is_cloud_model = provider_lower not in _LOCAL_PROVIDERS
     if not is_cloud_model and model:
         is_cloud_model = is_cloud_model_via_ollama(provider_lower, model)
-    fallback = 3 if is_cloud_model else 1
+    if is_cloud_model:
+        from codrag.core.swarm_optimizer import PLAN_TIER_CONCURRENCY
+        tier = _get_plan_tier()
+        fallback = PLAN_TIER_CONCURRENCY.get(tier, 1)
+    else:
+        fallback = 1
     logger.info(
         "Batch concurrency: %d workers (FALLBACK — no scheduler, provider=%s, cloud=%s)",
         fallback, provider_lower, is_cloud_model,

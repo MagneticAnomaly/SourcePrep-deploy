@@ -350,6 +350,29 @@ def test_inherit_fallback_when_coordinator_none() -> None:
     assert orch.coordinator_llm is worker  # inherited
 
 
+def test_coordinator_none_fallback_routes_planning_through_worker() -> None:
+    """Phase 112 fix 5: when coordinator_llm=None falls back to worker_llm,
+    the Planning phase must route through the worker client (not crash)."""
+    from codrag.core.swarm_orchestrator import WorkItem
+    worker = MagicMock(name="worker_llm")
+    worker.generate.return_value = ('{"assignments":[]}', 42)
+    orch = SwarmOrchestrator(
+        coordinator_llm=None,
+        worker_llm=worker,
+        coordinator_timeout_s=5,
+        synthesis_timeout_s=5,
+        worker_timeout_s=5,
+        max_wall_time_s=15,
+    )
+    plan, _tokens = orch._coordinate(
+        items=[WorkItem(id="x", summary="s", full_context="c")],
+        coordinator_prompt="{group_summaries}",
+    )
+    # worker.generate IS the coordinator after the None fallback.
+    assert worker.generate.called
+    assert orch.coordinator_llm is worker
+
+
 def test_legacy_single_llm_constructor_still_works() -> None:
     """Backward compatibility: `llm=` kwarg maps to both."""
     legacy = MagicMock(name="legacy_llm")
