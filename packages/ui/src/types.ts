@@ -798,6 +798,28 @@ export interface LLMSlotConfig {
 }
 
 /**
+ * Advanced LLM Settings — Phase 112 power-user overrides for cloud token
+ * safety, thinking budget, and plan-tier concurrency. All default to
+ * conservative values so out-of-the-box behavior matches the documented
+ * profile sizes. See docs/Phase112_Gemini/SWARM_UI_PLAN_v2.md §6.
+ */
+export interface AdvancedLLMSettings {
+  /** When true (default), :cloud models force CLOUD_SMALL profile
+   *  (batch sizes 3-8). Disable only on paid plans with deep pockets. */
+  enforce_cloud_token_safety: boolean;
+
+  /** Hard cap on Kimi's `num_predict` when `think=True`. Default 24576. */
+  max_thinking_budget: number;
+
+  /** Ollama Cloud plan — drives Swarm concurrency ceiling.
+   *  `'custom'` reads `custom_concurrency` instead. */
+  ollama_plan_tier: 'free' | 'pro' | 'max' | 'custom';
+
+  /** Only used when `ollama_plan_tier === 'custom'`. */
+  custom_concurrency?: number;
+}
+
+/**
  * Full LLM configuration
  */
 export interface LLMConfig {
@@ -811,6 +833,8 @@ export interface LLMConfig {
    * the swarm orchestrator falls back to `large_model` for planning/synthesis.
    */
   coordinator_model?: LLMSlotConfig & { inherit_from_large?: boolean };
+  /** Phase 112 advanced overrides — see {@link AdvancedLLMSettings}. */
+  advanced?: AdvancedLLMSettings;
   saved_endpoints: SavedEndpoint[];
   compute_nodes?: ComputeNode[];
   assignment_blocks?: LLMAssignmentBlock[];
