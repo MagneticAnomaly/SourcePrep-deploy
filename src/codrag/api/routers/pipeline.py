@@ -1010,6 +1010,25 @@ def pipeline_force_reset(project_id: str) -> dict[str, Any]:
     return ok({"reset_groups": reset, "count": len(reset)})
 
 
+@router.delete("/projects/{project_id}/pipeline/reset-barrier")
+def clear_pipeline_reset_barrier(project_id: str) -> dict[str, Any]:
+    """Manually clear the reset barrier.
+
+    Intended for cases where a rebuild was interrupted before finalize
+    completed, leaving a barrier that silently blocks selfheal and
+    per-stage restore. Safe no-op when no barrier is active.
+    """
+    from codrag.services.pipeline.recovery import (
+        clear_reset_barrier,
+        read_reset_barrier,
+    )
+
+    barrier = read_reset_barrier(project_id)
+    previous_reason = barrier["reason"] if barrier else None
+    cleared = clear_reset_barrier(project_id)
+    return ok({"cleared": cleared, "previous_reason": previous_reason})
+
+
 # ── Phase 25: Crash Protection Endpoints ──────────────────────────────────
 
 @router.get("/pipeline/crashed")
