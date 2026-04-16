@@ -103,7 +103,7 @@ class DiscardRequest(BaseModel):
     run_id: str
 
 
-class _StageRestoreRequest(BaseModel):
+class StageRestoreRequest(BaseModel):
     snapshot_id: str
 
 
@@ -1137,7 +1137,7 @@ async def list_stage_backups(project_id: str, stage_id: str) -> dict[str, Any]:
     try:
         StageId(stage_id)
     except ValueError:
-        raise ApiException(status_code=404, code="not_found", message=f"unknown stage: {stage_id}")
+        raise ApiException(status_code=404, code="NOT_FOUND", message=f"unknown stage: {stage_id}")
 
     project = require_project(project_id)
     idx_dir = project_index_dir(project)
@@ -1195,7 +1195,7 @@ async def list_stage_backups(project_id: str, stage_id: str) -> dict[str, Any]:
 async def restore_stage_from_snapshot(
     project_id: str,
     stage_id: str,
-    req: _StageRestoreRequest,
+    req: StageRestoreRequest,
 ) -> dict[str, Any]:
     """Restore a single stage's manifest + outputs from a named snapshot.
 
@@ -1203,33 +1203,51 @@ async def restore_stage_from_snapshot(
       - "golden" : .checkpoints/_golden/
       - "<branch_dir_name>" : .branch_snapshots/<branch_dir_name>/
 
-    Copies only the stage-owned files (manifest + outputs listed in
-    STAGE_OUTPUTS); does NOT touch other stages. The reset barrier is
-    NOT consulted — the assumption is that the user is deliberately
-    overriding a broken/stub state via the Recover UI.
+    Copies only the stage-owned files (manifest + the optional output file
+    listed in STAGE_OUTPUT_FILE); does NOT touch other stages. The reset
+    barrier is NOT consulted — the assumption is that the user is
+    deliberately overriding a broken/stub state via the Recover UI.
     """
     from codrag.services.pipeline.stages import StageId, STAGE_OUTPUT_FILE, stage_manifest_name
     from codrag.services.project_helpers import require_project
-    from codrag.core.project_registry import project_index_dir
 
     # 404 on unknown stage id.
     try:
         sid = StageId(stage_id)
     except ValueError:
-        raise ApiException(status_code=404, code="not_found", message=f"unknown stage: {stage_id}")
+        raise ApiException(status_code=404, code="NOT_FOUND", message=f"unknown stage: {stage_id}")
 
     project = require_project(project_id)
     idx_dir = project_index_dir(project)
 
     # Resolve source dir (golden sentinel vs. branch dir_name).
     if req.snapshot_id == "golden":
-        src_dir = idx_dir / ".checkpoints" / "_golden"
+        src_root = idx_dir / ".checkpoints" / "_golden"
+        src_dir = src_root
     else:
-        src_dir = idx_dir / ".branch_snapshots" / req.snapshot_id
+        src_root = idx_dir / ".branch_snapshots"
+        src_dir = src_root / req.snapshot_id
+
+    # SECURITY: snapshot_id is user input joined into a filesystem path.
+    # Block path traversal (e.g. "../.checkpoints/_golden") by requiring
+    # the resolved source dir to live under its expected parent root.
+    try:
+        resolved_src = src_dir.resolve()
+        resolved_root = src_root.resolve()
+        if req.snapshot_id != "golden" and not resolved_src.is_relative_to(resolved_root):
+            raise ValueError("path escapes snapshot root")
+    except (OSError, ValueError):
+        raise ApiException(
+            status_code=400,
+            code="INVALID_PATH",
+            message=f"invalid snapshot_id: {req.snapshot_id}",
+            hint="snapshot_id must be 'golden' or a branch snapshot dir name (no path separators).",
+        )
+
     if not src_dir.is_dir():
         raise ApiException(
             status_code=404,
-            code="not_found",
+            code="NOT_FOUND",
             message=f"snapshot not found: {req.snapshot_id}",
         )
 
@@ -1244,7 +1262,7 @@ async def restore_stage_from_snapshot(
     if not (src_dir / manifest).is_file():
         raise ApiException(
             status_code=404,
-            code="not_found",
+            code="NOT_FOUND",
             message=f"snapshot {req.snapshot_id!r} has no data for stage {stage_id!r}",
         )
 
