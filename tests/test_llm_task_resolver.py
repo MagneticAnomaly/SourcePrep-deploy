@@ -350,3 +350,112 @@ class TestBackwardCompat:
             client = _get_llm_client_for_slot("small")
         assert client is not None
         assert client.model == "qwen3:4b"
+
+
+# ---------------------------------------------------------------------------
+# Phase 112: Coordinator Slot Resolution
+# ---------------------------------------------------------------------------
+
+class TestCoordinatorSlot:
+    """Phase 112: _get_llm_client_for_slot("coordinator") resolution."""
+
+    def test_coordinator_inherits_from_large_when_inherit_flag_true(self):
+        """Default behavior: coordinator inherits the large-slot client."""
+        fake_ui_cfg = {
+            "llm_config": {
+                "saved_endpoints": [
+                    {"id": "ep1", "url": "http://localhost:11434", "provider": "ollama"},
+                ],
+                "large_model": {"enabled": True, "endpoint_id": "ep1", "model": "kimi-k2.5:cloud"},
+                "coordinator_model": {"enabled": False, "inherit_from_large": True},
+            }
+        }
+        with patch("codrag.server._load_ui_config", return_value=fake_ui_cfg):
+            from codrag.server import _get_llm_client_for_slot
+            client = _get_llm_client_for_slot("coordinator")
+        assert client is not None
+        assert client.model == "kimi-k2.5:cloud"
+
+    def test_coordinator_uses_own_model_when_inherit_flag_false(self):
+        """When inherit_from_large is False and coordinator is configured, use it."""
+        fake_ui_cfg = {
+            "llm_config": {
+                "saved_endpoints": [
+                    {"id": "ep1", "url": "http://localhost:11434", "provider": "ollama"},
+                ],
+                "large_model": {"enabled": True, "endpoint_id": "ep1", "model": "kimi-k2.5:cloud"},
+                "coordinator_model": {
+                    "enabled": True,
+                    "inherit_from_large": False,
+                    "endpoint_id": "ep1",
+                    "model": "gemini-3-flash-preview:cloud",
+                },
+            }
+        }
+        with patch("codrag.server._load_ui_config", return_value=fake_ui_cfg):
+            from codrag.server import _get_llm_client_for_slot
+            client = _get_llm_client_for_slot("coordinator")
+        assert client is not None
+        assert client.model == "gemini-3-flash-preview:cloud"
+
+    def test_coordinator_falls_back_to_large_when_unconfigured(self):
+        """No coordinator_model block at all → fall back to large."""
+        fake_ui_cfg = {
+            "llm_config": {
+                "saved_endpoints": [
+                    {"id": "ep1", "url": "http://localhost:11434", "provider": "ollama"},
+                ],
+                "large_model": {"enabled": True, "endpoint_id": "ep1", "model": "kimi-k2.5:cloud"},
+            }
+        }
+        with patch("codrag.server._load_ui_config", return_value=fake_ui_cfg):
+            from codrag.server import _get_llm_client_for_slot
+            client = _get_llm_client_for_slot("coordinator")
+        assert client is not None
+        assert client.model == "kimi-k2.5:cloud"
+
+    def test_coordinator_returns_none_when_neither_configured(self):
+        """No coordinator, no large → None."""
+        fake_ui_cfg = {"llm_config": {"saved_endpoints": []}}
+        with patch("codrag.server._load_ui_config", return_value=fake_ui_cfg):
+            from codrag.server import _get_llm_client_for_slot
+            client = _get_llm_client_for_slot("coordinator")
+        assert client is None
+
+    def test_coordinator_timeout_matches_large(self):
+        """Coordinator slot uses 600s timeout (same as large — handles big synthesis payloads)."""
+        fake_ui_cfg = {
+            "llm_config": {
+                "saved_endpoints": [
+                    {"id": "ep1", "url": "http://localhost:11434", "provider": "ollama"},
+                ],
+                "coordinator_model": {
+                    "enabled": True,
+                    "inherit_from_large": False,
+                    "endpoint_id": "ep1",
+                    "model": "gemini-3-flash-preview:cloud",
+                },
+            }
+        }
+        with patch("codrag.server._load_ui_config", return_value=fake_ui_cfg):
+            from codrag.server import _get_llm_client_for_slot
+            client = _get_llm_client_for_slot("coordinator")
+        assert client is not None
+        assert client.timeout == 600.0
+
+    def test_get_coordinator_llm_client_helper_delegates(self):
+        """WorkerFactory._get_coordinator_llm_client() delegates to _get_llm_client_for_slot."""
+        fake_ui_cfg = {
+            "llm_config": {
+                "saved_endpoints": [
+                    {"id": "ep1", "url": "http://localhost:11434", "provider": "ollama"},
+                ],
+                "large_model": {"enabled": True, "endpoint_id": "ep1", "model": "kimi-k2.5:cloud"},
+                "coordinator_model": {"enabled": False, "inherit_from_large": True},
+            }
+        }
+        with patch("codrag.server._load_ui_config", return_value=fake_ui_cfg):
+            from codrag.services.pipeline.workers import WorkerFactory
+            client = WorkerFactory._get_coordinator_llm_client()
+        assert client is not None
+        assert client.model == "kimi-k2.5:cloud"

@@ -407,14 +407,33 @@ def _get_llm_client_for_slot(slot: str):
     ``_get_llm_client_for_task(task_id)`` instead.
     """
     # Map slot aliases to config keys
-    SLOT_MAP = {"small": "small_model", "large": "large_model", "code": "code_model"}
+    SLOT_MAP = {
+        "small": "small_model",
+        "large": "large_model",
+        "code": "code_model",
+        "coordinator": "coordinator_model",
+    }
     slot_key = SLOT_MAP.get(slot, slot)
-    
+
     ui_cfg = _load_ui_config()
     llm_config = ui_cfg.get("llm_config") or {}
-    
+
     # Get slot config (e.g. small_model: { enabled: true, endpoint_id: "...", model: "..." })
     slot_cfg = llm_config.get(slot_key) or {}
+
+    # Phase 112: Swarm coordinator slot honors `inherit_from_large`.
+    # When the flag is True (default) or the coordinator slot is
+    # unconfigured, fall back to the large-slot client — preserves the
+    # legacy single-model swarm behavior.  See SWARM_UI_PLAN.md §2.
+    if slot in ("coordinator", "coordinator_model"):
+        inherit = slot_cfg.get("inherit_from_large", True)
+        unconfigured = (
+            not slot_cfg
+            or not slot_cfg.get("endpoint_id")
+            or not slot_cfg.get("model")
+        )
+        if inherit or unconfigured:
+            return _get_llm_client_for_slot("large")
 
     # A slot is functional when it has both endpoint_id and model configured.
     # The explicit 'enabled' flag is a UI toggle that may be stale from
@@ -438,7 +457,7 @@ def _get_llm_client_for_slot(slot: str):
     # Deep reasoning models (large slot) need very long timeouts because
     # thinking models like qwen3.5:27b generate 2000-5000+ thinking tokens
     # before content on complex files, taking 300-500s+ per call at ~11 tok/s.
-    _LARGE_SLOTS = {"large", "large_model"}
+    _LARGE_SLOTS = {"large", "large_model", "coordinator", "coordinator_model"}
     timeout = 600.0 if slot in _LARGE_SLOTS else 120.0
     return LLMClient(
         endpoint_url=url,
