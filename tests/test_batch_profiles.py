@@ -292,3 +292,38 @@ def test_local_model_still_returns_one():
     from codrag.core.batch_profiles import get_batch_concurrency
     result = get_batch_concurrency("ollama", model="gemma3:12b")
     assert result == 1
+
+
+# ── Cloud Token Safety toggle (Phase 112 T16) ─────────────────────
+
+
+def test_cloud_safety_off_promotes_gemini_to_large(monkeypatch):
+    from codrag.core.batch_profiles import resolve_profile, PROFILE_LARGE
+    monkeypatch.setattr(
+        "codrag.server.get_advanced_llm_settings",
+        lambda: {"enforce_cloud_token_safety": False},
+    )
+    profile = resolve_profile("ollama", "gemini-3-flash-preview:cloud")
+    assert profile is PROFILE_LARGE
+
+
+def test_cloud_safety_off_keeps_kimi_on_cloud_small(monkeypatch):
+    """Kimi's thinking preamble eats output budget regardless of the 16K cap."""
+    from codrag.core.batch_profiles import resolve_profile, PROFILE_CLOUD_SMALL
+    monkeypatch.setattr(
+        "codrag.server.get_advanced_llm_settings",
+        lambda: {"enforce_cloud_token_safety": False},
+    )
+    profile = resolve_profile("ollama", "kimi-k2.5:cloud")
+    assert profile is PROFILE_CLOUD_SMALL
+
+
+def test_cloud_safety_on_keeps_default_cloud_small(monkeypatch):
+    """Default behavior preserved when safety toggle is ON."""
+    from codrag.core.batch_profiles import resolve_profile, PROFILE_CLOUD_SMALL
+    monkeypatch.setattr(
+        "codrag.server.get_advanced_llm_settings",
+        lambda: {"enforce_cloud_token_safety": True},
+    )
+    profile = resolve_profile("ollama", "gemini-3-flash-preview:cloud")
+    assert profile is PROFILE_CLOUD_SMALL

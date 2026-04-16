@@ -470,6 +470,23 @@ def _get_llm_client_for_slot(slot: str):
     )
 
 
+def get_advanced_llm_settings() -> Dict[str, Any]:
+    """Return the Phase 112 advanced LLM settings block with safe defaults.
+
+    Reads from ``ui_cfg["llm_config"]["advanced"]``.  Defaults to the
+    conservative values (safety ON, Kimi 24K thinking budget, free plan)
+    so out-of-the-box behavior matches the documented profile sizes.
+    """
+    ui_cfg = _load_ui_config()
+    llm_config = ui_cfg.get("llm_config") or {}
+    defaults = {
+        "enforce_cloud_token_safety": True,
+        "max_thinking_budget": 24576,
+        "ollama_plan_tier": "free",
+    }
+    return {**defaults, **(llm_config.get("advanced") or {})}
+
+
 # ── Phase 44: Unified Task-Based LLM Resolver ─────────────────────
 
 # Maps CodragTaskId → structured slot name.  Used when assignment_mode == "structured".

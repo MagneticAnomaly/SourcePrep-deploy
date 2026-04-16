@@ -503,6 +503,26 @@ def resolve_profile(
         except (ValueError, KeyError):
             logger.warning("Unknown batch profile override '%s' — falling back to auto", override)
 
+    # Phase 112: honor the "Enforce Cloud Token Safety" toggle.
+    # When OFF (power users on paid plans), promote cloud models out of
+    # CLOUD_SMALL — except Kimi, where the thinking-preamble constraint
+    # (not the 16K cap) is binding.  See SWARM_UI_PLAN_v2.md §6.1.
+    try:
+        from codrag.server import get_advanced_llm_settings
+        enforce_safety = get_advanced_llm_settings().get(
+            "enforce_cloud_token_safety", True,
+        )
+    except Exception:
+        enforce_safety = True
+
+    if not enforce_safety and is_cloud_model_via_ollama(provider, model):
+        model_lower = (model or "").lower()
+        if "kimi" in model_lower:
+            return PROFILE_CLOUD_SMALL  # thinking-preamble eats output budget
+        if "gemini" in model_lower:
+            return PROFILE_LARGE
+        return PROFILE_STANDARD
+
     # Prefer context-window-based detection when available
     if context_tokens and context_tokens > 0:
         profile = detect_profile_from_context(context_tokens, provider, model)
