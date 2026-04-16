@@ -34,7 +34,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ MIN_MODULE_FILES_FOR_SWARM = 1
 MIN_MODULES_FOR_SWARM = 3
 
 
-def seed_concepts(project_id: str, *, prefer_swarm: bool = True) -> Dict[str, Any]:
+def seed_concepts(project_id: str, *, prefer_swarm: bool = True) -> dict[str, Any]:
     """Run the concept seeding pipeline for a project.
 
     Phase 96F: When ``prefer_swarm`` is True (default), tries the swarm
@@ -92,7 +92,7 @@ class _SwarmFallback(RuntimeError):
     """Internal sentinel: swarm path determined sequential is the right choice."""
 
 
-def _seed_concepts_sequential(project_id: str) -> Dict[str, Any]:
+def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
     """Sequential single-LLM-call concept seeding (Phase 74 original).
 
     1. Load atlas + modules + audit context
@@ -102,9 +102,9 @@ def _seed_concepts_sequential(project_id: str) -> Dict[str, Any]:
 
     Returns a summary dict with counts and any errors.
     """
+    from codrag.core.project_registry import project_index_dir
     from codrag.services.concept_store import concept_store
     from codrag.services.project_helpers import require_project
-    from codrag.core.project_registry import project_index_dir
 
     project = require_project(project_id)
     index_dir = project_index_dir(project)
@@ -195,7 +195,7 @@ def _seed_concepts_sequential(project_id: str) -> Dict[str, Any]:
 # ── Phase 96F: Swarm path ────────────────────────────────────────
 
 
-def seed_concepts_swarm(project_id: str) -> Dict[str, Any]:
+def seed_concepts_swarm(project_id: str) -> dict[str, Any]:
     """Swarm-based concept seeding with per-module fan-out.
 
     Decomposition: each module (≥MIN_MODULE_FILES files) becomes one
@@ -207,12 +207,15 @@ def seed_concepts_swarm(project_id: str) -> Dict[str, Any]:
         _SwarmFallback: when conditions for swarm aren't met (caller
             should fall back to sequential).
     """
-    from codrag.services.concept_store import concept_store
-    from codrag.services.project_helpers import require_project
     from codrag.core.project_registry import project_index_dir
     from codrag.core.swarm_orchestrator import (
-        SwarmOrchestrator, WorkItem, WorkerAssignment,
+        SwarmOrchestrator,
+        WorkerAssignment,
+        WorkItem,
     )
+    from codrag.services.concept_store import concept_store
+    from codrag.services.pipeline.workers import WorkerFactory
+    from codrag.services.project_helpers import require_project
 
     project = require_project(project_id)
     index_dir = project_index_dir(project)
@@ -280,7 +283,7 @@ def seed_concepts_swarm(project_id: str) -> Dict[str, Any]:
             "modules in batches", len(modules), concurrency,
         )
 
-    items: List[WorkItem] = []
+    items: list[WorkItem] = []
     for mod in modules:
         item_id = f"module:{mod.get('module_id', mod.get('name', 'unknown'))}"
         summary = _build_module_summary(mod)
@@ -306,19 +309,21 @@ def seed_concepts_swarm(project_id: str) -> Dict[str, Any]:
     # F-59 rework: cloud models process requests sequentially and
     # use the large-slot 600s HTTP timeout.  Set per-worker and
     # overall wall-time caps so the swarm doesn't appear to hang.
+    # Phase 112: coord and worker decoupled — coord uses coordinator_llm slot.
     orch = SwarmOrchestrator(
-        llm=llm,
+        coordinator_llm=WorkerFactory._get_coordinator_llm_client(),
+        worker_llm=llm,
         concurrency=concurrency,
-        coordinator_timeout_s=10.0 if is_cloud_model else 90.0,  # skip fast on cloud
-        synthesis_timeout_s=120.0,
-        worker_timeout_s=120.0 if is_cloud_model else 300.0,
-        max_wall_time_s=600.0 if is_cloud_model else 1800.0,
+        coordinator_timeout_s=10.0 if is_cloud_model else 90.0,
+        synthesis_timeout_s=120.0 if is_cloud_model else 180.0,
+        worker_timeout_s=180.0 if is_cloud_model else 300.0,
+        max_wall_time_s=900.0 if is_cloud_model else 1800.0,
     )
 
     coordinator_prompt = (
-        "You are coordinating concept extraction across {n} subsystems of "
-        "the codebase \"{project}\".\n\n"
-        "Subsystems:\n{{group_summaries}}\n\n"
+        f"You are coordinating concept extraction across {len(items)} subsystems of "
+        f"the codebase \"{project_name}\".\n\n"
+        "Subsystems:\n{group_summaries}\n\n"
         "For EACH subsystem, choose an analysis_angle that suits its nature:\n"
         "- Pipeline/orchestration → \"control flow and coordination\"\n"
         "- Data/storage → \"data model and persistence boundaries\"\n"
@@ -330,14 +335,14 @@ def seed_concepts_swarm(project_id: str) -> Dict[str, Any]:
         "Also pick 1-3 priority_concerns per subsystem (specific risks "
         "or knowledge gaps to focus the analysis on).\n\n"
         "Respond with JSON only:\n"
-        '{{"assignments": [{{"item_id": "module:...", '
-        '"analysis_angle": "...", "priority_concerns": ["...", "..."]}}]}}'
-    ).format(n=len(items), project=project_name)
+        '{"assignments": [{"item_id": "module:...", '
+        '"analysis_angle": "...", "priority_concerns": ["...", "..."]}]}'
+    )
 
     synthesis_prompt = (
-        "Below are concepts extracted from {n} parallel subsystem analyses "
-        "of \"{project}\".\n\n"
-        "{{worker_outputs}}\n\n"
+        f"Below are concepts extracted from {len(items)} parallel subsystem analyses "
+        f"of \"{project_name}\".\n\n"
+        "{worker_outputs}\n\n"
         "Your tasks:\n"
         "1. DEDUPLICATE: merge concepts with similar titles or overlapping "
         "content. Prefer the more specific version.\n"
@@ -349,16 +354,16 @@ def seed_concepts_swarm(project_id: str) -> Dict[str, Any]:
         "4. CLARIFYING QUESTIONS: generate 5-8 questions about areas "
         "where the \"why\" is still unclear.\n\n"
         "Respond with JSON only:\n"
-        '{{"concepts": [{{"title": "...", "content": "...", '
+        '{"concepts": [{"title": "...", "content": "...", '
         '"category": "architecture|domain|product|epistemic|process|brand|'
         'security|technical|pattern|constraint|decision", '
         '"confidence": 0.5-1.0, "anchors": ["..."], "tags": ["..."], '
-        '"scope": "module|cross-module|global"}}], '
-        '"questions": [{{"question": "...", "context": "...", '
-        '"suggested_category": "...", "target_module": "..."}}]}}'
-    ).format(n=len(items), project=project_name)
+        '"scope": "module|cross-module|global"}], '
+        '"questions": [{"question": "...", "context": "...", '
+        '"suggested_category": "...", "target_module": "..."}]}'
+    )
 
-    def worker_fn(item: WorkItem, assignment: WorkerAssignment) -> Optional[str]:
+    def worker_fn(item: WorkItem, assignment: WorkerAssignment) -> str | None:
         # Each worker generates concepts for ONE module with a focused prompt.
         try:
             module_data = json.loads(item.full_context)
@@ -508,7 +513,7 @@ def seed_concepts_swarm(project_id: str) -> Dict[str, Any]:
     }
 
 
-def _load_modules_for_swarm(index_dir: Path) -> List[Dict[str, Any]]:
+def _load_modules_for_swarm(index_dir: Path) -> list[dict[str, Any]]:
     """Load modules from trace_modules.jsonl for swarm decomposition.
 
     Phase 96F: Uses MIN_MODULE_FILES_FOR_SWARM (default 1) instead of
@@ -516,12 +521,12 @@ def _load_modules_for_swarm(index_dir: Path) -> List[Dict[str, Any]]:
     maximum fan-out, so any module with at least one file becomes a
     work unit.
     """
-    modules: List[Dict[str, Any]] = []
+    modules: list[dict[str, Any]] = []
     modules_path = index_dir / "trace_modules.jsonl"
     if not modules_path.exists():
         return modules
     try:
-        with open(modules_path, "r", encoding="utf-8") as f:
+        with open(modules_path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -548,7 +553,7 @@ def _load_modules_for_swarm(index_dir: Path) -> List[Dict[str, Any]]:
     return modules
 
 
-def _build_module_summary(mod: Dict[str, Any]) -> str:
+def _build_module_summary(mod: dict[str, Any]) -> str:
     """Build a one-line summary of a module for the coordinator."""
     name = mod.get("name", mod.get("module_id", "unnamed"))
     file_count = mod.get(
@@ -558,7 +563,7 @@ def _build_module_summary(mod: Dict[str, Any]) -> str:
     return f"{name} ({file_count} files): {summary}"
 
 
-def _build_module_context(mod: Dict[str, Any]) -> Dict[str, Any]:
+def _build_module_context(mod: dict[str, Any]) -> dict[str, Any]:
     """Build a focused per-module context dict for a worker."""
     files = mod.get("member_files", mod.get("files", []))
     return {
@@ -580,14 +585,14 @@ def _assemble_seeding_context(index_dir: Path, project_path: str) -> str:
     Reads atlas.json, trace_modules.jsonl, and audit findings.
     Budget: ~3500 chars total to leave room for the prompt + response.
     """
-    parts: List[str] = []
+    parts: list[str] = []
     budget = 3500
 
     # 1. Atlas (identity + workspace map — the richest context)
     atlas_path = index_dir / "atlas.json"
     if atlas_path.exists():
         try:
-            with open(atlas_path, "r", encoding="utf-8") as f:
+            with open(atlas_path, encoding="utf-8") as f:
                 atlas = json.load(f)
 
             # Atlas may store data as separate keys OR as a single "content" string
@@ -621,7 +626,7 @@ def _assemble_seeding_context(index_dir: Path, project_path: str) -> str:
     if modules_path.exists() and budget > 200:
         try:
             modules = []
-            with open(modules_path, "r", encoding="utf-8") as f:
+            with open(modules_path, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if not line:
@@ -655,7 +660,7 @@ def _assemble_seeding_context(index_dir: Path, project_path: str) -> str:
     audit_path = index_dir / "audit_findings.json"
     if audit_path.exists() and budget > 200:
         try:
-            with open(audit_path, "r", encoding="utf-8") as f:
+            with open(audit_path, encoding="utf-8") as f:
                 findings = json.load(f)
             if isinstance(findings, list) and findings:
                 finding_lines = []
@@ -792,7 +797,7 @@ def _repair_truncated_json(text: str) -> str:
     return candidate
 
 
-def _parse_llm_response(raw: str) -> Dict[str, Any]:
+def _parse_llm_response(raw: str) -> dict[str, Any]:
     """Parse the LLM response into structured concepts and questions."""
     import re
 
@@ -839,7 +844,7 @@ def _parse_llm_response(raw: str) -> Dict[str, Any]:
     return {"concepts": [], "questions": []}
 
 
-def _validate_parsed(parsed: Dict[str, Any]) -> Dict[str, Any]:
+def _validate_parsed(parsed: dict[str, Any]) -> dict[str, Any]:
     """Validate and filter parsed concept/question data."""
     concepts = parsed.get("concepts", [])
     questions = parsed.get("questions", [])
