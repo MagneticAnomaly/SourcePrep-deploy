@@ -456,13 +456,12 @@ class GroupReasoningEngine:
                 concurrency = get_batch_concurrency(self.llm.provider, model=self.llm.model)
             except Exception:
                 concurrency = 1
-        # F-59: Cap concurrency for cloud-proxied models.
+        # Phase 112: plan-tier enforcement happens upstream in
+        # scheduler.full_budget_for_swarm() / batch_profiles.get_batch_concurrency().
+        # F-59 (daemon hang) resolved 2026-04-12 — no defensive cap needed here.
         from codrag.core.llm_client import _is_cloud_endpoint
         is_cloud = _is_cloud_endpoint(self.llm)
-        if is_cloud and concurrency > 3:
-            logger.info("[GroupReasoning] Capping concurrency %d → 3 for cloud model %s", concurrency, self.llm.model)
-            concurrency = 3
-        logger.info("[Swarm] Using concurrency=%d for fan-out", concurrency)
+        logger.info("[Swarm] Using concurrency=%d for fan-out (cloud=%s)", concurrency, is_cloud)
 
         # F-59 rework: cloud models process requests sequentially and
         # use the large-slot 600s HTTP timeout.  Set per-worker and

@@ -28,13 +28,42 @@ def _get_plan_tier() -> str:
 
     Returns "free" when unset (safest default).  Overridden by tests via
     patch.
+
+    Phase 112 Fix 8: previously imported from ``codrag.services.config_manager``,
+    which does not export ``get_advanced_llm_settings`` — so the ImportError
+    was silently caught and every caller got "free".  The function lives on
+    ``codrag.server``; import from there.
     """
     try:
-        from codrag.services.config_manager import get_advanced_llm_settings
+        from codrag.server import get_advanced_llm_settings
         settings = get_advanced_llm_settings()
         return settings.get("ollama_plan_tier", "free")
-    except Exception:
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.debug("Failed to resolve plan tier, defaulting to free: %s", exc)
         return "free"
+
+
+def _resolve_plan_tier_concurrency() -> int:
+    """Map the current plan tier to a concrete concurrency value.
+
+    Phase 112 Fix 9: when the user selects ``ollama_plan_tier == "custom"``,
+    honor their ``custom_concurrency`` input (clamped to [1, 32], matching
+    the UI validation in AdvancedLLMSettings.tsx).  Otherwise look up the
+    fixed per-tier value in PLAN_TIER_CONCURRENCY.
+    """
+    from codrag.core.swarm_optimizer import PLAN_TIER_CONCURRENCY
+
+    tier = _get_plan_tier()
+    if tier == "custom":
+        try:
+            from codrag.server import get_advanced_llm_settings
+            settings = get_advanced_llm_settings()
+            raw = settings.get("custom_concurrency", 1)
+            return max(1, min(32, int(raw)))
+        except Exception as exc:  # pragma: no cover — defensive
+            logger.debug("Failed to resolve custom_concurrency, defaulting to 1: %s", exc)
+            return 1
+    return PLAN_TIER_CONCURRENCY.get(tier, 1)
 
 
 # ── Stage IDs (mirrors pipeline_orchestrator.StageId values) ──────
@@ -370,9 +399,8 @@ def get_batch_concurrency(provider: str, node_id: str | None = None, model: str 
     if not _is_cloud and model:
         _is_cloud = is_cloud_model_via_ollama(provider_lower, model or "")
     if _is_cloud:
-        from codrag.core.swarm_optimizer import PLAN_TIER_CONCURRENCY
         tier = _get_plan_tier()
-        plan_concurrency = PLAN_TIER_CONCURRENCY.get(tier, 1)
+        plan_concurrency = _resolve_plan_tier_concurrency()
         logger.info(
             "Batch concurrency: %d (plan tier=%s, provider=%s, model=%s)",
             plan_concurrency, tier, provider_lower, model,
@@ -428,9 +456,7 @@ def get_batch_concurrency(provider: str, node_id: str | None = None, model: str 
     if not is_cloud_model and model:
         is_cloud_model = is_cloud_model_via_ollama(provider_lower, model)
     if is_cloud_model:
-        from codrag.core.swarm_optimizer import PLAN_TIER_CONCURRENCY
-        tier = _get_plan_tier()
-        fallback = PLAN_TIER_CONCURRENCY.get(tier, 1)
+        fallback = _resolve_plan_tier_concurrency()
     else:
         fallback = 1
     logger.info(

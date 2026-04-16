@@ -498,6 +498,8 @@ def get_advanced_llm_settings() -> Dict[str, Any]:
         "enforce_cloud_token_safety": True,
         "max_thinking_budget": 24576,
         "ollama_plan_tier": "free",
+        # Phase 112 Fix 9: only consulted when ollama_plan_tier == "custom".
+        "custom_concurrency": 1,
     }
     return {**defaults, **(llm_config.get("advanced") or {})}
 

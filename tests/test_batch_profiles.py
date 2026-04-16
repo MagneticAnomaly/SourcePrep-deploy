@@ -294,6 +294,97 @@ def test_local_model_still_returns_one():
     assert result == 1
 
 
+# Phase 112 Fix 8: guard against the _get_plan_tier import regression.
+# Previously imported from codrag.services.config_manager (which does not
+# export the function), silently defaulting to "free" for every caller.
+
+
+def test_get_plan_tier_reads_real_settings_max(monkeypatch):
+    """_get_plan_tier must call the real get_advanced_llm_settings (not fall
+    through the broad except and return "free")."""
+    from codrag.core import batch_profiles
+
+    monkeypatch.setattr(
+        "codrag.server.get_advanced_llm_settings",
+        lambda: {"ollama_plan_tier": "max"},
+    )
+    assert batch_profiles._get_plan_tier() == "max"
+
+
+def test_get_plan_tier_reads_real_settings_pro(monkeypatch):
+    from codrag.core import batch_profiles
+
+    monkeypatch.setattr(
+        "codrag.server.get_advanced_llm_settings",
+        lambda: {"ollama_plan_tier": "pro"},
+    )
+    assert batch_profiles._get_plan_tier() == "pro"
+
+
+def test_get_plan_tier_defaults_to_free_when_missing(monkeypatch):
+    from codrag.core import batch_profiles
+
+    monkeypatch.setattr(
+        "codrag.server.get_advanced_llm_settings",
+        lambda: {},  # no plan tier set
+    )
+    assert batch_profiles._get_plan_tier() == "free"
+
+
+# Phase 112 Fix 9: custom_concurrency tier wiring.
+
+
+def test_custom_tier_honors_custom_concurrency(monkeypatch):
+    from codrag.core.batch_profiles import get_batch_concurrency
+
+    monkeypatch.setattr(
+        "codrag.server.get_advanced_llm_settings",
+        lambda: {"ollama_plan_tier": "custom", "custom_concurrency": 7},
+    )
+    assert get_batch_concurrency("ollama", model="kimi-k2.5:cloud") == 7
+
+
+def test_custom_tier_clamps_to_valid_range(monkeypatch):
+    from codrag.core.batch_profiles import _resolve_plan_tier_concurrency
+
+    # Over max → clamp to 32
+    monkeypatch.setattr(
+        "codrag.server.get_advanced_llm_settings",
+        lambda: {"ollama_plan_tier": "custom", "custom_concurrency": 999},
+    )
+    assert _resolve_plan_tier_concurrency() == 32
+
+    # Under min → clamp to 1
+    monkeypatch.setattr(
+        "codrag.server.get_advanced_llm_settings",
+        lambda: {"ollama_plan_tier": "custom", "custom_concurrency": 0},
+    )
+    assert _resolve_plan_tier_concurrency() == 1
+
+
+def test_custom_tier_missing_value_defaults_to_one(monkeypatch):
+    from codrag.core.batch_profiles import _resolve_plan_tier_concurrency
+
+    monkeypatch.setattr(
+        "codrag.server.get_advanced_llm_settings",
+        lambda: {"ollama_plan_tier": "custom"},  # no custom_concurrency
+    )
+    # server defaults provide 1, but if monkeypatched settings omit it,
+    # the resolver also defaults to 1 via .get(default=1).
+    assert _resolve_plan_tier_concurrency() == 1
+
+
+def test_server_defaults_include_custom_concurrency():
+    """Regression: get_advanced_llm_settings must surface custom_concurrency."""
+    from codrag.server import get_advanced_llm_settings
+
+    settings = get_advanced_llm_settings()
+    assert "custom_concurrency" in settings, (
+        "Phase 112 Fix 9: server defaults must include custom_concurrency so "
+        "the UI's 'custom' tier round-trips correctly."
+    )
+
+
 # ── Cloud Token Safety toggle (Phase 112 T16) ─────────────────────
 
 
