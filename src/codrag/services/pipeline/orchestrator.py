@@ -9,7 +9,7 @@ import os
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from codrag.services.build_orchestrator import (
     BuildOrchestrator,
@@ -495,12 +495,75 @@ class PipelineOrchestrator:
             self._wipe_rebuild_caches(project_id, pfl)
 
         if resume >= len(FAST_SYNC_STAGES):
-            # Phase 98: Priority inversion guard REMOVED. Selfheal + chain-forward
-            # now handle incomplete deep enrichment naturally. The old guard
-            # (Goal 5) blocked incremental runs when deep enrichment was
-            # incomplete — but with selfheal resurrecting backup data and
-            # chain-forward resuming from the first missing stage, blocking
-            # is no longer needed.
+            # Phase 98 removed this guard with the assumption that "selfheal
+            # + chain-forward handles incomplete deep enrichment naturally."
+            # That assumption fails in two ways:
+            #   1. Selfheal is BLOCKED while a reset barrier is active. When
+            #      the barrier was set (reset / rebuild) and finalize hasn't
+            #      cleared it yet, selfheal can't resurrect anything — deep
+            #      enrichment ends up stuck and an incremental fast_sync run
+            #      kicks off on top of incomplete state.
+            #   2. Resurrecting partial mid-run files via stub manifests
+            #      causes downstream stages to consume incomplete data
+            #      (the original concern the barrier was added to prevent).
+            # The guard is restored with one expansion: it now also blocks
+            # when deep enrichment OR finalize is *paused* or *active*,
+            # not just when manifests are incomplete. Force_from_start
+            # rebuilds bypass the guard (intentional full restart).
+            from codrag.services.pipeline.stages import FINALIZE_STAGES
+
+            # (a) Manifest completeness for downstream groups.
+            deep_resume = self._detect_resume_point(
+                project_id, DEEP_ENRICHMENT_STAGES, skip_mtime_cascade=True,
+            )
+            finalize_resume = self._detect_resume_point(
+                project_id, FINALIZE_STAGES, skip_mtime_cascade=True,
+            )
+            downstream_incomplete = (
+                deep_resume < len(DEEP_ENRICHMENT_STAGES)
+                or finalize_resume < len(FINALIZE_STAGES)
+            )
+
+            # (b) Active/paused downstream runs in memory. Hydration on
+            # daemon restart should populate self._runs from disk; if a
+            # paused deep_enrichment run is sitting there, we MUST not
+            # restart fast_sync underneath it.
+            blocking_run: Optional[tuple[str, str]] = None
+            with self._lock:
+                for blocking_group in ("deep_enrichment", "finalize"):
+                    other = self._runs.get((project_id, blocking_group))
+                    if other and (other.is_active or other.is_paused):
+                        blocking_run = (blocking_group, other.state.value)
+                        break
+
+            if downstream_incomplete or blocking_run is not None:
+                reason_parts = []
+                if downstream_incomplete:
+                    reason_parts.append(
+                        f"deep={deep_resume}/{len(DEEP_ENRICHMENT_STAGES)}, "
+                        f"finalize={finalize_resume}/{len(FINALIZE_STAGES)}"
+                    )
+                if blocking_run is not None:
+                    reason_parts.append(
+                        f"{blocking_run[0]} is {blocking_run[1]}"
+                    )
+                reason = "; ".join(reason_parts)
+                logger.info(
+                    "[%s] Skipping incremental fast_sync — pipeline incomplete or busy: %s. "
+                    "Run will be re-attempted after the downstream group settles.",
+                    project_id, reason,
+                )
+                if pfl:
+                    pfl.decision("mode_selection", "skip_queue_pipeline_incomplete", {
+                        "group": "fast_sync",
+                        "reason": reason,
+                        "deep_resume": deep_resume,
+                        "deep_total": len(DEEP_ENRICHMENT_STAGES),
+                        "finalize_resume": finalize_resume,
+                        "finalize_total": len(FINALIZE_STAGES),
+                        "blocking_run": blocking_run,
+                    })
+                return False
 
             # Phase 53: All manifests exist — but are there stale files?
             try:

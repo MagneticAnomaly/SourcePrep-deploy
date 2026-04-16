@@ -111,6 +111,11 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   rehydrateEnrichmentRef.current = deps.rehydrateEnrichment
   const fetchProvenanceRef = useRef(deps.fetchProvenance)
   fetchProvenanceRef.current = deps.fetchProvenance
+  // Populated below once handleEnrichmentAutoConfigChange exists.
+  // Reset handlers call this to force every Manual/Auto switch back to
+  // Manual after a wipe ('scheduled' is preserved — the user wants
+  // those runs to keep firing on their cadence regardless of resets).
+  const flipTogglesToManualRef = useRef<() => void>(() => { /* populated below */ })
   const pausePipelineRef = useRef(deps.pausePipeline)
   pausePipelineRef.current = deps.pausePipeline
 
@@ -517,6 +522,20 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     }
   }, [api, selectedProjectId, enrichmentAutoConfig.fastSync, enrichmentAutoConfig.deepEnrichment, traceStatus.building, deps.projectConfig, deps.setProjectConfig, deps.setConfigDirty])
 
+  // Populate the reset-time toggle flipper now that
+  // handleEnrichmentAutoConfigChange exists. Reads the live config so it
+  // sees the user's current 'scheduled' choice (if any) rather than a
+  // stale closure capture.
+  flipTogglesToManualRef.current = () => {
+    const currentDeep = enrichmentAutoConfig.deepEnrichment
+    const nextDeep = currentDeep === 'scheduled' ? 'scheduled' : 'manual'
+    handleEnrichmentAutoConfigChange({
+      fastSync: false,
+      deepEnrichment: nextDeep,
+      finalize: 'manual',
+    })
+  }
+
   const handleIndexAutoRebuildChange = useCallback(async (auto: boolean) => {
     setIndexAutoRebuild(auto)
     localStorage.setItem('codrag_index_auto_rebuild', String(auto))
@@ -575,6 +594,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     if (!selectedProjectId) return
     try {
       await api.destroyIndex(selectedProjectId)
+      flipTogglesToManualRef.current()
       setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
       setTraceCoverage({ summary: null, untraced: [], stale: [], traced: [], excluded: [], building: false, loading: false })
       resetEnrichmentRef.current?.()
@@ -618,6 +638,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     if (!selectedProjectId) return
     try {
       await api.destroyEnrichmentFull(selectedProjectId)
+      flipTogglesToManualRef.current()
       resetEnrichmentRef.current?.()
       resetAtlasRef.current?.()
       resetDeepAnalysisRef.current()
@@ -638,6 +659,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     if (!selectedProjectId) return
     try {
       await api.destroyFinalizeFull(selectedProjectId)
+      flipTogglesToManualRef.current()
       resetAtlasRef.current?.()
       void refreshStatusRef.current(selectedProjectId)
       rehydrateEnrichmentRef.current?.(selectedProjectId)

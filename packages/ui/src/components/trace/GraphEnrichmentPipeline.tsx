@@ -706,6 +706,11 @@ function StageRow({
 
   return (
     <div
+      data-testid={`pipeline-stage-row-${stage.id}`}
+      data-stage-id={stage.id}
+      data-stage-state={isPaused ? 'paused' : stage.state}
+      data-stage-progress={stage.progress ?? ''}
+      data-stage-group={group}
       className="flex items-start gap-3 relative py-0.5 px-1 group"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -1312,10 +1317,17 @@ export function GraphEnrichmentPipeline({
   }
 
   return (
-    <div className={cn("flex flex-col gap-3", fadeIn && "animate-in fade-in duration-500", className)}>
+    <div
+      data-testid="pipeline-panel"
+      data-overall-progress={roundedProgress}
+      data-fast-running={fastRunning || undefined}
+      data-deep-running={deepRunning || undefined}
+      data-finalize-running={finalizeRunning || undefined}
+      className={cn("flex flex-col gap-3", fadeIn && "animate-in fade-in duration-500", className)}
+    >
 
       {/* ── Fast Sync Group ─────────────────────────── */}
-      <div className="flex items-center justify-between py-1.5 px-1">
+      <div data-testid="pipeline-group-fast_sync" data-group-running={fastRunning || undefined} className="flex items-center justify-between py-1.5 px-1">
         <div className="flex items-center gap-2">
           <ChevronButton collapsed={fastCollapsed} onClick={onToggleFastCollapsed} />
           <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Fast Sync</span>
@@ -1392,7 +1404,7 @@ export function GraphEnrichmentPipeline({
       <div className="border-t border-border" />
 
       {/* ── Deep Enrichment Group ───────────────────── */}
-      <div className="flex items-center justify-between py-1.5 px-1">
+      <div data-testid="pipeline-group-deep_enrichment" data-group-running={deepRunning || undefined} className="flex items-center justify-between py-1.5 px-1">
         <div className="flex items-center gap-2">
           <ChevronButton collapsed={deepCollapsed} onClick={onToggleDeepCollapsed} />
           <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Deep Enrichment</span>
@@ -1473,7 +1485,7 @@ export function GraphEnrichmentPipeline({
       <div className="border-t border-border" />
 
       {/* ── Finalize Group ──────────────────────────── */}
-      <div className="flex items-center justify-between py-1.5 px-1">
+      <div data-testid="pipeline-group-finalize" data-group-running={finalizeRunning || undefined} className="flex items-center justify-between py-1.5 px-1">
         <div className="flex items-center gap-2">
           <ChevronButton collapsed={finalizeCollapsed} onClick={onToggleFinalizeCollapsed} />
           <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Finalize</span>

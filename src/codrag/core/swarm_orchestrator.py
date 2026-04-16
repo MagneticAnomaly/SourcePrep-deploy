@@ -130,15 +130,37 @@ class SwarmOrchestrator:
 
     def __init__(
         self,
-        llm: LLMClient,
+        llm: Optional[LLMClient] = None,
         concurrency: int = 10,
         *,
+        coordinator_llm: Optional[LLMClient] = None,
+        worker_llm: Optional[LLMClient] = None,
         coordinator_timeout_s: Optional[float] = None,
         synthesis_timeout_s: Optional[float] = None,
         worker_timeout_s: Optional[float] = None,
         max_wall_time_s: Optional[float] = None,
     ) -> None:
-        self.llm = llm
+        # Resolve LLMs.  New-style callers pass coordinator_llm + worker_llm.
+        # Legacy callers (and tests) still use llm=.  If coordinator_llm is
+        # unset, fall back to worker_llm (or legacy llm) — this is the
+        # "Inherit from Thinking Model" behavior.
+        if worker_llm is None:
+            worker_llm = llm
+        if coordinator_llm is None:
+            coordinator_llm = worker_llm
+
+        if worker_llm is None:
+            raise ValueError(
+                "SwarmOrchestrator requires either `llm` (legacy) or "
+                "`worker_llm` (preferred)."
+            )
+
+        self.worker_llm = worker_llm
+        self.coordinator_llm = coordinator_llm
+        # Keep `self.llm` pointing at the worker LLM for any code path that
+        # still references it (migrated incrementally in call-site tasks).
+        self.llm = worker_llm
+
         self.concurrency = max(1, concurrency)
         self.coordinator_timeout_s = (
             coordinator_timeout_s
