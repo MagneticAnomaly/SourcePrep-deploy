@@ -756,6 +756,15 @@ async def pipeline_status(project_id: str) -> dict[str, Any]:
         except Exception:
             pass
 
+        from codrag.services.pipeline.recovery import read_reset_barrier
+        barrier_info = read_reset_barrier(project_id)
+        barrier_payload = {
+            "active": barrier_info is not None,
+            "age_seconds": barrier_info["age_seconds"] if barrier_info else None,
+            "reason": barrier_info["reason"] if barrier_info else None,
+            "written_at": barrier_info["written_at"] if barrier_info else None,
+        }
+
         return ok({
             "fast_sync": pipeline_state.get("fast_sync"),
             "deep_enrichment": pipeline_state.get("deep_enrichment"),
@@ -765,6 +774,7 @@ async def pipeline_status(project_id: str) -> dict[str, Any]:
             "crashed_runs": crashed_runs,
             "scheduler": scheduler_data,
             "agent": agent_data,
+            "barrier": barrier_payload,
         })
 
     # F-57: stale-while-refresh cache with per-project dedup.
