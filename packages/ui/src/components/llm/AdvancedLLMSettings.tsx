@@ -82,7 +82,6 @@ export function AdvancedLLMSettings({ value, onChange }: Props): JSX.Element {
           <div className="space-y-1.5">
             <label className="block text-xs font-medium text-text">Ollama Cloud Plan</label>
             <Select
-              size="sm"
               value={value.ollama_plan_tier}
               onChange={(e) =>
                 onChange({
