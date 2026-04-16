@@ -59,3 +59,30 @@ def test_pipeline_health_flags_stale_barrier(client, tmp_path):
     assert data["barrier"]["active"] is True
     # Warning for stale barrier > 1h old
     assert any("stale" in w.lower() for w in data["warnings"])
+
+
+def test_pipeline_health_reports_manifest_exists_for_canonical_filenames(client, tmp_path):
+    """Verify the health module uses the canonical STAGE_MANIFEST_FILE map,
+    not a synthesized {stage_id}_manifest.json name.
+    """
+    from codrag.services.pipeline.stages import STAGE_MANIFEST_FILE, StageId
+
+    pid = _add_embedded(client, tmp_path)
+    project_obj = server._registry.get_project(pid)
+    idx_dir = project_index_dir(project_obj)
+    idx_dir.mkdir(parents=True, exist_ok=True)
+
+    # Touch every canonical manifest file.
+    for stage_enum, manifest_name in STAGE_MANIFEST_FILE.items():
+        (idx_dir / manifest_name).write_text("{}")
+
+    res = client.get(f"/projects/{pid}/pipeline/health")
+    assert res.status_code == 200
+    stages = res.json()["data"]["stages"]
+    by_id = {s["stage_id"]: s for s in stages}
+    for stage_enum in STAGE_MANIFEST_FILE:
+        stage_id = stage_enum.value
+        assert by_id[stage_id]["manifest_exists"] is True, (
+            f"health endpoint failed to detect manifest for {stage_id} "
+            f"(expected {STAGE_MANIFEST_FILE[stage_enum]})"
+        )
