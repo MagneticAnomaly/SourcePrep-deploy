@@ -78,6 +78,61 @@ rg -e 'trace_nodes|trace_edges|knowledge_documents' packages/ src/codrag/dashboa
 
 **Impact:** Already accounted for. Documented for clarity.
 
+### Q8 — `pipeline_*.log` consumers (gates item 7: JSONL logs)
+
+**Why it matters:** Step 4b changes the log format from freeform text to JSONL and the extension from `.log` to `.jsonl`. Any consumer that reads these files directly (grep, tail, dashboard file-scanner, external log shipper) breaks.
+
+**How to answer:**
+- `rg -e 'pipeline_.*\\.log' src/ packages/ websites/ scripts/`
+- Check the dashboard — does it read log files directly or go through an API?
+- Check the MCP server — any log-related tools?
+- Check any log-shipping config (systemd journal, fluentbit, etc.).
+
+**Impact:** If consumers exist and must keep working, either (a) dual-write text + JSONL for one version, (b) update the consumers as part of Step 4b, or (c) keep text but add structured fields as tag prefixes. Default assumption: there are no external consumers, dashboard reads via API; confirm and proceed with clean JSONL switch.
+
+### Q9 — Checkpoint run-ID cross-references (gates item 8: timestamp prefix)
+
+**Why it matters:** Step 4 renames existing `run-<hex>/` dirs to `run-<ts>-<hex>/`. If the original ID string is stored outside the dir (pipeline journal rows, state-machine metadata, `pipeline_run_metadata.json`, log messages, dashboard history), callers resolving "run X" to its checkpoint dir will miss.
+
+**How to answer:**
+- `rg -e 'run-[a-f0-9]{8,}' src/ --type=python`
+- Inspect `services/pipeline_journal.py`, `pipeline_history`, `pipeline_run_metadata.json` writers.
+- Check the dashboard's run-history view for any direct path construction.
+
+**Impact:** If cross-references exist, the migrator must maintain an alias table (`old_id → new_id` or vice versa) for at least one version, and resolvers must consult it. Simplest: add a `snapshots/checkpoints/_id_aliases.json` managed by the migrator and read by any resolver that accepts pre-v2 IDs. If no cross-references, rename is clean and no alias layer is needed.
+
+### Q10 — Log retention expectations (gates item 2: rotation/retention)
+
+**Why it matters:** The retention sweep defaults to "keep last 50 runs or 30 days, whichever is looser." If anyone expects unbounded retention (compliance, forensic audit, release-note archaeology), this silently deletes their data.
+
+**How to answer:**
+- Check with the team: is there a compliance requirement for log retention?
+- Check if any feature (audit history, run comparison) walks logs older than 30 days.
+- Check release-note / changelog workflow — does it read ancient logs?
+
+**Impact:** If retention must be unbounded by default, leave sweep off by default and expose it as opt-in. Otherwise, default-on is correct — a developer laptop shouldn't accumulate gigabytes of old pipeline logs.
+
+### Q11 — Concurrent-daemon assumption (gates item 6: lockfile)
+
+**Why it matters:** Step 2b refuses to serve a project that another daemon already holds. If there's a workflow where two daemons are expected to co-exist (e.g., a read-only replica, a test harness that spawns a secondary daemon), the lock breaks it.
+
+**How to answer:**
+- Grep for multiple `codrag serve` invocations in scripts or docs.
+- Check test fixtures — do integration tests spawn multiple daemons against the same index?
+- Ask: is there any "read-only mode" in the daemon that would make coexistence safe?
+
+**Impact:** If coexistence is required somewhere, add `--read-only` mode that skips lock acquisition and routes through read-only accessors only. Default assumption: one daemon per index is the only supported mode; confirm and wire accordingly.
+
+### Q12 — Streaming vs. wholesale JSONL writers (gates item 1: atomic-write exemptions)
+
+**Why it matters:** Step 1/2 switches writers to `atomic_write_text/bytes`. Streaming writers (JSONL files built line-by-line during a multi-minute stage) cannot use the helper — the whole file wouldn't be in memory at once. They need an explicit exemption with a code comment.
+
+**How to answer:** For each JSONL writer (`trace_nodes`, `trace_edges`, `trace_augmented`, `trace_inferred_edges`, `trace_epistemic`, `trace_modules`, `trace_group_reasoning`), read the writer and classify:
+- **Streaming:** writes one line at a time, potentially over minutes. Exempt.
+- **Wholesale:** serializes the whole list and writes once. Use atomic_write.
+
+**Impact:** Wholesale writers switch to atomic_write; streaming writers are documented as exempt with a comment (`# exempt from atomic_write — streamed during stage; rerun on failure`). The line between them may be gray for some writers; prefer exemption when unsure.
+
 ## Risks (after the open questions are answered)
 
 ### R1 — Missed call site → silent regression
@@ -118,11 +173,14 @@ rg -e 'trace_nodes|trace_edges|knowledge_documents' packages/ src/codrag/dashboa
 **Mitigation:** Migration runs *before* the watcher is started. The startup sequence is:
 
 1. Resolve `project_index_dir`.
-2. If `version` < current, run migrator (no watcher running).
-3. Start watcher.
-4. Begin serving.
+2. **Acquire daemon lock** (new in Step 2b) — prevents a second daemon from racing.
+3. If `version.json.layout_version` < current, run migrator (no watcher running).
+4. Sweep old log files (new in Step 4b retention).
+5. Keep-README-synced check (new in Step 5).
+6. Start watcher.
+7. Begin serving.
 
-This ordering needs to be enforced explicitly in startup code.
+This ordering must be enforced explicitly in startup code. Each new step inserts at the correct position.
 
 ### R5 — Tests reference old paths
 
@@ -173,6 +231,67 @@ This ordering needs to be enforced explicitly in startup code.
 - Step 0a includes a discovery pass: `rg --type=python -e 'idx_dir / "' src/` and similar.
 - The destroy function being derived from `project_paths` means any artifact missed from `project_paths` will never be cleaned up by reset — running a full reset and re-checking the directory after will surface anything orphaned.
 - Migrator includes an "unrecognized files" sweep: anything in the v1 layout that doesn't have a known migration path gets logged + left in place + flagged in startup output. Operator can decide.
+- **`codrag doctor`** (Step 5a) acts as a continuous audit — every first-run after Phase A ships reports drift between disk and `project_paths`.
+
+## Risks introduced by bundled adjacent work
+
+These are new risks specific to the Phase 113 bundle (not the core reorg). Each is tied to its adjacent item per [06_ADJACENT_OPPORTUNITIES.md](06_ADJACENT_OPPORTUNITIES.md).
+
+### R11 — Atomic-write helper misapplied to streaming writers
+
+**Probability:** Medium during Step 1/2 review.
+**Severity:** High. Buffering a multi-GB JSONL in memory to satisfy atomic-write would OOM the daemon.
+
+**Mitigation:** Q12 answered explicitly in Step 0a. Each streaming writer gets an exemption comment. Code review checks for `atomic_write_*(…, content=json.dumps(huge_list))` patterns specifically.
+
+### R12 — Lock acquisition deadlocks on crashed-daemon leftover
+
+**Probability:** Low (fcntl.flock is released on process death).
+**Severity:** Medium (user can't restart daemon).
+
+**Mitigation:** `fcntl.flock` is released automatically when the holding process dies (kernel frees it). This handles kill -9. If the lockfile metadata (pid, hostname) references a dead PID, the replacement daemon acquires successfully and overwrites the holder info. Test: kill the daemon, immediately start a new one, confirm success.
+
+### R13 — JSONL log format change breaks downstream consumer silently
+
+**Probability:** Medium unless Q8 is answered thoroughly.
+**Severity:** Medium (a dashboard view goes blank, logs don't ship to observability).
+
+**Mitigation:** Q8 answered in Step 0a. All confirmed consumers updated before or as part of Step 4b. Release note explicit about the format change.
+
+### R14 — Log retention sweep deletes something valuable
+
+**Probability:** Low.
+**Severity:** Medium (user anger if they were mid-forensic-audit).
+
+**Mitigation:** Q10 answered. Defaults are conservative (keep 50 runs OR 30 days, whichever is looser — union, not intersection). Settings exposed for opt-out. First run logs what would be deleted (dry-run) unless a `--sweep-now` flag is set; confirm with user before enabling destructive default. (Decision point for Step 4b.)
+
+### R15 — Checkpoint rename invalidates cross-reference in SQLite
+
+**Probability:** Depends on Q9.
+**Severity:** High (resume/restore logic points at a no-longer-existing dir).
+
+**Mitigation:** Q9 answered. If cross-references exist, migrator writes `snapshots/checkpoints/_id_aliases.json` keyed old→new, and every resolver consults it for pre-v2 IDs. Aliases retained for at least one version before removal.
+
+### R16 — `version.json` schema evolves and old readers can't parse
+
+**Probability:** Low.
+**Severity:** Low (only breaks if we add required fields and the old code requires them).
+
+**Mitigation:** Readers MUST only rely on `layout_version` being present. All other fields are optional diagnostics. Document this as an invariant in the `version.json` reader code.
+
+### R17 — `.codrag/README.md` overwrites user edits
+
+**Probability:** Low (we're explicit that the file is managed).
+**Severity:** Low (README content is trivially regeneratable).
+
+**Mitigation:** README header includes "This file is managed by CoDRAG. Edits will be overwritten." A user who edits anyway is acting against a clear sign; we accept that trade. If we ever want to preserve user additions, add `<!-- codrag-managed-start/end -->` markers like `rules_generator.py` does for `AGENTS.md`.
+
+### R18 — `codrag doctor` false-positives on new artifacts added without accessor update
+
+**Probability:** Medium (developers will forget).
+**Severity:** Low (loud CI failure is the point).
+
+**Mitigation:** CI job runs `codrag doctor --json` against a fresh fixture. Failing CI forces the PR author to add the accessor. This is a feature, not a bug.
 
 ## Latent bugs surfaced (that we will fix incidentally)
 

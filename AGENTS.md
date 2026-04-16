@@ -3,7 +3,7 @@
 <!-- codrag-managed-start -->
 ## CoDRAG Integration
 
-Last updated: 2026-04-15T18:01:05Z | Full analysis in progress
+Last updated: 2026-04-16T04:50:05Z | Full analysis in progress
 
 codrag_project_id: 1d6f0b35-45cb-427b-ae9d-aac3c6371a4b
 
@@ -54,18 +54,18 @@ To skip approval prompts for CoDRAG's read-only tools, add to your settings:
 ```
 In Claude Code: add to `.claude/settings.json`. In Cursor: add to MCP settings.
 
-<!-- codrag-atlas-hash:329975c97af0 -->
+<!-- codrag-atlas-hash:2bbe4fdc9176 -->
 ## Codebase Atlas
 
 IDENTITY: CoDRAG
-STACK: .md 34%, .tsx 16%, .ts 16%, .py 13%, .js 12%, .json 5%, .css 2%, .html 1%
-STRUCTURE: 2350 files, 8884 nodes, 11286 edges
-EDGE TYPES: contains: 5837, imports: 5076, calls: 232, configures: 101, implements: 18
-CIRCULAR DEPS (52): docs/Phase68_revise-marketing/model-constants.ts <-> docs/Phase68_revise-marketing/model-constants.ts; engine/crates/codrag-chunking/src/lib.rs <-> engine/crates/codrag-chunking/src/lib.rs; engine/crates/codrag-graph/src/lib.rs <-> engine/crates/codrag-graph/src/lod.rs
-ENTRY POINTS: packages/ui/src/components/dashboard/index.ts, packages/ui/src/components/agents/index.ts, packages/ui/src/components/docs/index.ts, packages/ui/src/types/index.ts, engine/crates/codrag-parser/src/lib.rs
+STACK: .md 35%, .tsx 16%, .ts 16%, .py 13%, .js 12%, .json 5%, .css 2%, .html 1%
+STRUCTURE: 2361 files, 8900 nodes, 10915 edges
+EDGE TYPES: contains: 5842, imports: 5073
+CIRCULAR DEPS (4): packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx <-> packages/ui/src/components/trace/pipelineRollup.ts; src/codrag/core/audit/synthesizer.py <-> src/codrag/core/audit/__init__.py; src/codrag/api/routers/projects/__init__.py <-> src/codrag/api/routers/projects/__init__.py
+ENTRY POINTS: src/codrag/mcp/server.py, packages/ui/src/index.ts, packages/ui/src/components/project/index.ts, packages/ui/src/components/audit/index.ts, engine/crates/codrag-selfheal/src/main.rs
 SUBSYSTEMS:
-  _root/ (1267 files)
-  packages/ui/ (825 files)
+  _root/ (1276 files)
+  packages/ui/ (827 files)
   websites/apps/marketing/ (66 files)
   websites/apps/docs/ (54 files)
   src/codrag/dashboard/ (46 files)
@@ -74,13 +74,13 @@ SUBSYSTEMS:
   websites/apps/payments/ (17 files)
   packages/vscode/webview-ui/ (14 files)
   packages/paperclip-plugin-codrag/ (12 files)
-TESTS: specs/ (7 files), tests-old/ (7 files), test_scheduler.py/ (1 files)
-HUB FILES: ext:typing (232 edges), ext:__future__ (229 edges), ext:react (198 edges), ext:logging (160 edges), ext:lucide-react (144 edges)
+TESTS: tests-old/ (7 files), specs/ (7 files), tests/ (1 files)
+HUB FILES: ext:typing (232 edges), ext:__future__ (229 edges), ext:react (198 edges), ext:logging (160 edges), ext:lucide-react (145 edges)
 Active zones: `packages/ui/src/`, `src/codrag/core/`, `src/codrag/dashboard/`, `src/codrag/services/`, `tests/`
 CALL CHAINS:
-  packages/ui/src/components/agents/index.ts -> packages/ui/src/components/agents/AgentOpsPanel.tsx -> packages/ui/src/components/agents/MCPConnectionCard.tsx -> sym:MCPConnectionCardProps@packages/ui/src/components/agents/MCPConnectionCard.tsx:33
-  packages/ui/src/components/docs/index.ts -> packages/ui/src/components/docs/DocsLayout.tsx -> packages/ui/src/components/docs/DocsSidebarNav.tsx -> sym:DocNode@packages/ui/src/components/docs/DocsSidebarNav.tsx:2
-  packages/ui/src/components/dashboard/index.ts -> packages/ui/src/components/dashboard/IndexStatusCard.tsx -> sym:IndexStatusCard@packages/ui/src/components/dashboard/IndexStatusCard.tsx:68
+  packages/ui/src/index.ts -> packages/ui/src/types.ts -> packages/ui/src/types/layout.ts -> sym:toGridLayout@packages/ui/src/types/layout.ts:237
+  src/codrag/mcp/server.py -> src/codrag/mcp/errors.py -> sym:ProjectNotFoundError.__init__@src/codrag/mcp/errors.py:45
+  packages/ui/src/components/project/index.ts -> packages/ui/src/components/project/CodeViewer.tsx -> sym:CodeViewerProps@packages/ui/src/components/project/CodeViewer.tsx:71
 
 If `codrag` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.
