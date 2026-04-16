@@ -1,6 +1,7 @@
 """Tests for SwarmOrchestrator — three-phase swarm executor."""
 
 import json
+import logging
 from unittest.mock import MagicMock
 
 from codrag.core.swarm_orchestrator import (
@@ -349,9 +350,127 @@ def test_inherit_fallback_when_coordinator_none() -> None:
     assert orch.coordinator_llm is worker  # inherited
 
 
+def test_coordinator_none_fallback_routes_planning_through_worker() -> None:
+    """Phase 112 fix 5: when coordinator_llm=None falls back to worker_llm,
+    the Planning phase must route through the worker client (not crash)."""
+    from codrag.core.swarm_orchestrator import WorkItem
+    worker = MagicMock(name="worker_llm")
+    worker.generate.return_value = ('{"assignments":[]}', 42)
+    orch = SwarmOrchestrator(
+        coordinator_llm=None,
+        worker_llm=worker,
+        coordinator_timeout_s=5,
+        synthesis_timeout_s=5,
+        worker_timeout_s=5,
+        max_wall_time_s=15,
+    )
+    plan, _tokens = orch._coordinate(
+        items=[WorkItem(id="x", summary="s", full_context="c")],
+        coordinator_prompt="{group_summaries}",
+    )
+    # worker.generate IS the coordinator after the None fallback.
+    assert worker.generate.called
+    assert orch.coordinator_llm is worker
+
+
 def test_legacy_single_llm_constructor_still_works() -> None:
     """Backward compatibility: `llm=` kwarg maps to both."""
     legacy = MagicMock(name="legacy_llm")
     orch = SwarmOrchestrator(llm=legacy, concurrency=3)
     assert orch.coordinator_llm is legacy
     assert orch.worker_llm is legacy
+
+
+def test_coordinator_calls_use_coordinator_llm_only():
+    from codrag.core.swarm_orchestrator import SwarmOrchestrator, WorkItem
+    coord = MagicMock(name="coord")
+    coord.generate.return_value = ('{"assignments":[]}', 100)
+    worker = MagicMock(name="worker")
+    worker.generate.return_value = ('{"result":"ok"}', 200)
+
+    orch = SwarmOrchestrator(
+        coordinator_llm=coord, worker_llm=worker,
+        coordinator_timeout_s=5, synthesis_timeout_s=5,
+        worker_timeout_s=5, max_wall_time_s=15,
+    )
+    plan, _tokens = orch._coordinate(
+        items=[WorkItem(id="x", summary="s", full_context="c")],
+        coordinator_prompt="{group_summaries}",
+    )
+    # coord.generate must have been called; worker.generate must NOT.
+    assert coord.generate.called
+    assert not worker.generate.called
+
+
+# ---------------------------------------------------------------------------
+# TestSwarmMetricsEmission  §9 observability
+# ---------------------------------------------------------------------------
+
+
+def test_swarm_emits_metrics_log_line(caplog) -> None:
+    """SwarmResult-finalize emits the [Swarm-Metrics] log line for §9 observability."""
+    items = _make_items(2)
+    llm = MagicMock()
+    llm.generate.side_effect = [
+        (_mock_coordinator_response(items), 50),
+        (_mock_synthesis_response(), 80),
+    ]
+
+    def worker_fn(item: WorkItem, assignment: WorkerAssignment) -> str:
+        return _mock_worker_response(item.id)
+
+    orch = SwarmOrchestrator(llm=llm, concurrency=2)
+
+    with caplog.at_level(logging.INFO, logger="codrag.core.swarm_orchestrator"):
+        result = orch.execute(
+            items=items,
+            coordinator_prompt="Coordinate:\n{group_summaries}",
+            worker_fn=worker_fn,
+            synthesis_prompt="Synthesize:\n{worker_outputs}",
+        )
+
+    assert result is not None
+
+    # Either record_swarm_metrics was called (if it exists in token_telemetry)
+    # OR the structured log line was emitted.
+    assert any(
+        "[Swarm-Metrics]" in rec.message or "swarm_run" in rec.message
+        for rec in caplog.records
+    ), f"Expected [Swarm-Metrics] log line; got: {[r.message for r in caplog.records]}"
+
+
+def test_swarm_metrics_contains_all_five_fields(caplog) -> None:
+    """The [Swarm-Metrics] log line includes all five §9 metric fields."""
+    items = _make_items(3)
+    llm = MagicMock()
+    llm.generate.side_effect = [
+        (_mock_coordinator_response(items), 60),
+        (_mock_synthesis_response(), 90),
+    ]
+
+    def worker_fn(item: WorkItem, assignment: WorkerAssignment) -> str:
+        if item.id == "group:1":
+            raise RuntimeError("intentional failure")
+        return _mock_worker_response(item.id)
+
+    orch = SwarmOrchestrator(llm=llm, concurrency=3)
+
+    with caplog.at_level(logging.INFO, logger="codrag.core.swarm_orchestrator"):
+        result = orch.execute(
+            items=items,
+            coordinator_prompt="Coordinate:\n{group_summaries}",
+            worker_fn=worker_fn,
+            synthesis_prompt="Synthesize:\n{worker_outputs}",
+        )
+
+    assert result is not None
+    # Find the metrics log record
+    metrics_records = [
+        r for r in caplog.records
+        if "[Swarm-Metrics]" in r.message or "swarm_run" in r.message
+    ]
+    assert metrics_records, "No [Swarm-Metrics] record found"
+    msg = metrics_records[0].message
+    # All five metric fields must appear in the message
+    for field in ("coord_valid", "synth_valid", "workers_succeeded", "workers_failed", "wall_clock_s"):
+        assert field in msg, f"Missing field '{field}' in metrics message: {msg}"

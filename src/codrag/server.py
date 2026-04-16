@@ -407,14 +407,48 @@ def _get_llm_client_for_slot(slot: str):
     ``_get_llm_client_for_task(task_id)`` instead.
     """
     # Map slot aliases to config keys
-    SLOT_MAP = {"small": "small_model", "large": "large_model", "code": "code_model"}
+    SLOT_MAP = {
+        "small": "small_model",
+        "large": "large_model",
+        "code": "code_model",
+        "coordinator": "coordinator_model",
+    }
     slot_key = SLOT_MAP.get(slot, slot)
-    
+
     ui_cfg = _load_ui_config()
     llm_config = ui_cfg.get("llm_config") or {}
-    
+
     # Get slot config (e.g. small_model: { enabled: true, endpoint_id: "...", model: "..." })
     slot_cfg = llm_config.get(slot_key) or {}
+
+    # Phase 112: Swarm coordinator slot honors `inherit_from_large`.
+    # When the flag is True (default) or the coordinator slot is
+    # unconfigured, fall back to the large-slot client — preserves the
+    # legacy single-model swarm behavior.  See SWARM_UI_PLAN.md §2.
+    #
+    # Phase 112 fix 2: fail loud when both coordinator AND large are
+    # unconfigured so callers see the misconfiguration instead of the
+    # swarm silently timing out in the Planning phase.  SwarmOrchestrator
+    # still handles ``coordinator_llm=None`` (falls back to worker_llm),
+    # but that's for the legacy single-LLM construction path — it must
+    # not be reached via a misconfigured coordinator slot.
+    if slot in ("coordinator", "coordinator_model"):
+        inherit = slot_cfg.get("inherit_from_large", True)
+        unconfigured = (
+            not slot_cfg
+            or not slot_cfg.get("endpoint_id")
+            or not slot_cfg.get("model")
+        )
+        if inherit or unconfigured:
+            large_client = _get_llm_client_for_slot("large")
+            if large_client is None:
+                raise RuntimeError(
+                    "Coordinator slot unconfigured (or inherit_from_large=True) "
+                    "AND large-model slot is also unconfigured.  Configure the "
+                    "large model in Settings → AI Models, or assign an explicit "
+                    "coordinator model with inherit_from_large=False."
+                )
+            return large_client
 
     # A slot is functional when it has both endpoint_id and model configured.
     # The explicit 'enabled' flag is a UI toggle that may be stale from
@@ -438,7 +472,7 @@ def _get_llm_client_for_slot(slot: str):
     # Deep reasoning models (large slot) need very long timeouts because
     # thinking models like qwen3.5:27b generate 2000-5000+ thinking tokens
     # before content on complex files, taking 300-500s+ per call at ~11 tok/s.
-    _LARGE_SLOTS = {"large", "large_model"}
+    _LARGE_SLOTS = {"large", "large_model", "coordinator", "coordinator_model"}
     timeout = 600.0 if slot in _LARGE_SLOTS else 120.0
     return LLMClient(
         endpoint_url=url,
@@ -449,6 +483,23 @@ def _get_llm_client_for_slot(slot: str):
         always_on=bool(slot_cfg.get("always_on", False)),
         debug_mode=bool(ui_cfg.get("developer_debug_mode", False)),
     )
+
+
+def get_advanced_llm_settings() -> Dict[str, Any]:
+    """Return the Phase 112 advanced LLM settings block with safe defaults.
+
+    Reads from ``ui_cfg["llm_config"]["advanced"]``.  Defaults to the
+    conservative values (safety ON, Kimi 24K thinking budget, free plan)
+    so out-of-the-box behavior matches the documented profile sizes.
+    """
+    ui_cfg = _load_ui_config()
+    llm_config = ui_cfg.get("llm_config") or {}
+    defaults = {
+        "enforce_cloud_token_safety": True,
+        "max_thinking_budget": 24576,
+        "ollama_plan_tier": "free",
+    }
+    return {**defaults, **(llm_config.get("advanced") or {})}
 
 
 # ── Phase 44: Unified Task-Based LLM Resolver ─────────────────────

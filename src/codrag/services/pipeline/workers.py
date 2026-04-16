@@ -203,6 +203,18 @@ class WorkerFactory:
         return client
 
     @staticmethod
+    def _get_coordinator_llm_client():
+        """Resolve the Swarm Coordinator LLMClient.
+
+        Phase 112: Coordinator drives Phases 1 (planning) and 3 (synthesis)
+        of the swarm pipeline.  Falls back to the large-slot client when
+        unconfigured or when ``coordinator_model.inherit_from_large`` is True
+        (the default).  See SWARM_UI_PLAN.md §2.
+        """
+        from codrag.server import _get_llm_client_for_slot
+        return _get_llm_client_for_slot("coordinator")
+
+    @staticmethod
     def _get_llm_client(slot_name: str):
         """Legacy helper — resolves via slot name.  Prefer _get_llm_client_for_task()."""
         from codrag.server import _get_llm_client_for_slot

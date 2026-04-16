@@ -615,13 +615,21 @@ class LLMClient:
             # model has room for both the reasoning trace and the answer.
             effective_num_predict = num_predict
             if think:
-                # Scale budget for thinking overhead, but cap at 24576 to
-                # prevent runaway generation on small prompts (e.g., a 500-token
-                # audit prompt with np=16384 would otherwise get 49K budget,
-                # causing 30+ min of thinking for no benefit).
+                # Scale budget for thinking overhead, but cap to prevent runaway
+                # generation on small prompts (e.g., a 500-token audit prompt with
+                # np=16384 would otherwise get 49K budget, causing 30+ min of
+                # thinking for no benefit).  The cap is configurable via the
+                # Advanced Settings "Max Thinking Budget" slider (Phase 112).
+                try:
+                    from codrag.server import get_advanced_llm_settings
+                    max_budget = get_advanced_llm_settings().get(
+                        "max_thinking_budget", 24576,
+                    )
+                except Exception:
+                    max_budget = 24576
                 effective_num_predict = min(
                     max(num_predict * 3, num_predict + 8192),
-                    max(num_predict, 24576),  # never less than base, capped at 24K
+                    max(num_predict, max_budget),
                 )
             options: Dict[str, Any] = {
                 "temperature": temperature,

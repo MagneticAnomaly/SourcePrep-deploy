@@ -28,6 +28,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from codrag.core.context_config import PipelineTask, compute_optimal_settings
 from codrag.core.llm_client import TASK_MAX_CHARS, batched_max_chars
+from codrag.services.pipeline.workers import WorkerFactory
 
 from .epistemic_score import EpistemicEntry
 from .llm_client import LLMClient, _get_llm_concurrency, _parse_confidence, _parse_json_response
@@ -1301,10 +1302,23 @@ class ClusterSynthesizer:
                 concurrency = 1
         logger.info("[Cluster/Swarm] Using concurrency=%d for fan-out", concurrency)
 
-        # TODO(Phase79-DualModel): When dual-model swarm is implemented,
-        # use large_llm for coordinator/synthesis, small_llm for workers.
-        # For now, single model handles all three phases.
-        orch = SwarmOrchestrator(llm=self.llm, concurrency=concurrency)
+        # Phase 112: coord and worker decoupled — coord uses the
+        # coordinator_llm slot (defaults to Gemini 3 Flash via inherit
+        # fallback), worker uses self.llm (Kimi).  Resolves Phase79-DualModel.
+        # Phase 112 fix 3: use shared _is_cloud_endpoint helper so
+        # non-Ollama cloud providers (openai/anthropic/google) also get
+        # the short cloud timeouts (matches atlas, concept_seeder, group_reasoning).
+        from codrag.core.llm_client import _is_cloud_endpoint
+        is_cloud = _is_cloud_endpoint(self.llm)
+        orch = SwarmOrchestrator(
+            coordinator_llm=WorkerFactory._get_coordinator_llm_client(),
+            worker_llm=self.llm,
+            concurrency=concurrency,
+            coordinator_timeout_s=10.0 if is_cloud else 90.0,
+            synthesis_timeout_s=120.0 if is_cloud else 180.0,
+            worker_timeout_s=180.0 if is_cloud else 300.0,
+            max_wall_time_s=900.0 if is_cloud else 1800.0,
+        )
 
         # Build WorkItems
         items: List[WorkItem] = []

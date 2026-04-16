@@ -262,6 +262,10 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
       coordinator: cfg.coordinator_model,
       mode: cfg.assignment_mode,
       blocks: cfg.assignment_blocks,
+      // Phase 112 fix 1: include Advanced LLM Settings so toggling
+      // enforce_cloud_token_safety / max_thinking_budget / ollama_plan_tier
+      // marks the form dirty and enables the Save button.
+      advanced: cfg.advanced,
     })
     
     if (lastSavedRef.current) {

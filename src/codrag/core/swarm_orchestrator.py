@@ -190,6 +190,7 @@ class SwarmOrchestrator:
         temperature: float,
         timeout_s: float,
         phase: str,
+        llm: Optional[LLMClient] = None,
     ) -> Tuple[Optional[str], int]:
         """Run an LLM call in a worker thread with a hard timeout.
 
@@ -222,16 +223,17 @@ class SwarmOrchestrator:
         # reaches the *calling* thread's thread-local Session, not the
         # zombie's.  Instead, the wrapper captures the Session reference
         # so we can close it from any thread.
+        client = llm if llm is not None else self.worker_llm
         zombie_session_ref: List = []  # mutable container to capture from closure
 
         def _generate_and_capture(**kwargs):
             """Wrapper that captures the thread-local Session for cleanup."""
             # Force Session creation by touching the property, then capture it.
-            _ = self.llm._session
-            s = getattr(self.llm._thread_local, 'session', None)
+            _ = client._session
+            s = getattr(client._thread_local, 'session', None)
             if s is not None:
                 zombie_session_ref.append(s)
-            return self.llm.generate(**kwargs)
+            return client.generate(**kwargs)
 
         pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"swarm-{phase}")
         future = pool.submit(
@@ -292,6 +294,7 @@ class SwarmOrchestrator:
             temperature=0.4,
             timeout_s=self.coordinator_timeout_s,
             phase="coordinator",
+            llm=self.coordinator_llm,
         )
         if text is None:
             return None, tokens
@@ -492,6 +495,7 @@ class SwarmOrchestrator:
             temperature=0.5,
             timeout_s=self.synthesis_timeout_s,
             phase="synthesis",
+            llm=self.coordinator_llm,
         )
         if text is None:
             return None, tokens
@@ -561,9 +565,40 @@ class SwarmOrchestrator:
 
         stats.wall_clock_seconds = time.monotonic() - t0
 
-        return SwarmResult(
+        result = SwarmResult(
             worker_results=worker_results,
             synthesis=synthesis,
             coordinator_plan=plan,
             stats=stats,
         )
+
+        # §9 observability: emit per-run quality + throughput metrics.
+        # Uses record_swarm_metrics() if token_telemetry exposes it, otherwise
+        # falls back to a structured log line that downstream tooling can grep.
+        try:
+            from codrag.services import token_telemetry as _tt
+            recorder = getattr(_tt, "record_swarm_metrics", None)
+            if recorder is not None:
+                recorder(
+                    phase="swarm_run",
+                    coordinator_json_valid=(result.coordinator_plan is not None
+                                           and len(result.coordinator_plan.assignments) > 0),
+                    synthesis_json_valid=(result.synthesis is not None),
+                    workers_succeeded=result.stats.workers_succeeded,
+                    workers_failed=result.stats.workers_failed,
+                    wall_clock_seconds=result.stats.wall_clock_seconds,
+                )
+            else:
+                logger.info(
+                    "[Swarm-Metrics] phase=swarm_run coord_valid=%s synth_valid=%s "
+                    "workers_succeeded=%d workers_failed=%d wall_clock_s=%.2f",
+                    result.coordinator_plan is not None and len(result.coordinator_plan.assignments) > 0,
+                    result.synthesis is not None,
+                    result.stats.workers_succeeded,
+                    result.stats.workers_failed,
+                    result.stats.wall_clock_seconds,
+                )
+        except Exception:
+            logger.debug("swarm metrics emission failed", exc_info=True)
+
+        return result
