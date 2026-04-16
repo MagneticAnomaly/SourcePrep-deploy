@@ -24,6 +24,7 @@ Exposes the 15-stage pipeline orchestrator via HTTP endpoints.
 from __future__ import annotations
 
 import logging
+import shutil
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -100,6 +101,10 @@ class ResumeRequest(BaseModel):
 
 class DiscardRequest(BaseModel):
     run_id: str
+
+
+class _StageRestoreRequest(BaseModel):
+    snapshot_id: str
 
 
 # ── Endpoints ────────────────────────────────────────────────────
@@ -1182,3 +1187,78 @@ async def list_stage_backups(project_id: str, stage_id: str) -> dict[str, Any]:
         })
 
     return ok({"stage_id": stage_id, "backups": backups})
+
+
+# ── Phase 114: Stage Restore Endpoint ────────────────────────────────
+
+@router.post("/projects/{project_id}/pipeline/stages/{stage_id}/restore")
+async def restore_stage_from_snapshot(
+    project_id: str,
+    stage_id: str,
+    req: _StageRestoreRequest,
+) -> dict[str, Any]:
+    """Restore a single stage's manifest + outputs from a named snapshot.
+
+    Allowed snapshot_id values:
+      - "golden" : .checkpoints/_golden/
+      - "<branch_dir_name>" : .branch_snapshots/<branch_dir_name>/
+
+    Copies only the stage-owned files (manifest + outputs listed in
+    STAGE_OUTPUTS); does NOT touch other stages. The reset barrier is
+    NOT consulted — the assumption is that the user is deliberately
+    overriding a broken/stub state via the Recover UI.
+    """
+    from codrag.services.pipeline.stages import StageId, STAGE_OUTPUT_FILE, stage_manifest_name
+    from codrag.services.project_helpers import require_project
+    from codrag.core.project_registry import project_index_dir
+
+    # 404 on unknown stage id.
+    try:
+        sid = StageId(stage_id)
+    except ValueError:
+        raise ApiException(status_code=404, code="not_found", message=f"unknown stage: {stage_id}")
+
+    project = require_project(project_id)
+    idx_dir = project_index_dir(project)
+
+    # Resolve source dir (golden sentinel vs. branch dir_name).
+    if req.snapshot_id == "golden":
+        src_dir = idx_dir / ".checkpoints" / "_golden"
+    else:
+        src_dir = idx_dir / ".branch_snapshots" / req.snapshot_id
+    if not src_dir.is_dir():
+        raise ApiException(
+            status_code=404,
+            code="not_found",
+            message=f"snapshot not found: {req.snapshot_id}",
+        )
+
+    # Stage-owned files: manifest always included; add output file if present.
+    manifest = stage_manifest_name(stage_id)
+    output_file = STAGE_OUTPUT_FILE.get(sid)
+    files: list[str] = [manifest]
+    if output_file and output_file not in files:
+        files.append(output_file)
+
+    # At least the manifest must be present in the source.
+    if not (src_dir / manifest).is_file():
+        raise ApiException(
+            status_code=404,
+            code="not_found",
+            message=f"snapshot {req.snapshot_id!r} has no data for stage {stage_id!r}",
+        )
+
+    restored_files: list[str] = []
+    for f in files:
+        src = src_dir / f
+        if src.is_file():
+            dst = idx_dir / f
+            shutil.copy2(src, dst)
+            restored_files.append(f)
+
+    return ok({
+        "restored": True,
+        "stage_id": stage_id,
+        "snapshot_id": req.snapshot_id,
+        "files_restored": restored_files,
+    })
