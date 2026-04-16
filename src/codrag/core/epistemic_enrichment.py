@@ -789,6 +789,16 @@ class EpistemicEnricher:
             if progress_callback:
                 progress_callback("epistemic_enrichment", current_progress + done + failed, total_progress, progress_baseline)
 
+            # Intra-tier checkpoint: flush after every batch so a crash mid-tier
+            # does not lose all the work in the active tier. Important for
+            # cloud-batched profiles where a single tier can hold thousands of
+            # nodes and the daemon may not survive long enough to reach the
+            # post-tier checkpoint in the caller.
+            try:
+                self._write_epistemic(enriched)
+            except Exception as ce:
+                logger.warning("Intra-tier code-batch checkpoint failed: %s", ce)
+
             # Cooperative cancel check after each completed batch
             if cancel_token and cancel_token.is_cancelled:
                 logger.info("Epistemic code batch cancelled after %d done, %d failed — returning early", done, failed)
@@ -911,6 +921,12 @@ class EpistemicEnricher:
                     failed += 1
             if progress_callback:
                 progress_callback("epistemic_enrichment", current_progress + done + failed, total_progress)
+
+            # Intra-tier checkpoint after each doc batch (mirror of code path).
+            try:
+                self._write_epistemic(enriched)
+            except Exception as ce:
+                logger.warning("Intra-tier doc-batch checkpoint failed: %s", ce)
 
             # Cooperative cancel check after each completed batch
             if cancel_token and cancel_token.is_cancelled:
@@ -1075,6 +1091,8 @@ class EpistemicEnricher:
                     lock = threading.Lock()
                     tier_done = 0
                     tier_failed = 0
+                    last_checkpoint_count = 0
+                    INTRA_TIER_CHECKPOINT_EVERY = 25
                     with ThreadPoolExecutor(max_workers=concurrency) as pool:
                         futures = {
                             pool.submit(
@@ -1083,6 +1101,8 @@ class EpistemicEnricher:
                             for node in tier
                         }
                         for future in as_completed(futures):
+                            snapshot = None
+                            cur_done = cur_failed = 0
                             try:
                                 entry = future.result()
                                 with lock:
@@ -1091,10 +1111,32 @@ class EpistemicEnricher:
                                         tier_done += 1
                                     else:
                                         tier_failed += 1
+                                    cur_done, cur_failed = tier_done, tier_failed
+                                    completed_in_tier = tier_done + tier_failed
+                                    if completed_in_tier - last_checkpoint_count >= INTRA_TIER_CHECKPOINT_EVERY:
+                                        snapshot = dict(enriched)
+                                        last_checkpoint_count = completed_in_tier
                             except Exception as e:
                                 logger.warning("Epistemic enrichment failed: %s", e)
                                 with lock:
                                     tier_failed += 1
+                                    cur_done, cur_failed = tier_done, tier_failed
+                            if snapshot is not None:
+                                try:
+                                    self._write_epistemic(snapshot)
+                                    logger.debug(
+                                        "Intra-tier checkpoint: %d/%d in tier %d/%d (%d total enriched)",
+                                        cur_done + cur_failed, len(tier), tier_idx + 1, len(tiers), len(snapshot),
+                                    )
+                                except Exception as ce:
+                                    logger.warning("Intra-tier checkpoint failed: %s", ce)
+                            if progress_callback:
+                                progress_callback(
+                                    "epistemic_enrichment",
+                                    existing_count + done + cur_done + failed + cur_failed,
+                                    total_file_count,
+                                    existing_count,
+                                )
                     done += tier_done
                     failed += tier_failed
                     # Write checkpoint after each tier

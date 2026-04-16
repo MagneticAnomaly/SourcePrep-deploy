@@ -328,3 +328,30 @@ class TestFullExecution:
         assert len(result.coordinator_plan.assignments) == 0  # empty fallback
         assert result.stats.workers_succeeded == 2  # workers ran with defaults
         assert result.synthesis is None  # synthesis also failed
+
+
+# ---------------------------------------------------------------------------
+# TestDualLLMConstructor
+# ---------------------------------------------------------------------------
+
+
+def test_decoupled_constructor_uses_distinct_clients() -> None:
+    coord = MagicMock(name="coordinator_llm")
+    worker = MagicMock(name="worker_llm")
+    orch = SwarmOrchestrator(coordinator_llm=coord, worker_llm=worker, concurrency=3)
+    assert orch.coordinator_llm is coord
+    assert orch.worker_llm is worker
+
+
+def test_inherit_fallback_when_coordinator_none() -> None:
+    worker = MagicMock(name="worker_llm")
+    orch = SwarmOrchestrator(coordinator_llm=None, worker_llm=worker)
+    assert orch.coordinator_llm is worker  # inherited
+
+
+def test_legacy_single_llm_constructor_still_works() -> None:
+    """Backward compatibility: `llm=` kwarg maps to both."""
+    legacy = MagicMock(name="legacy_llm")
+    orch = SwarmOrchestrator(llm=legacy, concurrency=3)
+    assert orch.coordinator_llm is legacy
+    assert orch.worker_llm is legacy
