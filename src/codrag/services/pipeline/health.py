@@ -13,7 +13,10 @@ from typing import Any, Dict, List
 
 from codrag.services.pipeline_checkpoint import STAGE_OUTPUTS
 from codrag.services.pipeline.recovery import read_reset_barrier
-from codrag.services.pipeline.stages import STAGE_MANIFEST_FILE, StageId
+from codrag.services.pipeline.stages import stage_manifest_name
+
+# Module-private alias so existing in-module call sites continue to work.
+_stage_manifest_name = stage_manifest_name
 
 _STAGE_ORDER = [
     "structural", "inferred_edges", "catalogue", "validation", "knowledge",
@@ -22,20 +25,6 @@ _STAGE_ORDER = [
 ]
 
 _STALE_BARRIER_SECONDS = 60 * 60  # 1 hour
-
-
-def _stage_manifest_name(stage_id: str) -> str:
-    """Canonical manifest filename for a stage.
-
-    Uses the authoritative STAGE_MANIFEST_FILE map from pipeline.stages
-    instead of synthesizing names. Falls back to {stage_id}_manifest.json
-    only for unknown stage ids so the health endpoint remains robust to
-    future additions.
-    """
-    try:
-        return STAGE_MANIFEST_FILE[StageId(stage_id)]
-    except (KeyError, ValueError):
-        return f"{stage_id}_manifest.json"
 
 
 def _count_backups_for_stage(idx_dir: Path, stage_id: str) -> int:

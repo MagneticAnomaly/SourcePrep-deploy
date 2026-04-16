@@ -1116,11 +1116,15 @@ async def list_stage_backups(project_id: str, stage_id: str) -> dict[str, Any]:
     Run checkpoints are ephemeral (pruned to 3) and intentionally excluded
     from the Recover picker — users should only restore from backups that
     are stable across restarts.
+
+    snapshot_id is the literal string "golden" for the single golden
+    backup (at .checkpoints/_golden/), otherwise the branch snapshot's
+    dir_name. Task 6 /pipeline/stages/{stage_id}/restore uses this to
+    distinguish backup kinds.
     """
     from datetime import datetime
     from codrag.services.branch_backup_manager import list_snapshots
-    from codrag.services.pipeline.health import _stage_manifest_name
-    from codrag.services.pipeline.stages import StageId
+    from codrag.services.pipeline.stages import StageId, stage_manifest_name
     from codrag.services.project_helpers import require_project
     from codrag.core.project_registry import project_index_dir
 
@@ -1132,7 +1136,7 @@ async def list_stage_backups(project_id: str, stage_id: str) -> dict[str, Any]:
 
     project = require_project(project_id)
     idx_dir = project_index_dir(project)
-    manifest = _stage_manifest_name(stage_id)
+    manifest = stage_manifest_name(stage_id)
     backups: list[dict] = []
 
     # Golden (at most one)

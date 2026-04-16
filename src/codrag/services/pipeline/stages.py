@@ -267,3 +267,16 @@ FINALIZE_WAVES: List[List[StageId]] = [
     [StageId.RULES, StageId.CONCEPTS, StageId.AUDIT],
     [StageId.ANTIBODIES],
 ]
+
+
+def stage_manifest_name(stage_id: str) -> str:
+    """Canonical manifest filename for a stage.
+
+    Uses the authoritative STAGE_MANIFEST_FILE map. Falls back to
+    {stage_id}_manifest.json only for unknown stage ids (keeps the
+    health endpoint and backup picker robust against future additions).
+    """
+    try:
+        return STAGE_MANIFEST_FILE[StageId(stage_id)]
+    except (KeyError, ValueError):
+        return f"{stage_id}_manifest.json"
