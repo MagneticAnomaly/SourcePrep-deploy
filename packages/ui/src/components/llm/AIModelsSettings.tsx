@@ -1,5 +1,6 @@
 import { cn } from '../../lib/utils';
 import { ModelCard } from './ModelCard';
+import { AdvancedLLMSettings } from './AdvancedLLMSettings';
 import { EndpointManager } from './EndpointManager';
 import { LLMAssignmentBlockCard } from './LLMAssignmentBlockCard';
 import { LLMAssignmentsPipeline } from './LLMAssignmentsPipeline';
@@ -986,6 +987,16 @@ export function AIModelsSettings({
           )}
         </div>
       </div>
+
+      {/* Advanced LLM Settings */}
+      <AdvancedLLMSettings
+        value={config.advanced ?? {
+          enforce_cloud_token_safety: true,
+          max_thinking_budget: 24576,
+          ollama_plan_tier: 'free',
+        }}
+        onChange={(advanced) => onConfigChange({ ...config, advanced })}
+      />
 
       {/* Endpoint Manager */}
       <EndpointManager
