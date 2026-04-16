@@ -9,7 +9,7 @@ See docs/Phase112_Gemini/SWARM_UI_PLAN_v2.md §7 for the rationale.
 """
 from __future__ import annotations
 
-from typing import Dict, Literal
+from typing import Literal
 
 # ── Kimi (Worker) ──────────────────────────────────────────────────
 # Per-file attention lever.  Beyond ~10 items per prompt, thinking-
@@ -33,7 +33,7 @@ GEMINI_HARD_CONTEXT_TOKENS: int = 800_000
 # ── Plan tier concurrency ──────────────────────────────────────────
 # Ollama Cloud per-plan concurrent-model limits.
 PlanTier = Literal["free", "pro", "max"]
-PLAN_TIER_CONCURRENCY: Dict[str, int] = {
+PLAN_TIER_CONCURRENCY: dict[str, int] = {
     "free": 1,
     "pro": 3,
     "max": 10,
