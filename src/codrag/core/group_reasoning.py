@@ -26,16 +26,19 @@ import os
 import tempfile
 import time
 from collections import defaultdict
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-from codrag.core.context_config import PipelineTask, compute_optimal_settings
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any
 
-from .llm_client import LLMClient, _parse_json_response
+from codrag.core.context_config import PipelineTask, compute_optimal_settings
+from codrag.services.pipeline.workers import WorkerFactory
+
 from .epistemic_score import EpistemicEntry
-from .swarm_registry import get_swarm_tier, get_min_groups_threshold
-from .swarm_orchestrator import SwarmOrchestrator, WorkItem, WorkerAssignment, SwarmResult
+from .llm_client import LLMClient, _parse_json_response
+from .swarm_orchestrator import SwarmOrchestrator, SwarmResult, WorkerAssignment, WorkItem
+from .swarm_registry import get_min_groups_threshold, get_swarm_tier
 
 logger = logging.getLogger(__name__)
 
@@ -45,11 +48,11 @@ logger = logging.getLogger(__name__)
 class GroupReasoningEntry:
     """Cross-file architectural analysis for a group of related files."""
     group_id: str
-    member_node_ids: List[str]
+    member_node_ids: list[str]
     pattern: str  # e.g. "Request Pipeline", "Repository Pattern", "Event Bus"
     data_flow: str  # How data moves through the group
-    coupling_risks: List[str]  # What could break
-    blast_radius: List[str]  # Files affected by changes to this group
+    coupling_risks: list[str]  # What could break
+    blast_radius: list[str]  # Files affected by changes to this group
     architectural_insight: str  # Free-form deep reasoning about the group
     confidence: float = 0.7
     analyzed_at: str = ""
@@ -57,8 +60,8 @@ class GroupReasoningEntry:
     # Fingerprint: hash of member epistemic entries for staleness detection
     member_fingerprint: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
-        d: Dict[str, Any] = {
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
             "group_id": self.group_id,
             "member_node_ids": self.member_node_ids,
             "pattern": self.pattern,
@@ -74,7 +77,7 @@ class GroupReasoningEntry:
         return d
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "GroupReasoningEntry":
+    def from_dict(cls, d: dict[str, Any]) -> "GroupReasoningEntry":
         return cls(
             group_id=d["group_id"],
             member_node_ids=d.get("member_node_ids", []),
@@ -125,11 +128,11 @@ Respond with JSON:
 # ── Group Builder ────────────────────────────────────────────────
 
 def build_dependency_groups(
-    epistemic: Dict[str, EpistemicEntry],
-    edges: List[Dict[str, Any]],
+    epistemic: dict[str, EpistemicEntry],
+    edges: list[dict[str, Any]],
     min_group_size: int = 2,
     max_group_size: int = 15,
-) -> List[List[str]]:
+) -> list[list[str]]:
     """Build groups of related files from the trace graph.
 
     Uses connected components of file-level edges, then splits large
@@ -139,7 +142,7 @@ def build_dependency_groups(
     """
     # Build adjacency for file nodes only
     file_ids = set(epistemic.keys())
-    adj: Dict[str, Set[str]] = defaultdict(set)
+    adj: dict[str, set[str]] = defaultdict(set)
 
     for e in edges:
         src = e.get("source", "")
@@ -149,14 +152,14 @@ def build_dependency_groups(
             adj[tgt].add(src)
 
     # Find connected components via BFS
-    visited: Set[str] = set()
-    components: List[List[str]] = []
+    visited: set[str] = set()
+    components: list[list[str]] = []
 
     for node_id in sorted(file_ids):
         if node_id in visited:
             continue
         # BFS
-        component: List[str] = []
+        component: list[str] = []
         queue = [node_id]
         while queue:
             current = queue.pop(0)
@@ -171,7 +174,7 @@ def build_dependency_groups(
             components.append(component)
 
     # Split large components into sub-groups of max_group_size
-    groups: List[List[str]] = []
+    groups: list[list[str]] = []
     for comp in components:
         if len(comp) <= max_group_size:
             groups.append(comp)
@@ -181,7 +184,7 @@ def build_dependency_groups(
             remaining = set(comp)
             while remaining:
                 seed = min(remaining)
-                sub: List[str] = []
+                sub: list[str] = []
                 sub_queue = [seed]
                 while sub_queue and len(sub) < max_group_size:
                     current = sub_queue.pop(0)
@@ -199,8 +202,8 @@ def build_dependency_groups(
 
 
 def compute_group_fingerprint(
-    member_ids: List[str],
-    epistemic: Dict[str, EpistemicEntry],
+    member_ids: list[str],
+    epistemic: dict[str, EpistemicEntry],
 ) -> str:
     """Compute a fingerprint for a group based on member epistemic entries.
 
@@ -235,11 +238,11 @@ class GroupReasoningEngine:
         self.index_dir = index_dir
         self.output_path = index_dir / "trace_group_reasoning.jsonl"
 
-    def load_existing(self) -> Dict[str, GroupReasoningEntry]:
+    def load_existing(self) -> dict[str, GroupReasoningEntry]:
         """Load existing group reasoning entries."""
-        entries: Dict[str, GroupReasoningEntry] = {}
+        entries: dict[str, GroupReasoningEntry] = {}
         if self.output_path.exists():
-            with open(self.output_path, "r", encoding="utf-8") as f:
+            with open(self.output_path, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if line:
@@ -251,12 +254,12 @@ class GroupReasoningEngine:
                             continue
         return entries
 
-    def load_epistemic(self) -> Dict[str, EpistemicEntry]:
+    def load_epistemic(self) -> dict[str, EpistemicEntry]:
         """Load epistemic entries."""
-        entries: Dict[str, EpistemicEntry] = {}
+        entries: dict[str, EpistemicEntry] = {}
         path = self.index_dir / "trace_epistemic.jsonl"
         if path.exists():
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if line:
@@ -268,13 +271,13 @@ class GroupReasoningEngine:
                             continue
         return entries
 
-    def load_edges(self) -> List[Dict[str, Any]]:
+    def load_edges(self) -> list[dict[str, Any]]:
         """Load trace edges."""
-        edges: List[Dict[str, Any]] = []
+        edges: list[dict[str, Any]] = []
         for fname in ("trace_edges.jsonl", "trace_inferred_edges.jsonl"):
             path = self.index_dir / fname
             if path.exists():
-                with open(path, "r", encoding="utf-8") as f:
+                with open(path, encoding="utf-8") as f:
                     for line in f:
                         line = line.strip()
                         if line:
@@ -283,11 +286,11 @@ class GroupReasoningEngine:
 
     def _build_member_details(
         self,
-        member_ids: List[str],
-        epistemic: Dict[str, EpistemicEntry],
+        member_ids: list[str],
+        epistemic: dict[str, EpistemicEntry],
     ) -> str:
         """Build a context string with each member's epistemic summary."""
-        parts: List[str] = []
+        parts: list[str] = []
         for nid in member_ids:
             entry = epistemic.get(nid)
             if entry:
@@ -303,12 +306,12 @@ class GroupReasoningEngine:
 
     def _build_internal_edges(
         self,
-        member_ids: List[str],
-        edges: List[Dict[str, Any]],
+        member_ids: list[str],
+        edges: list[dict[str, Any]],
     ) -> str:
         """Build a string showing edges between group members."""
         member_set = set(member_ids)
-        internal: List[str] = []
+        internal: list[str] = []
         for e in edges:
             src = e.get("source", "")
             tgt = e.get("target", "")
@@ -332,12 +335,12 @@ class GroupReasoningEngine:
     def analyze_group_with_angle(
         self,
         group_id: str,
-        member_ids: List[str],
-        epistemic: Dict[str, EpistemicEntry],
-        edges: List[Dict[str, Any]],
+        member_ids: list[str],
+        epistemic: dict[str, EpistemicEntry],
+        edges: list[dict[str, Any]],
         analysis_angle: str,
-        priority_concerns: List[str],
-    ) -> Optional[GroupReasoningEntry]:
+        priority_concerns: list[str],
+    ) -> GroupReasoningEntry | None:
         """Variant of analyze_group that accepts coordinator-assigned scoping."""
         member_details = self._build_member_details(member_ids, epistemic)
         internal_edges = self._build_internal_edges(member_ids, edges)
@@ -415,19 +418,19 @@ class GroupReasoningEngine:
             blast_radius=[str(r) for r in parsed.get("blast_radius", [])][:20],
             architectural_insight=str(parsed.get("architectural_insight", ""))[:500],
             confidence=max(0.0, min(1.0, float(parsed.get("confidence", 0.7)))),
-            analyzed_at=datetime.now(timezone.utc).isoformat(),
+            analyzed_at=datetime.now(UTC).isoformat(),
             model=self.llm.model,
             member_fingerprint=fingerprint,
         )
 
     def _run_swarm(
         self,
-        to_analyze: List[Tuple[str, List[str]]],
-        epistemic: Dict[str, EpistemicEntry],
-        edges: List[Dict[str, Any]],
-        progress_callback: Optional[Callable[..., None]] = None,
-        cancel_token: Optional[Any] = None,
-    ) -> Dict[str, GroupReasoningEntry]:
+        to_analyze: list[tuple[str, list[str]]],
+        epistemic: dict[str, EpistemicEntry],
+        edges: list[dict[str, Any]],
+        progress_callback: Callable[..., None] | None = None,
+        cancel_token: Any | None = None,
+    ) -> dict[str, GroupReasoningEntry]:
         """Run swarm-orchestrated group reasoning.
 
         Returns a dict of group_id -> GroupReasoningEntry.
@@ -464,18 +467,20 @@ class GroupReasoningEngine:
         # F-59 rework: cloud models process requests sequentially and
         # use the large-slot 600s HTTP timeout.  Set per-worker and
         # overall wall-time caps so the swarm doesn't appear to hang.
+        # Phase 112: coord and worker decoupled — coord uses coordinator_llm slot.
         orch = SwarmOrchestrator(
-            llm=self.llm,
+            coordinator_llm=WorkerFactory._get_coordinator_llm_client(),
+            worker_llm=self.llm,
             concurrency=concurrency,
             coordinator_timeout_s=10.0 if is_cloud else 90.0,
-            synthesis_timeout_s=120.0,
-            worker_timeout_s=120.0 if is_cloud else 300.0,
-            max_wall_time_s=600.0 if is_cloud else 1800.0,
+            synthesis_timeout_s=120.0 if is_cloud else 180.0,
+            worker_timeout_s=180.0 if is_cloud else 300.0,
+            max_wall_time_s=900.0 if is_cloud else 1800.0,
         )
 
         # Build WorkItem list
-        items: List[WorkItem] = []
-        gid_to_members: Dict[str, List[str]] = {}
+        items: list[WorkItem] = []
+        gid_to_members: dict[str, list[str]] = {}
         for gid, members in to_analyze:
             gid_to_members[gid] = members
             # Summary: file paths (capped at 5) with architecture layers
@@ -501,27 +506,27 @@ class GroupReasoningEngine:
             items.append(WorkItem(id=gid, summary=summary, full_context=full_context))
 
         coordinator_prompt = (
-            "You are coordinating parallel analysis of {n} code groups.\n"
+            f"You are coordinating parallel analysis of {len(items)} code groups.\n"
             "Each group is a connected component of related files.\n\n"
-            "Groups:\n{{group_summaries}}\n\n"
+            "Groups:\n{group_summaries}\n\n"
             "For EACH group, assign a specific analysis_angle (what aspect to focus on)\n"
             "and priority_concerns (what risks to look for).\n\n"
             "Respond with JSON:\n"
-            '{{"assignments": [{{"item_id": "group:...", "analysis_angle": "...", '
-            '"priority_concerns": ["..."]}}]}}'
-        ).format(n=len(items))
+            '{"assignments": [{"item_id": "group:...", "analysis_angle": "...", '
+            '"priority_concerns": ["..."]}]}'
+        )
 
         synthesis_prompt = (
-            "Below are the analysis results from {n} parallel group analyses.\n\n"
-            "{{worker_outputs}}\n\n"
+            f"Below are the analysis results from {len(items)} parallel group analyses.\n\n"
+            "{worker_outputs}\n\n"
             "Synthesize cross-group patterns:\n"
-            '{{"cross_group_patterns": ["..."], '
+            '{"cross_group_patterns": ["..."], '
             '"shared_risks": ["..."], '
             '"architectural_recommendations": ["..."], '
-            '"overall_health": "good|moderate|concerning"}}'
-        ).format(n=len(items))
+            '"overall_health": "good|moderate|concerning"}'
+        )
 
-        def worker_fn(item: WorkItem, assignment: WorkerAssignment) -> Optional[str]:
+        def worker_fn(item: WorkItem, assignment: WorkerAssignment) -> str | None:
             member_ids = gid_to_members.get(item.id, [])
             entry = self.analyze_group_with_angle(
                 item.id, member_ids, epistemic, edges,
@@ -547,7 +552,7 @@ class GroupReasoningEngine:
             return {}
 
         # Convert WorkerResults to GroupReasoningEntry objects
-        entries: Dict[str, GroupReasoningEntry] = {}
+        entries: dict[str, GroupReasoningEntry] = {}
         for wr in result.worker_results:
             if wr.success and wr.parsed:
                 try:
@@ -568,7 +573,7 @@ class GroupReasoningEngine:
             "stage": "group_reasoning_swarm",
             "model": self.llm.model,
             "groups_analyzed": result.stats.total_items,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "synthesis": result.synthesis,
             "stats": {
                 "coordinator_tokens": result.stats.coordinator_tokens,
@@ -588,10 +593,10 @@ class GroupReasoningEngine:
     def analyze_group(
         self,
         group_id: str,
-        member_ids: List[str],
-        epistemic: Dict[str, EpistemicEntry],
-        edges: List[Dict[str, Any]],
-    ) -> Optional[GroupReasoningEntry]:
+        member_ids: list[str],
+        epistemic: dict[str, EpistemicEntry],
+        edges: list[dict[str, Any]],
+    ) -> GroupReasoningEntry | None:
         """Analyze a single group using deep reasoning (think=True)."""
         member_details = self._build_member_details(member_ids, epistemic)
         internal_edges = self._build_internal_edges(member_ids, edges)
@@ -664,16 +669,16 @@ class GroupReasoningEngine:
             blast_radius=[str(r) for r in parsed.get("blast_radius", [])][:20],
             architectural_insight=str(parsed.get("architectural_insight", ""))[:500],
             confidence=max(0.0, min(1.0, float(parsed.get("confidence", 0.7)))),
-            analyzed_at=datetime.now(timezone.utc).isoformat(),
+            analyzed_at=datetime.now(UTC).isoformat(),
             model=self.llm.model,
             member_fingerprint=fingerprint,
         )
 
     def run(
         self,
-        progress_callback: Optional[Callable[..., None]] = None,
-        cancel_token: Optional[Any] = None,
-    ) -> Dict[str, Any]:
+        progress_callback: Callable[..., None] | None = None,
+        cancel_token: Any | None = None,
+    ) -> dict[str, Any]:
         """Run group deep reasoning on all dependency groups.
 
         Steps:
@@ -708,7 +713,7 @@ class GroupReasoningEngine:
             return {"total_groups": 0, "analyzed": 0, "skipped": 0, "failed": 0}
 
         # Assign stable group IDs based on sorted member set
-        group_map: Dict[str, List[str]] = {}
+        group_map: dict[str, list[str]] = {}
         for i, members in enumerate(groups):
             # Stable ID: hash of sorted member IDs
             import hashlib
@@ -718,8 +723,8 @@ class GroupReasoningEngine:
             group_map[gid] = members
 
         # Check staleness
-        to_analyze: List[Tuple[str, List[str]]] = []
-        reuse: Dict[str, GroupReasoningEntry] = {}
+        to_analyze: list[tuple[str, list[str]]] = []
+        reuse: dict[str, GroupReasoningEntry] = {}
 
         for gid, members in group_map.items():
             fingerprint = compute_group_fingerprint(members, epistemic)
@@ -741,7 +746,7 @@ class GroupReasoningEngine:
 
         analyzed = 0
         failed = 0
-        results: Dict[str, GroupReasoningEntry] = dict(reuse)
+        results: dict[str, GroupReasoningEntry] = dict(reuse)
 
         # ── Swarm decision ──────────────────────────────────────────
         swarm_tier = get_swarm_tier(self.llm.provider, self.llm.model)
@@ -908,7 +913,7 @@ class GroupReasoningEngine:
 
         return stats
 
-    def _write_results(self, entries: Dict[str, GroupReasoningEntry]) -> None:
+    def _write_results(self, entries: dict[str, GroupReasoningEntry]) -> None:
         """Write group reasoning entries atomically."""
         self.index_dir.mkdir(parents=True, exist_ok=True)
         sorted_entries = sorted(entries.values(), key=lambda e: e.group_id)
