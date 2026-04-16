@@ -25,6 +25,7 @@ from codrag.core.swarm_orchestrator import (
     WorkItem,
 )
 from codrag.core.swarm_registry import get_min_groups_threshold, get_swarm_tier
+from codrag.services.pipeline.workers import WorkerFactory
 
 from .models import AtlasDocument, Segment, SegmentDescriptor, SegmentDocument
 from .prompts import (
@@ -936,13 +937,15 @@ class CodebaseAtlas:
 
         # F-59 rework: set per-worker and wall-time caps to prevent
         # apparent hangs on sequential cloud endpoints.
+        # Phase 112: coord and worker decoupled — coord uses coordinator_llm slot.
         orch = SwarmOrchestrator(
-            llm=self.llm,
+            coordinator_llm=WorkerFactory._get_coordinator_llm_client(),
+            worker_llm=self.llm,
             concurrency=concurrency,
             coordinator_timeout_s=10.0 if is_cloud else 90.0,
-            synthesis_timeout_s=120.0,
-            worker_timeout_s=120.0 if is_cloud else 300.0,
-            max_wall_time_s=600.0 if is_cloud else 1800.0,
+            synthesis_timeout_s=120.0 if is_cloud else 180.0,
+            worker_timeout_s=180.0 if is_cloud else 300.0,
+            max_wall_time_s=900.0 if is_cloud else 1800.0,
         )
 
         # Build WorkItems from segments
