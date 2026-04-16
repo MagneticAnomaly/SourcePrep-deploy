@@ -80,14 +80,18 @@ export interface AIModelsSettingsProps {
 }
 
 // Recommended models per slot.
-// nomic-embed-text-v1.5 (built-in via ONNX) is the primary recommendation.
-// nomic-embed-text is the fallback for Ollama users.
+// Phase 112: quality-first cloud-centric stack.
+// Small + Coordinator share gemini-3-flash-preview:cloud (JSON-reliable,
+// 1M ctx, no thinking overhead). Large = kimi-k2.5:cloud for deep reasoning.
+// qwen3 base family removed (8b/14b/30b) in favor of the cloud stack or
+// gemma3 for air-gapped fallback. qwen3-coder retained for code slot.
+// See docs/Phase112_Gemini/SWARM_UI_PLAN_v2.md §4.
 const RECOMMENDED_MODELS: Record<string, string[]> = {
   embedding: ['nomic-embed-text', 'nomic-embed-code'],
-  small: ['qwen3:8b', 'qwen3:14b', 'gemma3:12b'],
-  large: ['qwen3:8b', 'qwen3:14b', 'qwen3:30b', 'gemma3:12b'],
-  code: ['qwen3-coder:30b', 'qwen2.5-coder:7b'],
-  coordinator: ['gemini-3-flash-preview:cloud', 'gpt-4o-mini', 'qwen3:30b'],
+  small: ['gemini-3-flash-preview:cloud', 'gemma3:12b'],
+  large: ['kimi-k2.5:cloud', 'gemma3:27b'],
+  coordinator: ['gemini-3-flash-preview:cloud', 'gemma3:27b'],
+  code: ['qwen3-coder-next:cloud', 'qwen3-coder:30b'],
 };
 
 /** Check if a model name matches an entry in the available list (handles ':latest' suffix) */
