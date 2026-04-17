@@ -1739,3 +1739,35 @@ export interface WebhookResult {
   new_tier: string;
   created: boolean;
 }
+
+// ============================================================
+// Phase 114 — per-stage restore
+// ============================================================
+
+export type StageBackupKind = 'golden' | 'branch'
+
+export interface StageBackup {
+  /** "golden" sentinel, or the branch snapshot's on-disk dir name. */
+  snapshot_id: string
+  kind: StageBackupKind
+  /** Source branch when kind === "branch", null for golden. */
+  branch: string | null
+  /** Epoch seconds when this snapshot was created. */
+  created_at: number
+  size_bytes: number
+  file_count: number
+  /** Reserved for future per-stage record counts; currently always null. */
+  record_count: number | null
+}
+
+export interface StageBackupsResponse {
+  stage_id: string
+  backups: StageBackup[]
+}
+
+export interface StageRestoreResponse {
+  restored: true
+  stage_id: string
+  snapshot_id: string
+  files_restored: string[]
+}

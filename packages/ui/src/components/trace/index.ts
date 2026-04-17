@@ -35,3 +35,6 @@ export type {
   BudgetSliderProps,
   PinnedConceptsListProps,
 } from './AtlasLensPanel';
+
+export { RecoverStagePanel, formatBackupLabel } from './RecoverStagePanel';
+export type { RecoverStagePanelProps } from './RecoverStagePanel';
