@@ -17,7 +17,7 @@
  *   8. BarrierIndicator — returns a non-null element when barrier is active
  */
 import { describe, it, expect } from 'vitest';
-import { isBarrierStale, BarrierIndicator } from '../BarrierIndicator';
+import { isBarrierStale, BarrierIndicator, barrierGuidance } from '../BarrierIndicator';
 import type { BarrierStatus } from '../../../types';
 
 // ── Fixtures ─────────────────────────────────────────────────
@@ -107,5 +107,39 @@ describe('BarrierIndicator', () => {
   it('returns a non-null React element when barrier is active', () => {
     const result = BarrierIndicator({ barrier: FRESH_BARRIER });
     expect(result).not.toBeNull();
+  });
+});
+
+// ── barrierGuidance ──────────────────────────────────────────
+
+describe('barrierGuidance', () => {
+  it('returns empty string when barrier is inactive', () => {
+    expect(barrierGuidance(INACTIVE_BARRIER)).toBe('');
+  });
+
+  it('gives non-stale reset guidance when a recent _reset barrier is present', () => {
+    const b: BarrierStatus = { active: true, age_seconds: 120, reason: 'enrichment_reset' };
+    const msg = barrierGuidance(b);
+    expect(msg).toMatch(/auto-clear/i);
+    expect(msg.length).toBeGreaterThan(0);
+  });
+
+  it('escalates to actionable guidance when a reset barrier goes stale', () => {
+    const b: BarrierStatus = { active: true, age_seconds: 7200, reason: 'rebuild' };
+    const msg = barrierGuidance(b);
+    expect(msg).toMatch(/Re-run|Clear/i);
+  });
+
+  it('gives startup_recovery-specific guidance when reason matches', () => {
+    const b: BarrierStatus = { active: true, age_seconds: 60, reason: 'startup_recovery' };
+    const msg = barrierGuidance(b);
+    expect(msg).toMatch(/unclean shutdown|heartbeat/i);
+  });
+
+  it('gives watchdog_heartbeat_stale-specific stale guidance', () => {
+    const b: BarrierStatus = { active: true, age_seconds: 9000, reason: 'watchdog_heartbeat_stale' };
+    const msg = barrierGuidance(b);
+    expect(msg).toMatch(/heartbeat/i);
+    expect(msg).toMatch(/Clear/i);
   });
 });

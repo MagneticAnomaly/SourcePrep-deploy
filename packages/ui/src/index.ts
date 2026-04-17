@@ -165,7 +165,7 @@ export { WatchStatusIndicator, WatchControlPanel } from './components/watch';
 export type { WatchStatusIndicatorProps, WatchControlPanelProps } from './components/watch';
 
 // Components - Trace (Phase 04)
-export { TraceStatusCard, TraceExplorer, TraceCoveragePanel, GraphEnrichmentPipeline, GraphStructurePanel, AtlasLensPanel, StatusStrip, SubAtlasTree, RoleLens, BudgetBar, BudgetSlider, PinnedConceptsList, RecoverStagePanel, formatBackupLabel, BarrierIndicator, isBarrierStale } from './components/trace';
+export { TraceStatusCard, TraceExplorer, TraceCoveragePanel, GraphEnrichmentPipeline, GraphStructurePanel, AtlasLensPanel, StatusStrip, SubAtlasTree, RoleLens, BudgetBar, BudgetSlider, PinnedConceptsList, RecoverStagePanel, formatBackupLabel, BarrierIndicator, isBarrierStale, barrierGuidance } from './components/trace';
 export type { TraceStatusCardProps, TraceExplorerProps, TraceCoveragePanelProps, GraphEnrichmentPipelineProps, TraceStageInfo, EnrichmentStageId, EnrichmentAutoConfig, DeepEnrichmentMode, GraphStructurePanelProps, AtlasLensPanelProps, StatusStripProps, SubAtlasTreeProps, RoleLensProps, BudgetBarProps, BudgetSliderProps, PinnedConceptsListProps, RecoverStagePanelProps, BarrierIndicatorProps } from './components/trace';
 export type { BarrierStatus } from './types';
 

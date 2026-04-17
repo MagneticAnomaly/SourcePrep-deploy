@@ -39,5 +39,5 @@ export type {
 export { RecoverStagePanel, formatBackupLabel } from './RecoverStagePanel';
 export type { RecoverStagePanelProps } from './RecoverStagePanel';
 
-export { BarrierIndicator, isBarrierStale } from './BarrierIndicator';
+export { BarrierIndicator, isBarrierStale, barrierGuidance } from './BarrierIndicator';
 export type { BarrierIndicatorProps } from './BarrierIndicator';
