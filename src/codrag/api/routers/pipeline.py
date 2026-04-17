@@ -616,16 +616,27 @@ async def pipeline_status(project_id: str) -> dict[str, Any]:
         except Exception:
             pass
 
-        # Audit status
+        # Audit status — stage completion is signalled by audit_manifest.json
+        # (written at idx_dir top level by the orchestrator). Finding count
+        # comes from audit/findings.json when the structural audit produced
+        # any; absence of findings.json with the manifest present means the
+        # stage ran and found nothing, not that it never ran.
         audit_status: dict[str, Any] = {"exists": False, "finding_count": 0}
         try:
-            audit_path = idx_dir / "audit_findings.json"
-            if audit_path.exists():
-                adata = _json.loads(audit_path.read_text())
-                audit_status = {
-                    "exists": True,
-                    "finding_count": len(adata.get("findings", [])),
-                }
+            manifest_path = idx_dir / "audit_manifest.json"
+            if manifest_path.exists():
+                finding_count = 0
+                findings_path = idx_dir / "audit" / "findings.json"
+                if findings_path.exists():
+                    try:
+                        adata = _json.loads(findings_path.read_text())
+                        finding_count = int(
+                            adata.get("finding_count")
+                            or len(adata.get("findings", []))
+                        )
+                    except Exception:
+                        finding_count = 0
+                audit_status = {"exists": True, "finding_count": finding_count}
         except Exception:
             pass
 

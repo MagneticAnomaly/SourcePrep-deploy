@@ -651,11 +651,16 @@ def _assemble_seeding_context(index_dir: Path, project_path: str) -> str:
             logger.debug("Failed to load modules for seeding: %s", e)
 
     # 3. Audit findings summary (if available)
-    audit_path = index_dir / "audit_findings.json"
+    audit_path = index_dir / "audit" / "findings.json"
     if audit_path.exists() and budget > 200:
         try:
             with open(audit_path, encoding="utf-8") as f:
-                findings = json.load(f)
+                findings_blob = json.load(f)
+            findings = (
+                findings_blob.get("findings", [])
+                if isinstance(findings_blob, dict)
+                else findings_blob
+            )
             if isinstance(findings, list) and findings:
                 finding_lines = []
                 for f_item in findings[:8]:
