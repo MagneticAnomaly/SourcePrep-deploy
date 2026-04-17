@@ -1,4 +1,6 @@
 import { useMemo, useState, useCallback, useEffect } from 'react'
+import { useApiClient } from '@codrag/ui'
+import { usePipelineHealth } from './usePipelineHealth'
 import type { UseGoalpostsSystemReturn } from './useGoalpostsSystem'
 import type { UseRoadmapSystemReturn } from './useRoadmapSystem'
 import { FileText } from 'lucide-react'
@@ -318,6 +320,19 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
   // Flatten grouped sub-objects for backward-compatible p.xxx access internally
   const { search, files, trace, enrichment, llm, deepAnalysis, atlas, audit: auditProps, spaghetti: spaghettiProps, goalposts: goalpostsProps, roadmap: roadmapProps, opportunities: opportunitiesProps, architecture: archProps, concepts: conceptsProps, ...core } = props
   const p = { ...core, ...search, ...files, ...trace, ...enrichment, ...llm, ...deepAnalysis }
+
+  // ── Pipeline health polling (Phase 114) ──────────────────────
+  // enrichmentPanelVisible is not threaded through DashboardPanelsProps,
+  // so default to true (same behaviour as useEnrichment's backward-compat default).
+  const apiClient = useApiClient()
+  const { health, refetch: refetchHealth, clearBarrier } = usePipelineHealth(
+    p.selectedProjectId,
+    true,
+  )
+
+  const handleStageRestored = useCallback((_stageId: string, _snapshotId: string) => {
+    void refetchHealth()
+  }, [refetchHealth])
 
   // Agent ops state — fetched when project changes
   const mapAgentStatus = (raw: any): AgentOpsData => ({
@@ -906,6 +921,12 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           onToggleFastCollapsed={p.onToggleGroupCollapsed ? () => p.onToggleGroupCollapsed!('fast') : undefined}
           onToggleDeepCollapsed={p.onToggleGroupCollapsed ? () => p.onToggleGroupCollapsed!('deep') : undefined}
           onToggleFinalizeCollapsed={p.onToggleGroupCollapsed ? () => p.onToggleGroupCollapsed!('finalize') : undefined}
+          projectId={p.selectedProjectId ?? undefined}
+          apiClient={apiClient}
+          barrier={health?.barrier}
+          health={health ?? undefined}
+          onClearBarrier={clearBarrier}
+          onStageRestored={handleStageRestored}
         />
       </div>
     ),
