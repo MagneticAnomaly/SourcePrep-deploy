@@ -117,6 +117,8 @@ export interface SettingsDrawerProps {
   projectName?: string
   /** Selected project id — required for per-stage Recover; optional since drawer opens without a project. */
   projectId?: string | null
+  /** True when any pipeline stage is actively running — disables Recover to prevent mid-run conflicts. */
+  pipelineRunning?: boolean
   onDestroyIndex: () => void
   onDestroyEnrichmentFull: () => void
   onDestroyFinalizeFull: () => void
@@ -166,6 +168,7 @@ export function SettingsDrawer({
   licenseError,
   projectName,
   projectId,
+  pipelineRunning = false,
   onDestroyIndex,
   onDestroyEnrichmentFull,
   onDestroyFinalizeFull,
@@ -362,11 +365,14 @@ export function SettingsDrawer({
                     placeholder="Choose a stage to recover…"
                     value={recoverStageId}
                     onChange={(e) => setRecoverStageId((e.target.value as EnrichmentStageId) || '')}
-                    disabled={!projectId}
+                    disabled={!projectId || pipelineRunning}
                     aria-label="Stage to recover"
                   />
                   {!projectId && (
                     <p className="text-xs text-text-muted">Select a project first.</p>
+                  )}
+                  {projectId && pipelineRunning && (
+                    <p className="text-xs text-warning">Pipeline is running — pause or wait for the active run to finish before restoring a stage.</p>
                   )}
                   {projectId && recoverStageId && (
                     <RecoverStagePanel
@@ -376,6 +382,7 @@ export function SettingsDrawer({
                         RECOVER_STAGE_OPTIONS.find((o) => o.value === recoverStageId)?.label ?? recoverStageId
                       }
                       apiClient={api}
+                      disabled={pipelineRunning}
                     />
                   )}
                 </div>

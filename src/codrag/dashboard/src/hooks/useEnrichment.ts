@@ -751,6 +751,9 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     fetchModuleStatus,
     fetchDeepeningStatus,
     fetchKnowledgeStatus,
+    // Phase 114: external callers (stage restore) need to repaint stage status
+    // without waiting for the next polling tick.
+    refreshStageDataFromPipeline,
     // Reset
     resetAll,
     // Force a fresh hydration from the server — call this after any

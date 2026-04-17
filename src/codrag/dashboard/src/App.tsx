@@ -359,6 +359,7 @@ function App() {
     fastPausedStage, deepPausedStage, finalizePausedStage,
     resetAll: resetEnrichment,
     rehydrate: rehydrateEnrichment,
+    refreshStageDataFromPipeline,
   } = useEnrichment(selectedProjectId, {
     onError: (msg, variant) => showToast(msg, variant),
     pipelineEvents,
@@ -856,6 +857,7 @@ function App() {
       conceptsStatus,
       auditPipelineStatus,
       antibodiesStatus,
+      refreshStageDataFromPipeline,
     },
     llm: {
       llmConfig, llmSlotsStatus, llmConfigDirty,
@@ -984,6 +986,11 @@ function App() {
         licenseError={licenseError}
         projectName={selectedProject?.name}
         projectId={selectedProjectId}
+        pipelineRunning={
+          inferredEdgesRunning || augmenting || validating || epistemicRunning ||
+          groupReasoningRunning || clusterRunning || atlasRunning || deepeningRunning ||
+          fastKnowledgeBuilding || deepKnowledgeBuilding
+        }
         onDestroyIndex={handleDestroyIndex}
         onDestroyEnrichmentFull={handleDestroyEnrichmentFull}
         onDestroyFinalizeFull={handleDestroyFinalizeFull}

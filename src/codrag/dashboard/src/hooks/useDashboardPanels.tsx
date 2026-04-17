@@ -217,6 +217,8 @@ export interface PanelEnrichmentProps {
   deepCollapsed?: boolean;
   finalizeCollapsed?: boolean;
   onToggleGroupCollapsed?: (group: 'fast' | 'deep' | 'finalize') => void;
+  /** Phase 114: called after a per-stage restore so the panel can repaint stage status immediately. */
+  refreshStageDataFromPipeline?: () => Promise<void> | void;
 }
 
 export interface PanelLLMProps {
@@ -330,8 +332,13 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
   )
 
   const handleStageRestored = useCallback((_stageId: string, _snapshotId: string) => {
+    // Phase 114: after a per-stage restore, repaint both health AND stage status.
+    // Health alone isn't enough — the user needs to see the stage's enrichment
+    // counters swap to the restored snapshot's values immediately, not after the
+    // next 1s poll tick.
     void refetchHealth()
-  }, [refetchHealth])
+    void p.refreshStageDataFromPipeline?.()
+  }, [refetchHealth, p])
 
   // Agent ops state — fetched when project changes
   const mapAgentStatus = (raw: any): AgentOpsData => ({
