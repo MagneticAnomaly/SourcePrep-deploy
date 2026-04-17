@@ -135,6 +135,10 @@ class BudgetThrottle:
             from codrag.services.settings_store import settings
             config = settings.get("pipeline_config") or {}
             budgets = config.get("budgets") or {}
+            enabled = bool(budgets.get("enabled", False))
+            if not enabled:
+                return (0, 5)  # Unlimited
+
             return (
                 int(budgets.get("max_tokens_per_run", 0)),
                 int(budgets.get("max_minutes_per_run", 5)),

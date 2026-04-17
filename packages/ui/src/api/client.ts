@@ -201,9 +201,11 @@ export interface ApiClient {
     schedule_threshold_enabled?: boolean;
     schedule_time_enabled?: boolean;
     threshold_percent?: number;
+    budget_enabled?: boolean;
     budget_max_tokens?: number;
     budget_max_minutes?: number;
     budget_max_items?: number;
+    priority?: string;
     llm_concurrency?: number;
     llm_concurrency_fast?: number;
     llm_concurrency_code?: number;
@@ -1301,9 +1303,11 @@ export class CodragApiClient implements ApiClient {
     schedule_threshold_enabled?: boolean;
     schedule_time_enabled?: boolean;
     threshold_percent?: number;
+    budget_enabled?: boolean;
     budget_max_tokens?: number;
     budget_max_minutes?: number;
     budget_max_items?: number;
+    priority?: string;
     llm_concurrency?: number;
     llm_concurrency_fast?: number;
     llm_concurrency_code?: number;

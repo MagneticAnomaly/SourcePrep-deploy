@@ -52,9 +52,11 @@ class PipelineConfigUpdate(BaseModel):
     schedule_threshold_enabled: Optional[bool] = None
     schedule_time_enabled: Optional[bool] = None
     threshold_percent: Optional[int] = None
+    budget_enabled: Optional[bool] = None
     budget_max_tokens: Optional[int] = None
     budget_max_minutes: Optional[int] = None
     budget_max_items: Optional[int] = None
+    priority: Optional[str] = None
     llm_concurrency: Optional[int] = None  # Legacy: sets all three concurrency values
     llm_concurrency_fast: Optional[int] = None  # Catalogue stage (small/instruct model, stage 3)
     llm_concurrency_code: Optional[int] = None  # Inferred edges stage (coder model, stage 2)
@@ -267,8 +269,12 @@ def update_pipeline_config(body: PipelineConfigUpdate) -> Dict[str, Any]:
         sched["time_enabled"] = body.schedule_time_enabled
     if body.threshold_percent is not None:
         sched["threshold_percent"] = body.threshold_percent
+    if body.priority is not None:
+        sched["priority"] = body.priority
 
     budgets = config.setdefault("budgets", {})
+    if body.budget_enabled is not None:
+        budgets["enabled"] = body.budget_enabled
     if body.budget_max_tokens is not None:
         budgets["max_tokens_per_run"] = body.budget_max_tokens
     if body.budget_max_minutes is not None:

@@ -140,6 +140,7 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
 
   useEffect(() => {
     if (!selectedProjectId) return
+    setProjectConfig(DEFAULT_CONFIG)
     // Hydrate project status with retry — the daemon may be busy with pipeline
     // work and time out on the first attempt. refreshStatus swallows errors
     // (correct for polling), so we call the API directly for hydration.
@@ -179,8 +180,8 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
           // F-65: pass through server-managed fields so per-project
           // Auto/Manual config and deep analysis schedule are available
           // to useTraceSystem and useDeepAnalysis hooks.
-          auto_config: cfg.auto_config ?? (prev as any).auto_config,
-          deep_analysis_schedule: cfg.deep_analysis_schedule ?? (prev as any).deep_analysis_schedule,
+          auto_config: cfg.auto_config,
+          deep_analysis_schedule: cfg.deep_analysis_schedule,
         }))
         setConfigDirty(false)
       }

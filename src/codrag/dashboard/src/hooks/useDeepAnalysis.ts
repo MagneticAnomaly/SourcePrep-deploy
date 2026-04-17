@@ -33,7 +33,7 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError, pro
     frequency: 'weekly',
     day_of_week: 0,
     hour: 2,
-    budget_enabled: true,
+    budget_enabled: false,
     budget_max_tokens: 50_000,
     budget_max_minutes: 30,
     budget_max_items: 100,
@@ -93,6 +93,7 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError, pro
     setDeepAnalysisRunning(false)
     setBudgetUsage(null)
     setTokenUsageData(null)
+    setDeepAnalysisSchedule(DEFAULT_SCHEDULE)
   }, [selectedProjectId])
 
   // ── Handlers ────────────────────────────────────────────────
@@ -198,9 +199,11 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError, pro
         schedule_threshold_enabled: deepAnalysisSchedule.schedule_threshold_enabled,
         schedule_time_enabled: deepAnalysisSchedule.schedule_time_enabled,
         threshold_percent: deepAnalysisSchedule.threshold_percent,
+        budget_enabled: deepAnalysisSchedule.budget_enabled,
         budget_max_tokens: deepAnalysisSchedule.budget_max_tokens,
         budget_max_minutes: deepAnalysisSchedule.budget_max_minutes,
         budget_max_items: deepAnalysisSchedule.budget_max_items,
+        priority: deepAnalysisSchedule.priority,
       }).catch(() => {})
     }, 500)
     return () => clearTimeout(timeout)

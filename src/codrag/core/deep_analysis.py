@@ -75,7 +75,7 @@ class DeepAnalysisSchedule:
     frequency: str = "weekly"  # daily | weekly | biweekly | monthly
     day_of_week: int = 0  # 0=Sunday
     hour: int = 2  # 2 AM
-    budget_enabled: bool = True  # False = no limits (recommended for Ollama/local models)
+    budget_enabled: bool = False  # False = no limits (recommended for Ollama/local models)
     budget_max_tokens: int = 50_000
     budget_max_minutes: int = 30
     budget_max_items: int = 100
@@ -107,7 +107,7 @@ class DeepAnalysisSchedule:
             frequency=d.get("frequency", "weekly"),
             day_of_week=int(d.get("day_of_week", 0)),
             hour=int(d.get("hour", 2)),
-            budget_enabled=bool(d.get("budget_enabled", True)),
+            budget_enabled=bool(d.get("budget_enabled", False)),
             budget_max_tokens=int(d.get("budget_max_tokens", 50_000)),
             budget_max_minutes=int(d.get("budget_max_minutes", 30)),
             budget_max_items=int(d.get("budget_max_items", 100)),
