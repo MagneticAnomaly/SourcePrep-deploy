@@ -177,6 +177,7 @@ export function SettingsDrawer({
   const [confirmAction, setConfirmAction] = useState<
     'index' | 'rebuild' | 'enrichment_full' | 'finalize_full' | 'atlas' | 'group_reasoning' | 'deep_enrichment' | null
   >(null)
+  const [rebuildTypedName, setRebuildTypedName] = useState('')
 
   const handleConfirmedAction = useCallback(() => {
     if (confirmAction === 'index') onDestroyIndex()
@@ -187,6 +188,7 @@ export function SettingsDrawer({
     if (confirmAction === 'group_reasoning') onDestroyGroupReasoning?.()
     if (confirmAction === 'deep_enrichment') onDestroyDeepEnrichment?.()
     setConfirmAction(null)
+    setRebuildTypedName('')
   }, [
     confirmAction,
     onDestroyIndex, onRebuildPipeline,
@@ -283,10 +285,10 @@ export function SettingsDrawer({
                   <div className="p-3 rounded border border-warning/30 bg-warning/5 flex flex-col justify-between gap-3">
                     <div>
                       <p className="text-sm font-medium text-text">Rebuild Pipeline</p>
-                      <p className="text-xs text-text-muted mt-1">Re-runs all stages from scratch. Data stays live during rebuild and is atomically swapped in when each stage finishes.</p>
+                      <p className="text-xs text-text-muted mt-1">Wipes all 15 stages and rebuilds from scratch. Current index data stays readable during the rebuild and is atomically swapped in as each stage finishes. Incremental progress from prior runs is <strong>not preserved</strong>.</p>
                     </div>
                     <Button variant="outline" size="sm" onClick={() => setConfirmAction('rebuild')} className="w-full border-warning/40 text-warning hover:bg-warning/10">
-                      Rebuild
+                      Wipe & Rebuild All
                     </Button>
                   </div>
                   <div className="p-3 rounded border border-error/30 bg-error/5 flex flex-col justify-between gap-3">
@@ -677,7 +679,8 @@ export function SettingsDrawer({
       <ConfirmDialog
         open={confirmAction !== null}
         onConfirm={handleConfirmedAction}
-        onCancel={() => setConfirmAction(null)}
+        onCancel={() => { setConfirmAction(null); setRebuildTypedName('') }}
+        confirmDisabled={confirmAction === 'rebuild' && (!projectName || rebuildTypedName !== projectName)}
         title={
           confirmAction === 'rebuild' ? `Rebuild Pipeline for ${projectName || 'Project'}?`
             : confirmAction === 'enrichment_full' ? `Reset Enrichment for ${projectName || 'Project'}?`
@@ -711,7 +714,23 @@ export function SettingsDrawer({
                     : confirmAction === 'deep_enrichment' ? 'Reset Deep Enrichment'
                       : 'Reset Everything'
         }
-      />
+      >
+        {confirmAction === 'rebuild' ? (
+          <div className="space-y-2">
+            <p className="text-xs text-text">
+              Type the project name (<code className="px-1 rounded bg-muted">{projectName || ''}</code>) to confirm:
+            </p>
+            <input
+              type="text"
+              value={rebuildTypedName}
+              onChange={(e) => setRebuildTypedName(e.target.value)}
+              className="w-full rounded border border-border bg-surface px-2 py-1 text-sm text-text focus:outline-none focus:ring-1 focus:ring-warning"
+              placeholder={projectName || 'project name'}
+              autoFocus
+            />
+          </div>
+        ) : undefined}
+      </ConfirmDialog>
     </div>
   )
 }
