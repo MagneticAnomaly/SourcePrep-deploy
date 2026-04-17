@@ -571,7 +571,8 @@ class BuildManager:
     def get_legacy_index(self) -> CodeIndex:
         from codrag.server import _config
         if self.legacy_index is None:
-            index_dir = Path(_config.get("index_dir", "./codrag_data"))
+            from codrag.core.paths import data_dir as _data_dir
+            index_dir = Path(_config.get("index_dir") or str(_data_dir()))
             embedder = self.create_embedder()
             self.legacy_index = CodeIndex(index_dir=index_dir, embedder=embedder)
         return self.legacy_index

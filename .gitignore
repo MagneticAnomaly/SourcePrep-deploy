@@ -76,6 +76,11 @@ pnpm-debug.log*
 
 # CoDRAG data (don't commit local indexes)
 .codrag/
+# Phase 113: legacy ./codrag_data/ path. Daemon state moved to
+# $CODRAG_DATA_DIR (default ~/.local/share/codrag/). Anything
+# remaining here is either a pre-migration install or stale
+# leftovers — never committed.
+codrag_data/
 
 # OS
 .DS_Store

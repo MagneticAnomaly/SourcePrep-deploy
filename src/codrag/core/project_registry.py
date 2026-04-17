@@ -34,7 +34,15 @@ class Project:
 
 
 def codrag_data_dir() -> Path:
-    return Path.home() / ".local" / "share" / "codrag"
+    """Daemon-wide data directory.
+
+    Deprecated shim — new callers should import `data_dir` from
+    `codrag.core.paths` directly. Kept because six internal callers
+    here plus external code paths (cli.py, watcher.py, etc.) still
+    import this name.
+    """
+    from codrag.core.paths import data_dir
+    return data_dir()
 
 
 def default_registry_db_path() -> Path:

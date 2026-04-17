@@ -79,17 +79,32 @@ class AutoRebuildWatcher:
         # outside the CoDRAG-owned names — otherwise watcher events on
         # our own output would trigger rebuilds.
         self._extra_exclude_globs: List[str] = []
-        try:
-            rel_index_dir = self.index_dir.relative_to(self.repo_root)
-        except Exception:
-            rel_index_dir = None
 
-        if rel_index_dir is not None:
-            rel_posix = rel_index_dir.as_posix().rstrip("/")
-            if rel_posix:
-                self._extra_exclude_globs.append(rel_posix)
-                self._extra_exclude_globs.append(rel_posix + "/*")
-                self._extra_exclude_globs.append(rel_posix + "/**/*")
+        def _add_repo_relative_exclude(candidate: Path) -> None:
+            try:
+                rel = candidate.relative_to(self.repo_root)
+            except Exception:
+                return
+            rel_posix = rel.as_posix().rstrip("/")
+            if not rel_posix:
+                return
+            self._extra_exclude_globs.append(rel_posix)
+            self._extra_exclude_globs.append(rel_posix + "/*")
+            self._extra_exclude_globs.append(rel_posix + "/**/*")
+
+        _add_repo_relative_exclude(self.index_dir)
+
+        # Phase 113: if the daemon-wide data dir ($CODRAG_DATA_DIR or
+        # XDG default) happens to be inside this watched repo, exclude
+        # it too. Rare — normally data_dir() is ~/.local/share/codrag
+        # which no one indexes — but an env-var override pointing
+        # inside the repo would otherwise create a feedback loop on
+        # every SQLite WAL checkpoint.
+        try:
+            from codrag.core.paths import data_dir as _resolve_data_dir
+            _add_repo_relative_exclude(_resolve_data_dir())
+        except Exception:
+            pass
 
     def start(self) -> None:
         with self._lock:

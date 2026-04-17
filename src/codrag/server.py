@@ -4,7 +4,10 @@ CoDRAG FastAPI server.
 Main HTTP API for the CoDRAG daemon.
 
 Usage:
-    python -m codrag.server --repo-root /path/to/repo --index-dir ./codrag_data --port 8400
+    python -m codrag.server --repo-root /path/to/repo --port 8400
+
+Daemon-wide state defaults to `$CODRAG_DATA_DIR` or `~/.local/share/codrag/`.
+Pass `--index-dir <path>` to override (deprecated).
 """
 
 from __future__ import annotations
@@ -24,6 +27,17 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from codrag import __version__
+
+# Phase 113: migrate legacy ./codrag_data/ before any store module gets
+# imported. Each service module (concept_store, antibody_store, etc.)
+# opens its SQLite connection at import time on a module-level
+# singleton — once they've opened the old path, the migration would
+# race against live write traffic. Running it here guarantees the
+# stores pick up their new XDG location from the first open.
+from codrag.core.data_dir_migration import migrate_legacy_data_dir as _migrate_legacy
+
+_migrate_legacy()
+
 from codrag.api.envelope import install_api_exception_handlers
 from codrag.core import CodeIndex
 from codrag.core.events import get_event_bus, BroadcastLogHandler, get_progress_manager
@@ -713,11 +727,16 @@ app.include_router(queue_router)
 
 def configure(
     repo_root: Optional[str] = None,
-    index_dir: str = "./codrag_data",
+    index_dir: Optional[str] = None,
     ollama_url: str = "http://localhost:11434",
     model: str = "nomic-embed-text",
 ):
-    """Configure the server before starting."""
+    """Configure the server before starting.
+
+    Phase 113: `index_dir` default is now `paths.data_dir()` (XDG).
+    Pass an explicit path to override (deprecated; prefer
+    `$CODRAG_DATA_DIR`).
+    """
     global _config, _index, _watcher
     if _watcher is not None:
         try:
@@ -725,9 +744,13 @@ def configure(
         except Exception:
             pass
         _watcher = None
+
+    from codrag.core.paths import data_dir as _data_dir
+    resolved_index_dir = index_dir if index_dir else str(_data_dir())
+
     _config = {
         "repo_root": repo_root,
-        "index_dir": index_dir,
+        "index_dir": resolved_index_dir,
         "ollama_url": ollama_url,
         "model": model,
     }
@@ -735,7 +758,7 @@ def configure(
 
     # Initialize SQLite settings store (Phase 24)
     from codrag.services.settings_store import settings as _settings_store
-    idx_path = Path(index_dir)
+    idx_path = Path(resolved_index_dir)
     idx_path.mkdir(parents=True, exist_ok=True)
     db_path = idx_path / "codrag_settings.db"
     _settings_store.init(db_path)
@@ -1088,7 +1111,11 @@ def mount_dashboard():
 def main():
     parser = argparse.ArgumentParser(description="CoDRAG Server")
     parser.add_argument("--repo-root", help="Default repository root to index")
-    parser.add_argument("--index-dir", default="./codrag_data", help="Directory to store index")
+    parser.add_argument(
+        "--index-dir",
+        default=None,
+        help="Directory to store index (deprecated; default is $CODRAG_DATA_DIR or ~/.local/share/codrag/)",
+    )
     parser.add_argument("--ollama-url", default="http://localhost:11434", help="Ollama API URL")
     parser.add_argument("--model", default="nomic-embed-text", help="Embedding model name")
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind to")

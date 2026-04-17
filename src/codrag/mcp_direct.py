@@ -68,7 +68,9 @@ class DirectMCPServer:
     ):
         self.repo_root = Path(repo_root).resolve()
 
-        # Default index location: .codrag/index inside repo, or ./codrag_data
+        # Default index location: .codrag/index inside repo (direct mode
+        # is always a single-repo use case; server mode is what uses
+        # the daemon-wide data_dir).
         if index_dir:
             self.index_dir = Path(index_dir).resolve()
         else:

@@ -127,6 +127,28 @@ npm workspaces managed by Turbo:
 | Storybook | 6006 |
 | Marketing site | 3000 |
 
+## Daemon State Location
+
+Phase 113 consolidated daemon-wide state (SQLite stores, ui_config,
+registry, audit log) into a single canonical location. Pre-Phase-113
+installs had state split between `./codrag_data/` (CWD-relative) and
+`~/.local/share/codrag/` (XDG).
+
+| Env state | Location |
+|---|---|
+| `$CODRAG_DATA_DIR` set (must be absolute) | `$CODRAG_DATA_DIR` |
+| Default | `~/.local/share/codrag/` |
+
+Legacy `./codrag_data/` is auto-migrated on first daemon startup
+(see `src/codrag/core/data_dir_migration.py`). Sentinel file
+`<data_dir>/.migrated_from_cwd` records the migration and prevents
+re-runs. Conflicts (both sides non-empty) are resolved with
+row-count / size heuristics; losers preserved as
+`<name>.migration-conflict.<ISO8601>`.
+
+Per-project indexes (embedded mode's `.codrag/`, standalone mode's
+`<data_dir>/projects/<id>/`) are unchanged.
+
 ## CoDRAG MCP Tools (Use These)
 
 This project ships its own MCP server. See AGENTS.md for tool-calling details and the current project_id. When the CoDRAG daemon is running, these tools are available and **should be actively used during development**:
