@@ -1100,6 +1100,10 @@ export class MockApiClient implements ApiClient {
       warnings: [],
     };
   }
+
+  async clearResetBarrier(_projectId: string) {
+    return { cleared: true, previous_reason: null };
+  }
 }
 
 export const createMockApiClient = (): ApiClient => new MockApiClient();

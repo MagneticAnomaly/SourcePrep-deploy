@@ -336,6 +336,7 @@ export interface ApiClient {
 
   // Pipeline health (Phase 114)
   getPipelineHealth(projectId: string, signal?: AbortSignal): Promise<import('../types').PipelineHealth>;
+  clearResetBarrier(projectId: string): Promise<{ cleared: boolean; previous_reason: string | null }>;
 }
 
 export interface ApiClientConfig {
@@ -1735,6 +1736,15 @@ export class CodragApiClient implements ApiClient {
     return this.requestEnvelope<import('../types').PipelineHealth>(
       `/projects/${encodeURIComponent(projectId)}/pipeline/health`,
       { signal },
+    );
+  }
+
+  async clearResetBarrier(
+    projectId: string,
+  ): Promise<{ cleared: boolean; previous_reason: string | null }> {
+    return this.requestEnvelope<{ cleared: boolean; previous_reason: string | null }>(
+      `/projects/${encodeURIComponent(projectId)}/pipeline/reset-barrier`,
+      { method: 'DELETE' },
     );
   }
 }

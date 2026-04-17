@@ -1122,6 +1122,8 @@ export interface PipelineStatus {
   branch?: string | null;
   branch_snapshots?: any[];
   branch_state?: any | null;
+  /** Phase 114: barrier status included in live poll response */
+  barrier?: BarrierStatus;
 }
 
 /**
