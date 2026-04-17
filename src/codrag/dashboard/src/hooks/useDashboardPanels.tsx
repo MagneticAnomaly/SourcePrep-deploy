@@ -289,6 +289,14 @@ export interface DashboardPanelsProps {
   /** Open detail overlay for a specific panel */
   onOpenDetails?: (panelId: string) => void
   showDevPanels?: boolean
+  /**
+   * Phase 114 T15: whether the `trace-pipeline` dashboard panel is
+   * currently visible. Used to gate `usePipelineHealth`'s 10s poll so the
+   * health endpoint isn't hit when the user has that panel closed.
+   * Defaults to `true` (always poll) when undefined — preserves backward
+   * compatibility with callers that haven't threaded visibility yet.
+   */
+  tracePipelinePanelVisible?: boolean
   // Domain groups
   search: PanelSearchProps
   files: PanelFileSystemProps
@@ -323,12 +331,13 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
   const p = { ...core, ...search, ...files, ...trace, ...enrichment, ...llm, ...deepAnalysis }
 
   // ── Pipeline health polling (Phase 114) ──────────────────────
-  // enrichmentPanelVisible is not threaded through DashboardPanelsProps,
-  // so default to true (same behaviour as useEnrichment's backward-compat default).
+  // T15: gate polling on trace-pipeline panel visibility. Default to true
+  // for the (now rare) callers that don't thread visibility, which matches
+  // useEnrichment's backward-compat default.
   const apiClient = useApiClient()
   const { health, refetch: refetchHealth, clearBarrier } = usePipelineHealth(
     p.selectedProjectId,
-    true,
+    p.tracePipelinePanelVisible ?? true,
   )
 
   const handleStageRestored = useCallback((_stageId: string, _snapshotId: string) => {

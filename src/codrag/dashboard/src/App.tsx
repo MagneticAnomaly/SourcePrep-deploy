@@ -332,6 +332,16 @@ function App() {
   }, [tasks, selectedProjectId]);
 
   // ── Enrichment (hook) ───────────────────────────────────────
+  // Phase 114 T15: derive trace-pipeline panel visibility once, share it
+  // between useEnrichment (for /pipeline/status polling) and
+  // useDashboardPanels (for usePipelineHealth polling). Both hooks only
+  // matter when the panel that renders their output is on-screen.
+  // Default to true during layout hydration so early lifecycle events
+  // (project switch, first paint) aren't dropped.
+  const tracePipelinePanelVisible = dashboardLayout
+    ? (dashboardLayout.panels.find((pnl) => pnl.id === 'trace-pipeline')?.visible ?? true)
+    : true
+
   const {
     inferredEdgesStatus, inferredEdgesRunning,
     augmentationStatus, augmenting, validating,
@@ -367,6 +377,11 @@ function App() {
     onFastCompleted: () => { void fetchProvenance() },
     signal: hydration.signal,
     isHydrating: hydration.isHydrating,
+    // Phase 114 T15: gate background polls on panel visibility so the
+    // enrichment pipeline hook stops pinging /pipeline/status when the
+    // trace-pipeline panel is hidden. Defaults to true when layout is
+    // still hydrating (first paint) so we don't miss early events.
+    enrichmentPanelVisible: tracePipelinePanelVisible,
   })
 
   // ── Atlas (Phase 29) ─────────────────────────────────────────
@@ -805,6 +820,7 @@ function App() {
     onOpenSettings: () => { setSettingsOpenToTab('global'); setSettingsOpen(true) },
     onOpenDetails: (panelId: string) => layoutApiRef.current?.openDetails(panelId),
     showDevPanels: globalConfig.developer_show_dev_panels ?? false,
+    tracePipelinePanelVisible,
     // Domain groups
     search: {
       query, setQuery, searchK, setSearchK, minScore, setMinScore,
