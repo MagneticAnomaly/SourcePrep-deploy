@@ -17,7 +17,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from codrag.core.atomic_io import atomic_write_text
+
 logger = logging.getLogger(__name__)
+
+
+def _write(path: Path, content: str) -> None:
+    """Atomic replacement for `path.write_text(content, encoding='utf-8')`.
+
+    AGENTS.md + per-IDE rule files are user-visible and often git-tracked,
+    so mid-write crashes must not leave them half-populated. Uses a
+    sibling .tmp file and `os.replace` (atomic rename on the same fs).
+    """
+    atomic_write_text(path, content)
 
 # ── Markers for managed sections ────────────────────────────────────
 # Used to identify CoDRAG-managed content in rules files that may also
@@ -586,7 +598,7 @@ def _write_cursor_rules(
             new_content = existing.rstrip("\n") + "\n\n" + new_content
 
     rules_dir.mkdir(parents=True, exist_ok=True)
-    target.write_text(new_content, encoding="utf-8")
+    _write(target, new_content)
     return True
 
 
@@ -655,7 +667,7 @@ def _write_windsurf_rules(
     if new_dir.exists() or (project_path / ".windsurf").exists():
         # Write to new path
         new_dir.mkdir(parents=True, exist_ok=True)
-        new_target.write_text(new_content + "\n", encoding="utf-8")
+        _write(new_target, new_content + "\n")
         return True
 
     # Fallback: legacy .windsurfrules (marker-based append)
@@ -665,20 +677,14 @@ def _write_windsurf_rules(
             before = existing[: existing.index(_WINDSURF_MARKER_START)]
             end_idx = existing.find(_WINDSURF_MARKER_END)
             after = existing[end_idx + len(_WINDSURF_MARKER_END) :] if end_idx >= 0 else ""
-            legacy_target.write_text(
-                before.rstrip("\n") + "\n\n" + new_content + after,
-                encoding="utf-8",
-            )
+            _write(legacy_target, before.rstrip("\n") + "\n\n" + new_content + after)
         else:
-            legacy_target.write_text(
-                existing.rstrip("\n") + "\n\n" + new_content + "\n",
-                encoding="utf-8",
-            )
+            _write(legacy_target, existing.rstrip("\n") + "\n\n" + new_content + "\n")
         return True
 
     # No Windsurf directory found -- create new path
     new_dir.mkdir(parents=True, exist_ok=True)
-    new_target.write_text(new_content + "\n", encoding="utf-8")
+    _write(new_target, new_content + "\n")
     return True
 
 
@@ -735,18 +741,12 @@ def _write_claude_rules(
             before = existing[: existing.index(_CLAUDE_MARKER_START)]
             end_idx = existing.find(_CLAUDE_MARKER_END)
             after = existing[end_idx + len(_CLAUDE_MARKER_END) :] if end_idx >= 0 else ""
-            target.write_text(
-                before.rstrip("\n") + "\n\n" + new_section + after,
-                encoding="utf-8",
-            )
+            _write(target, before.rstrip("\n") + "\n\n" + new_section + after)
         else:
             # No CoDRAG section yet -- append
-            target.write_text(
-                existing.rstrip("\n") + "\n\n" + new_section + "\n",
-                encoding="utf-8",
-            )
+            _write(target, existing.rstrip("\n") + "\n\n" + new_section + "\n")
     else:
-        target.write_text(new_section + "\n", encoding="utf-8")
+        _write(target, new_section + "\n")
 
     return True
 
@@ -799,7 +799,7 @@ def _write_claude_skill(
         if "codrag" in existing.lower() and "---" in existing:
             return True  # Already has a CoDRAG skill, don't overwrite
 
-    target.write_text(content, encoding="utf-8")
+    _write(target, content)
     return True
 
 
@@ -841,17 +841,11 @@ def _write_agents_md(
             before = existing[: existing.index(_CLAUDE_MARKER_START)]
             end_idx = existing.find(_CLAUDE_MARKER_END)
             after = existing[end_idx + len(_CLAUDE_MARKER_END) :] if end_idx >= 0 else ""
-            target.write_text(
-                before.rstrip("\n") + "\n\n" + new_section + after,
-                encoding="utf-8",
-            )
+            _write(target, before.rstrip("\n") + "\n\n" + new_section + after)
         else:
-            target.write_text(
-                existing.rstrip("\n") + "\n\n" + new_section + "\n",
-                encoding="utf-8",
-            )
+            _write(target, existing.rstrip("\n") + "\n\n" + new_section + "\n")
     else:
-        target.write_text(new_section + "\n", encoding="utf-8")
+        _write(target, new_section + "\n")
     return True
 
 
@@ -890,17 +884,11 @@ def _write_generic_md(
             before = existing[: existing.index(_CLAUDE_MARKER_START)]
             end_idx = existing.find(_CLAUDE_MARKER_END)
             after = existing[end_idx + len(_CLAUDE_MARKER_END) :] if end_idx >= 0 else ""
-            target.write_text(
-                before.rstrip("\n") + "\n\n" + new_section + after,
-                encoding="utf-8",
-            )
+            _write(target, before.rstrip("\n") + "\n\n" + new_section + after)
         else:
-            target.write_text(
-                existing.rstrip("\n") + "\n\n" + new_section + "\n",
-                encoding="utf-8",
-            )
+            _write(target, existing.rstrip("\n") + "\n\n" + new_section + "\n")
     else:
-        target.write_text(new_section + "\n", encoding="utf-8")
+        _write(target, new_section + "\n")
     return True
 
 
@@ -938,18 +926,12 @@ def _write_copilot_rules(
             before = existing[: existing.index(_CLAUDE_MARKER_START)]
             end_idx = existing.find(_CLAUDE_MARKER_END)
             after = existing[end_idx + len(_CLAUDE_MARKER_END) :] if end_idx >= 0 else ""
-            target.write_text(
-                before.rstrip("\n") + "\n\n" + new_section + after,
-                encoding="utf-8",
-            )
+            _write(target, before.rstrip("\n") + "\n\n" + new_section + after)
         else:
-            target.write_text(
-                existing.rstrip("\n") + "\n\n" + new_section + "\n",
-                encoding="utf-8",
-            )
+            _write(target, existing.rstrip("\n") + "\n\n" + new_section + "\n")
     else:
         github_dir.mkdir(parents=True, exist_ok=True)
-        target.write_text(new_section + "\n", encoding="utf-8")
+        _write(target, new_section + "\n")
     return True
 
 
@@ -999,17 +981,11 @@ def _write_cline_rules(
             before = existing[: existing.index(_CLAUDE_MARKER_START)]
             end_idx = existing.find(_CLAUDE_MARKER_END)
             after = existing[end_idx + len(_CLAUDE_MARKER_END) :] if end_idx >= 0 else ""
-            target.write_text(
-                before.rstrip("\n") + "\n\n" + new_section + after,
-                encoding="utf-8",
-            )
+            _write(target, before.rstrip("\n") + "\n\n" + new_section + after)
         else:
-            target.write_text(
-                existing.rstrip("\n") + "\n\n" + new_section + "\n",
-                encoding="utf-8",
-            )
+            _write(target, existing.rstrip("\n") + "\n\n" + new_section + "\n")
     else:
-        target.write_text(new_section + "\n", encoding="utf-8")
+        _write(target, new_section + "\n")
     return True
 
 
@@ -1049,7 +1025,7 @@ def _write_roo_rules(
     rules_dir = project_path / ".roo" / "rules"
     rules_dir.mkdir(parents=True, exist_ok=True)
     target = rules_dir / "codrag.md"
-    target.write_text(content, encoding="utf-8")
+    _write(target, content)
 
     # Mode-specific: Architect -- emphasize structural overview + audit
     arch_dir = project_path / ".roo" / "rules-architect"
@@ -1060,7 +1036,7 @@ def _write_roo_rules(
         "Use `codrag_audit` to identify architecture issues, tech debt, and refactoring targets.\n"
         "Use `codrag_search` to explore how modules and subsystems connect.\n"
     )
-    (arch_dir / "codrag.md").write_text(arch_content, encoding="utf-8")
+    _write(arch_dir / "codrag.md", arch_content)
 
     # Mode-specific: Code -- emphasize impact analysis before changes
     code_dir = project_path / ".roo" / "rules-code"
@@ -1071,7 +1047,7 @@ def _write_roo_rules(
         "Use `codrag_search` to find related code that may need updates.\n"
         "After finishing changes, use `codrag_observe` to record decisions and patterns.\n"
     )
-    (code_dir / "codrag.md").write_text(code_content, encoding="utf-8")
+    _write(code_dir / "codrag.md", code_content)
 
     return True
 

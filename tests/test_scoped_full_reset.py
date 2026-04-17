@@ -274,3 +274,44 @@ def test_antibody_store_clear_project_deletes_rows(tmp_path):
         "SELECT COUNT(*) FROM antibodies WHERE project_id = ?", ("p2",)
     ).fetchone()[0] == 1
     store.close()
+
+
+def test_branch_snapshot_restore_blocked_by_barrier(tmp_path):
+    """restore_project must refuse while the reset barrier is active.
+
+    After a scoped reset, branch snapshots contain stale pre-reset data.
+    Without the barrier check, switching branches could silently restore
+    that stale data over the clean post-reset state.
+    """
+    from codrag.services.branch_backup_manager import (
+        SNAPSHOT_PATTERNS,
+        restore_project,
+        snapshot_project,
+    )
+
+    idx = tmp_path / "idx"
+    idx.mkdir()
+
+    # Seed enough data that snapshot_project saves something
+    for pat in SNAPSHOT_PATTERNS[:3]:
+        (idx / pat).write_text("{}")
+
+    # Create a snapshot for branch 'main'
+    snapshot_project(idx, "main")
+    snap_dir = idx / ".branch_snapshots" / "main"
+    assert snap_dir.is_dir()
+
+    # No barrier → restore succeeds
+    result = restore_project(idx, "main")
+    assert result is not None
+    assert result["files_restored"] > 0
+
+    # With barrier → restore blocked
+    (idx / ".reset_barrier").write_text("1234\ntest\n")
+    result = restore_project(idx, "main")
+    assert result is None
+
+    # Clear barrier → restore works again
+    (idx / ".reset_barrier").unlink()
+    result = restore_project(idx, "main")
+    assert result is not None

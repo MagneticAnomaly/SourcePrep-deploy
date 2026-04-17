@@ -564,12 +564,15 @@ class KnowledgeIndex:
             with open(temp_dir / "knowledge_manifest.json", "w", encoding="utf-8") as f:
                 json.dump(manifest, f)
 
+            # os.replace is atomic on the same filesystem and overwrites
+            # in one syscall — the prior unlink+move pattern left a brief
+            # window where knowledge_embeddings.npy was deleted but not
+            # yet replaced. A crash in that window lost the embeddings.
+            import os as _os
             for fname in ["knowledge_documents.json", "knowledge_embeddings.npy", "knowledge_manifest.json"]:
                 src = temp_dir / fname
                 dst = self.index_dir / fname
-                if dst.exists():
-                    dst.unlink()
-                shutil.move(src, dst)
+                _os.replace(src, dst)
 
         finally:
             if temp_dir.exists():

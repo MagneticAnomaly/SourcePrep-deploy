@@ -703,11 +703,14 @@ class InferredEdgesAnalyzer:
         return {}
 
     def _save_manifest(self, manifest: Dict[str, str]) -> None:
-        """Save manifest of analyzed file hashes."""
-        self.manifest_path.write_text(
-            json.dumps(manifest, indent=2),
-            encoding="utf-8",
-        )
+        """Save manifest of analyzed file hashes.
+
+        Atomic tmp→rename so a crash mid-write can't corrupt the hash
+        cache — a corrupt cache forces the next incremental run to
+        reprocess all 4000+ files from scratch (a ~15-minute LLM job).
+        """
+        from codrag.core.atomic_io import atomic_write_text
+        atomic_write_text(self.manifest_path, json.dumps(manifest, indent=2))
 
     def _write_edges(self, edges: List[InferredEdge]) -> None:
         """Append new inferred edges to the output file."""

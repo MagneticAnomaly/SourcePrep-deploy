@@ -849,28 +849,68 @@ def _selective_delete(project_id: str, file_list: list, label: str, dirs: list |
 
 @router.delete("/projects/{project_id}/atlas/destroy")
 def atlas_destroy(project_id: str) -> Dict[str, Any]:
-    """Delete only the atlas data for a project."""
-    return _selective_delete(project_id, ATLAS_FILES, "atlas", dirs=ATLAS_DIRS)
+    """Delete only the atlas data for a project.
+
+    Routed through _scoped_full_reset so it writes a reset barrier —
+    previously this left orphan atlas output files that selfheal would
+    resurrect with a stub manifest on the next pipeline run. Atlas isn't
+    a finalize-store-backed stage (concepts/antibodies are), so no
+    SQLite clearing is needed, but the barrier still matters.
+    """
+    return _scoped_full_reset(
+        project_id,
+        label="atlas",
+        file_list=ATLAS_FILES,
+        dir_list=ATLAS_DIRS,
+        clear_antibodies=False,
+        clear_concepts=False,
+        barrier_reason="atlas_reset",
+    )
 
 
 @router.delete("/projects/{project_id}/group-reasoning/destroy")
 def group_reasoning_destroy(project_id: str) -> Dict[str, Any]:
-    """Delete only group reasoning data for a project."""
-    return _selective_delete(project_id, GROUP_REASONING_FILES, "group reasoning")
+    """Delete only group reasoning data for a project.
+
+    See atlas_destroy — barrier added to prevent selfheal resurrection
+    of the orphaned trace_group_reasoning.jsonl output.
+    """
+    return _scoped_full_reset(
+        project_id,
+        label="group reasoning",
+        file_list=GROUP_REASONING_FILES,
+        dir_list=[],
+        clear_antibodies=False,
+        clear_concepts=False,
+        barrier_reason="group_reasoning_reset",
+    )
 
 
 @router.delete("/projects/{project_id}/deep-enrichment/destroy")
 def deep_enrichment_destroy(project_id: str) -> Dict[str, Any]:
-    """Delete all 6 deep enrichment stages for a project (legacy/dev-tool surgical reset).
+    """Delete all 6 deep enrichment stages for a project (dev-tool surgical reset).
 
-    Removes: epistemic, group reasoning, modules, atlas, deepening, and deep knowledge manifests.
-    Preserves: structural graph, augmentation, inferred edges (fast sync stages).
+    Removes: epistemic, group reasoning, modules, atlas, deepening, and deep
+    knowledge manifests. Preserves: structural graph, augmentation, inferred
+    edges (fast sync stages), concepts and observations.
 
-    NOTE: for a full Danger-Zone "Reset Enrichment" use
-    DELETE /projects/{id}/enrichment/full-reset — it also writes a reset
-    barrier, clears derived SQLite stores, and wipes finalize stages too.
+    Writes a reset barrier + clears derived antibodies (finalize data
+    will be stale once deep enrichment re-runs, so the antibodies that
+    were derived from the old concepts are no longer meaningful).
+
+    For a full Danger-Zone "Reset Enrichment" (which ALSO wipes finalize
+    stages 11-15 and clears concept_store), use
+    DELETE /projects/{id}/enrichment/full-reset.
     """
-    return _selective_delete(project_id, DEEP_ENRICHMENT_FILES, "deep enrichment", dirs=DEEP_ENRICHMENT_DIRS)
+    return _scoped_full_reset(
+        project_id,
+        label="deep enrichment",
+        file_list=DEEP_ENRICHMENT_FILES,
+        dir_list=DEEP_ENRICHMENT_DIRS,
+        clear_antibodies=True,
+        clear_concepts=False,
+        barrier_reason="deep_enrichment_reset",
+    )
 
 
 # ═════════════════════════════════════════════════════════════════

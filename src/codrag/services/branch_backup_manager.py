@@ -276,7 +276,23 @@ def restore_project(
 
     Returns the snapshot metadata dict on success, or ``None`` if no
     snapshot exists for that branch.
+
+    Refuses to restore while a reset barrier is active. A scoped reset
+    (Reset Enrichment / Reset Finalize) leaves stale branch snapshots
+    from before the reset; without this check, a branch switch could
+    silently restore pre-reset data once the barrier clears on finalize
+    completion — exactly the "orphan data resurrection" pattern the
+    barrier exists to prevent.
     """
+    barrier = index_dir / ".reset_barrier"
+    if barrier.is_file():
+        logger.info(
+            "Branch restore: skipped for branch '%s' — reset barrier active "
+            "(stale snapshot from before the reset could resurrect cleared data)",
+            branch_name,
+        )
+        return None
+
     safe_name = _sanitize_branch_name(branch_name)
     snap_dir = index_dir / SNAPSHOTS_DIR / safe_name
 
