@@ -915,6 +915,16 @@ def configure(
     if crashed:
         logger.warning("Phase 25: %d crashed pipeline run(s) detected on startup", len(crashed))
 
+    # Phase 114 follow-up: checkpoint GC at daemon startup.
+    # The happy-path prune hook (run_completed) only fires on successful runs,
+    # so projects stuck in a crash loop grow .checkpoints/run-* forever.
+    # Startup prune establishes a ceiling of keep=3 per project + _golden.
+    try:
+        from codrag.services.pipeline_checkpoint import prune_checkpoints_all_projects
+        prune_checkpoints_all_projects(keep=3)
+    except Exception:
+        logger.debug("Startup checkpoint prune failed (non-fatal)", exc_info=True)
+
     # Initialize pipeline scheduler (Phase 45: Multi-GPU Concurrency)
     from codrag.services.pipeline.scheduler import pipeline_scheduler as _scheduler
     _scheduler.load_from_settings()

@@ -401,3 +401,50 @@ def prune_old_checkpoints(index_dir: Path, keep: int = 3) -> int:
         )
 
     return removed
+
+
+def prune_checkpoints_all_projects(keep: int = 3) -> dict[str, int]:
+    """Run prune_old_checkpoints across every registered project.
+
+    Intended for daemon startup. The happy-path prune hook at run_completed
+    only fires when a run finishes successfully; projects stuck in a crash
+    loop accumulate checkpoint dirs forever (observed: 4-6 dirs per project
+    after ~100 phases of dogfooding). Calling this at startup establishes a
+    ceiling regardless of run outcome.
+
+    Returns a mapping of project_id -> number of checkpoint dirs removed.
+    Failures are swallowed per-project (logged, not raised) so one bad
+    project cannot wedge daemon boot.
+    """
+    from codrag.core.project_registry import project_index_dir
+    from codrag.services.project_helpers import get_registry
+
+    results: dict[str, int] = {}
+    try:
+        projects = get_registry().list_projects()
+    except Exception as e:
+        logger.warning("Checkpoint startup prune: failed to list projects: %s", e)
+        return results
+
+    total_removed = 0
+    for project in projects:
+        try:
+            idx_dir = Path(project_index_dir(project))
+            if not idx_dir.is_dir():
+                continue
+            removed = prune_old_checkpoints(idx_dir, keep=keep)
+            if removed:
+                results[str(project.id)] = removed
+                total_removed += removed
+        except Exception as e:
+            logger.warning(
+                "Checkpoint startup prune: failed for project %s: %s",
+                getattr(project, "id", "?"), e,
+            )
+
+    if total_removed:
+        logger.info(
+            "Checkpoint startup prune: removed %d checkpoints across %d projects",
+            total_removed, len(results),
+        )
+    return results
