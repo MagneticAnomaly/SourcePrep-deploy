@@ -288,16 +288,14 @@ class EpistemicEnricher:
         return entries
 
     def load_trace_nodes(self) -> List[Dict[str, Any]]:
-        """Load trace nodes."""
-        nodes_path = self.index_dir / "trace_nodes.jsonl"
-        nodes: List[Dict[str, Any]] = []
-        if nodes_path.exists():
-            with open(nodes_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        nodes.append(json.loads(line))
-        return nodes
+        """Load trace nodes, filtering any that the current policy excludes."""
+        from codrag.core.trace.loaders import load_filtered_trace_nodes
+
+        return load_filtered_trace_nodes(
+            index_dir=self.index_dir,
+            repo_root=Path(self.repo_root),
+            warn_label="epistemic_enrichment.load_trace_nodes",
+        )
 
     def load_trace_edges(self) -> List[Dict[str, Any]]:
         """Load trace edges (structural + inferred)."""

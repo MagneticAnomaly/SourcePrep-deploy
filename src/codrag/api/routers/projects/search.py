@@ -229,21 +229,21 @@ def _prepend_atlas(
 
 
 def _load_trace_nodes_for_project(proj: Any) -> List[Dict[str, Any]]:
-    """Load trace_nodes.jsonl for a project. Returns empty list on any error."""
-    import json
+    """Load trace_nodes.jsonl for a project with live exclude filter applied.
+
+    Returns empty list on any error.
+    """
     try:
         from codrag.core.project_registry import project_index_dir
+        from codrag.core.trace.loaders import load_filtered_trace_nodes
+
         idx_dir = project_index_dir(proj)
-        nodes_path = idx_dir / "trace_nodes.jsonl"
-        if not nodes_path.exists():
-            return []
-        nodes: List[Dict[str, Any]] = []
-        with open(nodes_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    nodes.append(json.loads(line))
-        return nodes
+        repo_root = Path(proj.path) if proj.path else idx_dir.parent
+        return load_filtered_trace_nodes(
+            index_dir=idx_dir,
+            repo_root=repo_root,
+            warn_label="search._load_trace_nodes_for_project",
+        )
     except Exception as e:
         logger.debug("Could not load trace_nodes for LOD: %s", e)
         return []

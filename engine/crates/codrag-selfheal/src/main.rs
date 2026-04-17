@@ -77,17 +77,40 @@ fn strip_file_prefix(val: &serde_json::Value, key: &str) -> Vec<String> {
     vec![]
 }
 
+fn load_extra_excludes(path: &Path) -> Vec<String> {
+    // L3 patterns sourced from `project.config.trace.ignore_patterns`.
+    // Python resolves these per-request and writes them to a JSON array
+    // file; pass the path via `--extra-excludes-file <path>`.
+    match File::open(path) {
+        Ok(file) => serde_json::from_reader(file).unwrap_or_default(),
+        Err(_) => Vec::new(),
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
-        eprintln!("Usage: codrag-selfheal <repo_root> <index_dir>");
+        eprintln!("Usage: codrag-selfheal <repo_root> <index_dir> [--extra-excludes-file <path>]");
         std::process::exit(1);
     }
-    
+
     let repo_root = Path::new(&args[1]);
     let index_dir = Path::new(&args[2]);
-    
-    // Load config
+
+    // Optional L3 patterns (ignore_patterns from project.config.trace).
+    let mut extra_excludes: Vec<String> = Vec::new();
+    let mut i = 3;
+    while i < args.len() {
+        if args[i] == "--extra-excludes-file" && i + 1 < args.len() {
+            extra_excludes = load_extra_excludes(Path::new(&args[i + 1]));
+            i += 2;
+        } else {
+            eprintln!("Unknown argument: {}", args[i]);
+            std::process::exit(1);
+        }
+    }
+
+    // Load config: L1 (walker defaults) ∪ L2 (repo_policy.json) ∪ L3 (extra_excludes).
     let mut walk_config = WalkConfig::default();
     let policy = load_policy(index_dir);
     if let Some(includes) = policy.include_globs {
@@ -100,6 +123,10 @@ fn main() {
         let mut default_excludes = WalkConfig::default().exclude_globs;
         default_excludes.append(&mut excludes);
         walk_config.exclude_globs = default_excludes;
+    }
+    // L3: append any runtime ignore_patterns from the project config.
+    if !extra_excludes.is_empty() {
+        walk_config.exclude_globs.extend(extra_excludes);
     }
     
     // Scan disk

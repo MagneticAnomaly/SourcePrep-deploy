@@ -5,7 +5,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .repo_profile import DEFAULT_EXCLUDE_DIR_NAMES, DEFAULT_ROLE_WEIGHTS, profile_repo
+from .repo_profile import (
+    DEFAULT_EXCLUDE_DIR_NAMES,
+    DEFAULT_EXCLUDE_FILE_GLOBS,
+    DEFAULT_ROLE_WEIGHTS,
+    profile_repo,
+)
 
 DEFAULT_POLICY_FILENAME = "repo_policy.json"
 
@@ -137,6 +142,49 @@ def policy_from_profile(profile: Dict[str, Any], repo_root: Path) -> Dict[str, A
     }
 
 
+def effective_excludes(
+    *,
+    index_dir: Path,
+    repo_root: Path,
+    trace_ignore_patterns: Optional[List[str]] = None,
+    explicit_excludes: Optional[List[str]] = None,
+) -> List[str]:
+    """Resolve the three-layer filter into a single sorted exclude-globs list.
+
+    Layers unioned (set semantics, so order is irrelevant):
+    - L1 — code defaults: DEFAULT_EXCLUDE_DIR_NAMES (as `**/X/**`) plus
+      DEFAULT_EXCLUDE_FILE_GLOBS plus the broad dotfile glob `**/.*`.
+    - L2 — per-project policy: `repo_policy.json.exclude_globs` loaded via
+      `ensure_repo_policy()`. Auto-migrates on load so new defaults back-fill.
+    - L3 — user runtime exclusions: any patterns in `trace_ignore_patterns`
+      (sourced from `project.config.trace.ignore_patterns`).
+
+    `explicit_excludes`, if provided, is also unioned. Use this when the
+    caller has already assembled some globs (e.g. CLI flag, API parameter)
+    and wants them added on top of the three layers.
+
+    Callers that walk files must go through this helper or a caller of it.
+    Single source of truth for "what paths should never be indexed."
+    """
+    from .repo_profile import DEFAULT_EXCLUDE_DIR_NAMES, DEFAULT_EXCLUDE_FILE_GLOBS
+
+    policy = ensure_repo_policy(index_dir, repo_root)
+    merged: set[str] = set()
+
+    merged.update(policy.get("exclude_globs") or [])
+    merged.update(f"**/{d}/**" for d in DEFAULT_EXCLUDE_DIR_NAMES)
+    merged.update(DEFAULT_EXCLUDE_FILE_GLOBS)
+    merged.add("**/.*")
+
+    if trace_ignore_patterns:
+        merged.update(str(p) for p in trace_ignore_patterns if p)
+
+    if explicit_excludes:
+        merged.update(str(p) for p in explicit_excludes if p)
+
+    return sorted(merged)
+
+
 def ensure_repo_policy(index_dir: Path, repo_root: Path, force: bool = False) -> Dict[str, Any]:
     index_dir = Path(index_dir)
     repo_root = Path(repo_root).resolve()
@@ -148,19 +196,24 @@ def ensure_repo_policy(index_dir: Path, repo_root: Path, force: bool = False) ->
         if existing and str(existing.get("repo_root") or "") == str(repo_root):
             existing["include_globs"] = _normalize_globs(existing.get("include_globs"))
             
-            # Ensure robust excludes are present (Auto-migration)
+            # Ensure robust excludes are present (Auto-migration).
+            # Unions three sources on every load:
+            #   (1) dir-name defaults from DEFAULT_EXCLUDE_DIR_NAMES,
+            #   (2) file-glob defaults from DEFAULT_EXCLUDE_FILE_GLOBS,
+            #   (3) the broad dotfile glob.
+            # Defaults added in new CoDRAG versions back-fill automatically
+            # without requiring a forced re-profile.
             current_excludes = set(_normalize_globs(existing.get("exclude_globs")))
-            # Construct default globs from the centralized list
             default_excludes = {f"**/{d}/**" for d in DEFAULT_EXCLUDE_DIR_NAMES}
+            default_excludes.update(DEFAULT_EXCLUDE_FILE_GLOBS)
             default_excludes.add("**/.*")
-            
-            # Merge defaults if missing
+
             if not default_excludes.issubset(current_excludes):
-                existing["exclude_globs"] = sorted(list(current_excludes | default_excludes))
+                existing["exclude_globs"] = sorted(current_excludes | default_excludes)
                 # Write back to disk so the change persists and is picked up by watchers
                 write_repo_policy(path, existing)
             else:
-                existing["exclude_globs"] = sorted(list(current_excludes))
+                existing["exclude_globs"] = sorted(current_excludes)
 
             existing["role_weights"] = _normalize_role_weights(existing.get("role_weights"))
             existing["path_weights"] = _normalize_path_weights(existing.get("path_weights"))

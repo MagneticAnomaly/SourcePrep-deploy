@@ -12,7 +12,12 @@ logger = logging.getLogger(__name__)
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
-from .repo_policy import ensure_repo_policy, load_repo_policy, policy_path_for_index
+from .repo_policy import (
+    effective_excludes,
+    ensure_repo_policy,
+    load_repo_policy,
+    policy_path_for_index,
+)
 
 
 class AutoRebuildWatcher:
@@ -68,12 +73,12 @@ class AutoRebuildWatcher:
         self._last_coverage_check_at: Optional[str] = None
         self._last_coverage_trigger_at: float = 0.0  # epoch when we last triggered a coverage rebuild
 
-        self._extra_exclude_globs: List[str] = [
-            "**/.codrag",
-            "**/.codrag/*",
-            "**/.codrag/**/*",
-        ]
-
+        # L1 (repo_profile.DEFAULT_EXCLUDE_DIR_NAMES) already covers the
+        # default `.codrag/` and `codrag_data/` index dirs. Only add an
+        # extra guard when the project uses a non-standard index_dir
+        # outside the CoDRAG-owned names — otherwise watcher events on
+        # our own output would trigger rebuilds.
+        self._extra_exclude_globs: List[str] = []
         try:
             rel_index_dir = self.index_dir.relative_to(self.repo_root)
         except Exception:
@@ -351,16 +356,27 @@ class AutoRebuildWatcher:
                 self._stale_since = None  # Clear staleness
 
     def _load_policy_globs(self) -> tuple[list[str], list[str]]:
+        # Includes come from per-project L2 policy; excludes go through
+        # effective_excludes() which unions L1 (code defaults) + L2 (policy
+        # file) + L3 (runtime trace.ignore_patterns, auto-resolved via the
+        # .codrag/project.json pointer so the watcher honours live user
+        # edits without a trace rebuild).
         path = policy_path_for_index(self.index_dir)
         pol = load_repo_policy(path)
         if not pol or str(pol.get("repo_root") or "") != str(self.repo_root):
             pol = ensure_repo_policy(self.index_dir, self.repo_root)
 
         inc = pol.get("include_globs")
-        exc = pol.get("exclude_globs")
-
         include_globs = [x for x in inc if isinstance(x, str) and x.strip()] if isinstance(inc, list) else []
-        exclude_globs = [x for x in exc if isinstance(x, str) and x.strip()] if isinstance(exc, list) else []
+
+        from codrag.core.project_registry import trace_ignore_patterns_for_index
+        l3 = trace_ignore_patterns_for_index(self.index_dir) or None
+
+        exclude_globs = effective_excludes(
+            index_dir=self.index_dir,
+            repo_root=self.repo_root,
+            trace_ignore_patterns=l3,
+        )
         return include_globs, exclude_globs
 
     @staticmethod

@@ -46,12 +46,54 @@ def project_index_dir(project: Project) -> Path:
         idx_path = project.config.get("index_path")
         if idx_path:
             return Path(idx_path).expanduser().resolve()
-    
+
     project_root = Path(project.path).expanduser().resolve()
     if project.mode == "embedded":
         return project_root / ".codrag"
-    
+
     return codrag_data_dir() / "projects" / project.id
+
+
+def project_for_index_dir(index_dir: Path | str) -> Optional[Project]:
+    """Reverse-lookup a Project given its index directory.
+
+    Reads `<index_dir>/project.json` for the project id and queries the
+    default registry. Returns None if the pointer is missing, malformed,
+    or the id is no longer in the registry.
+
+    Loaders and the watcher use this to obtain `project.config` without
+    having to thread a Project handle through every caller.
+    """
+    try:
+        pointer_path = Path(index_dir).expanduser() / _POINTER_FILENAME
+        if not pointer_path.exists():
+            return None
+        data = json.loads(pointer_path.read_text())
+        project_id = data.get("id")
+        if not project_id:
+            return None
+        registry = ProjectRegistry()
+        return registry.get_project(str(project_id))
+    except Exception:
+        return None
+
+
+def trace_ignore_patterns_for_index(index_dir: Path | str) -> List[str]:
+    """Resolve `project.config.trace.ignore_patterns` (L3) by index_dir.
+
+    Returns `[]` when the project can't be located, the config is
+    missing, or the patterns list is empty. Used by the shared trace
+    loaders and the watcher so L3 reaches callers that don't already
+    have a Project handle (pipeline workers resolve L3 upstream).
+    """
+    proj = project_for_index_dir(index_dir)
+    if proj is None:
+        return []
+    trace_cfg = (proj.config or {}).get("trace") or {}
+    patterns = trace_cfg.get("ignore_patterns") or []
+    if not isinstance(patterns, list):
+        return []
+    return [str(p) for p in patterns if p]
 
 
 def _now_iso() -> str:

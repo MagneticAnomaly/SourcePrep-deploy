@@ -416,16 +416,14 @@ class TraceAugmenter:
         return entries
 
     def load_trace_nodes(self) -> List[Dict[str, Any]]:
-        """Load trace nodes from the static trace index."""
-        nodes_path = self.index_dir / "trace_nodes.jsonl"
-        nodes: List[Dict[str, Any]] = []
-        if nodes_path.exists():
-            with open(nodes_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        nodes.append(json.loads(line))
-        return nodes
+        """Load trace nodes from the static trace index, applying live policy filter."""
+        from codrag.core.trace.loaders import load_filtered_trace_nodes
+
+        return load_filtered_trace_nodes(
+            index_dir=self.index_dir,
+            repo_root=self.repo_root,
+            warn_label="augmenter.load_trace_nodes",
+        )
 
     def load_trace_edges(self) -> List[Dict[str, Any]]:
         """Load trace edges from the static trace index."""

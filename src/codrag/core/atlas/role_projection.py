@@ -150,13 +150,34 @@ def _load_trace_nodes(index_dir: Path) -> Dict[str, Dict[str, Any]]:
     """Load file entries from trace_nodes.jsonl as synthetic epistemic entries.
 
     Used as a fallback when trace_epistemic.jsonl doesn't exist.
-    Infers architecture_layer and domain_tags from file paths.
+    Infers architecture_layer and domain_tags from file paths. Applies the
+    live `effective_excludes()` so stale leaked paths in the .jsonl (e.g.
+    storybook-static, *.d.ts from a pre-Phase-115 build) don't feed back
+    into the role-projection atlas.
     """
+    from codrag.core.repo_policy import effective_excludes, load_repo_policy, policy_path_for_index
+
     path = index_dir / "trace_nodes.jsonl"
     entries: Dict[str, Dict[str, Any]] = {}
     if not path.exists():
         return entries
 
+    # Derive repo_root from the on-disk policy; this loader has no other
+    # handle to the project root. If policy is missing (fresh index), skip
+    # the filter — the trace builder would not have run yet either.
+    pol = load_repo_policy(policy_path_for_index(index_dir))
+    repo_root = Path(pol["repo_root"]) if pol and pol.get("repo_root") else None
+
+    spec = None
+    if repo_root is not None:
+        try:
+            import pathspec
+            exclude_globs = effective_excludes(index_dir=index_dir, repo_root=repo_root)
+            spec = pathspec.PathSpec.from_lines("gitwildmatch", exclude_globs)
+        except Exception:
+            spec = None
+
+    dropped = 0
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
@@ -168,6 +189,9 @@ def _load_trace_nodes(index_dir: Path) -> Dict[str, Dict[str, Any]]:
                 if not node_id.startswith("file:"):
                     continue
                 file_path = node_id[5:]
+                if spec is not None and spec.match_file(file_path):
+                    dropped += 1
+                    continue
                 entries[node_id] = {
                     "node_id": node_id,
                     "file_path": file_path,
@@ -178,6 +202,10 @@ def _load_trace_nodes(index_dir: Path) -> Dict[str, Dict[str, Any]]:
                 }
             except (json.JSONDecodeError, KeyError):
                 continue
+    if dropped:
+        logger.debug(
+            "role_projection._load_trace_nodes: filtered %d excluded-path entries", dropped
+        )
     return entries
 
 

@@ -21,7 +21,8 @@ from codrag.core.ids import (
     stable_file_hash,
     stable_file_node_id,
 )
-from codrag.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES, DEFAULT_EXCLUDE_FILE_GLOBS
+from codrag.core.repo_policy import effective_excludes, ensure_repo_policy
+from codrag.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
 
 from .models import (
     FileError,
@@ -63,42 +64,48 @@ class TraceBuilder:
     ):
         self.repo_root = Path(repo_root).resolve()
         self.index_dir = Path(index_dir).resolve()
-        self.include_globs = include_globs or [
-            "**/*.py",
-            "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx",
-            "**/*.go",
-            "**/*.rs",
-            "**/*.java",
-            "**/*.c", "**/*.cpp", "**/*.h", "**/*.hpp", "**/*.cc",
-            "**/*.swift",
-            "**/*.md", "**/*.markdown",
-            "**/*.kt", "**/*.kts",
-            "**/*.cs",
-            "**/*.rb",
-            "**/*.php",
-            "**/*.dart",
-            "**/*.scala", "**/*.sc",
-            "**/*.sh", "**/*.bash", "**/*.zsh",
-            "**/*.lua",
-            "**/*.zig",
-            "**/*.ex", "**/*.exs",
-        ]
-        
-        # Use centralized defaults if no excludes provided
-        if exclude_globs is None:
-            # Base excludes
-            exclude_globs = [f"**/{d}/**" for d in sorted(DEFAULT_EXCLUDE_DIR_NAMES)]
-            # Broad dotfile exclusion
-            exclude_globs.append("**/.*")
-            # Add specific file patterns
-            exclude_globs.extend([
-                "**/*.lock",
-                "**/*.log",
-                "**/.DS_Store",
-            ])
-            # CoDRAG-generated files — AI agents already have direct access
-            exclude_globs.extend(DEFAULT_EXCLUDE_FILE_GLOBS)
-            
+
+        # Fall back to repo_policy.json when callers don't supply globs.
+        # effective_excludes() unions L1/L2/L3 (see repo_policy.py), so this
+        # is the single place hardcoded filter literals used to live.
+        if not include_globs or not exclude_globs:
+            policy = ensure_repo_policy(self.index_dir, self.repo_root)
+            if not include_globs:
+                include_globs = list(policy.get("include_globs") or [])
+            if not exclude_globs:
+                exclude_globs = effective_excludes(
+                    index_dir=self.index_dir,
+                    repo_root=self.repo_root,
+                )
+
+        # Safety net: if the policy produced no includes (e.g. profile_repo
+        # ran on a repo with no detectable source, or TS-vs-JS detection
+        # dropped a dialect), fall back to the broad language-agnostic list
+        # so we don't silently index zero files. Exclude globs always come
+        # from L1+L2+L3 above — no hardcoded exclude fallback here.
+        if not include_globs:
+            include_globs = [
+                "**/*.py",
+                "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx",
+                "**/*.go",
+                "**/*.rs",
+                "**/*.java",
+                "**/*.c", "**/*.cpp", "**/*.h", "**/*.hpp", "**/*.cc",
+                "**/*.swift",
+                "**/*.md", "**/*.markdown",
+                "**/*.kt", "**/*.kts",
+                "**/*.cs",
+                "**/*.rb",
+                "**/*.php",
+                "**/*.dart",
+                "**/*.scala", "**/*.sc",
+                "**/*.sh", "**/*.bash", "**/*.zsh",
+                "**/*.lua",
+                "**/*.zig",
+                "**/*.ex", "**/*.exs",
+            ]
+
+        self.include_globs = include_globs
         self.exclude_globs = exclude_globs
         self.max_file_bytes = max_file_bytes
         self.hard_limit_bytes = hard_limit_bytes

@@ -5,9 +5,43 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Sequence, Set, Tuple
 
-DEFAULT_EXCLUDE_DIR_NAMES: Set[str] = {
+# Directories CoDRAG itself writes. Indexing any of these creates a feedback
+# loop in which the LLM reasons about CoDRAG's own state instead of the user's
+# code. Every new writer must register here; DEFAULT_EXCLUDE_DIR_NAMES derives
+# from this set so the universal default exclude list updates automatically.
+CODRAG_OUTPUT_DIRS: Set[str] = {
+    ".codrag",      # per-project index (embedded mode)
+    "codrag_data",  # daemon-wide store (SQLite + telemetry + ui_config)
+}
+
+# Glob patterns for files CoDRAG or AI agents write at project root.
+# DEFAULT_EXCLUDE_FILE_GLOBS unpacks this tuple so additions propagate.
+CODRAG_OUTPUT_FILE_GLOBS: Sequence[str] = (
+    # CoDRAG-generated
+    "**/AGENTS.md",
+    # Claude Code
+    "**/CLAUDE.md",
+    # Cursor
+    "**/.cursor/rules/*.mdc",
+    "**/.cursorrules",
+    # Windsurf
+    "**/.windsurfrules",
+    "**/.windsurf/rules/*.md",
+    # GitHub Copilot
+    "**/.github/copilot-instructions.md",
+    # Gemini CLI
+    "**/GEMINI.md",
+    # Cline / Roo
+    "**/.clinerules",
+    "**/.roorules",
+    # Qwen Code
+    "**/.qwencoderules",
+)
+
+DEFAULT_EXCLUDE_DIR_NAMES: Set[str] = CODRAG_OUTPUT_DIRS | {
+    # VCS
     ".git",
-    ".codrag",
+    # Python dep/build dirs
     "node_modules",
     "__pycache__",
     ".venv",
@@ -21,10 +55,21 @@ DEFAULT_EXCLUDE_DIR_NAMES: Set[str] = {
     ".ruff_cache",
     "htmlcov",
     ".coverage",
+    "coverage",
+    # Generic build output
     "dist",
     "build",
     "target",
+    "out",
+    # Frontend build/meta dirs
+    "storybook-static",
     ".next",
+    ".turbo",
+    ".vercel",
+    ".parcel-cache",
+    ".svelte-kit",
+    ".astro",
+    ".nuxt",
     ".cache",
     # iOS / mobile dependency dirs
     "Pods",
@@ -62,28 +107,18 @@ DEFAULT_EXCLUDE_FILE_NAMES: Set[str] = {
     ".qwencoderules",
 }
 
-# Glob patterns for AI-generated/config files to exclude from trace indexing.
+# Glob patterns for files to exclude from trace indexing.
+# Starts with CODRAG_OUTPUT_FILE_GLOBS so any new output registered there
+# flows through automatically. Additional entries target build artifacts
+# that look like source files to the walker (TypeScript declarations,
+# minified bundles, source maps) but carry no structural value for the LLM.
 DEFAULT_EXCLUDE_FILE_GLOBS: Sequence[str] = (
-    # CoDRAG-generated
-    "**/AGENTS.md",
-    "**/codrag_data/ui_config.json",
-    # Claude Code
-    "**/CLAUDE.md",
-    # Cursor
-    "**/.cursor/rules/*.mdc",
-    "**/.cursorrules",
-    # Windsurf
-    "**/.windsurfrules",
-    "**/.windsurf/rules/*.md",
-    # GitHub Copilot
-    "**/.github/copilot-instructions.md",
-    # Gemini CLI
-    "**/GEMINI.md",
-    # Cline / Roo
-    "**/.clinerules",
-    "**/.roorules",
-    # Qwen Code
-    "**/.qwencoderules",
+    *CODRAG_OUTPUT_FILE_GLOBS,
+    # Build artifacts that look like source
+    "**/*.d.ts",       # TypeScript declaration files — generated
+    "**/*.min.js",
+    "**/*.min.css",
+    "**/*.map",        # source maps
 )
 
 DOC_DIR_NAMES: Set[str] = {
@@ -395,9 +430,12 @@ def profile_repo(repo_root: Path, max_depth: int = 4, max_files: int = 5000) -> 
         include_globs.append("**/*.py")
 
     if "typescript" in detected_languages:
-        include_globs.extend(["**/*.ts", "**/*.tsx"])
-
-    if "javascript" in detected_languages:
+        # TS projects nearly always have .js config files (jest.config.js,
+        # next.config.js, etc.) and mixed TS/JS source. Generated bundle .js
+        # lives under build/dist/storybook-static/.next, all in the exclude
+        # list. Include both dialects whenever TS is detected.
+        include_globs.extend(["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"])
+    elif "javascript" in detected_languages:
         include_globs.extend(["**/*.js", "**/*.jsx"])
 
     if "go" in detected_languages:
@@ -449,9 +487,11 @@ def profile_repo(repo_root: Path, max_depth: int = 4, max_files: int = 5000) -> 
 
     # Base excludes from our comprehensive directory list
     exclude_globs: List[str] = [f"**/{d}/**" for d in sorted(DEFAULT_EXCLUDE_DIR_NAMES)]
-    # Add broad exclusion for dotfiles/dotdirs
+    # Build-artifact / AI-tool file globs registered in DEFAULT_EXCLUDE_FILE_GLOBS
+    exclude_globs.extend(DEFAULT_EXCLUDE_FILE_GLOBS)
+    # Broad exclusion for dotfiles/dotdirs
     exclude_globs.append("**/.*")
-    # Add specific file patterns if needed
+    # Legacy-standard single-file patterns
     exclude_globs.extend([
         "**/*.lock",
         "**/*.log",
