@@ -190,3 +190,27 @@ targeted tests green. Cosmetic "14:00 write to legacy ui_config.json"
 mystery was the pre-Phase-113 daemon's final flush before restart —
 explained by legacy code paths in the old daemon process, not a
 Phase 113 bug.
+
+### Real-world validation — rust_repo end-to-end (session 2, 14:53)
+
+With the restarted daemon indexing
+`tests/eval/sample_repos/generated/rust_repo` (embedded mode):
+
+Daemon open fds snapshot:
+- 13 daemon-wide store fds — all in `~/.local/share/codrag/`
+- 1 per-project log fd — in `rust_repo/.codrag/logs/pipeline_*.log`
+- 0 fds in `./codrag_data/`
+
+`rust_repo/.codrag/` shows live pipeline activity at 14:50–14:53
+(reset barrier, checkpoints, audit, pipeline_state.json,
+pipeline_run_metadata.json, trace_epistemic.jsonl updating).
+Legacy `./codrag_data/` has not been re-written — it now contains
+only a stale 0-byte `settings.db` from before Phase 113.
+
+This validates the two-layer contract end-to-end:
+- Daemon-wide state (registry, journal, stores, ui_config, audit log)
+  lives in XDG regardless of CWD or which project is active.
+- Per-project state (`<repo>/.codrag/` in embedded mode, or
+  `<data_dir>/projects/<id>/` in standalone) is unchanged.
+
+Phase 113 is done.
