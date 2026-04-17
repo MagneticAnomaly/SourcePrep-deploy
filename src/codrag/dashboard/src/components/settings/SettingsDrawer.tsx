@@ -680,7 +680,7 @@ export function SettingsDrawer({
         open={confirmAction !== null}
         onConfirm={handleConfirmedAction}
         onCancel={() => { setConfirmAction(null); setRebuildTypedName('') }}
-        confirmDisabled={confirmAction === 'rebuild' && rebuildTypedName !== (projectName || '')}
+        confirmDisabled={confirmAction === 'rebuild' && (!projectName || rebuildTypedName !== projectName)}
         title={
           confirmAction === 'rebuild' ? `Rebuild Pipeline for ${projectName || 'Project'}?`
             : confirmAction === 'enrichment_full' ? `Reset Enrichment for ${projectName || 'Project'}?`
