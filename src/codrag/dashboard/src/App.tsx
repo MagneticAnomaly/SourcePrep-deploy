@@ -983,6 +983,7 @@ function App() {
         licenseLoading={licenseLoading}
         licenseError={licenseError}
         projectName={selectedProject?.name}
+        projectId={selectedProjectId}
         onDestroyIndex={handleDestroyIndex}
         onDestroyEnrichmentFull={handleDestroyEnrichmentFull}
         onDestroyFinalizeFull={handleDestroyFinalizeFull}

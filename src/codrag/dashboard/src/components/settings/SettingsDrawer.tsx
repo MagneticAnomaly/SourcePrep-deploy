@@ -8,10 +8,12 @@ import {
   Toggle,
   ProjectSettingsPanel,
   DeepAnalysisSettings,
+  RecoverStagePanel,
   type ProjectConfig,
   type LicenseStatus,
   type LicenseTier,
   type DeepAnalysisSchedule,
+  type EnrichmentStageId,
 } from '@codrag/ui'
 import { AdvancedSettingsPanel } from './AdvancedSettingsPanel'
 
@@ -38,6 +40,26 @@ const THEME_OPTIONS = [
   { value: 'j', label: 'J: Yale Grid' },
   { value: 'k', label: 'K: Inclusive Focus' },
   { value: 'l', label: 'L: Enterprise Console' },
+]
+
+// Danger Zone: Recover Stage from Snapshot — stage labels for the picker.
+// All 15 stages have checkpoint coverage (see src/codrag/services/pipeline_checkpoint.py).
+const RECOVER_STAGE_OPTIONS: { value: EnrichmentStageId; label: string }[] = [
+  { value: 'structural', label: 'Structural' },
+  { value: 'inferred_edges', label: 'Inferred Edges' },
+  { value: 'catalogue', label: 'Catalogue' },
+  { value: 'validation', label: 'Validation' },
+  { value: 'knowledge', label: 'Knowledge Embedding' },
+  { value: 'enrichment', label: 'Epistemic Enrichment' },
+  { value: 'group_reasoning', label: 'Group Reasoning' },
+  { value: 'clustering', label: 'Module Synthesis' },
+  { value: 'deepening', label: 'Continuous Deepening' },
+  { value: 'deep_knowledge', label: 'Deep Knowledge Embedding' },
+  { value: 'atlas', label: 'Atlas' },
+  { value: 'rules', label: 'Rules' },
+  { value: 'concepts', label: 'Concepts' },
+  { value: 'audit', label: 'Audit' },
+  { value: 'antibodies', label: 'Antibodies' },
 ]
 
 const DEV_TIER_OPTIONS = [
@@ -93,6 +115,8 @@ export interface SettingsDrawerProps {
   licenseError: string | null
   // Project tab – danger zone
   projectName?: string
+  /** Selected project id — required for per-stage Recover; optional since drawer opens without a project. */
+  projectId?: string | null
   onDestroyIndex: () => void
   onDestroyEnrichmentFull: () => void
   onDestroyFinalizeFull: () => void
@@ -141,6 +165,7 @@ export function SettingsDrawer({
   licenseLoading,
   licenseError,
   projectName,
+  projectId,
   onDestroyIndex,
   onDestroyEnrichmentFull,
   onDestroyFinalizeFull,
@@ -178,6 +203,7 @@ export function SettingsDrawer({
     'index' | 'rebuild' | 'enrichment_full' | 'finalize_full' | 'atlas' | 'group_reasoning' | 'deep_enrichment' | null
   >(null)
   const [rebuildTypedName, setRebuildTypedName] = useState('')
+  const [recoverStageId, setRecoverStageId] = useState<EnrichmentStageId | ''>('')
 
   const handleConfirmedAction = useCallback(() => {
     if (confirmAction === 'index') onDestroyIndex()
@@ -318,6 +344,40 @@ export function SettingsDrawer({
                       Reset Finalize
                     </Button>
                   </div>
+                </div>
+
+                {/* Recover Stage from Snapshot — restore a single stage from a prior backup without re-running earlier stages. */}
+                <div className="mt-4 p-3 rounded border border-warning/30 bg-warning/5 flex flex-col gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-text">Recover Stage from Snapshot</p>
+                    <p className="text-xs text-text-muted mt-1">
+                      Restore a single stage from a prior run&apos;s backup without re-running earlier stages.
+                      Uses the golden snapshot or any branch snapshot available for that stage.
+                      <strong> Bypasses the reset barrier.</strong>
+                    </p>
+                  </div>
+                  <Select
+                    size="sm"
+                    options={RECOVER_STAGE_OPTIONS}
+                    placeholder="Choose a stage to recover…"
+                    value={recoverStageId}
+                    onChange={(e) => setRecoverStageId((e.target.value as EnrichmentStageId) || '')}
+                    disabled={!projectId}
+                    aria-label="Stage to recover"
+                  />
+                  {!projectId && (
+                    <p className="text-xs text-text-muted">Select a project first.</p>
+                  )}
+                  {projectId && recoverStageId && (
+                    <RecoverStagePanel
+                      projectId={projectId}
+                      stageId={recoverStageId}
+                      stageLabel={
+                        RECOVER_STAGE_OPTIONS.find((o) => o.value === recoverStageId)?.label ?? recoverStageId
+                      }
+                      apiClient={api}
+                    />
+                  )}
                 </div>
               </section>
             </div>
