@@ -88,7 +88,6 @@ const PINNED_PREFIX = 'pinned:'
 // files that should stay available to agents but out of the index.
 const DEFAULT_ALWAYS_IGNORED_GLOBS: string[] = [
   '**/AGENTS.md',
-  '**/codrag_data/ui_config.json',
   '**/CLAUDE.md',
   '**/.cursor/rules/*.mdc',
   '**/.cursorrules',

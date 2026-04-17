@@ -225,7 +225,13 @@ def serve(
     The daemon manages projects, indexes, and provides the API for clients/IDEs.
     """
     console.print(f"[green]Starting CoDRAG server on {host}:{port}...[/green]")
-    
+
+    # Phase 113: ensure legacy ./codrag_data/ is migrated before
+    # `codrag.server` imports the store modules. Safe no-op in the
+    # common case (sentinel present → no-op).
+    from codrag.core.data_dir_migration import migrate_legacy_data_dir
+    migrate_legacy_data_dir()
+
     import uvicorn
     from codrag.server import app as fastapi_app, configure, mount_dashboard
 

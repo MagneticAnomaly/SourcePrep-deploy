@@ -228,9 +228,20 @@ _DEFAULT_UI_CONFIG: Dict[str, Any] = {
 
 
 def ui_config_path(config: Dict[str, Any]) -> Path:
-    """Resolve the path to ui_config.json from the server config."""
-    index_dir = Path(config.get("index_dir", "./codrag_data"))
-    return index_dir / "ui_config.json"
+    """Resolve the path to ui_config.json.
+
+    Phase 113: `ui_config.json` is a daemon-wide setting, not a
+    per-project one. It always lives in `paths.data_dir()` — the
+    `index_dir` arg on the daemon is ignored for this file. The
+    config override is kept only so explicit `--index-dir` users on
+    the legacy layout can still find their file (during migration
+    overlap).
+    """
+    from codrag.core.paths import data_dir
+    override = config.get("index_dir")
+    if override and override not in ("./codrag_data", "codrag_data"):
+        return Path(override).expanduser() / "ui_config.json"
+    return data_dir() / "ui_config.json"
 
 
 def _ensure_compute_nodes(cfg: Dict[str, Any]) -> None:
