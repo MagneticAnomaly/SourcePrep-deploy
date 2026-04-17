@@ -47,7 +47,12 @@ export function BarrierIndicator({ barrier, onClear }: BarrierIndicatorProps) {
 
   return (
     <div
-      role="alert"
+      // aria-live=polite (not role=alert) so screen readers don't re-announce
+      // on every 10s health poll when age_seconds ticks over a minute boundary.
+      // Status-type announcement; new content is queued politely.
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
       className={`flex items-start gap-2 rounded-md border px-3 py-2 text-xs ${
         isStale
           ? 'border-warning/40 bg-warning/10 text-warning'

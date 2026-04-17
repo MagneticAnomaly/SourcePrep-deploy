@@ -1031,6 +1031,12 @@ def clear_pipeline_reset_barrier(project_id: str) -> dict[str, Any]:
     barrier = read_reset_barrier(project_id)
     previous_reason = barrier["reason"] if barrier else None
     cleared = clear_reset_barrier(project_id)
+    # Invalidate the /pipeline/status cache so the next poll reflects the
+    # cleared barrier immediately instead of serving a stale cached entry
+    # (TTL 3s is long enough for a user to click Clear and see nothing
+    # change, which looks broken).
+    with _status_cache_lock:
+        _status_cache.pop(project_id, None)
     return ok({"cleared": cleared, "previous_reason": previous_reason})
 
 

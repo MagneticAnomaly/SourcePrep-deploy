@@ -38,6 +38,13 @@ const MOCK_STATUS = {
 export class MockApiClient implements ApiClient {
   public readonly baseUrl = 'mock://local';
 
+  // Phase 114: mock barrier state lifecycle — starts active so Storybook demos
+  // render BarrierIndicator by default; `clearResetBarrier` flips it off and
+  // subsequent `getPipelineHealth` / status calls reflect the change.
+  private _barrierActive = true;
+  private _barrierWrittenAt: number | null = Date.now() / 1000 - 120;
+  private _barrierReason: string | null = 'enrichment_reset';
+
   async getHealth(): Promise<{ status: string; version: string }> {
     return { status: 'ok', version: '0.1.0-mock' };
   }
@@ -1094,15 +1101,28 @@ export class MockApiClient implements ApiClient {
   async getPipelineHealth(projectId: string) {
     return {
       project_id: projectId,
-      barrier: { active: false },
+      barrier: this._barrierActive
+        ? {
+            active: true as const,
+            age_seconds: this._barrierWrittenAt
+              ? Math.max(0, Math.floor(Date.now() / 1000 - this._barrierWrittenAt))
+              : 0,
+            reason: this._barrierReason ?? undefined,
+            written_at: this._barrierWrittenAt ?? undefined,
+          }
+        : { active: false as const },
       stages: [],
       stuck_runs: 0,
-      warnings: [],
+      warnings: this._barrierActive ? ['Barrier active — enrichment blocked'] : [],
     };
   }
 
   async clearResetBarrier(_projectId: string) {
-    return { cleared: true, previous_reason: null };
+    const previous = this._barrierReason;
+    this._barrierActive = false;
+    this._barrierWrittenAt = null;
+    this._barrierReason = null;
+    return { cleared: true, previous_reason: previous };
   }
 }
 

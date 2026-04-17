@@ -165,6 +165,8 @@ export function RecoverStagePanel({
         type="button"
         onClick={handleOpenToggle}
         disabled={disabled}
+        aria-label={`Recover ${stageLabel} from snapshot`}
+        aria-expanded={open}
         title={
           disabled
             ? 'Pipeline is running — wait for the active stage to finish.'
@@ -219,6 +221,7 @@ export function RecoverStagePanel({
                 onChange={(e) => setSelected(e.target.value || null)}
                 size={'sm' as const}
                 className="w-full"
+                aria-label={`Snapshot to restore for ${stageLabel}`}
               />
             </div>
           )}

@@ -51,3 +51,54 @@ def test_delete_reset_barrier_when_inactive_is_noop(client, tmp_path):
     data = body["data"]
     assert data["cleared"] is False
     assert data["previous_reason"] is None
+
+
+def test_barrier_lifecycle_end_to_end(client, tmp_path):
+    """Full lifecycle: write → health sees active → DELETE → health sees inactive.
+
+    Phase 114 audit #7: unit tests covered DELETE in isolation but never confirmed
+    that `GET /pipeline/health` and `GET /pipeline/status` actually reflect the
+    cleared state afterwards. This test locks the contract across endpoints.
+    """
+    from codrag.services.pipeline.recovery import write_reset_barrier, reset_barrier_active
+    pid = _add_embedded(client, tmp_path)
+
+    # 1. Write barrier directly (simulates a Reset/Rebuild)
+    assert write_reset_barrier(pid, "enrichment_reset")
+    assert reset_barrier_active(pid)
+
+    # 2. Health endpoint must report barrier.active=true with matching reason
+    res = client.get(f"/projects/{pid}/pipeline/health")
+    assert res.status_code == 200
+    health = res.json()["data"]
+    assert health["barrier"]["active"] is True
+    assert health["barrier"]["reason"] == "enrichment_reset"
+    # age_seconds should be present and non-negative
+    assert "age_seconds" in health["barrier"]
+    assert health["barrier"]["age_seconds"] >= 0
+
+    # 3. Pipeline status endpoint should also carry the barrier field
+    res = client.get(f"/projects/{pid}/pipeline/status")
+    assert res.status_code == 200
+    status = res.json()["data"]
+    assert status.get("barrier", {}).get("active") is True
+
+    # 4. DELETE the barrier
+    res = client.delete(f"/projects/{pid}/pipeline/reset-barrier")
+    assert res.status_code == 200
+    assert res.json()["data"]["cleared"] is True
+
+    # 5. File is gone on disk
+    assert not reset_barrier_active(pid)
+
+    # 6. Health endpoint reflects cleared state
+    res = client.get(f"/projects/{pid}/pipeline/health")
+    assert res.status_code == 200
+    health = res.json()["data"]
+    assert health["barrier"]["active"] is False
+
+    # 7. Pipeline status also reflects cleared state
+    res = client.get(f"/projects/{pid}/pipeline/status")
+    assert res.status_code == 200
+    status = res.json()["data"]
+    assert status.get("barrier", {}).get("active") is False
