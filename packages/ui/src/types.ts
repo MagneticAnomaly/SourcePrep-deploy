@@ -1754,3 +1754,8 @@ export interface BarrierStatus {
   reason?: string;
   written_at?: number;
 }
+
+// Phase 114: the /pipeline/status response now includes barrier info
+export interface PipelineStatusWithBarrier {
+  barrier?: BarrierStatus;
+}
