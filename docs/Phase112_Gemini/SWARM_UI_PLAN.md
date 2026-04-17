@@ -154,3 +154,36 @@ Update the Swarm Orchestrator to accept and utilize two distinct LLMs.
 Expose the dual slots and the tier/budget controls to the user.
 - **Target:** `packages/ui/src/components/llm/AIModelsSettings.tsx`.
 - **Change:** Add the Swarm Coordinator slot and the "Advanced Settings" overrides (Ollama Tier selector, Max Thinking Budget, Safety Limits toggle) so Enterprise users can immediately leverage them.
+
+## 9. Recommended Target Optimization Stacks
+With Swarm roles decoupled, we can define specific target optimizations. The architectural reality of CoDRAG is that **Worker tasks scale with codebase size `O(N)`** (high volume, small context, needs deep reasoning), while **Coordinator tasks are fixed `O(1)`** (low volume, massive context, needs perfect JSON and synthesis).
+
+This cost/volume profile dictates our recommended stacks:
+
+### Stack A: The Ollama Cloud "Value Performance" (Default Recommended)
+*Target: Best ratio of intelligence to zero-friction setup without paid API keys.*
+- **Coordinator:** `gemini-3-flash-preview:cloud` (Lightning fast, massive 1M context, cheap GPU time).
+- **Worker:** `kimi-k2.5:cloud` (Deep reasoning via `<think>`, handles individual file complexity).
+- **Code:** `qwen3-coder-next:cloud` (Specialized structural edge discovery).
+- **Fast:** `gemini-3-flash-preview:cloud` (Instanttime-to-first-token, excellent for O(N) high-volume cataloging without draining Ollama GPU credits).
+
+### Stack B: The "Hybrid Hacker" (Maximum ROI)
+*Target: Power users who want frontier intelligence but refuse to pay API costs for O(N) file scanning.*
+- **Coordinator:** **Anthropic API** `claude-3-7-sonnet` OR **Google API** `gemini-1.5-pro` (Pay $0.50 for a single massive 200K+ token API call to synthesize the entire architecture perfectly).
+- **Worker:** **Local / Ollama** `kimi-k2.5:cloud` or `deepseek-r1:14b` (Pay $0 to analyze 500 files locally or via free cloud tier using deep reasoning).
+- **Code:** **Local** `qwen3-coder:32b`.
+- **Fast:** **Local** `qwen3:8b`.
+
+### Stack C: The Frontier Enterprise (Unlimited Budget)
+*Target: Enterprise teams where API cost is irrelevant compared to accuracy and speed.*
+- **Coordinator:** **Anthropic API** `claude-3-7-sonnet` (Absolute best-in-class JSON adherence and holistic reasoning across 200K context).
+- **Worker:** **Anthropic API** `claude-3-5-haiku` (Blistering fast, parallelizes instantly, excellent coding logic) OR `claude-3-7-sonnet` if budget is truly infinite.
+- **Code:** **Anthropic API** `claude-3-7-sonnet`.
+- **Fast:** **Anthropic API** `claude-3-5-haiku`.
+
+### Stack D: Fully Local / Air-Gapped
+*Target: High-security environments where data cannot leave the machine.*
+- **Coordinator:** `command-r:35b` or `qwen2.5:32b` (Requires a model with strong RAG capabilities and at least 128K context window running on 24GB+ VRAM).
+- **Worker:** `deepseek-r1:14b` or `qwen3:14b` (Strong local reasoning).
+- **Code:** `qwen3-coder:14b` or `32b`.
+- **Fast:** `llama-3.2-3b` or `qwen3:8b`.
