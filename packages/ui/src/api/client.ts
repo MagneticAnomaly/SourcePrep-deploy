@@ -333,6 +333,9 @@ export interface ApiClient {
   // Per-stage restore (Phase 114)
   listStageBackups(projectId: string, stageId: string, signal?: AbortSignal): Promise<import('../types').StageBackupsResponse>;
   restoreStageFromSnapshot(projectId: string, stageId: string, snapshotId: string): Promise<import('../types').StageRestoreResponse>;
+
+  // Pipeline health (Phase 114)
+  getPipelineHealth(projectId: string, signal?: AbortSignal): Promise<import('../types').PipelineHealth>;
 }
 
 export interface ApiClientConfig {
@@ -1722,6 +1725,16 @@ export class CodragApiClient implements ApiClient {
     return this.requestEnvelope<import('../types').StageRestoreResponse>(
       `/projects/${pid}/pipeline/stages/${sid}/restore`,
       { method: 'POST', body: { snapshot_id: snapshotId } },
+    );
+  }
+
+  async getPipelineHealth(
+    projectId: string,
+    signal?: AbortSignal,
+  ): Promise<import('../types').PipelineHealth> {
+    return this.requestEnvelope<import('../types').PipelineHealth>(
+      `/projects/${encodeURIComponent(projectId)}/pipeline/health`,
+      { signal },
     );
   }
 }

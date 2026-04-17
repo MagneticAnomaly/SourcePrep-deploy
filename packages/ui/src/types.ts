@@ -1759,3 +1759,20 @@ export interface BarrierStatus {
 export interface PipelineStatusWithBarrier {
   barrier?: BarrierStatus;
 }
+
+// Phase 114: GET /projects/{id}/pipeline/health response types
+export interface StageHealth {
+  stage_id: string;
+  manifest_exists: boolean;
+  output_exists: boolean;
+  provenance?: 'run' | 'selfheal_stub' | 'user_restore' | 'golden_restore' | null;
+  backup_count: number;
+}
+
+export interface PipelineHealth {
+  project_id: string;
+  barrier: BarrierStatus;
+  stages: StageHealth[];
+  stuck_runs: number;
+  warnings: string[];
+}

@@ -173,6 +173,11 @@ export type { BarrierStatus } from './types';
 export { StageRegenerateButton } from './components/pipeline';
 export type { StageRegenerateButtonProps } from './components/pipeline';
 
+// Components - Pipeline health badge (Phase 114)
+export { HealthBadge, computeHealthSummary } from './components/pipeline/HealthBadge';
+export type { HealthBadgeProps, HealthSummary } from './components/pipeline/HealthBadge';
+export type { PipelineHealth, StageHealth } from './types';
+
 // Components - Layout (Modular Dashboard - Phase 15)
 export { PanelChrome, DashboardGrid, PanelPicker, ModularDashboard, useLayoutPersistence } from './components/layout';
 export type { PanelChromeProps, DashboardGridProps, PanelPickerProps, ModularDashboardProps, PanelContentMap, DashboardLayoutApi } from './components/layout';
