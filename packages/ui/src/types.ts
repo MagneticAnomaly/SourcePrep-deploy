@@ -1747,3 +1747,10 @@ export interface StageRestoreResponse {
   snapshot_id: string
   files_restored: string[]
 }
+
+export interface BarrierStatus {
+  active: boolean;
+  age_seconds?: number;
+  reason?: string;
+  written_at?: number;
+}

@@ -8,7 +8,8 @@ import {
 } from 'lucide-react';
 import { computeGroupRollup, type GroupRollup } from './pipelineRollup';
 import { RecoverStagePanel } from './RecoverStagePanel';
-import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, InferredEdgesStatus, AtlasStatus, StageProvenance, RulesStatus, ConceptsStatus, AuditPipelineStatus, AntibodiesStatus } from '../../types';
+import { BarrierIndicator } from './BarrierIndicator';
+import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, InferredEdgesStatus, AtlasStatus, StageProvenance, RulesStatus, ConceptsStatus, AuditPipelineStatus, AntibodiesStatus, BarrierStatus } from '../../types';
 import type { ApiClient } from '../../api/client';
 
 // ── Types ────────────────────────────────────────────────────
@@ -138,6 +139,9 @@ export interface GraphEnrichmentPipelineProps {
   apiClient?: ApiClient;
   /** Phase 114: callback fired after a successful per-stage restore so parent can refresh status. */
   onStageRestored?: (stageId: string, snapshotId: string) => void;
+  /** Phase 114: reset barrier banner above the stage groups */
+  barrier?: BarrierStatus;
+  onClearBarrier?: () => void;
   className?: string;
 }
 
@@ -901,6 +905,8 @@ export function GraphEnrichmentPipeline({
   projectId,
   apiClient,
   onStageRestored,
+  barrier,
+  onClearBarrier,
   className,
 }: GraphEnrichmentPipelineProps) {
   const fastPaused = fastPausedProp ?? false;
@@ -1336,6 +1342,11 @@ export function GraphEnrichmentPipeline({
       data-finalize-running={finalizeRunning || undefined}
       className={cn("flex flex-col gap-3", fadeIn && "animate-in fade-in duration-500", className)}
     >
+
+      {/* ── Phase 114: Reset Barrier Banner ─────────── */}
+      {barrier?.active && (
+        <BarrierIndicator barrier={barrier} onClear={onClearBarrier} />
+      )}
 
       {/* ── Fast Sync Group ─────────────────────────── */}
       <div data-testid="pipeline-group-fast_sync" data-group-running={fastRunning || undefined} className="flex items-center justify-between py-1.5 px-1">
