@@ -1771,3 +1771,15 @@ export interface StageRestoreResponse {
   snapshot_id: string
   files_restored: string[]
 }
+
+export interface BarrierStatus {
+  active: boolean;
+  age_seconds?: number;
+  reason?: string;
+  written_at?: number;
+}
+
+// Phase 114: the /pipeline/status response now includes barrier info
+export interface PipelineStatusWithBarrier {
+  barrier?: BarrierStatus;
+}
