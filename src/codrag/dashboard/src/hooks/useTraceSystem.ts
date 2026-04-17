@@ -66,6 +66,11 @@ export interface UseTraceSystemDeps {
    *  Same refresh concern as rehydrateEnrichment — provenance is
    *  fetched on pipeline events only, so resets leave it stale. */
   fetchProvenance?: (signal?: AbortSignal) => Promise<void> | void
+  /** Sync the deep-analysis schedule mode when the toggle flips. The
+   *  schedule panel (Settings drawer) reads its mode from this slice —
+   *  without the sync, reset-to-manual leaves the drawer showing the
+   *  pre-reset mode (auto / scheduled). */
+  syncDeepAnalysisScheduleMode?: (mode: 'manual' | 'auto' | 'scheduled') => void
   /** Pause a running pipeline group (Phase 81: used when Auto→Manual toggle) */
   pausePipeline?: (group: 'fast_sync' | 'deep_enrichment') => Promise<void>
   /** AbortSignal from hydration controller — aborted on project switch */
@@ -111,6 +116,8 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   rehydrateEnrichmentRef.current = deps.rehydrateEnrichment
   const fetchProvenanceRef = useRef(deps.fetchProvenance)
   fetchProvenanceRef.current = deps.fetchProvenance
+  const syncDeepAnalysisScheduleModeRef = useRef(deps.syncDeepAnalysisScheduleMode)
+  syncDeepAnalysisScheduleModeRef.current = deps.syncDeepAnalysisScheduleMode
   // Populated below once handleEnrichmentAutoConfigChange exists.
   // Reset handlers call this to force every Manual/Auto switch back to
   // Manual after a wipe ('scheduled' is preserved — the user wants
@@ -534,6 +541,9 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       deepEnrichment: nextDeep,
       finalize: 'manual',
     })
+    // Keep the Settings drawer's schedule-mode slice in sync with the
+    // toggle. Raw handleEnrichmentAutoConfigChange doesn't touch it.
+    syncDeepAnalysisScheduleModeRef.current?.(nextDeep)
   }
 
   const handleIndexAutoRebuildChange = useCallback(async (auto: boolean) => {

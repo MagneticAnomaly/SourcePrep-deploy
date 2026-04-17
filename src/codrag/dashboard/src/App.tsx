@@ -418,6 +418,8 @@ function App() {
     resetAtlas: () => setAtlasStatus(null),
     rehydrateEnrichment,
     fetchProvenance,
+    syncDeepAnalysisScheduleMode: (mode) =>
+      setDeepAnalysisSchedule((prev) => ({ ...prev, mode: mode as any })),
     pausePipeline: handlePausePipeline,
     signal: hydration.signal,
     isHydrating: hydration.isHydrating,
