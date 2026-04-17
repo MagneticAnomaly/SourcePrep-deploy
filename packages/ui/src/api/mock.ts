@@ -1090,6 +1090,16 @@ export class MockApiClient implements ApiClient {
       files_restored: ['atlas_manifest.json'],
     };
   }
+
+  async getPipelineHealth(projectId: string) {
+    return {
+      project_id: projectId,
+      barrier: { active: false },
+      stages: [],
+      stuck_runs: 0,
+      warnings: [],
+    };
+  }
 }
 
 export const createMockApiClient = (): ApiClient => new MockApiClient();

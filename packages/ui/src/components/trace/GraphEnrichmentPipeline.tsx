@@ -9,7 +9,8 @@ import {
 import { computeGroupRollup, type GroupRollup } from './pipelineRollup';
 import { RecoverStagePanel } from './RecoverStagePanel';
 import { BarrierIndicator } from './BarrierIndicator';
-import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, InferredEdgesStatus, AtlasStatus, StageProvenance, RulesStatus, ConceptsStatus, AuditPipelineStatus, AntibodiesStatus, BarrierStatus } from '../../types';
+import { HealthBadge } from '../pipeline/HealthBadge';
+import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, InferredEdgesStatus, AtlasStatus, StageProvenance, RulesStatus, ConceptsStatus, AuditPipelineStatus, AntibodiesStatus, BarrierStatus, PipelineHealth } from '../../types';
 import type { ApiClient } from '../../api/client';
 
 // ── Types ────────────────────────────────────────────────────
@@ -142,6 +143,8 @@ export interface GraphEnrichmentPipelineProps {
   /** Phase 114: reset barrier banner above the stage groups */
   barrier?: BarrierStatus;
   onClearBarrier?: () => void;
+  /** Phase 114: pipeline health snapshot rendered as badge in header */
+  health?: PipelineHealth;
   className?: string;
 }
 
@@ -907,6 +910,7 @@ export function GraphEnrichmentPipeline({
   onStageRestored,
   barrier,
   onClearBarrier,
+  health,
   className,
 }: GraphEnrichmentPipelineProps) {
   const fastPaused = fastPausedProp ?? false;
@@ -1347,6 +1351,9 @@ export function GraphEnrichmentPipeline({
       {barrier?.active && (
         <BarrierIndicator barrier={barrier} onClear={onClearBarrier} />
       )}
+
+      {/* ── Phase 114: Pipeline Health Badge ─────────── */}
+      {health && <div className="px-1"><HealthBadge health={health} /></div>}
 
       {/* ── Fast Sync Group ─────────────────────────── */}
       <div data-testid="pipeline-group-fast_sync" data-group-running={fastRunning || undefined} className="flex items-center justify-between py-1.5 px-1">
