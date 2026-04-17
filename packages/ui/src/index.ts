@@ -85,6 +85,11 @@ export type {
   ServerMode,
   TeamConfig,
   TeamConfigStatus as TeamConfigStatusType,
+  // Phase 114 — per-stage restore
+  StageBackupKind,
+  StageBackup,
+  StageBackupsResponse,
+  StageRestoreResponse,
 } from './types';
 
 // Components - Status
@@ -160,8 +165,8 @@ export { WatchStatusIndicator, WatchControlPanel } from './components/watch';
 export type { WatchStatusIndicatorProps, WatchControlPanelProps } from './components/watch';
 
 // Components - Trace (Phase 04)
-export { TraceStatusCard, TraceExplorer, TraceCoveragePanel, GraphEnrichmentPipeline, GraphStructurePanel, AtlasLensPanel, StatusStrip, SubAtlasTree, RoleLens, BudgetBar, BudgetSlider, PinnedConceptsList } from './components/trace';
-export type { TraceStatusCardProps, TraceExplorerProps, TraceCoveragePanelProps, GraphEnrichmentPipelineProps, TraceStageInfo, EnrichmentStageId, EnrichmentAutoConfig, DeepEnrichmentMode, GraphStructurePanelProps, AtlasLensPanelProps, StatusStripProps, SubAtlasTreeProps, RoleLensProps, BudgetBarProps, BudgetSliderProps, PinnedConceptsListProps } from './components/trace';
+export { TraceStatusCard, TraceExplorer, TraceCoveragePanel, GraphEnrichmentPipeline, GraphStructurePanel, AtlasLensPanel, StatusStrip, SubAtlasTree, RoleLens, BudgetBar, BudgetSlider, PinnedConceptsList, RecoverStagePanel, formatBackupLabel } from './components/trace';
+export type { TraceStatusCardProps, TraceExplorerProps, TraceCoveragePanelProps, GraphEnrichmentPipelineProps, TraceStageInfo, EnrichmentStageId, EnrichmentAutoConfig, DeepEnrichmentMode, GraphStructurePanelProps, AtlasLensPanelProps, StatusStripProps, SubAtlasTreeProps, RoleLensProps, BudgetBarProps, BudgetSliderProps, PinnedConceptsListProps, RecoverStagePanelProps } from './components/trace';
 
 // Components - Pipeline (Phase 105b — unified stage controls)
 export { StageRegenerateButton } from './components/pipeline';
