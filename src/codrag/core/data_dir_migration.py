@@ -175,6 +175,49 @@ def _safe_rename_or_copy(src: Path, dst: Path) -> None:
         src.unlink()
 
 
+def _sqlite_sidecars(name: str) -> tuple[str, ...]:
+    """Return `-wal`/`-shm` sidecar names for a SQLite DB, or empty for others.
+
+    WAL files carry committed-but-not-checkpointed transactions. Moving
+    the `.db` without its WAL is a data-loss bug — SQLite opens the
+    main file with no WAL and silently discards those pages.
+    """
+    if not name.endswith(".db"):
+        return ()
+    return (f"{name}-wal", f"{name}-shm")
+
+
+def _migrate_sidecars(
+    name: str,
+    legacy: Path,
+    dest_dir: Path,
+    result: MigrationResult,
+) -> None:
+    """Move `.db-wal` / `.db-shm` siblings after a successful `.db` move.
+
+    Sidecar behavior:
+    - -wal: must move WITH the .db. Loss = committed transactions dropped.
+    - -shm: shared-memory index; safe to move. SQLite rebuilds it on open
+      if absent, but moving keeps the WAL recovery path consistent.
+
+    If a sidecar already exists at dest (shouldn't, since we only reach
+    here when `.db` itself was moved cleanly), overwrite it.
+    """
+    for sidecar in _sqlite_sidecars(name):
+        src = legacy / sidecar
+        if not src.exists():
+            continue
+        dst = dest_dir / sidecar
+        try:
+            if dst.exists():
+                dst.unlink()
+            _safe_rename_or_copy(src, dst)
+            result.moved.append(sidecar)
+        except Exception as e:
+            logger.exception("data-dir migration: failed to move sidecar %s", sidecar)
+            result.errors.append(f"{sidecar}: {e!r}")
+
+
 def _migrate_one(
     name: str,
     legacy: Path,
@@ -199,6 +242,7 @@ def _migrate_one(
         try:
             _safe_rename_or_copy(src, dst)
             result.moved.append(name)
+            _migrate_sidecars(name, legacy, dest_dir, result)
         except Exception as e:
             logger.exception("data-dir migration: failed to move %s", name)
             result.errors.append(f"{name}: {e!r}")
@@ -208,16 +252,48 @@ def _migrate_one(
     try:
         winner = _pick_winner(src, dst, name)
         if winner == src:
-            # Legacy wins — move current dest aside, then move legacy in.
-            conflict_path = dst.with_name(f"{name}.migration-conflict.{_iso_now()}")
+            # Legacy wins — move current dest (and its sidecars) aside,
+            # then move legacy in.
+            iso = _iso_now()
+            conflict_path = dst.with_name(f"{name}.migration-conflict.{iso}")
             _safe_rename_or_copy(dst, conflict_path)
+            # Preserve the losing side's WAL/SHM alongside it so the
+            # conflict backup is recoverable as a complete DB.
+            for sidecar in _sqlite_sidecars(name):
+                loser_side = dest_dir / sidecar
+                if loser_side.exists():
+                    loser_conflict = dst.with_name(
+                        f"{name}.migration-conflict.{iso}-{sidecar.rsplit('-', 1)[-1]}"
+                    )
+                    try:
+                        _safe_rename_or_copy(loser_side, loser_conflict)
+                    except Exception:
+                        logger.exception(
+                            "data-dir migration: failed to preserve loser sidecar %s",
+                            sidecar,
+                        )
             _safe_rename_or_copy(src, dst)
+            _migrate_sidecars(name, legacy, dest_dir, result)
             result.moved.append(name)
             result.conflicts.append(conflict_path.name)
         else:
-            # Dest wins — move legacy aside.
-            conflict_path = dst.with_name(f"{name}.migration-conflict.{_iso_now()}")
+            # Dest wins — move legacy (and its sidecars) aside.
+            iso = _iso_now()
+            conflict_path = dst.with_name(f"{name}.migration-conflict.{iso}")
             _safe_rename_or_copy(src, conflict_path)
+            for sidecar in _sqlite_sidecars(name):
+                legacy_side = legacy / sidecar
+                if legacy_side.exists():
+                    legacy_conflict = dst.with_name(
+                        f"{name}.migration-conflict.{iso}-{sidecar.rsplit('-', 1)[-1]}"
+                    )
+                    try:
+                        _safe_rename_or_copy(legacy_side, legacy_conflict)
+                    except Exception:
+                        logger.exception(
+                            "data-dir migration: failed to preserve legacy sidecar %s",
+                            sidecar,
+                        )
             result.conflicts.append(conflict_path.name)
     except Exception as e:
         logger.exception("data-dir migration: conflict resolution failed for %s", name)

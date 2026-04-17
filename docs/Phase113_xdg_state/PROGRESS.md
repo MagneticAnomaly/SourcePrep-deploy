@@ -153,3 +153,40 @@ Modified:
 - `src/codrag/mcp_direct.py` — comment
 - `.gitignore` — + codrag_data/
 - 14 `codrag_data/*` entries removed from git index (preserved on disk)
+
+### Post-merge hardening (2026-04-17, session 2)
+
+Scrutinized the committed work against a restarted daemon. Daemon
+lsof confirms all 8 stores open against `~/.local/share/codrag/`;
+no open fds against legacy `./codrag_data/`. Live config `index_dir`
+is None (resolved to data_dir()). Migration sentinel present.
+Zero runtime regressions.
+
+Two real gaps surfaced by re-audit:
+
+1. **SQLite `-wal` / `-shm` sidecars were not migrated** — a `.db`
+   can have WAL-only uncommitted transactions; moving the main file
+   without the WAL silently drops those pages. Fix: added
+   `_sqlite_sidecars()` and `_migrate_sidecars()` to
+   `data_dir_migration.py`. WAL/SHM travel with the `.db` on clean
+   moves AND both conflict resolution paths (dest wins → legacy
+   sidecars preserved as `<db>.migration-conflict.<iso>-wal/-shm`;
+   legacy wins → dest sidecars preserved similarly). Three new tests
+   (`test_sqlite_sidecars_move_with_db`,
+   `test_non_sqlite_has_no_sidecar_handling`,
+   `test_sidecar_conflict_preserved_with_db`). Not a regression on
+   this dev machine (WAL was already checkpointed at migration time)
+   but a real data-loss risk for any install where the daemon was
+   live-writing at migration.
+
+2. **Dashboard ignore glob pointed at legacy path** —
+   `useDashboardPanels.tsx:91` had `**/codrag_data/ui_config.json`
+   in `DEFAULT_ALWAYS_IGNORED_GLOBS`. After Phase 113, `ui_config.json`
+   lives in XDG (outside the repo root, not walker-visible anyway),
+   so the glob was a no-op. Removed.
+
+Post-hardening totals: 12/12 migration tests, 49/49 Phase 113+114
+targeted tests green. Cosmetic "14:00 write to legacy ui_config.json"
+mystery was the pre-Phase-113 daemon's final flush before restart —
+explained by legacy code paths in the old daemon process, not a
+Phase 113 bug.

@@ -218,3 +218,68 @@ def test_returns_migration_result_on_all_paths() -> None:
         )
         assert isinstance(result, MigrationResult)
         assert result.ran is False
+
+
+def test_sqlite_sidecars_move_with_db() -> None:
+    """`-wal` / `-shm` sidecars must travel with the `.db` or we lose WAL-only data."""
+    with tempfile.TemporaryDirectory() as cwd_td, tempfile.TemporaryDirectory() as dest_td:
+        cwd = Path(cwd_td).resolve()
+        legacy = cwd / "codrag_data"
+        legacy.mkdir()
+
+        (legacy / "codrag_antibodies.db").write_bytes(b"main")
+        (legacy / "codrag_antibodies.db-wal").write_bytes(b"uncommitted-pages")
+        (legacy / "codrag_antibodies.db-shm").write_bytes(b"shm-index")
+
+        dest = Path(dest_td).resolve()
+        result = migrate_legacy_data_dir(cwd=cwd, data_dir_override=dest)
+
+        assert result.ran is True
+        assert "codrag_antibodies.db" in result.moved
+        assert "codrag_antibodies.db-wal" in result.moved
+        assert "codrag_antibodies.db-shm" in result.moved
+        assert (dest / "codrag_antibodies.db-wal").read_bytes() == b"uncommitted-pages"
+        assert (dest / "codrag_antibodies.db-shm").read_bytes() == b"shm-index"
+        assert not (legacy / "codrag_antibodies.db-wal").exists()
+        assert not (legacy / "codrag_antibodies.db-shm").exists()
+
+
+def test_non_sqlite_has_no_sidecar_handling() -> None:
+    """`ui_config.json` has no sidecars; nothing odd should happen."""
+    with tempfile.TemporaryDirectory() as cwd_td, tempfile.TemporaryDirectory() as dest_td:
+        cwd = Path(cwd_td).resolve()
+        legacy = cwd / "codrag_data"
+        legacy.mkdir()
+        (legacy / "ui_config.json").write_text('{"a": 1}')
+
+        dest = Path(dest_td).resolve()
+        result = migrate_legacy_data_dir(cwd=cwd, data_dir_override=dest)
+
+        assert result.moved == ["ui_config.json"]  # no phantom sidecar entries
+
+
+def test_sidecar_conflict_preserved_with_db() -> None:
+    """When dest wins a conflict, legacy `-wal`/`-shm` are preserved as -wal/-shm conflict copies."""
+    with tempfile.TemporaryDirectory() as cwd_td, tempfile.TemporaryDirectory() as dest_td:
+        cwd = Path(cwd_td).resolve()
+        legacy = cwd / "codrag_data"
+        legacy.mkdir()
+        dest = Path(dest_td).resolve()
+
+        # Dest wins (bigger), legacy has a WAL we must preserve.
+        (legacy / "codrag_antibodies.db").write_bytes(b"small")
+        (legacy / "codrag_antibodies.db-wal").write_bytes(b"legacy-wal-data")
+        (dest / "codrag_antibodies.db").write_bytes(b"bigger-winning-file")
+
+        result = migrate_legacy_data_dir(cwd=cwd, data_dir_override=dest)
+
+        # Main-file conflict backup AND wal-suffix conflict backup both exist.
+        main_conflicts = list(dest.glob("codrag_antibodies.db.migration-conflict.*"))
+        # Exactly one is the main .db backup; any others are sidecar backups.
+        plain_main = [p for p in main_conflicts if not p.name.endswith(("-wal", "-shm"))]
+        wal_side = [p for p in main_conflicts if p.name.endswith("-wal")]
+        assert len(plain_main) == 1
+        assert len(wal_side) == 1
+        assert wal_side[0].read_bytes() == b"legacy-wal-data"
+        # Legacy side is drained.
+        assert not (legacy / "codrag_antibodies.db-wal").exists()
