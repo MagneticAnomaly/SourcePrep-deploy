@@ -7,7 +7,9 @@ import {
   FileText, Lightbulb, ClipboardCheck, Shield, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { computeGroupRollup, type GroupRollup } from './pipelineRollup';
+import { RecoverStagePanel } from './RecoverStagePanel';
 import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, InferredEdgesStatus, AtlasStatus, StageProvenance, RulesStatus, ConceptsStatus, AuditPipelineStatus, AntibodiesStatus } from '../../types';
+import type { ApiClient } from '../../api/client';
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -130,6 +132,12 @@ export interface GraphEnrichmentPipelineProps {
   onToggleFastCollapsed?: () => void;
   onToggleDeepCollapsed?: () => void;
   onToggleFinalizeCollapsed?: () => void;
+  /** Phase 114: project ID for per-stage Recover affordance. When omitted, Recover is hidden. */
+  projectId?: string;
+  /** Phase 114: API client for Recover panel's listStageBackups/restoreStageFromSnapshot calls. */
+  apiClient?: ApiClient;
+  /** Phase 114: callback fired after a successful per-stage restore so parent can refresh status. */
+  onStageRestored?: (stageId: string, snapshotId: string) => void;
   className?: string;
 }
 
@@ -890,6 +898,9 @@ export function GraphEnrichmentPipeline({
   onToggleFastCollapsed,
   onToggleDeepCollapsed,
   onToggleFinalizeCollapsed,
+  projectId,
+  apiClient,
+  onStageRestored,
   className,
 }: GraphEnrichmentPipelineProps) {
   const fastPaused = fastPausedProp ?? false;
@@ -1386,15 +1397,29 @@ export function GraphEnrichmentPipeline({
               ? !!(fastPaused && !fastRunning && stage.id === fastPausedStage)
               : !!(fastPaused && !fastRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
                 fastStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
+            const showRecover = projectId && apiClient &&
+              (stage.state === 'error' || stage.state === 'warning' || stage.state === 'stale');
             return (
-              <StageRow
-                key={stage.id}
-                stage={stage}
-                isPaused={isStagePaused}
-                onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
-                onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('fast_sync') : undefined}
-                showDetails={showDetails}
-              />
+              <div key={stage.id}>
+                <StageRow
+                  stage={stage}
+                  isPaused={isStagePaused}
+                  onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
+                  onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('fast_sync') : undefined}
+                  showDetails={showDetails}
+                />
+                {showRecover && (
+                  <RecoverStagePanel
+                    projectId={projectId}
+                    stageId={stage.id}
+                    stageLabel={stage.label}
+                    apiClient={apiClient}
+                    disabled={fastRunning}
+                    onRestored={(snapshotId) => onStageRestored?.(stage.id, snapshotId)}
+                    className="ml-11 mt-0.5 mb-1"
+                  />
+                )}
+              </div>
             );
           })}
         </div>
@@ -1467,15 +1492,29 @@ export function GraphEnrichmentPipeline({
               ? !!(deepPaused && !deepRunning && stage.id === deepPausedStage)
               : !!(deepPaused && !deepRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
                 deepStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
+            const showRecover = projectId && apiClient &&
+              (stage.state === 'error' || stage.state === 'warning' || stage.state === 'stale');
             return (
-              <StageRow
-                key={stage.id}
-                stage={stage}
-                onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
-                onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('deep_enrichment') : undefined}
-                isPaused={isStagePaused}
-                showDetails={showDetails}
-              />
+              <div key={stage.id}>
+                <StageRow
+                  stage={stage}
+                  onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
+                  onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('deep_enrichment') : undefined}
+                  isPaused={isStagePaused}
+                  showDetails={showDetails}
+                />
+                {showRecover && (
+                  <RecoverStagePanel
+                    projectId={projectId}
+                    stageId={stage.id}
+                    stageLabel={stage.label}
+                    apiClient={apiClient}
+                    disabled={deepRunning}
+                    onRestored={(snapshotId) => onStageRestored?.(stage.id, snapshotId)}
+                    className="ml-11 mt-0.5 mb-1"
+                  />
+                )}
+              </div>
             );
           })}
         </div>
@@ -1536,15 +1575,29 @@ export function GraphEnrichmentPipeline({
               ? !!(finalizePaused && !finalizeRunning && stage.id === finalizePausedStage)
               : !!(finalizePaused && !finalizeRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
                 finalizeStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
+            const showRecover = projectId && apiClient &&
+              (stage.state === 'error' || stage.state === 'warning' || stage.state === 'stale');
             return (
-              <StageRow
-                key={stage.id}
-                stage={stage}
-                onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
-                onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('finalize') : undefined}
-                isPaused={isStagePaused}
-                showDetails={showDetails}
-              />
+              <div key={stage.id}>
+                <StageRow
+                  stage={stage}
+                  onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
+                  onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('finalize') : undefined}
+                  isPaused={isStagePaused}
+                  showDetails={showDetails}
+                />
+                {showRecover && (
+                  <RecoverStagePanel
+                    projectId={projectId}
+                    stageId={stage.id}
+                    stageLabel={stage.label}
+                    apiClient={apiClient}
+                    disabled={finalizeRunning}
+                    onRestored={(snapshotId) => onStageRestored?.(stage.id, snapshotId)}
+                    className="ml-11 mt-0.5 mb-1"
+                  />
+                )}
+              </div>
             );
           })}
         </div>
