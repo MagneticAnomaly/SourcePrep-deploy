@@ -99,12 +99,36 @@ Each item cites its source phase § so you can jump to the full context.
 - [ ] Add `codrag_settings.db` `busy_timeout` configuration.
 
 ### Pipeline safety & visibility (Phase 114)
-Backend shipped; UI is the remaining slice.
-- [ ] Task 7 — `BarrierIndicator` component in pipeline panel (types, tests, wired into `GraphEnrichmentPipeline.tsx`).
-- [ ] Task 8 — `RecoverStagePanel` in Danger Zone (per-stage restore from golden/branch snapshots; API client, mocks, tests, wired into `SettingsDrawer.tsx`).
-- [ ] Task 9 — Rebuild button UX: rename to "Wipe & Rebuild All", add blast-radius copy, typed-confirmation gate.
-- [ ] Task 10 — `HealthBadge` polling `/pipeline/health` (green / amber-with-count).
-- [ ] Full test suite + manual smoke on `swift_repo`.
+Backend + UI shipped (Tasks 1–13). Remaining: follow-ups surfaced by two reverse-engineering audit passes.
+
+**Shipped (for reference)**
+- [x] T1 — Checkpoint coverage for finalize tail (`rules`, `concepts`, `audit`, `antibodies` added to `CHECKPOINT_STAGES`/`STAGE_OUTPUTS`/`_GOLDEN_FILES`).
+- [x] T2 — Barrier status surfaced on `/pipeline/status`.
+- [x] T3 — `DELETE /pipeline/reset-barrier` endpoint.
+- [x] T4 — `GET /pipeline/health` aggregate endpoint.
+- [x] T5 — `GET /pipeline/stages/{stage}/backups` (golden + branch snapshots listing).
+- [x] T6 — `POST /pipeline/stages/{stage}/restore` (per-stage restore that bypasses barrier).
+- [x] T7 — `BarrierIndicator` component (commit `17f199ca` adds `barrierGuidance()` keyed by reason).
+- [x] T8 — `RecoverStagePanel` (per-stage backup picker + ConfirmDialog; mock + integration tests).
+- [x] T9 — Rebuild "Wipe & Rebuild All" UX with typed-confirmation gate.
+- [x] T10 — `HealthBadge` polling `/pipeline/health` with stuck-run count.
+- [x] T11 — Hook wiring (`useApiClient`, `usePipelineHealth`, `useEnrichment` make the four UI components live).
+- [x] T12 — Mirror `RecoverStagePanel` into SettingsDrawer Danger Zone (commit `c68177de`); refresh stage data after restore + gate Recover during runs (`b5fcdc16`).
+- [x] T13 — Second-audit fixes (commit `2374140f`): mock barrier state mutability, BarrierIndicator `role=status` instead of `role=alert` (no screen-reader spam on 10s poll), RecoverStagePanel stage-scoped aria-labels, `DELETE /pipeline/reset-barrier` invalidates `/pipeline/status` cache. New `test_barrier_lifecycle_end_to_end` integration test.
+- [x] T14 — Checkpoint GC at daemon startup (commit `ad6eb6c0`): new `prune_checkpoints_all_projects(keep=3)` helper called from `server.configure()` after `startup_recovery()`, so projects stuck in a crash loop don't accumulate `.checkpoints/run-*` forever (observed: 4-6 per project, up to 28 MB pre-fix).
+
+**Open follow-ups**
+
+- [ ] **T15 — Thread `panelVisible` through dashboard panels.** During Phase 114 hook wiring, `useDashboardPanels` was modified to pass `panelVisible={true}` (hardcoded) to child components that gate polling on visibility. Real fix needs a visibility prop threaded from the panel registry through each panel's host so background polls (e.g. `usePipelineHealth`'s 10s tick, `useEnrichment` refreshes) pause when the panel is hidden. Touches: `useDashboardPanels.tsx` (panel registry), every `usePipelineHealth`/`useEnrichment` call site, and the visibility tracking in `App.tsx`. Bigger refactor — bounded by panel count.
+- [ ] **T16 — Time-aware barrier semantics (stash@{0} decision).** A 73-line rewrite of `src/codrag/services/pipeline/recovery.py` plus updates to `tests/test_selfheal_group.py` is currently sitting in `git stash@{0}`. It distinguishes *pre-barrier* stale state (heartbeat death before barrier write — should auto-clear) from *post-barrier* in-flight state (rebuild actively running, must hold barrier). Deferred because `recovery.py` is owned by the `busy-swirles` worktree per standing constraint. **Decision needed:** (1) apply stash to main, (2) leave stashed indefinitely, (3) inspect stash diff with user first.
+- [ ] **T17 — Manual end-to-end pipeline-testing pass (uses `pipeline-testing` skill runbook).** Use `swift_repo` as target. Follow the runbook to exercise: full pipeline run, mid-stage daemon kill + restart, mid-rebuild crash, per-stage restore from snapshot, barrier clear via Danger Zone, watchdog heartbeat trip, golden checkpoint promotion. Goal: surface gaps the integration tests don't cover. Output: phase findings file + concrete bug tickets. **Blocks Phase 107 §4.6/§4.7 incremental-recovery vertical slice — that work needs to be informed by what real-world failures look like.**
+- [ ] **T18 — Rank resume/shutdown gaps from the manual pass.** Take T17's findings and tier them into: (a) blockers for incremental-recovery vertical slice, (b) MVP-critical, (c) polish. Feeds the Tier 2 §4.6/§4.7 work below.
+- [ ] **T19 — Swarm capped at 10 concurrent (deferred — owned by parallel AI track).** Phase 112 Task 3 covers this in the dual-LLM swarm scope. No action here; this entry is a pointer so it's not lost.
+
+**Cross-references**
+- T17/T18 feed → Tier 2 §4.6 Incremental pipeline recovery + §4.7 Recovery UI wiring (cross-phase collision #5: ship as one vertical slice).
+- T16 stash decision feeds → `recovery.py` ownership reconciliation between `main` and `busy-swirles` worktree.
+- T15 panelVisible threading is in scope for §5.4 Polling → SSE migration (which makes the whole "is panel visible" question moot for SSE-based panels — but until SSE migration ships, panelVisible is the right primitive).
 
 ### Dual-LLM swarm + settings (Phase 112)
 All 19 tasks are open. MVP-critical marked [MVP] per the Phase 112 plan.
