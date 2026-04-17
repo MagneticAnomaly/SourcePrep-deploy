@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle } from 'lucide-react';
 import { Button } from './Button';
@@ -24,6 +25,10 @@ export interface ConfirmDialogProps {
   /** Variant controls the confirm button style */
   variant?: 'destructive' | 'default';
   className?: string;
+  /** Optional extra UI rendered between description and action buttons (e.g. typed-confirm input) */
+  children?: ReactNode;
+  /** When true, disables the confirm button (e.g. while a typed-confirm gate is unmet) */
+  confirmDisabled?: boolean;
 }
 
 export function ConfirmDialog({
@@ -37,6 +42,8 @@ export function ConfirmDialog({
   cancelLabel = 'Cancel',
   variant = 'destructive',
   className,
+  children,
+  confirmDisabled = false,
 }: ConfirmDialogProps) {
   // Close on Escape key
   const handleKeyDown = useCallback(
@@ -88,11 +95,12 @@ export function ConfirmDialog({
             )}
           </div>
         </div>
+        {children && <div className="mt-3">{children}</div>}
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="outline" size="sm" onClick={onCancel}>
             {cancelLabel}
           </Button>
-          <Button variant={variant} size="sm" onClick={onConfirm}>
+          <Button variant={variant} size="sm" onClick={onConfirm} disabled={confirmDisabled}>
             {confirmLabel}
           </Button>
         </div>
