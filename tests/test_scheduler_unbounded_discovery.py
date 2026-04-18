@@ -105,3 +105,37 @@ def test_local_aimd_does_not_exceed_max_concurrent() -> None:
     assert slot.current_limit == 1, (
         f"Local slot exceeded VRAM ceiling: current_limit={slot.current_limit}"
     )
+
+
+def test_new_cloud_slot_seeds_at_five_jumpstart() -> None:
+    """Phase 82 spec: cloud slots seed at current_limit=5, mode=jumpstart."""
+    sched = PipelineScheduler()
+    sched.configure_node("cloud:ep-new", max_concurrent=1)
+    slot = sched._slots["cloud:ep-new"]
+    assert slot.current_limit == 5
+    assert slot.mode == "jumpstart"
+
+
+def test_new_local_slot_keeps_max_concurrent_as_limit() -> None:
+    """Local slots don't need discovery — VRAM ceiling is a hard known value."""
+    sched = PipelineScheduler()
+    sched.configure_node("local:ep-new", max_concurrent=2)
+    slot = sched._slots["local:ep-new"]
+    assert slot.current_limit == 2
+    assert slot.mode in ("congestion_avoidance", "jumpstart")
+
+
+def test_reconfigure_cloud_slot_preserves_discovered_limit() -> None:
+    """Calling configure_node again on an existing cloud slot should NOT
+    reset current_limit — the scheduler has already discovered a real
+    ceiling and resetting to 5 would throw that away on a UI slider edit."""
+    sched = PipelineScheduler()
+    sched.configure_node("cloud:ep-a", max_concurrent=1)
+    slot = sched._slots["cloud:ep-a"]
+    slot.current_limit = 40
+    slot.mode = "congestion_avoidance"
+
+    sched.configure_node("cloud:ep-a", max_concurrent=1)
+
+    assert slot.current_limit == 40
+    assert slot.mode == "congestion_avoidance"

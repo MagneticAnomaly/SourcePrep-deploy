@@ -115,11 +115,19 @@ class ComputeSlot:
     _last_recovery_time: float = 0.0
 
     def __post_init__(self):
-        if self.current_limit <= 0 or self.current_limit > self.max_concurrent:
+        # Phase 82: cloud slots seed at jumpstart=5 per the Latency-Aware
+        # Discovery spec. Local slots seed at max_concurrent — the VRAM
+        # ceiling is known a priori and doesn't need discovery.
+        is_cloud = self.node_id.startswith("cloud:")
+        if self.current_limit <= 0:
+            self.current_limit = 5 if is_cloud else max(1, self.max_concurrent)
+        elif not is_cloud and self.current_limit > self.max_concurrent:
             self.current_limit = max(1, self.max_concurrent)
+        if is_cloud and self.mode not in ("jumpstart", "congestion_avoidance"):
+            self.mode = "jumpstart"
         if self.min_limit < 1:
             self.min_limit = 1
-        if self.min_limit > self.max_concurrent:
+        if self.min_limit > self.max_concurrent and not is_cloud:
             self.min_limit = self.max_concurrent
 
     @property
@@ -225,22 +233,35 @@ class PipelineScheduler:
     # ── Configuration ─────────────────────────────────────────────
 
     def configure_node(self, node_id: str, max_concurrent: int) -> None:
-        """Register or update a compute node's concurrency limit."""
+        """Register or update a compute node's concurrency limit.
+
+        Phase 82: when reconfiguring an existing cloud slot, preserve the
+        discovered ``current_limit`` and AIMD ``mode``. ``max_concurrent``
+        for cloud slots is used only as a starting seed for NEW slots —
+        live latency-aware discovery overrides it.  For local slots,
+        ``max_concurrent`` is the real hardware (VRAM) ceiling and is
+        always enforced.
+        """
         with self._lock:
             new_max = max(1, max_concurrent)
+            is_cloud = node_id.startswith("cloud:")
             if node_id in self._slots:
                 slot = self._slots[node_id]
                 slot.max_concurrent = new_max
-                # Phase 96B: grow the AIMD current_limit to the new max if it
-                # was previously capped lower.  Shrinking is handled by AIMD
-                # backoff; we only need to raise the ceiling on reconfigure.
-                if slot.current_limit < new_max:
+                if not is_cloud and slot.current_limit > new_max:
+                    # Local slots: VRAM ceiling is a real constraint — clamp.
                     slot.current_limit = new_max
+                # Cloud slots: preserve discovered current_limit and mode.
+                # Phase 96B grew the limit on reconfigure; Phase 82 drops
+                # that because cloud discovery is unbounded and the user
+                # editing a (legacy) UI slider shouldn't reset progress.
             else:
                 self._slots[node_id] = ComputeSlot(
                     node_id=node_id,
                     max_concurrent=new_max,
+                    current_limit=5 if is_cloud else new_max,
                     min_limit=self._compute_min_limit(node_id, new_max),
+                    mode="jumpstart" if is_cloud else "congestion_avoidance",
                 )
                 self._queues[node_id] = deque()
         logger.debug(
