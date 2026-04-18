@@ -251,7 +251,7 @@ The generated AGENTS.md is meant to be the first thing an AI agent reads when it
 <!-- codrag-managed-start -->
 # CoDRAG Integration
 
-Last updated: 2026-04-16T04:50:05Z | Full analysis in progress
+Last updated: 2026-04-18T06:41:12Z
 
 codrag_project_id: 1d6f0b35-45cb-427b-ae9d-aac3c6371a4b
 
@@ -290,33 +290,26 @@ Add to `.claude/settings.json`:
 
 Use `@` to browse CoDRAG resources (atlas, modules, audit). Use `/mcp__codrag__codrag-onboard` for guided orientation.
 
-<!-- codrag-atlas-hash:2bbe4fdc9176 -->
+<!-- codrag-atlas-hash:f0799a4d1cae -->
 ## Codebase Atlas
 
-IDENTITY: CoDRAG
-STACK: .md 35%, .tsx 16%, .ts 16%, .py 13%, .js 12%, .json 5%, .css 2%, .html 1%
-STRUCTURE: 2361 files, 8900 nodes, 10915 edges
-EDGE TYPES: contains: 5842, imports: 5073
-CIRCULAR DEPS (4): packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx <-> packages/ui/src/components/trace/pipelineRollup.ts; src/codrag/core/audit/synthesizer.py <-> src/codrag/core/audit/__init__.py; src/codrag/api/routers/projects/__init__.py <-> src/codrag/api/routers/projects/__init__.py
-ENTRY POINTS: src/codrag/mcp/server.py, packages/ui/src/index.ts, packages/ui/src/components/project/index.ts, packages/ui/src/components/audit/index.ts, engine/crates/codrag-selfheal/src/main.rs
-SUBSYSTEMS:
-  _root/ (1276 files)
-  packages/ui/ (827 files)
-  websites/apps/marketing/ (66 files)
-  websites/apps/docs/ (54 files)
-  src/codrag/dashboard/ (46 files)
-  websites/apps/support/ (29 files)
-  packages/vscode/ (20 files)
-  websites/apps/payments/ (17 files)
-  packages/vscode/webview-ui/ (14 files)
-  packages/paperclip-plugin-codrag/ (12 files)
-TESTS: tests-old/ (7 files), specs/ (7 files), tests/ (1 files)
-HUB FILES: ext:typing (232 edges), ext:__future__ (229 edges), ext:react (198 edges), ext:logging (160 edges), ext:lucide-react (145 edges)
-Active zones: `packages/ui/src/`, `src/codrag/core/`, `src/codrag/dashboard/`, `src/codrag/services/`, `tests/`
-CALL CHAINS:
-  packages/ui/src/index.ts -> packages/ui/src/types.ts -> packages/ui/src/types/layout.ts -> sym:toGridLayout@packages/ui/src/types/layout.ts:237
-  src/codrag/mcp/server.py -> src/codrag/mcp/errors.py -> sym:ProjectNotFoundError.__init__@src/codrag/mcp/errors.py:45
-  packages/ui/src/components/project/index.ts -> packages/ui/src/components/project/CodeViewer.tsx -> sym:CodeViewerProps@packages/ui/src/components/project/CodeViewer.tsx:71
+IDENTITY: Codrag is a code intelligence platform with a VSCode extension, web dashboard, documentation site, marketing site, and supporting services for AI-assisted code analysis and visualization.
+
+STACK: TypeScript, React, Python, Rust. React ecosystem via ext:react (182 edges). Python standard library via ext:typing (237 edges), ext:__future__ (236 edges), ext:logging (162 edges), ext:pathlib (148 edges). Build tooling implied by package structure across packages/ and websites/apps/ directories.
+
+WORKSPACE MAP:
+Root (_root, 1306 files): monorepo root and shared configuration
+Ui (packages/ui, 332 files): shared React component library with trace visualization, patterns, project views, and AtlasLensPanel
+Marketing (websites/apps/marketing, 66 files): public marketing website
+Docs (websites/apps/docs, 54 files): documentation site with CLOUD_SINGLE, sampleIndexStats, EMBEDDING_MODELS symbols
+Dashboard (src/codrag/dashboard, 47 files): main application dashboard interface
+Support (websites/apps/support, 29 files): customer support application
+Vscode (packages/vscode, 20 files): VSCode extension host
+Payments (websites/apps/payments, 17 files): billing and subscription management
+Webview Ui (packages/vscode/webview-ui, 14 files): VSCode extension webview UI components
+Paperclip Plugin Codrag (packages/paperclip-plugin-codrag, 12 files): Paperclip design tool integration
+
+CROSS-CUTTING: Active development zones cluster in packages/ui/src/ (381 .tsx files, entry points for trace/AtlasLensPanel, patterns, project, viz), src/codrag/core/, src/codrag/dashboard/, and src/codrag/services/. Engine layer in Rust (codrag-chunking/src/lib.rs entry point) handles Python parsing and chunking with test_inferred_boost_on_structural_match, parse_python, test_assign_lod_mid_score symbols. UI components import chain through AtlasLensPanel -> RoleLens -> BudgetSlider with 4-cycle import dependency. Python services layer contains UseRoleOverridesReturn, _normalize_path_weights, RoleOverride.to_dict. Shared infrastructure includes ArchStats, SwarmBuild, ErrorPermissionDenied in packages; main, handler, trigger_sync in public; test_daemon_thread_count, generate_license, should_skip in scripts. Test coverage spans specs/ (8 files), tests-old/ (7 files), __tests__/ (4 files). 4 import cycles detected across 10134 graph edges.
 
 If `codrag` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.
