@@ -139,3 +139,87 @@ def test_reconfigure_cloud_slot_preserves_discovered_limit() -> None:
 
     assert slot.current_limit == 40
     assert slot.mode == "congestion_avoidance"
+
+
+def test_new_cloud_slot_hydrates_from_store(monkeypatch, tmp_path) -> None:
+    """configure_node reads the persisted ceiling and uses it as current_limit."""
+    from codrag.core import paths as paths_mod
+    monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
+    from codrag.services.pipeline import concurrency_store as mod
+    mod._store = None
+
+    # Persist a ceiling BEFORE creating the slot.
+    store = mod.concurrency_store()
+    store.save("cloud:ep-persisted", "__default__", ceiling=40)
+
+    sched = PipelineScheduler()
+    sched.configure_node("cloud:ep-persisted", max_concurrent=1)
+    slot = sched._slots["cloud:ep-persisted"]
+
+    assert slot.current_limit == 40, (
+        f"Expected hydrated ceiling=40, got current_limit={slot.current_limit}"
+    )
+    # Mode/streak NOT persisted — starts fresh in jumpstart.
+    assert slot.mode == "jumpstart"
+    assert slot.success_streak == 0
+
+
+def test_aimd_backoff_writes_new_ceiling(monkeypatch, tmp_path) -> None:
+    from codrag.core import paths as paths_mod
+    monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
+    from codrag.services.pipeline import concurrency_store as mod
+    mod._store = None
+
+    sched = PipelineScheduler()
+    sched.configure_node("cloud:ep-backoff", max_concurrent=1)
+    slot = sched._slots["cloud:ep-backoff"]
+    slot.current_limit = 80
+    slot.mode = "congestion_avoidance"
+
+    # Trigger a backoff (queue_time_ms > 2000).
+    sched._record_throughput_for_slot(slot, queue_time_ms=5000.0)
+
+    persisted = mod.concurrency_store().load("cloud:ep-backoff", "__default__")
+    assert persisted is not None and persisted < 80, (
+        f"Expected backoff to persist a reduced ceiling, got {persisted}"
+    )
+    assert persisted == slot.current_limit
+
+
+def test_aimd_doubling_writes_new_ceiling(monkeypatch, tmp_path) -> None:
+    from codrag.core import paths as paths_mod
+    monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
+    from codrag.services.pipeline import concurrency_store as mod
+    mod._store = None
+
+    sched = PipelineScheduler()
+    sched.configure_node("cloud:ep-grow", max_concurrent=1)
+    slot = sched._slots["cloud:ep-grow"]
+
+    # Force a jumpstart doubling step.
+    for _ in range(5):
+        sched._record_throughput_for_slot(slot, queue_time_ms=50.0)
+
+    persisted = mod.concurrency_store().load("cloud:ep-grow", "__default__")
+    assert persisted == 10, (
+        f"Expected jumpstart doubling (5→10) to persist ceiling=10, got {persisted}"
+    )
+
+
+def test_local_slot_does_not_persist(monkeypatch, tmp_path) -> None:
+    """Local slots have a known hardware ceiling — no discovery, no persist."""
+    from codrag.core import paths as paths_mod
+    monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
+    from codrag.services.pipeline import concurrency_store as mod
+    mod._store = None
+
+    sched = PipelineScheduler()
+    sched.configure_node("local:ep-gpu", max_concurrent=2)
+    slot = sched._slots["local:ep-gpu"]
+
+    for _ in range(10):
+        sched._record_throughput_for_slot(slot, queue_time_ms=50.0)
+    sched._record_throughput_for_slot(slot, queue_time_ms=5000.0)
+
+    persisted = mod.concurrency_store().load("local:ep-gpu", "__default__")
+    assert persisted is None

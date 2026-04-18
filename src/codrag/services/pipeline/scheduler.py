@@ -40,6 +40,7 @@ from typing import Any, Callable, Deque, Dict, List, Literal, Optional, Set, Tup
 PriorityLevel = Literal["none", "boost", "exclusive"]
 
 from .stages import QueueType, STAGE_QUEUE_TYPE, StageId
+from codrag.services.pipeline.concurrency_store import concurrency_store
 
 logger = logging.getLogger(__name__)
 
@@ -256,12 +257,33 @@ class PipelineScheduler:
                 # that because cloud discovery is unbounded and the user
                 # editing a (legacy) UI slider shouldn't reset progress.
             else:
+                # Phase 82: cloud slots seed at current_limit=5 (jumpstart),
+                # but if the ConcurrencyStore has a previously-discovered
+                # ceiling from a prior daemon run, hydrate with that value
+                # so we don't replay the jumpstart from scratch. Mode and
+                # streak are NOT persisted — they're hot-loop state with
+                # no meaning across a restart boundary, so we keep
+                # mode="jumpstart" regardless.
+                seed = 5 if is_cloud else new_max
+                mode: Literal["jumpstart", "congestion_avoidance"] = (
+                    "jumpstart" if is_cloud else "congestion_avoidance"
+                )
+                if is_cloud:
+                    try:
+                        persisted = concurrency_store().load(node_id, "__default__")
+                    except Exception as exc:  # pragma: no cover — best-effort
+                        logger.debug(
+                            "concurrency_store.load failed for %s: %s", node_id, exc,
+                        )
+                        persisted = None
+                    if persisted is not None:
+                        seed = persisted
                 self._slots[node_id] = ComputeSlot(
                     node_id=node_id,
                     max_concurrent=new_max,
-                    current_limit=5 if is_cloud else new_max,
+                    current_limit=seed,
                     min_limit=self._compute_min_limit(node_id, new_max),
-                    mode="jumpstart" if is_cloud else "congestion_avoidance",
+                    mode=mode,
                 )
                 self._queues[node_id] = deque()
         logger.debug(
@@ -496,6 +518,7 @@ class PipelineScheduler:
                         slot.current_limit, new_limit, slot.min_limit,
                     )
                     slot.current_limit = new_limit
+                    self._persist_cloud_ceiling(slot)
                 slot._last_backoff_time = now
                 # Reset recovery clock — idle recovery shouldn't fire
                 # immediately after a fresh backoff.
@@ -522,11 +545,13 @@ class PipelineScheduler:
                             slot.node_id, slot.current_limit, new_limit,
                         )
                         slot.current_limit = new_limit
+                        self._persist_cloud_ceiling(slot)
                     else:
                         new_limit = slot.current_limit + 1
                         if not is_cloud:
                             new_limit = min(slot.max_concurrent, new_limit)
                         slot.current_limit = new_limit
+                        self._persist_cloud_ceiling(slot)
 
     def get_priority(self, project_id: str) -> PriorityLevel:
         """Get the priority level for a specific project."""
@@ -571,6 +596,25 @@ class PipelineScheduler:
             )
             self._queues[nid] = deque()
         return self._slots[nid]
+
+    def _persist_cloud_ceiling(self, slot: ComputeSlot) -> None:
+        """Phase 82: write the current cloud ceiling to ConcurrencyStore.
+
+        No-op for local slots — their ceiling is a known VRAM constraint,
+        not something we discover at runtime. Best-effort: a failing
+        persistence call must not disrupt the scheduler.
+        """
+        if not slot.node_id.startswith("cloud:"):
+            return
+        try:
+            concurrency_store().save(
+                slot.node_id, "__default__", ceiling=slot.current_limit,
+            )
+        except Exception as exc:  # pragma: no cover — persistence is best-effort
+            logger.debug(
+                "concurrency_store.save failed for %s: %s",
+                slot.node_id, exc,
+            )
 
     def _compute_min_limit(self, node_id: str, max_concurrent: int) -> int:
         """F-28: per-node floor for AIMD.
