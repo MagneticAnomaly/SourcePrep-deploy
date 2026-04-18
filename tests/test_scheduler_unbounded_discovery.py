@@ -159,8 +159,10 @@ def test_new_cloud_slot_hydrates_from_store(monkeypatch, tmp_path) -> None:
     assert slot.current_limit == 40, (
         f"Expected hydrated ceiling=40, got current_limit={slot.current_limit}"
     )
-    # Mode/streak NOT persisted — starts fresh in jumpstart.
-    assert slot.mode == "jumpstart"
+    # Hydrating to a known ceiling means we're NOT in jumpstart —
+    # doubling from 40 would overshoot. Start in congestion_avoidance
+    # so +1 additive increase probes gently above the ceiling.
+    assert slot.mode == "congestion_avoidance"
     assert slot.success_streak == 0
 
 

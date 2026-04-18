@@ -260,10 +260,13 @@ class PipelineScheduler:
                 # Phase 82: cloud slots seed at current_limit=5 (jumpstart),
                 # but if the ConcurrencyStore has a previously-discovered
                 # ceiling from a prior daemon run, hydrate with that value
-                # so we don't replay the jumpstart from scratch. Mode and
-                # streak are NOT persisted — they're hot-loop state with
-                # no meaning across a restart boundary, so we keep
-                # mode="jumpstart" regardless.
+                # so we don't replay the jumpstart from scratch. When we
+                # hydrate we also switch mode to "congestion_avoidance":
+                # the persisted value is a known probe point, and staying
+                # in jumpstart would double 40→80→160 on the first
+                # successes and overshoot the real ceiling. +1 additive
+                # increase is the correct gentle probe around a known
+                # ceiling.
                 seed = 5 if is_cloud else new_max
                 mode: Literal["jumpstart", "congestion_avoidance"] = (
                     "jumpstart" if is_cloud else "congestion_avoidance"
@@ -278,6 +281,7 @@ class PipelineScheduler:
                         persisted = None
                     if persisted is not None:
                         seed = persisted
+                        mode = "congestion_avoidance"
                 self._slots[node_id] = ComputeSlot(
                     node_id=node_id,
                     max_concurrent=new_max,
