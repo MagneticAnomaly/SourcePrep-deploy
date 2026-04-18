@@ -81,3 +81,19 @@ class ConcurrencyStore:
                 (node_id, model_family),
             )
             conn.commit()
+
+
+_store: ConcurrencyStore | None = None
+
+
+def concurrency_store() -> ConcurrencyStore:
+    """Return the daemon-wide ConcurrencyStore singleton.
+
+    Stored at ``<data_dir>/concurrency_store.db``. See
+    ``codrag.core.paths.data_dir`` for the resolution rules.
+    """
+    global _store
+    if _store is None:
+        from codrag.core.paths import data_dir
+        _store = ConcurrencyStore(data_dir() / "concurrency_store.db")
+    return _store

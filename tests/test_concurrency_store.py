@@ -95,3 +95,17 @@ def test_uses_delete_journal_mode(tmp_path: Path) -> None:
     finally:
         verify.close()
     assert mode.lower() == "delete", f"Store did not enforce DELETE mode (got {mode!r})"
+
+
+def test_default_store_uses_data_dir(monkeypatch, tmp_path: Path) -> None:
+    """The module-level singleton reads from `data_dir() / concurrency_store.db`."""
+    from codrag.core import paths as paths_mod
+    monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
+    from codrag.services.pipeline import concurrency_store as mod
+
+    # Force re-init by calling the accessor
+    mod._store = None  # type: ignore[attr-defined]
+    s = mod.concurrency_store()
+    s.save("cloud:ep-1", "test-model", ceiling=10)
+    assert (tmp_path / "concurrency_store.db").exists()
+    assert s.load("cloud:ep-1", "test-model") == 10
