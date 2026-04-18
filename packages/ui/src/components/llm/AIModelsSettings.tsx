@@ -993,7 +993,6 @@ export function AIModelsSettings({
         value={config.advanced ?? {
           enforce_cloud_token_safety: true,
           max_thinking_budget: 24576,
-          ollama_plan_tier: 'free',
         }}
         onChange={(advanced) => onConfigChange({ ...config, advanced })}
       />
