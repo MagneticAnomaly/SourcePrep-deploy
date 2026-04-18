@@ -260,13 +260,11 @@ def seed_concepts_swarm(project_id: str) -> dict[str, Any]:
             f"files (need ≥{MIN_MODULES_FOR_SWARM} for swarm)"
         )
 
-    # Phase 112: plan-tier enforcement happens upstream in
-    # scheduler.full_budget_for_swarm() (slot.dynamic_capacity is plan-tier
-    # aware) and batch_profiles.get_batch_concurrency() (returns
-    # PLAN_TIER_CONCURRENCY[tier] for cloud).  F-59 (daemon hang from
-    # timeout misconfig) resolved 2026-04-12 — the real limit is the
-    # user's Ollama Cloud plan tier, enforced upstream.  No defensive cap
-    # here, otherwise Max-plan users silently get 3 instead of 10.
+    # Phase 82: concurrency is scheduler-driven. scheduler.full_budget_for_swarm()
+    # returns slot.dynamic_capacity discovered by AIMD for cloud endpoints and
+    # VRAM-bounded max_concurrent for local nodes. batch_profiles.get_batch_concurrency()
+    # reads the same scheduler. No defensive cap here — the real ceiling is
+    # discovered live from provider rate-limit responses.
     from codrag.core.llm_client import _is_cloud_endpoint
     is_cloud_model = _is_cloud_endpoint(llm)
 

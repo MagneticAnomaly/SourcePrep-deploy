@@ -909,12 +909,11 @@ class CodebaseAtlas:
         # Phase 79: Swarm stages bypass the scheduler's fair-share division
         # to get the full concurrency budget. The stage still waits its turn
         # in the queue — only the worker parallelism is maximized.
-        # Phase 112: plan-tier enforcement happens upstream in
-        # scheduler.full_budget_for_swarm() (slot.dynamic_capacity, plan-tier
-        # aware) and batch_profiles.get_batch_concurrency() (returns
-        # PLAN_TIER_CONCURRENCY[tier] for cloud).  No extra cap here — F-59
-        # (daemon hang from timeout misconfig) was resolved 2026-04-12; the
-        # real limit is the user's Ollama Cloud plan tier, enforced upstream.
+        # Phase 82: concurrency is scheduler-driven. scheduler.full_budget_for_swarm()
+        # returns slot.dynamic_capacity discovered by AIMD for cloud endpoints and
+        # VRAM-bounded max_concurrent for local nodes. batch_profiles.get_batch_concurrency()
+        # reads the same scheduler. No extra cap here — the real ceiling is
+        # discovered live from provider rate-limit responses.
         concurrency = 1
         try:
             from codrag.services.pipeline.scheduler import pipeline_scheduler

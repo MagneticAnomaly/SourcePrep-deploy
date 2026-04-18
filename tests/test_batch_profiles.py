@@ -4,7 +4,6 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
-from unittest.mock import patch
 
 # Load batch modules directly from file to avoid codrag.core.__init__'s
 # heavy dependency chain (fastapi, etc.)
@@ -263,115 +262,17 @@ class TestBatchedResponseParser:
         assert len(results) == 2
 
 
-# ── Plan-tier concurrency ──────────────────────────────────────────
-
-
-def test_cloud_concurrency_uses_plan_tier_max():
-    """F-59 is resolved — cloud models must no longer be hardcapped at 1."""
-    from codrag.core.batch_profiles import get_batch_concurrency
-    with patch("codrag.core.batch_profiles._get_plan_tier", return_value="max"):
-        result = get_batch_concurrency("ollama", model="kimi-k2.5:cloud")
-        assert result == 10
-
-
-def test_cloud_concurrency_uses_plan_tier_pro():
-    from codrag.core.batch_profiles import get_batch_concurrency
-    with patch("codrag.core.batch_profiles._get_plan_tier", return_value="pro"):
-        result = get_batch_concurrency("ollama", model="kimi-k2.5:cloud")
-        assert result == 3
-
-
-def test_cloud_concurrency_defaults_to_free_when_unset():
-    from codrag.core.batch_profiles import get_batch_concurrency
-    with patch("codrag.core.batch_profiles._get_plan_tier", return_value="free"):
-        result = get_batch_concurrency("ollama", model="kimi-k2.5:cloud")
-        assert result == 1
+# ── Local-model concurrency ────────────────────────────────────────
+# Phase 82 removed PLAN_TIER_CONCURRENCY + _get_plan_tier/_resolve_plan_tier_concurrency
+# helpers. Cloud concurrency is now scheduler-driven (AIMD-discovered) — see
+# tests/test_batch_profiles_no_plan_tier.py. Local models still cap at 1 to
+# protect VRAM; that invariant is asserted below.
 
 
 def test_local_model_still_returns_one():
     from codrag.core.batch_profiles import get_batch_concurrency
     result = get_batch_concurrency("ollama", model="gemma3:12b")
     assert result == 1
-
-
-# Phase 112 Fix 8: guard against the _get_plan_tier import regression.
-# Previously imported from codrag.services.config_manager (which does not
-# export the function), silently defaulting to "free" for every caller.
-
-
-def test_get_plan_tier_reads_real_settings_max(monkeypatch):
-    """_get_plan_tier must call the real get_advanced_llm_settings (not fall
-    through the broad except and return "free")."""
-    from codrag.core import batch_profiles
-
-    monkeypatch.setattr(
-        "codrag.server.get_advanced_llm_settings",
-        lambda: {"ollama_plan_tier": "max"},
-    )
-    assert batch_profiles._get_plan_tier() == "max"
-
-
-def test_get_plan_tier_reads_real_settings_pro(monkeypatch):
-    from codrag.core import batch_profiles
-
-    monkeypatch.setattr(
-        "codrag.server.get_advanced_llm_settings",
-        lambda: {"ollama_plan_tier": "pro"},
-    )
-    assert batch_profiles._get_plan_tier() == "pro"
-
-
-def test_get_plan_tier_defaults_to_free_when_missing(monkeypatch):
-    from codrag.core import batch_profiles
-
-    monkeypatch.setattr(
-        "codrag.server.get_advanced_llm_settings",
-        lambda: {},  # no plan tier set
-    )
-    assert batch_profiles._get_plan_tier() == "free"
-
-
-# Phase 112 Fix 9: custom_concurrency tier wiring.
-
-
-def test_custom_tier_honors_custom_concurrency(monkeypatch):
-    from codrag.core.batch_profiles import get_batch_concurrency
-
-    monkeypatch.setattr(
-        "codrag.server.get_advanced_llm_settings",
-        lambda: {"ollama_plan_tier": "custom", "custom_concurrency": 7},
-    )
-    assert get_batch_concurrency("ollama", model="kimi-k2.5:cloud") == 7
-
-
-def test_custom_tier_clamps_to_valid_range(monkeypatch):
-    from codrag.core.batch_profiles import _resolve_plan_tier_concurrency
-
-    # Over max → clamp to 32
-    monkeypatch.setattr(
-        "codrag.server.get_advanced_llm_settings",
-        lambda: {"ollama_plan_tier": "custom", "custom_concurrency": 999},
-    )
-    assert _resolve_plan_tier_concurrency() == 32
-
-    # Under min → clamp to 1
-    monkeypatch.setattr(
-        "codrag.server.get_advanced_llm_settings",
-        lambda: {"ollama_plan_tier": "custom", "custom_concurrency": 0},
-    )
-    assert _resolve_plan_tier_concurrency() == 1
-
-
-def test_custom_tier_missing_value_defaults_to_one(monkeypatch):
-    from codrag.core.batch_profiles import _resolve_plan_tier_concurrency
-
-    monkeypatch.setattr(
-        "codrag.server.get_advanced_llm_settings",
-        lambda: {"ollama_plan_tier": "custom"},  # no custom_concurrency
-    )
-    # server defaults provide 1, but if monkeypatched settings omit it,
-    # the resolver also defaults to 1 via .get(default=1).
-    assert _resolve_plan_tier_concurrency() == 1
 
 
 def test_server_defaults_include_custom_concurrency():
