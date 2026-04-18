@@ -128,6 +128,13 @@ class ComputeSlot:
 
     @property
     def dynamic_capacity(self) -> int:
+        """Phase 82: cloud slots discover their real ceiling at runtime;
+        clipping by ``max_concurrent`` would defeat the discovery mechanism.
+        Local slots keep the clamp — ``max_concurrent`` is a VRAM ceiling
+        and a real hardware constraint.
+        """
+        if self.node_id.startswith("cloud:"):
+            return max(1, self.current_limit)
         return min(self.max_concurrent, self.current_limit)
 
     @property
@@ -473,22 +480,31 @@ class PipelineScheduler:
                 # immediately after a fresh backoff.
                 slot._last_recovery_time = now
         else:
-            # Step 3: Additive Increase or Jumpstart (no congestion detected)
+            # Step 3: Additive Increase or Jumpstart (no congestion detected).
+            # Phase 82 completion: cloud slots are unbounded — the ceiling is
+            # discovered via congestion signals, not configured. Local slots
+            # still respect max_concurrent (VRAM).
             slot.success_streak += 1
 
+            is_cloud = slot.node_id.startswith("cloud:")
             batch_size = max(1, slot.current_limit)
             if slot.success_streak >= batch_size:
                 slot.success_streak = 0
-                if slot.current_limit < slot.max_concurrent:
+                allow_increase = is_cloud or slot.current_limit < slot.max_concurrent
+                if allow_increase:
                     if slot.mode == "jumpstart":
-                        new_limit = min(slot.max_concurrent, slot.current_limit * 2)
+                        new_limit = slot.current_limit * 2
+                        if not is_cloud:
+                            new_limit = min(slot.max_concurrent, new_limit)
                         logger.info(
                             "Scheduler: Node %s jumpstart %d -> %d",
                             slot.node_id, slot.current_limit, new_limit,
                         )
                         slot.current_limit = new_limit
                     else:
-                        new_limit = min(slot.max_concurrent, slot.current_limit + 1)
+                        new_limit = slot.current_limit + 1
+                        if not is_cloud:
+                            new_limit = min(slot.max_concurrent, new_limit)
                         slot.current_limit = new_limit
 
     def get_priority(self, project_id: str) -> PriorityLevel:
