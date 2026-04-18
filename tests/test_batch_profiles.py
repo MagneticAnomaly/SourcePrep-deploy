@@ -275,15 +275,10 @@ def test_local_model_still_returns_one():
     assert result == 1
 
 
-def test_server_defaults_include_custom_concurrency():
-    """Regression: get_advanced_llm_settings must surface custom_concurrency."""
-    from codrag.server import get_advanced_llm_settings
-
-    settings = get_advanced_llm_settings()
-    assert "custom_concurrency" in settings, (
-        "Phase 112 Fix 9: server defaults must include custom_concurrency so "
-        "the UI's 'custom' tier round-trips correctly."
-    )
+# Phase 82 completion: the plan-tier + custom_concurrency defaults were
+# removed from get_advanced_llm_settings() once AIMD discovery replaced
+# hardcoded tier dispatch. See test_server_settings_no_longer_include_plan_tier
+# in tests/test_batch_profiles_no_plan_tier.py for the inverse assertion.
 
 
 # ── Cloud Token Safety toggle (Phase 112 T16) ─────────────────────

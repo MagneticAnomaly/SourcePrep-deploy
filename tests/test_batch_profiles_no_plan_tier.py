@@ -41,3 +41,12 @@ def test_plan_tier_helpers_are_removed() -> None:
     """The plan-tier helper fns are gone — no fallbacks, no ambiguity."""
     assert not hasattr(batch_profiles, "_get_plan_tier")
     assert not hasattr(batch_profiles, "_resolve_plan_tier_concurrency")
+
+
+def test_server_settings_no_longer_include_plan_tier() -> None:
+    """The advanced-LLM settings API no longer exposes plan-tier fields."""
+    from codrag.server import get_advanced_llm_settings
+
+    settings = get_advanced_llm_settings()
+    assert "ollama_plan_tier" not in settings
+    assert "custom_concurrency" not in settings
