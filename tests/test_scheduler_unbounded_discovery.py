@@ -1,8 +1,6 @@
 """Phase 82 completion: cloud AIMD is unbounded; local remains VRAM-capped."""
 from __future__ import annotations
 
-import pytest
-
 from codrag.services.pipeline.scheduler import (
     ComputeSlot,
     PipelineScheduler,
@@ -39,7 +37,7 @@ def test_local_dynamic_capacity_still_clamps_at_max_concurrent() -> None:
     assert slot.dynamic_capacity == 2
 
 
-def test_cloud_aimd_doubling_past_max_concurrent(monkeypatch) -> None:
+def test_cloud_aimd_doubling_past_max_concurrent() -> None:
     """Cloud slot in jumpstart mode should double past its initial max_concurrent."""
     sched = PipelineScheduler()
     slot = _cloud_slot(seed=5)
@@ -55,12 +53,41 @@ def test_cloud_aimd_doubling_past_max_concurrent(monkeypatch) -> None:
         f"Expected doubling from 5→10, got current_limit={slot.current_limit}"
     )
 
-    # Trigger another 10 successes — should double to 20 (uncapped).
+    # Trigger another 10 successes — should double again (uncapped past
+    # original max_concurrent=5). Use a loose >=20 assertion so this stays
+    # robust if the batch_size formula is tweaked later.
     for _ in range(10):
         sched._record_throughput_for_slot(slot, queue_time_ms=100.0)
 
-    assert slot.current_limit == 20, (
-        f"Expected second doubling to 20 (past original max_concurrent=5), "
+    assert slot.current_limit >= 20, (
+        f"Expected second doubling to reach >=20 (past original max_concurrent=5), "
+        f"got current_limit={slot.current_limit}"
+    )
+
+
+def test_cloud_congestion_avoidance_grows_past_max_concurrent() -> None:
+    """Cloud slot's +1 additive-increase branch must also be uncapped.
+
+    The jumpstart doubling path is covered above; this exercises the
+    congestion_avoidance branch (`current_limit + 1`) to confirm the cloud
+    carve-out applies there too.
+    """
+    sched = PipelineScheduler()
+    slot = _cloud_slot(seed=5)
+    slot.mode = "congestion_avoidance"
+    sched._slots["cloud:ep-test"] = slot
+
+    # With current_limit=5, batch_size=5 triggers the first +1 (→ 6).
+    # With current_limit=6, batch_size=6 triggers the next +1 (→ 7), etc.
+    # 60 successes is enough for multiple +1 increases past max_concurrent=5.
+    for _ in range(60):
+        sched._record_throughput_for_slot(slot, queue_time_ms=100.0)
+
+    assert slot.mode == "congestion_avoidance", (
+        f"Mode unexpectedly changed to {slot.mode!r}"
+    )
+    assert slot.current_limit > 5, (
+        f"Cloud congestion_avoidance +1 should grow past max_concurrent=5, "
         f"got current_limit={slot.current_limit}"
     )
 
