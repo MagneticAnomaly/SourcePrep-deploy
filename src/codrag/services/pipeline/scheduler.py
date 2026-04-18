@@ -500,6 +500,7 @@ class PipelineScheduler:
                 slot.max_concurrent = safe_limit
                 if slot.current_limit > safe_limit:
                     slot.current_limit = safe_limit
+                    self._persist_cloud_ceiling(slot)
 
         # Step 2: Congestion detection (works for ALL providers)
         if is_429_or_timeout or queue_time_ms > 2000.0:
@@ -667,6 +668,7 @@ class PipelineScheduler:
             )
             slot.current_limit = new_limit
             slot._last_recovery_time = now
+            self._persist_cloud_ceiling(slot)
 
     def _get_queue(self, node_id: Optional[str] = None) -> Deque[QueueEntry]:
         """Get or create a queue for a node."""

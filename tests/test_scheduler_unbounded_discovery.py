@@ -146,7 +146,7 @@ def test_new_cloud_slot_hydrates_from_store(monkeypatch, tmp_path) -> None:
     from codrag.core import paths as paths_mod
     monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
     from codrag.services.pipeline import concurrency_store as mod
-    mod._store = None
+    monkeypatch.setattr(mod, "_store", None)
 
     # Persist a ceiling BEFORE creating the slot.
     store = mod.concurrency_store()
@@ -170,7 +170,7 @@ def test_aimd_backoff_writes_new_ceiling(monkeypatch, tmp_path) -> None:
     from codrag.core import paths as paths_mod
     monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
     from codrag.services.pipeline import concurrency_store as mod
-    mod._store = None
+    monkeypatch.setattr(mod, "_store", None)
 
     sched = PipelineScheduler()
     sched.configure_node("cloud:ep-backoff", max_concurrent=1)
@@ -192,7 +192,7 @@ def test_aimd_doubling_writes_new_ceiling(monkeypatch, tmp_path) -> None:
     from codrag.core import paths as paths_mod
     monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
     from codrag.services.pipeline import concurrency_store as mod
-    mod._store = None
+    monkeypatch.setattr(mod, "_store", None)
 
     sched = PipelineScheduler()
     sched.configure_node("cloud:ep-grow", max_concurrent=1)
@@ -208,12 +208,37 @@ def test_aimd_doubling_writes_new_ceiling(monkeypatch, tmp_path) -> None:
     )
 
 
+def test_rate_limit_header_clamp_persists(monkeypatch, tmp_path) -> None:
+    """Rate-limit header clamp is an authoritative ceiling signal from the
+    provider — must persist across restart (most important persist site)."""
+    from codrag.core import paths as paths_mod
+    monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
+    from codrag.services.pipeline import concurrency_store as mod
+    monkeypatch.setattr(mod, "_store", None)
+
+    sched = PipelineScheduler()
+    sched.configure_node("cloud:ep-rl", max_concurrent=50)
+    slot = sched._slots["cloud:ep-rl"]
+    # Simulate scheduler has already grown past the seed
+    slot.current_limit = 50
+    slot.max_concurrent = 50
+
+    # Provider returns rate_limit_remaining=10 → safe_limit=8, clamp both.
+    sched._record_throughput_for_slot(
+        slot, queue_time_ms=50.0, rate_limit_remaining=10,
+    )
+
+    assert slot.current_limit == 8
+    persisted = mod.concurrency_store().load("cloud:ep-rl", "__default__")
+    assert persisted == 8
+
+
 def test_local_slot_does_not_persist(monkeypatch, tmp_path) -> None:
     """Local slots have a known hardware ceiling — no discovery, no persist."""
     from codrag.core import paths as paths_mod
     monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
     from codrag.services.pipeline import concurrency_store as mod
-    mod._store = None
+    monkeypatch.setattr(mod, "_store", None)
 
     sched = PipelineScheduler()
     sched.configure_node("local:ep-gpu", max_concurrent=2)
