@@ -160,6 +160,14 @@ _TRANSITIONS: Dict[tuple, PipelineState] = {
     # Resuming from pause
     (PipelineState.PAUSED, Event.RESUME): PipelineState.RUNNING,
 
+    # Self-heal: PAUSED with every stage already finished on disk collapses
+    # directly to COMPLETED. Normally ALL_STAGES_DONE only fires from RUNNING,
+    # but daemon restarts / external resets can leave a run at PAUSED with
+    # stage_results fully populated. Without this edge, the queue + panel
+    # disagree about "is this done?" (panel overrides client-side, queue shows
+    # Paused forever). Added 2026-04-18 as backend half of the fix.
+    (PipelineState.PAUSED, Event.ALL_STAGES_DONE): PipelineState.COMPLETED,
+
     # Cancelling
     (PipelineState.RUNNING, Event.CANCEL): PipelineState.CANCELLING,
     (PipelineState.PAUSED, Event.CANCEL): PipelineState.CANCELLED,
@@ -302,6 +310,39 @@ class PipelineGroupStateMachine:
     @property
     def is_queued(self) -> bool:
         return self.state == PipelineState.QUEUED
+
+    @property
+    def is_effectively_settled(self) -> bool:
+        """True when the run is PAUSED but every stage has actually finished.
+
+        Source-of-truth reconciler: ``state`` and ``stage_results`` can drift
+        across daemon restarts or external resets. When every stage in
+        ``self.stages`` reports ``completed`` or ``skipped``, the run is done
+        regardless of the phase label — and should be collapsed to COMPLETED so
+        the queue, panel, and SSE consumers see a single consistent view.
+        """
+        if self.state != PipelineState.PAUSED:
+            return False
+        if not self.stages:
+            return False
+        return all(
+            self.stage_results.get(stage) in ("completed", "skipped")
+            for stage in self.stages
+        )
+
+    def reconcile_if_settled(self) -> bool:
+        """If ``is_effectively_settled``, fire ALL_STAGES_DONE to reach COMPLETED.
+
+        Safe to call from any read path. Returns True iff a transition fired.
+        The ``transition()`` call re-checks state under the lock, so racing
+        callers cannot double-transition.
+        """
+        if not self.is_effectively_settled:
+            return False
+        return self.transition(
+            Event.ALL_STAGES_DONE,
+            detail="reconciled: paused with all stages complete",
+        )
 
     def can_transition(self, event: Event) -> bool:
         """Check if a transition is valid without performing it."""

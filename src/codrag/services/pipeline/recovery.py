@@ -546,6 +546,31 @@ class RecoveryManager:
             if output_file and stage not in _SHARED_OUTPUT_STAGES:
                 orphan_path = idx_dir / output_file
                 if orphan_path.is_file() and orphan_path.stat().st_size > 1024:
+                    # Do NOT resurrect when the output file belongs to a
+                    # stage that was pending in the most recent interrupted
+                    # run — it's the user's paused work, not truly orphan.
+                    # Writing a stub here falsely claims the stage is
+                    # complete; resume-point detection then skips it and
+                    # downstream stages run on partial input.
+                    from codrag.services.pipeline_metadata import (
+                        is_stage_pending_in_interrupted_run,
+                    )
+                    if is_stage_pending_in_interrupted_run(idx_dir, stage.value):
+                        still_missing += 1
+                        stage_detail["status"] = "skipped_interrupted_run"
+                        stage_detail["reason"] = (
+                            "output belongs to pending stage of interrupted run"
+                        )
+                        details.append(stage_detail)
+                        if pfl:
+                            pfl.selfheal(
+                                "skip_orphan_interrupted",
+                                f"Stage {stage.value}: orphan output is pending work "
+                                f"from interrupted run — leaving manifest missing",
+                                {"stage": stage.value, "source": "orphan_output"},
+                            )
+                        continue
+
                     _write_selfheal_stub(store, stage, "orphan_output")
                     resurrected += 1
                     stage_detail["status"] = "resurrected"

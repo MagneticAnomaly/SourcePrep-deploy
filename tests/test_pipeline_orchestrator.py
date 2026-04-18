@@ -907,3 +907,65 @@ class TestFreshnessSkipReleasesSlot:
                 f"proj-2 stuck in '{s2['fast_sync']['phase']}' — "
                 f"likely blocked by proj-1's leaked slot"
             )
+
+
+# ── hot_scope_reload ──────────────────────────────────────────────
+
+
+def test_hot_scope_reload_no_active_pipeline(pipeline):
+    """hot_scope_reload is a no-op when nothing is running."""
+    result = pipeline.hot_scope_reload("no-such-project")
+    assert result["reloaded"] is False
+    assert result["reason"] == "not_running"
+
+
+def test_hot_scope_reload_constructs_buildslot_with_required_args(pipeline):
+    """Regression: BuildSlot() was called without required project_id /
+    build_type args, crashing the scope-reload path whenever users
+    changed include/exclude globs mid-pipeline.  We verify here that
+    the rebuild path at least *invokes* the trace worker with a
+    well-constructed BuildSlot — the crash used to fire before the
+    worker was even called.
+    """
+    from codrag.services.build_orchestrator import BuildSlot, BuildType
+
+    captured: Dict[str, Any] = {}
+
+    def fake_worker(slot, progress_cb):
+        captured["slot"] = slot
+        return {"nodes": 42}
+
+    # Simulate an active deep_enrichment run so hot_scope_reload
+    # actually reaches the trace-rebuild branch.
+    from codrag.services.pipeline.state_machine import (
+        Event,
+        PipelineGroupStateMachine,
+    )
+
+    sm = PipelineGroupStateMachine(
+        project_id="proj-1",
+        group="deep_enrichment",
+        stages=list(DEEP_ENRICHMENT_STAGES),
+    )
+    sm.transition(Event.START)
+    pipeline._runs[("proj-1", "deep_enrichment")] = sm
+
+    # _pause_group needs to return True; patch it to avoid the real
+    # pause machinery (which would require a live worker thread).
+    with patch.object(pipeline, "_pause_group", return_value=True), \
+         patch.object(pipeline, "resume_paused", return_value=True), \
+         patch(
+             "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+             return_value=fake_worker,
+         ):
+        result = pipeline.hot_scope_reload("proj-1")
+
+    assert "slot" in captured, "trace worker was never invoked — BuildSlot construction failed"
+    slot = captured["slot"]
+    assert isinstance(slot, BuildSlot)
+    assert slot.project_id == "proj-1"
+    assert slot.build_type == BuildType.TRACE
+    # Workers read slot.cancel_token.is_cancelled — None would crash them.
+    assert slot.cancel_token is not None
+    assert result["reloaded"] is True
+    assert result["new_node_count"] == 42

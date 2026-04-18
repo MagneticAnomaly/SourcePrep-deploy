@@ -406,6 +406,28 @@ def load_run_metadata(index_dir: Path) -> Optional[PipelineRunMetadata]:
         return None
 
 
+def is_stage_pending_in_interrupted_run(index_dir: Path, stage_id: str) -> bool:
+    """True when the last recorded run did NOT complete and this stage was
+    pending/running/failed (i.e. not marked completed) in that run.
+
+    Used by selfheal and resume-point detection to recognize that a data
+    file on disk is legitimate in-progress work from a paused run, not
+    genuinely orphan output that should be resurrected via a stub manifest.
+    Without this guard, pausing mid-enrichment leaves a partial
+    ``trace_epistemic.jsonl`` that selfheal claims as "complete," and the
+    resume detector then skips the stage entirely on the next run.
+    """
+    meta = load_run_metadata(index_dir)
+    if meta is None:
+        return False
+    if meta.status == "completed":
+        return False
+    for sr in meta.stages:
+        if sr.stage_id == stage_id:
+            return sr.status != "completed"
+    return False
+
+
 # ── Private Helpers ────────────────────────────────────────────────
 
 

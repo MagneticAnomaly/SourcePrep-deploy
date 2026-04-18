@@ -199,6 +199,115 @@ class TestDetectResumePoint:
             result = ResumeStrategy.detect_resume_point("bad-proj", FAST_SYNC_STAGES)
         assert result == 0
 
+    def test_stub_downstream_does_not_prove_upstream(self, idx_dir, store):
+        """A later stage with a STUB manifest (restored:true) must not be
+        used as proof that an earlier stage completed. Pausing mid-enrichment
+        + selfheal on resume used to chain stubs forward through
+        group_reasoning and clustering, falsely skipping all three.
+        """
+        # Structural complete (real manifest + trace_nodes).
+        store.write_provenance(StageId.STRUCTURAL, {"stage_id": "structural"})
+        (idx_dir / "trace_nodes.jsonl").write_text('{"kind":"file","file_path":"a.py"}\n')
+        for s in [StageId.INFERRED_EDGES, StageId.CATALOGUE, StageId.VALIDATION, StageId.KNOWLEDGE]:
+            store.write_provenance(s, {"stage_id": s.value})
+
+        # ENRICHMENT has NO manifest — stage is supposed to run.
+        # DEEPENING has a STUB manifest (selfheal wrote it from a shared
+        # output file). It must NOT count as proof that ENRICHMENT
+        # completed.
+        store.write_provenance(StageId.DEEPENING, {
+            "stage_id": "deepening",
+            "restored": True,
+            "source": "selfheal",
+            "backup_type": "orphan_output",
+        })
+
+        with _PatchProject(idx_dir):
+            result = ResumeStrategy.detect_resume_point(
+                "test-proj", DEEP_ENRICHMENT_STAGES, skip_mtime_cascade=True,
+            )
+        enrichment_idx = list(DEEP_ENRICHMENT_STAGES).index(StageId.ENRICHMENT)
+        assert result == enrichment_idx
+
+    def test_stub_with_dedicated_output_rejected_when_run_interrupted(
+        self, idx_dir, store,
+    ):
+        """Stub manifest for enrichment + partial trace_epistemic.jsonl +
+        pipeline_run_metadata showing interrupted run → treat as INCOMPLETE.
+
+        Reproduces the Deep Reasoning pause bug: user paused at 70/1879,
+        selfheal wrote a stub, resume used to accept the stub+output as
+        COMPLETE and jump forward three stages.
+        """
+        # Fast sync stages complete so detect walks into deep enrichment.
+        store.write_provenance(StageId.STRUCTURAL, {"stage_id": "structural"})
+        (idx_dir / "trace_nodes.jsonl").write_text('{"kind":"file","file_path":"a.py"}\n')
+
+        # ENRICHMENT has a stub manifest from selfheal + a partial output.
+        enrichment_output = STAGE_OUTPUT_FILE[StageId.ENRICHMENT]
+        assert enrichment_output is not None
+        (idx_dir / enrichment_output).write_bytes(b"x" * 4096)
+        store.write_provenance(StageId.ENRICHMENT, {
+            "stage_id": "enrichment",
+            "restored": True,
+            "source": "selfheal",
+            "backup_type": "orphan_output",
+        })
+
+        # Interrupted run metadata — enrichment was pending when paused.
+        (idx_dir / "pipeline_run_metadata.json").write_text(json.dumps({
+            "format_version": "1.0",
+            "run_id": "run-paused",
+            "project_id": "test-proj",
+            "group": "deep_enrichment",
+            "status": "interrupted",
+            "stages": [{"stage_id": "enrichment", "status": "pending"}],
+        }))
+
+        with _PatchProject(idx_dir):
+            result = ResumeStrategy.detect_resume_point(
+                "test-proj", DEEP_ENRICHMENT_STAGES, skip_mtime_cascade=True,
+            )
+        enrichment_idx = list(DEEP_ENRICHMENT_STAGES).index(StageId.ENRICHMENT)
+        assert result == enrichment_idx
+
+    def test_stub_with_dedicated_output_accepted_when_run_completed(
+        self, idx_dir, store,
+    ):
+        """When metadata shows the last run completed, stub + output is still
+        valid evidence of completion (manifest was lost, not the work).
+        """
+        store.write_provenance(StageId.STRUCTURAL, {"stage_id": "structural"})
+        (idx_dir / "trace_nodes.jsonl").write_text('{"kind":"file","file_path":"a.py"}\n')
+
+        enrichment_output = STAGE_OUTPUT_FILE[StageId.ENRICHMENT]
+        assert enrichment_output is not None
+        (idx_dir / enrichment_output).write_bytes(b"x" * 4096)
+        store.write_provenance(StageId.ENRICHMENT, {
+            "stage_id": "enrichment",
+            "restored": True,
+            "source": "selfheal",
+            "backup_type": "orphan_output",
+        })
+
+        (idx_dir / "pipeline_run_metadata.json").write_text(json.dumps({
+            "format_version": "1.0",
+            "run_id": "run-clean",
+            "project_id": "test-proj",
+            "group": "deep_enrichment",
+            "status": "completed",
+            "stages": [{"stage_id": "enrichment", "status": "completed"}],
+        }))
+
+        with _PatchProject(idx_dir):
+            result = ResumeStrategy.detect_resume_point(
+                "test-proj",
+                [StageId.STRUCTURAL, StageId.ENRICHMENT],
+                skip_mtime_cascade=True,
+            )
+        # Both structural + enrichment treated complete.
+        assert result == 2
+
 
 class TestShouldSkipStageFreshness:
     def test_skips_when_incremental(self):

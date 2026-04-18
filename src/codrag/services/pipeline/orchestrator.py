@@ -492,7 +492,7 @@ class PipelineOrchestrator:
         # _start_group) and _golden checkpoint still hold the pre-rebuild
         # data, so F-84 cancel-revert is unaffected.
         if force_from_start:
-            self._wipe_rebuild_caches(project_id, pfl)
+            self._wipe_rebuild_caches(project_id, pfl, scope="fast_sync")
 
         if resume >= len(FAST_SYNC_STAGES):
             # Phase 98 removed this guard with the assumption that "selfheal
@@ -792,9 +792,15 @@ class PipelineOrchestrator:
         # F-87: If Deep Enrichment was started directly with force_from_start=True
         # (not via the fast_sync chain, which already wiped), ensure the rebuild
         # flag + deep-stage cache wipe happen here too.
+        # Scope is "deep_enrichment" so trace_augmented.jsonl (Stage 5 output)
+        # is preserved — Stage 5 won't run to regenerate it, and Stage 6 reads it.
         if force_from_start:
             self._force_from_start_runs.add(project_id)
-            self._wipe_rebuild_caches(project_id, self._get_file_logger(project_id))
+            self._wipe_rebuild_caches(
+                project_id,
+                self._get_file_logger(project_id),
+                scope="deep_enrichment",
+            )
 
         # Phase 60D: Always skip mtime cascade.  If data exists, it's valid.
         # Workers handle incremental updates internally.
@@ -1034,12 +1040,14 @@ class PipelineOrchestrator:
         # and produces a new trace_nodes.jsonl with the updated file set.
         try:
             worker = WorkerFactory.create_worker(project_id, StageId.STRUCTURAL)
-            from codrag.services.build_orchestrator import BuildSlot
+            from codrag.services.build_orchestrator import BuildSlot, BuildType
             # Run the trace worker directly (not via BuildOrchestrator)
-            # to keep it synchronous and fast.
-            _dummy_slot = BuildSlot()
-            _dummy_slot.cancel_token = None
-            result = worker(_dummy_slot, lambda msg, cur, tot: logger.info(
+            # to keep it synchronous and fast.  BuildSlot requires project_id
+            # and build_type; cancel_token auto-inits via default_factory and
+            # workers read it via slot.cancel_token.is_cancelled() — leaving
+            # it None would crash the worker.
+            _inline_slot = BuildSlot(project_id=project_id, build_type=BuildType.TRACE)
+            result = worker(_inline_slot, lambda msg, cur, tot: logger.info(
                 "Hot scope rebuild: %s (%d/%d)", msg, cur, tot,
             ))
             new_nodes = result.get("nodes", 0)
@@ -1137,6 +1145,16 @@ class PipelineOrchestrator:
             fast_run = self._runs.get((project_id, "fast_sync"))
             deep_run = self._runs.get((project_id, "deep_enrichment"))
             fin_run = self._runs.get((project_id, "finalize"))
+
+        # Reconcile PAUSED-but-actually-done runs before callers read phase.
+        # Done outside our _lock — reconcile_if_settled() takes the run's own
+        # lock via transition(). Mirrors the same call in the queue endpoint so
+        # both views converge on COMPLETED for settled runs.
+        for run in (fast_run, deep_run, fin_run):
+            if run is not None:
+                run.reconcile_if_settled()
+
+        with self._lock:
 
             # Phase 105a (C1): Expose solo finalize-stage runs through the
             # `finalize` slot so existing downstream consumers (useEnrichment.ts,
@@ -2527,56 +2545,105 @@ class PipelineOrchestrator:
     # (user config), _branch_state.json, and anything outside the index
     # dir. Branch snapshot + _golden checkpoint retain the pre-rebuild
     # data for F-84 cancel-revert.
-    _REBUILD_WIPE_FILES = [
-        # Edge Discovery cache
-        "trace_inferred_edges.jsonl",
-        "trace_inferred_hashes.json",
-        "trace_inferred_manifest.json",
-        # Fast Catalogue / Validation output (force re-augmentation)
-        "trace_augmented.jsonl",
-        "trace_augment_manifest.json",
-        "validation_manifest.json",
-        # Knowledge Embedding (Fast Sync stage 5) — reuse_map comes from these
-        "knowledge_documents.json",
-        "knowledge_embeddings.npy",
-        "knowledge_manifest.json",
-        # Deep Reasoning
-        "trace_epistemic.jsonl",
-        "trace_epistemic_manifest.json",
-        # Group Reasoning
-        "trace_group_reasoning.jsonl",
-        "group_reasoning_manifest.json",
-        # Cluster Synthesis
-        "trace_modules.jsonl",
-        "trace_modules_manifest.json",
-        "trace_cluster_swarm_synthesis.json",
-        # Atlas + Deepening + Deep Knowledge
-        "atlas.json",
-        "atlas_prev.json",
-        "atlas_manifest.json",
-        "atlas_segments_manifest.json",
-        "atlas_routing.json",
-        "atlas_routing_embeddings.npy",
-        "atlas_updated.signal",
-        "deepening_manifest.json",
-        "deep_knowledge_manifest.json",
-        # Finalize manifests (so Finalize stages re-run too when rebuild
-        # chains through)
-        "rules_manifest.json",
-        "concepts_manifest.json",
-        "audit_manifest.json",
-        "antibodies_manifest.json",
-        # Pipeline run metadata (stale resume decisions)
-        "pipeline_run_metadata.json",
-    ]
+    #
+    # Partitioned by group so a partial rebuild (e.g. "Rebuild Deep
+    # Enrichment") does not wipe upstream outputs it cannot regenerate.
+    # Pre-fix: wiping trace_augmented.jsonl on a deep-only rebuild left
+    # Stage 6 (epistemic_enrichment) with no input → 0/1879 silent skip
+    # → all downstream deep stages no-op → deepening thrashes.
+    _REBUILD_WIPE_FILES_BY_GROUP = {
+        "fast_sync": [
+            # Edge Discovery cache
+            "trace_inferred_edges.jsonl",
+            "trace_inferred_hashes.json",
+            "trace_inferred_manifest.json",
+            # Fast Catalogue / Validation output
+            "trace_augmented.jsonl",
+            "trace_augment_manifest.json",
+            "validation_manifest.json",
+            # Knowledge Embedding (Fast Sync stage 5)
+            "knowledge_documents.json",
+            "knowledge_embeddings.npy",
+            "knowledge_manifest.json",
+        ],
+        "deep_enrichment": [
+            # Deep Reasoning
+            "trace_epistemic.jsonl",
+            "trace_epistemic_manifest.json",
+            # Group Reasoning
+            "trace_group_reasoning.jsonl",
+            "group_reasoning_manifest.json",
+            # Cluster Synthesis
+            "trace_modules.jsonl",
+            "trace_modules_manifest.json",
+            "trace_cluster_swarm_synthesis.json",
+            # Deepening + Deep Knowledge manifests
+            "deepening_manifest.json",
+            "deep_knowledge_manifest.json",
+        ],
+        "finalize": [
+            # Atlas
+            "atlas.json",
+            "atlas_prev.json",
+            "atlas_manifest.json",
+            "atlas_segments_manifest.json",
+            "atlas_routing.json",
+            "atlas_routing_embeddings.npy",
+            "atlas_updated.signal",
+            # Rules / Concepts / Audit / Antibodies
+            "rules_manifest.json",
+            "concepts_manifest.json",
+            "audit_manifest.json",
+            "antibodies_manifest.json",
+        ],
+        "global": [
+            # Pipeline run metadata (stale resume decisions)
+            "pipeline_run_metadata.json",
+        ],
+    }
 
-    def _wipe_rebuild_caches(self, project_id: str, pfl: Any = None) -> None:
+    # Group chain order: each rebuild scope wipes its own group PLUS any
+    # downstream groups that will re-run via auto-chain. "global" is always
+    # wiped. A fast_sync rebuild chains through deep + finalize, so all three
+    # group lists get wiped. A deep_enrichment rebuild chains into finalize but
+    # leaves fast_sync outputs intact (Stage 5 never runs). A finalize rebuild
+    # only wipes finalize.
+    _REBUILD_WIPE_CHAIN = ["fast_sync", "deep_enrichment", "finalize"]
+
+    def _wipe_files_for_scope(self, scope: str) -> list[str]:
+        """Return the list of files to wipe for a rebuild scope.
+
+        Wipes the scope's own group, all downstream groups (which auto-chain
+        from it), and global files. Unknown scopes fall back to wiping
+        everything for safety.
+        """
+        chain = self._REBUILD_WIPE_CHAIN
+        try:
+            idx = chain.index(scope)
+        except ValueError:
+            idx = 0  # unknown scope — wipe everything
+        files: list[str] = list(self._REBUILD_WIPE_FILES_BY_GROUP.get("global", []))
+        for g in chain[idx:]:
+            files.extend(self._REBUILD_WIPE_FILES_BY_GROUP.get(g, []))
+        return files
+
+    def _wipe_rebuild_caches(
+        self,
+        project_id: str,
+        pfl: Any = None,
+        scope: str = "fast_sync",
+    ) -> None:
         """Remove worker-level caches at rebuild start (F-87).
 
         Lets each stage's worker re-run end-to-end instead of short-
         circuiting on content-hash matches. Preserves project config
         (project.json, repo_policy.json) and all backup sources
         (_golden, run checkpoints, branch snapshots).
+
+        ``scope`` gates which groups' outputs get wiped — a
+        ``deep_enrichment`` rebuild must leave Stage 5's
+        ``trace_augmented.jsonl`` alone because Stage 5 won't run to
+        regenerate it. See ``_REBUILD_WIPE_FILES_BY_GROUP``.
 
         Also clears stale in-memory orchestrator state so the UI doesn't
         show ghost spinners from a paused/cancelled run when a fresh
@@ -2616,8 +2683,9 @@ class PipelineOrchestrator:
                     exc_info=True,
                 )
 
+            wipe_list = self._wipe_files_for_scope(scope)
             deleted = []
-            for fname in self._REBUILD_WIPE_FILES:
+            for fname in wipe_list:
                 fpath = idx_dir / fname
                 if fpath.exists():
                     try:
@@ -2626,11 +2694,12 @@ class PipelineOrchestrator:
                     except Exception:
                         pass
             logger.info(
-                "[%s] F-87 rebuild cache wipe: removed %d files",
-                project_id, len(deleted),
+                "[%s] F-87 rebuild cache wipe (scope=%s): removed %d files",
+                project_id, scope, len(deleted),
             )
             if pfl and deleted:
                 pfl.decision("rebuild_cache_wipe", "wiped", {
+                    "scope": scope,
                     "count": len(deleted),
                     "files": sorted(deleted)[:20],
                 })

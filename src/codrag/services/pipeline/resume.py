@@ -148,12 +148,41 @@ class ResumeStrategy:
                                     project_id, stages, i, stage_decisions, skip_mtime_cascade, pfl_fn
                                 )
                                 return i
-                            else:
-                                logger.info(
-                                    "Stage %s has a stub manifest but dedicated "
-                                    "output %s exists (%d bytes) — accepting as complete",
+
+                            # Don't treat a stub as complete when
+                            # pipeline_run_metadata shows this stage was
+                            # pending in the most recent interrupted run —
+                            # the output on disk is partial paused work, not
+                            # a genuine completion signal.
+                            from codrag.services.pipeline_metadata import (
+                                is_stage_pending_in_interrupted_run,
+                            )
+                            if is_stage_pending_in_interrupted_run(idx_dir, stage.value):
+                                logger.warning(
+                                    "Stage %s has a stub manifest and output %s "
+                                    "(%d bytes), but last run was interrupted with "
+                                    "this stage pending — treating as INCOMPLETE",
                                     stage.value, output_file, opath.stat().st_size,
                                 )
+                                stage_decisions.append({
+                                    "stage": stage.value,
+                                    "decision": "STUB_INTERRUPTED",
+                                    "reason": (
+                                        f"Stub manifest + output exists but last run "
+                                        f"interrupted with {stage.value} pending — "
+                                        f"output is partial paused work"
+                                    ),
+                                })
+                                ResumeStrategy._log_resume_decisions(
+                                    project_id, stages, i, stage_decisions, skip_mtime_cascade, pfl_fn
+                                )
+                                return i
+
+                            logger.info(
+                                "Stage %s has a stub manifest but dedicated "
+                                "output %s exists (%d bytes) — accepting as complete",
+                                stage.value, output_file, opath.stat().st_size,
+                            )
 
                     # Phase 81: Generic output-file check for non-stub manifests.
                     # A manifest can exist even when the worker returned
@@ -361,6 +390,69 @@ class ResumeStrategy:
                             ),
                         })
                         continue
+
+                # Downstream-proves-upstream recovery: if ANY later stage in
+                # this group has a completed manifest, the current stage must
+                # have run to produce the inputs for it. Pipeline stages run
+                # sequentially through _start_group, so a later manifest can
+                # only exist if earlier stages finished. This handles the
+                # "zombie paused validation" symptom — a wipe / partial reset
+                # / prior-bug deleted this stage's manifest, but the work
+                # actually completed. Write a recovery manifest so resume
+                # detection stops pinning here on every daemon restart.
+                #
+                # Critical: reject downstream STUB manifests. Selfheal writes
+                # stubs (restored:true) from orphan outputs and backup
+                # sources — those are NOT proof the stage ran in order.
+                # Treating a stub as proof propagates false completion back
+                # up the chain, skipping multiple legitimate stages.
+                downstream_complete_stage = None
+                for j in range(i + 1, len(stages)):
+                    next_manifest = STAGE_MANIFEST_FILE.get(stages[j])
+                    if not next_manifest:
+                        continue
+                    npath = idx_dir / next_manifest
+                    if not (npath.exists() and npath.stat().st_size > 0):
+                        continue
+                    if store.is_stub_manifest(stages[j]):
+                        continue
+                    downstream_complete_stage = stages[j]
+                    break
+
+                if downstream_complete_stage is not None:
+                    try:
+                        store.write_provenance(stage, {
+                            "format_version": "2.0",
+                            "stage_id": stage.value,
+                            "recovered": True,
+                            "recovery_note": (
+                                f"Manifest missing but downstream stage "
+                                f"{downstream_complete_stage.value} completed — "
+                                f"stage must have finished to produce its input"
+                            ),
+                            "finished_at": _iso_now(),
+                        })
+                        logger.warning(
+                            "Stage %s manifest missing but downstream %s is "
+                            "complete — wrote recovery manifest",
+                            stage.value, downstream_complete_stage.value,
+                        )
+                        stage_decisions.append({
+                            "stage": stage.value,
+                            "decision": "CRASH_RECOVERY",
+                            "reason": (
+                                f"Manifest missing but downstream "
+                                f"{downstream_complete_stage.value} completed — "
+                                f"recovery manifest written"
+                            ),
+                        })
+                        continue
+                    except Exception:
+                        logger.debug(
+                            "Failed to write recovery manifest for %s "
+                            "(non-fatal — falling through to MISSING_MANIFEST)",
+                            stage.value, exc_info=True,
+                        )
 
                 stage_decisions.append({
                     "stage": stage.value,

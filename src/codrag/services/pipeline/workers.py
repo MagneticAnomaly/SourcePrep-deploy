@@ -565,6 +565,28 @@ class WorkerFactory:
 
             _t0 = time.time()
             logger.info("[%s/Deep Reasoning] Starting: model=%s", project.name, llm_client.model)
+
+            # Pre-flight: trace_augmented.jsonl is the sole input. If it's
+            # missing or empty, _needs_enrichment returns False for every
+            # node and the stage silently produces 0 — which then starves
+            # stages 7, 8, 9, 10 of work. Fail loudly instead so the UI
+            # surfaces a real error and the user can rebuild Fast Sync.
+            aug_path = Path(idx_dir) / "trace_augmented.jsonl"
+            try:
+                aug_size = aug_path.stat().st_size if aug_path.exists() else 0
+            except OSError:
+                aug_size = 0
+            if aug_size == 0:
+                msg = (
+                    "Epistemic enrichment input missing: "
+                    f"{aug_path} (size={aug_size}). "
+                    "Stage 5 (Fast Catalogue/augmentation) must run first. "
+                    "Click 'Rebuild Fast Sync' to regenerate."
+                )
+                if pfl:
+                    pfl.log("enrichment", msg)
+                raise RuntimeError(msg)
+
             log_cb = WorkerFactory._logged_progress("Deep Reasoning", progress_cb, project.name)
             enricher = EpistemicEnricher(
                 llm=llm_client,

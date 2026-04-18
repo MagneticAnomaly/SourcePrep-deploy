@@ -593,8 +593,21 @@ function computeDeepKnowledgeState(
   // F-76: If deep_chunks_embedded is non-zero (including the manifest
   // fallback from the backend), stay green even if upstream runtime fields
   // are stale mid-rebuild. The embeddings on disk are still valid.
+  //
+  // The fast path must only fire when upstream is STABLE (not actively
+  // running). During a resumed Deep Reasoning, ep.enriched_nodes climbs
+  // from 0 as new records land, but `deep_chunks_embedded` still reflects
+  // the prior run's 120 epistemic/module docs sitting in
+  // knowledge_documents.json — those are orphaned from the current
+  // enrichment state. Without this gate, Deep Knowledge Embedding paints
+  // green while Deep Reasoning is still 41% of the way through.
   const deepChunks = know?.deep_chunks_embedded ?? 0;
-  if (deepChunks > 0) return 'complete';
+  const upstreamStable = !!(
+    ep && ep.enriched_nodes > 0 && !ep.running
+    && !mod?.running
+    && !deep?.running
+  );
+  if (deepChunks > 0 && upstreamStable) return 'complete';
 
   if (!ep || !ep.enabled || ep.enriched_nodes === 0) return 'disabled';
   if (!mod || !mod.enabled || mod.module_count === 0) return 'disabled';
@@ -1084,8 +1097,10 @@ export function GraphEnrichmentPipeline({
     }
     if (deepeningState === 'not_built') return 'Not started';
     if (!deepening) return '';
-    const pct = Math.round(deepening.settled_ratio * 100);
-    return `${pct}% settled · avg ${Math.round(deepening.avg_score * 100)}%`;
+    const settled = Number.isFinite(deepening.settled_ratio) ? deepening.settled_ratio : 0;
+    const avg = Number.isFinite(deepening.avg_score) ? deepening.avg_score : 0;
+    const pct = Math.round(settled * 100);
+    return `${pct}% settled · avg ${Math.round(avg * 100)}%`;
   })();
   const deepeningProgress = (deepeningState === 'running' && deepening?.max_iterations && deepening.max_iterations > 0)
     ? Math.round(((deepening.iteration ?? 0) / deepening.max_iterations) * 100)
@@ -1290,6 +1305,19 @@ export function GraphEnrichmentPipeline({
   const overallProgress = completedStages / allStates.length * 100;
   const roundedProgress = Math.round(overallProgress);
 
+  // A group with no stages left to run shouldn't display a Resume button — the
+  // backend's paused flag can survive daemon restarts or partial resets, so we
+  // need a frontend invariant: if every stage is complete or disabled, there
+  // is nothing to resume, regardless of what `fastPaused` says.
+  const isGroupSettled = (stages: EnrichmentStage[]) =>
+    stages.every(s => s.state === 'complete' || s.state === 'disabled');
+  const fastSettled = isGroupSettled(fastStages);
+  const deepSettled = isGroupSettled(deepStages);
+  const finalizeSettled = isGroupSettled(finalizeStages);
+  const effectiveFastPaused = fastPaused && !fastSettled;
+  const effectiveDeepPaused = deepPaused && !deepSettled;
+  const effectiveFinalizePaused = finalizePaused && !finalizeSettled;
+
   // ── Hero state: trace not yet built ──────────────────────────
   const traceNotBuilt = !trace.exists && !trace.building;
 
@@ -1368,7 +1396,7 @@ export function GraphEnrichmentPipeline({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {!fastAuto && fastPaused && onResumePipeline && !fastRunning && (
+          {!fastAuto && effectiveFastPaused && onResumePipeline && !fastRunning && (
             <button
               onClick={() => onResumePipeline('fast_sync')}
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
@@ -1378,7 +1406,7 @@ export function GraphEnrichmentPipeline({
               Resume
             </button>
           )}
-          {!fastAuto && onRunFastSync && !fastPaused && (
+          {!fastAuto && onRunFastSync && !effectiveFastPaused && (
             <button
               onClick={inactive ? undefined : onRunFastSync}
               disabled={fastRunning || limitReached || inactive}
@@ -1410,10 +1438,15 @@ export function GraphEnrichmentPipeline({
       ) : (
         <div className="flex flex-col gap-0.5 ml-1">
           {fastStages.map((stage, idx) => {
-            // Use explicit backend stage ID if available; fall back to heuristic
+            // Use explicit backend stage ID if available; fall back to heuristic.
+            // A stage that is itself already 'complete' or 'disabled' must never
+            // be rendered as paused — otherwise a stale backend fastPausedStage
+            // (e.g. persisted across a daemon restart) paints a finished stage
+            // orange with a misleading "Paused · 0 issues found" label.
             const isStagePaused = fastPausedStage
-              ? !!(fastPaused && !fastRunning && stage.id === fastPausedStage)
-              : !!(fastPaused && !fastRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
+              ? !!(effectiveFastPaused && !fastRunning && stage.id === fastPausedStage &&
+                stage.state !== 'complete' && stage.state !== 'disabled')
+              : !!(effectiveFastPaused && !fastRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
                 fastStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
             const showRecover = projectId && apiClient &&
               (stage.state === 'error' || stage.state === 'warning' || stage.state === 'stale');
@@ -1453,7 +1486,7 @@ export function GraphEnrichmentPipeline({
           <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Deep Enrichment</span>
         </div>
         <div className="flex items-center gap-2">
-          {deepPaused && onResumePipeline && !deepRunning && (
+          {effectiveDeepPaused && onResumePipeline && !deepRunning && (
             <button
               onClick={() => onResumePipeline('deep_enrichment')}
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
@@ -1463,7 +1496,7 @@ export function GraphEnrichmentPipeline({
               Resume
             </button>
           )}
-          {deepMode === 'manual' && onRunDeepEnrichment && !(deepPaused && !deepRunning) && (
+          {deepMode === 'manual' && onRunDeepEnrichment && !(effectiveDeepPaused && !deepRunning) && (
             <button
               onClick={inactive ? undefined : onRunDeepEnrichment}
               disabled={deepRunning || limitReached || inactive}
@@ -1479,7 +1512,7 @@ export function GraphEnrichmentPipeline({
               )}
             >
               <Play className="w-3.5 h-3.5" />
-              {deepRunning ? 'Running…' : deepPaused ? 'Paused' : 'Run'}
+              {deepRunning ? 'Running…' : effectiveDeepPaused ? 'Paused' : 'Run'}
             </button>
           )}
           {onOpenDeepSettings && deepMode === 'scheduled' && (
@@ -1505,10 +1538,12 @@ export function GraphEnrichmentPipeline({
       ) : (
         <div className="flex flex-col gap-0.5 ml-1">
           {deepStages.map((stage, idx) => {
-            // Use explicit backend stage ID if available; fall back to heuristic
+            // Use explicit backend stage ID if available; fall back to heuristic.
+            // Never mark an already-complete or disabled stage as paused.
             const isStagePaused = deepPausedStage
-              ? !!(deepPaused && !deepRunning && stage.id === deepPausedStage)
-              : !!(deepPaused && !deepRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
+              ? !!(effectiveDeepPaused && !deepRunning && stage.id === deepPausedStage &&
+                stage.state !== 'complete' && stage.state !== 'disabled')
+              : !!(effectiveDeepPaused && !deepRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
                 deepStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
             const showRecover = projectId && apiClient &&
               (stage.state === 'error' || stage.state === 'warning' || stage.state === 'stale');
@@ -1548,7 +1583,7 @@ export function GraphEnrichmentPipeline({
           <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Finalize</span>
         </div>
         <div className="flex items-center gap-2">
-          {finalizePaused && onResumePipeline && !finalizeRunning && (
+          {effectiveFinalizePaused && onResumePipeline && !finalizeRunning && (
             <button
               onClick={() => onResumePipeline('finalize')}
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
@@ -1561,7 +1596,7 @@ export function GraphEnrichmentPipeline({
           {/* Phase 105b: hide Run button when finalize mode is Auto, matching
               the deep-enrichment pattern. In Auto mode, finalize chains
               automatically after deep completes — manual Run is misleading. */}
-          {cfg.finalize === 'manual' && onRunFinalize && !finalizePaused && (
+          {cfg.finalize === 'manual' && onRunFinalize && !effectiveFinalizePaused && (
             <button
               onClick={inactive ? undefined : onRunFinalize}
               disabled={finalizeRunning || limitReached || inactive}
@@ -1589,9 +1624,11 @@ export function GraphEnrichmentPipeline({
       ) : (
         <div className="flex flex-col gap-0.5 ml-1">
           {finalizeStages.map((stage, idx) => {
+            // Never mark an already-complete or disabled stage as paused.
             const isStagePaused = finalizePausedStage
-              ? !!(finalizePaused && !finalizeRunning && stage.id === finalizePausedStage)
-              : !!(finalizePaused && !finalizeRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
+              ? !!(effectiveFinalizePaused && !finalizeRunning && stage.id === finalizePausedStage &&
+                stage.state !== 'complete' && stage.state !== 'disabled')
+              : !!(effectiveFinalizePaused && !finalizeRunning && stage.state !== 'complete' && stage.state !== 'disabled' &&
                 finalizeStages.slice(0, idx).every(s => s.state === 'complete' || s.state === 'disabled'));
             const showRecover = projectId && apiClient &&
               (stage.state === 'error' || stage.state === 'warning' || stage.state === 'stale');

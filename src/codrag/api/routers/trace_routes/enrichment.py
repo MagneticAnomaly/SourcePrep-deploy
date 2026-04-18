@@ -573,6 +573,19 @@ def deepening_status_project(project_id: str) -> Dict[str, Any]:
     # Compute epistemic scores to get convergence info — but only if
     # clustering has produced modules.  Without modules, deepening hasn't
     # meaningfully run and showing epistemic scores here is misleading.
+    # Coerce NaN/inf → 0.0. Python's json.dump emits literal NaN (non-standard
+    # JSON); browsers' JSON.parse accepts it and passes NaN through to React,
+    # where `Math.round(NaN * 100)` renders as "NaN% settled · avg NaN%".
+    # Seen after an aborted deepening run left quality stats partially written.
+    def _finite(value: Any, default: float = 0.0) -> float:
+        try:
+            f = float(value)
+        except (TypeError, ValueError):
+            return default
+        if f != f or f == float("inf") or f == float("-inf"):
+            return default
+        return f
+
     result: Dict[str, Any] = {"running": False}
     try:
         manifest_path = idx_dir / "deepening_manifest.json"
@@ -580,12 +593,12 @@ def deepening_status_project(project_id: str) -> Dict[str, Any]:
             with open(manifest_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 quality = data.get("quality", {})
-                result["total_scored"] = quality.get("total_items", 0)
-                result["settled_count"] = quality.get("processed", 0)
-                result["settled_ratio"] = quality.get("success_rate", 0.0)
-                result["avg_score"] = quality.get("avg_confidence", 0.0)
-                result["min_score"] = quality.get("min_confidence", 0.0)
-                result["max_score"] = quality.get("max_confidence", 0.0)
+                result["total_scored"] = int(_finite(quality.get("total_items", 0)))
+                result["settled_count"] = int(_finite(quality.get("processed", 0)))
+                result["settled_ratio"] = _finite(quality.get("success_rate", 0.0))
+                result["avg_score"] = _finite(quality.get("avg_confidence", 0.0))
+                result["min_score"] = _finite(quality.get("min_confidence", 0.0))
+                result["max_score"] = _finite(quality.get("max_confidence", 0.0))
         else:
             result["total_scored"] = 0
             result["settled_count"] = 0

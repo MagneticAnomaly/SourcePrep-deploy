@@ -76,9 +76,40 @@ function phaseToStatus(phase: string): StatusState {
 function groupLabel(group: string): string {
   switch (group) {
     case 'fast_sync': return 'Fast Sync';
-    case 'deep_enrichment': return 'Deep Enrich';
+    case 'deep_enrichment': return 'Deep Enrichment';
+    case 'finalize': return 'Finalize';
     default: return group;
   }
+}
+
+// Mirrors the stage labels rendered in GraphEnrichmentPipeline so the queue
+// entry and the pipeline panel always agree on the human-readable name.
+// Keep in sync with the stage config blocks in
+// packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx.
+const STAGE_LABELS: Record<string, string> = {
+  // Fast Sync
+  structural: 'Structural Graph',
+  inferred_edges: 'Edge Discovery',
+  catalogue: 'Fast Catalogue',
+  validation: 'Relationship Validation',
+  knowledge: 'Knowledge Embedding',
+  // Deep Enrichment
+  enrichment: 'Deep Reasoning',
+  group_reasoning: 'Group Reasoning',
+  clustering: 'Module Synthesis',
+  deepening: 'Continuous Deepening',
+  deep_knowledge: 'Deep Knowledge Embedding',
+  // Finalize
+  atlas: 'Atlas Building',
+  rules: 'Rules Generation',
+  concepts: 'Concept Seeding',
+  audit: 'Structural Audit',
+  antibodies: 'Immune System',
+};
+
+function stageLabel(stageId: string | null | undefined): string | null {
+  if (!stageId) return null;
+  return STAGE_LABELS[stageId] ?? stageId;
 }
 
 // ── Component ─────────────────────────────────────────────────────
@@ -260,7 +291,7 @@ export function SidebarPipelineQueue({
                 <div className="flex items-center justify-between mt-0.5">
                   <span className="text-[10px] text-text-muted">
                     {groupLabel(item.group)}
-                    {item.current_stage && ` · ${item.current_stage}`}
+                    {item.current_stage && ` · ${stageLabel(item.current_stage)}`}
                   </span>
                   <span className="text-[10px] text-text-muted tabular-nums">
                     {item.phase === 'running' && item.elapsed_seconds != null

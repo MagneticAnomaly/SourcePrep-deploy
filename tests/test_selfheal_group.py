@@ -371,6 +371,67 @@ class TestOrphanOutputDetection:
         assert data["source"] == "selfheal"
         assert data["backup_type"] == "orphan_output"
 
+    @pytest.mark.usefixtures("_patch_resolve")
+    def test_orphan_skipped_when_stage_pending_in_interrupted_run(
+        self, idx_dir: Path, pfl: MagicMock,
+    ) -> None:
+        """Partial output from a paused/interrupted run must NOT be resurrected.
+
+        Reproduces the Deep Reasoning pause bug: the user paused mid-enrichment
+        with 70/1879 records written. Selfheal's orphan_output branch used to
+        claim the partial file as a completed stage, causing resume to skip
+        the stage entirely on unpause.
+        """
+        stage = StageId.ENRICHMENT
+        _write_output(idx_dir, stage, size=4096)  # partial output
+
+        # Simulate pipeline_run_metadata.json for an interrupted run where
+        # enrichment was pending when the user paused.
+        (idx_dir / "pipeline_run_metadata.json").write_text(json.dumps({
+            "format_version": "1.0",
+            "run_id": "run-paused",
+            "project_id": "test-proj",
+            "group": "deep_enrichment",
+            "status": "interrupted",
+            "stages": [
+                {"stage_id": "enrichment", "status": "pending"},
+                {"stage_id": "group_reasoning", "status": "pending"},
+            ],
+        }))
+
+        result = RecoveryManager.selfheal_group(
+            project_id="test-proj", stages=[stage], pfl=pfl,
+        )
+
+        assert result["resurrected"] == 0
+        assert result["still_missing"] == 1
+        store = ManifestStore(idx_dir)
+        assert not store.provenance_exists(stage)
+        # Selfheal must record why it skipped, for post-mortem visibility.
+        detail = result["details"][0]
+        assert detail["status"] == "skipped_interrupted_run"
+
+    @pytest.mark.usefixtures("_patch_resolve")
+    def test_orphan_resurrected_when_last_run_completed(
+        self, idx_dir: Path,
+    ) -> None:
+        """If the last run completed cleanly, an orphan output on disk really is
+        orphan (manifest truly lost) and should be resurrected as before."""
+        stage = StageId.CATALOGUE
+        _write_output(idx_dir, stage, size=4096)
+
+        (idx_dir / "pipeline_run_metadata.json").write_text(json.dumps({
+            "format_version": "1.0",
+            "run_id": "run-clean",
+            "project_id": "test-proj",
+            "group": "fast_sync",
+            "status": "completed",
+            "stages": [{"stage_id": "catalogue", "status": "completed"}],
+        }))
+
+        result = RecoveryManager.selfheal_group("test-proj", [stage])
+        assert result["resurrected"] == 1
+
 
 class TestManifestOnlyResurrection:
     """Verify stages with no output file get selfheal stubs (not raw copies)."""

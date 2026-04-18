@@ -163,6 +163,12 @@ def _build_queue_sync() -> dict[str, Any]:
 
     # 1. Active runs from orchestrator state machines
     for (pid, group), sm in pipeline_orchestrator._runs.items():
+        # Self-heal: PAUSED runs with every stage already complete are
+        # effectively done. Promote them to COMPLETED before we read the
+        # phase so the queue and the pipeline panel agree on the state. Without
+        # this, the panel's client-side settled-override and the queue's raw
+        # phase read can disagree (panel says "done", queue shows "Paused").
+        sm.reconcile_if_settled()
         state_val = sm.state.value
         if state_val in _EXCLUDED_STATES:
             continue
