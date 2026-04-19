@@ -148,7 +148,7 @@ export interface GraphEnrichmentPipelineProps {
   className?: string;
 }
 
-type StageState = 'disabled' | 'waiting' | 'queued' | 'running' | 'rerunning' | 'complete' | 'stale' | 'error' | 'idle' | 'not_built' | 'warning';
+type StageState = 'disabled' | 'waiting' | 'queued' | 'running' | 'rerunning' | 'rebuilding' | 'complete' | 'stale' | 'error' | 'idle' | 'not_built' | 'warning';
 
 export interface EnrichmentStage {
   id: EnrichmentStageId;
@@ -633,6 +633,7 @@ const STATE_STYLES: Record<StageState, { bg: string; border: string; text: strin
   queued: { bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-400', icon: 'text-purple-400' },
   running: { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-400', icon: 'text-blue-400' },
   rerunning: { bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-400', icon: 'text-purple-400' },
+  rebuilding: { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-400', icon: 'text-blue-400' },
   stale: { bg: 'bg-amber-500/10', border: 'border-amber-500/30', text: 'text-amber-400', icon: 'text-amber-400' },
   complete: { bg: 'bg-success/10', border: 'border-success/30', text: 'text-success', icon: 'text-success' },
   warning: { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-400', icon: 'text-orange-400' },
@@ -654,6 +655,7 @@ function StateIcon({ state }: { state: StageState }) {
       return <Clock className={cn(cls, 'animate-pulse')} />;
     case 'running':
     case 'rerunning':
+    case 'rebuilding':
       return <Loader2 className={cn(cls, 'animate-spin')} />;
     case 'warning':
       return <AlertTriangle className={cls} />;
