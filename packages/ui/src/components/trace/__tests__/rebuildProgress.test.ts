@@ -91,3 +91,27 @@ describe('computeOverallRebuildPercent', () => {
     expect(computeOverallRebuildPercent(stages)).toBe(11);
   });
 });
+
+describe('full-import-chain rebuild detection', () => {
+  it('given a live rebuild snapshot, derives the expected overall percent', () => {
+    const barrier: BarrierStatus = { active: true, reason: 'rebuild' };
+    const fast: RebuildStageSnapshot[] = [
+      { state: 'complete', progress: undefined },   // structural
+      { state: 'complete', progress: undefined },   // inferred_edges
+      { state: 'rebuilding', progress: 60 },        // catalogue in-flight
+      { state: 'queued', progress: undefined },     // validation
+      { state: 'queued', progress: undefined },     // knowledge
+    ];
+    const deep: RebuildStageSnapshot[] = Array.from({ length: 5 }, () => ({ state: 'queued', progress: undefined }));
+    const finalize: RebuildStageSnapshot[] = Array.from({ length: 5 }, () => ({ state: 'queued', progress: undefined }));
+
+    expect(isPipelineRebuilding(barrier)).toBe(true);
+    // (100 + 100 + 60 + 0*12) / 15 = 17.33 → 17
+    expect(computeOverallRebuildPercent([...fast, ...deep, ...finalize])).toBe(17);
+  });
+
+  it('non-rebuild barrier short-circuits detection even if stages look mid-run', () => {
+    const barrier: BarrierStatus = { active: true, reason: 'enrichment_reset' };
+    expect(isPipelineRebuilding(barrier)).toBe(false);
+  });
+});
