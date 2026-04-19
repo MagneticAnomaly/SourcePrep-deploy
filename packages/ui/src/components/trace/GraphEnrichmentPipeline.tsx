@@ -9,7 +9,7 @@ import {
 import { computeGroupRollup, type GroupRollup } from './pipelineRollup';
 import { RecoverStagePanel } from './RecoverStagePanel';
 import { BarrierIndicator } from './BarrierIndicator';
-import { isPipelineRebuilding } from './rebuildProgress';
+import { isPipelineRebuilding, computeOverallRebuildPercent, type RebuildStageSnapshot } from './rebuildProgress';
 import { HealthBadge } from '../pipeline/HealthBadge';
 import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, InferredEdgesStatus, AtlasStatus, StageProvenance, RulesStatus, ConceptsStatus, AuditPipelineStatus, AntibodiesStatus, BarrierStatus, PipelineHealth } from '../../types';
 import type { ApiClient } from '../../api/client';
@@ -1319,6 +1319,12 @@ export function GraphEnrichmentPipeline({
   const overallProgress = completedStages / allStates.length * 100;
   const roundedProgress = Math.round(overallProgress);
 
+  const rebuildStages: RebuildStageSnapshot[] = [...fastStages, ...deepStages, ...finalizeStages]
+    .map((s) => ({ state: s.state, progress: s.progress }));
+  const overallRebuildPercent = isRebuilding
+    ? computeOverallRebuildPercent(rebuildStages)
+    : 0;
+
   // A group with no stages left to run shouldn't display a Resume button — the
   // backend's paused flag can survive daemon restarts or partial resets, so we
   // need a frontend invariant: if every stage is complete or disabled, there
@@ -1388,6 +1394,16 @@ export function GraphEnrichmentPipeline({
       data-finalize-running={finalizeRunning || undefined}
       className={cn("flex flex-col gap-3", fadeIn && "animate-in fade-in duration-500", className)}
     >
+
+      {isRebuilding && (
+        <div className="px-4 pt-3 pb-1" data-testid="overall-rebuild-bar">
+          <StageProgressBar
+            variant="rebuild"
+            rebuildPercent={overallRebuildPercent}
+            className="h-2"
+          />
+        </div>
+      )}
 
       {/* ── Phase 114: Reset Barrier Banner ─────────── */}
       {barrier?.active && (
