@@ -23,49 +23,6 @@ from typing import Dict, Optional
 logger = logging.getLogger(__name__)
 
 
-def _get_plan_tier() -> str:
-    """Resolve the current Ollama Cloud plan tier from settings.
-
-    Returns "free" when unset (safest default).  Overridden by tests via
-    patch.
-
-    Phase 112 Fix 8: previously imported from ``codrag.services.config_manager``,
-    which does not export ``get_advanced_llm_settings`` — so the ImportError
-    was silently caught and every caller got "free".  The function lives on
-    ``codrag.server``; import from there.
-    """
-    try:
-        from codrag.server import get_advanced_llm_settings
-        settings = get_advanced_llm_settings()
-        return settings.get("ollama_plan_tier", "free")
-    except Exception as exc:  # pragma: no cover — defensive
-        logger.debug("Failed to resolve plan tier, defaulting to free: %s", exc)
-        return "free"
-
-
-def _resolve_plan_tier_concurrency() -> int:
-    """Map the current plan tier to a concrete concurrency value.
-
-    Phase 112 Fix 9: when the user selects ``ollama_plan_tier == "custom"``,
-    honor their ``custom_concurrency`` input (clamped to [1, 32], matching
-    the UI validation in AdvancedLLMSettings.tsx).  Otherwise look up the
-    fixed per-tier value in PLAN_TIER_CONCURRENCY.
-    """
-    from codrag.core.swarm_optimizer import PLAN_TIER_CONCURRENCY
-
-    tier = _get_plan_tier()
-    if tier == "custom":
-        try:
-            from codrag.server import get_advanced_llm_settings
-            settings = get_advanced_llm_settings()
-            raw = settings.get("custom_concurrency", 1)
-            return max(1, min(32, int(raw)))
-        except Exception as exc:  # pragma: no cover — defensive
-            logger.debug("Failed to resolve custom_concurrency, defaulting to 1: %s", exc)
-            return 1
-    return PLAN_TIER_CONCURRENCY.get(tier, 1)
-
-
 # ── Stage IDs (mirrors pipeline_orchestrator.StageId values) ──────
 
 class BatchStage(str, enum.Enum):
@@ -390,22 +347,11 @@ def get_batch_concurrency(provider: str, node_id: str | None = None, model: str 
     """
     provider_lower = provider.lower().strip()
 
-    # Cloud models: use Ollama Cloud plan tier to cap concurrency.
-    # F-59 root cause (daemon hang from timeout misconfiguration) was
-    # resolved on 2026-04-12 — see docs/Phase79_Swarm/07_Rework/
-    # SWARM_HANG_INVESTIGATION.md.  Concurrent cloud requests now work
-    # end-to-end inside the daemon; the real limit is the plan tier.
-    _is_cloud = provider_lower not in _LOCAL_PROVIDERS
-    if not _is_cloud and model:
-        _is_cloud = is_cloud_model_via_ollama(provider_lower, model or "")
-    if _is_cloud:
-        tier = _get_plan_tier()
-        plan_concurrency = _resolve_plan_tier_concurrency()
-        logger.info(
-            "Batch concurrency: %d (plan tier=%s, provider=%s, model=%s)",
-            plan_concurrency, tier, provider_lower, model,
-        )
-        return plan_concurrency
+    # Phase 82 completion: cloud dispatch no longer short-circuits on a
+    # hardcoded plan-tier value. Both cloud and local go through the
+    # scheduler, which discovers the real ceiling via AIMD for cloud and
+    # uses the VRAM-bounded max_concurrent for local. See
+    # docs/Phase82_CloudPipelineConcurrency/05_Completion_Plan.md.
 
     # Read the calling project's ID from the telemetry context so the
     # scheduler can give the priority ⭐ project the full cloud budget.
@@ -448,17 +394,15 @@ def get_batch_concurrency(provider: str, node_id: str | None = None, model: str 
     except ImportError:
         pass
 
-    # Fallback: hardcoded defaults (pre-Phase 56B behavior)
-    # Phase 112 fix 4: honor the user's Ollama Cloud plan tier even when
-    # the scheduler is unreachable.  Previously hardcoded 3 for cloud
-    # would exceed the Free tier (=1) limit and under-utilize Max (=10).
+    # Fallback: scheduler unreachable. Phase 82 completion: no hardcoded
+    # cloud plan-tier cap here either — AIMD discovery lives in the
+    # scheduler, and without it we have no basis to guess a cloud ceiling.
+    # Return 1 as the safest conservative default for both local and
+    # cloud; in practice this only fires during module import races.
     is_cloud_model = provider_lower not in _LOCAL_PROVIDERS
     if not is_cloud_model and model:
         is_cloud_model = is_cloud_model_via_ollama(provider_lower, model)
-    if is_cloud_model:
-        fallback = _resolve_plan_tier_concurrency()
-    else:
-        fallback = 1
+    fallback = 1
     logger.info(
         "Batch concurrency: %d workers (FALLBACK — no scheduler, provider=%s, cloud=%s)",
         fallback, provider_lower, is_cloud_model,

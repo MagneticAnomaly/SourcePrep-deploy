@@ -47,6 +47,34 @@ from codrag.core.model_readiness import (
 # Known local LLM provider ports allowed on loopback
 _ALLOWED_LOCAL_PORTS = {11434, 1234, 1235}  # Ollama, LM Studio
 
+
+def _count_live_workers(*, project_id: str, task_id: str) -> int:
+    """Count in-flight LLM requests matching (project_id, task_id).
+
+    Phase 82 completion: the AI Gateway UI now reflects actual API call
+    concurrency, not the scheduler's configured maximum. The scheduler
+    has adaptive discovery and can run above or below its configured
+    cloud_concurrency, so a static read is misleading. Live telemetry is
+    authoritative.
+
+    ``model_slot`` is intentionally not filtered on — LLMClient does not
+    reliably set ``_model_slot`` on itself, so telemetry entries almost
+    always carry ``model_slot=None``. ``(project_id, task_id)`` is the
+    authoritative composite key; adding model_slot would always filter
+    everything out.
+    """
+    from codrag.services.token_telemetry import telemetry
+
+    count = 0
+    for req in telemetry.get_active_requests():
+        if req.get("project_id") != project_id:
+            continue
+        # task_id optional-match: if provided, filter on it; otherwise accept all
+        if task_id and req.get("task_id") != task_id:
+            continue
+        count += 1
+    return count
+
 def is_safe_url(url: str, provider: str) -> bool:
     """SSRF protection: ensure URL is HTTP/HTTPS and not targeting private networks.
 
@@ -623,17 +651,25 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
                     except (ValueError, KeyError):
                         pass
 
-        # Enrich running tasks with concurrent worker count from scheduler
+        # Enrich running tasks with concurrent worker count.
+        # Phase 82 completion: concurrent_workers is the LIVE in-flight
+        # count from token_telemetry, not the scheduler's configured max.
+        # The scheduler's value is preserved under scheduler_capacity for
+        # debugging / observability.
         try:
             from codrag.services.pipeline.scheduler import (
                 pipeline_scheduler, SWARM_CAPABLE_STAGES, is_swarm_active_for_stage,
             )
             from codrag.services.pipeline._model_resolution import resolve_model_for_stage
             for rt in running_tasks:
-                workers, node_id = pipeline_scheduler.concurrent_workers_for_project(
+                _scheduler_max, node_id = pipeline_scheduler.concurrent_workers_for_project(
                     rt["project_id"], stage=rt.get("stage"),
                 )
-                rt["concurrent_workers"] = workers
+                rt["concurrent_workers"] = _count_live_workers(
+                    project_id=rt["project_id"],
+                    task_id=rt.get("task_id", ""),
+                )
+                rt["scheduler_capacity"] = _scheduler_max
                 rt["compute_node"] = node_id
                 # Phase 82: Model-aware swarm flag
                 rt["is_swarm"] = False
@@ -658,14 +694,19 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
                     proj_name = p.name
             except Exception:
                 pass
+            _agent_task_id = req["task_id"] or "agent_call"
+            _agent_model_slot = req.get("model_slot") or "agent"
             running_tasks.append({
-                "task_id": req["task_id"] or "agent_call",
+                "task_id": _agent_task_id,
                 "project_id": req["project_id"],
                 "project_name": proj_name,
                 "group": "agent_ops",
                 "stage": req["task_id"],
-                "model_slot": req["model_slot"] or "large_model",
-                "concurrent_workers": 1,
+                "model_slot": _agent_model_slot,
+                "concurrent_workers": _count_live_workers(
+                    project_id=req["project_id"],
+                    task_id=_agent_task_id,
+                ),
                 "compute_node": "local",
                 "is_swarm": False,
             })

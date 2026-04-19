@@ -36,15 +36,34 @@ def _init_global_stores(tmp_path: Path):
     """Automatically initialize required background SQLite stores for all tests."""
     from codrag.services.settings_store import settings
     from codrag.services.token_telemetry import telemetry
-    
+
     db_path = tmp_path / "global_test_db.sqlite"
     settings.init(db_path)
     telemetry.init(db_path)
-    
+
     yield
-    
+
     settings.close()
     telemetry.close()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_concurrency_store(tmp_path_factory, monkeypatch):
+    """Phase 82: isolate ConcurrencyStore per test.
+
+    The store is a process-level singleton that reads data_dir() lazily.
+    Without isolation, tests would read the real user's persisted AIMD
+    ceilings at ~/.local/share/codrag/concurrency_store.db, polluting
+    scheduler tests that expect fresh cloud-slot seeds (current_limit=5).
+    """
+    from codrag.services.pipeline import concurrency_store as _cs_mod
+    from codrag.core import paths as _paths_mod
+
+    test_data_dir = tmp_path_factory.mktemp("codrag_test_data")
+    monkeypatch.setattr(_paths_mod, "data_dir", lambda: test_data_dir)
+    monkeypatch.setattr(_cs_mod, "_store", None)
+    yield
+    # monkeypatch auto-restores singleton and data_dir after each test.
 
 @pytest.fixture
 def mini_repo(tmp_path: Path) -> Path:

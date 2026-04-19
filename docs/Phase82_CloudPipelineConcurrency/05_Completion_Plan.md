@@ -1416,7 +1416,7 @@ sleep 5
 - [ ] **Step 2: Confirm scheduler initialized at jumpstart**
 
 ```bash
-curl -s http://localhost:8400/api/pipeline/scheduler/status | python -m json.tool | grep -A 5 cloud
+curl -s http://localhost:8400/compute/scheduler | python -m json.tool | grep -A 5 cloud
 ```
 
 Expected: each cloud slot shows `"mode": "jumpstart"` and `"current_limit": 5` (or hydrated value from a prior run).
@@ -1447,7 +1447,7 @@ pkill -f "codrag serve"
 sleep 3
 .venv/bin/codrag serve &
 sleep 5
-curl -s http://localhost:8400/api/pipeline/scheduler/status | python -m json.tool | grep -A 5 cloud
+curl -s http://localhost:8400/compute/scheduler | python -m json.tool | grep -A 5 cloud
 ```
 
 Expected: `current_limit` is the ceiling discovered in Step 3, NOT 5 (unless Step 3 never got past jumpstart).

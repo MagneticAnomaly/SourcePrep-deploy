@@ -262,23 +262,44 @@ class TestEndpointAwareConcurrency:
         assert sched.can_start("proj-b", StageId.CATALOGUE, "local:ep-1")
 
     def test_cloud_concurrent_three(self):
-        """Three projects on cloud:ep-1 (max=3) run concurrently."""
+        """Phase 82: cloud slots seed at jumpstart=5 (ignoring max_concurrent=3).
+
+        The configured ``max_concurrent`` for cloud slots is a legacy UI
+        slider that is NOT a hard ceiling — AIMD discovers the real cap
+        at runtime. So configuring cloud:ep-1 with max=3 still seeds
+        ``current_limit=5``. The slot serializes at 5 concurrent acquires,
+        not 3.
+        """
         sched = PipelineScheduler()
         sched.configure_node("cloud:ep-1", 3)
+        # Suppress idle recovery to observe the pure seed.
+        sched._slots["cloud:ep-1"]._last_recovery_time = time.time()
 
-        assert sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
-        assert sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
-        assert sched.acquire("proj-c", StageId.ENRICHMENT, "cloud:ep-1")
-        assert not sched.can_start("proj-d", StageId.ENRICHMENT, "cloud:ep-1")
+        # Seeded at current_limit=5 regardless of the max_concurrent=3 input.
+        for i in range(5):
+            assert sched.acquire(f"proj-{i}", StageId.ENRICHMENT, "cloud:ep-1")
+        # 6th blocks until AIMD grows current_limit past 5.
+        assert not sched.can_start("proj-5", StageId.ENRICHMENT, "cloud:ep-1")
 
     def test_cloud_concurrent_ten(self):
-        """Ollama Max plan: 10 concurrent cloud requests."""
+        """Phase 82: cloud slots seed at current_limit=5 even when max=10.
+
+        Growth past the seed happens via AIMD on successful LLM completions
+        (see TestAIMDFloorAndRecovery). Configuring max_concurrent=10 does
+        NOT pre-fill the slot to 10 — cloud discovery is live.
+        """
         sched = PipelineScheduler()
         sched.configure_node("cloud:ep-1", 10)
+        # Suppress idle recovery so the test observes the pure seed value.
+        # Without this, the first acquire() would grow current_limit 5→6
+        # via the F-28 time-based recovery path.
+        sched._slots["cloud:ep-1"]._last_recovery_time = time.time()
 
-        for i in range(10):
+        # Seed is 5, so first 5 succeed.
+        for i in range(5):
             assert sched.acquire(f"proj-{i}", StageId.ENRICHMENT, "cloud:ep-1")
-        assert not sched.can_start("proj-10", StageId.ENRICHMENT, "cloud:ep-1")
+        # 6th blocks — AIMD hasn't grown the limit yet.
+        assert not sched.can_start("proj-5", StageId.ENRICHMENT, "cloud:ep-1")
 
     def test_mixed_local_and_cloud_independent(self):
         """Local and cloud slots on the same endpoint don't contend."""
@@ -312,29 +333,34 @@ class TestAvailableBatchWorkers:
     """Test dynamic batch worker allocation based on node load."""
 
     def test_single_project_gets_full_budget(self):
-        """One project on cloud:ep-1 (max=3) gets 3 batch workers."""
-        sched = PipelineScheduler()
-        sched.configure_node("cloud:ep-1", 3)
-        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        """One project on local:ep-1 (max=3) gets 3 batch workers.
 
-        assert sched.available_batch_workers("cloud:ep-1") == 3
+        Phase 82: cloud slots seed at 5 regardless of max_concurrent, so
+        exercising budget-math against the configured max requires a
+        *local* slot (VRAM ceiling is authoritative).
+        """
+        sched = PipelineScheduler()
+        sched.configure_node("local:ep-1", 3)
+        sched.acquire("proj-a", StageId.ENRICHMENT, "local:ep-1")
+
+        assert sched.available_batch_workers("local:ep-1") == 3
 
     def test_two_projects_split_budget(self):
-        """Two projects on cloud:ep-1 (max=3) get 1 worker each (3//2)."""
+        """Two projects on local:ep-1 (max=3) get 1 worker each (3//2)."""
         sched = PipelineScheduler()
-        sched.configure_node("cloud:ep-1", 3)
-        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
-        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.configure_node("local:ep-1", 3)
+        sched.acquire("proj-a", StageId.ENRICHMENT, "local:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "local:ep-1")
 
-        assert sched.available_batch_workers("cloud:ep-1") == 1
+        assert sched.available_batch_workers("local:ep-1") == 1
 
     def test_single_project_ten_slots(self):
-        """One project on cloud:ep-1 (max=10) gets 10 batch workers."""
+        """One project on local:ep-1 (max=10) gets 10 batch workers."""
         sched = PipelineScheduler()
-        sched.configure_node("cloud:ep-1", 10)
-        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.configure_node("local:ep-1", 10)
+        sched.acquire("proj-a", StageId.ENRICHMENT, "local:ep-1")
 
-        assert sched.available_batch_workers("cloud:ep-1") == 10
+        assert sched.available_batch_workers("local:ep-1") == 10
 
     def test_unknown_node_returns_one(self):
         """Unknown node returns 1 (safe default)."""
@@ -487,82 +513,87 @@ class TestWeightedFairShare:
     """Test weighted fair-share budget allocation (Phase 72B)."""
 
     def test_ten_concurrency_two_boost_two_normal(self):
-        """10 concurrency, 2 boost + 2 normal → 3+3+1+1 (remainder to boost)."""
+        """10 concurrency, 2 boost + 2 normal → 3+3+1+1 (remainder to boost).
+
+        Phase 82: uses a local slot so max_concurrent=10 is the authoritative
+        ceiling — the fair-share math we care about happens against 10, not
+        the cloud jumpstart seed of 5.
+        """
         sched = PipelineScheduler()
-        sched.configure_node("cloud:ep-1", 10)
+        sched.configure_node("local:ep-1", 10)
         sched.set_priority("proj-a", "boost")
         sched.set_priority("proj-b", "boost")
 
-        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
-        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
-        sched.acquire("proj-c", StageId.ENRICHMENT, "cloud:ep-1")
-        sched.acquire("proj-d", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-a", StageId.ENRICHMENT, "local:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "local:ep-1")
+        sched.acquire("proj-c", StageId.ENRICHMENT, "local:ep-1")
+        sched.acquire("proj-d", StageId.ENRICHMENT, "local:ep-1")
 
         # Boost projects (weight 2): floor(10 * 2 / 6) = 3
-        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-a") == 4  # 3 + remainder
-        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-b") == 4  # 3 + remainder
+        assert sched.available_batch_workers("local:ep-1", project_id="proj-a") == 4  # 3 + remainder
+        assert sched.available_batch_workers("local:ep-1", project_id="proj-b") == 4  # 3 + remainder
         # Normal projects (weight 1): floor(10 * 1 / 6) = 1
-        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-c") == 1
-        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-d") == 1
+        assert sched.available_batch_workers("local:ep-1", project_id="proj-c") == 1
+        assert sched.available_batch_workers("local:ep-1", project_id="proj-d") == 1
 
     def test_six_concurrency_two_boost_two_normal(self):
         """6 concurrency, 2 boost + 2 normal → 2+2+1+1 (clean split)."""
         sched = PipelineScheduler()
-        sched.configure_node("cloud:ep-1", 6)
+        sched.configure_node("local:ep-1", 6)
         sched.set_priority("proj-a", "boost")
         sched.set_priority("proj-b", "boost")
 
-        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
-        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
-        sched.acquire("proj-c", StageId.ENRICHMENT, "cloud:ep-1")
-        sched.acquire("proj-d", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-a", StageId.ENRICHMENT, "local:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "local:ep-1")
+        sched.acquire("proj-c", StageId.ENRICHMENT, "local:ep-1")
+        sched.acquire("proj-d", StageId.ENRICHMENT, "local:ep-1")
 
-        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-a") == 2
-        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-b") == 2
-        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-c") == 1
-        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-d") == 1
+        assert sched.available_batch_workers("local:ep-1", project_id="proj-a") == 2
+        assert sched.available_batch_workers("local:ep-1", project_id="proj-b") == 2
+        assert sched.available_batch_workers("local:ep-1", project_id="proj-c") == 1
+        assert sched.available_batch_workers("local:ep-1", project_id="proj-d") == 1
 
     def test_no_priority_equal_split(self):
         """No priority → even split among all projects."""
         sched = PipelineScheduler()
-        sched.configure_node("cloud:ep-1", 10)
+        sched.configure_node("local:ep-1", 10)
 
-        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
-        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-a", StageId.ENRICHMENT, "local:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "local:ep-1")
 
         # 10 / 2 = 5 each
-        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-a") == 5
-        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-b") == 5
+        assert sched.available_batch_workers("local:ep-1", project_id="proj-a") == 5
+        assert sched.available_batch_workers("local:ep-1", project_id="proj-b") == 5
 
     def test_exclusive_gets_full_budget(self):
         """Exclusive project gets entire budget regardless of others."""
         sched = PipelineScheduler()
-        sched.configure_node("cloud:ep-1", 10)
+        sched.configure_node("local:ep-1", 10)
         sched.set_priority("proj-a", "exclusive")
 
-        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
-        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-a", StageId.ENRICHMENT, "local:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "local:ep-1")
 
-        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-a") == 10
+        assert sched.available_batch_workers("local:ep-1", project_id="proj-a") == 10
 
     def test_one_boost_three_normal(self):
         """10 concurrency, 1 boost + 3 normal → boost gets 4, normals get 2."""
         sched = PipelineScheduler()
-        sched.configure_node("cloud:ep-1", 10)
+        sched.configure_node("local:ep-1", 10)
         sched.set_priority("proj-a", "boost")
 
-        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
-        sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
-        sched.acquire("proj-c", StageId.ENRICHMENT, "cloud:ep-1")
-        sched.acquire("proj-d", StageId.ENRICHMENT, "cloud:ep-1")
+        sched.acquire("proj-a", StageId.ENRICHMENT, "local:ep-1")
+        sched.acquire("proj-b", StageId.ENRICHMENT, "local:ep-1")
+        sched.acquire("proj-c", StageId.ENRICHMENT, "local:ep-1")
+        sched.acquire("proj-d", StageId.ENRICHMENT, "local:ep-1")
 
         # weight = 2+1+1+1 = 5
         # boost: floor(10*2/5) = 4
-        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-a") == 4
+        assert sched.available_batch_workers("local:ep-1", project_id="proj-a") == 4
         # normal: floor(10*1/5) = 2
-        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-b") == 2
-        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-c") == 2
-        assert sched.available_batch_workers("cloud:ep-1", project_id="proj-d") == 2
+        assert sched.available_batch_workers("local:ep-1", project_id="proj-b") == 2
+        assert sched.available_batch_workers("local:ep-1", project_id="proj-c") == 2
+        assert sched.available_batch_workers("local:ep-1", project_id="proj-d") == 2
 
 
 
@@ -571,23 +602,39 @@ class TestAutoDiscoveryBatchWorkers:
     """Test available_batch_workers_for_provider() auto-discovery."""
 
     def test_cloud_provider_finds_cloud_node(self):
-        """Cloud provider auto-discovers cloud:* nodes."""
+        """Cloud provider auto-discovers cloud:* nodes.
+
+        Phase 82: cloud seeds at current_limit=5 regardless of
+        max_concurrent=3, so the discovered budget for a single project
+        is 5 (the jumpstart seed), not the configured max.
+        """
         sched = PipelineScheduler()
         sched.configure_node("cloud:ep-1", 3)
+        # Pin AIMD state: suppress idle recovery so dynamic_capacity
+        # stays at the seed (test is about provider discovery, not AIMD
+        # drift — see Phase 82 I1 fix).
+        with sched._lock:
+            sched._slots["cloud:ep-1"]._last_recovery_time = time.time()
         sched.acquire("proj-a", StageId.CATALOGUE, "cloud:ep-1")
 
         result = sched.available_batch_workers_for_provider("openai")
-        assert result == 3  # Single project gets full budget
+        assert result == 5  # Single project gets full dynamic_capacity (seed=5)
 
     def test_cloud_provider_with_two_projects(self):
-        """Cloud provider with 2 active projects splits budget."""
+        """Cloud provider with 2 active projects splits budget.
+
+        Phase 82: dynamic_capacity=5 (seed), 5 // 2 = 2.
+        """
         sched = PipelineScheduler()
         sched.configure_node("cloud:ep-1", 3)
+        # Pin AIMD state — see test above.
+        with sched._lock:
+            sched._slots["cloud:ep-1"]._last_recovery_time = time.time()
         sched.acquire("proj-a", StageId.CATALOGUE, "cloud:ep-1")
         sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
 
         result = sched.available_batch_workers_for_provider("openai")
-        assert result == 1  # 3 // 2 = 1
+        assert result == 2  # 5 // 2 = 2
 
     def test_local_provider_finds_local_node(self):
         """Local Ollama provider auto-discovers local:* nodes."""
@@ -727,48 +774,69 @@ class TestFullBudgetForSwarm:
     """Phase 79: Swarm stages bypass fair-share and get full concurrency."""
 
     def test_single_project_gets_full_budget(self):
+        """Phase 82: cloud slot seeds at current_limit=5, so swarm
+        gets 5 (the undivided dynamic_capacity) even though max=10.
+        AIMD will grow it past 5 as LLM calls succeed.
+        """
         sched = PipelineScheduler()
         sched.configure_node("cloud:ep-1", 10)
+        # Suppress idle recovery so we observe the pure seed (avoid 5→6 bump).
+        sched._slots["cloud:ep-1"]._last_recovery_time = time.time()
         sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
 
         result = sched.full_budget_for_swarm("openai", project_id="proj-a")
-        assert result == 10
+        assert result == 5
 
     def test_two_projects_still_gets_full_budget(self):
-        """Swarm bypasses fair-share — even with 2 active projects, gets full budget."""
+        """Swarm bypasses fair-share — even with 2 active projects,
+        gets the full (undivided) dynamic_capacity. Phase 82: that's 5
+        at startup for cloud, not the configured max=10.
+        """
         sched = PipelineScheduler()
         sched.configure_node("cloud:ep-1", 10)
+        sched._slots["cloud:ep-1"]._last_recovery_time = time.time()
         sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
         sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
 
-        # Swarm should get 10, NOT 5 (the fair-share split)
+        # Swarm gets the full 5 (jumpstart seed), NOT the fair-share split.
         result = sched.full_budget_for_swarm("openai", project_id="proj-a")
-        assert result == 10
+        assert result == 5
 
-        # For comparison, normal fair-share would give 5
+        # For comparison, normal fair-share at 2 active would give 5//2 = 2
         normal = sched.available_batch_workers_for_provider("openai", project_id="proj-a")
-        assert normal == 5
+        assert normal == 2
 
     def test_three_projects_with_boost_still_gets_full(self):
-        """Swarm ignores boost/normal weighting entirely."""
+        """Swarm ignores boost/normal weighting entirely.
+
+        Phase 82: cloud seeds at 5, so swarm owner gets the full 5
+        regardless of other projects' priority. (Fair-share with 3
+        projects would give 1-2 workers.)
+        """
         sched = PipelineScheduler()
         sched.configure_node("cloud:ep-1", 10)
+        sched._slots["cloud:ep-1"]._last_recovery_time = time.time()
         sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
         sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
         sched.acquire("proj-c", StageId.CATALOGUE, "cloud:ep-1")
         sched.set_priority("proj-b", "boost")
 
-        # Swarm gets full 10 regardless of other projects' priority
+        # Swarm gets the full 5 (undivided), regardless of other projects.
         result = sched.full_budget_for_swarm("openai", project_id="proj-a")
-        assert result == 10
+        assert result == 5
 
     def test_prefix_fallback_when_no_project_id(self):
-        """Without project_id, falls back to prefix discovery."""
+        """Without project_id, falls back to prefix discovery.
+
+        Phase 82: cloud seeds at 5 regardless of max_concurrent=8,
+        so prefix discovery returns the seed value.
+        """
         sched = PipelineScheduler()
         sched.configure_node("cloud:ep-1", 8)
+        # No acquire() here — no idle recovery runs, so seed=5 is observed.
 
         result = sched.full_budget_for_swarm("openai")
-        assert result == 8
+        assert result == 5
 
     def test_empty_scheduler_returns_none(self):
         sched = PipelineScheduler()
@@ -858,9 +926,13 @@ class TestConcurrentWorkersSwarmAware:
         return full dynamic_capacity - 1, not weighted share."""
         sched = PipelineScheduler()
         sched.configure_node("cloud:ep-1", 12)
-        # Set AIMD limit to match max_concurrent for this test
+        # Set AIMD limit to match max_concurrent for this test.
+        # Pin recovery clock to suppress AIMD drift on acquire (Phase 82
+        # I1: cloud is unbounded, so idle recovery would grow
+        # current_limit past 12 during the test setup).
         with sched._lock:
             sched._slots["cloud:ep-1"].current_limit = 12
+            sched._slots["cloud:ep-1"]._last_recovery_time = time.time()
         sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
 
         mock_config = {
@@ -924,11 +996,11 @@ class TestSchedulerStatusAIMD:
         node = status["nodes"]["cloud:ep-1"]
         assert "aimd_mode" in node
         assert "current_limit" in node
-        # Phase 96B: ComputeSlot now initializes at configured max_concurrent
-        # (the previous default of current_limit=5 capped Ollama providers at 5
-        # because jumpstart was gated on rate-limit headers they don't send).
-        assert node["aimd_mode"] == "congestion_avoidance"
-        assert node["current_limit"] == 10  # matches configured max_concurrent
+        # Phase 82: Cloud slots seed at current_limit=5 in "jumpstart" mode per
+        # the Latency-Aware Discovery spec. AIMD grows the limit unbounded as
+        # LLM calls succeed — max_concurrent is only a legacy UI slider input.
+        assert node["aimd_mode"] == "jumpstart"
+        assert node["current_limit"] == 5  # jumpstart seed, not max_concurrent
 
 
 class TestIsHeldBy:
@@ -1117,51 +1189,59 @@ class TestLowResourceGuardrails:
     """Test that low-resource systems disable swarm and flatten boost."""
 
     def test_weighted_share_flattened_at_low_capacity(self):
+        """Phase 82: cloud slots seed at 5 regardless of max_concurrent,
+        so low-capacity behavior is only reachable on local slots (where
+        the VRAM ceiling is authoritative)."""
         sched = PipelineScheduler()
-        sched.configure_node("cloud:ep-1", 3)
-        # Force current_limit to match (AIMD default is 5, clamped by post_init)
-        sched.acquire("proj-a", StageId.ENRICHMENT, "cloud:ep-1")
-        sched.acquire("proj-b", StageId.CATALOGUE, "cloud:ep-1")
+        sched.configure_node("local:ep-1", 3)
+        sched.acquire("proj-a", StageId.ENRICHMENT, "local:ep-1")
+        sched.acquire("proj-b", StageId.CATALOGUE, "local:ep-1")
         sched.set_priority("proj-a", "boost")
 
-        slot = sched._slots["cloud:ep-1"]
-        # With capacity 3 and 2 active: budget = max(1, 3-1) = 2
-        # Low-resource: equal split regardless of boost
+        slot = sched._slots["local:ep-1"]
+        # With capacity 3 and 2 active: dynamic_capacity=3, low-resource
+        # guardrail splits equally regardless of boost.
         share_a = sched._weighted_share(slot, "proj-a")
         share_b = sched._weighted_share(slot, "proj-b")
         assert share_a == share_b  # Boost has no effect at low capacity
 
     def test_get_max_dynamic_capacity(self):
+        """Phase 82: cloud seeds at current_limit=5 (jumpstart),
+        local clamps to min(max_concurrent, current_limit).
+        With cloud(max=10)→5 and local(max=3)→3, max is 5."""
         sched = PipelineScheduler()
         sched.configure_node("cloud:ep-1", 10)
         sched.configure_node("local:ep-2", 3)
-        # Phase 96B: dynamic_capacity = min(max_concurrent, current_limit)
-        # where current_limit is now initialized to max_concurrent (was 5).
-        # cloud: min(10, 10) = 10, local: min(3, 3) = 3, max = 10.
-        assert sched._get_max_dynamic_capacity() == 10
+        assert sched._get_max_dynamic_capacity() == 5
 
     def test_full_budget_for_swarm_returns_none_below_min_workers(self):
+        """Phase 82: cloud slots seed at 5 which is already ≥ 3, so the
+        min_workers=3 gate is only reachable on local slots (where
+        max_concurrent is the authoritative ceiling)."""
         sched = PipelineScheduler()
-        # Phase 96B: budget = dynamic_capacity (no N-1 headroom).
-        # With max=2, budget=2 < min_workers 3 → None.
-        sched.configure_node("cloud:ep-1", 2)
-        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
+        # local:ep-1 max=2 → dynamic_capacity=2 < min_workers 3 → None.
+        sched.configure_node("local:ep-1", 2)
+        sched.acquire("proj-a", StageId.GROUP_REASONING, "local:ep-1")
 
         result = sched.full_budget_for_swarm("ollama", project_id="proj-a")
         assert result is None  # Budget 2 < min_workers 3
 
     def test_is_swarm_active_disabled_at_low_capacity(self):
-        """S4: is_swarm_active_for_stage returns False when capacity <= 3."""
+        """S4: is_swarm_active_for_stage returns False when capacity <= 3.
+
+        Phase 82: cloud slots seed at 5 so low-capacity is only reachable
+        via local slots (VRAM ceiling is authoritative).
+        """
         from codrag.services.pipeline.scheduler import (
             is_swarm_active_for_stage,
             pipeline_scheduler as singleton,
         )
-        # Configure the singleton with low capacity
+        # Configure the singleton with low capacity (local)
         old_slots = dict(singleton._slots)
         try:
             singleton._slots.clear()
-            singleton.configure_node("cloud:test-low", 3)
-            # capacity=3, current_limit clamped to 3 → dynamic_capacity=3
+            singleton.configure_node("local:test-low", 3)
+            # capacity=3, current_limit=3 → dynamic_capacity=3
             # 0 < 3 <= 3 → should disable swarm
             result = is_swarm_active_for_stage("group_reasoning", "ollama", "kimi-k2.5:cloud")
             assert result is False
@@ -1322,33 +1402,55 @@ class TestAIMDFloorAndRecovery:
         sched.acquire("proj-a", StageId.CONCEPTS, "cloud:ep-1")
         assert slot.current_limit == 4  # unchanged
 
-    def test_idle_recovery_skipped_when_at_max(self):
+    def test_idle_recovery_skipped_when_local_at_max(self):
+        # Local slots cap at max_concurrent (VRAM ceiling known a priori).
         sched = PipelineScheduler()
-        sched.configure_node("cloud:ep-1", 10)
-        slot = sched._slots["cloud:ep-1"]
+        sched.configure_node("local:gpu-0", 10)
+        slot = sched._slots["local:gpu-0"]
+        slot.current_limit = 10
         # Already at max — recovery is a no-op
         slot._last_backoff_time = 0
         slot._last_recovery_time = 0
 
-        sched.acquire("proj-a", StageId.CONCEPTS, "cloud:ep-1")
+        sched.acquire("proj-a", StageId.CONCEPTS, "local:gpu-0")
         assert slot.current_limit == 10
 
-    def test_idle_recovery_caps_at_max(self):
+    def test_idle_recovery_caps_local_at_max(self):
+        # Local slots cap at max_concurrent (VRAM ceiling known a priori).
         sched = PipelineScheduler()
-        sched.configure_node("cloud:ep-1", 5)
-        slot = sched._slots["cloud:ep-1"]
+        sched.configure_node("local:gpu-0", 5)
+        slot = sched._slots["local:gpu-0"]
         slot.current_limit = 4
         slot._last_backoff_time = 0
         slot._last_recovery_time = 0
 
         # Should grow 4 -> 5 then stop
-        sched.acquire("proj-a", StageId.CONCEPTS, "cloud:ep-1")
+        sched.acquire("proj-a", StageId.CONCEPTS, "local:gpu-0")
         assert slot.current_limit == 5
         # Release and try again — should stay at 5
+        sched.release("proj-a", StageId.CONCEPTS, "local:gpu-0")
+        slot._last_recovery_time = 0  # bypass interval gate
+        sched.acquire("proj-b", StageId.CONCEPTS, "local:gpu-0")
+        assert slot.current_limit == 5
+
+    def test_idle_recovery_unbounded_for_cloud(self):
+        # Cloud slots are unbounded per the Latency-Aware Discovery spec.
+        # max_concurrent on cloud is only the jumpstart seed, not a ceiling.
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 5)
+        slot = sched._slots["cloud:ep-1"]
+        slot.current_limit = 5  # at "max" seed
+        slot._last_backoff_time = 0
+        slot._last_recovery_time = 0
+
+        # Should grow 5 -> 6 even though current_limit equals max_concurrent
+        sched.acquire("proj-a", StageId.CONCEPTS, "cloud:ep-1")
+        assert slot.current_limit == 6
+        # Release and try again — should keep growing past max
         sched.release("proj-a", StageId.CONCEPTS, "cloud:ep-1")
         slot._last_recovery_time = 0  # bypass interval gate
         sched.acquire("proj-b", StageId.CONCEPTS, "cloud:ep-1")
-        assert slot.current_limit == 5
+        assert slot.current_limit == 7
 
     def test_backoff_resets_recovery_clock(self):
         sched = PipelineScheduler()

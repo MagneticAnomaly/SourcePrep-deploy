@@ -30,19 +30,6 @@ export const Default: Story = {
       initialValue={{
         enforce_cloud_token_safety: true,
         max_thinking_budget: 24576,
-        ollama_plan_tier: 'free',
-      }}
-    />
-  ),
-};
-
-export const MaxPlanUncapped: Story = {
-  render: () => (
-    <Wrapper
-      initialValue={{
-        enforce_cloud_token_safety: false,
-        max_thinking_budget: 65536,
-        ollama_plan_tier: 'max',
       }}
     />
   ),

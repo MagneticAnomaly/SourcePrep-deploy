@@ -40,6 +40,7 @@ from typing import Any, Callable, Deque, Dict, List, Literal, Optional, Set, Tup
 PriorityLevel = Literal["none", "boost", "exclusive"]
 
 from .stages import QueueType, STAGE_QUEUE_TYPE, StageId
+from codrag.services.pipeline.concurrency_store import concurrency_store
 
 logger = logging.getLogger(__name__)
 
@@ -115,11 +116,19 @@ class ComputeSlot:
     _last_recovery_time: float = 0.0
 
     def __post_init__(self):
-        if self.current_limit <= 0 or self.current_limit > self.max_concurrent:
+        # Phase 82: cloud slots seed at jumpstart=5 per the Latency-Aware
+        # Discovery spec. Local slots seed at max_concurrent — the VRAM
+        # ceiling is known a priori and doesn't need discovery.
+        is_cloud = self.node_id.startswith("cloud:")
+        if self.current_limit <= 0:
+            self.current_limit = 5 if is_cloud else max(1, self.max_concurrent)
+        elif not is_cloud and self.current_limit > self.max_concurrent:
             self.current_limit = max(1, self.max_concurrent)
+        if is_cloud and self.mode not in ("jumpstart", "congestion_avoidance"):
+            self.mode = "jumpstart"
         if self.min_limit < 1:
             self.min_limit = 1
-        if self.min_limit > self.max_concurrent:
+        if self.min_limit > self.max_concurrent and not is_cloud:
             self.min_limit = self.max_concurrent
 
     @property
@@ -128,6 +137,13 @@ class ComputeSlot:
 
     @property
     def dynamic_capacity(self) -> int:
+        """Phase 82: cloud slots discover their real ceiling at runtime;
+        clipping by ``max_concurrent`` would defeat the discovery mechanism.
+        Local slots keep the clamp — ``max_concurrent`` is a VRAM ceiling
+        and a real hardware constraint.
+        """
+        if self.node_id.startswith("cloud:"):
+            return max(1, self.current_limit)
         return min(self.max_concurrent, self.current_limit)
 
     @property
@@ -218,22 +234,60 @@ class PipelineScheduler:
     # ── Configuration ─────────────────────────────────────────────
 
     def configure_node(self, node_id: str, max_concurrent: int) -> None:
-        """Register or update a compute node's concurrency limit."""
+        """Register or update a compute node's concurrency limit.
+
+        Phase 82: when reconfiguring an existing cloud slot, preserve the
+        discovered ``current_limit`` and AIMD ``mode``. ``max_concurrent``
+        for cloud slots is used only as a starting seed for NEW slots —
+        live latency-aware discovery overrides it.  For local slots,
+        ``max_concurrent`` is the real hardware (VRAM) ceiling and is
+        always enforced.
+        """
         with self._lock:
             new_max = max(1, max_concurrent)
+            is_cloud = node_id.startswith("cloud:")
             if node_id in self._slots:
                 slot = self._slots[node_id]
                 slot.max_concurrent = new_max
-                # Phase 96B: grow the AIMD current_limit to the new max if it
-                # was previously capped lower.  Shrinking is handled by AIMD
-                # backoff; we only need to raise the ceiling on reconfigure.
-                if slot.current_limit < new_max:
+                if not is_cloud and slot.current_limit > new_max:
+                    # Local slots: VRAM ceiling is a real constraint — clamp.
                     slot.current_limit = new_max
+                # Cloud slots: preserve discovered current_limit and mode.
+                # Phase 96B grew the limit on reconfigure; Phase 82 drops
+                # that because cloud discovery is unbounded and the user
+                # editing a (legacy) UI slider shouldn't reset progress.
             else:
+                # Phase 82: cloud slots seed at current_limit=5 (jumpstart),
+                # but if the ConcurrencyStore has a previously-discovered
+                # ceiling from a prior daemon run, hydrate with that value
+                # so we don't replay the jumpstart from scratch. When we
+                # hydrate we also switch mode to "congestion_avoidance":
+                # the persisted value is a known probe point, and staying
+                # in jumpstart would double 40→80→160 on the first
+                # successes and overshoot the real ceiling. +1 additive
+                # increase is the correct gentle probe around a known
+                # ceiling.
+                seed = 5 if is_cloud else new_max
+                mode: Literal["jumpstart", "congestion_avoidance"] = (
+                    "jumpstart" if is_cloud else "congestion_avoidance"
+                )
+                if is_cloud:
+                    try:
+                        persisted = concurrency_store().load(node_id, "__default__")
+                    except Exception as exc:  # pragma: no cover — best-effort
+                        logger.debug(
+                            "concurrency_store.load failed for %s: %s", node_id, exc,
+                        )
+                        persisted = None
+                    if persisted is not None:
+                        seed = persisted
+                        mode = "congestion_avoidance"
                 self._slots[node_id] = ComputeSlot(
                     node_id=node_id,
                     max_concurrent=new_max,
+                    current_limit=seed,
                     min_limit=self._compute_min_limit(node_id, new_max),
+                    mode=mode,
                 )
                 self._queues[node_id] = deque()
         logger.debug(
@@ -446,6 +500,7 @@ class PipelineScheduler:
                 slot.max_concurrent = safe_limit
                 if slot.current_limit > safe_limit:
                     slot.current_limit = safe_limit
+                    self._persist_cloud_ceiling(slot)
 
         # Step 2: Congestion detection (works for ALL providers)
         if is_429_or_timeout or queue_time_ms > 2000.0:
@@ -468,28 +523,40 @@ class PipelineScheduler:
                         slot.current_limit, new_limit, slot.min_limit,
                     )
                     slot.current_limit = new_limit
+                    self._persist_cloud_ceiling(slot)
                 slot._last_backoff_time = now
                 # Reset recovery clock — idle recovery shouldn't fire
                 # immediately after a fresh backoff.
                 slot._last_recovery_time = now
         else:
-            # Step 3: Additive Increase or Jumpstart (no congestion detected)
+            # Step 3: Additive Increase or Jumpstart (no congestion detected).
+            # Phase 82 completion: cloud slots are unbounded — the ceiling is
+            # discovered via congestion signals, not configured. Local slots
+            # still respect max_concurrent (VRAM).
             slot.success_streak += 1
 
+            is_cloud = slot.node_id.startswith("cloud:")
             batch_size = max(1, slot.current_limit)
             if slot.success_streak >= batch_size:
                 slot.success_streak = 0
-                if slot.current_limit < slot.max_concurrent:
+                allow_increase = is_cloud or slot.current_limit < slot.max_concurrent
+                if allow_increase:
                     if slot.mode == "jumpstart":
-                        new_limit = min(slot.max_concurrent, slot.current_limit * 2)
+                        new_limit = slot.current_limit * 2
+                        if not is_cloud:
+                            new_limit = min(slot.max_concurrent, new_limit)
                         logger.info(
                             "Scheduler: Node %s jumpstart %d -> %d",
                             slot.node_id, slot.current_limit, new_limit,
                         )
                         slot.current_limit = new_limit
+                        self._persist_cloud_ceiling(slot)
                     else:
-                        new_limit = min(slot.max_concurrent, slot.current_limit + 1)
+                        new_limit = slot.current_limit + 1
+                        if not is_cloud:
+                            new_limit = min(slot.max_concurrent, new_limit)
                         slot.current_limit = new_limit
+                        self._persist_cloud_ceiling(slot)
 
     def get_priority(self, project_id: str) -> PriorityLevel:
         """Get the priority level for a specific project."""
@@ -535,6 +602,25 @@ class PipelineScheduler:
             self._queues[nid] = deque()
         return self._slots[nid]
 
+    def _persist_cloud_ceiling(self, slot: ComputeSlot) -> None:
+        """Phase 82: write the current cloud ceiling to ConcurrencyStore.
+
+        No-op for local slots — their ceiling is a known VRAM constraint,
+        not something we discover at runtime. Best-effort: a failing
+        persistence call must not disrupt the scheduler.
+        """
+        if not slot.node_id.startswith("cloud:"):
+            return
+        try:
+            concurrency_store().save(
+                slot.node_id, "__default__", ceiling=slot.current_limit,
+            )
+        except Exception as exc:  # pragma: no cover — persistence is best-effort
+            logger.debug(
+                "concurrency_store.save failed for %s: %s",
+                slot.node_id, exc,
+            )
+
     def _compute_min_limit(self, node_id: str, max_concurrent: int) -> int:
         """F-28: per-node floor for AIMD.
 
@@ -565,15 +651,24 @@ class PipelineScheduler:
         until the daemon restarts.  This time-based recovery closes the
         gap by growing on every acquire() call once the cooldown has
         elapsed, with no extra threads.
+
+        Local slots cap at ``max_concurrent`` (the VRAM ceiling is known
+        a priori). Cloud slots are unbounded per the Latency-Aware
+        Discovery spec — ``max_concurrent`` on cloud is only the
+        jumpstart seed, not a ceiling.
         """
-        if slot.current_limit >= slot.max_concurrent:
+        is_cloud = slot.node_id.startswith("cloud:")
+        if not is_cloud and slot.current_limit >= slot.max_concurrent:
             return
         now = time.time()
         if now - slot._last_backoff_time < self._BACKOFF_COOLDOWN_S:
             return
         if now - slot._last_recovery_time < self._IDLE_RECOVERY_INTERVAL_S:
             return
-        new_limit = min(slot.max_concurrent, slot.current_limit + 1)
+        if is_cloud:
+            new_limit = slot.current_limit + 1
+        else:
+            new_limit = min(slot.max_concurrent, slot.current_limit + 1)
         if new_limit > slot.current_limit:
             logger.info(
                 "Scheduler: Node %s idle recovery %d -> %d (max=%d, floor=%d)",
@@ -582,6 +677,7 @@ class PipelineScheduler:
             )
             slot.current_limit = new_limit
             slot._last_recovery_time = now
+            self._persist_cloud_ceiling(slot)
 
     def _get_queue(self, node_id: Optional[str] = None) -> Deque[QueueEntry]:
         """Get or create a queue for a node."""

@@ -503,19 +503,21 @@ def get_advanced_llm_settings() -> Dict[str, Any]:
     """Return the Phase 112 advanced LLM settings block with safe defaults.
 
     Reads from ``ui_cfg["llm_config"]["advanced"]``.  Defaults to the
-    conservative values (safety ON, Kimi 24K thinking budget, free plan)
-    so out-of-the-box behavior matches the documented profile sizes.
+    conservative values (safety ON, Kimi 24K thinking budget) so
+    out-of-the-box behavior matches the documented profile sizes.
     """
     ui_cfg = _load_ui_config()
     llm_config = ui_cfg.get("llm_config") or {}
     defaults = {
         "enforce_cloud_token_safety": True,
         "max_thinking_budget": 24576,
-        "ollama_plan_tier": "free",
-        # Phase 112 Fix 9: only consulted when ollama_plan_tier == "custom".
-        "custom_concurrency": 1,
     }
-    return {**defaults, **(llm_config.get("advanced") or {})}
+    merged = {**defaults, **(llm_config.get("advanced") or {})}
+    # Phase 82 deprecation: legacy plan-tier keys are accepted but ignored.
+    # Strip them from stale ui_config payloads so callers never see them.
+    merged.pop("ollama_plan_tier", None)
+    merged.pop("custom_concurrency", None)
+    return merged
 
 
 # ── Phase 44: Unified Task-Based LLM Resolver ─────────────────────
