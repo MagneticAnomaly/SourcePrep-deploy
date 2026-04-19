@@ -178,8 +178,8 @@ def test_aimd_backoff_writes_new_ceiling(monkeypatch, tmp_path) -> None:
     slot.current_limit = 80
     slot.mode = "congestion_avoidance"
 
-    # Trigger a backoff (queue_time_ms > 2000).
-    sched._record_throughput_for_slot(slot, queue_time_ms=5000.0)
+    # Trigger a backoff via explicit rejection signal (429/5xx/timeout).
+    sched._record_throughput_for_slot(slot, is_429_or_timeout=True)
 
     persisted = mod.concurrency_store().load("cloud:ep-backoff", "__default__")
     assert persisted is not None and persisted < 80, (
@@ -246,7 +246,7 @@ def test_local_slot_does_not_persist(monkeypatch, tmp_path) -> None:
 
     for _ in range(10):
         sched._record_throughput_for_slot(slot, queue_time_ms=50.0)
-    sched._record_throughput_for_slot(slot, queue_time_ms=5000.0)
+    sched._record_throughput_for_slot(slot, is_429_or_timeout=True)
 
     persisted = mod.concurrency_store().load("local:ep-gpu", "__default__")
     assert persisted is None

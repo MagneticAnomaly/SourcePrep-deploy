@@ -727,6 +727,9 @@ class LLMClient:
                     )
                     time.sleep(_wait)
             resp = _resp
+            if resp.status_code >= 500:
+                # 5xx → signal MD before raise_for_status() exits the function.
+                self._record_throughput(is_429_or_timeout=True)
             resp.raise_for_status()
             # Parse the complete NDJSON response body.
             # Each line is a JSON object; the final one has "done": true.
@@ -735,6 +738,7 @@ class LLMClient:
             thinking_parts = []
             tokens = 0
             total_exec_ms = 0.0
+            server_total_ms = 0.0
             aborted = False
             abort_reason = ""
             for raw_line in resp.text.splitlines():
@@ -760,7 +764,9 @@ class LLMClient:
                     eval_duration_ns = chunk.get("eval_duration", 0)
                     prompt_eval_duration_ns = chunk.get("prompt_eval_duration", 0)
                     load_duration_ns = chunk.get("load_duration", 0)
+                    total_duration_ns = chunk.get("total_duration", 0)
                     total_exec_ms = (eval_duration_ns + prompt_eval_duration_ns + load_duration_ns) / 1000000.0
+                    server_total_ms = total_duration_ns / 1000000.0
                     tokens = eval_count + prompt_eval_count
                     self._record_telemetry(prompt_eval_count, eval_count, tokens)
                     break
@@ -769,7 +775,12 @@ class LLMClient:
 
             t1 = time.monotonic()
             wall_time_ms = (t1 - t0) * 1000.0
-            queue_time_ms = max(0.0, wall_time_ms - total_exec_ms)
+            # Use Ollama's server-reported total_duration (excludes network RTT) to
+            # derive the AIMD congestion signal. Client wall time would conflate
+            # network latency with server-side queueing, causing Ollama Cloud
+            # requests to trigger spurious backoffs on every call.
+            reference_ms = server_total_ms if server_total_ms > 0 else wall_time_ms
+            queue_time_ms = max(0.0, reference_ms - total_exec_ms)
             self._record_throughput(queue_time_ms=queue_time_ms)
             
             text = "".join(text_parts)
@@ -864,13 +875,15 @@ class LLMClient:
                     logger.info("429 rate-limited by %s — retry %d/%d in %ds", self.model, _attempt + 1, self._MAX_429_RETRIES, _wait)
                     time.sleep(_wait)
             resp = _resp
+            if resp.status_code >= 500:
+                self._record_throughput(is_429_or_timeout=True)
             resp.raise_for_status()
-            
+
             t1 = time.monotonic()
             wall_time_ms = (t1 - t0) * 1000.0
             self._record_throughput(queue_time_ms=wall_time_ms, rate_limit_remaining=rate_limit_remaining)
             data = resp.json()
-            
+
             choice = data.get("choices", [{}])[0]
             text = choice.get("message", {}).get("content", "")
             usage = data.get("usage", {})
@@ -932,8 +945,10 @@ class LLMClient:
                     logger.info("429 rate-limited by %s — retry %d/%d in %ds", self.model, _attempt + 1, self._MAX_429_RETRIES, _wait)
                     time.sleep(_wait)
             resp = _resp
+            if resp.status_code >= 500:
+                self._record_throughput(is_429_or_timeout=True)
             resp.raise_for_status()
-            
+
             t1 = time.monotonic()
             wall_time_ms = (t1 - t0) * 1000.0
             self._record_throughput(queue_time_ms=wall_time_ms, rate_limit_remaining=rate_limit_remaining)

@@ -1350,10 +1350,10 @@ class TestAIMDFloorAndRecovery:
         sched = PipelineScheduler()
         sched.configure_node("cloud:ep-1", 10)
         slot = sched._slots["cloud:ep-1"]
-        # Simulate in-flight load and a slow LLM call to trigger backoff
+        # Simulate in-flight load and a rejection (429/5xx/timeout) to trigger backoff
         slot.active_stages["proj-a"] = "concepts"
         # Backoff would normally cut to in_flight=1, but floor=3 prevents it
-        sched._record_throughput_for_slot(slot, queue_time_ms=5000.0)
+        sched._record_throughput_for_slot(slot, is_429_or_timeout=True)
         assert slot.current_limit >= 3, (
             f"current_limit dropped to {slot.current_limit} — should respect floor=3"
         )
@@ -1366,7 +1366,7 @@ class TestAIMDFloorAndRecovery:
         # Hammer it with backoffs (separated by >2s cooldown each)
         for _ in range(5):
             slot._last_backoff_time = 0  # bypass cooldown
-            sched._record_throughput_for_slot(slot, queue_time_ms=5000.0)
+            sched._record_throughput_for_slot(slot, is_429_or_timeout=True)
         assert slot.current_limit >= 3
 
     def test_local_node_can_drop_to_1(self):
@@ -1374,7 +1374,7 @@ class TestAIMDFloorAndRecovery:
         sched.configure_node("local:ep-1", 5)
         slot = sched._slots["local:ep-1"]
         slot.active_stages["proj-a"] = "concepts"
-        sched._record_throughput_for_slot(slot, queue_time_ms=5000.0)
+        sched._record_throughput_for_slot(slot, is_429_or_timeout=True)
         # Local nodes have floor=1, so backoff CAN take them down
         assert slot.current_limit >= 1
 
@@ -1460,6 +1460,6 @@ class TestAIMDFloorAndRecovery:
         slot.active_stages["proj-a"] = "concepts"
 
         before_recovery = slot._last_recovery_time
-        sched._record_throughput_for_slot(slot, queue_time_ms=5000.0)
+        sched._record_throughput_for_slot(slot, is_429_or_timeout=True)
         # Backoff should have reset the recovery clock to "now"
         assert slot._last_recovery_time > before_recovery

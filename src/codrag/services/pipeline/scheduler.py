@@ -488,10 +488,20 @@ class PipelineScheduler:
     ) -> None:
         """Internal helper to apply AIMD logic to a single slot.
 
-        Works for ALL providers:
-        - Ollama: uses queue_time_ms (wall clock - eval/prompt/load durations)
-        - Cloud APIs: uses rate_limit_remaining headers + 429/timeout signals
-        - Both: queue_time_ms > 2000ms triggers congestion detection
+        Signal model (Phase 82 follow-up, research-driven):
+        - MD (backoff) fires on explicit failure signals only: 429, 5xx, timeout,
+          connection error. This matches AWS adaptive-retry and the consensus
+          from Netflix concurrency-limits / Envoy adaptive_concurrency that
+          wall-clock latency thresholds are unreliable for heterogeneous LLM
+          traffic (response length varies 10-1000x).
+        - Ollama's `total_duration - (eval + prompt_eval + load)` gap was
+          previously used as a latency signal but it measures unaccounted
+          inference overhead, not queue time (Ollama issue #10860). Still
+          passed through for observability / future tokens-per-second EWMA
+          work, but no longer triggers MD.
+        - Cloud APIs: rate_limit_remaining headers still clamp max concurrency.
+        queue_time_ms is retained in the signature for logging and to leave
+        the telemetry path open for per-token work-normalized signals.
         """
         # Step 1: Clamp hard limit from cloud rate-limit headers (when available)
         if rate_limit_remaining is not None and rate_limit_remaining >= 0:
@@ -502,8 +512,8 @@ class PipelineScheduler:
                     slot.current_limit = safe_limit
                     self._persist_cloud_ceiling(slot)
 
-        # Step 2: Congestion detection (works for ALL providers)
-        if is_429_or_timeout or queue_time_ms > 2000.0:
+        # Step 2: Congestion detection — rejection-primary (429/5xx/timeout).
+        if is_429_or_timeout:
             now = time.time()
             # Cooldown so we don't back off 10 times for a single congested batch
             if now - slot._last_backoff_time > 2.0:
@@ -517,10 +527,10 @@ class PipelineScheduler:
 
                 if slot.current_limit > new_limit:
                     logger.warning(
-                        "Scheduler: Node %s congested (queue_ms=%.1f, 429/timeout=%s). "
-                        "Backing off limit %d -> %d (floor=%d)",
-                        slot.node_id, queue_time_ms, is_429_or_timeout,
-                        slot.current_limit, new_limit, slot.min_limit,
+                        "Scheduler: Node %s rejected request (429/5xx/timeout). "
+                        "Backing off limit %d -> %d (floor=%d, observed queue_ms=%.1f)",
+                        slot.node_id,
+                        slot.current_limit, new_limit, slot.min_limit, queue_time_ms,
                     )
                     slot.current_limit = new_limit
                     self._persist_cloud_ceiling(slot)
@@ -555,6 +565,11 @@ class PipelineScheduler:
                         new_limit = slot.current_limit + 1
                         if not is_cloud:
                             new_limit = min(slot.max_concurrent, new_limit)
+                        logger.info(
+                            "Scheduler: Node %s additive increase %d -> %d (mode=%s, max=%d, floor=%d)",
+                            slot.node_id, slot.current_limit, new_limit,
+                            slot.mode, slot.max_concurrent, slot.min_limit,
+                        )
                         slot.current_limit = new_limit
                         self._persist_cloud_ceiling(slot)
 
