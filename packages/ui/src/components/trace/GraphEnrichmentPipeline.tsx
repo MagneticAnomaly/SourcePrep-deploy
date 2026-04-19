@@ -731,16 +731,18 @@ function StageRow({
   onPause,
   onResume,
   showDetails = false,
+  isRebuilding = false,
 }: {
   stage: EnrichmentStage;
   isPaused: boolean;
   onPause?: (group: "fast_sync" | "deep_enrichment" | "finalize") => void;
   onResume?: (group: "fast_sync" | "deep_enrichment" | "finalize") => void;
   showDetails?: boolean;
+  isRebuilding?: boolean;
 }) {
   const s = STATE_STYLES[stage.state];
   const [hovered, setHovered] = useState(false);
-  const isRunning = stage.state === 'running' || stage.state === 'rerunning' || stage.state === 'rebuilding';
+  const isRunning = stage.state === 'running' || stage.state === 'rerunning' || stage.state === 'rebuilding' || (stage.state === 'error' && isRebuilding);
   const isRerunning = stage.state === 'rerunning';
 
   const group = ['structural', 'inferred_edges', 'catalogue', 'validation', 'knowledge'].includes(stage.id)
@@ -827,8 +829,19 @@ function StageRow({
                 className="h-1.5 mt-0 w-full"
                 color={isRerunning ? "bg-purple-500" : "bg-blue-500"}
                 rerun={stage.rerun ? stage.rerun : undefined}
-                variant={stage.state === 'rebuilding' ? 'rebuild' : undefined}
+                variant={
+                  stage.state === 'rebuilding' || (stage.state === 'error' && isRebuilding)
+                    ? 'rebuild'
+                    : undefined
+                }
                 rebuildPercent={stage.state === 'rebuilding' ? stage.progress : undefined}
+                rebuildStateOverlay={
+                  stage.state === 'rebuilding' && isPaused
+                    ? 'paused'
+                    : stage.state === 'error' && isRebuilding
+                      ? 'failed'
+                      : undefined
+                }
               />
             </div>
             {stage.stats && (
@@ -1347,6 +1360,7 @@ export function GraphEnrichmentPipeline({
   const finalizeRebuildPercent = isRebuilding
     ? computeOverallRebuildPercent(finalizeStages.map((s) => ({ state: s.state, progress: s.progress })))
     : 0;
+  const isPipelinePaused = Boolean(fastPaused || deepPaused || finalizePaused);
 
   // A group with no stages left to run shouldn't display a Resume button — the
   // backend's paused flag can survive daemon restarts or partial resets, so we
@@ -1424,6 +1438,7 @@ export function GraphEnrichmentPipeline({
             variant="rebuild"
             rebuildPercent={overallRebuildPercent}
             className="h-2"
+            rebuildStateOverlay={isPipelinePaused ? 'paused' : undefined}
           />
         </div>
       )}
@@ -1515,6 +1530,7 @@ export function GraphEnrichmentPipeline({
                   onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
                   onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('fast_sync') : undefined}
                   showDetails={showDetails}
+                  isRebuilding={isRebuilding}
                 />
                 {showRecover && (
                   <RecoverStagePanel
@@ -1616,6 +1632,7 @@ export function GraphEnrichmentPipeline({
                   onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('deep_enrichment') : undefined}
                   isPaused={isStagePaused}
                   showDetails={showDetails}
+                  isRebuilding={isRebuilding}
                 />
                 {showRecover && (
                   <RecoverStagePanel
@@ -1705,6 +1722,7 @@ export function GraphEnrichmentPipeline({
                   onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('finalize') : undefined}
                   isPaused={isStagePaused}
                   showDetails={showDetails}
+                  isRebuilding={isRebuilding}
                 />
                 {showRecover && (
                   <RecoverStagePanel
