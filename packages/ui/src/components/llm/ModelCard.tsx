@@ -56,6 +56,83 @@ export interface ModelCardProps {
   disabled?: boolean;
 }
 
+/** Normalize a model name by stripping a trailing `:latest`. */
+function stripLatest(name: string): string {
+  return name.replace(/:latest$/, '');
+}
+
+/** True if `candidate` represents the same model as `saved` (handling `:latest`). */
+function isSameModel(candidate: string, saved: string): boolean {
+  if (candidate === saved) return true;
+  if (candidate === `${saved}:latest`) return true;
+  if (saved === `${candidate}:latest`) return true;
+  return stripLatest(candidate) === stripLatest(saved);
+}
+
+export interface ModelOption {
+  value: string;
+  label: string;
+  disabled?: boolean;
+}
+
+export interface BuildModelOptionsArgs {
+  model: string | undefined;
+  availableModels: string[];
+  modelDetails:
+    | Array<{ name: string; [key: string]: unknown }>
+    | undefined;
+  loadingModels: boolean;
+}
+
+/**
+ * Build the option list for the Model <Select>.
+ *
+ * Fixes a regression where a persisted `model` silently disappeared from
+ * the dropdown whenever `availableModels` was empty (endpoint not yet
+ * probed / probe failed / endpoint offline). The native <select> would
+ * fall back to the empty-value placeholder, making it look as if nothing
+ * was configured even though the backend still held the selection.
+ *
+ * Rules:
+ *   1. If `model` is saved but NOT present in `availableModels`, prepend
+ *      a synthetic `{ value: model, label: model }` so the native select
+ *      can render the saved value.
+ *   2. Only include the empty-value placeholder when `model` is unset.
+ *      Otherwise the native select may prefer it over the saved value
+ *      when no matching option exists.
+ *   3. Carry the existing `blocked_by_policy` semantics onto entries
+ *      derived from `availableModels`.
+ */
+export function buildModelOptions({
+  model,
+  availableModels,
+  modelDetails,
+  loadingModels,
+}: BuildModelOptionsArgs): ModelOption[] {
+  const hasSaved = !!model;
+  const savedAlreadyListed =
+    hasSaved && availableModels.some((m) => isSameModel(m, model!));
+
+  const placeholder: ModelOption[] = hasSaved
+    ? []
+    : [{ value: '', label: loadingModels ? 'Loading models...' : 'Select a model...' }];
+
+  const synthetic: ModelOption[] =
+    hasSaved && !savedAlreadyListed ? [{ value: model!, label: model! }] : [];
+
+  const fromAvailable: ModelOption[] = availableModels.map((m) => {
+    const details = modelDetails?.find((d) => d.name === m);
+    const isBlocked = (details as { blocked_by_policy?: boolean } | undefined)?.blocked_by_policy;
+    return {
+      value: m,
+      label: isBlocked ? `🚫 ${m} (Blocked by IT)` : m,
+      disabled: !!isBlocked,
+    };
+  });
+
+  return [...placeholder, ...synthetic, ...fromAvailable];
+}
+
 export function ModelCard({
   title,
   description,
@@ -199,18 +276,12 @@ export function ModelCard({
                       value={model || ''}
                       onChange={(e) => onModelChange && onModelChange(e.target.value)}
                       disabled={disabled}
-                      options={[
-                        { value: '', label: loadingModels ? 'Loading models...' : 'Select a model...' },
-                        ...availableModels.map(m => {
-                          const details = modelDetails?.find(d => d.name === m);
-                          const isBlocked = (details as any)?.blocked_by_policy;
-                          return {
-                            value: m,
-                            label: isBlocked ? `🚫 ${m} (Blocked by IT)` : m,
-                            disabled: isBlocked
-                          };
-                        })
-                      ]}
+                      options={buildModelOptions({
+                        model,
+                        availableModels,
+                        modelDetails,
+                        loadingModels,
+                      })}
                       className="flex-1"
                     />
                     {onRefreshModels && (
