@@ -9,6 +9,7 @@ import {
 import { computeGroupRollup, type GroupRollup } from './pipelineRollup';
 import { RecoverStagePanel } from './RecoverStagePanel';
 import { BarrierIndicator } from './BarrierIndicator';
+import { isPipelineRebuilding } from './rebuildProgress';
 import { HealthBadge } from '../pipeline/HealthBadge';
 import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, InferredEdgesStatus, AtlasStatus, StageProvenance, RulesStatus, ConceptsStatus, AuditPipelineStatus, AntibodiesStatus, BarrierStatus, PipelineHealth } from '../../types';
 import type { ApiClient } from '../../api/client';
@@ -725,7 +726,7 @@ function StageRow({
 }) {
   const s = STATE_STYLES[stage.state];
   const [hovered, setHovered] = useState(false);
-  const isRunning = stage.state === 'running' || stage.state === 'rerunning';
+  const isRunning = stage.state === 'running' || stage.state === 'rerunning' || stage.state === 'rebuilding';
   const isRerunning = stage.state === 'rerunning';
 
   const group = ['structural', 'inferred_edges', 'catalogue', 'validation', 'knowledge'].includes(stage.id)
@@ -812,6 +813,8 @@ function StageRow({
                 className="h-1.5 mt-0 w-full"
                 color={isRerunning ? "bg-purple-500" : "bg-blue-500"}
                 rerun={stage.rerun ? stage.rerun : undefined}
+                variant={stage.state === 'rebuilding' ? 'rebuild' : undefined}
+                rebuildPercent={stage.state === 'rebuilding' ? stage.progress : undefined}
               />
             </div>
             {stage.stats && (
@@ -931,6 +934,15 @@ export function GraphEnrichmentPipeline({
   const fastPaused = fastPausedProp ?? false;
   const deepPaused = deepPausedProp ?? false;
   const finalizePaused = finalizePausedProp ?? false;
+
+  // ── Phase 116: rebuild detection ──────────────────────────
+  // When a full /pipeline/rebuild sets barrier.reason === 'rebuild'
+  // (+ barrier.active === true), promote every 'running'/'queued'
+  // stage state to 'rebuilding' so the progress bar switches to
+  // the rebuild variant.
+  const isRebuilding = isPipelineRebuilding(barrier);
+  const promoteForRebuild = (s: StageState): StageState =>
+    isRebuilding && (s === 'running' || s === 'queued') ? 'rebuilding' : s;
 
   // ── Phase 49: Details toggle (persisted to localStorage) ──────
   const [showDetails, setShowDetails] = useState(() => {
@@ -1131,10 +1143,10 @@ export function GraphEnrichmentPipeline({
   // ── Build stage arrays by group ────────────────────────────
 
   const fastStages: EnrichmentStage[] = [
-    { id: 'structural', label: 'Structural Graph', icon: GitBranch, modelTag: 'Rust', state: structuralState, stats: structuralStats },
+    { id: 'structural', label: 'Structural Graph', icon: GitBranch, modelTag: 'Rust', state: promoteForRebuild(structuralState), stats: structuralStats },
     {
       id: 'inferred_edges', label: 'Edge Discovery', icon: Code2, modelTag: 'Code',
-      state: inferredEdgesState, stats: inferredEdgesStats,
+      state: promoteForRebuild(inferredEdgesState), stats: inferredEdgesStats,
       progress: inferredEdgesState === 'running' && inferredEdges?.slot_progress?.total
         ? Math.min(100, Math.round((inferredEdges.slot_progress.current / inferredEdges.slot_progress.total) * 100))
         : undefined,
@@ -1142,13 +1154,13 @@ export function GraphEnrichmentPipeline({
     },
     {
       id: 'catalogue', label: 'Fast Catalogue', icon: Database, modelTag: 'Fast',
-      state: catalogueState, stats: catalogueStats, progress: catalogueProgress,
+      state: promoteForRebuild(catalogueState), stats: catalogueStats, progress: catalogueProgress,
       rerun: catalogueState === 'running' ? computeStageRerun(augmentation?.progress_baseline, augmentation?.progress_total) : undefined,
     },
-    { id: 'validation', label: 'Relationship Validation', icon: ShieldCheck, modelTag: 'Rust', state: validationState, stats: validationStats },
+    { id: 'validation', label: 'Relationship Validation', icon: ShieldCheck, modelTag: 'Rust', state: promoteForRebuild(validationState), stats: validationStats },
     {
       id: 'knowledge', label: 'Knowledge Embedding', icon: Database,
-      state: fastKnowledgeState, stats: fastKnowledgeStats,
+      state: promoteForRebuild(fastKnowledgeState), stats: fastKnowledgeStats,
       progress: fastKnowledgeState === 'running'
         ? (knowledge?.progress_total ? Math.min(100, Math.round((knowledge.progress_current ?? 0) / knowledge.progress_total * 100)) : 0)
         : undefined,
@@ -1159,7 +1171,7 @@ export function GraphEnrichmentPipeline({
   const deepStages: EnrichmentStage[] = [
     {
       id: 'enrichment', label: 'Deep Reasoning', icon: Brain, modelTag: 'Thinking',
-      state: enrichmentState, stats: enrichmentStats,
+      state: promoteForRebuild(enrichmentState), stats: enrichmentStats,
       progress: (epistemicRunning || epistemic?.running) && epistemic?.progress_total
         ? Math.min(100, Math.round((epistemic.progress_current ?? 0) / epistemic.progress_total * 100))
         : (enrichmentState === 'running' ? 0 : undefined),
@@ -1167,7 +1179,7 @@ export function GraphEnrichmentPipeline({
     },
     {
       id: 'group_reasoning', label: 'Group Reasoning', icon: Network, modelTag: 'Thinking',
-      state: (() => {
+      state: promoteForRebuild((() => {
         if (groupReasoningRunning || groupReasoning?.slot_phase === 'running' || groupReasoning?.running) return 'running' as StageState;
         if (!epistemic?.enabled || !epistemic?.enriched_nodes) return 'disabled' as StageState;
         // If a later stage is running or already complete, group_reasoning must have finished
@@ -1175,7 +1187,7 @@ export function GraphEnrichmentPipeline({
         if (clusteringState === 'complete' || atlasState === 'complete' || deepeningState === 'complete' || deepeningState === 'stale') return 'complete' as StageState;
         if (groupReasoning?.enabled && groupReasoning?.group_count > 0) return 'complete' as StageState;
         return 'not_built' as StageState;
-      })(),
+      })()),
       stats: (() => {
         if (groupReasoningRunning || groupReasoning?.slot_phase === 'running' || groupReasoning?.running) return 'Analyzing groups...';
         if (!epistemic?.enabled || !epistemic?.enriched_nodes) return 'Waiting for enrichment';
@@ -1190,14 +1202,14 @@ export function GraphEnrichmentPipeline({
     },
     {
       id: 'clustering', label: 'Module Synthesis', icon: Layers, modelTag: 'Thinking',
-      state: clusteringState, stats: clusteringStats,
+      state: promoteForRebuild(clusteringState), stats: clusteringStats,
       progress: (clusterRunning || modules?.running) && modules?.progress_total
         ? Math.min(100, Math.round((modules.progress_current ?? 0) / modules.progress_total * 100))
         : (clusteringState === 'running' ? 0 : undefined),
       rerun: clusteringState === 'running' ? computeStageRerun(modules?.progress_baseline, modules?.progress_total) : undefined,
     },
     { id: 'deepening', label: 'Continuous Deepening', icon: Network,
-      state: deepeningState, stats: deepeningStats,
+      state: promoteForRebuild(deepeningState), stats: deepeningStats,
       progress: deepeningState === 'running' ? (deepeningProgress ?? 0) : undefined,
       rerun: deepeningState === 'running'
         ? computeStageRerun(deepening?.progress_baseline, deepening?.progress_total)
@@ -1205,7 +1217,7 @@ export function GraphEnrichmentPipeline({
     },
     {
       id: 'deep_knowledge', label: 'Deep Knowledge Embedding', icon: Database,
-      state: deepKnowledgeState, stats: deepKnowledgeStats,
+      state: promoteForRebuild(deepKnowledgeState), stats: deepKnowledgeStats,
       progress: deepKnowledgeState === 'running'
         ? (knowledge?.progress_total ? Math.min(100, Math.round((knowledge.progress_current ?? 0) / knowledge.progress_total * 100)) : 0)
         : undefined,
@@ -1254,28 +1266,28 @@ export function GraphEnrichmentPipeline({
 
   const finalizeStages: EnrichmentStage[] = [
     { id: 'atlas', label: 'Atlas Building', icon: Map, modelTag: 'Thinking',
-      state: finStageState('atlas', atlasDone),
+      state: promoteForRebuild(finStageState('atlas', atlasDone)),
       stats: atlasStats,
       rerun: finStageState('atlas', atlasDone) === 'running' ? computeStageRerun(undefined, undefined) : undefined,
     },
     {
       id: 'rules', label: 'Rules Generation', icon: FileText, modelTag: 'CPU',
-      state: finStageState('rules', rulesDone),
+      state: promoteForRebuild(finStageState('rules', rulesDone)),
       stats: rulesStatus?.generated ? 'Generated' : finStageState('rules', false) === 'running' ? 'Generating...' : 'Not generated',
     },
     {
       id: 'concepts', label: 'Concept Seeding', icon: Lightbulb, modelTag: 'Thinking',
-      state: finStageState('concepts', !!conceptsStatus?.seeded),
+      state: promoteForRebuild(finStageState('concepts', !!conceptsStatus?.seeded)),
       stats: conceptsStatus?.seeded ? `${conceptsStatus.count} concepts` : finStageState('concepts', false) === 'running' ? 'Seeding...' : 'Not seeded',
     },
     {
       id: 'audit', label: 'Structural Audit', icon: ClipboardCheck, modelTag: 'LLM',
-      state: finStageState('audit', !!auditPipelineStatus?.exists),
+      state: promoteForRebuild(finStageState('audit', !!auditPipelineStatus?.exists)),
       stats: auditPipelineStatus?.exists ? `${auditPipelineStatus.finding_count} findings` : finStageState('audit', false) === 'running' ? 'Auditing...' : 'Not run',
     },
     {
       id: 'antibodies', label: 'Immune System', icon: Shield, modelTag: 'CPU',
-      state: finStageState('antibodies', !!(antibodiesStatus?.count)),
+      state: promoteForRebuild(finStageState('antibodies', !!(antibodiesStatus?.count))),
       stats: antibodiesStatus?.count ? `${antibodiesStatus.count} antibodies` : finStageState('antibodies', false) === 'running' ? 'Deriving...' : 'Not derived',
     },
   ];
