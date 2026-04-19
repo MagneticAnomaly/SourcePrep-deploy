@@ -1325,9 +1325,9 @@ export function GraphEnrichmentPipeline({
   }
 
   // ── Group running state ──────────────────────────────────
-  const fastRunning = fastStages.some(s => s.state === 'running');
-  const deepRunning = deepStages.some(s => s.state === 'running');
-  const finalizeRunning = finalizeStages.some(s => s.state === 'running');
+  const fastRunning = fastStages.some(s => s.state === 'running' || s.state === 'rebuilding');
+  const deepRunning = deepStages.some(s => s.state === 'running' || s.state === 'rebuilding');
+  const finalizeRunning = finalizeStages.some(s => s.state === 'running' || s.state === 'rebuilding');
 
   // ── Toggle helpers ─────────────────────────────────────────
 
@@ -1527,7 +1527,7 @@ export function GraphEnrichmentPipeline({
                 <StageRow
                   stage={stage}
                   isPaused={isStagePaused}
-                  onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
+                  onPause={stage.state === 'running' || stage.state === 'rerunning' || stage.state === 'rebuilding' ? onPausePipeline : undefined}
                   onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('fast_sync') : undefined}
                   showDetails={showDetails}
                   isRebuilding={isRebuilding}
@@ -1628,7 +1628,7 @@ export function GraphEnrichmentPipeline({
               <div key={stage.id}>
                 <StageRow
                   stage={stage}
-                  onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
+                  onPause={stage.state === 'running' || stage.state === 'rerunning' || stage.state === 'rebuilding' ? onPausePipeline : undefined}
                   onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('deep_enrichment') : undefined}
                   isPaused={isStagePaused}
                   showDetails={showDetails}
@@ -1718,7 +1718,7 @@ export function GraphEnrichmentPipeline({
               <div key={stage.id}>
                 <StageRow
                   stage={stage}
-                  onPause={stage.state === 'running' || stage.state === 'rerunning' ? onPausePipeline : undefined}
+                  onPause={stage.state === 'running' || stage.state === 'rerunning' || stage.state === 'rebuilding' ? onPausePipeline : undefined}
                   onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('finalize') : undefined}
                   isPaused={isStagePaused}
                   showDetails={showDetails}
