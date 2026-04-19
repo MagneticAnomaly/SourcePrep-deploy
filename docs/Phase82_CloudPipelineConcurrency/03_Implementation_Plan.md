@@ -1,5 +1,14 @@
 # Phase 82: Swarm UI Accuracy + AIMD Gap Fixes — Implementation Plan
 
+> **Status: SUPERSEDED (2026-04-18)** — Phase 112 partially reverted this
+> plan by reintroducing a hardcoded `PLAN_TIER_CONCURRENCY` dict and an
+> early-return in `batch_profiles` that bypassed AIMD for cloud
+> providers. The canonical completion work that removed that regression
+> and finalized unbounded AIMD discovery is documented in
+> `05_Completion_Plan.md` (landed 2026-04-18). This file is kept for
+> historical reference only — do not treat it as the current source of
+> truth.
+>
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the UI accurately show swarm vs concurrent mode by checking model capability, and fill AIMD throughput reporting gaps in Azure/Gemini providers.

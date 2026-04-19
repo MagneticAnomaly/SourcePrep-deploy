@@ -610,6 +610,11 @@ class TestAutoDiscoveryBatchWorkers:
         """
         sched = PipelineScheduler()
         sched.configure_node("cloud:ep-1", 3)
+        # Pin AIMD state: suppress idle recovery so dynamic_capacity
+        # stays at the seed (test is about provider discovery, not AIMD
+        # drift — see Phase 82 I1 fix).
+        with sched._lock:
+            sched._slots["cloud:ep-1"]._last_recovery_time = time.time()
         sched.acquire("proj-a", StageId.CATALOGUE, "cloud:ep-1")
 
         result = sched.available_batch_workers_for_provider("openai")
@@ -622,6 +627,9 @@ class TestAutoDiscoveryBatchWorkers:
         """
         sched = PipelineScheduler()
         sched.configure_node("cloud:ep-1", 3)
+        # Pin AIMD state — see test above.
+        with sched._lock:
+            sched._slots["cloud:ep-1"]._last_recovery_time = time.time()
         sched.acquire("proj-a", StageId.CATALOGUE, "cloud:ep-1")
         sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1")
 
@@ -918,9 +926,13 @@ class TestConcurrentWorkersSwarmAware:
         return full dynamic_capacity - 1, not weighted share."""
         sched = PipelineScheduler()
         sched.configure_node("cloud:ep-1", 12)
-        # Set AIMD limit to match max_concurrent for this test
+        # Set AIMD limit to match max_concurrent for this test.
+        # Pin recovery clock to suppress AIMD drift on acquire (Phase 82
+        # I1: cloud is unbounded, so idle recovery would grow
+        # current_limit past 12 during the test setup).
         with sched._lock:
             sched._slots["cloud:ep-1"].current_limit = 12
+            sched._slots["cloud:ep-1"]._last_recovery_time = time.time()
         sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
 
         mock_config = {
@@ -1390,36 +1402,55 @@ class TestAIMDFloorAndRecovery:
         sched.acquire("proj-a", StageId.CONCEPTS, "cloud:ep-1")
         assert slot.current_limit == 4  # unchanged
 
-    def test_idle_recovery_skipped_when_at_max(self):
+    def test_idle_recovery_skipped_when_local_at_max(self):
+        # Local slots cap at max_concurrent (VRAM ceiling known a priori).
         sched = PipelineScheduler()
-        sched.configure_node("cloud:ep-1", 10)
-        slot = sched._slots["cloud:ep-1"]
-        # Phase 82: cloud slots seed at current_limit=5 (jumpstart), so we
-        # must manually lift to max=10 to test the "already at max" branch.
+        sched.configure_node("local:gpu-0", 10)
+        slot = sched._slots["local:gpu-0"]
         slot.current_limit = 10
         # Already at max — recovery is a no-op
         slot._last_backoff_time = 0
         slot._last_recovery_time = 0
 
-        sched.acquire("proj-a", StageId.CONCEPTS, "cloud:ep-1")
+        sched.acquire("proj-a", StageId.CONCEPTS, "local:gpu-0")
         assert slot.current_limit == 10
 
-    def test_idle_recovery_caps_at_max(self):
+    def test_idle_recovery_caps_local_at_max(self):
+        # Local slots cap at max_concurrent (VRAM ceiling known a priori).
         sched = PipelineScheduler()
-        sched.configure_node("cloud:ep-1", 5)
-        slot = sched._slots["cloud:ep-1"]
+        sched.configure_node("local:gpu-0", 5)
+        slot = sched._slots["local:gpu-0"]
         slot.current_limit = 4
         slot._last_backoff_time = 0
         slot._last_recovery_time = 0
 
         # Should grow 4 -> 5 then stop
-        sched.acquire("proj-a", StageId.CONCEPTS, "cloud:ep-1")
+        sched.acquire("proj-a", StageId.CONCEPTS, "local:gpu-0")
         assert slot.current_limit == 5
         # Release and try again — should stay at 5
+        sched.release("proj-a", StageId.CONCEPTS, "local:gpu-0")
+        slot._last_recovery_time = 0  # bypass interval gate
+        sched.acquire("proj-b", StageId.CONCEPTS, "local:gpu-0")
+        assert slot.current_limit == 5
+
+    def test_idle_recovery_unbounded_for_cloud(self):
+        # Cloud slots are unbounded per the Latency-Aware Discovery spec.
+        # max_concurrent on cloud is only the jumpstart seed, not a ceiling.
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 5)
+        slot = sched._slots["cloud:ep-1"]
+        slot.current_limit = 5  # at "max" seed
+        slot._last_backoff_time = 0
+        slot._last_recovery_time = 0
+
+        # Should grow 5 -> 6 even though current_limit equals max_concurrent
+        sched.acquire("proj-a", StageId.CONCEPTS, "cloud:ep-1")
+        assert slot.current_limit == 6
+        # Release and try again — should keep growing past max
         sched.release("proj-a", StageId.CONCEPTS, "cloud:ep-1")
         slot._last_recovery_time = 0  # bypass interval gate
         sched.acquire("proj-b", StageId.CONCEPTS, "cloud:ep-1")
-        assert slot.current_limit == 5
+        assert slot.current_limit == 7
 
     def test_backoff_resets_recovery_clock(self):
         sched = PipelineScheduler()

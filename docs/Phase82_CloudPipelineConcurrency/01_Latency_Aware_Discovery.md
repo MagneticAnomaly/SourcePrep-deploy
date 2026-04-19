@@ -1,5 +1,17 @@
 # Latency-Aware Discovery (AIMD + BBR) for LLM Concurrency
 
+> **Status: SHIPPED (2026-04-18)** — Phase 82 completion landed on `main`.
+> Cloud LLM concurrency is discovered at runtime via latency-aware AIMD,
+> seeded at a jumpstart of 5, and is **unbounded** on the upward path.
+> Discovered ceilings persist across daemon restarts via
+> `ConcurrencyStore` (SQLite, per node_id + model_family).
+> Implementation lives in `src/codrag/services/pipeline/scheduler.py`
+> and `src/codrag/core/concurrency_store.py`.
+>
+> Historical note: this doc is the *spec*. For the delta between the
+> earlier Phase 82 plan and what actually shipped, see
+> `05_Completion_Plan.md`.
+>
 > Phase 82 reference document
 > Date: 2026-04-07
 > Purpose: Specify the dynamic concurrency scaling algorithm to optimally utilize both Ollama's local/cloud boundaries and API rate-limited components.

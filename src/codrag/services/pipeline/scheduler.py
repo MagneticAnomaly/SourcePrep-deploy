@@ -651,15 +651,24 @@ class PipelineScheduler:
         until the daemon restarts.  This time-based recovery closes the
         gap by growing on every acquire() call once the cooldown has
         elapsed, with no extra threads.
+
+        Local slots cap at ``max_concurrent`` (the VRAM ceiling is known
+        a priori). Cloud slots are unbounded per the Latency-Aware
+        Discovery spec — ``max_concurrent`` on cloud is only the
+        jumpstart seed, not a ceiling.
         """
-        if slot.current_limit >= slot.max_concurrent:
+        is_cloud = slot.node_id.startswith("cloud:")
+        if not is_cloud and slot.current_limit >= slot.max_concurrent:
             return
         now = time.time()
         if now - slot._last_backoff_time < self._BACKOFF_COOLDOWN_S:
             return
         if now - slot._last_recovery_time < self._IDLE_RECOVERY_INTERVAL_S:
             return
-        new_limit = min(slot.max_concurrent, slot.current_limit + 1)
+        if is_cloud:
+            new_limit = slot.current_limit + 1
+        else:
+            new_limit = min(slot.max_concurrent, slot.current_limit + 1)
         if new_limit > slot.current_limit:
             logger.info(
                 "Scheduler: Node %s idle recovery %d -> %d (max=%d, floor=%d)",
