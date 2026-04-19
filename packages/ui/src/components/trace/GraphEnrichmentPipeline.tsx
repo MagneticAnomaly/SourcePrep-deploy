@@ -684,7 +684,15 @@ function ChevronButton({ collapsed, onClick }: { collapsed: boolean; onClick?: (
   );
 }
 
-function CondensedGroupRow({ rollup }: { rollup: GroupRollup }) {
+function CondensedGroupRow({
+  rollup,
+  isRebuilding = false,
+  groupRebuildPercent = 0,
+}: {
+  rollup: GroupRollup;
+  isRebuilding?: boolean;
+  groupRebuildPercent?: number;
+}) {
   const stateToStyle: Record<GroupRollup['state'], { bg: string; border: string; text: string; icon: React.ComponentType<{ className?: string }> }> = {
     complete:  { bg: 'bg-success/10',  border: 'border-success/30',  text: 'text-success',    icon: CheckCircle2 },
     disabled:  { bg: 'bg-surface',     border: 'border-border',      text: 'text-text-subtle', icon: Circle },
@@ -703,9 +711,15 @@ function CondensedGroupRow({ rollup }: { rollup: GroupRollup }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className={cn('text-[10px] leading-tight truncate', s.text)}>{rollup.stats}</p>
-        {isRunning && typeof rollup.progress === 'number' && (
+        {isRebuilding ? (
+          <StageProgressBar
+            variant="rebuild"
+            rebuildPercent={groupRebuildPercent}
+            className="h-1.5 mt-1 w-full"
+          />
+        ) : isRunning && typeof rollup.progress === 'number' ? (
           <StageProgressBar progress={rollup.progress} className="h-1.5 mt-1 w-full" color="bg-blue-500" />
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -1324,6 +1338,15 @@ export function GraphEnrichmentPipeline({
   const overallRebuildPercent = isRebuilding
     ? computeOverallRebuildPercent(rebuildStages)
     : 0;
+  const fastRebuildPercent = isRebuilding
+    ? computeOverallRebuildPercent(fastStages.map((s) => ({ state: s.state, progress: s.progress })))
+    : 0;
+  const deepRebuildPercent = isRebuilding
+    ? computeOverallRebuildPercent(deepStages.map((s) => ({ state: s.state, progress: s.progress })))
+    : 0;
+  const finalizeRebuildPercent = isRebuilding
+    ? computeOverallRebuildPercent(finalizeStages.map((s) => ({ state: s.state, progress: s.progress })))
+    : 0;
 
   // A group with no stages left to run shouldn't display a Resume button — the
   // backend's paused flag can survive daemon restarts or partial resets, so we
@@ -1464,7 +1487,11 @@ export function GraphEnrichmentPipeline({
         </div>
       </div>
       {fastCollapsed ? (
-        <CondensedGroupRow rollup={computeGroupRollup(fastStages)} />
+        <CondensedGroupRow
+          rollup={computeGroupRollup(fastStages)}
+          isRebuilding={isRebuilding}
+          groupRebuildPercent={fastRebuildPercent}
+        />
       ) : (
         <div className="flex flex-col gap-0.5 ml-1">
           {fastStages.map((stage, idx) => {
@@ -1564,7 +1591,11 @@ export function GraphEnrichmentPipeline({
         </div>
       </div>
       {deepCollapsed ? (
-        <CondensedGroupRow rollup={computeGroupRollup(deepStages)} />
+        <CondensedGroupRow
+          rollup={computeGroupRollup(deepStages)}
+          isRebuilding={isRebuilding}
+          groupRebuildPercent={deepRebuildPercent}
+        />
       ) : (
         <div className="flex flex-col gap-0.5 ml-1">
           {deepStages.map((stage, idx) => {
@@ -1650,7 +1681,11 @@ export function GraphEnrichmentPipeline({
         </div>
       </div>
       {finalizeCollapsed ? (
-        <CondensedGroupRow rollup={computeGroupRollup(finalizeStages)} />
+        <CondensedGroupRow
+          rollup={computeGroupRollup(finalizeStages)}
+          isRebuilding={isRebuilding}
+          groupRebuildPercent={finalizeRebuildPercent}
+        />
       ) : (
         <div className="flex flex-col gap-0.5 ml-1">
           {finalizeStages.map((stage, idx) => {

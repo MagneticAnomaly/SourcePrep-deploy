@@ -28,10 +28,10 @@ export function computeGroupRollup(stages: EnrichmentStage[]): GroupRollup {
   }
 
   const hasError = stages.some((s) => s.state === 'error');
-  const runningIndex = stages.findIndex((s) => s.state === 'running' || s.state === 'rerunning');
+  const runningIndex = stages.findIndex((s) => s.state === 'running' || s.state === 'rerunning' || s.state === 'rebuilding');
 
   if (runningIndex >= 0 && !hasError) {
-    const runningStages = stages.filter((s) => s.state === 'running' || s.state === 'rerunning');
+    const runningStages = stages.filter((s) => s.state === 'running' || s.state === 'rerunning' || s.state === 'rebuilding');
     const withProgress = runningStages.filter((s) => typeof s.progress === 'number');
     const avg = withProgress.length
       ? Math.round(withProgress.reduce((acc, s) => acc + (s.progress as number), 0) / withProgress.length)
