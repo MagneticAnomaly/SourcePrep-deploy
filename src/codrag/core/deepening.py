@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from .llm_client import _get_llm_concurrency
+from codrag.services.pipeline.thread_pool import llm_pool
 from .epistemic_score import (
     EpistemicEntry,
     EpistemicScore,
@@ -453,14 +454,13 @@ class DeepeningLoop:
                 batch_timeout_sec = float(
                     os.environ.get("CODRAG_DEEPENING_BATCH_TIMEOUT", "600")
                 )
-                from codrag.services.pipeline.thread_pool import llm_pool
-                # Phase 82 follow-up: use the shared bounded pool. AIMD's
-                # per-request gate (PipelineScheduler.acquire_request,
-                # called from LLMClient.generate) enforces the dynamic
-                # ceiling at submit-time. The per-stage ``concurrency``
-                # value is no longer a hard cap — it's the MAX we'd ever
-                # submit in parallel; the gate may block many of those
-                # until current_limit allows.
+                # Phase 82 follow-up: use the shared bounded pool.
+                # ``concurrency`` now only selects the sequential (==1) vs
+                # parallel (>1) execution path — it is NOT a cap on
+                # in-flight requests. The AIMD gate in
+                # LLMClient.generate (PipelineScheduler.acquire_request)
+                # is the real throttle; submitting the full batch is fine
+                # because surplus submits simply block at the gate.
                 pool = llm_pool
                 futures = {
                     pool.submit(
@@ -497,6 +497,12 @@ class DeepeningLoop:
                         len(futures),
                         [nid for nid, _ in pending[:5]],
                     )
+                finally:
+                    # Cancel any futures still pending on the shared pool so
+                    # that an unhandled exception (OOM, KeyboardInterrupt,
+                    # bubbled bug) does not orphan worker slots used by other
+                    # pipeline stages. The except branch above already logged
+                    # the timeout case; this just ensures cleanup on ALL paths.
                     for f in futures:
                         if not f.done():
                             f.cancel()
