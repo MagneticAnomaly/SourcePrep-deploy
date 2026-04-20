@@ -29,6 +29,10 @@ export interface EnrichmentState {
   deepeningStatus: DeepeningStatus
   deepeningRunning: boolean
   knowledgeStatus: KnowledgeEmbeddingStatus
+  /** Separate status for stage 10 (Deep Knowledge Embedding). Pre-Phase 102
+   * both stages shared `knowledgeStatus` which caused progress/running
+   * fields from fast-sync knowledge to bleed into the Deep Knowledge row. */
+  deepKnowledgeStatus: KnowledgeEmbeddingStatus
   fastKnowledgeBuilding: boolean
   deepKnowledgeBuilding: boolean
   groupReasoningRunning: boolean
@@ -71,6 +75,7 @@ export const initialEnrichmentState: EnrichmentState = {
   deepeningStatus: { running: false, total_scored: 0, settled_count: 0, settled_ratio: 0, avg_score: 0 },
   deepeningRunning: false,
   knowledgeStatus: { enabled: false, running: false, chunks_embedded: 0, deep_chunks_embedded: 0, last_run_at: null },
+  deepKnowledgeStatus: { enabled: false, running: false, chunks_embedded: 0, deep_chunks_embedded: 0, last_run_at: null },
   fastKnowledgeBuilding: false,
   deepKnowledgeBuilding: false,
   groupReasoningRunning: false,
@@ -97,6 +102,7 @@ export type EnrichmentAction =
   | { type: 'MODULE_STATUS'; payload: ModuleStatus }
   | { type: 'DEEPENING_STATUS'; payload: DeepeningStatus }
   | { type: 'KNOWLEDGE_STATUS'; payload: KnowledgeEmbeddingStatus }
+  | { type: 'DEEP_KNOWLEDGE_STATUS'; payload: KnowledgeEmbeddingStatus }
   | { type: 'ATLAS_STATUS'; payload: AtlasStatus }
   | { type: 'GROUP_REASONING_STATUS'; payload: { enabled: boolean; group_count: number; analyzed: number; slot_phase?: string; progress_current?: number; progress_total?: number } }
   // Sync all running flags at once (from SSE or initial hydration)
@@ -152,6 +158,8 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
       return { ...state, deepeningStatus: action.payload }
     case 'KNOWLEDGE_STATUS':
       return { ...state, knowledgeStatus: action.payload }
+    case 'DEEP_KNOWLEDGE_STATUS':
+      return { ...state, deepKnowledgeStatus: action.payload }
     case 'ATLAS_STATUS':
       return { ...state, atlasStatus: action.payload }
     case 'GROUP_REASONING_STATUS':

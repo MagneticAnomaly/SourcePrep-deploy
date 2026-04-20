@@ -33,9 +33,11 @@ export function StageProgressBar({
     variant ?? (rerun ? 'incremental' : 'initialize');
 
   if (resolvedVariant === 'rebuild') {
-    const topPct = clamp(rebuildPercent);
     const paused = rebuildStateOverlay === 'paused';
     const failed = rebuildStateOverlay === 'failed';
+    const indeterminate =
+      !failed && (rebuildPercent === undefined || rebuildPercent === null);
+    const topPct = clamp(rebuildPercent);
     const topFill = failed ? 'bg-red-500' : 'bg-orange-500';
     const topWidth = failed ? 100 : topPct;
     return (
@@ -47,10 +49,14 @@ export function StageProgressBar({
         )}
       >
         <div className="h-1/2 w-full">
-          <div
-            className={cn(topFill, 'h-full transition-all duration-500 ease-out')}
-            style={{ width: `${topWidth}%` }}
-          />
+          {indeterminate ? (
+            <div className={cn(topFill, 'h-full w-full animate-pulse')} />
+          ) : (
+            <div
+              className={cn(topFill, 'h-full transition-all duration-500 ease-out')}
+              style={{ width: `${topWidth}%` }}
+            />
+          )}
         </div>
         <div className="h-1/2 w-full bg-success" />
       </div>

@@ -50,6 +50,12 @@ export interface GraphEnrichmentPipelineProps {
   modules?: ModuleStatus;
   deepening?: DeepeningStatus;
   knowledge?: KnowledgeEmbeddingStatus;
+  /** Phase 102: separate status payload for stage 10 (Deep Knowledge
+   * Embedding). Split out from `knowledge` because the fast-sync
+   * knowledge index and the deep knowledge stage are independent
+   * runtimes — sharing a single prop caused fast-sync progress to
+   * leak into the Deep Knowledge row. */
+  deepKnowledge?: KnowledgeEmbeddingStatus;
   atlas?: AtlasStatus;
   smallModelConfigured?: boolean;
   largeModelConfigured?: boolean;
@@ -245,8 +251,35 @@ function formatRelativeDate(iso: string): string {
 const EMBEDDING_STAGES: Set<EnrichmentStageId> = new Set(['knowledge', 'deep_knowledge']);
 const RUST_STAGES: Set<EnrichmentStageId> = new Set(['structural', 'validation']);
 
+const BACKUP_TYPE_LABELS: Record<string, string> = {
+  run_checkpoint: 'run checkpoint',
+  golden: 'golden snapshot',
+  branch_snapshot: 'branch snapshot',
+};
+
 function formatProvenanceLine(p: StageProvenance): string {
   const parts: string[] = [];
+
+  // Recovery markers take precedence: when a manifest was reconstructed
+  // (selfheal stub or crash-recovery placeholder) there is no real model
+  // provenance to display, and the generic "built-in" fallback would
+  // misrepresent LLM stages as deterministic.
+  if (p.restored) {
+    const label = p.backup_type
+      ? `restored from ${BACKUP_TYPE_LABELS[p.backup_type] ?? p.backup_type}`
+      : 'restored from checkpoint';
+    parts.push(label);
+    if (p.restored_at) parts.push(formatRelativeDate(p.restored_at));
+    if (p.codrag_version) parts.push(`v${p.codrag_version}`);
+    return parts.join(' · ');
+  }
+  if (p.recovered) {
+    parts.push('recovered (inferred)');
+    if (p.generated_at) parts.push(formatRelativeDate(p.generated_at));
+    if (p.codrag_version) parts.push(`v${p.codrag_version}`);
+    return parts.join(' · ');
+  }
+
   if (p.model_breakdown && p.model_breakdown.length > 0) {
     // Filter out synthetic entries (path-derived summaries for empty/binary files)
     const realModels = p.model_breakdown.filter(m => !m.model.startsWith('synthetic:'));
@@ -905,6 +938,7 @@ export function GraphEnrichmentPipeline({
   modules,
   deepening,
   knowledge,
+  deepKnowledge,
   atlas,
   augmenting = false,
   validating = false,
@@ -970,6 +1004,17 @@ export function GraphEnrichmentPipeline({
   const isRebuilding = isPipelineRebuilding(barrier);
   const promoteForRebuild = (s: StageState): StageState =>
     isRebuilding && (s === 'running' || s === 'queued') ? 'rebuilding' : s;
+
+  // Freeze pre-rebuild green: remember which stages have reached
+  // 'complete' so that when a rebuild wipes their manifests (they
+  // revert to not_built/disabled), we keep showing them green until
+  // they actually start re-running.
+  const wasCompleteRef = useRef<Record<string, boolean>>({});
+  const prevProjectIdRef = useRef(projectId);
+  if (prevProjectIdRef.current !== projectId) {
+    wasCompleteRef.current = {};
+    prevProjectIdRef.current = projectId;
+  }
 
   // ── Phase 49: Details toggle (persisted to localStorage) ──────
   const [showDetails, setShowDetails] = useState(() => {
@@ -1158,13 +1203,16 @@ export function GraphEnrichmentPipeline({
   })();
 
   // 8. Deep Knowledge Embedding (after deep enrichment + clusters + deepening)
-  const deepKnowledgeState = computeDeepKnowledgeState(epistemic, modules, deepening, knowledge, deepKnowledgeBuilding);
+  // Phase 102: prefer the separate deepKnowledge payload; fall back to the
+  // shared knowledge prop for any caller that hasn't been updated yet.
+  const deepKnowledgeSource = deepKnowledge ?? knowledge;
+  const deepKnowledgeState = computeDeepKnowledgeState(epistemic, modules, deepening, deepKnowledgeSource, deepKnowledgeBuilding);
   const deepKnowledgeStats = (() => {
     if (deepKnowledgeState === 'running') return 'Re-embedding with deep data...';
     if (deepKnowledgeState === 'disabled') return 'Waiting for enrichment + clusters';
     if (deepKnowledgeState === 'not_built') return 'Ready to re-embed';
-    if (!knowledge) return '';
-    return `${knowledge.chunks_embedded} chunks embedded`;  // Total includes deep + fast
+    if (!deepKnowledgeSource) return '';
+    return `${deepKnowledgeSource.chunks_embedded} chunks embedded`;  // Total includes deep + fast
   })();
 
   // ── Build stage arrays by group ────────────────────────────
@@ -1246,10 +1294,10 @@ export function GraphEnrichmentPipeline({
       id: 'deep_knowledge', label: 'Deep Knowledge Embedding', icon: Database,
       state: promoteForRebuild(deepKnowledgeState), stats: deepKnowledgeStats,
       progress: deepKnowledgeState === 'running'
-        ? (knowledge?.progress_total ? Math.min(100, Math.round((knowledge.progress_current ?? 0) / knowledge.progress_total * 100)) : 0)
+        ? (deepKnowledgeSource?.progress_total ? Math.min(100, Math.round((deepKnowledgeSource.progress_current ?? 0) / deepKnowledgeSource.progress_total * 100)) : 0)
         : undefined,
       rerun: deepKnowledgeState === 'running'
-        ? computeStageRerun(knowledge?.progress_baseline, knowledge?.progress_total)
+        ? computeStageRerun(deepKnowledgeSource?.progress_baseline, deepKnowledgeSource?.progress_total)
         : undefined,
     },
   ];
@@ -1322,6 +1370,31 @@ export function GraphEnrichmentPipeline({
   // ── Phase 49: inject provenance into each stage ─────────
   for (const stage of [...fastStages, ...deepStages, ...finalizeStages]) {
     stage.provenance = lookupProvenance(stage.id, provenance);
+  }
+
+  // Track which stages have ever been green this session.
+  for (const stage of [...fastStages, ...deepStages, ...finalizeStages]) {
+    if (stage.state === 'complete') wasCompleteRef.current[stage.id] = true;
+  }
+  // Freeze-green: if a stage was previously complete and is now showing a
+  // "waiting"-like state because a rebuild destroy wiped its manifest,
+  // keep it green until it actually starts running. Gated on isRebuilding
+  // so that Reset-All (which also regresses state but without a rebuild
+  // barrier) correctly reverts stages to not_built / disabled instead of
+  // trapping them as stale-green.
+  const regressedStates: StageState[] = [
+    'not_built', 'disabled', 'queued', 'waiting', 'idle',
+  ];
+  if (isRebuilding) {
+    for (const stage of [...fastStages, ...deepStages, ...finalizeStages]) {
+      if (
+        wasCompleteRef.current[stage.id] &&
+        regressedStates.includes(stage.state)
+      ) {
+        stage.state = 'complete';
+        stage.progress = undefined;
+      }
+    }
   }
 
   // ── Group running state ──────────────────────────────────

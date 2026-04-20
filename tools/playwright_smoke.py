@@ -67,7 +67,10 @@ CANON_STATES = {"pending", "running", "complete", "failed"}
 DOM_STATE_TO_CANON = {
     "running": "running",
     "rerunning": "running",
+    "rebuilding": "running",  # promoteForRebuild outputs this during Danger Zone rebuilds
     "queued": "pending",
+    "waiting": "pending",
+    "idle": "pending",
     "not_built": "pending",
     "disabled": "pending",
     "paused": "pending",

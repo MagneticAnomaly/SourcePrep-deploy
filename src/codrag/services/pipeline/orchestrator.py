@@ -1211,7 +1211,17 @@ class PipelineOrchestrator:
             else:
                 stage_statuses[stage_id.value] = slot.to_dict()
 
+        # Pick the run_id of the currently-active group so consumers
+        # (dashboard, CLI, smoke harness) can bind to a single identifier
+        # without having to probe each group's journal_run_id individually.
+        active_run_id: Optional[str] = None
+        for run in (fast_run, deep_run, fin_run):
+            if run is not None and run.is_active and getattr(run, "journal_run_id", None):
+                active_run_id = run.journal_run_id
+                break
+
         return {
+            "run_id": active_run_id,
             "fast_sync": fast_run.to_dict() if fast_run else None,
             "deep_enrichment": deep_run.to_dict() if deep_run else None,
             "finalize": fin_run.to_dict() if fin_run else None,

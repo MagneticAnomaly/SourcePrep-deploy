@@ -568,6 +568,14 @@ export interface StageProvenance {
     percentage: number;
     avg_confidence?: number;
   }[];
+  /** Selfheal stub — data resurrected from a checkpoint rather than freshly produced. */
+  restored?: boolean;
+  source?: string;
+  backup_type?: string;
+  restored_at?: string;
+  /** Crash-recovery placeholder — manifest synthesized because the stage's real manifest went missing. */
+  recovered?: boolean;
+  recovery_note?: string;
 }
 
 /**

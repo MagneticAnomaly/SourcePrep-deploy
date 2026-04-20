@@ -460,6 +460,16 @@ async def pipeline_status(project_id: str) -> dict[str, Any]:
         # KnowledgeIndex.status() already separates them via the
         # deep_chunks_embedded field; just honour that.
         deep_knowledge_status = dict(knowledge_status)
+        # Phase 102 fix: fast_sync knowledge's `running`/`building` flag (set
+        # from is_project_knowledge_building above) must NOT leak into
+        # deep_knowledge — they are distinct stages with independent runtime
+        # state. Each stage's own slot_phase and stage_snapshot will
+        # repopulate these fields downstream in the slot/snapshot merge
+        # loops. Without this reset, the dashboard paints "Deep Knowledge
+        # Embedding" as actively running at 0% whenever fast-sync Knowledge
+        # is embedding.
+        deep_knowledge_status["running"] = False
+        deep_knowledge_status["building"] = False
         deep_knowledge_status["deep_chunks_embedded"] = int(
             knowledge_status.get("deep_chunks_embedded", 0) or 0
         )

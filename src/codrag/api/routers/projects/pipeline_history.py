@@ -176,13 +176,15 @@ async def get_data_provenance(
             if not manifest:
                 continue
 
-            # Determine age
+            # Determine age. Prefer finished_at (real run); fall back to
+            # restored_at for selfheal stubs so the UI still has a timestamp.
+            age_ref = manifest.finished_at or manifest.restored_at
             age_days: Optional[float] = None
-            if manifest.finished_at:
+            if age_ref:
                 try:
                     from datetime import datetime
-                    finished = datetime.fromisoformat(manifest.finished_at)
-                    age_days = (now - finished.timestamp()) / 86400.0
+                    ref = datetime.fromisoformat(age_ref.replace("Z", "+00:00"))
+                    age_days = (now - ref.timestamp()) / 86400.0
                     age_days = round(age_days, 1)
                     if oldest_age_days is None or age_days > oldest_age_days:
                         oldest_age_days = age_days
@@ -193,9 +195,24 @@ async def get_data_provenance(
                 "stage_id": stage.value,
                 "run_id": manifest.run_id,
                 "codrag_version": manifest.codrag_version,
-                "generated_at": manifest.finished_at,
+                "generated_at": age_ref,
                 "age_days": age_days,
             }
+
+            # Recovery markers — let the dashboard distinguish a real run
+            # from a selfheal stub or crash-recovery placeholder.
+            if manifest.restored is not None:
+                entry["restored"] = manifest.restored
+            if manifest.source:
+                entry["source"] = manifest.source
+            if manifest.backup_type:
+                entry["backup_type"] = manifest.backup_type
+            if manifest.restored_at:
+                entry["restored_at"] = manifest.restored_at
+            if manifest.recovered is not None:
+                entry["recovered"] = manifest.recovered
+            if manifest.recovery_note:
+                entry["recovery_note"] = manifest.recovery_note
 
             # Model info
             if manifest.model:

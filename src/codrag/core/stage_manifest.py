@@ -98,7 +98,19 @@ class StageManifest:
     # Used by the dashboard to render 2-tone progress bars that persist
     # across page refresh and daemon restart.
     incremental_baseline: Optional[int] = None
-    
+
+    # Recovery markers — set when a manifest is reconstructed rather than
+    # written by a real stage run. Surfaces in the dashboard so users can
+    # distinguish "this stage ran and recorded provenance" from "the
+    # manifest was synthesized after data was resurrected from a backup /
+    # inferred from downstream success".
+    restored: Optional[bool] = None           # selfheal stub
+    source: Optional[str] = None              # e.g. "selfheal"
+    backup_type: Optional[str] = None         # e.g. "run_checkpoint", "golden", "branch_snapshot"
+    restored_at: Optional[str] = None         # ISO timestamp of resurrection
+    recovered: Optional[bool] = None          # crash-recovery placeholder
+    recovery_note: Optional[str] = None       # human-readable explanation
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to dict for JSON output."""
         d: Dict[str, Any] = {
@@ -155,6 +167,20 @@ class StageManifest:
         if self.incremental_baseline is not None and self.incremental_baseline > 0:
             d["incremental_baseline"] = self.incremental_baseline
 
+        # Recovery markers
+        if self.restored is not None:
+            d["restored"] = self.restored
+        if self.source:
+            d["source"] = self.source
+        if self.backup_type:
+            d["backup_type"] = self.backup_type
+        if self.restored_at:
+            d["restored_at"] = self.restored_at
+        if self.recovered is not None:
+            d["recovered"] = self.recovered
+        if self.recovery_note:
+            d["recovery_note"] = self.recovery_note
+
         return d
     
     @classmethod
@@ -178,6 +204,13 @@ class StageManifest:
             output_files=d.get("output_files"),
             throughput=d.get("throughput"),
             errors=d.get("errors"),
+            incremental_baseline=d.get("incremental_baseline"),
+            restored=d.get("restored"),
+            source=d.get("source"),
+            backup_type=d.get("backup_type"),
+            restored_at=d.get("restored_at"),
+            recovered=d.get("recovered"),
+            recovery_note=d.get("recovery_note"),
         )
 
 
