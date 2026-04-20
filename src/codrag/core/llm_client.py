@@ -540,13 +540,19 @@ class LLMClient:
                 node_id, timeout=_REQUEST_GATE_TIMEOUT_S,
             ) as token:
                 if token is None:
-                    logger.warning(
-                        "LLM request gate: timed out waiting on %s "
-                        "(current_limit=%d, in_flight=%d). Proceeding uncapped.",
-                        node_id,
-                        pipeline_scheduler._slots[node_id].current_limit,
-                        pipeline_scheduler._slots[node_id].in_flight_requests,
-                    )
+                    slot = pipeline_scheduler._slots.get(node_id)
+                    if slot is not None:
+                        logger.warning(
+                            "LLM request gate: timed out waiting on %s "
+                            "(current_limit=%d, in_flight=%d). Proceeding uncapped.",
+                            node_id, slot.current_limit, slot.in_flight_requests,
+                        )
+                    else:
+                        logger.warning(
+                            "LLM request gate: timed out waiting on %s "
+                            "(slot no longer present). Proceeding uncapped.",
+                            node_id,
+                        )
                 return self._generate_internal(
                     prompt=prompt, system=system, num_predict=num_predict,
                     json_mode=json_mode, temperature=temperature,

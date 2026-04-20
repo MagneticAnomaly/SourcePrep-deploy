@@ -155,3 +155,36 @@ def test_gate_timeout_falls_back_to_raw_call() -> None:
     assert 0.25 <= elapsed <= 1.5, f"elapsed={elapsed}"
 
     sched.release_request(pre_token)
+
+
+def test_gate_timeout_survives_slot_removal() -> None:
+    """If the slot is removed between gate-timeout and the warning log,
+    generate() must still proceed uncapped rather than raise KeyError."""
+    from codrag.services.pipeline import scheduler as sched_mod
+    sched, node_id = _seed_scheduler(limit=1)
+    pre_token = sched.acquire_request(node_id, timeout=0.5)
+    assert pre_token is not None
+
+    client = LLMClient(endpoint_url="http://localhost:11434", provider="ollama", model="kimi-k2.5:cloud")
+
+    # Before the gate acquire_request_ctx returns (None on timeout),
+    # remove the slot so the warning-log path must handle the missing slot.
+    original_acquire_ctx = sched.acquire_request_ctx
+
+    from contextlib import contextmanager
+
+    @contextmanager
+    def _acquire_ctx_then_remove(nid, timeout):
+        with original_acquire_ctx(nid, timeout=timeout) as tok:
+            if tok is None:
+                sched.remove_node(nid)
+            yield tok
+
+    with patch.object(sched_mod.pipeline_scheduler, "acquire_request_ctx", _acquire_ctx_then_remove):
+        with patch.object(client._session, "post", return_value=_mock_ollama_response()):
+            with patch("codrag.core.llm_client._REQUEST_GATE_TIMEOUT_S", 0.2):
+                text, tokens = client.generate(
+                    prompt="hi", json_mode=False, num_predict=8,
+                )
+    # No KeyError raised — call succeeded.
+    sched.release_request(pre_token)  # safe no-op since slot is gone
