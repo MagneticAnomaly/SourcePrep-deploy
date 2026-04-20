@@ -575,6 +575,7 @@ class PipelineScheduler:
                         )
                         slot.current_limit = new_limit
                         self._persist_cloud_ceiling(slot)
+                        self._wake_slot_waiters(slot)
                     else:
                         new_limit = slot.current_limit + 1
                         if not is_cloud:
@@ -586,6 +587,7 @@ class PipelineScheduler:
                         )
                         slot.current_limit = new_limit
                         self._persist_cloud_ceiling(slot)
+                        self._wake_slot_waiters(slot)
 
     def get_priority(self, project_id: str) -> PriorityLevel:
         """Get the priority level for a specific project."""
@@ -707,6 +709,7 @@ class PipelineScheduler:
             slot.current_limit = new_limit
             slot._last_recovery_time = now
             self._persist_cloud_ceiling(slot)
+            self._wake_slot_waiters(slot)
 
     # ── Per-request gate (Phase 82 follow-up) ─────────────────────
 
@@ -721,6 +724,17 @@ class PipelineScheduler:
         if slot._cond is None:
             slot._cond = threading.Condition(self._lock)
         return slot._cond
+
+    def _wake_slot_waiters(self, slot: ComputeSlot) -> None:
+        """Notify every thread blocked on slot's per-request gate.
+
+        Call this after ``current_limit`` grows (idle recovery, AIMD
+        additive increase, jumpstart doubling) so waiters re-check the
+        predicate instead of sleeping until their 120s timeout.
+        Caller MUST hold ``self._lock``.
+        """
+        if slot._cond is not None:
+            slot._cond.notify_all()
 
     def acquire_request(
         self, node_id: str, timeout: float = 120.0,
@@ -772,7 +786,7 @@ class PipelineScheduler:
             if slot.in_flight_requests > 0:
                 slot.in_flight_requests -= 1
             cond = self._slot_condition(slot)
-            cond.notify()
+            cond.notify_all()
 
     @contextmanager
     def acquire_request_ctx(

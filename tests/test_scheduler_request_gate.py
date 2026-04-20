@@ -158,3 +158,97 @@ def test_context_manager_yields_none_on_timeout() -> None:
 
     assert entered["value"] is True
     sched.release_request(held)
+
+
+def test_capacity_growth_via_aimd_wakes_blocked_waiter() -> None:
+    """When AIMD grows current_limit, blocked waiters must wake, not sleep
+    until the 120s timeout. This is the F-28 idle-recovery case."""
+    sched = PipelineScheduler()
+    node_id = "cloud:ep-growth"
+    sched.configure_node(node_id, max_concurrent=1)
+    slot = sched._slots[node_id]
+    slot.current_limit = 1
+    slot.mode = "congestion_avoidance"
+
+    # Hold the one slot.
+    held = sched.acquire_request(node_id, timeout=1.0)
+    assert held is not None
+    assert slot.in_flight_requests == 1
+
+    # Block a waiter.
+    waiter_result = {"token": "unset"}
+
+    def _waiter() -> None:
+        waiter_result["token"] = sched.acquire_request(node_id, timeout=3.0)
+
+    th = threading.Thread(target=_waiter)
+    th.start()
+    time.sleep(0.1)
+    assert waiter_result["token"] == "unset"  # still blocked
+
+    # Simulate AIMD jumpstart doubling: 1 → 2, while WITHOUT releasing `held`.
+    # Drive it via the real _record_throughput_for_slot to exercise the
+    # notify hook in that path.  _record_throughput_for_slot requires the
+    # scheduler lock to be held by the caller (same as all production callers).
+    slot.mode = "jumpstart"
+    # success_streak needs to reach batch_size (=current_limit) to trigger a step.
+    limit_snapshot = slot.current_limit
+    for _ in range(limit_snapshot):
+        with sched._lock:
+            sched._record_throughput_for_slot(slot, queue_time_ms=50.0)
+
+    assert slot.current_limit >= 2  # grew
+    th.join(timeout=2.0)
+    assert waiter_result["token"] is not None, (
+        "waiter did not wake after capacity growth"
+    )
+
+    sched.release_request(held)
+    sched.release_request(waiter_result["token"])
+
+
+def test_notify_all_wakes_multiple_waiters_on_release() -> None:
+    """With multiple blocked waiters, a single release must wake them all
+    (via notify_all). Those that still can't proceed re-wait — the rest
+    acquire."""
+    sched = PipelineScheduler()
+    node_id = "cloud:ep-multi"
+    sched.configure_node(node_id, max_concurrent=1)
+    slot = sched._slots[node_id]
+    # Seed limit=2 so after release there is room for one waiter.
+    slot.current_limit = 2
+    slot.mode = "congestion_avoidance"
+
+    t1 = sched.acquire_request(node_id, timeout=1.0)
+    t2 = sched.acquire_request(node_id, timeout=1.0)
+    assert t1 is not None and t2 is not None
+
+    waiters = [{"token": "unset"}, {"token": "unset"}]
+
+    def _waiter(idx: int) -> None:
+        waiters[idx]["token"] = sched.acquire_request(node_id, timeout=3.0)
+
+    threads = [threading.Thread(target=_waiter, args=(i,)) for i in range(2)]
+    for th in threads:
+        th.start()
+    time.sleep(0.1)
+    assert all(w["token"] == "unset" for w in waiters)
+
+    # Release one token — notify_all wakes both; exactly one wins.
+    sched.release_request(t1)
+
+    # Wait briefly for threads to resolve.
+    for th in threads:
+        th.join(timeout=2.0)
+
+    awakened = [w for w in waiters if w["token"] not in (None, "unset")]
+    assert len(awakened) == 1, (
+        f"expected exactly 1 waiter to acquire, got {len(awakened)}"
+    )
+
+    # Clean up: release remaining acquires
+    sched.release_request(t2)
+    for w in waiters:
+        tok = w["token"]
+        if tok not in (None, "unset"):
+            sched.release_request(tok)
