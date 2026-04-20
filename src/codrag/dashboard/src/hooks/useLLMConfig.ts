@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   useApiClient,
   type LLMConfig,
@@ -8,16 +8,22 @@ import {
   type AssignmentMode,
   type LLMAssignmentBlock,
 } from '@codrag/ui'
+import { useDebouncedAutoSave } from './useDebouncedAutoSave'
+import { stripModeFields } from '@codrag/ui/components/llm/llmConfigHelpers'
 
 interface UseLLMConfigOptions {
   onDirty?: () => void
+  /** Fired after a successful auto-save persist. Typically wired to handleSwapModel. */
+  onSwapModel?: () => void
 }
 
 /** Manages LLM endpoint configuration, model fetching/testing, slot status, and auto-persistence. */
-export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
+export function useLLMConfig({ onDirty, onSwapModel }: UseLLMConfigOptions = {}) {
   const api = useApiClient()
   const onDirtyRef = useRef(onDirty)
   onDirtyRef.current = onDirty
+  const onSwapModelRef = useRef(onSwapModel)
+  onSwapModelRef.current = onSwapModel
 
   // ── State ───────────────────────────────────────────────────
   const [llmConfig, setLLMConfig] = useState<LLMConfig>({
@@ -63,15 +69,9 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
   // ── Handlers ────────────────────────────────────────────────
 
   const handleLLMConfigChange = useCallback((cfg: LLMConfig) => {
-    setLLMConfig((prev) => {
-      // Auto-save embedding changes immediately (separated from model scheme button)
-      if (JSON.stringify(prev.embedding) !== JSON.stringify(cfg.embedding)) {
-        void api.updateGlobalConfig({ llm_config: { embedding: cfg.embedding } as unknown as LLMConfig })
-      }
-      return cfg
-    })
+    setLLMConfig(cfg)
     onDirtyRef.current?.()
-  }, [api])
+  }, [])
 
   const handleAddEndpoint = useCallback((endpoint: Omit<SavedEndpoint, 'id'>) => {
     const id = `ep_${Date.now()}_${Math.random().toString(16).slice(2)}`
@@ -244,58 +244,35 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     }
   }, [api, fetchLLMSlotsStatus])
 
-  // ── Explicit save (no auto-save) ────────────────────────────
-  // Model/endpoint changes update local state immediately but only
-  // persist to backend when the user clicks Save.  This prevents
-  // accidental swap_model triggers while the user is still editing.
-  const lastSavedRef = useRef<string>('')
-  const [llmConfigDirty, setLlmConfigDirty] = useState(false)
+  // ── Debounced auto-save ─────────────────────────────────────
+  // Gate auto-save until the backend config has been loaded and markLLMConfigClean() has run.
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(false)
 
-  // Track dirtiness by comparing serialized config to last save
-  // We only track the "model scheme" fields for the Save button (small_model, large_model, code_model, etc),
-  // because endpoints and embeddings now auto-save immediately.
-  useEffect(() => {
-    const getSchemeState = (cfg: LLMConfig) => JSON.stringify({
-      small: cfg.small_model,
-      large: cfg.large_model,
-      code: cfg.code_model,
-      coordinator: cfg.coordinator_model,
-      mode: cfg.assignment_mode,
-      blocks: cfg.assignment_blocks,
-      // Phase 112 fix 1: include Advanced LLM Settings so toggling
-      // enforce_cloud_token_safety / max_thinking_budget
-      // marks the form dirty and enables the Save button.
-      advanced: cfg.advanced,
-    })
-    
-    if (lastSavedRef.current) {
+  // Trailing-edge debounced persist of the full LLM config (minus mode-owned fields,
+  // which are committed via the explicit "Apply mode" button path).
+  const saveValue = useMemo(() => stripModeFields(llmConfig), [llmConfig])
+  const { flush: flushPendingSave } = useDebouncedAutoSave({
+    value: saveValue,
+    enabled: autoSaveEnabled,
+    delayMs: 1500,
+    onSave: async () => {
       try {
-        const oldScheme = getSchemeState(JSON.parse(lastSavedRef.current))
-        const newScheme = getSchemeState(llmConfig)
-        setLlmConfigDirty(oldScheme !== newScheme)
+        await api.updateGlobalConfig({ llm_config: llmConfig })
       } catch {
-        setLlmConfigDirty(true)
+        // Silent fail — matches legacy policy. User can retry by editing again.
       }
-    }
-  }, [llmConfig])
-
-  const saveLLMConfig = useCallback(async () => {
-    try {
-      await api.updateGlobalConfig({ llm_config: llmConfig })
-      lastSavedRef.current = JSON.stringify(llmConfig)
-      setLlmConfigDirty(false)
-      // Refresh slot status after saving so the widget picks up endpoint/model changes
+    },
+    onPersist: () => {
+      onSwapModelRef.current?.()
       void fetchLLMSlotsStatus()
-    } catch {
-      // Silent fail — user can retry
-    }
-  }, [api, llmConfig, fetchLLMSlotsStatus])
+    },
+  })
 
-  // Mark config as "clean" when loaded from backend (initial load)
+  // Mark config as "clean" when loaded from backend (initial load).
+  // This flips the auto-save gate on; the useDebouncedAutoSave hook then tracks changes.
   const markLLMConfigClean = useCallback(() => {
-    lastSavedRef.current = JSON.stringify(llmConfig)
-    setLlmConfigDirty(false)
-  }, [llmConfig])
+    setAutoSaveEnabled(true)
+  }, [])
 
   // ── Auto-fetch models for pre-configured endpoints ──────────
   useEffect(() => {
@@ -325,7 +302,6 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     testingSlot,
     testResults,
     llmSlotsStatus,
-    llmConfigDirty,
     handleLLMConfigChange,
     handleAddEndpoint,
     handleEditEndpoint,
@@ -336,8 +312,8 @@ export function useLLMConfig({ onDirty }: UseLLMConfigOptions = {}) {
     handleClearTestResult,
     handleDownloadModel,
     handleModeSwitch,
-    saveLLMConfig,
     markLLMConfigClean,
     fetchLLMSlotsStatus,
+    flushPendingSave,
   }
 }
