@@ -1577,6 +1577,28 @@ class PipelineScheduler:
 
             return None
 
+    def max_llm_budget(self) -> int:
+        """Max ``dynamic_capacity`` across non-embedding LLM slots.
+
+        Phase 82 completion (2026-04-20): used by
+        ``codrag.core.llm_client._get_llm_concurrency`` to scale per-stage
+        ``ThreadPoolExecutor`` sizing with the AIMD-discovered budget —
+        the same signal ``get_batch_concurrency`` and
+        ``full_budget_for_swarm`` consume.
+
+        Returns 1 when no LLM slots exist yet (e.g. daemon startup before
+        ``configure_node`` runs). The embedding slot is excluded because
+        its capacity is memory-driven, not AIMD-driven.
+        """
+        with self._lock:
+            budget = 1
+            for nid, slot in self._slots.items():
+                if nid == "__embedding__":
+                    continue
+                if slot.dynamic_capacity > budget:
+                    budget = slot.dynamic_capacity
+            return budget
+
     def concurrent_workers_for_project(
         self, project_id: str, stage: Optional[str] = None,
     ) -> Tuple[int, Optional[str]]:

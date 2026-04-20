@@ -207,12 +207,9 @@ def _get_llm_concurrency(stage: str = "fast") -> int:
         # AIMD-discovered budget across non-embedding scheduler slots.
         # Stages run against a single provider at a time, so the budget
         # the stage will actually see is the max across currently-active
-        # LLM slots (typically one).
-        scheduler_budget = 1
-        for nid, slot in pipeline_scheduler._slots.items():
-            if nid == "__embedding__":
-                continue
-            scheduler_budget = max(scheduler_budget, slot.dynamic_capacity)
+        # LLM slots (typically one). The helper takes the scheduler's
+        # RLock so concurrent configure_node calls don't race us.
+        scheduler_budget = pipeline_scheduler.max_llm_budget()
 
         # Honor explicit per-stage caps when set above the default of 1.
         # A stored "1" is almost always the legacy/mock default (Phase 82

@@ -278,6 +278,62 @@ def test_get_llm_concurrency_ignores_embedding_slot(monkeypatch) -> None:
     assert _get_llm_concurrency("fast") == 1
 
 
+def test_max_llm_budget_excludes_embedding_slot(monkeypatch) -> None:
+    """PipelineScheduler.max_llm_budget must ignore __embedding__ slot even
+    if its dynamic_capacity is higher — embedding budget is memory-driven,
+    not AIMD-driven, and must not leak into LLM fan-out sizing.
+    """
+    from codrag.services.pipeline import scheduler as sched_mod
+    sched = sched_mod.pipeline_scheduler
+    embed_slot = sched._slots["__embedding__"]
+    embed_slot.current_limit = 16  # pretend embedding has a huge budget
+
+    # No LLM slot → budget should be 1 even though embedding is 16.
+    assert sched.max_llm_budget() == 1
+
+    sched.configure_node("cloud:kimi", max_concurrent=10)
+    sched._slots["cloud:kimi"].current_limit = 7
+    assert sched.max_llm_budget() == 7
+
+    # Adding a local LLM slot with a lower current_limit doesn't lower the max.
+    sched.configure_node("local:quantized", max_concurrent=2)
+    sched._slots["local:quantized"].current_limit = 2
+    assert sched.max_llm_budget() == 7
+
+
+def test_max_llm_budget_thread_safe_vs_configure_node() -> None:
+    """max_llm_budget iterates _slots under the scheduler RLock; a concurrent
+    configure_node call must not trigger ``dictionary changed size during
+    iteration``.
+    """
+    import threading
+    from codrag.services.pipeline import scheduler as sched_mod
+    sched = sched_mod.pipeline_scheduler
+
+    stop = threading.Event()
+    errors: list[BaseException] = []
+
+    def _spammer() -> None:
+        i = 0
+        while not stop.is_set():
+            try:
+                sched.configure_node(f"cloud:race-{i % 8}", max_concurrent=5)
+            except BaseException as exc:  # noqa: BLE001
+                errors.append(exc)
+            i += 1
+
+    t = threading.Thread(target=_spammer, daemon=True)
+    t.start()
+    try:
+        for _ in range(200):
+            sched.max_llm_budget()
+    finally:
+        stop.set()
+        t.join(timeout=2)
+
+    assert not errors, f"concurrent errors: {errors[:3]}"
+
+
 def test_gate_timeout_survives_slot_removal() -> None:
     """If the slot is removed between gate-timeout and the warning log,
     generate() must still proceed uncapped rather than raise KeyError."""
