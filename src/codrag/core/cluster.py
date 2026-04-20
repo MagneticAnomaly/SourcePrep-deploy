@@ -1461,7 +1461,6 @@ class ClusterSynthesizer:
         reused: int,
         total_work: int,
         synthesized_start: int,
-        failed_start: int,
         cancel_token: Optional[Any] = None,
     ) -> Tuple[int, int]:
         """Parallel batched-BYOK cluster synthesis via shared llm_pool.
@@ -1811,7 +1810,6 @@ class ClusterSynthesizer:
                 reused=reused,
                 total_work=total_work,
                 synthesized_start=synthesized,
-                failed_start=failed,
                 cancel_token=cancel_token,
             )
             synthesized += synth_delta

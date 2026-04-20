@@ -40,7 +40,7 @@ class _FakeLLM:
                 self._in_flight -= 1
 
 
-def _make_synthesizer_with_batch_profile(fake_llm, monkeypatch):
+def _make_synthesizer_with_batch_profile(fake_llm):
     """Build a ClusterSynthesizer instance with a batching-on profile."""
     from codrag.core.cluster import ClusterSynthesizer
     from codrag.core.batch_profiles import BatchProfile
@@ -78,7 +78,7 @@ def test_batched_synthesis_fans_out_concurrently():
     """With 10 clusters and batch_size=2, we expect 5 batches running
     concurrently in llm_pool, so peak in-flight should exceed 1."""
     fake_llm = _FakeLLM(latency=0.25)
-    synth = _make_synthesizer_with_batch_profile(fake_llm, None)
+    synth = _make_synthesizer_with_batch_profile(fake_llm)
 
     clusters = [_FakeCluster(i) for i in range(10)]
     epistemic: dict = {}
@@ -99,7 +99,6 @@ def test_batched_synthesis_fans_out_concurrently():
         reused=0,
         total_work=len(clusters),
         synthesized_start=0,
-        failed_start=0,
     )
 
     assert fake_llm.calls == 5, f"expected 5 batch calls, got {fake_llm.calls}"
@@ -112,7 +111,7 @@ def test_batched_synthesis_respects_cancel_token():
     from codrag.services.cancellation import CancellationToken, PipelineCancelledError
 
     fake_llm = _FakeLLM(latency=0.2)
-    synth = _make_synthesizer_with_batch_profile(fake_llm, None)
+    synth = _make_synthesizer_with_batch_profile(fake_llm)
 
     writes = []
     synth._write_modules = lambda modules: writes.append(len(modules))
@@ -128,7 +127,7 @@ def test_batched_synthesis_respects_cancel_token():
         synth._synthesize_batched(
             clusters=clusters, epistemic={}, edges=[], modules=modules,
             progress_callback=None, reused=0, total_work=len(clusters),
-            synthesized_start=0, failed_start=0, cancel_token=token,
+            synthesized_start=0, cancel_token=token,
         )
 
     assert len(writes) >= 1, "expected _write_modules to be called on cancel"

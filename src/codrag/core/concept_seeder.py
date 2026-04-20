@@ -107,7 +107,6 @@ def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
     — not enough work to parallelize.
     """
     import os
-    import threading
     from concurrent.futures import TimeoutError as FutureTimeoutError
     from concurrent.futures import as_completed
 
@@ -179,7 +178,6 @@ def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
             )
             return None
 
-    lock = threading.Lock()
     raw_responses: list[tuple[str, str | None]] = []
 
     batch_timeout_sec = float(
@@ -189,6 +187,9 @@ def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
     pool = llm_pool
     futures = {pool.submit(_call_worker, mod): mod for mod in modules}
     try:
+        # Note: ``as_completed`` yields futures on the single caller thread,
+        # so the following ``raw_responses.append`` does not need a lock —
+        # it is the only writer.
         for future in as_completed(futures, timeout=batch_timeout_sec):
             mod = futures[future]
             try:
@@ -199,11 +200,11 @@ def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
                     mod.get("module_id"), e,
                 )
                 text = None
-            with lock:
-                raw_responses.append((mod.get("module_id", "unknown"), text))
+            raw_responses.append((mod.get("module_id", "unknown"), text))
     except FutureTimeoutError:
         pending = [
-            futures[f].get("module_id") for f in futures if not f.done()
+            futures[f].get("module_id", futures[f].get("name", "unknown"))
+            for f in futures if not f.done()
         ]
         logger.error(
             "Concept seeding batch timed out after %.0fs: %d/%d modules pending. "
@@ -270,7 +271,8 @@ def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
         "concepts_created": concepts_created,
         "questions_created": 0,
         "message": f"Generated {concepts_created} concept seeds across "
-                   f"{len(modules)} modules (parallel fan-out).",
+                   f"{len(modules)} modules (parallel fan-out; "
+                   f"clarifying questions require swarm synthesis).",
     }
 
 
