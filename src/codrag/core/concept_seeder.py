@@ -33,8 +33,12 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+from concurrent.futures import TimeoutError as FutureTimeoutError, as_completed
 from pathlib import Path
 from typing import Any
+
+from codrag.services.pipeline.thread_pool import llm_pool
 
 logger = logging.getLogger(__name__)
 
@@ -106,13 +110,8 @@ def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
     ``_seed_concepts_single_call``) when there are fewer than 2 modules
     — not enough work to parallelize.
     """
-    import os
-    from concurrent.futures import TimeoutError as FutureTimeoutError
-    from concurrent.futures import as_completed
-
     from codrag.core.project_registry import project_index_dir
     from codrag.services.concept_store import concept_store
-    from codrag.services.pipeline.thread_pool import llm_pool
     from codrag.services.project_helpers import require_project
 
     project = require_project(project_id)

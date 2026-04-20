@@ -20,7 +20,11 @@ import tempfile
 import threading
 import time
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    TimeoutError as FutureTimeoutError,
+    as_completed,
+)
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,6 +32,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from codrag.core.context_config import PipelineTask, compute_optimal_settings
 from codrag.core.llm_client import TASK_MAX_CHARS, batched_max_chars
+from codrag.services.pipeline.thread_pool import llm_pool
 from codrag.services.pipeline.workers import WorkerFactory
 
 from .epistemic_score import EpistemicEntry
@@ -1474,11 +1479,6 @@ class ClusterSynthesizer:
         Returns ``(synthesized_delta, failed_delta)`` — caller aggregates
         into its own counters.
         """
-        from concurrent.futures import TimeoutError as FutureTimeoutError
-        from concurrent.futures import as_completed as _as_completed
-
-        from codrag.services.pipeline.thread_pool import llm_pool
-
         from .batch_profiles import BatchStage
         from .batch_prompts import (
             BATCHED_CLUSTER_SYSTEM,
@@ -1549,7 +1549,7 @@ class ClusterSynthesizer:
         futures = {pool.submit(_call_batch, items): items for items in batches}
 
         try:
-            for future in _as_completed(futures, timeout=batch_timeout_sec):
+            for future in as_completed(futures, timeout=batch_timeout_sec):
                 if cancel_token and cancel_token.is_cancelled:
                     logger.info(
                         "Cluster synthesis cancelled after %d/%d batches — flushing partial results",
