@@ -37,6 +37,8 @@ def _mock_scheduler_status(active: dict | None = None, queued: list | None = Non
             "local:default_ollama": {
                 "max_concurrent": 1,
                 "current_load": 1 if active else 0,
+                "in_flight_requests": 0,
+                "current_limit": 1,
                 "active": active or {},
                 "queued": queued or [],
             },
@@ -54,7 +56,7 @@ def _mock_scheduler_status(active: dict | None = None, queued: list | None = Non
 @patch("codrag.api.routers.queue.purge_ghost_locks", return_value=0)
 @patch("codrag.api.routers.queue.pipeline_scheduler")
 @patch("codrag.api.routers.queue.pipeline_orchestrator")
-def test_running_pipeline_in_queue(
+async def test_running_pipeline_in_queue(
     mock_orch, mock_sched, mock_purge, mock_name,
 ):
     from codrag.api.routers.queue import get_queue
@@ -70,7 +72,7 @@ def test_running_pipeline_in_queue(
     mock_sched.get_priority.return_value = "none"
     mock_sched.concurrent_workers_for_project.return_value = (3, "local:default_ollama")
 
-    result = get_queue()
+    result = await get_queue()
 
     assert result["success"] is True
     data = result["data"]
@@ -100,7 +102,7 @@ def test_running_pipeline_in_queue(
 @patch("codrag.api.routers.queue.purge_ghost_locks", return_value=0)
 @patch("codrag.api.routers.queue.pipeline_scheduler")
 @patch("codrag.api.routers.queue.pipeline_orchestrator")
-def test_queued_entries_included(
+async def test_queued_entries_included(
     mock_orch, mock_sched, mock_purge, mock_name,
 ):
     from codrag.api.routers.queue import get_queue
@@ -120,7 +122,7 @@ def test_queued_entries_included(
     mock_sched.get_priority.return_value = "boost"
     mock_sched.concurrent_workers_for_project.return_value = (1, None)
 
-    result = get_queue()
+    result = await get_queue()
     data = result["data"]
 
     # The queued entry should appear
@@ -141,7 +143,7 @@ def test_queued_entries_included(
 @patch("codrag.api.routers.queue.purge_ghost_locks", return_value=0)
 @patch("codrag.api.routers.queue.pipeline_scheduler")
 @patch("codrag.api.routers.queue.pipeline_orchestrator")
-def test_empty_state_empty_queue(
+async def test_empty_state_empty_queue(
     mock_orch, mock_sched, mock_purge, mock_name,
 ):
     from codrag.api.routers.queue import get_queue
@@ -149,7 +151,7 @@ def test_empty_state_empty_queue(
     mock_orch._runs = {}
     mock_sched.status.return_value = _mock_scheduler_status()
 
-    result = get_queue()
+    result = await get_queue()
     data = result["data"]
     assert data["queue"] == []
     assert data["ghost_locks_purged"] == 0
@@ -174,7 +176,7 @@ def test_set_priority_delegates(mock_sched, mock_bus):
 
 
 # ---------------------------------------------------------------------------
-# Test: ordering — running before queued before failed
+# Test: failed state excluded; running still appears
 # ---------------------------------------------------------------------------
 
 
@@ -182,7 +184,7 @@ def test_set_priority_delegates(mock_sched, mock_bus):
 @patch("codrag.api.routers.queue.purge_ghost_locks", return_value=0)
 @patch("codrag.api.routers.queue.pipeline_scheduler")
 @patch("codrag.api.routers.queue.pipeline_orchestrator")
-def test_ordering_running_before_failed(
+async def test_running_included_failed_excluded(
     mock_orch, mock_sched, mock_purge, mock_name,
 ):
     from codrag.api.routers.queue import get_queue
@@ -198,11 +200,11 @@ def test_ordering_running_before_failed(
     mock_sched.get_priority.return_value = "none"
     mock_sched.concurrent_workers_for_project.return_value = (1, None)
 
-    result = get_queue()
+    result = await get_queue()
     items = result["data"]["queue"]
-    assert len(items) == 2
+    # failed is in _EXCLUDED_STATES — only the running run appears
+    assert len(items) == 1
     assert items[0]["phase"] == "running"
-    assert items[1]["phase"] == "failed"
 
 
 # ---------------------------------------------------------------------------
@@ -214,7 +216,7 @@ def test_ordering_running_before_failed(
 @patch("codrag.api.routers.queue.purge_ghost_locks", return_value=0)
 @patch("codrag.api.routers.queue.pipeline_scheduler")
 @patch("codrag.api.routers.queue.pipeline_orchestrator")
-def test_completed_excluded(
+async def test_completed_excluded(
     mock_orch, mock_sched, mock_purge, mock_name,
 ):
     from codrag.api.routers.queue import get_queue
@@ -228,5 +230,34 @@ def test_completed_excluded(
     }
     mock_sched.status.return_value = _mock_scheduler_status()
 
-    result = get_queue()
+    result = await get_queue()
     assert result["data"]["queue"] == []
+
+
+# ---------------------------------------------------------------------------
+# Test: in_flight_requests and current_limit round-trip through node_summary
+# ---------------------------------------------------------------------------
+
+
+@patch("codrag.api.routers.queue._resolve_project_name", return_value="X")
+@patch("codrag.api.routers.queue.purge_ghost_locks", return_value=0)
+@patch("codrag.api.routers.queue.pipeline_scheduler")
+@patch("codrag.api.routers.queue.pipeline_orchestrator")
+async def test_in_flight_and_current_limit_in_node_summary(
+    mock_orch, mock_sched, mock_purge, mock_name,
+):
+    from codrag.api.routers.queue import get_queue
+
+    mock_orch._runs = {}
+    status = _mock_scheduler_status()
+    # Inject specific AIMD values into the node dict
+    status["nodes"]["local:default_ollama"]["in_flight_requests"] = 3
+    status["nodes"]["local:default_ollama"]["current_limit"] = 8
+    status["nodes"]["local:default_ollama"]["max_concurrent"] = 10
+    mock_sched.status.return_value = status
+
+    result = await get_queue()
+    assert result["success"] is True
+    node = result["data"]["nodes"]["local:default_ollama"]
+    assert node["in_flight_requests"] == 3
+    assert node["current_limit"] == 8

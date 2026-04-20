@@ -31,7 +31,12 @@ export interface QueueItem {
 
 interface QueueResponse {
   queue: QueueItem[];
-  nodes: Record<string, { max_concurrent: number; current_load: number }>;
+  nodes: Record<string, {
+    max_concurrent: number;
+    current_load: number;
+    in_flight_requests: number;
+    current_limit: number;
+  }>;
   ghost_locks_purged: number;
 }
 
@@ -124,6 +129,7 @@ export function SidebarPipelineQueue({
   className,
 }: SidebarPipelineQueueProps) {
   const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [nodes, setNodes] = useState<QueueResponse['nodes']>({});
   const [collapsed, setCollapsed] = useState(() => {
     const saved = typeof window !== 'undefined'
       ? localStorage.getItem('codrag_queue_collapsed')
@@ -147,6 +153,7 @@ export function SidebarPipelineQueue({
       if (mountedRef.current) {
         const data: QueueResponse = json.data ?? json;
         setQueue(data.queue ?? []);
+        setNodes(data.nodes ?? {});
       }
     } catch {
       // Silently fail — daemon may be down
@@ -260,6 +267,21 @@ export function SidebarPipelineQueue({
 
       {!collapsed && (
         <div className="mt-1 space-y-1">
+          {Object.entries(nodes).length > 0 && (
+            <div className="px-2 py-1 space-y-0.5">
+              {Object.entries(nodes).map(([nid, n]) => (
+                <div key={nid} className="flex items-center justify-between text-[10px] text-text-muted tabular-nums">
+                  <span className="truncate max-w-[140px]" title={nid}>{nid}</span>
+                  <span>
+                    {n.in_flight_requests} / {n.current_limit}
+                    {n.current_limit !== n.max_concurrent && (
+                      <span className="ml-1 opacity-60">(max {n.max_concurrent})</span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
           {queue.length === 0 ? (
             <p className="px-2 py-2 text-xs text-text-muted italic">
               No active pipelines

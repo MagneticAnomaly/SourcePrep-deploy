@@ -222,6 +222,8 @@ def _build_queue_sync() -> dict[str, Any]:
         node_summary[nid] = {
             "max_concurrent": node_info.get("max_concurrent", 1),
             "current_load": node_info.get("current_load", 0),
+            "in_flight_requests": node_info.get("in_flight_requests", 0),
+            "current_limit": node_info.get("current_limit", node_info.get("max_concurrent", 1)),
             "active": node_info.get("active", {}),
             "queued": node_info.get("queued", []),
         }
