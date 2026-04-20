@@ -47,6 +47,9 @@ export interface ModelCardProps {
   // Always on (keep loaded)
   alwaysOn?: boolean;
   onAlwaysOnChange?: (alwaysOn: boolean) => void;
+  /** Show the "Always available (Keep loaded)" checkbox. Defaults to true.
+   *  Callers should pass false for cloud endpoints (VRAM pinning is meaningless there). */
+  showAlwaysOn?: boolean;
 
 
   
@@ -133,6 +136,16 @@ export function buildModelOptions({
   return [...placeholder, ...synthetic, ...fromAvailable];
 }
 
+export function shouldShowAlwaysOn({
+  showAlwaysOn,
+  onAlwaysOnChange,
+}: {
+  showAlwaysOn?: boolean;
+  onAlwaysOnChange?: (v: boolean) => void;
+}): boolean {
+  return (showAlwaysOn ?? true) && onAlwaysOnChange !== undefined;
+}
+
 export function ModelCard({
   title,
   description,
@@ -161,6 +174,7 @@ export function ModelCard({
   testingConnection = false,
   alwaysOn = false,
   onAlwaysOnChange,
+  showAlwaysOn,
 
   hideModelSelector = false,
   className,
@@ -334,7 +348,7 @@ export function ModelCard({
                 </div>
                 
                 {/* Always On Toggle */}
-                {onAlwaysOnChange !== undefined && (
+                {shouldShowAlwaysOn({ showAlwaysOn, onAlwaysOnChange }) && (
                   <label className={cn(
                     "flex items-center gap-2 text-sm select-none",
                     disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
@@ -343,7 +357,7 @@ export function ModelCard({
                       type="checkbox"
                       className="w-4 h-4 rounded border-border bg-surface text-primary focus:ring-primary focus:ring-offset-surface cursor-pointer disabled:cursor-not-allowed"
                       checked={!!alwaysOn}
-                      onChange={(e) => onAlwaysOnChange(e.target.checked)}
+                      onChange={(e) => onAlwaysOnChange!(e.target.checked)}
                       disabled={disabled}
                     />
                     <span className="text-text-muted">Always available (Keep loaded)</span>

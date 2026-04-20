@@ -13,7 +13,7 @@
  * fall back to the "Select a model..." placeholder.
  */
 import { describe, it, expect } from 'vitest';
-import { buildModelOptions } from '../ModelCard';
+import { buildModelOptions, shouldShowAlwaysOn } from '../ModelCard';
 
 describe('buildModelOptions', () => {
   it('injects synthetic option for saved model when availableModels is empty', () => {
@@ -86,5 +86,23 @@ describe('buildModelOptions', () => {
     expect(blocked?.label).toContain('Blocked by IT');
     const unblocked = opts.find((o) => o.value === 'qwen3:8b');
     expect(unblocked?.disabled).toBeFalsy();
+  });
+});
+
+describe('shouldShowAlwaysOn', () => {
+  it('returns true when showAlwaysOn=true and handler provided', () => {
+    expect(shouldShowAlwaysOn({ showAlwaysOn: true, onAlwaysOnChange: () => {} })).toBe(true);
+  });
+
+  it('returns false when showAlwaysOn=false even if handler provided', () => {
+    expect(shouldShowAlwaysOn({ showAlwaysOn: false, onAlwaysOnChange: () => {} })).toBe(false);
+  });
+
+  it('defaults to true when showAlwaysOn is undefined and handler provided (backcompat)', () => {
+    expect(shouldShowAlwaysOn({ onAlwaysOnChange: () => {} })).toBe(true);
+  });
+
+  it('returns false when no handler regardless of showAlwaysOn', () => {
+    expect(shouldShowAlwaysOn({ showAlwaysOn: true })).toBe(false);
   });
 });
