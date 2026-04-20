@@ -56,6 +56,41 @@ class TestThreadPoolInfra:
             "LLMPoolProxy should not access ThreadPoolExecutor._max_workers (private API)"
         )
 
+    def test_default_pool_size_allows_aimd_discovered_concurrency(self) -> None:
+        """Default pool must be ≥ typical cloud AIMD ceiling (~28-32).
+
+        Historically 6; that artificially choked non-swarm fan-out to
+        ~6 concurrent calls even when the AIMD gate had discovered
+        30+ per-node concurrency. The gate — not the pool — is the
+        sole throttle.
+        """
+        from codrag.services.pipeline import thread_pool as tp
+        assert tp._DEFAULT_POOL_SIZE >= 32, (
+            f"Default pool size {tp._DEFAULT_POOL_SIZE} is below AIMD cloud ceiling; "
+            "pool would be the bottleneck instead of the scheduler gate."
+        )
+
+    def test_env_override_accepts_values_up_to_cap(self, monkeypatch) -> None:
+        """CODRAG_LLM_POOL_SIZE should accept values up to the new cap (64)."""
+        from codrag.services.pipeline import thread_pool as tp
+
+        monkeypatch.setenv("CODRAG_LLM_POOL_SIZE", "48")
+        assert tp._get_pool_size() == 48
+
+        monkeypatch.setenv("CODRAG_LLM_POOL_SIZE", "64")
+        assert tp._get_pool_size() == 64
+
+    def test_env_override_rejects_values_above_cap(self, monkeypatch, caplog) -> None:
+        """Above-cap values should warn and fall back to default."""
+        from codrag.services.pipeline import thread_pool as tp
+        import logging
+
+        monkeypatch.setenv("CODRAG_LLM_POOL_SIZE", "100")
+        with caplog.at_level(logging.WARNING, logger="codrag.services.pipeline.thread_pool"):
+            size = tp._get_pool_size()
+        assert size == tp._DEFAULT_POOL_SIZE
+        assert any("out of range" in rec.message for rec in caplog.records)
+
     def test_run_parallel_sequential_when_concurrency_1(self) -> None:
         """concurrency=1 should skip the pool entirely."""
         from codrag.services.pipeline.thread_pool import run_parallel

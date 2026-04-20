@@ -16,10 +16,14 @@ Usage (in pipeline stages):
     from concurrent.futures import wait, FIRST_COMPLETED
     done, pending = wait(futures, timeout=120, return_when=FIRST_COMPLETED)
 
-The pool is bounded (default 6 workers) so at most 6 LLM calls run
-concurrently across all stages.  Stages that submit work when the pool
-is full will block until a worker becomes available — this is natural
-backpressure that prevents thread explosion.
+The pool is bounded (default 32 workers, ``CODRAG_LLM_POOL_SIZE``
+env override up to 64) so thread growth is capped. The **actual**
+LLM concurrency ceiling is enforced by the AIMD gate inside
+``LLMClient.generate`` (``PipelineScheduler.acquire_request``) — the
+same mechanism swarm stages use — so both swarm and non-swarm paths
+converge on the scheduler's discovered per-provider budget. Stages
+that submit work when the pool is full will block until a worker
+becomes available.
 
 The pool is created lazily on first access and lives for the daemon's
 lifetime.  It is NOT shut down between pipeline runs.
@@ -34,23 +38,35 @@ from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
-# Max concurrent LLM calls across all pipeline stages.  This caps the
-# total thread count contribution from pipeline work at this number.
+# Thread capacity for LLM fan-out across pipeline stages.
 #
-# Sizing rationale:
-#   - Local models: GPU can handle 1 request at a time (model loaded
-#     once).  Concurrency >1 just queues on the GPU.  But Ollama can
-#     handle ~3 concurrent requests with parallel decoding.
-#   - Cloud models: Free tier = 1 concurrent, Pro = 3, Max = 10.
-#     Most users are on free/pro tier.
-#   - System overhead: each thread holds a requests.Session with a TCP
-#     connection to Ollama.  6 connections is lightweight.
-#   - GIL: with 6 pool threads + ~14 daemon threads = ~20 total.
-#     Well under the ~30 thread threshold where GIL contention starts
-#     causing observable degradation on Python 3.11.
+# IMPORTANT: this is NOT the concurrency throttle. The AIMD per-request
+# gate inside ``LLMClient.generate`` (``PipelineScheduler.acquire_request``)
+# is the sole throttle for how many LLM calls actually run in parallel —
+# it discovers the real per-provider ceiling dynamically (typically
+# 20-40 for cloud Max tier). This pool just needs to provide *enough*
+# thread capacity that the gate is the binding constraint, not the pool.
 #
-# Can be overridden via CODRAG_LLM_POOL_SIZE environment variable.
-_DEFAULT_POOL_SIZE = 6
+# Sizing rationale (Phase 82 follow-up):
+#   - Old default was 6, which artificially choked non-swarm fan-out
+#     to 2-3 observed concurrent calls even after AIMD had discovered
+#     28+ budget.  Swarm paths bypassed this by creating their own
+#     per-call ThreadPoolExecutor sized to the scheduler budget, and
+#     routinely hit 18-28 concurrent.  The non-swarm fan-out paths
+#     (``cluster._synthesize_batched``, ``concept_seeder._seed_concepts_sequential``)
+#     now share this pool; it must be large enough that the AIMD gate
+#     is what gates them, just like swarm.
+#   - 32 comfortably exceeds typical cloud Max-tier AIMD ceilings and
+#     leaves headroom for incidental stage work.  Threads blocked in
+#     the AIMD gate consume no CPU, so idle headroom is nearly free.
+#   - GIL: Python 3.11 thread-count concerns were measured around
+#     pipeline runs that spun 60+ *active* threads.  Here most threads
+#     are blocked on the gate or on I/O to the LLM endpoint, so the
+#     active-thread count stays low.
+#
+# Can be overridden via ``CODRAG_LLM_POOL_SIZE`` env var, range [1,64].
+_DEFAULT_POOL_SIZE = 32
+_MAX_POOL_SIZE = 64
 
 _pool: Optional[ThreadPoolExecutor] = None
 _pool_size: int = 0  # Cached — avoids accessing ThreadPoolExecutor._max_workers (private)
@@ -63,11 +79,11 @@ def _get_pool_size() -> int:
         val = os.environ.get("CODRAG_LLM_POOL_SIZE")
         if val:
             n = int(val)
-            if 1 <= n <= 32:
+            if 1 <= n <= _MAX_POOL_SIZE:
                 return n
             logger.warning(
-                "CODRAG_LLM_POOL_SIZE=%d out of range [1,32], using default %d",
-                n, _DEFAULT_POOL_SIZE,
+                "CODRAG_LLM_POOL_SIZE=%d out of range [1,%d], using default %d",
+                n, _MAX_POOL_SIZE, _DEFAULT_POOL_SIZE,
             )
     except (ValueError, TypeError):
         pass
