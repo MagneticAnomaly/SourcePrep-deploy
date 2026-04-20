@@ -366,6 +366,13 @@ def _parse_json_response(text: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+# Phase 82 follow-up: per-request AIMD gate timeout.  If the scheduler
+# can't issue us a slot within this window, we proceed uncapped — a
+# blocked pipeline is worse than briefly exceeding current_limit.  AIMD
+# will catch real overload via 429/5xx signals.
+_REQUEST_GATE_TIMEOUT_S = 120.0
+
+
 class LLMClient:
     """
     Minimal LLM client for augmentation calls.
@@ -463,14 +470,47 @@ class LLMClient:
         try:
             from codrag.services.pipeline.scheduler import pipeline_scheduler
             pipeline_scheduler.record_throughput_for_provider(
-                self.provider, 
-                self.model, 
-                queue_time_ms=queue_time_ms, 
-                rate_limit_remaining=rate_limit_remaining, 
+                self.provider,
+                self.model,
+                queue_time_ms=queue_time_ms,
+                rate_limit_remaining=rate_limit_remaining,
                 is_429_or_timeout=is_429_or_timeout
             )
         except Exception as e:
             logger.debug("Failed to report latency throughput to scheduler: %s", e)
+
+    def _resolve_scheduler_node_id(self) -> Optional[str]:
+        """Resolve the PipelineScheduler node_id this client should gate on.
+
+        Mirrors PipelineScheduler.record_throughput_for_provider's prefix
+        logic so gate + AIMD agree on which slot a given LLM call belongs to.
+        Returns None if no matching slot exists (gate is skipped).
+        """
+        try:
+            from codrag.services.pipeline.scheduler import (
+                CLOUD_PROVIDERS,
+                pipeline_scheduler,
+            )
+        except Exception:  # pragma: no cover — import guard
+            return None
+
+        is_cloud = self.provider in CLOUD_PROVIDERS
+        if not is_cloud and self.model:
+            try:
+                from codrag.core.batch_profiles import is_cloud_model_via_ollama
+                if is_cloud_model_via_ollama(self.provider, self.model):
+                    is_cloud = True
+            except ImportError:
+                pass
+
+        prefix = "cloud:" if is_cloud else "local:"
+        try:
+            for nid in pipeline_scheduler._slots.keys():
+                if nid.startswith(prefix):
+                    return nid
+        except Exception:  # pragma: no cover — defensive
+            return None
+        return None
 
     def generate(
         self,
@@ -485,18 +525,34 @@ class LLMClient:
         num_ctx: Optional[int] = None,
     ) -> Tuple[str, int]:
         self._track_active("start")
+        node_id = self._resolve_scheduler_node_id()
         try:
-            return self._generate_internal(
-                prompt=prompt,
-                system=system,
-                num_predict=num_predict,
-                json_mode=json_mode,
-                temperature=temperature,
-                response_schema=response_schema,
-                think=think,
-                max_chars=max_chars,
-                num_ctx=num_ctx,
-            )
+            if node_id is None:
+                return self._generate_internal(
+                    prompt=prompt, system=system, num_predict=num_predict,
+                    json_mode=json_mode, temperature=temperature,
+                    response_schema=response_schema, think=think,
+                    max_chars=max_chars, num_ctx=num_ctx,
+                )
+
+            from codrag.services.pipeline.scheduler import pipeline_scheduler
+            with pipeline_scheduler.acquire_request_ctx(
+                node_id, timeout=_REQUEST_GATE_TIMEOUT_S,
+            ) as token:
+                if token is None:
+                    logger.warning(
+                        "LLM request gate: timed out waiting on %s "
+                        "(current_limit=%d, in_flight=%d). Proceeding uncapped.",
+                        node_id,
+                        pipeline_scheduler._slots[node_id].current_limit,
+                        pipeline_scheduler._slots[node_id].in_flight_requests,
+                    )
+                return self._generate_internal(
+                    prompt=prompt, system=system, num_predict=num_predict,
+                    json_mode=json_mode, temperature=temperature,
+                    response_schema=response_schema, think=think,
+                    max_chars=max_chars, num_ctx=num_ctx,
+                )
         finally:
             self._track_active("stop")
 
