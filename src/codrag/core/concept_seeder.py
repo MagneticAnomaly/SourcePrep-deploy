@@ -70,7 +70,8 @@ def seed_concepts(project_id: str, *, prefer_swarm: bool = True) -> dict[str, An
             cases can pass False to force the sequential path.
 
     Returns a summary dict with concepts_created, questions_created,
-    status, and a 'mode' field indicating "swarm" or "sequential".
+    status, and a 'mode' field indicating "swarm", "parallel", or
+    "single_call".
     """
     if prefer_swarm:
         try:
@@ -93,34 +94,31 @@ class _SwarmFallback(RuntimeError):
 
 
 def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
-    """Sequential single-LLM-call concept seeding (Phase 74 original).
+    """Non-swarm concept seeding with per-module fan-out via llm_pool.
 
-    1. Load atlas + modules + audit context
-    2. Assemble a focused prompt
-    3. Call the LLM to generate concept seeds
-    4. Store concepts and questions in the ConceptStore
+    Phase 82 follow-up: historically this was a single global-context LLM
+    call. When swarm is off (or the model doesn't support swarm), that
+    left the AIMD gate underused. Now we decompose by module and submit
+    per-module LLM calls to the shared llm_pool, so the AIMD gate sees
+    concurrent work regardless of swarm toggle state.
 
-    Returns a summary dict with counts and any errors.
+    Falls back to the original single-call behavior (via
+    ``_seed_concepts_single_call``) when there are fewer than 2 modules
+    — not enough work to parallelize.
     """
+    import os
+    import threading
+    from concurrent.futures import TimeoutError as FutureTimeoutError
+    from concurrent.futures import as_completed
+
     from codrag.core.project_registry import project_index_dir
     from codrag.services.concept_store import concept_store
+    from codrag.services.pipeline.thread_pool import llm_pool
     from codrag.services.project_helpers import require_project
 
     project = require_project(project_id)
     index_dir = project_index_dir(project)
 
-    # 1. Load pipeline data
-    context_text = _assemble_seeding_context(index_dir, project.path)
-    if not context_text or len(context_text) < 100:
-        return {
-            "status": "insufficient_data",
-            "message": "Not enough pipeline data to seed concepts. "
-                       "Run the knowledge pipeline first (Fast Sync + Deep Enrichment).",
-            "concepts_created": 0,
-            "questions_created": 0,
-        }
-
-    # 2. Get LLM client
     llm = _get_seeder_llm()
     if llm is None:
         return {
@@ -131,7 +129,171 @@ def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
             "questions_created": 0,
         }
 
-    # 3. Generate concepts via LLM
+    modules = _load_modules_for_swarm(index_dir)
+    if len(modules) < 2:
+        return _seed_concepts_single_call(
+            project_id, llm=llm, project=project, index_dir=index_dir,
+        )
+
+    logger.info(
+        "[Concepts/Parallel] Fan-out: %d modules via shared llm_pool (model=%s)",
+        len(modules), llm.model,
+    )
+
+    project_name = project.name
+
+    def _call_worker(module: dict) -> str | None:
+        module_data = _build_module_context(module)
+        worker_prompt = (
+            'You are analyzing the "{name}" subsystem of the codebase "{project}".\n\n'
+            'Module data:\n{ctx}\n\n'
+            'Generate 3-8 concept seeds that capture the WHY of this subsystem. '
+            'Focus on design rationale, hidden constraints, trade-offs, and '
+            'business decisions that are not obvious from reading the code itself.\n\n'
+            'Each concept must be SPECIFIC to this subsystem. Anchor concepts '
+            'to specific files in member_files.\n\n'
+            'Respond with JSON only:\n'
+            '{{"concepts": [{{"title": "...", "content": "2-4 sentences", '
+            '"category": "architecture|domain|product|epistemic|process|brand|'
+            'security|technical|pattern|constraint|decision", '
+            '"confidence": 0.5-1.0, "anchors": ["..."], "tags": ["..."]}}]}}'
+        ).format(
+            name=module.get("name", module.get("module_id", "unknown")),
+            project=project_name,
+            ctx=json.dumps(module_data)[:2500],
+        )
+        try:
+            text, _tokens = llm.generate(
+                prompt=worker_prompt,
+                json_mode=True,
+                temperature=0.3,
+                num_predict=4000,
+                think=False,
+            )
+            return text
+        except Exception:
+            logger.warning(
+                "Concept worker failed for %s",
+                module.get("module_id", module.get("name")),
+                exc_info=True,
+            )
+            return None
+
+    lock = threading.Lock()
+    raw_responses: list[tuple[str, str | None]] = []
+
+    batch_timeout_sec = float(
+        os.environ.get("CODRAG_CONCEPTS_BATCH_TIMEOUT", "900")
+    )
+
+    pool = llm_pool
+    futures = {pool.submit(_call_worker, mod): mod for mod in modules}
+    try:
+        for future in as_completed(futures, timeout=batch_timeout_sec):
+            mod = futures[future]
+            try:
+                text = future.result()
+            except Exception as e:
+                logger.warning(
+                    "Concept seed future failed for %s: %s",
+                    mod.get("module_id"), e,
+                )
+                text = None
+            with lock:
+                raw_responses.append((mod.get("module_id", "unknown"), text))
+    except FutureTimeoutError:
+        pending = [
+            futures[f].get("module_id") for f in futures if not f.done()
+        ]
+        logger.error(
+            "Concept seeding batch timed out after %.0fs: %d/%d modules pending. "
+            "Pending: %s",
+            batch_timeout_sec, len(pending), len(futures), pending[:5],
+        )
+    finally:
+        # Cancel any futures still pending on the shared pool so an
+        # unhandled exception does not orphan worker slots used by other
+        # pipeline stages.
+        for f in futures:
+            if not f.done():
+                f.cancel()
+        # Shared pool — do NOT shut it down.
+
+    # Merge + dedup by title
+    seen_titles: set[str] = set()
+    all_concepts: list[dict] = []
+    for _mid, text in raw_responses:
+        if not text:
+            continue
+        parsed = _parse_llm_response(text)
+        for c in parsed.get("concepts", []):
+            title = (c.get("title") or "").strip().lower()
+            if not title or title in seen_titles:
+                continue
+            seen_titles.add(title)
+            all_concepts.append(c)
+
+    if not all_concepts:
+        return {
+            "status": "no_concepts",
+            "mode": "parallel",
+            "message": "Per-module fan-out produced no concepts.",
+            "concepts_created": 0,
+            "questions_created": 0,
+        }
+
+    concepts_created = 0
+    for c in all_concepts:
+        try:
+            concept_store.save(
+                project_id=project_id,
+                title=c.get("title", "Untitled"),
+                content=c.get("content", ""),
+                category=c.get("category", "technical"),
+                status="seed",
+                confidence=c.get("confidence", 0.7),
+                anchors=c.get("anchors", []),
+                tags=c.get("tags", []),
+            )
+            concepts_created += 1
+        except Exception as e:
+            logger.warning("Failed to save concept '%s': %s", c.get("title"), e)
+
+    logger.info(
+        "Concept seeding (parallel) complete for %s: %d concepts from %d modules",
+        project_id, concepts_created, len(modules),
+    )
+
+    return {
+        "status": "success",
+        "mode": "parallel",
+        "concepts_created": concepts_created,
+        "questions_created": 0,
+        "message": f"Generated {concepts_created} concept seeds across "
+                   f"{len(modules)} modules (parallel fan-out).",
+    }
+
+
+def _seed_concepts_single_call(
+    project_id: str, *, llm, project, index_dir
+) -> dict[str, Any]:
+    """Original single-call concept seeding (pre-parallel behavior).
+
+    Retained as a safety-net for projects with <2 modules meeting the
+    module-files threshold, where per-module fan-out is not useful.
+    """
+    from codrag.services.concept_store import concept_store
+
+    context_text = _assemble_seeding_context(index_dir, project.path)
+    if not context_text or len(context_text) < 100:
+        return {
+            "status": "insufficient_data",
+            "message": "Not enough pipeline data to seed concepts. "
+                       "Run the knowledge pipeline first (Fast Sync + Deep Enrichment).",
+            "concepts_created": 0,
+            "questions_created": 0,
+        }
+
     try:
         raw_response = _call_llm_for_concepts(llm, context_text, project.name)
     except Exception as e:
@@ -143,7 +305,6 @@ def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
             "questions_created": 0,
         }
 
-    # 4. Parse and store
     parsed = _parse_llm_response(raw_response)
     concepts_created = 0
     questions_created = 0
@@ -177,14 +338,9 @@ def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
         except Exception as e:
             logger.warning("Failed to save question: %s", e)
 
-    logger.info(
-        "Concept seeding complete for %s: %d concepts, %d questions",
-        project_id, concepts_created, questions_created,
-    )
-
     return {
         "status": "success",
-        "mode": "sequential",
+        "mode": "single_call",
         "concepts_created": concepts_created,
         "questions_created": questions_created,
         "message": f"Generated {concepts_created} concept seeds and "
