@@ -1450,6 +1450,203 @@ class ClusterSynthesizer:
         key = "\n".join(sorted(member_node_ids))
         return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
 
+    def _synthesize_batched(
+        self,
+        *,
+        clusters: list,
+        epistemic: dict,
+        edges: list,
+        modules: dict,
+        progress_callback: Optional[Callable[..., None]],
+        reused: int,
+        total_work: int,
+        synthesized_start: int,
+        failed_start: int,
+        cancel_token: Optional[Any] = None,
+    ) -> Tuple[int, int]:
+        """Parallel batched-BYOK cluster synthesis via shared llm_pool.
+
+        Submits all batches to the shared bounded ``llm_pool`` and collects
+        results via ``as_completed``. The AIMD gate inside
+        ``LLMClient.generate`` (PipelineScheduler.acquire_request) is the
+        real throttle; fanning out here lets the gate discover the real
+        per-provider concurrency ceiling instead of pinning in_flight=1.
+
+        Returns ``(synthesized_delta, failed_delta)`` — caller aggregates
+        into its own counters.
+        """
+        from concurrent.futures import TimeoutError as FutureTimeoutError
+        from concurrent.futures import as_completed as _as_completed
+
+        from codrag.services.pipeline.thread_pool import llm_pool
+
+        from .batch_profiles import BatchStage
+        from .batch_prompts import (
+            BATCHED_CLUSTER_SYSTEM,
+            build_batched_cluster_prompt,
+            get_structured_schema,
+        )
+        from .batch_strategy import BatchedResponseParser
+
+        batch_size = self._batch_profile.batch_size(BatchStage.CLUSTERING)
+        logger.info(
+            "BATCHED cluster synthesis: %d clusters, batch_size=%d (%s profile) — parallel",
+            len(clusters), batch_size, self._batch_profile.name.value,
+        )
+        schema = get_structured_schema("clustering")
+
+        # Build per-batch work items up front so the LLM calls can fan out.
+        batches: list[list[dict]] = []
+        for batch_start in range(0, len(clusters), batch_size):
+            batch = clusters[batch_start:batch_start + batch_size]
+            items: list[dict] = []
+            for cluster in batch:
+                member_summaries = self._build_member_summaries(cluster, epistemic, max_files=30)
+                external_deps = self._build_external_deps(cluster, edges, epistemic)
+                items.append({
+                    "cluster_name": cluster.primary_tag.replace("_", " ").replace("-", " ").title(),
+                    "domain_tags": ", ".join(sorted(cluster.all_tags)),
+                    "file_count": len(cluster.member_node_ids),
+                    "member_summaries": member_summaries,
+                    "external_deps": external_deps,
+                    "_cluster": cluster,
+                })
+            batches.append(items)
+
+        def _call_batch(items: list[dict]) -> Tuple[list[dict], list[dict]]:
+            prompt = build_batched_cluster_prompt(items)
+            try:
+                prompt_tokens = len(prompt) // 4
+                num_predict, num_ctx, _warnings = compute_optimal_settings(
+                    task=PipelineTask.CLUSTER,
+                    prompt_tokens=prompt_tokens,
+                    model=self.llm.model,
+                    think=False,
+                )
+                text, _tokens = self.llm.generate(
+                    prompt,
+                    system=BATCHED_CLUSTER_SYSTEM,
+                    num_predict=num_predict,
+                    num_ctx=num_ctx,
+                    response_schema=schema,
+                    max_chars=batched_max_chars("augmentation", len(items)),
+                )
+                results_list = BatchedResponseParser.parse(text, expected_count=len(items))
+            except Exception as e:
+                logger.warning("Batched cluster synthesis failed for %d items: %s", len(items), e)
+                results_list = []
+            return items, results_list
+
+        lock = threading.Lock()
+        synthesized_delta = 0
+        failed_delta = 0
+        done_count = 0
+
+        batch_timeout_sec = float(
+            os.environ.get("CODRAG_CLUSTER_BATCH_TIMEOUT", "900")
+        )
+
+        pool = llm_pool
+        futures = {pool.submit(_call_batch, items): items for items in batches}
+
+        try:
+            for future in _as_completed(futures, timeout=batch_timeout_sec):
+                if cancel_token and cancel_token.is_cancelled:
+                    logger.info(
+                        "Cluster synthesis cancelled after %d/%d batches — flushing partial results",
+                        done_count, len(batches),
+                    )
+                    with lock:
+                        self._write_modules(modules)
+                    cancel_token.raise_if_cancelled()
+
+                try:
+                    items, results_list = future.result()
+                except Exception as e:
+                    logger.warning("Batched cluster future failed: %s", e)
+                    with lock:
+                        failed_delta += len(futures[future])
+                        done_count += 1
+                    continue
+
+                for idx, item in enumerate(items):
+                    cluster = item["_cluster"]
+                    cluster_name = item["cluster_name"]
+                    parsed = results_list[idx] if idx < len(results_list) else None
+                    if not parsed:
+                        parsed = {
+                            "name": f"{cluster_name} Subsystem",
+                            "summary": (
+                                f"Cluster of {len(cluster.member_node_ids)} files related to "
+                                f"{cluster.primary_tag}. (Batch synthesis failed)"
+                            ),
+                            "component_status": "unknown",
+                        }
+
+                    module_id = f"module:{cluster.cluster_id.replace('cluster:', '')}"
+                    confs = [
+                        epistemic[nid].epistemic_confidence
+                        for nid in cluster.member_node_ids
+                        if nid in epistemic
+                    ]
+                    avg_conf = sum(confs) / len(confs) if confs else 0.0
+
+                    module = ModuleEntry(
+                        module_id=module_id,
+                        name=str(parsed.get("name", cluster_name))[:200],
+                        summary=str(parsed.get("summary", ""))[:1000],
+                        member_files=[nid.replace("file:", "", 1) for nid in cluster.member_node_ids],
+                        domain_tags=sorted(cluster.all_tags),
+                        architecture_layers=sorted(parsed.get("architecture_layers", [])),
+                        component_status=parsed.get("component_status", "unknown"),
+                        data_flow=parsed.get("data_flow"),
+                        dependencies=parsed.get("dependencies"),
+                        tech_debt_summary=parsed.get("tech_debt_summary"),
+                        file_count=len(cluster.member_node_ids),
+                        avg_epistemic_confidence=avg_conf,
+                        synthesized_at=datetime.now(timezone.utc).isoformat(),
+                        model=self.llm.model,
+                    )
+                    with lock:
+                        modules[module.module_id] = module
+                        synthesized_delta += 1
+                        total_synth = synthesized_start + synthesized_delta
+                        if total_synth > 0 and total_synth % 10 == 0:
+                            self._write_modules(modules)
+                            logger.info(
+                                "Cluster checkpoint saved at %d/%d clusters",
+                                total_synth, total_work,
+                            )
+
+                with lock:
+                    done_count += 1
+                    if progress_callback:
+                        progress_callback(
+                            "cluster_synthesis",
+                            reused + synthesized_delta + failed_delta,
+                            total_work,
+                            reused,
+                        )
+        except FutureTimeoutError:
+            pending = [futures[f] for f in futures if not f.done()]
+            logger.error(
+                "Cluster batched synthesis timed out after %.0fs: %d/%d batches pending, "
+                "cancelling and continuing.",
+                batch_timeout_sec, len(pending), len(futures),
+            )
+            with lock:
+                failed_delta += sum(len(pending_items) for pending_items in pending)
+        finally:
+            # Cancel pending futures unconditionally so an unhandled
+            # exception (cancel_token raise, OOM, bug) does not orphan
+            # worker slots on the shared pool.
+            for f in futures:
+                if not f.done():
+                    f.cancel()
+            # Shared pool — do NOT shut it down.
+
+        return synthesized_delta, failed_delta
+
     def run(
         self,
         progress_callback: Optional[Callable[..., None]] = None,
@@ -1605,99 +1802,20 @@ class ClusterSynthesizer:
         )
 
         if use_batching:
-            from .batch_profiles import BatchStage
-            from .batch_prompts import (
-                BATCHED_CLUSTER_SYSTEM,
-                build_batched_cluster_prompt,
-                get_structured_schema,
+            synth_delta, fail_delta = self._synthesize_batched(
+                clusters=to_synthesize,
+                epistemic=epistemic,
+                edges=edges,
+                modules=modules,
+                progress_callback=progress_callback,
+                reused=reused,
+                total_work=total_work,
+                synthesized_start=synthesized,
+                failed_start=failed,
+                cancel_token=cancel_token,
             )
-            from .batch_strategy import BatchedResponseParser
-
-            batch_size = self._batch_profile.batch_size(BatchStage.CLUSTERING)
-            logger.info(
-                "BATCHED cluster synthesis: %d clusters, batch_size=%d (%s profile)",
-                len(to_synthesize), batch_size, self._batch_profile.name.value,
-            )
-
-            schema = get_structured_schema("clustering")
-
-            for batch_start in range(0, len(to_synthesize), batch_size):
-                batch = to_synthesize[batch_start:batch_start + batch_size]
-                items = []
-                for cluster in batch:
-                    member_summaries = self._build_member_summaries(cluster, epistemic, max_files=30)
-                    external_deps = self._build_external_deps(cluster, edges, epistemic)
-                    items.append({
-                        "cluster_name": cluster.primary_tag.replace("_", " ").replace("-", " ").title(),
-                        "domain_tags": ", ".join(sorted(cluster.all_tags)),
-                        "file_count": len(cluster.member_node_ids),
-                        "member_summaries": member_summaries,
-                        "external_deps": external_deps,
-                        "_cluster": cluster,
-                    })
-
-                prompt = build_batched_cluster_prompt(items)
-                try:
-                    prompt_tokens = len(prompt) // 4
-                    num_predict, num_ctx, warnings = compute_optimal_settings(
-                        task=PipelineTask.CLUSTER,
-                        prompt_tokens=prompt_tokens,
-                        model=self.llm.model,
-                        think=False,
-                    )
-
-                    text, tokens = self.llm.generate(
-                        prompt, system=BATCHED_CLUSTER_SYSTEM,
-                        num_predict=num_predict, num_ctx=num_ctx,
-                        response_schema=schema,
-                        max_chars=batched_max_chars("augmentation", len(items)),
-                    )
-                    results_list = BatchedResponseParser.parse(text, expected_count=len(items))
-                except Exception as e:
-                    logger.warning("Batched cluster synthesis failed for %d items: %s", len(items), e)
-                    results_list = []
-
-                for idx, item in enumerate(items):
-                    cluster = item["_cluster"]
-                    cluster_name = item["cluster_name"]
-                    parsed = results_list[idx] if idx < len(results_list) else None
-
-                    if not parsed:
-                        parsed = {
-                            "name": f"{cluster_name} Subsystem",
-                            "summary": f"Cluster of {len(cluster.member_node_ids)} files related to {cluster.primary_tag}. (Batch synthesis failed)",
-                            "component_status": "unknown",
-                        }
-
-                    module_id = f"module:{cluster.cluster_id.replace('cluster:', '')}"
-                    confs = [
-                        epistemic[nid].epistemic_confidence
-                        for nid in cluster.member_node_ids
-                        if nid in epistemic
-                    ]
-                    avg_conf = sum(confs) / len(confs) if confs else 0.0
-
-                    module = ModuleEntry(
-                        module_id=module_id,
-                        name=str(parsed.get("name", cluster_name))[:200],
-                        summary=str(parsed.get("summary", ""))[:1000],
-                        member_files=[nid.replace("file:", "", 1) for nid in cluster.member_node_ids],
-                        domain_tags=sorted(cluster.all_tags),
-                        architecture_layers=sorted(parsed.get("architecture_layers", [])),
-                        component_status=parsed.get("component_status", "unknown"),
-                        data_flow=parsed.get("data_flow"),
-                        dependencies=parsed.get("dependencies"),
-                        tech_debt_summary=parsed.get("tech_debt_summary"),
-                        file_count=len(cluster.member_node_ids),
-                        avg_epistemic_confidence=avg_conf,
-                        synthesized_at=datetime.now(timezone.utc).isoformat(),
-                        model=self.llm.model,
-                    )
-                    modules[module.module_id] = module
-                    synthesized += 1
-
-                if progress_callback:
-                    progress_callback("cluster_synthesis", reused + synthesized + failed, total_work, reused)
+            synthesized += synth_delta
+            failed += fail_delta
 
         else:
             # Local model: sequential or concurrent
