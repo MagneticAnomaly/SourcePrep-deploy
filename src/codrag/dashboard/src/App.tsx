@@ -671,9 +671,10 @@ function App() {
           }
           if (globalCfg.llm_config) {
             setLLMConfig(globalCfg.llm_config)
-            // Mark as clean so the Save button doesn't show on initial load
-            setTimeout(() => markLLMConfigClean(), 100)
           }
+          // Arm auto-save regardless of whether the backend had a saved llm_config —
+          // fresh installs start with llm_config: null but still need the dirty baseline set.
+          setTimeout(() => markLLMConfigClean(), 100)
           if (globalCfg.deep_analysis) setDeepAnalysisSchedule((prev) => ({ ...prev, ...globalCfg.deep_analysis } as any))
           if (globalCfg.ui_preferences) {
             const prefs = globalCfg.ui_preferences
@@ -888,7 +889,7 @@ function App() {
     llm: {
       llmConfig, llmSlotsStatus,
       handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
-      handleTestEndpoint, handleFetchModels, handleTestModel, handleClearTestResult, handleDownloadModel, handleModeSwitch,
+      handleTestEndpoint, handleFetchModels, handleTestModel, handleClearTestResult, handleDownloadModel,
       handleModeApply,
       availableModels, modelDetails, loadingModels, testingSlot, testResults,
       maxActiveProjects, onMaxActiveProjectsChange: handleMaxActiveProjectsChange,

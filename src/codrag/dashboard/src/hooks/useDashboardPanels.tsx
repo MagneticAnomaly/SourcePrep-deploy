@@ -234,7 +234,6 @@ export interface PanelLLMProps {
   handleTestModel: (slot: 'embedding' | 'small' | 'large' | 'code' | 'coordinator') => Promise<any>
   handleClearTestResult: (slot: string) => void
   handleDownloadModel: (slot: 'embedding') => Promise<void>
-  handleModeSwitch: (mode: import('@codrag/ui').AssignmentMode, blocks?: import('@codrag/ui').LLMConfig['assignment_blocks']) => Promise<any>
   availableModels: Record<string, string[]>
   modelDetails: Record<string, Array<{ name: string; context_window?: string; cost_tier?: string; rate_limits?: { rpd?: number; rpm?: number }; batch_estimate?: { files_per_request: number; daily_file_capacity?: number } }>>
   loadingModels: Record<string, boolean>
@@ -1255,7 +1254,6 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           onComputeNodeDelete={p.onComputeNodeDelete}
           onEndpointNodeChange={p.onEndpointNodeChange}
           onModeApply={p.handleModeApply}
-          onModeSwitch={p.handleModeSwitch}
           onAssignmentBlockAdd={() => {
             p.handleLLMConfigChange({
               ...p.llmConfig,
