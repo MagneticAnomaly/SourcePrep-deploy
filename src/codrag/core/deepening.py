@@ -22,7 +22,7 @@ import os
 import threading
 import time
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -453,48 +453,54 @@ class DeepeningLoop:
                 batch_timeout_sec = float(
                     os.environ.get("CODRAG_DEEPENING_BATCH_TIMEOUT", "600")
                 )
-                pool = ThreadPoolExecutor(max_workers=concurrency)
+                from codrag.services.pipeline.thread_pool import llm_pool
+                # Phase 82 follow-up: use the shared bounded pool. AIMD's
+                # per-request gate (PipelineScheduler.acquire_request,
+                # called from LLMClient.generate) enforces the dynamic
+                # ceiling at submit-time. The per-stage ``concurrency``
+                # value is no longer a hard cap — it's the MAX we'd ever
+                # submit in parallel; the gate may block many of those
+                # until current_limit allows.
+                pool = llm_pool
+                futures = {
+                    pool.submit(
+                        self.enricher.enrich_node, node, edges, nodes_by_id, augmentations, existing_epistemic
+                    ): (node_id, is_re)
+                    for node_id, node, is_re in items
+                }
                 try:
-                    futures = {
-                        pool.submit(
-                            self.enricher.enrich_node, node, edges, nodes_by_id, augmentations, existing_epistemic
-                        ): (node_id, is_re)
-                        for node_id, node, is_re in items
-                    }
-                    try:
-                        for future in as_completed(futures, timeout=batch_timeout_sec):
-                            node_id, is_re = futures[future]
-                            try:
-                                entry = future.result()
-                            except Exception as e:
-                                logger.warning("Deepening enrichment failed for %s: %s", node_id, e)
-                                entry = None
-                            with lock:
-                                if entry:
-                                    entry.pass_number = existing_epistemic[node_id].pass_number + 1 if is_re else 2
-                                    existing_epistemic[node_id] = entry
-                                    enriched_this_iter += 1
-                                    if is_re:
-                                        re_enriched_this_iter += 1
-                    except FutureTimeoutError:
-                        pending = [
-                            futures[f] for f in futures if not f.done()
-                        ]
-                        logger.error(
-                            "Deepening batch timed out after %.0fs (iteration %d): "
-                            "%d/%d futures pending, cancelling and continuing. "
-                            "Pending nodes: %s",
-                            batch_timeout_sec,
-                            iteration + 1,
-                            len(pending),
-                            len(futures),
-                            [nid for nid, _ in pending[:5]],
-                        )
-                        for f in futures:
-                            if not f.done():
-                                f.cancel()
-                finally:
-                    pool.shutdown(wait=False, cancel_futures=True)
+                    for future in as_completed(futures, timeout=batch_timeout_sec):
+                        node_id, is_re = futures[future]
+                        try:
+                            entry = future.result()
+                        except Exception as e:
+                            logger.warning("Deepening enrichment failed for %s: %s", node_id, e)
+                            entry = None
+                        with lock:
+                            if entry:
+                                entry.pass_number = existing_epistemic[node_id].pass_number + 1 if is_re else 2
+                                existing_epistemic[node_id] = entry
+                                enriched_this_iter += 1
+                                if is_re:
+                                    re_enriched_this_iter += 1
+                except FutureTimeoutError:
+                    pending = [
+                        futures[f] for f in futures if not f.done()
+                    ]
+                    logger.error(
+                        "Deepening batch timed out after %.0fs (iteration %d): "
+                        "%d/%d futures pending, cancelling and continuing. "
+                        "Pending nodes: %s",
+                        batch_timeout_sec,
+                        iteration + 1,
+                        len(pending),
+                        len(futures),
+                        [nid for nid, _ in pending[:5]],
+                    )
+                    for f in futures:
+                        if not f.done():
+                            f.cancel()
+                # Shared pool — do NOT shut it down.
 
             result.total_enriched += enriched_this_iter
             result.total_re_enriched += re_enriched_this_iter

@@ -222,7 +222,12 @@ def _get_llm_concurrency(stage: str = "fast") -> int:
             value = config.get("llm_concurrency_fast")
         if not value:
             value = config.get("llm_concurrency", 1)
-        return max(1, min(8, int(value)))
+        # Phase 82 follow-up: AIMD current_limit (enforced at request-time
+        # via PipelineScheduler.acquire_request) is the runtime cap. This
+        # function only clamps to [1, 32] — 32 matches the shared LLM
+        # pool's max_workers, above which nothing can run in parallel
+        # anyway.
+        return max(1, min(32, int(value)))
     except Exception:
         return 1
 

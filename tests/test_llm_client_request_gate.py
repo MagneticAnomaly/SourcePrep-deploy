@@ -157,6 +157,38 @@ def test_gate_timeout_falls_back_to_raw_call() -> None:
     sched.release_request(pre_token)
 
 
+def test_get_llm_concurrency_no_hard_cap_at_8(monkeypatch) -> None:
+    """Phase 82 follow-up: concurrency is gated by AIMD current_limit at
+    request time via the scheduler per-request gate, not by a static
+    per-stage cap. _get_llm_concurrency returns the raw configured value
+    (clamped only to [1, 32]).
+    """
+    from codrag.core.llm_client import _get_llm_concurrency
+    from codrag.services.settings_store import settings
+
+    def _fake_get(k, default=None):
+        if k == "pipeline_config":
+            return {"llm_concurrency_deep": 24}
+        return default
+
+    monkeypatch.setattr(settings, "get", _fake_get)
+    assert _get_llm_concurrency("deep") == 24
+
+
+def test_get_llm_concurrency_clamps_to_32(monkeypatch) -> None:
+    """A value > 32 (shared LLM pool's max_workers ceiling) is still clamped."""
+    from codrag.core.llm_client import _get_llm_concurrency
+    from codrag.services.settings_store import settings
+
+    def _fake_get(k, default=None):
+        if k == "pipeline_config":
+            return {"llm_concurrency_deep": 100}
+        return default
+
+    monkeypatch.setattr(settings, "get", _fake_get)
+    assert _get_llm_concurrency("deep") == 32
+
+
 def test_gate_timeout_survives_slot_removal() -> None:
     """If the slot is removed between gate-timeout and the warning log,
     generate() must still proceed uncapped rather than raise KeyError."""
