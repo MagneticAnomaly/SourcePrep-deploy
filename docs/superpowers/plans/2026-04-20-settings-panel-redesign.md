@@ -932,7 +932,7 @@ export function SettingsNav({ activePage, onNavigate, projectName }: SettingsNav
       className={cn(
         'w-full text-left text-sm rounded-md mx-0 px-3 py-1.5',
         disabled
-          ? 'text-text-disabled cursor-not-allowed'
+          ? 'text-text-subtle cursor-not-allowed'
           : 'text-text-muted hover:bg-surface-raised cursor-pointer',
         activePage === id && !disabled && 'bg-surface-raised text-text font-medium',
       )}
