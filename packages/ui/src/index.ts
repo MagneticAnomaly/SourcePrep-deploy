@@ -149,6 +149,9 @@ export { AdminSection } from './components/primitives/AdminSection';
 export type { AdminSectionProps } from './components/primitives/AdminSection';
 export { PanelLoading } from './components/primitives/PanelLoading';
 
+// Components - Settings primitives (v2)
+export * from './components/settings';
+
 // Hooks - Enterprise (EA-C4)
 export { useAdminPolicy } from './hooks/useAdminPolicy';
 
