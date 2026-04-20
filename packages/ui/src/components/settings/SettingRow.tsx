@@ -8,9 +8,21 @@ export interface SettingRowProps {
   /** suppresses the bottom border — use for the last row in a Section */
   last?: boolean;
   className?: string;
+  /**
+   * If provided, wraps the label text in `<label htmlFor={id}>`. Callers must
+   * pass the same id to their control for screen-reader association.
+   */
+  id?: string;
 }
 
-export function SettingRow({ label, description, control, last, className }: SettingRowProps) {
+export function SettingRow({
+  label,
+  description,
+  control,
+  last,
+  className,
+  id,
+}: SettingRowProps) {
   return (
     <div
       className={cn(
@@ -20,7 +32,13 @@ export function SettingRow({ label, description, control, last, className }: Set
       )}
     >
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium text-text">{label}</div>
+        {id ? (
+          <label htmlFor={id} className="text-sm font-medium text-text">
+            {label}
+          </label>
+        ) : (
+          <div className="text-sm font-medium text-text">{label}</div>
+        )}
         {description && (
           <div className="mt-1 text-sm text-text-muted">{description}</div>
         )}
