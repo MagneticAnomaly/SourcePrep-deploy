@@ -157,14 +157,14 @@ def test_gate_timeout_falls_back_to_raw_call() -> None:
     sched.release_request(pre_token)
 
 
-def test_get_llm_concurrency_no_hard_cap_at_8(monkeypatch) -> None:
-    """Phase 82 follow-up: concurrency is gated by AIMD current_limit at
-    request time via the scheduler per-request gate, not by a static
-    per-stage cap. _get_llm_concurrency returns the raw configured value
-    (clamped only to [1, 32]).
+def test_get_llm_concurrency_honors_explicit_cap_when_above_default(monkeypatch) -> None:
+    """A user-set ``llm_concurrency_deep=24`` caps the return value at 24 even
+    when AIMD has discovered a larger budget. Explicit settings above the
+    default of 1 are treated as an upper bound (VRAM protection use case).
     """
     from codrag.core.llm_client import _get_llm_concurrency
     from codrag.services.settings_store import settings
+    from codrag.services.pipeline import scheduler as sched_mod
 
     def _fake_get(k, default=None):
         if k == "pipeline_config":
@@ -172,13 +172,19 @@ def test_get_llm_concurrency_no_hard_cap_at_8(monkeypatch) -> None:
         return default
 
     monkeypatch.setattr(settings, "get", _fake_get)
+    sched = sched_mod.pipeline_scheduler
+    sched.configure_node("cloud:kimi", max_concurrent=10)
+    sched._slots["cloud:kimi"].current_limit = 49  # AIMD discovered 49
+
     assert _get_llm_concurrency("deep") == 24
 
 
-def test_get_llm_concurrency_clamps_to_32(monkeypatch) -> None:
-    """A value > 32 (shared LLM pool's max_workers ceiling) is still clamped."""
+def test_get_llm_concurrency_clamps_to_pool_ceiling(monkeypatch) -> None:
+    """A value > pool max_workers (shared LLM pool's ceiling) is still clamped."""
     from codrag.core.llm_client import _get_llm_concurrency
     from codrag.services.settings_store import settings
+    from codrag.services.pipeline import scheduler as sched_mod
+    from codrag.services.pipeline.thread_pool import llm_pool
 
     def _fake_get(k, default=None):
         if k == "pipeline_config":
@@ -186,7 +192,90 @@ def test_get_llm_concurrency_clamps_to_32(monkeypatch) -> None:
         return default
 
     monkeypatch.setattr(settings, "get", _fake_get)
-    assert _get_llm_concurrency("deep") == 32
+    sched = sched_mod.pipeline_scheduler
+    sched.configure_node("cloud:kimi", max_concurrent=10)
+    sched._slots["cloud:kimi"].current_limit = 100
+
+    assert _get_llm_concurrency("deep") == llm_pool.max_workers
+
+
+def test_get_llm_concurrency_scales_with_aimd_when_setting_stale(monkeypatch) -> None:
+    """Phase 82 completion: when stored setting is 1 (stale/default) but AIMD
+    has discovered dynamic_capacity=20 on a cloud slot, the function must
+    return the discovered budget — not the stored 1. This is the same
+    mechanism get_batch_concurrency uses; all LLM fan-out paths converge on
+    the scheduler-driven budget.
+    """
+    from codrag.core.llm_client import _get_llm_concurrency
+    from codrag.services.settings_store import settings
+    from codrag.services.pipeline import scheduler as sched_mod
+
+    def _fake_get(k, default=None):
+        if k == "pipeline_config":
+            return {"llm_concurrency_deep": 1, "llm_concurrency_fast": 1}
+        return default
+
+    monkeypatch.setattr(settings, "get", _fake_get)
+
+    sched = sched_mod.pipeline_scheduler
+    sched.configure_node("cloud:kimi", max_concurrent=10)
+    slot = sched._slots["cloud:kimi"]
+    slot.current_limit = 20  # dynamic_capacity for cloud slots = max(1, current_limit)
+
+    assert _get_llm_concurrency("fast") == 20
+    assert _get_llm_concurrency("deep") == 20
+
+
+def test_get_llm_concurrency_clamps_aimd_to_pool_ceiling(monkeypatch) -> None:
+    """If AIMD discovers dynamic_capacity > shared-pool max_workers, clamp to
+    the pool ceiling — submitting beyond pool size has no parallelism benefit.
+    """
+    from codrag.core.llm_client import _get_llm_concurrency
+    from codrag.services.settings_store import settings
+    from codrag.services.pipeline import scheduler as sched_mod
+    from codrag.services.pipeline.thread_pool import llm_pool
+
+    def _fake_get(k, default=None):
+        if k == "pipeline_config":
+            return {}
+        return default
+
+    monkeypatch.setattr(settings, "get", _fake_get)
+
+    sched = sched_mod.pipeline_scheduler
+    sched.configure_node("cloud:gem3", max_concurrent=10)
+    slot = sched._slots["cloud:gem3"]
+    slot.current_limit = 200
+
+    assert _get_llm_concurrency("fast") == llm_pool.max_workers
+
+
+def test_get_llm_concurrency_ignores_embedding_slot(monkeypatch) -> None:
+    """Embedding slot has dynamic_capacity=2 (memory-detected); it must NOT
+    drive LLM fan-out concurrency. Only non-embedding scheduler slots matter.
+    """
+    from codrag.core.llm_client import _get_llm_concurrency
+    from codrag.services.settings_store import settings
+    from codrag.services.pipeline import scheduler as sched_mod
+
+    def _fake_get(k, default=None):
+        if k == "pipeline_config":
+            return {}
+        return default
+
+    monkeypatch.setattr(settings, "get", _fake_get)
+
+    sched = sched_mod.pipeline_scheduler
+    # Inflate embedding slot to a high value to catch code that accidentally
+    # consults it when computing LLM fan-out. A single local LLM slot at
+    # current_limit=1 is the only legitimate LLM budget here.
+    embed_slot = sched._slots["__embedding__"]
+    embed_slot.current_limit = 16
+    sched.configure_node("local:solo", max_concurrent=1)
+    slot = sched._slots["local:solo"]
+    slot.current_limit = 1
+
+    assert _get_llm_concurrency("fast") == 1
 
 
 def test_gate_timeout_survives_slot_removal() -> None:

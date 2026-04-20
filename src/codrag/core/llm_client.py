@@ -178,56 +178,67 @@ def _parse_confidence(raw: Any, default: float = 0.5) -> float:
 
 
 def _get_llm_concurrency(stage: str = "fast") -> int:
-    """Read LLM concurrency from pipeline config for the given stage group.
+    """Return the fan-out concurrency for an LLM stage.
 
-    Three separate settings matching the three model slots:
+    Phase 82 completion (2026-04-20): the budget is sourced from the AIMD
+    scheduler's discovered ``dynamic_capacity`` across non-embedding slots,
+    then clamped to the shared LLM thread pool's ``max_workers``. This
+    matches ``get_batch_concurrency`` and keeps every LLM fan-out path
+    (augmenter, inferred_edges, epistemic, catalogue, group_reasoning,
+    atlas, audit, cluster non-batched, deepening, etc.) converging on a
+    single scheduler-driven budget.
 
-      - ``llm_concurrency_fast``: Stage 3 (catalogue).
-        Uses the small/instruct model (e.g. qwen3:4b-instruct at 2.5 GB).
+    The stored ``pipeline_config.llm_concurrency_{fast,code,deep}`` values
+    are honored as an explicit *upper* cap — users who set them to limit
+    VRAM pressure still get that cap. Unset / default-1 no longer caps the
+    budget; AIMD's discovery drives it.
 
-      - ``llm_concurrency_code``: Stage 2 (inferred_edges).
-        Uses the coder model (e.g. qwen3-coder:30b at ~18 GB).
-        Falls back to ``llm_concurrency_fast`` if not set.
-
-      - ``llm_concurrency_deep``: Stages 6-9 (epistemic, clustering,
-        deepening).  Uses the large/thinking model (e.g. deepseek-r1:32b
-        or qwen3.5:35b-a3b at ~20 GB).
-
-    Falls back to legacy ``llm_concurrency`` if none of the split keys are set.
-
-    Each concurrent request needs its own KV cache in VRAM/RAM:
-      Total memory = model_weights + (concurrency × kv_cache_size)
-
-    Set OLLAMA_NUM_PARALLEL in Ollama to at least max(fast, code, deep).
+    Returns:
+        int in ``[1, llm_pool.max_workers]``.
 
     Args:
-        stage: "fast" for catalogue (stage 3),
-               "code" for inferred_edges (stage 2),
-               "deep" for deep-enrichment stages (6-9).
+        stage: "fast" / "code" / "deep" — selects which per-stage override
+            applies as an upper cap.
     """
     try:
-        from codrag.services.settings_store import settings
-        config = settings.get("pipeline_config") or {}
+        from codrag.services.pipeline.scheduler import pipeline_scheduler
+        from codrag.services.pipeline.thread_pool import llm_pool
 
-        if stage == "deep":
-            key = "llm_concurrency_deep"
-        elif stage == "code":
-            key = "llm_concurrency_code"
-        else:
-            key = "llm_concurrency_fast"
+        # AIMD-discovered budget across non-embedding scheduler slots.
+        # Stages run against a single provider at a time, so the budget
+        # the stage will actually see is the max across currently-active
+        # LLM slots (typically one).
+        scheduler_budget = 1
+        for nid, slot in pipeline_scheduler._slots.items():
+            if nid == "__embedding__":
+                continue
+            scheduler_budget = max(scheduler_budget, slot.dynamic_capacity)
 
-        # Try the split key first, fall back to fast key, then legacy single key
-        value = config.get(key)
-        if not value and stage == "code":
-            value = config.get("llm_concurrency_fast")
-        if not value:
-            value = config.get("llm_concurrency", 1)
-        # Phase 82 follow-up: AIMD current_limit (enforced at request-time
-        # via PipelineScheduler.acquire_request) is the runtime cap. This
-        # function only clamps to [1, 32] — 32 matches the shared LLM
-        # pool's max_workers, above which nothing can run in parallel
-        # anyway.
-        return max(1, min(32, int(value)))
+        # Honor explicit per-stage caps when set above the default of 1.
+        # A stored "1" is almost always the legacy/mock default (Phase 82
+        # predated this mechanism), not a deliberate VRAM cap — ignore it
+        # so AIMD can float the budget up.
+        explicit_cap = llm_pool.max_workers
+        try:
+            from codrag.services.settings_store import settings
+            config = settings.get("pipeline_config") or {}
+            if stage == "deep":
+                key = "llm_concurrency_deep"
+            elif stage == "code":
+                key = "llm_concurrency_code"
+            else:
+                key = "llm_concurrency_fast"
+            value = config.get(key)
+            if not value and stage == "code":
+                value = config.get("llm_concurrency_fast")
+            if not value:
+                value = config.get("llm_concurrency")
+            if value and int(value) > 1:
+                explicit_cap = int(value)
+        except Exception:
+            pass
+
+        return max(1, min(llm_pool.max_workers, explicit_cap, scheduler_budget))
     except Exception:
         return 1
 
