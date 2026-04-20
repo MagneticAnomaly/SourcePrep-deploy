@@ -252,3 +252,19 @@ def test_notify_all_wakes_multiple_waiters_on_release() -> None:
         tok = w["token"]
         if tok not in (None, "unset"):
             sched.release_request(tok)
+
+
+def test_status_exposes_in_flight_requests() -> None:
+    """PipelineScheduler.status() must include in_flight_requests per node."""
+    sched, node_id = _seeded_cloud_scheduler(limit=5)
+
+    t1 = sched.acquire_request(node_id, timeout=1.0)
+    t2 = sched.acquire_request(node_id, timeout=1.0)
+    assert t1 is not None and t2 is not None
+
+    status = sched.status()
+    assert node_id in status["nodes"]
+    assert status["nodes"][node_id]["in_flight_requests"] == 2
+
+    sched.release_request(t1)
+    sched.release_request(t2)

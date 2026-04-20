@@ -1612,6 +1612,7 @@ class PipelineScheduler:
                     "current_load": slot.current_load,
                     "aimd_mode": slot.mode,
                     "current_limit": slot.current_limit,
+                    "in_flight_requests": slot.in_flight_requests,
                     "active": dict(slot.active_stages),
                     "queued": [
                         {
