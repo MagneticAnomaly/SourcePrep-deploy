@@ -857,7 +857,7 @@ export function SettingsPage({
           {actions && <div className="flex-shrink-0">{actions}</div>}
         </div>
         {dirty && (
-          <div className="mt-3 rounded-md bg-warning-subtle text-warning-strong text-sm px-3 py-2">
+          <div className="mt-3 rounded-md bg-warning-muted text-warning text-sm px-3 py-2">
             Unsaved changes
           </div>
         )}
