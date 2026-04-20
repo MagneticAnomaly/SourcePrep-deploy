@@ -549,8 +549,8 @@ class LLMClient:
                     if slot is not None:
                         logger.warning(
                             "LLM request gate: timed out waiting on %s "
-                            "(current_limit=%d, in_flight=%d). Proceeding uncapped.",
-                            node_id, slot.current_limit, slot.in_flight_requests,
+                            "(effective_capacity=%d, in_flight=%d). Proceeding uncapped.",
+                            node_id, slot.dynamic_capacity, slot.in_flight_requests,
                         )
                     else:
                         logger.warning(

@@ -186,7 +186,7 @@ def get_llm_concurrency_guidelines() -> Dict[str, Any]:
     """
     from codrag.services.settings_store import settings
     config = settings.get("pipeline_config") or {}
-    current = max(1, min(8, int(config.get("llm_concurrency", 1))))
+    current = max(1, min(32, int(config.get("llm_concurrency", 1))))
 
     guidelines = {
         "current": current,
@@ -284,17 +284,17 @@ def update_pipeline_config(body: PipelineConfigUpdate) -> Dict[str, Any]:
 
     if body.llm_concurrency is not None:
         # Legacy single key — sets all three
-        val = max(1, min(8, body.llm_concurrency))
+        val = max(1, min(32, body.llm_concurrency))
         config["llm_concurrency"] = val
         config["llm_concurrency_fast"] = val
         config["llm_concurrency_code"] = val
         config["llm_concurrency_deep"] = val
     if body.llm_concurrency_fast is not None:
-        config["llm_concurrency_fast"] = max(1, min(8, body.llm_concurrency_fast))
+        config["llm_concurrency_fast"] = max(1, min(32, body.llm_concurrency_fast))
     if body.llm_concurrency_code is not None:
-        config["llm_concurrency_code"] = max(1, min(8, body.llm_concurrency_code))
+        config["llm_concurrency_code"] = max(1, min(32, body.llm_concurrency_code))
     if body.llm_concurrency_deep is not None:
-        config["llm_concurrency_deep"] = max(1, min(8, body.llm_concurrency_deep))
+        config["llm_concurrency_deep"] = max(1, min(32, body.llm_concurrency_deep))
 
     settings.set("pipeline_config", config)
 

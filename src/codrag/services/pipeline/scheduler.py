@@ -263,9 +263,15 @@ class PipelineScheduler:
             if node_id in self._slots:
                 slot = self._slots[node_id]
                 slot.max_concurrent = new_max
-                if not is_cloud and slot.current_limit > new_max:
-                    # Local slots: VRAM ceiling is a real constraint — clamp.
-                    slot.current_limit = new_max
+                if not is_cloud:
+                    if slot.current_limit > new_max:
+                        # Local slots: VRAM ceiling is a real constraint — clamp.
+                        slot.current_limit = new_max
+                    elif slot.current_limit < new_max:
+                        # Local slots: user raised the ceiling — grow immediately
+                        # and wake any threads blocked at the gate.
+                        slot.current_limit = new_max
+                        self._wake_slot_waiters(slot)
                 # Cloud slots: preserve discovered current_limit and mode.
                 # Phase 96B grew the limit on reconfigure; Phase 82 drops
                 # that because cloud discovery is unbounded and the user
@@ -346,6 +352,7 @@ class PipelineScheduler:
                 # Phase 96B: grow AIMD current_limit to match new max
                 if slot.current_limit < self._embedding_max_concurrent:
                     slot.current_limit = self._embedding_max_concurrent
+                    self._wake_slot_waiters(slot)
             else:
                 self._init_embedding_slot()
         logger.info(

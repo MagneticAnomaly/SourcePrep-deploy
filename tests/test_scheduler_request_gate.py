@@ -254,6 +254,82 @@ def test_notify_all_wakes_multiple_waiters_on_release() -> None:
             sched.release_request(tok)
 
 
+def test_configure_node_grow_wakes_waiters() -> None:
+    """configure_node with a higher max_concurrent must wake threads blocked
+    at the gate — not make them wait the full 120 s timeout."""
+    sched = PipelineScheduler()
+    node_id = "local:test-grow"
+    sched.configure_node(node_id, max_concurrent=1)
+    slot = sched._slots[node_id]
+    # Local slot: current_limit = max_concurrent = 1
+    assert slot.current_limit == 1
+
+    # Acquire the one available token.
+    held = sched.acquire_request(node_id, timeout=1.0)
+    assert held is not None
+
+    # Block a second acquire (limit=1, in_flight=1 → no headroom).
+    waiter_result: dict[str, object] = {"token": "unset"}
+
+    def _waiter() -> None:
+        waiter_result["token"] = sched.acquire_request(node_id, timeout=3.0)
+
+    th = threading.Thread(target=_waiter)
+    th.start()
+    time.sleep(0.1)
+    assert waiter_result["token"] == "unset"  # still blocked
+
+    # Raise the ceiling to 4 — waiter should wake immediately (< 1 s).
+    t_start = time.monotonic()
+    sched.configure_node(node_id, max_concurrent=4)
+    th.join(timeout=1.0)
+    elapsed = time.monotonic() - t_start
+
+    assert waiter_result["token"] is not None, "waiter never woke after configure_node grow"
+    assert elapsed < 1.0, f"waiter took {elapsed:.2f}s — expected <1 s"
+
+    sched.release_request(held)
+    sched.release_request(waiter_result["token"])  # type: ignore[arg-type]
+
+
+def test_configure_embedding_grow_wakes_waiters() -> None:
+    """configure_embedding_concurrency with a higher max must wake threads
+    blocked at the embedding gate — not make them wait the full timeout."""
+    sched = PipelineScheduler()
+    emb_id = PipelineScheduler._EMBEDDING_NODE_ID
+    sched.configure_embedding_concurrency(1)
+    slot = sched._slots[emb_id]
+    assert slot.current_limit == 1
+
+    # Acquire the one available token.
+    held = sched.acquire_request(emb_id, timeout=1.0)
+    assert held is not None
+
+    waiter_result: dict[str, object] = {"token": "unset"}
+
+    def _waiter() -> None:
+        waiter_result["token"] = sched.acquire_request(emb_id, timeout=3.0)
+
+    th = threading.Thread(target=_waiter)
+    th.start()
+    time.sleep(0.1)
+    assert waiter_result["token"] == "unset"  # still blocked
+
+    # Raise embedding ceiling to 4.
+    t_start = time.monotonic()
+    sched.configure_embedding_concurrency(4)
+    th.join(timeout=1.0)
+    elapsed = time.monotonic() - t_start
+
+    assert waiter_result["token"] is not None, (
+        "waiter never woke after configure_embedding_concurrency grow"
+    )
+    assert elapsed < 1.0, f"waiter took {elapsed:.2f}s — expected <1 s"
+
+    sched.release_request(held)
+    sched.release_request(waiter_result["token"])  # type: ignore[arg-type]
+
+
 def test_status_exposes_in_flight_requests() -> None:
     """PipelineScheduler.status() must include in_flight_requests per node."""
     sched, node_id = _seeded_cloud_scheduler(limit=5)
