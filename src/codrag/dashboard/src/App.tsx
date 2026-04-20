@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { FileText, Settings, AlertCircle, AlertTriangle, X, GitBranch } from 'lucide-react'
-import type { AtlasStatus, ActivityHeatmapData, UserRole, PipelineProvenance } from '@codrag/ui'
+import type { AtlasStatus, ActivityHeatmapData, UserRole, PipelineProvenance, AssignmentMode, LLMConfig } from '@codrag/ui'
 import {
   // API
   useApiClient,
@@ -350,7 +350,7 @@ function App() {
     moduleStatus, clusterRunning,
     atlasRunning,
     deepeningStatus, deepeningRunning,
-    knowledgeStatus, fastKnowledgeBuilding, deepKnowledgeBuilding,
+    knowledgeStatus, deepKnowledgeStatus, fastKnowledgeBuilding, deepKnowledgeBuilding,
     groupReasoningStatus,
     // Phase 96F: Finalize stage statuses (rules / concepts / audit / antibodies).
     // These come from the enrichment reducer state spread.  Without them in the
@@ -360,6 +360,8 @@ function App() {
     conceptsStatus,
     auditPipelineStatus,
     antibodiesStatus,
+    finalizeRunning,
+    finalizeCurrentStage,
     handleRunAugmentation, handleRunEpistemic, handleRunModuleSynthesis,
     handleRunDeepening, handleRunKnowledgeBuild,
     handleRunDeepEnrichment,
@@ -470,21 +472,26 @@ function App() {
   const {
     llmConfig, setLLMConfig,
     availableModels, modelDetails, loadingModels, testingSlot, testResults,
-    llmSlotsStatus, llmConfigDirty,
+    llmSlotsStatus,
     handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
     handleTestEndpoint, handleFetchModels, handleTestModel, handleClearTestResult,
     handleDownloadModel, handleModeSwitch,
-    saveLLMConfig: _rawSaveLLMConfig, markLLMConfigClean,
+    markLLMConfigClean, flushPendingSave,
     fetchLLMSlotsStatus,
-  } = useLLMConfig({ onDirty: () => setConfigDirty(true) })
+  } = useLLMConfig({
+    onDirty: () => setConfigDirty(true),
+    onSwapModel: handleSwapModel,
+  })
 
-  // Wrap saveLLMConfig to also trigger model swap for running pipelines
-  const saveLLMConfig = useCallback(async () => {
-    await _rawSaveLLMConfig()
-    // After saving, trigger a model swap for any running pipeline group.
-    // The swap is a fast pause→resume cycle; silently no-ops if nothing is running.
-    handleSwapModel()
-  }, [_rawSaveLLMConfig, handleSwapModel])
+  // Apply mode switch: flush any pending debounced slot save first so the
+  // mode-switch sees the latest config, then switch modes.
+  const handleModeApply = useCallback(
+    async (mode: AssignmentMode, blocks?: LLMConfig['assignment_blocks']) => {
+      await flushPendingSave()
+      await handleModeSwitch(mode, blocks)
+    },
+    [flushPendingSave, handleModeSwitch]
+  )
 
   // ── Theme effect ───────────────────────────────────────────
   useEffect(() => {
@@ -779,7 +786,8 @@ function App() {
   // Refreshes every 10s so the UI updates as each stage completes.
   const anyPipelineRunning = augmenting || validating || inferredEdgesRunning ||
     epistemicRunning || groupReasoningRunning || clusterRunning ||
-    atlasRunning || deepeningRunning || fastKnowledgeBuilding || deepKnowledgeBuilding
+    atlasRunning || deepeningRunning || fastKnowledgeBuilding || deepKnowledgeBuilding ||
+    finalizeRunning
 
   useEffect(() => {
     if (!selectedProjectId || !anyPipelineRunning || hydration.isHydrating) return
@@ -854,7 +862,7 @@ function App() {
       moduleStatus, clusterRunning, handleRunModuleSynthesis,
       atlasRunning,
       deepeningStatus, deepeningRunning, handleRunDeepening,
-      knowledgeStatus, fastKnowledgeBuilding, deepKnowledgeBuilding, handleRunKnowledgeBuild,
+      knowledgeStatus, deepKnowledgeStatus, fastKnowledgeBuilding, deepKnowledgeBuilding, handleRunKnowledgeBuild,
       handleRunDeepEnrichment,
       handleRunFinalize,
       handlePausePipeline, handleResumePipeline,
@@ -873,13 +881,15 @@ function App() {
       conceptsStatus,
       auditPipelineStatus,
       antibodiesStatus,
+      finalizeRunning,
+      finalizeCurrentStage,
       refreshStageDataFromPipeline,
     },
     llm: {
-      llmConfig, llmSlotsStatus, llmConfigDirty,
+      llmConfig, llmSlotsStatus,
       handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
       handleTestEndpoint, handleFetchModels, handleTestModel, handleClearTestResult, handleDownloadModel, handleModeSwitch,
-      saveLLMConfig,
+      handleModeApply,
       availableModels, modelDetails, loadingModels, testingSlot, testResults,
       maxActiveProjects, onMaxActiveProjectsChange: handleMaxActiveProjectsChange,
       schedulerStatus,

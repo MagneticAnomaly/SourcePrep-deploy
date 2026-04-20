@@ -187,6 +187,7 @@ export interface PanelEnrichmentProps {
   deepeningRunning: boolean
   handleRunDeepening: () => void
   knowledgeStatus: KnowledgeEmbeddingStatus
+  deepKnowledgeStatus: KnowledgeEmbeddingStatus
   fastKnowledgeBuilding: boolean
   deepKnowledgeBuilding: boolean
   handleRunKnowledgeBuild: () => void
@@ -252,6 +253,7 @@ export interface PanelLLMProps {
   // Explicit save (P48-F26)
   llmConfigDirty?: boolean
   saveLLMConfig?: () => Promise<void>
+  handleModeApply?: (mode: import('@codrag/ui').AssignmentMode, blocks?: import('@codrag/ui').LLMConfig['assignment_blocks']) => Promise<void>
 }
 
 export interface PanelDeepAnalysisProps {
@@ -881,6 +883,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           modules={p.moduleStatus}
           deepening={p.deepeningStatus}
           knowledge={p.knowledgeStatus}
+          deepKnowledge={p.deepKnowledgeStatus}
           atlas={atlas.atlasStatus ?? undefined}
           groupReasoning={p.groupReasoningStatus}
           smallModelConfigured={!!(p.llmConfig.small_model?.endpoint_id && p.llmConfig.small_model?.model)}
