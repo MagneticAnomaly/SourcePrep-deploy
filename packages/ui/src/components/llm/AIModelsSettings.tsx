@@ -1,4 +1,5 @@
 import { cn } from '../../lib/utils';
+import { isLocalProvider } from './provider-utils';
 import { ModelCard } from './ModelCard';
 import { AdvancedLLMSettings } from './AdvancedLLMSettings';
 import { EndpointManager } from './EndpointManager';
@@ -18,7 +19,7 @@ import type {
   AdminPolicy,
 } from '../../types';
 import { Cpu, Info, Plus, Save, Trash2, Edit2 } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 
 export interface AIModelsSettingsProps {
   config: LLMConfig;
@@ -75,9 +76,9 @@ export interface AIModelsSettingsProps {
   // EA-C10: Admin policy for provider/model restrictions
   adminPolicy?: AdminPolicy | null;
 
-  // Explicit save (P48-F26): config changes are local until Save is clicked
-  configDirty?: boolean;
-  onSave?: () => void;
+  /** Fires when the user clicks "Apply [Structured|Assigned] mode".
+   *  Consumers should flush any pending debounced save, then call switchAssignmentMode. */
+  onModeApply?: (mode: AssignmentMode, blocks?: LLMConfig['assignment_blocks']) => Promise<void> | void;
 }
 
 // Recommended models per slot.
@@ -360,7 +361,6 @@ export function AIModelsSettings({
   testingSlot,
   testResults = {},
   fileCount = 0,
-  onModeSwitch,
   className,
   maxActiveProjects,
   onMaxActiveProjectsChange,
@@ -374,30 +374,20 @@ export function AIModelsSettings({
   assignmentBlockTestResults = {},
   assignmentBlockTesting,
   adminPolicy,
-  configDirty,
-  onSave,
+  onModeApply,
 }: AIModelsSettingsProps) {
   const savedMode: AssignmentMode = config.assignment_mode ?? 'structured';
   const [draftMode, setDraftMode] = useState<AssignmentMode>(savedMode);
   const isDraftDirty = draftMode !== savedMode;
+
+  const endpointProviderFor = (endpointId: string | undefined) =>
+    config.saved_endpoints.find((e) => e.id === endpointId)?.provider;
   // Ensure we always have at least one block in mapped mode to avoid an empty screen
   const blocks = config.assignment_blocks?.length ? config.assignment_blocks : (draftMode === 'mapped' ? [{ id: `block-${Date.now()}`, endpoint_id: '', model: '', tasks: [] }] : []);
 
   // Compute which tasks are assigned across all blocks
   const assignedTasks: CodragTaskId[] = blocks.flatMap((b) => b.tasks);
 
-  const handleModeSave = useCallback(async () => {
-    let newBlocks = config.assignment_blocks || [];
-    if (draftMode === 'mapped' && newBlocks.length === 0) {
-      newBlocks = [{ id: `block-${Date.now()}`, endpoint_id: '', model: '', tasks: [] }];
-    }
-    if (onModeSwitch) {
-      await onModeSwitch(draftMode, newBlocks);
-    } else {
-      onConfigChange({ ...config, assignment_mode: draftMode, assignment_blocks: newBlocks });
-    }
-  }, [config, draftMode, onConfigChange, onModeSwitch]);
-  
   // Mapped mode block handlers
   const handleBlockAdd = () => {
     onConfigChange({
@@ -745,19 +735,23 @@ export function AIModelsSettings({
               </div>
               <button
                 onClick={async () => {
-                  if (isDraftDirty) await handleModeSave();
-                  if (configDirty && onSave) onSave();
+                  if (!isDraftDirty) return;
+                  const newBlocks =
+                    draftMode === 'mapped' && (config.assignment_blocks?.length ?? 0) === 0
+                      ? [{ id: `block-${Date.now()}`, endpoint_id: '', model: '', tasks: [] }]
+                      : (config.assignment_blocks ?? []);
+                  await onModeApply?.(draftMode, newBlocks);
                 }}
-                disabled={!isDraftDirty && !configDirty}
+                disabled={!isDraftDirty}
                 className={cn(
                   'inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
-                  (isDraftDirty || configDirty)
+                  isDraftDirty
                     ? 'bg-primary text-surface hover:bg-primary/90 shadow-sm'
                     : 'bg-transparent text-text-muted cursor-not-allowed opacity-50'
                 )}
               >
                 <Save className="w-3.5 h-3.5" />
-                Set model scheme
+                Apply {draftMode === 'structured' ? 'Structured' : 'Assigned'} mode
               </button>
             </div>
           </div>
@@ -819,6 +813,7 @@ export function AIModelsSettings({
                 endpoint={config.small_model.endpoint_id}
                 model={config.small_model.model}
                 alwaysOn={config.small_model.always_on}
+                showAlwaysOn={isLocalProvider(endpointProviderFor(config.small_model.endpoint_id))}
                 onAlwaysOnChange={handleSmallAlwaysOnChange}
 
                 endpoints={config.saved_endpoints}
@@ -848,6 +843,7 @@ export function AIModelsSettings({
                 endpoint={config.code_model?.endpoint_id}
                 model={config.code_model?.model}
                 alwaysOn={config.code_model?.always_on}
+                showAlwaysOn={isLocalProvider(endpointProviderFor(config.code_model?.endpoint_id))}
                 onAlwaysOnChange={handleCodeAlwaysOnChange}
 
                 endpoints={config.saved_endpoints}
@@ -876,6 +872,7 @@ export function AIModelsSettings({
                 endpoint={config.large_model.endpoint_id}
                 model={config.large_model.model}
                 alwaysOn={config.large_model.always_on}
+                showAlwaysOn={isLocalProvider(endpointProviderFor(config.large_model.endpoint_id))}
                 onAlwaysOnChange={handleLargeAlwaysOnChange}
 
                 endpoints={config.saved_endpoints}
@@ -914,6 +911,7 @@ export function AIModelsSettings({
                   endpoint={coordinatorSlot.endpoint_id}
                   model={coordinatorSlot.model}
                   alwaysOn={coordinatorSlot.always_on}
+                  showAlwaysOn={isLocalProvider(endpointProviderFor(coordinatorSlot.endpoint_id))}
                   onAlwaysOnChange={handleCoordinatorAlwaysOnChange}
                   endpoints={config.saved_endpoints}
                   onEndpointChange={handleCoordinatorEndpointChange}

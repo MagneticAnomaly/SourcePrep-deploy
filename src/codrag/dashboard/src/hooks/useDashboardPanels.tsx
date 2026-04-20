@@ -250,9 +250,6 @@ export interface PanelLLMProps {
   onComputeNodeUpdate?: (nodeId: string, updates: Partial<import('@codrag/ui').ComputeNode>) => void
   onComputeNodeDelete?: (nodeId: string) => void
   onEndpointNodeChange?: (endpointId: string, nodeId: string | null) => void
-  // Explicit save (P48-F26)
-  llmConfigDirty?: boolean
-  saveLLMConfig?: () => Promise<void>
   handleModeApply?: (mode: import('@codrag/ui').AssignmentMode, blocks?: import('@codrag/ui').LLMConfig['assignment_blocks']) => Promise<void>
 }
 
@@ -1257,8 +1254,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           onComputeNodeUpdate={p.onComputeNodeUpdate}
           onComputeNodeDelete={p.onComputeNodeDelete}
           onEndpointNodeChange={p.onEndpointNodeChange}
-          configDirty={p.llmConfigDirty}
-          onSave={p.saveLLMConfig}
+          onModeApply={p.handleModeApply}
           onModeSwitch={p.handleModeSwitch}
           onAssignmentBlockAdd={() => {
             p.handleLLMConfigChange({
