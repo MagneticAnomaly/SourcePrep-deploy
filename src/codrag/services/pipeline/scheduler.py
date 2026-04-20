@@ -33,6 +33,7 @@ import logging
 import threading
 import time
 from collections import deque
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any, Callable, Deque, Dict, List, Literal, Optional, Set, Tuple
 
@@ -114,6 +115,19 @@ class ComputeSlot:
     # incremented by the recovery path (vs. by an LLM success).  Reset
     # whenever a backoff fires.  Used to gate recovery to ≥30s cadence.
     _last_recovery_time: float = 0.0
+
+    # Phase 82 follow-up: per-request gate. `in_flight_requests` counts
+    # LLM calls currently in flight against this slot. `_cond` is the
+    # Condition new requests wait on when in_flight_requests >= current_limit.
+    # Both are seeded lazily by PipelineScheduler.acquire_request — doing
+    # it in __post_init__ creates a Condition per slot even when the gate
+    # is never used (cheap but surprises tests that snapshot the slot).
+    in_flight_requests: int = 0
+    _cond: Any = None  # threading.Condition, lazy-initialized
+    # Per-acquire monotonic counter for token stamping; stale tokens get
+    # rejected by release_request via the _live_tokens set.
+    _request_stamp_seq: int = 0
+    _live_tokens: Set[int] = field(default_factory=set)
 
     def __post_init__(self):
         # Phase 82: cloud slots seed at jumpstart=5 per the Latency-Aware
@@ -693,6 +707,87 @@ class PipelineScheduler:
             slot.current_limit = new_limit
             slot._last_recovery_time = now
             self._persist_cloud_ceiling(slot)
+
+    # ── Per-request gate (Phase 82 follow-up) ─────────────────────
+
+    def _slot_condition(self, slot: ComputeSlot) -> threading.Condition:
+        """Lazily attach a Condition to the slot, reusing the scheduler's lock.
+
+        Caller MUST hold ``self._lock``. The Condition wraps ``self._lock``
+        (which is an RLock) so ``wait()`` releases the scheduler lock while
+        suspended, and reacquires it on wake. Reusing the scheduler lock
+        keeps ``current_limit`` reads consistent across waiters.
+        """
+        if slot._cond is None:
+            slot._cond = threading.Condition(self._lock)
+        return slot._cond
+
+    def acquire_request(
+        self, node_id: str, timeout: float = 120.0,
+    ) -> Optional[Tuple[str, int]]:
+        """Acquire one in-flight request slot on ``node_id``.
+
+        Blocks up to ``timeout`` seconds waiting for
+        ``in_flight_requests < current_limit``. Returns an opaque token
+        (node_id, stamp) that must be passed to ``release_request``.
+        Returns ``None`` on timeout or if the node doesn't exist.
+        """
+        deadline = time.monotonic() + max(0.0, timeout)
+        with self._lock:
+            slot = self._slots.get(node_id)
+            if slot is None:
+                return None
+            cond = self._slot_condition(slot)
+
+            while slot.in_flight_requests >= slot.dynamic_capacity:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return None
+                woke = cond.wait(timeout=remaining)
+                if not woke:
+                    continue
+
+            slot.in_flight_requests += 1
+            slot._request_stamp_seq += 1
+            stamp = slot._request_stamp_seq
+            slot._live_tokens.add(stamp)
+            return (node_id, stamp)
+
+    def release_request(self, token: Optional[Tuple[str, int]]) -> None:
+        """Release a previously-acquired request slot.
+
+        Safe to call with ``None`` (no-op) or a stale token (no-op — won't
+        drive ``in_flight_requests`` negative or wake extra waiters).
+        """
+        if token is None:
+            return
+        node_id, stamp = token
+        with self._lock:
+            slot = self._slots.get(node_id)
+            if slot is None:
+                return
+            if stamp not in slot._live_tokens:
+                return
+            slot._live_tokens.discard(stamp)
+            if slot.in_flight_requests > 0:
+                slot.in_flight_requests -= 1
+            cond = self._slot_condition(slot)
+            cond.notify()
+
+    @contextmanager
+    def acquire_request_ctx(
+        self, node_id: str, timeout: float = 120.0,
+    ):
+        """Context-manager wrapper around acquire_request / release_request.
+
+        Yields the token (or ``None`` on timeout). Always releases, even
+        on exception.
+        """
+        token = self.acquire_request(node_id, timeout=timeout)
+        try:
+            yield token
+        finally:
+            self.release_request(token)
 
     def _get_queue(self, node_id: Optional[str] = None) -> Deque[QueueEntry]:
         """Get or create a queue for a node."""
