@@ -1463,3 +1463,41 @@ class TestAIMDFloorAndRecovery:
         sched._record_throughput_for_slot(slot, is_429_or_timeout=True)
         # Backoff should have reset the recovery clock to "now"
         assert slot._last_recovery_time > before_recovery
+
+    def test_backoff_clamps_against_request_in_flight_not_stage_count(self):
+        # Regression: MD previously clamped new_limit to len(active_stages),
+        # which is ~1 for any single-stage fan-out — collapsing the cap to
+        # the floor on every backoff regardless of actual request-level
+        # concurrency. The clamp should use in_flight_requests (the gate
+        # counter) so a fan-out burst of 40 halves to 29, not to the floor.
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        slot = sched._slots["cloud:ep-1"]
+        slot.current_limit = 59
+        slot.active_stages["proj-a"] = "concepts"  # one stage, fan-out pattern
+        slot.in_flight_requests = 40                # 40 real LLM calls in flight
+
+        sched._record_throughput_for_slot(slot, is_429_or_timeout=True)
+
+        # Halve: min(59 // 2, 40) = 29, above floor=3.
+        assert slot.current_limit == 29, (
+            f"MD should halve to 29, got {slot.current_limit}. "
+            f"If this is 3, the clamp is still using current_load (stage count) "
+            f"instead of in_flight_requests."
+        )
+
+    def test_backoff_clamps_to_in_flight_when_burst_drained(self):
+        # Drained-tail case: if a tail request fails after the burst has
+        # mostly drained, new_limit should clamp to actual in-flight (still
+        # above floor) rather than collapsing to floor.
+        sched = PipelineScheduler()
+        sched.configure_node("cloud:ep-1", 10)
+        slot = sched._slots["cloud:ep-1"]
+        slot.current_limit = 59
+        slot.active_stages["proj-a"] = "concepts"
+        slot.in_flight_requests = 5                 # burst nearly drained
+
+        sched._record_throughput_for_slot(slot, is_429_or_timeout=True)
+
+        # min(29, 5) = 5, above floor=3 — clamps to real in-flight, not floor.
+        assert slot.current_limit == 5

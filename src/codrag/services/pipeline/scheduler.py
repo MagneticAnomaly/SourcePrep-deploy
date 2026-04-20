@@ -543,7 +543,13 @@ class PipelineScheduler:
 
                 # Multiplicative Decrease: Half limit, or current in-flight,
                 # but never below the per-node floor (F-28).
-                in_flight = slot.current_load
+                #
+                # ``in_flight_requests`` is the gate-level count of currently
+                # outstanding LLM requests.  ``current_load`` is the count of
+                # active stages and is ~1 for any single-stage fan-out, so
+                # using it here collapsed the cap to the floor on every MD
+                # event regardless of actual request concurrency.
+                in_flight = slot.in_flight_requests
                 new_limit = max(slot.min_limit, min(slot.current_limit // 2, in_flight))
 
                 if slot.current_limit > new_limit:
