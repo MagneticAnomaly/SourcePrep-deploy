@@ -1,4 +1,4 @@
-import type { DeepAnalysisSchedule, ProjectConfig } from '@codrag/ui';
+import type { AdvancedConfig, DeepAnalysisSchedule, ProjectConfig } from '@codrag/ui';
 import type { SettingsPageId } from '../routeParser';
 import { SettingsPage } from '../SettingsPage';
 import { SourcesPage } from './Sources';
@@ -63,6 +63,12 @@ export interface PageHostProps {
   onThemeChange: (theme: string) => void;
   bgImage: string | null;
   onBgImageChange: (url: string | null) => void;
+
+  // ── Global-scope: Chunking & Embeddings page (Task 19) ────────────
+  // Autosave — onGlobalAdvancedChange persists immediately via App.tsx.
+  // Shared state: this same object will power Pipeline Defaults (Task 20).
+  globalAdvanced: AdvancedConfig;
+  onGlobalAdvancedChange: (patch: Partial<AdvancedConfig>) => void;
 }
 
 export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
@@ -137,7 +143,13 @@ export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
           onBgImageChange={host.onBgImageChange}
         />
       );
-    case 'chunking-embeddings':   return <ChunkingEmbeddingsPage {...host as any} />;
+    case 'chunking-embeddings':
+      return (
+        <ChunkingEmbeddingsPage
+          config={host.globalAdvanced}
+          onChange={host.onGlobalAdvancedChange}
+        />
+      );
     case 'pipeline-defaults':     return <PipelineDefaultsPage {...host as any} />;
     case 'license':               return <LicensePage {...host as any} />;
     case 'integrations':          return <IntegrationsPage {...host as any} />;

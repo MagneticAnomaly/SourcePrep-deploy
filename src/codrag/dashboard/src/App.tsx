@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { FileText, Settings, AlertCircle, AlertTriangle, X, GitBranch } from 'lucide-react'
-import type { AtlasStatus, ActivityHeatmapData, UserRole, PipelineProvenance } from '@codrag/ui'
+import type { AdvancedConfig, AtlasStatus, ActivityHeatmapData, UserRole, PipelineProvenance } from '@codrag/ui'
 import {
   // API
   useApiClient,
@@ -171,6 +171,14 @@ function App() {
   const [deepCollapsed, setDeepCollapsed] = useState<boolean>(true);
   const [finalizeCollapsed, setFinalizeCollapsed] = useState<boolean>(true);
   const [maxActiveProjects, setMaxActiveProjects] = useState<number | 'infinite'>('infinite')
+  const [globalAdvanced, setGlobalAdvanced] = useState<AdvancedConfig>({
+    checkpoint_interval: 500,
+    min_edge_confidence: 0.5,
+    chunk_max_chars: 2000,
+    chunk_overlap_chars: 200,
+    md_chunk_max_chars: 1800,
+    md_chunk_min_chars: 350,
+  })
   const [schedulerStatus, setSchedulerStatus] = useState<any>(null)
   const [computeNodes, setComputeNodes] = useState<any[]>([])
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout | null>(null)
@@ -597,6 +605,11 @@ function App() {
     api.updateGlobalConfig(patch as any).catch(() => { })
   }, [api])
 
+  const handleGlobalAdvancedChange = useCallback((patch: Partial<AdvancedConfig>) => {
+    setGlobalAdvanced(prev => ({ ...prev, ...patch }))
+    api.updateAdvancedConfig(patch).catch(() => { })
+  }, [api])
+
   const handleToggleGroupCollapsed = useCallback((group: 'fast' | 'deep' | 'finalize') => {
     let nextFast = fastCollapsed;
     let nextDeep = deepCollapsed;
@@ -780,6 +793,12 @@ function App() {
     void init()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshProjects, isConnected])
+
+  // ── Init: load advanced config (chunking/pipeline defaults) ─────────
+  useEffect(() => {
+    if (!isConnected) return
+    api.getAdvancedConfig().then(setGlobalAdvanced).catch(() => { })
+  }, [api, isConnected])
 
   // ── Auto-save dashboard layout to backend ───────────────────
   const layoutInitialMount = useRef(true)
@@ -1078,6 +1097,8 @@ function App() {
             onThemeChange: setUiTheme,
             bgImage,
             onBgImageChange: setBgImage,
+            globalAdvanced,
+            onGlobalAdvancedChange: handleGlobalAdvancedChange,
           })}
           projectName={selectedProject?.name ?? null}
           confirmCloseIfDirty={() => true /* TODO: wire projectDirty from useSettingsDirty once Project pages land */}
