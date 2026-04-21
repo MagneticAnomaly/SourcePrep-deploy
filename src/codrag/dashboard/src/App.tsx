@@ -29,6 +29,8 @@ import {
 import { StartupScreen } from './components/StartupScreen'
 import { UpdateBanner } from './components/UpdateBanner'
 import { SettingsDrawer } from './components/settings/SettingsDrawer'
+import { SettingsOverlay } from './components/settings/v2/SettingsOverlay'
+import { renderSettingsPage } from './components/settings/v2/pages'
 import { Toast, makeToast } from './components/Toast'
 import type { ToastMessage, ToastVariant } from './components/Toast'
 import { useLicenseSystem } from './hooks/useLicenseSystem'
@@ -56,6 +58,32 @@ import 'react-resizable/css/styles.css'
 
 function App() {
   const api = useApiClient()
+
+  // ── Feature flag: Settings overlay v2 ──────────────────────
+  const settingsV2Enabled = localStorage.getItem('codrag_settings_overlay_v2') === '1'
+    || import.meta.env.DEV  // dev builds default on
+
+  // ⌘, (Ctrl+, on non-Mac) toggles the settings overlay via URL state.
+  useEffect(() => {
+    if (!settingsV2Enabled) return
+    const onKey = (e: KeyboardEvent) => {
+      const mod = navigator.platform.includes('Mac') ? e.metaKey : e.ctrlKey
+      if (mod && e.key === ',') {
+        e.preventDefault()
+        const current = new URLSearchParams(window.location.search).get('settings')
+        if (current) {
+          window.history.back()
+        } else {
+          const next = new URL(window.location.href)
+          next.searchParams.set('settings', 'sources')
+          window.history.pushState(window.history.state, '', next.toString())
+          window.dispatchEvent(new PopStateEvent('popstate'))
+        }
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [settingsV2Enabled])
 
   // ── Connection state ───────────────────────────────────────
   const [isConnected, setIsConnected] = useState(false)
@@ -970,57 +998,69 @@ function App() {
           Connection to CoDRAG daemon lost. Attempting to reconnect...
         </div>
       )}
-      <SettingsDrawer
-        open={settingsOpen}
-        onClose={() => { setSettingsOpen(false); setScrollToDeepAnalysis(false) }}
-        openToTab={settingsOpenToTab}
-        scrollToDeepAnalysis={scrollToDeepAnalysis}
-        projectConfig={projectConfig}
-        onProjectConfigChange={handleProjectConfigChange}
-        onSaveConfig={() => void handleSaveConfig()}
-        configDirty={configDirty}
-        hasProject={!!selectedProjectId}
-        onDetectStack={selectedProjectId ? handleDetectStack : undefined}
-        deepAnalysisSchedule={deepAnalysisSchedule}
-        onDeepAnalysisScheduleChange={handleSyncedDeepAnalysisScheduleChange}
-        largeModelConfigured={!!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model)}
-        fastModelConfigured={!!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model)}
-        maxActiveProjects={maxActiveProjects}
-        onMaxActiveProjectsChange={handleMaxActiveProjectsChange}
-        uiMode={uiMode}
-        onModeChange={setUiMode}
-        uiTheme={uiTheme}
-        onThemeChange={setUiTheme}
-        bgImage={bgImage}
-        onBgImageChange={setBgImage}
-        licenseStatus={licenseStatus}
-        licenseKeyInput={licenseKeyInput}
-        onLicenseKeyInputChange={setLicenseKeyInput}
-        onActivateLicense={handleActivateLicense}
-        onDeactivateLicense={handleDeactivateLicense}
-        licenseLoading={licenseLoading}
-        licenseError={licenseError}
-        projectName={selectedProject?.name}
-        projectId={selectedProjectId}
-        pipelineRunning={
-          inferredEdgesRunning || augmenting || validating || epistemicRunning ||
-          groupReasoningRunning || clusterRunning || atlasRunning || deepeningRunning ||
-          fastKnowledgeBuilding || deepKnowledgeBuilding
-        }
-        onDestroyIndex={handleDestroyIndex}
-        onDestroyEnrichmentFull={handleDestroyEnrichmentFull}
-        onDestroyFinalizeFull={handleDestroyFinalizeFull}
-        onRebuildPipeline={handleRebuildPipeline}
-        onDestroyAtlas={handleDestroyAtlas}
-        onDestroyGroupReasoning={handleDestroyGroupReasoning}
-        onDestroyDeepEnrichment={handleDestroyDeepEnrichment}
-        globalConfig={globalConfig}
-        onGlobalConfigChange={handleGlobalConfigChange}
-        devTierOverride={devTierOverride}
-        onDevTierOverrideChange={handleDevTierOverrideChange}
-        devRoleOverride={devRoleOverride}
-        onDevRoleOverrideChange={handleDevRoleOverrideChange}
-      />
+      {settingsV2Enabled ? (
+        <SettingsOverlay
+          renderPage={(page) => renderSettingsPage(page, {
+            projectConfig,
+            globalConfig,
+            activeProjectId: selectedProjectId,
+          })}
+          projectName={selectedProject?.name ?? null}
+          confirmCloseIfDirty={() => true /* TODO: wire projectDirty from useSettingsDirty once Project pages land */}
+        />
+      ) : (
+        <SettingsDrawer
+          open={settingsOpen}
+          onClose={() => { setSettingsOpen(false); setScrollToDeepAnalysis(false) }}
+          openToTab={settingsOpenToTab}
+          scrollToDeepAnalysis={scrollToDeepAnalysis}
+          projectConfig={projectConfig}
+          onProjectConfigChange={handleProjectConfigChange}
+          onSaveConfig={() => void handleSaveConfig()}
+          configDirty={configDirty}
+          hasProject={!!selectedProjectId}
+          onDetectStack={selectedProjectId ? handleDetectStack : undefined}
+          deepAnalysisSchedule={deepAnalysisSchedule}
+          onDeepAnalysisScheduleChange={handleSyncedDeepAnalysisScheduleChange}
+          largeModelConfigured={!!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model)}
+          fastModelConfigured={!!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model)}
+          maxActiveProjects={maxActiveProjects}
+          onMaxActiveProjectsChange={handleMaxActiveProjectsChange}
+          uiMode={uiMode}
+          onModeChange={setUiMode}
+          uiTheme={uiTheme}
+          onThemeChange={setUiTheme}
+          bgImage={bgImage}
+          onBgImageChange={setBgImage}
+          licenseStatus={licenseStatus}
+          licenseKeyInput={licenseKeyInput}
+          onLicenseKeyInputChange={setLicenseKeyInput}
+          onActivateLicense={handleActivateLicense}
+          onDeactivateLicense={handleDeactivateLicense}
+          licenseLoading={licenseLoading}
+          licenseError={licenseError}
+          projectName={selectedProject?.name}
+          projectId={selectedProjectId}
+          pipelineRunning={
+            inferredEdgesRunning || augmenting || validating || epistemicRunning ||
+            groupReasoningRunning || clusterRunning || atlasRunning || deepeningRunning ||
+            fastKnowledgeBuilding || deepKnowledgeBuilding
+          }
+          onDestroyIndex={handleDestroyIndex}
+          onDestroyEnrichmentFull={handleDestroyEnrichmentFull}
+          onDestroyFinalizeFull={handleDestroyFinalizeFull}
+          onRebuildPipeline={handleRebuildPipeline}
+          onDestroyAtlas={handleDestroyAtlas}
+          onDestroyGroupReasoning={handleDestroyGroupReasoning}
+          onDestroyDeepEnrichment={handleDestroyDeepEnrichment}
+          globalConfig={globalConfig}
+          onGlobalConfigChange={handleGlobalConfigChange}
+          devTierOverride={devTierOverride}
+          onDevTierOverrideChange={handleDevTierOverrideChange}
+          devRoleOverride={devRoleOverride}
+          onDevRoleOverrideChange={handleDevRoleOverrideChange}
+        />
+      )}
       {/* Floating Settings trigger — always visible */}
       {!settingsOpen && (
         <Button
