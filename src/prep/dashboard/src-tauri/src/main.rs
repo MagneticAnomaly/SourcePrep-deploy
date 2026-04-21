@@ -102,13 +102,13 @@ fn main() {
 
         if launch_sidecar {
             println!("[Tauri] Launching sidecar...");
-            // "codrag-daemon" corresponds to binaries/codrag-daemon-<target>
-            let mut sidecar = Command::new_sidecar("codrag-daemon")
+            // "prep-daemon" corresponds to binaries/prep-daemon-<target>
+            let mut sidecar = Command::new_sidecar("prep-daemon")
                 .expect("Failed to create sidecar command");
-            
+
             // Pass the token to the daemon via environment variable
             let mut envs = std::collections::HashMap::new();
-            envs.insert("CODRAG_DAEMON_TOKEN".to_string(), token_clone.clone());
+            envs.insert("PREP_DAEMON_TOKEN".to_string(), token_clone.clone());
             sidecar = sidecar.envs(envs);
 
             let (mut rx, child) = sidecar.spawn().expect("Failed to spawn sidecar");

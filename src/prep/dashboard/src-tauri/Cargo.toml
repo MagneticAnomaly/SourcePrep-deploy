@@ -1,8 +1,8 @@
 [package]
-name = "codrag"
+name = "prep"
 version = "0.1.0"
-description = "CoDRAG Desktop App"
-authors = ["CoDRAG Team"]
+description = "Prep Desktop App"
+authors = ["Prep Team"]
 edition = "2021"
 rust-version = "1.70"
 
