@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@codrag/ui": "*",
+    "@prep/ui": "*",
     "@tremor/react": "^3.14.0",
     "clsx": "^2.1.0",
     "keyboard-css": "^1.2.4",

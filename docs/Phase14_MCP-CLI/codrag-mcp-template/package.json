@@ -1,7 +1,7 @@
 {
-  "name": "codrag-mcp",
+  "name": "prep-mcp",
   "version": "0.0.0",
-  "description": "Thin MCP wrapper for CoDRAG (local-first codebase context)",
+  "description": "Thin MCP wrapper for Prep (local-first codebase context)",
   "license": "MIT",
   "private": true,
   "bin": {

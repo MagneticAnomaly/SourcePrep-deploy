@@ -1,5 +1,5 @@
 {
-  "name": "@codrag/support",
+  "name": "@prep/support",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3002",
@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@codrag/ui": "^0.1.0",
+    "@prep/ui": "^0.1.0",
     "@octokit/graphql": "^9.0.3",
     "@octokit/types": "^16.0.0",
     "date-fns": "^4.1.0",

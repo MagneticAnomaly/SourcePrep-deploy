@@ -1,7 +1,7 @@
 {
-  "name": "@codrag/paperclip-plugin",
+  "name": "@prep/paperclip-plugin",
   "version": "0.1.0",
-  "description": "CoDRAG codebase intelligence plugin for Paperclip",
+  "description": "Prep codebase intelligence plugin for Paperclip",
   "license": "MIT",
   "type": "module",
   "paperclipPlugin": {

@@ -1,12 +1,12 @@
 {
-  "name": "codrag",
+  "name": "prep",
   "private": true,
   "packageManager": "npm@10.9.3",
   "workspaces": [
     "packages/*",
     "packages/vscode/webview-ui",
     "websites/apps/*",
-    "src/codrag/dashboard"
+    "src/prep/dashboard"
   ],
   "scripts": {
     "dev": "turbo run dev --parallel",

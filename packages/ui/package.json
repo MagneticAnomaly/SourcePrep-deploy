@@ -1,7 +1,7 @@
 {
-  "name": "@codrag/ui",
+  "name": "@prep/ui",
   "version": "0.1.0",
-  "description": "CoDRAG shared UI components and design system",
+  "description": "Prep shared UI components and design system",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -71,7 +71,7 @@
     "vite-plugin-dts": "^3.7.1"
   },
   "keywords": [
-    "codrag",
+    "prep",
     "ui",
     "components",
     "design-system",

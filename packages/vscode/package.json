@@ -1,6 +1,6 @@
 {
-  "name": "codrag-vscode",
-  "displayName": "CoDRAG — Local Code Context Engine",
+  "name": "prep-vscode",
+  "displayName": "Prep — Local Code Context Engine",
   "description": "Local-first semantic code search, context assembly, and structural trace for AI workflows. No code upload. Works with Copilot, Cursor, Windsurf via MCP.",
   "version": "0.1.0",
   "publisher": "magnetic-anomaly",
@@ -26,7 +26,7 @@
     "MCP",
     "local-first",
     "semantic search",
-    "codrag"
+    "prep"
   ],
   "activationEvents": [
     "onStartupFinished"
