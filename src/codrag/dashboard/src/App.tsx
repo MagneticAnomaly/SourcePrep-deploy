@@ -497,6 +497,46 @@ function App() {
     }
   }, [setDeepAnalysisSchedule, enrichmentAutoConfig, handleEnrichmentAutoConfigChange])
 
+  // ── Settings v2: Project save/discard wiring (T14) ──────────
+  const [projectSaving, setProjectSaving] = useState(false)
+  const handleProjectSave = useCallback(async () => {
+    setProjectSaving(true)
+    try {
+      await handleSaveConfig()
+    } finally {
+      setProjectSaving(false)
+    }
+  }, [handleSaveConfig])
+  // Discard: re-fetch the canonical config from the daemon and clear dirty.
+  // If the fetch fails (e.g. daemon unreachable), we still clear the dirty
+  // flag so the user can escape — the next project-switch will re-hydrate.
+  const handleProjectDiscard = useCallback(() => {
+    if (!selectedProjectId) {
+      setConfigDirty(false)
+      return
+    }
+    void api.getProject(selectedProjectId)
+      .then((data) => {
+        const cfg = data.project?.config
+        if (cfg) {
+          setProjectConfig((prev) => ({
+            ...prev,
+            include_globs: cfg.include_globs ?? prev.include_globs,
+            exclude_globs: cfg.exclude_globs ?? prev.exclude_globs,
+            max_file_bytes: cfg.max_file_bytes ?? prev.max_file_bytes,
+            hard_limit_bytes: cfg.hard_limit_bytes ?? prev.hard_limit_bytes,
+            use_gitignore: cfg.use_gitignore ?? prev.use_gitignore,
+            trace: cfg.trace ?? prev.trace,
+            auto_rebuild: cfg.auto_rebuild ?? prev.auto_rebuild,
+            auto_config: cfg.auto_config,
+            deep_analysis_schedule: cfg.deep_analysis_schedule,
+          }))
+        }
+      })
+      .catch(() => { /* fall through: still clear dirty */ })
+      .finally(() => setConfigDirty(false))
+  }, [api, selectedProjectId, setProjectConfig, setConfigDirty])
+
   // ── LLM config (hook) ───────────────────────────────────────
   const {
     llmConfig, setLLMConfig,
@@ -1007,6 +1047,14 @@ function App() {
             projectConfig,
             globalConfig,
             activeProjectId: selectedProjectId,
+            projectName: selectedProject?.name ?? null,
+            projectConfigTyped: selectedProjectId ? projectConfig : null,
+            projectDirty: configDirty,
+            projectSaving,
+            onProjectChange: handleProjectConfigChange,
+            onProjectSave: handleProjectSave,
+            onProjectDiscard: handleProjectDiscard,
+            onDetectStack: selectedProjectId ? handleDetectStack : undefined,
           })}
           projectName={selectedProject?.name ?? null}
           confirmCloseIfDirty={() => true /* TODO: wire projectDirty from useSettingsDirty once Project pages land */}

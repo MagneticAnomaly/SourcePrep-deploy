@@ -1,4 +1,6 @@
+import type { ProjectConfig } from '@codrag/ui';
 import type { SettingsPageId } from '../routeParser';
+import { SettingsPage } from '../SettingsPage';
 import { SourcesPage } from './Sources';
 import { TraceIndexingPage } from './TraceIndexing';
 import { DeepAnalysisPage } from './DeepAnalysis';
@@ -13,14 +15,48 @@ import { DiagnosticsPage } from './Diagnostics';
 import { SelectiveResetPage } from './SelectiveReset';
 
 export interface PageHostProps {
+  // Legacy/unknown-typed fields preserved so the other 11 pages continue to
+  // compile under `{...host as any}` until their own lift tasks land.
   projectConfig: unknown;
   globalConfig: unknown;
   activeProjectId: string | null;
+
+  // ── Project-scope: Sources page (Task 14) ─────────────────────────
+  projectName: string | null;
+  projectConfigTyped: ProjectConfig | null;
+  projectDirty: boolean;
+  projectSaving: boolean;
+  onProjectChange: (next: ProjectConfig) => void;
+  onProjectSave: () => void | Promise<void>;
+  onProjectDiscard: () => void;
+  onDetectStack?: () => Promise<{
+    recommended_globs: string[];
+    detected_presets: string[];
+    all_presets: Record<string, string[]>;
+  }>;
 }
 
 export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
   switch (id) {
-    case 'sources':               return <SourcesPage {...host as any} />;
+    case 'sources':
+      return host.projectConfigTyped ? (
+        <SourcesPage
+          projectName={host.projectName}
+          config={host.projectConfigTyped}
+          dirty={host.projectDirty}
+          saving={host.projectSaving}
+          onChange={host.onProjectChange}
+          onSave={host.onProjectSave}
+          onDiscard={host.onProjectDiscard}
+          onDetectStack={host.onDetectStack}
+        />
+      ) : (
+        <SettingsPage title="Sources & Scope" scope="project">
+          <div className="text-sm text-text-muted">
+            Select a project to configure sources.
+          </div>
+        </SettingsPage>
+      );
     case 'trace-indexing':        return <TraceIndexingPage {...host as any} />;
     case 'deep-analysis':         return <DeepAnalysisPage {...host as any} />;
     case 'danger-zone':           return <DangerZonePage {...host as any} />;
