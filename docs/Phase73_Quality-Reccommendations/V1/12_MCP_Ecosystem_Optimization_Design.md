@@ -43,7 +43,7 @@ The MCP spec defines three primitives. Each has a distinct initiator:
 | Resource change notification | `mcp/server.py:350` | Working |
 | `prompts/list` handler (3 prompts: analyze, review, plan) | `mcp/server.py:2360` | Working |
 | `prompts/get` handler with argument support | `mcp/server.py:2364` | Working |
-| Capabilities deprep-compresstion (resources + prompts) | `mcp/server.py:2050` | Working (`listChanged: False`) |
+| Capabilities declaration (resources + prompts) | `mcp/server.py:2050` | Working (`listChanged: False`) |
 | CLAUDE.md marker-based splicing | `rules_generator.py:682-698` | Working — preserves all user content |
 | 3-tier client budgets with first-call boost | `mcp/server.py:145-186` | Working |
 | Client detection via clientInfo | `mcp/server.py:2038-2046` | Working |

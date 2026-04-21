@@ -97,7 +97,7 @@ Outputs (recommended shape):
     "trace": {"enabled": false, "exists": false},
     "watch": {"enabled": false, "state": "disabled"}
   },
-  "llm": {"ollama_connected": true, "prep-compress_connected": false}
+  "llm": {"ollama_connected": true, "lod_connected": false}
 }
 ```
 

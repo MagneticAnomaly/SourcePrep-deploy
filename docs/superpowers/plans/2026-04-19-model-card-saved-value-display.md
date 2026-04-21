@@ -148,7 +148,7 @@ Leave the failing test uncommitted. Task 2 will add the implementation and then 
 
 - [ ] **Step 1: Add the `buildModelOptions` helper at module scope**
 
-Open `packages/ui/src/components/llm/ModelCard.tsx`. Directly above the existing `export function ModelCard({ ... })` deprep-compresstion (currently starting at line 59), insert the following block:
+Open `packages/ui/src/components/llm/ModelCard.tsx`. Directly above the existing `export function ModelCard({ ... })` declaration (currently starting at line 59), insert the following block:
 
 ```tsx
 /** Normalize a model name by stripping a trailing `:latest`. */

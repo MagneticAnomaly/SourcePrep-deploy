@@ -52,7 +52,7 @@ storybook-static, coverage, out, .turbo, .vercel, .parcel-cache,
 Add:
 
 ```python
-"**/*.d.ts",      # TypeScript deprep-compresstion files — generated
+"**/*.d.ts",      # TypeScript declaration files — generated
 "**/*.min.js",
 "**/*.min.css",
 "**/*.map",       # source maps

@@ -97,7 +97,7 @@ DEFAULT_EXCLUDE_DIR_NAMES: Set[str] = (
 DEFAULT_EXCLUDE_FILE_GLOBS: Sequence[str] = (
     *PREP_OUTPUT_FILE_GLOBS,
     # Build artifacts that look like source (new in Phase 115)
-    "**/*.d.ts",        # TypeScript deprep-compresstion files — generated
+    "**/*.d.ts",        # TypeScript declaration files — generated
     "**/*.min.js",
     "**/*.min.css",
     "**/*.map",         # source maps

@@ -122,7 +122,7 @@ Detailed step-by-step instructions for these tasks can be found in the guides di
 ### Microsoft Store
 *See: [guides/10-microsoft-store.md](Phase11_Deployment/guides/10-microsoft-store.md)*
 - [ ] MST-1 Register product in Microsoft Partner Center
-- [ ] MST-2 Configure as EXE/MSI app with external licensing deprep-compresstion
+- [ ] MST-2 Configure as EXE/MSI app with external licensing declaration
 - [ ] MST-3 Submit code-signed installer
 - [ ] MST-4 Store listing: screenshots, description, category
 - [ ] MST-5 Test installation and license activation

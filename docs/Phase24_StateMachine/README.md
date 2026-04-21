@@ -527,7 +527,7 @@ class PipelineOrchestrator:
 
 **Tier gating integration:** The orchestrator checks `require_feature()` before transitioning certain stages:
 - `auto_rebuild` gate → blocks auto-pilot for FREE tier
-- `prep-compress_compression` gate → blocks compression stage for non-PRO
+- `lod_compression` gate → blocks compression stage for non-PRO
 - `mcp_trace_expand` gate → blocks trace-aware context expansion
 
 ---
@@ -616,7 +616,7 @@ The licensing tier system interacts with multiple state machines. Here's how fea
 | `auto_trace` | STARTER+ | SM-5 Watcher | `trigger_build` skips trace rebuild |
 | `trace_index` | FREE | SM-4 BuildOrchestrator | Manual trace build allowed for all tiers |
 | `mcp_trace_expand` | PRO+ | SM-6 Pipeline | Context expansion stage gated |
-| `prep-compress_compression` | PRO+ | SM-6 Pipeline | Compression stage blocked |
+| `lod_compression` | PRO+ | SM-6 Pipeline | Compression stage blocked |
 | `multi_repo_agent` | PRO+ | SM-4 BuildOrchestrator | Multi-project builds blocked |
 | `team_config` | TEAM+ | — | Shared config sync blocked |
 | `audit_log` | ENTERPRISE | — | Audit event emission blocked |

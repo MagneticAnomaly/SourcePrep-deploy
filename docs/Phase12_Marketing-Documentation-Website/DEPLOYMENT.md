@@ -44,7 +44,7 @@ Each app is a separate Netlify site connected to the same GitHub repo.
 | Support | `websites/apps/support` | `cd ../../.. && npx turbo run build --filter=@prep/support` | `.next` |
 | Payments | `websites/apps/payments` | `cd ../../.. && npx turbo run build --filter=@prep/payments` | `.next` |
 
-Alternatively, add a `netlify.toml` to each app for deprep-compresstive config.
+Alternatively, add a `netlify.toml` to each app for declarative config.
 
 ### Next.js on Netlify
 
@@ -108,5 +108,5 @@ pull request, allowing visual review of `packages/ui` changes across all sites b
 ## Migration from Vercel config
 
 The existing `vercel.json` files in each app should be removed and replaced with
-`netlify.toml` if deprep-compresstive config is needed. The `vercel.json` build/dev commands
+`netlify.toml` if declarative config is needed. The `vercel.json` build/dev commands
 are Vercel-specific and won't apply on Netlify.

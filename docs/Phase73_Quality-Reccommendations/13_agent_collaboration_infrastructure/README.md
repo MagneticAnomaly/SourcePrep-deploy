@@ -295,14 +295,14 @@ class AgentConflict:
 
 **Resolution strategy:** Conflicts default to `deferred` and are surfaced to the user via Paperclip issue or dashboard. If a resolution policy exists (e.g., "researcher outranks custodian on actively-referenced files"), it can be applied automatically.
 
-#### 3.2.3 Soft Claims (File-Level Work Deprep-compresstions)
+#### 3.2.3 Soft Claims (File-Level Work Declarations)
 
 An agent actively working on a set of files can declare a **soft claim** so other agents deprioritize that area. Not a lock (agents can still read), but a signal.
 
 ```python
 @dataclass
 class SoftClaim:
-    """An agent's deprep-compresstion of active interest in a file or directory."""
+    """An agent's declaration of active interest in a file or directory."""
     agent_role: str
     path: str                          # file or directory
     claimed_at: float
@@ -316,7 +316,7 @@ class SoftClaim:
 - Claims auto-expire (default 24h) to prevent stale locks
 - Visible in activity feed: "Researcher claimed src/auth/ for 'auth consolidation research'"
 
-#### 3.2.4 Dependency Deprep-compresstions on Plans
+#### 3.2.4 Dependency Declarations on Plans
 
 When the Researcher formulates a `ResearchPlan` or the Custodian creates a `CleanupPlan`, they can declare dependencies on other plans.
 
@@ -330,7 +330,7 @@ class ResearchPlan:
 
 **Use case:** "This auth consolidation plan depends on the custodian cleaning up `auth_legacy/` first." Paperclip can use this dependency graph to sequence agent work.
 
-**Surfacing:** When pushing plans to Paperclip, dependency deprep-compresstions map to issue links (e.g., "blocked by ISSUE-37").
+**Surfacing:** When pushing plans to Paperclip, dependency declarations map to issue links (e.g., "blocked by ISSUE-37").
 
 #### 3.2.5 Shared Computation Cache
 
@@ -558,7 +558,7 @@ Depends on Phase 5.1 (needs attribution for conflict detection).
 | `prep-handoff` prompt | `mcp/server.py` | Prompt definition with resource embedding | Medium |
 | `prep-scope` prompt | `mcp/server.py` | Prompt definition with role scoping | Small |
 | Shared computation cache in AgentCore | `agents/core.py` | TTL-based cache for audit findings + impact results | Small |
-| Dependency deprep-compresstions on plans | `agents/shared/models.py` | Add `depends_on`, `blocks` to ResearchPlan + CleanupPlan | Small |
+| Dependency declarations on plans | `agents/shared/models.py` | Add `depends_on`, `blocks` to ResearchPlan + CleanupPlan | Small |
 
 ### Phase 5.3: Emergence Layer (5-8 days) — DEFERRED
 

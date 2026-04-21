@@ -30,7 +30,7 @@ Comprehensive design document covering:
 - Problem statement with 5 concrete failure scenarios from existing agents
 - Town square model diagram (library → shared awareness layer)
 - Full Layer 1 design: `Observation.created_by` + `visibility` fields, per-role memory resources (`prep://{pid}/memory/{role}`), cross-agent findings resources (`prep://{pid}/agents/{role}/findings`), activity feed resource (`prep://{pid}/activity`)
-- Full Layer 2 design: structural delta resource (`prep://{pid}/delta`), conflict detection (`AgentConflict` model + `ConflictDetector`), soft claims (`SoftClaim` model + `ClaimStore`), dependency deprep-compresstions on plans, shared computation cache
+- Full Layer 2 design: structural delta resource (`prep://{pid}/delta`), conflict detection (`AgentConflict` model + `ConflictDetector`), soft claims (`SoftClaim` model + `ClaimStore`), dependency declarations on plans, shared computation cache
 - Full Layer 3 design (roadmapped): decision history, consensus scoring, task complexity analysis, capability attestation, adaptive role scoping
 - Complete MCP primitive mapping: 6 new resources, 4 new prompts, 0 new tools
 - Full SQL schema for 4 new tables + 2 column additions

@@ -169,7 +169,7 @@ For comparison, Haley's Python symbols now include docstring excerpts:
     combined = 0.35*relevance + 0.25*epistemic + ...
 ```
 
-**Root cause:** The Phase 83 symbol formatter reads `n.get("signature")` and `n.get("docstring")` from trace node metadata. For Python, the parser (or enrichment stage) populates these fields from the AST. For Swift, the parser is text-based and doesn't extract protocol deprep-compresstions, method signatures, or documentation comments.
+**Root cause:** The Phase 83 symbol formatter reads `n.get("signature")` and `n.get("docstring")` from trace node metadata. For Python, the parser (or enrichment stage) populates these fields from the AST. For Swift, the parser is text-based and doesn't extract protocol declarations, method signatures, or documentation comments.
 
 **This is the same language limitation as MCP-03.** The Rust parser handles Python/TypeScript; other languages get text-based fallback that doesn't extract structured metadata.
 

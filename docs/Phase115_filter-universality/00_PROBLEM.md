@@ -6,7 +6,7 @@
 
 ## TL;DR
 
-Prep's Deep Reasoning stage just spent the night reasoning over storybook-static, node_modules-adjacent build output, and a sea of `.d.ts` deprep-compresstion files. The filter pipeline *exists* — it's layered (L1 code defaults, L2 repo_policy.json, L3 trace.ignore_patterns) and is *merged at most callsites* — but it has four concrete bugs that collectively defeat universality:
+Prep's Deep Reasoning stage just spent the night reasoning over storybook-static, node_modules-adjacent build output, and a sea of `.d.ts` declaration files. The filter pipeline *exists* — it's layered (L1 code defaults, L2 repo_policy.json, L3 trace.ignore_patterns) and is *merged at most callsites* — but it has four concrete bugs that collectively defeat universality:
 
 1. **`repo_policy.json` was baked at project-create time** (2026-04-11) with a directory default list that had no entry for `storybook-static`, `prep_data/**`, `coverage`, `out`, `.turbo`, `.vercel`, etc. New defaults added to the code later are **not** back-propagated — the auto-migrate in `ensure_repo_policy()` only unions **dir-derived** globs, not the `DEFAULT_EXCLUDE_FILE_GLOBS` sequence.
 2. **`TraceBuilder` has a hardcoded include/exclude list** (`trace/builder.py:66-85`) that shadows whatever `repo_policy.json` says when a caller doesn't pass `include_globs` explicitly.

@@ -41,7 +41,7 @@ Total: 44 dirs (was 35 after Step 0).
 **Status:** complete
 
 Added 4 new file globs to `DEFAULT_EXCLUDE_FILE_GLOBS`:
-- `**/*.d.ts` (TypeScript deprep-compresstion — generated)
+- `**/*.d.ts` (TypeScript declaration — generated)
 - `**/*.min.js`, `**/*.min.css`
 - `**/*.map` (source maps)
 

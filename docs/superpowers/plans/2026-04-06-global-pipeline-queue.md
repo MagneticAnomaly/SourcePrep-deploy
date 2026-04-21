@@ -1241,7 +1241,7 @@ export interface UseEventStreamResult {
 
 - [ ] **Step 2: Add state and handler inside the hook**
 
-After the `scopeEvents` state deprep-compresstion (line ~19), add:
+After the `scopeEvents` state declaration (line ~19), add:
 
 ```typescript
 const [queueVersion, setQueueVersion] = useState(0);

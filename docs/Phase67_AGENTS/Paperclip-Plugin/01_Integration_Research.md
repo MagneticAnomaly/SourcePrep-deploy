@@ -151,7 +151,7 @@ ctx.logger.*                        — structured logging
 
 Tools are the most relevant surface for Prep:
 
-- **Deprep-compresstion:** Manifest declares tools with `name`, `displayName`, `description`, `parametersSchema` (JSON Schema)
+- **Declaration:** Manifest declares tools with `name`, `displayName`, `description`, `parametersSchema` (JSON Schema)
 - **Namespacing:** Auto-prefixed as `<pluginId>:<toolName>` (e.g., `prep:search`)
 - **Execution:** Host routes `executeTool` RPC to plugin worker with run context (`agentId`, `runId`, `companyId`, `projectId`)
 - **Results:** String content, structured data, or error; included in run logs

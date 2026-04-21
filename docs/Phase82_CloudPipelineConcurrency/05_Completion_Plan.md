@@ -1364,7 +1364,7 @@ In `AdvancedLLMSettings.tsx`:
 - Remove any associated labels, help text, and state (`useState` / context) for these fields.
 - Remove any payload fields on save handlers that serialize these keys.
 
-If there's a settings type (e.g. `AdvancedLLMSettings.types.ts`), delete the `ollama_plan_tier` and `custom_concurrency` field deprep-compresstions.
+If there's a settings type (e.g. `AdvancedLLMSettings.types.ts`), delete the `ollama_plan_tier` and `custom_concurrency` field declarations.
 
 - [ ] **Step 3: Verify no consumer crashes**
 

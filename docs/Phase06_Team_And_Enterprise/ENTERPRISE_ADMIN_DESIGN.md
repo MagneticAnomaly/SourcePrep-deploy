@@ -1465,7 +1465,7 @@ In December 2025, security researcher Omer Marzouk published findings on **30+ v
 **Prep relevance:** Prep publishes an MCP server (`prep-mcp`). If a user connects Prep's MCP alongside a malicious MCP server, the malicious server could influence the AI to misuse Prep's tools. Prep's MCP tools are read-only, limiting damage, but search results could still be exfiltrated.
 
 **Mitigation needed:**
-- Prep MCP tools should have explicit scope deprep-compresstions
+- Prep MCP tools should have explicit scope declarations
 - Consider rate-limiting MCP tool calls
 - Document MCP security best practices for users
 
