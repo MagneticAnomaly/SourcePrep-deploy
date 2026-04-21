@@ -48,7 +48,12 @@ export function ConfirmDialog({
   // Close on Escape key
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel();
+      if (e.key === 'Escape') {
+        // Prevent window-level Esc listeners (e.g. SettingsOverlay) from also
+        // firing and closing the parent surface in the same keystroke.
+        e.stopPropagation();
+        onCancel();
+      }
     },
     [onCancel],
   );

@@ -21,7 +21,7 @@ export interface SettingsOverlayProps {
 export function SettingsOverlay({
   renderPage, projectName, confirmCloseIfDirty,
 }: SettingsOverlayProps) {
-  const { page, setPage, close } = useSettingsRoute();
+  const { page, setPage, close } = useSettingsRoute(confirmCloseIfDirty);
   const backRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -32,6 +32,14 @@ export function SettingsOverlay({
     if (page === null) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (!confirmCloseIfDirty || confirmCloseIfDirty()) close();
+        return;
+      }
+      // ⌘, (Ctrl+, on non-Mac) closes the overlay when already open.
+      // Owned here (not in App.tsx) so the dirty guard fires.
+      const mod = navigator.platform.includes('Mac') ? e.metaKey : e.ctrlKey;
+      if (mod && e.key === ',') {
+        e.preventDefault();
         if (!confirmCloseIfDirty || confirmCloseIfDirty()) close();
       }
     };

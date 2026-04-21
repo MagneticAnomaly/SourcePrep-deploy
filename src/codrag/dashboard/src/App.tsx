@@ -59,27 +59,6 @@ import 'react-resizable/css/styles.css'
 function App() {
   const api = useApiClient()
 
-  // ⌘, (Ctrl+, on non-Mac) toggles the settings overlay via URL state.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const mod = navigator.platform.includes('Mac') ? e.metaKey : e.ctrlKey
-      if (mod && e.key === ',') {
-        e.preventDefault()
-        const current = new URLSearchParams(window.location.search).get('settings')
-        if (current) {
-          window.history.back()
-        } else {
-          const next = new URL(window.location.href)
-          next.searchParams.set('settings', 'sources')
-          window.history.pushState(window.history.state, '', next.toString())
-          window.dispatchEvent(new PopStateEvent('popstate'))
-        }
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
-
   // ── Connection state ───────────────────────────────────────
   const [isConnected, setIsConnected] = useState(false)
   const [isDaemonUnhealthy, setIsDaemonUnhealthy] = useState(false)
@@ -261,6 +240,25 @@ function App() {
     handleToggleActive, handleToggleStar, handleCyclePriority,
     setProjectConfig, setConfigDirty,
   } = project
+
+  // ⌘, (Ctrl+, on non-Mac) opens the settings overlay at the default page.
+  // Close is owned by SettingsOverlay itself so the dirty guard fires there.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = navigator.platform.includes('Mac') ? e.metaKey : e.ctrlKey
+      if (!mod || e.key !== ',') return
+      // If overlay is already open, SettingsOverlay's own handler closes it.
+      const current = new URLSearchParams(window.location.search).get('settings')
+      if (current) return
+      e.preventDefault()
+      const next = new URL(window.location.href)
+      next.searchParams.set('settings', selectedProjectId ? 'sources' : 'appearance')
+      window.history.pushState(window.history.state, '', next.toString())
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selectedProjectId])
 
   // ── Hydration controller (Phase 70) ────────────────────────
   // Coordinates project-switch: debounces ID, manages AbortController,
