@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# TODO(Task 11): flip prefix to public/prep-mcp after subtree git mv
-# TODO(Task 22): flip dev_remote / public_remote after GitHub rename
 prefix="public/prep-mcp"
-dev_remote="prep-mcp-dev"
-public_remote="prep-mcp"
+dev_remote="mcp-dev"
+public_remote="mcp"
 branch="main"
 push_public="false"
 

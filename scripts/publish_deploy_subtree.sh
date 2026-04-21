@@ -8,10 +8,9 @@ set -euo pipefail
 #   scripts/publish_deploy_subtree.sh                  # push to dev remote
 #   scripts/publish_deploy_subtree.sh --promote        # also push to public remote
 
-# TODO(Task 11): flip prefix to public/prep-deploy after subtree git mv
 prefix="public/prep-deploy"
 dev_remote="deploy-dev"
-public_remote="origin"
+public_remote="deploy"
 branch="main"
 push_public="false"
 
@@ -68,8 +67,8 @@ fi
 
 if ! git -C "$repo_root" remote get-url "$dev_remote" >/dev/null 2>&1; then
   echo "Missing git remote: $dev_remote" >&2
-  # TODO(Task 22): flip to prep-deploy.git after GitHub rename
-  echo "Add it with: git remote add $dev_remote git@github.com:EricBintner/prep-deploy.git"
+  echo "Add it with: git remote add $dev_remote git@github.com:MagneticAnomaly/RunPrep-deploy.git"
+  echo "Or run with: --dev-remote $public_remote to skip the staging hop."
   exit 1
 fi
 
