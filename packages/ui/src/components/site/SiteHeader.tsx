@@ -23,7 +23,7 @@ export interface SiteHeaderProps {
 }
 
 export function SiteHeader({
-  productName = 'Prep',
+  productName = 'RunPrep',
   productBadge,
   logo = <Box className="w-5 h-5" />,
   links,

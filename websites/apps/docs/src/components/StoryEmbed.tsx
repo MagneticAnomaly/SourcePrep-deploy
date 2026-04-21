@@ -86,7 +86,7 @@ export function StoryEmbed({
         <iframe
           ref={iframeRef}
           src={src}
-          title={title || `Prep Dashboard — ${storyId.split('--')[0].replaceAll('-', ' ')}`}
+          title={title || `RunPrep Dashboard — ${storyId.split('--')[0].replaceAll('-', ' ')}`}
           className={`story-embed__iframe ${loaded ? 'story-embed__iframe--loaded' : ''}`}
           style={{ height: heightValue }}
           sandbox="allow-scripts allow-same-origin"

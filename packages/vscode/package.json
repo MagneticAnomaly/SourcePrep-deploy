@@ -1,7 +1,7 @@
 {
   "name": "prep-vscode",
-  "displayName": "Prep — Local Code Context Engine",
-  "description": "Local-first semantic code search, context assembly, and structural trace for AI workflows. No code upload. Works with Copilot, Cursor, Windsurf via MCP.",
+  "displayName": "RunPrep — Local Code Context Engine",
+  "description": "Local-first semantic code search, context assembly, and structural trace for AI workflows. No code upload. RunPrep works with Copilot, Cursor, Windsurf via MCP.",
   "version": "0.1.0",
   "publisher": "magnetic-anomaly",
   "license": "SEE LICENSE IN LICENSE",
@@ -12,7 +12,7 @@
   "bugs": {
     "url": "https://github.com/magnetic-anomaly/prep/issues"
   },
-  "homepage": "https://getprep.io",
+  "homepage": "https://runprep.io",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -38,7 +38,7 @@
       "activitybar": [
         {
           "id": "prep",
-          "title": "Prep",
+          "title": "RunPrep",
           "icon": "media/prep-sidebar.svg"
         }
       ]
@@ -278,32 +278,32 @@
       }
     ],
     "configuration": {
-      "title": "Prep",
+      "title": "RunPrep",
       "properties": {
         "prep.daemon.host": {
           "type": "string",
           "default": "127.0.0.1",
-          "description": "Prep daemon host address"
+          "description": "RunPrep daemon host address"
         },
         "prep.daemon.port": {
           "type": "number",
           "default": 8400,
-          "description": "Prep daemon port"
+          "description": "RunPrep daemon port"
         },
         "prep.daemon.executable": {
           "type": "string",
           "default": "prep",
-          "description": "Path to the Prep executable (or command name if on PATH)"
+          "description": "Path to the RunPrep executable (or command name if on PATH)"
         },
         "prep.daemon.autoStart": {
           "type": "boolean",
           "default": false,
-          "description": "Automatically start the Prep daemon when the extension activates"
+          "description": "Automatically start the RunPrep daemon when the extension activates"
         },
         "prep.statusBar.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Show Prep status in the status bar"
+          "description": "Show RunPrep status in the status bar"
         },
         "prep.pollingInterval": {
           "type": "number",
@@ -318,8 +318,8 @@
       {
         "id": "prep.chat",
         "name": "prep",
-        "fullName": "Prep",
-        "description": "Ask questions about your codebase using Prep's semantic index.",
+        "fullName": "RunPrep",
+        "description": "Ask questions about your codebase using RunPrep's semantic index.",
         "isSticky": true
       }
     ]

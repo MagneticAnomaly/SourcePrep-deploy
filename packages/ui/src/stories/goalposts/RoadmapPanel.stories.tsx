@@ -122,7 +122,7 @@ export const WithContent: Story = {
   args: {
     nodes: mockNodes, questions: mockQuestions,
     northStar: { id: 'rm-1', title: 'Implement MCP streaming responses', priority: 'P0' },
-    appEthos: 'Prep is an epistemic intelligence engine for autonomous agents. We prioritize structural understanding over token volume, private-by-design architecture, and zero-configuration developer experience.',
+    appEthos: 'RunPrep is an epistemic intelligence engine for autonomous agents. We prioritize structural understanding over token volume, private-by-design architecture, and zero-configuration developer experience.',
     generating: false, scanning: false, error: null, ready: true,
     lastGeneratedAt: weekAgo, modelUsed: 'claude-sonnet-4-20250514',
     velocityData: mockVelocity, sprintSuggestion: mockSprint, loadingSprint: false,
@@ -150,7 +150,7 @@ export const Empty: Story = {
 export const Generating: Story = {
   args: {
     nodes: [], questions: [],
-    northStar: null, appEthos: 'Prep is an epistemic intelligence engine.',
+    northStar: null, appEthos: 'RunPrep is an epistemic intelligence engine.',
     generating: true, scanning: false, error: null, ready: true,
     lastGeneratedAt: '', modelUsed: '',
     onGenerate: noop, onScanTodos: noop, onUpdateEthos: noop,

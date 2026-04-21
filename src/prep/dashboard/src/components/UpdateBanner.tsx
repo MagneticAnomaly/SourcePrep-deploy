@@ -175,7 +175,7 @@ export function UpdateBanner({ checkIntervalMs = 30 * 60 * 1000 }: UpdateBannerP
     <div className="fixed inset-x-0 top-0 z-[90] bg-primary/95 backdrop-blur text-white px-4 py-2 text-sm font-medium flex items-center justify-center gap-3 shadow-lg">
       <Download className="w-4 h-4 flex-shrink-0" />
       <span>
-        Prep <strong>v{manifest?.version}</strong> is available.
+        RunPrep <strong>v{manifest?.version}</strong> is available.
       </span>
       {manifest?.body && (
         <a

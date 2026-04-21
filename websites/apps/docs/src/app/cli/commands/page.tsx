@@ -18,7 +18,7 @@ export default function Page() {
           <AnchorHeading id="serve" level="h2">prep serve</AnchorHeading>
           <pre className="overflow-x-auto text-sm"><code>prep serve [--port &lt;port&gt;] [--host &lt;host&gt;] [--reload]</code></pre>
           <p className="text-sm text-text-muted">
-            Starts the Prep daemon and API server. This is the core process that must be running for MCP and the Dashboard to work.
+            Starts the RunPrep daemon and API server. This is the core process that must be running for MCP and the Dashboard to work.
           </p>
           <ul className="list-disc pl-5 text-sm text-text-muted">
             <li><code>--port</code>: Port to listen on (default: 8400).</li>
@@ -93,7 +93,7 @@ export default function Page() {
           <AnchorHeading id="mcp-config" level="h2" className="mt-8">prep mcp-config</AnchorHeading>
           <pre className="overflow-x-auto text-sm"><code>prep mcp-config [--ide &lt;ide&gt;] [--mode &lt;mode&gt;]</code></pre>
           <p className="text-sm text-text-muted">
-            Generates configuration JSON for connecting various editors (Cursor, Windsurf, Claude Code) to Prep.
+            Generates configuration JSON for connecting various editors (Cursor, Windsurf, Claude Code) to RunPrep.
           </p>
           <ul className="list-disc pl-5 text-sm text-text-muted">
             <li><code>--ide</code>: Target editor (<code>cursor</code>, <code>windsurf</code>, <code>vscode</code>, <code>claude</code>, or <code>all</code>).</li>
@@ -112,7 +112,7 @@ export default function Page() {
           <AnchorHeading id="ui" level="h3" className="mt-6 text-xl font-semibold">prep ui</AnchorHeading>
           <pre className="overflow-x-auto text-sm"><code>prep ui [--port &lt;port&gt;]</code></pre>
           <p className="text-sm text-text-muted">
-            Opens the Prep web dashboard in your default browser.
+            Opens the RunPrep web dashboard in your default browser.
           </p>
 
           <AnchorHeading id="models" level="h3" className="mt-6 text-xl font-semibold">prep models</AnchorHeading>
@@ -158,7 +158,7 @@ export default function Page() {
           <AnchorHeading id="version" level="h3" className="mt-6 text-xl font-semibold">prep version</AnchorHeading>
           <pre className="overflow-x-auto text-sm"><code>prep version</code></pre>
           <p className="text-sm text-text-muted">
-            Prints the installed version of Prep.
+            Prints the installed version of RunPrep.
           </p>
 
         </div>

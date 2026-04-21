@@ -16,7 +16,7 @@ export default function ImmuneSystemPage() {
     <DetailPageLayout
       title="Immune System"
       subtitle="Architectural Guardrails"
-      description="Design decisions become runtime defenses. Record the 'why' behind your architecture, and Prep enforces it automatically."
+      description="Design decisions become runtime defenses. Record the 'why' behind your architecture, and RunPrep enforces it automatically."
       badge="Unique"
       sections={SECTIONS}
       docsUrl="https://docs.runprep.io/concepts/immune-system"
@@ -26,15 +26,15 @@ export default function ImmuneSystemPage() {
       <section id="how">
         <h2 className="text-2xl font-semibold text-text mb-4">How It Works</h2>
         <p className="text-text-muted leading-relaxed mb-6">
-          Prep's immune system derives runtime architectural defenses from your recorded design decisions.
+          RunPrep's immune system derives runtime architectural defenses from your recorded design decisions.
           When a team records a concept like "the payment module must never import db.transaction directly,"
-          Prep creates a testable assertion that generates an antibody — a runtime check that fires when
+          RunPrep creates a testable assertion that generates an antibody — a runtime check that fires when
           the constraint is violated. All alerts are informational; nothing is blocked.
         </p>
         <div className="grid sm:grid-cols-4 gap-4">
           {[
             { icon: <BookOpen className="w-5 h-5" />, title: 'Record Concept', desc: 'Document a design decision or architectural constraint' },
-            { icon: <CheckCircle className="w-5 h-5" />, title: 'Derive Assertion', desc: 'Prep extracts a testable rule from the concept' },
+            { icon: <CheckCircle className="w-5 h-5" />, title: 'Derive Assertion', desc: 'RunPrep extracts a testable rule from the concept' },
             { icon: <Shield className="w-5 h-5" />, title: 'Create Antibody', desc: 'A pattern-matching guard is automatically registered' },
             { icon: <AlertTriangle className="w-5 h-5" />, title: 'Surface Alerts', desc: 'Violations appear in ambient context before work starts' },
           ].map((step) => (
@@ -56,7 +56,7 @@ export default function ImmuneSystemPage() {
           files, and can link to documentation. Constraint concepts are the seed of the immune system.
         </p>
         <div className="rounded-lg border border-border bg-[#0d1117] p-5 font-mono text-sm">
-          <div className="text-[#8b949e] mb-3">{"// Example concept stored in Prep"}</div>
+          <div className="text-[#8b949e] mb-3">{"// Example concept stored in RunPrep"}</div>
           <div className="space-y-1.5">
             <div>
               <span className="text-[#79c0ff]">title</span>
@@ -87,7 +87,7 @@ export default function ImmuneSystemPage() {
         </div>
         <p className="text-sm text-text-muted mt-4">
           Concepts with an <code className="text-primary font-mono">assertion</code> field automatically become
-          immune system seeds. Prep reads the assertion, derives a pattern rule, and registers an antibody.
+          immune system seeds. RunPrep reads the assertion, derives a pattern rule, and registers an antibody.
           No extra configuration required.
         </p>
       </section>
@@ -96,7 +96,7 @@ export default function ImmuneSystemPage() {
       <section id="antibodies">
         <h2 className="text-2xl font-semibold text-text mb-4">Assertions &amp; Antibodies</h2>
         <p className="text-text-muted leading-relaxed mb-4">
-          When a concept has a testable assertion, Prep auto-derives an antibody from it. Antibodies are
+          When a concept has a testable assertion, RunPrep auto-derives an antibody from it. Antibodies are
           pattern-matching rules that evaluate against code changes. They carry a status to support gradual
           rollout.
         </p>
@@ -194,7 +194,7 @@ export default function ImmuneSystemPage() {
           ))}
         </div>
         <p className="text-text-muted text-sm mb-6">
-          No competitor offers this. Static linters require you to encode rules in config files. Prep derives
+          No competitor offers this. Static linters require you to encode rules in config files. RunPrep derives
           guards from the design decisions your team already records — so your architectural intent and its
           enforcement stay in sync automatically.
         </p>

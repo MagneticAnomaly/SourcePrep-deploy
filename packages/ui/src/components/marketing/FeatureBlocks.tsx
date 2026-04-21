@@ -156,7 +156,7 @@ export const prepFeatures: Feature[] = [
   {
     icon: <Activity className="w-8 h-8" />,
     title: 'Audit Enrichment',
-    description: 'Supercharge your existing linters. Feed findings from ruff, semgrep, or CodeQL into Prep and get them back enriched with structural context — dependent count, hub status, risk score, and related concepts. Outputs SARIF for CI integration.',
+    description: 'Supercharge your existing linters. Feed findings from ruff, semgrep, or CodeQL into RunPrep and get them back enriched with structural context — dependent count, hub status, risk score, and related concepts. Outputs SARIF for CI integration.',
     highlight: true,
   },
 
@@ -164,7 +164,7 @@ export const prepFeatures: Feature[] = [
   {
     icon: <Users className="w-8 h-8" />,
     title: 'Role-Aware Context',
-    description: 'Different agents need different slices. A security reviewer sees auth boundaries; a UI agent sees design tokens. Prep shapes context delivery around the role of the agent asking.',
+    description: 'Different agents need different slices. A security reviewer sees auth boundaries; a UI agent sees design tokens. RunPrep shapes context delivery around the role of the agent asking.',
     highlight: true,
   },
   {
@@ -204,7 +204,7 @@ export const prepFeatures: Feature[] = [
   {
     icon: <Plug className="w-8 h-8" />,
     title: 'Native MCP Server',
-    description: 'Prep is an MCP server. Connect it to Claude Code, Antigravity, Cursor, VS Code, or any tool that supports the Model Context Protocol.',
+    description: 'RunPrep is an MCP server. Connect it to Claude Code, Antigravity, Cursor, VS Code, or any tool that supports the Model Context Protocol.',
     badge: 'MCP',
   },
 
@@ -233,11 +233,11 @@ export const marketingFeatures: Feature[] = [
   {
     icon: <Lightbulb className="w-8 h-8" />,
     title: 'The Fix: Structural Tracing + Enrichment',
-    description: 'Prep\'s Rust engine traces your entire codebase — mapping imports, call graphs, symbols, and hierarchies. Then it iterates though enriching it\'s understanding. It delivers structurally-aware context precisely scoped an agent\'s request or for each agent\'s role.',
+    description: 'RunPrep\'s Rust engine traces your entire codebase — mapping imports, call graphs, symbols, and hierarchies. Then it iterates though enriching it\'s understanding. It delivers structurally-aware context precisely scoped an agent\'s request or for each agent\'s role.',
   },
   {
     icon: <TrendingUp className="w-8 h-8" />,
     title: 'The Result: Agents That Understand Architecture and Concepts',
-    description: 'Connect the Prep MCP server to Claude Code, Antigravity, or Cursor and watch your AI instantly understand the codebase. By providing the "what, why, when, and how", agents get the structural awareness they need to make grep more stategic, your audit infomed or design more structually aware.',
+    description: 'Connect the RunPrep MCP server to Claude Code, Antigravity, or Cursor and watch your AI instantly understand the codebase. By providing the "what, why, when, and how", agents get the structural awareness they need to make grep more stategic, your audit infomed or design more structually aware.',
   },
 ];

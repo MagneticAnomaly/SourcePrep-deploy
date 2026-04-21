@@ -1,5 +1,5 @@
 """
-Epistemic Scoring System for Prep.
+Epistemic Scoring System for RunPrep.
 
 Computes a composite score (0.0-1.0) representing how well the trace
 understands a node in the context of the entire codebase. This is

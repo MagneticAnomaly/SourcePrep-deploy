@@ -141,7 +141,7 @@ export class ProjectsTreeDataProvider implements vscode.TreeDataProvider<vscode.
 
     if (this._projects.length === 0) {
       const item = new vscode.TreeItem('No projects registered');
-      item.description = 'Use "Prep: Add Project"';
+      item.description = 'Use "RunPrep: Add Project"';
       item.iconPath = new vscode.ThemeIcon('info');
       return [item];
     }

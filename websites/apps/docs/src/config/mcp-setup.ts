@@ -90,7 +90,7 @@ export const MCP_TOOLS: McpToolConfig[] = [
     file: '.claude/mcp.json',
     fileHint: 'Project root (project-scoped) or ~/.claude/settings.json (global)',
     serverKey: 'servers',
-    notes: 'Add "permissions": { "allow": ["mcp__prep"] } to settings.json to auto-approve all Prep tools. Or run: claude mcp add prep -- prep mcp',
+    notes: 'Add "permissions": { "allow": ["mcp__prep"] } to settings.json to auto-approve all RunPrep tools. Or run: claude mcp add prep -- prep mcp',
     config: {
       servers: {
         prep: { command: 'prep', args: ['mcp'] },
@@ -104,7 +104,7 @@ export const MCP_TOOLS: McpToolConfig[] = [
     file: '~/.gemini/settings.json',
     fileHint: 'Global config',
     serverKey: 'mcpServers',
-    notes: '"trust": true auto-approves tool calls. Safe for Prep (read-only tools).',
+    notes: '"trust": true auto-approves tool calls. Safe for RunPrep (read-only tools).',
     config: {
       mcpServers: {
         prep: { command: 'prep', args: ['mcp'], trust: true },
@@ -118,7 +118,7 @@ export const MCP_TOOLS: McpToolConfig[] = [
     file: 'MCP config or AGENTS.md',
     fileHint: 'Codex reads AGENTS.md natively',
     serverKey: 'mcpServers',
-    notes: 'Codex also reads AGENTS.md — Prep can auto-generate this file.',
+    notes: 'Codex also reads AGENTS.md — RunPrep can auto-generate this file.',
     config: {
       mcpServers: {
         prep: { command: 'prep', args: ['mcp'] },

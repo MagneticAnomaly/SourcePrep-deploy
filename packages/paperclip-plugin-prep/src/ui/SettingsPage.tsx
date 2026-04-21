@@ -1,5 +1,5 @@
 /**
- * Prep Settings Page
+ * RunPrep Settings Page
  *
  * Plugin configuration: daemon URL, project mapping, index status.
  */
@@ -13,7 +13,7 @@ export function SettingsPage() {
   return (
     <div style={{ padding: 24, maxWidth: 600 }}>
       <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>
-        Prep Configuration
+        RunPrep Configuration
       </h2>
 
       <div style={{ marginBottom: 24 }}>
@@ -36,7 +36,7 @@ export function SettingsPage() {
       <div style={{ marginBottom: 24 }}>
         <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Available Tools</h3>
         <div style={{ fontSize: 13, color: '#888' }}>
-          All Paperclip agents can use these Prep tools during their runs:
+          All Paperclip agents can use these RunPrep tools during their runs:
         </div>
         <ul style={{ fontSize: 13, marginTop: 8, paddingLeft: 20 }}>
           <li><code>prep:context</code> — Structural overview</li>
@@ -48,7 +48,7 @@ export function SettingsPage() {
       </div>
 
       <div style={{ fontSize: 12, color: '#666', marginTop: 32 }}>
-        Prep v0.1.0 — <a href="https://runprep.io" target="_blank" rel="noopener">runprep.io</a>
+        RunPrep v0.1.0 — <a href="https://runprep.io" target="_blank" rel="noopener">runprep.io</a>
       </div>
     </div>
   );

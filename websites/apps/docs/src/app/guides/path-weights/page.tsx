@@ -45,9 +45,9 @@ export default function Page() {
               <div className="flex items-start gap-3">
                 <span className="shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">2</span>
                 <div>
-                  <div className="font-medium text-text">Prep resolves the most-specific weight</div>
+                  <div className="font-medium text-text">RunPrep resolves the most-specific weight</div>
                   <div className="mt-1 text-text-muted">
-                    For <code>src/auth/login.py</code>, Prep checks: <code>src/auth/login.py</code> → <code>src/auth/</code> → <code>src/</code> → default (1.0).
+                    For <code>src/auth/login.py</code>, RunPrep checks: <code>src/auth/login.py</code> → <code>src/auth/</code> → <code>src/</code> → default (1.0).
                   </div>
                 </div>
               </div>
@@ -201,7 +201,7 @@ export default function Page() {
               </ul>
               <div className="mt-4 flex items-center gap-2 text-xs text-text-subtle">
                 <span className="w-2 h-2 rounded-full bg-primary"></span>
-                Prep also respects your <code>.gitignore</code> automatically.
+                RunPrep also respects your <code>.gitignore</code> automatically.
               </div>
             </div>
           </div>

@@ -16,7 +16,7 @@ export interface TechStackMatrixProps {
 
 const stackComponents: StackComponent[] = [
   {
-    name: 'Prep Engine',
+    name: 'RunPrep Engine',
     required: true,
     tag: 'One install — batteries included',
     accent: 'primary',
@@ -101,7 +101,7 @@ export function TechStackMatrix({ className = '' }: TechStackMatrixProps) {
       {/* Callout */}
       <div className="p-5 rounded-xl bg-surface-raised border border-border">
         <p className="text-sm text-text-muted leading-relaxed">
-          <span className="font-semibold text-text">Prep ships with everything you need.</span>{' '}
+          <span className="font-semibold text-text">RunPrep ships with everything you need.</span>{' '}
           The built-in embedding model (nomic-embed-text via ONNX) runs on CPU out of the box.
           Semantic search, structural code graph, and context assembly all work from a single install.
         </p>
@@ -178,7 +178,7 @@ export function TechStackMatrix({ className = '' }: TechStackMatrixProps) {
       <div className="flex items-start gap-3 text-xs text-text-muted">
         <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
         <span>
-          <strong>Recommended:</strong> Install Prep — embeddings, search, and context assembly work immediately.
+          <strong>Recommended:</strong> Install RunPrep — embeddings, search, and context assembly work immediately.
           The built-in model (~130 MB) downloads automatically on first build. Smart compression is built in —
           structural compression for code (3–20×), language-aware compression for docs (~2.4×).
         </span>

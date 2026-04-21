@@ -20,7 +20,7 @@ export function NeoBrutalistHero({ isBetaMode }: { isBetaMode: boolean }) {
           </h1>
           
           <p className="mt-6 text-xl text-text font-mono border-l-4 border-primary pl-4">
-            Prep adds the structural layer your AI tools are missing.
+            RunPrep adds the structural layer your AI tools are missing.
             Imports, calls, symbol graphs — indexed in Rust, instantly served.
           </p>
 
@@ -32,7 +32,7 @@ export function NeoBrutalistHero({ isBetaMode }: { isBetaMode: boolean }) {
                 icon={Download}
                 asChild
               >
-                <a href="mailto:support@runprep.io?subject=Prep%20Beta%20Access%20Request">JOIN_BETA</a>
+                <a href="mailto:support@runprep.io?subject=RunPrep%20Beta%20Access%20Request">JOIN_BETA</a>
               </Button>
             ) : (
               <Button 

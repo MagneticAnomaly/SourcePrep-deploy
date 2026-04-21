@@ -15,7 +15,7 @@ type Story = StoryObj<typeof SiteFooter>;
 
 export const Default: Story = {
   args: {
-    productName: 'Prep',
+    productName: 'RunPrep',
     socials: {
       twitter: 'https://x.com/Prep_io',
       github: 'https://github.com/MagneticAnomaly/RunPrep-MCP',

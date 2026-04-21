@@ -42,9 +42,9 @@ export function ClientLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <SiteHeader 
-        productName="Prep" 
+        productName="RunPrep" 
         productBadge=""
-        logo={<img src="/prep-logo.png" alt="Prep" style={{ width: '3rem', height: '3rem' }} className="rounded" />}
+        logo={<img src="/prep-logo.png" alt="RunPrep" style={{ width: '3rem', height: '3rem' }} className="rounded" />}
         links={navLinks} 
         actions={
           <a 
@@ -62,8 +62,8 @@ export function ClientLayout({ children }: { children: ReactNode }) {
         {children}
       </main>
       <SiteFooter 
-        productName="Prep"
-        logo={<img src="/prep-logo.png" alt="Prep" style={{ width: '2.5rem', height: '2.5rem' }} className="rounded" />}
+        productName="RunPrep"
+        logo={<img src="/prep-logo.png" alt="RunPrep" style={{ width: '2.5rem', height: '2.5rem' }} className="rounded" />}
         sections={footerSections}
         socials={{
           twitter: 'https://x.com/Prep_io',

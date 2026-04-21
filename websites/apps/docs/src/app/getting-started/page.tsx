@@ -24,7 +24,7 @@ export default function Page() {
                <div>
                  <h3 className="font-bold text-text">The &quot;Trust Loop&quot;</h3>
                  <p className="text-sm text-text-muted mt-1">
-                   Prep runs locally. You don&apos;t need to create an account or upload code to the cloud to see it work.
+                   RunPrep runs locally. You don&apos;t need to create an account or upload code to the cloud to see it work.
                  </p>
                </div>
              </div>
@@ -32,7 +32,7 @@ export default function Page() {
 
           <AnchorHeading id="install" level="h2">1. Install</AnchorHeading>
           <p>
-            Download Prep from <a href="https://runprep.io/download" className="text-primary hover:underline">runprep.io/download</a> and install the desktop app. It&apos;s also available on the Mac App Store and Microsoft Store.
+            Download RunPrep from <a href="https://runprep.io/download" className="text-primary hover:underline">runprep.io/download</a> and install the desktop app. It&apos;s also available on the Mac App Store and Microsoft Store.
           </p>
           <p className="text-sm text-text-muted">
             See the full <a href="/getting-started/installation" className="text-primary hover:underline">Installation Guide</a> for step-by-step instructions.
@@ -40,14 +40,14 @@ export default function Page() {
 
           <AnchorHeading id="start-daemon" level="h2">2. Launch the App</AnchorHeading>
           <p>
-            Open Prep from your Applications folder (macOS) or Start Menu (Windows). The app automatically starts the background daemon that manages the Rust indexer and MCP server.
+            Open RunPrep from your Applications folder (macOS) or Start Menu (Windows). The app automatically starts the background daemon that manages the Rust indexer and MCP server.
           </p>
           <div className="not-prose my-6">
             <StoryEmbed
               storyId="console-animatedcli--project-overview"
               height={350}
-              title="Prep Dashboard Preview"
-              caption="Live preview: The Prep daemon processing a project with structural trace and semantic indexing."
+              title="RunPrep Dashboard Preview"
+              caption="Live preview: The RunPrep daemon processing a project with structural trace and semantic indexing."
             />
           </div>
           <p className="text-sm text-text-muted">
@@ -56,7 +56,7 @@ export default function Page() {
 
           <AnchorHeading id="add-repo" level="h2">3. Add Your Repo</AnchorHeading>
           <p>
-            In the Prep dashboard, click the <span className="font-semibold text-text">+</span> button in the sidebar and select your project folder. Prep will immediately start indexing (semantics + structure).
+            In the RunPrep dashboard, click the <span className="font-semibold text-text">+</span> button in the sidebar and select your project folder. RunPrep will immediately start indexing (semantics + structure).
           </p>
           <p className="text-sm text-text-muted mt-2">
             Or via CLI: <code>prep add ~/my-project --name &quot;My Project&quot;</code>
@@ -67,7 +67,7 @@ export default function Page() {
 
           <AnchorHeading id="connect-editor" level="h2">4. Connect Your Editor</AnchorHeading>
           <p>
-            Prep works best when connected to an AI code editor via MCP.
+            RunPrep works best when connected to an AI code editor via MCP.
           </p>
           
           <div className="grid sm:grid-cols-2 gap-4 not-prose my-6">
@@ -85,7 +85,7 @@ export default function Page() {
             Both editors use <span className="font-semibold text-text">stdio</span> (recommended). The MCP config tells your editor to spawn <code>prep mcp</code> as a subprocess &mdash; no URLs to configure.
           </p>
           <p className="text-sm text-text-muted mt-2">
-            <em>Advanced: For remote/containerized setups, Prep also supports SSE at <code>http://localhost:8400/mcp/sse</code>. See the <a href="/mcp" className="text-primary hover:underline">MCP reference</a> for details.</em>
+            <em>Advanced: For remote/containerized setups, RunPrep also supports SSE at <code>http://localhost:8400/mcp/sse</code>. See the <a href="/mcp" className="text-primary hover:underline">MCP reference</a> for details.</em>
           </p>
 
           <AnchorHeading id="verify" level="h2">5. Verify</AnchorHeading>

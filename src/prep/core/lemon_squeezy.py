@@ -8,8 +8,8 @@ See: SECURITY_DESIGN_DECISIONS.md §CRIT-1
 See: DISTRIBUTION_AND_REVENUE_PLAN.md §3
 
 Flow:
-  1. User buys on prep.io/pricing → LS generates UUID license key
-  2. User enters key in Prep → POST /license/activate
+  1. User buys on runprep.io/pricing → LS generates UUID license key
+  2. User enters key in RunPrep → POST /license/activate
   3. We call LS /v1/licenses/activate → get tier, expiry, instance_id
   4. Save to ~/.runprep/license.json with last_validated timestamp
   5. Every 7 days: POST /v1/licenses/validate → refresh or downgrade
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 LS_API_BASE = "https://api.lemonsqueezy.com/v1/licenses"
 
-# Map LS product variant names → Prep tiers
+# Map LS product variant names → RunPrep tiers
 # These will be configured after Eric creates the LS products (LS-01 to LS-04)
 # For now, we also support tier names directly in the license meta
 PRODUCT_TIER_MAP: Dict[str, str] = {

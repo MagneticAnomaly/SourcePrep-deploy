@@ -10,7 +10,7 @@ export default function Page() {
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Installation</h1>
         <p className="mt-4 text-lg text-text-muted">
-          Download and install the Prep desktop app on your local machine.
+          Download and install the RunPrep desktop app on your local machine.
         </p>
 
         <div className="mt-12 prose  max-w-none">
@@ -23,7 +23,7 @@ export default function Page() {
 
           <AnchorHeading id="download" level="h2" className="mt-8">Download</AnchorHeading>
           <p>
-            Prep is a native desktop application. Choose your platform:
+            RunPrep is a native desktop application. Choose your platform:
           </p>
 
           <div className="not-prose grid sm:grid-cols-2 gap-4 my-6">
@@ -48,8 +48,8 @@ export default function Page() {
           <AnchorHeading id="install-macos" level="h3" className="mt-6">macOS</AnchorHeading>
           <ol className="list-decimal pl-5 text-sm text-text-muted space-y-2">
             <li>Open the downloaded <code>.dmg</code> file.</li>
-            <li>Drag <span className="font-semibold text-text">Prep</span> into your Applications folder.</li>
-            <li>Launch Prep from Applications (or Spotlight: <code>Cmd+Space</code> → &quot;Prep&quot;).</li>
+            <li>Drag <span className="font-semibold text-text">RunPrep</span> into your Applications folder.</li>
+            <li>Launch RunPrep from Applications (or Spotlight: <code>Cmd+Space</code> → &quot;RunPrep&quot;).</li>
           </ol>
           <p className="text-sm text-text-muted mt-2">
             <em>On first launch, macOS may ask you to confirm the app is from an identified developer. Click &quot;Open&quot; to proceed.</em>
@@ -59,12 +59,12 @@ export default function Page() {
           <ol className="list-decimal pl-5 text-sm text-text-muted space-y-2">
             <li>Run the downloaded <code>.msi</code> installer.</li>
             <li>Follow the installation wizard (default settings are fine).</li>
-            <li>Launch Prep from the Start Menu or Desktop shortcut.</li>
+            <li>Launch RunPrep from the Start Menu or Desktop shortcut.</li>
           </ol>
 
           <AnchorHeading id="verify" level="h2" className="mt-8">Verify Installation</AnchorHeading>
           <p>
-            When you launch Prep, it automatically starts the background daemon. You should see the dashboard
+            When you launch RunPrep, it automatically starts the background daemon. You should see the dashboard
             appear with a green &quot;Connected&quot; status.
           </p>
           <p className="text-sm text-text-muted mt-2">
@@ -76,18 +76,18 @@ export default function Page() {
 
           <AnchorHeading id="licensing" level="h2" className="mt-8">Licensing</AnchorHeading>
           <p>
-            Prep is <span className="font-semibold text-text">free to use</span> with up to 3 active projects and all features included. To unlock unlimited projects, purchase a license at{' '}
+            RunPrep is <span className="font-semibold text-text">free to use</span> with up to 3 active projects and all features included. To unlock unlimited projects, purchase a license at{' '}
             <a href="https://runprep.io/pricing" className="text-primary hover:underline">runprep.io/pricing</a>.
           </p>
           <p className="text-sm text-text-muted mt-2">
             Payments are processed by <span className="font-semibold text-text">Lemon Squeezy</span> (our Merchant of Record). After purchase,
             enter your license key in the app to activate. Activation requires a one-time internet connection;
-            after that, Prep works fully offline.
+            after that, RunPrep works fully offline.
           </p>
 
           <AnchorHeading id="upgrading" level="h2" className="mt-8">Upgrading</AnchorHeading>
           <p>
-            Prep checks for updates automatically and notifies you when a new version is available.
+            RunPrep checks for updates automatically and notifies you when a new version is available.
             You can also download the latest version from{' '}
             <a href="https://runprep.io/download" className="text-primary hover:underline">runprep.io/download</a>.
           </p>

@@ -68,8 +68,8 @@ export default function Page() {
                   </h2>
                   <div className="max-w-none">
                     <p className="text-lg leading-relaxed border-l-4 border-border pl-6 py-2 text-text-muted">
-                      These Terms of Service (&ldquo;Terms&rdquo;) govern your use of Prep software
-                      and related services provided by Prep Inc. By downloading, installing, or using Prep, you agree to these Terms.
+                      These Terms of Service (&ldquo;Terms&rdquo;) govern your use of RunPrep software
+                      and related services provided by RunPrep Inc. By downloading, installing, or using RunPrep, you agree to these Terms.
                     </p>
                   </div>
                 </section>
@@ -90,7 +90,7 @@ export default function Page() {
                     <div className="border border-border p-6 rounded-sm bg-surface-raised">
                        <h3 className="font-bold text-text mb-2">Paid Licenses (Pro / Team)</h3>
                        <p className="text-sm text-text-muted mb-4">
-                         Grants non-exclusive, non-transferable right to use Prep on specified number of machines.
+                         Grants non-exclusive, non-transferable right to use RunPrep on specified number of machines.
                        </p>
                        <ul className="space-y-2 text-xs font-mono text-text-subtle">
                          <li>- Pro (one-time): Perpetual license, does not expire.</li>
@@ -112,7 +112,7 @@ export default function Page() {
                     <span className="font-mono text-primary text-sm bg-primary/10 px-2 py-1 rounded">03.</span> Data Sovereignty
                   </h2>
                   <p className="text-sm text-text-muted leading-relaxed">
-                    Prep processes your source code entirely on your local machine. We do not
+                    RunPrep processes your source code entirely on your local machine. We do not
                     access, collect, or store your source code, index data, or AI-generated output.
                     See our <a href="/security#data-collection" className="text-primary underline">Privacy Policy</a> for details.
                   </p>

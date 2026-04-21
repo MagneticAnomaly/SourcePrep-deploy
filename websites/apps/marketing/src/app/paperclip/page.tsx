@@ -4,9 +4,9 @@ import { DetailPageLayout } from '@prep/ui';
 import { GitBranch, Zap, RefreshCw, ArrowRight } from 'lucide-react';
 
 const SECTIONS = [
-  { id: 'why', label: 'Why Paperclip + Prep' },
+  { id: 'why', label: 'Why Paperclip + RunPrep' },
   { id: 'hybrid', label: 'Hybrid Integration' },
-  { id: 'addresses', label: 'Prep Addresses' },
+  { id: 'addresses', label: 'RunPrep Addresses' },
   { id: 'auto-push', label: 'Auto-Push Findings' },
   { id: 'agents', label: 'Agent Intelligence' },
 ];
@@ -16,7 +16,7 @@ export default function PaperclipPage() {
     <DetailPageLayout
       title="Paperclip Integration"
       subtitle="Agent Orchestration"
-      description="Prep is the knowledge backbone for Paperclip's autonomous agent teams — providing structural codebase intelligence that agents use to understand, plan, and execute."
+      description="RunPrep is the knowledge backbone for Paperclip's autonomous agent teams — providing structural codebase intelligence that agents use to understand, plan, and execute."
       badge="Integration"
       sections={SECTIONS}
       docsUrl="https://docs.runprep.io/integrations/paperclip"
@@ -24,11 +24,11 @@ export default function PaperclipPage() {
     >
       {/* Why */}
       <section id="why">
-        <h2 className="text-2xl font-semibold text-text mb-4">Why Paperclip + Prep</h2>
+        <h2 className="text-2xl font-semibold text-text mb-4">Why Paperclip + RunPrep</h2>
         <p className="text-text-muted leading-relaxed mb-6">
           Paperclip orchestrates autonomous agent teams — hiring AI agents to work on goals, issues, and routines.
           But agents working without codebase knowledge make shallow changes and miss architectural context.
-          Prep gives every Paperclip agent deep structural awareness of the codebase they're working in.
+          RunPrep gives every Paperclip agent deep structural awareness of the codebase they're working in.
         </p>
         <div className="grid sm:grid-cols-3 gap-4">
           {[
@@ -49,12 +49,12 @@ export default function PaperclipPage() {
       <section id="hybrid">
         <h2 className="text-2xl font-semibold text-text mb-4">Hybrid MCP + REST Architecture</h2>
         <p className="text-text-muted leading-relaxed mb-6">
-          Prep connects to Paperclip through two complementary layers, giving agents both on-demand intelligence and proactive discovery.
+          RunPrep connects to Paperclip through two complementary layers, giving agents both on-demand intelligence and proactive discovery.
         </p>
         <div className="grid sm:grid-cols-2 gap-6">
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-6">
             <h3 className="font-mono font-bold text-sm text-primary mb-2">Pull: MCP Server</h3>
-            <p className="text-sm text-text-muted mb-3">Agents call Prep tools on demand during their work.</p>
+            <p className="text-sm text-text-muted mb-3">Agents call RunPrep tools on demand during their work.</p>
             <ul className="text-xs text-text-muted space-y-1.5 font-mono">
               <li>prep — structural overview</li>
               <li>prep_search — semantic search</li>
@@ -66,7 +66,7 @@ export default function PaperclipPage() {
           </div>
           <div className="rounded-lg border border-border bg-surface p-6">
             <h3 className="font-mono font-bold text-sm text-text mb-2">Push: REST API</h3>
-            <p className="text-sm text-text-muted mb-3">Prep proactively pushes discoveries to Paperclip.</p>
+            <p className="text-sm text-text-muted mb-3">RunPrep proactively pushes discoveries to Paperclip.</p>
             <ul className="text-xs text-text-muted space-y-1.5">
               <li>Audit findings become Paperclip issues</li>
               <li>Coupling hotspots become refactoring goals</li>
@@ -77,11 +77,11 @@ export default function PaperclipPage() {
         </div>
       </section>
 
-      {/* Prep Addresses */}
+      {/* RunPrep Addresses */}
       <section id="addresses">
-        <h2 className="text-2xl font-semibold text-text mb-4">Prep Addresses</h2>
+        <h2 className="text-2xl font-semibold text-text mb-4">RunPrep Addresses</h2>
         <p className="text-text-muted leading-relaxed mb-4">
-          Every finding pushed to Paperclip carries a Prep address — a stable URI that agents can use to verify freshness and fetch updated context at work-time.
+          Every finding pushed to Paperclip carries a RunPrep address — a stable URI that agents can use to verify freshness and fetch updated context at work-time.
         </p>
         <div className="rounded-lg border border-border bg-[#0d1117] p-4 font-mono text-sm">
           <div className="text-[#8b949e] mb-2">{"// Agent verifies a finding before acting on it:"}</div>
@@ -97,7 +97,7 @@ export default function PaperclipPage() {
       <section id="auto-push">
         <h2 className="text-2xl font-semibold text-text mb-4">Auto-Push Findings</h2>
         <p className="text-text-muted leading-relaxed mb-4">
-          Prep's background intelligence engine (Pi Agent) continuously discovers structural issues and pushes them to Paperclip as actionable items — grouped by module or category.
+          RunPrep's background intelligence engine (Pi Agent) continuously discovers structural issues and pushes them to Paperclip as actionable items — grouped by module or category.
         </p>
         <div className="space-y-3">
           {[
@@ -125,7 +125,7 @@ export default function PaperclipPage() {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-background hover:bg-primary-hover transition-colors"
         >
-          Set up Paperclip + Prep <ArrowRight className="w-4 h-4" />
+          Set up Paperclip + RunPrep <ArrowRight className="w-4 h-4" />
         </a>
       </section>
     </DetailPageLayout>

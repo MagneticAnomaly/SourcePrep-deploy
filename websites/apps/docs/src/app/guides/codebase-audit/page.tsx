@@ -31,7 +31,7 @@ export default function Page() {
             you want insights, not on every file change.
           </p>
           <p className="mt-4">
-            <strong>AutoAudit V2</strong> transforms Prep from a "passive observer" into an "active taskmaster". Findings are categorized into flat tabs (Architecture, Quality, Coverage, Tech Debt), prioritized, and include concrete actionable items. You can select findings and click <strong>"Copy AI Command"</strong> to instantly hand off the context assembly to your AI via MCP.
+            <strong>AutoAudit V2</strong> transforms RunPrep from a "passive observer" into an "active taskmaster". Findings are categorized into flat tabs (Architecture, Quality, Coverage, Tech Debt), prioritized, and include concrete actionable items. You can select findings and click <strong>"Copy AI Command"</strong> to instantly hand off the context assembly to your AI via MCP.
           </p>
 
           <div className="not-prose my-8">
@@ -245,7 +245,7 @@ prep audit --category architecture`}</code></pre>
 /path/to/project/.runprep/audit/
   └── (same files)`}</code></pre>
           <p>
-            These files are also indexed by Prep&apos;s search engine, so you can
+            These files are also indexed by RunPrep&apos;s search engine, so you can
             query them via <code>prep_search</code> (e.g., &quot;what tech debt
             exists in the auth module?&quot;).
           </p>
@@ -317,7 +317,7 @@ prep audit --category architecture`}</code></pre>
             <li>The enrichment pipeline runs (stages 1–11) and produces trace_nodes, trace_augmented, trace_epistemic, trace_modules, and atlas.json.</li>
             <li>You run <code>prep audit</code> when you want insights. The audit reads all that data and produces findings + reports.</li>
             <li>If <code>auto_run_after_deep</code> is enabled, Tier 1 analyzers run automatically when deep enrichment completes.</li>
-            <li>Audit reports are indexed by Prep&apos;s search engine and served via MCP, so your AI tools can access them.</li>
+            <li>Audit reports are indexed by RunPrep&apos;s search engine and served via MCP, so your AI tools can access them.</li>
           </ol>
         </div>
       </div>

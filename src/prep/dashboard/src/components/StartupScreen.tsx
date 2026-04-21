@@ -122,7 +122,7 @@ export function StartupScreen({ apiBaseUrl, onReady, timeoutMs = 30000, stage: e
             {/* Transparent Logo */}
             <img 
               src="/prep-logo.png" 
-              alt="Prep Logo" 
+              alt="RunPrep Logo" 
               className="w-16 h-16 object-contain animate-loading-pulse-fast"
               style={{ filter: 'drop-shadow(0 0 15px hsl(var(--primary) / 0.5))' }}
             />
@@ -136,7 +136,7 @@ export function StartupScreen({ apiBaseUrl, onReady, timeoutMs = 30000, stage: e
               letterSpacing: '-0.04em'
             }}
           >
-            Prep
+            RunPrep
           </h1>
           
           <div className="flex flex-col items-center space-y-6">
@@ -186,7 +186,7 @@ export function StartupScreen({ apiBaseUrl, onReady, timeoutMs = 30000, stage: e
         </div>
         <h2 className="text-xl font-bold text-text mb-2">Backend Connection Failed</h2>
         <p className="text-text-muted mb-6">
-          {errorMsg || 'Could not connect to the Prep daemon.'}
+          {errorMsg || 'Could not connect to the RunPrep daemon.'}
         </p>
         
         <div className="flex gap-3 justify-center">

@@ -136,7 +136,7 @@ async function sendNotification(reportId: string, report: BugReportPayload): Pro
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'Prep Bug Reports <bugs@runprep.io>',
+        from: 'RunPrep Bug Reports <bugs@runprep.io>',
         to: [toAddress],
         reply_to: report.reporter.email,
         subject,
@@ -245,7 +245,7 @@ export async function POST(request: NextRequest) {
       success: true,
       report_id: reportId,
       email_sent: emailSent,
-      message: 'Bug report received. Thank you for helping improve Prep!',
+      message: 'Bug report received. Thank you for helping improve RunPrep!',
     },
     { status: 200, headers },
   );

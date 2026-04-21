@@ -27,14 +27,14 @@ export function SwissHero({ isBetaMode }: { isBetaMode: boolean }) {
         <div className="col-span-12 md:col-span-4 bg-primary p-8 flex flex-col justify-between text-background">
           <div className="text-6xl font-bold"><LayoutGrid className="w-16 h-16" /></div>
           <div className="space-y-4">
-            <p className="text-2xl font-medium">Prep v1.0</p>
+            <p className="text-2xl font-medium">RunPrep v1.0</p>
             <p className="opacity-80">Structural codebase intelligence for Cursor, Windsurf, and Claude Desktop.</p>
             <Button 
               className="mt-8 bg-white text-primary rounded-full font-bold w-full flex items-center justify-between group hover:bg-white/90 border-none"
               asChild
             >
               {isBetaMode ? (
-                <a href="mailto:support@runprep.io?subject=Prep%20Beta%20Access%20Request">
+                <a href="mailto:support@runprep.io?subject=RunPrep%20Beta%20Access%20Request">
                   Request Beta <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </a>
               ) : (

@@ -8,7 +8,7 @@ export default function Page() {
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Core Concepts</h1>
         <p className="mt-4 text-xl text-text-muted">
-          Understanding how Prep processes and serves code context.
+          Understanding how RunPrep processes and serves code context.
         </p>
 
         <div className="mt-12 space-y-6">
@@ -40,7 +40,7 @@ export default function Page() {
           >
             <h2 className="text-xl font-semibold">Context Assembly</h2>
             <p className="mt-2 text-sm text-text-muted">
-              How Prep combines search results, trace neighbors, and path weights into a
+              How RunPrep combines search results, trace neighbors, and path weights into a
               single optimized prompt payload for LLMs.
             </p>
           </a>

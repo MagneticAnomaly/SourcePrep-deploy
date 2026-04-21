@@ -27,7 +27,7 @@ export function LicensePage({
     <SettingsPage
       title="License"
       scope="global"
-      description="Your Prep license tier and activation key."
+      description="Your RunPrep license tier and activation key."
     >
       <Section>
         <div className="space-y-3 p-1">

@@ -25,9 +25,9 @@ const competitors: Competitor[] = [
 ];
 
 const tandemTools = [
-  { id: 'cursor', name: 'Cursor', category: 'AI IDE', desc: 'Connect Prep via MCP to give Cursor perfect project-wide context without copying files.' },
-  { id: 'windsurf', name: 'Windsurf', category: 'AI IDE', desc: 'Windsurf agents use Prep to autonomously navigate the trace graph before editing.' },
-  { id: 'cline', name: 'Cline / Roo', category: 'VS Code Extension', desc: 'Stop dropping raw files into context. Give your agent the Prep LOD capsule instead.' },
+  { id: 'cursor', name: 'Cursor', category: 'AI IDE', desc: 'Connect RunPrep via MCP to give Cursor perfect project-wide context without copying files.' },
+  { id: 'windsurf', name: 'Windsurf', category: 'AI IDE', desc: 'Windsurf agents use RunPrep to autonomously navigate the trace graph before editing.' },
+  { id: 'cline', name: 'Cline / Roo', category: 'VS Code Extension', desc: 'Stop dropping raw files into context. Give your agent the RunPrep LOD capsule instead.' },
   { id: 'claude', name: 'Claude Code', category: 'CLI Agent', desc: "Supercharge Anthropic's CLI with blazing-fast local ONNX semantic routing." },
 ];
 
@@ -59,38 +59,38 @@ const matrixData: FeatureRow[] = [
         prep: {
           text: 'Native Rust Engine\n(Tree-sitter)',
           status: 'full',
-          detail: "Prep's Rust-native parser uses Tree-sitter to build a complete structural trace graph offline. Unlike tools that depend on an active IDE or LSP server, Prep works headlessly \u2014 in CI/CD, on servers, or anywhere Rust runs. The parser handles 15+ languages and produces call-graph, import, and containment edges in a single pass.",
+          detail: "RunPrep's Rust-native parser uses Tree-sitter to build a complete structural trace graph offline. Unlike tools that depend on an active IDE or LSP server, RunPrep works headlessly \u2014 in CI/CD, on servers, or anywhere Rust runs. The parser handles 15+ languages and produces call-graph, import, and containment edges in a single pass.",
         },
         competitors: {
           gitnexus: {
             text: 'Node.js\n/WASM',
             status: 'partial',
-            detail: "GitNexus uses a Node.js/WASM architecture with Tree-sitter running in JavaScript. This works well for smaller repos, and their browser-based WASM option is genuinely innovative \u2014 zero installation needed. However, the Node.js runtime adds overhead for large codebases, and the browser sandbox limits memory. Prep's native Rust engine is significantly faster for repos over 10K files.",
+            detail: "GitNexus uses a Node.js/WASM architecture with Tree-sitter running in JavaScript. This works well for smaller repos, and their browser-based WASM option is genuinely innovative \u2014 zero installation needed. However, the Node.js runtime adds overhead for large codebases, and the browser sandbox limits memory. RunPrep's native Rust engine is significantly faster for repos over 10K files.",
           },
           vexp: {
             text: 'SQLite\n/Tree-sitter',
             status: 'partial',
-            detail: "Vexp builds an AST graph using Tree-sitter stored in SQLite. This is a solid, well-engineered approach \u2014 fast for moderate repos and tightly integrated with VS Code. However, Vexp is locked to VS Code as its distribution mechanism. Prep's standalone daemon works with any editor via MCP, can run headlessly for CI/CD team builds, and enriches the graph with LLM-inferred edges beyond what static parsing provides.",
+            detail: "Vexp builds an AST graph using Tree-sitter stored in SQLite. This is a solid, well-engineered approach \u2014 fast for moderate repos and tightly integrated with VS Code. However, Vexp is locked to VS Code as its distribution mechanism. RunPrep's standalone daemon works with any editor via MCP, can run headlessly for CI/CD team builds, and enriches the graph with LLM-inferred edges beyond what static parsing provides.",
           },
           empirica: {
             text: 'Git Notes\n/No Graph',
             status: 'none',
-            detail: "Empirica doesn't build a code graph at all. It focuses on epistemic state tracking via git notes \u2014 a fundamentally different philosophy. This is powerful for agent coordination and tracking what the AI thinks it knows, but provides no structural understanding of how the codebase is organized. Prep combines structural graph analysis with epistemic enrichment, giving you both.",
+            detail: "Empirica doesn't build a code graph at all. It focuses on epistemic state tracking via git notes \u2014 a fundamentally different philosophy. This is powerful for agent coordination and tracking what the AI thinks it knows, but provides no structural understanding of how the codebase is organized. RunPrep combines structural graph analysis with epistemic enrichment, giving you both.",
           },
           serena: {
             text: 'Active\nLSP Server',
             status: 'partial',
-            detail: "Serena delegates all parsing to an active Language Server running in your IDE. This gives perfect type-resolved accuracy when the LSP is available \u2014 genuinely better than static analysis for type inference. However, it fails when the server isn't running, isn't configured for your language, or in headless environments. Prep's offline Rust parser works without any running IDE process and produces a persistent graph that survives restarts.",
+            detail: "Serena delegates all parsing to an active Language Server running in your IDE. This gives perfect type-resolved accuracy when the LSP is available \u2014 genuinely better than static analysis for type inference. However, it fails when the server isn't running, isn't configured for your language, or in headless environments. RunPrep's offline Rust parser works without any running IDE process and produces a persistent graph that survives restarts.",
           },
           grepai: {
             text: 'Text Index',
             status: 'none',
-            detail: "Grepai builds a basic text index for semantic search but doesn't parse code structure at all. There are no call-graph edges, no containment relationships, and no module boundaries. It's a powerful search tool, but Prep provides full structural understanding on top of semantic search.",
+            detail: "Grepai builds a basic text index for semantic search but doesn't parse code structure at all. There are no call-graph edges, no containment relationships, and no module boundaries. It's a powerful search tool, but RunPrep provides full structural understanding on top of semantic search.",
           },
           bloop: {
             text: 'Rust\n(Tree-sitter)',
             status: 'full',
-            detail: "bloop also uses a Rust-native Tree-sitter parser, matching Prep's parsing quality and speed. Their AST analysis is solid and well-engineered \u2014 credit where it's due. Where Prep differentiates is in what happens after parsing: Prep enriches the graph with LLM-inferred edges, epistemic understanding scores, and continuous deep analysis that evolves over time.",
+            detail: "bloop also uses a Rust-native Tree-sitter parser, matching RunPrep's parsing quality and speed. Their AST analysis is solid and well-engineered \u2014 credit where it's due. Where RunPrep differentiates is in what happens after parsing: RunPrep enriches the graph with LLM-inferred edges, epistemic understanding scores, and continuous deep analysis that evolves over time.",
           },
         },
       },
@@ -101,18 +101,18 @@ const matrixData: FeatureRow[] = [
         prep: {
           text: 'Local ONNX Embeddings\n+ BM25',
           status: 'full',
-          detail: "Prep combines local ONNX embeddings (nomic-embed-text-v1.5) with BM25 keyword search in a hybrid architecture. Semantic search handles conceptual queries ('find the authentication flow') while BM25 catches exact identifiers ('handleLogin'). Everything runs 100% locally with no cloud dependency \u2014 embedding latency is ~7ms per query. Intent-aware routing automatically picks the best strategy per query.",
+          detail: "RunPrep combines local ONNX embeddings (nomic-embed-text-v1.5) with BM25 keyword search in a hybrid architecture. Semantic search handles conceptual queries ('find the authentication flow') while BM25 catches exact identifiers ('handleLogin'). Everything runs 100% locally with no cloud dependency \u2014 embedding latency is ~7ms per query. Intent-aware routing automatically picks the best strategy per query.",
         },
         competitors: {
           gitnexus: {
             text: 'KuzuDB\n/FTS',
             status: 'partial',
-            detail: "GitNexus uses KuzuDB (an embedded graph database with vector support) and full-text search. This is a capable architecture, especially strong for graph traversal queries like 'what calls this function?' GitNexus deserves credit for integrating graph-native vector search. Prep's advantage is the hybrid BM25+ONNX approach with intent-aware routing that automatically detects whether a query needs semantic, structural, or trace-based search.",
+            detail: "GitNexus uses KuzuDB (an embedded graph database with vector support) and full-text search. This is a capable architecture, especially strong for graph traversal queries like 'what calls this function?' GitNexus deserves credit for integrating graph-native vector search. RunPrep's advantage is the hybrid BM25+ONNX approach with intent-aware routing that automatically detects whether a query needs semantic, structural, or trace-based search.",
           },
           vexp: {
             text: 'FTS5 + TF-IDF\n(No Embeddings)',
             status: 'partial',
-            detail: "Vexp explicitly avoids embeddings, using FTS5 + TF-IDF + graph centrality instead. They position this as faster and simpler, and for exact keyword matches, it works very well. But TF-IDF fundamentally cannot match 'authentication' to 'login' \u2014 it only finds literal string overlaps. Prep's ONNX embeddings handle conceptual similarity while still being fully local and completing in under 10ms.",
+            detail: "Vexp explicitly avoids embeddings, using FTS5 + TF-IDF + graph centrality instead. They position this as faster and simpler, and for exact keyword matches, it works very well. But TF-IDF fundamentally cannot match 'authentication' to 'login' \u2014 it only finds literal string overlaps. RunPrep's ONNX embeddings handle conceptual similarity while still being fully local and completing in under 10ms.",
           },
           empirica: {
             text: 'Git Commit\nHashes',
@@ -122,17 +122,17 @@ const matrixData: FeatureRow[] = [
           serena: {
             text: 'LSP\nQueries',
             status: 'none',
-            detail: "Serena queries the running Language Server for symbol lookups (find_symbol, find_references). This gives perfect accuracy for structured queries but cannot handle natural language or conceptual searches. You can ask 'find all callers of handleLogin' but not 'find the authentication flow.' Prep handles both structured and natural language queries.",
+            detail: "Serena queries the running Language Server for symbol lookups (find_symbol, find_references). This gives perfect accuracy for structured queries but cannot handle natural language or conceptual searches. You can ask 'find all callers of handleLogin' but not 'find the authentication flow.' RunPrep handles both structured and natural language queries.",
           },
           grepai: {
             text: 'Local\nSemantic Index',
             status: 'partial',
-            detail: "Grepai provides solid local semantic search with a privacy-first local embedding index. It handles natural language queries well and has clean MCP integration. However, it's purely a search tool \u2014 no graph traversal, no trace expansion, no module-aware routing. Prep layers semantic search on top of a full trace graph that understands call relationships and module boundaries.",
+            detail: "Grepai provides solid local semantic search with a privacy-first local embedding index. It handles natural language queries well and has clean MCP integration. However, it's purely a search tool \u2014 no graph traversal, no trace expansion, no module-aware routing. RunPrep layers semantic search on top of a full trace graph that understands call relationships and module boundaries.",
           },
           bloop: {
             text: 'Local Qdrant\n/Vector',
             status: 'partial',
-            detail: "bloop uses Qdrant (a local vector database) for semantic search. Their approach is well-engineered and handles semantic queries effectively. Prep's advantage is the hybrid BM25+ONNX approach combined with intent-aware routing and trace-based expansion \u2014 when a function is found, Prep automatically includes its callers, callees, and module context.",
+            detail: "bloop uses Qdrant (a local vector database) for semantic search. Their approach is well-engineered and handles semantic queries effectively. RunPrep's advantage is the hybrid BM25+ONNX approach combined with intent-aware routing and trace-based expansion \u2014 when a function is found, RunPrep automatically includes its callers, callees, and module context.",
           },
         },
       },
@@ -148,28 +148,28 @@ const matrixData: FeatureRow[] = [
         prep: {
           text: 'LOD Capsule\nContext',
           status: 'full',
-          detail: "Prep delivers LOD capsule context: full source for focal nodes, signatures+docstrings for adjacent nodes, and module summaries for distant context. This gives the AI a natural zoom-in/zoom-out perspective that mirrors how human developers understand code. The result is rich, structured context that maximizes signal per token.",
+          detail: "RunPrep delivers LOD capsule context: full source for focal nodes, signatures+docstrings for adjacent nodes, and module summaries for distant context. This gives the AI a natural zoom-in/zoom-out perspective that mirrors how human developers understand code. The result is rich, structured context that maximizes signal per token.",
         },
         competitors: {
           gitnexus: {
             text: 'Precomputed\nRaw Graph Data',
             status: 'partial',
-            detail: "GitNexus precomputes clusters and execution flows, then returns the raw graph data. This is more structured than sending raw files \u2014 the AI gets relational context instead of flat text. However, the AI still needs to parse the graph relationships itself. Prep pre-assembles the context into human-readable capsules so the AI doesn't waste tokens interpreting graph structure.",
+            detail: "GitNexus precomputes clusters and execution flows, then returns the raw graph data. This is more structured than sending raw files \u2014 the AI gets relational context instead of flat text. However, the AI still needs to parse the graph relationships itself. RunPrep pre-assembles the context into human-readable capsules so the AI doesn't waste tokens interpreting graph structure.",
           },
           vexp: {
             text: 'Capsule\nContext',
             status: 'full',
-            detail: "Vexp implements capsule context very similarly to Prep \u2014 full source for pivot nodes, signatures for neighbors. Credit where it's due: this is one of the closest approaches to Prep's LOD system and validates the core idea. The difference is Prep's dual-engine compression (LOD for code, LLMLingua-2 for docs) and module-summary injection, which provide additional layers of context beyond what Vexp includes, plus Prep's dashboard lets you visually inspect the assembled capsule before it's sent.",
+            detail: "Vexp implements capsule context very similarly to RunPrep \u2014 full source for pivot nodes, signatures for neighbors. Credit where it's due: this is one of the closest approaches to RunPrep's LOD system and validates the core idea. The difference is RunPrep's dual-engine compression (LOD for code, LLMLingua-2 for docs) and module-summary injection, which provide additional layers of context beyond what Vexp includes, plus RunPrep's dashboard lets you visually inspect the assembled capsule before it's sent.",
           },
           empirica: {
             text: 'Reasoning\nCheckpoints',
             status: 'partial',
-            detail: "Empirica delivers epistemic reasoning checkpoints \u2014 what the agent knew, what it learned, what changed. This is valuable for agent coordination but is orthogonal to code context delivery. It tells the agent about its own state, not about the codebase structure. Both types of context are useful; Prep focuses on the code side.",
+            detail: "Empirica delivers epistemic reasoning checkpoints \u2014 what the agent knew, what it learned, what changed. This is valuable for agent coordination but is orthogonal to code context delivery. It tells the agent about its own state, not about the codebase structure. Both types of context are useful; RunPrep focuses on the code side.",
           },
           serena: {
             text: 'Raw\nSymbol Matches',
             status: 'none',
-            detail: "Serena returns raw symbol definitions and references from the LSP. These are accurate but uncompressed \u2014 you get the full function body, all references, with no prioritization or level-of-detail control. Prep's LOD compression ensures the AI receives the right level of detail for each piece of context based on its distance from the focal point.",
+            detail: "Serena returns raw symbol definitions and references from the LSP. These are accurate but uncompressed \u2014 you get the full function body, all references, with no prioritization or level-of-detail control. RunPrep's LOD compression ensures the AI receives the right level of detail for each piece of context based on its distance from the focal point.",
           },
           grepai: {
             text: 'Raw\nFile Chunks',
@@ -190,18 +190,18 @@ const matrixData: FeatureRow[] = [
         prep: {
           text: 'Dual-Engine\nCompression (3\u201320x)',
           status: 'full',
-          detail: "Prep achieves 3\u201320x token compression through a dual-engine approach: LOD-based structural compression for code (signatures instead of full bodies) and LLMLingua-2 token pruning for documentation (~2.4\u00d7). The compression level adapts dynamically per query and per client tier \u2014 Claude/Gemini get more full-source files, local models get tighter compression to fit constrained windows.",
+          detail: "RunPrep achieves 3\u201320x token compression through a dual-engine approach: LOD-based structural compression for code (signatures instead of full bodies) and LLMLingua-2 token pruning for documentation (~2.4\u00d7). The compression level adapts dynamically per query and per client tier \u2014 Claude/Gemini get more full-source files, local models get tighter compression to fit constrained windows.",
         },
         competitors: {
           gitnexus: {
             text: 'High\n(via Precomputation)',
             status: 'partial',
-            detail: "GitNexus achieves high efficiency through precomputation \u2014 complex graph queries are resolved before the AI asks, so the response is already focused. This is a legitimate efficiency win that we respect. However, the precomputed responses are static and can't adapt their compression level based on the specific query. Prep dynamically adjusts LOD per query, compressing more aggressively for broad questions and less for targeted ones.",
+            detail: "GitNexus achieves high efficiency through precomputation \u2014 complex graph queries are resolved before the AI asks, so the response is already focused. This is a legitimate efficiency win that we respect. However, the precomputed responses are static and can't adapt their compression level based on the specific query. RunPrep dynamically adjusts LOD per query, compressing more aggressively for broad questions and less for targeted ones.",
           },
           vexp: {
             text: 'High\n(Signature Only)',
             status: 'partial',
-            detail: "Vexp achieves good efficiency by returning only signatures for non-focal nodes. This is the same core strategy as Prep's LOD system, and it works well. Vexp's compression is query-adaptive and effective. Prep's additional edge comes from dual-engine compression (LOD for code, LLMLingua-2 for docs), module-summary injection, tier-adaptive LOD thresholds, and the BM25+semantic scoring that better prioritizes which nodes to include at all.",
+            detail: "Vexp achieves good efficiency by returning only signatures for non-focal nodes. This is the same core strategy as RunPrep's LOD system, and it works well. Vexp's compression is query-adaptive and effective. RunPrep's additional edge comes from dual-engine compression (LOD for code, LLMLingua-2 for docs), module-summary injection, tier-adaptive LOD thresholds, and the BM25+semantic scoring that better prioritizes which nodes to include at all.",
           },
           empirica: {
             text: 'Low\n(State Dumps)',
@@ -237,7 +237,7 @@ const matrixData: FeatureRow[] = [
         prep: {
           text: 'Flexible AI Pipeline\n(Cloud BYOK or Local)',
           status: 'full',
-          detail: "Prep uses local or bring-your-own-key LLMs to continuously augment the structural trace graph with deep semantic understanding. The pipeline generates module summaries, infers cross-module relationships, computes understanding scores, and validates edge correctness \u2014 all automatically. This is not simple indexing: it's a multi-stage epistemic enrichment process where each pass deepens the AI's comprehension. You can run it with a local Ollama model for zero-cloud privacy, or use your own OpenAI/Anthropic key for maximum quality.",
+          detail: "RunPrep uses local or bring-your-own-key LLMs to continuously augment the structural trace graph with deep semantic understanding. The pipeline generates module summaries, infers cross-module relationships, computes understanding scores, and validates edge correctness \u2014 all automatically. This is not simple indexing: it's a multi-stage epistemic enrichment process where each pass deepens the AI's comprehension. You can run it with a local Ollama model for zero-cloud privacy, or use your own OpenAI/Anthropic key for maximum quality.",
         },
         competitors: {
           gitnexus: {
@@ -253,7 +253,7 @@ const matrixData: FeatureRow[] = [
           empirica: {
             text: 'Agent-Driven\nLLM Assessment',
             status: 'partial',
-            detail: "Empirica uses LLM calls during its pre/postflight epistemic assessments \u2014 agents evaluate their own knowledge before and after tasks. This is a form of LLM augmentation, but it's focused on the agent's self-awareness rather than enriching a code knowledge graph. It doesn't generate module summaries or infer structural relationships. Prep's approach augments the graph itself, while Empirica augments the agent's understanding of its own state.",
+            detail: "Empirica uses LLM calls during its pre/postflight epistemic assessments \u2014 agents evaluate their own knowledge before and after tasks. This is a form of LLM augmentation, but it's focused on the agent's self-awareness rather than enriching a code knowledge graph. It doesn't generate module summaries or infer structural relationships. RunPrep's approach augments the graph itself, while Empirica augments the agent's understanding of its own state.",
           },
           serena: {
             text: 'None\n(LSP Only)',
@@ -279,7 +279,7 @@ const matrixData: FeatureRow[] = [
         prep: {
           text: 'Trace Epistemology\nPipeline',
           status: 'full',
-          detail: "Prep's Trace Epistemology Pipeline continuously enriches the knowledge graph: deep analysis generates module summaries, cross-module relationship analysis, and understanding scores. Each pipeline run builds on previous results, and the file watcher triggers incremental re-enrichment when code changes. The result is a knowledge base that gets measurably smarter over time \u2014 visible in the dashboard's health scores.",
+          detail: "RunPrep's Trace Epistemology Pipeline continuously enriches the knowledge graph: deep analysis generates module summaries, cross-module relationship analysis, and understanding scores. Each pipeline run builds on previous results, and the file watcher triggers incremental re-enrichment when code changes. The result is a knowledge base that gets measurably smarter over time \u2014 visible in the dashboard's health scores.",
         },
         competitors: {
           gitnexus: {
@@ -290,12 +290,12 @@ const matrixData: FeatureRow[] = [
           vexp: {
             text: 'Session\nMemory',
             status: 'partial',
-            detail: "Vexp supports session memory \u2014 agents can save observations attached to graph nodes, and these persist across sessions. This is a thoughtful feature that enables incremental learning. However, it relies entirely on the agent to drive enrichment by writing good observations. Prep's pipeline runs automatically in the background with no agent involvement needed, producing structured module summaries and understanding scores.",
+            detail: "Vexp supports session memory \u2014 agents can save observations attached to graph nodes, and these persist across sessions. This is a thoughtful feature that enables incremental learning. However, it relies entirely on the agent to drive enrichment by writing good observations. RunPrep's pipeline runs automatically in the background with no agent involvement needed, producing structured module summaries and understanding scores.",
           },
           empirica: {
             text: 'Git-Native\nPre/Postflight',
             status: 'full',
-            detail: "Empirica genuinely excels here. Its pre/postflight system has agents assess their knowledge before and after tasks, storing these assessments in git notes for version-controlled epistemic continuity. This creates real cross-session learning. Prep's pipeline is more automated (no agent involvement needed) and produces structured graph enrichment, but Empirica's approach to tracking what the agent thinks it knows is innovative and we tip our hat to it.",
+            detail: "Empirica genuinely excels here. Its pre/postflight system has agents assess their knowledge before and after tasks, storing these assessments in git notes for version-controlled epistemic continuity. This creates real cross-session learning. RunPrep's pipeline is more automated (no agent involvement needed) and produces structured graph enrichment, but Empirica's approach to tracking what the agent thinks it knows is innovative and we tip our hat to it.",
           },
           serena: {
             text: 'None',
@@ -321,7 +321,7 @@ const matrixData: FeatureRow[] = [
         prep: {
           text: 'Automated via\nWatcher & Graph',
           status: 'full',
-          detail: "Prep's file watcher monitors the codebase for changes and automatically marks affected trace nodes, observations, and enrichment data as stale. When a function changes, all observations about that function are flagged. The dashboard shows drift status at a glance with per-node granularity. No manual intervention needed.",
+          detail: "RunPrep's file watcher monitors the codebase for changes and automatically marks affected trace nodes, observations, and enrichment data as stale. When a function changes, all observations about that function are flagged. The dashboard shows drift status at a glance with per-node granularity. No manual intervention needed.",
         },
         competitors: {
           gitnexus: {
@@ -337,7 +337,7 @@ const matrixData: FeatureRow[] = [
           empirica: {
             text: 'Mirror\nDrift Detection',
             status: 'full',
-            detail: "Empirica's Mirror Drift Detection is genuinely strong. It tracks capability drops and knowledge degradation across sessions, alerting when the agent's understanding has become unreliable. This is one of Empirica's best features \u2014 they focus deeply on epistemic reliability. Prep's approach is more granular (per-node vs per-session) and more visual (dashboard vs git log), but Empirica deserves real credit for pioneering this concept.",
+            detail: "Empirica's Mirror Drift Detection is genuinely strong. It tracks capability drops and knowledge degradation across sessions, alerting when the agent's understanding has become unreliable. This is one of Empirica's best features \u2014 they focus deeply on epistemic reliability. RunPrep's approach is more granular (per-node vs per-session) and more visual (dashboard vs git log), but Empirica deserves real credit for pioneering this concept.",
           },
           serena: {
             text: 'None',
@@ -363,18 +363,18 @@ const matrixData: FeatureRow[] = [
         prep: {
           text: 'Dedicated Desktop\nHealth Dashboard',
           status: 'full',
-          detail: "Prep's dedicated desktop dashboard lets you visually browse the trace graph, see module health scores, inspect enrichment pipeline status, and fine-tune scope with a folder tree. You can see exactly what context the AI will receive before it receives it. This bird's-eye perspective of your codebase builds trust and gives developers real control over the AI's knowledge.",
+          detail: "RunPrep's dedicated desktop dashboard lets you visually browse the trace graph, see module health scores, inspect enrichment pipeline status, and fine-tune scope with a folder tree. You can see exactly what context the AI will receive before it receives it. This bird's-eye perspective of your codebase builds trust and gives developers real control over the AI's knowledge.",
         },
         competitors: {
           gitnexus: {
             text: 'Web UI\n/Terminal',
             status: 'partial',
-            detail: "GitNexus offers a web UI and terminal interface for browsing the graph. The web UI is functional and shows precomputed clusters and wiki documentation. It's less purpose-built for context-inspection than Prep's dashboard but provides reasonable visibility into the knowledge graph.",
+            detail: "GitNexus offers a web UI and terminal interface for browsing the graph. The web UI is functional and shows precomputed clusters and wiki documentation. It's less purpose-built for context-inspection than RunPrep's dashboard but provides reasonable visibility into the knowledge graph.",
           },
           vexp: {
             text: 'VS Code\nOnly',
             status: 'partial',
-            detail: "Vexp operates as a VS Code extension with in-editor views. You can see the graph within VS Code, which is convenient and well-integrated. However, it's limited to VS Code users and doesn't offer the birds-eye project health view with health scores, scope management, and enrichment pipeline monitoring that Prep's standalone dashboard provides.",
+            detail: "Vexp operates as a VS Code extension with in-editor views. You can see the graph within VS Code, which is convenient and well-integrated. However, it's limited to VS Code users and doesn't offer the birds-eye project health view with health scores, scope management, and enrichment pipeline monitoring that RunPrep's standalone dashboard provides.",
           },
           empirica: {
             text: 'Git Log\nOnly',
@@ -394,7 +394,7 @@ const matrixData: FeatureRow[] = [
           bloop: {
             text: 'Desktop\nApp',
             status: 'full',
-            detail: "bloop has a dedicated desktop app with a polished code search UI. Credit where it's due \u2014 bloop's search interface is clean, fast, and pleasant to use. However, it focuses on search results rather than graph health, enrichment status, or context assembly inspection. Prep's dashboard is specifically built for understanding and controlling the AI's knowledge, not just searching code.",
+            detail: "bloop has a dedicated desktop app with a polished code search UI. Credit where it's due \u2014 bloop's search interface is clean, fast, and pleasant to use. However, it focuses on search results rather than graph health, enrichment status, or context assembly inspection. RunPrep's dashboard is specifically built for understanding and controlling the AI's knowledge, not just searching code.",
           },
         },
       },
@@ -410,7 +410,7 @@ const matrixData: FeatureRow[] = [
         prep: {
           text: 'Visual Folder-Tree\nwith Include/Exclude',
           status: 'full',
-          detail: "Prep provides a visual folder-tree in the dashboard for precise scope control. Include or exclude entire directories, individual files, or use glob patterns. Changes take effect immediately and the dashboard shows exactly which files are in-scope, how many nodes are indexed, and what percentage of the codebase is covered. This gives developers fine-grained control over the AI's view of the project.",
+          detail: "RunPrep provides a visual folder-tree in the dashboard for precise scope control. Include or exclude entire directories, individual files, or use glob patterns. Changes take effect immediately and the dashboard shows exactly which files are in-scope, how many nodes are indexed, and what percentage of the codebase is covered. This gives developers fine-grained control over the AI's view of the project.",
         },
         competitors: {
           gitnexus: {
@@ -452,7 +452,7 @@ const matrixData: FeatureRow[] = [
         prep: {
           text: 'Configurable Edge Weights\n+ Module Importance',
           status: 'full',
-          detail: "Prep assigns edge weights by kind (call, import, containment, inferred, LSP) that affect trace expansion priority. Module importance scores from the enrichment pipeline influence which context gets included first when token budgets are tight. The dashboard exposes these weights, letting developers fine-tune how the graph prioritizes different parts of the codebase \u2014 for example, boosting your core business logic over utility helpers.",
+          detail: "RunPrep assigns edge weights by kind (call, import, containment, inferred, LSP) that affect trace expansion priority. Module importance scores from the enrichment pipeline influence which context gets included first when token budgets are tight. The dashboard exposes these weights, letting developers fine-tune how the graph prioritizes different parts of the codebase \u2014 for example, boosting your core business logic over utility helpers.",
         },
         competitors: {
           gitnexus: {
@@ -463,7 +463,7 @@ const matrixData: FeatureRow[] = [
           vexp: {
             text: 'Graph Centrality\nin Ranking',
             status: 'partial',
-            detail: "Vexp incorporates graph centrality into its search ranking. Similar concept to Prep's edge weights but not user-configurable. The ranking is purely algorithmic with no developer input on priorities.",
+            detail: "Vexp incorporates graph centrality into its search ranking. Similar concept to RunPrep's edge weights but not user-configurable. The ranking is purely algorithmic with no developer input on priorities.",
           },
           empirica: {
             text: 'N/A',
@@ -494,18 +494,18 @@ const matrixData: FeatureRow[] = [
         prep: {
           text: '100% Local: Rust + ONNX\nZero Cloud',
           status: 'full',
-          detail: "Everything in Prep runs 100% locally. The Rust parser, ONNX embeddings (nomic-embed-text-v1.5), SQLite storage, and the dashboard all work fully offline. No code ever leaves your machine unless you explicitly configure team sync to your own S3 bucket. The ONNX runtime embeds at ~7ms per query with zero cloud dependencies, zero API keys, and zero data transmission.",
+          detail: "Everything in RunPrep runs 100% locally. The Rust parser, ONNX embeddings (nomic-embed-text-v1.5), SQLite storage, and the dashboard all work fully offline. No code ever leaves your machine unless you explicitly configure team sync to your own S3 bucket. The ONNX runtime embeds at ~7ms per query with zero cloud dependencies, zero API keys, and zero data transmission.",
         },
         competitors: {
           gitnexus: {
             text: 'Local\n(Node.js + WASM option)',
             status: 'partial',
-            detail: "GitNexus runs locally via Node.js CLI and offers an innovative browser-based WASM option that requires zero installation. Both modes are fully offline. Their WASM approach means you can even run it in a sandboxed browser tab. Prep's native Rust engine is faster for large codebases, but GitNexus's zero-install browser option is a genuinely clever distribution strategy.",
+            detail: "GitNexus runs locally via Node.js CLI and offers an innovative browser-based WASM option that requires zero installation. Both modes are fully offline. Their WASM approach means you can even run it in a sandboxed browser tab. RunPrep's native Rust engine is faster for large codebases, but GitNexus's zero-install browser option is a genuinely clever distribution strategy.",
           },
           vexp: {
             text: 'Local\n(VS Code Extension)',
             status: 'full',
-            detail: "Vexp is fully local-first, running entirely within VS Code. No cloud calls. SQLite storage stays on disk. Strong privacy story \u2014 comparable to Prep's approach. The main difference is Prep works across any IDE via MCP and can run headlessly.",
+            detail: "Vexp is fully local-first, running entirely within VS Code. No cloud calls. SQLite storage stays on disk. Strong privacy story \u2014 comparable to RunPrep's approach. The main difference is RunPrep works across any IDE via MCP and can run headlessly.",
           },
           empirica: {
             text: 'Git-Native\n(LLM calls needed)',
@@ -520,12 +520,12 @@ const matrixData: FeatureRow[] = [
           grepai: {
             text: 'Privacy-First\nLocal',
             status: 'full',
-            detail: "Grepai is explicitly privacy-first with local embeddings. Strong privacy story, comparable to Prep's approach. Both tools keep everything on-device with zero cloud dependencies for the core functionality.",
+            detail: "Grepai is explicitly privacy-first with local embeddings. Strong privacy story, comparable to RunPrep's approach. Both tools keep everything on-device with zero cloud dependencies for the core functionality.",
           },
           bloop: {
             text: 'Local\n(Qdrant Instance)',
             status: 'full',
-            detail: "bloop runs locally with its own Qdrant vector database instance. Fully offline capable with a good privacy story. Comparable to Prep's local-first approach.",
+            detail: "bloop runs locally with its own Qdrant vector database instance. Fully offline capable with a good privacy story. Comparable to RunPrep's local-first approach.",
           },
         },
       },
@@ -700,7 +700,7 @@ export function CompetitorMatrix({ className = '', mobileVariant = 'detailed', m
         )}
 
         <div className="flex w-full rounded-xl border border-border bg-background shadow-xl overflow-hidden">
-          {/* Fixed left columns: Category | Feature | Prep */}
+          {/* Fixed left columns: Category | Feature | RunPrep */}
           <div className="flex-none relative z-10 border-r border-primary/30">
             <table ref={leftTableRef} className="text-sm border-separate border-spacing-0 text-left">
               <thead>
@@ -711,7 +711,7 @@ export function CompetitorMatrix({ className = '', mobileVariant = 'detailed', m
                    
                   </th>
                   <th className="w-[130px] min-w-[130px] bg-[#0c1222] border-b border-l border-primary/30 p-3 text-center align-bottom">
-                    <div className="inline-flex items-center justify-center px-3 py-1 rounded-lg bg-primary border border-primary-hover text-background font-bold text-base mb-1 shadow-lg shadow-primary/20">Prep</div>
+                    <div className="inline-flex items-center justify-center px-3 py-1 rounded-lg bg-primary border border-primary-hover text-background font-bold text-base mb-1 shadow-lg shadow-primary/20">RunPrep</div>
                     <div className="text-[9px] font-bold text-primary uppercase tracking-wider">Continuous Graph RAG</div>
                   </th>
                 </tr>
@@ -741,7 +741,7 @@ export function CompetitorMatrix({ className = '', mobileVariant = 'detailed', m
                           <div className="text-[11px] text-text-muted leading-relaxed">{feature.description}</div>
                         </td>
                         <td className="bg-[#0c1222] border-b border-l border-primary/30 p-3 text-center align-top cursor-help"
-                          onMouseEnter={(e) => showTooltip(e, feature.prep.detail, feature.name, 'Prep')}
+                          onMouseEnter={(e) => showTooltip(e, feature.prep.detail, feature.name, 'RunPrep')}
                           onMouseLeave={hideTooltip}
                         >
                           <div className="flex flex-col items-center justify-start gap-2">
@@ -831,7 +831,7 @@ export function CompetitorMatrix({ className = '', mobileVariant = 'detailed', m
                       <div className="flex items-start gap-3 mb-3">
                         <div className="mt-0.5"><StatusIcon status={feature.prep.status} className="w-5 h-5" /></div>
                         <div>
-                          <div className="text-xs font-bold text-primary uppercase tracking-wider mb-1">Prep</div>
+                          <div className="text-xs font-bold text-primary uppercase tracking-wider mb-1">RunPrep</div>
                           <div className="text-sm font-semibold text-text">{feature.prep.text}</div>
                         </div>
                       </div>
@@ -872,7 +872,7 @@ export function CompetitorMatrix({ className = '', mobileVariant = 'detailed', m
               <thead>
                 <tr>
                   <th className="bg-surface w-[180px] min-w-[180px] p-3 border-b border-r border-border sticky left-0 z-10 font-bold text-text shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Feature</th>
-                  <th className="bg-[#0c1222] p-3 border-b border-border text-center font-bold text-primary whitespace-nowrap">Prep</th>
+                  <th className="bg-[#0c1222] p-3 border-b border-border text-center font-bold text-primary whitespace-nowrap">RunPrep</th>
                   {competitors.map(c => (
                     <th key={c.id} className="bg-surface p-3 border-b border-border text-center text-text-muted font-medium whitespace-nowrap">{c.name}</th>
                   ))}
@@ -920,7 +920,7 @@ export function CompetitorMatrix({ className = '', mobileVariant = 'detailed', m
         <div className="text-center mb-10">
           <h3 className="text-2xl font-medium tracking-tight text-text sm:text-3xl mb-3">Companion, not a framework</h3>
           <p className="text-text-muted max-w-2xl mx-auto">
-            Prep isn't trying to replace your favorite tools. It's an MCP-native context engine designed to supercharge the AI IDEs and agents you already use.
+            RunPrep isn't trying to replace your favorite tools. It's an MCP-native context engine designed to supercharge the AI IDEs and agents you already use.
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

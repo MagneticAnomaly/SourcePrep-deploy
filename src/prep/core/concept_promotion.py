@@ -1,4 +1,4 @@
-"""Observation → Concept promotion for Prep.
+"""Observation → Concept promotion for RunPrep.
 
 Suggests promoting durable observations (decisions, patterns, assumptions)
 into structured concepts. The human confirms and fills in the assertion.

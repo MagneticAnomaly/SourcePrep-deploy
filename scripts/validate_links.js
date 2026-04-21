@@ -102,8 +102,8 @@ async function scan() {
         if (url.startsWith('mailto:')) continue;
         if (url.startsWith('#')) continue; // Skip anchors
         
-        // Handle cross-app links (e.g. docs.prep.io/...)
-        if (url.includes('prep.io')) continue; 
+        // Handle cross-app links (e.g. docs.runprep.io/...)
+        if (url.includes('runprep.io')) continue;
 
         // Internal links
         if (url.startsWith('/')) {

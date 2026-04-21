@@ -153,7 +153,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
   // fetches can detect a project switch between `await` and `dispatch`.
   // Without this guard, a slow /pipeline/status response for project A
   // dispatches onto project B's reducer state and the UI shows A's live
-  // progress bar (e.g. Prep's 26k catalogue count) on B's panel.
+  // progress bar (e.g. RunPrep's 26k catalogue count) on B's panel.
   const latestProjectIdRef = useRef<string | null>(selectedProjectId)
   latestProjectIdRef.current = selectedProjectId
 

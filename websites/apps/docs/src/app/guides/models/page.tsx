@@ -19,7 +19,7 @@ export default function Page() {
 
         <div className="mt-8 prose  max-w-none">
           <p>
-            Prep uses a tiered architecture where different models handle specific tasks based on their strengths.
+            RunPrep uses a tiered architecture where different models handle specific tasks based on their strengths.
             While you can run everything with a single model, we recommend a specialized stack for the best balance of speed and intelligence.
           </p>
 
@@ -82,7 +82,7 @@ export default function Page() {
               <span className="font-semibold text-text">MoE efficiency:</span> The 30B model only activates 3B parameters per token &mdash; outstanding reasoning with efficient VRAM use.
             </li>
             <li>
-              <span className="font-semibold text-text">Reliable JSON output:</span> Prep&apos;s pipeline needs structured JSON responses. Qwen3 excels at this.
+              <span className="font-semibold text-text">Reliable JSON output:</span> RunPrep&apos;s pipeline needs structured JSON responses. Qwen3 excels at this.
             </li>
           </ul>
 
@@ -90,7 +90,7 @@ export default function Page() {
 
           <AnchorHeading id="model-slots" level="h2">Model Slots Explained</AnchorHeading>
           <p>
-            Prep defines four &quot;slots&quot; for AI models. You can configure these in the <span className="font-semibold text-text">Settings &gt; AI Models</span> tab of the dashboard.<br/> <br/> 
+            RunPrep defines four &quot;slots&quot; for AI models. You can configure these in the <span className="font-semibold text-text">Settings &gt; AI Models</span> tab of the dashboard.<br/> <br/> 
           </p>
           
           <div className="not-prose my-6">
@@ -108,7 +108,7 @@ export default function Page() {
               <p className="text-sm text-text-muted mb-2"><code>Default: nomic-embed-text-v1.5 (built-in ONNX, CPU)</code></p>
               <p>
                 Converts code and documentation into vectors for semantic search.
-                Prep supports three tiers — pick the one that fits your hardware:
+                RunPrep supports three tiers — pick the one that fits your hardware:
               </p>
               <ul className="mt-3 space-y-2 text-sm list-disc pl-5">
                 <li>
@@ -176,7 +176,7 @@ export default function Page() {
               Single Model Fallback
             </h4>
             <p className="mt-2 text-sm">
-              If you only have resources to run one model (e.g., <code>qwen3:4b</code>), Prep will use it for both &quot;Fast&quot; and &quot;Thinking&quot; tasks.
+              If you only have resources to run one model (e.g., <code>qwen3:4b</code>), RunPrep will use it for both &quot;Fast&quot; and &quot;Thinking&quot; tasks.
               You can simply select the same endpoint and model for both slots in the settings.
             </p>
           </div>
@@ -185,7 +185,7 @@ export default function Page() {
 
           <AnchorHeading id="managing-endpoints" level="h2">Managing Endpoints</AnchorHeading>
           <p>
-            Prep isn't tied to one provider. The <span className="font-semibold text-text">Endpoint Manager</span> at the bottom of the AI Models settings allows you to connect to any OpenAI-compatible API.
+            RunPrep isn't tied to one provider. The <span className="font-semibold text-text">Endpoint Manager</span> at the bottom of the AI Models settings allows you to connect to any OpenAI-compatible API.
           </p>
 
           <AnchorHeading id="adding-endpoint" level="h3" className="text-xl font-semibold mt-8 mb-4">Adding a Custom Endpoint</AnchorHeading>

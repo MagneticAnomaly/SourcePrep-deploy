@@ -4,7 +4,7 @@ export default function Page() {
       <div className="mx-auto max-w-3xl px-6 py-16">
         <h1 className="text-3xl font-bold tracking-tight">Purchase complete</h1>
         <p className="mt-4 text-lg text-text-muted">
-          Thanks for supporting Prep. Your receipt and license details should
+          Thanks for supporting RunPrep. Your receipt and license details should
           arrive by email.
         </p>
 

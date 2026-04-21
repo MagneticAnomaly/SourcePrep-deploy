@@ -33,23 +33,23 @@ export default function Page() {
 
         {/* SEO — screen-reader only, crawlers only */}
         <section className="sr-only">
-          <h2>What is Prep?</h2>
+          <h2>What is RunPrep?</h2>
           <p>
-            Prep is a structural codebase intelligence MCP server for AI coding agents.
+            RunPrep is a structural codebase intelligence MCP server for AI coding agents.
             It builds a code graph using Rust and tree-sitter to map imports, call chains, and symbol hierarchies — then delivers that deep structural context directly to Claude Code, Antigravity, Cursor, VS Code, and any MCP-compatible tool.
             Connect your preferred LLM — Ollama Kimi2.5, local models, or frontier APIs.
           </p>
         </section>
 
-        {/* Why Prep + Capabilities (merged) */}
+        {/* Why RunPrep + Capabilities (merged) */}
         <section>
           <div className="text-center mb-16">
             <p className="text-sm font-semibold uppercase tracking-widest text-primary mb-3">Why developers need this</p>
             <h2 className="text-3xl font-medium tracking-tight text-text sm:text-4xl">
-              If you use AI to write code, you need Prep
+              If you use AI to write code, you need RunPrep
             </h2>
             <p className="mt-4 text-lg text-text-muted max-w-2xl mx-auto">
-              AI assistants are only as good as the context they receive. Prep makes sure they get the right context, every time — delivering <strong className="text-text font-semibold">3–20× more signal per token</strong> than dumping whole files into the prompt.
+              AI assistants are only as good as the context they receive. RunPrep makes sure they get the right context, every time — delivering <strong className="text-text font-semibold">3–20× more signal per token</strong> than dumping whole files into the prompt.
             </p>
           </div>
           <FeatureBlocks features={marketingFeatures} variant="list" />
@@ -98,7 +98,7 @@ export default function Page() {
                 <iframe
                   className="w-full h-full"
                   src="https://www.youtube.com/embed/bjC6DFQ8Zmw?rel=0"
-                  title="Prep Demo Video"
+                  title="RunPrep Demo Video"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   referrerPolicy="strict-origin-when-cross-origin"
                   allowFullScreen
@@ -116,7 +116,7 @@ export default function Page() {
               Six MCP tools. Deep codebase intelligence.
             </h2>
             <p className="mt-4 text-lg text-text-muted max-w-2xl mx-auto">
-              Connect Prep once to Claude Code, Antigravity, Cursor, or any MCP-compatible editor — and your AI gets structural awareness, semantic search, blast radius analysis, audit enrichment, persistent memory, and recorded design rationale.
+              Connect RunPrep once to Claude Code, Antigravity, Cursor, or any MCP-compatible editor — and your AI gets structural awareness, semantic search, blast radius analysis, audit enrichment, persistent memory, and recorded design rationale.
             </p>
           </div>
 
@@ -215,7 +215,7 @@ export default function Page() {
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
             {IS_BETA_MODE ? (
               <a
-                href="mailto:support@runprep.io?subject=Prep%20Beta%20Access%20Request"
+                href="mailto:support@runprep.io?subject=RunPrep%20Beta%20Access%20Request"
                 className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-semibold text-background shadow-lg shadow-primary/25 hover:bg-primary-hover transition-colors"
               >
                 Request Beta Access <ArrowRight className="w-4 h-4" />
@@ -225,7 +225,7 @@ export default function Page() {
                 href="/download"
                 className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-semibold text-background shadow-lg shadow-primary/25 hover:bg-primary-hover transition-colors"
               >
-                Get Prep <ArrowRight className="w-4 h-4" />
+                Get RunPrep <ArrowRight className="w-4 h-4" />
               </a>
             )}
             <Link

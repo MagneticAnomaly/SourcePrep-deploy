@@ -1,13 +1,13 @@
 {
   "name": "prep",
-  "display_name": "Prep",
-  "description": "Code Documentation and RAG - Multi-project semantic search for codebases. Provides semantic code search, context assembly for LLM prompts, and index management.",
+  "display_name": "RunPrep",
+  "description": "RunPrep: Code Intelligence Platform - Multi-project semantic search for codebases. Provides semantic code search, context assembly for LLM prompts, and index management.",
   "homepage": "https://github.com/MagneticAnomaly/RunPrep",
   "repository": "https://github.com/MagneticAnomaly/RunPrep",
   "license": "MIT",
   "authors": [
     {
-      "name": "Prep Team"
+      "name": "RunPrep Team"
     }
   ],
   "version": "0.1.0",
@@ -37,7 +37,7 @@
   "tools": [
     {
       "name": "prep_status",
-      "description": "Get Prep index status and daemon health"
+      "description": "Get RunPrep index status and daemon health"
     },
     {
       "name": "prep_build",

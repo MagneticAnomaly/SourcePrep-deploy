@@ -73,7 +73,7 @@ export default function Page() {
                       <strong>Assertion:</strong> Your source code never leaves your machine.
                     </p>
                     <p className="mt-4 text-sm text-text-muted">
-                      Prep runs entirely on localhost. Indexes, embeddings, and configuration are
+                      RunPrep runs entirely on localhost. Indexes, embeddings, and configuration are
                       stored locally in <code className="text-xs bg-background border border-border rounded px-1 py-0.5 font-mono">~/.local/share/runprep</code> (or
                       in-project via embedded mode). There is no cloud component, no server-side
                       processing, and no mechanism to upload source code.
@@ -107,7 +107,7 @@ export default function Page() {
                     <span className="font-mono text-primary text-sm bg-primary/10 px-2 py-1 rounded">03.</span> Network Isolation
                   </h2>
                   <p className="text-sm text-text-muted mb-4">
-                    The Prep daemon binds to <code className="text-xs bg-background border border-border rounded px-1 py-0.5 font-mono">127.0.0.1:8400</code> by default.
+                    The RunPrep daemon binds to <code className="text-xs bg-background border border-border rounded px-1 py-0.5 font-mono">127.0.0.1:8400</code> by default.
                     Remote access requires explicit configuration.
                   </p>
                   <div className="bg-background text-text-muted p-6 font-mono text-sm rounded-sm overflow-x-auto border border-border">
@@ -130,7 +130,7 @@ export default function Page() {
                     <span className="font-mono text-primary text-sm bg-primary/10 px-2 py-1 rounded">04.</span> LLM & Embedding Usage
                   </h2>
                   <p className="text-sm text-text-muted leading-relaxed">
-                    Prep&apos;s structural code graph (imports, calls, symbol graphs) and semantic search (via built-in ONNX embeddings) work entirely locally without any external LLM. For deep reasoning and trace enrichment, you may bring your own cloud API keys (BYOK) or connect Ollama locally. We never proxy calls, never store keys, and never mark up
+                    RunPrep&apos;s structural code graph (imports, calls, symbol graphs) and semantic search (via built-in ONNX embeddings) work entirely locally without any external LLM. For deep reasoning and trace enrichment, you may bring your own cloud API keys (BYOK) or connect Ollama locally. We never proxy calls, never store keys, and never mark up
                     token costs.
                   </p>
                 </section>
@@ -141,7 +141,7 @@ export default function Page() {
                   </h2>
                   <p className="text-sm text-text-muted leading-relaxed">
                     License activation requires a single online key exchange. After activation,
-                    Prep stores a signed Ed25519 license file locally and verifies it offline.
+                    RunPrep stores a signed Ed25519 license file locally and verifies it offline.
                     No periodic phone-home, no subscription heartbeat.
                   </p>
                 </section>
@@ -154,7 +154,7 @@ export default function Page() {
                     All installers are code-signed and include SHA-256 checksums.
                   </p>
                   <div className="p-4 bg-background border border-border rounded-sm font-mono text-xs text-text-muted">
-                    $ shasum -a 256 Prep-1.0.0-mac.dmg<br/>
+                    $ shasum -a 256 RunPrep-1.0.0-mac.dmg<br/>
                     &gt; 7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d90bc
                   </div>
                 </section>
@@ -176,7 +176,7 @@ export default function Page() {
                     <span className="font-mono text-primary text-sm bg-primary/10 px-2 py-1 rounded">07.</span> Bug Reports &amp; Debug Logs
                   </h2>
                   <p className="text-sm text-text-muted leading-relaxed mb-4">
-                    Prep includes a one-click bug report feature (accessible from the dashboard log console).
+                    RunPrep includes a one-click bug report feature (accessible from the dashboard log console).
                     When you submit a report, here&apos;s exactly what&apos;s included — and what&apos;s not:
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -224,7 +224,7 @@ export default function Page() {
                         <span className="font-mono text-primary text-sm bg-primary/10 px-2 py-1 rounded">08.</span> Data Inventory
                       </h2>
                       <p className="text-lg leading-relaxed border-l-4 border-primary pl-6 bg-primary/10 py-4 pr-4 text-text mb-6">
-                        <strong>Executive Summary:</strong> Prep is a local-first desktop application. Your source code never leaves
+                        <strong>Executive Summary:</strong> RunPrep is a local-first desktop application. Your source code never leaves
                         your machine. We collect the absolute minimum data needed to operate the
                         business — license activation and optional support requests. That&apos;s it.
                       </p>
@@ -261,7 +261,7 @@ export default function Page() {
                       </h2>
                       <p className="text-sm text-text-muted leading-relaxed">
                         Payments are processed by <strong className="text-text">Lemon Squeezy</strong>, our Merchant of Record.
-                        Prep Inc. does not store credit card numbers, banking information, or tax IDs.
+                        RunPrep Inc. does not store credit card numbers, banking information, or tax IDs.
                       </p>
                     </section>
 

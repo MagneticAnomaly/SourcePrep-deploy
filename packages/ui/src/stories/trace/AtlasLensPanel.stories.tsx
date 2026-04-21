@@ -24,7 +24,7 @@ const segments = [
 
 const baseAtlas: AtlasStatus = {
   exists: true,
-  content: 'IDENTITY: Prep is a multi-segment AI coding assistant platform...\nSTACK: Python 323 files, TypeScript 334 files...',
+  content: 'IDENTITY: RunPrep is a multi-segment AI coding assistant platform...\nSTACK: Python 323 files, TypeScript 334 files...',
   mode: 'structural',
   model: 'structural',
   generated_at: now,

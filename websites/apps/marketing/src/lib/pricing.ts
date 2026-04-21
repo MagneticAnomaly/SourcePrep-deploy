@@ -168,10 +168,10 @@ export function getCheckoutUrl(baseUrl: string, country: string): string {
 // ── Lemon Squeezy Product URLs ──────────────────────────────────────────────
 // Set these in the Netlify dashboard as NEXT_PUBLIC_ env vars.
 // They point to Lemon Squeezy checkout pages for each product.
-// Fallback: payments.prep.io hub page until LS products are created.
+// Fallback: payments.runprep.io hub page until LS products are created.
 
 export const LS_CHECKOUT_URLS = {
-  monthly:  process.env.NEXT_PUBLIC_LS_CHECKOUT_MONTHLY  ?? "https://payments.prep.io",
-  perpetual: process.env.NEXT_PUBLIC_LS_CHECKOUT_PERPETUAL ?? "https://payments.prep.io",
-  team:     process.env.NEXT_PUBLIC_LS_CHECKOUT_TEAM      ?? "https://payments.prep.io",
+  monthly:  process.env.NEXT_PUBLIC_LS_CHECKOUT_MONTHLY  ?? "https://payments.runprep.io",
+  perpetual: process.env.NEXT_PUBLIC_LS_CHECKOUT_PERPETUAL ?? "https://payments.runprep.io",
+  team:     process.env.NEXT_PUBLIC_LS_CHECKOUT_TEAM      ?? "https://payments.runprep.io",
 } as const;

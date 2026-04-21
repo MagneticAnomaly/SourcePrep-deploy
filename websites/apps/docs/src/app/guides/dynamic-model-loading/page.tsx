@@ -12,7 +12,7 @@ export default function Page() {
           Dynamic Model Loading
         </h1>
         <p className="mt-4 text-lg text-text-muted">
-          How Prep manages VRAM by loading and unloading local models on demand,
+          How RunPrep manages VRAM by loading and unloading local models on demand,
           and what that means for your hardware setup.
         </p>
 
@@ -21,16 +21,16 @@ export default function Page() {
           {/* ── Overview ── */}
           <AnchorHeading id="overview" level="h2">Overview</AnchorHeading>
           <p>
-            Prep&apos;s trace pipeline runs up to 10 different LLM tasks — from fast
+            RunPrep&apos;s trace pipeline runs up to 10 different LLM tasks — from fast
             file cataloguing to deep group reasoning. Each task may use a different
             model optimized for that job. On most consumer hardware, only one or two
             models fit in VRAM/RAM at a time.
           </p>
           <p>
-            <strong>Dynamic model loading</strong> is Prep&apos;s system for
+            <strong>Dynamic model loading</strong> is RunPrep&apos;s system for
             automatically loading the right model before each pipeline stage and
             unloading the previous one to free memory. This happens transparently —
-            you configure your models once and Prep handles the rest.
+            you configure your models once and RunPrep handles the rest.
           </p>
 
           <div className="my-6 rounded-lg border border-primary/30 bg-primary/5 p-4">
@@ -87,15 +87,15 @@ export default function Page() {
 
           <ol className="space-y-2">
             <li>
-              <strong>Stage starts</strong> — Prep checks which model is needed for the
+              <strong>Stage starts</strong> — RunPrep checks which model is needed for the
               next task (e.g. <code>qwen3:4b</code> for cataloguing).
             </li>
             <li>
               <strong>Room check</strong> — If a different model is currently loaded,
-              Prep sends a <code>keep_alive=0</code> request to Ollama to unload it.
+              RunPrep sends a <code>keep_alive=0</code> request to Ollama to unload it.
             </li>
             <li>
-              <strong>Preload</strong> — Prep sends an empty generate request to Ollama
+              <strong>Preload</strong> — RunPrep sends an empty generate request to Ollama
               with the new model name. Ollama loads it into memory.
             </li>
             <li>
@@ -121,13 +121,13 @@ export default function Page() {
           </p>
           <p>
             In the AI Models settings, check <strong>&ldquo;Always available (Keep loaded)&rdquo;</strong> on
-            any model card. Prep will:
+            any model card. RunPrep will:
           </p>
           <ul>
             <li>Skip unloading this model between pipeline stages</li>
             <li>
               If VRAM pressure forces an eviction (e.g. a large reasoning model needs to load),
-              Prep will temporarily unload the persistent model, run the heavy task,
+              RunPrep will temporarily unload the persistent model, run the heavy task,
               then <strong>automatically reload</strong> the persistent model afterward
             </li>
             <li>Show a warning indicator in the AI Gateway if a persistent model was temporarily evicted</li>
@@ -138,7 +138,7 @@ export default function Page() {
               <span className="font-semibold text-warning">VRAM tip:</span>{' '}
               On machines with limited RAM (16GB or less), avoid marking large models as
               &ldquo;Always available&rdquo;. A persistent 8B model (5GB) alongside a 30B reasoning
-              model won&apos;t fit — Prep will handle it gracefully via eviction, but the
+              model won&apos;t fit — RunPrep will handle it gracefully via eviction, but the
               constant load/unload cycle defeats the purpose.
             </p>
           </div>
@@ -168,17 +168,17 @@ export default function Page() {
             </li>
           </ul>
 
-          <AnchorHeading id="lm-studio-limitations" level="h3">Limitations with Prep</AnchorHeading>
+          <AnchorHeading id="lm-studio-limitations" level="h3">Limitations with RunPrep</AnchorHeading>
           <p>
             LM Studio does <strong>not</strong> expose an API for loading or unloading models.
-            This means Prep <strong>cannot</strong> perform dynamic model loading with LM Studio.
+            This means RunPrep <strong>cannot</strong> perform dynamic model loading with LM Studio.
             Specifically:
           </p>
           <ul>
             <li>
               <strong>No automatic model switching.</strong> If your pipeline uses different models
               for different tasks, you must manually load the correct model in LM Studio&apos;s UI.
-              Prep will warn you if the loaded model doesn&apos;t match what&apos;s configured.
+              RunPrep will warn you if the loaded model doesn&apos;t match what&apos;s configured.
             </li>
             <li>
               <strong>Context window is manual.</strong> LM Studio defaults to 4,096 tokens.
@@ -188,7 +188,7 @@ export default function Page() {
             </li>
             <li>
               <strong>&ldquo;Always available&rdquo; is implicit.</strong> Whatever model you load in
-              LM Studio stays loaded. The checkbox in Prep has no effect on LM Studio.
+              LM Studio stays loaded. The checkbox in RunPrep has no effect on LM Studio.
             </li>
           </ul>
 
@@ -261,7 +261,7 @@ export default function Page() {
           </p>
           <p>
             If you want MLX performance, LM Studio is currently the only practical option with
-            a Prep-compatible OpenAI API endpoint.
+            a RunPrep-compatible OpenAI API endpoint.
           </p>
 
           {/* ── Recommended Setups ── */}
@@ -316,13 +316,13 @@ export default function Page() {
           <AnchorHeading id="pipeline-safety" level="h2">Pipeline Safety</AnchorHeading>
           <p>
             Changing your model configuration while a pipeline is running could cause
-            the next stage to resolve to a different (or missing) model. Prep handles this
+            the next stage to resolve to a different (or missing) model. RunPrep handles this
             with a <strong>pipeline-safe mode switch</strong>:
           </p>
           <ol className="space-y-2">
-            <li>When you save a configuration change, Prep <strong>pauses</strong> any active pipeline stages</li>
+            <li>When you save a configuration change, RunPrep <strong>pauses</strong> any active pipeline stages</li>
             <li>The new configuration is written atomically</li>
-            <li>Prep verifies the next stage&apos;s model is available under the new config</li>
+            <li>RunPrep verifies the next stage&apos;s model is available under the new config</li>
             <li>The pipeline <strong>resumes</strong> from where it left off</li>
           </ol>
           <p>

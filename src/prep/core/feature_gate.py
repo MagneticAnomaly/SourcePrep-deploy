@@ -1,5 +1,5 @@
 """
-Feature gating for Prep tiers.
+Feature gating for RunPrep tiers.
 
 Tiers:
   - free:       3 projects, all features (project limit only)
@@ -195,7 +195,7 @@ def get_license() -> License:
                 logger.warning(
                     "SECURITY: License file at %s has no cryptographic signature. "
                     "Unsigned licenses will be rejected in a future version. "
-                    "Re-activate your license at https://prep.io/settings to get a signed license.",
+                    "Re-activate your license at https://runprep.io/settings to get a signed license.",
                     _LICENSE_PATH,
                 )
 
@@ -212,7 +212,7 @@ def get_license() -> License:
             if valid and _is_license_expired(expires_at_raw):
                 logger.warning(
                     "License has expired (expires_at=%s). Reverting to FREE tier. "
-                    "Renew at https://prep.io/pricing",
+                    "Renew at https://runprep.io/pricing",
                     expires_at_raw,
                 )
                 valid = False
@@ -299,5 +299,5 @@ class FeatureGateError(Exception):
         self.required_tier = required_tier
         super().__init__(
             f"Feature '{feature}' requires {required_tier} tier "
-            f"(current: {current_tier}). Upgrade at https://prep.io/pricing"
+            f"(current: {current_tier}). Upgrade at https://runprep.io/pricing"
         )

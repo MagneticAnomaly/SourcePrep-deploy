@@ -18,7 +18,7 @@ export function FocusHero({ isBetaMode }: { isBetaMode: boolean }) {
         </h1>
 
         <p className="text-xl md:text-2xl text-text-muted max-w-2xl mx-auto mb-12 leading-relaxed font-medium">
-          Prep adds the context intelligence layer your AI tools are missing — built-in embeddings,
+          RunPrep adds the context intelligence layer your AI tools are missing — built-in embeddings,
           structural code graph, path weights, and smart compression so Cursor, Windsurf, and Claude Desktop
           get the right code, not just more code.
         </p>
@@ -30,7 +30,7 @@ export function FocusHero({ isBetaMode }: { isBetaMode: boolean }) {
               className="w-full sm:w-auto px-8 py-6 text-lg font-bold shadow-lg transform hover:-translate-y-1 h-auto"
               asChild
             >
-              <a href="mailto:support@runprep.io?subject=Prep%20Beta%20Access%20Request">Request Beta Access</a>
+              <a href="mailto:support@runprep.io?subject=RunPrep%20Beta%20Access%20Request">Request Beta Access</a>
             </Button>
           ) : (
             <Button 

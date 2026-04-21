@@ -8,7 +8,7 @@ export default function Page() {
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Guides</h1>
         <p className="mt-4 text-lg text-text-muted">
-          Step-by-step guides for Prep&apos;s advanced features.
+          Step-by-step guides for RunPrep&apos;s advanced features.
         </p>
 
         <div className="mt-8 space-y-6">
@@ -18,7 +18,7 @@ export default function Page() {
           >
             <h2 className="text-xl font-semibold">Built-in Embeddings</h2>
             <p className="mt-2 text-sm text-text-muted">
-              Prep ships with a built-in embedding model (nomic-embed-text). No Ollama required.
+              RunPrep ships with a built-in embedding model (nomic-embed-text). No Ollama required.
               Learn how to use it, switch providers, and pre-download the model.
             </p>
           </a>
@@ -40,7 +40,7 @@ export default function Page() {
           >
             <h2 className="text-xl font-semibold">Dynamic Model Loading</h2>
             <p className="mt-2 text-sm text-text-muted">
-              How Prep manages VRAM by loading and unloading local models on demand.
+              How RunPrep manages VRAM by loading and unloading local models on demand.
               Covers Ollama vs LM Studio, MLX performance, persistent models, and recommended setups.
             </p>
           </a>

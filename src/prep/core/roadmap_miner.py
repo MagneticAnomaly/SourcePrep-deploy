@@ -1,5 +1,5 @@
 """
-Roadmap contender mining from Prep graph data — Phase 59D.
+Roadmap contender mining from RunPrep graph data — Phase 59D.
 
 Reads existing pipeline outputs (audit findings, orphan modules, hotspots,
 and planning-intent keywords) to surface roadmap candidates.
@@ -55,7 +55,7 @@ def _make_miner_id(source: str, key: str) -> str:
 def _mine_audit_findings(index_dir: Path) -> List[RoadmapNode]:
     """Read audit findings and convert high-severity ones to roadmap nodes.
 
-    Reads from the Prep audit cache if available.
+    Reads from the RunPrep audit cache if available.
     """
     nodes: List[RoadmapNode] = []
 
@@ -320,7 +320,7 @@ def mine_roadmap_contenders(
     existing_ids: Optional[Set[str]] = None,
     max_results: int = 50,
 ) -> List[RoadmapNode]:
-    """Mine the Prep graph and codebase for roadmap contenders.
+    """Mine the RunPrep graph and codebase for roadmap contenders.
 
     Combines 4 mining sources:
     1. Audit findings (severity >= warning)
@@ -329,7 +329,7 @@ def mine_roadmap_contenders(
     4. Roadmap keywords in docs/READMEs
 
     Args:
-        index_dir: Prep index directory (contains graph, audit, module data).
+        index_dir: RunPrep index directory (contains graph, audit, module data).
         project_root: Project source directory.
         existing_ids: Node IDs to skip (dedup against existing roadmap).
         max_results: Maximum contenders to return.

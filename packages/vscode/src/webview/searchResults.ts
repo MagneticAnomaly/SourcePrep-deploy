@@ -50,7 +50,7 @@ export class SearchResultsPanel {
 
     const panel = vscode.window.createWebviewPanel(
       'prepSearch',
-      `Prep Search: ${query}`,
+      `RunPrep Search: ${query}`,
       column || vscode.ViewColumn.One,
       {
         enableScripts: true,
@@ -68,7 +68,7 @@ export class SearchResultsPanel {
   }
 
   public update(query: string, results: SearchResult[]): void {
-    this._panel.title = `Prep Search: ${query}`;
+    this._panel.title = `RunPrep Search: ${query}`;
     this._pendingQuery = query;
     this._pendingResults = results;
     this.postMessage(query, results);

@@ -17,7 +17,7 @@ export default function IntegrationsPage() {
     <DetailPageLayout
       title="IDE Integrations"
       subtitle="One Server, Every Editor"
-      description="Prep connects to Claude Code, Antigravity, Cursor, Windsurf, VS Code, and any MCP-compatible tool via a single MCP server."
+      description="RunPrep connects to Claude Code, Antigravity, Cursor, Windsurf, VS Code, and any MCP-compatible tool via a single MCP server."
       badge="MCP"
       sections={SECTIONS}
       docsUrl="https://docs.runprep.io/integrations"
@@ -27,7 +27,7 @@ export default function IntegrationsPage() {
       <section id="universal">
         <h2 className="text-2xl font-semibold text-text mb-4">One Server, Every Editor</h2>
         <p className="text-text-muted leading-relaxed mb-6">
-          Prep is a single MCP server that connects to any tool supporting the Model Context Protocol.
+          RunPrep is a single MCP server that connects to any tool supporting the Model Context Protocol.
           Run <code className="text-primary font-mono text-sm">prep serve</code> once, and every editor in your workflow
           gets the same structural intelligence. No per-editor plugins to maintain, no vendor lock-in.
         </p>
@@ -50,7 +50,7 @@ export default function IntegrationsPage() {
       <section id="claude-code">
         <h2 className="text-2xl font-semibold text-text mb-4">Claude Code</h2>
         <p className="text-text-muted leading-relaxed mb-6">
-          Claude Code receives Prep's deepest integration. The full suite of MCP tools is designed around Claude Code's
+          Claude Code receives RunPrep's deepest integration. The full suite of MCP tools is designed around Claude Code's
           agentic workflows, with client-aware context delivery, skills integration, and automatic project onboarding.
         </p>
         <div className="rounded-lg border border-primary/30 bg-primary/5 p-6 mb-4">
@@ -78,7 +78,7 @@ export default function IntegrationsPage() {
       <section id="antigravity">
         <h2 className="text-2xl font-semibold text-text mb-4">Antigravity</h2>
         <p className="text-text-muted leading-relaxed mb-6">
-          Antigravity's agentic editing mode pairs naturally with Prep's structural intelligence — giving agents
+          Antigravity's agentic editing mode pairs naturally with RunPrep's structural intelligence — giving agents
           the codebase context they need to make confident, architecturally-aware edits.
         </p>
         <div className="rounded-lg border border-border bg-surface p-6">
@@ -98,7 +98,7 @@ export default function IntegrationsPage() {
       <section id="cursor-windsurf">
         <h2 className="text-2xl font-semibold text-text mb-4">Cursor &amp; Windsurf</h2>
         <p className="text-text-muted leading-relaxed mb-6">
-          Both Cursor and Windsurf support MCP natively. Prep plugs in without any special configuration and adds
+          Both Cursor and Windsurf support MCP natively. RunPrep plugs in without any special configuration and adds
           structural depth that their built-in AI features don't provide.
         </p>
         <div className="rounded-lg border border-border bg-surface p-6">
@@ -109,7 +109,7 @@ export default function IntegrationsPage() {
           <ul className="space-y-2 text-sm text-text-muted">
             <li className="flex items-start gap-2"><span className="text-primary mt-0.5">→</span> Native MCP support in both editors</li>
             <li className="flex items-start gap-2"><span className="text-primary mt-0.5">→</span> Auto-generated rules files (<code className="font-mono text-xs">.cursor/</code>, <code className="font-mono text-xs">.windsurf/</code>)</li>
-            <li className="flex items-start gap-2"><span className="text-primary mt-0.5">→</span> Works alongside their built-in AI features — Prep adds structural depth they don't have</li>
+            <li className="flex items-start gap-2"><span className="text-primary mt-0.5">→</span> Works alongside their built-in AI features — RunPrep adds structural depth they don't have</li>
           </ul>
         </div>
       </section>
@@ -118,7 +118,7 @@ export default function IntegrationsPage() {
       <section id="vscode">
         <h2 className="text-2xl font-semibold text-text mb-4">VS Code Extension</h2>
         <p className="text-text-muted leading-relaxed mb-6">
-          Prep ships a native VS Code extension with a sidebar UI for semantic search, context assembly, and trace navigation —
+          RunPrep ships a native VS Code extension with a sidebar UI for semantic search, context assembly, and trace navigation —
           no CLI required. Works alongside GitHub Copilot via MCP.
         </p>
         <div className="rounded-lg border border-border bg-surface p-6">
@@ -139,7 +139,7 @@ export default function IntegrationsPage() {
       <section id="client-aware">
         <h2 className="text-2xl font-semibold text-text mb-4">Client-Aware Delivery</h2>
         <p className="text-text-muted leading-relaxed mb-4">
-          Prep auto-detects which client is connecting via MCP <code className="text-primary font-mono text-sm">clientInfo</code>.
+          RunPrep auto-detects which client is connecting via MCP <code className="text-primary font-mono text-sm">clientInfo</code>.
           It tailors content delivery per client — compact format for Claude Code, richer format for Cursor, optimized
           budgets per client's context window. Your agents get exactly the right amount of context, automatically.
         </p>

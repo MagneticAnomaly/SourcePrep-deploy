@@ -891,7 +891,7 @@ export function AIModelsSettings({
               <div className="flex flex-col gap-2">
                 <div className="rounded-md border border-border/60 bg-surface-raised/40 px-3 py-2 text-[11px] text-text-muted leading-relaxed">
                   <span className="font-medium text-text">Swarm Coordinator (Optional):</span>{' '}
-                  During Deep Enrichment, Prep fans out per-file analysis to the Thinking Model
+                  During Deep Enrichment, RunPrep fans out per-file analysis to the Thinking Model
                   (the Worker) and uses a separate model to plan clusters and synthesize domain modules.
                   Assign a fast, JSON-reliable model here (e.g. Gemini Flash) to avoid token exhaustion
                   on reasoning-heavy workers like Kimi. Leave inherited to use the Thinking Model for both.

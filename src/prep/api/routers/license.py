@@ -170,7 +170,7 @@ def activate_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
             status_code=400,
             code="INVALID_LICENSE",
             message="Invalid license key. Enter a valid LemonSqueezy license key.",
-            hint="Purchase a license at https://prep.io/pricing",
+            hint="Purchase a license at https://runprep.io/pricing",
         )
 
     # Normalize tier
@@ -421,7 +421,7 @@ def provision_seat(req: RecoverLicenseRequest) -> Dict[str, Any]:
     """SEAT-4: Admin seat provisioning.
     
     Generates a sub-key or invite for a team member.
-    Currently a placeholder for the api.prep.io integration.
+    Currently a placeholder for the api.runprep.io integration.
     """
     email = str(req.email or "").strip()
     if not email or "@" not in email:
@@ -441,7 +441,7 @@ def provision_seat(req: RecoverLicenseRequest) -> Dict[str, Any]:
         if tier not in ("team", "enterprise"):
             raise ApiException(status_code=403, code="TIER_ERROR", message="Seat provisioning requires a Team or Enterprise plan.")
             
-        # In the future, this calls api.prep.io/v1/seats/provision
+        # In the future, this calls api.runprep.io/v1/seats/provision
         # which talks to LemonSqueezy to generate a customer portal link or sub-key.
         return ok({
             "provisioned": True,
@@ -463,7 +463,7 @@ def recover_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
     license recovery mechanism.
 
     For now, returns instructions since the actual LS lookup requires
-    the store API key (which lives on api.prep.io, not the desktop app).
+    the store API key (which lives on api.runprep.io, not the desktop app).
     """
     email = str(req.key or "").strip()
     if not email or "@" not in email:
@@ -477,25 +477,25 @@ def recover_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
     try:
         import requests
         # LemonSqueezy doesn't have a public "recover by email" endpoint.
-        # Recovery is handled via the LS customer portal or payments.prep.io/recover.
+        # Recovery is handled via the LS customer portal or payments.runprep.io/recover.
         # For the desktop app, we redirect the user to the web recovery flow.
         return ok({
             "recovered": False,
             "message": f"License recovery request sent for {email}. Check your email for the license key.",
-            "recovery_url": f"https://payments.prep.io/recover?email={email}",
+            "recovery_url": f"https://payments.runprep.io/recover?email={email}",
             "instructions": [
-                f"1. Visit https://payments.prep.io/recover",
+                f"1. Visit https://payments.runprep.io/recover",
                 f"2. Enter your email: {email}",
                 f"3. Check your inbox for the license key",
-                f"4. Paste the key into Prep → Settings → License",
+                f"4. Paste the key into RunPrep → Settings → License",
             ],
         })
     except Exception as e:
         logger.warning("License recovery error: %s", e)
         return ok({
             "recovered": False,
-            "message": "Visit https://payments.prep.io/recover to recover your license key.",
-            "recovery_url": "https://payments.prep.io/recover",
+            "message": "Visit https://payments.runprep.io/recover to recover your license key.",
+            "recovery_url": "https://payments.runprep.io/recover",
         })
 
 

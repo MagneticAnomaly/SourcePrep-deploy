@@ -9,7 +9,7 @@ The user sees ONE setting ("Auto" / "Large" / "Standard" / "Compact" / "Off").
 All per-stage numbers are derived under the hood.
 
 See docs/Phase35_BYOK/BYOK_BATCH_LIMITS.md for the research behind these numbers.
-See https://docs.prep.io/guides/byok-batching for the public disclosure.
+See https://docs.runprep.io/guides/byok-batching for the public disclosure.
 """
 
 from __future__ import annotations

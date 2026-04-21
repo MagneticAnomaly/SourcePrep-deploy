@@ -1,8 +1,8 @@
 import { AnchorHeading } from '../../../components/AnchorHeading';
 
 export const metadata = {
-  title: 'Enterprise Deployment Guide — Prep Docs',
-  description: 'Deploy Prep headless indexing inside your own infrastructure: air-gapped, VPC, serverless GPU.',
+  title: 'Enterprise Deployment Guide — RunPrep Docs',
+  description: 'Deploy RunPrep headless indexing inside your own infrastructure: air-gapped, VPC, serverless GPU.',
 };
 
 export default function Page() {
@@ -17,7 +17,7 @@ export default function Page() {
           Enterprise Deployment
         </h1>
         <p className="mt-4 text-lg text-text-muted">
-          Deploy Prep&apos;s headless indexer inside your own cloud infrastructure.
+          Deploy RunPrep&apos;s headless indexer inside your own cloud infrastructure.
           No code leaves your network. GPU or CPU images run on any container orchestrator.
         </p>
         <p className="mt-2 text-sm text-text-subtle">
@@ -32,7 +32,7 @@ export default function Page() {
         <AnchorHeading id="overview" level="h2">Overview</AnchorHeading>
 
         <p className="mt-4 text-text-muted">
-          Prep ships two Docker images for headless indexing. Both run the full
+          RunPrep ships two Docker images for headless indexing. Both run the full
           10-stage enrichment pipeline (structural AST parse → epistemic enrichment →
           cluster synthesis → atlas generation) and upload the resulting index to
           S3-compatible storage.
@@ -245,9 +245,9 @@ docker push my-org/prep-runpod`}
         <AnchorHeading id="security" level="h2">Security Posture</AnchorHeading>
 
         <ul className="mt-4 list-disc list-inside space-y-2 text-text-muted">
-          <li><strong>No telemetry.</strong> Prep does not phone home, collect usage data, or send any information to external servers.</li>
+          <li><strong>No telemetry.</strong> RunPrep does not phone home, collect usage data, or send any information to external servers.</li>
           <li><strong>No cloud dependency.</strong> The GPU image includes everything needed to run completely offline.</li>
-          <li><strong>Secrets leakage detection.</strong> Prep warns if credential-like keys appear in <code>team_config.json</code> (which is committed to Git).</li>
+          <li><strong>Secrets leakage detection.</strong> RunPrep warns if credential-like keys appear in <code>team_config.json</code> (which is committed to Git).</li>
           <li><strong>S3 credentials</strong> are resolved from environment variables or a gitignored <code>.runprep/.secrets</code> file — never from committed files.</li>
           <li><strong>Offline license activation.</strong> Enterprise licenses are Ed25519-signed and validated locally. No internet required after activation.</li>
         </ul>

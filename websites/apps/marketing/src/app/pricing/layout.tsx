@@ -2,7 +2,7 @@ import { constructMetadata } from '../metadata-helper';
 
 export const metadata = constructMetadata({
   title: 'Pricing',
-  description: 'Transparent pricing for Prep. Free tier available, or get a Pro perpetual license with zero cloud token markup.',
+  description: 'Transparent pricing for RunPrep. Free tier available, or get a Pro perpetual license with zero cloud token markup.',
   path: '/pricing',
 });
 

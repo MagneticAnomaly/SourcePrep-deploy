@@ -21,7 +21,7 @@ export default function Page() {
             Support
           </h1>
           <p className="text-xl text-text-muted max-w-2xl leading-relaxed">
-            Need help with Prep? Choose the support channel that best fits your needs.
+            Need help with RunPrep? Choose the support channel that best fits your needs.
           </p>
         </div>
 

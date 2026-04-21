@@ -13,7 +13,7 @@ export default function Page() {
         <div className="text-center mb-16">
           <h1 className="text-4xl font-bold tracking-tight mb-4">Payments &amp; Licensing</h1>
           <p className="text-xl text-text-muted max-w-2xl mx-auto">
-            Purchase a Prep license, manage your subscription, or recover an existing key.
+            Purchase a RunPrep license, manage your subscription, or recover an existing key.
             All licenses are verified offline after a single activation — no recurring phone-home.
           </p>
         </div>

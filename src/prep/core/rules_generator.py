@@ -125,7 +125,7 @@ def write_rules_file(
                     stats,
                     project_id=project_id,
                     filename="GEMINI.md",
-                    heading="# Prep Integration",
+                    heading="# RunPrep Integration",
                 )
             else:
                 results[target_ide] = writer(*_args)
@@ -376,7 +376,7 @@ def _build_managed_content(
         parts.append(f"prep_project_id: {project_id}")
         parts.append("")
         parts.append(
-            f"**ROUTING: When calling ANY Prep tool, ALWAYS include "
+            f"**ROUTING: When calling ANY RunPrep tool, ALWAYS include "
             f"`project_id: \"{project_id}\"` in the arguments.**"
         )
         parts.append("")
@@ -400,7 +400,7 @@ def _build_managed_content(
     parts.append("```")
     parts.append("prep_audit(findings=[{file, line, message, severity, tool}])")
     parts.append("```")
-    parts.append("Prep adds: dependent count, hub status, concepts, risk score, recommendation.")
+    parts.append("RunPrep adds: dependent count, hub status, concepts, risk score, recommendation.")
     parts.append("Also accepts SARIF dicts for SARIF-in/SARIF-out enrichment.")
     parts.append("")
     parts.append("### Search Intent")
@@ -419,19 +419,19 @@ def _build_managed_content(
         )
         parts.append("")
         parts.append(
-            "Use `@` to browse Prep resources (atlas, modules, audit). "
+            "Use `@` to browse RunPrep resources (atlas, modules, audit). "
             "Use `/mcp__prep__prep-onboard` for guided orientation."
         )
     elif target == "cursor":
         parts.append(
             "For specific code lookups, use `prep_search` with a natural language query.\n"
-            "Prep understands structural relationships — use it instead of\n"
+            "RunPrep understands structural relationships — use it instead of\n"
             "grep when you need to understand how files connect."
         )
     else:
         # Universal (AGENTS.md): verbose, multi-IDE
         parts.append(
-            "You have access to Prep, a structural code intelligence system.\n"
+            "You have access to RunPrep, a structural code intelligence system.\n"
             "ALWAYS call `prep` (no arguments) at the START of every task.\n"
             "This gives you module structure, hub files, and the user's selected focus areas."
         )
@@ -439,19 +439,19 @@ def _build_managed_content(
         parts.append(
             "For specific code lookups, use `prep_search` with a natural language query.\n"
             "Before making changes to a file, use `prep_impact` to understand dependencies.\n"
-            "Prep understands structural relationships between files -- use it instead of\n"
+            "RunPrep understands structural relationships between files -- use it instead of\n"
             "grep when you need to understand how files connect to each other."
         )
         parts.append("")
         parts.append(
             "For codebase health and tech debt, use `prep_audit`.\n"
             "For cross-session memory, use `prep_observe` to save/retrieve notes.\n"
-            "All Prep tools are read-only and safe to auto-approve."
+            "All RunPrep tools are read-only and safe to auto-approve."
         )
         parts.append("")
         parts.append(
             "### Auto-Approve Configuration\n"
-            "To skip approval prompts for Prep's read-only tools, add to your settings:\n"
+            "To skip approval prompts for RunPrep's read-only tools, add to your settings:\n"
             '```json\n'
             '{ "permissions": { "allow": ["mcp__prep"] } }\n'
             '```\n'
@@ -511,7 +511,7 @@ def _build_managed_content(
         parts.append("")
         parts.append("### MCP Resources (browse with @)")
         parts.append(
-            "Prep also exposes browsable resources via MCP. In supported clients,\n"
+            "RunPrep also exposes browsable resources via MCP. In supported clients,\n"
             "type `@` to see: atlas, structure, modules, audit findings, concepts, focus areas.\n"
             "Resources provide on-demand context without a tool call."
         )
@@ -550,7 +550,7 @@ def generate_cursor_rules(
 
     return (
         "---\n"
-        "description: Prep structural codebase intelligence\n"
+        "description: RunPrep structural codebase intelligence\n"
         "alwaysApply: true\n"
         "---\n"
         "\n"
@@ -629,11 +629,11 @@ def generate_windsurf_rules(
     return (
         "---\n"
         "trigger: always_on\n"
-        "description: Prep structural codebase intelligence\n"
+        "description: RunPrep structural codebase intelligence\n"
         "---\n"
         "\n"
         f"{_WINDSURF_MARKER_START}\n"
-        f"## Prep Structural Context\n"
+        f"## RunPrep Structural Context\n"
         "\n"
         f"{managed}\n"
         f"{_WINDSURF_MARKER_END}"
@@ -710,7 +710,7 @@ def generate_claude_rules(
         target="claude",
     )
 
-    return f"{_CLAUDE_MARKER_START}\n# Prep Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
+    return f"{_CLAUDE_MARKER_START}\n# RunPrep Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
 
 
 def _write_claude_rules(
@@ -775,7 +775,7 @@ def _write_claude_skill(
 
     content = (
         "---\n"
-        "description: Get structural codebase context from Prep\n"
+        "description: Get structural codebase context from RunPrep\n"
         "tools:\n"
         "  - mcp__prep__prep\n"
         "  - mcp__prep__prep_search\n"
@@ -831,7 +831,7 @@ def _write_agents_md(
         target="universal",
     )
     new_section = (
-        f"{_CLAUDE_MARKER_START}\n## Prep Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
+        f"{_CLAUDE_MARKER_START}\n## RunPrep Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
     )
 
     target = project_path / "AGENTS.md"
@@ -861,7 +861,7 @@ def _write_generic_md(
     stats: Optional[Dict[str, Any]],
     project_id: Optional[str] = None,
     filename: str = "GEMINI.md",
-    heading: str = "# Prep Integration",
+    heading: str = "# RunPrep Integration",
 ) -> bool:
     """Write or update a generic markdown file with Prep section.
 
@@ -914,7 +914,7 @@ def _write_copilot_rules(
         project_id=project_id,
     )
     new_section = (
-        f"{_CLAUDE_MARKER_START}\n## Prep Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
+        f"{_CLAUDE_MARKER_START}\n## RunPrep Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
     )
 
     github_dir = project_path / ".github"
@@ -964,11 +964,11 @@ def _write_cline_rules(
     trigger_block = (
         "When asked about code structure, architecture, dependencies, modules, "
         "hub files, blast radius, impact analysis, or codebase navigation, "
-        "use the Prep MCP tools.\n\n"
+        "use the RunPrep MCP tools.\n\n"
     )
     new_section = (
         f"{_CLAUDE_MARKER_START}\n"
-        f"## Prep Integration\n\n"
+        f"## RunPrep Integration\n\n"
         f"{trigger_block}"
         f"{managed}\n"
         f"{_CLAUDE_MARKER_END}"
@@ -1019,7 +1019,7 @@ def _write_roo_rules(
         stats,
         project_id=project_id,
     )
-    content = f"# Prep Integration\n\n{managed}\n"
+    content = f"# RunPrep Integration\n\n{managed}\n"
 
     # Base rules (all modes)
     rules_dir = project_path / ".roo" / "rules"
@@ -1031,7 +1031,7 @@ def _write_roo_rules(
     arch_dir = project_path / ".roo" / "rules-architect"
     arch_dir.mkdir(parents=True, exist_ok=True)
     arch_content = (
-        "# Prep -- Architect Mode\n\n"
+        "# RunPrep -- Architect Mode\n\n"
         "In Architect mode, always start with `prep` for the structural overview.\n"
         "Use `prep_audit` to identify architecture issues, tech debt, and refactoring targets.\n"
         "Use `prep_search` to explore how modules and subsystems connect.\n"
@@ -1042,7 +1042,7 @@ def _write_roo_rules(
     code_dir = project_path / ".roo" / "rules-code"
     code_dir.mkdir(parents=True, exist_ok=True)
     code_content = (
-        "# Prep -- Code Mode\n\n"
+        "# RunPrep -- Code Mode\n\n"
         "Before editing files, call `prep_impact` to understand the blast radius.\n"
         "Use `prep_search` to find related code that may need updates.\n"
         "After finishing changes, use `prep_observe` to record decisions and patterns.\n"

@@ -28,7 +28,7 @@ const MCP_TOOLS: ToolDef[] = [
   },
   {
     name: 'hi_prep',
-    description: 'See what Prep knows about your selected files — design docs, code areas, connections, and suggested next steps. Best first step.',
+    description: 'See what RunPrep knows about your selected files — design docs, code areas, connections, and suggested next steps. Best first step.',
     example: '"hi_prep" — select files in Knowledge Sources first, then ask your AI',
     primary: true,
   },
@@ -40,7 +40,7 @@ const MCP_TOOLS: ToolDef[] = [
   // ── Index Management ────────────────────────────────
   {
     name: 'prep_status',
-    description: 'Check if Prep is connected and the index is ready.',
+    description: 'Check if RunPrep is connected and the index is ready.',
     example: '"Use prep_status to check the index"',
     category: 'Index Management',
   },
@@ -105,7 +105,7 @@ export function UsageGuidePanel({ className, bare = false, docsUrl = 'https://do
           <div className="flex items-center gap-2">
             <h3 className="font-semibold text-text">Quick Start</h3>
             <InfoTooltip 
-              content="Learn how to invoke Prep tools." 
+              content="Learn how to invoke RunPrep tools." 
               href="https://docs.runprep.io/getting-started/quick-start" 
             />
           </div>
@@ -115,7 +115,7 @@ export function UsageGuidePanel({ className, bare = false, docsUrl = 'https://do
       <div className="space-y-4">
         {/* Intro */}
         <p className="text-xs text-text-muted leading-relaxed">
-          Prep serves context to your AI tools via <span className="font-semibold text-text">MCP</span> (Model Context Protocol).
+          RunPrep serves context to your AI tools via <span className="font-semibold text-text">MCP</span> (Model Context Protocol).
           Just ask your AI assistant to use these tools by name.
         </p>
 

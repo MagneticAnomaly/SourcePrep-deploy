@@ -1,5 +1,5 @@
 /**
- * Prep UI Type Definitions
+ * RunPrep UI Type Definitions
  */
 
 /**
@@ -17,7 +17,7 @@ export type StatusState =
   | 'disabled';  // Feature disabled
 
 /**
- * Search result from the Prep API
+ * Search result from the RunPrep API
  */
 export interface SearchResult {
   chunk_id: string;

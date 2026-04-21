@@ -14,7 +14,7 @@ export function constructMetadata({ title, description, path }: MetaProps): Meta
       title,
       description,
       url: `https://runprep.io${path}`,
-      siteName: 'Prep',
+      siteName: 'RunPrep',
       images: [
         {
           url: 'https://runprep.io/images/og-image.png',

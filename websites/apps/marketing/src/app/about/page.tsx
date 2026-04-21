@@ -14,10 +14,10 @@ export default function Page() {
           {/* Main Content */}
           <div className="lg:col-span-8">
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl mb-6">
-              About Prep
+              About RunPrep
             </h1>
             <p className="text-xl text-text-muted leading-relaxed mb-12">
-              Prep gives your AI coding tools epistemic context. It traces your codebase deeply
+              RunPrep gives your AI coding tools epistemic context. It traces your codebase deeply
               using semantic search, a Rust-powered structural code graph, and multi-pass enrichment — then
               delivers precisely the right context to Paperclip, Cursor, or any MCP-compatible editor.
             </p>
@@ -28,7 +28,7 @@ export default function Page() {
               <div className="prose  max-w-none">
                 <p className="text-lg text-text-muted leading-relaxed">
                   AI coding tools work best when they understand how your codebase connects —
-                  not just individual files. Prep provides multiple retrieval methods (semantic search,
+                  not just individual files. RunPrep provides multiple retrieval methods (semantic search,
                   structural graph tracing, configurable path weights, and optional compression) so your
                   AI assistant gets high-signal context instead of noise.
                 </p>
@@ -46,13 +46,13 @@ export default function Page() {
                 Bibliography
               </p>
               <p className="text-text-muted leading-relaxed mb-3">
-                Prep draws on a long list of papers, repositories, and standards. We keep the working list public.
+                RunPrep draws on a long list of papers, repositories, and standards. We keep the working list public.
               </p>
               <a
                 href="/research"
                 className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
               >
-                Read the research Prep was built on →
+                Read the research RunPrep was built on →
               </a>
             </aside>
           </div>
@@ -63,13 +63,13 @@ export default function Page() {
             <section className="rounded-2xl border border-border bg-surface p-8">
               <h2 className="text-xl font-semibold mb-4">The Team</h2>
               <p className="text-text-muted leading-relaxed mb-6">
-                Prep is built by a small team of engineers who believe developer tools
+                RunPrep is built by a small team of engineers who believe developer tools
                 should be sophisticated, secure, and honest about what they do. We&apos;re based remotely
                 and ship daily.
               </p>
               <div className="flex flex-col gap-3">
                 <Button asChild className="w-full">
-                  <a href="/download">Download Prep</a>
+                  <a href="/download">Download RunPrep</a>
                 </Button>
                 <Button asChild variant="outline" className="w-full">
                   <a href="/careers">We&apos;re Hiring</a>
@@ -89,7 +89,7 @@ export default function Page() {
             <div className="rounded-xl border border-border bg-surface p-5">
               <div className="font-semibold text-text">Your code is yours</div>
               <div className="mt-1 text-sm text-text-muted">
-                Prep provides Sovereign Context. Your source code and indexes stay on your machine.
+                RunPrep provides Sovereign Context. Your source code and indexes stay on your machine.
                 No telemetry, no phone-home. Add a cloud LLM provider via BYOK if you choose — you&apos;re in control.
               </div>
             </div>
@@ -110,7 +110,7 @@ export default function Page() {
             <div className="rounded-xl border border-border bg-surface p-5">
               <div className="font-semibold text-text">Work with everything</div>
               <div className="mt-1 text-sm text-text-muted">
-                Prep integrates with Cursor, Windsurf, VS Code, and Claude Code
+                RunPrep integrates with Cursor, Windsurf, VS Code, and Claude Code
                 via MCP. We don&apos;t replace your tools — we make them better.
               </div>
             </div>

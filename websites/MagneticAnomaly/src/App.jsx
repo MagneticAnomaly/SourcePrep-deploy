@@ -355,7 +355,7 @@ function Payloads() {
           <div className="overflow-hidden w-full relative max-md:h-full max-md:flex-1">
             <div className="payloads-track relative w-full h-[550px] md:h-[700px] max-md:h-full">
 
-              {/* APP 01 - Prep */}
+              {/* APP 01 - RunPrep */}
               <div className="app-panel-1 absolute inset-0 w-full h-full flex flex-col justify-center px-2 sm:px-4 md:px-8 max-md:justify-start max-md:pb-2">
                 <div className="payload-card w-full relative glass-panel rounded-[2.5rem] p-2 md:p-3 overflow-hidden transition-all duration-700 hover:border-titan/50 hover:shadow-[0_0_40px_rgba(229,141,87,0.15)] md:bg-void/80 min-h-[500px] md:min-h-[650px] max-md:h-full max-md:rounded-[2rem] max-md:flex max-md:flex-col">
                   <div className="absolute inset-0 bg-gradient-to-br from-titan/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500" />
@@ -366,11 +366,11 @@ function Payloads() {
                       <div className="flex flex-row items-center justify-between mb-6 gap-4">
                         <div className="flex items-center space-x-4">
                           <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
-                            <img src="/Prep-Logo2.png" alt="Prep Icon" className="w-full h-full object-cover" />
+                            <img src="/RunPrep-Logo2.png" alt="RunPrep Icon" className="w-full h-full object-cover" />
                           </div>
                           <div>
                             <span className="font-mono text-xs text-telemetry tracking-widest block">[ DESKTOP / APP ]</span>
-                            <h4 className="font-sans text-2xl md:text-3xl font-bold text-ice">Prep</h4>
+                            <h4 className="font-sans text-2xl md:text-3xl font-bold text-ice">RunPrep</h4>
                           </div>
                         </div>
                         <a href="https://runprep.io" target="_blank" rel="noreferrer" className="md:hidden flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-titan text-ice hover:text-void border border-white/10 hover:border-titan transition-all">
@@ -380,7 +380,7 @@ function Payloads() {
 
                       <p className="font-mono text-[11px] md:text-sm text-telemetry max-md:text-[#A1AAB5] mb-4 md:mb-6 leading-relaxed">
                         <strong className="text-ice">The Context Engine for AI-Assisted Software Engineering.</strong><br /><br />
-                        Prep bridges the gap between massive, complex codebases and LLMs by providing precise, graph-augmented context. It uses advanced AST parsing to trace dependencies, effectively fighting Context Bloat and reducing token costs.
+                        RunPrep bridges the gap between massive, complex codebases and LLMs by providing precise, graph-augmented context. It uses advanced AST parsing to trace dependencies, effectively fighting Context Bloat and reducing token costs.
                       </p>
 
                       <div className="space-y-1.5 md:space-y-2 mb-4 md:mb-8 font-mono text-[10px] md:text-xs text-telemetry max-md:text-[#A1AAB5]">
@@ -407,10 +407,10 @@ function Payloads() {
                         <div className="flex-1 relative overflow-hidden bg-gradient-to-br from-void to-white/5">
                           <div className="mockup-inner-1 flex w-[200%] h-full">
                             <div className="w-1/2 h-full flex items-center justify-center bg-void">
-                              <img src="/Prep-ss1.png" alt="Prep Screen 1" className="w-full h-full object-cover" />
+                              <img src="/RunPrep-ss1.png" alt="RunPrep Screen 1" className="w-full h-full object-cover" />
                             </div>
                             <div className="w-1/2 h-full flex items-center justify-center bg-void">
-                              <img src="/Prep-ss2.png" alt="Prep Screen 2" className="w-full h-full object-cover" />
+                              <img src="/RunPrep-ss2.png" alt="RunPrep Screen 2" className="w-full h-full object-cover" />
                             </div>
                           </div>
                         </div>
@@ -796,7 +796,7 @@ function CommLink() {
 
 function SystemIndex() {
   const apps = [
-    { name: 'Prep', icon: '/Prep-Logo2.png', url: 'https://runprep.io', tagline: 'The Context Engine for AI-Assisted Software Engineering.' },
+    { name: 'RunPrep', icon: '/RunPrep-Logo2.png', url: 'https://runprep.io', tagline: 'The Context Engine for AI-Assisted Software Engineering.' },
     { name: 'HomeColab', icon: '/HomeColab-logo.png', url: 'https://homecolab.app', tagline: 'Find a Home... Together.' },
     { name: 'DinnerVision', icon: '/DinnerVision_v2.png', url: 'https://dinner.vision', tagline: 'Turn what you have into what you can cook.' },
     { name: 'DebateHaus', icon: '/DebateHaus_LogoColor.png', url: 'https://debate.haus', tagline: 'Elevating the Digital Public Square.' },
@@ -933,7 +933,7 @@ export default function App() {
     // Initial State: hide off-screen panels to prevent backdrop-filter blur compositing
     gsap.set(".app-panel-2, .app-panel-3, .app-panel-4", { x: "105vw", visibility: "hidden" });
 
-    // PANEL 1 (Prep) Animation (0 -> 4)
+    // PANEL 1 (RunPrep) Animation (0 -> 4)
     payloadTl.to(".mockup-inner-1", { xPercent: -50, ease: "power2.inOut", duration: 1.5 }, 0.5);
     // Swipe to Panel 2
     payloadTl.set(".app-panel-2", { visibility: "visible" }, 2.4);

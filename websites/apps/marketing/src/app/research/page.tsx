@@ -19,11 +19,11 @@ const INTROS: Record<ProblemArea, string> = {
   retrieval:
     'Why context engineering matters more than raw context size \u2014 and what changes when language models meet long, noisy windows.',
   compression:
-    'Why Prep\u2019s context assembler ladders code from full source down to one-line signatures, and the research that makes signature-only context defensible.',
+    'Why RunPrep\u2019s context assembler ladders code from full source down to one-line signatures, and the research that makes signature-only context defensible.',
   chunking:
     'Why chunking on AST boundaries beats character splits for code, and how structural awareness changes retrieval quality.',
   concepts:
-    'Why Prep treats concepts as first-class artifacts, where the protocol surface comes from, and the older work that grounds the system in something deeper than recent papers.',
+    'Why RunPrep treats concepts as first-class artifacts, where the protocol surface comes from, and the older work that grounds the system in something deeper than recent papers.',
 };
 
 const SECTION_TITLES: Record<ProblemArea, string> = {
@@ -41,7 +41,7 @@ export default function ResearchPage() {
     <DetailPageLayout
       title="Research"
       subtitle="Bibliography"
-      description="What Prep was built on. Notes on the papers, repositories, essays, and standards that shaped the project."
+      description="What RunPrep was built on. Notes on the papers, repositories, essays, and standards that shaped the project."
       sections={SECTIONS}
       docsUrl="https://docs.runprep.io"
       docsLabel="Read the docs"

@@ -15,10 +15,10 @@ export function ResearchHero({ className }: ResearchHeroProps) {
         Bibliography
       </p>
       <h2 className="text-4xl sm:text-5xl font-semibold text-text leading-tight tracking-tight mb-6">
-        What Prep was built on.
+        What RunPrep was built on.
       </h2>
       <p className="text-lg text-text-muted leading-relaxed">
-        A working list of the papers, repositories, essays, and standards Prep draws on. Each entry includes a one-line note on how it shaped the project &mdash; and what we changed when we disagreed.
+        A working list of the papers, repositories, essays, and standards RunPrep draws on. Each entry includes a one-line note on how it shaped the project &mdash; and what we changed when we disagreed.
       </p>
     </header>
   );

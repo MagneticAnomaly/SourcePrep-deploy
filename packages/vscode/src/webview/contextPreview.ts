@@ -50,7 +50,7 @@ export class ContextPreviewPanel {
 
     const panel = vscode.window.createWebviewPanel(
       'prepContext',
-      `Prep Context: ${query}`,
+      `RunPrep Context: ${query}`,
       column || vscode.ViewColumn.One,
       {
         enableScripts: true,
@@ -68,7 +68,7 @@ export class ContextPreviewPanel {
   }
 
   public update(query: string, response: ContextResponse): void {
-    this._panel.title = `Prep Context: ${query}`;
+    this._panel.title = `RunPrep Context: ${query}`;
     this._pendingQuery = query;
     this._pendingResponse = response;
     this.postMessage(query, response);

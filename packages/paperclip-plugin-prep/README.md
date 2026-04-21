@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="prep-github-header.png" alt="Prep" width="100%">
+  <img src="prep-github-header.png" alt="RunPrep" width="100%">
 </p>
 
 # @prep/paperclip-plugin
 
 > Give every Paperclip agent deep structural codebase knowledge.
 
-**Prep** indexes your codebase with embeddings, a structural graph, and epistemic analysis. This plugin makes that intelligence available to **every agent** in your Paperclip instance — no per-agent configuration needed.
+**RunPrep** indexes your codebase with embeddings, a structural graph, and epistemic analysis. This plugin makes that intelligence available to **every agent** in your Paperclip instance — no per-agent configuration needed.
 
 ## The Problem
 
@@ -14,7 +14,7 @@ AI agents working on code operate blind. They grep files, read READMEs, and hope
 
 ## The Solution
 
-Prep pre-computes your codebase's structural graph — modules, dependencies, hub files, domain clusters — and serves it on demand. The Paperclip plugin registers 5 tools that any agent can call during their runs:
+RunPrep pre-computes your codebase's structural graph — modules, dependencies, hub files, domain clusters — and serves it on demand. The Paperclip plugin registers 5 tools that any agent can call during their runs:
 
 | Tool | What It Does |
 |------|-------------|
@@ -26,7 +26,7 @@ Prep pre-computes your codebase's structural graph — modules, dependencies, hu
 
 ## Why This Is Novel
 
-This is **epistemic-first agent orchestration** — instead of agents discovering codebase structure through trial and error, Prep pre-computes it and serves it on demand:
+This is **epistemic-first agent orchestration** — instead of agents discovering codebase structure through trial and error, RunPrep pre-computes it and serves it on demand:
 
 - **Pre-computed structure** — Module clusters, import chains, and hub files are already indexed
 - **Role-scoped context** — Backend agents see backend files. Frontend agents see frontend files
@@ -37,8 +37,8 @@ This is **epistemic-first agent orchestration** — instead of agents discoverin
 
 ### Prerequisites
 
-1. **Prep Desktop App** — Download from [runprep.io](https://runprep.io). The daemon must be running. 
-2. **A Prep project** — `prep add /path/to/your/repo`
+1. **RunPrep Desktop App** — Download from [runprep.io](https://runprep.io). The daemon must be running. 
+2. **A RunPrep project** — `prep add /path/to/your/repo`
 3. **A Paperclip instance** — Running locally or deployed
 
 ### Install
@@ -49,20 +49,20 @@ pnpm paperclipai plugin install @prep/paperclip-plugin
 
 ### Configure
 
-In Paperclip Settings → Plugins → Prep:
+In Paperclip Settings → Plugins → RunPrep:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `daemon_url` | `http://127.0.0.1:8400` | Prep daemon URL |
-| `project_id` | *(auto-detected)* | Prep project ID. Auto-detects if you have one project. |
-| `auto_context` | `true` | Automatically enrich new issues with Prep context |
+| `daemon_url` | `http://127.0.0.1:8400` | RunPrep daemon URL |
+| `project_id` | *(auto-detected)* | RunPrep project ID. Auto-detects if you have one project. |
+| `auto_context` | `true` | Automatically enrich new issues with RunPrep context |
 
 ## Dashboard Extensions
 
 The plugin adds UI components directly into Paperclip:
 
 - **Codebase Health Widget** — Readiness score, role count, research runs at a glance
-- **Agent Knowledge Scope Tab** — Which files Prep assigned to each agent's role
+- **Agent Knowledge Scope Tab** — Which files RunPrep assigned to each agent's role
 - **Issue Context Tab** — Structural context for issues created from audit findings
 - **Settings Page** — Connection status and tool reference
 
@@ -71,14 +71,14 @@ The plugin adds UI components directly into Paperclip:
 ```
 Paperclip (orchestration)
     ↓ agent calls prep:search during run
-Prep Plugin (JSON-RPC worker)
+RunPrep Plugin (JSON-RPC worker)
     ↓ proxies to HTTP API
-Prep Daemon (localhost:8400)
+RunPrep Daemon (localhost:8400)
     ↓ queries
 Sovereign Index (embeddings + graph + atlas)
 ```
 
-The plugin runs as an **out-of-process worker** communicating via JSON-RPC over stdio. It has no direct database access — all data flows through the Prep daemon's HTTP API. Worker failure is isolated and doesn't affect other plugins or Paperclip core.
+The plugin runs as an **out-of-process worker** communicating via JSON-RPC over stdio. It has no direct database access — all data flows through the RunPrep daemon's HTTP API. Worker failure is isolated and doesn't affect other plugins or Paperclip core.
 
 ## Capabilities Required
 
@@ -89,7 +89,7 @@ issues.read                — Read issues to provide context
 agents.read                — Read agent roles for scoped context
 events.subscribe           — React to agent/issue lifecycle events
 jobs.schedule              — Scheduled reindex health checks
-http.outbound              — Call Prep daemon API
+http.outbound              — Call RunPrep daemon API
 plugin.state.read/write    — Cache project-agent mappings
 ui.dashboardWidget.register — Codebase health widget
 ui.detailTab.register       — Agent + issue detail tabs

@@ -12,9 +12,9 @@ let daemonManager: DaemonManager | undefined;
 let statusBarManager: StatusBarManager | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
-  const outputChannel = vscode.window.createOutputChannel('Prep');
+  const outputChannel = vscode.window.createOutputChannel('RunPrep');
   context.subscriptions.push(outputChannel);
-  outputChannel.appendLine('Prep extension activating...');
+  outputChannel.appendLine('RunPrep extension activating...');
 
   // Build the daemon client from settings
   const client = createClientFromConfig();
@@ -85,7 +85,7 @@ export function activate(context: vscode.ExtensionContext): void {
     daemonManager.startDaemon();
   }
 
-  outputChannel.appendLine('Prep extension activated.');
+  outputChannel.appendLine('RunPrep extension activated.');
 }
 
 export function deactivate(): void {

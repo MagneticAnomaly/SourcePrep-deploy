@@ -70,7 +70,7 @@ const mockResults: SearchResult[] = [
     chunk_id: 'chunk-003',
     source_path: 'docs/API.md',
     span: { start_line: 1, end_line: 30 },
-    preview: '# Prep API Reference\n\nThis document describes the REST API endpoints for Prep...',
+    preview: '# RunPrep API Reference\n\nThis document describes the REST API endpoints for RunPrep...',
     score: 0.78,
   },
 ];

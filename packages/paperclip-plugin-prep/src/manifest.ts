@@ -1,5 +1,5 @@
 /**
- * Prep Paperclip Plugin Manifest
+ * RunPrep Paperclip Plugin Manifest
  */
 import type { PaperclipPluginManifestV1 } from '@paperclipai/plugin-sdk';
 
@@ -7,11 +7,11 @@ const manifest: PaperclipPluginManifestV1 = {
   id: 'prep',
   apiVersion: 1,
   version: '0.1.0',
-  displayName: 'Prep Codebase Intelligence',
+  displayName: 'RunPrep Codebase Intelligence',
   description:
     'Gives every Paperclip agent structural codebase knowledge — module maps, ' +
-    'dependency graphs, semantic search, and health analysis powered by Prep.',
-  author: 'Prep <hello@runprep.io>',
+    'dependency graphs, semantic search, and health analysis powered by RunPrep.',
+  author: 'RunPrep <hello@runprep.io>',
   categories: ['connector'],
 
   capabilities: [
@@ -39,17 +39,17 @@ const manifest: PaperclipPluginManifestV1 = {
     properties: {
       daemon_url: {
         type: 'string',
-        description: 'Prep daemon base URL',
+        description: 'RunPrep daemon base URL',
         default: 'http://127.0.0.1:8400',
       },
       project_id: {
         type: 'string',
-        description: 'Default Prep project ID (auto-detected if empty)',
+        description: 'Default RunPrep project ID (auto-detected if empty)',
         default: '',
       },
       auto_context: {
         type: 'boolean',
-        description: 'Automatically attach Prep context to new issues',
+        description: 'Automatically attach RunPrep context to new issues',
         default: true,
       },
     },
@@ -146,7 +146,7 @@ const manifest: PaperclipPluginManifestV1 = {
       {
         type: 'page',
         id: 'prep-settings',
-        displayName: 'Prep Settings',
+        displayName: 'RunPrep Settings',
         exportName: 'SettingsPage',
       },
     ],
@@ -155,8 +155,8 @@ const manifest: PaperclipPluginManifestV1 = {
   jobs: [
     {
       jobKey: 'reindex-check',
-      displayName: 'Prep Reindex Check',
-      description: 'Check if Prep index is stale and needs rebuild',
+      displayName: 'RunPrep Reindex Check',
+      description: 'Check if RunPrep index is stale and needs rebuild',
       schedule: '0 */6 * * *',
     },
   ],

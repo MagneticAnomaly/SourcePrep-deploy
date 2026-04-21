@@ -153,7 +153,7 @@ export default function GraphEnrichmentPage() {
       <section id="journey">
         <h2 className="text-2xl font-semibold text-text mb-4">The Journey</h2>
         <p className="text-text-muted leading-relaxed mb-4">
-          When Prep indexes your codebase, a 15-stage pipeline runs in three groups of five.
+          When RunPrep indexes your codebase, a 15-stage pipeline runs in three groups of five.
           The first five stages <strong className="text-text">sync</strong> instantly — Rust parsing, graph building, and first-pass annotation in seconds.
           The next five <strong className="text-text">enrich</strong> in the background — deep LLM reasoning that progressively deepens understanding.
           The final five <strong className="text-text">finalize</strong> — producing the atlas, rules files, concepts, audit findings, and immune system defenses that your tools actually consume.

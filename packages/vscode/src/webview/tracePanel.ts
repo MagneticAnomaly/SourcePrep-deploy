@@ -19,7 +19,7 @@ export class TracePanel {
             this.postMessage(this._pendingData);
           }
         } else if (message.command === 'openPricing') {
-          vscode.env.openExternal(vscode.Uri.parse('https://getprep.io/pricing'));
+          vscode.env.openExternal(vscode.Uri.parse('https://runprep.io/pricing'));
         }
       },
       null,
@@ -43,7 +43,7 @@ export class TracePanel {
 
     const panel = vscode.window.createWebviewPanel(
       'prepTrace',
-      'Prep Trace',
+      'RunPrep Trace',
       column || vscode.ViewColumn.One,
       {
         enableScripts: true,

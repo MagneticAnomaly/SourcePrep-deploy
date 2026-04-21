@@ -78,7 +78,7 @@ export function YaleHero({ isBetaMode }: { isBetaMode: boolean }) {
               <div className="flex flex-col gap-3 md:gap-2">
                 {isBetaMode ? (
                   <Button className="w-full md:w-auto md:justify-start md:px-0 md:bg-transparent md:text-text md:hover:bg-transparent md:hover:text-primary md:shadow-none h-12 md:h-auto md:py-2 text-base md:text-sm font-semibold md:font-medium" variant="default" asChild>
-                    <a href="mailto:support@runprep.io?subject=Prep%20Beta%20Access%20Request">
+                    <a href="mailto:support@runprep.io?subject=RunPrep%20Beta%20Access%20Request">
                       <Download className="hidden md:block w-4 h-4 mr-2" />
                       Request Beta
                     </a>

@@ -16,11 +16,11 @@ type Story = StoryObj<typeof BugReportModal>;
 
 const now = Date.now() / 1000;
 const mockLogs: LogEntry[] = [
-  { timestamp: now - 120, level: 'INFO', logger: 'prep.server', message: 'Prep daemon started on http://0.0.0.0:8400', created: now - 120 },
+  { timestamp: now - 120, level: 'INFO', logger: 'prep.server', message: 'RunPrep daemon started on http://0.0.0.0:8400', created: now - 120 },
   { timestamp: now - 60, level: 'WARNING', logger: 'prep.core.inferred_edges', message: 'Code model slot not configured — skipping AI-powered edge discovery.', created: now - 60 },
   { timestamp: now - 30, level: 'ERROR', logger: 'prep.core.augmenter', message: 'LLM timeout on node "GraphEnrichmentPipeline.tsx" — retrying (attempt 2/3)', created: now - 30 },
   { timestamp: now - 25, level: 'ERROR', logger: 'prep.core.augmenter', message: 'All retries exhausted for GraphEnrichmentPipeline.tsx', created: now - 25 },
-  { timestamp: now - 10, level: 'INFO', logger: 'prep.services.pipeline', message: '[Prep] Fast Sync completed in 115.2s ✓', created: now - 10 },
+  { timestamp: now - 10, level: 'INFO', logger: 'prep.services.pipeline', message: '[RunPrep] Fast Sync completed in 115.2s ✓', created: now - 10 },
   { timestamp: now - 5, level: 'INFO', logger: 'uvicorn.access', message: 'GET /health 200 OK (1ms)', created: now - 5 },
 ];
 
@@ -31,7 +31,7 @@ export const Open: Story = {
     onClose: () => console.log('Close'),
     logs: mockLogs,
     diagnosticData: {
-      project: { name: 'Prep', mode: 'active', file_count: 1143 },
+      project: { name: 'RunPrep', mode: 'active', file_count: 1143 },
       license_tier: 'pro',
       project_status: { building: false, stale: false },
       daemon_version: '0.67.2',

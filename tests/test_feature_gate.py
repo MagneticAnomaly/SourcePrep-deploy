@@ -163,7 +163,7 @@ class TestRequireFeature:
         assert exc_info.value.feature == "team_config"
         assert exc_info.value.current_tier == "free"
         assert exc_info.value.required_tier == "team"
-        assert "prep.io/pricing" in str(exc_info.value)
+        assert "runprep.io/pricing" in str(exc_info.value)
 
 class TestLicenseToDict:
     def test_to_dict_structure(self):

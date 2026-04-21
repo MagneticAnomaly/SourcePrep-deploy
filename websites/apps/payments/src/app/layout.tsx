@@ -15,8 +15,8 @@ const ibmPlexSerif = IBM_Plex_Serif({ weight: ['400', '600'], subsets: ['latin']
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://payments.runprep.io'),
-  title: 'Prep Payments',
-  description: 'Purchase and manage Prep licenses.',
+  title: 'RunPrep Payments',
+  description: 'Purchase and manage RunPrep licenses.',
   icons: {
     icon: [
       { url: '/favicon_io/favicon-16x16.png', sizes: '16x16', type: 'image/png' },

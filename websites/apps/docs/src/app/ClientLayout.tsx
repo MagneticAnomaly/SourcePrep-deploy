@@ -20,8 +20,8 @@ export function ClientLayout({ children }: { children: ReactNode }) {
   return (
     <DocsLayout
       headerProps={{
-        productName: 'Prep Docs',
-        logo: <img src="/prep-logo.png" alt="Prep" style={{ width: '3rem', height: '3rem' }} className="rounded" />,
+        productName: 'RunPrep Docs',
+        logo: <img src="/prep-logo.png" alt="RunPrep" style={{ width: '3rem', height: '3rem' }} className="rounded" />,
         links: navLinks,
         searchPlaceholder: 'Search documentation...',
         onSearch: (query: string) => {
@@ -29,7 +29,7 @@ export function ClientLayout({ children }: { children: ReactNode }) {
         },
       }}
       footerProps={{
-        productName: 'Prep',
+        productName: 'RunPrep',
         socials: {
           twitter: 'https://x.com/Prep_io',
           github: 'https://github.com/MagneticAnomaly/RunPrep-MCP',

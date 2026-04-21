@@ -11,7 +11,7 @@ export default function Page() {
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Code Graph</h1>
         <p className="mt-4 text-xl text-text-muted">
-          The structural backbone of Prep.
+          The structural backbone of RunPrep.
         </p>
 
         <div className="mt-12 prose  max-w-none">
@@ -20,7 +20,7 @@ export default function Page() {
             at precision (&quot;where is the <code>User</code> struct defined and what calls it?&quot;).
           </p>
           <p>
-            To solve this, Prep maintains a parallel <span className="font-semibold text-text">Code Graph</span> — a directed graph 
+            To solve this, RunPrep maintains a parallel <span className="font-semibold text-text">Code Graph</span> — a directed graph 
             of your codebase's structure.
           </p>
 
@@ -78,7 +78,7 @@ export default function Page() {
             in your context request (or use the &quot;Trace&quot; keywords in your MCP editor).
           </p>
           <p>
-            When enabled, Prep:
+            When enabled, RunPrep:
           </p>
           <ol className="list-decimal pl-5">
             <li>Finds the primary chunks via vector search.</li>
@@ -91,7 +91,7 @@ export default function Page() {
             <span className="font-semibold text-text">Example:</span> You ask &quot;How is billing calculated?&quot;. <br/>
             Vector search finds <code>billing.py</code>. <br/>
             The Code Graph notices <code>billing.py</code> imports <code>tax_rates.py</code>. <br/>
-            Prep includes <code>tax_rates.py</code> in the context automatically, preventing the AI from hallucinating tax logic.
+            RunPrep includes <code>tax_rates.py</code> in the context automatically, preventing the AI from hallucinating tax logic.
           </p>
 
           <AnchorHeading id="knowledge-pipeline" level="h2">The Knowledge Pipeline</AnchorHeading>
@@ -142,7 +142,7 @@ export default function Page() {
           </div>
 
           <p className="mt-6">
-            This pipeline ensures that Prep understands not just <em>where</em> code is (Structure), but <em>what</em> it does (Enrichment) and <em>how</em> it relates conceptually (Embeddings).
+            This pipeline ensures that RunPrep understands not just <em>where</em> code is (Structure), but <em>what</em> it does (Enrichment) and <em>how</em> it relates conceptually (Embeddings).
           </p>
 
           <p>

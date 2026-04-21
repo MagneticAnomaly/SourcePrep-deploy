@@ -41,7 +41,7 @@ export function CenteredHero({ isBetaMode }: { isBetaMode: boolean }) {
 
         {/* Subheadline */}
         <p className="mt-6 text-lg md:text-xl text-text-muted max-w-2xl mx-auto leading-relaxed">
-          Prep's Rust-powered engine indexes your entire codebase — semantics, symbols,
+          RunPrep's Rust-powered engine indexes your entire codebase — semantics, symbols,
           and call graphs — with built-in ONNX embeddings, path weights for precision control, and
           smart dual-engine compression that fits 3–20× more signal into every prompt. Runs locally, or connect your preferred cloud APIs.
         </p>
@@ -50,7 +50,7 @@ export function CenteredHero({ isBetaMode }: { isBetaMode: boolean }) {
         <Flex className="mt-10 gap-4" justifyContent="center" alignItems="center">
           {isBetaMode ? (
             <Button size="lg" className="shadow-lg shadow-primary/25" asChild>
-              <a href="mailto:support@runprep.io?subject=Prep%20Beta%20Access%20Request">Request Beta Access</a>
+              <a href="mailto:support@runprep.io?subject=RunPrep%20Beta%20Access%20Request">Request Beta Access</a>
             </Button>
           ) : (
             <Button size="lg" className="shadow-lg shadow-primary/25" asChild>
@@ -88,7 +88,7 @@ export function CenteredHero({ isBetaMode }: { isBetaMode: boolean }) {
               <span className="w-3 h-3 rounded-full bg-warning/60" />
               <span className="w-3 h-3 rounded-full bg-success/60" />
             </div>
-            <span className="text-xs text-text-subtle ml-2">Prep — LinuxBrain</span>
+            <span className="text-xs text-text-subtle ml-2">RunPrep — LinuxBrain</span>
           </div>
           <div className="p-6 min-h-[200px] bg-gradient-to-b from-surface to-background">
             {/* Mock dashboard UI */}

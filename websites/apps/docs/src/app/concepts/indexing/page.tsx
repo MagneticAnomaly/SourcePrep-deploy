@@ -55,7 +55,7 @@ export default function Page() {
 
           <AnchorHeading id="incremental" level="h2">Incremental Updates</AnchorHeading>
           <p>
-            Prep includes a real-time file watcher (<code>watchdog</code>). When you save a file:
+            RunPrep includes a real-time file watcher (<code>watchdog</code>). When you save a file:
           </p>
           <ul className="list-disc pl-5">
             <li>The watcher detects the <code>modify</code> event.</li>

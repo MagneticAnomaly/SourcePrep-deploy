@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-We take the security of Prep seriously. If you discover a security vulnerability, please report it to us immediately.
+We take the security of RunPrep seriously. If you discover a security vulnerability, please report it to us immediately.
 
 **Do NOT file public GitHub issues for security vulnerabilities.**
 
@@ -16,7 +16,7 @@ Please email **security@runprep.io** with a description of the issue, steps to r
 
 ## Supported Versions
 
-We provide security updates for the **latest major release** of the Prep Desktop Application and the Prep MCP Server.
+We provide security updates for the **latest major release** of the RunPrep Desktop Application and the RunPrep MCP Server.
 
 | Version | Supported | Notes |
 | :--- | :--- | :--- |
@@ -25,8 +25,8 @@ We provide security updates for the **latest major release** of the Prep Desktop
 
 ## Integrity Verification
 
-All official releases of Prep are signed.
+All official releases of RunPrep are signed.
 - **macOS**: Signed with our Apple Developer ID and notarized by Apple.
 - **Windows**: Signed with our EV Code Signing Certificate.
 
-Do not run Prep binaries that fail signature verification or originate from untrusted sources.
+Do not run RunPrep binaries that fail signature verification or originate from untrusted sources.

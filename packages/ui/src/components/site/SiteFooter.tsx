@@ -41,7 +41,7 @@ export interface SiteFooterProps {
 }
 
 export function SiteFooter({
-  productName = 'Prep',
+  productName = 'RunPrep',
   logo = <Box className="w-5 h-5 text-primary" />,
   sections = defaultSections,
   socials,
@@ -148,8 +148,8 @@ const defaultSections: FooterSection[] = [
       { label: 'Careers', href: 'https://runprep.io/careers' },
       { label: 'Contact', href: 'https://runprep.io/contact' },
       { label: 'Security', href: 'https://runprep.io/security' },
-      { label: 'Prep vs Cursor', href: 'https://runprep.io/compare/prep-vs-cursor-indexing' },
-      { label: 'Prep vs Greptile', href: 'https://runprep.io/compare/prep-vs-greptile' },
+      { label: 'RunPrep vs Cursor', href: 'https://runprep.io/compare/prep-vs-cursor-indexing' },
+      { label: 'RunPrep vs Greptile', href: 'https://runprep.io/compare/prep-vs-greptile' },
     ],
   },
 ];

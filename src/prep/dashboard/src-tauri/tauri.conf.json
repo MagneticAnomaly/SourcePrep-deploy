@@ -6,7 +6,7 @@
     "distDir": "../dist"
   },
   "package": {
-    "productName": "Prep",
+    "productName": "RunPrep",
     "version": "0.1.0"
   },
   "tauri": {
@@ -72,7 +72,7 @@
       {
         "fullscreen": false,
         "resizable": true,
-        "title": "Prep",
+        "title": "RunPrep",
         "width": 1200,
         "height": 800
       }

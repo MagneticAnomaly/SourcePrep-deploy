@@ -20,7 +20,7 @@ const ibmPlexSerif = IBM_Plex_Serif({ weight: ['400', '500', '600'], subsets: ['
 const productSchema = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  "name": "Prep",
+  "name": "RunPrep",
   "operatingSystem": "macOS, Windows, Linux",
   "applicationCategory": "DeveloperApplication",
   "description": "Epistemic codebase intelligence engine designed for autonomous agents and AI-assisted development. It creates a structural code graph using Rust to map imports, call chains, and symbol hierarchies for sophisticated context.",
@@ -33,21 +33,21 @@ const productSchema = {
 export const metadata: Metadata = {
   metadataBase: new URL('https://runprep.io'),
   title: {
-    default: 'Prep - Epistemic Code Context',
-    template: '%s | Prep'
+    default: 'RunPrep - Epistemic Code Context',
+    template: '%s | RunPrep'
   },
   description: 'Deep structural codebase tracing and epistemic context for autonomous agents and intelligent workflows.',
   openGraph: {
-    title: 'Prep - Epistemic Code Context',
+    title: 'RunPrep - Epistemic Code Context',
     description: 'Deep structural codebase tracing and epistemic context for autonomous agents and intelligent workflows.',
     url: 'https://runprep.io',
-    siteName: 'Prep',
+    siteName: 'RunPrep',
     images: [
       {
         url: '/images/og-image.png',
         width: 1245,
         height: 779,
-        alt: 'Prep Logo',
+        alt: 'RunPrep Logo',
       },
     ],
     locale: 'en_US',
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Prep - Epistemic Code Context',
+    title: 'RunPrep - Epistemic Code Context',
     description: 'Deep structural codebase tracing and epistemic context for autonomous agents and intelligent workflows.',
     images: ['/images/og-image.png'],
   },

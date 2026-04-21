@@ -1,7 +1,7 @@
 """
-Prep FastAPI server.
+RunPrep FastAPI server.
 
-Main HTTP API for the Prep daemon.
+Main HTTP API for the RunPrep daemon.
 
 Usage:
     python -m prep.server --repo-root /path/to/repo --port 8400
@@ -103,7 +103,7 @@ async def lifespan(app: FastAPI):
     # Initialize ProgressManager (ensure it's created)
     get_progress_manager()
 
-    logger.info("Prep EventBus initialized")
+    logger.info("RunPrep EventBus initialized")
     yield
     # Phase 93: Write clean shutdown markers for projects with no active runs.
     # On next startup, auto_recover_stale_pipelines will see these markers and
@@ -144,7 +144,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Prep",
+    title="RunPrep",
     description="Code Documentation and RAG - Multi-project semantic search platform",
     version=__version__,
     lifespan=lifespan,
@@ -163,7 +163,7 @@ async def _feature_gate_handler(request, exc: FeatureGateError):
             "error": {
                 "code": "FEATURE_GATED",
                 "message": str(exc),
-                "hint": f"Upgrade to {exc.required_tier} at https://prep.io/pricing",
+                "hint": f"Upgrade to {exc.required_tier} at https://runprep.io/pricing",
                 "details": {
                     "feature": exc.feature,
                     "current_tier": exc.current_tier,
@@ -1127,7 +1127,7 @@ def mount_dashboard():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Prep Server")
+    parser = argparse.ArgumentParser(description="RunPrep Server")
     parser.add_argument("--repo-root", help="Default repository root to index")
     parser.add_argument(
         "--index-dir",
@@ -1150,7 +1150,7 @@ def main():
     mount_dashboard()
 
     import uvicorn
-    logger.info("Starting Prep server on %s:%d", args.host, args.port)
+    logger.info("Starting RunPrep server on %s:%d", args.host, args.port)
     uvicorn.run(app, host=args.host, port=args.port)
 
 

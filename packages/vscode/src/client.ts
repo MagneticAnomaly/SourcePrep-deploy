@@ -22,7 +22,7 @@ export class PrepClientError extends Error {
 }
 
 /**
- * Lightweight HTTP client for the Prep daemon.
+ * Lightweight HTTP client for the RunPrep daemon.
  * No React or browser dependencies — pure Node.js fetch.
  */
 export class PrepDaemonClient {
@@ -221,7 +221,7 @@ export class PrepDaemonClient {
       });
     } catch (err) {
       throw new PrepClientError(
-        `Network error contacting Prep daemon at ${this.baseUrl}: ${err instanceof Error ? err.message : String(err)}`,
+        `Network error contacting RunPrep daemon at ${this.baseUrl}: ${err instanceof Error ? err.message : String(err)}`,
       );
     } finally {
       clearTimeout(timeout);

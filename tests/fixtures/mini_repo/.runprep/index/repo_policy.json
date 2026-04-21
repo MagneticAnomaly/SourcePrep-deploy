@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "created_at": "2026-04-21T13:18:26.387419+00:00",
+  "created_at": "2026-04-21T14:39:22.999628+00:00",
   "repo_root": "/Volumes/4TB-BAD/HumanAI/CoDRAG/tests/fixtures/mini_repo",
   "include_globs": [
     "**/*.markdown",
@@ -36,11 +36,11 @@
     "**/.next/**",
     "**/.nuxt/**",
     "**/.parcel-cache/**",
-    "**/.prep/**",
     "**/.pytest_cache/**",
     "**/.qwencoderules",
     "**/.roorules",
     "**/.ruff_cache/**",
+    "**/.runprep/**",
     "**/.svelte-kit/**",
     "**/.tox/**",
     "**/.turbo/**",

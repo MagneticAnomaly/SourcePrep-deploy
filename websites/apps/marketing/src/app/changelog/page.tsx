@@ -77,7 +77,7 @@ export default function Page() {
             Changelog
           </h1>
           <p className="text-xl text-text-muted max-w-2xl leading-relaxed">
-            New updates and improvements to Prep.
+            New updates and improvements to RunPrep.
           </p>
         </div>
 

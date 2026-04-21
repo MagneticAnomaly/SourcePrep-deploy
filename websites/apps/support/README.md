@@ -1,6 +1,6 @@
-# Prep Support Portal (Headless GitHub)
+# RunPrep Support Portal (Headless GitHub)
 
-This is a Next.js application that serves as the specialized support portal for Prep (`support.runprep.io`).
+This is a Next.js application that serves as the specialized support portal for RunPrep (`support.runprep.io`).
 
 It uses a **Headless GitHub** architecture:
 - **Frontend**: Custom Next.js UI using `@prep/ui` components.

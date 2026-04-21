@@ -44,14 +44,14 @@ export function RetroHero({ isBetaMode }: { isBetaMode: boolean }) {
             className="mt-12 bg-transparent border-2 border-primary text-primary hover:bg-primary hover:text-background px-10 py-4 text-xl font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(255,0,255,0.4)] hover:shadow-[0_0_40px_rgba(255,0,255,0.8)] rounded-none h-auto"
             asChild
           >
-            <a href="mailto:support@runprep.io?subject=Prep%20Beta%20Access%20Request">Join Beta</a>
+            <a href="mailto:support@runprep.io?subject=RunPrep%20Beta%20Access%20Request">Join Beta</a>
           </Button>
         ) : (
           <Button 
             className="mt-12 bg-transparent border-2 border-primary text-primary hover:bg-primary hover:text-background px-10 py-4 text-xl font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(255,0,255,0.4)] hover:shadow-[0_0_40px_rgba(255,0,255,0.8)] rounded-none h-auto"
             asChild
           >
-            <a href="/download">Get Prep</a>
+            <a href="/download">Get RunPrep</a>
           </Button>
         )}
       </div>

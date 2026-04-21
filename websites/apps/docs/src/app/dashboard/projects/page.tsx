@@ -11,7 +11,7 @@ export default function Page() {
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Managing Projects</h1>
         <p className="mt-4 text-xl text-text-muted">
-          Projects are the core unit of organization in Prep. A project connects a local
+          Projects are the core unit of organization in RunPrep. A project connects a local
           codebase directory to a <span className="font-semibold text-text">Knowledge Index</span> and <span className="font-semibold text-text">Trace Graph</span>.
         </p>
         
@@ -22,7 +22,7 @@ export default function Page() {
             You can add projects via the CLI (<code>prep add .</code>) or directly in the Dashboard.
           </p>
           <ol className="list-decimal pl-5 text-sm text-text-muted">
-            <li>Open the Prep desktop app.</li>
+            <li>Open the RunPrep desktop app.</li>
             <li>Click the <span className="font-semibold text-text">&quot;+&quot;</span> button in the sidebar project list.</li>
             <li>Select your repository folder using the file picker.</li>
             <li>Give it a friendly name (optional).</li>
@@ -37,7 +37,7 @@ export default function Page() {
 
           <AnchorHeading id="indexing-status" level="h2" className="mt-8">Indexing Status</AnchorHeading>
           <p>
-            Once added, Prep begins the 7-stage knowledge process managed by the <span className="font-semibold text-text">Knowledge Pipeline</span> (Panel B):
+            Once added, RunPrep begins the 7-stage knowledge process managed by the <span className="font-semibold text-text">Knowledge Pipeline</span> (Panel B):
           </p>
           <ul className="list-disc pl-5 text-sm text-text-muted">
             <li><span className="font-semibold text-text">Structural Trace:</span> (Rust) Fast parsing of your codebase structure.</li>
@@ -58,7 +58,7 @@ export default function Page() {
           
           <h3 className="text-base font-semibold mt-4">Excluding Files</h3>
           <p className="text-sm">
-            Prep respects your <code>.gitignore</code> automatically. To exclude additional files (like large assets or generated code) without git-ignoring them:
+            RunPrep respects your <code>.gitignore</code> automatically. To exclude additional files (like large assets or generated code) without git-ignoring them:
           </p>
           <ul className="list-disc pl-5 text-sm text-text-muted">
             <li>Go to the <span className="font-semibold text-text">Excluded</span> tab in the Graph Scope panel.</li>
@@ -82,7 +82,7 @@ export default function Page() {
             Click the <span className="font-semibold text-text">Settings</span> tab in the dashboard to configure project-specific options.
           </p>
           <ul className="list-disc pl-5 text-sm text-text-muted space-y-2">
-            <li><span className="font-semibold text-text">Include/Exclude Patterns:</span> Fine-tune exactly which files are indexed. Use <span className="font-semibold text-text">Auto-Detect Stack</span> to have Prep scan your repo and suggest patterns for your framework.</li>
+            <li><span className="font-semibold text-text">Include/Exclude Patterns:</span> Fine-tune exactly which files are indexed. Use <span className="font-semibold text-text">Auto-Detect Stack</span> to have RunPrep scan your repo and suggest patterns for your framework.</li>
             <li><span className="font-semibold text-text">File Size Limits:</span> Adjust the max file size threshold (default 10MB) if you need to index large data files.</li>
             <li><span className="font-semibold text-text">Auto-Rebuild:</span> Toggle the background watcher for this specific project.</li>
           </ul>

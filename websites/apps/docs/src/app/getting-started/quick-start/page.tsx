@@ -21,10 +21,10 @@ export default function Page() {
             <div>
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs">1</span>
-                Launch Prep
+                Launch RunPrep
               </h3>
               <p className="text-sm text-text-muted mb-2 ml-8">
-                Open the Prep desktop app. It automatically starts the background daemon that manages the index and serves requests.
+                Open the RunPrep desktop app. It automatically starts the background daemon that manages the index and serves requests.
               </p>
               <p className="text-xs text-text-muted ml-8">
                 Power users: you can also run <code>prep serve</code> in a terminal.
@@ -37,7 +37,7 @@ export default function Page() {
                 Index Your Repo
               </h3>
               <p className="text-sm text-text-muted mb-2 ml-8">
-                Click the <span className="font-semibold text-text">+</span> button in the sidebar, select your project folder, and Prep will scan and build the Code Graph immediately.
+                Click the <span className="font-semibold text-text">+</span> button in the sidebar, select your project folder, and RunPrep will scan and build the Code Graph immediately.
               </p>
               <p className="text-xs text-text-muted ml-8">
                 Or via CLI: <code>prep add ~/my-project</code>
@@ -70,13 +70,13 @@ export default function Page() {
                 Select Files &amp; Get Ambient Context
               </h3>
               <p className="text-sm text-text-muted mb-2 ml-8">
-                In the Prep dashboard, use the <span className="font-semibold text-text">Knowledge Sources</span> tree to select the files and folders you want to work with. Then in your editor&apos;s AI chat, simply call:
+                In the RunPrep dashboard, use the <span className="font-semibold text-text">Knowledge Sources</span> tree to select the files and folders you want to work with. Then in your editor&apos;s AI chat, simply call:
               </p>
               <blockquote className="ml-8 border-l-2 border-primary pl-4 py-1 italic text-text-muted">
                 &quot;prep&quot;
               </blockquote>
               <p className="text-sm text-text-muted mt-2 ml-8">
-                Prep will feed the AI its ambient project baseline: your hub files, module structures, and focus areas. The AI immediately understands the architecture before you ask your first prompt.
+                RunPrep will feed the AI its ambient project baseline: your hub files, module structures, and focus areas. The AI immediately understands the architecture before you ask your first prompt.
               </p>
               <div className="ml-8 mt-3 bg-surface border border-border p-4 rounded-lg text-sm space-y-3">
                 <p className="text-text-muted">

@@ -41,7 +41,7 @@ export function LicenseStatusCard({
             />
           </h3>
           <p className="text-sm text-text-muted mt-1">
-            Prep {label} License
+            RunPrep {label} License
           </p>
         </div>
         <div className="flex items-center gap-2">

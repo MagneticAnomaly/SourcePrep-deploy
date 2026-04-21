@@ -7,7 +7,7 @@ const meta: Meta<typeof AnimatedCLI> = {
   component: AnimatedCLI,
   parameters: {
     layout: 'padded',
-    docs: { description: { component: 'Auto-animated terminal playback showing Prep MCP tool calls in action.' } },
+    docs: { description: { component: 'Auto-animated terminal playback showing RunPrep MCP tool calls in action.' } },
   },
 };
 

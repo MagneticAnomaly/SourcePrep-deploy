@@ -33,7 +33,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
   {
     id: 'log-console',
     title: 'Process Logs',
-    description: 'Real-time logs from the Prep daemon.',
+    description: 'Real-time logs from the RunPrep daemon.',
     icon: Terminal,
     minHeight: 3,
     defaultHeight: 5,
@@ -128,7 +128,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
   {
     id: 'file-tree',
     title: 'Scope',
-    description: 'Manage which files Prep indexes. Include files in the RAG knowledge base with optional per-path weights, or exclude files from the trace graph and knowledge entirely.',
+    description: 'Manage which files RunPrep indexes. Include files in the RAG knowledge base with optional per-path weights, or exclude files from the trace graph and knowledge entirely.',
     icon: FolderTree,
     minHeight: 6,
     defaultHeight: 10,
@@ -344,7 +344,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
   {
     id: 'agent-ops',
     title: 'Agent Operations',
-    description: 'Configure Prep agent engines (HR, Researcher, Custodian), Paperclip connection, and push settings.',
+    description: 'Configure RunPrep agent engines (HR, Researcher, Custodian), Paperclip connection, and push settings.',
     icon: Bot,
     minHeight: 4,
     defaultHeight: 6,

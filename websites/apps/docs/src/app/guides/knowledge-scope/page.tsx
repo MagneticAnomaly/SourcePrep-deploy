@@ -25,7 +25,7 @@ export default function Page() {
             excluded. Only selected files are searchable and available as context for your AI tools.
           </p>
           <div className="mt-4 p-4 rounded-lg border border-primary/20 bg-primary/5 text-sm">
-            <span className="font-semibold text-text">Two halves of Prep&apos;s RAG:</span> The <em>Code Graph</em> (trace) provides
+            <span className="font-semibold text-text">Two halves of RunPrep&apos;s RAG:</span> The <em>Code Graph</em> (trace) provides
             structural context automatically &mdash; imports, call chains, symbol relationships. The
             <em> Knowledge Scope</em> lets you manually curate which files are in the search index.
             Together, they give your AI both structural understanding and the exact files you care about.
@@ -144,7 +144,7 @@ export default function Page() {
             <div className="rounded-lg border border-border bg-surface p-4">
               <div className="font-medium text-sm">Knowledge Scope vs. Include/Exclude Globs</div>
               <div className="mt-2 text-sm text-text-muted">
-                <span className="font-semibold text-text">Globs</span> (in Project Settings) define the file types Prep can see: <code>**/*.py</code>, <code>**/*.md</code>.
+                <span className="font-semibold text-text">Globs</span> (in Project Settings) define the file types RunPrep can see: <code>**/*.py</code>, <code>**/*.md</code>.
                 <span className="font-semibold text-text"> Knowledge Scope</span> then lets you pick specific files/folders from that set. Think of globs as the &quot;universe&quot; and scope as your &quot;selection.&quot;
               </div>
             </div>

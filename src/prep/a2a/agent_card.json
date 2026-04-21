@@ -1,10 +1,10 @@
 {
-  "name": "Prep",
-  "description": "Codebase intelligence engine. Discovers structural patterns, architectural issues, and improvement opportunities via graph-based code analysis. Provides context-aware code search, impact analysis, and actionable findings.",
+  "name": "RunPrep",
+  "description": "RunPrep codebase intelligence engine. Discovers structural patterns, architectural issues, and improvement opportunities via graph-based code analysis. Provides context-aware code search, impact analysis, and actionable findings.",
   "url": "http://localhost:8400",
   "version": "2026.1",
   "provider": {
-    "organization": "Prep",
+    "organization": "RunPrep",
     "url": "https://runprep.io"
   },
   "capabilities": {

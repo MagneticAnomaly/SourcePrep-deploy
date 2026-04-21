@@ -11,7 +11,7 @@ export default function Page() {
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">CLI Reference</h1>
         <p className="mt-4 text-xl text-text-muted">
-          Automate your workflow with the Prep command-line interface.
+          Automate your workflow with the RunPrep command-line interface.
         </p>
 
         <div className="mt-12 grid gap-6 sm:grid-cols-2">
@@ -39,7 +39,7 @@ export default function Page() {
         <div className="mt-12 prose  max-w-none">
           <AnchorHeading id="overview" level="h2">Overview</AnchorHeading>
           <p>
-            The Prep CLI is included with the desktop app and provides a command-line interface
+            The RunPrep CLI is included with the desktop app and provides a command-line interface
             for managing the daemon and interacting with your local index.
           </p>
           
@@ -60,8 +60,8 @@ export default function Page() {
             <StoryEmbed
               storyId="console-animatedcli--semantic-search"
               height={350}
-              title="Prep MCP Demo — Semantic Search"
-              caption="Live demo: An AI agent using Prep's semantic search and structural trace expansion."
+              title="RunPrep MCP Demo — Semantic Search"
+              caption="Live demo: An AI agent using RunPrep's semantic search and structural trace expansion."
             />
           </div>
         </div>

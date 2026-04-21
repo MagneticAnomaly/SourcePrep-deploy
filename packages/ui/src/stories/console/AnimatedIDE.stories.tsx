@@ -7,7 +7,7 @@ const meta: Meta<typeof AnimatedIDE> = {
   component: AnimatedIDE,
   parameters: {
     layout: 'fullscreen',
-    docs: { description: { component: 'Simulated IDE split-view with a code editor (left) and an agent chat sidebar (right). Demonstrates Prep MCP tool calls within an agentic IDE workflow.' } },
+    docs: { description: { component: 'Simulated IDE split-view with a code editor (left) and an agent chat sidebar (right). Demonstrates RunPrep MCP tool calls within an agentic IDE workflow.' } },
   },
 };
 

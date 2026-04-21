@@ -19,15 +19,15 @@ export function ClientLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <SiteHeader 
-        productName="Prep Payments" 
-        logo={<img src="/prep-logo.png" alt="Prep" className="w-6 h-6 rounded" />}
+        productName="RunPrep Payments" 
+        logo={<img src="/prep-logo.png" alt="RunPrep" className="w-6 h-6 rounded" />}
         links={navLinks}
       />
       <main className="flex-1">
         {children}
       </main>
       <SiteFooter 
-        productName="Prep"
+        productName="RunPrep"
         socials={{
           twitter: 'https://x.com/Prep_io',
           github: 'https://github.com/MagneticAnomaly/RunPrep-MCP',

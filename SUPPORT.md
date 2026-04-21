@@ -1,6 +1,6 @@
 # Support
 
-Prep is built by a small team. For the fastest help, start with docs and community. For private issues, use email.
+RunPrep is built by a small team. For the fastest help, start with docs and community. For private issues, use email.
 
 ## Get help
 

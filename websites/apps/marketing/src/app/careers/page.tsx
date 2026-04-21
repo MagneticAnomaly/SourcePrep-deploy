@@ -20,7 +20,7 @@ const OPEN_POSITIONS: JobListing[] = [
     location: 'Remote (US / EU)',
     type: 'Full-time',
     description:
-      'Prep\'s indexing engine is migrating from Python to Rust for 10–50x performance gains on developer machines. You\'ll build the Rust core — parallel file walking, tree-sitter multi-language parsing (Python, TypeScript, Go, Rust, Java, C/C++), in-memory trace graph, and sub-200ms incremental rebuilds — exposed to the Python daemon via PyO3.',
+      'RunPrep\'s indexing engine is migrating from Python to Rust for 10–50x performance gains on developer machines. You\'ll build the Rust core — parallel file walking, tree-sitter multi-language parsing (Python, TypeScript, Go, Rust, Java, C/C++), in-memory trace graph, and sub-200ms incremental rebuilds — exposed to the Python daemon via PyO3.',
     requirements: [
       'Strong Rust experience (2+ years production)',
       'Familiarity with tree-sitter, compiler internals, or AST parsing',
@@ -36,7 +36,7 @@ const OPEN_POSITIONS: JobListing[] = [
     location: 'Remote (US / EU)',
     type: 'Full-time',
     description:
-      'Own the Prep desktop experience built with Tauri + React. Design and implement the modular dashboard, project management UI, and real-time build status. Ship features that developers interact with daily.',
+      'Own the RunPrep desktop experience built with Tauri + React. Design and implement the modular dashboard, project management UI, and real-time build status. Ship features that developers interact with daily.',
     requirements: [
       'Strong TypeScript + React experience',
       'Experience with Tauri, Electron, or native desktop frameworks',
@@ -51,7 +51,7 @@ const OPEN_POSITIONS: JobListing[] = [
     location: 'Remote',
     type: 'Contract',
     description:
-      'Help developers understand why structured context matters for AI-assisted development. Write tutorials, create demos, engage with the community, and represent Prep at conferences and in online developer spaces.',
+      'Help developers understand why structured context matters for AI-assisted development. Write tutorials, create demos, engage with the community, and represent RunPrep at conferences and in online developer spaces.',
     requirements: [
       'Published technical writing (blog posts, docs, or tutorials)',
       'Active presence in developer communities',

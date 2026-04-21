@@ -1,4 +1,4 @@
-"""Dynamic context window configuration for Prep pipeline tasks.
+"""Dynamic context window configuration for RunPrep pipeline tasks.
 
 Phase 46: Auto-scales num_predict and num_ctx based on task type,
 prompt size, model, and available VRAM.  Provides warnings when
@@ -181,7 +181,7 @@ def compute_num_predict(
     automatically scale by 3× when think=True — callers should NOT
     pre-multiply.
 
-    Benchmarked findings (Prep repo, Mar 2026):
+    Benchmarked findings (RunPrep repo, Mar 2026):
     - Atlas with 100 modules (~18K tokens): np=32768 → 29.6K chars output
     - Atlas with 50 modules (~10K tokens): np=8192 sufficient (model self-terminates)
     - Group Reasoning: JSON output naturally bounded at ~1-3K tokens
