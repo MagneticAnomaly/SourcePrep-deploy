@@ -53,6 +53,16 @@ export interface PageHostProps {
   onDestroyIndex: () => void;
   onDestroyEnrichmentFull: () => void;
   onDestroyFinalizeFull: () => void;
+
+  // ── Global-scope: Appearance page (Task 18) ───────────────────────
+  // Autosave — App.tsx useEffect on [uiMode, uiTheme, bgImage] persists via
+  // localStorage + llm_config API. No Save/Discard/dirty wiring.
+  uiMode: 'light' | 'dark';
+  onModeChange: (mode: 'light' | 'dark') => void;
+  uiTheme: string;
+  onThemeChange: (theme: string) => void;
+  bgImage: string | null;
+  onBgImageChange: (url: string | null) => void;
 }
 
 export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
@@ -116,7 +126,17 @@ export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
           onDestroyFinalizeFull={host.onDestroyFinalizeFull}
         />
       );
-    case 'appearance':            return <AppearancePage {...host as any} />;
+    case 'appearance':
+      return (
+        <AppearancePage
+          uiMode={host.uiMode}
+          onModeChange={host.onModeChange}
+          uiTheme={host.uiTheme}
+          onThemeChange={host.onThemeChange}
+          bgImage={host.bgImage}
+          onBgImageChange={host.onBgImageChange}
+        />
+      );
     case 'chunking-embeddings':   return <ChunkingEmbeddingsPage {...host as any} />;
     case 'pipeline-defaults':     return <PipelineDefaultsPage {...host as any} />;
     case 'license':               return <LicensePage {...host as any} />;

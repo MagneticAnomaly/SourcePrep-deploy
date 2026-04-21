@@ -1072,6 +1072,12 @@ function App() {
             onDestroyIndex: handleDestroyIndex,
             onDestroyEnrichmentFull: handleDestroyEnrichmentFull,
             onDestroyFinalizeFull: handleDestroyFinalizeFull,
+            uiMode,
+            onModeChange: setUiMode,
+            uiTheme,
+            onThemeChange: setUiTheme,
+            bgImage,
+            onBgImageChange: setBgImage,
           })}
           projectName={selectedProject?.name ?? null}
           confirmCloseIfDirty={() => true /* TODO: wire projectDirty from useSettingsDirty once Project pages land */}
