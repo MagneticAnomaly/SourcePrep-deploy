@@ -1098,3 +1098,14 @@ Before dispatching implementation:
 - [ ] **`llm_pool` path correct:** `src/codrag/services/pipeline/thread_pool.py` (not `llm_pool.py`).
 - [ ] **Test convention honored:** Each task has ≥1 test that doesn't mock `as_completed`/`llm_pool` — the real pool is used, only `llm.generate` is faked.
 - [ ] **Commit style:** Short conventional prefix, no `Co-Authored-By`.
+
+---
+
+## Execution Handoff
+
+Plan saved to `docs/superpowers/plans/2026-04-20-parallel-non-swarm-fallbacks.md`. Two execution options:
+
+1. **Subagent-Driven (recommended)** — fresh subagent per task, two-stage review (spec compliance then code quality) between tasks. Uses `superpowers:subagent-driven-development`.
+2. **Inline Execution** — execute tasks in this session with checkpoints for human review. Uses `superpowers:executing-plans`.
+
+Which approach?
