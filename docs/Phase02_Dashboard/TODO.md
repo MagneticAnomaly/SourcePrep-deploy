@@ -25,7 +25,6 @@
 - [x] P02-I3 Global settings modal (provider URLs, defaults) ✅ `SettingsDrawer` (Global) + `AIModelsSettings` (LLM Status panel detail)
   - ollama URL
   - default embedding model
-  - optional: CLaRa URL + enable toggle
 
 ### Status/build
 - [x] P02-I4 Status page “trust console” card(s): ✅ `IndexStatusCard` + `LLMStatusWidget`

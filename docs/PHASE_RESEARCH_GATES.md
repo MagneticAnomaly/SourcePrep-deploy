@@ -39,7 +39,7 @@ A phase is research complete when the phase README contains:
 
 5. **Dependencies**
    - Which earlier phases must be complete (research or implementation)
-   - Which external services are required (Ollama, optional CLaRa)
+   - Which external services are required (Ollama)
 
 6. **Open questions + decision points**
    - A list of decisions that must be made during implementation

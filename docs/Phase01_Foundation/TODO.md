@@ -33,7 +33,7 @@ These items are the Phase01-specific gates from `../PHASE_RESEARCH_GATES.md` and
   - `CodeIndex.search()`: query embedding, cosine similarity, FTS hybrid, path weights, role weights
 - [x] P01-I6 Context assembly primitives 
   - `get_context()`, `get_context_structured()`, `get_context_with_trace_expansion()`
-  - Citations, bounded output, structured, trace expansion, CLaRa compression
+  - Citations, bounded output, structured, trace expansion, context compression
 - [x] P01-I7 Error envelope parity (HTTP) with Phase02 UI expectations 
   - `ApiException` with code/message/hint, consistent `{ok, data, error}` envelope
 - [ ] P01-I8 Ensure “last known-good snapshot” behavior: search/context remain available while builds run

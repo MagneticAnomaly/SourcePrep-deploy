@@ -217,7 +217,7 @@
 8. **Input/Output File Metadata**
    - Input file sizes
    - Output file sizes
-   - Compression ratios (for LOD/CLaRa)
+   - Compression ratios (for LOD)
    - File counts per stage
 
 9. **Dependency Tracking**

@@ -353,7 +353,7 @@ purchases of digital items or services."
 | Tier | Price | Duration | Projects | Key Features |
 |:---|:---|:---|:---|:---|
 | **Free** | $0 | Forever | 3 | Full automation, semantic search, full MCP suite |
-| **Monthly** | $7/mo | Subscription | Unlimited | Real-time watchers, full MCP, auto-rebuild, CLaRa compression |
+| **Monthly** | $7/mo | Subscription | Unlimited | Real-time watchers, full MCP, auto-rebuild, context compression |
 | **Perpetual** | $79 | One-time license | Unlimited | Everything in Monthly, never expires, offline activation |
 | **Team** | $15/seat/mo | Subscription | Unlimited | Shared config, centralized policy, license management |
 | **Enterprise** | Custom | Custom | Unlimited | Air-gapped, SSO/SCIM, audit logs, dedicated support |

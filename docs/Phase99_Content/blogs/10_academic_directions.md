@@ -28,7 +28,7 @@ The research master list's "verify before citing" flag on five arXiv IDs was res
 | `2601.00376` | ✅ Real, title matches | None. Hu, Zeng, Shi, Shen, Gu. Jan 2026. "In Line with Context: Repository-Level Code Generation via Context Inlining." |
 | `2601.11564` | ✅ Real, title truncated | Full title: *Context Discipline and Performance Correlation: Analyzing LLM Performance and Quality Degradation Under Varying Context Lengths*. Ayyachamy Nadar Ponnusamy, Chandran, Hossain. Dec 2025. |
 | `2602.14878` | ⚠️ Real but **title is wrong** in the master list | Actual title: *Model Context Protocol (MCP) Tool Descriptions Are Smelly! Towards Improving AI Agent Efficiency with Augmented MCP Tool Descriptions*. Hasan, Li, Rajbahadur, Adams, Hassan. Feb 2026. Paper is a 856-tool / 103-server audit finding 97.1% of MCP tool descriptions contain "smells." |
-| `2511.18659` | ✅ Real, title matches | None. He, Bai, Williamson, Pan, Jaitly, Zhang. Nov 2025. "CLaRa: Bridging Retrieval and Generation with Continuous Latent Reasoning." |
+| `2511.18659` | ✅ Real, title matches | None. He, Bai, Williamson, Pan, Jaitly, Zhang. Nov 2025. "Continuous Latent Reasoning for RAG." [2511.18659] |
 
 **Note on Hasan et al. (`2602.14878`).** This paper is substantially more interesting than the master list suggests. It is a real empirical audit with quantified findings: 97.1% smelly descriptions, +5.85pp task-success lift from augmentation, +67.46% execution-step overhead, 16.67% regression rate. It meaningfully strengthens Direction 7 (MCP security and ecosystem quality) and is worth citing directly. The research master list should be updated with the correct title and a one-line summary of the actual finding.
 

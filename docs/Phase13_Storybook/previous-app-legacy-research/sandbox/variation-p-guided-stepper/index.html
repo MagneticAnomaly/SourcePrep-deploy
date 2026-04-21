@@ -380,7 +380,7 @@
           <div id="step1" class="step" aria-hidden="true" style="display:none;">
             <div class="field">
               <label for="persona">Persona</label>
-              <input id="persona" type="text" value="CLaRa" />
+              <input id="persona" type="text" value="Lyra" />
               <div class="help">Give the persona a simple canonical name. (System rule: avoid display-name drift across surfaces.)</div>
             </div>
 
@@ -467,7 +467,7 @@
             <div class="panelTitle">Context header</div>
             <div style="display:flex; gap: 10px; flex-wrap: wrap; align-items:center;">
               <span class="pill"><span class="dot" style="background: var(--accent);"></span>World: <span id="pvWorld">Rain City</span></span>
-              <span class="pill"><span class="dot"></span>Persona: <span id="pvPersona">CLaRa</span></span>
+              <span class="pill"><span class="dot"></span>Persona: <span id="pvPersona">Lyra</span></span>
               <span class="pill"><span class="dot" style="background: var(--ok);"></span>Tone: <span id="pvTone">Calm</span></span>
             </div>
           </div>
@@ -518,7 +518,7 @@
     const state = {
       mode: 'SFW',
       tone: 'Calm',
-      persona: 'CLaRa',
+      persona: 'Lyra',
       personaStyle: 'Reflective',
       world: 'Rain City',
       memory: 'Confirm',
@@ -699,7 +699,7 @@
     reset.addEventListener('click', () => {
       state.mode = 'SFW'
       state.tone = 'Calm'
-      state.persona = 'CLaRa'
+      state.persona = 'Lyra'
       state.personaStyle = 'Reflective'
       state.world = 'Rain City'
       state.memory = 'Confirm'
@@ -707,7 +707,7 @@
       state.confirm = ''
 
       tone.value = 'Calm'
-      persona.value = 'CLaRa'
+      persona.value = 'Lyra'
       personaStyle.value = 'Reflective'
       world.value = 'Rain City'
       note.value = ''

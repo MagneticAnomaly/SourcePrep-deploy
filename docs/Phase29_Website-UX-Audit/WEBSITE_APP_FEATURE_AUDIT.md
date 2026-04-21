@@ -11,7 +11,7 @@
 - **`/about`**, **`/faq`**, **`/download`**, **`/careers`**, **`/changelog`**, **`/blog`**, **`/community`**, **`/contact`**, **`/privacy`**, **`/terms`**.
 
 ### Docs Site (`docs.codrag.io`)
-- Getting Started, MCP, Guides (Embeddings, Path Weights, CLaRa, Models), Concepts, Dashboard, CLI, Troubleshooting, FAQ.
+- Getting Started, MCP, Guides (Embeddings, Path Weights, Models), Concepts, Dashboard, CLI, Troubleshooting, FAQ.
 
 ### Support & Payments
 - `support.codrag.io`: Headless GitHub (Discussions/Issues).
@@ -26,7 +26,7 @@
 - **Ollama**: Important for enrichment LLMs (3b catalogue + 14b deep reasoning). Running without LLMs is possible but **not recommended**.
 - **Incremental Watcher**: Real-time Rust-powered file hashing and rebuilding (Pro/Starter only).
 - **Path Weights**: User-defined multipliers (0.0–2.0). Available on **all tiers** including Free.
-- **CLaRa Compression**: 10–16× context compression. **Pro/Starter only**.
+- **Context Compression**: 10–16× context compression. **Pro/Starter only**.
 
 ### Trace Graph & Enrichment
 - **Rust Trace Builder**: AST parsing (imports, calls, hierarchy). Manual build available on **Free**; auto-build requires Pro/Starter.
@@ -36,7 +36,7 @@
 - **Codebase Atlas (Phase 29B)**: Pre-retrieval routing (NOT context injection).
 
 ### Feature Gating (Verified from `feature_gate.py`)
-| Tier | Projects | Automation | CLaRa | MCP trace_expand | Trace Index |
+| Tier | Projects | Automation | Compression | MCP trace_expand | Trace Index |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Free** | 1 | Manual only | No | No | Yes (manual) |
 | **Starter** | Unlimited | Full | Yes | Yes | Yes (auto) |
@@ -58,7 +58,7 @@
 | :--- | :--- | :--- |
 | Atlas "injected into every AI query" | ✅ Updated to "pre-retrieval routing" | `packages/ui/src/config/panelRegistry.ts` |
 | Homepage "0 bytes sent to cloud" | ✅ Changed to "Local-first — your code stays on your machine" | `websites/apps/marketing/src/app/page.tsx` |
-| Pricing Free tier wrong | ✅ Corrected: 1 project, manual only, no CLaRa | `websites/apps/marketing/src/app/pricing/page.tsx` |
+| Pricing Free tier wrong | ✅ Corrected: 1 project, manual only | `websites/apps/marketing/src/app/pricing/page.tsx` |
 | Pricing Starter "3 projects" wrong | ✅ Corrected: Full Pro, time-limited | `websites/apps/marketing/src/app/pricing/page.tsx` |
 | Pricing "100% local" overstatement | ✅ Changed to "Local-first" + BYOK mention | `websites/apps/marketing/src/app/pricing/page.tsx` |
 | About page outdated copy | ✅ Rewritten to match current positioning | `websites/apps/marketing/src/app/about/page.tsx` |
@@ -76,7 +76,7 @@
 3. **Atlas Routing**: Use "Smarter Context" as the headline. Use "pre-retrieval routing" in technical details.
 4. **Academic terminology**: Needs its own research sprint (added to `MASTER_TODO.md`). Keep academic language but ensure it's not impenetrable.
 5. **Path Weights**: Headline feature — "makes the app look very sophisticated".
-6. **Free tier**: Free = 1 project + all features manual + no CLaRa. Corrected across pricing and feature blocks.
+6. **Free tier**: Free = 1 project + all features manual. Corrected across pricing and feature blocks.
 7. **Perpetual license**: Needs competitive research (Sublime Text, JetBrains, Sketch). Added to `MARKETING_MASTER_TODO.md`.
 8. **Screenshots**: Still needed. Added to `MARKETING_MASTER_TODO.md`.
 

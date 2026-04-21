@@ -77,7 +77,7 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 - [x] `/troubleshooting`: Connection issues + Native vs Ollama embeddings + Build debugging.
 - [x] `/cli`: Core commands + mcp-config reference.
 - [x] `/dashboard`: UI walkthrough (Knowledge/Context/Graph panels).
-- [x] `/guides`: Added Path Weights, CLaRa, Native Embeddings guides.
+- [x] `/guides`: Added Path Weights, Native Embeddings guides.
 - [x] `/faq`: Common questions (Privacy, GPU, Editors).
 - [x] `/search`: Client-side search implementation.
 
@@ -116,7 +116,7 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 
 **Completed:**
 - [x] Fix Atlas panel description: remove "injected into every AI query" → "pre-retrieval routing". (`packages/ui/src/config/panelRegistry.ts`)
-- [x] Fix pricing page: Free = 1 project + manual only + no CLaRa. Starter = full Pro with 4-month time limit (not "3 projects"). (`websites/apps/marketing/src/app/pricing/page.tsx`)
+- [x] Fix pricing page: Free = 1 project + manual only. Starter = full Pro with 4-month time limit (not "3 projects"). (`websites/apps/marketing/src/app/pricing/page.tsx`)
 - [x] Fix pricing "every plan includes" strip: "100% local" → "Local-first" to acknowledge BYOK. (`websites/apps/marketing/src/app/pricing/page.tsx`)
 - [x] Fix homepage trust strip: "0 bytes sent to cloud" → "Local-first — your code stays on your machine". (`websites/apps/marketing/src/app/page.tsx`)
 - [x] Fix About page: rewrite outdated copy to match current positioning (multiple retrieval methods, MCP backend, BYOK). (`websites/apps/marketing/src/app/about/page.tsx`)

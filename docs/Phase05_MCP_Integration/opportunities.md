@@ -23,7 +23,6 @@ Capture MCP-facing robustness and token-efficiency opportunities.
 - **Capability checklist UX**: show a simple “what works right now” table:
   - embeddings configured
   - trace available
-  - CLaRa available
   - reranker available (future)
 
 ## Opportunities (meaningful visualization)

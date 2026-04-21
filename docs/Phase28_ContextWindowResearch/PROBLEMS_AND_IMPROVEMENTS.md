@@ -161,7 +161,7 @@
 
 ## 8. Compression Is All-or-Nothing
 
-**Problem:** CLaRa compression applies uniformly to the entire assembled context. A high-relevance chunk (score 0.9) gets the same compression as a borderline chunk (score 0.2). The high-relevance chunk should arguably be preserved verbatim while the low-relevance chunk should be compressed aggressively or dropped.
+**Problem:** Context compression applies uniformly to the entire assembled context. A high-relevance chunk (score 0.9) gets the same compression as a borderline chunk (score 0.2). The high-relevance chunk should arguably be preserved verbatim while the low-relevance chunk should be compressed aggressively or dropped.
 
 **What the research says:** "Retrieve then Solve" (Chen et al., 2025) works because it shortens the prompt. But the research doesn't say "compress everything equally" — it says "extract the evidence." High-confidence evidence should be kept intact.
 

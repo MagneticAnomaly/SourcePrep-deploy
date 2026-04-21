@@ -23,19 +23,19 @@ class TestDeepMerge:
         base = {
             "llm_config": {
                 "saved_endpoints": [{"id": "ep1", "url": "http://localhost"}],
-                "clara": {"enabled": False},
+                "nested": {"enabled": False},
             }
         }
         update = {
             "llm_config": {
-                "clara": {"enabled": True, "url": "http://clara:8765"},
+                "nested": {"enabled": True, "url": "http://nested:8765"},
             }
         }
         _deep_merge(base, update)
         # saved_endpoints must survive
         assert base["llm_config"]["saved_endpoints"] == [{"id": "ep1", "url": "http://localhost"}]
-        # clara must be updated
-        assert base["llm_config"]["clara"] == {"enabled": True, "url": "http://clara:8765"}
+        # nested must be updated
+        assert base["llm_config"]["nested"] == {"enabled": True, "url": "http://nested:8765"}
 
     def test_deeply_nested(self):
         base = {"a": {"b": {"c": 1, "d": 2}}}
@@ -101,7 +101,7 @@ class TestDeepMerge:
                     "embedding": {"endpoint_id": "ep-1", "model": "nomic-embed-text"},
                     "small": {"endpoint_id": "ep-1", "model": "codellama:7b"},
                 },
-                "clara": {"enabled": False},
+                "nested": {"enabled": False},
             },
         }
         # Dashboard sends only the changed slot
@@ -117,7 +117,7 @@ class TestDeepMerge:
         assert base["repo_root"] == "/projects/myapp"
         assert base["core_roots"] == ["src", "docs"]
         assert len(base["llm_config"]["saved_endpoints"]) == 1
-        assert base["llm_config"]["clara"] == {"enabled": False}
+        assert base["llm_config"]["nested"] == {"enabled": False}
         # Embedding slot preserved
         assert base["llm_config"]["model_slots"]["embedding"]["model"] == "nomic-embed-text"
         # Small slot updated

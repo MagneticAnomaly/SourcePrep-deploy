@@ -125,7 +125,7 @@ Four sections, ~12 spotlights total, ~40 supporting sources in appendices.
 - **microsoft/LLMLingua** ([github.com/microsoft/LLMLingua](https://github.com/microsoft/LLMLingua))
   BERT-classifier token pruning. Adopted as the language/docs compressor half of CoDRAG's dual-compressor design.
 
-**Appendix:** Repoformer (ICML 2024), GraphCoder, RepoHyper, STALL+, *In Line with Context*, Activation Beacon, LLMLingua-2, *On the Impacts of Contexts*, Repomix, LongCodeZip, CodeRAG-Bigraph, CLaRa.
+**Appendix:** Repoformer (ICML 2024), GraphCoder, RepoHyper, STALL+, *In Line with Context*, Activation Beacon, LLMLingua-2, *On the Impacts of Contexts*, Repomix, LongCodeZip, CodeRAG-Bigraph.
 
 ### Section 3 — Code Structure & Chunking
 
@@ -160,11 +160,11 @@ Four sections, ~12 spotlights total, ~40 supporting sources in appendices.
 | Removed | Why |
 |---|---|
 | Tremor, plotext, react-grid-layout | UI implementation deps — not research. |
-| EricBintner/CLaRa-Remembers-It-All | CoDRAG's own historical work. |
+
 | MagneticAnomaly/CoDRAG-MCP and `codrag/codrag-mcp` | Self-references. |
 | Trivy / Gitleaks / Cosign / Syft / Presidio / DataFog / NeMo Guardrails / Pytector / OSSF Scorecard / LLM Guard | Enterprise security tooling — meaningful for the security page, not for the bibliography. (Could revive on `/security` if it doesn't already cite them.) |
 | Greptile / Cursor / Continue / Augment / Sourcegraph / Ragie | Competitors — belong on `/compare`, not here. The page is about influences, not the field. |
-| Ollama, Apple CLaRa-7B, Nomic Embed, Voyage Code 3 | Model/runtime evaluations — implementation choices, not research influences. (Voyage and Nomic blog posts could be moved into Section 1 appendix if you want them; flagged.) |
+| Ollama, Nomic Embed, Voyage Code 3 | Model/runtime evaluations — implementation choices, not research influences. (Voyage and Nomic blog posts could be moved into Section 1 appendix if you want them; flagged.) |
 
 **Result:** ~50 sources on the page (12 spotlight + ~38 appendix). Open question: do you want Voyage / Nomic blog posts kept as appendix in Section 1? Default: kept.
 

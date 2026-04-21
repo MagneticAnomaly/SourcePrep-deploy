@@ -50,7 +50,7 @@ CoDRAG errors must be:
 
 Minimum error categories:
 - **Configuration errors**: invalid paths, invalid globs, missing project
-- **Dependency errors**: Ollama unavailable, model not present, CLaRa unavailable
+- **Dependency errors**: Ollama unavailable, model not present, compression service unavailable
 - **IO errors**: permission denied, disk full, file too large
 - **Build errors**: build failed, build already running, corrupted index detected
 - **Internal errors**: unexpected exceptions
@@ -92,7 +92,7 @@ Logging requirements:
 - Logs should include:
   - build start/end + duration
   - counts (files, chunks, embeddings)
-  - dependency connectivity checks (Ollama/CLaRa)
+  - dependency connectivity checks (Ollama)
   - key errors with stable error codes
 
 Troubleshooting artifacts:

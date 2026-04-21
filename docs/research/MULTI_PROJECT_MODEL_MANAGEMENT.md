@@ -2,7 +2,7 @@
 
 **Status:** Research TODO — not yet implemented  
 **Priority:** Low (relevant to power users / team setups)  
-**Related:** Phase 31 (CLaRa replacement), Pipeline VRAM lifecycle
+**Related:** Pipeline VRAM lifecycle
 
 ## Context
 

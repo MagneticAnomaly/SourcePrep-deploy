@@ -498,7 +498,7 @@ export default function App() {
                           <Flex justifyContent="between" alignItems="center" className="p-2 rounded-lg bg-surface-raised">
                             <Flex className="gap-2" alignItems="center">
                               <span className="w-2 h-2 rounded-full bg-text-subtle/50" />
-                              <Text className="text-text-muted">CLaRa</Text>
+                              <Text className="text-text-muted">Lyra</Text>
                             </Flex>
                             <Badge color="gray" size="xs">Disabled</Badge>
                           </Flex>

@@ -54,7 +54,7 @@ codebase-rag                         ← standalone binary/script
 | **Setup per project** | `git submodule add` + config | `codebase-rag add <path>` |
 | **Index location** | Inside project (`.code_index/`) | Centralized (`~/.local/share/`) |
 | **Multi-project** | Run separate servers per project | Single server, multiple tabs |
-| **LLM resources** | Each project manages its own | Shared Ollama/CLaRa connection |
+| **LLM resources** | Each project manages its own | Shared Ollama/Ollama connection |
 | **Memory footprint** | N servers × memory | 1 server, amortized |
 | **Portability** | Index travels with project (git) | Index stays on machine |
 | **CI/CD integration** | Easy (index in repo) | Harder (needs setup step) |
@@ -89,7 +89,7 @@ codebase-rag                         ← standalone binary/script
 │  ├── /projects/{id}/search        ← semantic search                        │
 │  ├── /projects/{id}/context       ← assemble context                       │
 │  ├── /projects/{id}/trace/*       ← trace index endpoints                  │
-│  ├── /llm/status                  ← Ollama/CLaRa connection status         │
+│  ├── /llm/status                  ← Ollama/Ollama connection status         │
 │  └── /llm/config                  ← LLM settings                           │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  Project Manager                                                            │
@@ -110,7 +110,7 @@ codebase-rag                         ← standalone binary/script
          │                    │                    │
          ▼                    ▼                    ▼
     ┌─────────┐         ┌─────────┐         ┌─────────┐
-    │ Ollama  │         │  CLaRa  │         │ Project │
+    │ Ollama  │         │  Ollama  │         │ Project │
     │ :11434  │         │  :8765  │         │  Dirs   │
     └─────────┘         └─────────┘         └─────────┘
 ```
@@ -236,7 +236,7 @@ The `--auto` flag looks up the current working directory in the project registry
 │  │ LLM Services                                                            ││
 │  │ ├── Ollama: ● Connected (localhost:11434)                               ││
 │  │ │   └── Models: nomic-embed-text, mistral                               ││
-│  │ └── CLaRa: ○ Not running                              [Start CLaRa]     ││
+│  │ └── Ollama: ○ Not running                              [Start Ollama]     ││
 │  └─────────────────────────────────────────────────────────────────────────┘│
 │                                                                             │
 │  [Rebuild Now]  [Open in IDE]  [Export AGENTS.md]                          │
@@ -283,7 +283,7 @@ The `--auto` flag looks up the current working directory in the project registry
 │  ├── Ollama URL: [http://localhost:11434        ]                          │
 │  ├── Embedding Model: [nomic-embed-text    ▼]                              │
 │  ├── Augmentation Model: [mistral          ▼] ☑ Enable                     │
-│  └── CLaRa URL: [http://localhost:8765          ] ☐ Enable compression     │
+│  └── Ollama URL: [http://localhost:8765          ] ☐ Enable compression     │
 │                                                                             │
 │  Index Storage                                                              │
 │  ├── Data Directory: [~/.local/share/codebase-rag     ] [Browse]           │
@@ -350,7 +350,7 @@ Ports: 3 different ports to remember
 ### With Standalone App
 ```
 Codebase RAG daemon → Ollama (single connection, model stays warm)
-                   → CLaRa (single connection, auto-unload works correctly)
+                   → Ollama (single connection, auto-unload works correctly)
 
 Memory: 1 Python process, 1 Ollama connection
 Ports: 1 port (8400), projects accessed via /projects/{id}/*
@@ -442,7 +442,7 @@ This allows:
 
 ### Post-MVP
 - [ ] Trace index integration
-- [ ] CLaRa compression toggle
+- [ ] Ollama compression toggle
 - [ ] Export AGENTS.md
 - [ ] Tauri wrapper (native app)
 - [ ] Cross-project search (opt-in)

@@ -2,12 +2,11 @@
 
 ## Current AI Stack Overview
 
-The system involves **three distinct AI workloads** that can run concurrently:
+The system involves **two distinct AI workloads** that can run concurrently:
 
 | Workload | Model | Runtime | Purpose |
 |----------|-------|---------|---------|
 | **Embeddings** | `nomic-embed-text` | Ollama | Semantic vector encoding for RAG retrieval |
-| **Compression** | CLaRa (7B) | PyTorch/HF Transformers | Query-time context compression (16-128x) |
 | **Augmentation** | Mistral/Llama/etc | Ollama or llama.cpp | Summaries, tags, trace synthesis |
 
 Related research:
@@ -39,46 +38,7 @@ Alternatives if we want to avoid Ollama dependency:
 
 ---
 
-## 2. CLaRa: Context Compression
-
- Recommended checkpoint for CoDRAG-style query-time context compression:
- - `apple/CLaRa-7B-Instruct`: https://huggingface.co/apple/CLaRa-7B-Instruct
-
-### How CLaRa runs (from `@CLaRa-Remembers-It-All/src/clara_server/model.py`)
-
-CLaRa is **NOT** a llama.cpp model. It runs on **PyTorch + HuggingFace Transformers**:
-
-```python
-from transformers import AutoModel
-
-self._model = AutoModel.from_pretrained(
-    full_model_path,
-    trust_remote_code=True,  # CLaRa has custom model code
-    torch_dtype=self._dtype,
-    device_map="auto" if cuda else None,
-)
-```
-
-### Backend support
-- **CUDA** (NVIDIA): Full fp16 acceleration
-- **MPS** (Apple Silicon): PyTorch Metal backend, requires device patching
-- **CPU**: Works but slow (~28GB RAM needed for fp32)
-- **MLX**: Not implemented yet (would need weight conversion)
-
-### Memory requirements
-- **fp16**: ~14GB VRAM/unified memory
-- **fp32**: ~28GB RAM
-- Quantization (4-bit/8-bit) currently broken due to CLaRa's custom architecture
-
-### Integration with code_index
-CLaRa is a **query-time** optimization—see `STAGE2_CLARA_QUERYTIME.md`:
-1. Retrieve chunks via embeddings
-2. (Optional) Compress chunks via CLaRa before packing into context
-3. Return compressed context to LLM
-
----
-
-## 3. LLM Augmentation: Mistral / Llama
+## 2. LLM Augmentation: Mistral / Llama
 
 ### Can llama.cpp run Mistral?
 
@@ -119,7 +79,7 @@ ollama run mistral "Summarize this code..."
 
 ---
 
-## 4. agents.md: Standard for AI Coding Agents
+## 3. agents.md: Standard for AI Coding Agents
 
 ### What is agents.md?
 
@@ -273,16 +233,16 @@ Your existing framework (`FRAMEWORK_V2.md`, `SCHEMA.md`) is a **curated trace in
 ├─────────────────────────────────────────────────────────────────────────┤
 │  /status, /build, /search, /context                                     │
 │  /trace/status, /trace/build, /trace/search (future)                    │
-└────────────────┬──────────────────────────────┬─────────────────────────┘
-                 │                              │
-    ┌────────────▼────────────┐    ┌───────────▼───────────┐
-    │    Ollama @ :11434      │    │    CLaRa @ :8765      │
-    │ ┌─────────────────────┐ │    │ ┌─────────────────────┐│
-    │ │ nomic-embed-text    │ │    │ │ apple/CLaRa-7B      ││
-    │ │ (embeddings)        │ │    │ │ (compression)       ││
-    │ ├─────────────────────┤ │    │ └─────────────────────┘│
-    │ │ mistral             │ │    │  PyTorch (MPS/CUDA)    │
-    │ │ (augmentation)      │ │    └───────────────────────┘
+└────────────────┬────────────────────────────────────────────────────────┘
+                 │
+    ┌────────────▼────────────┐
+    │    Ollama @ :11434      │
+    │ ┌─────────────────────┐ │
+    │ │ nomic-embed-text    │ │
+    │ │ (embeddings)        │ │
+    │ ├─────────────────────┤ │
+    │ │ mistral             │ │
+    │ │ (augmentation)      │ │
     │ └─────────────────────┘ │
     │  llama.cpp underneath   │
     └─────────────────────────┘
@@ -293,7 +253,6 @@ Your existing framework (`FRAMEWORK_V2.md`, `SCHEMA.md`) is a **curated trace in
 | Service | Default Port | Purpose |
 |---------|--------------|---------|
 | Ollama | 11434 | Embeddings + LLM augmentation |
-| CLaRa | 8765 | Context compression |
 | CoDRAG daemon | 8400 | RAG API |
 | Dashboard | (varies) | UI |
 
@@ -305,12 +264,7 @@ Your existing framework (`FRAMEWORK_V2.md`, `SCHEMA.md`) is a **curated trace in
    - Ollama can serve both embeddings and chat models
    - May want separate instances for isolation
 
-2. **When should CLaRa compression be enabled?**
-   - Always (extra latency)?
-   - Only when context exceeds threshold?
-   - User toggle?
-
-3. **Where does trace index live?**
+2. **Where does trace index live?**
    - Same directory as embeddings (`index_dir/trace_*`)?
    - Separate directory?
 

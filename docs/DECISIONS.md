@@ -146,7 +146,6 @@ Where should the Prep source code live?
 
 ### Decision
 Create new repo at `Prep/`, sibling to:
-- `CLaRa-Remembers-It-All/`
 - `LinuxBrain/`
 - `Halley.Chat/`
 

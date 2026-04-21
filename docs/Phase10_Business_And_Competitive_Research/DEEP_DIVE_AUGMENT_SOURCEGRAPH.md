@@ -346,8 +346,7 @@ Based on this analysis, CoDRAG should prioritize:
 1. **Local embedding quality** — consider fine-tuning nomic-embed-text for code
 2. **Branch awareness** — Augment's per-branch indexing is sophisticated
 3. **Commit history indexing** — Augment tracks codebase evolution
-4. **CLaRa integration** — context compression is CoDRAG's unique angle
-5. **Enterprise security posture** — SOC 2 path for enterprise tier
+4. **Enterprise security posture** — SOC 2 path for enterprise tier
 
 ### What NOT to build
 

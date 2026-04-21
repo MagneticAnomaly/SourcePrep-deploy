@@ -19,7 +19,7 @@ The Phase 69 research has evolved from a project-embedded `code_index` approach 
 | **Architecture** | Standalone daemon | Resource efficiency, multi-project management |
 | **Team Focus** | Enterprise MVP | Build for teams from day one, not afterthought |
 | **UI Strategy** | Web UI → Tauri | Fast dev iteration, native MVP launch |
-| **Location** | `CoDRAG/` | Sibling to CLaRa, LinuxBrain for testing |
+| **Location** | `CoDRAG/` | Sibling to LinuxBrain for testing |
 
 ---
 
@@ -30,7 +30,6 @@ The following research documents remain relevant and inform CoDRAG design:
 
 - `TRACE_INDEX_RESEARCH.md` — Trace index architecture → CoDRAG TraceManager
 - `AI_INFRASTRUCTURE_RESEARCH.md` — LLM stack → CoDRAG LLMCoordinator
-- `STAGE2_CLARA_QUERYTIME.md` — CLaRa integration → CoDRAG optional compression
 - `STANDALONE_APP_FEASIBILITY.md` — Feasibility study → Adopted as CoDRAG plan
 
 ### Implementation Target

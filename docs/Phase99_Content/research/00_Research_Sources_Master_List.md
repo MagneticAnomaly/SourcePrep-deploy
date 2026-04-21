@@ -37,7 +37,7 @@ Compiled 2026-04-10 from Phases 00, 04, 06, 10, 16, 28, 31, 38, 46, 47, 50, 54, 
 | Zhang et al. — *Long Context Compression with Activation Beacon* (ICLR 2024) | [2401.03462](https://arxiv.org/abs/2401.03462) | `Phase31_CLaRa-replacement/CODE_COMPRESSION_DEEP_RESEARCH.md` | Model-internal KV compression; explicitly noted as *complementary* — CoDRAG compresses pre-prompt, Beacon compresses at inference. |
 | *LLMLingua-2: Data Distillation for Prompt Compression* | [2310.05736](https://arxiv.org/abs/2310.05736) | `Phase31_CLaRa-replacement/` | Adopted as the language/docs compressor half of CoDRAG's dual-compressor architecture. |
 | *CodeRAG: Supportive Code Retrieval on Bigraph* | [2504.10046](https://arxiv.org/abs/2504.10046) | `Phase31_CLaRa-replacement/` | Bigraph retrieval reference — further evidence for graph-structured code representation. |
-| *CLaRa: Bridging Retrieval and Generation with Continuous Latent Reasoning* | [2511.18659](https://arxiv.org/abs/2511.18659) | `Phase31_CLaRa-replacement/tests-old` | Evaluated as a baseline compressor; code/language retention tested at 20–29%, which motivated moving to the dual-compressor design. |
+| *Continuous Latent Reasoning for RAG* | [2511.18659](https://arxiv.org/abs/2511.18659) | (archived) | Evaluated as a baseline compressor; code/language retention tested at 20–29%, which motivated moving to the dual-compressor design. |
 
 ### 1c. Traceability, code graphs & tool descriptions
 
@@ -174,8 +174,7 @@ Compiled 2026-04-10 from Phases 00, 04, 06, 10, 16, 28, 31, 38, 46, 47, 50, 54, 
 | Project | Cited in | How CoDRAG used it |
 |---|---|---|
 | [Ollama](https://ollama.com) | `Phase47_BYOK-research/`, throughout | Local LLM runtime — the default BYOK backend for CoDRAG's augmentation pipeline. |
-| [Apple CLaRa-7B-Instruct](https://huggingface.co/apple/CLaRa-7B-Instruct) | `Phase00_Initial-Concept/AI_INFRASTRUCTURE_RESEARCH.md` | Evaluated as a compression model; rejected in favor of Ollama's model flexibility. |
-| Nomic Embed text-v1.5 / code | `Phase28_ContextWindowResearch/EMBEDDING_MODEL_RESEARCH.md`, `Phase31_CLaRa-replacement/` | Default embedding models (ONNX) — text-v1.5 is the CPU default. |
+| Nomic Embed text-v1.5 / code | `Phase28_ContextWindowResearch/EMBEDDING_MODEL_RESEARCH.md` | Default embedding models (ONNX) — text-v1.5 is the CPU default. |
 
 ---
 

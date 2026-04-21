@@ -6,7 +6,7 @@
 
 ### `/pricing` — ✅ FIXED
 - **Before**: Free tier listed wrong features. Starter said "3 projects". "100% local" overstated. Code Graph badged as "Pro".
-- **After**: Free = 1 project + manual only + no CLaRa. Starter = full Pro with 4-month time limit. Trust strip says "Local-first" + BYOK. Path weights and Atlas available to all tiers.
+- **After**: Free = 1 project + manual only. Starter = full Pro with 4-month time limit. Trust strip says "Local-first" + BYOK. Path weights and Atlas available to all tiers.
 
 ### `/security` & `/privacy` — No changes needed
 - Solid, aligned with local-first ethos. No telemetry, privacy policy merged.

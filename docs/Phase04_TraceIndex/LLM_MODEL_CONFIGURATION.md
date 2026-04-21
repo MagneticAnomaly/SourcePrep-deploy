@@ -8,14 +8,13 @@ CoDRAG requires multiple AI models for different tasks in a tiered processing pi
 
 ## Model Slots
 
-CoDRAG uses **4 model slots** with distinct purposes:
+CoDRAG uses **3 model slots** with distinct purposes:
 
 | Slot | Purpose | Default Source | Required |
 |------|---------|----------------|----------|
 | **Embedding Model** | Vector embeddings for semantic search | `nomic-embed-text` via Ollama or HuggingFace | ✅ Yes |
 | **Small Model** | Fast analysis, parsing, tagging | Ollama endpoint (e.g., `qwen3:4b`) | ⚠️ Recommended |
 | **Large Model** | Complex reasoning, summaries, synthesis | Ollama endpoint (e.g., `mistral`, `qwen3:30b`) | ⚠️ Recommended |
-| **CLaRa Model** | Context compression (16x) | `apple/CLaRa-7B-Instruct` via HF or endpoint | ❌ Optional |
 
 ### Tiered Processing Strategy
 
@@ -43,13 +42,6 @@ User Query
 │    - Per-symbol summaries (build-time)                           │
 │    - Complex synthesis queries                                   │
 │    - "Explain this codebase" style questions                     │
-└─────────────────────────────────────────────────────────────────┘
-    │
-    ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 4. CLaRa (optional compression)                                 │
-│    - Compress assembled context 16x                              │
-│    - Fit more evidence in LLM context window                     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -134,7 +126,6 @@ Changing source/endpoint/model invalidates cached indexes so the next build uses
 │ Status: ○ Not configured                                        │
 │                                                                 │
 │ [Test Connection]                                               │
-│ └─ Recommended: ministral-3:3b for best CLaRa compatibility     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -157,50 +148,9 @@ Changing source/endpoint/model invalidates cached indexes so the next build uses
 **Rationale for Mistral/Ministral:**
 We recommend the **Ministral 3** family (3B, 8B) for CoDRAG's local pipeline.
 1. **Edge Optimization:** Designed specifically for low-latency local inference, matching CoDRAG's local-first philosophy.
-2. **CLaRa Compatibility:** Since `apple/CLaRa-7B-Instruct` is typically deployed alongside these, staying within the Mistral family (or compatible architectures) ensures consistent tokenization behavior if shared infrastructure is used in the future.
-3. **Performance:** Ministral 3 outperforms previous 7B models in reasoning and coding tasks while being significantly faster.
+2. **Performance:** Ministral 3 outperforms previous 7B models in reasoning and coding tasks while being significantly faster.
 
 **UI Pattern:** Same as Small Model, different slot.
-
----
-
-### Slot 4: CLaRa (Context Compression)
-
-**Purpose:** 16x context compression for fitting more evidence in prompts.
-
-**Configuration Options:**
-1. **HuggingFace Direct Download** (runs in-app)
-   - Repo: `apple/CLaRa-7B-Instruct`
-   - Requires ~14GB VRAM (fp16) or unified memory
-   - One-click download + auto-quantization
-   
-2. **Remote CLaRa Server** (runs on another machine)
-   - URL: `http://192.168.x.x:8765`
-   - Leverages existing [CLaRa-Remembers-It-All](../../../CLaRa-Remembers-It-All/) deployment
-
-**UI Pattern:**
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ 🗜️ CLaRa (Context Compression)                                  │
-│ Apple's 16x semantic compression                                │
-│                                                                 │
-│ ○ Download from HuggingFace (runs locally)                      │
-│   Model: apple/CLaRa-7B-Instruct                                │
-│   Status: ○ Not downloaded              [Download ~14GB]        │
-│   Requirements: 14GB+ VRAM or unified memory                    │
-│                                                                 │
-│ ○ Use remote CLaRa server                                       │
-│   URL: [http://192.168.1.x:8765        ]                        │
-│   [Test Connection]  Status: ○ Not connected                    │
-│                                                                 │
-│ ☐ Enable compression (applies to context assembly)              │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Integration with CLaRa-Remembers-It-All:**
-- CoDRAG can embed CLaRa server code directly (same Python dependencies)
-- Or connect to standalone CLaRa server via HTTP
-- Same API contract: `POST /compress` with `{memories: string[], query: string}`
 
 ---
 
@@ -277,22 +227,11 @@ interface LLMConfig {
     model?: string;
   };
   
-  // CLaRa compression
-  clara: {
-    enabled: boolean;
-    source: 'huggingface' | 'endpoint';
-    endpoint_id?: string;
-    remote_url?: string;
-    hf_repo_id?: string;
-    hf_downloaded?: boolean;
-    hf_download_progress?: number;
-  };
-  
   // Saved endpoints
   saved_endpoints: Array<{
     id: string;
     name: string;
-    provider: 'ollama' | 'clara';
+    provider: 'ollama' | 'openai' | 'openai-compatible' | 'anthropic';
     url: string;
   }>;
 }
@@ -340,10 +279,7 @@ POST /api/llm/model-status          Check model readiness without test request
 GET  /embedding/status              Native embedding model availability
 POST /embedding/download            Download native ONNX embedding model
 
-GET  /clara/status                  CLaRa sidecar status
-GET  /clara/health                  CLaRa health check
-
-GET  /api/llm/status                Legacy: Ollama + CLaRa connectivity check
+GET  /api/llm/status                Legacy: Ollama connectivity check
 POST /api/llm/test                  Legacy: Force connectivity check
 ```
 
@@ -360,7 +296,7 @@ User clicks [Download]
     ▼
 POST /llm/hf/download
 {
-  "model_type": "embedding" | "clara",
+  "model_type": "embedding",
   "repo_id": "nomic-ai/nomic-embed-text-v1.5"
 }
     │
@@ -391,7 +327,6 @@ Settings
 │   ├── Embedding Model card
 │   ├── Small Model card
 │   ├── Large Model card
-│   ├── CLaRa card
 │   └── Saved Endpoints section
 └── Advanced
 ```
@@ -406,10 +341,6 @@ AIModelsSettings
 │   ├── HFDownloadButton (optional)
 │   ├── TestConnectionButton
 │   └── StatusBadge
-├── ClaraCard (specialized)
-│   ├── HFDownloadSection
-│   ├── RemoteServerSection
-│   └── EnableToggle
 └── SavedEndpointsSection
     ├── EndpointList
     └── AddEndpointForm
@@ -471,8 +402,6 @@ interface ModelCardProps {
 | P1 | Settings persistence across sessions | ✅ Done |
 | P1 | Badge status reflects test results | ✅ Done |
 | P2 | HuggingFace download for embeddings | ✅ Done (NativeEmbedder) |
-| P2 | CLaRa integration (endpoint mode) | ✅ Done |
-| P2 | CLaRa HuggingFace download | 🔲 Planned |
 | P3 | Claude/OpenAI BYOK support | 🔲 Planned |
 
 ---
@@ -482,4 +411,3 @@ interface ModelCardProps {
 - `README.md` — Phase 04 overview
 - `TRACEABILITY_AUTOMATION_STRATEGY.md` — How LLMs are used in trace augmentation
 - `../../ARCHITECTURE.md` — Overall CoDRAG architecture
-- `../../../CLaRa-Remembers-It-All/README.md` — CLaRa server reference implementation

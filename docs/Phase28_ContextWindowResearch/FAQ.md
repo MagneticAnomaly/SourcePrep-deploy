@@ -68,7 +68,7 @@ All three tools solve the basic problem of "find relevant code and inject it." C
 | **Role weights** (auto-boost code vs docs vs tests) | No | No | No | Yes |
 | **Path weights** (user-tunable per-directory relevance) | No | No | No | Yes |
 | **Intent detection** (query → intent → weight adjustment) | No | No | No | Yes |
-| **Context compression** (CLaRa distillation) | No | No | No | Yes |
+| **Context compression** (LOD distillation) | No | No | No | Yes |
 | **Transparency** (see scores, chunks, what was sent) | No | No | Partial | Yes |
 | **Works across all tools** (MCP standard) | — | — | — | Yes |
 | **User-configurable parameters** (K, max_chars, min_score) | No | No | No | Yes |
@@ -83,7 +83,7 @@ If you just need "find me the relevant function" — your tool probably already 
 
 3. **Cross-tool portability** means your index, weights, and configuration work whether you're in Cursor today and Windsurf tomorrow. Your codebase understanding isn't locked to one vendor.
 
-4. **Compression** via CLaRa means you can send the same semantic information in fewer tokens — the research equivalent of "Retrieve then Solve" which is the recommended mitigation for context-length degradation.
+4. **Compression** via context compression means you can send the same semantic information in fewer tokens — the research equivalent of "Retrieve then Solve" which is the recommended mitigation for context-length degradation.
 
 ---
 
@@ -128,7 +128,7 @@ That file is now **less likely** to appear in the top-5 results. But if it's so 
 | Fewer chunks | Lower `k` (default: 5) |
 | Smaller total output | Lower `max_chars` (default: 6,000) |
 | Stricter relevance filter | Raise `min_score` (default: 0.15) |
-| Compress what's sent | Enable `compression: "clara"` |
+| Compress what's sent | Enable `compression: "lod"` |
 
 Path weights are a **relevance tool** — "I care more about `src/` than `docs/`." They shape *what* gets sent, not *how much*.
 
@@ -183,7 +183,7 @@ This is a real concern. Here's how to address it:
 | `k: 8` | Want broader coverage across files |
 | `trace_expand: true` | Need structural relationships |
 | `max_chars: 10000` | Complex multi-file question |
-| `compression: "clara"` | Same info, fewer tokens |
+| `compression: "lod"` | Same info, fewer tokens |
 | `max_chars: 15000+` | Rarely — verify it actually helps |
 
 ---
@@ -202,7 +202,7 @@ What makes CoDRAG different is what happens **on top of** basic retrieval:
 
 4. **Tool-agnostic via MCP.** CoDRAG works with any MCP-compatible tool. Your index, configuration, and codebase understanding aren't locked to one vendor. Switch from Cursor to Claude Code tomorrow — CoDRAG works the same.
 
-5. **Context compression.** The CLaRa sidecar can distill context by 30–70%, sending the same semantic information in fewer tokens. This directly addresses the research finding that shorter context = better reasoning.
+5. **Context compression.** The compression layer can distill context by 30–70%, sending the same semantic information in fewer tokens. This directly addresses the research finding that shorter context = better reasoning.
 
 So: the base is RAG (same as everyone), the differentiation is in graph-awareness, user control, portability, and compression.
 
@@ -219,7 +219,7 @@ Here's a realistic comparison for a typical query like "how does the authenticat
 | Claude Code file read | ~3,000–8,000 | Whole file or manual line range |
 | CoDRAG default | ~1,500 | Top 5 ranked chunks, headers with paths |
 | CoDRAG + trace | ~2,000 | Same + structurally related code (callers, imports) |
-| CoDRAG + trace + CLaRa | ~800–1,200 | Compressed: same info, 30–70% fewer tokens |
+| CoDRAG + trace + compression | ~800–1,200 | Compressed: same info, 30–70% fewer tokens |
 
 The `zilliztech/claude-context` MCP server (vector search for Claude Code) reports ~40% token reduction at equivalent retrieval quality. CoDRAG achieves similar efficiency, with the added benefit of graph-aware expansion and user-configurable weights.
 

@@ -194,7 +194,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 
 - [x] S-08.1 Getting started + MCP onboarding docs scaffold (Phase12/05)
   - `docs/GETTING_STARTED.md`, `docs/MCP_ONBOARDING.md`, `docs/TROUBLESHOOTING.md`
-  - `/guides/*` pages on docs site (embeddings, clara, path weights)
+  - `/guides/*` pages on docs site (embeddings, path weights)
 - [x] S-08.2 Visual direction prototypes + token strategy + Storybook baseline (Phase13/02/12)
   - All "Radical" visual directions (Neo-Brutalist, Retro, Glass, etc.) ported to `@prep/ui`
   - Storybook reorganized (`Dashboard/Widgets`, `Dashboard/Layouts`, `Foundations`)
@@ -424,7 +424,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 - [ ] S-27.7 Wire `RESEND_API_KEY` env var in support app deployment — *manual, see `FOR_ERIC_TODO.md` §3 (WEB-S5)*
 
 ### Sprint S-10: Context Intelligence (Phase16)
-**Goal:** native embeddings (no Ollama required), user-defined path weighting, CLaRa context compression.
+**Goal:** native embeddings (no Ollama required), user-defined path weighting.
 
 - [x] S-10.1 Native `nomic-embed-text` embedder via ONNX Runtime (Phase16) 
   - `NativeEmbedder` class in `src/prep/core/embedder.py`
@@ -440,16 +440,9 @@ These sprints are intentionally cross-phase. Each sprint should end with:
   - UI: weight editor (click ×1.0 badge) in FolderTree + FolderTreePanel + FileExplorerDetail
   - Hot-update: weights apply immediately to searches without rebuild
   - Tests: `tests/test_path_weights.py` (15 tests)
-- [x] S-10.3 CLaRa context compression via `CLaRa-Remembers-It-All` subtree (Phase16) 
-  - `ContextCompressor` ABC + `ClaraCompressor` + `NoopCompressor` in `src/prep/core/compressor.py`
-  - Sidecar HTTP client calling CLaRa server at configurable URL (default `:8765`)
-  - API: `compression="clara"` param on `/projects/{id}/context` + `GET /clara/status`
-  - MCP: `prep` tool accepts compression params
-  - Graceful fallback: returns uncompressed on timeout/error
-  - Tests: `tests/test_compressor.py` (19 tests)
 - [x] S-10.4 Update marketing copy to reflect embeddings as built-in core feature (Phase12/16) 
-  - All hero variants updated: "built-in embeddings", "no Ollama", path weights, CLaRa compression
-  - Public docs: guides for embeddings, path weights, and CLaRa in `websites/apps/docs/`
+  - All hero variants updated: "built-in embeddings", "no Ollama", path weights
+  - Public docs: guides for embeddings and path weights in `websites/apps/docs/`
 
 ---
 
@@ -515,7 +508,7 @@ This section tracks shared decisions/strategies that must remain consistent acro
   LS issues key → user enters in app → exchange via api.runprep.io → signed Ed25519 offline license.
   Documented in ADR-013 + `docs/DISTRIBUTION_AND_REVENUE_PLAN.md` (authoritative).
 - **Enforcement:** `src/prep/core/feature_gate.py` — runtime tier checks.
-  Server gates: project count, watcher, CLaRa.
+  Server gates: project count, watcher.
   `GET /license` endpoint for frontend tier awareness.
   Dev override: `PREP_TIER=pro` env var.
 - **Remaining:** Ed25519 signature verification in license loader, Tauri UI for license entry
@@ -892,7 +885,7 @@ Add brief notes here after completing a sprint:
  - [ ] Ed25519 license signature verification (currently trusts JSON file contents)
  - [ ] Tauri license entry UI + activation exchange flow
  - [x] Frontend upgrade prompts: **WON'T DO** — no upgrade prompts by design
- - [x] ~~Gate `clara_compression`~~ **REMOVED** — LOD compression is free for all tiers, no gate needed
+ - [x] ~~Gate `lod_compression`~~ **REMOVED** — LOD compression is free for all tiers, no gate needed
  - [x] Gate `mcp_trace_expand` in context endpoint ✅ `context_project()` now calls `require_feature("mcp_trace_expand")` when `trace_expand=true`
  - [x] `WatchControlPanel` upgrade prompt: **WON'T DO** — no upgrade prompts by design
  - [x] `test_incremental_rebuild.py::test_deleted_file_not_carried_over` flaky test ✅ **FIXED:** `FakeEmbedder` now uses `hashlib.sha256` instead of `hash()` for cross-run determinism. Test now checks `_documents` directly instead of relying on search similarity.
@@ -909,7 +902,6 @@ Add brief notes here after completing a sprint:
  - `POST /projects/{id}/trace/ignore` — manage trace ignore patterns
  - `GET /projects/{id}/roots`, `GET /projects/{id}/files`, `GET /projects/{id}/file` — file access
  - `GET /embedding/status`, `POST /embedding/download` — native embedder
- - ~~`GET /clara/status`, `GET /clara/health`~~ — **REMOVED** (CLaRa sidecar removed, replaced by built-in LOD)
  - Added `FEATURE_GATED` error code and HTTP 403 to spec
 
  **Architecture doc (ARCHITECTURE.md) had stale class names.** Fixed:
@@ -930,8 +922,6 @@ Add brief notes here after completing a sprint:
  - [ ] `POST /llm/test` — force connectivity check (spec exists, no client method; `testLLMEndpoint()` calls `/api/llm/proxy/test` which is a different handler)
  - [x] `GET /embedding/status` — ✅ `getEmbeddingStatus()` added
  - [x] `POST /embedding/download` — ✅ `downloadEmbedding()` added
- - [x] ~~`GET /clara/status`~~ — **REMOVED** (CLaRa sidecar removed)
- - [x] ~~`GET /clara/health`~~ — **REMOVED** (CLaRa sidecar removed)
  - [x] `GET /projects/{id}/activity` — ✅ `getProjectActivity()` added
  - [x] `GET /projects/{id}/coverage` — ✅ `getProjectCoverage()` added
 
@@ -955,7 +945,7 @@ Add brief notes here after completing a sprint:
  - [ ] P02-R1: Finalize dashboard information architecture
  - [x] P02-R3: Decide minimum build progress granularity for MVP ✅ SSE `TaskProgress` + per-stage progress bars (determinate + indeterminate)
  - [x] P02-T1/T2: E2E smoke tests and error-state tests for dashboard ✅ `tests/test_dashboard_e2e_flow.py` + `tests/test_dashboard_error_states.py`
- - [x] P02-I3: Global settings modal (Ollama URL, CLaRa URL, defaults) ✅ `SettingsDrawer` (Global tab) + `AIModelsSettings`
+ - [x] P02-I3: Global settings modal (Ollama URL, defaults) ✅ `SettingsDrawer` (Global tab) + `AIModelsSettings`
 
  **Test results:** 154 passed, 36 skipped, 0 failed (excluding known pre-existing failures)
 
@@ -972,11 +962,9 @@ Add brief notes here after completing a sprint:
  - [x] `LicenseTier` type was `'free' | 'pro' | 'team' | 'enterprise'` — missing `'starter'` tier that backend sends. **Fixed.**
  - [x] `LicenseStatusCard.tsx` `tierConfig` Record was missing `starter` entry → would crash on starter tier. **Fixed:** added blue-themed starter entry.
 
- **API client gaps found and fixed (9 methods added):**
+ **API client gaps found and fixed (7 methods added):**
  - [x] `getEmbeddingStatus()` → `GET /embedding/status`
  - [x] `downloadEmbedding()` → `POST /embedding/download`
- - [x] `getClaraStatus()` → `GET /clara/status`
- - [x] `getClaraHealth()` → `GET /clara/health`
  - [x] `getProjectActivity()` → `GET /projects/{id}/activity`
  - [x] `getProjectCoverage()` → `GET /projects/{id}/coverage`
  - [x] `testLLMEndpoint()` → `POST /api/llm/proxy/test`
@@ -1106,7 +1094,7 @@ All three trace tools now proxy to the project-scoped HTTP endpoints in `mcp_ser
  - [x] `PersistenceStatus` component now accepts `onRetry` callback; shows **Retry** button on error.
  - [x] `loadConfig` extracted to `useCallback` so it can be passed as `onRetry` prop.
  - [x] `PUT /api/code-index/config` endpoint now uses `_deep_merge()` instead of `dict.update()`,
-   preventing partial updates from overwriting nested keys (e.g., sending `{llm_config: {clara: {...}}}`
+   preventing partial updates from overwriting nested keys (e.g., sending `{llm_config: {nested: {...}}}`
    would previously wipe `llm_config.saved_endpoints`).
 
  #### pyproject.toml Issues ✅ FIXED
@@ -1194,7 +1182,7 @@ All URLs updated to `github.com/MagneticAnomaly/Prep-MCP`:
  All audited with no TODOs or stubs:
  - `core/index.py` (1095 lines) — hybrid semantic+keyword search
  - `core/embedder.py` (313 lines) — Ollama, Native, Fake providers
- - `core/compressor.py` (247 lines) — LinguaCompressor + Noop (CLaRa removed)
+ - `core/compressor.py` (247 lines) — LinguaCompressor + Noop
  - `core/chunking.py` (274 lines) — markdown + code chunking
  - `core/trace.py` (40k+ lines) — trace builder + index
  - `core/project_registry.py` (234 lines) — SQLite registry
@@ -1209,7 +1197,7 @@ All URLs updated to `github.com/MagneticAnomaly/Prep-MCP`:
  `src/prep/dashboard/vite.config.ts` now proxies **all 7 prefixes** to the daemon at `127.0.0.1:8400`:
  `/api`, `/projects`, `/health`, `/llm`, `/license`, `/embedding`, `/compression`.
  - [x] `/embedding/*` — ✅ proxy added
- - [x] `/compression/*` — ✅ proxy added (replaced `/clara/*`)
+ - [x] `/compression/*` — ✅ proxy added (replaces the removed sidecar route)
  - [x] `/license` — ✅ proxy added (vite.config.ts lines 90-94)
 
  #### ~~Legacy Endpoints Incompatible with Multi-Project~~ ✅ DELETED
@@ -1236,7 +1224,7 @@ All URLs updated to `github.com/MagneticAnomaly/Prep-MCP`:
  | ~~**P0**~~ | ~~CLI bugs~~ | ~~6~~ | ✅ **FIXED** | ~~Runtime crashes~~ |
  | ~~**P0**~~ | ~~Config safety~~ | ~~1~~ | ✅ **FIXED** | ~~`_deep_merge` tests~~ |
  | ~~**P0**~~ | ~~Eval runner bug~~ | ~~1~~ | ✅ **FIXED** | ~~`embedder.encode()` → `embed()`~~ |
- | ~~**P0**~~ | ~~`/llm/test` bug~~ | ~~1~~ | ✅ **FIXED** | ~~CLaRa connectivity hardcoded `False`~~ |
+ | ~~**P0**~~ | ~~`/llm/test` bug~~ | ~~1~~ | ✅ **FIXED** | ~~LLM connectivity hardcoded `False`~~ |
  | **P1** | API docs gaps | 13 | ✅ **FIXED** | Undocumented server endpoints |
  | **P1** | Phase 07 (Testing) | 14 | Open | Entire phase unstarted — MVP quality bar |
  | **P1** | Test coverage | 2 | Open | CLI (900 lines), viz (8 files) untested |
@@ -1281,13 +1269,9 @@ All URLs updated to `github.com/MagneticAnomaly/Prep-MCP`:
 
  #### Items Closed (verified as fixed)
 
- **Vite Proxy — all 3 missing routes now proxied ✅**
+ **Vite Proxy — all routes now proxied ✅**
  `src/prep/dashboard/vite.config.ts` lines 90-104 now include `/license`, `/embedding/*`,
- `/clara/*` proxy rules. All 7 endpoint prefixes reach the daemon in dev mode.
-
- **Frontend API client — `getClaraHealth()` exists ✅**
- `packages/ui/src/api/client.ts:314` implements `getClaraHealth()` → `GET /clara/health`.
- Previously listed as a gap — now closed.
+ and `/compression/*` proxy rules. All endpoint prefixes reach the daemon in dev mode.
 
  **App.tsx LLM handlers — fully migrated ✅**
  All 3 handlers (`handleTestEndpoint`, `handleFetchModels`, `handleTestModel`) now use typed
@@ -1372,15 +1356,6 @@ All URLs updated to `github.com/MagneticAnomaly/Prep-MCP`:
  - [ ] Definition of Done checklist (lines 161-170) — not formally verified
  - [ ] Future: multi-column layouts, sidebar panels, server-side layout sync
 
- #### NEW: CLaRa Vendor — MLX Backend TODO
- `vendor/clara-server/src/clara_server/model.py:231`:
- ```python
- # TODO: Implement MLX loading when CLaRa MLX weights are available
- ```
- This is in the vendored CLaRa subtree. Low priority — only relevant for Apple Silicon
- native inference. Not blocking any Prep functionality.
- - [ ] Implement MLX model loading in CLaRa when weights become available (vendor subtree)
-
  #### Reconciliation: Items Already Tracked (no change needed)
  The following items were found during the scan and are **already tracked** in MASTER_TODO:
  - `cli.py:725-734` — `config` command prints "Not implemented yet" (3 TODOs) → tracked as "CLI config stub"
@@ -1396,8 +1371,8 @@ All URLs updated to `github.com/MagneticAnomaly/Prep-MCP`:
  | ~~**P0**~~ | ~~CLI bugs~~ | ~~6~~ | ✅ **FIXED** | ~~Runtime crashes~~ |
  | ~~**P0**~~ | ~~Config safety~~ | ~~1~~ | ✅ **FIXED** | ~~`_deep_merge` tests~~ |
  | ~~**P0**~~ | ~~Eval runner bug~~ | ~~1~~ | ✅ **FIXED** | ~~`embedder.encode()` → `embed()`~~ |
- | ~~**P0**~~ | ~~`/llm/test` bug~~ | ~~1~~ | ✅ **FIXED** | ~~CLaRa connectivity hardcoded `False`~~ |
- | ~~**P0**~~ | ~~Vite proxy~~ | ~~3~~ | ✅ **FIXED** | ~~`/embedding`, `/clara`, `/license` now proxied~~ |
+ | ~~**P0**~~ | ~~`/llm/test` bug~~ | ~~1~~ | ✅ **FIXED** | ~~LLM connectivity hardcoded `False`~~ |
+ | ~~**P0**~~ | ~~Vite proxy~~ | ~~3~~ | ✅ **FIXED** | ~~`/embedding`, `/compression`, `/license` now proxied~~ |
  | **P1** | License activation | 3 | **NEW** | Exchange flow NOT_IMPLEMENTED, Ed25519, relay service |
  | ~~**P1**~~ | ~~API docs gaps~~ | ~~13~~ | ✅ **FIXED** | ~~Undocumented server endpoints~~ → added to API.md |
 | ~~**P1**~~ | ~~Backend stubs~~ | ~~2~~ | ✅ **FIXED** | ~~Trace expansion no-op, progress callback~~ |
@@ -1595,7 +1570,7 @@ All four Next.js sites now use Plausible via `<Script strategy="afterInteractive
 - [x] **Academic terminology audit**: ✅ Completed. User-facing labels renamed: "Epistemic Enrichment" → "Deep Reasoning", "Cluster Synthesis" → "Module Synthesis", "Epistemic Score" → "Understanding Score", "Confidence" → "Understanding" in IndexHealthPanel. Academic terms preserved in italicized descriptions, tooltips, and docs explanations. No API/code field names changed. Full epistemological foundation written in `/concepts/graph-enrichment` docs page. All docs updated to 9-stage pipeline.
 - [ ] **Debug log export guide**: Implement a safe "Export Debug Bundle" feature or document a manual process for users to collect logs without leaking source code. Add to FAQ + Troubleshooting. (`src/prep/api/`, docs site)
 - [-] **CLI/Dashboard docs toggle**: Design a toggle in the docs site that lets users switch between "Dashboard" and "CLI" instructions for the same task (default: Dashboard). This is a large scope item — create implementation strategy before building. (`websites/apps/docs/`)
-- [ ] **`<Badge>Pro</Badge>` component for docs**: Implement a visual badge to tag Pro-only features (CLaRa, auto-rebuild, scheduled enrichment, mcp_trace_expand) in the docs. Clarify the correct free-tier definition in all docs: Free = 1 project + manual only + no CLaRa. (`websites/apps/docs/`, `packages/ui/`)
+- [ ] **`<Badge>Pro</Badge>` component for docs**: Implement a visual badge to tag Pro-only features (auto-rebuild, scheduled enrichment, mcp_trace_expand) in the docs. Clarify the correct free-tier definition in all docs: Free = 1 project + manual only. (`websites/apps/docs/`, `packages/ui/`)
 - [ ] **Atlas FAQ entry**: Verify whether Atlas routing actually reduces token usage (pre-retrieval scoping ≠ fewer tokens sent). If confirmed, add FAQ: "What is Codebase Atlas and how does it save tokens?" (`websites/apps/marketing/src/app/faq/`)
 - [ ] **Community page definition**: Define what `/community` on the marketing site should be. Scope unknown — may not be MVP. (`websites/apps/marketing/src/app/community/`)
 

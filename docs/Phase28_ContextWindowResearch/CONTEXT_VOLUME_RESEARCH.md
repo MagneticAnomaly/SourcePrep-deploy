@@ -148,7 +148,7 @@ User Query
     ↓
 [8] Optional: trace expansion adds structurally related chunks (+2000 chars)
     ↓
-[9] Optional: CLaRa compression reduces final output
+[9] Optional: context compression reduces final output
     ↓
 OUTPUT → sent to LLM via MCP
 ```
@@ -162,7 +162,7 @@ OUTPUT → sent to LLM via MCP
 | `min_score` | 0.15 | Floor — chunks below this are dropped |
 | `trace_expand` | false | Whether to follow trace edges |
 | `trace_max_chars` | 2000 | Budget for trace-expanded content |
-| `compression` | "none" | "none" or "clara" |
+| `compression` | "none" | "none" or "lod" |
 
 **6000 chars ≈ 1,500 tokens.** With trace expansion: 8000 chars ≈ 2,000 tokens. This is conservative — well within the safe zone identified by research.
 
@@ -212,7 +212,7 @@ A file with weight `1.5`:
 | **`min_score`** | Higher threshold = fewer chunks pass filter. |
 | **`path_weights`** | **Indirect only.** Changes which chunks are selected, not how big they are. |
 | **`trace_expand`** | Adds structural context on top of semantic results. |
-| **`compression`** | CLaRa can reduce final output by 30–70%. |
+| **`compression`** | Context compression can reduce final output by 30–70%. |
 
 ### The Theoretical Connection
 
@@ -273,7 +273,7 @@ CoDRAG's value proposition is not "give the LLM more code." It's **"give the LLM
 | Cursor @codebase (indexed) | Medium | Medium | Broad retrieval, some noise |
 | CoDRAG semantic search | Low | High | Might miss relevant code not in top-K |
 | CoDRAG semantic + trace | Low-Medium | Very High | Sweet spot: relevant code + its structural context |
-| CoDRAG + CLaRa compression | Very Low | Very High | Maximum signal density |
+| CoDRAG + compression | Very Low | Very High | Maximum signal density |
 
 ### 7.2 Why CoDRAG's Defaults Are Conservative (And Should Stay That Way)
 
@@ -297,7 +297,7 @@ The research says: **send less, send better.** CoDRAG already does this.
 | **5. Top-K selection** | Only the K highest-scoring chunks survive | K=5 |
 | **6. Char budget** | Hard truncation at max_chars | 6000 |
 | **7. Trace budget** | Separate, capped budget for structural expansion | 2000 |
-| **8. CLaRa compression** | LLM-based context distillation (optional) | Off |
+| **8. Context compression** | LLM-based context distillation (optional) | Off |
 
 Each layer reduces noise. By the time context reaches the LLM, it's been through **8 filtering stages**.
 
@@ -321,7 +321,7 @@ Each layer reduces noise. By the time context reaches the LLM, it's been through
 | Quick question about a function | 3 | 4000 | false | none |
 | "How does X work?" (architecture) | 5 | 6000 | true | none |
 | Bug investigation | 8 | 10000 | true | none |
-| Large refactor planning | 5 | 6000 | true | clara |
+| Large refactor planning | 5 | 6000 | true | lod |
 | MCP auto-context for AI tools | 5 | 6000 | true | none |
 
 ### 8.3 Rules of Thumb for Beta Users
@@ -331,7 +331,7 @@ Each layer reduces noise. By the time context reaches the LLM, it's been through
 3. **Don't increase max_chars beyond 15K** without good reason. Research shows diminishing returns.
 4. **Use path weights for relevance, not volume.** Weight `docs/` at 0.5 if you want code to rank higher, not to "save space."
 5. **If context feels insufficient**, increase K before increasing max_chars. More diverse chunks > longer chunks.
-6. **If you're on Pro**, enable CLaRa compression for the best signal-to-noise ratio.
+6. **If you're on Pro**, enable context compression for the best signal-to-noise ratio.
 
 ---
 

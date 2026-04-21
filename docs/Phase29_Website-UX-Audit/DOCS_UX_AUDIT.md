@@ -17,7 +17,7 @@
 ### Guides (`/guides`)
 - **`/embeddings`**: Breakdown of Native ONNX (Default) vs. Ollama (`nomic-embed-code`).
 - **`/path-weights`**: How to steer search relevance hierarchically.
-- **`/clara`**: Setting up 10–16× context compression.
+- **`/compression`**: Setting up 10–16× context compression.
 - **`/models`**: Configuring LLMs for enrichment and analysis.
 
 ### Integration & Reference
@@ -35,7 +35,7 @@
 | :--- | :--- | :--- |
 | **Codebase Atlas missing** | No concept page for pre-retrieval routing / subsystem segmentation. | TODO: Create `/concepts/atlas-routing` once Phase 29B lands. Added to `MARKETING_MASTER_TODO.md`. |
 | **Pipeline stage count wrong** | Docs/website previously said "6-stage" or "multi-pass". Actual count is **9 stages** (Fast Sync 4 + Deep Enrichment 5). | ✅ Fixed in `FeatureBlocks.tsx` (marketing). TODO: Fix in `/concepts/graph-enrichment` (docs). Added to `MARKETING_MASTER_TODO.md`. |
-| **Free tier described incorrectly** | Various places implied Trace Graph/MCP were Pro-only. Actual: Free = 1 project + manual only + no CLaRa. Trace index, trace search, path weights, basic MCP all FREE. | ✅ Fixed on pricing page. TODO: Add `<Badge>Pro</Badge>` to docs for CLaRa, auto-rebuild, scheduled enrichment. Added to `MASTER_TODO.md`. |
+| **Free tier described incorrectly** | Various places implied Trace Graph/MCP were Pro-only. Actual: Free = 1 project + manual only. Trace index, trace search, path weights, basic MCP all FREE. | ✅ Fixed on pricing page. TODO: Add `<Badge>Pro</Badge>` to docs for auto-rebuild, scheduled enrichment. Added to `MASTER_TODO.md`. |
 | **"Verify" step in Getting Started** | Uses `trace_expand=true`. This actually works on Free (trace_index is FREE, only auto-trace is gated). But Free users must manually build the trace graph first. | TODO: Clarify in Getting Started that Free users need a manual trace build before this step. Added to `MARKETING_MASTER_TODO.md`. |
 | **Panel name drift** | Dashboard docs should reflect current panel names (Graph Scope, Index Health, etc.). | TODO: Audit panel names in `/dashboard` docs page. |
 
@@ -47,7 +47,7 @@
 2. **Deep Analysis guide**: Yes, needed. Users spend their own LLM tokens on enrichment and need to understand budget controls. TODO item.
 3. **Free Tier Verification**: The verify step (trace_expand) technically works on Free since trace_index is FREE. The issue is Free users must do a manual trace build first. Clarify this in the Getting Started guide.
 4. **CLI/Dashboard toggle**: Large scope — needs its own sprint. Added to `MASTER_TODO.md` as a design task (toggle component, default to Dashboard).
-5. **`<Badge>Pro</Badge>` component**: Yes — implement across docs. Pro-only features: CLaRa, auto-rebuild, scheduled enrichment, mcp_trace_expand, multi-repo agent. Added to `MASTER_TODO.md`.
+5. **`<Badge>Pro</Badge>` component**: Yes — implement across docs. Pro-only features: auto-rebuild, scheduled enrichment, mcp_trace_expand, multi-repo agent. Added to `MASTER_TODO.md`.
 6. **Academic terminology**: Needs its own research sprint. Keep academic language but find accessible alternatives for marketing. May rename panel titles, API fields, and docs concepts. Added to `MASTER_TODO.md`.
 7. **Debug log export**: Yes — add to FAQ, Troubleshooting, and Security/Privacy page. Added to both `MASTER_TODO.md` and `MARKETING_MASTER_TODO.md`.
 

@@ -322,17 +322,6 @@ export const RESEARCH_SOURCES: ResearchSource[] = [
     problemArea: 'compression',
     spotlight: false,
   },
-  {
-    id: 'clara-paper',
-    type: 'paper',
-    title: 'CLaRa: Bridging Retrieval and Generation with Continuous Latent Reasoning',
-    venue: 'arXiv 2025',
-    year: 2025,
-    url: 'https://arxiv.org/abs/2511.18659',
-    arxivId: '2511.18659',
-    usage: 'Evaluated as a baseline; code/language retention measured at 20\u201329%, motivating Prep\u2019s dual-compressor design.',
-    problemArea: 'compression',
-    spotlight: false,
   },
   // ─── Section 3: Code Structure & Chunking ─────────────────────────────
   {

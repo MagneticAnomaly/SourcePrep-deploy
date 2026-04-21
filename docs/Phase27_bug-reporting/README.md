@@ -117,7 +117,7 @@ preview this in the modal before sending.
 | `embedding` | full embedding config |
 | `small_model` | endpoint_id + model (no API keys) |
 | `large_model` | endpoint_id + model (no API keys) |
-| `clara` | full CLaRa config |
+
 | `saved_endpoints` | id, name, provider, url (no API keys) |
 | `llm_slots_status` | which models are loaded/ready |
 

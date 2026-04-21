@@ -61,76 +61,6 @@ Current chunking is "dumb" — it splits by size/headings without understanding 
 
 ---
 
-## Future research: CLaRa integration
-
-### Concept
-Integrate CLaRa (Context Lens and Retrieval Augmentation) to:
-- Compress retrieved chunks into a stable "working set"
-- Maintain a "project brief" that doesn't blow up context windows
-- Enable "CLaRa-Remembers-It-All" mode during builds
-
-### Strategy (recommended path)
-We should treat CLaRa as an **optional, swappable layer** rather than a hard dependency of the public v1.0.
-
-- **Phase A (v1.0 friendly): query-time compression**
-  - Keep the index format unchanged.
-  - Retrieval stays the same (`search` → top-k chunks).
-  - Add an optional step:
-    - `retrieved_context` → CLaRa → `compressed_context`
-  - This yields an immediate, practical win: the system can inject more “meaning” inside a fixed LLM context window.
-
-- **Phase B (future): build-time compression (“CLaRa-Remembers-It-All”)**
-  - During index build, optionally store compressed summaries for:
-    - Each chunk
-    - Each file
-    - Each root (folder)
-  - Retrieval can then return a layered blend:
-    - folder/file summaries for broad context
-    - raw chunks for exact details
-
-### Packaging decision: include `clara-remembers-it-all` vs rebuild
-Recommended approach:
-
-- **Ship CLaRa as a separate optional service** (default)
-  - Pros:
-    - Keeps `code-index` lightweight and dependency-minimal.
-    - Works on machines without Apple Silicon / without ML runtime installed.
-    - Easier to iterate CLaRa independently.
-  - Cons:
-    - Requires running an extra local server.
-
-- **Allow “embedded CLaRa” mode** (advanced)
-  - Pros:
-    - One process.
-    - Potentially lower latency.
-  - Cons:
-    - Heavier install surface (ML deps, device-specific issues).
-
-For public release, we should implement the integration behind a small interface (“compressor”) so the rest of the system doesn’t care whether CLaRa is remote or local.
-
-### CLaRa-Remembers-It-All (build-time compression)
-During index build, optionally:
-1. Chunk the codebase as normal
-2. Run CLaRa compression on the entire chunk corpus
-3. Store both raw chunks AND compressed summaries
-4. At retrieval time, return compressed summaries for broad context + raw chunks for specific details
-
-### Benefits
-- **Smaller context footprint**: compressed summaries vs full chunks
-- **Stable architecture context**: project-level summary doesn't change every query
-- **Layered retrieval**: summary → relevant chunks → full files
-
-### Implementation ideas
-- Add `--clara-compress` flag to build process
-- Store compressed summaries in separate index (`summaries.json`)
-- Add `codrag_summary` MCP tool that returns CLaRa-compressed context
-- Allow mixing: summary + top-k raw chunks
-
-### Status
-**Research only** — not started. Depends on CLaRa being stable and fast enough for build-time use.
-
----
-
 ## Standalone UI: Index Manager
 
 ### Goal
@@ -204,4 +134,4 @@ A simple HTML page (no React build required) that lets users:
 ### 2026-01-30
 - Created this document
 - Started standalone HTML UI implementation
-- Discussed CLaRa integration strategy (research notes above)
+- Discussed compression integration strategy

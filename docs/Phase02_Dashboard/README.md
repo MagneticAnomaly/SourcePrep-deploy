@@ -142,7 +142,7 @@ Per-project settings:
 Global settings (modal):
 - Ollama URL
 - Default embedding model
-- Optional: CLaRa URL + enable toggle (recommended: https://huggingface.co/apple/CLaRa-7B-Instruct)
+
 
 ### UX states and error handling
 

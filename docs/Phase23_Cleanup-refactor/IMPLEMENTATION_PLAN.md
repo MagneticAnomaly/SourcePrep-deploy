@@ -353,7 +353,6 @@ pytest tests/ -x -q
   - Move: `POST /llm/proxy/test`, `POST /llm/proxy/models`, `POST /llm/proxy/test-model`.
   - Move: `GET /llm/slots/status`.
   - Move: `GET /embedding/status`, `POST /embedding/download`.
-  - Move: `GET /clara/status`, `GET /clara/health`.
 - [ ] **S13.2** Update `server.py` — include router.
 
 ### Testing Checkpoint

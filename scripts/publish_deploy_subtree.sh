@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Publish the prep-deploy subtree to a standalone public repo.
-# Same pattern as publish_clara_subtree.sh.
+# Shared pattern for publishing a subtree to a public-facing remote.
 #
 # Usage:
 #   scripts/publish_deploy_subtree.sh                  # push to dev remote

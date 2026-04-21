@@ -174,7 +174,7 @@ Larger effort. Requires benchmarking, potential model swap, and infrastructure w
 - **Effort:** Trivial constant change.
 
 ### 3.5 — Score-Based Compression
-- **Problem:** CLaRa compresses the entire context uniformly.
+- **Problem:** Context compression applies the entire context uniformly.
 - **Status:** Later — requires per-chunk compression calls
 - **Approach:** High-score chunks (>0.7) → no compression. Mid-score (0.4–0.7) → light compression. Low-score (<0.4) → aggressive compression or one-line summary.
 - **Effort:** Medium-High.

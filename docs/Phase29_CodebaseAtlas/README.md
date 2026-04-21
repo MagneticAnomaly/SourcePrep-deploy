@@ -252,7 +252,7 @@ a specific code question."""
 | Adaptive K | Controls local result count | Routing improves result homogeneity → cleaner score gaps → better K |
 | Trace Expansion | Adds graph neighbors | Routing scopes trace walk start nodes to relevant segment hubs |
 | MMR Diversity | Deduplicates local results | Routing narrows the candidate set; MMR still deduplicates within it |
-| CLaRa Compression | Compresses context | Unaffected — atlas not in AI context, CLaRa compresses results only |
+| Context Compression | Compresses context | Unaffected — atlas is not in AI context, compression applies to results only |
 | Primer Chunks | Always-included chunks | Unaffected — primer chunks bypass routing (they're always included) |
 | Path Weights | Per-folder scoring | Segment boundaries could be informed by path weights in future |
 | Module Summaries | Per-cluster summaries | Atlas **consumes** module summaries to build `COVERS` vocabulary |
@@ -364,15 +364,15 @@ This lets the AI tool decide when it needs orientation (e.g., at the start of a 
 
 ### 7. Compression Interaction
 
-In the routing model, CLaRa compression is unaffected by the Atlas. Since atlas text is not prepended to AI context, there's nothing to compress or protect.
+In the routing model, Context compression is unaffected by the Atlas. Since atlas text is not prepended to AI context, there's nothing to compress or protect.
 
 When compression is enabled:
 1. Segment routing runs (pre-retrieval, internal)
 2. Search results assembled with scoped retrieval
-3. CLaRa compresses the search results
+3. Context compression applies to the search results
 4. AI receives: compressed results + optional ~8-token subsystem label
 
-If `codrag_atlas` is called as a separate MCP tool by the AI, that response is separate from the context assembly pipeline and CLaRa does not apply to it.
+If `codrag_atlas` is called as a separate MCP tool by the AI, that response is separate from the context assembly pipeline and context compression does not apply to it.
 
 ### 8. Multi-Project Considerations
 

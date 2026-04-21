@@ -63,9 +63,6 @@ trace = [
     "tree-sitter-python>=0.21.0",
     "tree-sitter-typescript>=0.21.0",
 ]
-clara = [
-    "torch>=2.1.0",
-]
 langgraph = [
     "langgraph>=0.2.0",
     "langchain-core>=0.3.0",

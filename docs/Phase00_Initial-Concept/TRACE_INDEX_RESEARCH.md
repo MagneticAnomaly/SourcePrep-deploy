@@ -341,9 +341,8 @@ See `AI_INFRASTRUCTURE_RESEARCH.md` for the full automation strategy.
 
 ## Related Documents
 
-- `AI_INFRASTRUCTURE_RESEARCH.md` — Full AI stack mapping (Ollama, CLaRa, Mistral, agents.md)
+- `AI_INFRASTRUCTURE_RESEARCH.md` — Full AI stack mapping (Ollama, Mistral, agents.md)
 - `COMPETITORS_AND_CUTTING_EDGE.md` — Competitor landscape + cutting-edge feature set (GraphRAG/CodeRAG)
-- `STAGE2_CLARA_QUERYTIME.md` — Query-time compression integration
 - `IMPLEMENTATION.md` — Current code_index implementation status
 
 ---

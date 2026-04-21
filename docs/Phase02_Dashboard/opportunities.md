@@ -14,7 +14,7 @@ Capture UX and settings opportunities that increase trust and reduce operational
   - index freshness (last build, last file event)
   - whether search is operating on the last known-good snapshot
   - what settings are active (include/exclude, max file size, model)
-- **Provider connectivity tests**: add explicit “Test Ollama” / “Test CLaRa” buttons that return a clear pass/fail + hint. (Added to TODOs: P02-I4a, 2026-02-01)
+- **Provider connectivity tests**: add explicit “Test Ollama” button that returns a clear pass/fail + hint. (Added to TODOs: P02-I4a, 2026-02-01)
 - **Index coverage explorer**: show a bounded table of:
   - included file counts by extension
   - top excluded patterns that matched

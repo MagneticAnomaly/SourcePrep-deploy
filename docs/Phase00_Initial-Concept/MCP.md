@@ -164,7 +164,7 @@ codrag(query="Phase 70", min_score=0.25, max_chars=4000)
 | `estimated_tokens` in structured output | Done |
 | Dedupe near-identical chunks | Future |
 | `max_per_file` cap | Future |
-| CLaRa compression layer | Future (Phase 3)
+| context compression layer | Future (Phase 3)
 
 ## Prerequisites
 - A running RAG HTTP server:

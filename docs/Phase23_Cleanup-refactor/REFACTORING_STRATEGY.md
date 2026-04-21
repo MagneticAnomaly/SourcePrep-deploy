@@ -147,7 +147,7 @@ Move the heavy thread management and locking logic out of the HTTP layer.
 | S10 | License (activate, deactivate) | `routers/license.py` | 191 |
 | S11 | Trace + enrichment pipeline | `routers/trace.py` | 1,145 |
 | S12 | Knowledge (status, build, engine) | `routers/knowledge.py` | 160 |
-| S13 | LLM (proxy, embedding, clara, slots) | `routers/llm.py` | 662 |
+| S13 | LLM (proxy, embedding, slots) | `routers/llm.py` | 662 |
 | S14 | BuildManager service (threads, locks, caches) | `services/build_manager.py` | 446 |
 | S15 | Projects (CRUD, build, search, context, watch, files) | `routers/projects.py` | 1,231 |
 | S16a | Dead legacy trace code removal | — | −52 |

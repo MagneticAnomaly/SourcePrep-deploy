@@ -489,9 +489,9 @@ Insert this block:
     spotlight: false,
   },
   {
-    id: 'clara-paper',
+    id: 'latent-reasoning-paper',
     type: 'paper',
-    title: 'CLaRa: Bridging Retrieval and Generation with Continuous Latent Reasoning',
+    title: 'Continuous Latent Reasoning for RAG (arXiv 2511.18659)',
     venue: 'arXiv 2025',
     year: 2025,
     url: 'https://arxiv.org/abs/2511.18659',

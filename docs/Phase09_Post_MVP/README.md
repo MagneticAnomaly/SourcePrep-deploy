@@ -17,7 +17,7 @@
  
  ## Potential directions
  - Cross-project search (opt-in)
- - CLaRa query-time compression toggle
+ - context compression toggle
  - AGENTS.md generation
  - More languages for trace analyzers
  - Graph visualization

@@ -94,11 +94,6 @@ It is split into:
   - **Source:** `docs/Phase02_Dashboard/README.md`
   - **UI control:** model dropdown populated from `/llm/status` models
 
-- **(Optional) CLaRa URL + enable toggle**
-  - **Scope:** global
-  - **Source:** `docs/Phase02_Dashboard/README.md`, `docs/API.md`
-  - **UI control:** toggle + URL input + “Test”
-
 ---
 
 ## Opportunities (more control, better trust UX)
@@ -133,8 +128,8 @@ It is split into:
 
 ### F) Advanced model configuration (Phase04 LLM model config)
 - **Saved endpoints** (Ollama/OpenAI/Anthropic/openai-compatible) with per-endpoint API keys
-- **Model slots** (embedding/small/large/CLaRa) + test actions
-- **HuggingFace download UX** for embedding + CLaRa (optional)
+- **Model slots** (embedding/small/large) + test actions
+- **HuggingFace download UX** for embedding (optional)
 
 ---
 

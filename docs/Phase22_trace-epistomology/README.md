@@ -394,7 +394,7 @@ This creates a positive feedback loop: better enrichment → better context → 
 
 - `docs/Phase01_Foundation/` — Trace graph fundamentals
 - `docs/Phase05_Augmentation/` — Current augmentation pipeline (Pass 1)
-- `docs/Phase16_ContextIntelligence/` — Native embeddings, path weights, CLaRa compression
+- `docs/Phase16_ContextIntelligence/` — Native embeddings, path weights, context compression
 - `MULTI_PASS_PIPELINE.md` — Detailed pass-by-pass implementation spec (this folder)
 - `EPISTEMOLOGY_SCORING.md` — Scoring system deep dive (this folder)
 - `RUST_ENRICHMENT_ANALYSIS.md` — Analysis of Rust pass underutilization + LLM-guided re-trace theory (this folder)
