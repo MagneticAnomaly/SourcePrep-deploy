@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="codrag-github-header.png" alt="CoDRAG" width="100%">
+  <img src="prep-github-header.png" alt="Prep" width="100%">
 </p>
 
-# CoDRAG Deploy — Headless Team Sync Templates
+# Prep Deploy — Headless Team Sync Templates
 
-Deploy CoDRAG's headless indexer to your CI/CD pipeline so your team shares a single, pre-built trace graph. Developers download it instantly instead of running LLMs locally.
+Deploy Prep's headless indexer to your CI/CD pipeline so your team shares a single, pre-built trace graph. Developers download it instantly instead of running LLMs locally.
 
 ## Quick Decision Tree
 
@@ -24,11 +24,11 @@ Is your codebase in a private VPC?
 ## Directory Structure
 
 ```
-codrag-deploy/
+prep-deploy/
 ├── Dockerfile.cpu          # Slim image: ONNX embeddings + BYOK LLM (~2-3 GB)
 ├── Dockerfile.gpu          # Fat image: + Ollama + Qwen3:4b baked in (~8-10 GB)
 ├── github-actions/         # Reusable workflow for CI/CD trigger
-│   └── codrag-sync.yml
+│   └── prep-sync.yml
 ├── modal/                  # Modal.com serverless GPU adapter
 │   └── modal_adapter.py
 ├── runpod/                 # RunPod Serverless adapter
@@ -40,13 +40,13 @@ codrag-deploy/
 
 ## How It Works
 
-1. **On push to `main`:** Your CI/CD runs `codrag sync-headless` inside the headless Docker image.
+1. **On push to `main`:** Your CI/CD runs `prep sync-headless` inside the headless Docker image.
 2. **The image:** Clones your repo, runs the 10-stage enrichment pipeline, and uploads the index artifacts to your S3-compatible bucket.
-3. **Your team:** Each developer's local CoDRAG client downloads the index on startup. They only compute deltas for their uncommitted changes.
+3. **Your team:** Each developer's local Prep client downloads the index on startup. They only compute deltas for their uncommitted changes.
 
 ## Prerequisites
 
-- A **CoDRAG Team** or **Enterprise** license.
+- A **Prep Team** or **Enterprise** license.
 - An S3-compatible storage bucket (Cloudflare R2, AWS S3, MinIO, Backblaze B2).
 - One of:
   - An OpenAI/Anthropic API key (for CPU+BYOK mode), or
@@ -56,8 +56,8 @@ codrag-deploy/
 
 | Tag | Size | GPU | Use Case |
 |-----|------|-----|----------|
-| `ghcr.io/ericbintner/codrag-headless:cpu` | ~2-3 GB | No | GitHub Actions + BYOK |
-| `ghcr.io/ericbintner/codrag-headless:gpu` | ~8-10 GB | Yes | RunPod, Modal, AWS + local Ollama |
+| `ghcr.io/ericbintner/prep-headless:cpu` | ~2-3 GB | No | GitHub Actions + BYOK |
+| `ghcr.io/ericbintner/prep-headless:gpu` | ~8-10 GB | Yes | RunPod, Modal, AWS + local Ollama |
 
 ## Security
 
@@ -67,7 +67,7 @@ codrag-deploy/
 
 ## Links
 
-- [Team Sync Guide](https://docs.codrag.io/guides/team-sync) — Full setup walkthrough
-- [Enterprise Deployment Guide](https://docs.codrag.io/guides/enterprise-deploy) — Air-gapped, VPC, serverless GPU
-- [CoDRAG](https://codrag.io) — Main product page
-- [Pricing](https://codrag.io/pricing) — Team & Enterprise plans
+- [Team Sync Guide](https://docs.runprep.io/guides/team-sync) — Full setup walkthrough
+- [Enterprise Deployment Guide](https://docs.runprep.io/guides/enterprise-deploy) — Air-gapped, VPC, serverless GPU
+- [Prep](https://runprep.io) — Main product page
+- [Pricing](https://runprep.io/pricing) — Team & Enterprise plans

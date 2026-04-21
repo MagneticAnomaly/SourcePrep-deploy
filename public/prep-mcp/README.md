@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="codrag-github-header.png" alt="CoDRAG" width="100%">
+  <img src="prep-github-header.png" alt="Prep" width="100%">
 </p>
 
 <h2 align="center"><em>The bridge between how you think about code and how AI reads it.</em></h2>
@@ -8,15 +8,15 @@
 
 [![License](https://img.shields.io/badge/license-Commercial-blue.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-green.svg)](https://modelcontextprotocol.io)
-[![Sovereign Context](https://img.shields.io/badge/Sovereign-Context-purple.svg)](https://codrag.io)
+[![Sovereign Context](https://img.shields.io/badge/Sovereign-Context-purple.svg)](https://runprep.io)
 
 </div>
 
 **Code Documentation and RAG** — Epistemic trace intelligence for autonomous agents and codebase orchestration.
 
-AI assistants are only as good as the context they receive. Most tools send fragments — a single file, a keyword match — and the model fills in the gaps with hallucinations. CoDRAG fixes this by building a **persistent, semantic index** of your entire codebase (or multiple repos) and serving bounded, source-cited context on demand.
+AI assistants are only as good as the context they receive. Most tools send fragments — a single file, a keyword match — and the model fills in the gaps with hallucinations. Prep fixes this by building a **persistent, semantic index** of your entire codebase (or multiple repos) and serving bounded, source-cited context on demand.
 
-> **Important:** CoDRAG is a **local desktop application**, not a cloud service. This repository contains the MCP server shim — a thin wrapper that connects your AI tools to the CoDRAG engine running on your machine. **You must install the full CoDRAG application first.** See [Installation](#installation) below.
+> **Important:** Prep is a **local desktop application**, not a cloud service. This repository contains the MCP server shim — a thin wrapper that connects your AI tools to the Prep engine running on your machine. **You must install the full Prep application first.** See [Installation](#installation) below.
 
 ### Core capabilities
 
@@ -28,19 +28,19 @@ AI assistants are only as good as the context they receive. Most tools send frag
 
 ---
 
-<img src="dashboard-demo.png" width="100%" alt="CoDRAG dashboard" />
+<img src="dashboard-demo.png" width="100%" alt="Prep dashboard" />
 
-## Why CoDRAG?
+## Why Prep?
 
 AI tools are evolving fast. The context they need shouldn't be locked inside one specific editor.
 
-| Developer Problem | CoDRAG Solution |
+| Developer Problem | Prep Solution |
 |:---|:---|
-| **"AI hallucinations"** | AI guesses when it lacks context or gets condused with too much context. CoDRAG provides **grounded, guided, source-cited context** from targeted parts of your codebase. |
-| **"Fragmented Context"** | Each tool (Cursor, VS Code, CLI) has its own partial index. CoDRAG is a **unified context server** for *all* your tools. |
-| **"Dumb Search"** | grep/regex misses concepts. CoDRAG uses **Trace Indexing** (Who calls this? What implements this interface?) + Semantic Search. |
-| **"Privacy Risks"** | Most tools upload code to index it. CoDRAG guarantees **Sovereign Context**. Your code never leaves your machine. |
-| **"Context Window Limits"** | Pasting huge files wastes tokens. CoDRAG uses **Structural Compression** (LOD) to pack 3–20× more files into the same window — no GPU or sidecar needed. |
+| **"AI hallucinations"** | AI guesses when it lacks context or gets condused with too much context. Prep provides **grounded, guided, source-cited context** from targeted parts of your codebase. |
+| **"Fragmented Context"** | Each tool (Cursor, VS Code, CLI) has its own partial index. Prep is a **unified context server** for *all* your tools. |
+| **"Dumb Search"** | grep/regex misses concepts. Prep uses **Trace Indexing** (Who calls this? What implements this interface?) + Semantic Search. |
+| **"Privacy Risks"** | Most tools upload code to index it. Prep guarantees **Sovereign Context**. Your code never leaves your machine. |
+| **"Context Window Limits"** | Pasting huge files wastes tokens. Prep uses **Structural Compression** (LOD) to pack 3–20× more files into the same window — no GPU or sidecar needed. |
 | **"Managing separate RAG indexes for 5+ repos is tedious"** | Single daemon manages all projects. |
 | **"Each IDE tool spins up its own Ollama connection"** | Shared LLM connection pool. |
 | **"Juggling multiple ports/processes per project"** | One port (8400), project tabs in UI. |
@@ -51,55 +51,55 @@ AI tools are evolving fast. The context they need shouldn't be locked inside one
 
 ## Installation
 
-CoDRAG is a desktop application. Install it first, then configure your AI tools to connect via MCP.
+Prep is a desktop application. Install it first, then configure your AI tools to connect via MCP.
 
 ### Prerequisites
 - macOS 11+ or Windows 10+
 - 4GB free disk space
-- Ollama (optional, for embeddings — CoDRAG also ships native ONNX embeddings)
+- Ollama (optional, for embeddings — Prep also ships native ONNX embeddings)
 
-### Step 1: Install the CoDRAG Application
+### Step 1: Install the Prep Application
 
 ```bash
 # macOS (Homebrew)
-brew install --cask codrag
+brew install --cask prep
 
 # Windows (winget)
-winget install MagneticAnomaly.CoDRAG
+winget install MagneticAnomaly.Prep
 ```
 
-Or download directly from [codrag.io/download](https://codrag.io/download).
+Or download directly from [runprep.io/download](https://runprep.io/download).
 
-*Free for personal and commercial use (3 active projects, all features). See [codrag.io/pricing](https://codrag.io/pricing) for unlimited projects and Team/Enterprise tiers.*
+*Free for personal and commercial use (3 active projects, all features). See [runprep.io/pricing](https://runprep.io/pricing) for unlimited projects and Team/Enterprise tiers.*
 
 ### Step 2: Start the Daemon and Index a Project
 
 ```bash
 # Start the daemon
-codrag serve
+prep serve
 
 # Register a repo
-codrag add /path/to/your/repo
+prep add /path/to/your/repo
 
 # Build the index (async)
-codrag build
+prep build
 
 # Open the dashboard (optional)
-codrag ui
+prep ui
 ```
 
 ### Step 3: Connect Your AI Tool via MCP
 
-Once CoDRAG is running, connect any MCP-compatible tool:
+Once Prep is running, connect any MCP-compatible tool:
 
 ```bash
 # Start MCP in server mode (connects to the running daemon)
-codrag mcp --auto
+prep mcp --auto
 
 # Generate IDE config (prints JSON you can paste into your tool's settings)
-codrag mcp-config --ide cursor
-codrag mcp-config --ide claude
-codrag mcp-config --ide all
+prep mcp-config --ide cursor
+prep mcp-config --ide claude
+prep mcp-config --ide all
 ```
 
 ### With Ollama (optional)
@@ -111,26 +111,26 @@ curl -fsSL https://ollama.com/install.sh | sh
 # Pull the recommended embedding model
 ollama pull nomic-embed-text        # standard quality (~274 MB)
 
-# CoDRAG will auto-detect Ollama at localhost:11434
-# No Ollama? Run: codrag models  (downloads v1.5 ONNX backup, ~132 MB)
+# Prep will auto-detect Ollama at localhost:11434
+# No Ollama? Run: prep models  (downloads v1.5 ONNX backup, ~132 MB)
 ```
 
 ---
 
 ## Multi-Project Setup
 
-CoDRAG supports multiple projects in a single daemon. When you invoke `codrag` from an AI tool like Windsurf or Cursor, the MCP server needs to know **which project** to query. There are three routing mechanisms, applied in priority order:
+Prep supports multiple projects in a single daemon. When you invoke `prep` from an AI tool like Windsurf or Cursor, the MCP server needs to know **which project** to query. There are three routing mechanisms, applied in priority order:
 
 ### 1. Auto-Detect from Workspace (Default)
 
-When your IDE opens a workspace, it spawns a separate MCP process per window. CoDRAG matches the workspace root against registered project paths:
+When your IDE opens a workspace, it spawns a separate MCP process per window. Prep matches the workspace root against registered project paths:
 
 ```
 Windsurf Window 1: /Users/you/projects/frontend
-  → MCP auto-detects → CoDRAG project "frontend"
+  → MCP auto-detects → Prep project "frontend"
 
 Windsurf Window 2: /Users/you/projects/backend
-  → MCP auto-detects → CoDRAG project "backend"
+  → MCP auto-detects → Prep project "backend"
 ```
 
 This works automatically with:
@@ -148,23 +148,23 @@ Pin the MCP to a specific project by ID. Useful for global configs when auto-det
 
 ```bash
 # Generate config pinned to a specific project
-codrag mcp-config --ide windsurf --project proj_abc123
+prep mcp-config --ide windsurf --project proj_abc123
 
 # Resulting config:
-# { "command": "codrag", "args": ["mcp", "--project", "proj_abc123", "--daemon", "http://127.0.0.1:8400"] }
+# { "command": "prep", "args": ["mcp", "--project", "proj_abc123", "--daemon", "http://127.0.0.1:8400"] }
 ```
 
 ### 3. Tool-Level Override (AI Self-Correction)
 
-Every CoDRAG tool accepts an optional `project_id` parameter. If auto-detect is ambiguous, the AI model receives the full project list in the error message and can retry with an explicit ID:
+Every Prep tool accepts an optional `project_id` parameter. If auto-detect is ambiguous, the AI model receives the full project list in the error message and can retry with an explicit ID:
 
 ```json
-// AI calls codrag_status, gets ambiguous error with project list
+// AI calls prep_status, gets ambiguous error with project list
 // AI retries with explicit project_id:
-{ "name": "codrag", "arguments": { "query": "auth flow", "project_id": "proj_abc123" } }
+{ "name": "prep", "arguments": { "query": "auth flow", "project_id": "proj_abc123" } }
 ```
 
-The `codrag_status` tool also returns `available_projects` when multiple projects exist, so the AI can discover project IDs proactively.
+The `prep_status` tool also returns `available_projects` when multiple projects exist, so the AI can discover project IDs proactively.
 
 ### Recommended Setup for Multiple Projects
 
@@ -175,8 +175,8 @@ Place a `.windsurf/mcp.json` (or `.cursor/mcp.json`) in each project root:
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "codrag",
+    "prep": {
+      "command": "prep",
       "args": ["mcp", "--daemon", "http://127.0.0.1:8400"]
     }
   }
@@ -190,7 +190,7 @@ Each window gets its own MCP process with auto-detection.
 Single config, auto-detection handles routing:
 
 ```bash
-codrag mcp-config --ide windsurf --mode auto
+prep mcp-config --ide windsurf --mode auto
 ```
 
 **Option C: Global config with pinned project**
@@ -198,20 +198,20 @@ codrag mcp-config --ide windsurf --mode auto
 For single-project users or dedicated tool windows:
 
 ```bash
-codrag mcp-config --ide windsurf --project proj_abc123
+prep mcp-config --ide windsurf --project proj_abc123
 ```
 
 ---
 
 ## Verified Integrations
 
-CoDRAG works with any MCP-compatible client. We officially verify and document the following:
+Prep works with any MCP-compatible client. We officially verify and document the following:
 
 ### Tier 1: Verified
 - **[Cursor](https://cursor.sh)** — The AI code editor.
 - **[Windsurf](https://windsurf.ai)** — The agentic IDE.
 - **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** — Anthropic's terminal-native coding agent.
-- **[VS Code](https://code.visualstudio.com)** — Via the official CoDRAG extension or MCP plugin.
+- **[VS Code](https://code.visualstudio.com)** — Via the official Prep extension or MCP plugin.
 - **[GitHub Copilot](https://github.com/features/copilot)** — Via MCP integration in VS Code / JetBrains.
 - **[Gemini CLI](https://github.com/google-gemini/gemini-cli)** — Google's terminal agent for Gemini models.
 - **[Qwen Code](https://github.com/QwenLM/qwen-code)** — The terminal agent for Qwen models.
@@ -227,16 +227,16 @@ CoDRAG works with any MCP-compatible client. We officially verify and document t
 
 We believe in a **Model-View-Controller** approach to AI development:
 
-- **The Model (CoDRAG)**: The source of truth. Manages the trace graph, file index, semantic search, and context assembly.
+- **The Model (Prep)**: The source of truth. Manages the trace graph, file index, semantic search, and context assembly.
 - **The View (Your Tool)**: Cursor, Windsurf, Claude Code, Gemini CLI, Qwen Code, or VS Code. Handles the UI and LLM inference.
 
-CoDRAG is the universal model. Bring your own view.
+Prep is the universal model. Bring your own view.
 
 ---
 
 ## Vision
 
-CoDRAG is an **epistemic, team-ready** application that provides:
+Prep is an **epistemic, team-ready** application that provides:
 
 - **Semantic code search** across multiple codebases simultaneously
 - **Trace indexing** for structural understanding (symbols, imports, call graphs)
@@ -250,7 +250,7 @@ CoDRAG is an **epistemic, team-ready** application that provides:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                              CoDRAG                                     │
+│                              Prep                                     │
 ├─────────────────────────────────────────────────────────────────────────┤
 │  Dashboard (React/Vite → Tauri for MVP)                                 │
 │  ├── Project Tabs (LinuxBrain, HalleyApp, Website, ...)                 │
@@ -272,7 +272,7 @@ CoDRAG is an **epistemic, team-ready** application that provides:
 │  └── LLMCoordinator        Ollama connection management                  │
 ├─────────────────────────────────────────────────────────────────────────┤
 │  CLI                                                                    │
-│  codrag serve | add | build | search | ui | mcp                         │
+│  prep serve | add | build | search | ui | mcp                         │
 └─────────────────────────────────────────────────────────────────────────┘
             │                                        │
             ▼                                        ▼
@@ -291,9 +291,9 @@ graph TD
         Copilot[GitHub Copilot]
     end
 
-    subgraph "The Model (CoDRAG)"
+    subgraph "The Model (Prep)"
         MCP[MCP Server]
-        Daemon[CoDRAG Daemon]
+        Daemon[Prep Daemon]
         Index[(Trace Index)]
         Search[(Vector DB)]
     end
@@ -324,7 +324,7 @@ graph TD
 - Teams can commit embedded indexes to git to skip initial indexing time
 
 ### Trace Index
-Beyond keyword/semantic search, CoDRAG builds a **structural graph**:
+Beyond keyword/semantic search, Prep builds a **structural graph**:
 - **Nodes:** Files, symbols, classes, functions, endpoints
 - **Edges:** Imports, calls, inheritance relationships
 - Queries: Find all callers of a function, trace import chains, explore class hierarchies
@@ -357,28 +357,28 @@ Generate [AGENTS.md](https://agents.md/) documentation from trace index:
 
 ## CLI Reference
 
-The CLI is implemented with Typer; run `codrag --help` or `codrag <command> --help` for detailed help.
+The CLI is implemented with Typer; run `prep --help` or `prep <command> --help` for detailed help.
 
 ### Common examples
 
 ```bash
 # Start the daemon
-codrag serve
+prep serve
 
 # Add a repo
-codrag add /path/to/your/repo
+prep add /path/to/your/repo
 
 # Build the index (async)
-codrag build
+prep build
 
 # Search your codebase
-codrag search "authentication middleware"
+prep search "authentication middleware"
 
 # Assemble context for an LLM
-codrag context "explain the login flow" --raw
+prep context "explain the login flow" --raw
 
 # IDE integration (MCP)
-codrag mcp --auto
+prep mcp --auto
 ```
 
 ### Full options (reference)
@@ -387,42 +387,42 @@ codrag mcp --auto
 # Tip: most daemon-backed commands accept --host/--port (default: 127.0.0.1:8400)
 
 # Daemon
-codrag serve [--host 127.0.0.1] [--port 8400] [--reload]              # Start the daemon
+prep serve [--host 127.0.0.1] [--port 8400] [--reload]              # Start the daemon
 
 # Projects
-codrag add <path> [--name "Name"] [--mode standalone|embedded] \
+prep add <path> [--name "Name"] [--mode standalone|embedded] \
   [--host 127.0.0.1] [--port 8400]                                     # Register project
-codrag list [--host 127.0.0.1] [--port 8400]                            # List projects
-codrag remove <project-id> [--purge] [--host 127.0.0.1] [--port 8400]   # Unregister project
+prep list [--host 127.0.0.1] [--port 8400]                            # List projects
+prep remove <project-id> [--purge] [--host 127.0.0.1] [--port 8400]   # Unregister project
 
 # Index lifecycle
-codrag status [project-id] [--host 127.0.0.1] [--port 8400]             # Index status
-codrag build [project-id] [--full] [--host 127.0.0.1] [--port 8400]     # Trigger build (async)
+prep status [project-id] [--host 127.0.0.1] [--port 8400]             # Index status
+prep build [project-id] [--full] [--host 127.0.0.1] [--port 8400]     # Trigger build (async)
 
 # Retrieval
-codrag search "query" [--project <project-id>] [--limit 10] [--min-score 0.15] \
+prep search "query" [--project <project-id>] [--limit 10] [--min-score 0.15] \
   [--host 127.0.0.1] [--port 8400]                                      # Semantic search
-codrag context "query" [--project <project-id>] [--limit 5] [--max-chars 8000] [--raw] \
+prep context "query" [--project <project-id>] [--limit 5] [--max-chars 8000] [--raw] \
   [--host 127.0.0.1] [--port 8400]                                      # Assemble context
 
 # UI
-codrag ui [--port 8400]                                                 # Open dashboard
+prep ui [--port 8400]                                                 # Open dashboard
 
 # MCP (IDE integration)
-codrag mcp [--mode server|direct] [--daemon http://127.0.0.1:8400] \
+prep mcp [--mode server|direct] [--daemon http://127.0.0.1:8400] \
   [--auto] [--project <project-id>] [--repo-root <path>]                # Run MCP server (stdio)
-codrag mcp-config [--ide claude|cursor|windsurf|vscode|jetbrains|all] \
+prep mcp-config [--ide claude|cursor|windsurf|vscode|jetbrains|all] \
   [--mode auto|project|direct] [--daemon http://127.0.0.1:8400] [--project <project-id>]  # Print IDE config JSON
 
 # Extras
-codrag activity [--weeks 12] [--no-legend] [--no-labels] [--json] \
+prep activity [--weeks 12] [--no-legend] [--no-labels] [--json] \
   [--host 127.0.0.1] [--port 8400]                                      # Activity heatmap
-codrag coverage [--project <id>] [--host 127.0.0.1] [--port 8400]       # Coverage visualization
-codrag overview [--weeks 12] [--host 127.0.0.1] [--port 8400]            # Terminal overview dashboard
-codrag drift [--project <id>] [--host 127.0.0.1] [--port 8400]          # Index drift report
-codrag flow [--project <id>] [--host 127.0.0.1] [--port 8400]           # RAG flow visualization
-codrag config [key] [value] [--host 127.0.0.1] [--port 8400]            # View/modify config
-codrag version                                                          # Version
+prep coverage [--project <id>] [--host 127.0.0.1] [--port 8400]       # Coverage visualization
+prep overview [--weeks 12] [--host 127.0.0.1] [--port 8400]            # Terminal overview dashboard
+prep drift [--project <id>] [--host 127.0.0.1] [--port 8400]          # Index drift report
+prep flow [--project <id>] [--host 127.0.0.1] [--port 8400]           # RAG flow visualization
+prep config [key] [value] [--host 127.0.0.1] [--port 8400]            # View/modify config
+prep version                                                          # Version
 ```
 
 ---
@@ -432,7 +432,7 @@ codrag version                                                          # Versio
 ### Global Config
 
 ```yaml
-# ~/.config/codrag/config.yaml
+# ~/.config/prep/config.yaml
 
 # LLM Services
 ollama:
@@ -488,17 +488,17 @@ project:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CODRAG_ENGINE` | `auto` | Selects the indexing engine: `auto` (detect best available), `rust` (faster, requires Rust build), `python` (pure Python fallback) |
-| `CODRAG_TIER` | (from license) | Override license tier for development/testing: `free`, `starter`, `pro`, `team`, `enterprise` |
+| `PREP_ENGINE` | `auto` | Selects the indexing engine: `auto` (detect best available), `rust` (faster, requires Rust build), `python` (pure Python fallback) |
+| `PREP_TIER` | (from license) | Override license tier for development/testing: `free`, `starter`, `pro`, `team`, `enterprise` |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama server URL (standard Ollama env var) |
 
 **Example:**
 ```bash
 # Use Python engine for debugging
-CODRAG_ENGINE=python codrag serve
+PREP_ENGINE=python prep serve
 
 # Test Pro features locally
-CODRAG_TIER=pro codrag serve
+PREP_TIER=pro prep serve
 ```
 
 ---
@@ -554,30 +554,30 @@ POST /llm/test                    Test connections
 
 ```bash
 # Team lead sets up project with embedded index
-codrag add /path/to/team-project --embedded
+prep add /path/to/team-project --embedded
 
 # Index lives in /path/to/team-project/.prep/
 # Commit to git:
 git add .prep/
-git commit -m "Add CoDRAG index"
+git commit -m "Add Prep index"
 
 # Team members clone and use existing index
 git clone <repo>
-codrag add /path/to/repo --embedded  # Uses committed index, skips rebuild
+prep add /path/to/repo --embedded  # Uses committed index, skips rebuild
 # Note: Index may need refresh if codebase has changed since commit
 ```
 
 ### Network Mode (Enterprise)
 
 ```bash
-# Run CoDRAG server on team machine
-codrag serve --host 0.0.0.0 --port 8400
+# Run Prep server on team machine
+prep serve --host 0.0.0.0 --port 8400
 
 # Team members connect remotely (read-only access to indexes)
-codrag config set server.remote_url http://team-server:8400
+prep config set server.remote_url http://team-server:8400
 
 # Search/context requests use shared server's indexes
-# Note: Each client still needs local CoDRAG installation
+# Note: Each client still needs local Prep installation
 ```
 
 ### Access Control (Roadmap)
@@ -590,7 +590,7 @@ codrag config set server.remote_url http://team-server:8400
 
 ## GUI (Dashboard)
 
-CoDRAG ships with a **GUI dashboard** for day-to-day workflows:
+Prep ships with a **GUI dashboard** for day-to-day workflows:
 
 - **Project visibility** (index status, staleness, trace status)
 - **Build controls** and configuration editing
@@ -599,34 +599,34 @@ CoDRAG ships with a **GUI dashboard** for day-to-day workflows:
 
 ```bash
 # Open the dashboard in your browser
-codrag ui
+prep ui
 ```
 
 ---
 
 ## About This Repository
 
-This repository (`codrag-mcp`) contains:
+This repository (`prep-mcp`) contains:
 
-- **The MCP server shim** (`bin/codrag-mcp.js`) — a thin Node.js wrapper that spawns `codrag mcp` and bridges stdio for MCP clients.
-- **Documentation** for the CoDRAG application and its MCP integration.
+- **The MCP server shim** (`bin/prep-mcp.js`) — a thin Node.js wrapper that spawns `prep mcp` and bridges stdio for MCP clients.
+- **Documentation** for the Prep application and its MCP integration.
 - **Issue tracker** for MCP-related bugs and feature requests.
 
-The actual CoDRAG engine, dashboard, CLI, and all indexing logic live in the main application. This package exists so that MCP clients (like Cursor or Claude Code) can reference `codrag-mcp` as a server entry point.
+The actual Prep engine, dashboard, CLI, and all indexing logic live in the main application. This package exists so that MCP clients (like Cursor or Claude Code) can reference `prep-mcp` as a server entry point.
 
 ---
 
 ## Related Projects
 
-- **[Ollama](https://ollama.com/)** — Local LLM serving (CoDRAG uses for embeddings)
-- **[Model Context Protocol](https://modelcontextprotocol.io)** — The standard CoDRAG speaks natively
+- **[Ollama](https://ollama.com/)** — Local LLM serving (Prep uses for embeddings)
+- **[Model Context Protocol](https://modelcontextprotocol.io)** — The standard Prep speaks natively
 
 ---
 
 ## License
 
-The CoDRAG Desktop App and Engine are commercial software.
+The Prep Desktop App and Engine are commercial software.
 This repository serves as the public documentation and MCP shim for the integration.
 
 See [LICENSE](LICENSE) for details on this repository's content (MIT).
-See [codrag.io/terms](https://codrag.io/terms) for the CoDRAG application license.
+See [runprep.io/terms](https://runprep.io/terms) for the Prep application license.

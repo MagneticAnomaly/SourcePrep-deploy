@@ -1,13 +1,13 @@
-# CoDRAG Headless — GPU Image
+# Prep Headless — GPU Image
 # For serverless GPU providers (RunPod, Modal, AWS SageMaker) using local LLMs.
 # Includes Ollama runtime + pre-baked Qwen3:4b model weights.
 # No API keys needed — fully private, fully offline.
 #
-# IMPORTANT: Build from the CoDRAG repo root (not from this directory):
-#   docker build -f public/codrag-deploy/Dockerfile.gpu -t codrag/headless:gpu .
+# IMPORTANT: Build from the Prep repo root (not from this directory):
+#   docker build -f public/prep-deploy/Dockerfile.gpu -t prep/headless:gpu .
 #
 # Usage:
-#   codrag sync-headless \
+#   prep sync-headless \
 #     --repo-path /workspace \
 #     --model-provider local --model-name qwen3:4b \
 #     --embedder native
@@ -40,8 +40,8 @@ RUN ollama serve & \
     ollama pull qwen3:4b && \
     kill %1 || true
 
-# ── Install CoDRAG ───────────────────────────────────────────
-WORKDIR /opt/codrag
+# ── Install Prep ───────────────────────────────────────────
+WORKDIR /opt/prep
 
 COPY pyproject.toml .
 COPY src/ src/
@@ -50,22 +50,22 @@ COPY engine/ engine/
 RUN pip install --no-cache-dir ".[headless]"
 
 # ── Pre-download ONNX embedding model ────────────────────────
-RUN python -c "from codrag.core.embedder import NativeEmbedder; NativeEmbedder().download_model()" \
+RUN python -c "from prep.core.embedder import NativeEmbedder; NativeEmbedder().download_model()" \
     || echo "WARN: Model pre-download skipped (will download on first run)"
 
 # ── S3 sync dependencies ─────────────────────────────────────
 RUN pip install --no-cache-dir boto3 minio
 
 # ── Non-root user ─────────────────────────────────────────────
-RUN groupadd -r codrag && useradd -r -g codrag -m -s /bin/bash codrag
-RUN mkdir -p /workspace && chown codrag:codrag /workspace
-RUN chown -R codrag:codrag /opt/ollama-models
+RUN groupadd -r prep && useradd -r -g prep -m -s /bin/bash prep
+RUN mkdir -p /workspace && chown prep:prep /workspace
+RUN chown -R prep:prep /opt/ollama-models
 
 # ── Default entrypoint ────────────────────────────────────────
-COPY public/codrag-deploy/entrypoint.sh /entrypoint.sh
+COPY public/prep-deploy/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-USER codrag
+USER prep
 WORKDIR /workspace
 
 ENTRYPOINT ["/entrypoint.sh"]

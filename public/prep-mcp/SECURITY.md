@@ -2,12 +2,12 @@
 
 ## Reporting a Vulnerability
 
-We take the security of CoDRAG seriously. If you discover a security vulnerability, please report it to us immediately.
+We take the security of Prep seriously. If you discover a security vulnerability, please report it to us immediately.
 
 **Do NOT file public GitHub issues for security vulnerabilities.**
 
 ### Contact
-Please email **security@codrag.io** with a description of the issue, steps to reproduce, and any proof-of-concept code.
+Please email **security@runprep.io** with a description of the issue, steps to reproduce, and any proof-of-concept code.
 
 ### Response Timeline
 - **Acknowledgment**: We will acknowledge receipt of your report within 24 hours.
@@ -16,7 +16,7 @@ Please email **security@codrag.io** with a description of the issue, steps to re
 
 ## Supported Versions
 
-We provide security updates for the **latest major release** of the CoDRAG Desktop Application and the CoDRAG MCP Server.
+We provide security updates for the **latest major release** of the Prep Desktop Application and the Prep MCP Server.
 
 | Version | Supported | Notes |
 | :--- | :--- | :--- |
@@ -25,8 +25,8 @@ We provide security updates for the **latest major release** of the CoDRAG Deskt
 
 ## Integrity Verification
 
-All official releases of CoDRAG are signed.
+All official releases of Prep are signed.
 - **macOS**: Signed with our Apple Developer ID and notarized by Apple.
 - **Windows**: Signed with our EV Code Signing Certificate.
 
-Do not run CoDRAG binaries that fail signature verification or originate from untrusted sources.
+Do not run Prep binaries that fail signature verification or originate from untrusted sources.

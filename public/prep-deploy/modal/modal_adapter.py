@@ -21,7 +21,7 @@ Trigger (from GitHub Actions or curl):
 import modal
 
 # ── Image: pull the pre-built Prep GPU image from GHCR ─────
-codrag_image = modal.Image.from_registry(
+prep_image = modal.Image.from_registry(
     "ghcr.io/ericbintner/prep-headless:gpu",
     add_python="3.11",
 )
@@ -30,7 +30,7 @@ app = modal.App("prep-team-sync")
 
 
 @app.function(
-    image=codrag_image,
+    image=prep_image,
     gpu="A10G",  # Change to "A100" for larger repos, or "T4" for budget
     timeout=7200,  # 2 hour max (adjust for repo size)
     secrets=[modal.Secret.from_name("prep-s3-creds")],

@@ -1,16 +1,16 @@
 {
-  "_comment": "CoDRAG Headless — AWS ECS Task Definition (reference). Adjust family, executionRoleArn, and environment values for your VPC.",
-  "family": "codrag-headless-sync",
+  "_comment": "Prep Headless — AWS ECS Task Definition (reference). Adjust family, executionRoleArn, and environment values for your VPC.",
+  "family": "prep-headless-sync",
   "requiresCompatibilities": ["EC2"],
   "networkMode": "awsvpc",
   "cpu": "4096",
   "memory": "16384",
   "executionRoleArn": "arn:aws:iam::YOUR_ACCOUNT:role/ecsTaskExecutionRole",
-  "taskRoleArn": "arn:aws:iam::YOUR_ACCOUNT:role/codragHeadlessRole",
+  "taskRoleArn": "arn:aws:iam::YOUR_ACCOUNT:role/prepHeadlessRole",
   "containerDefinitions": [
     {
-      "name": "codrag-headless",
-      "image": "ghcr.io/ericbintner/codrag-headless:gpu",
+      "name": "prep-headless",
+      "image": "ghcr.io/ericbintner/prep-headless:gpu",
       "essential": true,
       "command": [
         "sync-headless",
@@ -21,12 +21,12 @@
         "--embedder", "native"
       ],
       "environment": [
-        { "name": "PREP_S3_BUCKET", "value": "my-internal-codrag-indexes" },
+        { "name": "PREP_S3_BUCKET", "value": "my-internal-prep-indexes" },
         { "name": "PREP_S3_PREFIX", "value": "my-repo/main" }
       ],
       "secrets": [
-        { "name": "PREP_S3_ACCESS_KEY", "valueFrom": "arn:aws:secretsmanager:us-east-1:YOUR_ACCOUNT:secret:codrag/s3-access-key" },
-        { "name": "PREP_S3_SECRET_KEY", "valueFrom": "arn:aws:secretsmanager:us-east-1:YOUR_ACCOUNT:secret:codrag/s3-secret-key" }
+        { "name": "PREP_S3_ACCESS_KEY", "valueFrom": "arn:aws:secretsmanager:us-east-1:YOUR_ACCOUNT:secret:prep/s3-access-key" },
+        { "name": "PREP_S3_SECRET_KEY", "valueFrom": "arn:aws:secretsmanager:us-east-1:YOUR_ACCOUNT:secret:prep/s3-secret-key" }
       ],
       "resourceRequirements": [
         { "type": "GPU", "value": "1" }
@@ -34,7 +34,7 @@
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/codrag-headless",
+          "awslogs-group": "/ecs/prep-headless",
           "awslogs-region": "us-east-1",
           "awslogs-stream-prefix": "sync"
         }

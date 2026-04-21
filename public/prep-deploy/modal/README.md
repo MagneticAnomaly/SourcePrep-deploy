@@ -1,6 +1,6 @@
-# CoDRAG Team Sync — Modal Adapter
+# Prep Team Sync — Modal Adapter
 
-Deploy the CoDRAG headless indexer as a serverless GPU function on [Modal](https://modal.com). Scales to zero when idle. Wakes up in under a second when triggered.
+Deploy the Prep headless indexer as a serverless GPU function on [Modal](https://modal.com). Scales to zero when idle. Wakes up in under a second when triggered.
 
 ## Setup
 
@@ -10,11 +10,11 @@ Deploy the CoDRAG headless indexer as a serverless GPU function on [Modal](https
    modal setup
    ```
 
-2. **Create a Modal Secret** named `codrag-s3-creds` with your S3 credentials:
-   - `CODRAG_S3_ENDPOINT` — Your S3-compatible endpoint URL
-   - `CODRAG_S3_BUCKET` — Bucket name
-   - `CODRAG_S3_ACCESS_KEY` — Write access key
-   - `CODRAG_S3_SECRET_KEY` — Write secret key
+2. **Create a Modal Secret** named `prep-s3-creds` with your S3 credentials:
+   - `PREP_S3_ENDPOINT` — Your S3-compatible endpoint URL
+   - `PREP_S3_BUCKET` — Bucket name
+   - `PREP_S3_ACCESS_KEY` — Write access key
+   - `PREP_S3_SECRET_KEY` — Write secret key
 
 3. **Deploy:**
    ```bash
@@ -26,7 +26,7 @@ Deploy the CoDRAG headless indexer as a serverless GPU function on [Modal](https
 ## Trigger
 
 ```bash
-curl -X POST https://your-app--codrag-team-sync-trigger-sync.modal.run \
+curl -X POST https://your-app--prep-team-sync-trigger-sync.modal.run \
   -H "Content-Type: application/json" \
   -d '{"repo_url": "https://github.com/org/repo", "branch": "main"}'
 ```

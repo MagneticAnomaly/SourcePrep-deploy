@@ -1,6 +1,6 @@
-# CoDRAG Team Sync — GitHub Actions Workflow
+# Prep Team Sync — GitHub Actions Workflow
 #
-# Copy this file to your repository at .github/workflows/codrag-sync.yml
+# Copy this file to your repository at .github/workflows/prep-sync.yml
 # Then configure the secrets in your repo settings.
 #
 # Two modes:
@@ -9,7 +9,7 @@
 #
 # Set MODE secret to "cpu" or "gpu" to choose. Default: cpu.
 
-name: "CoDRAG Team Sync"
+name: "Prep Team Sync"
 
 on:
   push:
@@ -17,7 +17,7 @@ on:
   workflow_dispatch:     # Allow manual trigger from GitHub UI
 
 concurrency:
-  group: codrag-sync-${{ github.ref }}
+  group: prep-sync-${{ github.ref }}
   cancel-in-progress: true  # Cancel stale builds if a new push arrives
 
 jobs:
@@ -26,7 +26,7 @@ jobs:
     if: ${{ vars.PREP_SYNC_MODE != 'gpu' }}
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/ericbintner/codrag-headless:cpu
+      image: ghcr.io/ericbintner/prep-headless:cpu
     timeout-minutes: 120
 
     steps:
@@ -42,7 +42,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          codrag sync-headless \
+          prep sync-headless \
             --repo-path . \
             --branch "${{ github.ref_name }}" \
             --model-provider "${PREP_MODEL_PROVIDER:-openai}" \

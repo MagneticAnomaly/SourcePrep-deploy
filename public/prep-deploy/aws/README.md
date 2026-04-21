@@ -1,30 +1,30 @@
-# CoDRAG Team Sync — AWS ECS Reference
+# Prep Team Sync — AWS ECS Reference
 
-For enterprise teams deploying inside a VPC. The `codrag/headless:gpu` image runs on AWS ECS with GPU support.
+For enterprise teams deploying inside a VPC. The `prep/headless:gpu` image runs on AWS ECS with GPU support.
 
 ## Architecture
 
 ```
 CodeCommit / GitHub → EventBridge → ECS RunTask → S3 (internal bucket)
                                                       ↓
-                                          Developer CoDRAG clients
+                                          Developer Prep clients
 ```
 
 ## Setup
 
 1. **Create an ECR repository** or pull from GHCR:
    ```bash
-   docker pull ghcr.io/ericbintner/codrag-headless:gpu
-   docker tag ghcr.io/ericbintner/codrag-headless:gpu \
-     YOUR_ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/codrag-headless:gpu
-   docker push YOUR_ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/codrag-headless:gpu
+   docker pull ghcr.io/ericbintner/prep-headless:gpu
+   docker tag ghcr.io/ericbintner/prep-headless:gpu \
+     YOUR_ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/prep-headless:gpu
+   docker push YOUR_ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/prep-headless:gpu
    ```
 
 2. **Create an S3 bucket** for index storage (private, no public access).
 
 3. **Create IAM roles:**
    - `ecsTaskExecutionRole` — Standard ECS execution role.
-   - `codragHeadlessRole` — Task role with `s3:GetObject`, `s3:PutObject`, `s3:ListBucket` on your bucket.
+   - `prepHeadlessRole` — Task role with `s3:GetObject`, `s3:PutObject`, `s3:ListBucket` on your bucket.
 
 4. **Register the task definition:**
    ```bash

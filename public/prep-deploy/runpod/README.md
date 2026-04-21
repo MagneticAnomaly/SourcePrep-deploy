@@ -1,28 +1,28 @@
-# CoDRAG Team Sync — RunPod Serverless Adapter
+# Prep Team Sync — RunPod Serverless Adapter
 
-Deploy the CoDRAG headless indexer as a serverless endpoint on [RunPod](https://runpod.io). The GPU spins up only when triggered, and shuts down automatically after the job completes.
+Deploy the Prep headless indexer as a serverless endpoint on [RunPod](https://runpod.io). The GPU spins up only when triggered, and shuts down automatically after the job completes.
 
 ## Setup
 
 1. **Build and push the image:**
    ```bash
-   cd codrag-deploy/
-   docker build -f runpod/Dockerfile.runpod -t my-org/codrag-runpod .
-   docker push my-org/codrag-runpod
+   cd prep-deploy/
+   docker build -f runpod/Dockerfile.runpod -t my-org/prep-runpod .
+   docker push my-org/prep-runpod
    ```
 
 2. **Create a RunPod Serverless Endpoint:**
    - Go to [RunPod Console → Serverless](https://www.runpod.io/console/serverless)
    - Click "New Endpoint"
-   - Select your pushed image (`my-org/codrag-runpod`)
+   - Select your pushed image (`my-org/prep-runpod`)
    - Choose a GPU type (A4000 recommended for most repos)
    - Set Max Workers to 1 (unless you need parallel builds)
 
 3. **Set environment variables** in the endpoint settings:
-   - `CODRAG_S3_ENDPOINT` — Your S3-compatible endpoint URL
-   - `CODRAG_S3_BUCKET` — Bucket name
-   - `CODRAG_S3_ACCESS_KEY` — Write access key
-   - `CODRAG_S3_SECRET_KEY` — Write secret key
+   - `PREP_S3_ENDPOINT` — Your S3-compatible endpoint URL
+   - `PREP_S3_BUCKET` — Bucket name
+   - `PREP_S3_ACCESS_KEY` — Write access key
+   - `PREP_S3_SECRET_KEY` — Write secret key
 
 4. **Copy the Endpoint ID** and use it in your GitHub Action (see `../github-actions/`).
 

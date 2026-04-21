@@ -7,22 +7,22 @@ function main() {
 
   // Important: stdout is reserved for MCP JSON-RPC.
   // Only print errors to stderr.
-  const child = spawn('codrag', ['mcp', ...args], {
+  const child = spawn('prep', ['mcp', ...args], {
     stdio: 'inherit',
     env: process.env,
   })
 
   child.on('error', (err) => {
     if (err && err.code === 'ENOENT') {
-      console.error('[codrag-mcp] Error: `codrag` not found on PATH.')
-      console.error('[codrag-mcp] Install CoDRAG first (engine binary), then retry.')
+      console.error('[prep-mcp] Error: `prep` not found on PATH.')
+      console.error('[prep-mcp] Install Prep first (engine binary), then retry.')
       console.error('')
-      console.error('macOS: brew install --cask codrag')
-      console.error('Windows: winget install MagneticAnomaly.CoDRAG')
+      console.error('macOS: brew install --cask prep')
+      console.error('Windows: winget install MagneticAnomaly.Prep')
       process.exit(1)
     }
 
-    console.error(`[codrag-mcp] Failed to launch CoDRAG: ${String(err)}`)
+    console.error(`[prep-mcp] Failed to launch Prep: ${String(err)}`)
     process.exit(1)
   })
 

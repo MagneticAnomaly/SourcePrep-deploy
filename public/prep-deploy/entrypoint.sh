@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# GPU image entrypoint: start Ollama in background, then run codrag.
-# Usage: docker run codrag/headless:gpu sync-headless --repo-path . ...
+# GPU image entrypoint: start Ollama in background, then run prep.
+# Usage: docker run prep/headless:gpu sync-headless --repo-path . ...
 
 OLLAMA_TIMEOUT="${OLLAMA_STARTUP_TIMEOUT:-30}"
 
 # Start Ollama server in background (only if model-provider is local)
 if [[ "${1:-}" == "sync-headless" ]] && echo "$@" | grep -q "model-provider local"; then
-    echo "[codrag-headless] Starting Ollama server..."
+    echo "[prep-headless] Starting Ollama server..."
     ollama serve &
     OLLAMA_PID=$!
 
@@ -16,7 +16,7 @@ if [[ "${1:-}" == "sync-headless" ]] && echo "$@" | grep -q "model-provider loca
     OLLAMA_READY=false
     for i in $(seq 1 "$OLLAMA_TIMEOUT"); do
         if curl -sf http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
-            echo "[codrag-headless] Ollama ready (${i}s)."
+            echo "[prep-headless] Ollama ready (${i}s)."
             OLLAMA_READY=true
             break
         fi
@@ -24,11 +24,11 @@ if [[ "${1:-}" == "sync-headless" ]] && echo "$@" | grep -q "model-provider loca
     done
 
     if [ "$OLLAMA_READY" = false ]; then
-        echo "[codrag-headless] ERROR: Ollama failed to start within ${OLLAMA_TIMEOUT}s." >&2
-        echo "[codrag-headless] Check GPU drivers, VRAM availability, and container GPU access." >&2
+        echo "[prep-headless] ERROR: Ollama failed to start within ${OLLAMA_TIMEOUT}s." >&2
+        echo "[prep-headless] Check GPU drivers, VRAM availability, and container GPU access." >&2
         exit 1
     fi
 fi
 
-# Run the codrag CLI with all arguments
-exec codrag "$@"
+# Run the prep CLI with all arguments
+exec prep "$@"
