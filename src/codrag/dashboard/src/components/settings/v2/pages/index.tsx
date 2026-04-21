@@ -1,4 +1,4 @@
-import type { AdvancedConfig, DeepAnalysisSchedule, ProjectConfig } from '@codrag/ui';
+import type { AdvancedConfig, DeepAnalysisSchedule, LicenseStatus, ProjectConfig } from '@codrag/ui';
 import type { SettingsPageId } from '../routeParser';
 import { SettingsPage } from '../SettingsPage';
 import { SourcesPage } from './Sources';
@@ -75,6 +75,19 @@ export interface PageHostProps {
   // Embeddings (Task 19). maxActiveProjects persists via handleMaxActiveProjectsChange.
   maxActiveProjects: number | 'infinite';
   onMaxActiveProjectsChange: (value: number | 'infinite') => void;
+
+  // ── Global-scope: License page (Task 21) ──────────────────────────
+  // Activation/deactivation are explicit button actions with their own
+  // loading state. devTierOverride is read-only here — the control lives
+  // in Developer Diagnostics (Task 23).
+  licenseStatus: LicenseStatus | null;
+  licenseKeyInput: string;
+  onLicenseKeyInputChange: (value: string) => void;
+  onActivateLicense: () => void | Promise<void>;
+  onDeactivateLicense: () => void | Promise<void>;
+  licenseLoading: boolean;
+  licenseError: string | null;
+  devTierOverride: string | null;
 }
 
 export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
@@ -165,7 +178,19 @@ export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
           onChange={host.onGlobalAdvancedChange}
         />
       );
-    case 'license':               return <LicensePage {...host as any} />;
+    case 'license':
+      return (
+        <LicensePage
+          licenseStatus={host.licenseStatus}
+          licenseKeyInput={host.licenseKeyInput}
+          onLicenseKeyInputChange={host.onLicenseKeyInputChange}
+          onActivateLicense={host.onActivateLicense}
+          onDeactivateLicense={host.onDeactivateLicense}
+          licenseLoading={host.licenseLoading}
+          licenseError={host.licenseError}
+          devTierOverride={host.devTierOverride}
+        />
+      );
     case 'integrations':          return <IntegrationsPage {...host as any} />;
     case 'developer-debug':       return <DevTogglesPage {...host as any} />;
     case 'developer-diagnostics': return <DiagnosticsPage {...host as any} />;

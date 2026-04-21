@@ -1101,6 +1101,14 @@ function App() {
             onGlobalAdvancedChange: handleGlobalAdvancedChange,
             maxActiveProjects,
             onMaxActiveProjectsChange: handleMaxActiveProjectsChange,
+            licenseStatus,
+            licenseKeyInput,
+            onLicenseKeyInputChange: setLicenseKeyInput,
+            onActivateLicense: handleActivateLicense,
+            onDeactivateLicense: handleDeactivateLicense,
+            licenseLoading,
+            licenseError,
+            devTierOverride,
           })}
           projectName={selectedProject?.name ?? null}
           confirmCloseIfDirty={() => true /* TODO: wire projectDirty from useSettingsDirty once Project pages land */}
