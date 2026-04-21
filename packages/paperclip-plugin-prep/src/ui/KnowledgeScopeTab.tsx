@@ -1,6 +1,6 @@
 /**
  * Knowledge Scope Tab — read-only agent scope view in Paperclip.
- * Shows CoDRAG-configured file scope + active claims. Edit in CoDRAG dashboard only.
+ * Shows Prep-configured file scope + active claims. Edit in Prep dashboard only.
  */
 
 interface Claim {
@@ -24,7 +24,7 @@ export function KnowledgeScopeTab({ files, role, claims = [], error }: Knowledge
       <div className="p-4">
         <div className="text-sm text-yellow-400">{error}</div>
         <div className="text-xs text-gray-500 mt-2">
-          Configure agent scopes in the CoDRAG dashboard (Agent Knowledge Scopes panel).
+          Configure agent scopes in the Prep dashboard (Agent Knowledge Scopes panel).
         </div>
       </div>
     );
@@ -54,7 +54,7 @@ export function KnowledgeScopeTab({ files, role, claims = [], error }: Knowledge
         </div>
       ) : (
         <div className="text-xs text-gray-500 italic">
-          No files in scope. Configure in CoDRAG dashboard.
+          No files in scope. Configure in Prep dashboard.
         </div>
       )}
 
@@ -77,7 +77,7 @@ export function KnowledgeScopeTab({ files, role, claims = [], error }: Knowledge
       )}
 
       <div className="text-[10px] text-gray-600 border-t border-gray-800 pt-2">
-        Scope is read-only here. Edit in CoDRAG dashboard → Agent Knowledge Scopes.
+        Scope is read-only here. Edit in Prep dashboard → Agent Knowledge Scopes.
       </div>
     </div>
   );

@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="codrag-github-header.png" alt="CoDRAG" width="100%">
+  <img src="prep-github-header.png" alt="Prep" width="100%">
 </p>
 
-# @codrag/paperclip-plugin
+# @prep/paperclip-plugin
 
 > Give every Paperclip agent deep structural codebase knowledge.
 
-**CoDRAG** indexes your codebase with embeddings, a structural graph, and epistemic analysis. This plugin makes that intelligence available to **every agent** in your Paperclip instance — no per-agent configuration needed.
+**Prep** indexes your codebase with embeddings, a structural graph, and epistemic analysis. This plugin makes that intelligence available to **every agent** in your Paperclip instance — no per-agent configuration needed.
 
 ## The Problem
 
@@ -14,19 +14,19 @@ AI agents working on code operate blind. They grep files, read READMEs, and hope
 
 ## The Solution
 
-CoDRAG pre-computes your codebase's structural graph — modules, dependencies, hub files, domain clusters — and serves it on demand. The Paperclip plugin registers 5 tools that any agent can call during their runs:
+Prep pre-computes your codebase's structural graph — modules, dependencies, hub files, domain clusters — and serves it on demand. The Paperclip plugin registers 5 tools that any agent can call during their runs:
 
 | Tool | What It Does |
 |------|-------------|
-| `codrag:context` | Structural overview — modules, hub files, atlas. Call at the start of every task. |
-| `codrag:search` | Semantic code search. Finds code by meaning, with structural trace expansion. |
-| `codrag:impact` | Blast radius analysis. See exactly what depends on a file before changing it. |
-| `codrag:audit` | Codebase health findings — tech debt, dead code, architecture issues. |
-| `codrag:observe` | Cross-session memory. Agents save observations for the next agent. |
+| `prep:context` | Structural overview — modules, hub files, atlas. Call at the start of every task. |
+| `prep:search` | Semantic code search. Finds code by meaning, with structural trace expansion. |
+| `prep:impact` | Blast radius analysis. See exactly what depends on a file before changing it. |
+| `prep:audit` | Codebase health findings — tech debt, dead code, architecture issues. |
+| `prep:observe` | Cross-session memory. Agents save observations for the next agent. |
 
 ## Why This Is Novel
 
-This is **epistemic-first agent orchestration** — instead of agents discovering codebase structure through trial and error, CoDRAG pre-computes it and serves it on demand:
+This is **epistemic-first agent orchestration** — instead of agents discovering codebase structure through trial and error, Prep pre-computes it and serves it on demand:
 
 - **Pre-computed structure** — Module clusters, import chains, and hub files are already indexed
 - **Role-scoped context** — Backend agents see backend files. Frontend agents see frontend files
@@ -37,32 +37,32 @@ This is **epistemic-first agent orchestration** — instead of agents discoverin
 
 ### Prerequisites
 
-1. **CoDRAG Desktop App** — Download from [codrag.io](https://codrag.io). The daemon must be running. 
-2. **A CoDRAG project** — `codrag add /path/to/your/repo`
+1. **Prep Desktop App** — Download from [runprep.io](https://runprep.io). The daemon must be running. 
+2. **A Prep project** — `prep add /path/to/your/repo`
 3. **A Paperclip instance** — Running locally or deployed
 
 ### Install
 
 ```bash
-pnpm paperclipai plugin install @codrag/paperclip-plugin
+pnpm paperclipai plugin install @prep/paperclip-plugin
 ```
 
 ### Configure
 
-In Paperclip Settings → Plugins → CoDRAG:
+In Paperclip Settings → Plugins → Prep:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `daemon_url` | `http://127.0.0.1:8400` | CoDRAG daemon URL |
-| `project_id` | *(auto-detected)* | CoDRAG project ID. Auto-detects if you have one project. |
-| `auto_context` | `true` | Automatically enrich new issues with CoDRAG context |
+| `daemon_url` | `http://127.0.0.1:8400` | Prep daemon URL |
+| `project_id` | *(auto-detected)* | Prep project ID. Auto-detects if you have one project. |
+| `auto_context` | `true` | Automatically enrich new issues with Prep context |
 
 ## Dashboard Extensions
 
 The plugin adds UI components directly into Paperclip:
 
 - **Codebase Health Widget** — Readiness score, role count, research runs at a glance
-- **Agent Knowledge Scope Tab** — Which files CoDRAG assigned to each agent's role
+- **Agent Knowledge Scope Tab** — Which files Prep assigned to each agent's role
 - **Issue Context Tab** — Structural context for issues created from audit findings
 - **Settings Page** — Connection status and tool reference
 
@@ -70,26 +70,26 @@ The plugin adds UI components directly into Paperclip:
 
 ```
 Paperclip (orchestration)
-    ↓ agent calls codrag:search during run
-CoDRAG Plugin (JSON-RPC worker)
+    ↓ agent calls prep:search during run
+Prep Plugin (JSON-RPC worker)
     ↓ proxies to HTTP API
-CoDRAG Daemon (localhost:8400)
+Prep Daemon (localhost:8400)
     ↓ queries
 Sovereign Index (embeddings + graph + atlas)
 ```
 
-The plugin runs as an **out-of-process worker** communicating via JSON-RPC over stdio. It has no direct database access — all data flows through the CoDRAG daemon's HTTP API. Worker failure is isolated and doesn't affect other plugins or Paperclip core.
+The plugin runs as an **out-of-process worker** communicating via JSON-RPC over stdio. It has no direct database access — all data flows through the Prep daemon's HTTP API. Worker failure is isolated and doesn't affect other plugins or Paperclip core.
 
 ## Capabilities Required
 
 ```
-agent.tools.register       — Register the 5 codrag:* tools
+agent.tools.register       — Register the 5 prep:* tools
 projects.read              — Read project context for routing
 issues.read                — Read issues to provide context
 agents.read                — Read agent roles for scoped context
 events.subscribe           — React to agent/issue lifecycle events
 jobs.schedule              — Scheduled reindex health checks
-http.outbound              — Call CoDRAG daemon API
+http.outbound              — Call Prep daemon API
 plugin.state.read/write    — Cache project-agent mappings
 ui.dashboardWidget.register — Codebase health widget
 ui.detailTab.register       — Agent + issue detail tabs
@@ -116,7 +116,7 @@ npm run typecheck
 
 ```bash
 # Install from local path
-pnpm paperclipai plugin install ./packages/paperclip-plugin-codrag
+pnpm paperclipai plugin install ./packages/paperclip-plugin-prep
 
 # Or use the dev server (hot reload)
 npx paperclip-plugin-dev-server
@@ -124,7 +124,7 @@ npx paperclip-plugin-dev-server
 
 ## Documentation
 
-Full documentation at [docs.codrag.io/mcp/paperclip](https://docs.codrag.io/mcp/paperclip).
+Full documentation at [docs.runprep.io/mcp/paperclip](https://docs.runprep.io/mcp/paperclip).
 
 ## License
 

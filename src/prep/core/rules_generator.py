@@ -414,13 +414,13 @@ def _build_managed_content(
         parts.append(
             "Add to `.claude/settings.json`:\n"
             '```json\n'
-            '{ "permissions": { "allow": ["mcp__codrag"] } }\n'
+            '{ "permissions": { "allow": ["mcp__prep"] } }\n'
             '```'
         )
         parts.append("")
         parts.append(
             "Use `@` to browse Prep resources (atlas, modules, audit). "
-            "Use `/mcp__codrag__codrag-onboard` for guided orientation."
+            "Use `/mcp__prep__prep-onboard` for guided orientation."
         )
     elif target == "cursor":
         parts.append(
@@ -453,7 +453,7 @@ def _build_managed_content(
             "### Auto-Approve Configuration\n"
             "To skip approval prompts for Prep's read-only tools, add to your settings:\n"
             '```json\n'
-            '{ "permissions": { "allow": ["mcp__codrag"] } }\n'
+            '{ "permissions": { "allow": ["mcp__prep"] } }\n'
             '```\n'
             "In Claude Code: add to `.claude/settings.json`. In Cursor: add to MCP settings."
         )
@@ -520,7 +520,7 @@ def _build_managed_content(
         parts.append(
             "Available workflow prompts: `prep-onboard` (orientation), `prep-review` (file review),\n"
             "`prep-plan` (change planning), `prep-investigate` (deep dive), `prep-health` (audit).\n"
-            "In Claude Code: `/mcp__codrag__codrag-onboard`. In other clients: check prompt menu."
+            "In Claude Code: `/mcp__prep__prep-onboard`. In other clients: check prompt menu."
         )
 
     return "\n".join(parts)
@@ -777,9 +777,9 @@ def _write_claude_skill(
         "---\n"
         "description: Get structural codebase context from Prep\n"
         "tools:\n"
-        "  - mcp__codrag__codrag\n"
-        "  - mcp__codrag__codrag_search\n"
-        "  - mcp__codrag__codrag_impact\n"
+        "  - mcp__prep__prep\n"
+        "  - mcp__prep__prep_search\n"
+        "  - mcp__prep__prep_impact\n"
         "---\n"
         "\n"
         "Call `prep` to get the structural overview of this codebase -- modules,\n"

@@ -1,6 +1,6 @@
 /**
- * Issue Context Tab — structural context for CoDRAG-pushed issues.
- * For CoDRAG issues: shows structural complexity, hubs, consensus.
+ * Issue Context Tab — structural context for Prep-pushed issues.
+ * For Prep issues: shows structural complexity, hubs, consensus.
  * For other issues: offers on-demand enrichment.
  */
 import { useState } from 'react';
@@ -12,11 +12,11 @@ interface IssueEntity {
 }
 
 function parseCodragMetadata(description: string) {
-  const addressMatch = description.match(/<!-- codrag-address:(.*?) -->/);
+  const addressMatch = description.match(/<!-- prep-address:(.*?) -->/);
   return {
     address: addressMatch?.[1] ?? null,
-    isDelta: description.includes('<!-- codrag-delta:true -->'),
-    isConflict: description.includes('<!-- codrag-conflict:true -->'),
+    isDelta: description.includes('<!-- prep-delta:true -->'),
+    isConflict: description.includes('<!-- prep-conflict:true -->'),
   };
 }
 
@@ -59,7 +59,7 @@ export function IssueContextTab({ issue, onEnrich }: IssueContextTabProps) {
 
     return (
       <div className="p-4 space-y-3">
-        <div className="text-sm font-medium">CoDRAG Structural Context</div>
+        <div className="text-sm font-medium">Prep Structural Context</div>
 
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div>
@@ -106,7 +106,7 @@ export function IssueContextTab({ issue, onEnrich }: IssueContextTabProps) {
 
   return (
     <div className="p-4 space-y-3">
-      <div className="text-sm text-gray-500">No CoDRAG context for this issue.</div>
+      <div className="text-sm text-gray-500">No Prep context for this issue.</div>
       {onEnrich && (
         <button
           onClick={async () => {
@@ -124,7 +124,7 @@ export function IssueContextTab({ issue, onEnrich }: IssueContextTabProps) {
         </button>
       )}
       <div className="text-[10px] text-gray-600">
-        Runs codrag:impact on files mentioned in the issue description.
+        Runs prep:impact on files mentioned in the issue description.
       </div>
     </div>
   );

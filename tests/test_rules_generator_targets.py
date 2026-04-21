@@ -59,20 +59,20 @@ def test_claude_target_includes_claude_specific_hints():
 def test_claude_target_has_compact_auto_approve():
     """Claude target auto-approve references .claude/settings.json only."""
     content = _build_managed_content(**_BASE_ARGS, target="claude")
-    assert "mcp__codrag" in content
+    assert "mcp__prep" in content
     assert ".claude/settings.json" in content
 
 
 def test_universal_target_has_generic_auto_approve():
     """Universal target mentions multiple IDEs for auto-approve."""
     content = _build_managed_content(**_BASE_ARGS, target="universal")
-    assert "mcp__codrag" in content
+    assert "mcp__prep" in content
 
 
 def test_cursor_target_omits_claude_hints():
     """Cursor target should not mention slash commands or .claude/ paths."""
     content = _build_managed_content(**_BASE_ARGS, target="cursor")
-    assert "/mcp__codrag" not in content
+    assert "/mcp__prep" not in content
     assert ".claude/settings.json" not in content
 
 

@@ -58,7 +58,7 @@ def test_managed_content_includes_permission_hint():
         stats=None,
         project_id="test-id",
     )
-    assert "mcp__codrag" in content
+    assert "mcp__prep" in content
 
 
 def test_managed_content_mentions_resources():

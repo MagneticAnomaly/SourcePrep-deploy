@@ -1,17 +1,17 @@
 /**
- * CoDRAG Paperclip Plugin Manifest
+ * Prep Paperclip Plugin Manifest
  */
 import type { PaperclipPluginManifestV1 } from '@paperclipai/plugin-sdk';
 
 const manifest: PaperclipPluginManifestV1 = {
-  id: 'codrag',
+  id: 'prep',
   apiVersion: 1,
   version: '0.1.0',
-  displayName: 'CoDRAG Codebase Intelligence',
+  displayName: 'Prep Codebase Intelligence',
   description:
     'Gives every Paperclip agent structural codebase knowledge — module maps, ' +
-    'dependency graphs, semantic search, and health analysis powered by CoDRAG.',
-  author: 'CoDRAG <hello@codrag.io>',
+    'dependency graphs, semantic search, and health analysis powered by Prep.',
+  author: 'Prep <hello@runprep.io>',
   categories: ['connector'],
 
   capabilities: [
@@ -39,17 +39,17 @@ const manifest: PaperclipPluginManifestV1 = {
     properties: {
       daemon_url: {
         type: 'string',
-        description: 'CoDRAG daemon base URL',
+        description: 'Prep daemon base URL',
         default: 'http://127.0.0.1:8400',
       },
       project_id: {
         type: 'string',
-        description: 'Default CoDRAG project ID (auto-detected if empty)',
+        description: 'Default Prep project ID (auto-detected if empty)',
         default: '',
       },
       auto_context: {
         type: 'boolean',
-        description: 'Automatically attach CoDRAG context to new issues',
+        description: 'Automatically attach Prep context to new issues',
         default: true,
       },
     },
@@ -145,8 +145,8 @@ const manifest: PaperclipPluginManifestV1 = {
       },
       {
         type: 'page',
-        id: 'codrag-settings',
-        displayName: 'CoDRAG Settings',
+        id: 'prep-settings',
+        displayName: 'Prep Settings',
         exportName: 'SettingsPage',
       },
     ],
@@ -155,8 +155,8 @@ const manifest: PaperclipPluginManifestV1 = {
   jobs: [
     {
       jobKey: 'reindex-check',
-      displayName: 'CoDRAG Reindex Check',
-      description: 'Check if CoDRAG index is stale and needs rebuild',
+      displayName: 'Prep Reindex Check',
+      description: 'Check if Prep index is stale and needs rebuild',
       schedule: '0 */6 * * *',
     },
   ],

@@ -40,13 +40,13 @@ export interface CodebaseHealthWidgetProps {
 
 export function CodebaseHealthWidget({ data, loading = false }: CodebaseHealthWidgetProps) {
   if (loading) {
-    return <div className="p-4 text-sm text-gray-500">Loading CoDRAG status...</div>;
+    return <div className="p-4 text-sm text-gray-500">Loading Prep status...</div>;
   }
 
   if (data?.error) {
     return (
       <div className="p-4">
-        <div className="text-sm text-red-400">CoDRAG daemon unavailable</div>
+        <div className="text-sm text-red-400">Prep daemon unavailable</div>
         <div className="text-xs text-gray-500 mt-1">{data.error}</div>
       </div>
     );
@@ -58,7 +58,7 @@ export function CodebaseHealthWidget({ data, loading = false }: CodebaseHealthWi
 
   return (
     <div className="p-4 space-y-3">
-      <div className="text-sm font-medium">CoDRAG Codebase Health</div>
+      <div className="text-sm font-medium">Prep Codebase Health</div>
 
       <div className="text-xs text-gray-400">
         <span className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1.5" />

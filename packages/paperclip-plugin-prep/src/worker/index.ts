@@ -1,8 +1,8 @@
 /**
- * CoDRAG Paperclip Plugin Worker
+ * Prep Paperclip Plugin Worker
  *
  * Out-of-process worker that handles tool execution, events, and jobs
- * by proxying requests to the CoDRAG daemon HTTP API.
+ * by proxying requests to the Prep daemon HTTP API.
  */
 import {
   definePlugin,
@@ -14,7 +14,7 @@ import {
   type PluginConfigValidationResult,
 } from '@paperclipai/plugin-sdk';
 
-// ── CoDRAG Daemon Client ──────────────────────────────────────
+// ── Prep Daemon Client ──────────────────────────────────────
 
 interface CodragConfig {
   daemon_url: string;
@@ -39,11 +39,11 @@ class CodragDaemonClient {
     const res = await fetch(`${this.baseUrl}${path}`, init);
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new Error(`CoDRAG daemon ${method} ${path} returned ${res.status}: ${text.slice(0, 200)}`);
+      throw new Error(`Prep daemon ${method} ${path} returned ${res.status}: ${text.slice(0, 200)}`);
     }
 
     const json = await res.json();
-    // Unwrap the CoDRAG API envelope {success, data, error}
+    // Unwrap the Prep API envelope {success, data, error}
     if (json?.success && json?.data !== undefined) {
       return json.data;
     }
@@ -64,10 +64,10 @@ class CodragDaemonClient {
       return projects[0].id;
     }
     if (projects.length === 0) {
-      throw new Error('No CoDRAG projects found. Add a project first: codrag add <path>');
+      throw new Error('No Prep projects found. Add a project first: prep add <path>');
     }
     throw new Error(
-      `Multiple CoDRAG projects found (${projects.length}). ` +
+      `Multiple Prep projects found (${projects.length}). ` +
       'Set project_id in plugin config to disambiguate.'
     );
   }
@@ -89,9 +89,9 @@ const plugin = definePlugin({
     activeDaemonUrl = config.daemon_url;
     const client = new CodragDaemonClient(config.daemon_url);
 
-    ctx.logger.info('CoDRAG plugin initializing', { daemon: config.daemon_url });
+    ctx.logger.info('Prep plugin initializing', { daemon: config.daemon_url });
 
-    // ── Tool: codrag:context ────────────────────────────────
+    // ── Tool: prep:context ────────────────────────────────
 
     ctx.tools.register(
       'context',
@@ -119,7 +119,7 @@ const plugin = definePlugin({
       },
     );
 
-    // ── Tool: codrag:search ─────────────────────────────────
+    // ── Tool: prep:search ─────────────────────────────────
 
     ctx.tools.register(
       'search',
@@ -151,7 +151,7 @@ const plugin = definePlugin({
       },
     );
 
-    // ── Tool: codrag:impact ─────────────────────────────────
+    // ── Tool: prep:impact ─────────────────────────────────
 
     ctx.tools.register(
       'impact',
@@ -181,7 +181,7 @@ const plugin = definePlugin({
       },
     );
 
-    // ── Tool: codrag:audit ──────────────────────────────────
+    // ── Tool: prep:audit ──────────────────────────────────
 
     ctx.tools.register(
       'audit',
@@ -209,7 +209,7 @@ const plugin = definePlugin({
       },
     );
 
-    // ── Tool: codrag:observe ────────────────────────────────
+    // ── Tool: prep:observe ────────────────────────────────
 
     ctx.tools.register(
       'observe',
@@ -266,7 +266,7 @@ const plugin = definePlugin({
           delta,
         };
       } catch {
-        return { status: null, readiness: null, push_summary: null, consensus: [], delta: null, error: 'CoDRAG daemon unavailable' };
+        return { status: null, readiness: null, push_summary: null, consensus: [], delta: null, error: 'Prep daemon unavailable' };
       }
     });
 
@@ -280,7 +280,7 @@ const plugin = definePlugin({
         let roleSlug: string | null = null;
         try {
           const agent = await (ctx as any).agents?.get?.(agentId);
-          roleSlug = (agent as any)?.adapterConfig?.codrag_role ?? null;
+          roleSlug = (agent as any)?.adapterConfig?.prep_role ?? null;
         } catch {
           // agents API may not be available
         }
@@ -293,7 +293,7 @@ const plugin = definePlugin({
           }) as string | null;
         }
 
-        if (!roleSlug) return { files: [], role: null, error: 'No CoDRAG role mapped for this agent' };
+        if (!roleSlug) return { files: [], role: null, error: 'No Prep role mapped for this agent' };
 
         const data = await client.request(`/projects/${pid}/agent-scope/${roleSlug}`);
         return { ...(data as object), role: roleSlug };
@@ -406,7 +406,7 @@ const plugin = definePlugin({
 
     if (config.auto_context) {
       ctx.events.on('issue.created', async (event) => {
-        ctx.logger.info('Issue created — checking for CoDRAG context', {
+        ctx.logger.info('Issue created — checking for Prep context', {
           entityId: event.entityId,
         });
       });
@@ -423,27 +423,27 @@ const plugin = definePlugin({
     ctx.jobs.register('reindex-check', async (job) => {
       try {
         const health = await client.health();
-        ctx.logger.info('CoDRAG reindex check passed', {
+        ctx.logger.info('Prep reindex check passed', {
           daemon: health.status,
           runId: job.runId,
         });
       } catch {
-        ctx.logger.error('CoDRAG daemon unreachable during reindex check');
+        ctx.logger.error('Prep daemon unreachable during reindex check');
       }
     });
 
-    ctx.logger.info('CoDRAG plugin initialized — 5 tools, 6 data providers, 3 actions, 1 job');
+    ctx.logger.info('Prep plugin initialized — 5 tools, 6 data providers, 3 actions, 1 job');
   },
 
   async onHealth(): Promise<PluginHealthDiagnostics> {
     try {
       const res = await fetch(`${activeDaemonUrl}/health`, { signal: AbortSignal.timeout(3000) });
       if (res.ok) {
-        return { status: 'ok', message: `CoDRAG daemon reachable at ${activeDaemonUrl}` };
+        return { status: 'ok', message: `Prep daemon reachable at ${activeDaemonUrl}` };
       }
-      return { status: 'degraded', message: `CoDRAG daemon returned ${res.status}` };
+      return { status: 'degraded', message: `Prep daemon returned ${res.status}` };
     } catch {
-      return { status: 'error', message: `Cannot reach CoDRAG daemon at ${activeDaemonUrl}` };
+      return { status: 'error', message: `Cannot reach Prep daemon at ${activeDaemonUrl}` };
     }
   },
 
@@ -457,11 +457,11 @@ const plugin = definePlugin({
       if (res.ok) {
         return { ok: true };
       }
-      return { ok: false, errors: [`CoDRAG daemon at ${url} returned ${res.status}`] };
+      return { ok: false, errors: [`Prep daemon at ${url} returned ${res.status}`] };
     } catch {
       return {
         ok: false,
-        errors: [`Cannot connect to CoDRAG daemon at ${url}. Is the desktop app running?`],
+        errors: [`Cannot connect to Prep daemon at ${url}. Is the desktop app running?`],
       };
     }
   },
