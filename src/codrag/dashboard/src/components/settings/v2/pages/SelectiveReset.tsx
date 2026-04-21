@@ -28,14 +28,10 @@ export function SelectiveResetPage({
     setConfirmAction(null);
   }, [confirmAction, onDestroyAtlas, onDestroyGroupReasoning, onDestroyDeepEnrichment]);
 
-  const description = `Reset individual pipeline stages for ${projectName || 'the active project'}. Fast Sync stages are preserved.`;
+  const description = `Reset individual pipeline stages for ${projectName || 'the active project'}.`;
 
   return (
     <SettingsPage title="Selective Reset" scope="developer" description={description}>
-      {!projectId && (
-        <div className="text-sm text-text-muted mb-4">Select a project first.</div>
-      )}
-
       <Section title="Reset pipeline stages">
         <div className="grid grid-cols-3 gap-3 py-4">
           <div className="p-3 rounded border border-border bg-surface-raised text-center">
@@ -94,10 +90,10 @@ export function SelectiveResetPage({
         }
         description={
           confirmAction === 'atlas'
-            ? `Deletes atlas and routing data for ${projectName || 'this project'}. The atlas stage will need to be re-run.`
+            ? 'Permanently deletes the atlas and routing data for this project. Other enrichment stages remain intact.'
             : confirmAction === 'group_reasoning'
-              ? `Deletes group reasoning data for ${projectName || 'this project'}. The group reasoning stage will need to be re-run.`
-              : `Deletes all 6 deep enrichment stages for ${projectName || 'this project'}: enrichment, group_reasoning, clustering, deepening, deep_knowledge, atlas. Requires full re-run.`
+              ? 'Permanently deletes the group reasoning data for this project. Other enrichment stages remain intact.'
+              : 'Permanently deletes ALL deep enrichment data (epistemic, group reasoning, modules, atlas, deepening, knowledge embeddings). Fast Sync stages (graph, augmentation, inferred edges) remain intact.'
         }
         confirmLabel={
           confirmAction === 'atlas'
